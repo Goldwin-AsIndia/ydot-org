@@ -1,0 +1,306 @@
+<!-- Begin Header -->
+<!--
+  THE TOP BAR
+
+  Left  = where you are: the menu button and the organisation you are working inside.
+  Right = who you are and what is at hand: fullscreen, notifications, then your account.
+
+  `app-header` is kept because the theme positions the bar with it (fixed, offset by the sidebar's
+  width); everything inside is `tb-*` and styled in topheader.css.
+-->
+<header class="app-header tb" id="appHeader" [class.tb--hidden]="barHidden()">
+    <div class="tb__inner">
+
+        <div class="tb__group">
+            <!--
+              MENU BUTTON. One button, one behaviour per screen size: on a desktop it folds / unfolds the
+              rail, on a phone or tablet it opens / closes the drawer. The icon and the label come from the
+              real state (LayoutService), so it can never show "open" while the menu is shut.
+            -->
+            <button type="button" class="tb-btn tb-menu" (click)="toggleMenu()"
+                    [attr.aria-expanded]="menuExpanded()" aria-controls="sidebar"
+                    [attr.aria-label]="menuLabel()" [attr.title]="menuLabel()">
+                <i [class]="menuIcon()"></i>
+            </button>
+
+            <!--
+              ORGANISATION SWITCHER.
+
+              Only a root user sees this, because only a root user has anything to switch
+              between. Choosing one asks the SERVER to re-issue the access token against that
+              organisation - there is no client-side flag that could be flipped instead, and
+              the person's own account is not changed by it. The "working inside" label is
+              there so nobody is ever in doubt whose data is on the screen.
+            -->
+            @if (canSwitchOrganisation()) {
+                <div class="dropdown tb-org-wrap">
+                    <button class="tb-org" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                            (click)="onSwitcherOpened()" aria-label="Switch organisation">
+                        <span class="tb-org__badge" aria-hidden="true">
+                            @if (isActingInOrganisation() && organisationInitials()) {
+                                {{ organisationInitials() }}
+                            } @else {
+                                <i class="ri-building-4-line"></i>
+                            }
+                        </span>
+                        <span class="tb-org__text">
+                            <span class="tb-org__label">
+                                {{ isActingInOrganisation() ? 'Working inside' : 'Organisation' }}
+                            </span>
+                            <span class="tb-org__name">
+                                @if (isActingInOrganisation()) {
+                                    {{ currentOrganisation() }}
+                                } @else {
+                                    Choose an organisation
+                                }
+                            </span>
+                        </span>
+                        <i class="ri-expand-up-down-line tb-org__chev" aria-hidden="true"></i>
+                    </button>
+
+                    <div class="dropdown-menu header-dropdown-menu border p-0" style="min-width: 320px;">
+                        <div class="card mb-0 border-0">
+                            <div class="card-header pb-3">
+                                <h5 class="card-title mb-0">Organisations</h5>
+                                @if (isActingInOrganisation()) {
+                                    <small class="text-muted">
+                                        Working inside {{ currentOrganisation() }}
+                                    </small>
+                                }
+                            </div>
+
+                            <div class="card-body p-0" style="max-height: 320px; overflow-y: auto;">
+                                @if (loadingOrganisations()) {
+                                    <p class="text-muted small px-4 py-3 mb-0">Loading…</p>
+                                } @else if (selectableOrganisations().length === 0) {
+                                    <p class="text-muted small px-4 py-3 mb-0">
+                                        No organisations are available to you yet.
+                                    </p>
+                                } @else {
+                                    <ul class="list-unstyled mb-0">
+                                        @for (option of selectableOrganisations(); track option.tenantId) {
+                                            <li>
+                                                <button type="button"
+                                                        class="dropdown-item d-flex align-items-start gap-2 py-3"
+                                                        [disabled]="switchingTo() !== null"
+                                                        (click)="switchTo(option)">
+                                                    <i class="ri-building-4-line mt-1"></i>
+                                                    <span class="flex-grow-1 text-start">
+                                                        <span class="d-block fw-semibold">{{ option.name }}</span>
+                                                        <small class="text-muted d-block">
+                                                            {{ option.subdomain }} · {{ option.status }}
+                                                        </small>
+                                                        @if (!isOperable(option)) {
+                                                            <small class="text-warning d-block">
+                                                                Still onboarding — you can review it, but not work in it.
+                                                            </small>
+                                                        }
+                                                    </span>
+                                                    @if (switchingTo() === option.tenantId) {
+                                                        <i class="ri-loader-4-line mt-1"></i>
+                                                    }
+                                                </button>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </div>
+
+                            <!--
+                                The way back out, shown only while actually inside an
+                                Organisation. Entering one replaces the sidebar with that
+                                Organisation's menu, so the platform branch disappears and
+                                there was previously nothing anywhere that led back to it.
+                            -->
+                            @if (isActingInOrganisation()) {
+                                <div class="card-footer border-top">
+                                    <button type="button"
+                                            class="dropdown-item d-flex align-items-center gap-2 px-0 fw-medium small"
+                                            [disabled]="leaving()"
+                                            (click)="exitOrganisation()">
+                                        <i class="ri-logout-box-line"></i>
+                                        <span class="flex-grow-1 text-start">
+                                            Leave {{ currentOrganisation() }}
+                                            <small class="text-muted d-block">
+                                                Go back to platform level
+                                            </small>
+                                        </span>
+                                        @if (leaving()) {
+                                            <i class="ri-loader-4-line"></i>
+                                        }
+                                    </button>
+                                </div>
+                            }
+
+                            <!--
+                                Manage organisations is a PLATFORM screen. Reaching it from
+                                inside an Organisation used to leave the token — and therefore
+                                the sidebar — pointing at that Organisation while the page
+                                listed every Organisation on the platform. The route's guard
+                                steps back out on the way in; this says so before the click
+                                rather than after it.
+                            -->
+                            <div class="card-footer border-top">
+                                <button type="button"
+                                        class="dropdown-item px-0 fw-medium small"
+                                        (click)="manageOrganisations()">
+                                    <span class="d-block text-start">Manage organisations</span>
+                                    @if (isActingInOrganisation()) {
+                                        <small class="text-muted d-block text-start">
+                                            Leaves {{ currentOrganisation() }}
+                                        </small>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="tb__group tb__group--end">
+
+            <!-- Fullscreen. Hidden where the browser cannot do it (some embedded / iOS views). -->
+            @if (fullscreenSupported) {
+                <button type="button" class="tb-btn tb-fullscreen" (click)="toggleFullscreen()"
+                        [attr.aria-pressed]="isFullscreen()"
+                        [attr.aria-label]="isFullscreen() ? 'Exit fullscreen' : 'Enter fullscreen'"
+                        [attr.title]="isFullscreen() ? 'Exit fullscreen' : 'Enter fullscreen'">
+                    <i [class]="isFullscreen() ? 'ri-fullscreen-exit-line' : 'ri-fullscreen-line'"></i>
+                </button>
+            }
+
+            <!--
+              NOTIFICATIONS: EMPTY UNTIL THERE IS SOMETHING TO SHOW.
+
+              What stood here was fifteen notifications shipped with the theme, rendered to
+              every person on every page of the product: "New message from Naomi", "Task
+              assigned: UI Design", tab counts of 3 / 2 / 3, and - on a platform that takes
+              donations - "Payment received from Jonathan".
+
+              NONE OF IT WAS REAL. There is no notifications endpoint anywhere in the four
+              services; the markup was static HTML. The payment line is the one that matters
+              most: a fundraiser reading it had every reason to believe money had arrived,
+              and no way to tell from the screen that it had not. Invented records are worse
+              than a missing feature, because a missing feature cannot be acted on.
+
+              The bell stays, and says plainly that there is nothing. When a notifications
+              API exists, bind this list to it and restore the unread dot with a real count.
+            -->
+            <div class="dropdown pe-dropdown-mega">
+                <button class="tb-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                        aria-label="Notifications" title="Notifications">
+                    <i class="ri-notification-3-line"></i>
+                </button>
+                <div class="dropdown-menu dropdown-menu-clickable dropdown-mega-md dropdown-menu-end header-dropdown-menu border p-0">
+                    <div class="card mb-0 border-0">
+                        <div class="card-header pb-5">
+                            <h5 class="card-title">Notifications</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex flex-column justify-content-center align-items-center text-center py-6">
+                                <i class="ri-notification-off-line fs-1 text-muted mb-3"></i>
+                                <h6 class="mb-2">Nothing to show</h6>
+                                <p class="text-muted mb-0 lh-base" style="max-width: 20rem;">
+                                    You have no notifications. Anything that needs your attention
+                                    will appear here.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <span class="tb__divider" aria-hidden="true"></span>
+
+            <!--
+              ACCOUNT. The name and role are hidden on a phone (the avatar alone stays); the role is shown
+              as words, not the raw SUPER_ADMIN code. There is no per-user picture in the sign-in
+              response, so the avatar is the person's initials rather than one stock photograph shown
+              to everybody.
+            -->
+            <div class="dropdown pe-dropdown-mega">
+                <button class="tb-profile" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                        aria-label="Account menu">
+                    <span class="tb-avatar" aria-hidden="true">{{ initials() }}</span>
+                    <span class="tb-profile__text">
+                        <span class="tb-profile__name">{{ username() }}</span>
+                        <span class="tb-profile__role">{{ roleLabel() }}</span>
+                    </span>
+                    <i class="ri-arrow-down-s-line tb-profile__chev" aria-hidden="true"></i>
+                </button>
+                <div class="dropdown-menu dropdown-mega-xs dropdown-menu-end header-dropdown-menu border">
+                    <div class="d-flex gap-4 align-items-center justify-content-between mb-2 py-2 px-4 border rounded-2">
+                        <div class="min-w-0">
+                            <h6 class="mb-1 fs-14 text-truncate">{{ username() }}</h6>
+                            <small class="text-muted mb-0 d-block text-truncate">{{ userEmail() }}</small>
+                        </div>
+                        <span class="tb-avatar tb-avatar--lg" aria-hidden="true">{{ initials() }}</span>
+                    </div>
+                    <div>
+                        <ul class="list-unstyled mb-0">
+                            <li class="profile-item">
+                                <a routerLink="administration/access/user-profile-and-access" class="text-body">
+                                    <i class="ri-user-line me-3"></i>Profile
+                                </a>
+                            </li>
+                            <li class="profile-item">
+                                <a routerLink="administration/access/my-security" class="text-body d-flex align-items-center justify-content-between">
+                                    <span>
+                                        <i class="ri-shield-user-line me-3"></i>My Security
+                                    </span>
+                                </a>
+                            </li>
+                            <li class="profile-item">
+                                <a href="#!" class="text-body">
+                                    <i class="ri-settings-3-line me-3"></i>Settings
+                                </a>
+                            </li>
+                            <li class="profile-item">
+                                <a href="#!" class="text-body">
+                                    <i class="ri-question-line me-3"></i>Help center
+                                </a>
+                            </li>
+                            <!-- Sign-out is a button, not a link: it has to call the API so the
+                                 server revokes the session and clears the HttpOnly refresh cookie.
+                                 An <a href> would only change the URL and leave both alive. -->
+                            <li class="profile-item">
+                                <button type="button" class="text-danger btn btn-link text-decoration-none p-0 w-100 text-start" (click)="signOut()">
+                                    <i class="ri-logout-box-r-line me-3"></i>Sign out
+                                </button>
+                            </li>
+                            <li class="profile-item">
+                                <button type="button" class="text-danger btn btn-link text-decoration-none p-0 w-100 text-start" (click)="signOutEverywhere()">
+                                    <i class="ri-shut-down-line me-3"></i>Sign out everywhere
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+<!-- END Header -->
+
+<div class="header-wrapper"></div>
+
+<!-- Search Modal -->
+<div class="modal fade search-modal" id="searchModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header d-block">
+                <div class="form-icon">
+                    <input type="text" class="form-control form-control-icon" id="searchInputInModal" placeholder="Search" required>
+                    <div class="header-search-btn w-44px">
+                        <i class="ri-search-line text-muted fs-16"></i>
+                    </div>
+                    <button type="button" class="btn-close position-absolute end-0 top-50 translate-middle-y d-inline-block m-0" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body" data-simplebar id="list-items">
+                <ul class="list-unstyled mb-0" id="searchList"></ul>
+            </div>
+        </div>
+    </div>
+</div>

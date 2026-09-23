@@ -1,0 +1,136 @@
+/* =====================================================================================================
+   Dashboard KPI strip.
+
+   Every KPI tile in the application is --lx-kpi-h tall (styles/ydot-premium.css, section 4a). These five
+   tiles carry more than a stat card does (title, a headline figure and two supporting figures), so they are
+   laid out on a two-row grid instead of stacking: title on the left and the headline on the right, the
+   supporting figures underneath. Same content, same height as every other page's tiles.
+   ===================================================================================================== */
+.kpi-strip {
+  --bs-gutter-y: 1rem;
+  --pe-gutter-y: 1rem;
+  margin-bottom: 1rem;
+}
+
+.kpi-strip .card {
+  height: var(--lx-kpi-h, 128px);
+  margin-bottom: 0;
+  overflow: hidden;
+}
+
+.kpi-strip .card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'head fig'
+    'sub  sub';
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 6px;
+  height: 100%;
+  padding: 10px 18px;
+}
+
+.kpi-strip .card-body > .d-flex {
+  grid-area: head;
+  min-width: 0;
+  margin: 0 !important;
+}
+
+.kpi-strip .card-body > .d-flex a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpi-strip .card-body > .text-center:not(.row) {
+  grid-area: fig;
+  min-width: 0;
+  max-width: 150px;
+  margin: 0 !important;
+  text-align: right !important;
+}
+
+.kpi-strip .card-body > .text-center:not(.row) h5 {
+  margin: 0;
+  font-size: 21px !important;
+  line-height: 1.15 !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
+}
+
+.kpi-strip .card-body > .text-center:not(.row) p {
+  margin: 2px 0 0;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.kpi-strip .card-body > .row {
+  grid-area: sub;
+  --bs-gutter-x: 0;
+  --pe-gutter-x: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--theme-accent, #b9a065) 32%, var(--theme-border, #e5e8ec));
+  text-align: left !important;
+}
+
+.kpi-strip .card-body > .row > * {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  padding: 0 !important;
+}
+
+.kpi-strip .card-body > .row > * + *,
+.kpi-strip .card-body > .row .border-end + * {
+  padding-left: 12px !important;
+}
+
+.kpi-strip .card-body > .row .border-end {
+  border-color: color-mix(in srgb, var(--theme-accent, #b9a065) 32%, var(--theme-border, #e5e8ec)) !important;
+}
+
+.kpi-strip .card-body > .row span {
+  display: block !important;
+  font-size: 10.5px !important;
+  line-height: 1.2 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpi-strip .card-body > .row h6 {
+  margin: 1px 0 0 !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+}
+
+/* The one supporting line on the tile that has no beneficiary feed. */
+.kpi-strip .card-body > .row > .col-12 span {
+  white-space: normal;
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.kpi-strip .avatar-lg {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  font-size: 22px;
+}
+
+.kpi-strip .card-body > .d-flex > .d-flex {
+  gap: 10px !important;
+  min-width: 0;
+}

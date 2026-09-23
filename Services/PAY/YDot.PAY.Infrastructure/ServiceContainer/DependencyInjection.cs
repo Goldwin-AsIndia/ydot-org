@@ -1,0 +1,242 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using YDot.PAY.Application.Common.Abstractions.Persistence;
+using YDot.PAY.Application.Common.Abstractions.Security;
+using YDot.PAY.Application.Common.Abstractions.Services;
+using YDot.PAY.Application.Common.Settings;
+using YDot.PAY.Infrastructure.Authorization;
+using YDot.PAY.Infrastructure.Gateway;
+using YDot.PAY.Infrastructure.Identity;
+using YDot.PAY.Infrastructure.Multitenancy;
+using YDot.PAY.Infrastructure.Persistence;
+using YDot.PAY.Infrastructure.Persistence.ReadServices;
+using YDot.PAY.Infrastructure.Persistence.Repositories;
+using YDot.PAY.Infrastructure.Persistence.Seed;
+using YDot.PAY.Infrastructure.Security;
+using YDot.PAY.Infrastructure.Services;
+
+namespace YDot.PAY.Infrastructure.ServiceContainer;
+
+/// <summary>
+/// Registers everything the infrastructure layer owns: the PostgreSQL DbContext, the
+/// repositories, the read services, the tenancy primitives, the gateway adapter and the
+/// authorization handlers.
+///
+/// THE API PROJECT NAMES NO REPOSITORY AND NO DbContext TYPE, which is what the layer boundary
+/// is supposed to mean - and is why this file exists here rather than as thirty loose AddScoped
+/// calls in Program.cs.
+/// </summary>
+public static class DependencyInjection
+{
+    public static IServiceCollection AddInfrastructureServices(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var databaseSettings = configuration.GetSection(DatabaseSettings.SectionName).Get<DatabaseSettings>()
+                               ?? new DatabaseSettings();
+
+        // ---- EF Core with PostgreSQL and snake_case column names -----------------------
+        //
+        // PAY SHARES THE DATABASE WITH IAM, DON AND CAM, so it needs its OWN migrations history
+        // table. With the default __EFMigrationsHistory the four services would read and write
+        // the same list: EF would see the other services' migration ids, report them as pending
+        // or unknown, and "dotnet ef migrations list" would be wrong for all four. The tables
+        // themselves never clash because IAM owns iam_* and gm_*, DON owns don_*, CAM owns cam_*
+        // and PAY owns pay_*.
+        services.AddDbContext<PaymentDbContext>(options =>
+        {
+            options.UseNpgsql(
+                    databaseSettings.ConnectionString,
+                    npgsql => npgsql
+                        .CommandTimeout(databaseSettings.CommandTimeoutSeconds)
+                        .MigrationsHistoryTable("__ef_migrations_history_pay"))
+                .UseSnakeCaseNamingConvention();
+
+            if (databaseSettings.EnableSensitiveDataLogging)
+            {
+                // NEVER IN PRODUCTION FOR THIS SERVICE. Sensitive data logging writes parameter
+                // VALUES into the log, and the parameters here are donor names, e-mail addresses
+                // and tax identifiers.
+                options.EnableSensitiveDataLogging();
+            }
+
+            if (databaseSettings.EnableDetailedErrors)
+            {
+                options.EnableDetailedErrors();
+            }
+        });
+
+        services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<PaymentDbContext>());
+
+        // ---- Multi-tenancy -------------------------------------------------------------------
+        //
+        // TenantContext is SCOPED and single-assignment: one instance per request, filled in once
+        // by the middleware, readable by everything downstream. It is registered concretely as
+        // well as by interface so the middleware can call the internal setters - which is also
+        // what stops an application handler reaching them.
+        services.AddScoped<TenantContext>();
+        services.AddScoped<ITenantContext>(provider => provider.GetRequiredService<TenantContext>());
+
+        // ---- Repositories ------------------------------------------------------------------------
+        services.AddScoped<IDonationRepository, DonationRepository>();
+        services.AddScoped<IPaymentEventRepository, PaymentEventRepository>();
+        services.AddScoped<IReceiptRepository, ReceiptRepository>();
+        services.AddScoped<IRefundRepository, RefundRepository>();
+
+        // THE GATEWAY ACCOUNT IS RESOLVED THROUGH A DECORATOR, so every path that takes or
+        // refunds money honours what an Organisation entered on IAM's configuration screen
+        // without any of those paths knowing this exists. The concrete repository is registered
+        // by its own type and the decorator wraps it; see ConfiguredGatewayAccountRepository for
+        // why this is a wrapper rather than six edits across four command handlers.
+        services.AddScoped<GatewayAccountRepository>();
+        services.AddScoped<TenantGatewayConfigurationReader>();
+        services.AddScoped<IGatewayAccountRepository>(provider =>
+            new ConfiguredGatewayAccountRepository(
+                provider.GetRequiredService<GatewayAccountRepository>(),
+                provider.GetRequiredService<TenantGatewayConfigurationReader>(),
+                provider.GetRequiredService<IOptions<GatewayConfigurationSettings>>(),
+                provider.GetRequiredService<ILogger<ConfiguredGatewayAccountRepository>>()));
+
+        // ---- Read services -----------------------------------------------------------------------------
+        services.AddScoped<IDonationIntentReadService, DonationIntentReadService>();
+        services.AddScoped<IDonationReadService, DonationReadService>();
+        services.AddScoped<IPaymentEventReadService, PaymentEventReadService>();
+        services.AddScoped<IReceiptReadService, ReceiptReadService>();
+        services.AddScoped<IRefundReadService, RefundReadService>();
+
+        // ---- Security ------------------------------------------------------------------------------------
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUser, CurrentUser>();
+
+        // ---- Cross-service seams ---------------------------------------------------------------------------
+        //
+        // Scoped, not singleton: each reads through the request's own DbContext connection, so a
+        // lookup taken inside a donation transaction sees that transaction's writes and a donor
+        // created alongside a donation commits with it.
+        services.AddScoped<IDonorDirectory, DonorDirectory>();
+        services.AddScoped<ICampaignDirectory, CampaignDirectory>();
+
+        // The Organisation's own host, so a receipt links to the charity the donor gave to
+        // rather than to the platform's front door. Reads IAM's domain table over the shared
+        // database, which makes it scoped like every other reader here.
+        services.AddScoped<ITenantHostDirectory, TenantHostDirectory>();
+        services.AddScoped<IIdentityAccountService, IdentityAccountService>();
+
+        // ---- Supporting services ---------------------------------------------------------------------------
+        //
+        // The clock, the CSV writer and the reference generator hold no per-request state, so
+        // they are singletons. The audit writer is SCOPED because it writes into the request's
+        // DbContext - the audit row has to commit in the same transaction as the change it
+        // records, or a refund can happen with no record of who approved it.
+        services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+        services.AddSingleton<ICsvExportService, CsvExportService>();
+        services.AddSingleton<IReferenceGenerator, ReferenceGenerator>();
+
+        // ONE SENDER, an SMTP relay - Elastic Email's by default, matching IAM so that one set of
+        // environment variables configures mail for the whole platform. The Gmail App Password
+        // and the Resend HTTPS sender that preceded it are gone, along with the
+        // EmailSettings:Provider switch that chose between them.
+        services.AddSingleton<IEmailSender, SmtpEmailSender>();
+
+        services.AddSingleton<IReceiptDocumentStore, FileSystemReceiptDocumentStore>();
+        // SCOPED, NOT SINGLETON, since it resolves the Organisation's host through a reader that
+        // holds the request's DbContext. Every caller is a scoped command handler, so nothing
+        // else changes.
+        services.AddScoped<IReceiptDocumentService, ReceiptDocumentService>();
+        services.AddScoped<IAuditWriter, AuditWriter>();
+
+        // ---- Payment gateway ---------------------------------------------------------------------------------
+        //
+        // The credential resolver is a SINGLETON reading configuration; the gateway itself is too,
+        // because it holds no per-request state and takes its HttpClient from the factory.
+        //
+        // AddHttpClient registers the factory and, more importantly, gives both clients a
+        // rotating handler pool: a raw `new HttpClient()` per call exhausts sockets under load,
+        // and a static one never notices DNS changing - which on a payment provider's endpoint
+        // means every donation failing until the process is restarted.
+        // CREDENTIALS: THE ORGANISATION'S OWN CONFIGURATION FIRST, THE DEPLOYMENT'S SECOND.
+        // The configuration resolver is registered by its own type and is the fallback the
+        // tenant-aware one delegates to when an Organisation has not configured a gateway, which
+        // is how every donation was taken before the configuration screen existed.
+        //
+        // SCOPED, NOT SINGLETON, and that is the reason the three adapter registrations below
+        // changed too: reading a tenant's configuration needs the request's DbContext, and a
+        // singleton holding a scoped dependency is a captive that outlives the connection it
+        // captured. The adapters hold no state of their own - they were singletons for economy,
+        // not correctness - so scoping them costs nothing.
+        services.AddScoped<ConfigurationGatewayCredentialResolver>();
+        services.AddSingleton<GatewayCredentialUnsealer>();
+        services.AddScoped<IGatewayCredentialResolver, TenantConfiguredCredentialResolver>();
+        services.AddHttpClient(HostedCheckoutGateway.HttpClientName);
+        services.AddHttpClient(RazorpayGateway.HttpClientName);
+        services.AddHttpClient(IdentityAccountService.HttpClientName, client =>
+        {
+            var identity = configuration.GetSection(IdentityIntegrationSettings.SectionName)
+                               .Get<IdentityIntegrationSettings>()
+                           ?? new IdentityIntegrationSettings();
+
+            if (!string.IsNullOrWhiteSpace(identity.BaseUrl))
+            {
+                client.BaseAddress = new Uri(
+                    identity.BaseUrl.EndsWith('/') ? identity.BaseUrl : identity.BaseUrl + "/");
+            }
+
+            client.Timeout = TimeSpan.FromSeconds(
+                identity.TimeoutSeconds > 0 ? identity.TimeoutSeconds : 10);
+        });
+        // ONE INTERFACE, SEVERAL PROVIDERS, CHOSEN PER ORGANISATION. The concrete adapters are
+        // registered by their own type and the ROUTER is what the handlers receive; it reads
+        // `PaymentGatewayAccount.GatewayName` - which, for an Organisation that has filled in
+        // IAM's payment gateway configuration screen, is the `Provider` column of that screen's
+        // row - and dispatches. Registering a provider directly as IPaymentGateway, which is what
+        // this used to do, makes every organisation on the platform speak that one provider's
+        // protocol whatever their configuration says.
+        //
+        // THIS IS THE WHOLE EXTENSION POINT. To add Stripe, PayPal or anything else:
+        //
+        //   1. Write an adapter implementing IPaymentGatewayAdapter whose `GatewayName` is
+        //      exactly the string administrators pick on the configuration screen.
+        //   2. Add the two lines below for it - the concrete registration and the adapter one.
+        //
+        // Nothing else changes. Not the router, not a handler, not the screen. An Organisation
+        // that switches provider then does so by saving a form, with no deployment.
+        services.AddScoped<HostedCheckoutGateway>();
+        services.AddScoped<RazorpayGateway>();
+
+        // The adapter set the router indexes. Registered through the concrete type rather than
+        // as separate instances so that one request resolves ONE of each - the router's
+        // fallback comparison and the credential memo both depend on that being true.
+        services.AddScoped<IPaymentGatewayAdapter>(
+            provider => provider.GetRequiredService<RazorpayGateway>());
+        services.AddScoped<IPaymentGatewayAdapter>(
+            provider => provider.GetRequiredService<HostedCheckoutGateway>());
+
+        services.AddScoped<IPaymentGateway, PaymentGatewayRouter>();
+
+        // ---- Authorization -----------------------------------------------------------------------------------
+        //
+        // The policy PROVIDER is what turns [HasPermission("pay.refunds.approve")] into a policy
+        // on demand, so a new permission never needs a startup registration.
+        services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+        services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, TenantContextAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, SuperAdminAuthorizationHandler>();
+
+        // ---- Seeding -------------------------------------------------------------------------------------------
+        services.AddScoped<PaymentDbSeeder>();
+
+        // GATEWAY ACCOUNTS ARE SEEDED IN THE BACKGROUND, NOT AT STARTUP. PAY starts alongside IAM,
+        // so a one-shot seed on a first `docker compose up` reads iam_tenants before that table
+        // exists and gives up - leaving a stack that refuses every donation with
+        // PAYMENT_GATEWAY_NOT_CONFIGURED. See GatewayAccountSeedingService.
+        services.AddHostedService<GatewayAccountSeedingService>();
+
+        return services;
+    }
+}

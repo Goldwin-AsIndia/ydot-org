@@ -1,0 +1,48 @@
+<header class="ph">
+  <!-- Decoration: the base layer (ring + glow, painted by .ph__deco itself) and the screen's one watermark icon.
+       Decorative only: hidden from assistive technology. The layer clips what bleeds off the panel. -->
+  <div class="ph__deco" aria-hidden="true">
+    <app-header-watermark [icon]="watermark()" />
+  </div>
+
+  <div class="ph__main">
+    <div class="ph__text">
+      <div class="ph__title-row">
+        <h1 class="ph__title">{{ title() }}</h1>
+        <span class="ph__info" [attr.role]="info() ? 'img' : null" [attr.aria-label]="info() || null"
+              [attr.aria-hidden]="info() ? null : 'true'" [attr.title]="info() || null">i</span>
+      </div>
+
+      @if (subtitle()) {
+        <p class="ph__subtitle">{{ subtitle() }}</p>
+      }
+
+      <!-- Owner / freshness and the [meta] chips share one row, so the header is the same height on every
+           screen whatever it carries. -->
+      <div class="ph__facts">
+        @if (ownerLabel() || updatedLabel()) {
+          <p class="ph__meta">
+            <span class="ph__dash" aria-hidden="true"></span>
+            @if (ownerLabel()) {
+              <span>Owner: {{ ownerLabel() }}</span>
+            }
+            @if (ownerLabel() && updatedLabel()) {
+              <span aria-hidden="true">&middot;</span>
+            }
+            @if (updatedLabel()) {
+              <span>{{ updatedLabel() }}</span>
+            }
+          </p>
+        }
+
+        <div class="ph__extra">
+          <ng-content select="[meta]" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ph__actions">
+    <ng-content select="[actions]" />
+  </div>
+</header>

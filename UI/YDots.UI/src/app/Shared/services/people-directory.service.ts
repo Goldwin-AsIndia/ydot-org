@@ -1,0 +1,247 @@
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { UserDirectoryApiService } from '../../Service/user-directory-api.service';
+import { firstReadable, readableIdentifier } from '../models/identifier';
+import { OrganisationScopeService } from './organisation-scope.service';
+import { UserSearchFilter } from '../models/user-directory.model';
+
+/**
+ * One option in an owner, approver or assignee selector.
+ *
+ * `reference` IS THE API ID, not the human code. Every endpoint that takes a person takes the id;
+ * the code is what a person quotes. Selectors that stored the code had to translate it back on the
+ * way out, and two of them translated it wrongly.
+ */
+export interface PersonOption {
+  /** The API id - what a request carries. */
+  readonly reference: string;
+  /** The human reference - USR-000184 - which is what somebody reads off a screen. */
+  readonly code: string;
+  readonly name: string;
+  /**
+   * Role and unit, for telling two people with the same name apart.
+   *
+   * IT IS NOT THE CODE. It used to be filled with `person.code`, so every screen that printed a
+   * "Role & region" line printed the same USR-000xx that the line above it already showed. The
+   * directory endpoint now returns the role and the unit, and when it knows neither this is an
+   * empty string - a blank second line rather than a duplicated reference.
+   */
+  readonly context: string;
+  readonly isActive: boolean;
+  readonly email?: string;
+  readonly avatarUrl?: string;
+
+  /** Two letters for an avatar, derived from the name rather than stored. */
+  readonly initials: string;
+
+  /**
+   * A stable colour for the avatar.
+   *
+   * DERIVED FROM THE ID, so one person is the same colour on every screen and across reloads.
+   * Assigning tones by list position - which the hard-coded lists effectively did - meant somebody
+   * changed colour as soon as anybody was added above them.
+   */
+  readonly tone: string;
+}
+
+/** The avatar palette, in the order a stable hash indexes it. */
+const AVATAR_TONES = ['meadow', 'gold', 'blue', 'plum', 'coral', 'teal'] as const;
+
+/**
+ * The people who can own, approve or be assigned things.
+ *
+ * WHY THIS EXISTS. Six screens each carried their own copy of the same five invented people -
+ * 'USR-0114 · Arun Kumar', 'USR-0099 · Sophie Bennett' and so on - as a hard-coded map. Every one
+ * of those copies had the same three problems:
+ *
+ *   - THE PEOPLE DID NOT EXIST. Assigning a campaign to 'USR-0114' assigned it to nobody, and the
+ *     screen then displayed 'Arun Kumar' as the accountable owner of that campaign. A blocker
+ *     owned by a person who does not exist is a blocker nobody is working on.
+ *   - EVERY ORGANISATION SAW THE SAME FIVE NAMES, because a constant in a bundle does not know who
+ *     is asking. One charity's screen offered another charity's staff.
+ *   - THE COPIES DISAGREED. Two of the six listed people the other four did not, so the name shown
+ *     against an owner depended on which screen you were looking at.
+ *
+ * IT NOW READS THE IAM USER DIRECTORY, which is organisation-scoped server-side: a caller sees the
+ * people in their own data scope and nobody else's.
+ *
+ * THE SURFACE IS SYNCHRONOUS because these are selector options and name lookups read from
+ * templates. The load happens once on first injection and the signal fills in; a name asked for
+ * before it arrives comes back as the reference itself, which is honest - it shows an unresolved
+ * id rather than inventing a person to go with it.
+ */
+@Injectable({ providedIn: 'root' })
+export class PeopleDirectoryService {
+  private readonly api = inject(UserDirectoryApiService);
+  private readonly organisationScope = inject(OrganisationScopeService);
+
+  private readonly people = signal<readonly PersonOption[]>([]);
+
+  readonly isLoading = signal(false);
+  readonly loadError = signal<string | null>(null);
+
+  /** Everybody in the caller's data scope, active first and then by name. */
+  readonly all = computed(() => this.people());
+
+  /**
+   * The people who may be given something to own.
+   *
+   * ACTIVE ONLY. Assigning work to a suspended or withdrawn account is how a blocker sits
+   * untouched for a fortnight: the owner is named, so it looks assigned, and nobody is reading it.
+   */
+  readonly assignable = computed(() => this.people().filter((person) => person.isActive));
+
+  constructor() {
+    this.refresh();
+    this.organisationScope.onOrganisationChange(() => this.reloadForOrganisation());
+  }
+
+  /**
+   * Everything here belongs to ONE Organisation, so a switch discards it and reloads.
+   *
+   * Discarded FIRST: reloading alone would leave the previous Organisation's rows readable on
+   * screen for the length of a round trip. See `OrganisationScopeService`.
+   */
+  private reloadForOrganisation(): void {
+    this.people.set([]);
+    this.loadError.set(null);
+    this.refresh();
+  }
+
+  refresh(): void {
+    this.isLoading.set(true);
+    this.loadError.set(null);
+
+    // THE PICKER ENDPOINT, not the administration search. See peopleDirectory() for why.
+    this.api.peopleDirectory().subscribe({
+      next: (items) => {
+        this.people.set(
+          items
+            .filter((person) => !!person.id)
+            .map((person) => ({
+              reference: person.id,
+              code: person.code ?? '',
+              // Printed straight into selectors, so never the id - see name() below.
+              name: firstReadable([person.displayName, person.code], 'Unnamed user'),
+              context: contextOf(person.roleName, person.unitName),
+
+              // The endpoint returns ACTIVE people only, so everyone it names can be given work.
+              isActive: true,
+              email: undefined,
+              avatarUrl: undefined,
+              initials: initialsOf(person.displayName || person.code || ''),
+              tone: toneFor(person.id),
+            }))
+            .sort((left, right) => {
+              if (left.isActive !== right.isActive) {
+                return left.isActive ? -1 : 1;
+              }
+
+              return left.name.localeCompare(right.name);
+            }),
+        );
+
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.people.set([]);
+        this.isLoading.set(false);
+        this.loadError.set('The people directory could not be loaded.');
+      },
+    });
+  }
+
+  /**
+   * The display name for a person.
+   *
+   * IT NEVER FALLS BACK TO A GUID, and that is the change. It used to return the reference itself
+   * when the lookup missed - on the reasoning that an unresolved id shown as an id is a loose end
+   * somebody can chase, where a wrong NAME is an answer nobody will question. The first half of
+   * that still holds; the second half assumed the reference was readable. It is not: it is the
+   * user's GUID, so every miss printed thirty-six characters of hexadecimal into an Owner or an
+   * Approved-by field - on the readiness checklist, the campaign detail, the close-request
+   * record - and a miss is ordinary rather than rare, because the directory loads asynchronously
+   * and a person who has left the Organisation is never in it at all.
+   *
+   * A HUMAN REFERENCE IS STILL SHOWN AS ITSELF. Somebody passing 'USR-00001' gets it back, which
+   * keeps the loose end chaseable exactly as intended - it is only the GUID form that is replaced.
+   */
+  name(reference: string | null | undefined): string {
+    if (!reference) {
+      return 'Unassigned';
+    }
+
+    const match = this.people().find(
+      (person) => person.reference === reference || person.code === reference,
+    );
+
+    if (match?.name) {
+      return match.name;
+    }
+
+    // Not resolved. Show whatever of it a person could actually use, and a plain sentence when
+    // there is nothing - never the raw id. See Shared/models/identifier.
+    return readableIdentifier(match?.code ?? reference, 'Unknown user');
+  }
+
+  /**
+   * The human reference for a person - USR-00001 - for a screen that wants to print one.
+   *
+   * IT IS THE ONE TO USE BESIDE A NAME. Screens reach for the raw reference because it is what
+   * they are holding, and the raw reference is a GUID; this is the half that belongs on screen.
+   */
+  code(reference: string | null | undefined): string {
+    return readableIdentifier(this.get(reference)?.code, '');
+  }
+
+  /** One person by id or by human reference. */
+  get(reference: string | null | undefined): PersonOption | undefined {
+    if (!reference) {
+      return undefined;
+    }
+
+    return this.people().find(
+      (person) => person.reference === reference || person.code === reference,
+    );
+  }
+
+  /** The API id behind a human reference, for a screen still holding codes. */
+  idOf(reference: string | null | undefined): string | undefined {
+    return this.get(reference)?.reference;
+  }
+}
+
+/**
+ * The second line of a picker option: role, unit, or both.
+ *
+ * EMPTY WHEN NEITHER IS KNOWN, deliberately. The caller renders nothing rather than falling back
+ * to the person's code, which is what made a "Role & region" row read "USR-00001".
+ */
+function contextOf(roleName?: string | null, unitName?: string | null): string {
+  return [roleName, unitName].filter((part) => !!part && part.trim()).join(' · ');
+}
+
+/** Two letters from a display name. '??' when there is nothing to take them from. */
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) {
+    return '??';
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/** A stable palette index for an id, so one person keeps one colour everywhere. */
+function toneFor(reference: string): string {
+  let hash = 0;
+
+  for (let index = 0; index < reference.length; index += 1) {
+    hash = (hash * 31 + reference.charCodeAt(index)) | 0;
+  }
+
+  return AVATAR_TONES[Math.abs(hash) % AVATAR_TONES.length];
+}

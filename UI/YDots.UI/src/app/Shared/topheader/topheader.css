@@ -1,0 +1,324 @@
+/* =====================================================================================================
+   THE TOP BAR
+
+   Flat, hairline, no shadow - the same language as the rest of the shell. Every colour is a theme token,
+   so the bar follows the chosen theme; every size reads --ui-scale (styles/ydot-responsive.css), so it
+   grows with the rest of the UI on a large monitor instead of staying a small strip.
+
+   WHY !important ON TEXT. The theme customiser forces font-size and font-weight onto every span / div /
+   button (styles.css "Font size" / "Font weight"). Those rules use !important, so a plain class loses;
+   the text rules below carry it too, and win on specificity.
+
+   Left  : menu button, organisation switcher.
+   Right : fullscreen, notifications, divider, account.
+   ===================================================================================================== */
+
+:host {
+  --tb-btn: calc(40px * var(--ui-scale, 1));
+  --tb-org: calc(44px * var(--ui-scale, 1));
+  --tb-avatar: calc(36px * var(--ui-scale, 1));
+  --tb-line: var(--theme-border, #e3e8e5);
+  --tb-ink: var(--theme-ink, #1f2d2a);
+  --tb-muted: var(--theme-muted, #64716c);
+  --tb-hover: color-mix(in srgb, var(--theme-primary, #375c4c) 8%, transparent);
+}
+
+/* The theme fixes the bar's position, height and frame; the inner row just fills it. The bar itself never
+   moves except to hide for an active scroll (`.tb--hidden`) - the `left` transition is only there so it
+   glides with the sidebar instead of jumping when the rail folds. */
+.app-header.tb {
+  /* Same duration and easing as the theme's .app-wrapper transition, so the bar and the page move together. */
+  transition: left 0.2s ease, transform 0.2s ease-in-out, opacity 0.2s ease-in-out !important;
+}
+
+/* Out of sight: slid up past the top edge and not clickable. It keeps its size, and it stays focusable -
+   tabbing into it brings it back. The page gives the strip back meanwhile (see styles.css, `topbar-hidden`). */
+.app-header.tb.tb--hidden {
+  transform: translateY(calc(-100% - 12px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header.tb {
+    transition: left 0.2s ease !important;
+  }
+}
+
+.tb__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding-inline: clamp(10px, 1.4vw, 20px);
+}
+
+.tb__group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tb__group--end {
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.tb__divider {
+  flex: none;
+  width: 1px;
+  height: calc(26px * var(--ui-scale, 1));
+  margin-inline: 8px;
+  background: var(--tb-line);
+}
+
+/* ---- Icon buttons: menu, fullscreen, notifications ---- */
+.tb-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tb-btn);
+  height: var(--tb-btn);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--lx-radius, 11px);
+  background: transparent;
+  color: var(--tb-ink);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.tb-btn i {
+  font-size: calc(20px * var(--ui-scale, 1));
+  line-height: 1;
+  color: inherit;
+}
+
+.tb-btn:hover,
+.tb-btn[data-bs-toggle][aria-expanded='true'] {
+  background: var(--tb-hover);
+}
+
+/* The menu button is the one control the page depends on, so it keeps a visible edge. */
+.tb-menu {
+  border-color: var(--tb-line);
+  background: #fff;
+}
+
+.tb-menu:hover {
+  border-color: color-mix(in srgb, var(--lx-gold, #c1a466) 70%, var(--tb-line));
+}
+
+/* Fullscreen is a desktop nicety: on a phone the browser already fills the screen. */
+@media (max-width: 767.98px) {
+  .tb-fullscreen {
+    display: none;
+  }
+}
+
+/* ---- Organisation switcher ---- */
+.tb-org-wrap {
+  min-width: 0;
+}
+
+.tb-org {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: min(340px, 42vw);
+  height: var(--tb-org);
+  padding: 0 10px 0 calc((var(--tb-org) - var(--tb-avatar)) / 2 - 1px);
+  border: 1px solid var(--tb-line);
+  border-radius: calc(var(--lx-radius, 11px) + 2px);
+  background: #fff;
+  color: var(--tb-ink);
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.tb-org:hover,
+.tb-org[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--lx-gold, #c1a466) 70%, var(--tb-line));
+  background: color-mix(in srgb, var(--lx-gold, #c1a466) 6%, #fff);
+}
+
+.tb-org__badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tb-avatar);
+  height: var(--tb-avatar);
+  border-radius: calc(var(--lx-radius, 11px) - 1px);
+  background: var(--lx-gold, #c1a466);
+  color: var(--lx-gold-ink, #1e1907);
+  font-size: calc(12px * var(--ui-scale, 1)) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.tb-org__badge i {
+  font-size: calc(18px * var(--ui-scale, 1));
+  line-height: 1;
+}
+
+.tb-org__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.tb-org__label {
+  color: var(--tb-muted);
+  font-size: calc(10px * var(--ui-scale, 1)) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tb-org__name {
+  overflow: hidden;
+  color: var(--tb-ink);
+  font-size: calc(13.5px * var(--ui-scale, 1)) !important;
+  font-weight: 600 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-org__chev {
+  flex: none;
+  color: var(--tb-muted);
+  font-size: calc(16px * var(--ui-scale, 1));
+  line-height: 1;
+}
+
+/* On a phone the badge alone says which organisation it is; the name would crowd out the rest. */
+@media (max-width: 767.98px) {
+  .tb-org__text {
+    display: none;
+  }
+
+  .tb-org {
+    padding-inline-end: 8px;
+  }
+}
+
+/* ---- Account ---- */
+.tb-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 8px 3px 3px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--tb-avatar) / 2 + 4px);
+  background: transparent;
+  color: var(--tb-ink);
+  text-align: start;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.tb-profile:hover,
+.tb-profile[aria-expanded='true'] {
+  background: var(--tb-hover);
+  border-color: var(--tb-line);
+}
+
+.tb-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tb-avatar);
+  height: var(--tb-avatar);
+  border-radius: 50%;
+  background: var(--theme-primary, #375c4c);
+  color: var(--theme-on-primary, #fff);
+  font-size: calc(13px * var(--ui-scale, 1)) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+
+.tb-avatar--lg {
+  --tb-avatar: calc(42px * var(--ui-scale, 1));
+}
+
+.tb-profile__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 190px;
+  line-height: 1.2;
+}
+
+.tb-profile__name {
+  overflow: hidden;
+  color: var(--tb-ink);
+  font-size: calc(13.5px * var(--ui-scale, 1)) !important;
+  font-weight: 600 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-profile__role {
+  overflow: hidden;
+  color: var(--tb-muted);
+  font-size: calc(11.5px * var(--ui-scale, 1)) !important;
+  font-weight: 500 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-profile__chev {
+  flex: none;
+  color: var(--tb-muted);
+  font-size: calc(18px * var(--ui-scale, 1));
+  line-height: 1;
+}
+
+/* Name, role and chevron leave on a phone; the avatar stays as the account button. */
+@media (max-width: 767.98px) {
+  .tb-profile__text,
+  .tb-profile__chev {
+    display: none;
+  }
+
+  .tb-profile {
+    padding: 3px;
+  }
+
+  .tb__divider {
+    display: none;
+  }
+}
+
+/* The account menu's header carries a name AND an e-mail beside the avatar; the theme's 15rem clipped both. */
+.tb .pe-dropdown-mega .dropdown-menu.dropdown-mega-xs {
+  width: 17.5rem;
+  max-width: calc(100vw - 24px);
+}
+
+/* Room for the switcher's dropdown to be the width its list needs, never wider than the screen. */
+.tb-org-wrap .dropdown-menu {
+  max-width: calc(100vw - 24px);
+}
+
+/* The spinner shown while a switch is in flight. */
+.dropdown-item .ri-loader-4-line {
+  animation: org-switcher-spin 0.9s linear infinite;
+}
+
+@keyframes org-switcher-spin {
+  to { transform: rotate(360deg); }
+}

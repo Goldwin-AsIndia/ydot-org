@@ -1,0 +1,26 @@
+/* The host adds no box of its own, so the <svg> positions against the header's decoration layer. */
+:host {
+  display: contents;
+}
+
+/* One icon, oversized, bleeding off the right edge and clipped by the decoration layer's overflow. Line-art
+   only: stroke in the panel's own on-colour, no fill, at 10% opacity, so it reads as texture and cannot clash
+   with any theme colour. Nothing per-screen is styled here. */
+.header-watermark {
+  position: absolute;
+  right: calc(-20px * var(--ui-scale, 1));
+  top: 50%;
+  transform: translateY(-50%);
+  width: calc(150px * var(--ui-scale, 1));
+  height: calc(150px * var(--ui-scale, 1));
+  opacity: var(--ph-mark-opacity, 0.1);
+  color: var(--ph-fg);
+  pointer-events: none;
+  z-index: 0;
+
+  fill: none;
+  stroke: var(--ph-fg);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

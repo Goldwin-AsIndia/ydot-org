@@ -1,0 +1,183 @@
+:host {
+  display: block;
+  margin-bottom: 20px;
+}
+
+/* NO HEADER CONTAINER. The header used to be a fixed-height, padded, coloured banner - a card in
+   everything but name. By request it is now just its contents (title, meta, actions) sitting
+   directly on the page, sized to what they need rather than filling a fixed box: no background, no
+   border, no border-radius, no forced min-height, no card-like padding. Organisation profile /
+   settings (`app-organisation-detail`) used to keep its own bespoke hero banner instead of this
+   component; it has since been brought onto the shared header like every other screen. Do not
+   reintroduce a background, border or fixed height here. */
+.ph {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 0;
+  color: var(--theme-ink, #1f2d2a);
+  box-shadow: none;
+  background: transparent;
+  border: none;
+}
+
+.ph__main,
+.ph__actions {
+  position: relative;
+  z-index: 1;
+}
+
+/* The ring / glow / watermark decoration existed to sit on top of the coloured banner; with no banner it
+   has nothing to decorate, so the whole layer is dropped. */
+.ph__deco,
+app-header-watermark {
+  display: none;
+}
+
+.ph__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  min-width: 0;
+  flex: 1 1 420px;
+  align-items: center;
+}
+
+.ph__text {
+  min-width: 0;
+}
+
+.ph__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ph__title {
+  margin: 0;
+  font-size: calc(27px * var(--ui-scale, 1));
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--theme-ink, #1f2d2a);
+  /* One line, so the header never grows: a long title is cut with an ellipsis (the full text stays in the
+     DOM and the page's own <title>). */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ph__info {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 19px;
+  height: 19px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  color: var(--theme-muted, #64716c);
+  font-size: 11px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  opacity: 0.9;
+  cursor: default;
+}
+
+.ph__subtitle {
+  margin: 6px 0 0;
+  font-size: calc(14.5px * var(--ui-scale, 1));
+  line-height: 1.5;
+  color: var(--theme-muted, #64716c);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+}
+
+/* Owner / freshness and the chips: one row. */
+.ph__facts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 10px;
+  min-width: 0;
+}
+
+.ph__facts:not(:has(.ph__meta)):has(> .ph__extra:empty) {
+  display: none;
+}
+
+.ph__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: calc(13px * var(--ui-scale, 1));
+  line-height: 1.4;
+  color: var(--theme-muted, #64716c);
+}
+
+.ph__dash {
+  width: 14px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.ph__extra:not(:empty) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ph__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.ph__actions:empty {
+  display: none;
+}
+
+/* Wide windows: single-line content, nothing wraps unnecessarily. */
+@media (min-width: 1100px) {
+  .ph {
+    flex-wrap: nowrap;
+  }
+
+  .ph__facts {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .ph__actions {
+    flex: none;
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .ph__title {
+    font-size: 22px;
+  }
+
+  .ph__actions {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+}

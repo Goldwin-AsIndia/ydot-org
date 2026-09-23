@@ -1,0 +1,183 @@
+/* =====================================================================================================
+   YDot Stat cards - one figure size and one hover animation for every stat / KPI tile in the app.
+
+   1. FIGURES. The reference is the Payments & Receipts totals strip (.pr-tile-value): 32px, bold, tabular
+      digits. Every screen's stat figure is listed below by its own class and gets the same size, scaled with
+      --ui-scale like the tile height (--lx-kpi-h). Figures that hold words rather than a number (a date, a
+      name, a status) get a smaller bold size so they still fit the fixed-height tile.
+   2. HOVER. The tile lifts, springs back a touch, picks up a theme-coloured ring and a light theme wash, and
+      its glyph pops and tilts. No shadow (the app is shadow-free by design); the ring is an outline, which
+      also keeps it clear of each screen's box-shadow / border rules.
+
+   Specificity: component styles are emulated (`.x[_ngcontent-…]`) and many carry !important, so every rule
+   here starts with `html:root` to outrank them. Loaded last from styles.css.
+   To add a new screen: put its tile class in the two :is() tile lists, and its figure class in section 1.
+   ===================================================================================================== */
+
+/* ---------------------------------------------------------------------------------- 1. Figures (numbers) */
+
+/* Every tile is a size container, so a figure can shrink when a strip packs six narrow tiles into a laptop
+   screen instead of breaking "1,284" over two lines. Tiles are grid / column items whose width comes from the
+   strip, so containment does not change their size (checked on every screen listed). */
+html:root :is(
+  .stat-card, .kpi-card, .ct-kpi-card, .inv-stat-card, .audit-stat-card, .div-kpi-card, .rwn-summary-card,
+  .crc-summary-card, .lq-kpi-card, .ab-kpi, .dl-kpi, .sh-stat, .sec-stat, .tam-metric, .pr-tile,
+  .pci-total-card, .summary-card:not(section), .summary-tile, .lc-bulk-stat, .org-stat-card, .metric-tile,
+  .fk-kpi, .kpi-strip .card
+) {
+  container-type: inline-size;
+}
+
+html:root :is(
+  .pr-tile-value,
+  .summary-card:not(section) > div > strong:not(.summary-name),
+  .audit-stat-card h2.audit-stat-number,
+  .stat-card__value,
+  .sec-stat-value,
+  .fk-kpi .cd-stat-value,
+  .crc-summary-value,
+  .tam-metric-value,
+  .stat-card .stat-value:not(.stat-value-text),
+  .summary-card .summary-value,
+  .ab-kpi strong,
+  .ct-kpi-value:not(.ct-kpi-value-text),
+  .kpi-card .number,
+  .kpi-card > div > strong,
+  .kpi-card .kpi-value,
+  .div-kpi-value:not(.div-kpi-value-text),
+  .dl-kpi__value,
+  .lc-bulk-stat-value,
+  .lq-kpi-value,
+  .stat-card h4,
+  .inv-stat-card h4,
+  .pci-total-value,
+  .rwn-summary-value,
+  .org-stat-value,
+  .summary-tile .tile-num,
+  .sh-stat-value,
+  .metric-tile .metric-value,
+  .kpi-strip .card .text-center > h5
+) {
+  /* 32px (the Payments & Receipts figure) once the tile's content box is ~145px wide; a narrower tile scales it down. */
+  font-size: clamp(calc(20px * var(--ui-scale, 1)), 22cqi, calc(32px * var(--ui-scale, 1))) !important;
+  line-height: 1.15 !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
+  overflow-wrap: normal !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* 128px (--lx-kpi-h) stays the tile height, but it is now a floor rather than a cap: a tile that carries more
+   than a label + figure + caption (the dashboard's split tiles, six-across strips whose labels wrap) grows to fit
+   the bigger figure instead of clipping its last line. Tiles in one strip still match, because grid rows
+   stretch every tile to the tallest. */
+html:root :is(
+  .stat-card, .kpi-card, .ct-kpi-card, .inv-stat-card, .audit-stat-card, .div-kpi-card, .rwn-summary-card,
+  .lq-kpi-card, .ab-kpi, .dl-kpi, .sh-stat, .tam-metric, .pr-tile, .pci-total-card, .summary-card:not(.card),
+  .tz-stat-item, .summary-strip > .summary-item, .fk-kpi, .kpi-strip .card
+) {
+  height: auto !important;
+  min-height: var(--lx-kpi-h, 128px) !important;
+}
+/* The dashboard's tiles sit in Bootstrap columns (flex, not grid): fill the stretched column so they match. */
+html:root .kpi-strip > [class*="col"] > .card {
+  height: 100% !important;
+}
+/* ...and keep the tight inner padding dashboard.css asks for; the global 1.5rem card-body padding
+   (ydot-premium.css 5b) was overriding it and pushing the supporting figures out of the tile. */
+html:root .kpi-strip > [class*="col"] > .card > .card-body {
+  padding: calc(12px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1)) !important;
+}
+
+/* Figures that are words (last contact date, a person's name, a status): big and bold, but sized to fit. */
+html:root :is(
+  .ct-kpi-value-text,
+  .div-kpi-value-text,
+  .stat-card .stat-value-text,
+  .summary-card .summary-name,
+  .audit-stat-card h4.audit-stat-number
+) {
+  font-size: calc(18px * var(--ui-scale, 1)) !important;
+  line-height: 1.2 !important;
+  font-weight: 700 !important;
+}
+
+
+/* ---------------------------------------------------------------------------------- 2. Hover animation */
+html:root :is(
+  .stat-card, .kpi-card, .ct-kpi-card, .inv-stat-card, .audit-stat-card, .div-kpi-card, .rwn-summary-card,
+  .crc-summary-card, .lq-kpi-card, .ab-kpi, .dl-kpi:not(.dl-skeleton-card), .sh-stat, .sec-stat, .tam-metric,
+  .pr-tile, .pci-total-card, .summary-card:not(section), .summary-tile, .lc-bulk-stat, .org-stat-card,
+  .metric-tile, .fk-kpi, .kpi-strip .card
+) {
+  outline: 2px solid transparent !important;
+  outline-offset: 0 !important;
+  transition:
+    transform .38s cubic-bezier(.34, 1.56, .64, 1),
+    outline-color .25s ease,
+    outline-offset .25s ease,
+    background-color .25s ease !important;
+  will-change: transform;
+}
+
+html:root :is(
+  .stat-card, .kpi-card, .ct-kpi-card, .inv-stat-card, .audit-stat-card, .div-kpi-card, .rwn-summary-card,
+  .crc-summary-card, .lq-kpi-card, .ab-kpi, .dl-kpi:not(.dl-skeleton-card), .sh-stat, .sec-stat, .tam-metric,
+  .pr-tile, .pci-total-card, .summary-card:not(section), .summary-tile, .lc-bulk-stat, .org-stat-card,
+  .metric-tile, .fk-kpi, .kpi-strip .card
+):hover {
+  transform: translateY(-7px) scale(1.025) !important;
+  outline-color: color-mix(in srgb, var(--theme-primary, #2c4a3d) 70%, transparent) !important;
+  outline-offset: 2px !important;
+  background-color: color-mix(in srgb, var(--theme-primary, #2c4a3d) 6%, #ffffff) !important;
+  z-index: 2;
+}
+
+/* The glyph: pops and tilts with a little overshoot. Only the outermost icon element in a tile moves, so an
+   icon box and the <i> inside it do not both turn. */
+html:root :is(
+  .stat-card, .kpi-card, .ct-kpi-card, .inv-stat-card, .audit-stat-card, .div-kpi-card, .rwn-summary-card,
+  .crc-summary-card, .lq-kpi-card, .ab-kpi, .dl-kpi:not(.dl-skeleton-card), .sh-stat, .sec-stat, .tam-metric,
+  .pr-tile, .pci-total-card, .summary-card:not(section), .summary-tile, .lc-bulk-stat, .org-stat-card,
+  .metric-tile, .fk-kpi, .kpi-strip .card
+) :is([class*="icon"], [class*="-ic"], .kpi-card > span:first-child):not(:is([class*="icon"], [class*="-ic"]) *):not(svg *) {
+  transition: transform .45s cubic-bezier(.34, 1.56, .64, 1) !important;
+}
+html:root :is(
+  .stat-card, .kpi-card, .ct-kpi-card, .inv-stat-card, .audit-stat-card, .div-kpi-card, .rwn-summary-card,
+  .crc-summary-card, .lq-kpi-card, .ab-kpi, .dl-kpi:not(.dl-skeleton-card), .sh-stat, .sec-stat, .tam-metric,
+  .pr-tile, .pci-total-card, .summary-card:not(section), .summary-tile, .lc-bulk-stat, .org-stat-card,
+  .metric-tile, .fk-kpi, .kpi-strip .card
+) i:is([class*="icon"], [class*="-ic"]):not(:is([class*="icon"], [class*="-ic"]) *) {
+  display: inline-block;
+}
+html:root :is(
+  .stat-card, .kpi-card, .ct-kpi-card, .inv-stat-card, .audit-stat-card, .div-kpi-card, .rwn-summary-card,
+  .crc-summary-card, .lq-kpi-card, .ab-kpi, .dl-kpi:not(.dl-skeleton-card), .sh-stat, .sec-stat, .tam-metric,
+  .pr-tile, .pci-total-card, .summary-card:not(section), .summary-tile, .lc-bulk-stat, .org-stat-card,
+  .metric-tile, .fk-kpi, .kpi-strip .card
+):hover :is([class*="icon"], [class*="-ic"], .kpi-card > span:first-child):not(:is([class*="icon"], [class*="-ic"]) *):not(svg *) {
+  transform: scale(1.2) rotate(-10deg) !important;
+}
+
+/* Keyboard users get the same ring when a tile that is a button / link has focus. */
+html:root :is(.kpi-card, .stat-card, .org-stat-card):focus-visible {
+  outline-color: var(--theme-primary, #2c4a3d) !important;
+  outline-offset: 2px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:root :is(
+    .stat-card, .kpi-card, .ct-kpi-card, .inv-stat-card, .audit-stat-card, .div-kpi-card, .rwn-summary-card,
+    .crc-summary-card, .lq-kpi-card, .ab-kpi, .dl-kpi, .sh-stat, .sec-stat, .tam-metric, .pr-tile,
+    .pci-total-card, .summary-card, .summary-tile, .lc-bulk-stat, .org-stat-card, .metric-tile, .fk-kpi,
+    .kpi-strip .card
+  ):hover,
+  html:root :is(.stat-card, .kpi-card, .ct-kpi-card, .inv-stat-card, .audit-stat-card, .div-kpi-card,
+    .rwn-summary-card, .crc-summary-card, .lq-kpi-card, .ab-kpi, .dl-kpi, .sh-stat, .sec-stat, .tam-metric,
+    .pr-tile, .pci-total-card, .summary-card, .summary-tile, .lc-bulk-stat, .org-stat-card, .metric-tile,
+    .fk-kpi, .kpi-strip .card):hover :is([class*="icon"], [class*="-ic"], .kpi-card > span:first-child) {
+    transform: none !important;
+  }
+}

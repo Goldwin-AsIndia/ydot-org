@@ -1,0 +1,584 @@
+<main class="app-wrapper" [class.pdi-donor-shell]="!isInternalView()">
+
+<!-- ============ DONOR-FACING HERO (Fig 1) ============
+     ONLY FOR THE ANONYMOUS VISITOR. A signed-in member of staff opening the same component
+     under Donations & Payments gets Fig 2 - the panel chrome, no hero - because they are here
+     for reference and support rather than to be persuaded. -->
+@if (!isInternalView()) {
+  <aside class="pdi-hero" aria-label="About giving to this cause">
+    <img class="pdi-hero-bg" src="assets/images/auth/Login page.png" alt="" aria-hidden="true" />
+    <div class="pdi-hero-body">
+      <img class="pdi-hero-logo" src="assets/images/Outline ydot logo 2.svg" alt="YDot" />
+      <h2 class="pdi-hero-title">A gift that<br />starts<br />with a scan.</h2>
+      <p class="pdi-hero-lead">
+        You reached this page from the YDot giving QR — a few details and your donation goes
+        straight to the cause you scanned for.
+      </p>
+      <ul class="pdi-hero-points">
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
+          Secure Razorpay payment — UPI, card or netbanking
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
+          Instant receipt sent to you by e-mail
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
+          Eligible for 80G tax benefits
+        </li>
+      </ul>
+      <div class="pdi-hero-badges">
+        <span class="pdi-hero-badge">80G tax benefits</span>
+        <span class="pdi-hero-badge">Razorpay secured</span>
+      </div>
+    </div>
+  </aside>
+}
+
+<div class="page-wrapper">
+  <div class="container-fluid px-4 py-3">
+<div [attr.data-ui-state]="uiState()">
+
+  <header class="pr-task-header" aria-labelledby="pr-title">
+    <div class="pr-header-text">
+       <h1 class="page-title" id="pdi-title">{{ pageTitle() }}</h1>
+      <p class="page-subtitle">{{ pageSubtitle() }}</p>
+    </div>
+
+    <!-- DECORATIVE ILLUSTRATION, after the reference image: the receipt, its confirmation
+         check, a sprig of leaves and the rupee coin. Purely presentational - hidden from
+         assistive technology and dropped on small screens where it only costs height. -->
+    <div class="pr-header-art" aria-hidden="true">
+      <svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- soft halo behind everything -->
+        <circle class="t-halo" cx="98" cy="74" r="47"/>
+        <!-- sparkle stars + dots -->
+        <path class="t-star" d="M34 13Q34 22 43 22Q34 22 34 31Q34 22 25 22Q34 22 34 13Z"/>
+        <path class="t-star" style="animation-delay:-1.6s" d="M212 32Q212 39 219 39Q212 39 212 46Q212 39 205 39Q212 39 212 32Z"/>
+        <circle class="t-dot" cx="62" cy="30" r="2.6"/>
+        <circle class="t-spark-dot" cx="196" cy="10" r="2.6"/>
+        <!-- scroll paper with rolled corners -->
+        <rect class="t-paper" x="96" y="20" width="72" height="100" rx="10" fill="#ffffff" stroke-width="2"/>
+        <path class="t-curl" d="M154 20c14 2 20 10 20 24-6-1-9-6-10-12-1-5-5-9-10-12z"/>
+        <path class="t-curl" d="M168 120c-14-2-20-10-20-24 6 1 9 6 10 12 1 5 5 9 10 12z"/>
+        <!-- rupee badge + text lines -->
+        <circle class="t-rupee-badge" cx="108" cy="35" r="8"/>
+        <text class="t-rupee-badge-text" x="108" y="38.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="700">₹</text>
+        <path class="t-line-strong" d="M124 33h32" stroke-width="4" stroke-linecap="round"/>
+        <path class="t-line" d="M112 48h46M112 60h46M112 72h32M112 84h40" stroke-width="4.2" stroke-linecap="round"/>
+        <!-- signature squiggle -->
+        <path class="t-sign" d="M112 106c-1 5 1 8 4 6 4-3 5-9 8-9s1 7 4 7 5-5 9-3" stroke-width="1.8" stroke-linecap="round"/>
+        <!-- confirmation check on the right edge -->
+        <g class="t-check-pop">
+          <circle class="t-check" cx="170" cy="76" r="16"/>
+          <path d="m162.5 76 5.5 5.5 11-11.5" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+        <!-- the giving heart on the left edge - what makes this a donation -->
+        <g class="t-heart-float">
+          <circle class="t-heart-badge" cx="86" cy="60" r="11"/>
+          <path class="t-heart-mark" d="M86 65.2c-3.1-2-4.9-3.7-4.9-5.8 0-1.5 1.2-2.7 2.7-2.7 1 0 1.8.5 2.2 1.3.4-.8 1.2-1.3 2.2-1.3 1.5 0 2.7 1.2 2.7 2.7 0 2.1-1.8 3.8-4.9 5.8z"/>
+        </g>
+        <!-- rupee coin -->
+        <g class="t-coin-float">
+          <circle class="t-coin" cx="190" cy="124" r="13" stroke-width="2.2"/>
+          <text class="t-coin-text" x="190" y="129" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700">₹</text>
+        </g>
+      </svg>
+    </div>
+  </header>
+
+  <!-- ============ MAIN WORK (4.2.1) — state-driven ============ -->
+  @switch (uiState()) {
+
+
+    <!-- NO ACCESS (4.2.4) -->
+    @case ('no-access') {
+      <section class="card state-panel" role="alert">
+        <h2 class="state-title">This value cannot be displayed with your current access.</h2>
+        <p class="state-text">Restricted menu, record, fields, counts, actions and search suggestions are hidden. Return to your permitted landing page, or request access where configured.</p>
+        <div class="state-actions">
+          <button type="button" class="btn btn-primary">Return to landing page</button>
+          <button type="button" class="btn btn-ghost">Request access</button>
+        </div>
+      </section>
+    }
+
+    <!-- EMPTY (4.2.4) — no eligible campaign or appeal available in scope -->
+    @case ('empty') {
+      <section class="card state-panel" role="status">
+        <h2 class="state-title">No campaign or appeal is available to start a donation intent.</h2>
+        <p class="state-text">This is not a global zero — no eligible campaign or appeal exists inside your current organisation, geography and scope, or setup is incomplete. Add a permitted campaign or reset the scope, then start the intent.</p>
+        <div class="state-actions">
+          <button type="button" class="btn btn-primary">Set up a campaign</button>
+          <button type="button" class="btn btn-ghost" (click)="backToForm()">Reset scope</button>
+        </div>
+      </section>
+    }
+
+    <!-- DUPLICATE (4.2.4) — safe candidate category, no protected details -->
+    @case ('duplicate') {
+      <section class="card state-panel" role="alert">
+        <h2 class="state-title">Possible duplicate identity detected.</h2>
+        <p class="state-text">A safe candidate category was found for the entered Email or mobile. Compare through the review route without exposing another person's protected details, then choose an action — nothing is overwritten silently.</p>
+        <div class="dup-compare">
+          <div class="dup-col">
+            <span class="dup-h">Match category</span>
+            <span class="dup-v">Same email or mobile already has a donation intent in scope</span>
+          </div>
+          <div class="dup-col">
+            <span class="dup-h">Comparison route</span>
+            <span class="dup-v">Review candidate via support correlation</span>
+          </div>
+        </div>
+        <div class="state-actions">
+          <button type="button" class="btn btn-primary">Link</button>
+          <button type="button" class="btn btn-ghost">Change value</button>
+          <button type="button" class="btn btn-ghost">Request review</button>
+          <button type="button" class="btn btn-ghost" (click)="backToForm()">Cancel</button>
+        </div>
+      </section>
+    }
+
+    <!-- CONFLICT (4.2.4 / 4.2.6) -->
+    @case ('conflict') {
+      <section class="card state-panel" role="alert">
+        <h2 class="state-title">This record changed after you opened it. Review the latest version before continuing.</h2>
+        <p class="state-text">Your proposed values are retained. Compare the latest version, reapply eligible changes, or cancel.</p>
+        <div class="state-actions">
+          <button type="button" class="btn btn-primary">Compare</button>
+          <button type="button" class="btn btn-ghost">Reapply eligible changes</button>
+          <button type="button" class="btn btn-ghost" (click)="backToForm()">Cancel</button>
+        </div>
+      </section>
+    }
+
+    <!-- DEPENDENCY FAILURE (4.2.4 / 4.2.6) -->
+    @case ('dependency-failure') {
+      <section class="card state-panel" role="alert">
+        <h2 class="state-title">We could not complete the dependent service step. Your confirmed local result is unchanged.</h2>
+        <p class="state-text">The committed local intent result is separate from the failed dependency (message, provider, document, report, job or audit). Retry only the failed dependency using the correlation reference.</p>
+        <p class="corr">Correlation reference: <strong>INT-DEP-77014</strong></p>
+        <div class="state-actions">
+          <button type="button" class="btn btn-primary">Retry dependency</button>
+          <button type="button" class="btn btn-ghost">Contact support</button>
+        </div>
+      </section>
+    }
+
+    <!-- READY / VALIDATION / SUCCESS all show the form; validation & success add banners -->
+    @default {
+
+      <!-- ============ MAIN WORK + RELATED SECONDARY PANEL (4.2.1; two-region desktop layout, 4.2.5) ============ -->
+      <form class="pdi-grid pdi-grid-with-side" (ngSubmit)="requestSubmit()" novalidate>
+
+        <!-- ======= CARD 1 — Donor & Payment Details ======= -->
+        <section class="card pdi-panel pdi-col pdi-col-main" aria-labelledby="sec-donor">
+          <header class="pdi-panel-head card-header">
+          
+            <span class="pdi-panel-head-copy">
+              <h2 class="pdi-panel-title card-title" id="sec-donor">Donor &amp; Payment Details</h2>
+              <p class="pdi-panel-desc">Enter the donor's information and payment details to initiate the donation.</p>
+            </span>
+          </header>
+          <div class="fields-grid pdi-fields">
+
+            <div class="field field-span-2 intent-strip">
+              <span class="field-label" id="lbl-campaign">Campaign or appeal <span class="req-star">*</span></span>
+              <div class="scope-picker">
+                <button type="button" id="fld-campaign" class="pdi-control pdi-control-btn" (click)="toggleCampaignPicker()"
+                        [disabled]="formLocked()"
+                        [class.has-error]="!selectedCampaign() && uiState() === 'validation'"
+                        [attr.aria-invalid]="!selectedCampaign() && uiState() === 'validation'"
+                        aria-haspopup="listbox" [attr.aria-expanded]="campaignPickerOpen()" aria-labelledby="lbl-campaign">
+                  <span class="pdi-control-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+                  </span>
+                  <span class="pdi-control-body">
+                  @if (selectedCampaign()) {
+                    <span class="picker-value">
+                      <span class="picker-name">{{ selectedCampaign()!.name }}</span>
+                    </span>
+                  } @else {
+                    <span class="picker-placeholder">Search an eligible campaign or appeal in scope</span>
+                  }
+                  </span>
+                  <svg class="chev-ic static" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                @if (campaignPickerOpen()) {
+                  <div class="picker-pop" role="listbox" aria-label="Eligible campaigns or appeals in scope">
+                    <div class="picker-search">
+                      <input type="search" class="input" placeholder="Search campaigns or appeals in scope…"
+                             [ngModel]="campaignQuery()" (ngModelChange)="campaignQuery.set($event)"
+                             name="campaignQuery" aria-label="Search campaigns or appeals" />
+                    </div>
+                    @for (c of campaignResults(); track c.reference) {
+                      <button type="button" class="picker-option" role="option"
+                              [attr.aria-selected]="selectedCampaign()?.reference === c.reference"
+                              (click)="selectCampaign(c)">
+                        <span class="picker-name">{{ c.name }}</span>
+                        <span class="picker-context">{{ c.reference }} · {{ c.context }}</span>
+                      </button>
+                    }
+                    @if (campaignResults().length === 0) {
+                      <p class="picker-empty">No eligible campaign or appeal matches inside your scope.</p>
+                    }
+                  </div>
+                }
+              </div>
+              @if (!selectedCampaign() && uiState() === 'validation') {
+                <span class="field-error">Choose the campaign or appeal you would like to support.</span>
+              }
+            </div>
+
+            <!-- Full name — text. FORCED READ-ONLY BY DEFAULT per request: bound value shows,
+                 but the input is always disabled regardless of identityLocked()/formLocked()
+                 state coming from the component. If this should instead depend on real
+                 sign-in state, move this logic back into identityLocked() in the .ts file. -->
+            <label class="field">
+              <span class="field-label">Full name <span class="req-star">*</span></span>
+              <span class="pdi-control is-static">
+                <span class="pdi-control-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
+                <input id="fld-fullName" type="text" class="pdi-input" maxlength="120" autocomplete="off"
+                       placeholder="Enter donor name" disabled
+                       [ngModel]="fullName()" (ngModelChange)="fullName.set($event)" name="fullName" />
+              </span>
+              <span class="field-hint">From your account.</span>
+            </label>
+
+            <!-- Email — Required; Restricted (4.2.2 / 4.2.5). FORCED READ-ONLY BY DEFAULT,
+                 same as Full name above. -->
+            <label class="field">
+              <span class="field-label">Email <span class="req-star">*</span></span>
+              <span class="pdi-control is-static">
+                <span class="pdi-control-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>
+                </span>
+                <input id="fld-emailOrMobile" type="email" class="pdi-input" autocomplete="off"
+                       placeholder="Enter email id" disabled
+                       [ngModel]="emailOrMobile()" (ngModelChange)="emailOrMobile.set($event)" name="emailOrMobile" />
+              </span>
+              <span class="field-hint">From your account. Your receipt is sent here.</span>
+            </label>
+
+            <!-- Mobile number — optional, and validated only when given. The design shows the
+                 field without the star, which is exactly how the validation treats it. -->
+            <label class="field">
+              <span class="field-label">Mobile No</span>
+              <span class="pdi-control" [class.has-error]="mobileInvalid() && uiState() === 'validation'">
+                <span class="pdi-control-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92Z"/></svg>
+                </span>
+                <input id="fld-mobileNumber" type="tel" inputmode="tel" class="pdi-input" maxlength="20"
+                       autocomplete="off" placeholder="Enter mobile number"
+                       [disabled]="formLocked()"
+                       [ngModel]="mobileNumber()" (ngModelChange)="mobileNumber.set($event)" name="mobileNumber"
+                       [attr.aria-invalid]="mobileInvalid() && uiState() === 'validation'" />
+              </span>
+              @if (mobileInvalid()) {
+                <span class="field-error">Review Mobile No. Enter 10 to 15 digits.</span>
+              }
+            </label>
+
+      
+              <label class="field">
+              <span class="field-label">Donation amount <span class="req-star">*</span></span>
+              @if (!formLocked()) {
+                <span class="pdi-control" [class.has-error]="(!donationAmount().trim() || amountInvalid()) && uiState() === 'validation'">
+                  <span class="pdi-control-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
+                  </span>
+                  <input id="fld-donationAmount" type="text" inputmode="decimal" class="pdi-input"
+                         placeholder="Enter amount"
+                         [ngModel]="donationAmount()" (ngModelChange)="donationAmount.set($event)" name="donationAmount"
+                         [attr.aria-invalid]="(!donationAmount().trim() || amountInvalid()) && uiState() === 'validation'" />
+                </span>
+              } @else {
+                <span class="pdi-control is-static">
+                  <span class="pdi-control-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
+                  </span>
+                  <span class="pdi-input pdi-static-value">{{ formattedAmount() || '—' }}</span>
+                </span>
+              }
+              @if (!donationAmount().trim() && uiState() === 'validation') {
+                <span class="field-error">Enter the donation amount.</span>
+              } @else if (amountInvalid()) {
+                <span class="field-error">Review the donation amount. The value does not meet the stated format or range.</span>
+              }
+            </label>
+
+            <!-- Currency — searchable controlled choice; Required (4.2.2) -->
+            <label class="field">
+              <span class="field-label">Currency <span class="req-star">*</span></span>
+              <span class="pdi-control pdi-control-select" [class.has-error]="!currency() && uiState() === 'validation'">
+                <span class="pdi-control-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                </span>
+                <select id="fld-currency" class="pdi-input" [ngModel]="currency()" (ngModelChange)="currency.set($event)"
+                        name="currency" aria-label="Currency" [disabled]="formLocked()"
+                        [attr.aria-invalid]="!currency() && uiState() === 'validation'">
+                  <option value="" >Select currency</option>
+                  @for (c of currencyCatalogue(); track c.reference) { <option [value]="c.reference">{{ c.label }}</option> }
+                </select>
+                <svg class="chev-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </span>
+              @if (!currency() && uiState() === 'validation') {
+                <span class="field-error">Enter Currency.</span>
+              }
+            </label>
+           
+
+            <label class="field">
+              <span class="field-label">PAN or Tax Identifier</span>
+              @if (!formLocked()) {
+                <!-- inputmode IS NOT numeric. It was, which put a digits-only keypad in front of
+                     anyone entering ABCDE1234F on a phone - the field cannot be typed at all
+                     from that keyboard. maxlength matches the thirty characters the API stores. -->
+                <span class="pdi-control" [class.has-error]="panInvalid()">
+                  <span class="pdi-control-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M6 16c.5-1.6 3.5-1.6 4 0"/><path d="M14 9h5"/><path d="M14 13h4"/></svg>
+                  </span>
+                  <input id="fld-panOrTaxId" type="text" inputmode="text" class="pdi-input"
+                         maxlength="30" autocomplete="off" spellcheck="false"
+                         placeholder="Enter PAN or Tax Identifier (for tax receipt)"
+                         [ngModel]="panOrTaxId()" (ngModelChange)="panOrTaxId.set($event)" name="panOrTaxId"
+                         [attr.aria-invalid]="panInvalid()" />
+                </span>
+              } @else {
+                <span class="pdi-control is-static">
+                  <span class="pdi-control-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M6 16c.5-1.6 3.5-1.6 4 0"/><path d="M14 9h5"/><path d="M14 13h4"/></svg>
+                  </span>
+                  <span class="pdi-input pdi-static-value">{{ panMasked() || '—' }}</span>
+                </span>
+              }
+              @if (panInvalid()) {
+                <span class="field-error">Review PAN or tax identifier. The value does not meet the stated format or range.</span>
+              }
+            </label>
+
+          </div>
+        </section>
+
+        <!-- ======= CARD 2 — Address Details (+ consent & submit, closing the flow) ======= -->
+        <section class="card pdi-panel pdi-col pdi-col-side" aria-labelledby="sec-address">
+          <header class="pdi-panel-head card-header">
+            
+            <span class="pdi-panel-head-copy">
+              <h2 class="pdi-panel-title card-title" id="sec-address">Address Details</h2>
+              <p class="pdi-panel-desc">Provide complete address details for receipt and communication.</p>
+            </span>
+          </header>
+          <div class="fields-grid pdi-fields">
+
+            <label class="field field-span-2">
+              <span class="field-label">Address line 1 <span class="req-star">*</span></span>
+              <span class="pdi-control" [class.has-error]="!addressText().trim() && uiState() === 'validation'">
+                <span class="pdi-control-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></svg>
+                </span>
+                <input id="fld-addressLine1" type="text" class="pdi-input" maxlength="160" autocomplete="off"
+                       placeholder="Enter address line 1" [disabled]="formLocked()"
+                       [ngModel]="addressText()" (ngModelChange)="addressText.set($event)" name="addressText"
+                       [attr.aria-invalid]="!addressText().trim() && uiState() === 'validation'" />
+              </span>
+              @if (!addressText().trim() && uiState() === 'validation') {
+                <span class="field-error">Enter Address line 1.</span>
+              }
+            </label>
+
+            <label class="field field-span-2">
+              <span class="field-label">Address line 2</span>
+              <span class="pdi-control">
+                <span class="pdi-control-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
+                </span>
+                <input id="fld-addressLine2" type="text" class="pdi-input" maxlength="160" autocomplete="off"
+                       placeholder="Enter address line 2" [disabled]="formLocked()"
+                       [ngModel]="addressLine2Text()" (ngModelChange)="addressLine2Text.set($event)" name="addressLine2Text" />
+              </span>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Country <span class="req-star">*</span></span>
+              <span class="pdi-control pdi-control-select" [class.has-error]="!countryId() && uiState() === 'validation'">
+                <span class="pdi-control-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                </span>
+                <select id="fld-country" class="pdi-input" [ngModel]="countryId()" (ngModelChange)="onAddressCountryChange($event)"
+                        name="countryId" aria-label="Country" [disabled]="formLocked()"
+                        [attr.aria-invalid]="!countryId() && uiState() === 'validation'">
+                  <option value="">Select country</option>
+                  @for (c of countryCatalogue(); track c.reference) { <option [value]="c.reference">{{ c.label }}</option> }
+                </select>
+                <svg class="chev-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </span>
+              @if (!countryId() && uiState() === 'validation') {
+                <span class="field-error">Enter Country.</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field-label">State <span class="req-star">*</span></span>
+              <span class="pdi-control pdi-control-select" [class.has-error]="!stateId() && uiState() === 'validation'">
+                <span class="pdi-control-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg>
+                </span>
+                <select id="fld-state" class="pdi-input" [ngModel]="stateId()" (ngModelChange)="onAddressStateChange($event)"
+                        name="stateId" aria-label="State" [disabled]="formLocked()"
+                        [attr.aria-invalid]="!stateId() && uiState() === 'validation'">
+                  <option value="">Select state</option>
+                  @for (s of stateCatalogue(); track s.reference) { <option [value]="s.reference">{{ s.label }}</option> }
+                </select>
+                <svg class="chev-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </span>
+              @if (!stateId() && uiState() === 'validation') {
+                <span class="field-error">Enter State.</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field-label">City <span class="req-star">*</span></span>
+              <span class="pdi-control pdi-control-select" [class.has-error]="!cityId() && uiState() === 'validation'">
+                <span class="pdi-control-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+                </span>
+                <select id="fld-city" class="pdi-input" [ngModel]="cityId()" (ngModelChange)="cityId.set($event)"
+                        name="cityId" aria-label="City" [disabled]="formLocked()"
+                        [attr.aria-invalid]="!cityId() && uiState() === 'validation'">
+                  <option value="">Select city</option>
+                  @for (c of cityCatalogue(); track c.reference) { <option [value]="c.reference">{{ c.label }}</option> }
+                </select>
+                <svg class="chev-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </span>
+              @if (!cityId() && uiState() === 'validation') {
+                <span class="field-error">Enter City.</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field-label">PIN / ZIP Code <span class="req-star">*</span></span>
+              <span class="pdi-control" [class.has-error]="!pinCode().trim() && uiState() === 'validation'">
+                <span class="pdi-control-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+                </span>
+                <input id="fld-pinCode" type="text" inputmode="numeric" class="pdi-input" maxlength="10" autocomplete="off"
+                       placeholder="Enter PIN / ZIP code" [disabled]="formLocked()"
+                       [ngModel]="pinCode()" (ngModelChange)="pinCode.set($event)" name="pinCode"
+                       [attr.aria-invalid]="!pinCode().trim() && uiState() === 'validation'" />
+              </span>
+              @if (!pinCode().trim() && uiState() === 'validation') {
+                <span class="field-error">Enter PIN / ZIP Code.</span>
+              }
+            </label>
+
+          </div>
+
+          <!-- THE CONSENT BAR — checkbox and the primary action, closing card 2. -->
+          <div class="pdi-consent-bar" [class.is-disabled]="formLocked()">
+            <span class="pdi-consent-shield" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+            </span>
+            <label class="pdi-consent-main">
+              <input id="fld-consent" type="checkbox" [checked]="consentChecked()" [disabled]="formLocked()"
+                     (change)="toggleConsent($any($event.target).checked)"
+                     [attr.aria-invalid]="!consentChecked() && uiState() === 'validation'" />
+              <span class="consent-body">
+                <span class="consent-label">I acknowledge the Privacy Notice  <span class="req-star">*</span></span>
+              </span>
+            </label>
+            <div class="pdi-consent-actions">
+
+              <!-- CONTINUE TO PAYMENT IS BACK ON THE PAGE, and it had to be.
+                   Once an intent exists, `formLocked` disables every field on this form - correctly, a
+                   submitted intent is not editable - and `submitAllowed` requires 'No record', so
+                   Submit is disabled too. With this button commented out, an intent reached from the
+                   Payment Queue's "Continue payment", or one whose checkout the donor closed, opened a
+                   page with NO enabled control anywhere: every field greyed, both buttons dead, under a
+                   toast telling the donor to select the button that was not there.
+                   SUBMIT IS ONLY FOR A FORM THAT HAS NOT BEEN SUBMITTED. Showing it disabled beside
+                   Continue to payment on a resumed intent invites somebody to press the wrong one. -->
+              @if (lifecycleState() !== 'No record') {
+                <button type="button" class="btn btn-primary btn-sm" (click)="requestContinueToPayment()"
+                        [disabled]="!continueToPaymentAllowed()"
+                        [title]="continueToPaymentAllowed()
+                          ? 'Continue to payment'
+                          : 'This donation is no longer awaiting payment'">
+                  <svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+                  Continue to payment
+                </button>
+              }
+              @if (lifecycleState() === 'No record') {
+                <button type="button" class="btn btn-primary btn-sm " (click)="requestSubmit()"
+                        [disabled]="!submitAllowed()"
+                        [title]="submitAllowed() ? 'Submit and create the donation intent' : 'Already submitted'">
+                  <svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                  Submit
+                </button>
+              }
+            </div>
+          </div>
+          @if (!consentChecked() && uiState() === 'validation') {
+            <span class="field-error pdi-consent-error">Enter Consent acknowledgement.</span>
+          }
+          <div class="pdi-paper-foot">
+            <p class="pdi-paper-note">Thank you for supporting the cause — fields marked <span class="req-star">*</span> are required.</p>
+          </div>
+
+        </section>
+
+      </form>
+
+    }
+  }
+  <!-- ============ SECTION 3: THE LEAD / DONOR BRANCH ============
+       WHY THIS IS A STOP RATHER THAN A TOAST. The page used to recognise a returning donor,
+       show a "welcome back" message and redirect to the gateway in the same breath - so the
+       choice the document gives the donor ("they can pay right away, or log in") was made for
+       them before the toast had finished appearing. Recognition is only worth doing if it
+       changes what happens next. -->
+  @if (identityChoiceOpen()) {
+    <div class="dialog-backdrop">
+      <div class="dialog pdi-identity-dialog" role="dialog" aria-modal="true" aria-labelledby="pdi-identity-title">
+        <h2 class="dialog-title" id="pdi-identity-title">Welcome back</h2>
+        <p class="state-text">
+          We already have a record for {{ recognisedContact() }} with this organisation. Your
+          donation {{ intentReference() }} is saved either way — choose how you would like to
+          finish it.
+        </p>
+
+        @if (donorCheck()?.message) {
+          <p class="state-text pdi-identity-note">{{ donorCheck()!.message }}</p>
+        }
+
+        <div class="pdi-identity-actions">
+          @if (canSignIn()) {
+            <button type="button" class="btn btn-primary btn-sm" (click)="signInAndContinue()">
+              Sign in, then pay
+            </button>
+            <span class="pdi-identity-hint">
+              Signing in lets you see your previous payments and receipts. You come straight back
+              to this donation afterwards.
+            </span>
+          } @else {
+            <span class="pdi-identity-hint">
+              Your account has not been activated yet, so there is nothing to sign in to. Finish
+              the payment and we will e-mail you an activation link with the receipt.
+            </span>
+          }
+
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="continueWithoutSigningIn()">
+            Continue to payment
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+</div>
+</div>
+</div>
+</main>

@@ -1,0 +1,743 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using YDot.IAM.Application.Common.Abstractions.Persistence;
+using YDot.IAM.Application.Common.Abstractions.Security;
+using YDot.IAM.Application.Common.Abstractions.Services;
+using YDot.IAM.Application.Common.Constants;
+using YDot.IAM.Application.Common.Results;
+using YDot.IAM.Application.Common.Settings;
+using YDot.IAM.Application.Features.Users.DTOs;
+using YDot.IAM.Domain.Entities;
+using YDot.IAM.Domain.Enums;
+using YDot.IAM.Domain.ValueObjects;
+
+namespace YDot.IAM.Application.Features.Users.Commands.CreateUser;
+
+/// <summary>IAM-USR-01. Creates a user in the caller Organisation and invites them.</summary>
+public sealed record CreateUserCommand(CreateUserRequest Request);
+
+/// <summary>Live availability check for the create form.</summary>
+public sealed record CheckUserIdentityQuery(CheckUserIdentityRequest Request);
+
+/// <summary>Re-sends an outstanding invitation with a fresh token.</summary>
+public sealed record ResendUserInvitationCommand(Guid UserId, string? Message);
+
+/// <summary>Withdraws an outstanding invitation.</summary>
+public sealed record RevokeUserInvitationCommand(Guid UserId, string Reason);
+
+/// <summary>
+/// User creation.
+///
+/// THE UNIQUENESS RULE IS THE INTERESTING PART. E-mail and username are checked against THIS
+/// Organisation only. The same address existing in another Organisation is not a conflict —
+/// it is the documented behaviour from section 6 of the brief, and two such users are
+/// genuinely separate people with separate passwords and separate roles.
+///
+/// A NEW USER HAS NO PASSWORD. The account is created with a null hash and status Invited, so
+/// it genuinely cannot be signed into rather than relying on a status check that somebody
+/// might one day forget. The invitation is what turns it into a usable account.
+/// </summary>
+public sealed class CreateUserCommandHandler(
+    IUserRepository users,
+    IRoleRepository roles,
+    ITenantRepository tenants,
+    IBusinessUnitRepository businessUnits,
+    IInvitationRepository invitations,
+    IGovernanceRepository governance,
+    IPasswordHasher passwordHasher,
+    ITokenHasher tokenHasher,
+    INotificationService notifications,
+    IAuditService audit,
+    ITenantContext tenantContext,
+    ICurrentUser currentUser,
+    IDateTimeProvider clock,
+    IUnitOfWork unitOfWork,
+    IOptions<SecuritySettings> securityOptions,
+    IOptions<EmailSettings> emailOptions,
+    IOptions<ClientAppSettings> clientOptions,
+    ILogger<CreateUserCommandHandler> logger)
+{
+    /// <summary>
+    /// Whether an e-mail address or username is free INSIDE THIS ORGANISATION.
+    ///
+    /// The scoping is the whole point. john@example.com may exist in three Organisations at
+    /// once, and none of those is a clash; what must never happen is two of them inside one.
+    /// The repository lookups below are Organisation-scoped by the query filter, so the answer
+    /// is about the caller's Organisation and no other.
+    ///
+    /// IT NEVER SAYS WHO HOLDS A TAKEN VALUE. That would turn the create form into a directory
+    /// lookup for anybody who can reach it.
+    /// </summary>
+    public async Task<Result<CheckUserIdentityResponse>> HandleAsync(
+        CheckUserIdentityQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        logger.LogInformation("Checking user identity availability.");
+
+        var request = query.Request;
+        var email = request.Email?.Trim();
+        var username = request.Username?.Trim();
+
+        if (string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(username))
+        {
+            logger.LogInformation("User identity availability check completed with no identity values supplied.");
+            return Result.Success(new CheckUserIdentityResponse(
+                IsAvailable: true, EmailAvailable: true, UsernameAvailable: true,
+                Message: "Enter an e-mail address or a username to check.",
+                Suggestions: []));
+        }
+
+        var emailAvailable = true;
+        var usernameAvailable = true;
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var parsed = EmailValue.TryParse(email);
+
+            if (parsed is null)
+            {
+                logger.LogWarning("User identity availability check rejected an invalid email value.");
+                return Result.Success(new CheckUserIdentityResponse(
+                    IsAvailable: false, EmailAvailable: false, UsernameAvailable: true,
+                    Message: "That is not a valid e-mail address.",
+                    Suggestions: []));
+            }
+
+            emailAvailable = !await users.EmailExistsAsync(
+                parsed.Value.ToUpperInvariant(), tenantContext.TenantId, request.ExcludeUserId, cancellationToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(username))
+        {
+            var parsed = UsernameValue.TryParse(username);
+
+            if (parsed is null)
+            {
+                logger.LogWarning("User identity availability check rejected an invalid username value.");
+                return Result.Success(new CheckUserIdentityResponse(
+                    IsAvailable: false, EmailAvailable: emailAvailable, UsernameAvailable: false,
+                    Message: "A username may use letters, digits, dots, hyphens and underscores.",
+                    Suggestions: []));
+            }
+
+            usernameAvailable = !await users.UsernameExistsAsync(
+                parsed.Value.ToUpperInvariant(), tenantContext.TenantId, request.ExcludeUserId, cancellationToken);
+        }
+
+        // Suggestions only for a taken USERNAME. Suggesting variations of somebody's e-mail
+        // address would be both useless and slightly alarming.
+        var suggestions = usernameAvailable || string.IsNullOrWhiteSpace(username)
+            ? []
+            : await BuildUsernameSuggestionsAsync(username, cancellationToken);
+
+        var available = emailAvailable && usernameAvailable;
+
+        logger.LogInformation("User identity availability check completed. EmailAvailable {EmailAvailable}, UsernameAvailable {UsernameAvailable}.", emailAvailable, usernameAvailable);
+
+        return Result.Success(new CheckUserIdentityResponse(
+            available,
+            emailAvailable,
+            usernameAvailable,
+            available
+                ? "That is available."
+                : !emailAvailable && !usernameAvailable
+                    ? "Both the e-mail address and the username are already in use in this organisation."
+                    : !emailAvailable
+                        ? "Somebody in this organisation already uses that e-mail address."
+                        : "That username is already in use in this organisation.",
+            suggestions));
+    }
+
+    /// <summary>
+    /// Up to three free variations on a taken username.
+    ///
+    /// Each candidate is checked rather than merely generated, so the form never offers one that
+    /// is itself taken - which is a worse experience than offering nothing at all.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> BuildUsernameSuggestionsAsync(
+        string username, CancellationToken cancellationToken)
+    {
+        var stem = username.Trim().ToLowerInvariant();
+        var found = new List<string>(3);
+
+        for (var suffix = 1; suffix <= 20 && found.Count < 3; suffix++)
+        {
+            var candidate = $"{stem}{suffix}";
+            var parsed = UsernameValue.TryParse(candidate);
+
+            if (parsed is null)
+            {
+                continue;
+            }
+
+            var taken = await users.UsernameExistsAsync(
+                parsed.Value.ToUpperInvariant(), tenantContext.TenantId, null, cancellationToken);
+
+            if (!taken)
+            {
+                found.Add(candidate);
+            }
+        }
+
+        return found;
+    }
+
+    private readonly SecuritySettings _security = securityOptions.Value;
+    private readonly EmailSettings _email = emailOptions.Value;
+    private readonly ClientAppSettings _client = clientOptions.Value;
+
+    public async Task<Result<CreateUserResponse>> HandleAsync(
+        CreateUserCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        logger.LogInformation("Creating user.");
+
+        var request = command.Request;
+        var now = clock.UtcNow;
+
+        // The Organisation comes from the request context, never from the body.
+        if (!tenantContext.HasTenant)
+        {
+            logger.LogWarning("User creation failed because tenant selection is required.");
+            return Result.Failure<CreateUserResponse>(Error.TenantSelectionRequired());
+        }
+
+        var tenantId = tenantContext.RequireTenantId();
+        var tenant = await tenants.GetByIdAsync(tenantId, cancellationToken);
+        if (tenant is null)
+        {
+            logger.LogWarning("User creation failed because TenantId {TenantId} was not found.", tenantId);
+            return Result.Failure<CreateUserResponse>(Error.TenantNotFound());
+        }
+
+        var businessUnit = await businessUnits.GetByIdAsync(tenant.BusinessUnitId, cancellationToken);
+        if (businessUnit is null)
+        {
+            logger.LogError("User creation failed because the platform business unit is not configured. TenantId {TenantId}.", tenantId);
+            return Result.Failure<CreateUserResponse>(Error.Dependency("The platform is not configured."));
+        }
+
+        // ---- Licence ceiling -------------------------------------------------------------
+        if (tenant.MaximumUsers.HasValue)
+        {
+            var existing = await users.CountActiveAsync(tenantId, cancellationToken);
+            if (existing >= tenant.MaximumUsers.Value)
+            {
+                logger.LogWarning("User creation rejected because the tenant user limit has been reached. TenantId {TenantId}, CurrentUsers {CurrentUsers}, MaximumUsers {MaximumUsers}.", tenantId, existing, tenant.MaximumUsers.Value);
+                return Result.Failure<CreateUserResponse>(Error.UserLimitReached());
+            }
+        }
+
+        // ---- Identity, scoped to this Organisation ------------------------------------------
+        var email = EmailValue.TryParse(request.Email);
+        if (email is null)
+        {
+            logger.LogWarning("User creation failed because the supplied email is invalid.");
+            return Result.Failure<CreateUserResponse>(
+                Error.Validation("Enter a valid e-mail address.",
+                    [new ValidationError(nameof(request.Email), "That e-mail address is not valid.")]));
+        }
+
+        if (await users.EmailExistsAsync(email.Value.ToUpperInvariant(), tenantId, null, cancellationToken))
+        {
+            logger.LogWarning("User creation rejected because the email already exists in TenantId {TenantId}.", tenantId);
+            return Result.Failure<CreateUserResponse>(
+                Error.Duplicate("Somebody in this organisation already uses that e-mail address."));
+        }
+
+        var usernameCandidate = string.IsNullOrWhiteSpace(request.Username)
+            ? email.LocalPart
+            : request.Username;
+
+        var username = UsernameValue.TryParse(usernameCandidate);
+        if (username is null)
+        {
+            logger.LogWarning("User creation failed because the username is invalid. TenantId {TenantId}.", tenantId);
+            return Result.Failure<CreateUserResponse>(
+                Error.Validation("That username is not valid.",
+                    [new ValidationError(nameof(request.Username),
+                        "Use 3 to 64 letters, digits, dots, hyphens or underscores.")]));
+        }
+
+        // A collision on the derived username is resolved rather than reported: the person
+        // did not choose it, so refusing the whole create would be baffling.
+        var finalUsername = username.Value;
+        if (string.IsNullOrWhiteSpace(request.Username))
+        {
+            var suffix = 1;
+            while (await users.UsernameExistsAsync(
+                       finalUsername.ToUpperInvariant(), tenantId, null, cancellationToken))
+            {
+                finalUsername = $"{username.Value}{suffix++}";
+                if (suffix > 999)
+                {
+                    break;
+                }
+            }
+        }
+        else if (await users.UsernameExistsAsync(finalUsername.ToUpperInvariant(), tenantId, null, cancellationToken))
+        {
+            logger.LogWarning("User creation rejected because the username already exists in TenantId {TenantId}.", tenantId);
+            return Result.Failure<CreateUserResponse>(
+                Error.Duplicate("Somebody in this organisation already uses that username."));
+        }
+
+        // ---- Referential checks --------------------------------------------------------------
+        //
+        // The query filter means a department in another Organisation simply is not found,
+        // which is the correct answer and also the safe one.
+        if (request.ManagerUserId.HasValue)
+        {
+            var manager = await users.GetByIdAsync(request.ManagerUserId.Value, cancellationToken);
+            if (manager is null)
+            {
+                logger.LogWarning("User creation failed because the requested manager was not found in TenantId {TenantId}.", tenantId);
+                return Result.Failure<CreateUserResponse>(
+                    Error.Validation("That manager was not found in this organisation.",
+                        [new ValidationError(nameof(request.ManagerUserId), "Choose a manager from this organisation.")]));
+            }
+        }
+
+        // ---- The user ---------------------------------------------------------------------------
+        var displayName = string.IsNullOrWhiteSpace(request.DisplayName)
+            ? $"{request.FirstName.Trim()} {request.LastName.Trim()}".Trim()
+            : request.DisplayName.Trim();
+
+        var user = new User
+        {
+            TenantId = tenantId,
+            BusinessUnitId = businessUnit.Id,
+            Code = await users.NextUserCodeAsync(tenantId, cancellationToken),
+            EmployeeNumber = request.EmployeeNumber?.Trim(),
+            FirstName = request.FirstName.Trim(),
+            MiddleName = request.MiddleName?.Trim(),
+            LastName = request.LastName.Trim(),
+            DisplayName = displayName,
+            Email = email.Value,
+            NormalizedEmail = email.Value.ToUpperInvariant(),
+            UserName = finalUsername,
+            NormalizedUserName = finalUsername.ToUpperInvariant(),
+            EmailConfirmed = false,
+            MobileCountryCode = request.MobileCountryCode?.Trim(),
+            MobileNumber = request.MobileNumber?.Trim(),
+            AccountCategory = request.AccountCategory,
+            EngagementType = request.EngagementType,
+            DepartmentId = request.DepartmentId,
+            OrganisationUnitId = request.OrganisationUnitId,
+            Designation = request.Designation?.Trim(),
+            ManagerUserId = request.ManagerUserId,
+            // Draft when no invitation is being sent, so a staged import does not look like a
+            // pile of people who were invited and never replied.
+            Status = request.SendInvitation ? UserStatus.Invited : UserStatus.Draft,
+            AccessStartsAtUtc = request.AccessStartsAtUtc ?? now,
+            AccessEndsAtUtc = request.AccessEndsAtUtc,
+            MfaRequirement = request.MfaRequirement,
+            JoinedOn = request.JoinedOn,
+            CredentialSetupMethod = request.CredentialSetupMethod,
+            PrivilegeLevel = PrivilegeLevel.Standard,
+            LockoutEnabled = true,
+            IsSuperAdmin = false,
+            IsTenantAdmin = false
+        };
+
+        user.PhoneNumber = user.ToE164();
+
+        // An administrator-set temporary password. Usable immediately, and must be changed at
+        // first sign-in.
+        string? temporaryPassword = null;
+        if (request.CredentialSetupMethod == CredentialSetupMethod.TemporaryPassword)
+        {
+            temporaryPassword = passwordHasher.GenerateTemporaryPassword();
+            user.PasswordHash = passwordHasher.Hash(temporaryPassword);
+            user.MustChangePassword = true;
+            user.Status = UserStatus.Active;
+        }
+
+        await users.AddAsync(user, cancellationToken);
+
+        // ---- Roles ------------------------------------------------------------------------------
+        var assigned = await AssignRolesAsync(
+            user, tenant, request.RoleIds, request.AccountCategory, now, cancellationToken);
+        if (assigned.IsFailure)
+        {
+            logger.LogWarning("User creation failed during role assignment. UserId {UserId}, TenantId {TenantId}.", user.Id, tenantId);
+            return Result.Failure<CreateUserResponse>(assigned.Error!);
+        }
+
+        // ---- Narrowing scopes ---------------------------------------------------------------------
+        foreach (var scope in request.DataScopes ?? [])
+        {
+            await governance.AddDataScopeAsync(new UserDataScope
+            {
+                TenantId = tenantId,
+                BusinessUnitId = businessUnit.Id,
+                UserId = user.Id,
+                ScopeType = scope.ScopeType,
+                ScopeValue = scope.ScopeValue.Trim(),
+                DisplayLabel = scope.DisplayLabel,
+                GrantedAtUtc = now,
+                GrantedByUserId = currentUser.UserId,
+                EffectiveFromUtc = now,
+                EffectiveToUtc = scope.EffectiveToUtc
+            }, cancellationToken);
+        }
+
+        // ---- Invitation -------------------------------------------------------------------------------
+        UserInvitation? invitation = null;
+        string? plaintextToken = null;
+
+        if (request.SendInvitation && request.CredentialSetupMethod == CredentialSetupMethod.InvitationLink)
+        {
+            plaintextToken = tokenHasher.GenerateToken();
+            var primaryDomain = await tenants.GetPrimaryDomainAsync(tenantId, cancellationToken);
+
+            invitation = new UserInvitation
+            {
+                TenantId = tenantId,
+                BusinessUnitId = businessUnit.Id,
+                UserId = user.Id,
+                Email = email.Value,
+                NormalizedEmail = email.Value.ToUpperInvariant(),
+                InvitationType = InvitationType.TenantUser,
+                InitialRoleId = request.RoleIds is { Count: > 0 } roleIds ? roleIds[0] : null,
+                TokenHash = tokenHasher.Hash(plaintextToken),
+                Reference = tokenHasher.GenerateReference("INV"),
+                ExpiresAtUtc = now.AddDays(_security.InvitationExpiryDays),
+                Status = InvitationStatus.Pending,
+                InvitedByUserId = currentUser.UserId,
+                InvitedAtUtc = now,
+                InvitationHostName = primaryDomain?.HostName ?? $"{tenant.Subdomain}.{businessUnit.RootDomain}",
+                Message = request.InvitationMessage,
+                LastSentAtUtc = now
+            };
+
+            await invitations.AddAsync(invitation, cancellationToken);
+        }
+
+        await audit.WriteAsync(
+            AuditActionCodes.UserCreated, nameof(User), user.Id, user.DisplayName,
+            new
+            {
+                user.Code,
+                Email = email.Value,
+                user.AccountCategory,
+                RoleCount = request.RoleIds?.Count ?? 0,
+                request.SendInvitation
+            },
+            cancellationToken: cancellationToken);
+
+        if (invitation is not null)
+        {
+            logger.LogInformation("Invitation created for user. UserId {UserId}, InvitationId {InvitationId}.", user.Id, invitation.Id);
+            await audit.WriteAsync(
+                AuditActionCodes.UserInvited, nameof(UserInvitation), invitation.Id,
+                user.DisplayName, new { invitation.Reference },
+                cancellationToken: cancellationToken);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Sent after the commit. A mail relay failure must not undo a user who has already
+        // been created; the invitation can simply be re-sent.
+        string? activationUrl = null;
+        if (invitation is not null && plaintextToken is not null)
+        {
+            logger.LogInformation("Sending user invitation after user creation commit. UserId {UserId}, InvitationId {InvitationId}.", user.Id, invitation.Id);
+            activationUrl = BuildActivationUrl(invitation.InvitationHostName!, plaintextToken);
+
+            await notifications.SendInvitationAsync(
+                user, invitation, tenant, businessUnit, activationUrl, cancellationToken);
+        }
+
+        logger.LogInformation("User created successfully. UserId {UserId}, TenantId {TenantId}, Status {Status}, InvitationCreated {InvitationCreated}.", user.Id, tenantId, user.Status, invitation is not null);
+
+        return Result.Success(new CreateUserResponse(
+            user.Id,
+            user.Code,
+            user.DisplayName,
+            user.Email!,
+            user.Status,
+            invitation is not null,
+            invitation?.ExpiresAtUtc,
+            _email.Enabled ? null : activationUrl,
+            user.Version));
+    }
+
+    public async Task<Result<CreateUserResponse>> HandleAsync(
+        ResendUserInvitationCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        logger.LogInformation("Resending user invitation. UserId {UserId}.", command.UserId);
+
+        var now = clock.UtcNow;
+
+        var user = await users.GetByIdAsync(command.UserId, cancellationToken);
+        if (user is null)
+        {
+            logger.LogWarning("User invitation resend failed because UserId {UserId} was not found.", command.UserId);
+            return Result.Failure<CreateUserResponse>(Error.UserNotFound());
+        }
+
+        if (user.Status is not (UserStatus.Invited or UserStatus.Draft))
+        {
+            logger.LogWarning("User invitation resend rejected because UserId {UserId} has status {Status}.", command.UserId, user.Status);
+            return Result.Failure<CreateUserResponse>(Error.InvalidTransition(
+                "That account is already active. There is nothing to resend."));
+        }
+
+        var tenant = user.TenantId.HasValue
+            ? await tenants.GetByIdAsync(user.TenantId.Value, cancellationToken)
+            : null;
+
+        var businessUnit = await businessUnits.GetByIdAsync(user.BusinessUnitId, cancellationToken);
+        if (businessUnit is null || tenant is null)
+        {
+            logger.LogError("User invitation resend failed because tenant or business unit configuration is unavailable. UserId {UserId}.", command.UserId);
+            return Result.Failure<CreateUserResponse>(Error.Dependency("The platform is not configured."));
+        }
+
+        var invitation = await invitations.GetPendingForUserAsync(user.Id, cancellationToken);
+        var plaintextToken = tokenHasher.GenerateToken();
+        var primaryDomain = await tenants.GetPrimaryDomainAsync(tenant.Id, cancellationToken);
+        var hostName = primaryDomain?.HostName ?? $"{tenant.Subdomain}.{businessUnit.RootDomain}";
+
+        if (invitation is null)
+        {
+            // The account was created without one, or the previous invitation was revoked.
+            invitation = new UserInvitation
+            {
+                TenantId = tenant.Id,
+                BusinessUnitId = businessUnit.Id,
+                UserId = user.Id,
+                Email = user.Email!,
+                NormalizedEmail = user.NormalizedEmail!,
+                InvitationType = InvitationType.TenantUser,
+                TokenHash = tokenHasher.Hash(plaintextToken),
+                Reference = tokenHasher.GenerateReference("INV"),
+                ExpiresAtUtc = now.AddDays(_security.InvitationExpiryDays),
+                Status = InvitationStatus.Pending,
+                InvitedByUserId = currentUser.UserId,
+                InvitedAtUtc = now,
+                InvitationHostName = hostName,
+                Message = command.Message,
+                LastSentAtUtc = now
+            };
+
+            await invitations.AddAsync(invitation, cancellationToken);
+        }
+        else
+        {
+            // A fresh token. The old one stops working, so an invitation forwarded to the
+            // wrong person months ago is not still live alongside the new one.
+            invitation.TokenHash = tokenHasher.Hash(plaintextToken);
+            invitation.ExpiresAtUtc = now.AddDays(_security.InvitationExpiryDays);
+            invitation.Status = InvitationStatus.Resent;
+            invitation.ResendCount += 1;
+            invitation.LastSentAtUtc = now;
+            invitation.InvitationHostName = hostName;
+            invitation.Message = command.Message ?? invitation.Message;
+        }
+
+        user.Status = UserStatus.Invited;
+
+        await audit.WriteAsync(
+            AuditActionCodes.UserInvitationResent, nameof(UserInvitation), invitation.Id,
+            user.DisplayName, new { invitation.ResendCount },
+            cancellationToken: cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var activationUrl = BuildActivationUrl(hostName, plaintextToken);
+
+        await notifications.SendInvitationAsync(
+            user, invitation, tenant, businessUnit, activationUrl, cancellationToken);
+
+        logger.LogInformation("User invitation resent successfully. UserId {UserId}, InvitationId {InvitationId}, ResendCount {ResendCount}.", user.Id, invitation.Id, invitation.ResendCount);
+
+        return Result.Success(new CreateUserResponse(
+            user.Id, user.Code, user.DisplayName, user.Email!, user.Status,
+            InvitationSent: true, invitation.ExpiresAtUtc,
+            _email.Enabled ? null : activationUrl, user.Version));
+    }
+
+    /// <summary>
+    /// Withdraws an outstanding invitation. The token stops working immediately, which is the
+    /// remedy when one was sent to the wrong address.
+    /// </summary>
+    public async Task<Result<DTOs.CreateUserResponse>> HandleAsync(
+        RevokeUserInvitationCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        logger.LogInformation("Revoking user invitation. UserId {UserId}.", command.UserId);
+
+        var user = await users.GetByIdAsync(command.UserId, cancellationToken);
+        if (user is null)
+        {
+            logger.LogWarning("User invitation revocation failed because UserId {UserId} was not found.", command.UserId);
+            return Result.Failure<CreateUserResponse>(Error.UserNotFound());
+        }
+
+        var invitation = await invitations.GetPendingForUserAsync(user.Id, cancellationToken);
+        if (invitation is null)
+        {
+            logger.LogWarning("User invitation revocation failed because no outstanding invitation exists. UserId {UserId}.", command.UserId);
+            return Result.Failure<CreateUserResponse>(
+                Error.NotFound("There is no outstanding invitation for that user."));
+        }
+
+        var now = clock.UtcNow;
+        invitation.Status = InvitationStatus.Revoked;
+        invitation.RevokedAtUtc = now;
+        invitation.RevokedByUserId = currentUser.UserId;
+        invitation.RevocationReason = command.Reason;
+
+        // The token hash is scrambled as well as the status changed, so a leaked link is
+        // dead even if some future code path forgets to check the status.
+        invitation.TokenHash = tokenHasher.Hash(tokenHasher.GenerateToken());
+
+        user.Status = UserStatus.Draft;
+
+        await audit.WriteAsync(
+            AuditActionCodes.UserInvitationRevoked, nameof(UserInvitation), invitation.Id,
+            user.DisplayName, new { command.Reason }, command.Reason, cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("User invitation revoked successfully. UserId {UserId}, InvitationId {InvitationId}.", user.Id, invitation.Id);
+
+        return Result.Success(new CreateUserResponse(
+            user.Id, user.Code, user.DisplayName, user.Email!, user.Status,
+            InvitationSent: false, null, null, user.Version));
+    }
+
+    /// <summary>
+    /// Grants the requested roles, or the Organisation default when none was named.
+    ///
+    /// Refuses a combination that breaks a blocking segregation-of-duties rule, at the point
+    /// somebody tries to create it rather than at the next audit.
+    /// </summary>
+    /// <summary>
+    /// Gives the new account its roles, or works out which one it should have.
+    ///
+    /// THE FALLBACK IS THE INTERESTING PART. It takes the account CATEGORY because the answer to
+    /// "what should an account with no roles get" is not the same for staff and for a donor, and
+    /// the category is the only thing on the request that distinguishes them.
+    /// </summary>
+    private async Task<Result> AssignRolesAsync(
+        User user,
+        Tenant tenant,
+        IReadOnlyList<Guid>? roleIds,
+        UserAccountCategory accountCategory,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var requested = roleIds is { Count: > 0 }
+            ? await roles.GetManyAsync(roleIds, cancellationToken)
+            : [];
+
+        if (roleIds is { Count: > 0 } && requested.Count != roleIds.Count)
+        {
+            logger.LogWarning("User role assignment failed because one or more requested roles were not found. UserId {UserId}, RequestedRoleCount {RequestedRoleCount}, FoundRoleCount {FoundRoleCount}.", user.Id, roleIds.Count, requested.Count);
+            return Result.Failure(Error.Validation(
+                "One or more of those roles was not found in this organisation.",
+                [new ValidationError("RoleIds", "Choose roles from this organisation.")]));
+        }
+
+        // Fall back to a role, so a new user is not created able to sign in and see nothing —
+        // which reads as a broken account rather than a missing role.
+        //
+        // WHICH ROLE DEPENDS ON WHAT KIND OF ACCOUNT THIS IS, and it did not used to. Every
+        // account with no roles fell through to the Organisation's DEFAULT role, which is
+        // INITIATOR — and the donor portal creates exactly such an account. A lead who scanned a
+        // QR code, paid, and activated the invitation in their e-mail was therefore given maker
+        // rights across IAM, Campaigns, Donors and Payments: the campaign register, the donor
+        // list, the user directory. Nobody chose that. It is what "the default role" means when
+        // the account being created is not a member of staff.
+        //
+        // A DonorPortal account gets DONOR: their own giving, and nothing else.
+        //
+        // IF DONOR IS MISSING THE ACCOUNT GETS NOTHING, and that is the right way to fail. The
+        // seeder creates the role in every Organisation, so its absence means a database that
+        // has not been reconciled — and on that database an account with no roles sees an empty
+        // application, which somebody reports, whereas an account quietly holding INITIATOR is a
+        // member of the public inside the staff screens and nobody finds out.
+        if (requested.Count == 0)
+        {
+            var fallback = accountCategory == UserAccountCategory.DonorPortal
+                ? await roles.GetByCodeAsync(RoleCodes.Donor, tenant.Id, cancellationToken)
+                : await roles.GetDefaultRoleAsync(tenant.Id, cancellationToken);
+
+            if (fallback is not null)
+            {
+                requested = [fallback];
+            }
+            else if (accountCategory == UserAccountCategory.DonorPortal)
+            {
+                logger.LogWarning(
+                    "The {RoleCode} role does not exist in Organisation {TenantId}, so donor "
+                    + "account {UserId} was created with no role at all. It will sign in and see "
+                    + "nothing until the role seeder has run.",
+                    RoleCodes.Donor,
+                    tenant.Id,
+                    user.Id);
+            }
+        }
+
+        if (requested.Count == 0)
+        {
+            return Result.Success();
+        }
+
+        var conflicts = await roles.GetIncompatibilitiesAsync(
+            [.. requested.Select(role => role.Id)], cancellationToken);
+
+        var blocking = conflicts
+            .Where(rule => rule.IsBlocking && rule.IsActive)
+            .Where(rule => requested.Any(role => role.Id == rule.RoleId)
+                           && requested.Any(role => role.Id == rule.ConflictingRoleId))
+            .ToList();
+
+        if (blocking.Count > 0)
+        {
+            logger.LogWarning("User role assignment rejected due to segregation-of-duties rules. UserId {UserId}, ConflictCount {ConflictCount}.", user.Id, blocking.Count);
+            return Result.Failure(Error.SegregationOfDuties(
+                "Those roles cannot be held together: " +
+                string.Join("; ", blocking.Select(rule => rule.Reason))));
+        }
+
+        var isFirst = true;
+        foreach (var role in requested)
+        {
+            await roles.AddUserRoleAsync(new UserRole
+            {
+                TenantId = user.TenantId,
+                BusinessUnitId = user.BusinessUnitId,
+                UserId = user.Id,
+                RoleId = role.Id,
+                Status = UserRoleAssignmentStatus.Active,
+                IsPrimary = isFirst,
+                AssignedAtUtc = now,
+                AssignedByUserId = currentUser.UserId,
+                EffectiveFromUtc = now,
+                Justification = "Assigned when the user was created."
+            }, cancellationToken);
+
+            isFirst = false;
+        }
+
+        logger.LogInformation("User roles assigned successfully. UserId {UserId}, RoleCount {RoleCount}.", user.Id, requested.Count);
+
+        return Result.Success();
+    }
+
+    private string BuildActivationUrl(string hostName, string token)
+    {
+        // Same localhost shortcut as CreateOrganisationCommand had, and the same fault: an
+        // invited user was sent to the platform host, where their Organisation does not resolve.
+        return _client.TenantUrl(hostName, _client.InvitationPath, token);
+    }
+}

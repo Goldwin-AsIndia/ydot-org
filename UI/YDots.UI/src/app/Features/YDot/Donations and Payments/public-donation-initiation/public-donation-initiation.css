@@ -1,0 +1,1002 @@
+/* ============================================================================
+   PUBLIC DONATION INITIATION — clean bordered-field theme
+   ----------------------------------------------------------------------------
+     · White card, thin solid border, soft theme-tinted page and shadow.
+     · Plain bold sans-serif section title beside a small icon chip, like an
+       ordinary form panel header.
+     · Every field (including "I would like to support…") is a bordered box
+       with a leading icon — no dotted write-in rules, no banner strip.
+     · Square outline checkboxes, theme-coloured action button.
+     · No watermark, no decorative double rule — a quiet one-line footer note.
+     · THEME-DRIVEN: borders, focus rings, icons and the button still derive
+       from the app token --primary via color-mix(), so switching the app
+       theme re-tints the whole form automatically.
+     · Errors ALWAYS sit directly under their own field.
+   ============================================================================ */
+
+:host {
+  /* ---- Ink ---- */
+  --ink: #232c3d;            /* label ink: the sheet's dark navy print */
+  --ink-soft: #525d72;
+  --muted: color-mix(in srgb, var(--ink) 55%, #ffffff);
+
+  /* ---- Paper: every sheet tint derives from the app theme --primary ---- */
+  --card: #ffffff;
+  --paper-line: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 16%, #ffffff);
+  --dashed: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 36%, #ffffff);    /* dashed card frame */
+  --dot-line: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 46%, #ffffff);  /* write-in rules */
+  --banner: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 10%, #ffffff);    /* banner strip */
+  --wash: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 5%, #ffffff);
+  --doll-tint: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 22%, #ffffff); /* watermark */
+
+  /* ---- Accent: the app theme --primary (deep forest green) ---- */
+  --accent: var(--primary, hsl(var(--theme-hue) 27.9% 26.7%));
+  --accent-deep: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 82%, #000000);
+  --accent-soft: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 8%, #ffffff);
+  --accent-ring: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 16%, transparent);
+
+  /* ---- Status ---- */
+  --error: #b3271e;
+  --error-soft: #fdf1f0;
+  --good: #1f7a4d;
+  --warn: #8a5a17;
+  --warn-soft: #fdf5e3;
+  --warn-line: #f0dfae;
+  --checkbox-line: color-mix(in srgb, var(--ink) 72%, #ffffff);
+
+  /* ---- Type ---- */
+  --font-ui: var(--font-body);
+  --font-serif: var(--font-display);
+  --font-mono: var(--font-number);
+
+  /* ---- Shape / elevation ---- */
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow-card: none;
+  --shadow-pop: none;
+
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  background: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 4%, #ffffff);
+}
+
+/* ---- Small text utilities kept for template parity ---- */
+.mono  { font-family: var(--font-mono); font-size: .92em; letter-spacing: .2px; }
+.muted { color: var(--muted); }
+
+/* Minimal utility layer (Bootstrap-style names, component-scoped on purpose) */
+.px-4 { padding-left: 24px; padding-right: 24px; }
+.py-3 { padding-top: 20px; padding-bottom: 48px; }
+.mt-3 { margin-top: 1rem; }
+
+/* ============================================================================
+   1 · SHELL
+   ============================================================================ */
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================================================
+   2 · TASK HEADER (internal view; the donor view hides it — the sheet is the page)
+   ============================================================================ */
+
+.pr-task-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 26px;
+}
+.pr-header-text { min-width: 0; }
+
+.pr-header-text .page-title {
+    font-family: var(--font-body) !important;
+    font-size: 40px;
+    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -0.4px;
+    margin: 0;
+    color: var(--pr-meadow);
+}
+.pr-header-text .page-title::after {
+  content: '';
+    display: block;
+    width: 38px;
+    height: 5px;
+    margin-top: 8px;
+    border-radius: 999px;
+    background: #e3b93f;
+}
+.pr-header-text .page-subtitle {
+  margin: 12px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  /* font-style: italic; */
+  color: var(--ink-soft);
+  max-width: 66ch;
+  overflow-wrap: anywhere;
+}
+
+/* --- Decorative artwork (receipt, sprout, heart, rupee coin) --- */
+.pr-header-art {
+  flex: none;
+  width: 224px;
+  margin-top: -10px;
+}
+.pr-header-art svg { display: block; width: 100%; height: auto; }
+
+.pr-header-art .t-halo             { fill: color-mix(in srgb, var(--accent) 9%, #ffffff); }
+.pr-header-art .t-star             { fill: #e8b94a; }
+.pr-header-art .t-spark-dot        { fill: #e8b94a; }
+.pr-header-art .t-dot              { fill: #f0d3a0; }
+.pr-header-art .t-ground           { fill: none; stroke: var(--paper-line); stroke-width: 2; stroke-linecap: round; }
+.pr-header-art .t-leaf2            { fill: color-mix(in srgb, var(--accent) 30%, #ffffff); stroke: color-mix(in srgb, var(--accent) 68%, #ffffff); stroke-width: 1.6; }
+.pr-header-art .t-leaf2-stem       { fill: none; stroke: color-mix(in srgb, var(--accent) 55%, #ffffff); stroke-width: 2; stroke-linecap: round; }
+.pr-header-art .t-leaf2-vein       { fill: none; stroke: var(--accent); stroke-width: 1.4; stroke-linecap: round; opacity: .55; }
+.pr-header-art .t-leaf2-vein-sm    { fill: none; stroke: var(--accent); stroke-width: 1; stroke-linecap: round; opacity: .4; }
+.pr-header-art .t-paper            { stroke: var(--paper-line); }
+.pr-header-art .t-curl             { fill: color-mix(in srgb, var(--accent) 12%, #ffffff); }
+.pr-header-art .t-rupee-badge      { fill: var(--accent); }
+.pr-header-art .t-rupee-badge-text { fill: #ffffff; }
+.pr-header-art .t-line-strong      { stroke: var(--accent); }
+.pr-header-art .t-line             { stroke: var(--paper-line); }
+.pr-header-art .t-sign             { fill: none; stroke: var(--accent); }
+.pr-header-art .t-check            { fill: var(--good); }
+.pr-header-art .t-heart-badge      { fill: #e05b63; }
+.pr-header-art .t-heart-mark       { fill: #ffffff; }
+.pr-header-art .t-coin             { fill: #f3ddb0; stroke: #e0b564; }
+.pr-header-art .t-coin-text        { fill: #8a6413; }
+
+/* motion: swaying sprout, twinkling stars, floating coin and heart */
+@keyframes pdi-leaf-sway {
+  0%, 100% { transform: rotate(0deg); }
+  30%      { transform: rotate(3deg); }
+  70%      { transform: rotate(-2.5deg); }
+}
+@keyframes pdi-pling {
+  0%, 100% { opacity: .35; transform: scale(.45) rotate(-10deg); }
+  35%      { opacity: 1;   transform: scale(1.25) rotate(15deg); }
+  55%      { opacity: .9;  transform: scale(1) rotate(25deg); }
+}
+@keyframes pdi-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+@keyframes pdi-check-pop {
+  0%   { transform: scale(0);    opacity: 0; }
+  70%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.pr-header-art .leaf-sway {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: pdi-leaf-sway 6s ease-in-out infinite;
+}
+.pr-header-art .leaf-sway-alt { animation-duration: 7s; animation-delay: -3s; }
+.pr-header-art .t-star {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pdi-pling 3.6s ease-in-out infinite;
+}
+.pr-header-art .t-coin-float {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pdi-float 4s ease-in-out infinite;
+}
+.pr-header-art .t-heart-float {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pdi-float 4.5s ease-in-out infinite;
+}
+.pr-header-art .t-check-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pdi-check-pop .6s cubic-bezier(.34, 1.56, .64, 1) .35s backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pr-header-art .leaf-sway,
+  .pr-header-art .leaf-sway-alt,
+  .pr-header-art .t-star,
+  .pr-header-art .t-coin-float,
+  .pr-header-art .t-heart-float,
+  .pr-header-art .t-check-pop { animation: none !important; }
+}
+
+/* ============================================================================
+   3 · DONOR-FACING SHELL — the printed sheet IS the page
+   ============================================================================ */
+
+.pdi-donor-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+  background: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 4%, #ffffff);
+}
+
+/* The page opens with the shared themed <app-page-header>. The old hero panel (a stock image with a
+   dark overlay) and the receipt illustration are gone: the header is the only branded block. */
+
+.pdi-donor-shell > .page-wrapper {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+}
+.pdi-donor-shell > .page-wrapper > .container-fluid {
+  width: 100%;
+  max-width: 852px;
+  margin: auto;                       /* centres the sheet in the viewport */
+  padding: 42px 26px 64px;
+}
+
+/* ============================================================================
+   4 · THE CARD — solid border, plain title
+   ============================================================================ */
+
+.pdi-grid { display: block; }
+.pdi-grid-with-side {
+  display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(510px, 1fr));
+  align-items: start;
+  gap: 24px;
+  margin-inline: auto;
+}
+.pdi-col      { min-width: 0; }
+.pdi-col-main { display: block; }
+.pdi-col-side { display: block; }
+
+@media (max-width: 992px) {
+  .pdi-grid-with-side { grid-template-columns: 1fr; }
+}
+
+.card {
+  position: relative;
+  background: var(--yc-bg);
+  border: var(--yc-border);
+  border-radius: var(--yc-radius);
+  box-shadow: none;
+  overflow: hidden;
+      height: 100%;
+}
+
+/* --- Panel head: icon chip + plain title, left aligned --- */
+.pdi-panel-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 26px 20px 20px;
+  text-align: left;
+  border-bottom: 1px solid var(--paper-line);
+  background: transparent;
+}
+.pdi-chip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--wash);
+  color: var(--accent);
+}
+.pdi-chip svg { width: 20px; height: 20px; }
+.pdi-panel-head-copy { min-width: 0; }
+.pdi-panel-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+.pdi-panel-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-style: normal;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* --- The campaign field lives like any other field now, not a banner strip --- */
+.intent-strip {
+  border-radius: 8px;
+  padding: 0;
+}
+.intent-strip .field-label {
+  display: block;
+  margin: 0 0 5px;
+  font-size: 13.5px;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--ink);
+}
+.intent-strip .scope-picker {
+  display: flex;
+  vertical-align: baseline;
+  min-width: 0;
+  width: 100%;
+}
+.intent-strip .field-error { margin-top: 8px; }
+
+/* ============================================================================
+   5 · THE FORM — bold labels over bordered box inputs
+   ============================================================================ */
+
+.fields-grid.pdi-fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);   /* CHANGED: was repeat(auto-fit, minmax(510px, 1fr)) */
+  gap: 24px 30px;
+  padding: 24px 30px 26px;
+  position: relative;
+  z-index: 1;
+}
+.pdi-fields .field { margin: 0; min-width: 0; }
+.pdi-fields .mt-3  { margin-top: 0; }
+.fields-grid.pdi-fields > .field:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+@media (max-width: 760px) {
+  .fields-grid.pdi-fields { grid-template-columns: 1fr; gap: 20px; padding: 20px 20px 22px; }
+}
+/* The gift row: amount gets the room, currency rides along */
+.money-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  gap: 30px;
+}
+select.pdi-input::placeholder{
+  color: color-mix(in srgb, var(--ink) 42%, #ffffff);
+}
+.field-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  color: var(--ink);
+}
+.req-star { color: var(--error); font-weight: 700; margin-left: 2px; }
+
+/* --- Write-in control: a bordered box, icon on the left, like the reference inputs --- */
+.pdi-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 2px 14px;
+  background: #ffffff;
+  border: 1.5px solid #80808052;
+  border-radius: 9px;
+  box-sizing: border-box;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+.pdi-control:hover  { border-color: color-mix(in srgb, var(--primary, hsl(var(--theme-hue) 27.9% 26.7%)) 40%, #ffffff); }
+.pdi-control:focus-within {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+.pdi-control.has-error {
+  border-color: var(--error);
+  background: var(--error-soft);
+}
+
+.pdi-control-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+.pdi-control-icon svg { width: 18px; height: 18px; }
+
+.pdi-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 10px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14.5px;
+  color: var(--ink);
+}
+.pdi-input::placeholder { color: color-mix(in srgb, var(--ink) 42%, #ffffff); }
+.pdi-input:focus { outline: none; }
+.pdi-input:disabled { cursor: not-allowed; }
+
+select.pdi-input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 24px;
+  cursor: pointer;
+}
+.pdi-control-select .chev-ic {
+  position: absolute;
+  right: 4px;
+  width: 15px;
+  height: 15px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* Locked / read-only presentation (account identity, submitted intent) */
+.pdi-control.is-static {
+  background: var(--wash);
+  border-color: var(--paper-line);
+}
+.pdi-control.is-static .pdi-control-icon { color: color-mix(in srgb, var(--ink) 42%, #ffffff); }
+.pdi-static-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+/* --- Inline messages: ALWAYS under their own field --- */
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--error);
+}
+.field-error::before {
+  content: '!';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--error);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ============================================================================
+   6 · CAMPAIGN PICKER — write-in trigger + dropdown listbox
+   ============================================================================ */
+
+.scope-picker { position: relative; }
+
+.pdi-control.pdi-control-btn {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.pdi-control.pdi-control-btn:disabled { cursor: not-allowed; opacity: .72; }
+.pdi-control-btn .chev-ic {
+  position: static;
+  margin-left: auto;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--muted);
+}
+.pdi-control-btn .chev-ic.static { transform: none; }
+
+.pdi-control-body { flex: 1 1 auto; min-width: 0; }
+.picker-value  { display: block; min-width: 0; }
+.picker-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+  /* font-style: italic; */
+  font-weight: 600;
+  color: var(--ink);
+}
+.picker-placeholder {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+  /* font-style: italic; */
+  color: color-mix(in srgb, var(--ink) 42%, #ffffff);
+}
+
+@keyframes pdi-pop-in {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.picker-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  max-height: 330px;
+  overflow: auto;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  animation: pdi-pop-in .16s ease-out;
+}
+.picker-search {
+  padding: 4px 4px 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--paper-line);
+}
+.picker-search .input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  background: #fffdfa;
+  border: 1px solid var(--paper-line);
+  border-radius: 7px;
+  outline: none;
+  box-sizing: border-box;
+}
+.picker-search .input::placeholder { color: color-mix(in srgb, var(--ink) 42%, #ffffff); }
+.picker-search .input:focus {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+.picker-option {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  font: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background-color .12s ease;
+}
+.picker-option:hover { background: var(--accent-soft); }
+.picker-option[aria-selected='true'] {
+  background: var(--banner);
+  box-shadow: none;
+}
+.picker-option .picker-name { font-size: 13.5px; font-style: normal; }
+.picker-context {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.picker-empty {
+  margin: 0;
+  padding: 14px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ============================================================================
+   7 · CONSENT ROW — square outline checkboxes, like the printed sheet
+   ============================================================================ */
+
+.pdi-consent-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 14px;
+  padding: 20px 30px 6px;
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+.pdi-consent-shield { display: none; }  /* the sheet uses plain checkboxes */
+
+.pdi-consent-main {
+  flex: 1 1 260px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  cursor: pointer;
+}
+.pdi-consent-main input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 19px;
+  height: 19px;
+  margin: 0;
+  background: #ffffff;
+  border: 2px solid var(--checkbox-line);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.pdi-consent-main input[type='checkbox']:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-11'/%3E%3C/svg%3E");
+  background-size: 12px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.consent-body { min-width: 0; }
+.consent-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.consent-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.pdi-consent-bar.is-disabled { opacity: .72; }
+
+.pdi-consent-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.pdi-consent-error { padding: 10px 30px 0; position: relative; z-index: 1; }
+.pdi-consent-error::before { margin-top: 2px; }
+
+/* ============================================================================
+   8 · BUTTONS — maroon print, one consistent system
+   ============================================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 20px;
+  font: 700 13.5px/1 var(--font-ui);
+  letter-spacing: .4px;
+  color: var(--ink);
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .16s ease, border-color .16s ease,
+              color .16s ease, box-shadow .16s ease, transform .08s ease;
+}
+.btn .btn-ic { width: 16px; height: 16px; flex: none; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  box-shadow: none;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+}
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.btn-ghost { color: var(--ink-soft); }
+.btn-ghost:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.btn-outline-secondary {
+  background: #ffffff;
+  border-color: var(--checkbox-line);
+  color: var(--ink);
+}
+.btn-outline-secondary:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-sm { height: 38px; padding: 0 16px; font-size: 13px; }
+
+/* ============================================================================
+   9 · CLOSING ROWS — paper-doll watermark + double-ruled footer
+   ============================================================================ */
+
+/* The paper-doll chain (people holding hands) sits BEHIND the closing rows,
+   exactly as the reference sheet draws it — clipped to the card, never
+   overlapping readable text. The SVG is used as an alpha mask, so the dolls
+   are tinted with the app theme --primary via background-color. */
+.pdi-paper-dolls { display: none; }
+
+/* Plain quiet footer note — no decorative rules */
+.pdi-paper-foot {
+  position: relative;
+  z-index: 1;
+  padding: 14px 30px 22px;
+  text-align: left;
+  border-top: 1px solid var(--paper-line);
+}
+.pdi-paper-rule { display: none; }
+.pdi-paper-note {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  font-style: normal;
+  color: var(--muted);
+}
+
+/* ============================================================================
+   10 · STATE PANELS — no access / empty / duplicate / conflict / dependency
+   ============================================================================ */
+
+.state-panel {
+  max-width: 760px;
+  margin-inline: auto;
+  padding: 34px 34px 32px;
+}
+.state-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.state-text {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+.corr {
+  display: inline-block;
+  margin: 16px 0 0;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  background: var(--wash);
+  border: 1px solid var(--paper-line);
+  border-radius: 7px;
+}
+
+/* duplicate review: two quiet comparison columns */
+.dup-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+.dup-col {
+  padding: 14px 16px;
+  background: var(--wash);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-sm);
+}
+.dup-h {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.dup-v {
+  display: block;
+  margin-top: 6px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+/* ============================================================================
+   11 · DIALOGS
+   ============================================================================ */
+
+@keyframes pdi-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(30, 28, 27, .46);
+  backdrop-filter: blur(3px);
+  animation: pdi-fade-in .18s ease-out;
+}
+.dialog {
+  width: min(540px, 100%);
+  padding: 26px 26px 24px;
+  background: #ffffff;
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius);
+  box-shadow: none;
+}
+.dialog-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.pdi-identity-dialog { width: min(520px, 100%); }
+.pdi-identity-note {
+  margin: 14px 0 0;
+  padding: 10px 13px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn-line);
+  border-radius: 8px;
+}
+.pdi-identity-actions {
+  display: grid;
+  justify-items: start;
+  gap: 13px;
+  margin-top: 20px;
+}
+.pdi-identity-hint {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.decision-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: 16px 0 4px;
+  padding: 0;
+}
+.decision-grid > div {
+  padding: 10px 12px;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: var(--wash);
+}
+.decision-grid dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.decision-grid dd {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* confirm-dialog form bits (textarea + counter) */
+.input.textarea {
+  display: block;
+  width: 100%;
+  min-height: 112px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: #fffdfa;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.input.textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: none;
+}
+.char-counter {
+  display: block;
+  margin-top: 6px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+}
+.char-counter.is-invalid { color: var(--error); font-weight: 600; }
+
+/* ============================================================================
+   12 · RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 1200px) {
+  .pr-header-art { width: 190px; }
+}
+
+@media (max-width: 760px) {
+  .pr-task-header { flex-direction: column; gap: 10px; }
+  .pr-header-art { display: none; }
+
+  .fields-grid.pdi-fields { grid-template-columns: 1fr; gap: 20px; padding: 20px 20px 22px; }
+  .money-row { grid-template-columns: 1fr; gap: 20px; }
+
+  /* the banner sentence wraps: label above, write-in below, full width */
+  .intent-strip { padding: 12px 14px 11px; }
+  .intent-strip .field-label { display: block; margin: 0 0 4px; }
+  .intent-strip .scope-picker { display: flex; width: 100%; min-width: 0; }
+
+  .pdi-panel-head { padding: 20px 20px 16px; }
+  .pdi-panel-title { font-size: 16px; }
+  .pdi-consent-bar { padding: 16px 20px 4px; }
+  .pdi-consent-actions { margin-left: 0; width: 100%; }
+  .pdi-consent-actions .btn { flex: 1 1 auto; }
+  .pdi-consent-error { padding: 8px 20px 0; }
+  .pdi-paper-foot { padding: 12px 20px 22px; }
+
+  .state-panel { padding: 26px 22px; }
+  .dup-compare { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .px-4 { padding-left: 16px; padding-right: 16px; }
+  .py-3 { padding-top: 14px; padding-bottom: 40px; }
+  .pdi-donor-shell > .page-wrapper > .container-fluid { padding: 24px 14px 48px; }
+  .pr-header-text .page-title { font-size: 25px; }
+  .pdi-paper-dolls { height: 120px; }
+  .card { border-radius: 12px; }
+}
+
+/* ---- Motion preferences ---- */
+@media (prefers-reduced-motion: reduce) {
+  .picker-pop,
+  .dialog-backdrop { animation: none; }
+  .btn,
+  .pdi-control,
+  .picker-option { transition: none; }
+}

@@ -1,0 +1,407 @@
+<main class="app-wrapper">
+  <div class="page-wrapper">
+    <div class="container-fluid px-4 py-3">
+      <app-page-header screen="donor-360" title="Donor 360" subtitle="A complete view of the donor’s profile, donations, follow-ups, documents and activity history.">
+      </app-page-header>
+      @if (successPanel(); as success) { <div class="notice" role="status"><span aria-hidden="true">✓</span><div><strong>{{ success.title }}</strong><p>{{ success.reference }} · {{ success.effectiveTime }}</p></div><button type="button" class="btn btn-outline-secondary btn-sm" title="Dismiss notification" (click)="dismissSuccess()">✕</button></div> }
+      @if (dependencyNotice()) { <div class="notice" role="alert">Changes could not be saved. Please try again.<button type="button" class="btn btn-outline-secondary btn-sm" title="Dismiss notification" (click)="dismissSuccess()">✕</button></div> }
+      @switch (effectiveState()) {
+        @case ('loading') { <section class="state-panel" aria-busy="true" role="status"><h2>Loading donor profile…</h2><div class="skeleton"></div></section> }
+        @case ('no-access') { <section class="state-panel" role="alert"><h2>Access unavailable</h2><p>You do not have permission to view this donor.</p></section> }
+        @case ('empty') { <section class="state-panel"><h2>No donor selected</h2><p>Open a donor from the Donor List to view their profile.</p></section> }
+        @case ('dependency-failure') { <section class="state-panel" role="alert"><h2>Unable to load this donor</h2><p>Please retry when the service is available.</p><button type="button" class="btn btn-outline-secondary btn-sm" (click)="refreshData()">↻ Retry</button></section> }
+        @default {
+          @if (effectiveState() === 'conflict') { <div class="notice" role="alert">This record has changed.<button type="button" class="btn btn-outline-secondary btn-sm" (click)="reviewConflict()">↻ Review latest version</button></div> }
+          <section class="profile-card" aria-label="Donor summary">
+            <div class="avatar" aria-hidden="true">{{ initials() }}</div>
+            <div class="profile-summary"><h2>{{ hasPermission('don.contact.view') ? donor().fullName : maskedFullName() }}</h2><p>▣ <span>Donor ID</span> <span class="number">{{ donor().reference }}</span></p><div class="contact-row"><span>♧ {{ hasPermission('don.contact.view') ? (donor().phone || '—') : maskedPhone() }}</span><span>✉ {{ hasPermission('don.contact.view') ? (donor().email || '—') : maskedEmail() }}</span></div></div>
+            <div class="profile-owner"><div><span>Owner</span><strong>{{ donor().owner }}</strong></div><div><span>Status</span><span class="badge-pill badge-{{ badgeClass(donor().lifecycleState) }}">● {{ donor().lifecycleState }}</span></div></div>
+            <div class="profile-actions"><button type="button" class="btn btn-primary btn-sm" [disabled]="!canCreateIntent()" (click)="openAction('create-intent')">＋ Create Donation Intent</button><div><button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="!canFollowUp()" (click)="openFollowUpPlanner()">▣ Schedule Follow-up</button><button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCommunicationHistory()">➤ View Communication Timeline</button></div></div>
+          </section>
+          <nav class="tab-strip" aria-label="Donor sections">@for (tab of tabs; track tab.id) { <button type="button" class="btn btn-outline-secondary btn-sm" [attr.aria-current]="activeTab() === tab.id ? 'page' : null" (click)="selectTab(tab.id)">{{ tab.label }}</button> }</nav>
+          <section class="related-section">
+            @if (activeTab() === 'overview') {
+              <section class="kpi-cards" aria-label="Donor statistics">
+                <article class="kpi-card"><span class="metric-icon" aria-hidden="true">♡</span><div><p>Total Donations</p><strong class="number">{{ totalDonationsCount() }}</strong><p>Received transactions</p></div></article>
+                <article class="kpi-card amber"><span class="metric-icon" aria-hidden="true">▱</span><div><p>Total Amount</p><strong class="number">{{ formatINR(lifetimeGiving()) }}</strong><p>Received donations</p></div></article>
+                <article class="kpi-card"><span class="metric-icon" aria-hidden="true">▣</span><div><p>Upcoming Follow-ups</p><strong class="number">{{ upcoming().length }}</strong><p>Open scheduled follow-ups</p></div></article>
+                <article class="kpi-card rose"><span class="metric-icon" aria-hidden="true">▤</span><div><p>Total Documents</p><strong class="number">{{ documents().length }}</strong><p>Documents on file</p></div></article>
+              </section>
+              <div class="overview-grid">
+                <section class="panel"><header><h2><span aria-hidden="true">♙</span> Donor Information</h2></header><dl class="information">
+                  <div><dt>Full Name</dt><dd>{{ hasPermission('don.contact.view') ? donor().fullName : maskedFullName() }}</dd></div>
+                  <div><dt>Donor ID</dt><dd class="number">{{ donor().reference }}</dd></div>
+                  <div><dt>Email</dt><dd>{{ hasPermission('don.contact.view') ? (donor().email || '—') : maskedEmail() }}</dd></div>
+                  <div><dt>Phone</dt><dd class="number">{{ hasPermission('don.contact.view') ? (donor().phone || '—') : maskedPhone() }}</dd></div>
+                  <div><dt>Owner</dt><dd>{{ donor().owner }}</dd></div>
+                  <div><dt>Status</dt><dd><span class="badge-pill badge-{{ badgeClass(donor().lifecycleState) }}">● {{ donor().lifecycleState }}</span></dd></div>
+                </dl><div class="utility-actions"><button type="button" class="btn btn-outline-secondary btn-sm" title="View consent and preferences" (click)="openConsentPreferences()">◉ Consent</button><button type="button" class="btn btn-outline-secondary btn-sm" title="View identity verification" (click)="openIdentityVerification()">▣ Identity</button><button type="button" class="btn btn-outline-secondary btn-sm" title="Edit donor profile" [disabled]="!canCorrect()" (click)="openAction('correct')">✎ Edit</button><button type="button" class="btn btn-outline-secondary btn-sm" title="Refresh donor data" (click)="refreshData()">↻</button>@if (canDeleteDraft()) { <button type="button" class="btn btn-outline-secondary btn-sm" title="Delete unused draft" (click)="openAction('delete-draft')">⌫ Delete draft</button> }</div></section>
+                <section class="panel"><header><h2><span aria-hidden="true">◷</span> Recent Activity</h2><button type="button" class="btn btn-outline-secondary btn-sm" (click)="selectTab('activity')">View All</button></header><ol class="activity-preview">@for (a of activity().slice(0,5); track a.id) { <li><span class="small-icon" aria-hidden="true">◷</span><div><strong>{{ a.action }}</strong><p>{{ a.actor }} · {{ a.timestamp }}</p></div></li> } @empty { <li class="empty-row">No activity recorded.</li> }</ol></section>
+                <div class="summary-stack"><section class="panel"><header><h2><span aria-hidden="true">▣</span> Next Follow-up</h2><button type="button" class="btn btn-outline-secondary btn-sm" (click)="selectTab('follow-ups')">View All</button></header>@if (upcoming()[0]; as f) { <div class="highlight"><div class="date-tile number">{{ f.dueAtUtc ? (f.dueAtUtc | date:'dd') : '—' }}<small>{{ f.dueAtUtc | date:'MMM yyyy' }}</small></div><div><strong>{{ f.nextAction || f.followUpReference }}</strong><p>{{ f.dueAtUtc | date:'shortTime' }} · {{ f.relationshipOwnerName || 'Unassigned' }}</p></div></div> } @else { <p class="empty-row">No upcoming follow-ups.</p> }</section>
+                <section class="panel"><header><h2><span aria-hidden="true">▱</span> Donation Summary</h2><button type="button" class="btn btn-outline-secondary btn-sm" (click)="selectTab('donations')">View All</button></header><div class="highlight amber"><div><strong class="number">{{ formatINR(lifetimeGiving()) }}</strong><p>{{ totalDonationsCount() }} received transactions · {{ pendingPromisesCount() }} pending promises</p></div></div></section>
+                <section class="panel"><header><h2><span aria-hidden="true">▤</span> Latest Document</h2><button type="button" class="btn btn-outline-secondary btn-sm" (click)="selectTab('documents')">View All</button></header>@if (latestDocument(); as d) { <div class="highlight blue"><span class="small-icon" aria-hidden="true">▤</span><div><strong>{{ d.name }}</strong><p>Added on {{ d.uploadedOn }}</p></div></div> } @else { <p class="empty-row">No documents uploaded.</p> }</section></div>
+              </div>
+            } @else { <div class="list-toolbar"><h2>{{ activeTab() === 'activity' ? 'Activity History' : activeTab() === 'follow-ups' ? 'Follow-ups' : activeTab() === 'documents' ? 'Documents' : activeTab() === 'donations' ? 'Donations' : 'Related records' }}</h2><input type="search" aria-label="Search related records" placeholder="Search records…" [ngModel]="searchTerm()" (ngModelChange)="setSearchTerm($event)" /></div> }
+            
+            @if (activeTab() === 'donations') {
+              <div class="tab-panel">
+                <h3 class="subsection-title">Donation totals by stage</h3><div class="stage-pills">@for (stage of donationTotals(); track stage.stage) { <div class="stage-pill"><span class="badge-pill badge-{{ badgeClass(stage.stage) }}">{{ stage.stage }}</span><strong class="number">{{ formatINR(stage.amount) }}</strong><span class="stage-asof">As of {{ stage.asOf }}</span></div> }</div><h3 class="subsection-title">Campaign history</h3>@if (campaignHistory().length) {
+                  <div class="table-scroll">
+                    <table class="data-table">
+                      <thead>
+                        <tr><th>ID</th><th>Campaign</th><th>Role</th><th>Date</th><th class="text-end">Status</th></tr>
+                      </thead>
+                      <tbody>
+                        @for (item of paged('campaigns', campaignHistory()); track item.id) {
+                          @if (matchesSearch(item.id, item.name, item.status)) {
+                            <tr>
+                              <td class="mono cell-id">{{ item.id }}</td>
+                              <td>{{ item.name }}</td>
+                              <td class="cell-muted">{{ item.role }}</td>
+                              
+                              <td class="cell-muted">{{ item.date }}</td>
+                              <td class="text-end"><span class="badge-pill badge-{{ badgeClass(item.status) }} badge-sm">{{ item.status }}</span></td>
+                            </tr>
+                          }
+                        }
+                      </tbody>
+                    </table>
+<ng-container *ngTemplateOutlet="pagination; context: { key: 'campaigns', rows: campaignHistory() }" />
+                  </div>
+                } @else {
+                  <p class="empty-row">No donations available.</p>
+                }
+
+                <h3 class="subsection-title">Promises</h3>
+                @if (promises().length) {
+                  <ul class="simple-list">
+                    @for (p of paged('promises', promises()); track p.id) {
+                      <li>
+                        <span class="mono cell-id">{{ p.id }}</span>
+                        <span class="mono">{{ formatINR(p.amount) }}</span>
+                        <span class="cell-muted">Due {{ p.dueDate }}</span>
+                        <span class="badge-pill badge-{{ badgeClass(p.status) }} badge-sm">{{ p.status }}</span>
+                      </li>
+                    }
+                  </ul>
+<ng-container *ngTemplateOutlet="pagination; context: { key: 'promises', rows: promises() }" />
+                } @else {
+                  <p class="empty-row">No promises recorded.</p>
+                }
+              </div>
+            }
+
+            
+            @if (activeTab() === 'communications') {
+              <div class="tab-panel">
+                <div class="tab-panel-actions">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCommunicationHistory()">View full communication history</button>
+                </div>
+
+                @if (conversations().length) {
+                  <div class="table-scroll">
+                    <table class="data-table">
+                      <thead><tr><th>ID</th><th>Channel</th><th>Summary</th><th>Date</th><th class="text-end">Owner</th></tr></thead>
+                      <tbody>
+                        @for (c of paged('communications', conversations()); track c.id) {
+                          @if (matchesSearch(c.id, c.channel, c.summary, c.owner)) {
+                            <tr>
+                              <td class="mono cell-id">{{ c.id }}</td>
+                              <td>{{ c.channel }}</td>
+                              <td class="cell-muted">{{ c.summary }}</td>
+                              <td class="cell-muted">{{ c.date }}</td>
+                              <td class="text-end">{{ c.owner }}</td>
+                            </tr>
+                          }
+                        }
+                      </tbody>
+                    </table>
+<ng-container *ngTemplateOutlet="pagination; context: { key: 'communications', rows: conversations() }" />
+                  </div>
+                } @else {
+                  <p class="empty-row">No communication history available.</p>
+                }
+              </div>
+            }
+
+            
+            @if (activeTab() === 'follow-ups') {
+              <div class="tab-panel">
+                <div class="tab-panel-actions">
+                  <button type="button" class="btn btn-primary btn-sm" [disabled]="!canFollowUp()" (click)="openFollowUpPlanner()">＋ Add</button>
+                </div>
+
+                @if (followUps().length) {
+                  <ul class="simple-list">
+                    @for (f of paged('follow-ups', followUps()); track f.id) {
+                      @if (matchesSearch(f.id, f.title, f.owner, f.status)) {
+                        <li>
+                          <span class="mono cell-id">{{ f.id }}</span>
+                          <span>{{ f.title }}</span>
+                          <span class="cell-muted">Due {{ f.due }}</span>
+                          <span class="badge-pill badge-{{ badgeClass(f.status) }} badge-sm">{{ f.status }}</span>
+                          @if (f.status !== 'Completed' && f.status !== 'Cancelled') {
+                            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="executeFollowUp(f.id)">Execute Follow-Up</button>
+                          }
+                        </li>
+                      }
+                    }
+                  </ul>
+<ng-container *ngTemplateOutlet="pagination; context: { key: 'follow-ups', rows: followUps() }" />
+                } @else {
+                  <p class="empty-row">No follow-ups scheduled.</p>
+                }
+              </div>
+            }
+
+            
+            @if (activeTab() === 'documents') {
+              <div class="tab-panel">
+                @if (documents().length) {
+                  <div class="table-scroll">
+                    <table class="data-table">
+                      <thead><tr><th>ID</th><th>File</th><th>Type</th><th>Uploaded</th><th class="text-end">Classification</th></tr></thead>
+                      <tbody>
+                        @for (d of paged('documents', documents()); track d.id) {
+                          @if (matchesSearch(d.id, d.name, d.type)) {
+                            <tr>
+                              <td class="mono cell-id">{{ d.id }}</td>
+                              <td>{{ d.name }}</td>
+                              <td class="cell-muted">{{ d.type }}</td>
+                              <td class="cell-muted">{{ d.uploadedOn }}</td>
+                              <td class="text-end"><span class="badge-pill badge-gray badge-sm">{{ d.classification }}</span></td>
+                            </tr>
+                          }
+                        }
+                      </tbody>
+                    </table>
+<ng-container *ngTemplateOutlet="pagination; context: { key: 'documents', rows: documents() }" />
+                  </div>
+                } @else {
+                  <p class="empty-row">No documents uploaded.</p>
+                }
+
+                <h3 class="subsection-title">Duplicate links</h3>
+                @if (duplicateLinks().length) {
+                  <ul class="simple-list">
+                    @for (dup of paged('duplicates', duplicateLinks()); track dup.id) {
+                      <li>
+                        <span class="cell-muted">{{ dup.matchReason }}</span>
+                        <span class="badge-pill badge-{{ badgeClass(dup.similarity) }} badge-sm">{{ dup.similarity }}</span>
+                      </li>
+                    }
+                  </ul>
+<ng-container *ngTemplateOutlet="pagination; context: { key: 'duplicates', rows: duplicateLinks() }" />
+                } @else {
+                  <p class="empty-row">No duplicate matches found.</p>
+                }
+              </div>
+            }
+
+            
+            @if (activeTab() === 'consent') {
+              <div class="tab-panel">
+                <div class="snapshot-card">
+                  <div class="snapshot-row">
+                    <span>Consent status</span>
+                    <span class="badge-pill badge-{{ badgeClass(donor().consentStatus) }} badge-sm">{{ donor().consentStatus }}</span>
+                  </div>
+                  <div class="snapshot-row">
+                    <span>Permitted channels</span>
+                    <span class="snapshot-value snapshot-value-plain">{{ donor().consentChannels }}</span>
+                  </div>
+                  <div class="snapshot-row">
+                    <span>Do not contact</span>
+                    <span class="snapshot-value snapshot-value-plain">{{ donor().doNotContact ? 'Yes' : 'No' }}</span>
+                  </div>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openConsentPreferences()">
+                    Manage consent &amp; preferences
+                  </button>
+                </div>
+              </div>
+            }
+
+            
+            @if (activeTab() === 'identity-verification') {
+              <div class="tab-panel">
+                <div class="snapshot-card">
+                  <div class="snapshot-row">
+                    <span>Donor</span>
+                    <span class="snapshot-value snapshot-value-plain">{{ donor().fullName }}</span>
+                  </div>
+                  <div class="snapshot-row">
+                    <span>Donor ID</span>
+                    <span class="snapshot-value snapshot-value-plain mono">{{ donor().reference }}</span>
+                  </div>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openIdentityVerification()">
+                    Open identity verification
+                  </button>
+                </div>
+              </div>
+            }
+
+            
+            @if (activeTab() === 'activity') {
+              <div class="tab-panel">
+                @if (activity().length) {
+                  <ol class="timeline">
+                    @for (a of paged('activity', activity()); track a.id) {
+                      @if (matchesSearch(a.actor, a.action)) {
+                        <li class="timeline-item">
+                          <span class="timeline-dot" aria-hidden="true"></span>
+                          <div class="timeline-body">
+                            <p class="timeline-action">{{ a.action }}</p>
+                            <p class="timeline-meta">{{ a.actor }} <span class="sep">·</span> {{ a.timestamp }}</p>
+                          </div>
+                        </li>
+                      }
+                    }
+                  </ol>
+<ng-container *ngTemplateOutlet="pagination; context: { key: 'activity', rows: activity() }" />
+                } @else {
+                  <p class="empty-row">No activity recorded.</p>
+                }
+              </div>
+            }
+          </section>
+        }
+      }
+
+    </div>
+  </div>
+</main>
+
+
+
+
+<dialog #actionDialog class="action-dialog" [attr.aria-labelledby]="dialogTitleId()" (cancel)="closeAction()">
+  @switch (activeAction()) {
+
+    @case ('correct') {
+      <form class="dialog-form" (ngSubmit)="submitCorrect()">
+        <header class="dialog-header">
+          <h2 id="correct-title"><span aria-hidden="true">▣</span> Correct profile</h2>
+          <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Close dialog" (click)="closeAction()" title="Close dialog">✕</button>
+        </header>
+        <div class="dialog-body">
+          <label class="field">
+            <span class="field-label">Reason for correction</span>
+            <textarea rows="3" [ngModel]="correctReason()" (ngModelChange)="correctReason.set($any($event))" name="correctReason"></textarea>
+            @if (correctErrors()['reason']) { <span class="field-error">{{ correctErrors()['reason'] }}</span> }
+          </label>
+          
+          <label class="field">
+            <span class="field-label">Relationship owner</span>
+            @if (ownerOptions().length > 20) { <input type="search" aria-label="Search relationship owners" placeholder="Search owners…" [ngModel]="ownerSearch()" (ngModelChange)="ownerSearch.set($event)" name="ownerSearch" /> }
+            <select [ngModel]="correctOwner()" (ngModelChange)="correctOwner.set($any($event))" name="correctOwner">
+              <option value="">Unassigned</option>
+              @if (correctOwner() && !hasSelectedOwner()) { <option [value]="correctOwner()">{{ donor().owner }}</option> } @for (person of filteredOwners(); track person.reference) {
+                <option [value]="person.reference">
+                  {{ person.name }}@if (person.context) { · {{ person.context }} }
+                </option>
+              }
+            </select>
+            @if (people.isLoading()) { <span class="field-hint">Loading colleagues…</span> }
+            @else if (people.loadError()) { <span class="field-error">{{ people.loadError() }}</span> }
+            @else if (ownerOptions().length === 0) { <span class="field-hint">No colleagues are available to own this relationship.</span> }
+          </label>
+        </div>
+        <footer class="dialog-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeAction()">✕ Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">✓ Save correction</button>
+        </footer>
+      </form>
+    }
+
+    @case ('follow-up') {
+      <form class="dialog-form" (ngSubmit)="submitFollowUp()">
+        <header class="dialog-header">
+          <h2 id="followup-title"><span aria-hidden="true">▣</span> Schedule follow-up</h2>
+          <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Close dialog" (click)="closeAction()" title="Close dialog">✕</button>
+        </header>
+        <div class="dialog-body">
+          <label class="field">
+            <span class="field-label">Follow-up note</span>
+            <textarea rows="3" [ngModel]="followUpNote()" (ngModelChange)="followUpNote.set($any($event))" name="followUpNote"></textarea>
+            @if (followUpErrors()['note']) { <span class="field-error">{{ followUpErrors()['note'] }}</span> }
+          </label>
+          <label class="field">
+            <span class="field-label">Due date</span>
+            <input type="date" [ngModel]="followUpDue()" (ngModelChange)="followUpDue.set($any($event))" name="followUpDue" />
+            @if (followUpErrors()['due']) { <span class="field-error">{{ followUpErrors()['due'] }}</span> }
+          </label>
+        </div>
+        <footer class="dialog-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeAction()">✕ Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">✓ Schedule</button>
+        </footer>
+      </form>
+    }
+
+    @case ('create-intent') {
+      <form class="dialog-form" (ngSubmit)="submitCreateIntent()">
+        <header class="dialog-header">
+          <h2 id="intent-title"><span aria-hidden="true">▣</span> Create intent</h2>
+          <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Close dialog" (click)="closeAction()" title="Close dialog">✕</button>
+        </header>
+        
+        <div class="dialog-body">
+          <p class="dialog-note">
+            Records a pledge against this donor. It is not a payment request — the donor pays
+            through their own donation link.
+          </p>
+          <label class="field">
+            <span class="field-label">Amount</span>
+            <input type="number" min="1" step="1" [ngModel]="intentAmount()" (ngModelChange)="intentAmount.set($any($event))" name="intentAmount" />
+            @if (intentErrors()['amount']) { <span class="field-error">{{ intentErrors()['amount'] }}</span> }
+          </label>
+          <label class="field">
+            <span class="field-label">Currency</span>
+            <input type="text" maxlength="3" [ngModel]="intentCurrency()" (ngModelChange)="intentCurrency.set($any($event))" name="intentCurrency" />
+            @if (intentErrors()['currency']) { <span class="field-error">{{ intentErrors()['currency'] }}</span> }
+          </label>
+          <label class="field">
+            <span class="field-label">Expected by <span class="field-optional">(optional)</span></span>
+            <input type="date" [ngModel]="intentDueDate()" (ngModelChange)="intentDueDate.set($any($event))" name="intentDueDate" />
+          </label>
+          <label class="field">
+            <span class="field-label">Notes</span>
+            <textarea rows="3" [ngModel]="intentNotes()" (ngModelChange)="intentNotes.set($any($event))" name="intentNotes"></textarea>
+            @if (intentErrors()['notes']) { <span class="field-error">{{ intentErrors()['notes'] }}</span> }
+          </label>
+        </div>
+        <footer class="dialog-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeAction()">✕ Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">✓ Record pledge</button>
+        </footer>
+      </form>
+    }
+
+    @case ('delete-draft') {
+      <form class="dialog-form" (ngSubmit)="submitDeleteDraft()">
+        <header class="dialog-header">
+          <h2 id="delete-title"><span aria-hidden="true">▣</span> Delete draft</h2>
+          <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Close dialog" (click)="closeAction()" title="Close dialog">✕</button>
+        </header>
+        <div class="dialog-body">
+          <p class="dialog-warning">This permanently removes the draft. This cannot be undone.</p>
+          <label class="field">
+            <span class="field-label">Reason for deletion</span>
+            <textarea rows="3" [ngModel]="deleteReason()" (ngModelChange)="deleteReason.set($any($event))" name="deleteReason"></textarea>
+            @if (deleteErrors()['reason']) { <span class="field-error">{{ deleteErrors()['reason'] }}</span> }
+          </label>
+          <label class="field">
+            <span class="field-label">Type DELETE to confirm</span>
+            <input type="text" [ngModel]="deleteConfirmText()" (ngModelChange)="deleteConfirmText.set($any($event))" name="deleteConfirmText" />
+            @if (deleteErrors()['confirm']) { <span class="field-error">{{ deleteErrors()['confirm'] }}</span> }
+          </label>
+        </div>
+        <footer class="dialog-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeAction()">✕ Cancel</button>
+          <button type="submit" class="btn btn-outline-secondary btn-sm">⌫ Delete draft</button>
+        </footer>
+      </form>
+    }
+  }
+</dialog>
+<ng-template #pagination let-key="key" let-rows="rows"><div class="pagination-bar" aria-label="Pagination"><span aria-live="polite">{{ filtered(rows).length }} records · Page {{ pageNumber(key, rows) }} of {{ pageCount(rows) }} · 10 rows per page</span><button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="pageNumber(key, rows) === 1" (click)="movePage(key, rows, -1)" title="Previous page">‹ Previous</button><button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="pageNumber(key, rows) === pageCount(rows)" (click)="movePage(key, rows, 1)" title="Next page">Next ›</button></div>@if (filtered(rows).length === 0) { <p class="empty-row">No matching records.</p> }</ng-template>

@@ -1,0 +1,2278 @@
+/* =========================================================
+   Organisation module design system
+   Mirrors Campaign's (SCR-CAM-001) self-contained Dark Meadow
+   surface so the whole app reads as one product, not two.
+   ========================================================= */
+:host {
+  --org-paper: #ffffff;
+  --org-card: #ffffff;
+  --org-ink: hsl(calc(var(--theme-hue) - 3) 16.7% 14.1%);
+  --org-ink-2: #4a564e;
+  --org-muted: #7b8880;
+  --org-border: #e4e0d3;
+
+  --org-meadow: var(--pe-primary, hsl(calc(var(--theme-hue) - 1) 27.7% 18.4%));
+  --org-meadow-700: var(--pe-primary-text-emphasis, hsl(calc(var(--theme-hue) - 15) 26.2% 20.2%));
+  --org-meadow-soft: var(--pe-primary-bg-subtle, hsl(calc(var(--theme-hue) - 33) 20% 92.2%));
+
+  --org-gold: #b4842a;
+  --org-gold-soft: #f6ecd4;
+  --org-blue: #58717c;
+  --org-blue-soft: #e6eff3;
+  --org-plum: #6b4a72;
+  --org-plum-soft: #ece5ed;
+  --org-good: #2f7d4f;
+  --org-good-soft: #e5efe7;
+  --org-error: #c0392b;
+  --org-error-soft: #f9e6e2;
+  --org-warn: #b5822f;
+  --org-warn-soft: #f7ecd6;
+
+  display: block;
+  font-family: var(--font-body);
+  color: var(--org-ink);
+}
+:host * {
+  box-sizing: border-box;
+}
+
+.org-page {
+  padding: 24px 17px 48px;
+  max-width: 1280px;
+  margin: 0 auto;
+  min-width: 0;
+  width: 100%;
+}
+@media (min-width: 1440px) {
+  .org-page {
+    max-width: 1480px;
+    padding: 32px 24px 56px;
+  }
+}
+/* Beyond a big desktop monitor, a fixed px cap just becomes another blank
+   margin on the next-larger screen — a 3440px ultrawide or a 4K display would
+   still see the same 1680px column with empty space either side. Sizing off
+   the viewport instead means the page keeps using the space it's given,
+   whatever the monitor. */
+@media (min-width: 1920px) {
+  .org-page {
+    max-width: 94vw;
+    padding: 40px 3vw 64px;
+  }
+}
+@media (min-width: 2560px) {
+  .org-page {
+    max-width: 96vw;
+    padding: 48px 2vw 72px;
+  }
+}
+
+/* The hero's own height stayed fixed while .org-page above kept widening,
+   so on a big monitor the banner grew wide but stayed just as short — the
+   artwork's visible slice (object-fit: cover at a fixed height) ended up
+   far wider than tall, cropping it down to an oddly thin strip. Growing
+   the height at the same breakpoints keeps the crop close to its original
+   proportions instead of flattening it out. */
+@media (min-width: 1440px) {
+  .wiz-hero {
+    height: 200px;
+  }
+}
+@media (min-width: 1920px) {
+  .wiz-hero {
+    height: 230px;
+  }
+}
+@media (min-width: 2560px) {
+  .wiz-hero {
+    height: 260px;
+  }
+}
+
+/* ---------- Breadcrumb ---------- */
+.org-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--org-muted);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.org-breadcrumb a {
+  color: var(--org-muted);
+  text-decoration: none;
+}
+.org-breadcrumb a:hover {
+  color: var(--org-meadow);
+  text-decoration: underline;
+}
+.org-breadcrumb .sep {
+  opacity: 0.5;
+}
+.org-breadcrumb .current {
+  color: var(--org-ink);
+  font-weight: 600;
+}
+
+/* ---------- Header ---------- */
+.org-header {
+  margin-bottom: 20px;
+}
+
+/* Sits in the top-right corner of the hero banner, on top of the artwork —
+   a frosted pill now rather than bare text, so it still reads as a button
+   against busier parts of the photo. */
+.wiz-hero-back {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* padding: 8px 14px; */
+  /* border-radius: 20px; */
+  /* background: rgba(255, 255, 255, 0.68); */
+  /* backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px); */
+  /* border: 1px solid rgba(255, 255, 255, 0.55); */
+  color: white;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  text-decoration: none;
+  /* box-shadow: none; */
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.wiz-hero-back a{
+  color:white
+}
+.wiz-hero-back i {
+  font-size: 15px !important;
+}
+
+
+
+/* The banner card — same brand-gradient, full-bleed-image, box-shadow
+   treatment used across the Organisation module, so this page's header
+   matches the profile page's rather than being a plain title row. */
+.wiz-hero {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 24px;
+  height: 172px;
+  border-radius: 22px;
+  /* Matches the cool white-to-mint-to-sky-blue palette of the header
+     illustration, instead of the four-colour brand gradient used
+     elsewhere — so the card reads as one piece with the artwork. */
+  background: linear-gradient(
+    115deg,
+    #ffffff 0%,
+    var(--org-meadow-soft) 45%,
+    var(--org-blue-soft) 100%
+  );
+  background-size: 220% 220%;
+  box-shadow: none;
+  overflow: hidden;
+  animation: wiz-step-in 0.35s ease both, wiz-header-drift 14s ease-in-out infinite;
+}
+
+/* A quiet underline under the page title — draws in once on load and then
+   sits still; hovering the header sends a single soft sheen across it,
+   rather than looping forever. */
+.wiz-title-underline {
+  position: relative;
+  display: block;
+  width: 84px;
+  height: 4px;
+  border-radius: 4px;
+  margin: 2px 0 10px;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    var(--org-meadow), var(--org-blue), var(--org-plum), var(--org-gold)
+  );
+  transform-origin: left center;
+  animation: wiz-underline-grow 0.5s 0.1s cubic-bezier(0.22, 0.9, 0.32, 1) both;
+}
+
+.wiz-title-underline::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  transition: left 0.7s ease;
+}
+
+.wiz-hero:hover .wiz-title-underline::after {
+  left: 140%;
+}
+
+@keyframes wiz-underline-grow {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+.wiz-hero-main {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px 0 18px 28px;
+  z-index: 1;
+}
+
+.org-title {
+  font-family: var(--font-body) !important;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 400;
+  letter-spacing: -0.3px;
+  margin: 0 0 4px;
+  color: #000;
+}
+/* The header icon has one plain, always-visible copy of the glyph
+   (.wiz-icon-static) plus five clipped copies used only transiently.
+   Stacking clipped copies of a thin line-icon PERMANENTLY causes visible
+   seams (their clip edges don't anti-alias identically, so the roofline
+   and walls look doubled/thicker than a real icon) — so the five pieces
+   only exist on screen for the ~1.6s of the hover build animation. Before
+   hover, and again the instant it finishes, only the single clean static
+   icon is shown; every part and the static icon share one 1.6s timeline
+   so the hand-off between them is a hard, imperceptible cut. */
+.org-title-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  color: var(--org-meadow);
+}
+
+/* !important: styles.css has a global reset that targets the bare <i> tag
+   directly (not just span/div/etc) and pins its font-size with its own
+   !important. Setting font-size on the wrapping .org-title-icon span does
+   nothing for the <i> itself — a rule matching the element directly always
+   wins over an inherited value. Each icon's own font-size has to be set
+   here, on the <i>, to out-specificity that global rule. */
+.wiz-icon-static,
+.wiz-icon-part {
+  font-size: 56px !important;
+}
+
+.wiz-icon-part {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+
+.wiz-icon-part--base { clip-path: inset(75% 0 0 0); }
+.wiz-icon-part--side-left { clip-path: inset(50% 50% 25% 0); }
+.wiz-icon-part--side-right { clip-path: inset(50% 0 25% 50%); }
+.wiz-icon-part--mid { clip-path: inset(25% 0 50% 0); }
+.wiz-icon-part--top { clip-path: inset(0 0 75% 0); }
+
+.wiz-hero:hover .wiz-icon-static {
+  animation: wiz-icon-static-handoff 1.6s both;
+}
+.wiz-hero:hover .wiz-icon-part--base {
+  animation: wiz-icon-fall-base 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.wiz-hero:hover .wiz-icon-part--side-left,
+.wiz-hero:hover .wiz-icon-part--side-right {
+  animation: wiz-icon-fall-sides 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.wiz-hero:hover .wiz-icon-part--mid {
+  animation: wiz-icon-fall-mid 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.wiz-hero:hover .wiz-icon-part--top {
+  animation: wiz-icon-fall-top 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* The clean icon: gone the instant hover starts, back the instant every
+   piece has finished (96% = 1.53s in). */
+@keyframes wiz-icon-static-handoff {
+  0% { opacity: 1; }
+  1% { opacity: 0; animation-timing-function: steps(1, jump-end); }
+  95% { opacity: 0; animation-timing-function: steps(1, jump-end); }
+  96% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+/* Every piece falls in from above the header — as if dropped from the top
+   of the section — landing in this order: base first, then both walls,
+   then the middle, then the roof last. Only the timing window (when each
+   one starts and lands) differs between them; the motion itself is the
+   same drop-and-settle for all four. */
+@keyframes wiz-icon-fall-base {
+  0% { opacity: 0; transform: translateY(-60px); }
+  27% { opacity: 1; transform: translateY(8px); }
+  34% { opacity: 1; transform: translateY(0); }
+  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
+  96% { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+/* Both walls wait until 0.3s (19%), land by 0.85s (53%). */
+@keyframes wiz-icon-fall-sides {
+  0% { opacity: 0; transform: translateY(-60px); }
+  19% { opacity: 0; transform: translateY(-60px); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  47% { opacity: 1; transform: translateY(8px); }
+  53% { opacity: 1; transform: translateY(0); }
+  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
+  96% { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+/* Middle waits until 0.65s (41%), lands by 1.15s (72%). */
+@keyframes wiz-icon-fall-mid {
+  0% { opacity: 0; transform: translateY(-60px); }
+  41% { opacity: 0; transform: translateY(-60px); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  66% { opacity: 1; transform: translateY(8px); }
+  72% { opacity: 1; transform: translateY(0); }
+  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
+  96% { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+/* Roof waits until 0.95s (59%), lands last by 1.5s (94%). */
+@keyframes wiz-icon-fall-top {
+  0% { opacity: 0; transform: translateY(-60px); }
+  59% { opacity: 0; transform: translateY(-60px); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  89% { opacity: 1; transform: translateY(8px); }
+  94% { opacity: 1; transform: translateY(0); }
+  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
+  96% { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+.org-subtitle {
+  font-size: 13px;
+  color: var(--org-ink-2);
+  margin: 0;
+  max-width: 46ch;
+}
+.org-meta {
+  font-size: 13px;
+  color: var(--org-muted);
+  margin: 4px 0 0;
+}
+
+.wiz-hero-side {
+  flex: 0 0 22%;
+  display: flex;
+  min-width: 0;
+  z-index: 1;
+}
+
+.wiz-hero-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 78% 45%;
+  flex: 1 1 auto;
+  border-radius: 0 22px 22px 0;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 18%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 18%);
+}
+
+@keyframes wiz-header-drift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@media (max-width: 860px) {
+  .wiz-hero {
+    flex-direction: column;
+    height: auto;
+  }
+  /* No longer sitting over the artwork at this width — it drops below the
+     title, so it just joins the normal stacked flow instead of floating. */
+  .wiz-hero-back {
+    position: static;
+    align-self: flex-start;
+    margin: 16px 0 0 22px;
+  }
+  .wiz-hero-main {
+    padding: 14px 22px 0 22px;
+  }
+  .wiz-hero-side {
+    flex: none;
+    width: 100%;
+    padding: 0 22px 22px 22px;
+  }
+  .wiz-hero-art {
+    height: 140px;
+    border-radius: 14px;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiz-hero,
+  .wiz-title-underline {
+    animation: none;
+  }
+  .wiz-title-underline::after {
+    transition: none;
+  }
+  .wiz-hero:hover .wiz-title-underline::after {
+    left: -60%;
+  }
+  .wiz-hero:hover .wiz-icon-static {
+    animation: none;
+  }
+  .wiz-hero:hover .wiz-icon-part--base,
+  .wiz-hero:hover .wiz-icon-part--side-left,
+  .wiz-hero:hover .wiz-icon-part--side-right,
+  .wiz-hero:hover .wiz-icon-part--mid,
+  .wiz-hero:hover .wiz-icon-part--top {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* ---------- Buttons ---------- */
+.org-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  text-decoration: none;
+  line-height: 1;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+.org-btn-primary {
+  background: var(--org-meadow);
+  color: #fff;
+  box-shadow: none;
+}
+.org-btn-primary:hover {
+  background: var(--org-meadow-700);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .org-btn {
+    transition: none;
+  }
+  .org-btn-primary:hover {
+    transform: none;
+  }
+}
+.org-btn-ghost {
+  background: #fff;
+  color: var(--org-ink);
+  border-color: var(--org-border);
+}
+.org-btn-ghost:hover {
+  background: #f7f5ee;
+}
+.org-btn-outline {
+  background: #fff;
+  color: var(--org-meadow);
+  border-color: var(--org-meadow);
+}
+.org-btn-outline:hover {
+  background: var(--org-meadow-soft);
+}
+.org-btn-danger {
+  background: var(--org-error);
+  color: #fff;
+}
+.org-btn-danger:hover {
+  background: #a33226;
+}
+.org-btn-danger-outline {
+  background: #fff;
+  color: var(--org-error);
+  border-color: var(--org-error);
+}
+.org-btn-danger-outline:hover {
+  background: var(--org-error-soft);
+}
+.org-btn-warn-outline {
+  background: #fff;
+  color: var(--org-warn);
+  border-color: var(--org-warn);
+}
+.org-btn-warn-outline:hover {
+  background: var(--org-warn-soft);
+}
+.org-btn-sm {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+.org-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.org-btn-block {
+  width: 100%;
+}
+.org-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: org-spin 0.7s linear infinite;
+  flex: none;
+}
+.org-btn-outline .org-spinner,
+.org-btn-ghost .org-spinner {
+  border: 2px solid hsl(calc(var(--theme-hue) - 1) 27.7% 18.4% / 0.25);
+  border-top-color: var(--org-meadow);
+}
+@keyframes org-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Cards ---------- */
+.org-card {
+  background: var(--org-card);
+  border: 1px solid var(--org-border);
+  border-radius: 16px;
+  padding: 22px 24px 24px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: none;
+}
+.org-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--org-border);
+}
+.org-card--meadow::before {
+  background: var(--org-meadow);
+}
+.org-card--blue::before {
+  background: var(--org-blue);
+}
+.org-card--gold::before {
+  background: var(--org-gold);
+}
+.org-card--plum::before {
+  background: var(--org-plum);
+}
+.org-card--good::before {
+  background: var(--org-good);
+}
+.org-card--warn::before {
+  background: var(--org-warn);
+}
+.org-card--error::before {
+  background: var(--org-error);
+}
+.org-card--muted::before {
+  background: var(--org-muted);
+}
+.org-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.org-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 17px;
+  flex: none;
+  background: hsl(calc(var(--theme-hue) - 57) 15.2% 93.5%);
+  color: var(--org-muted);
+}
+.org-card-icon.is-meadow {
+  background: var(--org-meadow-soft);
+  color: var(--org-meadow);
+}
+.org-card-icon.is-blue {
+  background: var(--org-blue-soft);
+  color: var(--org-blue);
+}
+.org-card-icon.is-gold {
+  background: var(--org-gold-soft);
+  color: var(--org-gold);
+}
+.org-card-icon.is-plum {
+  background: rgba(107, 74, 114, 0.12);
+  color: var(--org-plum);
+}
+.org-card-icon.is-good {
+  background: var(--org-good-soft);
+  color: var(--org-good);
+}
+.org-card-icon.is-warn {
+  background: var(--org-warn-soft);
+  color: var(--org-warn);
+}
+.org-card-icon.is-error {
+  background: var(--org-error-soft);
+  color: var(--org-error);
+}
+.org-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--org-ink);
+}
+.org-card-hint {
+  font-size: 12px;
+  color: var(--org-muted);
+  margin: 4px 0 0;
+}
+.org-card-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--org-blue);
+  text-decoration: none;
+}
+.org-card-link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Professional document layout — no cards, no boxes ---------- */
+.org-doc-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-bottom: 20px;
+}
+@media (min-width: 860px) {
+  .org-doc-columns {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 56px;
+  }
+  .org-doc-columns > .org-doc-section:nth-child(even):not(.org-doc-section--full) {
+    border-left: 1px solid var(--org-border);
+    padding-left: 28px;
+  }
+  .org-doc-columns > .org-doc-section--full,
+  .org-doc-columns > .org-doc-section:nth-child(odd):last-child {
+    grid-column: 1 / -1;
+    border-left: none;
+    padding-left: 0;
+  }
+}
+.org-doc-section {
+  padding: 28px 0;
+  border-bottom: 1px solid var(--org-border);
+}
+.org-doc-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.org-doc-heading {
+  display: inline-block;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--org-meadow);
+  padding-bottom: 7px;
+  margin: 0 0 16px;
+  border-bottom: 2px solid var(--org-meadow);
+}
+.org-doc-heading--plum {
+  color: var(--org-plum);
+  border-bottom-color: var(--org-plum);
+}
+.org-doc-heading--gold {
+  color: var(--org-gold);
+  border-bottom-color: var(--org-gold);
+}
+.org-doc-heading--good {
+  color: var(--org-good);
+  border-bottom-color: var(--org-good);
+}
+.org-doc-heading--blue {
+  color: var(--org-blue);
+  border-bottom-color: var(--org-blue);
+}
+.org-doc-note {
+  font-size: 12.5px;
+  color: var(--org-muted);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+/* ---------- Stat summary boxes ---------- */
+.org-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.org-stat-card {
+  background: var(--org-card);
+  border: 1px solid var(--org-border);
+  border-radius: 16px;
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: none;
+}
+.org-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--org-border);
+}
+.org-stat-card.is-accent::before {
+  background: hsl(calc(var(--theme-hue) - 8) 45.3% 33.7%);
+}
+.org-stat-card.is-warn::before {
+  background: var(--org-warn);
+}
+.org-stat-card.is-error::before {
+  background: var(--org-error);
+}
+.org-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  font-size: 18px;
+  margin-bottom: 12px;
+  background: hsl(calc(var(--theme-hue) - 57) 15.2% 93.5%);
+  color: var(--org-muted);
+}
+.org-stat-card.is-accent .org-stat-icon {
+  background: hsl(calc(var(--theme-hue) - 21) 23.8% 91.8%);
+  color: hsl(calc(var(--theme-hue) - 8) 45.3% 33.7%);
+}
+.org-stat-card.is-warn .org-stat-icon {
+  background: var(--org-warn-soft);
+  color: var(--org-warn);
+}
+.org-stat-card.is-error .org-stat-icon {
+  background: var(--org-error-soft);
+  color: var(--org-error);
+}
+.org-stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--org-muted);
+  margin: 0 0 8px;
+}
+.org-stat-value {
+  font-family: var(--font-body) !important;
+  font-size: 32px;
+  font-weight: 400;
+  color: var(--org-ink);
+  margin: 0;
+  line-height: 1;
+}
+.org-stat-card.is-accent .org-stat-value {
+  color: hsl(calc(var(--theme-hue) - 8) 45.3% 33.7%);
+}
+.org-stat-card.is-warn .org-stat-value {
+  color: var(--org-warn);
+}
+.org-stat-card.is-error .org-stat-value {
+  color: var(--org-error);
+}
+@media (min-width: 720px) {
+  .org-stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Key/value read rows ---------- */
+.org-kv-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--org-muted);
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}
+.org-kv-value {
+  font-size: 14px;
+  color: var(--org-ink);
+  margin: 0;
+}
+
+/* ---------- Forms ---------- */
+.org-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.org-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--org-ink-2);
+  text-transform: uppercase;
+  transition: color 0.18s ease;
+}
+/* The label picks up the brand colour the moment its own field is focused —
+   a small cue that ties the label to the box beneath it. */
+.org-field:focus-within .org-field-label {
+  color: var(--org-meadow);
+}
+.org-field-label .req {
+  color: var(--org-error);
+  text-transform: none;
+  font-weight: 700;
+  margin-left: 2px;
+}
+.org-input,
+.org-select,
+.org-textarea {
+  width: 100%;
+  padding: 11px 15px;
+  border: 1.5px solid var(--org-border);
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--org-ink);
+  background: #fbfbf8;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+.org-input:hover,
+.org-select:hover,
+.org-textarea:hover {
+  border-color: var(--org-meadow);
+  background: #fff;
+}
+/* ---------- Native <select> chrome varies by browser/OS; force it to match <input> exactly ---------- */
+.org-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%234a564e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  line-height: normal;
+  cursor: pointer;
+}
+.org-select.org-select-narrow {
+  padding-right: 28px;
+  background-position: right 10px center;
+}
+.org-input:focus,
+.org-select:focus,
+.org-textarea:focus {
+  outline: none;
+  border-color: var(--org-meadow);
+  background: #fff;
+  box-shadow: none;
+}
+.org-input.is-invalid,
+.org-select.is-invalid,
+.org-textarea.is-invalid {
+  border-color: var(--org-error);
+}
+.org-textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+.org-field-error {
+  color: var(--org-error);
+  font-size: 12px;
+  font-weight: 600;
+}
+.org-field-hint {
+  color: var(--org-muted);
+  font-size: 12px;
+}
+.org-grid {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.org-grid-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+.org-grid-2 {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.org-grid-3 {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+.org-grid-4 {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+.org-grid > * {
+  min-width: 0;
+}
+.org-span-2 {
+  grid-column: span 2;
+}
+.org-split-2-1 {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.org-split-3-2 {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+.org-checkbox-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--org-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.org-checkbox-tile input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--org-meadow);
+  flex: none;
+}
+/* ---------- Compliance rows — no boxes, just dividers ---------- */
+.org-compliance-row-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+}
+.org-compliance-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid hsl(calc(var(--theme-hue) - 57) 15.2% 93.5%);
+  cursor: pointer;
+}
+.org-compliance-row:last-child {
+  border-bottom: none;
+}
+.org-compliance-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 17px;
+  flex: none;
+  background: hsl(calc(var(--theme-hue) - 57) 15.2% 93.5%);
+  color: var(--org-muted);
+}
+.org-compliance-row.is-active .org-compliance-row-icon {
+  background: hsl(calc(var(--theme-hue) - 21) 23.8% 91.8%);
+  color: hsl(calc(var(--theme-hue) - 8) 45.3% 33.7%);
+}
+.org-compliance-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.org-compliance-row-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--org-ink);
+}
+.org-compliance-row-desc {
+  font-size: 12.5px;
+  color: var(--org-ink-2);
+  line-height: 1.4;
+}
+.org-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  flex: none;
+}
+.org-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+.org-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: #d8d4c5;
+  border-radius: 20px;
+  transition: background-color 0.15s ease;
+}
+.org-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+  box-shadow: none;
+}
+.org-toggle input:checked + .org-toggle-track {
+  background: hsl(calc(var(--theme-hue) - 8) 45.3% 33.7%);
+}
+.org-toggle input:checked + .org-toggle-track::after {
+  transform: translateX(16px);
+}
+.org-toggle input:focus-visible + .org-toggle-track {
+  box-shadow: none;
+}
+
+/* ---------- Initial Status & Submit — next-steps panel ---------- */
+.org-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.org-status-arrow {
+  color: var(--org-muted);
+  font-size: 16px;
+  display: inline-flex;
+}
+.org-next-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 18px;
+  padding: 18px 0;
+  border-top: 1px solid var(--org-border);
+  border-bottom: 1px solid var(--org-border);
+}
+.org-next-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.org-next-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--org-meadow-soft);
+  color: var(--org-meadow);
+  font-weight: 700;
+  font-size: 12px;
+  flex: none;
+}
+.org-next-step p {
+  font-size: 13px;
+  color: var(--org-ink-2);
+  margin: 0;
+  line-height: 1.5;
+}
+.org-submit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.org-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: var(--org-ink-2);
+}
+.org-check-row input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--org-meadow);
+  flex: none;
+}
+
+/* ---------- Badges ---------- */
+.org-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.org-badge-lg {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+.org-badge-meadow {
+  background: var(--org-meadow-soft);
+  color: var(--org-meadow);
+}
+.org-badge-good {
+  background: var(--org-good-soft);
+  color: var(--org-good);
+}
+.org-badge-blue {
+  background: var(--org-blue-soft);
+  color: var(--org-blue);
+}
+.org-badge-gold {
+  background: var(--org-gold-soft);
+  color: var(--org-gold);
+}
+.org-badge-warn {
+  background: var(--org-warn-soft);
+  color: var(--org-warn);
+}
+.org-badge-error {
+  background: var(--org-error-soft);
+  color: var(--org-error);
+}
+.org-badge-muted {
+  background: hsl(calc(var(--theme-hue) - 57) 15.2% 93.5%);
+  color: var(--org-muted);
+}
+
+/* ---------- Table ---------- */
+.org-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--org-border);
+  border-radius: 14px;
+  min-width: 0;
+  box-shadow: none;
+}
+.org-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.org-table thead th {
+  background: hsl(calc(var(--theme-hue) - 21) 23.8% 91.8%);
+  color: hsl(calc(var(--theme-hue) - 8) 45.3% 33.7%);
+  padding: 13px 14px;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--org-border);
+}
+.org-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.org-table tbody td {
+  padding: 13px 14px;
+  border-bottom: 1px solid hsl(calc(var(--theme-hue) - 57) 15.2% 93.5%);
+  background: #fff;
+  vertical-align: middle;
+}
+.org-table tbody tr:nth-child(even) td {
+  background: #fbfbf8;
+}
+.org-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.org-table tbody tr:hover td {
+  background: hsl(calc(var(--theme-hue) - 21) 23.8% 91.8%);
+}
+.org-table .text-end {
+  text-align: right;
+}
+.org-name-link {
+  font-weight: 600;
+  color: var(--org-meadow);
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+}
+.org-name-link:hover {
+  text-decoration: underline;
+}
+.org-code {
+  display: block;
+  font-size: 12px;
+  color: var(--org-muted);
+}
+
+/* ---------- Tabs ---------- */
+.org-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--org-border);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  overflow-x: auto;
+}
+.org-tab {
+  background: none;
+  border: none;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--org-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.org-tab:hover {
+  color: var(--org-ink);
+}
+.org-tab.active {
+  color: var(--org-meadow);
+  border-bottom-color: var(--org-meadow);
+}
+
+/* ---------- Banners / alerts ---------- */
+.org-banner {
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  line-height: 1.5;
+}
+.org-banner-info {
+  background: var(--org-blue-soft);
+  color: var(--org-blue);
+}
+.org-banner-warn {
+  background: var(--org-warn-soft);
+  color: var(--org-warn);
+}
+.org-banner-error {
+  background: var(--org-error-soft);
+  color: var(--org-error);
+}
+.org-banner-good {
+  background: var(--org-good-soft);
+  color: var(--org-good);
+}
+.org-banner-muted {
+  background: hsl(calc(var(--theme-hue) - 57) 15.2% 93.5%);
+  color: var(--org-ink-2);
+}
+.org-banner i {
+  font-size: 16px;
+  margin-top: 1px;
+}
+
+/* ---------- Empty / loading states ---------- */
+.org-empty {
+  text-align: center;
+  padding: 60px 24px;
+}
+.org-empty-icon {
+  font-size: 40px;
+  color: var(--org-muted);
+  margin-bottom: 12px;
+}
+.org-empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--org-ink);
+}
+.org-empty-body {
+  color: var(--org-ink-2);
+  margin: 0 0 16px;
+}
+.org-loading {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--org-muted);
+}
+.org-loading .org-spinner-lg {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--org-border);
+  border-top-color: var(--org-meadow);
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  animation: org-spin 0.7s linear infinite;
+}
+
+/* ---------- Modal ---------- */
+.org-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: hsl(calc(var(--theme-hue) - 18) 14.3% 11% / 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.org-modal {
+  background: #fff;
+  border-radius: 18px;
+  padding: 28px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: none;
+  max-height: 90vh;
+  overflow: auto;
+}
+.org-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.org-modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--org-ink);
+}
+.org-modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--org-muted);
+  cursor: pointer;
+  margin-left: auto;
+  line-height: 1;
+}
+.org-modal-lead {
+  font-size: 13px;
+  color: var(--org-ink-2);
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+.org-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+}
+.org-modal-kv {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--org-border);
+  font-size: 13px;
+}
+.org-modal-kv:last-child {
+  border-bottom: none;
+}
+.org-modal-kv dt {
+  font-weight: 600;
+  color: var(--org-ink-2);
+  min-width: 110px;
+}
+.org-modal-kv dd {
+  margin: 0;
+  color: var(--org-ink);
+}
+
+/* ---------- Dropdown menu (Bootstrap JS behaviour kept; visuals restyled) ---------- */
+.org-menu-wrap {
+  position: relative;
+  display: inline-block;
+}
+.org-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--org-border);
+  background: #fff;
+  color: var(--org-ink);
+  cursor: pointer;
+  font-family: inherit;
+}
+.org-menu-btn:hover {
+  background: #f7f5ee;
+}
+:host ::ng-deep .dropdown-menu {
+  border: 1px solid var(--org-border);
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 6px;
+  min-width: 200px;
+  font-size: 13px;
+}
+:host ::ng-deep .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--org-ink);
+  font-size: 13px;
+}
+:host ::ng-deep .dropdown-item:hover,
+:host ::ng-deep .dropdown-item:focus {
+  background: #f2efe8;
+  color: var(--org-ink);
+}
+:host ::ng-deep .dropdown-item.text-danger:hover {
+  background: var(--org-error-soft);
+}
+:host ::ng-deep .dropdown-divider {
+  margin: 6px 4px;
+  border-color: var(--org-border);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .org-grid-2,
+  .org-grid-3,
+  .org-grid-4,
+  .org-split-2-1,
+  .org-split-3-2 {
+    grid-template-columns: 1fr;
+  }
+  .org-span-2 {
+    grid-column: span 1;
+  }
+  .org-header {
+    flex-direction: column;
+  }
+  .org-title {
+    font-size: 26px;
+  }
+}
+@media (max-width: 640px) {
+  .org-page {
+    padding: 18px 14px 40px;
+  }
+  .org-title {
+    font-size: 22px;
+  }
+  .org-stat-grid {
+    grid-template-columns: 1fr;
+  }
+  .org-card {
+    padding: 16px 18px;
+  }
+  .org-modal {
+    padding: 20px;
+  }
+}
+
+/* =========================================================
+   THE WIZARD'S OWN COMPONENTS
+   =========================================================
+   TWENTY OF THE FORTY-FIVE CLASSES THIS SCREEN USES HAD NO RULES AT ALL. The markup was written
+   against a vocabulary the stylesheet never defined - org-stepper, org-input-group,
+   org-review-grid, org-success-panel and the rest - so those elements fell back to browser
+   defaults and the page rendered as a flat stack of unstyled text. The four wizard steps in
+   particular appeared as four plain lines rather than a stepper, which is what "the design is
+   collapsed" looks like.
+
+   These rules use the same Dark Meadow tokens declared at the top of this file, so the wizard now
+   matches the rest of the Organisation module rather than approximating it.
+   ========================================================= */
+
+/* ---------- The step indicator ---------- */
+/* A segmented tab bar — one bordered track divided into four tabs, the
+   current tab filled solid, the rest quiet — reads as a single control
+   rather than four separate decorated stops. Raised like the other cards
+   on this page (box-shadow) instead of sitting flush with the background. */
+.org-stepper {
+  display: flex;
+  gap: 5px;
+  padding: 5px;
+  margin: 0 0 20px;
+  background: var(--org-card);
+  border: 1px solid var(--org-border);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+/* Each tab plays its own little entrance — scaling and sliding up out of
+   the bar rather than the whole thing just fading in — staggered left to
+   right so the sequence itself hints at "step 1, then 2, then 3, then 4". */
+.wiz-tab {
+  position: relative;
+  overflow: hidden;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 11px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.94);
+  animation: wiz-tab-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: background 0.25s ease;
+}
+
+.wiz-tab:nth-child(1) { animation-delay: 0ms; }
+.wiz-tab:nth-child(2) { animation-delay: 70ms; }
+.wiz-tab:nth-child(3) { animation-delay: 140ms; }
+.wiz-tab:nth-child(4) { animation-delay: 210ms; }
+
+@keyframes wiz-tab-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* The numbered badge: neutral by default, a soft tint once its step is
+   done, solid white-on-accent inside the active (solid-filled) tab. Bare
+   <span>, so font-size/font-weight need !important for the same reason
+   noted throughout this file — the global reset targets bare tags. */
+.wiz-tab-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--org-border);
+  color: var(--org-muted);
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.wiz-tab-num i {
+  font-size: 13px !important;
+}
+
+/* A step just marked done gets its checkmark punched in with a little
+   overshoot, instead of silently appearing — a small reward for finishing
+   a step rather than a static state change. */
+.wiz-tab.is-done .wiz-tab-num {
+  background: #e7efe7;
+  color: #223c30;
+}
+
+.wiz-tab.is-done .wiz-tab-num i {
+  animation: wiz-tab-check-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes wiz-tab-check-pop {
+  0% { opacity: 0; transform: scale(0.2) rotate(-40deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+/* The active tab doesn't just switch colour — it settles into place with a
+   spring-y overshoot, and a single light sweep passes across it a beat
+   later, the same way a highlighter draws attention to one line. Both
+   restart automatically whenever Angular moves [class.is-active] to a
+   different tab, because re-adding a class whose rule carries an
+   `animation` replays that animation from its 0% frame. */
+.wiz-tab.is-active {
+  background: var(--org-meadow);
+  box-shadow: none;
+  /* Overrides the base rule's `animation`, which would otherwise leave this
+     element's plain `opacity: 0` / `transform` (the entrance animation's
+     un-animated starting values) in place forever, since nothing here would
+     ever animate them back to visible — hence spelling both out again. Only
+     the bounce plays here; the entrance keyframe stays exclusively on the
+     base `.wiz-tab` rule so it fires once on mount, not every time the
+     active tab changes (which would fade the tab out and back in on every
+     step, reading as a glitch rather than a deliberate cue). */
+  opacity: 1;
+  transform: none;
+  animation: wiz-tab-activate 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wiz-tab.is-active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.32) 50%, transparent 70%);
+  transform: translateX(-130%);
+  animation: wiz-tab-sheen 0.9s ease 0.2s both;
+  pointer-events: none;
+}
+
+@keyframes wiz-tab-activate {
+  0% { transform: scale(0.88); }
+  55% { transform: scale(1.045); }
+  100% { transform: scale(1); }
+}
+
+@keyframes wiz-tab-sheen {
+  from { transform: translateX(-130%); }
+  to { transform: translateX(130%); }
+}
+
+.wiz-tab.is-active .wiz-tab-num {
+  background: var(--org-card);
+  color: var(--org-meadow);
+}
+
+.wiz-tab-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.wiz-tab-title {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: var(--org-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.25s ease;
+}
+
+.wiz-tab.is-active .wiz-tab-title {
+  color: #fff;
+}
+
+.wiz-tab-sub {
+  font-size: 11px;
+  color: var(--org-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.25s ease;
+}
+
+.wiz-tab.is-active .wiz-tab-sub {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Still used elsewhere on this page (header icon entrance, section-head
+   card entrance) — kept when the old rectangular stepper cards that used
+   to share them were replaced by the circular-node timeline above. */
+@keyframes wiz-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wiz-step-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---------- Step section header (icon + title + "Step n of 4" badge) ---------- */
+/* A crisp white card with a bold accent bar down the left edge and a soft
+   colour glow tucked in the corner — clearer visual weight than a flat,
+   barely-there pastel wash. Lifts slightly on hover like the other cards
+   on this page. */
+.wiz-section-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 24px 18px 22px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  background: #fff;
+  border-left: 5px solid var(--org-meadow);
+  box-shadow: none;
+  overflow: hidden;
+  animation: wiz-step-fade-in 0.35s ease both;
+  transition: box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.wiz-section-head::after {
+  content: '';
+  position: absolute;
+  top: -60%;
+  right: -6%;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--org-meadow-soft) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+.wiz-section-head:hover {
+  transform: translateY(-3px);
+  box-shadow: none;
+}
+
+.wiz-section-head-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* The glyph now sits in its own rounded, tinted tile — a badge, not a bare
+   icon floating next to the text — so this row carries real visual weight. */
+.wiz-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--org-meadow-soft);
+  color: var(--org-meadow);
+  box-shadow: none;
+}
+
+.wiz-section-icon.is-good {
+  background: var(--org-good-soft);
+  color: var(--org-good);
+}
+
+/* !important: styles.css has a global reset that targets the bare <i> tag
+   directly and pins its font-size with its own !important. Setting
+   font-size on the wrapping .wiz-section-icon span does nothing for the
+   <i> itself — it has to be set on the <i> to out-specificity that rule. */
+.wiz-section-icon i {
+  font-size: 26px !important;
+}
+
+.wiz-section-head-main h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 3px;
+  color: var(--org-ink);
+}
+
+.wiz-section-head-main p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--org-muted);
+  margin: 0;
+  max-width: 62ch;
+}
+
+.wiz-section-badge {
+  display: flex;
+  align-items: center;
+  flex: none;
+  position: relative;
+  z-index: 1;
+}
+
+.wiz-section-badge-pill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--org-meadow);
+  color: #fff;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+/* ---------- Field group cards ---------- */
+/* Groups related fields (Basic Information, Organisation Identity, Web
+   Address, Description) under their own icon-tile header and a raised,
+   shadowed card — instead of a flat, unbroken run of fields — so each
+   sub-topic reads as its own unit at a glance. */
+.wiz-field-cards-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  /* stretch (the grid default) so both cards take the height of the
+     taller one instead of each hugging its own content — a mismatched
+     "Basic Information" vs "Organisation Identity" pair otherwise looks
+     unintentional. */
+  align-items: stretch;
+  margin-bottom: 18px;
+}
+
+.wiz-field-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--org-card);
+  border: var(--yc-border);
+  border-radius: var(--yc-radius);
+  padding: 20px 22px 6px;
+  margin-bottom: 18px;
+  box-shadow: none;
+  transition: box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.wiz-field-cards-row .wiz-field-card {
+  margin-bottom: 0;
+}
+
+.wiz-field-card:hover {
+  transform: translateY(-2px);
+  box-shadow: none;
+}
+
+.wiz-field-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* No background tile — a bare, larger glyph rather than an icon-in-a-box. */
+.wiz-field-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--yc-icon-size);
+  height: var(--yc-icon-size);
+  color: var(--org-meadow);
+  border: 1px solid currentColor;
+}
+
+/* !important: same global bare-<i> font-size reset noted throughout this
+   file — must be set on the <i> itself, not the wrapping tile. */
+.wiz-field-card-icon i {
+  font-size: 28px !important;
+}
+
+.wiz-field-card-title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--org-ink);
+  margin: 0 0 2px;
+}
+
+.wiz-field-card-sub {
+  font-size: var(--yc-subtitle-size);
+  line-height: 1.4;
+  color: var(--org-muted);
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .wiz-field-cards-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiz-field-card {
+    transition: none;
+  }
+  .wiz-field-card:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiz-section-head {
+    animation: none;
+    opacity: 1;
+    transition: none;
+  }
+  .wiz-tab,
+  .wiz-tab.is-active,
+  .wiz-tab.is-done .wiz-tab-num i {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .wiz-tab.is-active::after {
+    display: none;
+  }
+  .wiz-section-head:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .org-stepper {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .wiz-tab {
+    flex: 1 1 40%;
+  }
+}
+
+@media (max-width: 520px) {
+  .org-stepper {
+    flex-direction: column;
+  }
+  .wiz-tab {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------- The address field and its domain suffix ---------- */
+.org-input-group {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.org-input-group .org-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---------- A select and an input that stand apart, e.g. country code + phone number ---------- */
+.org-input-group--gap {
+  gap: 8px;
+}
+.org-input-group--gap .org-input {
+  border-radius: 10px;
+}
+
+/*
+ * The read-only domain suffix.
+ *
+ * IT LOOKS LIKE PART OF THE FIELD AND IS NOT EDITABLE, which is the point: the operator types the
+ * subdomain and the platform supplies what it hangs off. It reads the root domain from the server,
+ * so it says ".localhost" in Docker and the real domain in production.
+ */
+.org-input-suffix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid var(--org-border);
+  border-left: none;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  background: var(--org-meadow-soft);
+  color: var(--org-ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.org-suggestions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.org-chip {
+  padding: 5px 13px;
+  border: 1px solid var(--org-border);
+  border-radius: 999px;
+  background: var(--org-card);
+  color: var(--org-meadow);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.org-chip:hover {
+  background: var(--org-meadow-soft);
+  border-color: var(--org-meadow);
+}
+
+/* ---------- Required marker and notes ---------- */
+.org-required {
+  color: var(--org-error);
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.org-section-note {
+  margin: 0 0 18px;
+  font-size: 13px;
+  color: var(--org-ink-2);
+  max-width: 76ch;
+  line-height: 1.6;
+}
+
+.org-select-narrow {
+  flex: 0 0 96px;
+  width: 96px;
+  max-width: 96px;
+}
+
+/* ---------- Radio rows ---------- */
+.org-radio-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--org-border);
+  border-radius: 11px;
+  background: var(--org-card);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.org-radio-row:hover {
+  background: var(--org-meadow-soft);
+}
+
+.org-radio-row input[type="radio"] {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  accent-color: var(--org-meadow);
+  flex: 0 0 auto;
+}
+
+.org-radio-label {
+  font-weight: 600;
+  color: var(--org-ink);
+}
+
+/* ---------- Step actions ---------- */
+.org-step-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 11px;
+  flex-wrap: wrap;
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid var(--org-border);
+}
+
+/* Back sits on the left, the forward action on the right, so the eye finds "continue" where it
+   expects it on every step. */
+.org-step-actions .org-btn-ghost:first-child {
+  margin-right: auto;
+}
+
+/* ---------- Alerts ---------- */
+.org-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 16px;
+  margin: 0 0 18px;
+  border-radius: var(--yc-radius-inner);
+  border: 1px solid var(--org-border);
+  background: var(--org-card);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.org-alert i {
+  font-size: 16px;
+  margin-top: 1px;
+  flex: 0 0 auto;
+}
+
+.org-alert.is-error {
+  border-color: var(--org-error);
+  background: var(--org-error-soft);
+  color: #1e2a24;
+}
+
+.org-alert.is-error i {
+  color: var(--org-error);
+}
+
+.org-alert.is-good {
+  border-color: var(--org-good);
+  background: var(--org-good-soft);
+  text-align: left;
+}
+
+.org-alert.is-good i {
+  color: var(--org-good);
+}
+
+/* WARN, NOT ERROR, for "created but no invitation sent". The organisation exists and the work
+   succeeded; only the message did not go. Drawing that in red would send somebody looking for a
+   failure that did not happen. */
+.org-alert.is-warn {
+  border-color: var(--org-warn);
+  background: var(--org-warn-soft);
+  text-align: left;
+}
+
+.org-alert.is-warn i {
+  color: var(--org-warn);
+}
+
+/* ---------- Review and result grids ---------- */
+.org-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 15px 26px;
+  padding: 18px 20px;
+  margin: 0 0 20px;
+  background: var(--org-meadow-soft);
+  border-radius: 13px;
+}
+
+.org-review-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.detail-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--org-muted);
+}
+
+.detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--org-ink);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- The success panel ---------- */
+.org-success-panel {
+  text-align: center;
+  padding: 32px 24px;
+  background: var(--org-card);
+  border: var(--yc-border);
+  border-radius: var(--yc-radius);
+}
+
+.org-success-panel .org-review-grid {
+  text-align: left;
+  margin-top: 22px;
+}
+
+.org-success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background: var(--org-good-soft);
+  color: var(--org-good);
+  font-size: 34px;
+}
+
+/*
+ * The activation link, shown when e-mail delivery is off.
+ *
+ * MONOSPACE AND WRAPPING, because it is a long single-use URL somebody has to copy exactly. A
+ * proportional font that truncated it would be worse than not showing it.
+ */
+.org-code-block {
+  display: block;
+  padding: 13px 15px;
+  margin: 12px 0 0;
+  background: var(--org-ink);
+  color: hsl(calc(var(--theme-hue) - 33) 20% 92.2%);
+  border-radius: 10px;
+  font-family: var(--font-number);
+  font-size: 12.5px;
+  line-height: 1.65;
+  text-align: left;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+/* ---------- Narrow screens ---------- */
+@media (max-width: 720px) {
+  .wiz-tab-sub {
+    display: none;
+  }
+  .wiz-tab-num {
+    width: 22px;
+    height: 22px;
+    font-size: 11px !important;
+  }
+
+  .org-input-group:not(.org-input-group--gap) {
+    flex-direction: column;
+  }
+
+  .org-input-group:not(.org-input-group--gap) .org-input {
+    border-radius: 10px 10px 0 0;
+  }
+
+  .org-input-suffix {
+    border-left: 1px solid var(--org-border);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    justify-content: flex-start;
+    padding: 9px 14px;
+  }
+
+  .org-step-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .org-step-actions .org-btn {
+    width: 100%;
+  }
+
+  .org-step-actions .org-btn-ghost:first-child {
+    margin-right: 0;
+  }
+}
+
+/*
+ * INFO, for the activation link shown when the mail relay is off.
+ *
+ * Calm blue rather than green: nothing succeeded that would not otherwise have succeeded. The
+ * organisation was created either way; this is the platform handing you the link it could not
+ * post, and it should read as an instruction rather than as a congratulation.
+ */
+.org-alert.is-info {
+  border-color: var(--org-blue);
+  background: var(--org-blue-soft);
+  text-align: left;
+}
+
+.org-alert.is-info i {
+  color: var(--org-blue);
+}

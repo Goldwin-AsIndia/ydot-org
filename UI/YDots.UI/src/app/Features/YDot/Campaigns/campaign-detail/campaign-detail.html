@@ -1,0 +1,853 @@
+<main class="app-wrapper">
+  <div class="page-wrapper">
+    <div class="container-fluid px-4 py-3">
+      <!-- ============ TASK HEADER ============ -->
+      <app-page-header screen="campaign-detail" [title]="campaignName()" subtitle="View complete campaign information and details.">
+        <span meta class="ph-chip">{{ status() }}</span>
+        @if (reference) { <span meta class="ph-chip">{{ reference }}</span> }
+        <ng-container actions>
+          @if (operateAllowed()) {
+          <button type="button" class="ph-btn ph-btn--primary" (click)="runPrimaryLifecycle()"
+            [attr.aria-label]="primaryActionLabel() + ' — operate according to lifecycle'">
+            <svg class="cd-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path
+                d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+              <circle cx="12" cy="12" r="3.2" />
+            </svg>
+            {{ primaryActionLabel() }}
+          </button>
+          }
+          <!-- Manage lifecycle — opens Pause / Resume / Close as a right-edge off-canvas panel -->
+          @if (lifecycleAllowed()) {
+          <button type="button" class="ph-btn" [class.ph-btn--primary]="!operateAllowed()"
+            [class.ph-btn--ghost]="operateAllowed()" (click)="openLifecycle()"
+            aria-label="Manage lifecycle — pause, resume and close campaign">
+            <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path
+                d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+              <circle cx="12" cy="12" r="3.2" />
+            </svg>
+            Manage lifecycle
+          </button>
+          }
+          @if (exportAllowed()) {
+          <button type="button" class="ph-btn ph-btn--ghost" (click)="exportThisCampaign()"
+            aria-label="Export this campaign">
+            <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3.5v11" />
+              <path d="m7.5 10 4.5 4.5 4.5-4.5" />
+              <path d="M4.5 20h15" />
+            </svg>
+            Export
+          </button>
+          }
+          <!-- Edit — opens the Campaign Wizard pre-filled with this record; Draft campaigns only -->
+          @if (canEdit()) {
+          <button type="button" class="ph-btn ph-btn--ghost" (click)="openEdit()"
+            aria-label="Edit draft campaign in the wizard">
+            <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+            Edit
+          </button>
+          }
+          <!-- Delete draft — permanent removal of an unused draft; offered next to Submit for Draft campaigns only -->
+          @if (canDeleteDraft()) {
+          <button type="button" class="ph-btn ph-btn--danger" (click)="openDeleteDraft()"
+            aria-label="Delete draft campaign">
+            <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 7h16" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M5 7l1 13h12l1-13" />
+              <path d="M9 7V4h6v3" />
+            </svg>
+            Delete draft
+          </button>
+          }
+        </ng-container>
+      </app-page-header>
+
+      <!-- ============ NON-READY UI STATES ============ -->
+      @switch (uiState()) {
+      @case ('loading') {
+      <section class="cd-state-panel" aria-live="polite">
+        <div class="cd-skeleton-head"></div>
+        <div class="cd-skeleton-body"></div>
+        <p class="cd-state-note">Loading Campaign detail in scope {{ scope() }}…</p>
+      </section>
+      }
+      @case ('empty') {
+      <section class="cd-state-panel">
+        <h2 class="cd-state-title">Nothing to show in this view</h2>
+        <p class="cd-state-note">No related items match the current scope and filters — this is not a global zero.</p>
+        <button type="button" class="cd-btn cd-btn-outline" (click)="clearFilters()">Reset filters</button>
+      </section>
+      }
+      @case ('validation') {
+      <section class="cd-state-panel cd-state-warn">
+        <h2 class="cd-state-title">Check the highlighted fields</h2>
+        <p class="cd-state-note">Provide the required reason before you operate according to lifecycle.</p>
+        <button type="button" class="cd-btn cd-btn-primary" (click)="openOperate()">Review action</button>
+      </section>
+      }
+      @case ('duplicate') {
+      <section class="cd-state-panel cd-state-warn">
+        <h2 class="cd-state-title">A similar campaign already exists</h2>
+        <p class="cd-state-note">Compare before continuing — no protected details of another record are shown.</p>
+        <div class="cd-state-actions">
+          <button type="button" class="cd-btn cd-btn-outline" (click)="dismissBanner()">Compare</button>
+          <button type="button" class="cd-btn cd-btn-outline" (click)="dismissBanner()">Cancel</button>
+        </div>
+      </section>
+      }
+      @case ('no-access') {
+      <section class="cd-state-panel cd-state-danger">
+        <h2 class="cd-state-title">This record is not available with your current access</h2>
+        <p class="cd-state-note">Restricted menu, record, fields, counts and actions are hidden. Return to a permitted
+          page.</p>
+        <button type="button" class="cd-btn cd-btn-outline" (click)="dismissBanner()">Back to campaigns</button>
+      </section>
+      }
+      @case ('conflict') {
+      <section class="cd-state-panel cd-state-warn">
+        <h2 class="cd-state-title">This record changed after you opened it</h2>
+        <p class="cd-state-note">Review the latest version before continuing. Your proposed values are retained.</p>
+        <div class="cd-state-actions">
+          <button type="button" class="cd-btn cd-btn-outline" (click)="dismissBanner()">Review latest</button>
+          <button type="button" class="cd-btn cd-btn-outline" (click)="dismissBanner()">Reapply changes</button>
+          <button type="button" class="cd-btn cd-btn-outline" (click)="dismissBanner()">Cancel</button>
+        </div>
+      </section>
+      }
+      @case ('dependency-failure') {
+      <section class="cd-state-panel cd-state-warn">
+        <h2 class="cd-state-title">The dependent service step could not complete</h2>
+        <p class="cd-state-note">Your confirmed local result is unchanged. Correlation reference INT-88421.</p>
+        <button type="button" class="cd-btn cd-btn-outline" (click)="dismissBanner()">Retry dependency</button>
+      </section>
+      }
+      }
+
+      <!-- ============ SUCCESS — persistent confirmation, not a toast alone ============ -->
+      @if (uiState() === 'success') {
+      <section class="cd-success-banner" role="status">
+        <svg class="cd-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <path d="m8.5 12 2.5 2.5 4.5-5" />
+        </svg>
+        <div class="cd-success-text">
+          <strong>Saved successfully.</strong>
+          Reference {{ reference }}; state {{ status() }}; effective {{ effectiveTime }}.
+          <span class="cd-success-sub">Pending dependency: receipt email queued. Next: notify assigned people.</span>
+        </div>
+        <button type="button" class="cd-banner-close" (click)="dismissBanner()" aria-label="Dismiss confirmation">
+          <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </section>
+      }
+
+      @if (uiState() !== 'loading' && uiState() !== 'no-access') {
+
+      <!-- ============ TWO-REGION TASK LAYOUT ============ -->
+      <div class="cd-layout">
+
+        <!-- ---------- WORK AREA ---------- -->
+        <div class="cd-work">
+
+          <!-- ============ CAMPAIGN DASHBOARD ============ -->
+          <!-- The eight stat widgets, then the donations trend line and the recent
+               donations list. Every figure is live or an honest "-" — absent facts,
+               never zeros. -->
+          <!-- ============ CAMPAIGN DASHBOARD — mirror of the approved design ============
+            Four pastel KPI cards, donations-by-channel chart, campaign status strip,
+            campaign calendar, donor-mix donut and the tabbed tracking card.
+            Real figures where the API carries them; the mock's placeholder figures stand
+            in where no module feeds the screen yet. -->
+          <section class="cd-dash">
+            <!-- Four stat cards in the same anatomy as every other screen's top cards (icon | label + delta,
+                 figure, one line of context), white, no blobs. Figures unchanged: revenue and assets are live,
+                 donors and WhatsApp sends are the mock's placeholders until those modules feed this screen. -->
+            <div class="cd-kpi-grid">
+              <article class="fk-kpi cd-stat">
+                <span class="cd-stat-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><path d="M16 14.5h2"/><path d="M7 3.5h10"/></svg>
+                </span>
+                <div class="cd-stat-body">
+                  <div class="cd-stat-top">
+                    <span class="cd-stat-label">Monthly Revenue</span>
+                    <span class="cd-stat-chip is-up">↑ 12%</span>
+                  </div>
+                  <span class="cd-stat-value">{{ kpiRevenue() }}</span>
+                  <span class="cd-stat-sub">
+                    <span>Total <strong>{{ kpiRevenueCompact() }}</strong></span>
+                    <button type="button" class="cd-stat-link">View details <span aria-hidden="true">→</span></button>
+                  </span>
+                </div>
+              </article>
+
+              <article class="fk-kpi cd-stat">
+                <span class="cd-stat-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </span>
+                <div class="cd-stat-body">
+                  <div class="cd-stat-top">
+                    <span class="cd-stat-label">Total Donors</span>
+                    <span class="cd-stat-chip is-up">↑ 18%</span>
+                  </div>
+                  <span class="cd-stat-value">{{ donorMixTotalLabel }}</span>
+                  <span class="cd-stat-sub"><span>Monthly donors <strong>{{ donorsMonthlyLabel }}</strong></span></span>
+                </div>
+              </article>
+
+              <article class="fk-kpi cd-stat">
+                <span class="cd-stat-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3.2 3.1Z"/><path d="M8.5 10.5h7M8.5 13.5h4.5"/></svg>
+                </span>
+                <div class="cd-stat-body">
+                  <div class="cd-stat-top">
+                    <span class="cd-stat-label">WhatsApp Sends</span>
+                    <span class="cd-stat-chip is-down">↓ 6%</span>
+                  </div>
+                  <span class="cd-stat-value">3,000</span>
+                  <span class="cd-stat-sub"><span>Monthly sends <strong>3.0K</strong></span></span>
+                </div>
+              </article>
+
+              <article class="fk-kpi cd-stat">
+                <span class="cd-stat-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>
+                </span>
+                <div class="cd-stat-body">
+                  <div class="cd-stat-top">
+                    <span class="cd-stat-label">Total Assets</span>
+                    <span class="cd-stat-chip is-down">↓ 25%</span>
+                  </div>
+                  <span class="cd-stat-value">{{ assetsCountLabel() ?? '342' }}</span>
+                  <span class="cd-stat-sub"><span>Monthly assets <strong>{{ assetsCountLabel() ?? '342' }}</strong></span></span>
+                </div>
+              </article>
+            </div>
+            <div class="cd-row-2col">
+
+              <!-- Campaign Calendar — the campaign's real dates first (launch, close), the
+                   mock's demo activities around them so the month reads like the design.
+                   Ported from Figma node 3:118, including its own right-hand activity rail. The rail's
+                   event cards (title + time + status, owner and note, or an amount for a donation)
+                   are Figma node 3:349; the rail opens for the clicked day and has no date heading. -->
+              <article class="fk-panel fk-cal-panel cd-cal-panel" [class.has-selection]="calSelectedDay() !== null">
+                <div class="fk-cal-head">
+                  <p class="fk-cal-title">Campaign Calendar</p>
+                  <div class="fk-cal-tools">
+                    <button type="button" class="fk-cal-nav-btn" (click)="calShift(-1)" aria-label="Previous month">‹</button>
+                    <span class="fk-cal-month-pill">
+                      <img src="assets/images/campaign-detail/ic-calendar.svg" alt="" width="14" height="14" />
+                      {{ calLabel() }}
+                    </span>
+                    <button type="button" class="fk-cal-nav-btn" (click)="calShift(1)" aria-label="Next month">›</button>
+                  </div>
+                </div>
+
+                <div class="fk-cal-body">
+                  <div class="fk-cal-main">
+                    <div class="fk-cal-grid" role="grid" aria-label="Campaign activity calendar">
+                      @for (day of calDow; track day) {
+                      <span class="fk-cal-dow" role="presentation">{{ day }}</span>
+                      }
+                      @for (cell of calCells(); track cell.key) {
+                      @if (cell.inMonth) {
+                      <button type="button" class="fk-cal-cell" role="gridcell"
+                        [class.has-events]="cell.events.length > 0" [class.today]="cell.isToday"
+                        [class.selected]="cell.selected" [attr.aria-pressed]="cell.selected" (click)="selectCalDay(cell)"
+                        [attr.aria-label]="cell.day + ' — ' + (cell.events.length ? cell.events.length + ' activities' : 'no activities')">
+                        <span class="fk-cal-day-num">{{ cell.day }}</span>
+                        @if (cell.events.length) {
+                        <span class="fk-cal-dots" aria-hidden="true">
+                          @for (ev of cell.events.slice(0, 4); track ev.label) {
+                          <span class="fk-cal-dot" [attr.data-kind]="ev.kind"></span>
+                          }
+                          @if (cell.events.length > 4) {
+                          <span class="fk-cal-more">+{{ cell.events.length - 4 }}</span>
+                          }
+                        </span>
+                        }
+                      </button>
+                      } @else {
+                      <!-- A blank alignment cell, not another month's date - the grid keeps its weekday
+                           columns without showing any day that isn't in this month. -->
+                      <span class="fk-cal-cell out" role="presentation" aria-hidden="true"></span>
+                      }
+                      }
+                    </div>
+                    <ul class="fk-cal-legend">
+                      @for (item of calLegend; track item.kind) {
+                      <li><span class="fk-legend-dot" [style.background]="item.color"></span>{{ item.label }}</li>
+                      }
+                    </ul>
+                  </div>
+
+                  <!-- Day panel: only while a date is selected. The calendar gives up the width it needs,
+                       and the list scrolls inside the panel so the card never grows with it. -->
+                  @if (calSelectedDay(); as day) {
+                  <aside class="fk-cal-rail" aria-label="Activities on {{ day.dateLabel }}">
+                    <div class="fk-cal-rail-inner">
+                      @if (day.events.length) {
+                      <ul class="fk-day-list">
+                        @for (ev of day.events; track ev.label) {
+                        <li class="fk-ev" [attr.data-kind]="ev.kind">
+                          <div class="fk-ev-head">
+                            <span class="fk-ev-tile" aria-hidden="true"><i [class]="calKindIcon(ev.kind)"></i></span>
+                            <div class="fk-ev-head-text">
+                              <p class="fk-ev-title">{{ ev.label }}</p>
+                              <p class="fk-ev-time">{{ ev.time ? (ev.end ? ev.time + ' - ' + ev.end : ev.time) : 'Campaign date' }}</p>
+                              @if (ev.status) {
+                              <p class="fk-ev-status" [attr.data-status]="ev.status"><span class="fk-ev-status-dot" aria-hidden="true"></span>{{ ev.status }}</p>
+                              }
+                            </div>
+                          </div>
+                          <div class="fk-ev-body">
+                            @if (ev.amount) {
+                            <p class="fk-ev-amount">{{ ev.amount }}</p>
+                            } @else if (ev.owner) {
+                            <p class="fk-ev-owner">
+                              <span class="fk-ev-avatar" aria-hidden="true"><i class="ri-user-line"></i></span>
+                              <span class="fk-ev-owner-label">Owner</span>
+                              <span class="fk-ev-owner-name">{{ ev.owner }}</span>
+                            </p>
+                            }
+                            @if (ev.note) {
+                            <p class="fk-ev-note">{{ ev.note }}</p>
+                            }
+                          </div>
+                        </li>
+                        }
+                      </ul>
+                      } @else {
+                      <p class="fk-day-empty">Nothing is scheduled for this day.</p>
+                      }
+                    </div>
+                  </aside>
+                  }
+                </div>
+              </article>
+
+              <!-- Right column — Campaign Details sits on top; the Graph (Donations by Channel)
+                   fills the remaining height so its bottom edge lands on the Calendar's bottom
+                   edge; Recent Activity follows below, its left edge flush with this column. -->
+              <div class="cd-right-top">
+              <!-- Campaign Overview — Purpose, Public description and Terms & notice, with the
+                   record's code, dates and owner up top. Ported from Figma node 3:387. -->
+              <article class="fk-panel fk-overview-panel">
+                <div class="fk-overview-head">
+                  <p class="fk-overview-title">Campaign overview</p>
+                  <span class="fk-programme-pill">{{ fundProgramme() }}</span>
+                </div>
+
+                <div class="fk-overview-grid">
+                  <div class="fk-overview-cell">
+                    <dt>Campaign owner</dt>
+                    <dd>{{ ownersLabel() }}</dd>
+                  </div>
+                  <div class="fk-overview-cell">
+                    <dt>Planned channel</dt>
+                    <dd>{{ channelsLabel() }}</dd>
+                  </div>
+                  <div class="fk-overview-cell">
+                    <dt>Start date</dt>
+                    <dd>{{ formatDate(launchDate()) }}</dd>
+                  </div>
+                  <div class="fk-overview-cell">
+                    <dt>End date</dt>
+                    <dd>{{ formatDate(endDate()) }}</dd>
+                  </div>
+                  <div class="fk-overview-cell">
+                    <dt>Planned operating budget</dt>
+                    <dd>{{ plannedBudgetLabel() }}</dd>
+                  </div>
+                  <div class="fk-overview-cell">
+                    <dt>Fundraising target</dt>
+                    <dd>{{ fundraisingTargetLabel() }}</dd>
+                  </div>
+                </div>
+
+                <div class="fk-overview-divider" aria-hidden="true"></div>
+
+                <p class="fk-overview-desc">
+                  {{ purpose() }}
+                  <span class="fk-overview-note">Budget and target are planning amounts; they are not donations received.</span>
+                </p>
+
+                @if (hasPublicDescription() || hasTermsNotice()) {
+                <div class="fk-overview-more">
+                  @if (hasPublicDescription()) {
+                  <button type="button" class="fk-read-more" (click)="openReadMore('description')">Public description →</button>
+                  }
+                  @if (hasTermsNotice()) {
+                  <button type="button" class="fk-read-more" (click)="openReadMore('terms')">Terms &amp; notice →</button>
+                  }
+                </div>
+                }
+              </article>
+
+              <!-- Donations by Channel — the real donation trend, split across the mock's
+                   channels so the chart reads like the design while staying honest.
+                   Ported from Figma node 13:2; the design's exported wavy lines are
+                   decorative renders of this same idea, so the path data here stays
+                   live/computed rather than embedding the static export. -->
+              <article class="fk-panel fk-chart-panel cd-channels-panel">
+                <div class="fk-chart-head">
+                  <p class="fk-chart-title">Donations By Channel</p>
+                  <div class="fk-chart-legend">
+                    @for (item of channelLegend; track item.label) {
+                    <span class="fk-chart-legend-item">
+                      <span class="fk-chart-legend-dot" [style.background]="item.color"></span>{{ item.label }}
+                    </span>
+                    }
+                    <span class="fk-period-pill fk-period-pill-sm">
+                      <select class="fk-period-select" [value]="trendRange()"
+                        (change)="setTrendRange($any($event.target).value)" aria-label="Chart period">
+                        <option value="12">Last 12 Months</option>
+                        <option value="6">Last 6 Months</option>
+                      </select>
+                      <span aria-hidden="true">▾</span>
+                    </span>
+                  </div>
+                </div>
+                <div class="fk-chart-wrap">
+                  <svg class="fk-chart" viewBox="0 0 660 124" preserveAspectRatio="none" role="img"
+                    aria-label="Donations by channel, month by month"
+                    (pointermove)="onChannelMove($event)" (pointerleave)="channelHover.set(null)">
+                    <defs>
+                      <linearGradient id="cdBandFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="11.19%" stop-color="rgba(218,19,48,0.1)" />
+                        <stop offset="88.81%" stop-color="rgba(224,8,39,0.5)" />
+                      </linearGradient>
+                    </defs>
+
+                    @for (tick of channelTicks(); track tick.value) {
+                    <line class="fk-chart-gridline" x1="15" [attr.y1]="trendY(tick.value)" x2="645"
+                      [attr.y2]="trendY(tick.value)"></line>
+                    }
+                    @for (lb of channelXLabels(); track lb.x) {
+                    <line class="fk-chart-gridline" [attr.x1]="lb.x" y1="6" [attr.x2]="lb.x" y2="118"></line>
+                    }
+
+                    @if (channelTip(); as tip) {
+                    <rect class="fk-chart-band" [attr.x]="tip.x - 16" y="6" width="32" height="112" rx="16"></rect>
+                    }
+
+                    @for (s of channelSeries(); track s.key) {
+                    <path class="fk-chart-line" [attr.d]="s.line" [attr.stroke]="s.color"></path>
+                    }
+
+                    @if (channelTip(); as tip) {
+                    @for (row of tip.rows; track row.key) {
+                    <circle class="fk-chart-dot" [attr.cx]="tip.x" [attr.cy]="row.y" r="3.5" [attr.fill]="row.color">
+                    </circle>
+                    }
+                    }
+                  </svg>
+
+                  @if (channelTip(); as tip) {
+                  <div class="cd-chart-tip" [class.below]="tip.below" [style.left.%]="tip.left"
+                    [style.top.%]="tip.top">
+                    <strong class="cd-chart-tip-title">{{ tip.label }}</strong>
+                    <ul>
+                      @for (row of tip.rows; track row.key) {
+                      <li>
+                        <span class="cd-legend-dot" [style.background]="row.color"></span>
+                        <span class="cd-chart-tip-label">{{ row.label }}</span>
+                        <strong>{{ row.display }}</strong>
+                      </li>
+                      }
+                    </ul>
+                  </div>
+                  }
+                </div>
+              </article>
+
+              <!-- Donations by Channel — the donor mix. Sits directly under the graph and shares its
+                   column, so its left and right edges are the graph's. Ring on the left, one row per
+                   channel on the right (swatch, name, donors) and a total-donors row under them. The ring
+                   uses soft pastel colours, not the graph's own. -->
+              <article class="fk-panel cd-mix-panel">
+                <div class="cd-mix-head">
+                  <p class="cd-mix-title">Donations by Channel</p>
+                  <span class="fk-period-pill">Last 12 Months <span aria-hidden="true">▾</span></span>
+                </div>
+
+                <div class="cd-mix-body">
+                  <div class="cd-mix-ring">
+                    <svg viewBox="0 0 42 42" role="img" aria-label="Donor share by channel">
+                      <circle class="cd-mix-track" cx="21" cy="21" r="15.9155" />
+                      @for (seg of donorMixDonut(); track seg.label) {
+                      <circle class="cd-mix-seg" cx="21" cy="21" r="15.9155" [style.stroke]="seg.color"
+                        [attr.stroke-dasharray]="seg.dash" [attr.stroke-dashoffset]="seg.offset">
+                        <title>{{ seg.label }} — {{ seg.pct }}%</title>
+                      </circle>
+                      }
+                    </svg>
+                    <div class="cd-mix-center">
+                      <strong>{{ donorMixTotalLabel }}</strong>
+                      <span>Total donors</span>
+                    </div>
+                  </div>
+
+                  <ul class="cd-mix-list">
+                    @for (seg of donorMixDonut(); track seg.label) {
+                    <li class="cd-mix-row">
+                      <span class="cd-mix-swatch" [style.background]="seg.color"></span>
+                      <span class="cd-mix-name">{{ seg.label }}</span>
+                      <strong class="cd-mix-count">{{ seg.display }}</strong>
+                    </li>
+                    }
+                    <li class="cd-mix-row cd-mix-row-total">
+                      <span class="cd-mix-name">Total donors</span>
+                      <strong class="cd-mix-count">{{ donorMixTotalLabel }}</strong>
+                    </li>
+                  </ul>
+                </div>
+              </article>
+              </div>
+
+              <!-- Tracking card — the compact tabbed table from the design. Narrower now,
+                   sitting directly below the Calendar, to the left of Recent Activity. -->
+              <section class="fk-panel fk-table-card cd-work-card cd-work-card-compact">
+                  <div class="fk-table-head">
+                    <nav class="fk-tabs" role="tablist" aria-label="Campaign detail sections">
+                      @for (t of tabs; track t.key) {
+                      <button type="button" class="fk-tab" role="tab" [class.fk-tab-active]="activeTab() === t.key"
+                        [attr.aria-selected]="activeTab() === t.key" (click)="selectTab(t.key)">
+                        {{ t.label }}
+                      </button>
+                      }
+                    </nav>
+                    <span class="fk-table-search">
+                      <img src="assets/images/campaign-detail/ic-search.svg" alt="" width="12" height="12" />
+                      <input type="search" [ngModel]="trackSearchTerm()" (ngModelChange)="setTrackSearch($event)"
+                        placeholder="Search reference, channel..." aria-label="Search tracking assets" />
+                    </span>
+                  </div>
+                  <div class="cd-tabpanel">
+                    <!-- Tracking: this campaign's tracking assets, paged five at a time -->
+                    @if (activeTab() === 'tracking') {
+                    <div role="tabpanel" aria-label="Tracking">
+                      @if (pagedTrackingRows().length) {
+                      <div class="cd-table-scroll">
+                        <table class="fk-table">
+                          <thead>
+                            <tr>
+                              <th>Type - Channel</th>
+                              <th>Status</th>
+                              <th>Usage</th>
+                              <th class="d-none d-xl-table-cell">Created On</th>
+                              <th class="fk-col-actions">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (row of pagedTrackingRows(); track row.primary) {
+                            <tr>
+                              <td>{{ row.secondary }}</td>
+                              <td>
+                                <span class="fk-status-chip" [attr.data-tone]="row.tone">
+                                  <span class="fk-status-chip-dot" aria-hidden="true"></span>
+                                  {{ row.statusText }}
+                                </span>
+                              </td>
+                              <td>{{ row.usesCount }}</td>
+                              <td class="d-none d-xl-table-cell">{{ row.createdOn }}</td>
+                              <td class="fk-col-actions">
+                                <button type="button" class="fk-row-menu" aria-label="More actions">⋯</button>
+                              </td>
+                            </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                      } @else {
+                      <p class="cd-state-note">No tracking assets recorded for this campaign yet.</p>
+                      }
+                      <div class="fk-table-foot">
+                        <span class="fk-table-showing">{{ trackShowing() }}</span>
+                        <div class="fk-table-pager">
+                          <button type="button" class="fk-page-btn" (click)="trackGo(-1)" [disabled]="trackPage() <= 1"
+                            aria-label="Previous page">‹</button>
+                          <span class="fk-page-num">{{ trackPage() }}</span>
+                          <button type="button" class="fk-page-btn" (click)="trackGo(1)"
+                            [disabled]="trackPage() >= trackPageCount()" aria-label="Next page">›</button>
+                        </div>
+                      </div>
+                    </div>
+                    }
+
+                    <!-- Payments: this campaign's donations, read live from the payments service -->
+                    @if (activeTab() === 'payments') {
+                    <div role="tabpanel" aria-label="Payments">
+                      @if (donationsLoading()) {
+                      <p class="cd-state-note">Loading this campaign's donations…</p>
+                      } @else if (donationsError()) {
+                      <p class="cd-state-note">{{ donationsError() }}</p>
+                      } @else {
+                      <ng-container
+                        *ngTemplateOutlet="rowTable; context: { $implicit: donations(), cols: ['Donation', 'Source · Method', 'Received'] }"></ng-container>
+                      }
+                    </div>
+                    }
+
+                    <!-- The design's remaining sections — shown so the tab strip matches the
+                         approved mock; each reports honestly until its module feeds this screen. -->
+                    @if (activeTab() !== 'tracking' && activeTab() !== 'payments') {
+                    <div role="tabpanel" [attr.aria-label]="activeTab()">
+                      <ng-container
+                        *ngTemplateOutlet="rowTable; context: { $implicit: [], cols: ['Record', 'Detail', 'Status'] }"></ng-container>
+                    </div>
+                    }
+                  </div>
+                </section>
+
+              <!-- Recent Activity — this campaign's own lifecycle trail (who did what,
+                   and whether it was allowed), not invented notification rows.
+                   Ported from Figma node 3:536; the two real tones (allowed/not permitted)
+                   map onto the design's colour-coded row treatment. -->
+              <article class="fk-panel fk-recent-panel cd-activity-panel">
+                <div class="fk-recent-head">
+                  <div>
+                    <p class="fk-recent-title">Recent Activity</p>
+                    <p class="fk-recent-sub">Latest {{ recentActivity().slice(0, 10).length }} campaign activities</p>
+                  </div>
+                  <span class="fk-period-pill ra-period">Last 12 Months
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </span>
+                </div>
+                @if (activityLoading()) {
+                <p class="cd-state-note">Loading recent activity…</p>
+                } @else if (activityError()) {
+                <p class="cd-state-note">{{ activityError() }}</p>
+                } @else if (recentActivity().length) {
+                <!-- Time | dashed rail with a channel icon | tinted card (title + campaign). The colour follows the
+                     channel / step (activityKind), not the theme. -->
+                <ul class="ra-list">
+                  @for (item of recentActivity().slice(0, 10); track item.time + item.title) {
+                  <li class="ra-row" [attr.data-kind]="activityKind(item)">
+                    <span class="ra-when">
+                      <span class="ra-time">{{ activityWhen(item).time }}</span>
+                      @if (activityWhen(item).date) { <span class="ra-date">{{ activityWhen(item).date }}</span> }
+                    </span>
+                    <span class="ra-node" aria-hidden="true">
+                      @switch (activityKind(item)) {
+                        @case ('email') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                        }
+                        @case ('whatsapp') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3.2 3.1Z"/><path d="M9 9.5c.3 2.2 2.3 4.3 4.6 4.8l1.1-1.2 1.8.8c-.2 1.2-1.1 1.9-2.3 1.9-3.4 0-6.4-3-6.4-6.4 0-1.2.7-2.1 1.9-2.3l.8 1.8Z"/></svg>
+                        }
+                        @case ('instagram') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.2 6.8h.01"/></svg>
+                        }
+                        @case ('sms') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4Z"/><path d="M8 10h8"/></svg>
+                        }
+                        @case ('person') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                        }
+                        @case ('approve') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+                        }
+                        @case ('create') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg>
+                        }
+                        @case ('alert') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+                        }
+                        @default {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 5 5 5M4 20l3.5-.8L19 7.7a2 2 0 0 0-2.7-2.7L4.8 16.5 4 20Z"/></svg>
+                        }
+                      }
+                    </span>
+                    <span class="ra-bubble">
+                      <span class="ra-title">{{ item.title }}</span>
+                      @if (item.detail) { <span class="ra-detail">{{ item.detail }}</span> }
+                    </span>
+                  </li>
+                  }
+                </ul>
+                } @else {
+                <p class="cd-state-note">No activity recorded for this campaign yet.</p>
+                }
+              </article>
+            </div>
+          </section>
+
+        </div>
+
+     
+      </div>
+
+      }
+
+      <!-- Shared read-only 3-column table for HistoryRow[] (primary / secondary / meta) -->
+      <ng-template #rowTable let-rows let-cols="cols">
+        @if (rows.length) {
+        <div class="cd-table-scroll">
+          <table class="cd-table">
+            <thead>
+              <tr>
+                <th>{{ cols[0] }}</th>
+                <th>{{ cols[1] }}</th>
+                <th>{{ cols[2] }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of rows; track r.primary) {
+              <tr>
+                <td>{{ r.primary }}</td>
+                <td>{{ r.secondary }}</td>
+                <td>{{ r.meta }}</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        } @else {
+        <p class="cd-state-note">Nothing recorded for this campaign in scope — this is not a global zero.</p>
+        }
+      </ng-template>
+
+      <!-- ============ HIGH-RISK CONFIRM: Operate according to lifecycle ============ -->
+      @if (operateDialogOpen()) {
+      <div class="cd-modal-backdrop" (click)="cancelOperate()">
+        <div class="cd-modal" role="dialog" aria-modal="true" aria-labelledby="cd-op-title" style="border-radius: 0.5rem"
+          (click)="$event.stopPropagation()">
+          <h2 class="cd-modal-title" id="cd-op-title">Confirm {{ proposedTransition()?.label }}</h2>
+          <p class="cd-modal-lead">Review the affected record, consequence, reason and effective time. This decision
+            requires explicit confirmation.</p>
+
+          @if (dialogOptions().length > 1) {
+          <fieldset class="cd-modal-field">
+            <legend class="cd-field-label">Lifecycle action</legend>
+            @for (opt of dialogOptions(); track opt.key) {
+            <label class="cd-radio-row">
+              <input type="radio" name="cd-transition" [value]="opt.key" [checked]="selectedTransitionKey() === opt.key"
+                (change)="selectTransition(opt.key)" />
+              {{ opt.label }} <span class="cd-decision-value">({{ opt.target }})</span>
+            </label>
+            }
+          </fieldset>
+          }
+
+          <dl class="cd-facts cd-modal-facts">
+            <div class="cd-fact">
+              <dt>Affected record</dt>
+              <dd>{{ reference }} · {{ campaignName() }}</dd>
+            </div>
+            <div class="cd-fact">
+              <dt>Consequence</dt>
+              <dd>State {{ status() }} → {{ proposedState() }}</dd>
+            </div>
+            <div class="cd-fact">
+              <dt>Effective permission</dt>
+              <dd>Granted — operate campaign lifecycle</dd>
+            </div>
+            <div class="cd-fact">
+              <dt>Effective time</dt>
+              <dd>{{ effectiveTime }}</dd>
+            </div>
+          </dl>
+
+          <label class="cd-modal-field">
+            <span class="cd-field-label">Reason <span class="cd-req">required</span></span>
+            <textarea class="cd-textarea" rows="3" [ngModel]="operateReason()"
+              (ngModelChange)="operateReason.set($event)" (blur)="operateReasonTouched.set(true)"
+              placeholder="State why this lifecycle change is being made…"
+              [attr.aria-invalid]="operateReasonTouched() && !operateReasonValid()"></textarea>
+            <span class="cd-field-foot">
+              <span class="cd-count" [class.cd-count-bad]="operateReasonCount() > operateReasonMax">{{
+                operateReasonCount() }} / {{ operateReasonMax }}</span>
+            </span>
+            @if (operateReasonTouched() && !operateReasonValid()) {
+            <span class="cd-field-error" role="alert">Enter Reason. Provide between {{ operateReasonMin }} and {{
+              operateReasonMax }} characters.</span>
+            }
+          </label>
+
+          <div class="cd-modal-actions">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelOperate()">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="confirmOperate()"
+              [disabled]="!operateReasonValid()">Confirm</button>
+          </div>
+        </div>
+      </div>
+      }
+
+      <!-- ============ CONFIRM: Delete draft (permanent) ============ -->
+      @if (deleteDraftDialogOpen()) {
+      <div class="cd-modal-backdrop" (click)="cancelDeleteDraft()">
+        <div class="cd-modal" role="dialog" aria-modal="true" aria-labelledby="cd-del-title"
+          (click)="$event.stopPropagation()">
+          <h2 class="cd-modal-title" id="cd-del-title">Delete this draft?</h2>
+          <p class="cd-modal-lead">This permanently removes the draft campaign. This cannot be undone.</p>
+          <dl class="cd-facts cd-modal-facts">
+            <div class="cd-fact">
+              <dt>Affected record</dt>
+              <dd>{{ reference }} · {{ campaignName() }}</dd>
+            </div>
+            <div class="cd-fact">
+              <dt>Consequence</dt>
+              <dd>Draft permanently deleted</dd>
+            </div>
+          </dl>
+          <div class="cd-modal-actions">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDeleteDraft()">Cancel</button>
+            <button type="button" class="btn btn-danger btn-sm" (click)="confirmDeleteDraft()">Delete draft</button>
+          </div>
+        </div>
+      </div>
+      }
+
+      <!-- ============ READ MORE — Public description / Terms and notice popup ============ -->
+      @if (readMoreField()) {
+      <div class="cd-modal-backdrop" (click)="closeReadMore()">
+        <div class="cd-modal cd-modal-lg" role="dialog" aria-modal="true" aria-labelledby="cd-readmore-title"
+          (click)="$event.stopPropagation()">
+          <h2 class="cd-modal-title" id="cd-readmore-title">{{ readMoreTitle() }}</h2>
+          <div class="cd-readmore-body" [innerHTML]="readMoreHtml()"></div>
+          <div class="cd-modal-actions">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeReadMore()">Close</button>
+          </div>
+        </div>
+      </div>
+      }
+
+      <!-- ============ PAUSE / RESUME / CLOSE — popup launched from "Manage lifecycle".
+       No separate page: the full lifecycle-actions component renders inline in this modal. ============ -->
+      @if (lifecyclePopupOpen()) {
+      <div class="cd-modal-backdrop" [class.cd-lifecycle-chrome-hidden]="lifecyclePanelOpen()"
+        (click)="closeLifecyclePopup()">
+        <div class="cd-modal cd-modal-lg cd-modal-lifecycle" [class.cd-lifecycle-chrome-hidden]="lifecyclePanelOpen()"
+          role="dialog" aria-modal="true" aria-label="Pause, resume and close campaign"
+          (click)="$event.stopPropagation()">
+          <button type="button" class="cd-banner-close cd-modal-close" (click)="closeLifecyclePopup()"
+            aria-label="Close">
+            <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+          <app-pause-resume-close-campaign [campaignRef]="lifecyclePopupRef()"
+            (panelOpenChange)="lifecyclePanelOpen.set($event)"></app-pause-resume-close-campaign>
+        </div>
+      </div>
+      }
+
+    </div>
+  </div>
+</main>

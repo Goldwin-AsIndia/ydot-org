@@ -1,0 +1,1411 @@
+/* =====================================================================================================
+   YDot Premium — the luxe surface layer.
+
+   Everything here reads the --theme-* variables that ThemeColorService derives from the one chosen
+   colour, so picking a theme re-colours the sidebar, buttons, table heads and cards together.
+
+   WHY !important. Each screen ships its own component stylesheet (pastel stat cards, per-screen button
+   fills, per-screen table heads). Those load after this file and use attribute selectors, so a global
+   rule without !important loses. The declarations below are the ones that must be uniform.
+
+   WHAT IS EXCLUDED. A handful of Organisation screens (directory, owner view, setup wizard, create,
+   registration/verification - NOT profile/settings any more, that now follows this layer like
+   everything else) and the public sign-in pages keep their own look: sections 2-5 sit inside one
+   @scope (:root) to (hosts) block. To bring a screen in, delete its host from that list.
+   ===================================================================================================== */
+
+:root {
+  --lx-radius: 11px;
+  --lx-ease: cubic-bezier(.2, .7, .2, 1);
+
+  /* THE BRAND ACCENT (still named --lx-gold* - the names stay because dozens of component stylesheets
+     read them, exactly as --lx-wash-stat/-surface kept their names when they turned white below).
+     By request this is no longer gold: one fixed dark green, #1f4d3a, for primary buttons and focus
+     rings. It is flat (no gradient, no shadow) and does not follow the theme, so every button and
+     ring always match regardless of the picked colour. Icons do NOT read this any more - see the
+     [data-tone="N"] rules in section 4b, which give each card's icon its own theme-derived tone
+     instead of this one flat colour. */
+  --lx-gold: #1f4d3a;
+  --lx-gold-light: #cfe3d7;
+  --lx-gold-dark: #163826;                 /* hover / hairline */
+  --lx-gold-deep: #16392a;                 /* as a glyph or text colour on a pale surface (>= 4.5:1 on white) */
+  --lx-gold-ink: #ffffff;                  /* text on the button - it is dark now, so this is light */
+  --lx-gold-grad: #1f4d3a;   /* kept as a name only: it is a flat colour */
+  --lx-gold-lit: none;
+
+  /* Every card below a page header is plain white - content cards and stat tiles alike, no wash. The names stay
+     because component stylesheets still read them; both are white now. */
+  --lx-wash-stat: #ffffff;
+  --lx-wash-surface: #ffffff;
+  /* No longer used to draw a border (see the 3 card rules below) - kept only in case something else
+     still reads it - but redefined off the old gold hex regardless, so nothing tinted gold slips
+     through if it does. */
+  --lx-card-line: #e8eaec;
+
+  /* The height of every KPI tile below a page header, on every page (section 4a). */
+  --lx-kpi-h: 128px;
+
+  /* Table heads (section 3): white, theme ink, hairline rule. */
+  --lx-head-bg: #ffffff;
+  --lx-head-ink: var(--theme-ink, #1f2d2a);
+  --lx-head-line: color-mix(in srgb, var(--theme-primary, #375c4c) 20%, #dfe4e2);
+}
+
+/* The canvas behind the cards: a whisper of the theme hue, so white cards lift off it. */
+.content-page {
+  background: color-mix(in srgb, var(--theme-surface-tint, #eef1ef) 42%, #ffffff);
+}
+
+
+/* =========================================================================================
+   1. SIDEBAR - light, tinted with the theme. Text is the theme's ink so it is always readable; the
+   selected item is a translucent gold with a solid gold bar, and each top-level icon takes its own tone.
+   The image variant (.theme-bg-active, chosen in the customizer) keeps its own overlay.
+   ========================================================================================= */
+.pe-app-sidebar:not(.theme-bg-active) {
+  background: color-mix(in srgb, var(--theme-surface-tint) 46%, #ffffff) !important;
+  border-inline-end: 1px solid var(--theme-border) !important;
+  box-shadow: none !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-app-sidebar-logo {
+  border-bottom: 1px solid color-mix(in srgb, var(--theme-accent) 28%, var(--theme-border)) !important;
+  background: transparent !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-app-sidebar-logo h3 {
+  color: var(--theme-deep) !important;
+  letter-spacing: .05em;
+  font-weight: 700 !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link,
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-content,
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-arrow {
+  color: var(--theme-ink) !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link {
+  border-radius: 12px !important;
+  font-weight: 500;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-menu-title {
+  color: var(--theme-accent-dark) !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-icon,
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-icon i {
+  color: var(--theme-tone-1) !important;
+  font-size: 19px !important;
+  background: none !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-main-menu > li:nth-child(6n+2) .pe-nav-icon { color: var(--theme-tone-2) !important; }
+.pe-app-sidebar:not(.theme-bg-active) .pe-main-menu > li:nth-child(6n+3) .pe-nav-icon { color: var(--theme-tone-3) !important; }
+.pe-app-sidebar:not(.theme-bg-active) .pe-main-menu > li:nth-child(6n+4) .pe-nav-icon { color: var(--theme-tone-4) !important; }
+.pe-app-sidebar:not(.theme-bg-active) .pe-main-menu > li:nth-child(6n+5) .pe-nav-icon { color: var(--theme-tone-5) !important; }
+.pe-app-sidebar:not(.theme-bg-active) .pe-main-menu > li:nth-child(6n) .pe-nav-icon { color: var(--theme-tone-6) !important; }
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link:hover {
+  background: color-mix(in srgb, var(--theme-primary) 8%, transparent) !important;
+  color: var(--theme-deep) !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link:hover .pe-nav-content,
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link:hover .pe-nav-arrow { color: var(--theme-deep) !important; }
+/* Selected: a frosted glass pane over the sidebar's own tint, not a solid fill - blurred backdrop, a
+   translucent theme-tinted wash and a soft hairline edge, text in the theme's deep ink. */
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active,
+.pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link {
+  background: color-mix(in srgb, var(--theme-primary) 16%, white 84%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid color-mix(in srgb, white 55%, var(--theme-primary) 20%) !important;
+  color: var(--theme-deep) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active .pe-nav-content,
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active .pe-nav-arrow,
+.pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link .pe-nav-content,
+.pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link .pe-nav-arrow { color: var(--theme-deep) !important; }
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active .pe-nav-icon,
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active .pe-nav-icon i,
+.pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link .pe-nav-icon,
+.pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link .pe-nav-icon i {
+  color: var(--theme-deep) !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active::after,
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link:hover::after {
+  background: none !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-slide-menu .pe-nav-link::before {
+  background-color: color-mix(in srgb, var(--theme-accent-dark) 60%, transparent) !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .pe-slide-menu::after {
+  background-color: color-mix(in srgb, var(--theme-primary) 16%, transparent) !important;
+}
+.pe-app-sidebar:not(.theme-bg-active) .simplebar-scrollbar::before {
+  background: color-mix(in srgb, var(--theme-primary) 35%, transparent) !important;
+}
+
+
+/* Top bar: white with a theme-tinted hairline. No shadow. */
+.app-header {
+  border-bottom: 1px solid var(--theme-border) !important;
+  box-shadow: none !important;
+}
+
+/* =========================================================================================
+   TABLE ROW ACTIONS - view / edit / invite / suspend / delete and the like.
+   Every list screen used to render these as small bordered, colour-per-action Bootstrap
+   buttons (btn-outline-primary, btn-outline-danger...) - a row of loud boxes. This targets
+   exactly that shape (a small button whose entire content is one icon, inside a table cell)
+   and turns it into a plain ghost icon: no border, no fill, a smaller glyph, ink-coloured with
+   a soft tint on hover, and only red on hover for a destructive action. Deliberately global
+   (not inside the @scope exclusion below), so Masters and Organisation profile/settings tables
+   get it too. A labelled button (icon + text) is untouched - `:only-child` only matches a
+   button whose sole content is the icon. */
+table :is(td, th) .btn:has(> i:only-child),
+table :is(td, th) .btn:has(> svg:only-child) {
+  width: calc(28px * var(--ui-scale, 1));
+  height: calc(28px * var(--ui-scale, 1));
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none !important;
+  background: transparent !important;
+  color: var(--theme-muted, #64716c) !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+  transition: background-color .15s ease, color .15s ease;
+}
+table :is(td, th) .btn:has(> i:only-child) i,
+table :is(td, th) .btn:has(> svg:only-child) svg {
+  font-size: calc(14.5px * var(--ui-scale, 1)) !important;
+  width: calc(14.5px * var(--ui-scale, 1));
+  height: calc(14.5px * var(--ui-scale, 1));
+  line-height: 1;
+}
+table :is(td, th) .btn:has(> i:only-child):hover,
+table :is(td, th) .btn:has(> svg:only-child):hover {
+  background: color-mix(in srgb, var(--theme-primary, #375c4c) 10%, transparent) !important;
+  color: var(--theme-deep, var(--theme-primary, #375c4c)) !important;
+}
+table :is(td, th) :is(.btn-outline-danger, .btn-danger, .btn--danger):has(> i:only-child):hover,
+table :is(td, th) :is(.btn-outline-danger, .btn-danger, .btn--danger):has(> svg:only-child):hover {
+  background: color-mix(in srgb, var(--danger, #b03a34) 12%, transparent) !important;
+  color: var(--danger, #b03a34) !important;
+}
+
+@scope (:root) to (app-organisation-details, app-organisation-directory, app-organisation-owner-view, app-organisation-setup-wizard, app-organisations-create, app-owner-login-entry, app-registration-verification, app-super-admin-view, app-verification-approval, app-login, app-forgotpassword, app-reset-password, app-emailverify, app-register, app-mfa-challenge, app-reauthenticate, app-tostep-verify, app-select-organisation, app-account-unavailable, app-donorform) {
+
+/* =========================================================================================
+   2. BUTTONS - one language, flat: no shadow, no gradient. Primary = solid #c1a466 with dark ink.
+   Outline = paper with a hairline. Ghost = text that fills on hover.
+   Danger keeps its red: what "delete" means must not change with the palette.
+   ========================================================================================= */
+
+.btn,
+.btn--sm,
+.btn--small,
+.btn--tiny,
+.btn-primary,
+.btn--primary,
+.btn-cta,
+[class*="-btn-primary"],
+.msec-btn-solid,
+.mfa-primary-btn,
+.ds-btn.is-primary,
+.btn-outline-secondary,
+.btn-outline-primary,
+.btn-outline,
+.btn--outline,
+.btn-secondary,
+.btn--secondary,
+.btn-light,
+.btn-outline-light,
+.btn-tertiary,
+[class*="-btn-outline"],
+.btn-ghost,
+.btn--ghost,
+.btn-text,
+.btn--text,
+.btn-link,
+.link-btn,
+[class*="-btn-ghost"],
+.btn-clear,
+.btn-danger,
+.btn--danger,
+[class*="-btn-danger"]:not([class*="ghost"]),
+.btn-outline-danger,
+.btn--danger-outline,
+.btn-danger-ghost,
+.msec-btn-danger-ghost,
+[class*="-btn-danger-ghost"],
+.btn-success,
+.btn-warning,
+.btn-outline-success,
+.btn-outline-warning,
+.btn-outline-info {
+  border-radius: var(--lx-radius) !important;
+  font-weight: 600 !important;
+  letter-spacing: .005em;
+  transition: transform .16s var(--lx-ease), box-shadow .2s ease, background-color .2s ease,
+              border-color .2s ease, filter .2s ease, color .2s ease !important;
+}
+
+.btn-primary,
+.btn--primary,
+.btn-cta,
+[class*="-btn-primary"],
+.msec-btn-solid,
+.mfa-primary-btn,
+.ds-btn.is-primary {
+  color: var(--lx-gold-ink) !important;
+  background: var(--lx-gold) !important;
+  border: 1px solid var(--lx-gold-dark) !important;
+  box-shadow: none !important;
+}
+
+.btn-primary:hover:not(:disabled):not(.disabled),
+.btn--primary:hover:not(:disabled):not(.disabled),
+.btn-cta:hover:not(:disabled):not(.disabled),
+[class*="-btn-primary"]:hover:not(:disabled):not(.disabled),
+.msec-btn-solid:hover:not(:disabled):not(.disabled),
+.mfa-primary-btn:hover:not(:disabled):not(.disabled),
+.ds-btn.is-primary:hover:not(:disabled):not(.disabled) {
+  background: var(--lx-gold-dark) !important;
+  color: var(--lx-gold-ink) !important;
+  transform: translateY(-1px);
+  box-shadow: none !important;
+}
+
+.btn-outline-secondary,
+.btn-outline-primary,
+.btn-outline,
+.btn--outline,
+.btn-secondary,
+.btn--secondary,
+.btn-light,
+.btn-outline-light,
+.btn-tertiary,
+[class*="-btn-outline"] {
+  color: var(--theme-primary-dark) !important;
+  background: #ffffff !important;
+  border: 1px solid color-mix(in srgb, var(--theme-primary) 26%, #d5dbe1) !important;
+  box-shadow: none !important;
+}
+
+.btn-outline-secondary:hover:not(:disabled):not(.disabled),
+.btn-outline-primary:hover:not(:disabled):not(.disabled),
+.btn-outline:hover:not(:disabled):not(.disabled),
+.btn--outline:hover:not(:disabled):not(.disabled),
+.btn-secondary:hover:not(:disabled):not(.disabled),
+.btn--secondary:hover:not(:disabled):not(.disabled),
+.btn-light:hover:not(:disabled):not(.disabled),
+.btn-outline-light:hover:not(:disabled):not(.disabled),
+.btn-tertiary:hover:not(:disabled):not(.disabled),
+[class*="-btn-outline"]:hover:not(:disabled):not(.disabled) {
+  background: var(--theme-surface-tint) !important;
+  border-color: var(--theme-primary) !important;
+  color: var(--theme-primary-dark) !important;
+  transform: translateY(-1px);
+  box-shadow: none !important;
+}
+
+.btn-ghost,
+.btn--ghost,
+.btn-text,
+.btn--text,
+.btn-link,
+.link-btn,
+[class*="-btn-ghost"],
+.btn-clear {
+  color: var(--theme-primary) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.btn-ghost:hover:not(:disabled):not(.disabled),
+.btn--ghost:hover:not(:disabled):not(.disabled),
+.btn-text:hover:not(:disabled):not(.disabled),
+.btn--text:hover:not(:disabled):not(.disabled),
+.btn-link:hover:not(:disabled):not(.disabled),
+.link-btn:hover:not(:disabled):not(.disabled),
+[class*="-btn-ghost"]:hover:not(:disabled):not(.disabled),
+.btn-clear:hover:not(:disabled):not(.disabled) {
+  background: var(--theme-surface-tint) !important;
+  color: var(--theme-primary-dark) !important;
+}
+
+/* Text buttons that carry a semantic colour class keep it: a red "Sign out" or "Delete" link must not turn
+   brand-coloured because it is also a .btn-link. The rules above force the theme colour with !important, so
+   these match at higher specificity. */
+:is(.btn-ghost, .btn--ghost, .btn-text, .btn--text, .btn-link, .link-btn, .btn-clear).text-danger,
+:is(.btn-ghost, .btn--ghost, .btn-text, .btn--text, .btn-link, .link-btn, .btn-clear).text-danger:hover:not(:disabled):not(.disabled) {
+  color: rgba(var(--pe-danger-rgb), var(--pe-text-opacity, 1)) !important;
+}
+:is(.btn-ghost, .btn--ghost, .btn-text, .btn--text, .btn-link, .link-btn, .btn-clear).text-success,
+:is(.btn-ghost, .btn--ghost, .btn-text, .btn--text, .btn-link, .link-btn, .btn-clear).text-success:hover:not(:disabled):not(.disabled) {
+  color: rgba(var(--pe-success-rgb), var(--pe-text-opacity, 1)) !important;
+}
+:is(.btn-ghost, .btn--ghost, .btn-text, .btn--text, .btn-link, .link-btn, .btn-clear).text-warning,
+:is(.btn-ghost, .btn--ghost, .btn-text, .btn--text, .btn-link, .link-btn, .btn-clear).text-warning:hover:not(:disabled):not(.disabled) {
+  color: rgba(var(--pe-warning-rgb), var(--pe-text-opacity, 1)) !important;
+}
+
+.btn-danger,
+.btn--danger,
+[class*="-btn-danger"]:not([class*="ghost"]) {
+  color: #ffffff !important;
+  background: var(--danger, #b03a34) !important;
+  border: 1px solid color-mix(in srgb, var(--danger, #b03a34) 82%, #000) !important;
+  box-shadow: none !important;
+}
+
+.btn-outline-danger,
+.btn--danger-outline,
+.btn-danger-ghost,
+.msec-btn-danger-ghost,
+[class*="-btn-danger-ghost"] {
+  color: var(--danger, #b03a34) !important;
+  background: #ffffff !important;
+  border: 1px solid color-mix(in srgb, var(--danger, #b03a34) 38%, #ffffff) !important;
+  box-shadow: none !important;
+}
+
+.btn-outline-danger:hover:not(:disabled):not(.disabled),
+.btn--danger-outline:hover:not(:disabled):not(.disabled),
+.btn-danger-ghost:hover:not(:disabled):not(.disabled),
+.msec-btn-danger-ghost:hover:not(:disabled):not(.disabled),
+[class*="-btn-danger-ghost"]:hover:not(:disabled):not(.disabled) {
+  background: var(--danger-soft, #fbeae9) !important;
+  border-color: var(--danger, #b03a34) !important;
+}
+
+.btn:focus-visible,
+.btn--sm:focus-visible,
+.btn--small:focus-visible,
+.btn--tiny:focus-visible,
+.btn-primary:focus-visible,
+.btn--primary:focus-visible,
+.btn-cta:focus-visible,
+[class*="-btn-primary"]:focus-visible,
+.msec-btn-solid:focus-visible,
+.mfa-primary-btn:focus-visible,
+.ds-btn.is-primary:focus-visible,
+.btn-outline-secondary:focus-visible,
+.btn-outline-primary:focus-visible,
+.btn-outline:focus-visible,
+.btn--outline:focus-visible,
+.btn-secondary:focus-visible,
+.btn--secondary:focus-visible,
+.btn-light:focus-visible,
+.btn-outline-light:focus-visible,
+.btn-tertiary:focus-visible,
+[class*="-btn-outline"]:focus-visible,
+.btn-ghost:focus-visible,
+.btn--ghost:focus-visible,
+.btn-text:focus-visible,
+.btn--text:focus-visible,
+.btn-link:focus-visible,
+.link-btn:focus-visible,
+[class*="-btn-ghost"]:focus-visible,
+.btn-clear:focus-visible,
+.btn-danger:focus-visible,
+.btn--danger:focus-visible,
+[class*="-btn-danger"]:not([class*="ghost"]):focus-visible,
+.btn-outline-danger:focus-visible,
+.btn--danger-outline:focus-visible,
+.btn-danger-ghost:focus-visible,
+.msec-btn-danger-ghost:focus-visible,
+[class*="-btn-danger-ghost"]:focus-visible,
+.btn-success:focus-visible,
+.btn-warning:focus-visible,
+.btn-outline-success:focus-visible,
+.btn-outline-warning:focus-visible,
+.btn-outline-info:focus-visible {
+  outline: 2px solid var(--lx-gold-dark) !important;
+  outline-offset: 2px !important;
+}
+
+.btn:active:not(:disabled):not(.disabled),
+.btn--sm:active:not(:disabled):not(.disabled),
+.btn--small:active:not(:disabled):not(.disabled),
+.btn--tiny:active:not(:disabled):not(.disabled),
+.btn-primary:active:not(:disabled):not(.disabled),
+.btn--primary:active:not(:disabled):not(.disabled),
+.btn-cta:active:not(:disabled):not(.disabled),
+[class*="-btn-primary"]:active:not(:disabled):not(.disabled),
+.msec-btn-solid:active:not(:disabled):not(.disabled),
+.mfa-primary-btn:active:not(:disabled):not(.disabled),
+.ds-btn.is-primary:active:not(:disabled):not(.disabled),
+.btn-outline-secondary:active:not(:disabled):not(.disabled),
+.btn-outline-primary:active:not(:disabled):not(.disabled),
+.btn-outline:active:not(:disabled):not(.disabled),
+.btn--outline:active:not(:disabled):not(.disabled),
+.btn-secondary:active:not(:disabled):not(.disabled),
+.btn--secondary:active:not(:disabled):not(.disabled),
+.btn-light:active:not(:disabled):not(.disabled),
+.btn-outline-light:active:not(:disabled):not(.disabled),
+.btn-tertiary:active:not(:disabled):not(.disabled),
+[class*="-btn-outline"]:active:not(:disabled):not(.disabled),
+.btn-ghost:active:not(:disabled):not(.disabled),
+.btn--ghost:active:not(:disabled):not(.disabled),
+.btn-text:active:not(:disabled):not(.disabled),
+.btn--text:active:not(:disabled):not(.disabled),
+.btn-link:active:not(:disabled):not(.disabled),
+.link-btn:active:not(:disabled):not(.disabled),
+[class*="-btn-ghost"]:active:not(:disabled):not(.disabled),
+.btn-clear:active:not(:disabled):not(.disabled),
+.btn-danger:active:not(:disabled):not(.disabled),
+.btn--danger:active:not(:disabled):not(.disabled),
+[class*="-btn-danger"]:not([class*="ghost"]):active:not(:disabled):not(.disabled),
+.btn-outline-danger:active:not(:disabled):not(.disabled),
+.btn--danger-outline:active:not(:disabled):not(.disabled),
+.btn-danger-ghost:active:not(:disabled):not(.disabled),
+.msec-btn-danger-ghost:active:not(:disabled):not(.disabled),
+[class*="-btn-danger-ghost"]:active:not(:disabled):not(.disabled),
+.btn-success:active:not(:disabled):not(.disabled),
+.btn-warning:active:not(:disabled):not(.disabled),
+.btn-outline-success:active:not(:disabled):not(.disabled),
+.btn-outline-warning:active:not(:disabled):not(.disabled),
+.btn-outline-info:active:not(:disabled):not(.disabled) {
+  transform: translateY(0) !important;
+  filter: brightness(.97);
+}
+
+.btn:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn--sm:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn--small:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn--tiny:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-primary:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn--primary:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-cta:is(:disabled, .disabled, [aria-disabled="true"]),
+[class*="-btn-primary"]:is(:disabled, .disabled, [aria-disabled="true"]),
+.msec-btn-solid:is(:disabled, .disabled, [aria-disabled="true"]),
+.mfa-primary-btn:is(:disabled, .disabled, [aria-disabled="true"]),
+.ds-btn.is-primary:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-outline-secondary:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-outline-primary:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-outline:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn--outline:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-secondary:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn--secondary:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-light:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-outline-light:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-tertiary:is(:disabled, .disabled, [aria-disabled="true"]),
+[class*="-btn-outline"]:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-ghost:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn--ghost:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-text:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn--text:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-link:is(:disabled, .disabled, [aria-disabled="true"]),
+.link-btn:is(:disabled, .disabled, [aria-disabled="true"]),
+[class*="-btn-ghost"]:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-clear:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-danger:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn--danger:is(:disabled, .disabled, [aria-disabled="true"]),
+[class*="-btn-danger"]:not([class*="ghost"]):is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-outline-danger:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn--danger-outline:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-danger-ghost:is(:disabled, .disabled, [aria-disabled="true"]),
+.msec-btn-danger-ghost:is(:disabled, .disabled, [aria-disabled="true"]),
+[class*="-btn-danger-ghost"]:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-success:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-warning:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-outline-success:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-outline-warning:is(:disabled, .disabled, [aria-disabled="true"]),
+.btn-outline-info:is(:disabled, .disabled, [aria-disabled="true"]) {
+  opacity: .5 !important;
+  filter: saturate(.55) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: not-allowed;
+}
+
+
+/* =========================================================================================
+   3. TABLE HEADS - white, with the theme's ink for the labels and a hairline rule underneath. No shadow,
+   no text-shadow. (They were gold; --lx-head-* is the one place to change it back.)
+   ========================================================================================= */
+
+thead > tr > :is(th, td),
+.table-light > tr > th,
+.table-light th {
+  background: var(--lx-head-bg) !important;
+  color: var(--lx-head-ink) !important;
+  border-color: var(--lx-head-line) !important;
+  border-top: 0 !important;
+  border-bottom: 1px solid var(--lx-head-line) !important;
+  box-shadow: none !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: .09em !important;
+  text-transform: uppercase;
+  text-shadow: none !important;
+}
+
+thead > tr > :is(th, td) :is(a, button, span, i, svg, label, div) {
+color: inherit !important;
+}
+
+/* Grid-built table heads (no <thead>): same white. */
+.rwn-table-head,
+.fk-table-head {
+  background: var(--lx-head-bg) !important;
+  color: var(--lx-head-ink) !important;
+  border-color: var(--lx-head-line) !important;
+  box-shadow: none !important;
+}
+
+.rwn-table-head *,
+.fk-table-head * {
+  color: inherit !important;
+}
+
+/* The campaign table's head is a tab strip: keep the inactive tabs quieter than the active one. */
+.fk-table-head .fk-tab:not(.fk-tab-active) {
+  color: var(--theme-muted, #647579) !important;
+}
+
+/* =========================================================================================
+   3b. TABLE WIDTH - no side-scrolling table. A wide table used to force a horizontal scrollbar
+   because every cell demanded its own intrinsic (nowrap) width; cells now wrap their text and
+   share the table's own width instead. Short, single-line-by-design content (status pills, badges,
+   tags, icon-only cells) stays on one line - wrapping "Active" or a date is what looked broken, not
+   what fixed it. `table-responsive`'s overflow-x stays as a safety net for anything this does not
+   reach, it just should not be needed on an ordinary list any more.
+   ========================================================================================= */
+.table {
+  width: 100% !important;
+}
+.table > :is(thead, tbody) > tr > :is(th, td) {
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+.table > :is(thead, tbody) > tr > :is(th, td):has(
+    > :is(.badge, [class*="-pill"], [class*="-chip"], [class*="-badge"], [class*="-tab"]):only-child,
+    > i:only-child, > svg:only-child, > .btn:only-child
+  ) {
+  white-space: nowrap !important;
+}
+
+/* Outcome cards drew a 3px accent bar down their left edge; cards carry no side or top bars. */
+.ode-card-outcome::before,
+.pci-card-outcome::before,
+.rwn-card-outcome::before,
+.card--outcome::before {
+  content: none !important;
+  display: none !important;
+}
+
+thead > tr:first-child > :first-child {
+border-top-left-radius: 12px !important;
+}
+
+thead > tr:first-child > :last-child {
+border-top-right-radius: 12px !important;
+}
+
+
+/* =========================================================================================
+   4. CARDS - one template (styles/ydot-card.css, taken from Campaign Detail). Screens used to dress
+   their stat and summary cards in pastel gradients, waves and tinted borders; those are removed so
+   every card is the same flat white surface, one hairline, one radius,
+   no shadow and no side or top accent bar.
+   ========================================================================================= */
+
+.stat-card,
+.summary-card,
+.kpi-card,
+.ct-kpi-card,
+.inv-stat-card,
+.audit-stat-card,
+.div-kpi-card,
+.rwn-summary-card,
+.crc-summary-card,
+.lq-kpi-card,
+.ab-kpi,
+.dl-kpi,
+.sh-stat,
+.sec-stat,
+.tam-metric,
+.pr-tile,
+.summary-tile,
+.totals-stat,
+.detail-metric,
+.pci-total-card,
+.msec-gauge-stat,
+.lc-bulk-stat,
+.details-summary-card,
+.summary-item,
+.fq-card,
+.sh-card,
+.sec-card,
+.ct-card,
+.msec-card,
+.svb-card,
+.fup-card,
+.qa-card,
+.tl-card,
+.side-card,
+.cpc-card,
+.lc-card,
+.mc-card,
+.ode-card,
+.pci-card,
+.ds-card,
+.gs-card,
+.details-card,
+.form-card,
+.filter-card,
+.filters-card,
+.record-card,
+.snapshot-card,
+.msec-panel,
+.ct-panel,
+.div-panel,
+.pdi-panel,
+.side-panel,
+.review-panel,
+.msec-section-card,
+.svb-summary-block,
+.sidebar-card,
+.status-card,
+.permissions-card,
+.msec-info-card,
+.msec-action-card,
+.msec-mfa-card,
+.rc-grid-card,
+.dir-table-card,
+.ae-filters-card,
+.rc-compare-card,
+.tam-filters-card,
+.readonly-panel {
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: var(--yc-radius) !important;
+  box-shadow: none !important;
+}
+
+/* Card variants that carry their own colour class (a green / blue / orange metric) and a few hero panels. */
+[class*="tam-metric--"],
+.tip-card,
+.bu-hero,
+.tz-header,
+.tz-view-header {
+  background: var(--lx-wash-stat) !important;
+  border: none !important;
+  border-radius: var(--yc-radius) !important;
+  box-shadow: none !important;
+}
+
+.stat-card::before,
+.summary-card::before,
+.kpi-card::before,
+.ct-kpi-card::before,
+.inv-stat-card::before,
+.audit-stat-card::before,
+.div-kpi-card::before,
+.rwn-summary-card::before,
+.crc-summary-card::before,
+.lq-kpi-card::before,
+.ab-kpi::before,
+.dl-kpi::before,
+.sh-stat::before,
+.sec-stat::before,
+.tam-metric::before,
+.pr-tile::before,
+.summary-tile::before,
+.totals-stat::before,
+.detail-metric::before,
+.pci-total-card::before,
+.msec-gauge-stat::before,
+.lc-bulk-stat::before,
+.details-summary-card::before,
+.summary-item::before {
+content: none !important;
+  display: none !important;
+}
+
+.stat-card::after,
+.summary-card::after,
+.kpi-card::after,
+.ct-kpi-card::after,
+.inv-stat-card::after,
+.audit-stat-card::after,
+.div-kpi-card::after,
+.rwn-summary-card::after,
+.crc-summary-card::after,
+.lq-kpi-card::after,
+.ab-kpi::after,
+.dl-kpi::after,
+.sh-stat::after,
+.sec-stat::after,
+.tam-metric::after,
+.pr-tile::after,
+.summary-tile::after,
+.totals-stat::after,
+.detail-metric::after,
+.pci-total-card::after,
+.msec-gauge-stat::after,
+.lc-bulk-stat::after,
+.details-summary-card::after,
+.summary-item::after {
+content: none !important;
+  display: none !important;
+}
+
+.dir-sheet-head,
+.rc-grid-card__head,
+.cd-side-card-empty {
+  background: #ffffff !important;
+  background-image: none !important;
+}
+
+.dl-kpis,
+.app-wrapper:not(.pdi-donor-shell),
+app-campaign-register,
+app-campaign-wizard,
+app-public-donation-initiation {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.stat-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.summary-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.kpi-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.ct-kpi-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.inv-stat-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.audit-stat-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.div-kpi-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.rwn-summary-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.crc-summary-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.lq-kpi-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.ab-kpi :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.dl-kpi :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.sh-stat :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.sec-stat :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.tam-metric :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.pr-tile :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.summary-tile :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.totals-stat :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.detail-metric :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.pci-total-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.msec-gauge-stat :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.lc-bulk-stat :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.details-summary-card :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]),
+.summary-item :is(.text-info, .text-primary, .text-warning, .text-secondary, .text-success, .text-danger):not([class*="icon"]):not([class*="-ic"]) {
+color: var(--yc-muted) !important;
+}
+
+.audit-stat-wave,
+.audit-stat-spark,
+.pr-tile-wave,
+.lq-kpi-art,
+.dl-donation-art,
+.audit-activity-deco {
+display: none !important;
+}
+
+
+/* =========================================================================================
+   4a. KPI TILES - one height. Every tile in the strip below a page header is --lx-kpi-h tall, whichever
+   screen it is on and whatever it carries; the width comes from each screen's own grid. The tiles' insides
+   differ (icon + figure, figure + caption, title + two figures), so the height is fixed here and the content
+   is centred inside it. Screens whose tiles carry more than fits lay them out on a grid of their own
+   (see dashboard.css and the .cd-kpi-grid rules in campaign-detail.css).
+   Sub-stats inside a card (gauge stats, totals, detail metrics) are not tiles and are not listed.
+   ========================================================================================= */
+
+.stat-card,
+.kpi-card,
+.ct-kpi-card,
+.inv-stat-card,
+.audit-stat-card,
+.div-kpi-card,
+.rwn-summary-card,
+.lq-kpi-card,
+.ab-kpi,
+.dl-kpi,
+.sh-stat,
+.tam-metric,
+.pr-tile,
+.pci-total-card,
+.summary-card:not(.card),
+.tz-stat-item,
+.summary-strip > .summary-item,
+.fk-kpi {
+  box-sizing: border-box !important;
+  height: var(--lx-kpi-h) !important;
+  min-height: var(--lx-kpi-h) !important;
+  overflow: hidden !important;
+  align-content: center !important;
+}
+
+/* Tiles laid out as a row (glyph beside the figures): centre them on the cross axis. */
+.stat-card,
+.rwn-summary-card,
+.lq-kpi-card,
+.ab-kpi,
+.sh-stat,
+.tam-metric,
+.pr-tile,
+.pci-total-card,
+.summary-card:not(.card),
+.tz-stat-item,
+.summary-strip > .summary-item,
+.kpi-card:has(> span:first-child) {
+  align-items: center !important;
+}
+
+/* Tiles that stack their lines (figure over caption): centre the stack on the main axis. */
+.ct-kpi-card,
+.dl-kpi,
+.div-kpi-card,
+.card.stat-card,
+.inv-stat-card,
+.audit-stat-card,
+.kpi-card:not(:has(> span:first-child)) {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+/* Whatever a tile holds, its words wrap inside the tile instead of pushing past its edge, and the rows of a
+   tile (glyph, figure, caption) can shrink below their content width. */
+:is(.stat-card, .kpi-card, .ct-kpi-card, .inv-stat-card, .audit-stat-card, .div-kpi-card, .rwn-summary-card,
+    .lq-kpi-card, .ab-kpi, .dl-kpi, .sh-stat, .tam-metric, .pr-tile, .pci-total-card, .summary-card:not(.card),
+    .tz-stat-item, .summary-strip > .summary-item, .fk-kpi) :is(span, div, p, strong, small, b, em, h1, h2, h3, h4, h5, h6) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A Bootstrap card's body is only padding; let the card own the height. */
+:is(.inv-stat-card, .audit-stat-card, .card.stat-card) > .card-body {
+  padding-block: 0 !important;
+}
+
+
+/* =========================================================================================
+   4b. CARD WASH - ONE design. CardToneService still tags every card with data-tone / data-tone-kind (they are the
+   reliable "this is a card" hook, because Bootstrap columns defeat :nth-child), but the number no longer picks a
+   colour or a pattern: every card is FLAT WHITE (no gradient, no tint), stat tiles included.
+   No accent bars, no corner blooms, no dots.
+   ========================================================================================= */
+
+[data-tone] {
+  --tone: var(--theme-tone-1);
+  border: none !important;
+  border-radius: var(--yc-radius, 20px) !important;
+  box-shadow: none !important;
+  background: var(--lx-wash-stat) !important;
+}
+
+/* ICON COLOUR, BACK TO VARIED. Every card's icon used to read one flat gold (`--lx-gold-deep`)
+   regardless of which card it was on - by request, an icon should take a colour that suits IT, not
+   the same colour as every other icon on the page. CardToneService still writes data-tone 1-6 in
+   document order; each index now maps to one of the theme's own six hue-rotated tones
+   (ydot-theme.css --theme-tone-1..6) instead of gold, so the variety is real again but still
+   derived from the picked colour rather than a second, disconnected palette. */
+[data-tone="1"] { --tone: var(--theme-tone-1); }
+[data-tone="2"] { --tone: var(--theme-tone-2); }
+[data-tone="3"] { --tone: var(--theme-tone-3); }
+[data-tone="4"] { --tone: var(--theme-tone-4); }
+[data-tone="5"] { --tone: var(--theme-tone-5); }
+[data-tone="6"] { --tone: var(--theme-tone-6); }
+
+[data-tone-kind="surface"],
+[data-tone-kind="stat"] {
+  background: #ffffff !important;
+}
+
+/* Every other card. The lists above and CardToneService only know the cards that were named to them; screens
+   also carry cards of their own (`.tam-place-card`, `.conversation-card`, `.crc-card-pass` ...) with pastel and
+   status washes. By naming convention a card is anything whose class ends in `-card`; those, the coloured
+   tile variants and the few status modifiers are all plain white, flat. NOT touched: controls that merely look
+   like cards (buttons, labels, inputs, choice cards in their selected state), shimmer skeletons, and the theme
+   customiser panel. Inline alerts / notices (`.warning-box`, `.error-summary`) are messages, not cards. */
+:is([class~="card"], [class$="-card"], [class*="-card "], [class*="-card--"], [class~="card-soft-green"],
+    [class~="card-soft-blue"], [class~="card-soft-mint"], [class*="fk-overview-tile"], [class^="crc-card-"],
+    [class*=" crc-card-"], [class*="tam-metric--"], [class^="inv-stat-"], [class*="summary-card"],
+    [class*="summary-tile"], [class*="cu-hero-tile"]):not(
+    button, a, label, input, select, textarea, [role="button"], [role="radio"], [role="option"],
+    [class*="skeleton"], [class*="icon"], [class*="-ic"], [class*="avatar"], [class*="badge"],
+    .is-selected, .selected, .is-active, .active, [aria-selected="true"], [aria-pressed="true"],
+    app-theme *
+  ) {
+  background: #ffffff !important;
+  background-image: none !important;
+}
+
+
+/* =========================================================================================
+   4c. ICONS - only the glyph: no disc, no tile, no border. Line style, in the card's own tone (or the
+   theme primary outside a card), sized to sit comfortably beside its label.
+   ========================================================================================= */
+
+.stat-icon,
+.stat-card__icon,
+.sh-stat-icon,
+.inv-stat-icon,
+.audit-stat-icon,
+.tz-stat-icon,
+.summary-icon,
+.summary-card__icon,
+.rwn-summary-icon,
+.crc-summary-icon,
+.kpi-icon,
+.ct-kpi-icon,
+.div-kpi-icon,
+.lq-kpi-icon,
+.ab-kpi-icon,
+.dl-kpi__icon,
+.tam-metric-ic,
+.ring-icon-badge,
+.pci-total-icon,
+.metric-icon,
+.tile-ic,
+.strip-icon,
+.pr-tile-icon,
+.mc-card-ic,
+.qa-icon,
+.sec-action-icon,
+.msec-icon-circle,
+.msec-shortcut-icon,
+.msec-account-icon,
+.section-icon,
+.detail-section-icon,
+.ab-section-icon,
+.form-section-icon,
+.tz-section-icon,
+.cu-section-icon,
+.lc-section-icon,
+.tl-label-icon,
+.ct-icon,
+.row-icon,
+.sec-row-icon,
+.fk-ic-bubble,
+.fk-rail-ic,
+.fk-overview-tile-ic {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--tone, var(--theme-primary)) !important;
+  font-size: var(--lx-glyph, 26px) !important;
+  line-height: 1 !important;
+}
+
+.stat-icon :is(svg, i, .bi),
+.stat-card__icon :is(svg, i, .bi),
+.sh-stat-icon :is(svg, i, .bi),
+.inv-stat-icon :is(svg, i, .bi),
+.audit-stat-icon :is(svg, i, .bi),
+.tz-stat-icon :is(svg, i, .bi),
+.summary-icon :is(svg, i, .bi),
+.summary-card__icon :is(svg, i, .bi),
+.rwn-summary-icon :is(svg, i, .bi),
+.crc-summary-icon :is(svg, i, .bi),
+.kpi-icon :is(svg, i, .bi),
+.ct-kpi-icon :is(svg, i, .bi),
+.div-kpi-icon :is(svg, i, .bi),
+.lq-kpi-icon :is(svg, i, .bi),
+.ab-kpi-icon :is(svg, i, .bi),
+.dl-kpi__icon :is(svg, i, .bi),
+.tam-metric-ic :is(svg, i, .bi),
+.ring-icon-badge :is(svg, i, .bi),
+.pci-total-icon :is(svg, i, .bi),
+.metric-icon :is(svg, i, .bi),
+.tile-ic :is(svg, i, .bi),
+.strip-icon :is(svg, i, .bi),
+.pr-tile-icon :is(svg, i, .bi),
+.mc-card-ic :is(svg, i, .bi),
+.qa-icon :is(svg, i, .bi),
+.sec-action-icon :is(svg, i, .bi),
+.msec-icon-circle :is(svg, i, .bi),
+.msec-shortcut-icon :is(svg, i, .bi),
+.msec-account-icon :is(svg, i, .bi),
+.section-icon :is(svg, i, .bi),
+.detail-section-icon :is(svg, i, .bi),
+.ab-section-icon :is(svg, i, .bi),
+.form-section-icon :is(svg, i, .bi),
+.tz-section-icon :is(svg, i, .bi),
+.cu-section-icon :is(svg, i, .bi),
+.lc-section-icon :is(svg, i, .bi),
+.tl-label-icon :is(svg, i, .bi),
+.ct-icon :is(svg, i, .bi),
+.row-icon :is(svg, i, .bi),
+.sec-row-icon :is(svg, i, .bi),
+.fk-ic-bubble :is(svg, i, .bi),
+.fk-rail-ic :is(svg, i, .bi),
+.fk-overview-tile-ic :is(svg, i, .bi) {
+  color: inherit !important;
+  font-size: var(--lx-glyph, 26px) !important;
+}
+
+.stat-icon svg,
+.stat-card__icon svg,
+.sh-stat-icon svg,
+.inv-stat-icon svg,
+.audit-stat-icon svg,
+.tz-stat-icon svg,
+.summary-icon svg,
+.summary-card__icon svg,
+.rwn-summary-icon svg,
+.crc-summary-icon svg,
+.kpi-icon svg,
+.ct-kpi-icon svg,
+.div-kpi-icon svg,
+.lq-kpi-icon svg,
+.ab-kpi-icon svg,
+.dl-kpi__icon svg,
+.tam-metric-ic svg,
+.ring-icon-badge svg,
+.pci-total-icon svg,
+.metric-icon svg,
+.tile-ic svg,
+.strip-icon svg,
+.pr-tile-icon svg,
+.mc-card-ic svg,
+.qa-icon svg,
+.sec-action-icon svg,
+.msec-icon-circle svg,
+.msec-shortcut-icon svg,
+.msec-account-icon svg,
+.section-icon svg,
+.detail-section-icon svg,
+.ab-section-icon svg,
+.form-section-icon svg,
+.tz-section-icon svg,
+.cu-section-icon svg,
+.lc-section-icon svg,
+.tl-label-icon svg,
+.ct-icon svg,
+.row-icon svg,
+.sec-row-icon svg,
+.fk-ic-bubble svg,
+.fk-rail-ic svg,
+.fk-overview-tile-ic svg {
+  width: var(--lx-glyph, 26px) !important;
+  height: var(--lx-glyph, 26px) !important;
+}
+
+/* Everything else called an icon. The list above names the tiles' own glyphs; screens also carry several
+   hundred icon boxes of their own (row icons, section icons, empty-state and modal discs, status glyphs) with
+   tinted discs, tiles and borders. This removes the box from any of them, whatever it is called, and keeps the
+   glyph. Excluded: buttons and links (they are controls, not decoration), form controls and their wrappers,
+   avatars (people, not icons), pickers / grids / lists (containers that happen to be named "icon"),
+   and anything holding text or fields. */
+:is([class*="icon"], [class*="-ic-"], [class$="-ic"], [class*="-ic "], [class^="ic-"], [class*=" ic-"], [class*="-ico"]):not(
+    button, a, input, select, textarea, label, table, tr, td, th, li, ul, ol, svg, img, i,
+    .btn, .badge, .dropdown-menu, .modal, .toast, .alert,
+    [class*="btn"], [class*="button"], [class*="input"], [class*="field"], [class*="search"], [class*="select"],
+    [class*="toggle"], [class*="switch"], [class*="check"], [class*="radio"], [class*="picker"], [class*="grid"],
+    [class*="list"], [class*="dropdown"], [class*="avatar"]:not([class*="icon"]), [class*="chip"], [class*="pill"]
+  ):not(:has(p, h1, h2, h3, h4, h5, h6, input, select, textarea, table, button, a)) {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* TEXT CHIPS / TAGS / TYPE PILLS - a coloured fill around a short label (asset-type tags, category
+   tags, lifecycle-status pills, MFA/scope chips...). By request these lose their background the same
+   way icon boxes did above: the colour stays on the text, the box around it goes. Excluded: avatar /
+   initials badges (a circular badge there IS the person or organisation, not a label - BEM names like
+   `tb-org__badge` already miss this selector because of the double underscore, but a couple are named
+   plainly enough to need saying so), counters, and interactive controls (toggles, switches, removable
+   filter chips, dropdowns) that need a visible boundary to work as a control. */
+:is([class~="badge"], [class$="-badge"], [class*="-badge "], [class*="-badge-"],
+    [class~="pill"], [class$="-pill"], [class*="-pill "], [class*="-pill-"],
+    [class~="chip"], [class$="-chip"], [class*="-chip "], [class*="-chip-"],
+    [class~="tag"], [class$="-tag"], [class*="-tag "], [class*="-tag-"]
+  ):not(
+    button, a, input, select, textarea,
+    [class*="avatar"], [class*="initials"], [class*="counter"], [class*="count-"], [class*="unread"],
+    [class*="btn"], [class*="button"], [class*="toggle"], [class*="switch"],
+    [class*="multiselect"], [class*="autocomplete"], [class*="dropdown"], [class*="removable"]
+  ) {
+  background: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* The few glyphs that were WHITE on a solid disc: with the disc gone they take the theme colour instead, or
+   they would vanish. */
+.sec-action-icon--dark,
+.ae-title-icon,
+.outcome__icon,
+.plus-icon,
+.rec-ic,
+.svb-valid-ico,
+.dir-tab-active .dir-tab-ico,
+.dir-tab.active .dir-tab-ico {
+  color: var(--tone, var(--theme-primary)) !important;
+}
+
+[data-tone] :is(i[class^="ri-"], i[class*=" ri-"], i[class*="bi-"]):not(.btn *):not(button *):not(thead *):not(.badge *):not(.dropdown-menu *):not(.alert *) {
+  color: var(--tone) !important;
+}
+
+:is(button, a, .btn, [class*="icon"], [class*="-ic"], [class*="ico"]) svg:not([fill="currentColor"]),
+:is(button, a, .btn, [class*="icon"], [class*="-ic"], [class*="ico"]) svg:not([fill="currentColor"]) * {
+  stroke-width: 1.5px !important;
+}
+
+
+/* =========================================================================================
+   5. Form focus - the theme's primary, not a browser blue.
+   ========================================================================================= */
+
+.form-control:focus,
+.form-select:focus,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: var(--theme-primary) !important;
+  box-shadow: none !important;
+  outline: 2px solid color-mix(in srgb, var(--lx-gold) 75%, transparent);
+  outline-offset: 0;
+}
+
+
+/* =========================================================================================
+   5b. RHYTHM - room to breathe. Cards used to sit 6-16px apart with 16px of padding; every screen now shares
+   one spacing scale: 24px between cards (20px between the fixed-height KPI tiles, so six of them still fit on
+   a laptop), 24px inside a card, a wider page margin. Grid / flex containers that lay out cards or tiles are
+   listed by name because each screen sets its own gap in its own stylesheet (hence !important); to give a new
+   card grid the same spacing, add its class to the two lists below.
+   ========================================================================================= */
+
+/* The page itself: a wider margin on every side and a longer runway at the foot. */
+.page-wrapper > .container-fluid {
+  padding: calc(28px * var(--ui-scale, 1)) calc(36px * var(--ui-scale, 1)) calc(56px * var(--ui-scale, 1)) !important;
+}
+
+/* Bootstrap rows of cards: the stock 6-12px gutter is what squeezed them together. */
+.row:not(.g-0):has(> [class*="col"] > :is(.card, [class*="-card"], [class*="-panel"], [class*="kpi"], [class*="stat"], [class*="tile"])) {
+  --pe-gutter-x: 1.5rem;
+  --pe-gutter-y: 1.5rem;
+}
+
+/* Cards stacked in normal flow. */
+:is(.card, [class$="-card"], [class$="-panel"]):is(.mb-1, .mb-2, .mb-3) {
+  margin-bottom: 1.5rem !important;
+}
+
+/* Bootstrap card interiors. Anything that sets its own padding (p-0 tables, tight lists) is left alone. */
+.card:not(.stat-card):not([class*="kpi"]):not([class*="stat"]) > .card-body:not([class*="p-"]):not([class*="px-"]):not([class*="py-"]) {
+  padding: 1.5rem !important;
+}
+.card > .card-header:not([class*="p-"]):not([class*="px-"]):not([class*="py-"]) {
+  padding: 1.125rem 1.5rem !important;
+}
+
+/* Tables: taller rows read better than dense ones. */
+.table:not(.table-sm) > :not(caption) > * > * {
+  padding-top: .9rem;
+  padding-bottom: .9rem;
+}
+
+/* Rows of KPI tiles / summary cards / stat strips. */
+.summary-grid, .summary-cards, .summary-strip, .stats-grid, .stats-row, .kpi-grid, .kpi-cards,
+.cd-kpi-grid, .tam-metrics, .metrics, .metric-grid, .div-kpi-grid, .ab-kpis, .lq-kpi-row,
+.dl-kpis, .ct-kpi-grid, .ct-summary-grid, .tz-stats, .tz-view-summary, .sh-stats,
+.rwn-summary-grid, .pci-totals-grid, .ode-ref-strip {
+  gap: calc(20px * var(--ui-scale, 1)) !important;
+}
+
+/* Layouts that put cards side by side (a main column and its side panel, a grid of cards). */
+.access-layout, .layout, .layout-grid, .body-grid, .ct-body-grid, .div-content-grid, .df-layout,
+.rc-grid, .ab-card-grid, .mc-compare-grid, .ae-outcome-grid, .svb-recent-grid, .records-row,
+.msec-mfa-grid, .msec-top-row, .crc-launch-grid, .cd-row-2col, .cd-right-top, .cd-row, .cd-col, .cd-work,
+.cd-side, .cd-dash {
+  gap: calc(24px * var(--ui-scale, 1)) !important;
+}
+
+}  /* end @scope */
+
+/* =====================================================================================================
+   6. NO SHADOWS - anywhere. Component stylesheets were stripped of shadows one by one; this layer covers the
+   vendor stylesheets (Bootstrap / the admin template) that load from index.html, and any shadow a component
+   still sets. Hairline rings (a 1-2px "selected" outline drawn as a spread) are deliberately not touched by the
+   component clean-up; everything with an offset or a blur is gone.
+   ===================================================================================================== */
+
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"] {
+  --pe-box-shadow: none;
+  --pe-box-shadow-sm: none;
+  --pe-box-shadow-lg: none;
+  --pe-box-shadow-inset: none;
+  --pe-card-box-shadow: none;
+  --pe-btn-box-shadow: none;
+  --pe-btn-focus-box-shadow: none;
+  --pe-btn-active-shadow: none;
+  --shadow-card: none;
+  --shadow-card-hover: none;
+  --yc-shadow: none;
+  --yc-shadow-inner: none;
+}
+
+*,
+*::before,
+*::after {
+  text-shadow: none !important;
+}
+
+.shadow, .shadow-sm, .shadow-lg, .shadow-none,
+[class*="btn-shadow"], [class*="shadow-inset"],
+.card, .dropdown-menu, .modal-content, .modal-dialog, .offcanvas, .popover, .toast, .tooltip .tooltip-inner,
+.navbar, .footer, .app-header, .pe-app-sidebar, .pe-slide-menu,
+.btn, .btn:focus, .btn:focus-visible, .btn:active, .btn.active, .btn-check:focus + .btn,
+.form-control, .form-control:focus, .form-select, .form-select:focus, .form-check-input, .form-check-input:focus,
+.form-switch .form-check-input:focus, .form-range:focus::-webkit-slider-thumb, .form-range::-webkit-slider-thumb,
+.page-link, .page-link:focus, .accordion, .accordion-button, .accordion-button:focus,
+.progress, .list-group,
+.noUi-target, .noUi-handle, .choices__list--dropdown, .fc .fc-button, .fc-popover,
+.gridjs-container, .gridjs-wrapper, .gridjs-footer, .tagify__dropdown, .tagify__dropdown__wrapper,
+.ql-snow .ql-tooltip, .ql-snow .ql-picker-options, .ribbon .ribbon1, .ribbon .ribbon2 span,
+.swal2-popup, .swal2-input:focus, .swal2-textarea:focus {
+  box-shadow: none !important;
+}
+
+/* =========================================================================================
+   POPUPS / OFF-CANVAS - the same flat, borderless, white surface as every card (section 4b),
+   so a dialog or a drawer reads as part of the same design system instead of the browser/Bootstrap
+   default look. Header and footer keep a hairline divider from the body, same as a card's own head/foot.
+   ========================================================================================= */
+.modal-content,
+.offcanvas {
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: var(--yc-radius, 20px) !important;
+  box-shadow: none !important;
+}
+.modal-header,
+.offcanvas-header {
+  border-bottom: var(--yc-divider, 1px solid #e5e8ec) !important;
+}
+.modal-footer,
+.offcanvas-footer {
+  border-top: var(--yc-divider, 1px solid #e5e8ec) !important;
+}
+
+/* Where a focus halo used to be, a plain outline. */
+:focus-visible {
+  outline: 2px solid var(--lx-gold-dark);
+  outline-offset: 2px;
+}
+
+/* =========================================================================================
+   PAGE BACKGROUND - one FIXED colour behind every signed-in screen: #e9e9e9, whatever theme colour is
+   picked (by request; it used to follow the pick through --theme-page-bg, which is still written by
+   ThemeColorService but no longer read here). Screens used to paint their own ivory / paper / mist on
+   the routed host or on their outer wrapper; those are overridden here so they all match.
+   Cards, panels, tables and popups keep their own white surface.
+   ========================================================================================= */
+html,
+body,
+#layout-wrapper,
+.content-page,
+.content-page > router-outlet + *,
+.content-page > router-outlet + * > :is(.app-wrapper, .page-wrapper),
+.content-page > router-outlet + * > .app-wrapper > .page-wrapper,
+.content-page .page-wrapper > .container-fluid.cpc,
+app-duplicate-review .page,
+app-lead-capture .lc-page,
+.content-page :is(.gs-page, .svb-page) {
+  background-color: #e9e9e9 !important;
+  background-image: none !important;
+}
+
+/* =========================================================================================
+   LIST TABLES - columns hug their content and row actions never overlap.
+   1. The row-action rule at the top of this file gives a table button whose only ELEMENT child is an
+      icon a fixed 28px square. `:only-child` ignores text, so a labelled button ("<i> Edit", "<i> Remove",
+      "<i> Revoke") matched too and its label spilled out over the next button. The square is now a
+      minimum: an icon-only button is still 28 x 28, a labelled one grows to fit its words.
+   2. The actions cell (the last cell of a row, when it holds buttons) shrinks to its buttons and keeps
+      them on one line, instead of taking an equal share of a 100%-wide table and wrapping them.
+   3. Cells that hold only a status pill / badge / chip / code also shrink to fit. Together with 2, the
+      spare width of a wide screen goes to the text columns (name, description) instead of being spread
+      as empty gaps between short columns.
+   Fixed-layout tables (Masters, donor list) size columns from their own widths and are not affected.
+   ========================================================================================= */
+table :is(td, th) .btn:has(> i:only-child),
+table :is(td, th) .btn:has(> svg:only-child) {
+  width: auto;
+  min-width: calc(28px * var(--ui-scale, 1));
+  padding: 0 calc(6.75px * var(--ui-scale, 1)) !important;
+  gap: .3rem;
+  white-space: nowrap;
+}
+table :is(td, th) .btn:has(> i:only-child) > i {
+  margin: 0 !important;
+}
+
+/* A column label breaks between words only, never inside one ("CO / DE" once its column hugs the cell). */
+table.table > thead > tr > th,
+table > thead > tr > th {
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+/* Only while the table is still a table: below 769px (and below 1100 / 1280px for the assignment board and
+   donor list) several screens turn rows into stacked cards, where a 1% cell would collapse. */
+@media (min-width: 769px) {
+  table:not(.dl-table):not(.ab-record-table) > tbody > tr > td:last-child:not([colspan]):has(button, .btn, a[class*="btn"], .dropdown) {
+    width: 1%;
+    white-space: nowrap !important;
+  }
+  table:not(.dl-table):not(.ab-record-table) > tbody > tr > td:has(
+      > :is(.badge, [class*="-pill"], [class*="-chip"], [class*="-badge"], code):only-child
+    ):not(:last-child) {
+    width: 1%;
+    white-space: nowrap !important;
+  }
+}
+table > tbody > tr > td:last-child:not([colspan]):has(button, .btn, a[class*="btn"], .dropdown)
+  > :is(div, span):is(.d-flex, .d-inline-flex, [class*="action"], [class*="btns"]) {
+  flex-wrap: nowrap !important;
+}
+
+/* =========================================================================================
+   STAT CARD SHINE - every top (KPI / stat) card gets a glint that sweeps across it when the pointer
+   enters. The hook is [data-tone-kind="stat"], written by CardToneService on every stat tile in the
+   app (STAT_CLASSES there), so new screens pick it up by adding their tile class to that list.
+   Painted as a background-image layer (NOT a pseudo-element: many tiles already use ::before/::after
+   for their own art), so it sits under the card's content and keeps the card's background colour.
+   ========================================================================================= */
+:root [data-tone-kind="stat"] {
+  background-image: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 38%,
+    color-mix(in srgb, var(--lx-gold, #c1a466) 16%, transparent) 44%,
+    rgba(255, 255, 255, 0.95) 50%,
+    color-mix(in srgb, var(--lx-gold, #c1a466) 16%, transparent) 56%,
+    transparent 62%,
+    transparent 100%
+  ) !important;
+  background-repeat: no-repeat !important;
+  background-size: 260% 100% !important;
+  background-position: 130% 0 !important;
+  transition: border-color .25s ease, transform .25s ease;
+}
+:root [data-tone-kind="stat"]:hover {
+  animation: lx-stat-shine 0.95s cubic-bezier(.3, .6, .3, 1) 1 both;
+  border-color: color-mix(in srgb, var(--lx-gold, #c1a466) 55%, #e6e8eb) !important;
+  transform: translateY(-2px);
+}
+@keyframes lx-stat-shine {
+  from { background-position: 130% 0; }
+  to   { background-position: -30% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root [data-tone-kind="stat"]:hover { animation: none; transform: none; }
+}

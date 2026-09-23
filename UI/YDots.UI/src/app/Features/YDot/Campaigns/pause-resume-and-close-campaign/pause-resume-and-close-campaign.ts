@@ -1,0 +1,1088 @@
+import { CommonModule } from '@angular/common';
+import { Component, Input, OnInit, computed, effect, inject, output, signal, untracked } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+
+import { CampaignStatus } from '../../../../Shared/models/campaign.model';
+import { ActionConfig, ActionId, CloseRequestRecord, Outcome, PauseResumePermissions, ViewState } from '../../../../Shared/models/pause-resume.model';
+import { CampaignStoreService } from '../../../../Shared/services/campaign-store.service';
+import { AttributionStoreService } from '../../../../Shared/services/attribution-store.service';
+import { TrackingAssetStoreService } from '../../../../Shared/services/tracking-asset-store.service';
+import { CloseRequestStoreService } from '../../../../Shared/services/close-request-store.service';
+import { CurrentUserService } from '../../../../Shared/services/current-user.service';
+import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
+
+/**
+ * Pause, resume and close campaign.
+ *
+ *  Embedded in    : Campaign detail, opened as a popup from its "Manage
+ *                   lifecycle" button — not a standalone routed page.
+ *  Purpose        : Control lifecycle changes without losing attribution,
+ *                   donation or audit history.
+ *  View permission: cam.pause-resume-and-close-campaign.view
+ *  Primary action : Pause
+ *
+ *  The lifecycle "Current state" is the shared CampaignStatus read/written
+ *  through CampaignStoreService, so a Pause / Resume / Approve close here is
+ *  visible on the other campaign pages immediately. Open donation intents and
+ *  active tracking assets are derived live from the shared attribution and
+ *  tracking stores — never entered by hand. Permissions come from the shared
+ *  CurrentUserService, and the same user id enforces the independent-approver
+ *  rule between Request close and Approve close.
+ */
+@Component({
+  selector: 'app-pause-resume-close-campaign',
+  imports: [CommonModule, FormsModule],
+  templateUrl: './pause-resume-and-close-campaign.html',
+  styleUrl: './pause-resume-and-close-campaign.css',
+})
+export class PauseResumeCloseCampaignComponent implements OnInit {
+  private readonly campaignStore = inject(CampaignStoreService);
+  private readonly attributionStore = inject(AttributionStoreService);
+  private readonly trackingStore = inject(TrackingAssetStoreService);
+  private readonly closeStore = inject(CloseRequestStoreService);
+  private readonly currentUser = inject(CurrentUserService);
+
+  protected readonly operatingTimeZone = 'Asia/Kolkata';
+
+  /** Stable campaign reference — supplied by the host (Campaign detail), defaulting to the
+   *  seeded demo campaign when opened without one. The host owns the popup's open/close
+   *  state and its own close affordance (backdrop click + ✕ button); this component has
+   *  no closing UI of its own. */
+  @Input() campaignRef = 'CAMP-2025-0011';
+
+  /** Notifies the host (Campaign detail) whenever this component's own action off-canvas
+   *  opens or closes, so the host can hide its lifecycle popup while the action panel is up
+   *  and restore it when the panel closes. */
+  readonly panelOpenChange = output<boolean>();
+
+  /* ---------------- shared session (dev switcher reuses the same user profiles) ---------------- */
+
+  /**
+   * The session switcher's options.
+   *
+   * EMPTY, because there is no switcher any more. This listed five invented profiles and the
+   * control beside it called `setProfile('super-admin')`, which granted every campaign permission
+   * in the interface. Who the caller is comes from their token.
+   */
+  protected readonly userProfiles: readonly { key: string; name: string; role: string }[] = [];
+  protected readonly currentUserRef = computed(() => this.currentUser.reference());
+  protected readonly currentUserName = computed(() => this.currentUser.current().name);
+  protected readonly currentProfileKey = computed(() => this.currentUser.current().key);
+  protected setUserProfile(key: string): void {
+    this.currentUser.setProfile(key);
+    this.closeActionPanel();
+  }
+
+  /* ---------------- effective permissions ---------------- */
+
+  protected readonly permissions = computed<PauseResumePermissions>(() => ({
+    view: this.currentUser.hasPermission('cam.campaigns.view'),
+    activate: this.currentUser.hasPermission('cam.campaigns.activate'),
+    pause: this.currentUser.hasPermission('cam.campaigns.pause'),
+    resume: this.currentUser.hasPermission('cam.campaigns.resume'),
+    requestClose: this.currentUser.hasPermission('cam.campaigns.request-close'),
+    approveClose: this.currentUser.hasPermission('cam.campaigns.close'),
+    cancelDraft: this.currentUser.hasPermission('cam.campaigns.delete-draft'),
+  }));
+
+  /**
+   * True when the caller holds NO lifecycle right on this campaign at all.
+   *
+   * STILL A PERMISSION QUESTION AND NOT A STATE ONE, which is why it stays on the token rather
+   * than moving to `permittedActions`: this drives the panel's "you may read this but not change
+   * it" banner, and that sentence has to stay true regardless of which state the campaign happens
+   * to be in today. `isViewOnlyForState` is the other question - permitted, but nothing applies
+   * right now - and the two are deliberately separate.
+   */
+  protected readonly isViewOnly = computed(() => {
+    const p = this.permissions();
+    return p.view && !p.activate && !p.pause && !p.resume && !p.requestClose && !p.approveClose && !p.cancelDraft;
+  });
+
+  /* ---------------- campaign + lifecycle state (LIVE from the shared campaign store) ---------------- */
+
+  protected readonly campaign = computed(() => this.campaignStore.get(this.campaignRef) ?? null);
+  /** The shared lifecycle "Current state" — never a local copy (fixes the staleness bug). */
+  protected readonly currentState = computed<CampaignStatus | null>(() => this.campaign()?.status ?? null);
+
+  /**
+   * Owner and approver names, resolved from IAM.
+   *
+   * THIS SCREEN NEEDED IT MOST. It displays who requested a campaign closure and who approved it,
+   * and those two names are the record of a decision that stops a campaign taking donations. Both
+   * were being read out of a seven-entry map in this file - including a 'Guest Reviewer' who could
+   * appear to have approved a closure.
+   */
+  private readonly people = inject(PeopleDirectoryService);
+  protected ownerName(ref: string): string {
+    return this.people.name(ref);
+  }
+
+  /* ---------------- close-request record (LIVE from the shared close-request store) ---------------- */
+
+  // A campaign with no close request has no record, so this really is nullable — see the note
+  // on `proposedTransition` in campaign-detail for why inference does not see that.
+  protected readonly closeRequest = computed<CloseRequestRecord | null>(
+    () => this.closeStore.snapshot()[this.campaignRef] ?? null);
+  protected readonly lifecycleHistory = computed(() => {
+    // Read the store signal so the timeline re-renders when history is appended.
+    this.closeStore.snapshot();
+    return this.closeStore.history(this.campaignRef);
+  });
+
+  /* ---------------- derived dependencies ---------------- */
+
+  /** External settlement check reachability. Open donation intents come from this dependent
+   *  service; when it is down the count is unknown and drives the dependency-failure state,
+   *  kept strictly separate from the locally-known Active tracking assets count. */
+  private readonly settlementReachable = signal(true);
+
+  /** Open donation intents — derived from the shared attribution store, filtered to this campaign
+   *  and to donations not yet settled/reconciled. Null = settlement service unreachable. */
+  protected readonly openDonationIntents = computed<readonly { reference: string; note: string }[] | null>(() => {
+    if (!this.settlementReachable()) {
+      return null;
+    }
+    const name = this.campaign()?.name ?? '';
+    if (!name) {
+      return [];
+    }
+    return this.attributionStore
+      .forCampaign(name)
+      .filter((r) => r.reconciliation !== 'Reconciled' || r.lifecycle !== 'Reconciled')
+      .map((r) => ({ reference: r.reference, note: `${r.reconciliation} · ${r.lifecycle}` }));
+  });
+  protected readonly openDonationIntentsCount = computed<number | null>(() => this.openDonationIntents()?.length ?? null);
+  protected readonly settlementUnavailable = computed(() => this.openDonationIntents() === null);
+
+  /** Active tracking assets — derived from the shared tracking store: this campaign, active + approved. */
+  protected readonly activeTrackingAssets = computed(() =>
+    this.trackingStore
+      .forCampaign(this.campaignRef)
+      .filter((a) => a.assetStatus === 'Active' && a.approvalState === 'Approved'),
+  );
+  protected readonly activeTrackingAssetsCount = computed(() => this.activeTrackingAssets().length);
+
+  /** Financial exceptions — derived from the shared attribution store: unmatched settlements. */
+  protected readonly financialExceptionsCount = computed(() => {
+    const name = this.campaign()?.name ?? '';
+    if (!name) {
+      return 0;
+    }
+    return this.attributionStore.forCampaign(name).filter((r) => r.reconciliation === 'Unmatched').length;
+  });
+
+  /* ---------------- actions ---------------- */
+
+  protected readonly actions: readonly ActionConfig[] = [
+    {
+      id: 'activate',
+      label: 'Activate campaign',
+      placement: 'primary',
+      permissionKey: 'activate',
+      permissionCode: 'cam.campaigns.activate',
+      serverAction: 'Activate',
+
+      // APPROVED AS WELL AS SCHEDULED. The server accepts both - a campaign approved on or after
+      // its own start date stays Approved because there is no future trigger left to wait for,
+      // and Activate is the only way it ever goes live. Listing Scheduled alone hid the button on
+      // exactly the campaigns that need pressing, which is most of what "Manage lifecycle shows
+      // nothing" turned out to be.
+      allowedStates: ['Approved', 'Scheduled'],
+      requiresReasonCategory: true,
+      requiresDetailedReason: false,
+      requiresCommunicationImpact: false,
+      requiresClosureSummary: false,
+      confirmVerb: 'Confirm activate',
+      typedConfirm: false,
+      description:
+        'Brings a scheduled campaign live and begins solicitation and outbound activity. Only this authorised record in effective scope is changed; attribution and audit history are preserved.',
+    },
+    {
+      id: 'pause',
+      label: 'Pause campaign',
+      placement: 'primary',
+      permissionKey: 'pause',
+      permissionCode: 'cam.campaigns.pause',
+      serverAction: 'Pause',
+      allowedStates: ['Active'],
+      requiresReasonCategory: true,
+      requiresDetailedReason: true,
+      requiresCommunicationImpact: false,
+      requiresClosureSummary: false,
+      confirmVerb: 'Confirm pause',
+      typedConfirm: false,
+      description:
+        'Temporarily stops new solicitation and outbound activity. Attribution, donation and audit history are preserved and resume is available at any time.',
+    },
+    {
+      id: 'resume',
+      label: 'Resume campaign',
+      placement: 'primary',
+      permissionKey: 'resume',
+      permissionCode: 'cam.campaigns.resume',
+      serverAction: 'Resume',
+      allowedStates: ['Paused'],
+      requiresReasonCategory: false,
+      requiresDetailedReason: false,
+      requiresCommunicationImpact: false,
+      requiresClosureSummary: false,
+      confirmVerb: 'Confirm resume',
+      typedConfirm: false,
+      description:
+        'Restores the campaign to active solicitation from its current point. Only this authorised record in effective scope is changed.',
+    },
+    {
+      id: 'request_close',
+      label: 'Request close',
+      placement: 'danger',
+      permissionKey: 'requestClose',
+      permissionCode: 'cam.campaigns.request-close',
+      serverAction: 'RequestClose',
+      allowedStates: ['Active', 'Paused'],
+      requiresReasonCategory: true,
+      requiresDetailedReason: true,
+      requiresCommunicationImpact: true,
+      requiresClosureSummary: true,
+      confirmVerb: 'Confirm request close',
+      typedConfirm: true,
+      description:
+        'Submits the campaign for closure approval. This creates a close request — it does not itself close the campaign. Open donation intents and active tracking assets are surfaced for review first.',
+    },
+    {
+      id: 'approve_close',
+
+      // "Close" IS THE NAME THE WORKFLOW USES for this action, and it is the one on the button.
+      // The description says what it actually does - approve the outstanding request - because
+      // the two-step close is exactly the thing an operator has to understand here.
+      label: 'Close campaign',
+      placement: 'danger',
+      permissionKey: 'approveClose',
+      permissionCode: 'cam.campaigns.close',
+
+      // CLOSING, NOT Active/Paused. Requesting a close moves the campaign TO Closing, so the
+      // state this action is taken from is never the one it was requested from - and listing the
+      // requesting states meant the button appeared while a request was pending and was then
+      // refused as "not available from Closing state" by the panel's own eligibility check. It
+      // could not be pressed at any point in the campaign's life.
+      //
+      // Active and Paused are kept alongside it for a campaign whose request was raised before
+      // this was fixed and whose status therefore never moved.
+      allowedStates: ['Closing', 'Active', 'Paused'],
+      requiresReasonCategory: true,
+      requiresDetailedReason: false,
+      requiresCommunicationImpact: false,
+      requiresClosureSummary: false,
+      serverAction: 'ApproveClose',
+      confirmVerb: 'Confirm close',
+      typedConfirm: true,
+      description:
+        'Approves the outstanding close request and closes the campaign. Cannot be performed by the person who requested the close.',
+    },
+  ];
+
+  /**
+   * What the SERVER says this caller may do to THIS campaign next.
+   *
+   * THE AUTHORITY FOR EVERY BUTTON ON THIS PANEL, replacing the local permission map that used to
+   * be. `permittedActions` is recomputed by CAM on every read of the campaign and folds together
+   * three things a browser cannot decide on its own - the campaign's current status, the
+   * permissions on the token, and whether this caller is independent of whoever created,
+   * submitted or requested. The local check answered only the second, which is why this panel and
+   * the API disagreed about who could do what.
+   *
+   * EMPTY UNTIL THE DETAIL HAS LOADED, which is why `detailLoaded` is consulted below rather than
+   * treating an empty list as "nothing is allowed": showing no buttons for a moment is honest,
+   * and showing none for ever because the detail had not been fetched is the bug this panel had.
+   */
+  protected readonly permittedActions = computed(
+    () => new Set(this.campaign()?.permittedActions ?? []),
+  );
+
+  /** True once the campaign's full detail - and therefore its permitted actions - has arrived. */
+  protected readonly permissionsResolved = computed(() => !!this.campaign()?.detailLoaded);
+
+  /**
+   * The lifecycle actions offered for the campaign's CURRENT state.
+   *
+   * TWO CONDITIONS, AND BOTH COME FROM SOMEWHERE DIFFERENT. The STATE decides which moves are
+   * interesting - a live campaign offers Pause, not Activate - and the SERVER decides whether
+   * this particular person may make them. The state table lives here; the second half is
+   * `permittedActions` and is not second-guessed.
+   *
+   *   Approved / Scheduled → Activate
+   *   Active               → Pause, Request close
+   *   Paused               → Resume, Request close
+   *   Closing              → Close
+   *
+   * REQUEST CLOSE IS OFFERED FROM ACTIVE AS WELL AS PAUSED. The API accepts both; restricting it
+   * to Paused meant an operator had to pause a running campaign before they could ask for it to
+   * be closed, which is a step the workflow does not ask for and which stops solicitation earlier
+   * than intended.
+   *
+   * BEFORE THE DETAIL LOADS, NOTHING IS OFFERED. See `permissionsResolved`.
+   */
+  protected readonly visibleActions = computed(() => {
+    const state = this.currentState();
+    const pending = this.hasPendingCloseRequest();
+
+    if (!this.permissionsResolved()) {
+      return [] as readonly ActionConfig[];
+    }
+
+    return this.actions.filter((a) => {
+      if (!this.permittedActions().has(a.serverAction)) {
+        return false;
+      }
+
+      // Close appears only while a close request is awaiting a decision. The server already
+      // withholds ApproveClose when there is none, so this is belt and braces for a record whose
+      // detail is a moment stale.
+      if (a.id === 'approve_close') {
+        return pending;
+      }
+
+      // Request close is withheld while one is already pending, so the panel offers Review rather
+      // than a second request nobody can raise.
+      if (a.id === 'request_close') {
+        return !pending && state !== null && a.allowedStates.includes(state);
+      }
+
+      return state !== null && a.allowedStates.includes(state);
+    });
+  });
+
+  /**
+   * True when the caller may see the panel but may take none of its actions.
+   *
+   * DECIDED FROM THE SERVER'S LIST TOO, not from the permission map. An Organisation
+   * Administrator holds every campaign permission, so the old check - "holds view and none of the
+   * other six" - was false for them on every campaign in every state, and the panel therefore
+   * never told them why it was empty when the campaign's state offered nothing.
+   */
+  protected readonly isViewOnlyForState = computed(
+    () => this.permissionsResolved() && this.visibleActions().length === 0,
+  );
+
+  /** True when the acting session requested the pending close — blocks self-approval. */
+  protected readonly isOwnCloseRequest = computed(() => {
+    const rec = this.closeRequest();
+    return !!rec?.requestedByRef && rec.requestState === 'Requested' && rec.requestedByRef === this.currentUserRef();
+  });
+
+  /** A close request is already pending (drives the duplicate guard on Request close). */
+  protected readonly hasPendingCloseRequest = computed(() => this.closeRequest()?.requestState === 'Requested');
+
+  private stateCompatible(action: ActionConfig): boolean {
+    const s = this.currentState();
+    return s !== null && action.allowedStates.includes(s);
+  }
+
+  /** Every action needs compatible state + effective permission + satisfied dependency.
+   *  Per the confirmed design (Q1), a non-zero Open-intents / Active-asset count is SURFACED for
+   *  Request close, not auto-blocked; approve_close additionally needs a pending request from a
+   *  different user; financial exceptions remain a genuine blocking dependency. */
+  protected actionIsEligible(action: ActionConfig): boolean {
+    // THE SERVER'S LIST, NOT THE TOKEN'S PERMISSIONS. See `permittedActions` - this is the check
+    // that used to disagree with the API, offering an Approver a close they had raised themselves
+    // and refusing an administrator a move they were entitled to make.
+    if (!this.permittedActions().has(action.serverAction) || !this.stateCompatible(action)) {
+      return false;
+    }
+    if (action.id === 'approve_close') {
+      return this.hasPendingCloseRequest() && !this.isOwnCloseRequest();
+    }
+    if (action.id === 'request_close') {
+      return !this.hasPendingCloseRequest() && this.financialExceptionsCount() === 0;
+    }
+    return true;
+  }
+
+  protected ineligibleReason(action: ActionConfig): string {
+    if (!this.stateCompatible(action)) {
+      return `Not available from ${this.currentState() ?? '—'} state.`;
+    }
+    if (!this.permittedActions().has(action.serverAction)) {
+      return `You do not hold ${action.permissionCode} on this campaign.`;
+    }
+    if (action.id === 'request_close') {
+      if (this.hasPendingCloseRequest()) {
+        return 'A close request is already pending approval.';
+      }
+      if (this.financialExceptionsCount() > 0) {
+        return 'Unresolved financial exceptions must be cleared first.';
+      }
+    }
+    if (action.id === 'approve_close') {
+      if (!this.hasPendingCloseRequest()) {
+        return 'No close request is awaiting approval.';
+      }
+      if (this.isOwnCloseRequest()) {
+        return `This close cannot be approved by the person who requested it (${this.currentUserName()}).`;
+      }
+    }
+    return '';
+  }
+
+  /* ---------------- top-level view state ---------------- */
+
+  protected readonly viewState = signal<ViewState>('loading');
+  protected setViewState(state: ViewState): void {
+    this.viewState.set(state);
+  }
+
+  /** Why the last transition was refused — the server's own message, shown by the 'error' state. */
+  protected readonly failureMessage = signal('');
+  protected dismissFailure(): void {
+    this.failureMessage.set('');
+    this.viewState.set(this.campaign() ? 'ready' : 'empty');
+  }
+
+  /* ---------------- concurrency snapshot ---------------- */
+
+  private readonly loadedStatus = signal<CampaignStatus | null>(null);
+  private readonly loadedRequestVersion = signal<number | null>(null);
+  /**
+   * Re-baselines the concurrency snapshot.
+   *
+   * `landedOn` EXISTS BECAUSE THE STORE IS NOW ASYNCHRONOUS. After a committed transition the
+   * campaign's new status arrives with the list refresh behind it, so reading `currentState()`
+   * here would capture the state the campaign was in BEFORE the change - and the moment the
+   * refresh landed, `isStale()` would compare that against the new one and report a conflict on
+   * the change this panel had just made. Pass the state the transition landed on; omit it
+   * everywhere the snapshot is genuinely being taken from the record.
+   */
+  private syncSnapshot(landedOn?: CampaignStatus | null): void {
+    this.loadedStatus.set(landedOn ?? this.currentState());
+    this.loadedRequestVersion.set(this.closeRequest()?.version ?? null);
+  }
+  private isStale(): boolean {
+    const statusChanged = this.loadedStatus() !== null && this.currentState() !== this.loadedStatus();
+    const versionChanged =
+      this.loadedRequestVersion() !== null && (this.closeRequest()?.version ?? null) !== this.loadedRequestVersion();
+    return statusChanged || versionChanged;
+  }
+
+  constructor() {
+    // No-access hides record, fields, counts and actions — reacts live to a session switch on any
+    // CAM screen. Never a CSS-only hide.
+    effect(() => {
+      const canView = this.permissions().view;
+      const current = untracked(this.viewState);
+      if (!canView && current !== 'no-access' && current !== 'loading') {
+        this.viewState.set('no-access');
+      } else if (canView && current === 'no-access') {
+        this.viewState.set(this.campaign() ? 'ready' : 'empty');
+      }
+    });
+
+    // Tell the host whenever the action off-canvas opens/closes so it can hide/restore its
+    // own lifecycle popup beneath it.
+    effect(() => {
+      this.panelOpenChange.emit(this.activeAction() !== null);
+    });
+
+    // FETCH THE DETAIL AS SOON AS THE CAMPAIGN EXISTS, not only in ngOnInit.
+    //
+    // `loadDetail` needs the campaign's server id, and the store only holds one once the register
+    // has come back - which on a cold open is AFTER this panel has initialised. The single call in
+    // ngOnInit therefore returned without doing anything on exactly the load where it mattered,
+    // leaving `permittedActions` empty and every lifecycle button withheld. This runs again the
+    // moment the record appears, and stops once its detail is in.
+    effect(() => {
+      const campaign = this.campaign();
+
+      if (campaign && !campaign.detailLoaded) {
+        untracked(() => this.campaignStore.loadDetail(this.campaignRef));
+      }
+    });
+  }
+
+  /** Runs after Angular applies the @Input campaignRef binding (unlike the constructor,
+   *  which runs before inputs are set) — the loading sequence below needs the real,
+   *  host-supplied reference, not the field's default. */
+  ngOnInit(): void {
+    this.closeStore.ensure(this.campaignRef);
+
+    // THE FULL RECORD, NOT THE REGISTER ROW. `permittedActions` is only on the DETAIL response,
+    // and every button on this panel is now drawn from it - so without this call the panel opens
+    // against a list projection that carries none, and offers nothing whatever the caller holds.
+    // That is what "Manage lifecycle shows nothing for TenantAdmin" was: an administrator with
+    // every campaign permission, looking at a record whose permitted actions had never been
+    // fetched.
+    this.campaignStore.loadDetail(this.campaignRef);
+
+    setTimeout(() => {
+      if (this.viewState() !== 'loading') {
+        return;
+      }
+      this.syncSnapshot();
+      if (!this.permissions().view) {
+        this.viewState.set('no-access');
+      } else if (!this.campaign()) {
+        this.viewState.set('empty');
+      } else {
+        this.viewState.set('ready');
+      }
+    }, 400);
+  }
+
+  /* ---------------- header helpers ---------------- */
+
+  protected readonly lastRefreshed = signal(this.nowLabel());
+
+  formatCurrency(value: number): string {
+    return '₹' + value.toLocaleString('en-IN');
+  }
+
+  refresh(): void {
+    const prev = this.viewState();
+    this.viewState.set('loading');
+
+    // RE-READ THE DETAIL, not just the snapshot. Refresh exists to pick up a change somebody else
+    // made, and what changes with it is which actions are permitted - so re-reading the record
+    // without re-reading those would leave the buttons describing the state it used to be in.
+    this.closeStore.load(this.campaignRef);
+    this.campaignStore.loadDetail(this.campaignRef);
+
+    setTimeout(() => {
+      this.syncSnapshot();
+      this.lastRefreshed.set(this.nowLabel());
+      this.viewState.set(this.permissions().view ? (this.campaign() ? 'ready' : 'empty') : 'no-access');
+      void prev;
+    }, 400);
+  }
+
+  copyReference(): void {
+    const ref = this.campaign()?.code ?? this.campaignRef;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(ref).catch(() => {});
+    }
+    this.toast(`Copied ${ref} to clipboard.`);
+  }
+
+  private nowLabel(): string {
+    return new Date().toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
+
+  /** Map the canonical 9-state status onto the page's existing badge classes (no CSS change). */
+  protected statusClass(status: CampaignStatus | null): string {
+    switch (status) {
+      case 'Active':
+      case 'Approved':
+        return 'status-active';
+      case 'Paused':
+        return 'status-paused';
+      case 'Closing':
+      case 'Submitted':
+      case 'Scheduled':
+        return 'status-pending_close';
+      case 'Closed':
+        return 'status-closed';
+      case 'Cancelled':
+        return 'status-cancelled';
+      case 'Draft':
+        return 'status-draft';
+      default:
+        return 'status-closed';
+    }
+  }
+
+  /* ---------------- dev state simulator (preview affordances only) ---------------- */
+
+  protected simulateView(state: ViewState): void {
+    this.viewState.set(state);
+    this.closeActionPanel();
+  }
+  protected simulateSettlementOutage(): void {
+    this.settlementReachable.set(false);
+    this.toast('Settlement check set to unreachable — Open donation intents now unavailable.');
+  }
+  protected restoreSettlement(): void {
+    this.settlementReachable.set(true);
+  }
+
+  /* ---------------- action panel workflow ---------------- */
+
+  protected readonly activeAction = signal<ActionConfig | null>(null);
+  protected readonly reasonCategory = signal('');
+  protected readonly detailedReason = signal('');
+  protected readonly communicationImpact = signal('');
+  protected readonly closureSummary = signal('');
+  protected readonly effectiveDate = signal('');
+  protected readonly effectiveTime = signal('');
+
+  protected readonly errors = signal<Record<string, string>>({});
+  protected readonly errorOrder = signal<string[]>([]);
+
+  protected readonly showConfirmDialog = signal(false);
+  protected readonly typedConfirmValue = signal('');
+  protected readonly submitting = signal(false);
+
+  protected openActionPanel(action: ActionConfig): void {
+    if (!this.actionIsEligible(action)) {
+      return;
+    }
+    // Resume is a single-step action — no effective-time panel, no confirm dialog. Clicking it
+    // resumes the campaign immediately.
+    if (action.id === 'resume') {
+      this.performResume();
+      return;
+    }
+    // A close request already pending is a duplicate — offer review/cancel, never a silent re-submit.
+    if (action.id === 'request_close' && this.hasPendingCloseRequest()) {
+      this.viewState.set('duplicate');
+      return;
+    }
+    if (this.isStale()) {
+      this.viewState.set('conflict');
+      return;
+    }
+    this.activeAction.set(action);
+    this.reasonCategory.set('');
+    this.detailedReason.set('');
+    this.communicationImpact.set('');
+    this.closureSummary.set('');
+    this.errors.set({});
+    this.errorOrder.set([]);
+    this.typedConfirmValue.set('');
+    this.showConfirmDialog.set(false);
+    const today = new Date();
+    this.effectiveDate.set(today.toISOString().slice(0, 10));
+    this.effectiveTime.set(today.toTimeString().slice(0, 5));
+  }
+
+  protected closeActionPanel(): void {
+    this.activeAction.set(null);
+    this.showConfirmDialog.set(false);
+    this.typedConfirmValue.set('');
+    this.errors.set({});
+    this.errorOrder.set([]);
+  }
+
+  /** Resume immediately — no effective-time panel, no confirm step. Flips the shared lifecycle
+   *  state back to Active, records accountable history and surfaces a persistent success outcome,
+   *  exactly like the panel-driven actions do on commit. */
+  private performResume(): void {
+    if (this.isStale()) {
+      this.viewState.set('conflict');
+      return;
+    }
+    const previousState = this.currentState();
+    const actorRef = this.currentUserRef();
+    const actorName = this.currentUserName();
+    const effectiveTime = this.nowLabel();
+
+    // THE HISTORY AND THE OUTCOME WAIT FOR THE SERVER, like every other transition on this panel.
+    // Written before the answer came back, they recorded a resume that the API may well have
+    // refused - and an accountable history that records moves which did not happen is worse than
+    // one that records none.
+    this.campaignStore.setStatus(this.campaignRef, 'Active', (result) => {
+      if (!result.applied) {
+        this.failureMessage.set(
+          result.error ?? 'Resume was refused. The campaign has not been changed.',
+        );
+        this.viewState.set('error');
+        return;
+      }
+
+      this.closeStore.addHistory(this.campaignRef, {
+        id: 'EVT-' + Date.now(),
+        actorRef,
+        actorName,
+        action: 'Resume campaign',
+        from: previousState ?? '—',
+        to: 'Active',
+        hasConfidentialReason: false,
+        timestamp: effectiveTime,
+      });
+
+      this.outcome.set({
+        reference: this.campaignRef,
+        state: 'Active',
+        effectiveTime,
+        nextAction: 'Campaign is live and accepting new activity.',
+        accountableOwner: this.ownerName(this.campaign()?.ownerReference ?? ''),
+        remainingDependency: this.settlementUnavailable()
+          ? 'Open donation intents: settlement check unavailable'
+          : `Open donation intents: ${this.openDonationIntentsCount()}; Active tracking assets: ${this.activeTrackingAssetsCount()}`,
+      });
+
+      this.activeAction.set(null);
+      this.syncSnapshot('Active');
+      this.viewState.set('success');
+      this.toast(`Campaign resumed. Reference ${this.campaignRef}; state Active.`);
+    });
+  }
+
+  protected readonly effectiveDateTimeLabel = computed(() => {
+    const d = this.effectiveDate();
+    const t = this.effectiveTime();
+    if (!d || !t) {
+      return '—';
+    }
+    const dt = new Date(`${d}T${t}`);
+    if (Number.isNaN(dt.getTime())) {
+      return 'Invalid date';
+    }
+    return (
+      dt.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }) + ` (${this.operatingTimeZone})`
+    );
+  });
+
+  private validatePanel(): boolean {
+    const action = this.activeAction();
+    if (!action) {
+      return false;
+    }
+    const errs: Record<string, string> = {};
+    const order: string[] = [];
+    const addError = (key: string, msg: string) => {
+      errs[key] = msg;
+      order.push(key);
+    };
+
+    // Effective time.
+    if (!this.effectiveDate() || !this.effectiveTime()) {
+      addError('effectiveDate', 'Enter Effective time.');
+    } else {
+      const chosen = new Date(`${this.effectiveDate()}T${this.effectiveTime()}`);
+      const oneYearOut = new Date();
+      oneYearOut.setFullYear(oneYearOut.getFullYear() + 1);
+      if (Number.isNaN(chosen.getTime()) || chosen > oneYearOut) {
+        addError('effectiveDate', 'Review Effective time. The value does not meet the stated format or range.');
+      }
+    }
+
+    // Confidential + conditional textareas — error copy uses field LABELS only, never the entered
+    // (confidential) content, so nothing leaks to a non-scoped surface.
+    const checkText = (need: boolean, key: string, label: string, value: string) => {
+      if (!need) {
+        return;
+      }
+      const len = value.trim().length;
+      if (len === 0) {
+        addError(key, `Enter ${label}.`);
+      } else if (len < 10 || len > 2000) {
+        addError(key, `Review ${label}. The value does not meet the stated format or range.`);
+      }
+    };
+    checkText(action.requiresReasonCategory, 'reasonCategory', 'Reason category', this.reasonCategory());
+    checkText(action.requiresDetailedReason, 'detailedReason', 'Detailed reason', this.detailedReason());
+    checkText(action.requiresCommunicationImpact, 'communicationImpact', 'Communication impact', this.communicationImpact());
+    checkText(action.requiresClosureSummary, 'closureSummary', 'Closure summary', this.closureSummary());
+
+    this.errors.set(errs);
+    this.errorOrder.set(order);
+    if (order.length > 0) {
+      // Focus the first invalid field, preserving all (non-sensitive) input.
+      queueMicrotask(() => {
+        const el = document.getElementById('field-' + order[0]);
+        el?.focus();
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      return false;
+    }
+    return true;
+  }
+
+  protected reviewAction(): void {
+    if (!this.validatePanel()) {
+      return;
+    }
+    if (this.isStale()) {
+      this.showConfirmDialog.set(false);
+      this.viewState.set('conflict');
+      return;
+    }
+    this.showConfirmDialog.set(true);
+    this.typedConfirmValue.set('');
+  }
+
+  protected cancelConfirm(): void {
+    this.showConfirmDialog.set(false);
+    this.typedConfirmValue.set('');
+  }
+
+  protected readonly confirmToken = computed(() => this.activeAction()?.label.toUpperCase() ?? '');
+  protected readonly typedConfirmSatisfied = computed(() => {
+    const action = this.activeAction();
+    if (!action?.typedConfirm) {
+      return true;
+    }
+    return this.typedConfirmValue().trim().toUpperCase() === this.confirmToken();
+  });
+
+  /* ---------------- commit ---------------- */
+
+  protected readonly outcome = signal<Outcome | null>(null);
+
+  protected confirmAndSubmit(): void {
+    const action = this.activeAction();
+    if (!action || !this.typedConfirmSatisfied()) {
+      return;
+    }
+    // Re-check eligibility and concurrency at the moment of commit (never trust a stale panel).
+    if (!this.actionIsEligible(action)) {
+      this.showConfirmDialog.set(false);
+      this.viewState.set(this.isStale() ? 'conflict' : 'ready');
+      return;
+    }
+    if (this.isStale()) {
+      this.showConfirmDialog.set(false);
+      this.viewState.set('conflict');
+      return;
+    }
+
+    this.submitting.set(true);
+    const previousState = this.currentState();
+    const actorRef = this.currentUserRef();
+    const actorName = this.currentUserName();
+
+    let resultingState = previousState as CampaignStatus;
+    let nextAction = '';
+    let accountableOwner = this.ownerName(this.campaign()?.ownerReference ?? '');
+
+    // ==========================================================================================
+    // TWO THINGS CHANGED HERE, AND THE SECOND IS WHY THE FIRST WAS NOT ENOUGH.
+    //
+    // 1. EVERY STATE TRANSITION NOW GOES THROUGH `setStatus`, WHICH ROUTES TO THE CAMPAIGN'S OWN
+    //    LIFECYCLE ENDPOINT. They all called `campaignStore.update(ref, { status })`, and that is
+    //    the generic content PUT: it wrote the status into the local record, sent a body that
+    //    carries no status at all, and then refreshed - so the server's state never moved and
+    //    the refresh put the old one straight back. Activate, Pause, Resume and Approve close
+    //    were all reported as done and none of them had happened.
+    //
+    // 2. THE OUTCOME IS THE SERVER'S ANSWER, NOT A TIMER. This whole block ran inside a 700 ms
+    //    `setTimeout` that then set the success panel unconditionally - so even once the calls
+    //    were real, a refused transition (a 409 from a campaign somebody else had already moved,
+    //    a 403, an expectedVersion conflict) would still have painted "Saved successfully. state
+    //    Active" over a campaign that had not moved. A refusal now shows the server's message.
+    //
+    // THE CLOSE-REQUEST RECORD IS DELIBERATELY STILL LOCAL. `request_close` writes only to the
+    // close-request store - the campaign's own state does not change on a request - so it has no
+    // transition to wait for and commits directly.
+    // ==========================================================================================
+    const settle = (result: { readonly applied: boolean; readonly error?: string }): void => {
+      this.submitting.set(false);
+
+      if (!result.applied) {
+        this.showConfirmDialog.set(false);
+        this.failureMessage.set(
+          result.error ?? `${action.label} was refused. The campaign has not been changed.`,
+        );
+        this.viewState.set('error');
+        return;
+      }
+
+      // Append accountable history - with NO confidential reason text (only an in-scope flag).
+      this.closeStore.addHistory(this.campaignRef, {
+        id: 'EVT-' + Date.now(),
+        actorRef,
+        actorName,
+        action: action.label,
+        from: previousState ?? '—',
+        to: action.id === 'request_close' ? `${previousState} · close requested` : resultingState,
+        hasConfidentialReason: action.requiresReasonCategory,
+        timestamp: this.effectiveDateTimeLabel(),
+      });
+
+      const remainingDependency = this.settlementUnavailable()
+        ? 'Open donation intents: settlement check unavailable'
+        : `Open donation intents: ${this.openDonationIntentsCount()}; Active tracking assets: ${this.activeTrackingAssetsCount()}`;
+
+      this.outcome.set({
+        reference: this.campaignRef,
+        state: resultingState,
+        effectiveTime: this.effectiveDateTimeLabel(),
+        nextAction,
+        accountableOwner,
+        remainingDependency,
+      });
+
+      this.showConfirmDialog.set(false);
+      this.activeAction.set(null);
+
+      // THE STATE WE LANDED ON, not a re-read of the store. The list refresh behind the
+      // transition has not necessarily arrived yet, so re-reading here would snapshot the OLD
+      // status and every following action in this panel would then report a false conflict.
+      this.syncSnapshot(resultingState);
+
+      // A failed dependent settlement step is separated from the confirmed local result.
+      if (this.settlementUnavailable() && (action.id === 'request_close' || action.id === 'approve_close')) {
+        this.viewState.set('dependency-failure');
+      } else {
+        this.viewState.set('success');
+      }
+      this.toast(`Saved successfully. Reference ${this.campaignRef}; state ${resultingState}.`);
+    };
+
+    switch (action.id) {
+      case 'activate':
+        resultingState = 'Active';
+        nextAction = 'Campaign is live and accepting new activity.';
+        this.campaignStore.setStatus(this.campaignRef, 'Active', settle);
+        break;
+      case 'pause':
+        resultingState = 'Paused';
+        nextAction = 'Campaign is paused. Resume when ready.';
+        this.campaignStore.setStatus(this.campaignRef, 'Paused', settle);
+        break;
+      case 'resume':
+        resultingState = 'Active';
+        nextAction = 'Campaign is live and accepting new activity.';
+        this.campaignStore.setStatus(this.campaignRef, 'Active', settle);
+        break;
+      case 'request_close':
+        // ==================================================================================
+        // IT NOW ACTUALLY ASKS THE SERVER. This branch called `closeStore.update(...)` - the
+        // store's LOCAL patch, which writes to a signal and sends nothing - and then called
+        // settle({ applied: true }) unconditionally. So Request close reported success, drew the
+        // outcome panel and appended a history entry, and no close request existed anywhere but
+        // in that browser tab: reload the page and it was gone, and the approver it was supposedly
+        // waiting on never saw one. `closeStore.requestClose` was written for this and had no
+        // caller in the application at all.
+        //
+        // THE CAMPAIGN'S STATE DOES MOVE, contrary to the comment that was here. CAM puts a
+        // campaign into Closing when a close is requested - that is the point of the two-step
+        // close, so the campaign is visibly winding up rather than silently still soliciting -
+        // and the store's reload after the call brings the real status back.
+        // ==================================================================================
+        resultingState = 'Closing';
+        nextAction = 'An independent approver must close the campaign.';
+        accountableOwner = 'Awaiting independent closure approval';
+
+        this.closeStore.requestClose(
+          this.campaignRef,
+          this.reasonCategory().trim(),
+          this.detailedReason().trim(),
+          this.communicationImpact().trim(),
+          this.closureSummary().trim(),
+          settle,
+        );
+        break;
+      case 'approve_close': {
+        // ==================================================================================
+        // IT NOW CALLS THE APPROVE ENDPOINT. This routed through
+        // `campaignStore.setStatus(ref, 'Closing' | 'Closed')`, and both of those cases map to
+        // `close()`, which posts to REQUEST-close - so pressing Approve close raised a SECOND
+        // close request against a campaign that already had one pending, and the server answered
+        // 409 "A close request is already pending for this campaign." The one path that finishes
+        // a closure was unreachable from the only screen that offers it.
+        //
+        // THE RESULTING STATE IS THE SERVER'S DECISION, not a guess from local dependency counts.
+        // Approving a close moves the campaign to Closed; the reload behind the call brings back
+        // whatever CAM actually recorded.
+        // ==================================================================================
+        resultingState = 'Closed';
+        nextAction = 'Closure complete. Historical record available in Related and history.';
+        accountableOwner = `Closed by ${actorName}`;
+
+        this.closeStore.approveClose(
+          this.campaignRef,
+          this.detailedReason().trim() || this.reasonCategory().trim(),
+          (result) => {
+            if (result.applied) {
+              this.campaignStore.refresh();
+            }
+
+            settle(result);
+          },
+        );
+        break;
+      }
+      case 'cancel_draft':
+        resultingState = 'Cancelled';
+        nextAction = 'Draft cancelled. The record is preserved for audit.';
+
+        // Lifecycle Cancel, NOT a permanent delete - the record and history are preserved.
+        this.campaignStore.setStatus(this.campaignRef, 'Cancelled', (result) => {
+          if (result.applied) {
+            this.closeStore.update(this.campaignRef, { requestState: 'Cancelled' });
+          }
+
+          settle(result);
+        });
+        break;
+    }
+  }
+
+  protected dismissOutcome(): void {
+    this.viewState.set(this.campaign() ? 'ready' : 'empty');
+  }
+
+  /* ---------------- recovery ---------------- */
+
+  protected reviewLatest(): void {
+    this.syncSnapshot();
+    this.closeActionPanel();
+    this.viewState.set('ready');
+  }
+
+  protected retryDependency(): void {
+    // Retry only the failed dependency using the stable campaign reference; the committed local
+    // lifecycle result is unchanged.
+    this.settlementReachable.set(true);
+    this.viewState.set('success');
+  }
+
+  /* ---------------- related & history ---------------- */
+
+  protected readonly activeTab = signal<'linked' | 'documents' | 'activity' | 'integration'>('linked');
+  protected setTab(tab: 'linked' | 'documents' | 'activity' | 'integration'): void {
+    this.activeTab.set(tab);
+  }
+
+  protected readonly historySearch = signal('');
+  protected readonly filteredHistory = computed(() => {
+    const term = this.historySearch().trim().toLowerCase();
+    return this.lifecycleHistory().filter(
+      (h) =>
+        !term ||
+        h.action.toLowerCase().includes(term) ||
+        h.actorName.toLowerCase().includes(term) ||
+        h.id.toLowerCase().includes(term),
+    );
+  });
+
+  /** Linked records — the derived open intents and active assets, shown as live rows (never hand-typed). */
+  protected readonly linkedRecords = computed(() => {
+    const intents = (this.openDonationIntents() ?? []).map((i) => ({
+      id: i.reference,
+      type: 'Donation intent',
+      label: i.note,
+      status: 'Open intent',
+    }));
+    const assets = this.activeTrackingAssets().map((a) => ({
+      id: a.trackingReference,
+      type: 'Tracking asset',
+      label: `${a.assetType} · ${a.channel}`,
+      status: a.assetStatus,
+    }));
+    return [...intents, ...assets];
+  });
+
+  /* ---------------- toast (supports, never replaces, the persistent outcome) ---------------- */
+
+  protected readonly toastMessage = signal('');
+  protected readonly toastVisible = signal(false);
+  private toast(message: string): void {
+    this.toastMessage.set(message);
+    this.toastVisible.set(true);
+    setTimeout(() => this.toastVisible.set(false), 3200);
+  }
+}

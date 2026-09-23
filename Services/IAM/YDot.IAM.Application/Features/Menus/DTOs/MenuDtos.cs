@@ -1,0 +1,193 @@
+using YDot.IAM.Domain.Enums;
+
+namespace YDot.IAM.Application.Features.Menus.DTOs;
+
+/// <summary>Adding a node to the global catalogue. SuperAdmin only.</summary>
+public sealed record CreateMenuDefinitionRequest(
+    string Code,
+    string Name,
+    MenuLevel Level,
+    string ModuleCode,
+    Guid? ParentMenuId = null,
+    string? Route = null,
+    string? Icon = null,
+    string? RequiredPermissionCode = null,
+    string? Description = null,
+    int DisplayOrder = 0,
+    bool IsPlatformOnly = false,
+    bool IsEnabledByDefault = true,
+    bool IsMandatory = false,
+    bool OpensInNewTab = false,
+    string? BadgeKey = null);
+
+/// <summary>One permission a catalogue node may be gated on, for the authoring picker.</summary>
+public sealed record MenuPermissionOptionResponse(string Code, string Name, string ModuleCode);
+
+/// <summary>Editing a catalogue node.</summary>
+public sealed record UpdateMenuDefinitionRequest(
+    long ExpectedVersion,
+    string? Name = null,
+    string? Description = null,
+    string? Route = null,
+    string? Icon = null,
+    string? RequiredPermissionCode = null,
+    int? DisplayOrder = null,
+    MenuStatus? Status = null,
+    bool? IsEnabledByDefault = null,
+    bool? OpensInNewTab = null,
+    string? BadgeKey = null);
+
+/// <summary>
+/// An Organisation switching nodes on or off and renaming them.
+///
+/// The whole set is sent, so the outcome does not depend on what the screen was showing.
+/// </summary>
+public sealed record ConfigureTenantMenuRequest(IReadOnlyList<TenantMenuItemRequest> Items);
+
+/// <summary>One Organisation menu decision.</summary>
+public sealed record TenantMenuItemRequest(
+    Guid MenuDefinitionId,
+    bool IsEnabled,
+    string? DisplayNameOverride = null,
+    string? IconOverride = null,
+    int? DisplayOrderOverride = null);
+
+/// <summary>
+/// Mapping menu nodes to a role.
+///
+/// This can only ever TAKE a node away from a role, never grant access the permission set
+/// does not already allow. Permission decides what is permitted; this decides what is
+/// offered.
+/// </summary>
+public sealed record MapRoleMenusRequest(
+    IReadOnlyList<Guid> VisibleMenuIds,
+    long ExpectedVersion,
+    Guid? LandingMenuId = null);
+
+/// <summary>One node of the catalogue, as the configuration screens show it.</summary>
+public sealed record MenuDefinitionResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    string? Description,
+    Guid? ParentMenuId,
+    string? ParentName,
+    MenuLevel Level,
+    string ModuleCode,
+    string? Route,
+    string? Icon,
+    string? RequiredPermissionCode,
+    int DisplayOrder,
+    MenuStatus Status,
+    bool IsPlatformOnly,
+    bool IsEnabledByDefault,
+    bool IsMandatory,
+    bool OpensInNewTab,
+    string? BadgeKey,
+    long Version,
+
+    /// <summary>Null for a platform catalogue row; the Organisation that added it otherwise.</summary>
+    Guid? OwnerTenantId,
+
+    /// <summary>False when a person added this node rather than the shipped catalogue.</summary>
+    bool IsSystemDefined,
+
+    IReadOnlyList<MenuDefinitionResponse> Children);
+
+/// <summary>
+/// The Organisation menu configuration screen: every catalogue node with this Organisation
+/// decision beside it, so an administrator sees what they have and what they could have.
+/// </summary>
+public sealed record TenantMenuConfigurationResponse(
+    Guid TenantId,
+    string TenantName,
+    IReadOnlyList<TenantMenuNodeResponse> Nodes);
+
+/// <summary>One node with its Organisation overrides resolved.</summary>
+public sealed record TenantMenuNodeResponse(
+    Guid MenuDefinitionId,
+    string Code,
+    string CatalogueName,
+    string ResolvedName,
+    MenuLevel Level,
+    string ModuleCode,
+    string? Route,
+    string? ResolvedIcon,
+    string? RequiredPermissionCode,
+    int ResolvedOrder,
+    bool IsEnabled,
+    bool IsMandatory,
+    string? DisplayNameOverride,
+    string? IconOverride,
+    int? DisplayOrderOverride,
+
+    /// <summary>
+    /// True when this Organisation added the node itself, and may therefore edit or delete it.
+    ///
+    /// THE SCREEN NEEDS THIS TO KNOW WHICH VERBS TO OFFER. A platform node can be renamed,
+    /// re-iconed, reordered and switched off for this Organisation - but never edited at source
+    /// or deleted, because it belongs to every Organisation. One of its own can be. Without the
+    /// flag the screen would have to guess, and would offer a Delete that always failed.
+    /// </summary>
+    bool IsOrganisationOwned,
+
+    /// <summary>The node's own concurrency stamp, needed to edit or delete an owned node.</summary>
+    long Version,
+
+    /// <summary>Its parent, so the editor can re-parent without walking the tree back up.</summary>
+    Guid? ParentMenuDefinitionId,
+
+    IReadOnlyList<TenantMenuNodeResponse> Children);
+
+/// <summary>The menu-mapping screen for one role.</summary>
+public sealed record RoleMenuMappingResponse(
+    Guid RoleId,
+    string RoleName,
+    Guid? LandingMenuId,
+    IReadOnlyList<RoleMenuNodeResponse> Nodes);
+
+/// <summary>
+/// One node in the role mapping.
+///
+/// TWO DIFFERENT REASONS A MAPPING CAN COME TO NOTHING, and the screen has to tell them apart
+/// or the administrator has no idea which lever to pull:
+///
+/// <c>IsPermitted</c> says whether the ROLE holds the permission the node needs. When it is
+/// false the checkbox is shown disabled, because ticking it would achieve nothing — the
+/// endpoint behind the screen would still answer 403. The fix is to grant the permission.
+///
+/// <c>IsEnabledForOrganisation</c> says whether the ORGANISATION offers the node at all — the
+/// decision made on the other tab of this screen. A node the organisation has switched off is
+/// removed from everybody's navigation before role mapping is even consulted, so a mapping
+/// against it is stored faithfully and still shows nobody anything. The mapping is kept rather
+/// than refused, because it takes effect the moment the organisation switches the node on; the
+/// screen says so rather than leaving somebody to wonder why their save did nothing.
+/// </summary>
+public sealed record RoleMenuNodeResponse(
+    Guid MenuDefinitionId,
+    string Code,
+    string Name,
+    MenuLevel Level,
+    string ModuleCode,
+    string? Route,
+    string? RequiredPermissionCode,
+    bool IsVisible,
+    bool IsPermitted,
+    bool IsLandingPage,
+    bool IsEnabledForOrganisation,
+    IReadOnlyList<RoleMenuNodeResponse> Children);
+
+/// <summary>
+/// The navigation the signed-in caller should render, plus where to land.
+///
+/// This is the response the Angular shell calls once after sign-in and after every
+/// Organisation switch.
+/// </summary>
+public sealed record NavigationResponse(
+    IReadOnlyList<Common.Models.MenuNode> Menu,
+    string? LandingRoute,
+    Guid? TenantId,
+    string? TenantName,
+    AccessScopeType Scope,
+    bool IsTenantMode,
+    bool IsSuperAdmin);

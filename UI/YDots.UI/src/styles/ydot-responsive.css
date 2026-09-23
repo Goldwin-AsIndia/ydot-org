@@ -1,0 +1,177 @@
+/* =====================================================================================================
+   YDot Responsive - one scale, one set of breakpoints, for every screen.
+
+   HOW THE APP SCALES. Almost all text in the app is sized by ONE token: styles.css forces every span / div /
+   td / p / label / button ... to `font-size: var(--fs-base)`, and --fs-base is the customiser font size times
+   --ui-scale (below). So changing --ui-scale resizes the type on every screen at once. The page header, KPI
+   tiles, card padding, icon glyphs, the top bar and the root font size (the template sidebar, dropdowns,
+   forms and headings are rem-based) all read the same --ui-scale, so a large monitor gets larger everything
+   rather than a small app floating in a big window.
+
+   --ui-scale is stepped by viewport width:
+       < 576px   .95   phones
+       576-1439  1     laptops / small monitors (the design size)
+       1440+     1.05  1680+ 1.15   1920+ 1.25   2304+ 1.45   2560+ 1.6   3200+ 2   3840+ 2.4
+
+   The customiser font-size control still works: it sets --font-size-base, this file multiplies it.
+
+   Below 1280px the multi-column KPI / summary strips switch to auto-fit columns, so a tile never gets
+   narrower than its content needs. Card contents that must stay aligned at any width use container queries
+   (see follow-up-queue.css and donor-list.css).
+   ===================================================================================================== */
+
+:root {
+  --ui-scale: 1;
+  --fs-base: calc(var(--font-size-base, 12px) * var(--ui-scale));
+
+  /* Shell */
+  --pe-app-header-height: calc(74px * var(--ui-scale));
+
+  /* Card template tokens (ydot-card.css) and the KPI tile height (ydot-premium.css) */
+  --lx-kpi-h: calc(128px * var(--ui-scale));
+  --yc-pad: calc(16px * var(--ui-scale));
+  --yc-pad-kpi: calc(20px * var(--ui-scale));
+  --yc-head-pad: calc(16px * var(--ui-scale)) calc(20px * var(--ui-scale));
+  --yc-gap: calc(12px * var(--ui-scale));
+  --yc-gap-kpi: calc(10px * var(--ui-scale));
+  --yc-icon-size: calc(32px * var(--ui-scale));
+  --yc-title-size: calc(20px * var(--ui-scale));
+  --yc-heading-size: calc(13px * var(--ui-scale));
+  --yc-value-size: calc(28px * var(--ui-scale));
+  --yc-value-line: calc(32px * var(--ui-scale));
+  --yc-radius: calc(20px * var(--ui-scale));
+  --lx-radius: calc(11px * var(--ui-scale));
+
+  /* Glyph size inside stat tiles and row icons */
+  --lx-glyph: calc(26px * var(--ui-scale));
+}
+
+@media (max-width: 575.98px)  { :root { --ui-scale: .95; } }
+@media (min-width: 1440px)    { :root { --ui-scale: 1.05; } }
+@media (min-width: 1680px)    { :root { --ui-scale: 1.15; } }
+@media (min-width: 1920px)    { :root { --ui-scale: 1.25; } }
+@media (min-width: 2304px)    { :root { --ui-scale: 1.45; } }
+@media (min-width: 2560px)    { :root { --ui-scale: 1.6; } }
+@media (min-width: 3200px)    { :root { --ui-scale: 2; } }
+@media (min-width: 3840px)    { :root { --ui-scale: 2.4; } }
+
+/* The template sidebar, dropdowns, form controls and headings are rem-based: scaling the root scales them.
+   It is written on :root, not html, because Bootstrap sets `:root { font-size: var(--pe-root-font-size) }` and a
+   type selector would lose to it. On the root element 1rem is the browser default, so a user who has raised
+   their browser font size keeps that preference. */
+:root {
+  font-size: calc(1rem * var(--ui-scale));
+}
+
+/* Modals: the template px widths follow the scale too. */
+.modal { --pe-modal-width: calc(500px * var(--ui-scale)); }
+.modal-lg { --pe-modal-width: calc(800px * var(--ui-scale)); }
+.modal-xl { --pe-modal-width: calc(1140px * var(--ui-scale)); }
+.modal-sm { --pe-modal-width: calc(300px * var(--ui-scale)); }
+
+
+/* =====================================================================================================
+   Fit: nothing may push the page sideways.
+   ===================================================================================================== */
+
+.content-page {
+  min-width: 0;
+  overflow-x: clip;
+}
+
+img, video {
+  max-width: 100%;
+}
+
+/* Cards and their text never define the width of their column. */
+[data-tone],
+[data-tone] > *,
+.card,
+.card-body {
+  min-width: 0;
+}
+
+[data-tone] :is(h1, h2, h3, h4, h5, h6, p, a, label) {
+  overflow-wrap: anywhere;
+}
+
+/* Wide tables scroll inside their own wrapper instead of stretching the page. */
+:is(.table-responsive, [class*="table-wrap"], [class*="table-scroll"], [class*="table-container"], [class*="table-card"], [class*="tbl-wrap"]) {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Overlays never outgrow the screen. */
+:is([class*="-drawer"], [class*="-sheet"], [class*="offcanvas"]):not(.offcanvas-backdrop) {
+  max-width: 100vw;
+}
+
+
+/* =====================================================================================================
+   Below 1280px: KPI / summary strips reflow instead of cramming N columns into a narrow window.
+   (Campaign Detail .cd-kpi-grid and the dashboard .kpi-strip lay themselves out; they are not listed.)
+   ===================================================================================================== */
+
+@media (max-width: 1279.98px) {
+  :is(.kpi-grid, .kpi-cards, .stat-grid, .stats-row, .summary-grid, .summary-cards, .summary-strip, .tam-metrics,
+      .ab-kpis, .ct-summary-grid, .ct-kpi-grid, .div-kpi-grid, .lq-kpi-row, .pci-totals-grid, .rwn-summary-grid,
+      .details-summary-row, .tz-stats, .tz-view-summary, .tz-details-summary, .sh-stats, .pr-totals, .metric-grid, .dl-kpis) {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)) !important;
+    gap: 12px !important;
+  }
+}
+
+
+/* =====================================================================================================
+   Tablet and below
+   ===================================================================================================== */
+
+@media (max-width: 991.98px) {
+  .content-page .container-fluid {
+    padding-inline: 16px !important;
+  }
+}
+
+/* =====================================================================================================
+   Phone
+   ===================================================================================================== */
+
+@media (max-width: 575.98px) {
+  .content-page .container-fluid {
+    padding-inline: 12px !important;
+    padding-block: 12px !important;
+  }
+
+  /* Stat tiles: two per row. */
+  :is(.kpi-grid, .kpi-cards, .stat-grid, .stats-row, .summary-grid, .summary-cards, .summary-strip, .tam-metrics,
+      .ab-kpis, .ct-summary-grid, .ct-kpi-grid, .div-kpi-grid, .lq-kpi-row, .pci-totals-grid, .rwn-summary-grid,
+      .details-summary-row, .tz-stats, .tz-view-summary, .tz-details-summary, .sh-stats, .pr-totals, .metric-grid, .dl-kpis) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .modal-dialog {
+    margin: 8px !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+}
+
+/* Very small phones: one per row. */
+@media (max-width: 379.98px) {
+  :is(.kpi-grid, .kpi-cards, .stat-grid, .stats-row, .summary-grid, .summary-cards, .summary-strip, .tam-metrics,
+      .ab-kpis, .ct-summary-grid, .ct-kpi-grid, .div-kpi-grid, .lq-kpi-row, .pci-totals-grid, .rwn-summary-grid,
+      .details-summary-row, .tz-stats, .tz-view-summary, .tz-details-summary, .sh-stats, .pr-totals, .metric-grid, .dl-kpis) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

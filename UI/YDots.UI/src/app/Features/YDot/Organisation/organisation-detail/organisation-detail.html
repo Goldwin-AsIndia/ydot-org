@@ -1,0 +1,796 @@
+<main class="app-wrapper">
+<div class="page-wrapper">
+  <div class="container-fluid px-4 py-3">
+  <div class="og-page">
+
+  @if (loading()) {
+    <div class="og-card og-empty">
+      <span class="og-empty-glyph"><i class="ri-loader-4-line og-spin"></i></span>
+      <h3 class="og-empty-title">Loading organisation…</h3>
+    </div>
+  } @else if (loadFailed()) {
+    <div class="og-card og-empty">
+      <span class="og-empty-glyph is-error"><i class="ri-cloud-off-line"></i></span>
+      <h3 class="og-empty-title">This organisation could not be loaded</h3>
+      <p class="og-empty-body">{{ errorMessage() }}</p>
+      <button type="button" class="og-btn og-btn-primary" (click)="load()">
+        <i class="ri-refresh-line"></i> Try again
+      </button>
+    </div>
+  } @else if (organisation(); as org) {
+
+    <!-- ================================================================= Identity header
+         One card: who the organisation is, its state, the quick facts, and the tabs along its foot, so
+         the page reads top-down with no loose band between the title and the content. -->
+    <section class="og-hero" aria-label="Organisation">
+      <div class="og-hero-top">
+        <div class="og-hero-id">
+          @if (org.logoUrl) {
+            <img class="og-avatar og-avatar-img" [src]="org.logoUrl" alt="" />
+          } @else {
+            <span class="og-avatar" aria-hidden="true">{{ initials(org.name) }}</span>
+          }
+          <div class="og-hero-text">
+            <div class="og-hero-title-row">
+              <h1 class="og-hero-title">{{ org.name ?? 'Organisation' }}</h1>
+              <span class="og-status" [ngClass]="statusClass(org.status)">
+                <span class="og-status-dot" aria-hidden="true"></span>{{ org.statusDisplay || org.status }}
+              </span>
+            </div>
+            <div class="og-hero-meta">
+              @if (org.code) { <span><i class="ri-hashtag"></i>{{ org.code }}</span> }
+              @if (org.hostName) { <span><i class="ri-global-line"></i>{{ org.hostName }}</span> }
+              @if (org.organisationType) { <span><i class="ri-building-2-line"></i>{{ org.organisationType }}</span> }
+              @if (org.createdAtUtc) { <span><i class="ri-calendar-line"></i>Since {{ org.createdAtUtc | date: 'MMM y' }}</span> }
+            </div>
+          </div>
+        </div>
+
+        <div class="og-hero-actions">
+          @if (!isOwnOrganisation()) {
+            <button type="button" class="og-btn og-btn-ghost" (click)="goBack()">
+              <i class="ri-arrow-left-line"></i> All organisations
+            </button>
+            @if (can('Approve') || can('StartReview')) {
+              <a [routerLink]="['/app/administration/organisation/registration-verification', org.id]"
+                 class="og-btn og-btn-primary">
+                <i class="ri-shield-check-line"></i> Review
+              </a>
+            }
+          }
+          @if (tab() === 'profile' && canEditProfile() && !editing()) {
+            <button type="button" class="og-btn og-btn-primary" (click)="startEditing()">
+              <i class="ri-edit-line"></i> Edit profile
+            </button>
+          }
+        </div>
+      </div>
+
+      <dl class="og-facts">
+        <div class="og-fact">
+          <dt>People</dt>
+          <dd>{{ org.userCount ?? 0 }}@if (org.maximumUsers) {<small> / {{ org.maximumUsers }}</small>}</dd>
+        </div>
+        <div class="og-fact">
+          <dt>Administrator</dt>
+          <dd [title]="org.primaryAdmin?.email || ''">{{ org.primaryAdmin?.displayName || '—' }}</dd>
+        </div>
+        <div class="og-fact">
+          <dt>Documents</dt>
+          <dd>{{ documents().length }}</dd>
+        </div>
+        <div class="og-fact">
+          <dt>Web addresses</dt>
+          <dd>{{ domains().length }}</dd>
+        </div>
+        <div class="og-fact">
+          <dt>Last updated</dt>
+          <dd>{{ (org.updatedAtUtc || org.createdAtUtc) ? ((org.updatedAtUtc || org.createdAtUtc) | date: 'd MMM y') : '—' }}</dd>
+        </div>
+      </dl>
+
+      <nav class="og-tabs" role="tablist" aria-label="Organisation sections">
+        <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'profile'"
+                [attr.aria-selected]="tab() === 'profile'" (click)="tab.set('profile')">
+          <i class="ri-file-text-line"></i> Profile
+        </button>
+        <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'documents'"
+                [attr.aria-selected]="tab() === 'documents'" (click)="tab.set('documents')">
+          <i class="ri-attachment-2"></i> Documents
+          @if (documents().length) { <span class="og-tab-count">{{ documents().length }}</span> }
+        </button>
+        @if (showReviewTab()) {
+          <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'review'"
+                  [attr.aria-selected]="tab() === 'review'" (click)="tab.set('review')">
+            <i class="ri-send-plane-line"></i> Review &amp; submit
+            @if (!isProfileComplete()) { <i class="ri-error-warning-fill og-tab-warn"></i> }
+          </button>
+        }
+        @if (isOwnOrganisation() && isApproved()) {
+          <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'settings'"
+                  [attr.aria-selected]="tab() === 'settings'" (click)="tab.set('settings')">
+            <i class="ri-shield-keyhole-line"></i> Security settings
+          </button>
+        }
+        <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'domains'"
+                [attr.aria-selected]="tab() === 'domains'" (click)="tab.set('domains')">
+          <i class="ri-global-line"></i> Web addresses
+        </button>
+        <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'timeline'"
+                [attr.aria-selected]="tab() === 'timeline'" (click)="tab.set('timeline')">
+          <i class="ri-history-line"></i> History
+        </button>
+      </nav>
+    </section>
+
+    <!-- ================================================================= Notices -->
+    @if (isOwnOrganisation() && !isProfileComplete() && outstandingFields().length > 0) {
+      <div class="og-alert is-warn">
+        <i class="ri-information-line"></i>
+        <div>
+          <strong>Your profile is not finished yet.</strong>
+          <p>These are still needed before it can be sent for approval:</p>
+          <ul class="og-outstanding">
+            @for (field of outstandingFields(); track field) { <li>{{ field }}</li> }
+          </ul>
+        </div>
+      </div>
+    }
+    @if (org.status === 'rejected' && org.rejectionReason) {
+      <div class="og-alert is-error">
+        <i class="ri-close-circle-line"></i>
+        <div><strong>This submission was not approved.</strong><p>{{ org.rejectionReason }}</p></div>
+      </div>
+    }
+    @if (org.status === 'suspended' && org.suspensionReason) {
+      <div class="og-alert is-error">
+        <i class="ri-forbid-2-line"></i>
+        <div><strong>This organisation is suspended.</strong><p>{{ org.suspensionReason }}</p></div>
+      </div>
+    }
+    @if (errorMessage() && !loadFailed()) {
+      <div class="og-alert is-error">
+        <i class="ri-error-warning-line"></i>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    <!-- ================================================================= Profile -->
+    @if (tab() === 'profile') {
+      @if (editing()) {
+        <!-- EDIT: one card, a section per group - title + note on the left, fields on the right. -->
+        <section class="og-card og-form">
+          @if (isProfileRestricted()) {
+            <!-- WHAT IS STILL YOURS TO CHANGE, once the platform has approved the Organisation. The identity
+                 fields are what the reviewer checked the registration certificate against; the server drops
+                 them from a save after approval, so they are drawn locked. -->
+            <p class="og-note">
+              <i class="ri-lock-line"></i>
+              <span>This organisation has been approved, so its registered details are fixed. You can still update
+              the <strong>contact e-mail</strong>, <strong>telephone</strong> and <strong>address</strong>. To correct a
+              registered detail, contact the platform team — it has to be re-verified against your documents.</span>
+            </p>
+          }
+
+          <div class="og-form-section">
+            <div class="og-form-aside">
+              <h3>Registration &amp; identity</h3>
+              <p>What the platform verified your documents against.</p>
+            </div>
+            <fieldset class="og-fieldset" [disabled]="isProfileRestricted()">
+              <div class="og-fields">
+                <div class="og-field">
+                  <label class="og-label" for="d-name">Name</label>
+                  <input id="d-name" type="text" class="og-input" maxlength="200"
+                         [ngModel]="form().name" (ngModelChange)="update('name', $event)">
+                </div>
+                <div class="og-field">
+                  <label class="og-label" for="d-legal">Registered legal name</label>
+                  <input id="d-legal" type="text" class="og-input" maxlength="200"
+                         [ngModel]="form().legalName" (ngModelChange)="update('legalName', $event)">
+                </div>
+                <div class="og-field">
+                  <label class="og-label" for="d-reg">Registration number</label>
+                  <input id="d-reg" type="text" class="og-input" maxlength="100"
+                         [ngModel]="form().registrationNumber" (ngModelChange)="update('registrationNumber', $event)">
+                </div>
+                <div class="og-field">
+                  <label class="og-label" for="d-tax">Tax identification number</label>
+                  <input id="d-tax" type="text" class="og-input" maxlength="100"
+                         [ngModel]="form().taxIdentificationNumber" (ngModelChange)="update('taxIdentificationNumber', $event)">
+                </div>
+                <div class="og-field">
+                  <label class="og-label" for="d-pan">PAN</label>
+                  <!-- TEN CHARACTERS, and the shape matters: the server enforces the same pattern. -->
+                  <input id="d-pan" type="text" class="og-input og-mono" maxlength="10"
+                         pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]" placeholder="ABCDE1234F" autocapitalize="characters"
+                         [ngModel]="form().panNumber" (ngModelChange)="update('panNumber', $event.toUpperCase())">
+                  @if (form().panNumber && !panValid()) {
+                    <span class="og-hint is-error">A PAN is five letters, four digits, then a letter — for example ABCDE1234F.</span>
+                  }
+                </div>
+                <div class="og-field">
+                  <label class="og-label" for="d-gst">GST</label>
+                  <input id="d-gst" type="text" class="og-input og-mono" maxlength="15"
+                         pattern="[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z][0-9A-Za-z][Zz][0-9A-Za-z]"
+                         placeholder="22ABCDE1234F1Z5" autocapitalize="characters"
+                         [ngModel]="form().gstNumber" (ngModelChange)="update('gstNumber', $event.toUpperCase())">
+                  @if (form().gstNumber && !gstValid()) {
+                    <span class="og-hint is-error">A GSTIN is fifteen characters — for example 22ABCDE1234F1Z5.</span>
+                  }
+                </div>
+                <div class="og-field">
+                  <label class="og-label" for="d-type">Type</label>
+                  <select id="d-type" class="og-input" [ngModel]="form().organisationType"
+                          (ngModelChange)="update('organisationType', $event)">
+                    <option value="">Not specified</option>
+                    @for (type of organisationTypeOptions(); track type) { <option [value]="type">{{ type }}</option> }
+                  </select>
+                </div>
+                <div class="og-field">
+                  <label class="og-label" for="d-established">Established on</label>
+                  <input id="d-established" type="date" class="og-input"
+                         [ngModel]="form().establishedOn" (ngModelChange)="update('establishedOn', $event)">
+                </div>
+                <div class="og-field og-span-2">
+                  <label class="og-label" for="d-description">About</label>
+                  <textarea id="d-description" class="og-input" rows="3" maxlength="1000"
+                            [ngModel]="form().description" (ngModelChange)="update('description', $event)"></textarea>
+                </div>
+              </div>
+            </fieldset>
+          </div>
+
+          <div class="og-form-section">
+            <div class="og-form-aside">
+              <h3>Contact</h3>
+              <p>Who the platform and donors reach.</p>
+            </div>
+            <div class="og-fields">
+              <div class="og-field">
+                <label class="og-label" for="d-contact-name">Contact person</label>
+                <input id="d-contact-name" type="text" class="og-input" maxlength="200"
+                       [disabled]="!canEditField('contactPersonName')"
+                       [ngModel]="form().contactPersonName" (ngModelChange)="update('contactPersonName', $event)">
+              </div>
+              <div class="og-field">
+                <label class="og-label" for="d-contact-email">Contact e-mail</label>
+                <input id="d-contact-email" type="email" class="og-input" maxlength="256"
+                       [ngModel]="form().contactEmail" (ngModelChange)="update('contactEmail', $event)">
+              </div>
+              <div class="og-field">
+                <label class="og-label" for="d-phone">Telephone</label>
+                <div class="og-phone">
+                  <select class="og-input og-phone-code" aria-label="Country code"
+                          [ngModel]="form().contactPhoneCountryCode" (ngModelChange)="update('contactPhoneCountryCode', $event)">
+                    @for (code of countryCodes(); track code) { <option [value]="code">{{ code }}</option> }
+                  </select>
+                  <input id="d-phone" type="tel" class="og-input"
+                         [ngModel]="form().contactPhone" (ngModelChange)="update('contactPhone', $event)">
+                </div>
+              </div>
+              <div class="og-field">
+                <label class="og-label" for="d-website">Website</label>
+                <input id="d-website" type="url" class="og-input" maxlength="256"
+                       [disabled]="!canEditField('websiteUrl')"
+                       [ngModel]="form().websiteUrl" (ngModelChange)="update('websiteUrl', $event)">
+              </div>
+            </div>
+          </div>
+
+          <div class="og-form-section">
+            <div class="og-form-aside">
+              <h3>Address</h3>
+              <p>The registered address of the organisation.</p>
+            </div>
+            <div class="og-fields">
+              <div class="og-field og-span-2">
+                <label class="og-label" for="d-addr1">Address line 1</label>
+                <input id="d-addr1" type="text" class="og-input" maxlength="200"
+                       [ngModel]="form().addressLine1" (ngModelChange)="update('addressLine1', $event)">
+              </div>
+              <div class="og-field og-span-2">
+                <label class="og-label" for="d-addr2">Address line 2</label>
+                <input id="d-addr2" type="text" class="og-input" maxlength="200"
+                       [ngModel]="form().addressLine2" (ngModelChange)="update('addressLine2', $event)">
+              </div>
+              <div class="og-field">
+                <label class="og-label" for="d-country">Country</label>
+                <select id="d-country" class="og-input" [ngModel]="form().country" (ngModelChange)="onCountryChange($event)">
+                  <option value="">Select a country</option>
+                  @for (c of geo.countryNames(); track c) { <option [value]="c">{{ c }}</option> }
+                </select>
+              </div>
+              <div class="og-field">
+                <label class="og-label" for="d-state">State or province</label>
+                @if (geo.hasStates()) {
+                  <select id="d-state" class="og-input" [ngModel]="form().state" (ngModelChange)="onStateChange($event)">
+                    <option value="">Select a state or province</option>
+                    @for (st of geo.stateNames(); track st) { <option [value]="st">{{ st }}</option> }
+                  </select>
+                } @else {
+                  <input id="d-state" type="text" class="og-input" maxlength="100"
+                         [ngModel]="form().state" (ngModelChange)="onStateChange($event)">
+                }
+              </div>
+              <div class="og-field">
+                <label class="og-label" for="d-city">City</label>
+                @if (geo.cityNames().length) {
+                  <select id="d-city" class="og-input" [ngModel]="form().city" (ngModelChange)="update('city', $event)">
+                    <option value="">Select a city</option>
+                    @for (ct of geo.cityNames(); track ct) { <option [value]="ct">{{ ct }}</option> }
+                  </select>
+                } @else {
+                  <input id="d-city" type="text" class="og-input" maxlength="100"
+                         [ngModel]="form().city" (ngModelChange)="update('city', $event)">
+                }
+              </div>
+              <div class="og-field">
+                <label class="og-label" for="d-postal">Postal code</label>
+                <input id="d-postal" type="text" class="og-input" maxlength="20"
+                       [ngModel]="form().postalCode" (ngModelChange)="update('postalCode', $event)">
+              </div>
+            </div>
+          </div>
+
+          <div class="og-form-section">
+            <div class="og-form-aside">
+              <h3>Regional settings</h3>
+              <p>Defaults for dates, amounts and language.</p>
+            </div>
+            <div class="og-fields og-fields-3">
+              <div class="og-field">
+                <label class="og-label" for="d-timezone">Time zone</label>
+                <select id="d-timezone" class="og-input" [disabled]="!canEditField('timeZone')"
+                        [ngModel]="form().timeZone" (ngModelChange)="update('timeZone', $event)">
+                  <option value="">Select a time zone</option>
+                  @if (orphanTimeZone()) { <option [value]="orphanTimeZone()">{{ orphanTimeZone() }}</option> }
+                  @for (zone of geo.timeZones(); track zone.id) { <option [value]="zone.ianaKey">{{ zone.name }}</option> }
+                </select>
+              </div>
+              <div class="og-field">
+                <label class="og-label" for="d-currency">Currency</label>
+                <select id="d-currency" class="og-input" [disabled]="!canEditField('defaultCurrency')"
+                        [ngModel]="form().defaultCurrency" (ngModelChange)="update('defaultCurrency', $event)">
+                  <option value="">Select a currency</option>
+                  @if (orphanCurrency()) { <option [value]="orphanCurrency()">{{ orphanCurrency() }}</option> }
+                  @for (currency of geo.currencies(); track currency.id) {
+                    <option [value]="currency.code">{{ currency.code }} — {{ currency.name }}</option>
+                  }
+                </select>
+              </div>
+              <div class="og-field">
+                <label class="og-label" for="d-culture">Language</label>
+                <select id="d-culture" class="og-input" [disabled]="!canEditField('defaultCulture')"
+                        [ngModel]="form().defaultCulture" (ngModelChange)="update('defaultCulture', $event)">
+                  <option value="">Select a language</option>
+                  @if (orphanCulture()) { <option [value]="orphanCulture()">{{ orphanCulture() }}</option> }
+                  @for (language of geo.languages(); track language.id) {
+                    <option [value]="language.cultureCode">{{ language.displayLabel }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="og-actionbar">
+            <span class="og-actionbar-note"><i class="ri-information-line"></i> Changes are saved to this organisation only.</span>
+            <div class="og-actionbar-btns">
+              <button type="button" class="og-btn og-btn-ghost" (click)="cancelEditing()">Cancel</button>
+              <button type="button" class="og-btn og-btn-primary" [disabled]="saving()" (click)="saveProfile()">
+                @if (saving()) { <i class="ri-loader-4-line og-spin"></i> Saving… } @else { <i class="ri-save-line"></i> Save changes }
+              </button>
+            </div>
+          </div>
+        </section>
+      } @else {
+        <!-- VIEW: main column (identity, contact + address) beside a narrow column (about, regional, people). -->
+        <div class="og-profile">
+          <div class="og-main">
+            <section class="og-card">
+              <header class="og-card-head">
+                <span class="og-glyph"><i class="ri-profile-line"></i></span>
+                <div>
+                  <h3 class="og-card-title">Registration &amp; identity</h3>
+                  <p class="og-card-sub">Core and statutory details, as verified</p>
+                </div>
+              </header>
+              <dl class="og-dl">
+                <div><dt>Registered legal name</dt><dd>{{ org.legalName || '—' }}</dd></div>
+                <div><dt>Type</dt><dd>{{ org.organisationType || '—' }}</dd></div>
+                <div><dt>Registration number</dt><dd class="og-mono">{{ org.registrationNumber || '—' }}</dd></div>
+                <div><dt>Tax identification</dt><dd class="og-mono">{{ org.taxIdentificationNumber || '—' }}</dd></div>
+                <div><dt>PAN</dt><dd class="og-mono">{{ org.panNumber || '—' }}</dd></div>
+                <div><dt>GST</dt><dd class="og-mono">{{ org.gstNumber || '—' }}</dd></div>
+                <div><dt>Established</dt><dd>{{ org.establishedOn ? (org.establishedOn | date: 'd MMM y') : '—' }}</dd></div>
+                <div>
+                  <dt>Website</dt>
+                  <dd>
+                    @if (org.websiteUrl) { <a [href]="org.websiteUrl" target="_blank" rel="noopener" class="og-link">{{ org.websiteUrl }}</a> }
+                    @else { — }
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="og-card">
+              <header class="og-card-head">
+                <span class="og-glyph"><i class="ri-contacts-line"></i></span>
+                <div>
+                  <h3 class="og-card-title">Contact &amp; address</h3>
+                  <p class="og-card-sub">How to reach the organisation</p>
+                </div>
+              </header>
+              <div class="og-split">
+                <dl class="og-dl og-dl-1">
+                  <div><dt>Contact person</dt><dd>{{ org.contactPersonName || '—' }}</dd></div>
+                  <div>
+                    <dt>Contact e-mail</dt>
+                    <dd>
+                      @if (org.contactEmail) { <a [href]="'mailto:' + org.contactEmail" class="og-link">{{ org.contactEmail }}</a> }
+                      @else { — }
+                    </dd>
+                  </div>
+                  <div><dt>Telephone</dt><dd>{{ org.contactPhone ? org.contactPhoneCountryCode + ' ' + org.contactPhone : '—' }}</dd></div>
+                </dl>
+                <div class="og-address">
+                  <span class="og-address-label"><i class="ri-map-pin-2-line"></i> Registered address</span>
+                  @if (org.addressLine1 || org.city || org.country) {
+                    <address>
+                      @if (org.addressLine1) { {{ org.addressLine1 }}<br> }
+                      @if (org.addressLine2) { {{ org.addressLine2 }}<br> }
+                      {{ cityLine(org.city, org.state) }}@if (org.postalCode) { – {{ org.postalCode }} }<br>
+                      {{ org.country }}
+                    </address>
+                  } @else {
+                    <p class="og-muted">No address recorded yet.</p>
+                  }
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <aside class="og-side">
+            <section class="og-card">
+              <header class="og-card-head">
+                <span class="og-glyph"><i class="ri-information-line"></i></span>
+                <div><h3 class="og-card-title">About</h3></div>
+              </header>
+              <p class="og-about" [class.og-muted]="!org.description">{{ org.description || 'No description has been added yet.' }}</p>
+            </section>
+
+            <section class="og-card">
+              <header class="og-card-head">
+                <span class="og-glyph"><i class="ri-earth-line"></i></span>
+                <div><h3 class="og-card-title">Regional &amp; setup</h3></div>
+              </header>
+              <dl class="og-rows">
+                <div><dt>Business unit</dt><dd>{{ org.businessUnitName || '—' }}</dd></div>
+                <div><dt>Time zone</dt><dd>{{ org.timeZone || '—' }}</dd></div>
+                <div><dt>Currency</dt><dd>{{ org.defaultCurrency || '—' }}</dd></div>
+                <div><dt>Language</dt><dd>{{ org.defaultCulture || '—' }}</dd></div>
+                <div><dt>Created</dt><dd>{{ org.createdAtUtc ? (org.createdAtUtc | date: 'd MMM y') : '—' }}</dd></div>
+              </dl>
+            </section>
+
+            <section class="og-card">
+              <header class="og-card-head">
+                <span class="og-glyph"><i class="ri-group-line"></i></span>
+                <div><h3 class="og-card-title">People &amp; administration</h3></div>
+              </header>
+              <div class="og-admin">
+                <span class="og-avatar og-avatar-sm" aria-hidden="true">{{ initials(org.primaryAdmin?.displayName) }}</span>
+                <div class="og-admin-text">
+                  <span class="og-admin-name">{{ org.primaryAdmin?.displayName || 'No administrator' }}</span>
+                  @if (org.primaryAdmin?.email) { <span class="og-admin-mail">{{ org.primaryAdmin?.email }}</span> }
+                </div>
+                <span class="og-admin-role">Admin</span>
+              </div>
+              <div class="og-seats">
+                <div class="og-seats-row">
+                  <span>People</span>
+                  <strong>{{ org.userCount ?? 0 }}@if (org.maximumUsers) { <small>of {{ org.maximumUsers }}</small> }</strong>
+                </div>
+                @if (org.maximumUsers) {
+                  <div class="og-meter" role="progressbar" [attr.aria-valuenow]="org.userCount ?? 0"
+                       aria-valuemin="0" [attr.aria-valuemax]="org.maximumUsers">
+                    <span [style.width.%]="seatPercent(org.userCount, org.maximumUsers)"></span>
+                  </div>
+                }
+              </div>
+            </section>
+          </aside>
+        </div>
+      }
+    }
+
+    <!-- ================================================================= Review & submit -->
+    @if (tab() === 'review') {
+      <section class="og-card og-narrow">
+        <header class="og-card-head">
+          <span class="og-glyph" [class.is-warn]="!isProfileComplete()" [class.is-good]="isProfileComplete()">
+            <i class="ri-send-plane-line"></i>
+          </span>
+          <div>
+            <h3 class="og-card-title">Review &amp; submit</h3>
+            <p class="og-card-sub">Send this organisation's profile to the platform team for approval</p>
+          </div>
+        </header>
+        <div class="og-review-body">
+          <p class="og-lead">
+            The platform team reviews the profile and the documents. Until it is approved, this organisation cannot be
+            used for live work.
+          </p>
+          <div class="og-field">
+            <label class="og-label" for="d-submit-notes">Anything to add</label>
+            <textarea id="d-submit-notes" class="og-input" rows="3" maxlength="500"
+                      [ngModel]="submitNotes()" (ngModelChange)="submitNotes.set($event)"
+                      placeholder="Optional. Anything the reviewer should know."></textarea>
+          </div>
+        </div>
+        <div class="og-actionbar">
+          <span class="og-actionbar-note">
+            @if (!isProfileComplete()) { <i class="ri-error-warning-line"></i> Finish the outstanding profile fields listed above first. }
+            @else { <i class="ri-checkbox-circle-line"></i> Everything needed is in place. }
+          </span>
+          <button type="button" class="og-btn og-btn-primary" [disabled]="!canSubmit() || submitting()" (click)="submitForApproval()">
+            @if (submitting()) { <i class="ri-loader-4-line og-spin"></i> Sending… } @else { <i class="ri-send-plane-line"></i> Send for approval }
+          </button>
+        </div>
+      </section>
+    }
+
+    <!-- ================================================================= Documents -->
+    @if (tab() === 'documents') {
+      <section class="og-card">
+        <header class="og-card-head">
+          <span class="og-glyph"><i class="ri-attachment-2"></i></span>
+          <div>
+            <h3 class="og-card-title">Document submissions</h3>
+            <p class="og-card-sub">Certificates and supporting scans, submitted and reviewed together</p>
+          </div>
+        </header>
+        <!-- MODE FOLLOWS THE ROUTE: with an id in the URL this is SuperAdmin looking at somebody else's paperwork,
+             so the id is passed too (the tenant endpoint takes none). -->
+        <app-document-submissions [mode]="documentsMode()" [tenantId]="organisationId()"
+                                  (changed)="reload()"></app-document-submissions>
+      </section>
+
+      @if (ungroupedDocuments().length) {
+        <!-- Uploaded before grouped submissions existed; filtered on having no submission so nothing is listed twice. -->
+        <section class="og-card">
+          <header class="og-card-head">
+            <span class="og-glyph"><i class="ri-history-line"></i></span>
+            <div>
+              <h3 class="og-card-title">Earlier uploads</h3>
+              <p class="og-card-sub">Uploaded before grouped submissions existed</p>
+            </div>
+          </header>
+          <div class="og-table-wrap">
+            <table class="og-table">
+              <thead><tr><th>Document</th><th>Reference</th><th>Uploaded</th><th>Status</th></tr></thead>
+              <tbody>
+                @for (doc of ungroupedDocuments(); track doc.id) {
+                  <tr>
+                    <td><span class="og-cell-main">{{ doc.documentTypeDisplay }}</span><span class="og-cell-sub">{{ doc.fileName }}</span></td>
+                    <td class="og-mono">{{ doc.referenceNumber || '—' }}</td>
+                    <td>{{ doc.uploadedAtUtc | date: 'd MMM y' }}</td>
+                    <td><span class="og-status" [ngClass]="documentStatusClass(doc.status)"><span class="og-status-dot"></span>{{ doc.status }}</span></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+    }
+
+    <!-- ================================================================= Security settings -->
+    @if (tab() === 'settings' && isOwnOrganisation()) {
+      <!-- These may be tightened but never loosened below the platform floor: the server clamps every value,
+           so a looser number comes back raised rather than accepted. -->
+      <section class="og-card og-settings">
+        <header class="og-card-head og-card-head-split">
+          <div class="og-card-head-main">
+            <span class="og-glyph"><i class="ri-shield-keyhole-line"></i></span>
+            <div>
+              <h3 class="og-card-title">Security settings</h3>
+              <p class="og-card-sub">Sign-in and password rules for everyone in this organisation</p>
+            </div>
+          </div>
+          <span class="og-floor"><i class="ri-shield-check-line"></i> Stricter than the platform default only — weaker values are raised when saved</span>
+        </header>
+
+        <div class="og-set-group">
+          <div class="og-set-aside">
+            <h4>Two-step verification</h4>
+            <p>Whether a second factor is up to each person or required for all.</p>
+          </div>
+          <div class="og-choice-grid" role="radiogroup" aria-label="Two-step verification">
+            <label class="og-choice" [class.is-on]="settingsForm().defaultMfaRequirement === 'optional'">
+              <input type="radio" name="d-mfa" value="optional"
+                     [checked]="settingsForm().defaultMfaRequirement === 'optional'"
+                     (change)="updateSetting('defaultMfaRequirement', 'optional')">
+              <span class="og-choice-glyph"><i class="ri-user-settings-line"></i></span>
+              <span class="og-choice-text">
+                <span class="og-choice-title">Optional</span>
+                <span class="og-choice-sub">People may add a second factor themselves.</span>
+              </span>
+              <span class="og-choice-mark" aria-hidden="true"></span>
+            </label>
+            <label class="og-choice" [class.is-on]="settingsForm().defaultMfaRequirement === 'required'">
+              <input type="radio" name="d-mfa" value="required"
+                     [checked]="settingsForm().defaultMfaRequirement === 'required'"
+                     (change)="updateSetting('defaultMfaRequirement', 'required')">
+              <span class="og-choice-glyph"><i class="ri-lock-password-line"></i></span>
+              <span class="og-choice-text">
+                <span class="og-choice-title">Required <em>Recommended</em></span>
+                <span class="og-choice-sub">Everyone must enrol a second factor before they can work.</span>
+              </span>
+              <span class="og-choice-mark" aria-hidden="true"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="og-set-group">
+          <div class="og-set-aside">
+            <h4>Sign-in protection</h4>
+            <p>Lock out repeated failures and sign out idle sessions.</p>
+          </div>
+          <div class="og-num-grid">
+            <label class="og-num" for="s-attempts">
+              <span class="og-num-label">Failed sign-ins before lockout</span>
+              <span class="og-num-box">
+                <input id="s-attempts" type="number" min="3" max="10"
+                       [ngModel]="settingsForm().maximumFailedAccessAttempts"
+                       (ngModelChange)="updateSetting('maximumFailedAccessAttempts', +$event)">
+                <span class="og-num-unit">tries</span>
+              </span>
+              <span class="og-num-hint">Between 3 and 10</span>
+            </label>
+            <label class="og-num" for="s-lockout">
+              <span class="og-num-label">Lockout duration</span>
+              <span class="og-num-box">
+                <input id="s-lockout" type="number" min="5" max="120"
+                       [ngModel]="settingsForm().lockoutDurationMinutes"
+                       (ngModelChange)="updateSetting('lockoutDurationMinutes', +$event)">
+                <span class="og-num-unit">min</span>
+              </span>
+              <span class="og-num-hint">Between 5 and 120</span>
+            </label>
+            <label class="og-num" for="s-idle">
+              <span class="og-num-label">Idle sign-out</span>
+              <span class="og-num-box">
+                <input id="s-idle" type="number" min="5" max="480"
+                       [ngModel]="settingsForm().sessionIdleTimeoutMinutes"
+                       (ngModelChange)="updateSetting('sessionIdleTimeoutMinutes', +$event)">
+                <span class="og-num-unit">min</span>
+              </span>
+              <span class="og-num-hint">Between 5 and 480</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="og-set-group">
+          <div class="og-set-aside">
+            <h4>Passwords</h4>
+            <p>Length and rotation for every account.</p>
+          </div>
+          <div class="og-num-grid">
+            <label class="og-num" for="s-password">
+              <span class="og-num-label">Minimum password length</span>
+              <span class="og-num-box">
+                <input id="s-password" type="number" min="8" max="128"
+                       [ngModel]="settingsForm().passwordMinimumLength"
+                       (ngModelChange)="updateSetting('passwordMinimumLength', +$event)">
+                <span class="og-num-unit">chars</span>
+              </span>
+              <span class="og-num-hint">Between 8 and 128</span>
+            </label>
+            <label class="og-num" for="s-expiry">
+              <span class="og-num-label">Password expires after</span>
+              <span class="og-num-box">
+                <input id="s-expiry" type="number" min="0" max="365"
+                       [ngModel]="settingsForm().passwordExpiryDays"
+                       (ngModelChange)="updateSetting('passwordExpiryDays', +$event)">
+                <span class="og-num-unit">days</span>
+              </span>
+              <span class="og-num-hint">0 means passwords never expire</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="og-actionbar">
+          <span class="og-actionbar-note"><i class="ri-information-line"></i> Applies to everyone the next time they sign in.</span>
+          <button type="button" class="og-btn og-btn-primary" [disabled]="saving()" (click)="saveSettings()">
+            @if (saving()) { <i class="ri-loader-4-line og-spin"></i> Saving… } @else { <i class="ri-save-line"></i> Save settings }
+          </button>
+        </div>
+      </section>
+    }
+
+    <!-- ================================================================= Web addresses -->
+    @if (tab() === 'domains') {
+      <section class="og-card">
+        <header class="og-card-head">
+          <span class="og-glyph"><i class="ri-global-line"></i></span>
+          <div>
+            <h3 class="og-card-title">Web addresses</h3>
+            <p class="og-card-sub">The subdomain is permanent. A custom address can be added alongside it once its ownership has been verified.</p>
+          </div>
+        </header>
+        @if (domains().length === 0) {
+          <div class="og-blank"><i class="ri-global-line"></i><span>No addresses are recorded.</span></div>
+        } @else {
+          <div class="og-table-wrap">
+            <table class="og-table">
+              <thead><tr><th>Address</th><th>Kind</th><th>Primary</th><th>Verified</th></tr></thead>
+              <tbody>
+                @for (domain of domains(); track domain.id) {
+                  <tr>
+                    <td><span class="og-host"><i class="ri-link"></i>{{ domain.hostName }}</span></td>
+                    <td>{{ domain.domainType }}</td>
+                    <td>
+                      @if (domain.isPrimary) { <span class="og-status is-good"><span class="og-status-dot"></span>Primary</span> }
+                      @else { <span class="og-muted">—</span> }
+                    </td>
+                    <td>
+                      @if (domain.isVerified) {
+                        <span class="og-status is-good"><span class="og-status-dot"></span>Verified {{ domain.verifiedAtUtc | date: 'd MMM y' }}</span>
+                      } @else {
+                        <span class="og-status is-warn"><span class="og-status-dot"></span>Not verified</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+
+    <!-- ================================================================= History -->
+    @if (tab() === 'timeline') {
+      <section class="og-card">
+        <header class="og-card-head">
+          <span class="og-glyph"><i class="ri-history-line"></i></span>
+          <div>
+            <h3 class="og-card-title">History</h3>
+            <p class="og-card-sub">Every change of state, newest first</p>
+          </div>
+        </header>
+        @if (timeline().length === 0) {
+          <div class="og-blank"><i class="ri-history-line"></i><span>Nothing has been recorded yet.</span></div>
+        } @else {
+          <ol class="og-timeline">
+            @for (entry of timeline(); track entry.id) {
+              <li class="og-timeline-item">
+                <span class="og-timeline-dot" [ngClass]="statusClass(entry.toStatus)"></span>
+                <div class="og-timeline-body">
+                  <div class="og-timeline-head">
+                    <span class="og-timeline-title">
+                      {{ entry.toStatusDisplay || entry.toStatus }}
+                      @if (entry.fromStatus) { <small>from {{ entry.fromStatus }}</small> }
+                    </span>
+                    <span class="og-timeline-when">
+                      {{ entry.occurredAtUtc | date: 'd MMM y, h:mm a' }}
+                      @if (entry.actorDisplayName) { · {{ entry.actorDisplayName }} }
+                    </span>
+                  </div>
+                  @if (entry.reason) { <p class="og-timeline-note">{{ entry.reason }}</p> }
+                  @if (entry.notes) { <p class="og-timeline-note">{{ entry.notes }}</p> }
+                </div>
+              </li>
+            }
+          </ol>
+        }
+      </section>
+    }
+
+  }
+
+  </div>
+  </div>
+</div>
+</main>

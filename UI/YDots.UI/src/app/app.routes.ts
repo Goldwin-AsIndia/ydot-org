@@ -1,0 +1,738 @@
+import { Routes } from '@angular/router';
+import { MainlayoutComponent } from './Shared/mainlayout/mainlayout';
+
+import { ApplayoutComponent } from './Shared/applayout/applayout';
+import { UserSecurityComponent } from './Features/YDot/Administration/user-security/user-security';
+import { LoginIdentifierChangeComponent } from './Features/YDot/Administration/login-identifier-change/login-identifier-change';
+import { BulkUserAdministrationComponent } from './Features/YDot/Administration/bulk-user-administration/bulk-user-administration';
+import { UserDirectoryComponent } from './Features/YDot/Administration/user-directory/user-directory';
+import { CreateUserComponent } from './Features/YDot/Administration/create-user/create-user';
+import { UserProfileComponent } from './Features/YDot/Administration/user-profile/user-profile';
+import { UserDetailsComponent } from './Features/YDot/Administration/user-details/user-details';
+import { RoleCatalogueComponent } from './Features/YDot/Administration/role-catalogue/role-catalogue';
+import { AccessRequestComponent } from './Features/YDot/Administration/access-request/access-request';
+import { AccessPreviewComponent } from './Features/YDot/Administration/access-preview/access-preview';
+import { MySecurityComponent } from './Features/YDot/Administration/my-security/my-security';
+import { MfaEnrollmentComponent } from './Features/YDot/Administration/my-security/mfa-enrollment/mfa-enrollment';
+import { ExecutiveDashboardComponent } from './Features/YDot/Workspace/executive-dashboard/executive-dashboard';
+import { GlobalSearchComponent } from './Features/YDot/Workspace/global-search/global-search';
+import { WorkSpaceComponent } from './Features/YDot/Workspace/my-workspace/work-space';
+import { NotificationCentreComponent } from './Features/YDot/Workspace/notification-centre/notification-centre';
+import { RoleAwareApplicationShellComponent } from './Features/YDot/Workspace/role-aware-application-shell/role-aware-application-shell';
+import { SavedViewBuilderComponent } from './Features/YDot/Workspace/saved-view-builder/saved-view-builder';
+import { StandardListPageComponent } from './Features/YDot/Workspace/standard-list-page/standard-list-page';
+import { StandardRecordDetailComponent } from './Features/YDot/Workspace/standard-record-detail/standard-record-detail';
+import { LeadWorkQueueComponent } from './Features/YDot/Donors and Leads/lead-work-queue/lead-work-queue';
+import { LeadCaptureComponent } from './Features/YDot/Donors and Leads/lead-capture/lead-capture';
+import { Donor360Component } from './Features/YDot/Donors and Leads/donor-360/donor-360';
+import { DuplicateReviewComponent } from './Features/YDot/Donors and Leads/duplicate-review/duplicate-review';
+import { ConsentPreferenceCentreComponent } from './Features/YDot/Donors and Leads/consent-preference-centre/consent-preference-centre';
+import { AssignmentBoardComponent } from './Features/YDot/Donors and Leads/assignment-board/assignment-board';
+import { DonorIdentityVerificationComponent } from './Features/YDot/Donors and Leads/donor-identity-verification/donor-identity-verification';
+import { FollowUpPlannerComponent } from './Features/YDot/Donors and Leads/follow-up-planner/follow-up-planner';
+import { FinanceWorkbenchComponent } from './Features/YDot/Finance/finance-workbench/finance-workbench';
+import { SettlementBatchDetailComponent } from './Features/YDot/Finance/settlement-batch-detail/settlement-batch-detail';
+import { OfflineDonationEntryComponent } from './Features/YDot/Finance/offline-donation-entry/offline-donation-entry';
+import { ReconciliationWorkspaceComponent } from './Features/YDot/Finance/reconciliation-workspace/reconciliation-workspace';
+import { FinanceExceptionCaseComponent } from './Features/YDot/Finance/finance-exception-case/finance-exception-case';
+import { PeriodCampaignCloseComponent } from './Features/YDot/Finance/period-campaign-close/period-campaign-close';
+import { MakerCheckerReviewComponent } from './Features/YDot/Finance/maker-checker-review/maker-checker-review';
+import { FinancialCorrectionOrReversalComponent } from './Features/YDot/Finance/financial-correction-or-reversal/financial-correction-or-reversal';
+import { PaymentEventQueueComponent } from './Features/YDot/Donations and Payments/payment-event-queue/payment-event-queue';
+import { PublicDonationInitiationComponent } from './Features/YDot/Donations and Payments/public-donation-initiation/public-donation-initiation';
+import { PaymentResultComponent } from './Features/YDot/Donations and Payments/payment-result/payment-result';
+import { UnifiedInboxComponent } from './Features/YDot/Communications/unified-inbox/unified-inbox';
+import { CommunicationExceptionQueueComponent } from './Features/YDot/Communications/communication-exception-queue/communication-exception-queue';
+import { ComplaintCaseComponent } from './Features/YDot/Communications/complaint-case/complaint-case';
+import { ConversationDetailComponent } from './Features/YDot/Communications/conversation-detail/conversation-detail';
+import { TemplateCatalogueComponent } from './Features/YDot/Communications/template-catalogue/template-catalogue';
+import { OutboundMessageComposerComponent } from './Features/YDot/Communications/outbound-message-composer/outbound-message-composer';
+import { SlaPolicyCalendarComponent } from './Features/YDot/Communications/sla-policy-calendar/sla-policy-calendar';
+import { SuppressionAndContactRestrictionComponent } from './Features/YDot/Communications/suppression-and-contact-restriction/suppression-and-contact-restriction';
+import { InventoryOverviewComponent } from './Features/YDot/Inventory/inventory-overview/inventory-overview';
+import { BatchLedgerComponent } from './Features/YDot/Inventory/batch-ledger/batch-ledger';
+import { StockMovementFormComponent } from './Features/YDot/Inventory/stock-movement-form/stock-movement-form';
+import { ReservationManagerComponent } from './Features/YDot/Inventory/reservation-manager/reservation-manager';
+import { StockCountSessionComponent } from './Features/YDot/Inventory/stock-count-session/stock-count-session';
+import { InventoryExceptionQueueComponent } from './Features/YDot/Inventory/inventory-exception-queue/inventory-exception-queue';
+import { WarehouseTransferComponent } from './Features/YDot/Inventory/warehouse-transfer/warehouse-transfer';
+import { StockAdjustmentApprovalComponent } from './Features/YDot/Inventory/stock-adjustment-approval/stock-adjustment-approval';
+import { AccountUnavailableComponent } from './Features/YDot/Auth/Auth/account-unavailable/account-unavailable';
+import { EmailverifyComponent } from './Features/YDot/Auth/Auth/emailverify/emailverify';
+import { ForgotpasswordComponent } from './Features/YDot/Auth/Auth/forgotpassword/forgotpassword';
+import { MfaChallengeComponent } from './Features/YDot/Auth/Auth/mfa-challenge/mfa-challenge';
+import { RegisterComponent } from './Features/YDot/Auth/Auth/register-activation/register';
+import { ResetPasswordComponent } from './Features/YDot/Auth/Auth/reset-password/reset-password';
+import { LoginComponent } from './Features/YDot/Auth/Auth/signin/login';
+import { ReauthenticateComponent } from './Features/YDot/Auth/Auth/reauthenticate/reauthenticate';
+import { TostepVerifyComponent } from './Features/YDot/Auth/Auth/tostep-verify/tostep-verify';
+import { DashboardComponent } from './Features/YDot/dashboard/dashboard';
+import { anonymousOnlyGuard, authGuard } from './Shared/guards/auth.guard';
+import {
+  organisationContextGuard,
+  platformScopeGuard,
+  requirePermission,
+  superAdminGuard,
+} from './Shared/guards/permission.guard';
+import { SelectOrganisationComponent } from './Features/YDot/Auth/Auth/select-organisation/select-organisation';
+import { AccessDeniedComponent } from './Features/YDot/Shared/access-denied/access-denied';
+import { PageNotFoundComponent } from './Features/YDot/Shared/page-not-found/page-not-found';
+import { AuditTrailComponent } from './Features/YDot/Administration/audit-trail/audit-trail';
+import { PaymentGatewayConfigurationComponent } from './Features/YDot/Configuration/payment/payment-gateway-configuration';
+import { MenuConfigurationComponent } from './Features/YDot/Administration/menu-configuration/menu-configuration';
+import { OrganisationStructureComponent } from './Features/YDot/Administration/organisation-structure/organisation-structure';
+import { BusinessUnitComponent } from './Features/YDot/Platform/business-unit/business-unit';
+import { MenuCatalogueComponent } from './Features/YDot/Platform/menu-catalogue/menu-catalogue';
+import { PermissionCatalogueComponent } from './Features/YDot/Platform/permission-catalogue/permission-catalogue';
+import { CampaignDetailComponent } from './Features/YDot/Campaigns/campaign-detail/campaign-detail';
+import { CampaignRegisterComponent } from './Features/YDot/Campaigns/campaign-register/campaign-register';
+import { CampaignWizardComponent } from './Features/YDot/Campaigns/campaign-wizard/campaign-wizard';
+import { TrackingAssetManagerComponent } from './Features/YDot/Campaigns/tracking-asset-manager/tracking-asset-manager';
+import { PauseResumeCloseCampaignComponent } from './Features/YDot/Campaigns/pause-resume-and-close-campaign/pause-resume-and-close-campaign';
+import { CityComponent } from './Features/YDot/Masters/city/city';
+import { CountryComponent } from './Features/YDot/Masters/country/country';
+import { CurrencyComponent } from './Features/YDot/Masters/currency/currency';
+import { StateComponent } from './Features/YDot/Masters/state/state';
+import { TimeZoneComponent } from './Features/YDot/Masters/time-zone/time-zone';
+import { OrganisationDirectoryComponent } from './Features/YDot/Organisation/organisation-directory/organisation-directory';
+import { OrganisationDetailComponent } from './Features/YDot/Organisation/organisation-detail/organisation-detail';
+import { OrganisationSetupWizardComponent } from './Features/YDot/Organisation/organisation-setup-wizard/organisation-setup-wizard';
+import { RegistrationVerificationComponent } from './Features/YDot/Organisation/registration-verification/registration-verification';
+import { CommunicationTimelineComponent } from './Features/YDot/Donors and Leads/communication-timeline/communication-timeline';
+import { DonorListComponent } from './Features/YDot/Donors and Leads/donor-list/donor-list';
+import { FollowUpExecutionComponent } from './Features/YDot/Donors and Leads/follow-up-execution/follow-up-execution';
+import { FollowUpQueueComponent } from './Features/YDot/Donors and Leads/follow-up-queue/follow-up-queue';
+import { MyLeadsComponent } from './Features/YDot/Donors and Leads/my-leads/my-leads';
+import { DonorformComponent } from './Features/YDot/Auth/Auth/donorform/donorform';
+import { CampaignReadinessChecklistComponent } from './Features/YDot/Campaigns/campaign-readiness-checklist/campaign-readiness-checklist';
+
+
+
+// Attribution Explorer and Budget and Targets have no route for now. Their components remain in
+// Features/YDot/Campaigns and their CAM endpoints still answer; only the way in is withdrawn until
+// the screens are ready to be offered.
+export const routes: Routes = [
+
+  // ===== AUTHENTICATED ROUTES (with sidebar/app layout) =====
+  {
+    path: 'app',
+    component: ApplayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      // /app LANDS ON THE DASHBOARD, which is the one page every role receives.
+      //
+      // It used to redirect to User Profile and Access. That screen is only offered to the five
+      // roles holding iam.users.view, and the endpoint behind it refuses everybody else - even for
+      // their OWN record - so the other ten roles landed on "The user profile couldn't be
+      // retrieved" whenever anything sent them to /app rather than to a named page.
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+
+      // ===== Global masters =====
+      //
+      // THE FIVE MASTERS MOVED INTO IAM and enforce their own gm.* permissions there. The guards
+      // below mirror those codes, so a person without them lands on the access-denied page that
+      // explains itself rather than on a grid that renders empty and looks broken.
+      //
+      // Each screen accepts the VIEW code alone: a person who may read the country list but not
+      // edit it still has a reason to open it, and the API withholds the write actions through
+      // `permittedActions` rather than through the route.
+      {
+        path: 'masters/country',
+        component: CountryComponent,
+        canActivate: [requirePermission('gm.countries.view', 'GM.View')],
+      },
+      {
+        path: 'masters/state',
+        component: StateComponent,
+        canActivate: [requirePermission('gm.states.view', 'GM.View')],
+      },
+      {
+        path: 'masters/city',
+        component: CityComponent,
+        canActivate: [requirePermission('gm.cities.view', 'GM.View')],
+      },
+      {
+        path: 'masters/currency',
+        component: CurrencyComponent,
+        canActivate: [requirePermission('gm.currencies.view', 'GM.View')],
+      },
+      {
+        path: 'masters/timezone',
+        component: TimeZoneComponent,
+        canActivate: [requirePermission('gm.timezones.view', 'GM.View')],
+      },
+ 
+      { path: 'dashboard', component: DashboardComponent },
+
+      // ===== Administration — access and identity =====
+      //
+      // GUARDED WITH THE CODE THE MENU CATALOGUE ALREADY DECLARES for each screen, so the sidebar
+      // and the route agree. Until this was added, these routes carried only the `authGuard` on
+      // the parent: the API refused the data with 403, but a person who typed the URL got the
+      // screen shell and an inline error instead of the page that explains why they cannot be
+      // there. No data was ever exposed — the server has always re-checked every one of these.
+      //
+      // THE TWO PROFILE ROUTES ARE DELIBERATELY DIFFERENT. With no :userReference the component
+      // loads the SIGNED-IN user's own record, which is why it is the landing page and why every
+      // role must keep reaching it; guarding that one with iam.users.view would lock ten of the
+      // fifteen roles out of their own profile. The parameterised variant loads somebody else's
+      // record, and that is an administrative act.
+      { path: 'administration/users/:userReference/security', component: UserSecurityComponent, canActivate: [requirePermission('iam.users.view')] },
+      { path: 'administration/users/:userReference/login-identifier-change', component: LoginIdentifierChangeComponent, canActivate: [requirePermission('iam.users.view')] },
+      { path: 'administration/users/bulk-actions', component: BulkUserAdministrationComponent, canActivate: [requirePermission('iam.users.bulk-administer')] },
+      { path: 'administration/access/user-directory', component: UserDirectoryComponent, canActivate: [requirePermission('iam.users.view')] },
+      { path: 'administration/access/create-user', component: CreateUserComponent, canActivate: [requirePermission('iam.users.create')] },
+      { path: 'administration/access/user-profile-and-access', component: UserProfileComponent },
+      { path: 'administration/access/user-profile-and-access/:userReference', component: UserProfileComponent, canActivate: [requirePermission('iam.users.view')] },
+      { path: 'administration/access/user-details/:userReference', component: UserDetailsComponent, canActivate: [requirePermission('iam.users.view')] },
+      { path: 'administration/access/role-and-permission-catalogue', component: RoleCatalogueComponent, canActivate: [requirePermission('iam.roles.view')] },
+      { path: 'administration/access/access-request-and-approval', component: AccessRequestComponent, canActivate: [requirePermission('iam.access-requests.view')] },
+      // Self-service: everybody manages their own sign-in security, so no permission gate.
+      { path: 'administration/access/my-security', component: MySecurityComponent },
+      { path: 'administration/access/my-security/mfa-enrol', component: MfaEnrollmentComponent },
+      // IAM-USR-03 — Access preview.
+      //
+      // ITS OWN COMPONENT, AND IT HAD TO BE. This pointed at AccessReviewCampaignComponent, so
+      // the menu entry opened the recertification screen instead - a page that exists, renders
+      // and answers an entirely different question. "What can this person do?" has no workflow
+      // attached; a review campaign is nothing but workflow. The permission guard was already
+      // right, which is what made the mis-wire hard to notice: the screen loaded, so nothing
+      // looked broken.
+      { path: 'administration/access/access-preview', component: AccessPreviewComponent, canActivate: [requirePermission('iam.permissions.view')] },
+
+      // ===== Configuration =====
+      //
+      // WHERE AN ORGANISATION'S DONATIONS SETTLE. Only SUPERADMIN and TENANTADMIN reach it:
+      // `iam.payment-gateways.view` is administrator-only on the server, so INITIATOR and
+      // APPROVER carry none of it however an organisation configures its roles. The guard is
+      // navigation rather than security - every endpoint behind the screen re-checks the same
+      // permission - but it is what puts a person who follows a stale bookmark on a page that
+      // explains itself instead of one that renders empty and looks broken.
+      {
+        path: 'configuration/payment/gateways',
+        component: PaymentGatewayConfigurationComponent,
+        canActivate: [requirePermission('iam.payment-gateways.view')],
+      },
+
+      // ===== Workspace pages =====
+      { path: 'workspace/my-workspace', component: WorkSpaceComponent },
+      { path: 'workspace/executive-dashboard', component: ExecutiveDashboardComponent },
+      { path: 'workspace/global-search', component: GlobalSearchComponent },
+      { path: 'workspace/standard-list-page', component: StandardListPageComponent },
+      { path: 'workspace/standard-record-detail', component: StandardRecordDetailComponent },
+      { path: 'workspace/notification-centre', component: NotificationCentreComponent },
+
+      // Campaign 
+      // CREATE IS GUARDED SEPARATELY FROM VIEW. A fundraiser who may see the campaign register
+      // has no business on the creation wizard, and letting them open it only to be refused on
+      // save is a worse experience than not offering it.
+      {
+        path: 'fundraising/campaigns/campaign-register',
+        component: CampaignRegisterComponent,
+        canActivate: [requirePermission('cam.campaigns.view')],
+      },
+      {
+        path: 'fundraising/campaigns/campaign-wizard',
+        component: CampaignWizardComponent,
+        canActivate: [requirePermission('cam.campaigns.create')],
+      },
+      {
+        path: 'fundraising/campaigns/campaign-detail',
+        component: CampaignDetailComponent,
+        canActivate: [requirePermission('cam.campaigns.view')],
+      },
+      {
+        path: 'fundraising/campaigns/tracking-asset-manager',
+        component: TrackingAssetManagerComponent,
+        canActivate: [requirePermission('cam.tracking-assets.view')],
+      },
+      // THE MENU CATALOGUE POINTS AT 'fundraising/campaigns/...' FOR BOTH OF THESE, and these two
+      // were registered under a 'cam/' prefix that nothing else in the campaign section uses. The
+      // menu entry therefore matched no route, fell through to the wildcard and bounced the
+      // operator to the dashboard with no explanation - which is how a screen that exists and
+      // works looks broken. The old paths are kept as redirects so an existing bookmark still
+      // lands somewhere real.
+      {
+        path: 'fundraising/campaigns/campaign-readiness-checklist',
+        component: CampaignReadinessChecklistComponent,
+        canActivate: [requirePermission('cam.readiness.view')],
+      },
+      {
+        path: 'cam/campaign-readiness-checklist',
+        redirectTo: 'fundraising/campaigns/campaign-readiness-checklist',
+        pathMatch: 'full',
+      },
+      {
+        path: 'fundraising/campaigns/pause-resume-and-close-campaign',
+        component: PauseResumeCloseCampaignComponent,
+        canActivate: [requirePermission('cam.campaigns.view')],
+      },
+      {
+        path: 'cam/pause-resume-and-close-campaign',
+        redirectTo: 'fundraising/campaigns/pause-resume-and-close-campaign',
+        pathMatch: 'full',
+      },
+
+      // THE MENU ALSO CARRIES A DUPLICATE REVIEW ENTRY. The component exists and is complete; the
+      // route was commented out, so the entry led nowhere.
+      {
+        path: 'fundraising/relationships/duplicate-review',
+        component: DuplicateReviewComponent,
+        canActivate: [requirePermission('don.duplicate-review.view')],
+      },
+
+
+      // ===== Donors and Leads pages =====
+      // { path: 'fundraising/relationships/lead-work-queue', component: LeadWorkQueueComponent },
+      // { path: 'fundraising/relationships/lead-capture', component: LeadCaptureComponent },
+      // { path: 'fundraising/relationships/donor-360', component: Donor360Component },
+      // { path: 'fundraising/relationships/duplicate-review', component: DuplicateReviewComponent },
+      // { path: 'fundraising/relationships/consent-and-preference-centre', component: ConsentPreferenceCentreComponent },
+      // { path: 'fundraising/relationships/assignment-board', component: AssignmentBoardComponent },
+      // { path: 'don/donor-identity-verification', component: DonorIdentityVerificationComponent },
+      // { path: 'don/follow-up-planner', component: FollowUpPlannerComponent },
+
+        // ===== Donors and Leads pages =====
+        //
+        // Each guarded with the don.* code its menu entry declares. These screens carry donor
+        // contact detail, consent decisions and identity evidence, so a stale bookmark should land
+        // on the page that says why rather than on a grid that renders empty. The API has always
+        // refused the underlying calls with 403; the guard is what makes the refusal legible.
+        //
+        // The aliases are guarded identically to the canonical route they duplicate - a second
+        // path to a screen must not be a way around its check.
+            { path: 'fundraising/relationships/lead-work-queue', component: LeadWorkQueueComponent, canActivate: [requirePermission('don.lead-work-queue.view')] },
+            { path: 'fundraising/relationships/lead-capture', component: LeadCaptureComponent, canActivate: [requirePermission('don.lead-capture.view')] },
+            { path: 'fundraising/relationships/donor-360', component: Donor360Component, canActivate: [requirePermission('don.donor-360.view')] },
+            // { path: 'fundraising/relationships/duplicate-review', component: DuplicateReviewComponent },
+            { path: 'fundraising/relationships/consent-and-preference-centre', component: ConsentPreferenceCentreComponent, canActivate: [requirePermission('don.consent-and-preference-centre.view')] },
+            { path: 'fundraising/relationships/assignment-board', component: AssignmentBoardComponent, canActivate: [requirePermission('don.assignment-board.view')] },
+            // Canonical donor workflow routes plus compatibility aliases.
+            // Existing `/don/...` paths are preserved; relationship aliases ensure
+            // navigation/menu configurations using the module route namespace open
+            // the same production component rather than falling through.
+            { path: 'don/donor-identity-verification', component: DonorIdentityVerificationComponent, canActivate: [requirePermission('don.donor-identity-verification.view')] },
+            { path: 'fundraising/relationships/donor-identity-verification', component: DonorIdentityVerificationComponent, canActivate: [requirePermission('don.donor-identity-verification.view')] },
+            { path: 'fundraising/relationships/identity-verification', component: DonorIdentityVerificationComponent, canActivate: [requirePermission('don.donor-identity-verification.view')] },
+            { path: 'don/follow-up-planner', component: FollowUpPlannerComponent, canActivate: [requirePermission('don.follow-up-planner.view')] },
+            { path: 'fundraising/relationships/follow-up-planner', component: FollowUpPlannerComponent, canActivate: [requirePermission('don.follow-up-planner.view')] },
+            { path: 'fundraising/relationships/my-leads', component: MyLeadsComponent, canActivate: [requirePermission('don.lead-work-queue.view')] },
+            { path: 'fundraising/relationships/communication-timeline', component: CommunicationTimelineComponent, canActivate: [requirePermission('don.donor-360.view')] },
+            { path: 'fundraising/relationships/follow-up-queue', component: FollowUpQueueComponent, canActivate: [requirePermission('don.follow-up-planner.view')] },
+            { path: 'fundraising/relationships/follow-up-execution', component: FollowUpExecutionComponent, canActivate: [requirePermission('don.follow-up-planner.view')] },
+            // THE DONORS-AND-LEADS GLOBAL SEARCH IS REMOVED. It appears nowhere in the
+            // workflow document - not in its menu list, its screen walkthrough, or its
+            // Action-to-Destination matrix - and it was built entirely on the in-memory
+            // WorkflowStateService, searching leads, follow-ups and communications that only
+            // existed in the browser. The Workspace global search at /workspace/global-search
+            // is unaffected.
+            // DONATION HISTORY IS REMOVED. It rendered a refund/chargeback case list from an
+            // empty in-memory signal - so it was always blank - and neither refunds nor
+            // chargebacks appear in the workflow document's flow. A donor's giving history is
+            // on Donor 360, which the document does describe.
+            { path: 'fundraising/relationships/donor-list', component: DonorListComponent, canActivate: [requirePermission('don.donors.view')] },
+
+      // =========================================================================
+      // Access denied.
+      //
+      // Route guards send people here rather than bouncing them to the dashboard, because a
+      // silent redirect makes a permission problem look like a broken link — they click the
+      // same bookmark tomorrow and nobody ever learns that a permission needs granting.
+      // =========================================================================
+      { path: 'access-denied', component: AccessDeniedComponent },
+      { path: 'page-not-found', component: PageNotFoundComponent },
+
+      // =========================================================================
+      // Menu and navigation.
+      //
+      // What this organisation uses, and what each role sees. The guard is a courtesy: the
+      // endpoints re-check the same permission, so somebody who edits their way past it reaches
+      // a screen that cannot save.
+      // =========================================================================
+      {
+        path: 'administration/access/menu-configuration',
+        component: MenuConfigurationComponent,
+        canActivate: [requirePermission('iam.menus.view', 'iam.menus.configure')],
+      },
+
+      // THE OLD PATH STILL OPENS. Menu Mapping was replaced by Menu Configuration, and its URL
+      // is in browser histories, bookmarks and at least one screenshot in a support thread.
+      // Redirecting costs one line and is the difference between a colleague landing on the new
+      // screen and landing on a 404 they report as a regression.
+      {
+        path: 'administration/access/menu-mapping',
+        redirectTo: 'administration/access/menu-configuration',
+        pathMatch: 'full',
+      },
+
+      // =========================================================================
+      // Audit trail. Organisation-scoped: this is the caller's own organisation's history.
+      // =========================================================================
+      {
+        path: 'administration/audit',
+        component: AuditTrailComponent,
+        canActivate: [requirePermission('iam.audit.view')],
+      },
+
+      // ===== Organisation pages =====
+      //
+      // The three platform screens are gated on the platform.* codes the menu declares. A
+      // SuperAdmin's token carries NO permission codes at all - its authority is a flag and a
+      // Global scope claim - and requirePermission handles that: hasAnyPermission short-circuits
+      // on isSuperAdmin, exactly as the server short-circuits its own permission lookup. So these
+      // read as "SuperAdmin only" without hard-coding the role.
+      //
+      // THEY ALSO CARRY platformScopeGuard, which steps back out of any Organisation the session
+      // is standing in. These four are platform screens; reaching one while the token still names
+      // an Organisation is what left a TenantAdmin sidebar sitting beside "every organisation on
+      // the platform". The guard is on the ROUTE rather than on the links that lead here on
+      // purpose - a link can be fixed, but the Back button and a bookmark cannot.
+      { path: 'administration/organisation/directory', component: OrganisationDirectoryComponent, canActivate: [platformScopeGuard, requirePermission('platform.organisations.view')] },
+      // THE ORGANISATION'S OWN SCREENS CARRY organisationContextGuard. They read
+      // /organisations/mine/..., which has nothing to answer until an Organisation is chosen, so
+      // a SuperAdmin at platform scope used to land on "This organisation could not be loaded" -
+      // or, for departments and units, a 500. The guard sends them to the picker and back.
+      // details/:id is the platform view of ANY organisation and needs no such context.
+      { path: 'administration/organisation/details', component: OrganisationDetailComponent, canActivate: [organisationContextGuard, requirePermission('iam.organisation.view')] },
+      { path: 'administration/organisation/details/:id', component: OrganisationDetailComponent, canActivate: [requirePermission('iam.organisation.view')] },
+      { path: 'administration/organisation/setup-wizard', component: OrganisationSetupWizardComponent, canActivate: [platformScopeGuard, requirePermission('platform.organisations.create')] },
+      { path: 'administration/organisation/registration-verification', component: RegistrationVerificationComponent, canActivate: [platformScopeGuard, requirePermission('platform.organisations.review')] },
+      { path: 'administration/organisation/registration-verification/:id', component: RegistrationVerificationComponent, canActivate: [platformScopeGuard, requirePermission('platform.organisations.review')] },
+
+      // The organisation's own settings live on the detail screen, which opens on that tab.
+      // A separate component would duplicate the loading, the version handling and the form.
+      //
+      // Both codes are accepted because the screen serves two audiences: somebody who may read the
+      // organisation profile, and the administrator who may change its settings.
+      //
+      // `tab` IS WHAT MAKES IT OPEN ON THAT TAB. The comment above always said so, and nothing read
+      // it: the Settings menu item opened the Profile tab like the details route does.
+      {
+        path: 'administration/organisation/settings',
+        component: OrganisationDetailComponent,
+        data: { tab: 'settings' },
+        canActivate: [organisationContextGuard, requirePermission('iam.organisation.manage-settings', 'iam.organisation.view')],
+      },
+
+      // Two hierarchies, one screen. `mode` tells the component which it is managing, so the
+      // routes can be renamed without touching it. See the component for why they are separate
+      // trees rather than one.
+      {
+        path: 'administration/organisation/departments',
+        component: OrganisationStructureComponent,
+        data: { mode: 'departments' },
+        canActivate: [organisationContextGuard, requirePermission(
+          'iam.organisation.view', 'iam.organisation.manage-departments')],
+      },
+      {
+        path: 'administration/organisation/units',
+        component: OrganisationStructureComponent,
+        data: { mode: 'units' },
+        canActivate: [organisationContextGuard, requirePermission('iam.organisation.view', 'iam.organisation.manage-units')],
+      },
+
+      // =========================================================================
+      // Platform.
+      //
+      // These are genuinely global — they have no meaning inside a single organisation — so
+      // they are gated on scope rather than on a permission code, and platformScopeGuard steps
+      // back out of any Organisation on the way in. See the Organisation block above.
+      // =========================================================================
+      {
+        path: 'platform/business-unit',
+        component: BusinessUnitComponent,
+        canActivate: [platformScopeGuard, superAdminGuard],
+      },
+      {
+        path: 'platform/permission-catalogue',
+        component: PermissionCatalogueComponent,
+        canActivate: [platformScopeGuard, superAdminGuard],
+      },
+      {
+        path: 'platform/menu-catalogue',
+        component: MenuCatalogueComponent,
+        canActivate: [platformScopeGuard, superAdminGuard],
+      },
+      {
+        path: 'platform/audit',
+        component: AuditTrailComponent,
+        canActivate: [platformScopeGuard, superAdminGuard],
+      },
+
+      // ===== Finance pages =====
+      { path: 'money/finance/finance-workbench', component: FinanceWorkbenchComponent },
+      { path: 'money/finance/settlement-batch-detail', component: SettlementBatchDetailComponent },
+      // These two live under Finance because that is who works them, but the records they write
+      // belong to the payments module - so the permission is PAY's.
+      {
+        path: 'money/finance/offline-donation-entry',
+        component: OfflineDonationEntryComponent,
+        canActivate: [requirePermission('pay.donations.record-offline')],
+      },
+      {
+        path: 'money/finance/reconciliation-workspace',
+        component: ReconciliationWorkspaceComponent,
+        canActivate: [requirePermission('pay.donations.reconcile')],
+      },
+      { path: 'money/finance/finance-exception-case', component: FinanceExceptionCaseComponent },
+      { path: 'money/finance/period-campaign-close', component: PeriodCampaignCloseComponent },
+      { path: 'fin/maker-checker-review', component: MakerCheckerReviewComponent },
+      { path: 'fin/financial-correction-or-reversal', component: FinancialCorrectionOrReversalComponent },
+
+      // ===== Donations and Payments pages =====
+      //
+      // FOUR SCREENS, AND THE DOCUMENT NAMES ALL FOUR. The YDot Donation Flow guide's Quick
+      // Reference Summary lists the whole module as: Public Donation Initiation (the entry
+      // form), Payment Queue (Fail and Pending only), Payment Support & Safe Retry (failed
+      // retries) and Receipt Register - which is also, in that order, the menu its screenshots
+      // show under Donations & Payments. Donation-intent detail, the donation register, gateway
+      // configuration and the refund/chargeback case screen were all removed: none appears in
+      // the document flow, and each one carried its own mock JSON.
+      //
+      // RECEIPT CORRECTION IS GONE FOR THE SAME REASON, and an earlier comment here was wrong to
+      // restore it. It read the document's subtitle - "donor form -> payment -> receipt ->
+      // correction" - as a screen list, but the guide has no section for it and its Quick
+      // Reference names four screens, not five. There is no Receipt Correction page.
+      //
+      // CORRECTING A RECEIPT IS STILL A THING THE SERVER DOES. `POST /receipts/{id}/correct` and
+      // `pay.receipts.correct` are untouched, because a correction is a receipt-domain operation
+      // rather than a screen; what has gone is the page that offered it its own place in the
+      // sidebar.
+      //
+      // EVERY ONE OF THESE IS GUARDED except the public donation form, and the exception is the
+      // point: a donor with a QR code has no account and no permissions. Requiring one would mean
+      // asking somebody to register before they may give money. The API treats that route as
+      // anonymous for the same reason, and resolves the organisation from the unguessable
+      // reference the donor arrived with rather than from anything they can choose.
+
+      // THE ADMIN PANEL'S VIEW OF THE DONOR FORM - Fig 2 of the document, "for reference and
+      // support". This one is INSIDE /app and therefore behind authGuard, which is correct: it
+      // is the staff copy.
+      //
+      // THE DONOR'S COPY IS NOT HERE. It cannot be: every child of /app carries authGuard, so
+      // this route was never anonymous however the comment beside it read - a stranger with a QR
+      // code was redirected to /auth/sign-in before the component was ever constructed, which is
+      // the one outcome the whole public-donation flow exists to avoid. The genuinely anonymous
+      // route is declared at the top level, below, outside this children array.
+      { path: 'donations/public-donation-initiation', component: PublicDonationInitiationComponent },
+
+      // THE QUEUE HOLDS ONLY FAIL AND PENDING. A success never lands here - it goes straight to
+      // the receipt - so the queue is a work list, not a log.
+      {
+        path: 'donations/payment-event-queue',
+        component: PaymentEventQueueComponent,
+        canActivate: [requirePermission('pay.payments.view-events')],
+      },
+
+      // PAYMENT SUPPORT AND SAFE RETRY, AND THE RECEIPT REGISTER, ARE NOT ROUTES ANY MORE.
+      //
+      // Both were folded into the queue above, which is the single Payments and Receipts page the
+      // flow document describes: one row per donation attempt carrying both its payment status
+      // and its receipt status, with retry and continue-to-payment offered from the detail panel
+      // rather than from a screen of their own. Their components have been deleted; the stubs
+      // that used to sit here are gone with them so nothing re-adds a menu entry pointing at a
+      // page that no longer exists.
+
+      // ===== Communications pages =====
+      { path: 'communications/unified-inbox', component: UnifiedInboxComponent },
+      { path: 'communications/communication-exception-queue', component: CommunicationExceptionQueueComponent },
+      { path: 'communications/complaint-case', component: ComplaintCaseComponent },
+      { path: 'communications/conversation-detail', component: ConversationDetailComponent },
+      { path: 'communications/template-catalogue', component: TemplateCatalogueComponent },
+      { path: 'communications/outbound-message-composer', component: OutboundMessageComposerComponent },
+      { path: 'communications/sla-policy-calendar', component: SlaPolicyCalendarComponent },
+      { path: 'communications/suppression-and-contact-restriction', component: SuppressionAndContactRestrictionComponent },
+
+      // ===== Inventory pages (Section 10) =====
+      { path: 'supply/inventory/inventory-overview', component: InventoryOverviewComponent },
+      { path: 'supply/inventory/batch-ledger', component: BatchLedgerComponent },
+      { path: 'supply/inventory/stock-movement-form', component: StockMovementFormComponent },
+      { path: 'supply/inventory/reservation-manager', component: ReservationManagerComponent },
+      { path: 'supply/inventory/stock-count-session', component: StockCountSessionComponent },
+      { path: 'supply/inventory/inventory-exception-queue', component: InventoryExceptionQueueComponent },
+      { path: 'inv/warehouse-transfer', component: WarehouseTransferComponent },
+      { path: 'inv/stock-adjustment-approval', component: StockAdjustmentApprovalComponent },
+
+      // ===== UX pages =====
+      { path: 'ux/role-aware-application-shell', component: RoleAwareApplicationShellComponent },
+      { path: 'ux/saved-view-builder', component: SavedViewBuilderComponent },
+
+      // ===== ANYTHING ELSE INSIDE THE APPLICATION =====
+      //
+      // IT SAYS SO RATHER THAN REDIRECTING. An unmatched address used to fall through to the
+      // top-level wildcard and land a signed-in person on the sign-in form - which reads as "you
+      // have been logged out" when what actually happened is that a link was wrong. Two live menu
+      // entries did exactly this for months and nobody reported it, because nothing looked broken.
+      //
+      // THIS ENTRY MUST STAY LAST. Angular matches routes in order, and a wildcard above a real
+      // route swallows it.
+      { path: '**', component: PageNotFoundComponent },
+    ]
+  },
+
+  // ===== ROOT-LEVEL REDIRECT (catch URL typed without /app/) =====
+  {
+    path: 'administration/access/user-directory',
+    redirectTo: '/app/administration/access/user-directory',
+  },
+  {
+    path: 'administration/access/user-profile-and-access',
+    redirectTo: '/app/administration/access/user-profile-and-access',
+  },
+  {
+    path: 'administration/access/role-and-permission-catalogue',
+    redirectTo: '/app/administration/access/role-and-permission-catalogue',
+  },
+  {
+    path: 'administration/access/access-request-and-approval',
+    redirectTo: '/app/administration/access/access-request-and-approval',
+  },
+  {
+    path: 'administration/access/my-security',
+    redirectTo: '/app/administration/access/my-security',
+  },
+  {
+    path: 'administration/access/my-security/mfa-enrol',
+    redirectTo: '/app/administration/access/my-security/mfa-enrol',
+  },
+  {
+    path: 'administration/access/access-preview',
+    redirectTo: '/app/administration/access/access-preview',
+  },
+  {
+    path: 'administration/users/:userReference/security',
+    redirectTo: '/app/administration/users/:userReference/security',
+  },
+  {
+    path: 'administration/users/:userReference/login-identifier-change',
+    redirectTo: '/app/administration/users/:userReference/login-identifier-change',
+  },
+  {
+    path: 'administration/users/bulk-actions',
+    redirectTo: '/app/administration/users/bulk-actions',
+  },
+  {
+    path: 'administration/access/create-user',
+    redirectTo: '/app/administration/access/create-user',
+  },
+
+  // ===== PUBLIC/AUTH ROUTES (without sidebar) =====
+  //
+  // Every screen here is reachable without a session, because each one is a step on the way to
+  // getting one. The API still checks the token, the invitation or the challenge on every call,
+  // so an open route is not an open door.
+  //
+  // Note the query-string forms: the e-mails now send /auth/invitation?token=… and
+  // /auth/reset-password?token=…, which keeps the token out of the path segment. The older
+  // /:token routes are kept so links already in somebody's inbox still open.
+  // =========================================================================
+  // THE PUBLIC DONATION FORM - genuinely anonymous, and the only route in this file that is.
+  //
+  // WHY IT IS DECLARED HERE RATHER THAN UNDER /app. A donor reaching this page has scanned a QR
+  // code on a poster or followed a link in an e-mail. They have no account, no token and no
+  // session, and requiring one would mean asking somebody to register before they are allowed to
+  // give money. Every child of /app carries authGuard, so a route placed there is authenticated
+  // no matter what the comment beside it says.
+  //
+  // NO LAYOUT COMPONENT, ON PURPOSE. ApplayoutComponent draws the sidebar, which loads the
+  // navigation menu from IAM - an authenticated call that would 401 for the very person this
+  // route exists to serve. The component renders its own donor-facing shell instead.
+  //
+  // WHAT PROTECTS IT: nothing here, and nothing needs to. The API treats the matching endpoints
+  // as anonymous for the same reason, resolves the organisation from the unguessable reference
+  // the donor arrived with rather than from anything they can choose, and returns masked donor
+  // detail to everybody including the donor - because there is no session to prove who is
+  // holding the link.
+  //
+  // /donate IS THE ONE THAT GOES ON A POSTER. Short enough to encode in a low-density QR that
+  // still scans from a distance. The long path is kept as an alias so a link already printed or
+  // already in somebody's inbox still opens.
+  { path: 'donate', component: PublicDonationInitiationComponent },
+  { path: 'donations/public-donation-initiation', component: PublicDonationInitiationComponent },
+
+  // WHERE THE DONOR COMES BACK TO after paying, and the other half of the loop above.
+  //
+  // THE PATH MATCHES ClientAppSettings.PaymentResultPath, which defaults to /give/result and is
+  // what RazorpayGateway now sends as the payment link's callback_url. That setting existed and
+  // was read by nothing; this route did not exist at all, so the callback was never sent and a
+  // donor who paid was left sitting on Razorpay's own page.
+  //
+  // ANONYMOUS, NECESSARILY. The donor still has no account - the invitation to create one is
+  // only e-mailed once this page's verification confirms the money arrived.
+  { path: 'give/result', component: PaymentResultComponent },
+
+  {
+    path: '',
+    component: MainlayoutComponent,
+    children: [
+      { path: '', redirectTo: 'auth/sign-in', pathMatch: 'full' },
+
+      // IAM-AUTH-01 — Sign in. anonymousOnlyGuard bounces an already-signed-in person to the
+      // dashboard instead of showing them a sign-in form they do not need.
+      { path: 'login', redirectTo: 'auth/sign-in', pathMatch: 'full' },
+      { path: 'auth/sign-in', component: LoginComponent, canActivate: [anonymousOnlyGuard] },
+
+      // THE PUBLIC DONOR FORM - anonymous, and it has to be.
+      //
+      // WHY IT SITS HERE, UNDER /auth, RATHER THAN UNDER /app. This is the screen a LEAD lands on:
+      // somebody with no account, no token and no session, who is converted to a Donor by the
+      // payment they are about to make and only receives their activation e-mail afterwards.
+      // Every route under /app carries authGuard, so a copy placed there would bounce the one
+      // person this page exists for. MainlayoutComponent draws no sidebar and loads no menu, so
+      // nothing on the way in makes an authenticated call either.
+      //
+      // NO anonymousOnlyGuard, DELIBERATELY, and it is the difference from the sign-in route
+      // above. A signed-in fundraiser capturing a donation on a lead's behalf must be able to
+      // open this form; bouncing them to the dashboard would break that.
+      //
+      // THE OLD PATH REDIRECTS RATHER THAN BEING DELETED. '/Donor-form' is what the form was
+      // registered as, so any link already sent out keeps working and arrives at the canonical
+      // address.
+      { path: 'auth/donor-form', component: DonorformComponent },
+      { path: 'Donor-form', redirectTo: 'auth/donor-form', pathMatch: 'full' },
+      // Where sign-in ends for a root user. They are properly authenticated — the token is real
+      // — but they belong to no organisation, so every organisation-scoped screen has nothing to
+      // show until they say which one they mean. authGuard, not anonymousOnlyGuard: they ARE
+      // signed in by the time they arrive.
+      {
+        path: 'auth/select-organisation',
+        component: SelectOrganisationComponent,
+        canActivate: [authGuard],
+      },
+
+      // IAM-AUTH-02 — Accept invitation and activate account
+      { path: 'register', redirectTo: 'auth/invitation', pathMatch: 'full' },
+      { path: 'auth/invitation', component: RegisterComponent },
+      { path: 'auth/invitation/:token', component: RegisterComponent },
+
+      // IAM-AUTH-03 — Forgot password
+      { path: 'forgot-password', redirectTo: 'auth/forgot-password', pathMatch: 'full' },
+      { path: 'auth/forgot-password', component: ForgotpasswordComponent },
+
+      // Email verification (used by the login-identifier change flow)
+      { path: 'email-verify', component: EmailverifyComponent },
+      { path: 'auth/email-verify', component: EmailverifyComponent },
+
+      // IAM-AUTH-04 — Reset password. The same screen handles the reactivation link, which
+      // arrives as ?token=…&mode=reactivate.
+      { path: 'auth/reset-password', component: ResetPasswordComponent },
+      { path: 'auth/reset-password/:token', component: ResetPasswordComponent },
+
+      // IAM-AUTH-05 — MFA challenge. No token in the URL: the challenge is handed over in
+      // memory by MfaHandoffService, so it never reaches browser history or a server log.
+      { path: 'auth/mfa', component: MfaChallengeComponent },
+
+      // IAM-AUTH-06 — Account unavailable and recovery guidance
+      { path: 'auth/account-unavailable', component: AccountUnavailableComponent },
+
+      // IAM-AUTH-07 — Session timeout and reauthentication
+      { path: 'auth/reauthenticate', component: ReauthenticateComponent },
+
+      // Legacy two-step verify (redirect to MFA challenge)
+      { path: 'tostep-verify', redirectTo: 'auth/mfa', pathMatch: 'full' },
+    ]
+  },
+
+  // Anything unrecognised goes to sign-in rather than a blank page.
+  { path: '**', redirectTo: 'auth/sign-in' },
+];

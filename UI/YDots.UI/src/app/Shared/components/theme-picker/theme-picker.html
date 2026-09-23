@@ -1,0 +1,48 @@
+<fieldset class="tp">
+  <legend class="tp__legend">Theme colour</legend>
+
+  <div class="tp__row">
+    @for (preset of presets; track preset.hex) {
+      <label class="tp__swatch" [class.tp__swatch--on]="current() === preset.hex" [attr.title]="preset.name">
+        <input type="radio"
+               class="tp__radio"
+               name="theme-colour"
+               [value]="preset.hex"
+               [checked]="current() === preset.hex"
+               [attr.aria-label]="preset.name"
+               (change)="select(preset.hex)" />
+        <span class="tp__chip" [style.background]="preset.hex" [style.color]="checkColor(preset.hex)" aria-hidden="true">
+          @if (current() === preset.hex) {
+            <i class="bi bi-check-lg"></i>
+          }
+        </span>
+      </label>
+    }
+
+    <label class="tp__swatch tp__swatch--custom" [class.tp__swatch--on]="isCustom()" title="Custom colour">
+      <input type="color"
+             class="tp__color"
+             [value]="current()"
+             aria-label="Custom theme colour"
+             (input)="onCustomInput($event)"
+             (change)="onCustomCommit($event)" />
+      <span class="tp__chip tp__chip--custom" [style.background]="isCustom() ? current() : null" [style.color]="isCustom() ? checkColor(current()) : null" aria-hidden="true">
+        @if (isCustom()) {
+          <i class="bi bi-check-lg"></i>
+        } @else {
+          <i class="bi bi-eyedropper"></i>
+        }
+      </span>
+    </label>
+  </div>
+
+  <p class="tp__status" aria-live="polite">
+    Selected: <strong>{{ selectedPreset()?.name ?? 'Custom' }}</strong>
+    <span class="tp__hex">{{ current() }}</span>
+  </p>
+
+  <div class="tp__preview" aria-hidden="true">
+    <span class="tp__preview-bar"></span>
+    <span class="tp__preview-accent"></span>
+  </div>
+</fieldset>

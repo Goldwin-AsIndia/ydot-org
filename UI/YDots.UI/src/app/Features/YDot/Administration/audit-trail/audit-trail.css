@@ -1,0 +1,684 @@
+/* The theme's `.card` already carries `margin-bottom: 20px`; this just stops that spacing
+   trailing uselessly past the last card in the column. */
+.audit-right-col > .card:last-child { margin-bottom: 0; }
+
+.audit-card-outline {
+  border: var(--yc-border);
+  border-radius: var(--yc-radius);
+}
+
+/* ---------------------------------------------------------------------------------------
+   The expanded payload: JSON is unreadable without a monospace face and a scroll boundary,
+   and a long one would otherwise stretch the timeline card.
+   --------------------------------------------------------------------------------------- */
+.audit-payload {
+  font-family: var(--bs-font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  background: var(--bs-tertiary-bg, #f8f9fa);
+  border: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.125));
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
+
+  /* Bounded in both directions: a large payload must not push later rows off the screen, and a
+     single long line must not widen the card past the viewport. */
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.audit-payload::-webkit-scrollbar { width: 8px; height: 8px; }
+.audit-payload::-webkit-scrollbar-thumb {
+  background: var(--bs-border-color, rgba(0, 0, 0, 0.2));
+  border-radius: 4px;
+}
+
+.font-monospace { font-size: 0.75rem; }
+
+.spin { animation: audit-spin 1s linear infinite; display: inline-block; }
+@keyframes audit-spin { to { transform: rotate(360deg); } }
+
+/* ---- Overview panel -----------------------------------------------------------------------
+   One white panel: headline figure + four supporting figures on one baseline, hairline dividers,
+   the integrity note as its foot. Class names deliberately avoid `-card` / `.card` and the KPI-tile
+   lists in ydot-premium.css (fixed 128px height, forced flex column, flattened status colours) —
+   this is a composed panel, not five tiles. `!important` on type sizes beats the customiser, which
+   forces font-size on span/div/p/i app-wide.
+   --------------------------------------------------------------------------------------------- */
+.at-overview,
+.at-filters {
+  --at-ink: var(--yc-ink, #152f32);
+  --at-muted: var(--yc-muted, #647579);
+  --at-line: var(--yc-border-color, #e5e8ec);
+  --at-well: #f6f7f8;
+  --at-brand: var(--theme-primary, #07565b);
+  --at-brand-soft: color-mix(in srgb, var(--theme-primary, #07565b) 10%, #ffffff);
+  --at-ok: #16a34a;
+  --at-ok-soft: #e8f7ee;
+  --at-fail: #dc2626;
+  --at-fail-soft: #fdecec;
+  --at-gold: #b7791f;
+
+  background: #ffffff;
+  border-radius: var(--yc-radius, 20px);
+  color: var(--at-ink);
+}
+
+.at-overview { overflow: hidden; }
+
+.at-overview__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) repeat(4, minmax(0, 1fr));
+}
+
+.at-hero,
+.at-metric {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1.5rem 1.5rem 1.4rem;
+}
+
+.at-metric { border-left: 1px solid var(--at-line); }
+
+/* Eyebrow: glyph + label on one line, shared by every cell so the rows line up across the panel. */
+.at-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+  min-width: 0;
+}
+
+.at-eyebrow__text {
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--at-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.at-glyph {
+  font-size: 1.05rem !important;
+  line-height: 1 !important;
+  flex-shrink: 0;
+}
+.at-glyph--brand { color: var(--at-brand) !important; }
+.at-glyph--ok { color: var(--at-ok) !important; }
+.at-glyph--fail { color: var(--at-fail) !important; }
+.at-glyph--gold { color: var(--at-gold) !important; }
+
+/* Headline cell */
+.at-hero { background: var(--at-well); }
+
+.at-hero__figure {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+}
+
+.at-hero__value {
+  font-family: var(--font-number, inherit);
+  font-size: 2.75rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: -0.02em;
+  color: var(--at-ink);
+}
+
+.at-hero__unit {
+  font-size: 0.82rem !important;
+  color: var(--at-muted);
+}
+
+.at-ratio {
+  display: flex;
+  gap: 3px;
+  height: 8px;
+  margin-top: auto;
+  padding-top: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--at-line);
+}
+.at-hero .at-ratio { margin-top: 1.25rem; }
+
+.at-ratio__seg { display: block; flex-basis: 0; min-width: 0; }
+.at-ratio__seg--ok { background: var(--at-ok); }
+.at-ratio__seg--fail { background: var(--at-fail); }
+
+.at-ratio__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  margin-top: 0.65rem;
+}
+
+.at-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.76rem !important;
+  font-weight: 500 !important;
+  color: var(--at-muted);
+}
+
+.at-legend__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.at-legend__dot--ok { background: var(--at-ok); }
+.at-legend__dot--fail { background: var(--at-fail); }
+
+/* Supporting cells */
+.at-metric__value {
+  font-family: var(--font-number, inherit);
+  font-size: 2rem !important;
+  font-weight: 700 !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.01em;
+  color: var(--at-ink);
+}
+.at-metric__value--empty { color: var(--at-muted); }
+
+.at-metric__caption {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  font-size: 0.78rem !important;
+  color: var(--at-muted);
+}
+
+.at-rate {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+}
+.at-rate--ok { background: var(--at-ok-soft); color: #15803d; }
+.at-rate--fail { background: var(--at-fail-soft); color: #b91c1c; }
+
+/* Most active: initials avatar + full name, truncated with the full name in the tooltip. */
+.at-person {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.at-person__avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--at-brand-soft);
+  color: var(--at-brand);
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+}
+
+.at-person__name {
+  min-width: 0;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  color: var(--at-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Foot: the integrity note, quiet, inside the panel. */
+.at-overview__foot {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.85rem 1.5rem;
+  border-top: 1px solid var(--at-line);
+}
+.at-overview__foot .at-glyph { margin-top: 0.1rem; }
+
+.at-overview__note {
+  font-size: 0.78rem !important;
+  line-height: 1.55 !important;
+  color: var(--at-muted);
+}
+
+/* ---- Filters toolbar ------------------------------------------------------------------------ */
+.at-filters { padding: 1.25rem 1.5rem; }
+
+.at-filters__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(18.5rem, 1.8fr) auto;
+  gap: 1rem;
+  align-items: end;
+}
+
+.at-field { display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }
+
+.at-field__label {
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--at-muted);
+  margin: 0;
+}
+
+.at-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.75rem;
+  padding: 0 0.9rem;
+  background: var(--at-well);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.at-control:hover { border-color: var(--at-line); }
+
+.at-control:focus-within {
+  background: #ffffff;
+  border-color: var(--at-brand);
+  box-shadow: 0 0 0 1px var(--at-brand);
+}
+
+.at-control__icon,
+.at-control__caret {
+  font-size: 1rem !important;
+  line-height: 1 !important;
+  color: var(--at-muted);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.at-control:focus-within .at-control__icon { color: var(--at-brand); }
+
+.at-control__caret { position: absolute; right: 0.8rem; }
+
+.at-control__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 0.875rem !important;
+  color: var(--at-ink);
+}
+.at-control__input::placeholder { color: var(--yc-faint, #a0adb5); }
+
+.at-control--select .at-control__input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 1.5rem;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.at-control__date { font-variant-numeric: tabular-nums; min-width: 7.5rem; }
+.at-control__date::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.55; }
+.at-control__date::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
+.at-control__sep {
+  color: var(--at-muted);
+  font-size: 0.85rem !important;
+  flex-shrink: 0;
+}
+
+.at-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--at-line);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--at-ink);
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.at-clear i { font-size: 1rem !important; line-height: 1 !important; }
+.at-clear:hover:not(:disabled) { border-color: var(--at-brand); color: var(--at-brand); }
+.at-clear:disabled { opacity: 0.45; cursor: default; }
+
+/* ---- Overview + filters: responsive -------------------------------------------------------
+   Container queries, not media queries: the sidebar (expanded, folded or a drawer) changes how wide
+   these panels are at any given window size, and it is the panel's own width that decides whether
+   five figures or five filter controls fit on one line. */
+.at-overview { container: at-overview / inline-size; }
+.at-filters { container: at-filters / inline-size; }
+
+@container at-filters (max-width: 1079.98px) {
+  /* Two rows: search + the two selects, then the date range with Reset beside it. */
+  .at-filters__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .at-field--search { grid-column: 1 / 3; }
+  .at-field--dates { grid-column: 1 / 3; }
+  .at-field--action { grid-column: 3 / 4; justify-self: start; }
+}
+
+@container at-filters (max-width: 639.98px) {
+  .at-filters__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .at-field--search,
+  .at-field--dates,
+  .at-field--action { grid-column: 1 / -1; }
+  .at-clear { width: 100%; }
+}
+
+@container at-filters (max-width: 379.98px) {
+  .at-filters__grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@container at-overview (max-width: 999.98px) {
+  .at-overview__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .at-hero { grid-column: 1 / -1; }
+  .at-metric { border-top: 1px solid var(--at-line); }
+  .at-metric:nth-child(2) { border-left: 0; }
+}
+
+@container at-overview (max-width: 639.98px) {
+  .at-overview__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .at-metric:nth-child(4) { border-left: 0; }
+  .at-hero, .at-metric { padding: 1.15rem 1.15rem 1.1rem; }
+  .at-hero__value { font-size: 2.25rem !important; }
+  .at-metric__value { font-size: 1.6rem !important; }
+  .at-overview__foot { padding: 0.8rem 1.15rem; }
+}
+
+@container at-overview (max-width: 299.98px) {
+  .at-overview__grid { grid-template-columns: minmax(0, 1fr); }
+  .at-metric { border-left: 0 !important; }
+}
+
+@media (max-width: 575.98px) {
+  .at-filters { padding: 1rem; }
+}
+
+/* ---- Recent Activity header -------------------------------------------------------------- */
+.audit-activity-header {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  /* Title sits higher, with extra room below it before the border — the border position itself
+     is untouched, only the padding around the title/bar shifted. */
+  padding-top: 0.85rem !important;
+  padding-bottom: 1.6rem !important;
+}
+
+/*
+ * The dividing line is drawn here, not as a `border-bottom` on the header box, so its position
+ * is independent of the header's own padding — it sits where the mountain-peak decoration ends
+ * (matching `.audit-activity-deco`'s height), not wherever the padded box happens to end.
+ */
+.audit-activity-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 82%;
+  height: 1px;
+  background: var(--bs-border-color, #e9ecef);
+}
+
+.audit-activity-title {
+  border-left: 3px solid var(--pe-success, #37c37e);
+  padding-left: 0.75rem;
+}
+
+.audit-activity-deco {
+  /* A diagonal wash plus two overlapping triangular "peaks" — a mountain silhouette motif,
+     not stripes. Drawn as an SVG (not CSS gradients) so the peak edges are crisp diagonals. */
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 82%;
+  pointer-events: none;
+}
+
+/* ---- Recent Activity table — minimalistic: quiet borders, no zebra striping, no heavy badges
+   beyond the outcome pill, generous row padding instead of visual clutter. ----------------- */
+.audit-table {
+  --bs-table-bg: transparent;
+}
+
+.audit-table thead th {
+  border-bottom: 1px solid var(--bs-border-color, #e9ecef);
+  padding: 0.85rem 1.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--bs-secondary-color, #6c757d);
+  white-space: nowrap;
+}
+
+.audit-table thead th:first-child,
+.audit-table tbody td:first-child { padding-left: 1.5rem; }
+.audit-table thead th:last-child,
+.audit-table tbody td:last-child { padding-right: 1.5rem; }
+
+.audit-table tbody td {
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.06));
+}
+
+.audit-table-row { cursor: pointer; transition: background-color 0.12s ease; }
+.audit-table-row:hover { background-color: var(--bs-tertiary-bg, #f8f9fa); }
+.audit-table tbody tr:last-child td { border-bottom: none; }
+
+.audit-table-icon-col {
+  /* A fixed width with the icon text-aligned centre — not the shrink-to-fit + asymmetric
+     padding this had before, where the cell's 50% midpoint landed left of the icon's actual
+     visual centre (icon width + only left padding meant the cell's true centre and the icon's
+     centre were two different points), which is why the connecting line looked offset. */
+  width: 64px;
+  text-align: center;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  position: relative;
+}
+
+/* The row-separator line starts after this column, not under the icon itself — the icon has its
+   own vertical connecting line instead. Scoped to tbody only: the header row's own bottom rule
+   (under "When / Action / By / On / Outcome") still runs the full width, icon column included. */
+.audit-table tbody td.audit-table-icon-col {
+  border-bottom: none !important;
+}
+
+/*
+ * Connecting line: two segments per cell rather than one continuous line, each stopping short
+ * of the icon's own vertical centre by a small gap (icon half-height + AUDIT_ICON_LINE_GAP).
+ * Adjacent rows' segments meet exactly at the shared row boundary (one ends at the border, the
+ * next begins at it), so the line still reads as continuous between rows while never touching
+ * either icon.
+ *
+ * Scoped to `tbody td` — NOT the bare `.audit-table-icon-col` class, which the empty header
+ * `<th>` also carries (for column-width alignment). Without this scoping, the same two segments
+ * drew themselves inside that empty header cell too, with no icon between them to justify the
+ * gap — two short lines "hanging" with nothing connecting them.
+ */
+.audit-table tbody td.audit-table-icon-col::before,
+.audit-table tbody td.audit-table-icon-col::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 1px;
+  background: var(--bs-border-color, #e9ecef);
+  transform: translateX(-50%);
+}
+
+.audit-table tbody td.audit-table-icon-col::before {
+  top: 0;
+  height: calc(50% - 12.5px - 6px); /* icon glyph half-height (25px / 2) + gap */
+}
+
+.audit-table tbody td.audit-table-icon-col::after {
+  top: calc(50% + 12.5px + 6px);
+  bottom: 0;
+}
+
+.audit-table-row:first-child .audit-table-icon-col::before { display: none; }
+.audit-table-row:last-child .audit-table-icon-col::after { display: none; }
+
+/* !important is required: a pre-existing, app-wide Theme Settings rule applies
+   `font-size: var(--fs-base) !important` to every bare `i` tag in the whole app, which
+   silently caps icon glyph sizes unless beaten with an equally-important, more specific rule. */
+.audit-table-icon {
+  font-size: 25px !important;
+}
+
+
+.audit-table-chevron {
+  border: none;
+  background: transparent;
+  color: var(--bs-secondary-color, #6c757d);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.audit-table-chevron:hover { background: var(--bs-tertiary-bg, #f1f3f5); }
+.audit-table-chevron[aria-expanded="true"] i { transform: rotate(90deg); }
+.audit-table-chevron i { display: inline-block; transition: transform 0.15s ease; }
+
+.audit-table-detail-row td {
+  padding: 1rem 1.5rem 1.25rem;
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+/* ---- Outcome donut ------------------------------------------------------------------------ */
+.audit-donut-empty { visibility: hidden; }
+
+.audit-donut-wrap {
+  position: relative;
+  width: 140px;
+  flex-shrink: 0;
+}
+
+.audit-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.audit-legend-dot { font-size: 0.55rem; }
+
+/* ---- Activity heatmap ---------------------------------------------------------------------- */
+.audit-heatmap-body {
+  display: flex;
+  gap: 8px;
+}
+
+.audit-heatmap-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.audit-heatmap-time {
+  font-size: 0.68rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.audit-heatmap-grid {
+  /* Columns stretch to fill the card (1fr), but the ROW height is a fixed px value, not tied to
+     column width via aspect-ratio — that coupling is what made the grid balloon in height on a
+     wide card. Width now follows the card; height never does. */
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 24px;
+  gap: 4px;
+  width: 100%;
+}
+
+.audit-heatmap-cell {
+  border-radius: 4px;
+  background-color: var(--bs-tertiary-bg, #f1f3f5);
+  width: 100%;
+  height: 24px;
+}
+
+.audit-heatmap-days {
+  display: flex;
+  gap: 4px;
+  margin-left: 48px;
+  margin-top: 6px;
+}
+
+.audit-heatmap-days span {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 0.6rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+/* ---- Quick Insights ------------------------------------------------------------------------ */
+.audit-insight-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+
+.audit-insight-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 767.98px) {
+  .audit-payload { max-height: 220px; }
+  .audit-timeline-when { width: auto; }
+  .audit-timeline-outcome { flex-basis: 100%; }
+}

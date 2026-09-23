@@ -1,0 +1,510 @@
+<main class="app-wrapper">
+<div class="page-wrapper">
+  <div class="container-fluid py-6">
+
+    <!-- Header -->
+    <app-page-header screen="audit-trail" title="Audit Trail"
+                     [subtitle]="organisationName()
+                       ? 'Monitor and review every important action performed in ' + organisationName() + '.'
+                       : 'Monitor and review every important action performed.'">
+      @if (canExport()) {
+        <button actions type="button" class="ph-btn ph-btn--ghost" [disabled]="exporting()" (click)="export()">
+          @if (exporting()) {
+            <i class="ri-loader-4-line spin"></i> Preparing…
+          } @else {
+            <i class="ri-download-2-line"></i> Export to CSV
+          }
+        </button>
+      }
+    </app-page-header>
+    <!--
+      Overview: one panel instead of five loose tiles and a floating grey notice. The headline
+      figure (Total) owns the left, with the success/failure split drawn as one ratio bar; the four
+      supporting figures sit beside it on a shared baseline, separated by hairlines. The integrity
+      note is the panel's foot, so it reads as part of the evidence rather than a stray banner.
+
+      This trail is read-only by design. Nothing on this screen, and no endpoint behind it, can
+      edit or delete an event — a trail that can be corrected is not evidence of anything.
+    -->
+    <section class="at-overview mb-4" aria-label="Audit summary">
+      <div class="at-overview__grid">
+
+        <!-- Headline -->
+        <div class="at-hero">
+          <div class="at-eyebrow">
+            <i class="ri-file-list-3-line at-glyph at-glyph--brand"></i>
+            <span class="at-eyebrow__text">Total events</span>
+          </div>
+          <div class="at-hero__figure">
+            <span class="at-hero__value">{{ statsTotal() }}</span>
+            <span class="at-hero__unit">
+              @if (isTruncatedForStats()) {
+                most recent of {{ totalCount() }}
+              } @else {
+                all-time activities
+              }
+            </span>
+          </div>
+
+          <div class="at-ratio" role="img"
+               [attr.aria-label]="succeededPct() + '% succeeded, ' + failedPct() + '% failed'">
+            @if (statsTotal() > 0) {
+              <span class="at-ratio__seg at-ratio__seg--ok" [style.flex-grow]="succeededCount()"></span>
+              <span class="at-ratio__seg at-ratio__seg--fail" [style.flex-grow]="failedCount()"></span>
+            }
+          </div>
+          <div class="at-ratio__legend">
+            <span class="at-legend"><span class="at-legend__dot at-legend__dot--ok"></span>{{ succeededPct() }}% succeeded</span>
+            <span class="at-legend"><span class="at-legend__dot at-legend__dot--fail"></span>{{ failedPct() }}% failed</span>
+          </div>
+        </div>
+
+        <!-- Supporting figures -->
+        <div class="at-metric">
+          <div class="at-eyebrow">
+            <i class="ri-checkbox-circle-line at-glyph at-glyph--ok"></i>
+            <span class="at-eyebrow__text">Succeeded</span>
+          </div>
+          <span class="at-metric__value">{{ succeededCount() }}</span>
+          <span class="at-metric__caption">
+            <span class="at-rate at-rate--ok">{{ succeededPct() }}%</span> of all events
+          </span>
+        </div>
+
+        <div class="at-metric">
+          <div class="at-eyebrow">
+            <i class="ri-close-circle-line at-glyph at-glyph--fail"></i>
+            <span class="at-eyebrow__text">Failed</span>
+          </div>
+          <span class="at-metric__value">{{ failedCount() }}</span>
+          <span class="at-metric__caption">
+            <span class="at-rate at-rate--fail">{{ failedPct() }}%</span> of all events
+          </span>
+        </div>
+
+        <div class="at-metric">
+          <div class="at-eyebrow">
+            <i class="ri-team-line at-glyph at-glyph--brand"></i>
+            <span class="at-eyebrow__text">Users involved</span>
+          </div>
+          <span class="at-metric__value">{{ uniqueUsersCount() }}</span>
+          <span class="at-metric__caption">Unique people &amp; services</span>
+        </div>
+
+        <div class="at-metric at-metric--person">
+          <div class="at-eyebrow">
+            <i class="ri-star-line at-glyph at-glyph--gold"></i>
+            <span class="at-eyebrow__text">Most active</span>
+          </div>
+          @if (mostActiveUser(); as top) {
+            <div class="at-person" [title]="top.name | readableId: 'System'">
+              <span class="at-person__avatar">{{ initials(top.name | readableId: 'System') }}</span>
+              <span class="at-person__name">{{ top.name | readableId: 'System' }}</span>
+            </div>
+            <span class="at-metric__caption">
+              {{ top.count }} event{{ top.count === 1 ? '' : 's' }} · {{ mostActiveShare() }}% of activity
+            </span>
+          } @else {
+            <span class="at-metric__value at-metric__value--empty">—</span>
+            <span class="at-metric__caption">No activity yet</span>
+          }
+        </div>
+      </div>
+
+      <footer class="at-overview__foot">
+        <i class="ri-shield-check-line at-glyph at-glyph--brand"></i>
+        <span class="at-overview__note">
+          Tamper-evident: every event is written in the same transaction as the change it describes,
+          and passwords, tokens and secrets are removed before it is stored.
+          @if (!canSeeDetail()) {
+            Your account can see what happened, but not the contents of each change.
+          }
+          @if (isTruncatedForStats()) {
+            Figures above reflect the {{ statsTotal() }} most recent matching events, out of
+            {{ totalCount() }} in total.
+          }
+        </span>
+      </footer>
+    </section>
+
+    <!-- Filters: one toolbar, every control the same height, "clear" inline at the end. -->
+    <section class="at-filters mb-4" aria-label="Filter events">
+      <div class="at-filters__grid">
+        <div class="at-field at-field--search">
+          <label class="at-field__label" for="audit-search">Search</label>
+          <div class="at-control">
+            <i class="ri-search-line at-control__icon"></i>
+            <input id="audit-search" type="search" class="at-control__input"
+                   placeholder="User, action or record…"
+                   [ngModel]="search()" (ngModelChange)="onSearchInput($event)">
+          </div>
+        </div>
+
+        <div class="at-field">
+          <label class="at-field__label" for="audit-type">Record type</label>
+          <div class="at-control at-control--select">
+            <i class="ri-folder-2-line at-control__icon"></i>
+            <select id="audit-type" class="at-control__input"
+                    [ngModel]="targetType()"
+                    (ngModelChange)="targetType.set($event); applyFilters()">
+              <option value="">All records</option>
+              @for (type of targetTypes(); track type) {
+                <option [value]="type">{{ type }}</option>
+              }
+            </select>
+            <i class="ri-arrow-down-s-line at-control__caret"></i>
+          </div>
+        </div>
+
+        <div class="at-field">
+          <label class="at-field__label" for="audit-result">Outcome</label>
+          <div class="at-control at-control--select">
+            <i class="ri-pulse-line at-control__icon"></i>
+            <select id="audit-result" class="at-control__input"
+                    [ngModel]="result()" (ngModelChange)="result.set($event); applyFilters()">
+              <option value="">All outcomes</option>
+              @for (option of results(); track option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
+            </select>
+            <i class="ri-arrow-down-s-line at-control__caret"></i>
+          </div>
+        </div>
+
+        <div class="at-field at-field--dates">
+          <span class="at-field__label" id="audit-dates-label">Date range</span>
+          <div class="at-control at-control--dates" role="group" aria-labelledby="audit-dates-label">
+            <i class="ri-calendar-line at-control__icon"></i>
+            <input type="date" class="at-control__input at-control__date" aria-label="From date"
+                   [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event); applyFilters()">
+            <span class="at-control__sep">→</span>
+            <input type="date" class="at-control__input at-control__date" aria-label="To date"
+                   [ngModel]="toDate()" (ngModelChange)="toDate.set($event); applyFilters()">
+          </div>
+        </div>
+
+        <div class="at-field at-field--action">
+          <button type="button" class="at-clear" [disabled]="!hasFilters()" (click)="clearFilters()"
+                  title="Clear all filters">
+            <i class="ri-refresh-line"></i>
+            <span>Reset</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    @if (loading()) {
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-8">
+          <i class="ri-loader-4-line fs-2 text-muted spin"></i>
+          <p class="text-muted mt-3 mb-0">Loading…</p>
+        </div>
+      </div>
+    } @else if (loadFailed()) {
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-8">
+          <i class="ri-cloud-off-line fs-2 text-muted"></i>
+          <p class="text-muted mt-3">{{ errorMessage() }}</p>
+          <button type="button" class="btn btn-primary" (click)="load()">
+            <i class="ri-refresh-line me-1"></i> Try again
+          </button>
+        </div>
+      </div>
+    } @else if (events().length === 0) {
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-8">
+          <i class="ri-file-search-line fs-2 text-muted"></i>
+          <h6 class="mt-3">Nothing matches</h6>
+          <p class="text-muted mb-0">
+            @if (hasFilters()) {
+              Try widening the dates or clearing a filter.
+            } @else {
+              No activity has been recorded yet.
+            }
+          </p>
+        </div>
+      </div>
+    } @else {
+      <div class="row g-4 align-items-start">
+
+        <!-- Recent Activity -->
+        <div class="col-lg-8">
+          <div class="card audit-card-outline shadow-sm h-100">
+            <div class="card-header bg-transparent audit-activity-header">
+              <div class="audit-activity-title">
+                <h6 class="mb-0">Recent Activity</h6>
+                <small class="text-info">Showing {{ visibleEvents().length }} of {{ totalCount() }} events</small>
+              </div>
+              <svg class="audit-activity-deco" viewBox="0 0 200 70" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="55,0 200,0 200,70 0,70" fill="var(--pe-success)" opacity="0.13"/>
+                <polygon points="95,70 138,18 178,70" fill="var(--pe-success)" opacity="0.28"/>
+                <polygon points="128,70 168,28 200,70" fill="var(--pe-success)" opacity="0.45"/>
+              </svg>
+            </div>
+
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table audit-table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th class="audit-table-icon-col"></th>
+                      <th>When</th>
+                      <th>Action</th>
+                      <th>By</th>
+                      <th>On</th>
+                      <th>Outcome</th>
+                      <th class="text-end"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (event of visibleEvents(); track event.id) {
+                      <tr class="audit-table-row" (click)="toggleDetail(event.id)">
+                        <td class="audit-table-icon-col">
+                          <i class="{{ actionIcon(event.actionCode) }} text-{{ iconTint(event.actionCode, event.result) }} audit-table-icon"></i>
+                        </td>
+
+                        <td class="text-nowrap">
+                          <span class="d-block fw-medium">{{ eventDayLabel(event.occurredAtUtc) }}</span>
+                          <small class="text-muted">{{ eventTimeLabel(event.occurredAtUtc) }}</small>
+                        </td>
+
+                        <td>
+                          <span class="d-block fw-medium">{{ event.actionDisplay || event.actionCode }}</span>
+                          <small class="text-muted font-monospace">{{ event.actionCode }}</small>
+                        </td>
+
+                        <td>
+                          <span class="d-block">{{ event.actorDisplayName | readableId: 'System' }}</span>
+                          @if (event.actorScope === 'global') {
+                            <!--
+                              Worth calling out: a platform administrator acting inside an
+                              organisation is a different kind of event from one of that
+                              organisation's own people doing the same thing.
+                            -->
+                            <small class="text-muted">Platform administrator</small>
+                          }
+                        </td>
+
+                        <td>
+                          <span class="d-block">{{ event.targetDisplayName | readableId: '—' }}</span>
+                          <small class="text-muted">{{ event.targetType }}</small>
+                        </td>
+
+                        <td>
+                          <span class="badge rounded-pill" [ngClass]="resultClass(event.result)">
+                            {{ event.resultDisplay || event.result }}
+                          </span>
+                          @if (event.reason) {
+                            <small class="d-block text-muted mt-1">{{ readableText(event.reason) }}</small>
+                          }
+                        </td>
+
+                        <td class="text-end">
+                          <button type="button" class="btn btn-icon audit-table-chevron"
+                                  [attr.aria-expanded]="expandedId() === event.id"
+                                  title="View detail"
+                                  (click)="$event.stopPropagation(); toggleDetail(event.id)">
+                            <i class="ri-arrow-right-s-line"></i>
+                          </button>
+                        </td>
+                      </tr>
+
+                      @if (expandedId() === event.id) {
+                        <tr class="audit-table-detail-row">
+                          <td colspan="7">
+                            <div class="row g-4 small">
+                              <div class="col-md-4">
+                                <div class="text-muted">Support reference</div>
+                                <code>{{ event.correlationId | supportRef }}</code>
+                              </div>
+                              <div class="col-md-4">
+                                <div class="text-muted">From</div>
+                                <div>{{ event.ipAddress || '—' }}</div>
+                                <div class="text-muted">{{ event.clientType }}</div>
+                              </div>
+                              <div class="col-md-4">
+                                <div class="text-muted">Request</div>
+                                <code>{{ requestPathLabel(event.requestPath) }}</code>
+                              </div>
+
+                              @if (event.userAgent) {
+                                <div class="col-12">
+                                  <div class="text-muted">Browser</div>
+                                  <code class="d-block text-break">{{ event.userAgent }}</code>
+                                </div>
+                              }
+
+                              <!--
+                                The payload is withheld from anybody without the sensitive-detail
+                                permission. Knowing a colleague's password was reset is routine;
+                                seeing the contents of the change is not.
+                              -->
+                              @if (event.metadata) {
+                                <div class="col-12">
+                                  <div class="text-muted">What changed</div>
+                                  <pre class="audit-payload mb-0">{{ formatPayload(event.metadata) }}</pre>
+                                </div>
+                              } @else if (event.isSensitive && !canSeeDetail()) {
+                                <div class="col-12">
+                                  <div class="alert alert-light border mb-0 small">
+                                    <i class="ri-lock-line me-1"></i>
+                                    The details of this change are not available to your account.
+                                  </div>
+                                </div>
+                              }
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              </div>
+
+              @if (canLoadMore()) {
+                <div class="text-center py-3 border-top">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="loadingMore()"
+                          (click)="loadMore()">
+                    @if (loadingMore()) {
+                      <i class="ri-loader-4-line me-1 spin"></i> Loading…
+                    } @else {
+                      <i class="ri-arrow-down-s-line me-1"></i> Load more events
+                    }
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column: Outcome Overview, Activity Heatmap, Quick Insights -->
+        <div class="col-lg-4">
+          <!--
+            No `gap-*` utility here on purpose: this theme's `.card` already carries a built-in
+            `margin-bottom: 20px` (see audit-trail.css for the measured proof). Adding a flex gap
+            on top of that stacked the two spacings — 20px card margin + 16px gap = 36px between
+            cards, which read as a stray empty gap under the heatmap. Plain margin-bottom stacking
+            is how every other screen in this app spaces cards, so this just matches that.
+          -->
+          <div class="d-flex flex-column audit-right-col">
+
+            <!-- Outcome Overview -->
+            <div class="card audit-card-outline shadow-sm">
+              <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Outcome Overview</h6>
+                <i class="ri-more-2-line text-muted"></i>
+              </div>
+              <div class="card-body position-relative">
+                <!--
+                  This container is ALWAYS mounted, even while there is nothing to chart yet.
+                  It used to live behind `@if (statsTotal() === 0)`, so on a genuine first load
+                  the div did not exist when `ngAfterViewInit` looked for it — Angular renders
+                  this branch only once the audit-events request has come back, which is always
+                  after view init. ApexCharts was asked to draw into an element that was not
+                  there yet, found nothing, and never got a second chance: the effect that fires
+                  once real data arrives only calls `updateSeries` on a chart instance that had
+                  never been created. Keeping the div always present means `ngAfterViewInit`
+                  can always find it and create the chart exactly once.
+                -->
+                <div class="d-flex align-items-center gap-3" [class.audit-donut-empty]="statsTotal() === 0">
+                  <div class="audit-donut-wrap">
+                    <div id="auditOutcomeChart"></div>
+                    <div class="audit-donut-center">
+                      <h4 class="mb-0 fw-bold">{{ statsTotal() }}</h4>
+                      <small class="text-muted">Total</small>
+                    </div>
+                  </div>
+
+                  <div class="flex-grow-1">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <span class="d-flex align-items-center gap-2 small">
+                        <i class="ri-circle-line text-success audit-legend-dot"></i> Succeeded
+                      </span>
+                      <span class="small fw-medium">{{ succeededCount() }} ({{ succeededPct() }}%)</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between">
+                      <span class="d-flex align-items-center gap-2 small">
+                        <i class="ri-circle-line text-danger audit-legend-dot"></i> Failed
+                      </span>
+                      <span class="small fw-medium">{{ failedCount() }} ({{ failedPct() }}%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                @if (statsTotal() === 0) {
+                  <p class="text-muted text-center small mb-0 position-absolute top-50 start-50 translate-middle w-100">
+                    No events to summarise yet.
+                  </p>
+                }
+              </div>
+            </div>
+
+            <!-- Activity Heatmap -->
+            <div class="card audit-card-outline shadow-sm">
+              <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-0">Activity Heatmap</h6>
+                  <small class="text-muted">Events by time of day</small>
+                </div>
+                <i class="ri-more-2-line text-muted"></i>
+              </div>
+              <div class="card-body">
+                @if (statsTotal() === 0) {
+                  <p class="text-muted text-center small mb-0 py-4">No events to chart yet.</p>
+                } @else {
+                  <div class="audit-heatmap">
+                    <div class="audit-heatmap-body">
+                      <div class="audit-heatmap-labels">
+                        @for (label of timeLabels; track label) {
+                          <span class="audit-heatmap-time">{{ label }}</span>
+                        }
+                      </div>
+                      <div class="audit-heatmap-grid">
+                        @for (row of heatmap(); track $index) {
+                          @for (count of row; track $index) {
+                            <div class="audit-heatmap-cell"
+                                 [style.background-color]="'rgba(55, 195, 126, ' + heatCellOpacity(count) + ')'"
+                                 [title]="count + ' event' + (count === 1 ? '' : 's')">
+                            </div>
+                          }
+                        }
+                      </div>
+                    </div>
+                    <div class="audit-heatmap-days">
+                      @for (label of dayLabels; track label) {
+                        <span>{{ label }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Quick Insights -->
+            <div class="card audit-card-outline shadow-sm">
+              <div class="card-body">
+                <button type="button" class="audit-insight-row" title="More insights are not available yet">
+                  <span class="audit-insight-icon bg-success-subtle text-warning">
+                    <i class="ri-lightbulb-flash-line"></i>
+                  </span>
+                  <span class="flex-grow-1 text-start">
+                    @if (busiestTimeRange(); as range) {
+                      <small class="d-block text-muted">Most events occur during</small>
+                      <span class="fw-semibold">{{ range }}.</span>
+                    } @else {
+                      <small class="text-muted">Not enough activity yet to spot a pattern.</small>
+                    }
+                  </span>
+                  <i class="ri-arrow-right-s-line text-muted"></i>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    }
+
+  </div>
+</div>
+</main>

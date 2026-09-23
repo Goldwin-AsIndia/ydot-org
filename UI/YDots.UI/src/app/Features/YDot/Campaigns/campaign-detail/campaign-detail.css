@@ -1,0 +1,3172 @@
+/* =========================================================
+   Campaign detail
+   Read-only view, restyled to match the Campaign Overview list:
+   white canvas, bold sans headings with a gold accent rule,
+   deep burgundy actions, gold highlights, plum owner avatar.
+   ========================================================= */
+:host {
+  --cd-paper: #ffffff;
+  --cd-card: #ffffff;
+  --cd-row-alt: #faf7f5;
+  --cd-ink: #1c1a1a;
+  --cd-ink-2: #5c5654;
+  --cd-muted: #928c89;
+  --cd-border: #ece5e2;
+  --cd-border-2: #ddd2cd;
+
+  /* Primary = deep burgundy, standing in for the wizard's meadow green */
+  --cd-maroon: var(--pe-primary, #7c1f2e);
+  --cd-maroon-700: var(--pe-primary-text-emphasis, #5c1521);
+  --cd-maroon-soft: #f6e8ea;
+
+  --cd-gold: #c39433;
+  --cd-gold-soft: #f4e8c8;
+  --cd-blue: #3f6dab;
+  --cd-blue-soft: #e6edf6;
+  --cd-plum: #5b3b6b;
+  --cd-plum-soft: #ece4f0;
+  --cd-good: #2f7d4f;
+  --cd-good-soft: #e4efe6;
+  --cd-error: #b23b31;
+  --cd-error-soft: #f8e3e0;
+  --cd-warn: #b5822f;
+  --cd-warn-soft: #f7ecd6;
+
+  /* Three distinct type roles, each reading straight from the theme panel's own font
+     slots — headings, big numeric figures and everything else move independently when
+     the theme is changed, instead of the whole page sharing one hard-coded stack. */
+  --cd-font-display: var(--font-heading, 'Outfit', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif);
+  --cd-font-number: var(--font-number, var(--cd-font-display));
+  --cd-font-ui: var(--font-body);
+  --cd-font-body: var(--font-other, var(--cd-font-ui));
+
+  --cd-radius: var(--radius, 16px);
+  --cd-radius-sm: calc(var(--radius, 16px) * 0.65);
+  --cd-btn-radius: var(--btn-radius, 10px);
+  --cd-shadow-sm: none;
+  --cd-shadow-md: none;
+  --cd-shadow-lg: none;
+
+  display: block;
+  font-family: var(--cd-font-body);
+  background: var(--cd-paper);
+  color: var(--cd-ink);
+}
+.cd-page {
+  font-family: var(--cd-font-body);
+}
+* {
+  box-sizing: border-box;
+}
+.cd-page {
+  padding: 32px 28px 48px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* Visible burgundy/gold focus ring; no trap. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--cd-gold);
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
+/* ---------- Buttons ---------- */
+.cd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: var(--cd-btn-radius);
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: var(--cd-font-ui);
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.cd-btn-primary {
+  background: var(--cd-maroon);
+  color: #fff;
+}
+/* Header action buttons (Export, Manage lifecycle, Edit, Delete) all match the
+   New Campaign button height so the row is uniform. */
+.cd-header-actions .cd-btn {
+  min-height: 38px;
+  padding: 8px 16px;
+  font-size: 13px;
+}
+.cd-btn-primary:hover {
+  background: var(--cd-maroon-700);
+}
+.cd-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Ghost secondary — same shape as the wizard's .btn-ghost. */
+.cd-btn-outline {
+  background: #fff;
+  color: var(--cd-maroon);
+  border-color: var(--cd-border-2);
+}
+.cd-btn-outline:hover {
+  background: var(--cd-maroon-soft);
+  border-color: var(--cd-maroon);
+}
+.cd-btn-danger {
+  background: #fff;
+  color: #c0392b;
+  border-color: #e0b4ae;
+}
+.cd-btn-danger:hover {
+  background: #fbecea;
+  border-color: #c0392b;
+}
+.cd-modal-actions .cd-btn-danger {
+  background: #c0392b;
+  color: #fff;
+  border-color: #c0392b;
+}
+.cd-modal-actions .cd-btn-danger:hover {
+  background: #a93226;
+  border-color: #a93226;
+}
+.cd-btn-sm {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+.cd-ic {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.cd-ic-sm {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.cd-ic-xs {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+/* ---------- Task header ---------- */
+.cd-task-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--cd-border);
+}
+.cd-header-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+/* Decorative record-type glyph, mirrors the heart-in-hands mark on the
+   Campaign Overview banner — purely illustrative, aria-hidden. */
+.cd-header-glyph {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--cd-gold-soft);
+  border: 1px solid var(--cd-gold-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cd-header-glyph svg {
+  width: 28px;
+  height: 28px;
+  color: var(--cd-maroon);
+}
+.cd-eyebrow {
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--cd-ink-2);
+  margin: 0 0 10px;
+}
+.cd-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cd-title {
+  font-family: var(--cd-font-display);
+  font-size: 32px;
+  line-height: 1.18;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  margin: 0;
+  color: var(--heading-color, var(--cd-ink));
+}
+/* Gold accent rule beneath the title, echoing the overview page's underline */
+.cd-header-text::after {
+  content: '';
+}
+.cd-title-rule {
+  display: none;
+}
+.cd-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  font-family: var(--cd-font-body);
+  color: var(--cd-muted);
+  margin-top: 10px;
+}
+.cd-meta-item strong {
+  color: var(--cd-ink-2);
+  font-weight: 700;
+}
+.cd-meta-dot {
+  color: var(--cd-border-2);
+}
+.cd-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ---------- Status badge (colour never carries meaning alone: text + icon) ---------- */
+.cd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: var(--cd-font-ui);
+  letter-spacing: 0.01em;
+}
+.cd-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.cd-inline-badge {
+  padding: 2px 10px;
+}
+.cd-badge-draft {
+  background: #efeceb;
+  color: var(--cd-muted);
+}
+.cd-badge-submitted {
+  background: var(--cd-blue-soft);
+  color: var(--cd-blue);
+}
+.cd-badge-approved {
+  background: var(--cd-good-soft);
+  color: var(--cd-good);
+}
+.cd-badge-scheduled {
+  background: var(--cd-plum-soft);
+  color: var(--cd-plum);
+}
+.cd-badge-active {
+  background: var(--cd-good-soft);
+  color: var(--cd-good);
+}
+.cd-badge-paused {
+  background: var(--cd-warn-soft);
+  color: var(--cd-warn);
+}
+.cd-badge-closing {
+  background: var(--cd-blue-soft);
+  color: var(--cd-blue);
+}
+.cd-badge-closed {
+  background: var(--cd-error-soft);
+  color: var(--cd-error);
+}
+.cd-badge-cancelled {
+  background: var(--cd-error-soft);
+  color: var(--cd-error);
+}
+
+/* ---------- Context and filters ---------- */
+.cd-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid var(--cd-border);
+  border-radius: 16px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.cd-context-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cd-scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--cd-maroon-soft);
+  color: var(--cd-maroon);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.cd-search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.cd-search .cd-ic-sm {
+  position: absolute;
+  left: 11px;
+  color: var(--cd-muted);
+  pointer-events: none;
+}
+.cd-search-input {
+  min-width: 220px;
+  padding: 9px 14px 9px 34px;
+  border: 1px solid var(--cd-border);
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--cd-ink);
+  background: #fff;
+}
+.cd-search-input:focus {
+  outline: none;
+  border-color: var(--cd-gold);
+  box-shadow: 0 0 0 2px var(--cd-gold-soft);
+}
+.cd-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.cd-saved-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cd-ink-2);
+}
+.cd-select-wrap {
+  position: relative;
+}
+.cd-select {
+  padding: 9px 32px 9px 14px;
+  border: 1px solid var(--cd-border);
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--cd-ink);
+  background: #fff;
+  appearance: none;
+  cursor: pointer;
+}
+.cd-select:focus {
+  outline: none;
+  border-color: var(--cd-gold);
+  box-shadow: 0 0 0 2px var(--cd-gold-soft);
+}
+.cd-chev {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--cd-muted);
+  pointer-events: none;
+}
+.cd-totals {
+  font-size: 13px;
+  color: var(--cd-muted);
+}
+.cd-totals-fetching {
+  opacity: 0.6;
+}
+.cd-meta-totals {
+  font-variant-numeric: tabular-nums;
+}
+.cd-task-meta .cd-refresh-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+.cd-context-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cd-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--cd-border);
+  background: #fff;
+  color: var(--cd-ink-2);
+  cursor: pointer;
+}
+.cd-refresh-btn:hover:not(:disabled) {
+  background: var(--cd-maroon-soft);
+  color: var(--cd-maroon);
+}
+.cd-refresh-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.cd-spin {
+  animation: cd-spin 0.8s linear infinite;
+}
+@keyframes cd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Owner avatar + name/id/role line ---------- */
+.cd-owner-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: var(--cd-ink-2);
+}
+/* Plum initials avatar, matching the owner circle on the overview list */
+.cd-avatar {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #ffaeea4a;
+    color: #51003b63;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-transform: uppercase;
+}
+.cd-owner-name {
+  font-weight: 700;
+  color: var(--cd-ink);
+}
+.cd-owner-id {
+  color: var(--cd-muted);
+}
+.cd-owner-role {
+  color: var(--cd-maroon);
+  font-weight: 600;
+}
+
+/* ---------- Read more (Public description / Terms and notice) ---------- */
+.cd-read-more {
+  display: inline-block;
+  margin-left: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cd-maroon);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.cd-modal.cd-modal-lg {
+  max-width: 1040px;
+  width: 92vw;
+}
+/* Pause / Resume / Close — a half-canvas drawer anchored to the right edge, full height,
+   with its own scrolling body. Roomier and less congested than a centred modal. */
+.cd-modal.cd-modal-lifecycle {
+  width: 100%;
+  max-width: 640px;
+  height: 100vh;
+  max-height: 100vh;
+  margin: -20px -20px -20px auto;
+  /* border-radius: 18px 0 0 18px; */
+  padding: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  animation: cd-drawer-in 0.28s ease;
+}
+@keyframes cd-drawer-in {
+  from { transform: translateX(48px); opacity: 0.3; }
+  to { transform: none; opacity: 1; }
+}
+.cd-modal-lifecycle .cd-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  z-index: 2;
+  background: #fff;
+  border: 1px solid var(--cd-border);
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+}
+.cd-modal-lifecycle app-pause-resume-close-campaign {
+  display: block;
+  padding: 22px 24px 30px;
+  overflow-y: auto;
+  /* flex: 1 1 auto; */
+}
+.cd-modal-backdrop.cd-lifecycle-chrome-hidden {
+  background: transparent;
+}
+.cd-modal.cd-modal-lifecycle.cd-lifecycle-chrome-hidden {
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+.cd-modal-lifecycle.cd-lifecycle-chrome-hidden .cd-modal-close {
+  display: none;
+}
+@media (max-width: 680px) {
+  .cd-modal.cd-modal-lifecycle {
+    max-width: 100%;
+    border-radius: 0;
+  }
+}
+.cd-readmore-body {
+  max-height: 72vh;
+  overflow-y: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--cd-border);
+  border-radius: 10px;
+  background: var(--cd-row-alt, #faf7f5);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+.cd-readmore-body :is(ul, ol) {
+  padding-left: 22px;
+}
+
+.cd-active-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.cd-active-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cd-ink-2);
+}
+.cd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--cd-maroon-soft);
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cd-maroon);
+  cursor: pointer;
+}
+.cd-chip:hover {
+  background: #efd9dd;
+}
+.cd-clear-all {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cd-blue);
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.cd-clear-all:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Cards ---------- */
+.cd-card {
+  background: var(--cd-card);
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radius);
+  padding: 24px 26px;
+  box-shadow: none;
+}
+.cd-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #80808038;
+    padding-bottom: 20px;
+}
+.cd-card-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* Small icon bubble beside each card title, echoing the chart-icon bubble on
+   the Campaign Progress panel. */
+.cd-card-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: hsl(calc(var(--theme-hue) - 22) 25.6% 91.6%);
+  color: hsl(calc(var(--theme-hue) - 8) 45.3% 33.7%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cd-card-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.cd-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--cd-ink);
+  margin: 0;
+}
+/* ---------- Two-region layout ---------- */
+.cd-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 20px;
+}
+.cd-work {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.cd-side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.cd-side .cd-facts dt {
+  min-width: 120px;
+}
+.cd-side-card {
+}
+
+/* ---------- Read-only facts ---------- */
+.cd-purpose {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--cd-ink-2);
+  margin: 0 0 16px;
+}
+.cd-facts {
+  margin: 0;
+}
+.cd-facts .cd-fact {
+  display: flex;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cd-border);
+}
+.cd-facts .cd-fact:last-child {
+  border-bottom: none;
+}
+.cd-facts dt {
+  font-weight: 600;
+  color: var(--cd-ink-2);
+  min-width: 168px;
+  font-size: 13px;
+}
+.cd-facts dd {
+  margin: 0;
+  color: var(--cd-ink);
+  font-size: 13px;
+}
+.cd-facts-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0 28px;
+}
+.cd-facts-3 .cd-fact {
+  flex-direction: column;
+  gap: 4px;
+}
+.cd-facts-3 dt {
+  min-width: 0;
+}
+
+/* ---------- Icon-led fact grid (Campaign summary) ---------- */
+.cd-fact-grid {
+  display: grid;
+  /* grid-template-columns: 1fr 1fr 1fr; */
+  gap: 18px 28px;
+  margin: 0;
+}
+.cd-fact-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.cd-fact-ic {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+      color: var(--icon-color);
+}
+.cd-fact-ic svg {
+  width: 100%;
+  height: 100%;
+}
+.cd-fact-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cd-fact-body dt {
+  font-family: var(--cd-font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--cd-ink-2);
+}
+.cd-fact-body dd {
+  margin: 0;
+  font-family: var(--cd-font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--cd-ink);
+  line-height: 1.45;
+}
+@media (max-width: 560px) {
+  .cd-fact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.cd-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+/* Budget allocation share — how each category's amount compares to the campaign total. */
+.cd-share-bar {
+  display: inline-block;
+  width: 64px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ece5e2;
+  overflow: hidden;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.cd-share-fill {
+  display: block;
+  height: 100%;
+  background: var(--cd-gold);
+  border-radius: 999px;
+}
+.cd-share-pct {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cd-ink-2);
+  vertical-align: middle;
+}
+.cd-usage {
+  max-width: 320px;
+  color: var(--cd-ink-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Progress meter — thin cream track with a burgundy fill, matching the
+   overview list's progress bars. */
+.cd-meter {
+  height: 8px;
+  border-radius: 999px;
+  background: #ece5e2;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.cd-meter-fill {
+  height: 100%;
+  background: var(--cd-maroon);
+  border-radius: 999px;
+}
+
+.cd-tabpanel {
+  min-height: 96px;
+}
+.fk-table-card .cd-state-note {
+  padding: 16px;
+  margin: 0;
+}
+
+/* ---------- Read-only tables (Tracking / Payments) ---------- */
+.cd-table-scroll {
+  overflow-x: auto;
+}
+.cd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: var(--cd-font-body);
+}
+.cd-table th {
+    text-align: left;
+    font-family: var(--cd-font-ui);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #9aa1a9;
+    padding: 12px 12px 10px;
+    border-bottom: 1px solid var(--cd-border);
+    white-space: nowrap;
+    background: none;
+}
+.cd-table th:first-child {
+  border-radius: 8px 0 0 0;
+}
+.cd-table th:last-child {
+  border-radius: 0 8px 0 0;
+}
+.cd-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--cd-border);
+  color: var(--cd-ink);
+  vertical-align: top;
+}
+.cd-table tbody tr {
+  transition: background 0.12s ease;
+}
+.cd-table tbody tr:hover {
+  background: var(--cd-row-alt, #faf7f5);
+}
+.cd-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.cd-table-total td {
+  font-weight: 700;
+  border-top: 1px solid var(--cd-border);
+}
+
+
+/* ---------- Related & history — empty state ----------
+   A soft, illustrated placeholder rather than blank space under a heading;
+   reuses the existing "good/green" tone already used for status, so it
+   doesn't introduce a new colour to the palette. */
+.cd-side-card-empty {
+
+    background: color-mix(in srgb, var(--primary) 8%, white);
+    border-color: 
+color-mix(in srgb, var(--primary) 22%, white);
+
+}
+.cd-card-icon-leaf {
+  background: #fff;
+  color: hsl(calc(var(--theme-hue) - 8) 45.3% 33.7%);
+}
+.cd-side-empty-note {
+  max-width: 30ch;
+  margin-inline: 0;
+  text-align: left;
+}
+.cd-side-empty-art {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  margin: 18px auto 4px;
+}
+
+/* History empty-state SVG — accent paths follow the app's primary token
+   (--primary, #315746) instead of hard-coded greens, and the art scales
+   down to fit inside the side card (viewBox keeps the aspect ratio). */
+.cd-side-empty-art .hs-accent {
+  stroke: var(--primary);
+  fill: var(--primary);
+}
+.cd-side-empty-art .hs-accent[fill="none"] {
+  fill: none;
+}
+.cd-side-empty-art .hs-ring-a {
+  stop-color: var(--primary);
+}
+.cd-side-empty-art .hs-ring-b {
+  stop-color: color-mix(in srgb, var(--primary) 78%, black);
+}
+.cd-side-empty-art .hs-line {
+  fill: color-mix(in srgb, var(--primary) 22%, hsl(calc(var(--theme-hue) - 1) 28.9% 91.2%));
+}
+
+.cd-decision-value {
+  font-size: 13px;
+  color: var(--cd-ink);
+}
+
+/* ---------- UI states ---------- */
+.cd-state-panel {
+  background: #fff;
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radius);
+  padding: 40px 24px;
+  text-align: center;
+  margin-bottom: 16px;
+  font-family: var(--cd-font-body);
+}
+.cd-state-title {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.cd-state-note {
+  font-size: 13px;
+  color: var(--cd-ink-2);
+  margin: 0 0 16px;
+  max-width: 560px;
+  margin-inline: auto;
+}
+.cd-state-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.cd-state-warn {
+  border-color: #e6cf9c;
+  background: var(--cd-warn-soft);
+}
+.cd-state-danger {
+  border-color: #e7b8b2;
+  background: var(--cd-error-soft);
+}
+.cd-skeleton-head {
+  height: 28px;
+  width: 40%;
+  border-radius: 8px;
+  margin: 0 auto 16px;
+}
+.cd-skeleton-body {
+  height: 120px;
+  border-radius: 12px;
+}
+.cd-skeleton-head,
+.cd-skeleton-body {
+  background: linear-gradient(90deg, #ece5e2 25%, #f7f3f1 37%, #ece5e2 63%);
+  background-size: 400% 100%;
+  animation: cd-sk 1.4s ease infinite;
+}
+@keyframes cd-sk {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* Success — persistent confirmation. */
+.cd-success-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--cd-good-soft);
+  border: 1px solid #b6d6bf;
+  color: var(--cd-good);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 24px;
+}
+.cd-success-text {
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.cd-success-sub {
+  display: block;
+  color: var(--cd-ink-2);
+  margin-top: 2px;
+}
+.cd-banner-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: auto;
+  color: inherit;
+  opacity: 0.7;
+  padding: 2px;
+}
+.cd-banner-close:hover {
+  opacity: 1;
+}
+
+/* ---------- Modal ---------- */
+.cd-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(28, 20, 20, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.cd-modal {
+  background: #fff;
+  border-radius: var(--cd-radius);
+  padding: 28px;
+  width: 100%;
+  max-width: 540px;
+  box-shadow: none;
+  max-height: 90vh;
+  overflow: auto;
+  font-family: var(--cd-font-body);
+}
+.cd-modal-title {
+  font-family: var(--cd-font-display);
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.cd-modal-lead {
+  font-size: 13px;
+  color: var(--cd-ink-2);
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+.cd-modal-facts {
+  margin-bottom: 18px;
+}
+.cd-modal-field {
+  display: block;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+.cd-radio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--cd-ink);
+  padding: 6px 0;
+  cursor: pointer;
+}
+.cd-radio-row input[type='radio'] {
+  accent-color: var(--cd-maroon);
+}
+.cd-field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cd-ink-2);
+  margin-bottom: 6px;
+}
+.cd-req {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cd-error);
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+.cd-textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--cd-border);
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--cd-ink);
+}
+.cd-textarea:focus {
+  outline: none;
+  border-color: var(--cd-gold);
+  box-shadow: 0 0 0 2px var(--cd-gold-soft);
+}
+.cd-field-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.cd-count {
+  font-size: 12px;
+  color: var(--cd-muted);
+}
+.cd-count-bad {
+  color: var(--cd-error);
+  font-weight: 700;
+}
+.cd-field-error {
+  display: block;
+  color: var(--cd-error);
+  font-weight: 600;
+  font-size: 12px;
+  margin-top: 6px;
+}
+.cd-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+/* ---------- Responsive ---------- */
+/* Tablet: secondary panel drops below; scope, record identity, state and primary action stay visible. */
+@media (max-width: 1080px) {
+  .cd-layout {
+    grid-template-columns: 1fr;
+  }
+  .cd-side-card {
+    position: static;
+  }
+  .cd-facts-3 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+/* Mobile: one-column cards; pin the primary action; preserve reference, name, status, purpose; 44px targets. */
+@media (max-width: 680px) {
+  .cd-page {
+    padding: 18px 14px 96px;
+  }
+  .cd-task-header {
+    flex-direction: column;
+  }
+  .cd-header-text {
+    gap: 14px;
+  }
+  .cd-header-glyph {
+    width: 44px;
+    height: 44px;
+  }
+  .cd-header-glyph svg {
+    width: 22px;
+    height: 22px;
+  }
+  .cd-title {
+    font-size: 26px;
+  }
+  .cd-context {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cd-context-left {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cd-search-input {
+    min-width: 0;
+    width: 100%;
+  }
+  .cd-saved {
+    justify-content: space-between;
+  }
+  .cd-select {
+    width: 100%;
+  }
+  .cd-facts .cd-fact {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .cd-facts dt {
+    min-width: 0;
+  }
+  .cd-facts-3 {
+    grid-template-columns: 1fr;
+  }
+  /* Pin only the permitted primary action. */
+  .cd-header-actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.96);
+    border-top: 1px solid var(--cd-border);
+    backdrop-filter: blur(6px);
+  }
+  .cd-header-actions .cd-btn {
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   Campaign dashboard — the approved design mirror:
+   pastel KPI cards, channel chart, status strip, calendar,
+   donor-mix donut and the compact tracking card.
+   ========================================================= */
+.cd-dash {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  font-family: var(--cd-font-body);
+}
+
+/* =========================================================
+   KPI row — ported pixel-for-pixel from the Figma source
+   (fileKey zKdRI6i4S1qk3rsJRlvhqY, nodes 3:28/3:41/3:59/3:71/3:86).
+   "fk-" = Figma KPI, kept separate from the older "cd-" tokens
+   since this palette (teal/lime/Fraunces+Manrope+Syne) is a
+   distinct, exact design language rather than the generic theme.
+   ========================================================= */
+:host {
+  --fk-teal: var(--theme-primary, #07565b);
+  --fk-teal-light: var(--theme-primary-light, #0a8a92);
+  --fk-lime: var(--theme-accent, #c8e36d);
+  --fk-ink: var(--theme-ink, #152f32);
+  --fk-muted: var(--theme-muted, #647579);
+  --fk-faint: #a0adb5;
+  --fk-border: var(--theme-border, #e5e8ec);
+  --fk-mint-bg: var(--theme-surface-tint, hsl(calc(var(--theme-hue) + 21) 27.8% 92.9%));
+  --fk-lime-bg: color-mix(in srgb, var(--theme-accent, #c8e36d) 14%, #ffffff);
+  --fk-panel-bg: color-mix(in srgb, var(--theme-surface-tint, #edf1f4) 60%, #ffffff);
+  --fk-font-display: var(--font-display);
+  --fk-font-heading: var(--font-display);
+  --fk-font-body: var(--font-body);
+}
+.cd-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.fk-kpi {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid var(--fk-border);
+  border-radius: 20px;
+  font-family: var(--fk-font-body);
+}
+.fk-blob {
+  position: absolute;
+  pointer-events: none;
+  line-height: 0;
+}
+.fk-blob img {
+  display: block;
+}
+.fk-blob-revenue {
+  left: -21px;
+  top: -21px;
+  width: 100px;
+  height: 100px;
+}
+.fk-blob-wa {
+  left: -25px;
+  top: -25px;
+  width: 72px;
+  height: 72px;
+}
+.fk-blob-assets {
+  left: 213px;
+  top: 111px;
+  width: 64px;
+  height: 64px;
+}
+.fk-blob-donors-1 {
+  left: -40px;
+  top: 20px;
+  width: 120px;
+  height: 120px;
+}
+.fk-blob-donors-2 {
+  left: 220px;
+  top: 80px;
+  width: 100px;
+  height: 100px;
+}
+.fk-kpi-eyebrow {
+  margin: 0;
+  font-family: var(--fk-font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--fk-teal);
+}
+.fk-kpi-eyebrow-lime {
+  color: var(--fk-lime);
+}
+.fk-kpi-value {
+  margin: 0;
+  font-family: var(--fk-font-display);
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 32px;
+  color: var(--fk-ink);
+}
+.fk-kpi-value-white {
+  color: var(--fk-ink);
+  font-family: var(--fk-font-display);
+  font-weight: 700;
+  font-size: 38px;
+  line-height: 42px;
+}
+.fk-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--fk-font-body);
+  font-size: 11px;
+  font-weight: 700;
+}
+.fk-badge-lime {
+  background: var(--fk-lime-bg);
+  border: 1px solid var(--fk-lime);
+  color: #4a6b0a;
+}
+.fk-badge-lime-outline {
+  background: var(--fk-lime-bg);
+  border: 1px solid var(--fk-teal);
+  color: #4a6b0a;
+  font-weight: 800;
+}
+.fk-badge-teal {
+  background: var(--fk-teal-light);
+  color: var(--fk-lime);
+  padding: 5px 12px;
+}
+.fk-badge-outline-teal {
+  background: var(--fk-mint-bg);
+  border: 1px solid var(--fk-teal);
+  color: var(--fk-teal);
+  padding: 6px 10px;
+}
+.fk-kpi-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 1px solid var(--fk-border);
+}
+.fk-kpi-foot-top {
+  border-top: none;
+  padding-top: 0;
+  align-items: flex-start;
+}
+.fk-kpi-foot-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fk-kpi-foot-col span {
+  font-family: var(--fk-font-body);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--fk-muted);
+}
+.fk-kpi-foot-top .fk-kpi-foot-col span {
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.fk-kpi-foot-col strong {
+  font-family: var(--fk-font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--fk-ink);
+}
+.fk-kpi-foot-top .fk-kpi-foot-col strong.fk-kpi-value {
+  font-size: 30px;
+  line-height: 34px;
+}
+.fk-view-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--fk-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fk-teal);
+  cursor: pointer;
+}
+.fk-view-details:hover {
+  text-decoration: underline;
+}
+.fk-ic-bubble {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  background: var(--fk-mint-bg);
+  border: 1px solid var(--fk-teal);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.fk-kpi-caption {
+  margin: 0;
+  font-family: var(--fk-font-body);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fk-muted);
+}
+
+/* ---------- Card 1: Revenue (white) ---------- */
+.fk-kpi-revenue {
+  background: #fff;
+}
+
+/* ---------- Card 2: Donors ----------
+   Every KPI tile is flat white now (ydot-premium.css 4b forces a white background on `[data-tone-kind="stat"]`,
+   which CardToneService sets on .fk-kpi), so this tile used to print its total in white on white and looked
+   empty. It reads like the other three: teal eyebrow, ink figure, muted footer. */
+.fk-kpi-donors {
+  gap: 12px;
+}
+.fk-kpi-donors-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.fk-kpi-donors .fk-kpi-eyebrow-lime {
+  color: var(--fk-teal);
+}
+/* ---------- Card 3: WhatsApp sends (white) ---------- */
+.fk-kpi-wa {
+  background: #fff;
+}
+
+/* ---------- Card 4: Assets (white) ---------- */
+.fk-kpi-assets {
+  background: #fff;
+  gap: 14px;
+}
+
+@media (max-width: 1280px) {
+  .cd-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .cd-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Rows and panels ---------- */
+.cd-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+.cd-row-top {
+  align-items: stretch;
+}
+.cd-row-bottom {
+  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+}
+.cd-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+/* The tabbed tracking card sits below both rows, full width. */
+.cd-dash-block {
+  min-width: 0;
+}
+/* ---------- Donations-by-Channel chart — ported from Figma node 13:2 ---------- */
+.fk-chart-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.fk-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.fk-chart-title {
+  margin: 0;
+  font-family: var(--fk-font-heading);
+  font-weight: 700;
+  font-size: 12px;
+  color: #1a1a1a;
+}
+.fk-chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.fk-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--fk-font-body);
+  font-size: 9px;
+  color: #6b7280;
+}
+.fk-chart-legend-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.fk-period-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 8px;
+  border-radius: 8px;
+  background: #f9f8f6;
+  border: 1px solid #e5e3df;
+  font-family: var(--fk-font-body);
+  font-size: 9px;
+  color: #6b7280;
+}
+.fk-period-pill-sm {
+  position: relative;
+}
+.fk-period-select {
+  appearance: none;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.fk-chart-wrap {
+  position: relative;
+  min-width: 0;
+  border-radius: 12px;
+  background: #fcfbf9;
+  border: 1px solid #e5e3df;
+  overflow: hidden;
+}
+.fk-chart {
+  display: block;
+  width: 100%;
+  height: 124px;
+  min-height: 124px;
+}
+.fk-chart-gridline {
+  stroke: #e5e3df;
+  stroke-width: 1;
+}
+.fk-chart-line {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 5 4;
+}
+.fk-chart-band {
+  fill: url(#cdBandFill);
+  stroke: #e5e3df;
+  stroke-width: 1;
+}
+.fk-chart-dot {
+  stroke: #fcfbf9;
+  stroke-width: 1.4;
+}
+.cd-legend-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+/* ---------- Tracking table — ported from Figma node 3:448 ---------- */
+.cd-work-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.fk-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+.fk-table-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--fk-panel-bg);
+  border-bottom: 1px solid var(--fk-border);
+  padding: 10px 16px;
+}
+.fk-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+.fk-tab {
+  border: none;
+  background: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-family: var(--fk-font-heading);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--fk-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.fk-tab:hover {
+  color: var(--fk-ink);
+}
+.fk-tab-active {
+  background: #fff;
+  border: 1px solid var(--fk-border);
+  font-weight: 600;
+  color: var(--fk-ink);
+}
+.fk-table-search {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--fk-border);
+}
+.fk-table-search input {
+  border: none;
+  outline: none;
+  background: none;
+  font-family: var(--fk-font-body);
+  font-size: 11px;
+  color: var(--fk-ink);
+  width: 170px;
+}
+.fk-table-search input::placeholder {
+  color: var(--fk-faint);
+}
+.fk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--fk-font-body);
+  font-size: 11px;
+}
+.fk-table thead tr {
+  background: var(--fk-panel-bg);
+}
+.fk-table th {
+  text-align: left;
+  font-family: var(--fk-font-heading);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fk-muted);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--fk-border);
+  white-space: nowrap;
+}
+.fk-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--fk-border);
+  color: var(--fk-ink);
+  vertical-align: middle;
+}
+.fk-table tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+.fk-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.fk-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--fk-font-heading);
+  font-weight: 600;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.fk-status-chip-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+}
+.fk-status-chip[data-tone='good'] {
+  background: #f0fdf4;
+  color: #008236;
+}
+.fk-status-chip[data-tone='good'] .fk-status-chip-dot {
+  background: #00c950;
+}
+.fk-status-chip[data-tone='blue'] {
+  background: #eff6ff;
+  color: #1447e6;
+}
+.fk-status-chip[data-tone='blue'] .fk-status-chip-dot {
+  background: #2b7fff;
+}
+.fk-status-chip[data-tone='warn'] {
+  background: #fff7ed;
+  color: #c2410c;
+}
+.fk-status-chip[data-tone='warn'] .fk-status-chip-dot {
+  background: #f97316;
+}
+.fk-status-chip[data-tone='bad'] {
+  background: #fef2f2;
+  color: #b1123f;
+}
+.fk-status-chip[data-tone='bad'] .fk-status-chip-dot {
+  background: #ef4444;
+}
+.fk-status-chip[data-tone='muted'] {
+  background: #f3f4f6;
+  color: var(--fk-muted);
+}
+.fk-status-chip[data-tone='muted'] .fk-status-chip-dot {
+  background: var(--fk-faint);
+}
+.fk-col-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+.fk-row-menu {
+  border: none;
+  background: none;
+  color: var(--fk-faint);
+  font-family: var(--fk-font-heading);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.fk-table-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-top: auto;
+}
+.fk-table-showing {
+  font-family: var(--fk-font-body);
+  font-size: 11px;
+  color: var(--fk-muted);
+}
+.fk-table-pager {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.fk-page-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--fk-border);
+  background: #fff;
+  color: var(--fk-faint);
+  font-family: var(--fk-font-heading);
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.fk-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.fk-page-btn:hover:not(:disabled) {
+  background: var(--fk-panel-bg);
+}
+.fk-page-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--fk-teal);
+  color: #fff;
+  font-family: var(--fk-font-heading);
+  font-weight: 700;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* ---------- Responsive ---------- */
+@media (max-width: 1100px) {
+  .cd-row,
+  .cd-row-bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+
+/* ---------- Chart hover: crosshair, dots and the design's tooltip layer ---------- */
+.cd-kpi {
+  position: relative;
+  
+}
+.cd-chart-wrap {
+  position: relative;
+}
+.cd-chart-gridline {
+  stroke: #eef1f4;
+  stroke-width: 1;
+}
+.cd-chart-dot {
+  stroke: #fff;
+  stroke-width: 1.6;
+}
+.cd-chart-dot-big {
+  stroke: #fff;
+  stroke-width: 2;
+}
+.cd-chart-cursor {
+  stroke: #cbd5e1;
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+.cd-chart-tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 12px));
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: none;
+  padding: 8px 12px;
+  min-width: 150px;
+  pointer-events: none;
+  z-index: 6;
+}
+.cd-chart-tip.below {
+  transform: translate(-50%, 14px);
+}
+.cd-chart-tip-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+}
+.cd-chart-tip ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cd-chart-tip li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #4b5563;
+}
+.cd-chart-tip li strong {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+}
+.cd-chart-tip-label {
+  white-space: nowrap;
+}
+/* =========================================================
+   Campaign Overview panel — code / dates / owner, then Purpose,
+   Public Description and Terms & Service tiles.
+   Ported from Figma node 3:387.
+   ========================================================= */
+.fk-panel {
+  background: #fff;
+  border: 1px solid var(--fk-border);
+  border-radius: 20px;
+  padding: 24px;
+  font-family: var(--fk-font-body);
+}
+.fk-overview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.fk-overview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.fk-overview-title {
+  margin: 0;
+  font-family: var(--fk-font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--fk-ink);
+}
+.fk-overview-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fk-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-family: var(--fk-font-heading);
+  font-weight: 600;
+  font-size: 11px;
+  background: #f0fdf4;
+  border: 1px solid #b9f8cf;
+  color: #00a63e;
+}
+.fk-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+/* Non-Active lifecycle states use the same pill shape with the table's tone palette. */
+.fk-status-pill.cd-badge-draft {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #647579;
+}
+.fk-status-pill.cd-badge-submitted,
+.fk-status-pill.cd-badge-closing {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1447e6;
+}
+.fk-status-pill.cd-badge-scheduled {
+  background: #f5f0ff;
+  border-color: #e9d5ff;
+  color: #8e24d1;
+}
+.fk-status-pill.cd-badge-paused {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+.fk-status-pill.cd-badge-closed,
+.fk-status-pill.cd-badge-cancelled {
+  background: #fdf2f8;
+  border-color: #fbcfe8;
+  color: #b1123f;
+}
+.fk-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--fk-panel-bg);
+  border: 1px solid var(--fk-border);
+  color: var(--fk-muted);
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.fk-icon-btn:hover {
+  background: #fff;
+}
+/* Overview card redesign — title + fund/programme pill, a plain two-column facts grid, a hairline
+   divider, then the purpose as one paragraph with the planning-figures note underneath. Public
+   description / Terms & notice move to a quiet link row at the foot rather than their own tiles. */
+/* !important: the app-wide "no background on text chips/tags" rule (ydot-premium.css) matches any
+   `-pill`-suffixed class with higher !important priority; this one specific pill is a deliberate
+   exception - it is the fund/programme tag drawn WITH a fill in the reference design this card was
+   rebuilt to match, so it has to outrank that rule rather than lose its background to it. */
+.fk-programme-pill {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: var(--fk-font-heading);
+  font-weight: 700;
+  font-size: 12px;
+}
+.fk-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 32px;
+  row-gap: 18px;
+}
+.fk-overview-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.fk-overview-cell dt {
+  margin: 0;
+  font-family: var(--fk-font-body);
+  font-size: 12px;
+  font-weight: 400;
+}
+.fk-overview-cell dd {
+  margin: 0;
+  font-family: var(--fk-font-heading);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fk-overview-divider {
+  height: 1px;
+}
+.fk-overview-desc {
+  margin: 0;
+  font-family: var(--fk-font-body);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+.fk-overview-note {
+  display: block;
+  margin-top: 6px;
+}
+.fk-overview-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.fk-read-more {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--fk-font-heading);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--fk-teal);
+  cursor: pointer;
+}
+.fk-read-more:hover {
+  text-decoration: underline;
+}
+@media (max-width: 640px) {
+  .fk-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   Recent Activity — ported from Figma node 3:536. Two real
+   tones (allowed / not permitted) map onto the design's
+   colour-coded row treatment (mint vs rose).
+   ========================================================= */
+.cd-activity-panel {
+  min-width: 0;
+}
+.fk-recent-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fk-recent-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.fk-recent-title {
+  margin: 0 0 3px;
+  font-family: var(--fk-font-display);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--fk-ink);
+}
+.fk-recent-sub {
+  margin: 0;
+  font-family: var(--fk-font-body);
+  font-size: 10px;
+  color: var(--fk-muted);
+}
+.fk-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.fk-timeline-row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+.fk-timeline-rail {
+  flex: none;
+  width: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.fk-timeline-ic {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  background: var(--fk-mint-bg);
+  color: var(--fk-teal);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.fk-timeline-ic svg {
+  width: 16px;
+  height: 16px;
+}
+.fk-timeline-ic-warn {
+  background: #fdf2f8;
+  color: #e879a0;
+}
+.fk-timeline-line {
+  flex: 1;
+  width: 2px;
+  min-height: 12px;
+  background: var(--fk-border);
+  margin: 4px 0;
+}
+.fk-timeline-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0 14px;
+}
+.fk-timeline-time {
+  font-family: var(--fk-font-body);
+  font-size: 9px;
+  color: var(--fk-faint);
+}
+.fk-timeline-card {
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--fk-mint-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fk-timeline-card-warn {
+  background: #fdf2f8;
+}
+.fk-timeline-card-title {
+  margin: 0;
+  font-family: var(--fk-font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--fk-ink);
+}
+.fk-timeline-card-detail {
+  margin: 0;
+  font-family: var(--fk-font-body);
+  font-size: 10px;
+  color: var(--fk-teal);
+}
+.fk-timeline-card-warn .fk-timeline-card-detail {
+  color: #e879a0;
+}
+
+/* =========================================================
+   Campaign Calendar.
+   Header: title left, month switcher right. Body: the month grid, plus a day panel that exists ONLY while a
+   date is selected. With nothing selected the grid takes the whole card; selecting a day gives the panel a
+   fixed share of the width and the grid shrinks to fit, so the card never changes height because of the panel
+   (its list scrolls inside it). Flat: no gradients, no shadows, no accent bars.
+   ========================================================= */
+.fk-cal-panel {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.fk-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--fk-border);
+}
+.fk-cal-title {
+  margin: 0;
+  font-family: var(--fk-font-display);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.2;
+  color: var(--fk-ink);
+}
+.fk-cal-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.fk-cal-nav-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--fk-border);
+  background: #fff;
+  color: var(--fk-ink);
+  font-family: var(--fk-font-heading);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.fk-cal-nav-btn:hover {
+  background: color-mix(in srgb, var(--lx-gold, #c1a466) 16%, #fff);
+  border-color: var(--lx-gold, #c1a466);
+}
+.fk-cal-month-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 168px;
+  padding: 9px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--fk-border);
+  background: var(--fk-panel-bg);
+  font-family: var(--fk-font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--fk-ink);
+  white-space: nowrap;
+}
+
+.fk-cal-body {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+.fk-cal-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 24px 28px 28px;
+}
+/* The grid takes whatever height the card has (the card is stretched to the column beside it), and the week
+   rows share it equally, so there is never an empty band under the legend. The weekday row stays its own
+   height (the one explicit row); every week row is at least 64px. */
+.fk-cal-grid {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto;
+  grid-auto-rows: minmax(64px, 1fr);
+  gap: 8px;
+}
+.fk-cal-dow {
+  padding: 0 0 4px;
+  text-align: center;
+  font-family: var(--fk-font-heading);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--fk-muted);
+}
+.fk-cal-cell {
+  position: relative;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--fk-border);
+  border-radius: 14px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.fk-cal-cell:hover {
+  background: color-mix(in srgb, var(--lx-gold, #c1a466) 12%, #fff);
+  border-color: color-mix(in srgb, var(--lx-gold, #c1a466) 60%, var(--fk-border));
+}
+/* A blank alignment cell before day 1 - not another month's date, just empty space that keeps the
+   weekday columns lined up. Not clickable, so no pointer cursor or hover tint. */
+.fk-cal-cell.out {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+.fk-cal-day-num {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border-radius: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--fk-font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--fk-ink);
+}
+.fk-cal-cell.today {
+  border-color: var(--lx-gold, #c1a466);
+}
+.fk-cal-cell.today .fk-cal-day-num {
+  background: var(--lx-gold, #c1a466);
+  color: var(--lx-gold-ink, #1e1907);
+  font-weight: 800;
+}
+.fk-cal-cell.selected {
+  background: color-mix(in srgb, var(--lx-gold, #c1a466) 22%, #fff);
+  border-color: var(--lx-gold, #c1a466);
+}
+.fk-cal-cell.selected .fk-cal-day-num {
+  font-weight: 800;
+}
+
+/* Activity markers: one dot per activity (up to four), coloured by kind - the legend below explains them. */
+.fk-cal-dots {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 10px;
+}
+.fk-cal-dot,
+.fk-day-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--fk-teal);
+}
+.fk-cal-dot[data-kind='email'],   .fk-day-dot[data-kind='email']   { background: var(--fk-teal); }
+.fk-cal-dot[data-kind='sms'],     .fk-day-dot[data-kind='sms']     { background: #c8e36d; }
+.fk-cal-dot[data-kind='donor'],   .fk-day-dot[data-kind='donor']   { background: #a855f7; }
+.fk-cal-dot[data-kind='social'],  .fk-day-dot[data-kind='social']  { background: #e879a0; }
+.fk-cal-dot[data-kind='report'],  .fk-day-dot[data-kind='report']  { background: #f97316; }
+.fk-cal-dot[data-kind='website'], .fk-day-dot[data-kind='website'] { background: #06b6d4; }
+.fk-cal-dot[data-kind='launch'],  .fk-day-dot[data-kind='launch']  { background: #22c55e; }
+.fk-cal-more {
+  font-family: var(--fk-font-body);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--fk-muted);
+}
+
+.fk-cal-legend {
+  list-style: none;
+  margin: 0;
+  padding: 18px 0 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  border-top: 1px solid var(--fk-border);
+}
+.fk-cal-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--fk-font-body);
+  font-size: 12.5px;
+  color: var(--fk-muted);
+}
+.fk-legend-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* While a day is open the grid gives up width, so its cells tighten to stay legible. */
+.fk-cal-panel.has-selection .fk-cal-main {
+  padding: 22px 20px 24px;
+  gap: 18px;
+}
+.fk-cal-panel.has-selection .fk-cal-grid {
+  gap: 5px;
+  grid-auto-rows: minmax(54px, 1fr);
+}
+.fk-cal-panel.has-selection .fk-cal-cell {
+  min-height: 62px;
+  padding: 8px;
+  border-radius: 12px;
+}
+.fk-cal-panel.has-selection .fk-cal-day-num {
+  min-width: 24px;
+  height: 24px;
+  font-size: 13px;
+}
+.fk-cal-panel.has-selection .fk-cal-dot {
+  width: 7px;
+  height: 7px;
+}
+.fk-cal-panel.has-selection .fk-cal-dots {
+  gap: 3px;
+}
+.fk-cal-panel.has-selection .fk-cal-legend {
+  gap: 8px 16px;
+  padding-top: 14px;
+}
+.fk-cal-panel.has-selection .fk-cal-legend li {
+  font-size: 12px;
+}
+
+/* ---------- Day panel ---------- */
+.fk-cal-rail {
+  flex: none;
+  position: relative;
+  width: clamp(230px, 38%, 320px);
+  overflow: hidden;
+  border-left: 1px solid var(--fk-border);
+  background: #ffffff;
+  animation: fk-rail-in .3s cubic-bezier(.2, .7, .2, 1) both;
+}
+/* Pinned to the panel's box, not sized by its list: the calendar decides the height, the list scrolls. */
+.fk-cal-rail-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+@keyframes fk-rail-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fk-cal-rail { animation: none; }
+}
+.fk-day-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 16px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* Event card (Figma node 3:349): icon tile + title / time / status, a hairline, then owner and note - or, for a
+   donation, the amount and note. White, flat, one hairline. Sizes are set with !important because the theme
+   customiser forces a font size on p / span / i. */
+.fk-ev {
+  flex: none;
+  overflow: hidden;
+  border: 1px solid var(--fk-border);
+  border-radius: 16px;
+  background: #ffffff;
+}
+.fk-ev p {
+  margin: 0;
+}
+.fk-ev-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+}
+.fk-ev-tile {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--fk-mint-bg);
+  color: var(--fk-teal);
+}
+.fk-ev[data-kind='email'] .fk-ev-tile { background: var(--fk-lime-bg); }
+.fk-ev-tile i {
+  font-size: 16px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+}
+.fk-ev-head-text {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fk-ev-title {
+  font-family: var(--fk-font-heading) !important;
+  font-weight: 600;
+  font-size: 14px !important;
+  line-height: 1.25 !important;
+  color: var(--fk-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fk-ev-time {
+  font-family: var(--fk-font-body) !important;
+  font-weight: 500;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+  color: var(--fk-muted);
+}
+.fk-ev-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--fk-font-body) !important;
+  font-weight: 600;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+}
+.fk-ev-status-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 3px;
+}
+.fk-ev-status[data-status='Queued'] { color: var(--yc-info-ink, #1447e6); }
+.fk-ev-status[data-status='Queued'] .fk-ev-status-dot { background: #2b7fff; }
+.fk-ev-status[data-status='Sent'] { color: var(--yc-success-ink, #00a63e); }
+.fk-ev-status[data-status='Sent'] .fk-ev-status-dot { background: #00c950; }
+
+.fk-ev-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-top: 1px solid var(--fk-border);
+}
+.fk-ev-owner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--fk-font-body) !important;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+}
+.fk-ev-avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #edf1f4;
+  color: var(--fk-muted);
+}
+.fk-ev-avatar i {
+  font-size: 11px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+}
+.fk-ev-owner-label {
+  font-size: 11px !important;
+  font-weight: 400;
+  color: var(--fk-muted);
+}
+.fk-ev-owner-name {
+  font-size: 11px !important;
+  font-weight: 600;
+  color: var(--fk-ink);
+}
+.fk-ev-amount {
+  font-family: var(--fk-font-display) !important;
+  font-weight: 700;
+  font-size: 22px !important;
+  line-height: 1.2 !important;
+  color: var(--fk-ink);
+}
+.fk-ev-note {
+  font-family: var(--fk-font-body) !important;
+  font-weight: 400;
+  font-size: 11.5px !important;
+  line-height: 1.45 !important;
+  color: var(--fk-muted);
+}
+.fk-day-empty {
+  margin: 0;
+  padding: 28px 22px;
+  font-family: var(--fk-font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fk-muted);
+}
+
+@media (max-width: 900px) {
+  .fk-cal-body {
+    flex-direction: column;
+  }
+  .fk-cal-rail {
+    width: auto;
+    max-height: 360px;
+    border-left: 0;
+    border-top: 1px solid var(--fk-border);
+    animation: none;
+  }
+  .fk-cal-rail-inner {
+    position: static;
+    max-height: 360px;
+  }
+}
+@media (max-width: 640px) {
+  .fk-cal-head { padding: 20px; }
+  .fk-cal-main { padding: 18px 16px 22px; }
+  .fk-cal-cell { min-height: 56px; padding: 8px; }
+  .fk-cal-panel.has-selection .fk-cal-main { padding: 18px 16px 22px; }
+}
+
+/* =========================================================
+   Two-column dashboard row (matching Figma: the activity rail
+   lives inside the Calendar card itself, not as a third column).
+   Row 1: Calendar-with-rail (col 1) | Campaign Details + Graph
+   (col 2, grid-stretched to the Calendar's height so the
+   Graph's own bottom edge lands on the Calendar's bottom edge).
+   Row 2: the tracking/payments table (col 1, under the
+   Calendar) | Recent Activity (col 2, under the Graph) — both
+   row-2 cells span the same grid row, so their top edges start
+   together and, stretched, their bottom edges land together too.
+   ========================================================= */
+.cd-row-2col {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 20px;
+  align-items: stretch;
+}
+.cd-row-2col .cd-cal-panel {
+  grid-column: 1;
+  grid-row: 1;
+}
+/* Campaign Details + Graph: natural heights, not stretched to force-fill the
+   Calendar's height — a compact fixed-height chart reads far better than a
+   mostly-empty box stretched to match a much taller calendar+rail card. */
+.cd-right-top {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.cd-right-top .cd-channels-panel {
+  display: flex;
+  flex-direction: column;
+}
+.cd-right-top .cd-channels-panel .fk-chart-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 150px;
+}
+.cd-right-top .cd-channels-panel .fk-chart {
+  height: 100%;
+}
+
+/* ---------- Donations by Channel (donor mix) - the card under the graph ----------
+   It is the next child of .cd-right-top, so it takes exactly the graph's column: same left edge, same right
+   edge. Font sizes on p / span / div are forced by the customiser (styles.css "Font size"), so every size
+   here on those elements is !important and scales from --fs-base. */
+.cd-mix-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cd-mix-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cd-mix-title {
+  margin: 0;
+  font-family: var(--fk-font-display);
+  font-weight: 700;
+  font-size: calc(var(--fs-base) * 1.35) !important;
+  line-height: 1.25;
+  color: var(--fk-ink);
+}
+.cd-mix-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 28px;
+}
+.cd-mix-ring {
+  position: relative;
+  width: 132px;
+  height: 132px;
+}
+.cd-mix-ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.cd-mix-track,
+.cd-mix-seg {
+  fill: none;
+  stroke-width: 3.4;
+}
+.cd-mix-track {
+  stroke: color-mix(in srgb, var(--fk-border) 70%, #ffffff);
+}
+.cd-mix-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.cd-mix-center strong {
+  font-family: var(--fk-font-display);
+  font-weight: 700;
+  font-size: calc(var(--fs-base) * 1.45);
+  line-height: 1;
+  color: var(--fk-ink);
+}
+.cd-mix-center span {
+  font-size: calc(var(--fs-base) * 0.66) !important;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fk-muted);
+}
+.cd-mix-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cd-mix-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+}
+/* Total donors: the sum of the channel rows above, set off by a hairline; no swatch, so the label starts at the
+   row's left edge. */
+.cd-mix-row-total {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--fk-border);
+}
+.cd-mix-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.cd-mix-name {
+  font-size: var(--fs-base) !important;
+  font-weight: 600;
+  color: var(--fk-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cd-mix-count {
+  font-family: var(--fk-font-display);
+  font-weight: 700;
+  font-size: calc(var(--fs-base) * 1.2);
+  color: var(--fk-ink);
+  text-align: right;
+}
+@media (max-width: 520px) {
+  .cd-mix-body {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+  .cd-mix-list {
+    width: 100%;
+  }
+}
+/* Row 2: the tracking table sits under the Calendar; Recent Activity sits under
+   Campaign Details/Graph. Both cells span the same grid row and stretch to its
+   full height, so their top edges (and, once each has content, their bottom
+   edges) line up exactly. */
+.cd-row-2col .cd-work-card-compact {
+  grid-column: 1;
+  grid-row: 2;
+}
+.cd-row-2col .cd-activity-panel {
+  grid-column: 2;
+  grid-row: 2;
+}
+@media (max-width: 1100px) {
+  .cd-row-2col {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+  }
+  .cd-row-2col .cd-cal-panel {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .cd-right-top {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .cd-row-2col .cd-work-card-compact {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .cd-row-2col .cd-activity-panel {
+    grid-column: 1;
+    grid-row: 4;
+  }
+}
+
+
+/* =====================================================================================================
+   KPI strip - one tile height.
+   Every KPI tile in the application is --lx-kpi-h tall (styles/ydot-premium.css, section 4a). These four carry
+   a headline, a delta badge and a footer, so at that height the badge moves to the corner and the small print
+   goes, rather than the tile growing. Four equal columns span the full width of the page.
+   ===================================================================================================== */
+.cd-kpi-grid > .fk-kpi {
+  justify-content: center;
+  gap: 4px;
+  padding: 14px 18px;
+}
+
+.cd-kpi-grid > .fk-kpi .fk-badge {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 1;
+}
+
+.cd-kpi-grid .fk-kpi-caption {
+  display: none;
+}
+
+/* The headline figures are <p>s, and the customiser forces every <p> to the base font size (styles.css,
+   "Font size"), which left them smaller than the Assets figure (a <strong>). One size for all four. */
+.cd-kpi-grid .fk-kpi-value,
+.cd-kpi-grid .fk-kpi-value-white {
+  font-size: calc(30px * var(--ui-scale, 1)) !important;
+  line-height: 1.1 !important;
+}
+
+/* Fixed-height tile: nothing inside may shrink away, so the line-heights are kept tight enough for
+   eyebrow + figure + footer to fit --lx-kpi-h. */
+.cd-kpi-grid .fk-kpi-eyebrow {
+  flex: none;
+  line-height: 1.2;
+}
+.cd-kpi-grid .fk-kpi-foot-col {
+  gap: 0;
+}
+.cd-kpi-grid .fk-kpi-foot-col span,
+.cd-kpi-grid .fk-kpi-foot-col strong {
+  line-height: 1.2;
+}
+.cd-kpi-grid .fk-badge {
+  padding: 2px 8px;
+  line-height: 1.2;
+}
+
+/* The badge sits in the corner, so the eyebrow stops short of it rather than running underneath. */
+.cd-kpi-grid > .fk-kpi > .fk-kpi-eyebrow,
+.cd-kpi-grid .fk-kpi-donors-head .fk-kpi-eyebrow {
+  padding-right: 52px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cd-kpi-grid .fk-kpi-foot {
+  padding-top: 6px;
+}
+
+
+/* =========================================================
+   Recent Activity - timeline (time | dashed rail + channel icon | tinted card).
+   Each row's colour comes from its kind (data-kind, see activityKind() in the .ts): email blue,
+   WhatsApp green, Instagram pink, people purple... - categorical, so it does not follow the theme.
+   Sizes carry !important because the theme customiser forces the base size on every span/p.
+   ========================================================= */
+.cd-activity-panel .fk-recent-title { font-size: 20px !important; }
+.cd-activity-panel .fk-recent-sub { font-size: 12px !important; }
+.ra-period {
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12px !important;
+  border-radius: 9px;
+  background: #fff;
+}
+.ra-period svg { width: 13px; height: 13px; }
+
+.ra-list {
+  --ra-when: 64px;
+  --ra-node: 30px;
+  --ra-gap: 12px;
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* the dashed rail, running through the centre of the icon column */
+.ra-list::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: calc(var(--ra-when) + var(--ra-gap) + var(--ra-node) / 2 - 1px);
+  border-left: 2px dashed #d6d9de;
+  pointer-events: none;
+}
+.ra-row {
+  --ra-ink: #3b6fd8;
+  --ra-tint: #edf3fe;
+  --ra-line: #d7e4fb;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--ra-when) var(--ra-node) minmax(0, 1fr);
+  column-gap: var(--ra-gap);
+  align-items: center;
+}
+.ra-row[data-kind='whatsapp']  { --ra-ink: #1f9d57; --ra-tint: #ecf8f0; --ra-line: #cdebd8; }
+.ra-row[data-kind='instagram'] { --ra-ink: #d6336c; --ra-tint: #fdeef3; --ra-line: #f7d3df; }
+.ra-row[data-kind='sms']       { --ra-ink: #c7811a; --ra-tint: #fdf5e7; --ra-line: #f3e0bd; }
+.ra-row[data-kind='person']    { --ra-ink: #7c5cd6; --ra-tint: #f2eefd; --ra-line: #e0d7f8; }
+.ra-row[data-kind='approve']   { --ra-ink: #0f8a7e; --ra-tint: #e9f6f4; --ra-line: #c9e8e3; }
+.ra-row[data-kind='create']    { --ra-ink: #2b86c5; --ra-tint: #eaf4fb; --ra-line: #cfe4f3; }
+.ra-row[data-kind='edit']      { --ra-ink: #56657a; --ra-tint: #f1f3f6; --ra-line: #e0e4ea; }
+.ra-row[data-kind='alert']     { --ra-ink: #c2413a; --ra-tint: #fdeeed; --ra-line: #f5d2cf; }
+
+.ra-when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2 !important;
+  text-align: right;
+}
+.ra-time {
+  font-family: var(--font-number);
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  color: #3d4652;
+  white-space: nowrap;
+}
+.ra-date {
+  font-size: 10.5px !important;
+  color: #8a929c;
+  white-space: nowrap;
+}
+.ra-node {
+  position: relative;
+  z-index: 1;
+  width: var(--ra-node);
+  height: var(--ra-node);
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff; /* only masks the dashed rail behind the icon */
+  color: var(--ra-ink);
+}
+.ra-node svg { width: 19px; height: 19px; }
+.ra-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--ra-line);
+  border-radius: 12px;
+  background: var(--ra-tint);
+  transition: transform .18s ease, border-color .18s ease;
+}
+.ra-row:hover .ra-bubble { transform: translateX(3px); border-color: var(--ra-ink); }
+.ra-title {
+  font-family: var(--font-display);
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  color: #1c232b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ra-detail {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+  color: #6b7480;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .ra-list { --ra-when: 52px; --ra-gap: 8px; }
+  .ra-title, .ra-detail { white-space: normal; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ra-bubble { transition: none; }
+  .ra-row:hover .ra-bubble { transform: none; }
+}
+
+/* =========================================================
+   KPI strip - stat cards in the app-wide anatomy (same as the tracking-asset / list screens):
+   icon (no disc) | label + delta chip / figure / one context line. White, hairline, no blobs.
+   ========================================================= */
+.cd-kpi-grid > .fk-kpi.cd-stat {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 20px 20px 18px;
+  background: #fff;
+  border: 1px solid #e6e8eb;
+  border-radius: var(--yc-radius, 20px);
+  color: #1c232b;
+}
+.cd-stat-ic {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  background: transparent !important;
+  color: var(--theme-primary, #07565b);
+}
+.cd-stat-ic svg { width: 24px; height: 24px; }
+.cd-stat-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cd-stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.cd-stat-label {
+  font-family: var(--font-heading);
+  font-size: var(--yc-eyebrow-size, 10px) !important;
+  font-weight: 700 !important;
+  letter-spacing: var(--yc-eyebrow-tracking, 0.8px);
+  text-transform: uppercase;
+  color: #3d4652;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-stat-chip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  white-space: nowrap;
+}
+.cd-stat-chip.is-up   { background: #e8f6ee; color: #1a8a50; }
+.cd-stat-chip.is-down { background: #fdf0e6; color: #c05a14; }
+.cd-stat-value {
+  font-family: var(--font-number);
+  font-size: calc(28px * var(--ui-scale, 1)) !important;
+  font-weight: 700 !important;
+  line-height: 1.15 !important;
+  color: #141a21;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-stat-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--yc-caption-size, 11px) !important;
+  color: #6b7480;
+  white-space: nowrap;
+}
+.cd-stat-sub span { font-size: inherit !important; }
+.cd-stat-sub strong { color: #1c232b; font-weight: 700; margin-left: 2px; }
+.cd-stat-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--theme-primary, #07565b);
+  font-size: inherit !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cd-stat-link:hover { text-decoration: underline; }

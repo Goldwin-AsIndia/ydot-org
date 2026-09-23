@@ -1,0 +1,120 @@
+<main class="app-wrapper">
+<div class="page-wrapper">
+<div class="org-page">
+  @if (notFound()) {
+    <div class="org-card org-empty">
+      <div class="org-empty-icon"><i class="ri-error-warning-line"></i></div>
+      <h3 class="org-empty-title">Organisation not found</h3>
+      <a routerLink="/app/administration/organisation/super-admin-view" class="org-btn org-btn-primary org-btn-sm">Back to Directory</a>
+    </div>
+  } @else if (organisation(); as org) {
+    <div class="org-breadcrumb">
+      <a routerLink="/app/administration/organisation/super-admin-view">Organisation Directory</a>
+      <span class="sep">/</span>
+      <span class="current">Owner Access</span>
+    </div>
+
+    <div class="org-header">
+      <div>
+        <h1 class="org-title"><span class="org-title-icon"><i class="ri-key-2-line"></i></span>Owner Login Entry</h1>
+        <p class="org-subtitle">Confirm the Organisation Owner's access before opening the record.</p>
+      </div>
+    </div>
+
+    <div class="org-doc-columns">
+      <section class="org-doc-section">
+        <h3 class="org-doc-heading org-doc-heading--blue">Owner Login / Access Information</h3>
+
+        <div class="org-banner org-banner-info">
+          <i class="ri-information-line"></i>
+          <span>Organisation Owner login access is managed through the existing YDot Login/User Management process. No new login is created here.</span>
+        </div>
+
+        <dl class="org-dl org-dl--spaced-top">
+          <div class="org-dl-row"><dt>Organisation Name</dt><dd>{{ org.name }}</dd></div>
+          <div class="org-dl-row"><dt>Organisation ID</dt><dd>{{ org.id }}</dd></div>
+          <div class="org-dl-row"><dt>Owner Name</dt><dd>{{ org.ownerName }}</dd></div>
+          <div class="org-dl-row"><dt>Owner Email / Login ID</dt><dd>{{ org.ownerEmail }}</dd></div>
+          <div class="org-dl-row"><dt>Account Status</dt><dd><span class="org-badge org-badge-warn">{{ org.ownerAccountStatus }}</span></dd></div>
+        </dl>
+
+        <div class="org-step-actions">
+          <button type="button" class="org-btn org-btn-ghost org-btn-sm" (click)="back()">Back</button>
+          <button type="button" class="org-btn org-btn-primary org-btn-sm" (click)="continue()">Continue</button>
+        </div>
+      </section>
+
+      <section class="org-doc-section">
+        <h3 class="org-doc-heading org-doc-heading--good">What happens next</h3>
+        <p class="org-doc-note">Continuing opens the Organisation Master Record. The Owner will use their existing YDot login to reach their own Organisation Details, Documents and Review &amp; Submit screens.</p>
+        <div class="org-next-steps">
+          <div class="org-next-step is-done">
+            <span class="org-next-step-num"><i class="ri-checkbox-circle-line"></i></span>
+            <p>Organisation Master Record created</p>
+          </div>
+          <div class="org-next-step">
+            <span class="org-next-step-num">2</span>
+            <p>Owner completes Information &amp; Documents</p>
+          </div>
+          <div class="org-next-step">
+            <span class="org-next-step-num">3</span>
+            <p>Owner submits for verification</p>
+          </div>
+          <div class="org-next-step">
+            <span class="org-next-step-num">4</span>
+            <p>Super Admin reviews and approves</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  } @else {
+    <div class="org-breadcrumb">
+      <a routerLink="/app/administration/organisation/super-admin-view">Organisation Directory</a>
+      <span class="sep">/</span>
+      <span class="current">Owner Access</span>
+    </div>
+
+    <div class="org-header">
+      <div>
+        <h1 class="org-title"><span class="org-title-icon"><i class="ri-key-2-line"></i></span>Owner Access</h1>
+        <p class="org-subtitle">Select an organisation to confirm the Owner's login/access information.</p>
+      </div>
+    </div>
+
+    @if (selectableOrganisations().length) {
+      <div class="org-card org-card--blue">
+        <div class="org-card-header"><span class="org-card-icon is-blue"><i class="ri-user-3-line"></i></span><h2 class="org-card-title">Organisations</h2></div>
+        <div class="org-table-scroll">
+          <table class="org-table">
+            <thead><tr><th>Organisation</th><th>ID</th><th>Owner</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+              @for (item of selectableOrganisations(); track item.id) {
+                <tr>
+                  <td>{{ item.name }}</td>
+                  <td>{{ item.id }}</td>
+                  <td>{{ item.ownerName }}</td>
+                  <td><span class="org-badge" [ngClass]="item.statusClass">{{ item.status }}</span></td>
+                  <td class="text-end">
+                    <a [routerLink]="['/app/administration/organisation/owner-access', item.id]" class="org-btn org-btn-primary org-btn-sm">Open</a>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    } @else {
+      <div class="org-card org-empty">
+        <div class="org-empty-icon"><i class="ri-inbox-line"></i></div>
+        <h3 class="org-empty-title">No organisations yet</h3>
+        <p class="org-empty-body">Register an organisation first &mdash; its Owner access will appear here.</p>
+        <div class="org-row-actions org-row-actions--center">
+          <a routerLink="/app/administration/organisation/setup-wizard" class="org-btn org-btn-primary org-btn-sm">Register Organisation</a>
+          <a routerLink="/app/administration/organisation/super-admin-view" class="org-btn org-btn-ghost org-btn-sm">Back to Directory</a>
+        </div>
+      </div>
+    }
+  }
+</div>
+</div>
+</main>

@@ -1,0 +1,433 @@
+.logo-dark {
+  fill: var(--pe-primary);
+}
+
+/* =============================================================================================
+   OPENING AND CLOSING THE MENU (the top bar's menu button drives all of this - see LayoutService)
+   ============================================================================================= */
+
+/* DESKTOP, FOLDED. The theme lays the icon rail out `position: absolute` at the height of the whole
+   document, so the moment the page scrolled the rail scrolled off with it and the menu was simply gone.
+   Fixed keeps it against the left edge like the expanded sidebar; the flyouts still open from it because
+   the folded rail has no scroll container of its own to clip them. */
+@media (min-width: 992px) {
+  /* :host-context, not a bare [data-sidebar='icon'] ancestor: this file is emulated-encapsulated, so a
+     plain attribute selector would be stamped with this component's scope attribute, which <html> never
+     carries, and the rule could not match. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar {
+    position: fixed;
+    height: 100vh;
+  }
+
+  /* The theme hides a folded item's label only for items marked `pe-has-sub`, so a plain link such as the
+     "Working inside" entry left its first letter poking out beside the icon. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide > .pe-nav-link .pe-nav-content {
+    display: none;
+  }
+
+  /* THE FLYOUTS. A folded item opens its children in a panel that sticks out of the 85px rail. The menu is
+     wrapped by SimpleBar (`overflow: hidden` on three of its wrappers), and the theme's own unmount step
+     rewrites the DOM to remove them - which cannot be done here, the list is Angular-rendered - so the
+     panels were cut off at the rail's edge. Letting the wrappers overflow while folded does the same job,
+     and the scroll track has nothing to scroll in a folded rail, so it goes. SimpleBar builds these
+     elements at runtime, hence ::ng-deep. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar ::ng-deep :is(.simplebar-wrapper, .simplebar-mask, .simplebar-content-wrapper) {
+    overflow: visible !important;
+  }
+
+  :host-context([data-sidebar='icon']) .pe-app-sidebar ::ng-deep .simplebar-track {
+    display: none !important;
+  }
+
+  /* Glide between the two widths instead of snapping. */
+  .pe-app-sidebar {
+    transition: width 0.2s ease;
+  }
+}
+
+/* PHONE / TABLET. The theme hides the sidebar with `display: none` and shows it with `.show`; a display
+   flip cannot animate and gave no sense of a drawer. It is always rendered here and slid in and out,
+   hidden from focus and screen readers while shut. */
+@media (max-width: 991.98px) {
+  .pe-app-sidebar {
+    display: block;
+    width: min(var(--pe-app-sidebar-width), 86vw);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.25s var(--lx-ease, ease), visibility 0s linear 0.25s;
+  }
+
+  .pe-app-sidebar.show {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.25s var(--lx-ease, ease), visibility 0s;
+  }
+
+  :host-context([dir='rtl']) .pe-app-sidebar {
+    transform: translateX(100%);
+  }
+
+  :host-context([dir='rtl']) .pe-app-sidebar.show {
+    transform: none;
+  }
+}
+
+/* =============================================================================================
+   THE FOLDED RAIL'S FLYOUTS
+   =============================================================================================
+
+   THE BUG THIS FIXES. Every group in the expanded menu is a Bootstrap collapse, and a group you have opened
+   (by visiting a page inside it) keeps `.show`. Fold the menu and the theme turns each sub-menu into a
+   floating flyout - but `.show` still forces the open ones to display, so after navigating around and
+   folding, a panel hung beside the rail until a refresh reset the classes. A flyout belongs to hover alone:
+   only the item under the pointer may show one. The expanded state itself is left alone, so widening the
+   menu again finds every group as it was.
+
+   THE LOOK. Flat and hairline like the rest of the shell (no shadow, no gradient, no rail lines): a paper
+   panel with a warm gold-tinted edge, the group's name as a title over a fine rule, generous rows, and the
+   one gold used everywhere else for hover and for "you are here". */
+@media (min-width: 992px) {
+  :host-context([data-sidebar='icon']) .pe-app-sidebar {
+    /* The flyout is not indented by level: nested panels open to the side instead. */
+    --pe-menu-indent-l2: 14px;
+    --pe-menu-indent-l3: 14px;
+    --sb-fly-line: color-mix(in srgb, var(--lx-gold, #c1a466) 34%, #e4e0d6);
+    --sb-fly-gap: 10px;
+  }
+
+  /* Only the item under the pointer shows a flyout (see THE BUG above). */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu > .pe-slide:not(:hover) > .pe-slide-menu {
+    display: none !important;
+  }
+
+  /* The selectors below repeat the theme's own `.pe-slide.pe-has-sub .pe-slide-menu` chain on purpose: the
+     theme's flyout rules carry that many classes, and matching them means these win on specificity alone
+     rather than on the scoping attributes Angular happens to add. */
+
+  /* ---- The panel, first level and nested alike ---- */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu,
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-slide-item.pe-has-sub .pe-slide-menu {
+    width: max-content;
+    min-width: 15.5rem;
+    max-width: 21rem;
+    padding: 10px;
+    margin-inline-start: var(--sb-fly-gap);
+    border: 1px solid var(--sb-fly-line);
+    border-radius: 16px;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  /* A pointer crossing the gap between rail and panel must not lose the hover, or the panel would
+     close under it: an invisible bridge fills the gap. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu::before,
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-slide-item.pe-has-sub .pe-slide-menu::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: calc(-1 * var(--sb-fly-gap) - 2px);
+    width: calc(var(--sb-fly-gap) + 2px);
+  }
+
+  /* No vertical guide line: it belongs to the expanded tree. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-slide-item.pe-has-sub .pe-slide-menu::before {
+    inset-inline-start: calc(-1 * (var(--sb-fly-gap) + 13px));
+    width: calc(var(--sb-fly-gap) + 13px);
+  }
+
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu::after,
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-slide-item.pe-has-sub .pe-slide-menu::after {
+    display: none;
+  }
+
+  /* First level: rises to the row it belongs to, and eases in. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu > .pe-slide.pe-has-sub > .pe-slide-menu {
+    margin-top: -52px;
+    animation: sb-flyout-in 0.18s var(--lx-ease, ease) both;
+  }
+
+  /* Nested: opens to the side of its parent row, aligned with the row (panel padding above it). */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-slide-item.pe-has-sub .pe-slide-menu {
+    margin-top: -11px;
+    /* Clear the parent panel's own padding and border (10px + 1px) so the gap matches the first level's. */
+    margin-inline-start: calc(var(--sb-fly-gap) + 11px);
+    transform: translateX(-6px);
+    transition: opacity 0.16s ease, visibility 0.16s ease, transform 0.16s var(--lx-ease, ease);
+  }
+
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-slide-item.pe-has-sub:hover > .pe-slide-menu {
+    transform: none;
+  }
+
+  /* ---- The title: the group's name, over a fine gold rule ---- */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu > .pe-nav-content1 {
+    display: block;
+    margin: 0 4px 8px;
+    padding: 4px 10px 12px;
+    border-bottom: 1px solid var(--sb-fly-line);
+    list-style: none;
+  }
+
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu > .pe-nav-content1 a {
+    display: block;
+    padding: 0;
+    background: none !important;
+    color: var(--theme-deep, #1f2d2a) !important;
+    font-family: var(--font-heading, var(--font-ui, sans-serif)) !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.01em;
+    pointer-events: none;
+  }
+
+  /* ---- The rows ---- */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 42px;
+    padding: 9px 14px;
+    border-radius: 11px !important;
+    background: transparent !important;
+    color: var(--theme-ink, #1f2d2a) !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
+    line-height: 1.3;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  /* The little tick the expanded tree draws beside a hovered row. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-nav-link::before,
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-nav-link::after {
+    display: none !important;
+  }
+
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-nav-link:hover,
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-slide-item.pe-has-sub:hover > .pe-nav-link {
+    background: color-mix(in srgb, var(--lx-gold, #c1a466) 17%, #fff) !important;
+    color: var(--lx-gold-ink, #1e1907) !important;
+  }
+
+  /* "You are here": the same solid gold as the selected item in the rail. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-nav-link.active {
+    background: var(--lx-gold, #c1a466) !important;
+    color: var(--lx-gold-ink, #1e1907) !important;
+    font-weight: 600 !important;
+  }
+
+  /* A row that opens a further panel: a quiet chevron pointing where the panel will appear, always -
+     the expanded tree's "open / closed" rotation means nothing here. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-nav-arrow {
+    margin-inline-start: auto;
+    color: var(--lx-gold-deep, #6f571f) !important;
+    font-size: 16px !important;
+    transform: none !important;
+  }
+
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-nav-arrow.arrow-left {
+    display: none;
+  }
+
+  :host-context([data-sidebar='icon'][dir='rtl']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-nav-arrow.arrow-right {
+    display: none;
+  }
+
+  :host-context([data-sidebar='icon'][dir='rtl']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-nav-arrow.arrow-left {
+    display: inline-block;
+  }
+}
+
+@keyframes sb-flyout-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The close button inside the drawer: the top bar's button sits under the open drawer, so the drawer
+   carries its own. Never shown on a desktop, where the rail is permanent. */
+.sidebar-close {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-inline-start: auto;
+  padding: 0;
+  border: 1px solid var(--theme-border, #e3e8e5);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--theme-ink, #1f2d2a);
+  cursor: pointer;
+}
+
+.sidebar-close i {
+  font-size: 20px;
+  line-height: 1;
+}
+
+@media (max-width: 991.98px) {
+  .sidebar-close {
+    display: inline-flex;
+  }
+}
+
+/* ── Sidebar with background image: gradient overlay + white text ── */
+.pe-app-sidebar.theme-bg-active {
+  background-image: linear-gradient(
+      rgba(17, 24, 39, 0.75),
+      rgba(17, 24, 39, 0.85)
+    ),
+    var(--pe-sidebar-bg-image, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* White text/icons when background image active */
+.pe-app-sidebar.theme-bg-active .pe-nav-link,
+.pe-app-sidebar.theme-bg-active .pe-nav-content,
+.pe-app-sidebar.theme-bg-active .pe-menu-title,
+.pe-app-sidebar.theme-bg-active .pe-nav-icon,
+.pe-app-sidebar.theme-bg-active .pe-nav-arrow {
+  color: #ffffff !important;
+}
+.pe-app-sidebar .logo-dark{
+    /* filter: grayscale(1) brightness(0) invert(1); */
+}
+
+.pe-app-sidebar.theme-bg-active .pe-nav-link:hover,
+.pe-app-sidebar.theme-bg-active .pe-nav-link.active {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+
+.pe-app-sidebar.theme-bg-active .pe-app-sidebar-logo h3 {
+  color: #ffffff !important;
+}
+
+.pe-app-sidebar.theme-bg-active .pe-slide-menu .pe-nav-link::before {
+  background-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* =============================================================================================
+   MENU DEPTH — one indent step per level, and icons only on the top level
+   =============================================================================================
+
+   THE PROBLEM THIS SOLVES. The theme indents every link inside a `.pe-slide-menu` by the same
+   35px, and only steps deeper through `.pe-slide-menu .pe-slide-item .pe-slide-menu`. The
+   sidebar's third level was wrapped in `pe-slide` rather than `pe-slide-item`, so that rule
+   never matched and a child sub-menu started on exactly the same vertical line as the child
+   above it — "Access and Identity" and "User Directory" were indistinguishable as parent and
+   ancestor. The template now uses the class the theme expects; these rules make the scale
+   explicit rather than leaving it to a vendor selector that has already drifted once.
+
+   MEASURED FROM DEPTH, NOT FROM A CLASS NAME. `.pe-slide-menu .pe-slide-menu` is true of a third
+   level however its wrapper `<li>` is classed, so a future edit to the markup cannot silently
+   flatten the tree again the way the last one did.
+
+   LOGICAL PROPERTIES THROUGHOUT. The theme ships a mirrored stylesheet and the Direction control
+   swaps to it wholesale, so `padding-inline-start` and `inset-inline-start` are what keep one
+   set of rules correct in both directions — a `padding-left` here would indent from the wrong
+   edge the moment somebody chose RTL.
+   ============================================================================================= */
+
+.pe-app-sidebar {
+  /* One scale, named once. The step between levels is deliberately larger than the eye needs to
+     notice (20px) because the sidebar is scanned quickly and at a glance, not read. */
+  --pe-menu-indent-l2: 44px;
+  --pe-menu-indent-l3: 64px;
+
+  /* The guide line and the active marker travel with the text they belong to; leaving them at
+     the theme's 18/19px would leave a child sub-menu's rail sitting under its parent's. */
+  --pe-menu-rail-l2: 22px;
+  --pe-menu-rail-l3: 42px;
+}
+
+/* ---- Level 2: a child of a top-level group ---- */
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu > li > .pe-nav-link,
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu > li > a {
+  padding-inline-start: var(--pe-menu-indent-l2);
+  padding-inline-end: 12px;
+}
+
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu::after {
+  inset-inline-start: var(--pe-menu-rail-l2);
+}
+
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu > li > .pe-nav-link::before {
+  inset-inline-start: calc(var(--pe-menu-rail-l2) - 1px);
+}
+
+/* ---- Level 3: a child sub-menu, one step deeper again ---- */
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu .pe-slide-menu > li > .pe-nav-link,
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu .pe-slide-menu > li > a {
+  padding-inline-start: var(--pe-menu-indent-l3);
+}
+
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu .pe-slide-menu::after {
+  inset-inline-start: var(--pe-menu-rail-l3);
+}
+
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu .pe-slide-menu > li > .pe-nav-link::before {
+  inset-inline-start: calc(var(--pe-menu-rail-l3) - 1px);
+}
+
+/* The nested list carries no padding of its own: the step lives on the link, so the guide line
+   and the hover background still span the full width of the sidebar rather than starting short
+   of it. */
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu .pe-slide-item .pe-slide-menu {
+  padding-inline-start: 0;
+}
+
+/* The folded rail's own scale (a narrow flyout instead of the expanded ladder) is set with the flyout
+   styles at the top of this file. */
+
+/* =============================================================================================
+   ICONS: EVERY TOP-LEVEL ITEM HAS ONE, NOTHING BELOW IT DOES
+   ============================================================================================= */
+
+/* A FIXED SLOT, SO THE LABELS LINE UP. Remix glyphs are not all the same width, and without a
+   reserved box every top-level label sat a pixel or two off its neighbour — which reads as a
+   wobble down the left edge of the menu rather than as a list. */
+.pe-app-sidebar .pe-app-sidebar-menu .pe-main-menu > li > .pe-nav-link > .pe-nav-icon {
+  flex: 0 0 auto;
+  inline-size: 1.25rem;
+  text-align: center;
+  line-height: 1;
+}
+
+/* NOTHING BELOW THE TOP LEVEL CARRIES AN ICON, and this enforces it rather than trusting the
+   template to keep not adding one. The menu is server-driven: every node in the catalogue has an
+   `Icon` column, including the children, so a child icon is one edit away at any time — and a
+   half-iconed submenu is worse than either choice made consistently.
+
+   THE COLLAPSE ARROWS ARE NOT ICONS and must survive: they are the only thing telling a reader
+   that a child sub-menu opens. Hence the exclusion rather than a blanket `i { display:none }`,
+   which would have hidden them and left a group that looked like a dead link. */
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu .pe-nav-link > i:not(.pe-nav-arrow),
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu a > i:not(.pe-nav-arrow) {
+  display: none;
+}
+
+/* ---- Small screens: the sidebar is an overlay and the same ladder applies ----
+   Declared explicitly so a narrower viewport cannot inherit the icon-mode scale from a stale
+   `data-sidebar` attribute left over from a wider one. */
+@media (max-width: 991.98px) {
+  /* Both forms, because the icon-mode block above is an attribute selector and would otherwise
+     out-specify a bare `.pe-app-sidebar` here — leaving a phone showing the compressed flyout
+     ladder on a full-width overlay, which is the opposite of what this block is for. */
+  [data-sidebar] .pe-app-sidebar,
+  .pe-app-sidebar {
+    --pe-menu-indent-l2: 40px;
+    --pe-menu-indent-l3: 58px;
+    --pe-menu-rail-l2: 20px;
+    --pe-menu-rail-l3: 38px;
+  }
+}

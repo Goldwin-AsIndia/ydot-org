@@ -1,0 +1,299 @@
+/* =====================================================================================================
+   YDot Card — the ONE card template for the whole application.
+
+   SOURCE OF TRUTH
+   Every value below was extracted from the Campaign Detail page (campaign-detail.css: .fk-panel,
+   .fk-kpi, .fk-ic-bubble, .fk-rail-card and their title / eyebrow / value / caption rules), which is
+   the Figma-ported design. Nothing in a screen's own stylesheet should hard-code a card radius,
+   border, background, shadow or padding any more — it reads the --yc-* tokens defined here. To
+   restyle every card in the application, change the tokens in this file and nowhere else.
+
+   HOW SCREENS USE IT
+   1. New markup: put the class `ydot-card` on the shell and use the `ydot-card__*` parts and the
+      `ydot-card--*` variants below. The shell is content-agnostic: icons, titles, values, charts,
+      tables, lists, badges and form fields all sit inside `ydot-card__body` (or directly in the card).
+   2. Existing screens: each screen's own card class (`.stat-card`, `.summary-card`, `.pr-tile` ...)
+      keeps its layout rules, but its shell declarations (background / border / radius / shadow /
+      padding) reference the tokens below instead of carrying their own values.
+   3. Bootstrap `.card` (used across many screens) is re-pointed at the tokens in section 4.
+
+   TYPOGRAPHY NOTE
+   The theme customiser (styles.css, "Global Theme Customizer Variables") forces font-FAMILY on
+   headings, p, span, div ... with !important, so the family inside a card is the theme's choice by
+   design. The card template therefore standardises size, weight, colour, tracking and spacing; it
+   does not fight the theme over font-family.
+   ===================================================================================================== */
+
+/* ---------- 1. Tokens ---------- */
+:root {
+  /* Surface */
+  --yc-bg: #ffffff;
+  --yc-bg-muted: color-mix(in srgb, var(--theme-surface-tint, #edf1f4) 60%, #ffffff);            /* header bands, table heads, inset wells   (campaign-detail --fk-panel-bg) */
+  --yc-border-color: var(--theme-border, #e5e8ec);        /* (--fk-border) */
+  /* NO CARD OUTLINE (by request) - a card is just white on the page's own grey, no border at all,
+     even under a Bootstrap `.border`/`.border-0` utility (section 4 re-points those at this token
+     too). A divider BETWEEN a card's own head/body/foot is a different thing and stays. */
+  --yc-border: none;
+  --yc-divider: 1px solid var(--yc-border-color);
+
+  /* Shape */
+  --yc-radius: 20px;                 /* .fk-panel / .fk-kpi */
+  --yc-radius-inner: 16px;           /* nested card inside a card (.fk-rail-card) */
+  --yc-radius-badge: 50%;            /* icon badge is a circle (.fk-ic-bubble) */
+
+  /* Spacing */
+  --yc-pad: 24px;                    /* .fk-panel */
+  --yc-pad-kpi: 20px;                /* .fk-kpi */
+  --yc-head-pad: 20px 24px;          /* .fk-cal-head */
+  --yc-gap: 16px;                    /* .fk-overview-panel / .fk-chart-panel */
+  --yc-gap-kpi: 10px;                /* .fk-kpi */
+
+  /* Elevation — the card is flat: the border carries the edge, no shadow. */
+  --yc-shadow: none;
+  --yc-shadow-inner: none;   /* only a card nested in a card */
+
+  /* Colour */
+  --yc-ink: var(--theme-ink, #152f32);                 /* titles, values (--fk-ink) */
+  --yc-muted: var(--theme-muted, #647579);               /* sub-text, captions (--fk-muted) */
+  --yc-faint: #a0adb5;               /* axis, placeholders (--fk-faint) */
+  --yc-accent: var(--theme-primary, #07565b);              /* eyebrow, icon glyph, links (--fk-teal) */
+  --yc-accent-light: var(--theme-primary-light, #0a8a92);        /* (--fk-teal-light) */
+  --yc-accent-soft: var(--theme-surface-tint, hsl(calc(var(--theme-hue) + 21) 27.8% 92.9%));         /* icon badge fill (--fk-mint-bg) */
+  --yc-lime: var(--theme-accent, #c8e36d);
+  --yc-lime-soft: color-mix(in srgb, var(--theme-accent, #c8e36d) 14%, #ffffff);
+
+  /* Semantic tones (alert cards, status) — the status-pill palette of Campaign Detail */
+  --yc-success-bg: #f0fdf4; --yc-success-border: #b9f8cf; --yc-success-ink: #00a63e;
+  --yc-info-bg:    #eff6ff; --yc-info-border:    #bfdbfe; --yc-info-ink:    #1447e6;
+  --yc-warn-bg:    #fff7ed; --yc-warn-border:    #fed7aa; --yc-warn-ink:    #c2410c;
+  --yc-danger-bg:  #fdf2f8; --yc-danger-border:  #fbcfe8; --yc-danger-ink:  #b1123f;
+
+  /* Typography (size / weight / tracking — family follows the theme, see header note) */
+  --yc-title-size: 20px;      --yc-title-weight: 700;       /* .fk-overview-title / .fk-cal-title */
+  --yc-heading-size: 13px;    --yc-heading-weight: 600;     /* .fk-donut-title / .fk-rail-card-title */
+  --yc-subtitle-size: 11px;   --yc-subtitle-weight: 400;    /* .fk-cal-sub */
+  --yc-eyebrow-size: 10px;    --yc-eyebrow-weight: 700;  --yc-eyebrow-tracking: 0.8px;   /* .fk-kpi-eyebrow */
+  --yc-value-size: 28px;      --yc-value-line: 32px;     --yc-value-weight: 700;        /* .fk-kpi-value */
+  --yc-caption-size: 11px;    --yc-caption-weight: 500;     /* .fk-kpi-caption */
+
+  /* Icon badge (.fk-ic-bubble) */
+  --yc-icon-size: 32px;
+}
+
+/* ---------- 2. Base shell ---------- */
+.ydot-card {
+  position: relative;
+  min-width: 0;
+  background: var(--yc-bg);
+  border: var(--yc-border);
+  border-radius: var(--yc-radius);
+  padding: var(--yc-pad);
+  box-shadow: none;
+  color: var(--yc-ink);
+}
+
+/* ---------- 3. Variants (all share the shell above) ---------- */
+
+/* KPI / stat card: icon + eyebrow + big value + caption / foot. */
+.ydot-card--kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yc-gap-kpi);
+  padding: var(--yc-pad-kpi);
+  overflow: hidden;
+}
+
+/* Chart / info-detail / list card: stacked head + body. */
+.ydot-card--stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yc-gap);
+}
+
+/* Table / list wrapper: the header band and rows own their own padding. */
+.ydot-card--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* A card nested inside another card. */
+.ydot-card--inner {
+  border-radius: var(--yc-radius-inner);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+/* Alert / notification card — same shell, tone colours only. */
+.ydot-card--alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--yc-gap);
+}
+.ydot-card--success { background: var(--yc-success-bg); border-color: var(--yc-success-border); color: var(--yc-success-ink); }
+.ydot-card--info    { background: var(--yc-info-bg);    border-color: var(--yc-info-border);    color: var(--yc-info-ink); }
+.ydot-card--warn    { background: var(--yc-warn-bg);    border-color: var(--yc-warn-border);    color: var(--yc-warn-ink); }
+.ydot-card--danger  { background: var(--yc-danger-bg);  border-color: var(--yc-danger-border);  color: var(--yc-danger-ink); }
+
+/* Clickable card: the only card state that changes on hover. */
+.ydot-card--interactive {
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.ydot-card--interactive:hover {
+  border-color: var(--yc-accent);
+}
+.ydot-card--interactive:focus-visible {
+  outline: 2px solid var(--yc-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- 4. Parts ---------- */
+.ydot-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--yc-gap);
+  flex-wrap: wrap;
+}
+.ydot-card--flush > .ydot-card__head {
+  padding: var(--yc-head-pad);
+  border-bottom: var(--yc-divider);
+}
+.ydot-card__head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.ydot-card__title {
+  margin: 0;
+  font-size: var(--yc-title-size);
+  font-weight: var(--yc-title-weight);
+  line-height: 1.25;
+  color: var(--yc-ink);
+}
+.ydot-card__title--sm {
+  font-size: var(--yc-heading-size);
+  font-weight: var(--yc-heading-weight);
+}
+.ydot-card__subtitle {
+  margin: 0;
+  font-size: var(--yc-subtitle-size);
+  font-weight: var(--yc-subtitle-weight);
+  color: var(--yc-muted);
+}
+.ydot-card__eyebrow {
+  margin: 0;
+  font-size: var(--yc-eyebrow-size);
+  font-weight: var(--yc-eyebrow-weight);
+  letter-spacing: var(--yc-eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--yc-accent);
+}
+.ydot-card__value {
+  margin: 0;
+  font-size: var(--yc-value-size);
+  font-weight: var(--yc-value-weight);
+  line-height: var(--yc-value-line);
+  color: var(--yc-ink);
+}
+.ydot-card__caption {
+  margin: 0;
+  font-size: var(--yc-caption-size);
+  font-weight: var(--yc-caption-weight);
+  color: var(--yc-muted);
+}
+.ydot-card__body {
+  min-width: 0;
+}
+.ydot-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: var(--yc-divider);
+}
+.ydot-card__icon {
+  flex: none;
+  width: var(--yc-icon-size);
+  height: var(--yc-icon-size);
+  border-radius: var(--yc-radius-badge);
+  background: var(--yc-accent-soft);
+  border: 1px solid var(--yc-accent);
+  color: var(--yc-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ydot-card__icon > svg,
+.ydot-card__icon > i {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ---------- 5. Bootstrap `.card` — re-pointed at the tokens ----------
+   Many screens use plain Bootstrap `.card` / `.card-header` / `.card-body` / `.card-footer`. The
+   template's --pe-card-* variables are overridden so those cards render the same shell. The
+   header-bar dropdown cards (navigation chrome, inside `.dropdown-menu`) are deliberately left
+   alone. */
+.card:not(.dropdown-menu *),
+.detail-card,
+.profile-header-card {
+  --pe-card-bg: var(--yc-bg);
+  --pe-card-border-width: 1px;
+  --pe-card-border-color: var(--yc-border-color);
+  --pe-card-border-radius: var(--yc-radius);
+  --pe-card-inner-border-radius: calc(var(--yc-radius) - 1px);
+  --pe-card-box-shadow: var(--yc-shadow);
+  --pe-card-spacer-y: var(--yc-pad);
+  --pe-card-spacer-x: var(--yc-pad);
+  --pe-card-cap-padding-y: var(--yc-pad);
+  --pe-card-cap-padding-x: var(--yc-pad);
+  --pe-card-cap-bg: transparent;
+  --pe-card-title-color: var(--yc-ink);
+  background-color: var(--yc-bg);
+  border: var(--yc-border);
+  border-radius: var(--yc-radius);
+  box-shadow: none;
+}
+.card:not(.dropdown-menu *) > .card-header {
+  border-bottom: var(--yc-divider);
+  padding: var(--yc-head-pad);
+  background: transparent;
+}
+.card:not(.dropdown-menu *) > .card-header .card-title {
+  font-size: var(--yc-title-size);
+  font-weight: var(--yc-title-weight);
+  color: var(--yc-ink);
+  margin: 0;
+}
+.card:not(.dropdown-menu *) > .card-footer {
+  border-top: var(--yc-divider);
+  background: transparent;
+}
+/* Bootstrap utility classes on a .card (`border-0`, `shadow-sm`, `rounded-4` ...) are !important and
+   would otherwise pull individual cards off the template. */
+.card:not(.dropdown-menu *).border,
+.card:not(.dropdown-menu *).border-0 {
+  border: var(--yc-border) !important;
+}
+.card:not(.dropdown-menu *).shadow,
+.card:not(.dropdown-menu *).shadow-sm,
+.card:not(.dropdown-menu *).shadow-lg {
+  box-shadow: none !important;
+}
+.card:not(.dropdown-menu *).rounded,
+.card:not(.dropdown-menu *).rounded-3,
+.card:not(.dropdown-menu *).rounded-4 {
+  border-radius: var(--yc-radius) !important;
+}
+.card:not(.dropdown-menu *).bg-white {
+  background-color: var(--yc-bg) !important;
+}
+/* The Bootstrap template draws a decorative accent bar in front of every .card-title. */
+.card:not(.dropdown-menu *) .card-title::before {
+  display: none;
+}

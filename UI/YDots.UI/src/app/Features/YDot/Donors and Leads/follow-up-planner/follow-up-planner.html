@@ -1,0 +1,367 @@
+<main class="app-wrapper">
+  <div class="page-wrapper">
+    <div class="container-fluid px-4 py-3">
+      <app-page-header screen="follow-up-planner" title="Follow-up Planner" subtitle="Schedule a follow-up for a lead or donor.">
+      </app-page-header>
+      @if (uiState() === 'loading') {
+        <div class="fup-card" role="status">Loading follow-up planner…</div>
+      } @else if (uiState() === 'error') {
+        <div class="fup-card" role="alert">
+          <p>The planner or requested follow-up could not be loaded.</p>
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm"
+            (click)="load()"
+            title="Retry"
+          >
+            ↻ Retry
+          </button>
+        </div>
+      } @else if (!hasRecord()) {
+        <section class="fup-card">
+          <h2>Select a follow-up record</h2>
+          <div class="fup-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record</th>
+                  <th>Due date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of rows(); track row.id) {
+                  <tr>
+                    <td>{{ row.donorDisplayName || row.leadReference || row.donorReference }}</td>
+                    <td class="fup-number">{{ row.dueAtUtc | date: 'medium' }}</td>
+                    <td>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        title="View follow-up"
+                        aria-label="View follow-up"
+                        (click)="selectRecord(row)"
+                      >
+                        <i class="ri-eye-line" aria-hidden="true"></i>
+                      </button>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="3">
+                      Open this planner from a lead or donor to schedule a follow-up.
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      } @else {
+        <section class="fup-card" aria-labelledby="record-title">
+          <h2 id="record-title">
+            <span class="fup-symbol"><i class="ri-user-line" aria-hidden="true"></i></span>Record
+            Details
+          </h2>
+          <dl class="fup-record">
+            <div>
+              <span class="fup-symbol"><i class="ri-group-line" aria-hidden="true"></i></span>
+              <div>
+                <dt>Record Type</dt>
+                <dd>{{ resolvedLeadId() ? 'Lead' : 'Donor' }}</dd>
+              </div>
+            </div>
+            <div>
+              <span class="fup-symbol"><i class="ri-user-line" aria-hidden="true"></i></span>
+              <div>
+                <dt>Name</dt>
+                <dd>{{ record().name }}</dd>
+              </div>
+            </div>
+            <div>
+              <span class="fup-symbol"><i class="ri-mail-line" aria-hidden="true"></i></span>
+              <div>
+                <dt>Email</dt>
+                <dd>{{ record().email }}</dd>
+              </div>
+            </div>
+            <div>
+              <span class="fup-symbol"><i class="ri-phone-line" aria-hidden="true"></i></span>
+              <div>
+                <dt>Phone</dt>
+                <dd class="fup-number">{{ record().phone }}</dd>
+              </div>
+            </div>
+            <div>
+              <span class="fup-symbol"><i class="ri-group-line" aria-hidden="true"></i></span>
+              <div>
+                <dt>Current Owner</dt>
+                <dd>{{ record().owner }}</dd>
+              </div>
+            </div>
+          </dl>
+        </section>
+        <section class="fup-card" aria-labelledby="details-title">
+          <h2 id="details-title">
+            <span class="fup-symbol"><i class="ri-calendar-check-line" aria-hidden="true"></i></span
+            >Follow-up Details
+          </h2>
+          @if (existing()) {
+            <p class="fup-info">
+              To reschedule this follow-up, update its date, time, or priority.
+            </p>
+          }
+          <div class="fup-fields">
+            <div class="fup-field">
+              <label for="channel">Follow-up Type <span class="fup-required">*</span></label>
+              @if (channelOptions().length > 20) {
+                <input
+                  type="search"
+                  class="form-control"
+                  placeholder="Search follow-up type"
+                  aria-label="Search follow-up type"
+                  [ngModel]="searches()['channel'] || ''"
+                  (ngModelChange)="searchOptions('channel', $event)"
+                />
+              }
+              <div class="fup-control">
+                <i class="ri-phone-line" aria-hidden="true"></i
+                ><select
+                  id="channel"
+                  [disabled]="!!existing()"
+                  class="form-select"
+                  required
+                  [ngModel]="followUpType()"
+                  (ngModelChange)="followUpType.set($event); checkConsent()"
+                >
+                  <option value="" disabled>Select follow-up type</option>
+                  @for (option of options('channel', channelOptions()); track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+            <div class="fup-field">
+              <label for="purpose">Follow-up Reason <span class="fup-required">*</span></label>
+              <div class="fup-control">
+                <i class="ri-chat-3-line" aria-hidden="true"></i
+                ><input
+                  id="purpose"
+                  [readOnly]="!!existing()"
+                  class="form-control"
+                  required
+                  maxlength="500"
+                  placeholder="Enter follow-up reason"
+                  [ngModel]="purpose()"
+                  (ngModelChange)="purpose.set($event)"
+                />
+              </div>
+            </div>
+            <div class="fup-field">
+              <label for="date">Scheduled Date <span class="fup-required">*</span></label
+              ><input
+                id="date"
+                type="date"
+                class="form-control fup-number"
+                required
+                [ngModel]="scheduledDate()"
+                (ngModelChange)="scheduledDate.set($event)"
+              />
+            </div>
+            <div class="fup-field">
+              <label for="time">Scheduled Time <span class="fup-required">*</span></label
+              ><input
+                id="time"
+                type="time"
+                class="form-control fup-number"
+                required
+                [ngModel]="scheduledTime()"
+                (ngModelChange)="scheduledTime.set($event)"
+              />
+            </div>
+            <div class="fup-assignment">
+              <div class="fup-field">
+                <label for="owner">Assigned User <span class="fup-required">*</span></label>
+                @if (ownerOptions().length > 20) {
+                  <input
+                    type="search"
+                    class="form-control"
+                    placeholder="Search assigned user"
+                    aria-label="Search assigned user"
+                    [ngModel]="searches()['owner'] || ''"
+                    (ngModelChange)="searchOptions('owner', $event)"
+                  />
+                }
+                <div class="fup-control">
+                  <i class="ri-user-line" aria-hidden="true"></i
+                  ><select
+                    id="owner"
+                    [disabled]="!!existing()"
+                    class="form-select"
+                    required
+                    [ngModel]="owner()"
+                    (ngModelChange)="owner.set($event)"
+                  >
+                    <option value="" disabled>Select assigned user</option>
+                    @for (option of options('owner', ownerOptions()); track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+              <p class="fup-info">
+                <i class="ri-information-line" aria-hidden="true"></i>Assigning a user here assigns
+                responsibility for this follow-up only. It does not change the lead owner.
+              </p>
+            </div>
+            <div class="fup-field fup-notes">
+              <label for="outcome">Follow-up Instructions / Expected Outcome</label
+              ><textarea
+                id="outcome"
+                [readOnly]="!!existing()"
+                class="form-control"
+                rows="4"
+                maxlength="500"
+                placeholder="Add instructions or context for this follow-up…"
+                [ngModel]="expectedOutcome()"
+                (ngModelChange)="expectedOutcome.set($event)"
+              ></textarea
+              ><span class="fup-count fup-number">{{ expectedOutcome().length }}/500</span>
+            </div>
+            <div class="fup-field">
+              <label for="priority">Priority <span class="fup-required">*</span></label>
+              @if (priorityOptions().length > 20) {
+                <input
+                  type="search"
+                  class="form-control"
+                  placeholder="Search priority"
+                  aria-label="Search priority"
+                  [ngModel]="searches()['priority'] || ''"
+                  (ngModelChange)="searchOptions('priority', $event)"
+                />
+              }
+              <div class="fup-control">
+                <i class="ri-flag-line" aria-hidden="true"></i
+                ><select
+                  id="priority"
+                  class="form-select"
+                  required
+                  [ngModel]="priority()"
+                  (ngModelChange)="priority.set($event)"
+                >
+                  <option value="" disabled>Select priority</option>
+                  @for (option of options('priority', priorityOptions()); track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+            <div class="fup-context">
+              <span>Preferred language: {{ preferredLanguage() || 'Not specified' }}</span
+              ><span
+                >Preferred contact time:
+                {{ existing()?.preferredContactTimeUtc || 'Not specified' }}</span
+              >
+            </div>
+          </div>
+          @if (consentWarning()) {
+            <p class="fup-warning" role="status">
+              <i class="ri-information-line" aria-hidden="true"></i> {{ consentWarning() }}
+            </p>
+          }
+          @if (validationMessage()) {
+            <p class="fup-error" role="alert">{{ validationMessage() }}</p>
+          }
+          <footer class="fup-footer">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              (click)="cancelPlanner()"
+              title="Cancel"
+            >
+              <i class="ri-close-line" aria-hidden="true"></i> Cancel
+            </button>
+            @for (action of visibleActions(); track action.id) {
+              <button
+                type="button"
+                [class]="
+                  action.placement === 'danger'
+                    ? 'btn btn-outline-secondary btn-sm'
+                    : 'btn btn-primary btn-sm'
+                "
+                [disabled]="saving()"
+                [title]="action.label"
+                (click)="openAction(action.id)"
+              >
+                <i
+                  [class]="
+                    action.id === 'cancelTask'
+                      ? 'ri-close-line'
+                      : action.id === 'reschedule'
+                        ? 'ri-calendar-line'
+                        : 'ri-save-line'
+                  "
+                  aria-hidden="true"
+                ></i>
+                {{ action.label }}
+              </button>
+            }
+          </footer>
+        </section>
+      }
+    </div>
+  </div>
+</main>
+@if (confirmConfig(); as config) {
+  <dialog
+    #confirmation
+    class="fup-dialog"
+    aria-labelledby="confirmation-title"
+    (cancel)="$event.preventDefault(); onCancel()"
+  >
+    <h2 id="confirmation-title">
+      <i class="ri-checkbox-circle-line" aria-hidden="true"></i> {{ config.title }}
+    </h2>
+    <p>{{ config.message }}</p>
+    <dl>
+      <dt>Affected record</dt>
+      <dd>{{ config.affectedRecord }}</dd>
+      <dt>Effective time</dt>
+      <dd class="fup-number">{{ config.effectiveTime }}</dd>
+    </dl>
+    @for (change of config.beforeAfter || []; track change.label) {
+      <p>{{ change.label }}: {{ change.before }} → {{ change.after }}</p>
+    }
+    @if (config.requireReason) {
+      <label for="confirmation-reason">Reason (10–2000 characters)</label
+      ><textarea
+        id="confirmation-reason"
+        class="form-control"
+        rows="3"
+        maxlength="2000"
+        [ngModel]="modalReason()"
+        (ngModelChange)="modalReason.set($event)"
+      ></textarea>
+    }
+    <footer class="fup-footer">
+      <button
+        type="button"
+        class="btn btn-outline-secondary btn-sm"
+        title="Cancel"
+        [disabled]="saving()"
+        (click)="onCancel()"
+      >
+        <i class="ri-close-line" aria-hidden="true"></i> Cancel</button
+      ><button
+        type="button"
+        class="btn btn-primary btn-sm"
+        [title]="config.confirmLabel"
+        [disabled]="saving() || !reasonValid()"
+        (click)="onConfirm(modalReason().trim())"
+      >
+        <i class="ri-save-line" aria-hidden="true"></i>
+        {{ saving() ? 'Saving…' : config.confirmLabel }}
+      </button>
+    </footer>
+  </dialog>
+}
