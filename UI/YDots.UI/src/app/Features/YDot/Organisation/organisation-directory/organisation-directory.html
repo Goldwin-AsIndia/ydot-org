@@ -2,132 +2,122 @@
 <div class="page-wrapper">
 <div class="container-fluid px-4 py-3">
 
-  <div class="org-header">
-    <div class="org-hero">
-    <button type="button" class="btn btn-primary btn-sm org-hero-cta" *ngIf="isSuperAdmin()">
-      <a routerLink="/app/administration/organisation/setup-wizard">
-        <i class="ri-add-line"></i> Create
-      </a>
-    </button>
-
-      <div class="org-hero-main">
-        <span class="org-title-icon" aria-hidden="true">
-          <i class="ri-building-4-line wiz-icon-static"></i>
-          <i class="ri-building-4-line wiz-icon-part wiz-icon-part--base"></i>
-          <i class="ri-building-4-line wiz-icon-part wiz-icon-part--side-left"></i>
-          <i class="ri-building-4-line wiz-icon-part wiz-icon-part--side-right"></i>
-          <i class="ri-building-4-line wiz-icon-part wiz-icon-part--mid"></i>
-          <i class="ri-building-4-line wiz-icon-part wiz-icon-part--top"></i>
+  <!-- Header: one card. The animated building icon (unchanged - it rebuilds itself on hover), the title and
+       purpose, Create on the right, and the counters as a strip along its foot. Awaiting review is a toggle
+       for the "awaiting my review" filter, as it was. The counters load separately, so a failure there
+       never hides the list below. -->
+  <section class="od-hero">
+    <div class="od-hero-top">
+      <div class="od-hero-id">
+        <span class="od-icon" aria-hidden="true">
+          <i class="ri-building-4-line od-icon-static"></i>
+          <i class="ri-building-4-line od-icon-part od-icon-part--base"></i>
+          <i class="ri-building-4-line od-icon-part od-icon-part--side-left"></i>
+          <i class="ri-building-4-line od-icon-part od-icon-part--side-right"></i>
+          <i class="ri-building-4-line od-icon-part od-icon-part--mid"></i>
+          <i class="ri-building-4-line od-icon-part od-icon-part--top"></i>
         </span>
-        <div>
-          <h1 class="org-title">Organisations</h1>
-          <span class="wiz-title-underline" aria-hidden="true"></span>
-          <p class="org-subtitle">
-            Every organisation on the platform, and where each one has reached in onboarding.
-          </p>
+        <div class="od-hero-text">
+          <span class="od-eyebrow">Platform</span>
+          <h1 class="od-title">Organisations</h1>
+          <p class="od-sub">Every organisation on the platform, and where each one has reached in onboarding.</p>
         </div>
       </div>
-      <div class="org-hero-side">
-        <img class="org-hero-art" src="assets/images/orgpic4.png" alt="" aria-hidden="true">
-      </div>
+      @if (isSuperAdmin()) {
+        <a routerLink="/app/administration/organisation/setup-wizard" class="od-btn-create">
+          <i class="ri-add-line"></i> Create organisation
+        </a>
+      }
     </div>
-  </div>
 
-  <!-- Counters. Loaded separately, so a failure here never hides the table below. -->
-  @if (statistics(); as stats) {
-    <div class="org-stat-grid">
-      <div class="org-stat-card">
-        <div class="org-stat-icon"><i class="ri-building-4-line"></i></div>
-        <p class="org-stat-label">Total</p>
-        <p class="org-stat-value">{{ stats.total ?? 0 }}</p>
-        <p class="org-stat-caption">All organisations</p>
-        <span class="org-stat-hill" aria-hidden="true"></span>
-        <span class="org-stat-bar" aria-hidden="true"><span></span></span>
-      </div>
-      <div class="org-stat-card is-accent">
-        <div class="org-stat-icon"><i class="ri-team-line"></i></div>
-        <p class="org-stat-label">Active</p>
-        <p class="org-stat-value">{{ stats.active ?? 0 }}</p>
-        <p class="org-stat-caption">Currently active</p>
-        <span class="org-stat-hill" aria-hidden="true"></span>
-        <span class="org-stat-bar" aria-hidden="true"><span></span></span>
-      </div>
-      <button type="button" class="org-stat-card is-warn" (click)="toggleAwaitingReview()">
-        <div class="org-stat-icon"><i class="ri-time-line"></i></div>
-        <p class="org-stat-label">Awaiting review</p>
-        <p class="org-stat-value">{{ stats.awaitingReview ?? 0 }}</p>
-        <p class="org-stat-caption">Under review</p>
-        <span class="org-stat-hill" aria-hidden="true"></span>
-        <span class="org-stat-bar" aria-hidden="true"><span></span></span>
-      </button>
-      <div class="org-stat-card is-info">
-        <div class="org-stat-icon"><i class="ri-draft-line"></i></div>
-        <p class="org-stat-label">Onboarding</p>
-        <p class="org-stat-value">{{ stats.onboarding ?? 0 }}</p>
-        <p class="org-stat-caption">In onboarding</p>
-        <span class="org-stat-hill" aria-hidden="true"></span>
-        <span class="org-stat-bar" aria-hidden="true"><span></span></span>
-      </div>
-      <div class="org-stat-card is-error">
-        <div class="org-stat-icon"><i class="ri-forbid-2-line"></i></div>
-        <p class="org-stat-label">Suspended</p>
-        <p class="org-stat-value">{{ stats.suspended ?? 0 }}</p>
-        <p class="org-stat-caption">Temporarily suspended</p>
-        <span class="org-stat-hill" aria-hidden="true"></span>
-        <span class="org-stat-bar" aria-hidden="true"><span></span></span>
-      </div>
-    </div>
-  }
-
-  <section class="org-filters-card">
-    <div class="org-section-head">
-      <div class="org-section-head-main">
-        <span class="org-section-icon"><i class="ri-filter-3-line"></i></span>
-        <div>
-          <h3>Filters</h3>
-          <p>Find and manage organisations easily.</p>
+    @if (statistics(); as stats) {
+      <div class="od-stats">
+        <div class="od-stat">
+          <span class="od-stat-icon" aria-hidden="true"><i class="ri-building-4-line"></i></span>
+          <span class="od-stat-body">
+            <span class="od-stat-label">Total</span>
+            <span class="od-stat-value">{{ stats.total ?? 0 }}</span>
+            <span class="od-stat-cap">All organisations</span>
+          </span>
+        </div>
+        <div class="od-stat is-good">
+          <span class="od-stat-icon" aria-hidden="true"><i class="ri-checkbox-circle-line"></i></span>
+          <span class="od-stat-body">
+            <span class="od-stat-label">Active</span>
+            <span class="od-stat-value">{{ stats.active ?? 0 }}</span>
+            <span class="od-stat-cap">Currently active</span>
+          </span>
+        </div>
+        <button type="button" class="od-stat is-warn is-toggle" [class.is-on]="awaitingReviewOnly()"
+                [attr.aria-pressed]="awaitingReviewOnly()" (click)="toggleAwaitingReview()"
+                title="Show only the organisations awaiting my review">
+          <span class="od-stat-icon" aria-hidden="true"><i class="ri-time-line"></i></span>
+          <span class="od-stat-body">
+            <span class="od-stat-label">Awaiting review</span>
+            <span class="od-stat-value">{{ stats.awaitingReview ?? 0 }}</span>
+            <span class="od-stat-cap">{{ awaitingReviewOnly() ? 'Filter on - click to clear' : 'Click to filter' }}</span>
+          </span>
+        </button>
+        <div class="od-stat is-info">
+          <span class="od-stat-icon" aria-hidden="true"><i class="ri-draft-line"></i></span>
+          <span class="od-stat-body">
+            <span class="od-stat-label">Onboarding</span>
+            <span class="od-stat-value">{{ stats.onboarding ?? 0 }}</span>
+            <span class="od-stat-cap">In onboarding</span>
+          </span>
+        </div>
+        <div class="od-stat is-error">
+          <span class="od-stat-icon" aria-hidden="true"><i class="ri-forbid-2-line"></i></span>
+          <span class="od-stat-body">
+            <span class="od-stat-label">Suspended</span>
+            <span class="od-stat-value">{{ stats.suspended ?? 0 }}</span>
+            <span class="od-stat-cap">Temporarily suspended</span>
+          </span>
         </div>
       </div>
+    }
+  </section>
+
+  <!-- One toolbar above the list: search, status, "awaiting my review" and the card /
+       table toggle - it replaces the separate Filters card. It stays visible when nothing matches, so a
+       search can always be changed. -->
+  <section class="org-list-toolbar">
+    <div class="org-tb-search">
+      <i class="ri-search-line" aria-hidden="true"></i>
+      <input id="org-search" type="text" placeholder="Search name, code, subdomain or administrator"
+             aria-label="Search organisations"
+             [ngModel]="searchTerm()" (ngModelChange)="onSearchInput($event)">
     </div>
 
-    <div class="org-grid org-grid-4">
-      <div class="org-field org-field--tight">
-        <label class="org-field-label" for="org-search">Search</label>
-        <input id="org-search" type="text" class="org-input"
-               placeholder="Name, code, subdomain or administrator"
-               [ngModel]="searchTerm()" (ngModelChange)="onSearchInput($event)">
-      </div>
+    <select id="org-status" class="org-tb-select" aria-label="Status"
+            [ngModel]="statusFilter()" (ngModelChange)="onStatusChange($event)">
+      <option value="">All statuses</option>
+      @for (option of statusOptions(); track option.value) {
+        <option [value]="option.value">{{ option.label }}</option>
+      }
+    </select>
 
-      <div class="org-field org-field--tight">
-        <label class="org-field-label" for="org-status">Status</label>
-        <select id="org-status" class="org-select"
-                [ngModel]="statusFilter()" (ngModelChange)="onStatusChange($event)">
-          <option value="">All statuses</option>
-          @for (option of statusOptions(); track option.value) {
-            <option [value]="option.value">{{ option.label }}</option>
-          }
-        </select>
-      </div>
+    <label class="org-tb-toggle" [class.is-on]="awaitingReviewOnly()" for="org-awaiting"
+           title="On my desk: only the organisations awaiting my review">
+      <input id="org-awaiting" type="checkbox" [checked]="awaitingReviewOnly()" (change)="toggleAwaitingReview()">
+      <i class="ri-time-line" aria-hidden="true"></i> Awaiting my review
+    </label>
 
-      <div class="org-field org-field--tight">
-        <label class="org-field-label" for="org-awaiting">On my desk</label>
-        <label class="org-checkbox-tile" for="org-awaiting">
-          <input id="org-awaiting" type="checkbox"
-                 [checked]="awaitingReviewOnly()" (change)="toggleAwaitingReview()">
-          Awaiting my review only
-        </label>
-      </div>
+    @if (hasActiveFilters()) {
+      <button type="button" class="org-tb-clear" (click)="clearFilters()">Clear</button>
+    }
 
-      <div class="org-field org-field--tight">
-        <label class="org-field-label" for="org-page-size">Rows per page</label>
-        <select id="org-page-size" class="org-select"
-                [ngModel]="pageSize()"
-                (ngModelChange)="onPageSizeChange($event)">
-          <option [value]="10">10</option>
-          <option [value]="25">25</option>
-          <option [value]="50">50</option>
-        </select>
-      </div>
+    <div class="org-tb-end">
+      <div class="org-view-toggle">
+            <button type="button" class="org-view-toggle-btn" [class.is-active]="viewMode() === 'cards'"
+                    (click)="viewMode.set('cards')" aria-label="Card view" title="Card view">
+              <i class="ri-layout-grid-line"></i>
+            </button>
+            <button type="button" class="org-view-toggle-btn" [class.is-active]="viewMode() === 'table'"
+                    (click)="viewMode.set('table')" aria-label="Table view" title="Table view">
+              <i class="ri-list-check-2"></i>
+            </button>
+          </div>
     </div>
   </section>
 
@@ -166,28 +156,7 @@
       }
     </div>
   } @else {
-    <section class="org-doc-section">
-      <div class="org-section-head">
-        <div class="org-section-head-main">
-          <span class="org-section-icon"><i class="ri-building-4-line"></i></span>
-          <div>
-            <h3>Organisations</h3>
-            <p>Every organisation on the platform, and where each one has reached in onboarding.</p>
-          </div>
-        </div>
-        <div class="org-section-head-actions">
-          <div class="org-view-toggle">
-            <button type="button" class="org-view-toggle-btn" [class.is-active]="viewMode() === 'cards'"
-                    (click)="viewMode.set('cards')" aria-label="Card view" title="Card view">
-              <i class="ri-layout-grid-line"></i>
-            </button>
-            <button type="button" class="org-view-toggle-btn" [class.is-active]="viewMode() === 'table'"
-                    (click)="viewMode.set('table')" aria-label="Table view" title="Table view">
-              <i class="ri-list-check-2"></i>
-            </button>
-          </div>
-        </div>
-      </div>
+    <section class="org-doc-section org-list-section">
 
       @if (viewMode() === 'cards') {
         <div class="org-org-grid">
@@ -256,86 +225,100 @@
           }
         </div>
       } @else {
-        <div class="org-table-scroll">
-          <table class="org-table">
-            <thead>
-              <tr>
-                <th>Organisation</th>
-                <th>Web address</th>
-                <th>Administrator</th>
-                <th>People</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th class="text-end">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (org of organisations(); track trackById($index, org)) {
+        <!-- Table view, styled like the Departments list: a rounded card, a light header row, the name
+             over its code, codes as grey tags, the administrator with an initials circle, an icon-only
+             status (the word is its tooltip) and square icon-only actions. Same columns and data. -->
+        <div class="dl-card">
+          <div class="dl-table-wrap">
+            <table class="dl-table">
+              <thead>
                 <tr>
-                  <td>
-                    <button type="button" class="org-name-link" (click)="view(org.id!)">
-                      {{ org.name }}
-                    </button>
-                    <span class="org-code">{{ org.code }}</span>
-                  </td>
-                  <td><span class="org-code">{{ org.hostName }}</span></td>
-                  <td>{{ org.adminEmail || '—' }}</td>
-                  <td>{{ org.userCount ?? 0 }}</td>
-                  <td>
-                    <span class="org-badge" [ngClass]="statusClass(org.status)">
-                      {{ org.statusDisplay || org.status }}
-                    </span>
-                    @if (org.isAwaitingReview) {
-                      <span class="org-badge is-warn">Needs review</span>
-                    }
-                  </td>
-                  <td>{{ org.createdAtUtc | date: 'mediumDate' }}</td>
-                  <td class="text-end">
-                    <div class="org-row-actions">
-                      <button type="button" class="org-btn org-btn-ghost org-btn-sm org-btn-icon"
-                              (click)="view(org.id!)" title="View" aria-label="View">
-                        <i class="ri-eye-line"></i>
-                      </button>
-
-                      @if (org.isAwaitingReview) {
-                        <button type="button" class="org-btn org-btn-primary org-btn-sm org-btn-icon"
-                                (click)="review(org.id!)" title="Review" aria-label="Review">
-                          <i class="ri-shield-check-line"></i>
-                        </button>
-                      }
-
-                      @if (awaitingInvitation(org)) {
-                        <button type="button" class="org-btn org-btn-ghost org-btn-sm org-btn-icon"
-                                (click)="resendInvitation(org)"
-                                title="Re-send invitation" aria-label="Re-send invitation">
-                          <i class="ri-mail-send-line"></i>
-                        </button>
-                      }
-
-                      <!--
-                        Stepping into an Organisation re-issues the token against it. The root
-                        user's own record is untouched — selecting is an operating context, not
-                        ownership.
-                      -->
-                      @if (isSuperAdmin()) {
-                        <button type="button" class="org-btn org-btn-ghost org-btn-sm org-btn-icon"
-                                [disabled]="switching() === org.id"
-                                (click)="enter(org)"
-                                [title]="switching() === org.id ? 'Switching…' : 'Work inside'"
-                                [attr.aria-label]="switching() === org.id ? 'Switching…' : 'Work inside'">
-                          @if (switching() === org.id) {
-                            <i class="ri-loader-4-line"></i>
-                          } @else {
-                            <i class="ri-login-box-line"></i>
-                          }
-                        </button>
-                      }
-                    </div>
-                  </td>
+                  <th>Organisation</th>
+                  <th>Web address</th>
+                  <th>Administrator</th>
+                  <th>People</th>
+                  <th class="dl-col-status">Status</th>
+                  <th>Created</th>
+                  <th class="dl-th-actions">Actions</th>
                 </tr>
-              }
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                @for (org of organisations(); track trackById($index, org)) {
+                  <tr>
+                    <td>
+                      <div class="dl-name">
+                        <button type="button" class="dl-name-main" (click)="view(org.id!)">{{ org.name }}</button>
+                        <span class="dl-name-sub">{{ org.code }}</span>
+                      </div>
+                    </td>
+                    <td><span class="dl-code">{{ org.hostName }}</span></td>
+                    <td>
+                      @if (org.adminEmail) {
+                        <div class="dl-person">
+                          <span class="dl-person-mono" aria-hidden="true">{{ org.adminEmail.charAt(0).toUpperCase() }}</span>
+                          <span class="dl-person-text" [title]="org.adminEmail">{{ org.adminEmail }}</span>
+                        </div>
+                      } @else {
+                        <span class="dl-none">Not assigned</span>
+                      }
+                    </td>
+                    <td><span class="dl-count">{{ org.userCount ?? 0 }}</span></td>
+                    <td class="dl-col-status">
+                      <div class="dl-status-cell">
+                        <span class="dl-status" [ngClass]="statusClass(org.status)" role="img"
+                              [attr.aria-label]="org.statusDisplay || org.status" [title]="org.statusDisplay || org.status">
+                          <i [class]="statusIcon(org.status)"></i>
+                        </span>
+                        @if (org.isAwaitingReview) {
+                          <span class="dl-flag" title="Needs review"><i class="ri-time-line"></i> Needs review</span>
+                        }
+                      </div>
+                    </td>
+                    <td class="dl-date">{{ org.createdAtUtc | date: 'mediumDate' }}</td>
+                    <td class="dl-td-actions">
+                      <div class="dl-actions">
+                        <button type="button" class="dl-act dl-act-view" (click)="view(org.id!)" title="View" aria-label="View">
+                          <i class="ri-eye-line"></i>
+                        </button>
+
+                        @if (org.isAwaitingReview) {
+                          <button type="button" class="dl-act dl-act-review" (click)="review(org.id!)" title="Review" aria-label="Review">
+                            <i class="ri-shield-check-line"></i>
+                          </button>
+                        }
+
+                        @if (awaitingInvitation(org)) {
+                          <button type="button" class="dl-act" (click)="resendInvitation(org)"
+                                  title="Re-send invitation" aria-label="Re-send invitation">
+                            <i class="ri-mail-send-line"></i>
+                          </button>
+                        }
+
+                        <!--
+                          Stepping into an Organisation re-issues the token against it. The root
+                          user's own record is untouched — selecting is an operating context, not
+                          ownership.
+                        -->
+                        @if (isSuperAdmin()) {
+                          <button type="button" class="dl-act"
+                                  [disabled]="switching() === org.id"
+                                  (click)="enter(org)"
+                                  [title]="switching() === org.id ? 'Switching…' : 'Work inside'"
+                                  [attr.aria-label]="switching() === org.id ? 'Switching…' : 'Work inside'">
+                            @if (switching() === org.id) {
+                              <i class="ri-loader-4-line"></i>
+                            } @else {
+                              <i class="ri-login-box-line"></i>
+                            }
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         </div>
       }
 

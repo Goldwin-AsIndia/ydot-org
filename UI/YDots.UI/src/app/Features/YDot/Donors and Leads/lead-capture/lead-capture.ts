@@ -1420,6 +1420,20 @@ export class LeadCaptureComponent {
     this.router.navigate(['/app/fundraising/relationships/lead-work-queue']);
   }
 
+  protected startOver(): void {
+  this.resetForm();
+  this.isBulkUploadOpen.set(false);
+  this.bulkBlockedByForm.set(false);
+  this.parsedBulkRows.set([]);
+  this.bulkResults.set([]);
+  this.bulkPreviewFilter.set('all');
+  this.bulkUpload.set(this.createInitialBulkUpload());
+  this.confirmConfig.set(null);
+  this.activeActionId.set('');
+  this.unmappedServerErrors.set([]);
+  this.saving.set(false);
+}
+
   // =======================================================================
   // Generic confirm-dialog actions (reserved for permissioned page actions
   // sourced from the screen's action contract, e.g. void/reassign flows).
@@ -1736,13 +1750,15 @@ export class LeadCaptureComponent {
       }
 
       const firstName = at(columns, firstNameIndex);
+      const lastName = at(columns, lastNameIndex);
       const mobile = at(columns, mobileIndex);
       const email = at(columns, emailIndex);
+      const mobileDigits = String(mobile ?? '').replace(/\D/g, '');
 
-      // COUNTED AS INVALID HERE, BUT STILL SENT. The server is the authority on what it will
-      // accept, and it names each rejection - showing a count now is only so the person is not
-      // surprised by the outcome.
-      if (!firstName || (!mobile && !email)) {
+      // Keep the upload preview aligned with the single-lead capture contract: first name,
+      // last name and a usable mobile number are required; an e-mail is optional but, when
+      // present, must be syntactically valid.
+      if (!firstName || !lastName || mobileDigits.length < 7 || (email && !this.EMAIL_PATTERN.test(email))) {
         invalid += 1;
       }
 
@@ -1810,6 +1826,48 @@ export class LeadCaptureComponent {
 
   /** What the server said about each row, for the result list and the error report. */
   protected readonly bulkResults = signal<readonly BulkLeadImportRowResult[]>([]);
+
+  /** Reference-style preview filter used by the bulk upload table. */
+  protected readonly bulkPreviewFilter = signal<'all' | 'errors'>('all');
+
+  /**
+   * Presentation rows for the reference preview. The uploaded rows remain the source of truth;
+   * this computed value only adds display validation and the server rejection reason when one
+   * exists.
+   */
+  protected readonly bulkPreviewRows = computed(() => {
+    const serverResults = new Map(this.bulkResults().map(result => [result.rowNumber, result]));
+    const rows = this.parsedBulkRows().map(row => {
+      const firstName = row.firstName?.trim() ?? '';
+      const lastName = row.lastName?.trim() ?? '';
+      const mobile = row.mobileNumber?.trim() ?? '';
+      const email = row.emailAddress?.trim() ?? '';
+      const mobileDigits = mobile.replace(/\D/g, '');
+      let previewError = '';
+
+      if (!firstName) {
+        previewError = 'Missing first name';
+      } else if (!lastName) {
+        previewError = 'Missing last name';
+      } else if (!mobile || mobileDigits.length < 7) {
+        previewError = 'Missing or invalid mobile number';
+      } else if (email && !this.EMAIL_PATTERN.test(email)) {
+        previewError = 'Invalid email format';
+      }
+
+      const serverResult = serverResults.get(row.rowNumber);
+      if (serverResult && !serverResult.imported) {
+        previewError = serverResult.reason ?? 'Needs review';
+      }
+
+      return {
+        ...row,
+        previewError,
+      };
+    });
+
+    return this.bulkPreviewFilter() === 'errors' ? rows.filter(row => !!row.previewError) : rows;
+  });
 
   /**
    * Sends the parsed rows.

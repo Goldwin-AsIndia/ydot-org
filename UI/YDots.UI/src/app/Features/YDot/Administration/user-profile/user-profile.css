@@ -1,472 +1,528 @@
-/* =========================================================
-   User Profile — Enterprise IAM Console
-   Design tokens (self-contained; matches the User Directory
-   theme so the two pages read as one product).
-   ========================================================= */
-:root {
-  --surface:      #FFFFFF;
-  --surface-alt:  #F6F7FA;
-  --border:       #E7E9EF;
-  --border-soft:  #EFF1F5;
+/* =============================================================================================
+   User profile — app theme: white rounded cards, hairline borders, soft tinted icon tiles,
+   small uppercase labels, --primary accents. KPI tiles on top, three cards side by side, and
+   roles as a list.
 
-  --ink-900: #12141F;
-  --ink-800: #262A38;
-  --ink-700: #3A3F4E;
-  --muted:   #6B7280;
-  --muted-2: #9AA1AC;
+   Tokens live on :host (a component's :root never matches under emulated encapsulation).
+   Every tint has a plain hex fallback declared before the color-mix, so it still renders where
+   color-mix is unavailable. The app's global typography sets sizes on span / button / p / i,
+   so sizes here carry !important on purpose.
+   ============================================================================================= */
 
-  --pe-primary:      #5B4EE5;
-  --pe-primary-dark: #4A3FCB;
-  --accent-soft:     #EEECFC;
-  --accent-ring:     rgba(91, 78, 229, 0.16);
-
-  --success:      #15803D;
-  --success-soft: #e9f6ee;
-  --success-dot:  #16A34A;
-  --warning:      #B45309;
-  --warning-soft: #FDF2E3;
-  --warning-dot:  #D97706;
-  --danger:       #B91C1C;
-  --danger-soft:  #FBEAEA;
-
-  --radius-lg:   18px;
-  --radius-md:   12px;
-  --radius-pill: 999px;
-
-  --font-ui: var(--font-body);
-  --font-mono: var(--font-number);
+:host {
+  --ux-p: var(--pe-primary, var(--primary, #1f5a4a));
+  --ux-ink: #17201d;
+  --ux-ink-2: #3f4845;
+  --ux-muted: #6f7874;
+  --ux-faint: #a4ada9;
+  --ux-line: #e4e9e7;
+  --ux-line-soft: #eef1f0;
+  --ux-bg-soft: #f7f9f8;
+  --ux-tint: #e7f0ed;
+  --ux-ok: #1c7a46;
+  --ux-ok-bg: #e7f5ec;
+  --ux-warn: #9a5b00;
+  --ux-warn-bg: #fcf2e1;
+  --ux-red: #b3372d;
+  --ux-red-bg: #fcece9;
+  --ux-r: 14px;
+  --ux-r-sm: 10px;
+  display: block;
 }
 
-/* .app-wrapper { font-family: var(--font-ui); color: var(--ink-700); background: var(--surface-alt); } */
-
-.page-wrapper { animation: pageIn 0.3s ease-out; }
-@keyframes pageIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@media (prefers-reduced-motion: reduce) { .page-wrapper { animation: none; } }
-
-/* =========================================================
-   Profile header
-   ========================================================= */
-.profile-header-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-top: 0;
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  box-shadow: none;
+:where(span:not([class]), label:not([class])) { font-size: inherit !important; line-height: inherit !important; }
+:where(.ux-page, .up-backdrop) i[class^='ri-'], :where(.ux-page, .up-backdrop) i[class*=' ri-'] {
+  font-size: inherit !important; line-height: 1 !important; font-style: normal; vertical-align: middle;
 }
 
-.user-avatar-lg {
-  width: 64px; height: 64px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--pe-primary);
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 20px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
-  flex-shrink: 0;
-  box-shadow: none;
+.page-wrapper { animation: ux-in .25s ease-out; }
+@keyframes ux-in { from { opacity: 0; transform: translateY(4px); } }
+
+.ux-page { display: flex; flex-direction: column; gap: 16px; color: var(--ux-ink); font-size: 14px !important; }
+.ux-muted { color: var(--ux-muted) !important; }
+.ux-faint { font-size: 16px !important; color: var(--ux-faint); }
+
+/* =============================================================================================
+   Building blocks
+   ============================================================================================= */
+.ux-card {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--ux-line);
+  border-radius: var(--ux-r);
+  height: 100%;
+}
+.ux-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 18px 20px 10px;
+}
+.ux-card-title { display: flex; align-items: center; gap: 8px; font-size: 15.5px !important; font-weight: 700; color: var(--ux-ink); }
+.ux-card-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 20px; border-top: 1px solid var(--ux-line-soft);
+  font-size: 13px !important; color: var(--ux-muted);
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  padding: 3px 10px;
-  border-radius: var(--radius-pill);
+.ux-label {
+  font-size: 11px !important; font-weight: 600 !important; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ux-muted); line-height: 1.4 !important;
 }
-.status-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
-.status-pill.status-active { background: var(--success-soft); color: var(--success); }
-.status-pill.status-active .dot { background: var(--success-dot); }
-.status-pill.status-neutral { background: var(--surface-alt); color: var(--muted); border: 1px solid var(--border); text-transform: none; font-weight: 600; }
-/* Suspended, deactivated, withdrawn, expired - and invited, which is not yet an account.
-   The header used to paint all of them with the green "active" pill. */
-.status-pill.status-danger { background: var(--danger-soft); color: var(--danger); }
-.status-pill.status-danger .dot { background: var(--danger); }
-.status-pill.status-warning { background: var(--warning-soft); color: var(--warning); }
-.status-pill.status-warning .dot { background: var(--warning-dot); }
+.ux-value { font-size: 14px !important; font-weight: 600; color: var(--ux-ink); line-height: 1.4 !important; overflow-wrap: anywhere; }
+.ux-sub { font-size: 13px !important; color: var(--ux-muted); line-height: 1.45 !important; overflow-wrap: anywhere; }
 
-.profile-header-card p.text-muted {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  letter-spacing: 0.01em;
+/* Soft tinted icon tile — the theme's signature */
+.ux-tile {
+  flex: none; width: 38px; height: 38px; display: grid; place-items: center;
+  border-radius: var(--ux-r-sm);
+  background: var(--ux-tint);
+  background: color-mix(in srgb, var(--ux-p) 10%, white);
+  color: var(--ux-p);
 }
+.ux-tile i { font-size: 18px !important; }
+.ux-tile--sm { width: 32px; height: 32px; border-radius: 9px; }
+.ux-tile--sm i { font-size: 15px !important; }
+.ux-tile--lg { width: 52px; height: 52px; border-radius: 14px; }
+.ux-tile--lg i { font-size: 24px !important; }
+.ux-tile--ok, .ux-tile.tone-success { background: var(--ux-ok-bg); color: var(--ux-ok); }
+.ux-tile--warn, .ux-tile.tone-warning { background: var(--ux-warn-bg); color: var(--ux-warn); }
+.ux-tile--danger, .ux-tile.tone-danger { background: var(--ux-red-bg); color: var(--ux-red); }
+.ux-tile--muted, .ux-tile.tone-muted { background: var(--ux-bg-soft); color: var(--ux-muted); box-shadow: inset 0 0 0 1px var(--ux-line); }
+.ux-tile.tone-accent { background: var(--ux-tint); background: color-mix(in srgb, var(--ux-p) 10%, white); color: var(--ux-p); }
 
-
-.btn-outline-danger { border-radius: var(--radius-pill); font-weight: 500; }
-
-.more-menu {
-  position: absolute;
-  right: 0; top: calc(100% + 6px);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: none;
-  padding: 6px;
-  min-width: 190px;
-  z-index: 10;
-}
-.more-menu-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: none;
-  background: transparent;
-  text-align: left;
-  padding: 8px 10px;
-  font-size: 13px;
-  color: var(--ink-700);
-  border-radius: var(--radius-pill);
-}
-.more-menu-item:hover { background: var(--accent-soft); color: var(--pe-primary); }
-
-/* =========================================================
-   Tabs — underline style
-   ========================================================= */
-.tab-bar-underline {
-  display: flex;
-  gap: 26px;
-  border-bottom: 1px solid var(--border);
-}
-.tab-underline-item {
-  border: none;
-  background: transparent;
-  padding: 10px 2px 14px;
-  font-size: 14.5px;
-  font-weight: 600;
-  color: var(--muted);
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.tab-underline-item.active { color: var(--pe-primary); }
-.tab-underline-item.active::after {
-  content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: -1px;
-  height: 2px;
-  background: var(--pe-primary);
-  border-radius: 2px;
-}
-.tab-count-pill {
-  background: var(--surface-alt);
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 1px 7px;
-  border-radius: var(--radius-pill);
-  box-shadow: inset 0 0 0 1px var(--border);
-}
-.tab-underline-item.active .tab-count-pill {
-  background: var(--accent-soft);
-  color: var(--pe-primary);
-  box-shadow: none;
+.ux-badge {
+  padding: 1px 8px; border-radius: 999px;
+  background: var(--ux-bg-soft); box-shadow: inset 0 0 0 1px var(--ux-line);
+  font-size: 12px !important; font-weight: 600 !important; color: var(--ux-muted) !important; line-height: 1.6 !important;
 }
 
-/* =========================================================
-   Detail cards — plain white panels, rounder + a soft shadow,
-   matching the "Recently Viewed Projects" card in the reference.
-   ========================================================= */
-.detail-card {
-  background: var(--yc-bg);
-  border: var(--yc-border);
-  border-radius: var(--yc-radius);
-  overflow: hidden;
-  box-shadow: none;
+.ux-status {
+  text-align: end;
+  flex: none; font-size: 13px !important; font-weight: 600 !important; color: var(--ux-muted) !important; white-space: nowrap;
 }
-.detail-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border-soft);
-}
-.detail-card-header h6 { color: var(--ink-900); font-size: 15px; }
-.detail-card-body { padding: 20px; }
-.detail-card-body.border-top { border-top: 1px solid var(--border-soft); }
+.ux-status.is-ok { color: var(--ux-ok) !important; }
+.ux-status.is-warn { color: var(--ux-warn) !important; }
 
-.edit-link {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--pe-primary);
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-}
-.edit-link:hover { color: var(--pe-primary-dark); }
+.ux-trail { flex: none; font-size: 13px !important; font-weight: 600 !important; color: var(--ux-ink-2); white-space: nowrap; }
+.ux-trail.tone-success, .ux-trail.text-success { color: var(--ux-ok) !important; }
+.ux-trail.tone-warning, .ux-trail.text-warning { color: var(--ux-warn) !important; }
+.ux-trail.tone-danger, .ux-trail.text-danger { color: var(--ux-red) !important; }
+.ux-trail.tone-muted, .ux-trail.text-muted { color: var(--ux-muted) !important; }
 
-.info-label {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  font-weight: 700;
+.ux-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 0; border: 0; background: transparent; cursor: pointer;
+  font-size: 13px !important; font-weight: 600 !important; color: var(--ux-p) !important;
 }
-.info-value {
-  font-weight: 600;
-  color: var(--ink-900);
-  font-size: 14.5px;
-}
+.ux-link i { font-size: 15px !important; }
+.ux-link:hover { text-decoration: underline; }
 
-/* =========================================================
-   Search + Sort bar — matches the "Search... / Sort by" row
-   above the project list in the reference image.
-   ========================================================= */
-.search-sort-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-soft);
-}
-.search-sort-input { position: relative; flex-grow: 1; }
-.search-sort-input i {
-  position: absolute;
-  left: 13px; top: 50%;
-  transform: translateY(-50%);
-  color: var(--muted-2);
-  font-size: 15px;
-  pointer-events: none;
-}
-.search-sort-input input {
-  width: 100%;
-  border: 1px solid var(--border);
-  background: var(--surface-alt);
-  border-radius: 10px;
-  padding: 9px 12px 9px 36px;
-  font-size: 13.5px;
-  color: var(--ink-800);
-}
-.search-sort-input input::placeholder { color: var(--muted-2); }
-.search-sort-input input:focus {
-  outline: none;
-  border-color: var(--pe-primary);
-  box-shadow: none;
-  background: var(--surface);
-}
-.sort-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--ink-700);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 9px 14px;
-  border-radius: 10px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.sort-btn:hover { background: var(--surface-alt); }
+/* =============================================================================================
+   KPI tiles
+   ============================================================================================= */
+.ux-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.ux-kpi { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }
+.ux-kpi-body { min-width: 0; }
+.ux-kpi-v { margin-top: 2px; font-size: 22px !important; font-weight: 700; color: var(--ux-ink); line-height: 1.2 !important; }
+.ux-kpi-v--text { font-size: 14.5px !important; font-weight: 600; overflow-wrap: anywhere; }
+.ux-kpi-v.is-ok { color: var(--ux-ok); }
+.ux-kpi-v.is-warn { color: var(--ux-warn); }
 
-.sort-menu {
-  position: absolute;
-  right: 0; top: calc(100% + 6px);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: none;
-  padding: 6px;
-  min-width: 160px;
-  z-index: 15;
+/* =============================================================================================
+   Tabs — segmented pill bar
+   ============================================================================================= */
+.ux-tabs {
+  display: inline-flex; align-self: flex-start; gap: 4px; padding: 4px;
+  background: #fff; border: 1px solid var(--ux-line); border-radius: 12px;
 }
-.sort-menu-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  border: none;
-  background: transparent;
-  text-align: left;
-  padding: 8px 10px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink-700);
-  border-radius: 10px;
+.ux-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 36px; padding: 0 16px;
+  border: 0; border-radius: 9px; background: transparent; cursor: pointer;
+  font-size: 14px !important; font-weight: 600 !important; color: var(--ux-muted) !important;
 }
-.sort-menu-item:hover { background: var(--surface-alt); color: var(--ink-900); }
-.sort-menu-item.active { color: var(--pe-primary); font-weight: 600; }
-.sort-menu-item i { font-size: 15px; }
+.ux-tab i { font-size: 16px !important; }
+.ux-tab:hover { color: var(--ux-ink) !important; background: var(--ux-bg-soft); }
+.ux-tab.is-active { background: var(--ux-p); color: #fff !important; }
+.ux-tab-n {
+  min-width: 20px; padding: 0 6px; border-radius: 999px; text-align: center;
+  background: var(--ux-bg-soft); color: var(--ux-muted) !important;
+  font-size: 11.5px !important; font-weight: 700 !important; line-height: 1.6 !important;
+}
+.ux-tab.is-active .ux-tab-n { background: rgba(255, 255, 255, .22); color: #fff !important; }
 
-/* =========================================================
-   Data table — chevron affordance on hover, soft status pills,
-   like the project rows in the reference.
-   ========================================================= */
-.role-table thead th,
-.data-table-modern thead th {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--muted);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 20px;
-}
-.role-table td,
-.data-table-modern td {
-  padding: 14px 20px;
-  border-color: var(--border-soft);
-  vertical-align: middle;
-  font-size: 13.5px;
-  color: var(--ink-800);
-}
-.role-table tbody tr,
-.data-table-modern tbody tr { position: relative; }
-.role-table tbody tr:hover,
-.data-table-modern tbody tr:hover { background: var(--surface-alt); }
+/* =============================================================================================
+   Layouts
+   ============================================================================================= */
+.ux-trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.ux-duo { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.ux-window { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 
-.row-chevron {
-  color: var(--muted-2);
-  font-size: 17px;
-  opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+/* Icon rows inside a card */
+.ux-rows { margin: 0; padding: 0 20px 8px; list-style: none; }
+.ux-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--ux-line-soft);
 }
-tr:hover .row-chevron { opacity: 1; transform: translateX(2px); }
+.ux-row:last-child { border-bottom: 0; }
+.ux-row-body { flex: 1; min-width: 0; }
+.ux-row-body .ux-label + .ux-value { margin-top: 1px; }
+.ux-empty-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; }
 
-/* Soft dot-pill for statuses inside tables (In Review / Approved / Draft style) */
-.pill-soft {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
+.ux-note { display: flex; align-items: center; gap: 8px; padding: 6px 20px 18px; font-size: 13px !important; color: var(--ux-muted); }
+.ux-note i { font-size: 15px !important; }
+.ux-alert {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 4px 20px 6px; padding: 10px 12px; border-radius: var(--ux-r-sm);
+  background: var(--ux-red-bg); color: var(--ux-red);
+  font-size: 13px !important; line-height: 1.5 !important;
 }
-.pill-soft .dot { width: 6px; height: 6px; border-radius: 50%; }
-.pill-soft.pill-amber   { background: var(--warning-soft); color: var(--warning); }
-.pill-soft.pill-amber .dot   { background: var(--warning-dot); }
-.pill-soft.pill-green   { background: var(--success-soft); color: var(--success); }
-.pill-soft.pill-green .dot   { background: var(--success-dot); }
-.pill-soft.pill-gray    { background: var(--surface-alt); color: var(--muted); box-shadow: inset 0 0 0 1px var(--border); }
-.pill-soft.pill-gray .dot    { background: var(--muted-2); }
+.ux-alert i { font-size: 15px !important; margin-top: 2px; }
 
-/* Pagination footer — "Rows per page · 1-4 of 7 · <>" */
-.pagination-footer-simple {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 18px;
-  padding: 12px 20px;
-  border-top: 1px solid var(--border-soft);
-  font-size: 12.5px;
-  color: var(--muted);
-}
-.pagination-footer-simple strong { color: var(--ink-800); }
-.pagination-footer-simple .pf-arrows { display: inline-flex; gap: 2px; }
-.pagination-footer-simple .pf-arrows i {
-  width: 24px; height: 24px;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 7px;
-  color: var(--muted-2);
-}
+/* Security tab: small numbers */
+.ux-mini { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 4px 20px 8px; border: 1px solid var(--ux-line-soft); border-radius: var(--ux-r-sm); }
+.ux-mini-item { padding: 12px 14px; }
+.ux-mini-item + .ux-mini-item { border-inline-start: 1px solid var(--ux-line-soft); }
+.ux-mini-v { margin-top: 2px; font-size: 20px !important; font-weight: 700; color: var(--ux-ink); line-height: 1.2 !important; }
 
-/* =========================================================
-   Sidebar — restyled as notification-style rows: a tinted
-   circular icon, a bold title, a muted sub-line, and a
-   trailing status/time on the right.
-   ========================================================= */
-.notif-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 13px 0;
-  border-bottom: 1px solid var(--border-soft);
+/* =============================================================================================
+   Roles card
+   ============================================================================================= */
+.ux-card-head--tools { flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--ux-line-soft); }
+.ux-tools { display: flex; align-items: center; gap: 8px; flex: 0 1 460px; }
+.ux-search { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; }
+.ux-search > i { position: absolute; inset-inline-start: 12px; font-size: 15px !important; color: var(--ux-faint); pointer-events: none; }
+.ux-search input {
+  width: 100%; height: 38px; padding: 0 12px 0 36px;
+  border: 1px solid var(--ux-line); border-radius: var(--ux-r-sm); background: var(--ux-bg-soft);
+  font-size: 13.5px !important; color: var(--ux-ink); outline: none;
 }
-.notif-row.border-0 { border-bottom: none; padding-bottom: 0; }
-.notif-avatar {
-  width: 34px; height: 34px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-.notif-avatar.tone-accent  { background: var(--accent-soft);  color: var(--pe-primary); }
-.notif-avatar.tone-warning { background: var(--warning-soft); color: var(--warning-dot); }
-.notif-avatar.tone-success { background: var(--success-soft); color: var(--success-dot); }
-.notif-avatar.tone-muted   { background: var(--surface-alt);  color: var(--muted); box-shadow: inset 0 0 0 1px var(--border); }
+.ux-search input::placeholder { color: var(--ux-faint); }
+.ux-search input:focus { background: #fff; border-color: var(--ux-p); }
 
-.notif-body { flex-grow: 1; min-width: 0; }
-.notif-title { font-size: 13.5px; font-weight: 600; color: var(--ink-900); }
-.notif-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
-.notif-trailing { font-size: 12.5px; font-weight: 700; flex-shrink: 0; white-space: nowrap; }
-
-/* =========================================================
-   Empty / loading states
-   ========================================================= */
-.empty-state { text-align: center; padding: 56px 20px; }
-.empty-state-icon {
-  width: 52px; height: 52px;
-  border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  display: flex; align-items: center; justify-content: center;
-  margin: 0 auto 14px;
-  font-size: 22px;
-  color: var(--pe-primary);
+.ux-dd { position: relative; flex: none; }
+.ux-dd-trigger {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 38px; padding: 0 12px;
+  border: 1px solid var(--ux-line); border-radius: var(--ux-r-sm); background: #fff; cursor: pointer;
+  color: var(--ux-ink-2);
 }
-.spinner-border.text-primary { color: var(--pe-primary) !important; }
-
-/* =========================================================
-   MFA Methods List
-   ========================================================= */
-.mfa-methods-list { display: flex; flex-direction: column; gap: 4px; }
-.mfa-method-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
+.ux-dd-trigger > i { font-size: 15px !important; color: var(--ux-muted); }
+.ux-dd-label { font-size: 13.5px !important; font-weight: 600 !important; color: var(--ux-ink) !important; }
+.ux-dd-trigger:hover { border-color: var(--ux-faint); }
+.ux-dd.is-open .ux-dd-trigger { border-color: var(--ux-p); }
+.ux-dd-chev { transition: transform .15s; }
+.ux-dd.is-open .ux-dd-chev { transform: rotate(180deg); }
+.ux-dd-menu {
+  position: absolute; z-index: 30; inset-inline-end: 0; top: calc(100% + 6px);
+  width: 200px; padding: 6px;
+  background: #fff; border: 1px solid var(--ux-line); border-radius: 12px;
+  box-shadow: 0 12px 28px -10px rgba(20, 30, 26, .22);
 }
-.mfa-method-row:hover { background: var(--surface-alt); }
-.mfa-method-row.enabled { border-color: #c6e9d4; background: var(--success-soft); }
-.mfa-method-icon {
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 17px;
-  flex-shrink: 0;
+.ux-dd-head { padding: 6px 8px 6px; font-size: 11px !important; font-weight: 600 !important; letter-spacing: .06em; text-transform: uppercase; color: var(--ux-muted); }
+.ux-dd-opt {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  height: 36px; padding: 0 10px;
+  border: 0; border-radius: 8px; background: transparent; text-align: start; cursor: pointer;
+  color: var(--ux-ink-2);
 }
-.mfa-method-icon.tone-success { background: var(--success-soft); color: var(--success-dot); }
-.mfa-method-icon.tone-muted { background: var(--surface-alt); color: var(--muted); box-shadow: inset 0 0 0 1px var(--border); }
-.mfa-method-info { flex-grow: 1; min-width: 0; }
-.mfa-method-name { font-size: 13.5px; font-weight: 600; color: var(--ink-900); }
-.mfa-method-desc { font-size: 12px; color: var(--muted); margin-top: 1px; }
-.mfa-method-toggle { margin: 0; }
-.mfa-method-toggle .form-check-input { cursor: pointer; }
+.ux-dd-opt > i:first-child { font-size: 15px !important; color: var(--ux-faint); }
+.ux-dd-opt:hover { background: var(--ux-bg-soft); }
+.ux-dd-opt.is-on { background: var(--ux-tint); background: color-mix(in srgb, var(--ux-p) 9%, white); }
+.ux-dd-opt.is-on > i:first-child { color: var(--ux-p); }
+.ux-dd-text { flex: 1; font-size: 13.5px !important; color: var(--ux-ink) !important; }
+.ux-dd-opt.is-on .ux-dd-text { font-weight: 600; color: var(--ux-p) !important; }
+.ux-dd-dir { font-size: 15px !important; color: var(--ux-p); }
 
-/* =========================================================
+.ux-roles { margin: 0; padding: 0 20px; list-style: none; }
+.ux-role {
+  display: grid; grid-template-columns: 38px minmax(0, 1.2fr) minmax(0, 1.4fr) 170px; align-items: center; gap: 14px;
+  padding: 14px 0; border-bottom: 1px solid var(--ux-line-soft);
+}
+.ux-role:last-child { border-bottom: 0; }
+.ux-role-main { min-width: 0; }
+.ux-role-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; min-width: 0; }
+.ux-meta { display: inline-flex; align-items: center; gap: 6px; font-size: 13px !important; color: var(--ux-ink-2) !important; }
+.ux-meta i { font-size: 14px !important; color: var(--ux-faint); }
+
+/* =============================================================================================
+   States
+   ============================================================================================= */
+.ux-state { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 60px 20px; text-align: center; }
+.ux-state .ux-tile { margin-bottom: 6px; }
+.ux-state-title { font-size: 15px !important; font-weight: 700; color: var(--ux-ink); }
+.ux-state-sub { max-width: 420px; font-size: 13.5px !important; line-height: 1.5 !important; color: var(--ux-muted); }
+.ux-state .up-btn { margin-top: 8px; }
+
+/* =============================================================================================
+   Buttons (shared with the modals)
+   ============================================================================================= */
+.up-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 38px; padding: 0 16px;
+  border: 1px solid transparent; border-radius: var(--ux-r-sm);
+  font-size: 13.5px !important; font-weight: 600 !important; line-height: 1 !important;
+  white-space: nowrap; cursor: pointer;
+}
+.up-btn i { font-size: 15px !important; }
+.up-btn:disabled { opacity: .5; cursor: not-allowed; }
+.up-btn--sm { height: 32px; padding: 0 12px; font-size: 12.5px !important; }
+.up-btn--primary { background: var(--ux-p); border-color: var(--ux-p); color: #fff !important; }
+.up-btn--primary:hover:not(:disabled) { filter: brightness(.92); }
+.up-btn--line { background: #fff; border-color: var(--ux-line); color: var(--ux-ink) !important; }
+.up-btn--line:hover:not(:disabled) { border-color: var(--ux-faint); }
+.up-btn--danger-line { background: #fff; border-color: #eccbc6; color: var(--ux-red) !important; }
+.up-btn--danger-line:hover:not(:disabled) { background: var(--ux-red-bg); }
+.up-btn--warn { background: #c07a10; border-color: #c07a10; color: #fff !important; }
+.up-btn--warn:hover:not(:disabled) { background: #a86a0c; }
+
+.up-spin { display: inline-block; animation: ux-spin .8s linear infinite; }
+@keyframes ux-spin { to { transform: rotate(360deg); } }
+
+/* =============================================================================================
    Modals
-   ========================================================= */
-.modal-content { border-radius: var(--radius-lg); border: 1px solid var(--border); }
-.modal-header.border-bottom { border-top: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-.modal-title { color: var(--ink-900); }
-.form-control, .form-select {
-  border-color: var(--border);
-  font-size: 13.5px;
-  color: var(--ink-800);
-  background: var(--surface-alt);
-  border-radius: var(--radius-md);
+   ============================================================================================= */
+.up-backdrop {
+  position: fixed; inset: 0; z-index: 1060;
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(18, 26, 23, .42);
+  animation: ux-fade .15s ease-out;
 }
-.form-control:focus { border-color: var(--pe-primary); box-shadow: none; background: var(--surface); }
-.modal .btn-light { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-pill); }
-.modal .btn-warning { background: var(--warning-dot); border-color: var(--warning-dot); border-radius: var(--radius-pill); font-weight: 600; color: #fff; }
-.modal .alert-warning { background: var(--warning-soft); border: 1px solid #F3DFC0; color: var(--warning); border-radius: var(--radius-md); }
+@keyframes ux-fade { from { opacity: 0; } }
+.up-modal {
+  width: min(460px, 100%); max-height: calc(100vh - 32px);
+  display: flex; flex-direction: column;
+  background: #fff; border: 1px solid var(--ux-line); border-radius: 16px;
+  box-shadow: 0 24px 60px -20px rgba(18, 26, 23, .35);
+  animation: ux-pop .18s ease-out;
+}
+@keyframes ux-pop { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+.up-modal--lg { width: min(640px, 100%); }
+.up-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 22px 14px; border-bottom: 1px solid var(--ux-line-soft); }
+.up-modal-title { margin: 0; font-size: 17px !important; font-weight: 700 !important; color: var(--ux-ink); line-height: 1.35 !important; }
+.up-modal-sub { margin-top: 2px; font-size: 13px !important; color: var(--ux-muted); }
+.up-x {
+  flex: none; width: 34px; height: 34px; display: grid; place-items: center;
+  border: 1px solid var(--ux-line); border-radius: var(--ux-r-sm); background: #fff; color: var(--ux-muted); cursor: pointer;
+}
+.up-x i { font-size: 18px !important; }
+.up-x:hover { color: var(--ux-ink); border-color: var(--ux-faint); }
+.up-modal-body { flex: 1; overflow-y: auto; padding: 18px 22px; }
+.up-modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--ux-line-soft); }
+
+.up-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.up-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.up-field--full { grid-column: 1 / -1; }
+.up-lbl { margin: 0; font-size: 13px !important; font-weight: 600 !important; color: var(--ux-ink-2) !important; }
+.up-req { font-style: normal; color: var(--ux-red); }
+.up-help { font-size: 12.5px !important; line-height: 1.5 !important; color: var(--ux-muted); }
+.up-inline-link {
+  padding: 0; border: 0; background: transparent; cursor: pointer;
+  font-size: 12.5px !important; font-weight: 600 !important; color: var(--ux-p) !important; text-decoration: underline;
+}
+.up-input {
+  width: 100%; height: 40px; padding: 0 12px;
+  border: 1px solid var(--ux-line); border-radius: var(--ux-r-sm); background: var(--ux-bg-soft);
+  font-size: 14px !important; color: var(--ux-ink); outline: none;
+}
+.up-input:hover:not(:disabled) { border-color: var(--ux-faint); }
+.up-input:focus { background: #fff; border-color: var(--ux-p); }
+.up-input::placeholder { color: var(--ux-faint); }
+.up-textarea { height: auto; min-height: 92px; padding: 10px 12px; resize: vertical; line-height: 1.5 !important; }
+
+.up-phone { display: flex; height: 40px; border: 1px solid var(--ux-line); border-radius: var(--ux-r-sm); overflow: hidden; background: var(--ux-bg-soft); }
+.up-phone:focus-within { border-color: var(--ux-p); background: #fff; }
+.up-phone input { min-width: 0; height: 100%; border: 0; outline: none; background: transparent; font-size: 14px !important; color: var(--ux-ink); }
+.up-phone-code { width: 76px; padding: 0 10px; text-align: center; border-inline-end: 1px solid var(--ux-line) !important; }
+.up-phone-num { flex: 1; padding: 0 12px; }
+
+.up-locked { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--ux-line); border-radius: var(--ux-r-sm); background: var(--ux-bg-soft); }
+.up-locked i { font-size: 14px !important; color: var(--ux-faint); }
+.up-locked input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; font-size: 14px !important; color: var(--ux-muted); cursor: not-allowed; }
+
+.up-note {
+  margin-top: 18px; padding: 10px 14px; border-radius: var(--ux-r-sm);
+  background: var(--ux-bg-soft); box-shadow: inset 0 0 0 1px var(--ux-line-soft);
+  font-size: 13px !important; line-height: 1.5 !important; color: var(--ux-ink-2);
+}
+.up-alert { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 16px; padding: 10px 12px; border-radius: var(--ux-r-sm); font-size: 13px !important; line-height: 1.5 !important; }
+.up-alert i { font-size: 15px !important; margin-top: 2px; }
+.up-alert--warn { background: var(--ux-warn-bg); color: var(--ux-warn); }
+
+/* =============================================================================================
+   Responsive
+   ============================================================================================= */
+@media (max-width: 1280px) {
+  .ux-trio { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ux-trio > :last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 992px) {
+  .ux-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ux-duo, .ux-window { grid-template-columns: 1fr; }
+  .ux-role { grid-template-columns: 38px minmax(0, 1fr) auto; }
+  .ux-role-meta { grid-column: 2 / -1; grid-row: 2; }
+}
+@media (max-width: 640px) {
+  .ux-kpis, .ux-trio { grid-template-columns: 1fr; }
+  .ux-tabs { align-self: stretch; overflow-x: auto; }
+  .ux-tools { flex-basis: 100%; }
+  .up-form { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* =============================================================================================
+   Status / type marks in the page header — icon only, custom tooltip on hover or focus
+   ============================================================================================= */
+.ux-mark {
+  position: relative;
+  display: inline-grid; place-items: center;
+  width: 26px; height: 26px; margin-inline-start: 4px;
+  border-radius: 50%; color: var(--ux-muted);
+  vertical-align: middle; cursor: default; outline: none;
+  transition: transform .15s;
+}
+.ux-mark > i { font-size: 16px !important; }
+.ux-mark.is-ok {color: var(--ux-ok); }
+.ux-mark.is-warn { background: var(--ux-warn-bg); color: var(--ux-warn); }
+.ux-mark.is-danger { background: var(--ux-red-bg); color: var(--ux-red); }
+.ux-mark--cat { color: var(--ux-p); }
+.ux-mark:hover, .ux-mark:focus-visible { transform: scale(1.08); }
+.ux-mark:focus-visible { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ux-p); }
+
+.ux-tip {
+  position: absolute; z-index: 50; top: calc(100% + 10px); left: 50%;
+  display: flex; flex-direction: column; gap: 1px;
+  min-width: max-content; padding: 7px 11px;
+  border-radius: 8px; background: #17201d; color: #fff;
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .35);
+  text-align: start; white-space: nowrap; pointer-events: none;
+  opacity: 0; visibility: hidden; transform: translate(-50%, -4px);
+  transition: opacity .15s, transform .15s, visibility .15s;
+}
+.ux-tip::before {
+  content: ''; position: absolute; bottom: 100%; left: 50%; margin-left: -6px;
+  border: 6px solid transparent; border-bottom-color: #17201d;
+}
+.ux-tip-k { font-size: 10.5px !important; font-weight: 600 !important; letter-spacing: .06em; text-transform: uppercase; color: rgba(255, 255, 255, .6) !important; line-height: 1.4 !important; }
+.ux-tip-v { font-size: 13px !important; font-weight: 600 !important; color: #fff !important; line-height: 1.4 !important; text-transform: capitalize; }
+.ux-mark:hover .ux-tip, .ux-mark:focus-visible .ux-tip { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+
+/* =============================================================================================
+   Local page header — name with status / type marks beside it
+   ============================================================================================= */
+.ux-head {
+  display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  padding: 4px 0 4px;
+}
+.ux-head-text { min-width: 0; }
+.ux-head-line { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.ux-head-title {
+  margin: 0;
+  font-size: 34px !important; font-weight: 700 !important; letter-spacing: -.02em;
+  color: var(--ux-ink); line-height: 1.15 !important;
+  overflow-wrap: anywhere;
+}
+.ux-head-marks { display: inline-flex; align-items: center; gap: 6px; }
+.ux-head-marks .ux-mark { width: 30px; height: 30px; margin: 0; }
+.ux-head-marks .ux-mark > i { font-size: 18px !important; }
+.ux-head-sub { margin-top: 6px; font-size: 15px !important; color: var(--ux-muted); line-height: 1.4 !important; }
+.ux-head-actions { display: flex; align-items: center; gap: 8px; }
+@media (max-width: 640px) {
+  .ux-head-title { font-size: 26px !important; }
+  .ux-head-actions { width: 100%; }
+  .ux-head-actions .up-btn { flex: 1; }
+}
+
+/* Tooltip takes the colour of its icon */
+.ux-mark { --tip-bg: #5c6662; }
+.ux-mark.is-ok { --tip-bg: var(--ux-ok); }
+.ux-mark.is-warn { --tip-bg: var(--ux-warn); }
+.ux-mark.is-danger { --tip-bg: var(--ux-red); }
+.ux-mark--cat { --tip-bg: var(--ux-p); }
+.ux-mark .ux-tip { background: var(--tip-bg); }
+.ux-mark .ux-tip::before { border-bottom-color: var(--tip-bg); }
+.ux-mark .ux-tip-k { color: rgba(255, 255, 255, .75) !important; }
+/* =============================================================================================
+   KPI cards — text on the left, a line icon on the right. On hover (or keyboard focus) a soft
+   tint fills the card from the bottom and the icon redraws stroke by stroke.
+   ============================================================================================= */
+.ux-kcard {
+  --k-accent: var(--ux-p);
+  --k-fill: var(--ux-tint);
+  position: relative; overflow: hidden; isolation: isolate;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  min-height: 112px; padding: 18px 20px;
+  background: #fff; border: 1px solid var(--ux-line); border-radius: var(--ux-r);
+  outline: none; cursor: default;
+  transition: border-color .25s;
+}
+.ux-kcard.is-ok { --k-accent: var(--ux-ok); --k-fill: var(--ux-ok-bg); }
+.ux-kcard.is-warn { --k-accent: var(--ux-warn); --k-fill: var(--ux-warn-bg); }
+
+/* the fill layer */
+.ux-kcard::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: var(--k-fill);
+  transform: scaleY(0); transform-origin: bottom;
+  transition: transform .35s cubic-bezier(.3, .7, .3, 1);
+}
+.ux-kcard:hover::before, .ux-kcard:focus-visible::before { transform: scaleY(1); }
+.ux-kcard:hover, .ux-kcard:focus-visible { border-color: var(--k-accent); }
+
+.ux-kcard-text { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ux-kcard-v { font-size: 30px !important; font-weight: 700; color: var(--ux-ink); line-height: 1.1 !important; }
+.ux-kcard-v--text { font-size: 17px !important; font-weight: 700; line-height: 1.3 !important; overflow-wrap: anywhere; }
+.ux-kcard.is-ok .ux-kcard-v { color: var(--ux-ok); }
+.ux-kcard.is-warn .ux-kcard-v { color: var(--ux-warn); }
+.ux-kcard-sub { font-size: 12.5px !important; color: var(--ux-muted); line-height: 1.4 !important; }
+
+.ux-kcard-ico {
+  flex: none; width: 56px; height: 56px; display: grid; place-items: center;
+  border-radius: 14px;
+  background: var(--k-fill);
+  color: var(--k-accent);
+  transition: background-color .3s, transform .3s;
+}
+.ux-kcard:hover .ux-kcard-ico, .ux-kcard:focus-visible .ux-kcard-ico { background: #fff; transform: rotate(-4deg); }
+.ux-kcard-ico svg {
+  width: 30px; height: 30px;
+  fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.ux-kcard-ico svg > * { stroke-dasharray: 1; stroke-dashoffset: 0; }
+.ux-kcard:hover .ux-kcard-ico svg > *,
+.ux-kcard:focus-visible .ux-kcard-ico svg > * { animation: ux-draw 1s ease-in-out both; }
+.ux-kcard:hover .ux-kcard-ico svg > :nth-child(2), .ux-kcard:focus-visible .ux-kcard-ico svg > :nth-child(2) { animation-delay: .12s; }
+.ux-kcard:hover .ux-kcard-ico svg > :nth-child(3), .ux-kcard:focus-visible .ux-kcard-ico svg > :nth-child(3) { animation-delay: .24s; }
+.ux-kcard:hover .ux-kcard-ico svg > :nth-child(n + 4), .ux-kcard:focus-visible .ux-kcard-ico svg > :nth-child(n + 4) { animation-delay: .36s; }
+@keyframes ux-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ux-kcard::before { transition: none; }
+  .ux-kcard-ico svg > * { animation: none !important; }
+}
+
+/* Each KPI card has its own colour (icon at rest, fill + border on hover). The Two-step value
+   text still shows its status colour; only the card's accent is per card. */
+.ux-kpis > .ux-kcard:nth-child(1) { --k-accent: #2563c9; --k-fill: #e9f0fc; }
+.ux-kpis > .ux-kcard:nth-child(2) { --k-accent: #6a45c9; --k-fill: #f0ebfb; }
+.ux-kpis > .ux-kcard:nth-child(3) { --k-accent: #0f7f76; --k-fill: #e2f4f2; }
+.ux-kpis > .ux-kcard:nth-child(4) { --k-accent: #c2560f; --k-fill: #fcede2; }
+
+/* Bigger icon */
+.ux-kcard { min-height: 120px; }
+.ux-kcard-ico { width: 68px; height: 68px; border-radius: 16px; }
+.ux-kcard-ico svg {     width: 57px;
+    height: 53px; stroke-width: 1.6; }
+/* KPI value text takes its card's icon colour, and is a little larger */
+.ux-kpis > .ux-kcard .ux-kcard-v { color: var(--k-accent) !important; font-size: 36px !important; font-weight: 800; letter-spacing: -.01em; }
+.ux-kpis > .ux-kcard .ux-kcard-v--text { font-size: 20px !important; font-weight: 700; letter-spacing: 0; }
+.ux-kpis > .ux-kcard .ux-label { font-size: 12px !important; }
+.ux-kpis > .ux-kcard .ux-kcard-sub { font-size: 13px !important; }
+
+/* Tooltip fix: the header sits on its own layer above the KPI cards, so the status / type
+   tooltips are never painted underneath them. */
+.ux-head { position: relative; z-index: 20; }
+.ux-head-marks .ux-mark:hover, .ux-head-marks .ux-mark:focus-visible { z-index: 1; }
+.ux-tip { z-index: 100; }

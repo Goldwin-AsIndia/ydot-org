@@ -34,6 +34,35 @@ interface ModuleSection {
   sensitiveCount: number;
 }
 
+/** The seven verbs the matrix shows as columns. */
+type ActionKey = 'view' | 'create' | 'edit' | 'manage' | 'approve' | 'export' | 'delete';
+
+/**
+ * One matrix cell.
+ * - `on`   granted
+ * - `sens` granted, and at least one granted code is sensitive
+ * - `off`  the module has codes for this verb, none granted
+ * - `na`   the module has no code for this verb
+ */
+type CellState = 'on' | 'sens' | 'off' | 'na';
+
+interface MatrixCell {
+  state: CellState;
+  granted: number;
+  total: number;
+}
+
+/** A module as one matrix row, with every one of its codes kept for the drill-down. */
+interface MatrixRow {
+  moduleCode: string;
+  cells: Record<ActionKey, MatrixCell>;
+  permissions: PermissionSummaryResponse[];
+  grantedCount: number;
+  sensitiveCount: number;
+  /** Codes whose verb is not one of the seven columns; they still show in the drill-down. */
+  otherCount: number;
+}
+
 /**
  * IAM-USR-03 — Access preview.
  *
@@ -147,6 +176,12 @@ export class AccessPreviewComponent {
         })));
 
         this.peopleLoading.set(false);
+
+        // Open on the first person so the screen never starts empty.
+        const first = this.people()[0];
+        if (first && !this.selectedPersonId()) {
+          this.selectPerson(first.id);
+        }
       },
       error: () => {
         this.peopleLoading.set(false);
@@ -260,6 +295,123 @@ export class AccessPreviewComponent {
 
     return [...byModule.values()].sort((a, b) => a.moduleCode.localeCompare(b.moduleCode));
   });
+
+  // ---- The matrix: modules down, verbs across --------------------------------------------------
+
+  readonly actionColumns: { key: ActionKey; label: string }[] = [
+    { key: 'view', label: 'View' },
+    { key: 'create', label: 'Create' },
+    { key: 'edit', label: 'Edit' },
+    { key: 'manage', label: 'Manage' },
+    { key: 'approve', label: 'Approve' },
+    { key: 'export', label: 'Export' },
+    { key: 'delete', label: 'Delete' },
+  ];
+
+  /**
+   * Built from every code, not the filtered list: "available, not granted" is only visible when the
+   * codes the person does NOT hold are counted too.
+   */
+  readonly matrix = computed<MatrixRow[]>(() => {
+    const groups = this.access()?.permissionGroups ?? [];
+    const byModule = new Map<string, MatrixRow>();
+
+    for (const group of groups) {
+      const moduleCode = group.moduleCode ?? 'OTHER';
+      const row = byModule.get(moduleCode) ?? this.emptyRow(moduleCode);
+
+      for (const permission of group.permissions ?? []) {
+        row.permissions.push(permission);
+        const granted = permission.isGranted === true;
+        if (granted) { row.grantedCount++; }
+        if (granted && permission.isSensitive === true) { row.sensitiveCount++; }
+
+        const action = this.actionOf(permission);
+        if (!action) { row.otherCount++; continue; }
+
+        const cell = row.cells[action];
+        cell.total++;
+        if (granted) {
+          cell.granted++;
+          cell.state = permission.isSensitive === true || cell.state === 'sens' ? 'sens' : 'on';
+        } else if (cell.state === 'na') {
+          cell.state = 'off';
+        }
+      }
+
+      byModule.set(moduleCode, row);
+    }
+
+    for (const row of byModule.values()) {
+      row.permissions.sort((a, b) => Number(b.isGranted === true) - Number(a.isGranted === true)
+        || (a.name ?? a.code ?? '').localeCompare(b.name ?? b.code ?? ''));
+    }
+
+    return [...byModule.values()].sort((a, b) => this.moduleLabel(a.moduleCode).localeCompare(this.moduleLabel(b.moduleCode)));
+  });
+
+  cell(row: MatrixRow, key: ActionKey): MatrixCell {
+    return row.cells[key] ?? { state: 'na', granted: 0, total: 0 };
+  }
+
+  cellTitle(row: MatrixRow, column: { key: ActionKey; label: string }): string {
+    const c = this.cell(row, column.key);
+    const where = `${this.moduleLabel(row.moduleCode)} · ${column.label}`;
+    if (c.state === 'na') { return `${where}: not applicable`; }
+    if (c.state === 'off') { return `${where}: available, not granted (${c.total})`; }
+    return `${where}: ${c.granted} of ${c.total} granted${c.state === 'sens' ? ' · includes sensitive' : ''}`;
+  }
+
+  private emptyRow(moduleCode: string): MatrixRow {
+    const blank = (): MatrixCell => ({ state: 'na', granted: 0, total: 0 });
+    return {
+      moduleCode,
+      cells: { view: blank(), create: blank(), edit: blank(), manage: blank(), approve: blank(), export: blank(), delete: blank() },
+      permissions: [],
+      grantedCount: 0,
+      sensitiveCount: 0,
+      otherCount: 0,
+    };
+  }
+
+  /** Reads the verb from the code's last segment first (e.g. `CAM.CAMPAIGN.EXPORT`), then the whole code and name. */
+  private actionOf(permission: PermissionSummaryResponse): ActionKey | null {
+    const code = (permission.code ?? '').toLowerCase();
+    const last = code.split(/[.:_\-\/\s]+/).filter(Boolean).pop() ?? '';
+    const rules: [ActionKey, RegExp][] = [
+      ['delete', /delete|remove|purge|erase/],
+      ['export', /export|download|extract/],
+      ['approve', /approve|reject|decide|decision|authori[sz]e|sign.?off/],
+      ['manage', /manage|admin|configure|config|assign|grant|revoke|setting/],
+      ['edit', /edit|update|modify|change|write|amend/],
+      ['create', /create|add|new|submit|raise|insert|register/],
+      ['view', /view|read|list|get|search|see|browse|show/],
+    ];
+    for (const source of [last, code, (permission.name ?? '').toLowerCase()]) {
+      if (!source) { continue; }
+      for (const [key, pattern] of rules) {
+        if (pattern.test(source)) { return key; }
+      }
+    }
+    return null;
+  }
+
+  expandAllRows(): void {
+    this.openModules.set(new Set(this.matrix().map((row) => row.moduleCode)));
+  }
+
+  initials(name?: string | null): string {
+    const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) { return '?'; }
+    const first = parts[0] ?? '';
+    const last = parts.length > 1 ? parts[parts.length - 1] ?? '' : '';
+    return (first.charAt(0) + last.charAt(0)).toUpperCase();
+  }
+
+  /** First role in the summary, for the one-line subtitle under a name. */
+  firstRole(person: PersonOption): string {
+    return person.roleSummary.split(',')[0]?.trim() || 'No role';
+  }
 
   private applyFilters(permissions: PermissionSummaryResponse[]): PermissionSummaryResponse[] {
     let result = permissions;

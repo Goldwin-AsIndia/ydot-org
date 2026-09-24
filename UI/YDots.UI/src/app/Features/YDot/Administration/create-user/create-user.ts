@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -15,6 +15,12 @@ import {
 } from '../../../../Shared/models/iam-contract.model';
 import { forkJoin } from 'rxjs';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+
+/** One row of a custom dropdown, normalised from whichever source the list comes from. */
+interface CuDdOption {
+  value: string;
+  label: string;
+}
 
 /**
  * IAM-USR-01 — Invite or create a user.
@@ -428,6 +434,106 @@ export class CreateUserComponent implements OnInit {
     ),
   ]);
 
+  // =========================================================================================
+  // Custom dropdowns — replace every native <select> (see #cuDd in the template)
+  // =========================================================================================
+
+  /** Key of the dropdown that is open (the form field it writes), or null. */
+  readonly openDd = signal<string | null>(null);
+
+  /** Text typed in the open dropdown's search box. */
+  readonly ddQuery = signal('');
+
+  /**
+   * Every dropdown's options, normalised to { value, label }.
+   *
+   * The same sources the old <select> tags read - nothing new is fetched. A computed, so the
+   * long catalogues (time zones, languages) are mapped once rather than on every
+   * change-detection pass.
+   */
+  readonly ddOptionMap = computed<Record<string, CuDdOption[]>>(() => {
+    const text = (v: unknown): string => (v === undefined || v === null ? '' : String(v));
+    const fromEnum = (list: EnumOption[]) => list.map((o) => ({ value: text(o.value), label: text(o.label) }));
+    const fromLookup = (list: LookupItem[]) => list.map((o) => ({ value: text(o.id), label: text(o.name) }));
+
+    return {
+      accountCategory: fromEnum(this.accountCategories()),
+      title: this.titles.map((t) => ({ value: t, label: t })),
+      mobileCountryCode: this.countryCodes().map((c) => ({ value: c, label: c })),
+      engagementType: fromEnum(this.engagementTypes()),
+      organisationUnitId: fromLookup(this.organisationUnits()),
+      departmentId: fromLookup(this.departments()),
+      // VALUE is the culture code, because users.preferred_language stores exactly that.
+      preferredLanguage: this.geo.languages().map((l) => ({ value: text(l.cultureCode), label: text(l.displayLabel) })),
+      timeZoneId: this.geo.timeZones().map((z) => ({ value: text(z.ianaKey), label: text(z.name) })),
+      primaryRoleId: fromLookup(this.roles()),
+      dataScopeType: fromEnum(this.dataScopeTypes()),
+      mfaRequirement: fromEnum(this.mfaRequirements()),
+    };
+  });
+
+  ddOptions(key: string): CuDdOption[] {
+    return this.ddOptionMap()[key] ?? [];
+  }
+
+  /** Options narrowed by the search box inside the open dropdown. */
+  ddFiltered(key: string): CuDdOption[] {
+    const q = this.ddQuery().trim().toLowerCase();
+    const all = this.ddOptions(key);
+    return q ? all.filter((o) => o.label.toLowerCase().includes(q)) : all;
+  }
+
+  /**
+   * A form field's current value as a string, for the template.
+   * Indexing form()[key] directly in the template fails strict mode (TS7053), because an
+   * ng-template context variable is `any`.
+   */
+  formValue(key: string): string {
+    const value = (this.form() as unknown as Record<string, unknown>)[key];
+    return value === undefined || value === null ? '' : String(value);
+  }
+
+  /** Text on the trigger (and in the Review step): the chosen option's label, else the fallback. */
+  ddLabel(key: string, placeholder: string): string {
+    const value = this.formValue(key);
+
+    if (!value) {
+      return placeholder;
+    }
+
+    return this.ddOptions(key).find((o) => o.value === value)?.label ?? value;
+  }
+
+  toggleDd(key: string): void {
+    this.ddQuery.set('');
+    this.openDd.update((current) => (current === key ? null : key));
+  }
+
+  /** Writes through update(), so clearing a server error on that field still happens. */
+  pickDd(key: string, value: string): void {
+    this.openDd.set(null);
+    this.ddQuery.set('');
+
+    if (this.formValue(key) === value) {
+      return;
+    }
+
+    this.update(key as keyof ReturnType<typeof this.form>, value as never);
+  }
+
+  /** A click anywhere outside a dropdown closes it (clicks inside stop propagation). */
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.openDd() !== null) {
+      this.openDd.set(null);
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.openDd.set(null);
+  }
+
   /** Fills the display name from the first and last name, until somebody edits it themselves. */
   onNameChanged(): void {
     const f = this.form();
@@ -490,6 +596,8 @@ export class CreateUserComponent implements OnInit {
   // =========================================================================================
 
   goToStep(index: number): void {
+    this.openDd.set(null);
+
     // Forward movement is gated on the current step being complete; going back never is, so a
     // half-finished form is never a trap.
     if (index <= this.activeStep() || this.isStepComplete(this.activeStep())) {
@@ -499,6 +607,8 @@ export class CreateUserComponent implements OnInit {
   }
 
   nextStep(): void {
+    this.openDd.set(null);
+
     if (!this.isStepComplete(this.activeStep())) {
       this.submitted.set(true);
       return;
@@ -509,6 +619,7 @@ export class CreateUserComponent implements OnInit {
   }
 
   previousStep(): void {
+    this.openDd.set(null);
     this.activeStep.update((step) => Math.max(step - 1, 0));
   }
 

@@ -1,0 +1,113 @@
+<!-- Pop-up: backdrop (click to close) and a dialog - head with close, scrolling body, footer actions. -->
+<div class="df-backdrop" (click)="cancel()"></div>
+
+<section class="df-dialog" role="dialog" aria-modal="true" aria-labelledby="df-title">
+  <header class="df-head">
+    <div>
+      <h2 id="df-title" class="df-title">{{ isNew() ? 'Add a department' : 'Edit department' }}</h2>
+      <p class="df-sub">
+        @if (isNew()) { What people do - a function such as Fundraising or Finance. }
+        @else { Changes apply as soon as they are saved. }
+      </p>
+    </div>
+    <button type="button" class="df-close" aria-label="Close" title="Close" (click)="cancel()">
+      <i class="ri-close-line"></i>
+    </button>
+  </header>
+
+  <div class="df-body">
+    @if (errorMessage()) {
+      <div class="of-alert">
+        <i class="ri-error-warning-line"></i>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="df-state"><i class="ri-loader-4-line of-spin"></i><span>Loading…</span></div>
+    } @else if (notFound()) {
+      <div class="df-state">
+        <i class="ri-organization-chart"></i>
+        <strong>This department could not be found</strong>
+        <span>It may have been removed. Close this and pick it again.</span>
+      </div>
+    } @else {
+
+      <!-- One compact three-column grid, so the whole form fits the pop-up without scrolling:
+           Code | Name (with its quick picks, adding only), Sits under | Head, Status (editing only),
+           then the description across the full width. -->
+      <div class="df-grid">
+        <div class="of-field">
+          <label for="df-code">Code <em>*</em></label>
+          <input id="df-code" type="text" class="of-input of-mono" maxlength="20" placeholder="e.g. FUN"
+                 autocapitalize="characters" spellcheck="false"
+                 [class.is-invalid]="(attempted() && !codeValid()) || fieldErrors()['code']"
+                 [ngModel]="form().code" (ngModelChange)="update('code', $event.toUpperCase())">
+          @if (fieldErrors()['code']) { <span class="of-error">{{ fieldErrors()['code'] }}</span> }
+          @else if (attempted() && !codeValid()) { <span class="of-error">At least two characters.</span> }
+        </div>
+
+        <div class="of-field df-span-2">
+          <label for="df-name">Name <em>*</em></label>
+          <input id="df-name" type="text" class="of-input" maxlength="200" placeholder="e.g. Fundraising"
+                 [class.is-invalid]="(attempted() && !nameValid()) || fieldErrors()['name']"
+                 [ngModel]="form().name" (ngModelChange)="update('name', $event)">
+          @if (fieldErrors()['name']) { <span class="of-error">{{ fieldErrors()['name'] }}</span> }
+          @else if (attempted() && !nameValid()) { <span class="of-error">Give the department a name of at least two characters.</span> }
+          @if (isNew()) {
+            <div class="of-suggest df-suggest" role="group" aria-label="Common departments">
+              @for (name of nameSuggestions; track name) {
+                <button type="button" class="of-suggest-opt" [class.is-on]="form().name === name"
+                        (click)="useSuggestion(name)">{{ name }}</button>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="of-field">
+          <label for="df-parent">Sits under</label>
+          <app-picker inputId="df-parent" [options]="parentPickerOptions()" [value]="form().parentId"
+                      noneLabel="Top level" searchPlaceholder="Search departments"
+                      [invalid]="!!fieldErrors()['parentDepartmentId']"
+                      (valueChange)="update('parentId', $event)" />
+          @if (fieldErrors()['parentDepartmentId']) { <span class="of-error">{{ fieldErrors()['parentDepartmentId'] }}</span> }
+        </div>
+
+        <div class="of-field df-span-2">
+          <label for="df-head">Head of department</label>
+          <app-picker inputId="df-head" [options]="headPickerOptions()" [value]="form().headUserId"
+                      noneLabel="No head yet" searchPlaceholder="Search people"
+                      (valueChange)="update('headUserId', $event)" />
+          @if (people.loadError()) { <span class="of-error">{{ people.loadError() }}</span> }
+        </div>
+
+        @if (!isNew()) {
+          <div class="of-field">
+            <label for="df-status">Status</label>
+            <app-picker inputId="df-status" [options]="statusPickerOptions()" [value]="form().status"
+                        [searchable]="false"
+                        (valueChange)="update('status', $any($event))" />
+          </div>
+          <p class="df-note df-span-2">Inactive hides a department from the pickers but keeps its history.</p>
+        }
+
+        <div class="of-field df-span-3">
+          <label for="df-description" class="df-label-row">
+            Description <span class="df-count">{{ form().description.length }} / 500</span>
+          </label>
+          <textarea id="df-description" class="of-input" rows="2" maxlength="500"
+                    placeholder="What this department is responsible for."
+                    [ngModel]="form().description" (ngModelChange)="update('description', $event)"></textarea>
+        </div>
+      </div>
+    }
+  </div>
+
+  <footer class="df-foot">
+    <button type="button" class="of-btn of-btn-ghost" (click)="cancel()">Cancel</button>
+    <button type="button" class="of-btn of-btn-primary" [disabled]="saving() || loading() || notFound()" (click)="save()">
+      @if (saving()) { <i class="ri-loader-4-line of-spin"></i> Saving… }
+      @else { <i class="ri-check-line"></i> {{ isNew() ? 'Add department' : 'Save changes' }} }
+    </button>
+  </footer>
+</section>

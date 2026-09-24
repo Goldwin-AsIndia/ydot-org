@@ -1462,4 +1462,92 @@ export class AssignmentBoardComponent {
       first.focus();
     }
   }
+
+  protected exportAssignmentBoard(): void {
+  const rows = this.paginatedRows();
+
+  if (!rows.length) {
+    this.toast.show(
+      "Nothing to export",
+      "There are no assignment records available to export.",
+      "error",
+    );
+    return;
+  }
+
+  const headers = [
+    "Lead ID",
+    "Lead Name",
+    "Campaign",
+    "Team",
+    "Language",
+    "Workload",
+    "SLA Status",
+    "Current Owner",
+    "Suggested Owner",
+    "Open Work",
+    "Next Action Due",
+    "Status",
+  ];
+
+  const csvRows = rows.map((row) => [
+    row.leadReference,
+    this.leadPreviewWithoutReference(row),
+    row.campaign,
+    row.team,
+    row.language,
+    row.workloadBand,
+    row.slaState,
+    row.currentOwner || "Unassigned",
+    row.suggestedOwner || "",
+    row.openWorkCount,
+    row.nextActionDue,
+    row.status,
+  ]);
+
+  const escapeCsv = (value: unknown): string => {
+    const text = String(value ?? "");
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+
+  const csv = [
+    headers.map(escapeCsv).join(","),
+    ...csvRows.map((row) => row.map(escapeCsv).join(",")),
+  ].join("\r\n");
+
+  const blob = new Blob(["\uFEFF" + csv], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `assignment-board-${this.formatExportDate()}.csv`;
+  link.style.display = "none";
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+
+  this.toast.show(
+    "Export completed",
+    `${rows.length} assignment record(s) exported successfully.`,
+    "success",
+  );
+}
+
+private formatExportDate(): string {
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+
+  return `${year}${month}${day}-${hours}${minutes}`;
+}
 }

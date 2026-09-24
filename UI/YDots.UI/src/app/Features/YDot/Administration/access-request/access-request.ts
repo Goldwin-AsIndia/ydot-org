@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -88,15 +88,16 @@ export class AccessRequestComponent {
   readonly showFilters = signal(false);
 
   filteredRequests = signal<AccessRequestView[]>([]);
-  readonly pageSize = 10;
+  readonly pageSize = signal(10);
+  readonly pageSizeOptions = [10, 20, 50, 100];
   readonly currentPage = signal(1);
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredRequests().length / this.pageSize)));
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredRequests().length / this.pageSize())));
   readonly paginatedRequests = computed(() => {
-    const start = (this.currentPage() - 1) * this.pageSize;
-    return this.filteredRequests().slice(start, start + this.pageSize);
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredRequests().slice(start, start + this.pageSize());
   });
-  readonly firstVisibleRow = computed(() => this.filteredRequests().length ? ((this.currentPage() - 1) * this.pageSize) + 1 : 0);
-  readonly lastVisibleRow = computed(() => Math.min(this.currentPage() * this.pageSize, this.filteredRequests().length));
+  readonly firstVisibleRow = computed(() => this.filteredRequests().length ? ((this.currentPage() - 1) * this.pageSize()) + 1 : 0);
+  readonly lastVisibleRow = computed(() => Math.min(this.currentPage() * this.pageSize(), this.filteredRequests().length));
 
   readonly userSearch = signal('');
   readonly roleSearch = signal('');
@@ -344,11 +345,170 @@ export class AccessRequestComponent {
 
   clearFilters(): void { this.searchQuery.set(''); this.filterState.set(''); }
 
+  /** Status filter dropdown in the table toolbar. */
+  pickStatus(id: string): void {
+    this.filterState.set(id);
+    this.openDd.set(null);
+  }
+
   openFilters(): void { this.showFilters.set(true); }
   closeFilters(): void { this.showFilters.set(false); }
 
   goToPage(page: number): void {
     this.currentPage.set(Math.min(Math.max(page, 1), this.totalPages()));
+  }
+
+  // ===== Pagination: page-size picker and numbered pages =====
+
+  setPageSize(size: number): void {
+    this.pageSize.set(size);
+    this.currentPage.set(1);
+    this.openDd.set(null);
+  }
+
+  /** Page numbers with gaps (0 = an ellipsis), e.g. 1 … 4 5 6 … 12. */
+  readonly pageNumbers = computed<number[]>(() => {
+    const total = this.totalPages();
+    const current = this.currentPage();
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    const pages = new Set([1, total, current - 1, current, current + 1]);
+    const sorted = [...pages].filter(p => p >= 1 && p <= total).sort((a, b) => a - b);
+    const out: number[] = [];
+    sorted.forEach((p, i) => {
+      if (i > 0 && p - sorted[i - 1] > 1) out.push(0);
+      out.push(p);
+    });
+    return out;
+  });
+
+  // ===== Custom dropdowns (no native <select>) =====
+
+  /** Which custom dropdown is open: 'pageSize' | 'requestType' | 'user' | 'role' | 'scopeType'. */
+  readonly openDd = signal<string | null>(null);
+
+  toggleDd(key: string): void {
+    this.dpField.set(null);
+    this.openDd.set(this.openDd() === key ? null : key);
+  }
+
+  /** Sets one field of the New Request form and closes the dropdown. */
+  pickField(field: 'requestType' | 'userId' | 'requestedRole' | 'scopeType', value: string): void {
+    this.newRequestForm.set({ ...this.newRequestForm(), [field]: value });
+    this.openDd.set(null);
+  }
+
+  optionName(options: LookupItem[] | undefined | null, id: string): string {
+    return (options ?? []).find(option => option.id === id)?.name ?? '';
+  }
+
+  selectedUser(): { id: string; reference: string; displayName: string; orgUnit: string } | undefined {
+    const id = this.newRequestForm().userId;
+    return this.userOptions().find(u => u.id === id);
+  }
+
+  initials(name: string | null | undefined): string {
+    const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+    return ((parts[0]?.[0] ?? '?') + (parts[1]?.[0] ?? '')).toUpperCase();
+  }
+
+  // ===== Custom date picker (no native date input) =====
+
+  readonly dpField = signal<'effectiveFrom' | 'effectiveTo' | 'reviewDate' | null>(null);
+  readonly dpView = signal(new Date());
+  readonly weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  readonly dateFields: { key: 'effectiveFrom' | 'effectiveTo' | 'reviewDate'; label: string }[] = [
+    { key: 'effectiveFrom', label: 'Effective from' },
+    { key: 'effectiveTo', label: 'Effective to' },
+    { key: 'reviewDate', label: 'Review date' },
+  ];
+  dateValue(key: 'effectiveFrom' | 'effectiveTo' | 'reviewDate'): string {
+    return this.newRequestForm()[key] ?? '';
+  }
+
+  openDatePicker(field: 'effectiveFrom' | 'effectiveTo' | 'reviewDate'): void {
+    this.openDd.set(null);
+    if (this.dpField() === field) {
+      this.dpField.set(null);
+      return;
+    }
+    const current = this.newRequestForm()[field];
+    this.dpView.set(current ? new Date(current + 'T00:00:00') : new Date());
+    this.dpField.set(field);
+  }
+
+  readonly dpTitle = computed(() =>
+    this.dpView().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }));
+
+  /** The visible month as 6 weeks of cells, Monday first. */
+  readonly dpCells = computed(() => {
+    const view = this.dpView();
+    const field = this.dpField();
+    const selected = field ? this.newRequestForm()[field] : '';
+    const first = new Date(view.getFullYear(), view.getMonth(), 1);
+    const offset = (first.getDay() + 6) % 7;
+    const start = new Date(first);
+    start.setDate(first.getDate() - offset);
+    const todayIso = this.toIso(new Date());
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const iso = this.toIso(d);
+      return {
+        iso,
+        day: d.getDate(),
+        outside: d.getMonth() !== view.getMonth(),
+        today: iso === todayIso,
+        selected: iso === selected,
+      };
+    });
+  });
+
+  dpShift(months: number): void {
+    const v = this.dpView();
+    this.dpView.set(new Date(v.getFullYear(), v.getMonth() + months, 1));
+  }
+
+  dpPick(iso: string): void {
+    const field = this.dpField();
+    if (!field) return;
+    this.newRequestForm.set({ ...this.newRequestForm(), [field]: iso });
+    this.dpField.set(null);
+  }
+
+  dpToday(): void { this.dpPick(this.toIso(new Date())); }
+
+  dpClear(): void {
+    const field = this.dpField();
+    if (!field) return;
+    this.newRequestForm.set({ ...this.newRequestForm(), [field]: '' });
+    this.dpField.set(null);
+  }
+
+  /** "2026-09-24" → "24 Sep 2026" for the picker's trigger. */
+  displayDate(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso + 'T00:00:00');
+    return isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  private toIso(d: Date): string {
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${day}`;
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.openDd.set(null);
+    this.dpField.set(null);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.openDd.set(null);
+    this.dpField.set(null);
   }
 
   private toAccessRequestView(r: AccessRequestItemApi): AccessRequestView {
@@ -444,6 +604,8 @@ export class AccessRequestComponent {
       reviewDate: '',
       businessJustification: ''
     });
+    this.openDd.set(null);
+    this.dpField.set(null);
     this.showNewRequestModal.set(true);
   }
 

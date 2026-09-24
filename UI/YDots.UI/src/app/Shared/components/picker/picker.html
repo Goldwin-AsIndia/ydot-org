@@ -1,0 +1,55 @@
+<button #trigger type="button" class="pk-trigger" [attr.id]="inputId()"
+        [class.is-open]="open()" [class.is-invalid]="invalid()" [class.is-empty]="!selected()"
+        [disabled]="disabled()" aria-haspopup="listbox" [attr.aria-expanded]="open()"
+        (click)="toggle()" (keydown)="onTriggerKey($event)">
+  <span class="pk-value">
+    @if (selected(); as sel) {
+      {{ sel.label }}
+    } @else {
+      {{ noneLabel() ?? placeholder() }}
+    }
+  </span>
+  <i class="ri-arrow-down-s-line pk-chevron" aria-hidden="true"></i>
+</button>
+
+@if (open()) {
+  <div #panel class="pk-panel" [class.is-up]="dropUp()" [style]="panelStyle()" (keydown)="onPanelKey($event)">
+    @if (searchable()) {
+      <div class="pk-search">
+        <i class="ri-search-line" aria-hidden="true"></i>
+        <input #search type="text" [placeholder]="searchPlaceholder()" [value]="query()"
+               (input)="onQuery($any($event.target).value)" autocomplete="off" spellcheck="false"
+               aria-label="Search the list">
+        @if (query()) {
+          <button type="button" class="pk-search-clear" aria-label="Clear search" (click)="onQuery(''); search.focus()">
+            <i class="ri-close-line"></i>
+          </button>
+        }
+      </div>
+    } @else {
+      <!-- No search box: a hidden focus target so the arrow keys still work in the list. -->
+      <input #search class="pk-focus-only" type="text" readonly aria-hidden="true" tabindex="-1">
+    }
+
+    <div #list class="pk-list" role="listbox">
+      @for (row of rows(); track row.value; let i = $index) {
+        <button type="button" class="pk-option" role="option" [attr.data-index]="i"
+                [class.is-none]="row.value === '' && noneLabel() !== null"
+                [class.is-active]="i === active()" [class.is-selected]="isSelected(row)"
+                [attr.aria-selected]="isSelected(row)"
+                (mouseenter)="active.set(i)" (click)="pick(row)">
+          <span class="pk-option-text">
+            <span class="pk-option-label">{{ row.label }}</span>
+            @if (row.hint) { <span class="pk-option-hint">{{ row.hint }}</span> }
+          </span>
+          @if (isSelected(row)) { <i class="ri-check-line pk-check" aria-hidden="true"></i> }
+        </button>
+      } @empty {
+        <div class="pk-empty">
+          <i class="ri-search-eye-line" aria-hidden="true"></i>
+          <span>No matches for “{{ query() }}”</span>
+        </div>
+      }
+    </div>
+  </div>
+}

@@ -221,6 +221,37 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
   readonly isProfileComplete = computed(() => this.organisation()?.isProfileComplete === true);
 
   /**
+   * The outstanding fields as people read them. The server sends property names ("ContactPhone");
+   * the notice shows the same words the form uses ("Telephone"). Anything not listed here is split
+   * on its capitals, so a field the server adds later still reads sensibly.
+   */
+  private static readonly fieldLabels: Record<string, string> = {
+    name: 'Name',
+    legalname: 'Registered legal name',
+    registrationnumber: 'Registration number',
+    taxidentificationnumber: 'Tax identification number',
+    pannumber: 'PAN',
+    gstnumber: 'GST',
+    organisationtype: 'Organisation type',
+    establishedon: 'Established on',
+    description: 'About',
+    contactpersonname: 'Contact person',
+    contactemail: 'Contact e-mail',
+    contactphone: 'Telephone',
+    websiteurl: 'Website',
+    addressline1: 'Address line 1',
+    addressline2: 'Address line 2',
+    city: 'City',
+    state: 'State or province',
+    country: 'Country',
+    postalcode: 'Postal code',
+  };
+  readonly outstandingFieldLabels = computed(() =>
+    this.outstandingFields().map(field =>
+      OrganisationDetailComponent.fieldLabels[field.toLowerCase()]
+      ?? field.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase())));
+
+  /**
    * Which boxes the server will actually accept a value from, lower-cased for comparison.
    *
    * NULL, NOT AN EMPTY ARRAY, IS THE "NO RESTRICTION" CASE. An API build that predates the
@@ -329,13 +360,22 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
   /**
    * Whether the "Review & submit" tab is worth showing at all.
    *
-   * Broader than {@link canSubmit}: an incomplete profile can't be submitted yet, but the tab
-   * still needs to be there to tell the admin that submission is what's next, and why the button
-   * on it is disabled.
+   * On the profile page of the organisation's own admin it is always there - broader than
+   * {@link canSubmit} - so the admin can see what submission needs, why the button is disabled, or
+   * that there is nothing left to send. The settings page does not show it.
    */
-  readonly showReviewTab = computed(
-    () => this.isOwnOrganisation()
-      && (this.can('Submit') || this.can('Resubmit') || !this.isProfileComplete()));
+  readonly showReviewTab = computed(() => this.isOwnOrganisation() && !this.isSettingsPage());
+
+  /**
+   * Which of the two pages this is. The same component serves the organisation PROFILE
+   * (details route: Profile, Documents, Review & submit, Web addresses, History) and the
+   * organisation SETTINGS (settings route: Security settings, Profile, History). Read from the
+   * route's `tab: 'settings'` data.
+   */
+  readonly isSettingsPage = signal(false);
+
+  /** The Security settings tab: the settings page only, and only once the platform has approved. */
+  readonly showSecurityTab = computed(() => this.isSettingsPage() && this.isOwnOrganisation() && this.isApproved());
 
   /**
    * Whether the Organisation has been approved.
@@ -362,6 +402,7 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     const id = this.route.snapshot.paramMap.get('id');
     this.organisationId.set(id);
     this.requestedTab = (this.route.snapshot.data['tab'] as Tab | undefined) ?? null;
+    this.isSettingsPage.set(this.requestedTab === 'settings');
     this.load();
 
     // A failure costs the Type select its options and nothing else; the stored value is still
@@ -390,15 +431,10 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.isOwnOrganisation() && this.isApproved()) {
+    // Before approval there are no settings to show; the page says so itself (see the template).
+    if (this.showSecurityTab()) {
       this.tab.set('settings');
-      return;
     }
-
-    this.toast.show(
-      'Security settings',
-      'These become available once the platform has approved this organisation.',
-      'info');
   }
 
   ngOnDestroy(): void {
@@ -680,22 +716,15 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Two-letter monogram for the identity header and the administrator row. */
-  initials(name: string | null | undefined): string {
-    const words = (name ?? '').trim().split(/\s+/).filter(w => /[A-Za-z0-9]/.test(w));
-    if (!words.length) return '?';
-    return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[words.length - 1][0]).toUpperCase();
-  }
-
-  /** "City, State" without dangling commas when one of them is missing. */
-  cityLine(city: string | null | undefined, state: string | null | undefined): string {
-    return [city, state].filter(v => !!v && v.trim()).join(', ');
-  }
-
-  /** Share of the seat allowance in use, 0-100, for the People meter. */
-  seatPercent(used: number | null | undefined, max: number | null | undefined): number {
-    if (!max) return 0;
-    return Math.max(0, Math.min(100, Math.round(((used ?? 0) / max) * 100)));
+  /** The icon standing for the organisation's status in the header (the word is its tooltip). */
+  statusIcon(status: string | undefined): string {
+    switch (this.statusClass(status)) {
+      case 'is-good': return 'ri-checkbox-circle-line';
+      case 'is-warn': return 'ri-time-line';
+      case 'is-error': return 'ri-close-circle-line';
+      case 'is-muted': return 'ri-archive-line';
+      default: return 'ri-information-line';
+    }
   }
 
   documentStatusClass(status: string | undefined): string {

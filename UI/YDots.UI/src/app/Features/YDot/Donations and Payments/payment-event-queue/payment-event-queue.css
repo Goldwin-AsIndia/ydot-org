@@ -236,16 +236,17 @@ textarea:focus-visible,
   margin-bottom: 20px;
 }
 
-.pr-tile {
+.pr-tile1 {
   position: relative;
   background: var(--pr-card);
   border: 1.3px solid color-mix(in srgb, var(--tile-accent, var(--pr-meadow)) 42%, white);
   border-radius: var(--yc-radius);
   padding: var(--yc-pad-kpi);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 14px;
   overflow: hidden;
+  justify-content: space-between;
   /* clip decorative wave to the card */
   /* DARK derivative of each tile's accent - drives fonts and icons so the five
      receipt cards read bold and dark while keeping their one-accent colour coding. */
@@ -308,6 +309,8 @@ textarea:focus-visible,
   color: #0c1210;
 }
 
+
+
 .pr-tile-icon {
   position: relative;
   z-index: 1;
@@ -323,8 +326,8 @@ textarea:focus-visible,
 }
 
 .pr-tile-icon svg {
-  width: 27px;
-  height: 27px;
+    width: 64px !important;
+    height: 40px !important;
 }
 
 .pr-tile-body {
@@ -369,7 +372,7 @@ textarea:focus-visible,
 
 .pr-filter-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 33fr 13fr;
   gap: 14px;
 }
 
@@ -394,8 +397,8 @@ textarea:focus-visible,
 .pr-input-ic {
   position: absolute;
   right: 12px;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   color: var(--pr-muted);
   pointer-events: none;
 }
@@ -449,6 +452,138 @@ textarea:focus-visible,
   height: 16px;
   color: var(--pr-muted);
   pointer-events: none;
+}
+
+/* ---------- Payment status: custom dropdown ---------- */
+.pr-dd {
+  position: relative;
+}
+
+.pr-dd-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid var(--pr-border);
+  border-radius: 10px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--pr-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.pr-dd-trigger:hover {
+  border-color: color-mix(in srgb, var(--pr-meadow) 40%, white);
+}
+
+.pr-dd-trigger:focus-visible,
+.pr-dd.is-open .pr-dd-trigger {
+  outline: none;
+  border-color: var(--pr-meadow);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pr-meadow) 14%, transparent);
+}
+
+.pr-dd-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pr-dd-chev {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--pr-muted);
+  transition: transform .18s ease, color .18s ease;
+}
+
+.pr-dd.is-open .pr-dd-chev {
+  transform: rotate(180deg);
+  color: var(--pr-meadow);
+}
+
+/* status dot - same colours as the status icons in the table */
+.pr-dd-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--pr-muted);
+}
+.pr-dd-dot[data-status='all']     { background: var(--pr-meadow); }
+.pr-dd-dot[data-status='Success'] { background: #2e7d4f; }
+.pr-dd-dot[data-status='Pending'] { background: #d9a93f; }
+.pr-dd-dot[data-status='Fail']    { background: var(--pr-error); }
+
+/* menu */
+@keyframes pr-dd-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pr-dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 100%;
+  width: max-content;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--pr-border-2);
+  border-radius: 12px;
+  box-shadow: 0 14px 36px -8px rgba(20, 30, 25, .18), 0 2px 6px rgba(20, 30, 25, .06);
+  animation: pr-dd-in .16s ease-out;
+}
+
+.pr-dd-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--pr-ink);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .1s ease;
+}
+
+.pr-dd-option.is-active {
+  background: color-mix(in srgb, var(--primary, var(--pr-meadow)) 6%, white);
+}
+
+.pr-dd-option.is-selected {
+  font-weight: 700;
+  color: var(--pr-meadow);
+  background: var(--pr-meadow-soft);
+}
+
+.pr-dd-label {
+  flex: 1 1 auto;
+}
+
+.pr-dd-check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: 12px;
+  color: var(--pr-meadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pr-dd-menu { animation: none; }
+  .pr-dd-trigger, .pr-dd-chev { transition: none; }
 }
 
 .pr-active-row {
@@ -592,7 +727,9 @@ textarea:focus-visible,
   background: var(--pr-card);
   border: var(--yc-border);
   border-radius: var(--yc-radius);
-  overflow: hidden;
+  /* VISIBLE, not hidden: the status dropdown opens from the card header and must not be
+     clipped when the table below is short (loading / empty states). */
+  overflow: visible;
 }
 
 /* ---------- Table ---------- */
@@ -1699,4 +1836,106 @@ textarea:focus-visible,
 }
 .plus-icon i{
   font-size: 18px !important;
+}
+
+
+/* ================================================================= */
+/* ======================================================= */ 
+/* ---- Base: needed for the shade overlay ---- */
+.pr-tile1 {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease;
+  will-change: transform;
+}
+
+/* Shade / shine strip (hidden off-card by default) */
+.pr-tile1::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Soft tint shade that fades in over the whole card */
+.pr-tile1::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 85% 20%,
+    color-mix(in srgb, currentColor 12%, transparent),
+    transparent 65%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---- Hover ---- */
+.pr-tile1:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.18);
+}
+
+.pr-tile1:hover::before {
+  animation: pr-tile-shine 1s ease forwards;
+}
+
+.pr-tile1:hover::after {
+  opacity: 1;
+}
+
+@keyframes pr-tile-shine {
+  from { left: -75%; }
+  to   { left: 125%; }
+}
+
+/* Icon pop */
+.pr-tile1 .pr-tile-icon {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.pr-tile1:hover .pr-tile-icon {
+  transform: scale(1.12) rotate(-6deg);
+}
+
+/* Wave rises a bit */
+.pr-tile1 .pr-tile-wave {
+  transition: transform 0.5s ease, opacity 0.5s ease;
+  transform-origin: bottom;
+}
+.pr-tile1:hover .pr-tile-wave {
+  transform: scaleY(1.35);
+  opacity: 0.9;
+}
+
+/* Keep text above the overlays */
+.pr-tile1 .pr-tile-body,
+.pr-tile1 .pr-tile-icon {
+  position: relative;
+  z-index: 1;
+}
+
+/* Accessibility: users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  .pr-tile1,
+  .pr-tile1 .pr-tile-icon,
+  .pr-tile1 .pr-tile-wave { transition: none; }
+  .pr-tile1:hover { transform: none; }
+  .pr-tile1:hover::before { animation: none; }
 }

@@ -1,127 +1,291 @@
 <main class="app-wrapper">
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3">
-      <app-page-header screen="access-preview" title="Access Preview"
-                       subtitle="Everything a person can do right now, from every role and grant at once">
-        @if (selectedPerson()) {
-          <button actions type="button" class="ph-btn ph-btn--ghost" title="Choose someone else" (click)="clearSelection()">
-            <i class="ri-arrow-left-line" aria-hidden="true"></i><span>Choose someone else</span>
-          </button>
-        }
-      </app-page-header>
+      <div class="apv-page">
 
-      <div class="information-strip" role="note">
-        <i class="ri-shield-check-line" aria-hidden="true"></i>
-        <p>This preview resolves every role, direct grant and data scope from the same effective-access source used at sign-in, so the result reflects what the selected person can do now.</p>
-      </div>
+        <app-page-header screen="access-preview" title="Access Preview"
+                         subtitle="Everything a person can do right now, from every role and grant at once.">
+          <!-- @if (selectedPerson()) {
+            <button actions type="button" class="ph-btn ph-btn--ghost" title="Choose someone else" (click)="clearSelection()">
+              <i class="ri-arrow-left-line" aria-hidden="true"></i><span>Choose someone else</span>
+            </button>
+          } -->
+        </app-page-header>
 
-      <div class="access-layout">
-        <aside class="card access-picker">
-          <div class="access-picker__title"><span class="section-icon"><i class="ri-team-line" aria-hidden="true"></i></span><h2>Find a person</h2></div>
-          <label class="search-field"><i class="ri-search-line" aria-hidden="true"></i><span class="visually-hidden">Search people by name or code</span>
-            <input type="search" class="form-control" placeholder="Search by name or code..." [ngModel]="personSearch()" (ngModelChange)="updatePersonSearch($event)">
-          </label>
+        <div class="apv-layout">
 
-          @if (peopleLoading()) {
-            <div class="state-panel state-panel--compact" role="status"><span class="spinner-border spinner-border-sm"></span><span>Loading people...</span></div>
-          } @else if (peopleError()) {
-            <div class="state-panel state-panel--compact"><i class="ri-error-warning-line"></i><p>The directory could not be loaded.</p>
-              <button type="button" class="btn btn-outline-secondary btn-sm" title="Retry loading people" (click)="retry()"><i class="ri-refresh-line"></i><span>Retry</span></button>
+          <!-- ================= WHO: person picker ================= -->
+          <aside class="apv-card apv-who" aria-label="People">
+            <div class="apv-who-head">
+              <div class="apv-eyebrow">Who ({{ filteredPeople().length }})</div>
+              <label class="apv-search">
+                <i class="ri-search-line" aria-hidden="true"></i>
+                <input type="search" placeholder="Search by name or code" aria-label="Search people by name or code"
+                       [ngModel]="personSearch()" (ngModelChange)="updatePersonSearch($event)">
+              </label>
             </div>
-          } @else {
-            <div class="person-list" aria-label="People">
-              @for (person of pagedPeople(); track person.id) {
-                <button type="button" class="person-row" [class.person-row--active]="person.id === selectedPersonId()" [attr.aria-pressed]="person.id === selectedPersonId()" [title]="'View access for ' + person.displayName" (click)="selectPerson(person.id)">
-                  <span class="person-row__avatar"><i class="ri-user-line" aria-hidden="true"></i></span>
-                  <span class="person-row__content"><span class="person-row__name">{{ person.displayName }}</span><span class="person-row__meta">{{ person.reference }}</span><span class="person-row__roles">{{ person.roleSummary }}</span></span>
-                </button>
-              } @empty { <p class="empty-copy">Nobody matches that search.</p> }
-            </div>
-            @if (filteredPeople().length > 0) {
-              <nav class="picker-pagination" aria-label="People pagination"><span>{{ peopleRangeStart() }}–{{ peopleRangeEnd() }} of {{ filteredPeople().length }}</span>
-                <div class="picker-pagination__actions">
-                  <button type="button" class="btn btn-outline-secondary btn-sm icon-btn" title="Previous page" aria-label="Previous page" [disabled]="peoplePage() <= 1" (click)="setPeoplePage(peoplePage() - 1)"><i class="ri-arrow-left-s-line"></i></button>
-                  <span class="page-number">{{ peoplePage() }} / {{ peoplePageCount() }}</span>
-                  <button type="button" class="btn btn-outline-secondary btn-sm icon-btn" title="Next page" aria-label="Next page" [disabled]="peoplePage() >= peoplePageCount()" (click)="setPeoplePage(peoplePage() + 1)"><i class="ri-arrow-right-s-line"></i></button>
+
+            @if (peopleLoading()) {
+              <div class="apv-mini-state" role="status"><i class="ri-loader-4-line apv-spin" aria-hidden="true"></i><span class="apv-t">Loading people…</span></div>
+            } @else if (peopleError()) {
+              <div class="apv-mini-state">
+                <i class="ri-error-warning-line" aria-hidden="true"></i>
+                <span class="apv-t">The directory could not be loaded.</span>
+                <button type="button" class="apv-btn apv-btn--line" (click)="retry()"><i class="ri-refresh-line" aria-hidden="true"></i><span class="apv-t">Retry</span></button>
+              </div>
+            } @else {
+              <div class="apv-people">
+                @for (person of pagedPeople(); track person.id) {
+                  <button type="button" class="apv-person" [class.is-on]="person.id === selectedPersonId()"
+                          [attr.aria-pressed]="person.id === selectedPersonId()" [title]="person.displayName + ' · ' + person.reference"
+                          (click)="selectPerson(person.id)">
+                    <span class="apv-avatar" aria-hidden="true">{{ initials(person.displayName) }}</span>
+                    <span class="apv-person-text">
+                      <span class="apv-person-name">{{ person.displayName }}</span>
+                      <span class="apv-person-role">{{ firstRole(person) }}</span>
+                    </span>
+                  </button>
+                } @empty {
+                  <div class="apv-mini-state"><span class="apv-t">Nobody matches that search.</span></div>
+                }
+              </div>
+
+              @if (peoplePageCount() > 1) {
+                <nav class="apv-who-pager" aria-label="People pagination">
+                  <span class="apv-t">{{ peopleRangeStart() }}–{{ peopleRangeEnd() }} of {{ filteredPeople().length }}</span>
+                  <div class="apv-who-pager-btns">
+                    <button type="button" class="apv-icon-btn" aria-label="Previous page" [disabled]="peoplePage() <= 1" (click)="setPeoplePage(peoplePage() - 1)"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+                    <span class="apv-t apv-num">{{ peoplePage() }} / {{ peoplePageCount() }}</span>
+                    <button type="button" class="apv-icon-btn" aria-label="Next page" [disabled]="peoplePage() >= peoplePageCount()" (click)="setPeoplePage(peoplePage() + 1)"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+                  </div>
+                </nav>
+              }
+            }
+          </aside>
+
+          <!-- ================= RESULT ================= -->
+          <section class="apv-main" aria-live="polite">
+
+            @if (!selectedPersonId() && !loading()) {
+              <div class="apv-card apv-state">
+                <span class="apv-state-ico"><i class="ri-user-search-line" aria-hidden="true"></i></span>
+                <div class="apv-state-title">Choose a person</div>
+                <div class="apv-state-sub">Select someone from the list to preview their roles, permissions, sensitive access and data scopes.</div>
+              </div>
+            }
+
+            @if (loading()) {
+              <div class="apv-card apv-state" role="status">
+                <span class="apv-state-ico"><i class="ri-loader-4-line apv-spin" aria-hidden="true"></i></span>
+                <div class="apv-state-title">Resolving effective access</div>
+                <div class="apv-state-sub">This may take a moment.</div>
+              </div>
+            }
+
+            @if (loadError() && !loading()) {
+              <div class="apv-card apv-state">
+                <span class="apv-state-ico apv-state-ico--danger"><i class="ri-error-warning-line" aria-hidden="true"></i></span>
+                <div class="apv-state-title">Could not resolve access</div>
+                <div class="apv-state-sub">{{ errorMessage() }}</div>
+                <button type="button" class="apv-btn apv-btn--line" (click)="retry()"><i class="ri-refresh-line" aria-hidden="true"></i><span class="apv-t">Retry</span></button>
+              </div>
+            }
+
+            @if (access() && !loading() && !loadError()) {
+
+              <!-- KPI strip: one card, four cells, coloured left rule -->
+              <div class="apv-card apv-kpis">
+                <div class="apv-kpi apv-kpi--p">
+                  <div class="apv-eyebrow">Roles held</div>
+                  <div class="apv-kpi-v">{{ roles().length }}</div>
                 </div>
-              </nav>
-            }
-          }
-        </aside>
-
-        <section class="access-content" aria-live="polite">
-          @if (!selectedPersonId() && !loading()) {
-            <div class="card state-panel"><span class="state-panel__icon"><i class="ri-user-search-line"></i></span><h2>Choose a person</h2><p>Select someone from the list to preview their current roles, permissions, sensitive access and data scopes.</p></div>
-          }
-          @if (loading()) {
-            <div class="card state-panel" role="status"><span class="spinner-border"></span><h2>Resolving effective access</h2><p>This may take a moment.</p></div>
-          }
-          @if (loadError() && !loading()) {
-            <div class="card state-panel"><span class="state-panel__icon state-panel__icon--danger"><i class="ri-error-warning-line"></i></span><h2>Could not resolve access</h2><p>{{ errorMessage() }}</p>
-              <button type="button" class="btn btn-outline-secondary btn-sm" title="Retry resolving access" (click)="retry()"><i class="ri-refresh-line"></i><span>Retry</span></button>
-            </div>
-          }
-
-          @if (access() && !loading() && !loadError()) {
-            <div class="summary-grid">
-              <article class="card summary-card"><span class="summary-card__icon"><i class="ri-team-line"></i></span><div><span class="summary-card__label">Roles held</span><strong>{{ roles().length }}</strong></div></article>
-              <article class="card summary-card"><span class="summary-card__icon"><i class="ri-key-2-line"></i></span><div><span class="summary-card__label">Permissions</span><strong>{{ access()?.totalPermissionCount ?? 0 }}</strong></div></article>
-              <article class="card summary-card"><span class="summary-card__icon"><i class="ri-shield-keyhole-line"></i></span><div><span class="summary-card__label">Sensitive</span><strong class="text-danger">{{ access()?.sensitivePermissionCount ?? 0 }}</strong></div></article>
-              <article class="card summary-card"><span class="summary-card__icon"><i class="ri-database-2-line"></i></span><div><span class="summary-card__label">Data scopes</span><strong>{{ dataScopes().length }}</strong></div></article>
-            </div>
-
-            @if (isBlanketGrant()) {
-              <div class="blanket-alert" role="alert"><i class="ri-alert-line"></i><p><strong>This account holds everything.</strong>
-                @if (access()?.isSuperAdmin) { It is a platform SuperAdmin, whose authority comes from a flag rather than granted permissions. }
-                @else { It holds a role that grants every permission in this organisation. }
-                The list below shows what is recorded as rows, which is not the whole of what this account can reach.</p></div>
-            }
-
-            <article class="card detail-card">
-              <header class="detail-card__header"><div class="detail-title"><span class="section-icon"><i class="ri-shield-user-line"></i></span><h2>Roles</h2><span>— where the access comes from</span></div></header>
-              <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Role</th><th>Permissions</th><th>Effective</th><th>Assigned by</th><th>State</th></tr></thead><tbody>
-                @for (role of roles(); track role.id) {
-                  <tr><td><span class="cell-strong">{{ role.roleName || role.roleCode }}</span>@if (role.isPrimary) { <span class="status-badge status-badge--primary">Primary</span> }</td><td class="number-text">{{ role.permissionCount ?? 0 }}</td><td class="number-text">{{ formatDate(role.effectiveFromUtc) }} @if (role.effectiveToUtc) { → {{ formatDate(role.effectiveToUtc) }} } @else { <span class="muted">→ no end</span> }</td><td>{{ role.assignedByName || '—' }}</td><td>@if (role.isEffective) { <span class="status-badge status-badge--success">In force</span> } @else { <span class="status-badge status-badge--muted">Not in force</span> }</td></tr>
-                } @empty { <tr><td colspan="5" class="empty-cell">This person holds no roles.</td></tr> }
-              </tbody></table></div>
-            </article>
-
-            @if (dataScopes().length > 0) {
-              <article class="card detail-card"><header class="detail-card__header"><div class="detail-title"><span class="section-icon"><i class="ri-focus-3-line"></i></span><h2>Data scopes</h2><span>— which records the permissions reach</span></div></header>
-                <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Kind</th><th>Value</th><th>Effective</th><th>State</th></tr></thead><tbody>
-                  @for (scope of dataScopes(); track scope.id) { <tr><td>{{ scopeLabel(scope.scopeType) }}</td><td class="cell-strong">{{ scope.displayLabel || scope.scopeValue || 'All' }}</td><td class="number-text">{{ formatDate(scope.effectiveFromUtc) }} @if (scope.effectiveToUtc) { → {{ formatDate(scope.effectiveToUtc) }} }</td><td>@if (scope.isEffective) { <span class="status-badge status-badge--success">In force</span> } @else { <span class="status-badge status-badge--muted">Not in force</span> }</td></tr> }
-                </tbody></table></div>
-              </article>
-            }
-
-            <article class="card permissions-card">
-              <header class="permissions-toolbar"><div class="detail-title"><span class="section-icon"><i class="ri-key-2-line"></i></span><h2>What they can do</h2></div>
-                <div class="permissions-toolbar__actions">
-                  <label class="switch-control"><input type="checkbox" role="switch" [ngModel]="grantedOnly()" (ngModelChange)="grantedOnly.set($event)"><span>Granted only</span></label>
-                  <label class="switch-control"><input type="checkbox" role="switch" [ngModel]="sensitiveOnly()" (ngModelChange)="sensitiveOnly.set($event)"><span>Sensitive only</span></label>
-                  <button type="button" class="btn btn-outline-secondary btn-sm" title="Expand all permission groups" (click)="expandAll()"><i class="ri-expand-diagonal-line"></i><span>Expand all</span></button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm" title="Collapse all permission groups" (click)="collapseAll()"><i class="ri-contract-left-right-line"></i><span>Collapse</span></button>
+                <div class="apv-kpi apv-kpi--p">
+                  <div class="apv-eyebrow">Permissions</div>
+                  <div class="apv-kpi-v">{{ access()?.totalPermissionCount ?? 0 }}</div>
                 </div>
-              </header>
-              @for (module of modules(); track module.moduleCode) {
-                <section class="module-block"><button type="button" class="module-head" [attr.aria-expanded]="isModuleOpen(module.moduleCode)" [title]="(isModuleOpen(module.moduleCode) ? 'Collapse ' : 'Expand ') + moduleLabel(module.moduleCode)" (click)="toggleModule(module.moduleCode)">
-                  <i class="module-head__chevron" [class.ri-arrow-down-s-line]="isModuleOpen(module.moduleCode)" [class.ri-arrow-right-s-line]="!isModuleOpen(module.moduleCode)"></i><i [class]="moduleIcon(module.moduleCode)" class="module-head__icon"></i><span class="module-head__name">{{ moduleLabel(module.moduleCode) }}</span>
-                  <span class="module-head__badges"><span class="status-badge status-badge--primary">{{ module.grantedCount }} granted</span>@if (module.sensitiveCount > 0) { <span class="status-badge status-badge--danger">{{ module.sensitiveCount }} sensitive</span> }</span>
-                </button>
-                @if (isModuleOpen(module.moduleCode)) { <div class="module-body">
-                  @for (group of module.groups; track group.groupCode) { <section class="permission-group"><h3>{{ group.groupCode }}</h3><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Permission</th><th>Code</th><th>Granted via</th><th>State</th></tr></thead><tbody>
-                    @for (permission of group.permissions; track permission.code) { <tr [class.muted-row]="permission.isGranted !== true"><td>{{ permission.name || permission.code }}</td><td><code>{{ permission.code }}</code></td><td>{{ permission.isGranted ? grantedViaLabel(permission) : '—' }}</td><td>@if (permission.isSensitive) { <span class="status-badge status-badge--danger" title="Use of this permission writes an enhanced audit row">Sensitive</span> } @if (permission.isGranted !== true) { <span class="status-badge status-badge--muted">No</span> }</td></tr> }
-                  </tbody></table></div></section> }
-                </div> }
-                </section>
-              } @empty { <p class="empty-copy empty-copy--large">Nothing matches the current filters.</p> }
-            </article>
+                <div class="apv-kpi apv-kpi--danger">
+                  <div class="apv-eyebrow">Sensitive</div>
+                  <div class="apv-kpi-v apv-kpi-v--danger">{{ access()?.sensitivePermissionCount ?? 0 }}</div>
+                </div>
+                <div class="apv-kpi">
+                  <div class="apv-eyebrow">Data scopes</div>
+                  <div class="apv-kpi-v">{{ dataScopes().length }}</div>
+                </div>
+              </div>
 
-            @if (directClaims().length > 0) {
-              <article class="card detail-card"><header class="detail-card__header"><div class="detail-title"><span class="section-icon"><i class="ri-add-circle-line"></i></span><h2>Granted directly</h2><span>— on top of any role</span></div></header><div class="claim-list">@for (claim of directClaims(); track claim) { <code>{{ claim }}</code> }</div></article>
+              @if (isBlanketGrant()) {
+                <div class="apv-alert" role="alert">
+                  <i class="ri-alert-line" aria-hidden="true"></i>
+                  <div class="apv-alert-text">
+                    <b>This account holds everything.</b>
+                    @if (access()?.isSuperAdmin) { It is a platform SuperAdmin, whose authority comes from a flag rather than granted permissions. }
+                    @else { It holds a role that grants every permission in this organisation. }
+                    The matrix below shows what is recorded as cells, which is not the whole of what this account can reach.
+                  </div>
+                </div>
+              }
+
+              <!-- ================= WHAT THEY CAN DO ================= -->
+              <div class="apv-section-head">
+                <h2 class="apv-h2">What they can do</h2>
+                @if (matrix().length > 0) {
+                  <div class="apv-section-actions">
+                    <button type="button" class="apv-link" (click)="expandAllRows()">Expand all</button>
+                    <span class="apv-dot" aria-hidden="true"></span>
+                    <button type="button" class="apv-link" (click)="collapseAll()">Collapse</button>
+                  </div>
+                }
+              </div>
+
+              <div class="apv-card apv-matrix-card">
+                @if (matrix().length === 0) {
+                  <div class="apv-mini-state apv-mini-state--lg"><span class="apv-t">No permissions are recorded for this person.</span></div>
+                } @else {
+                  <div class="apv-matrix-wrap">
+                    <table class="apv-matrix">
+                      <thead>
+                        <tr>
+                          <th class="apv-mx-module"><span class="visually-hidden">Module</span></th>
+                          @for (col of actionColumns; track col.key) { <th>{{ col.label }}</th> }
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (row of matrix(); track row.moduleCode) {
+                          <tr class="apv-mx-row" [class.is-open]="isModuleOpen(row.moduleCode)">
+                            <td class="apv-mx-module">
+                              <button type="button" class="apv-mx-name" [attr.aria-expanded]="isModuleOpen(row.moduleCode)"
+                                      [title]="(isModuleOpen(row.moduleCode) ? 'Hide ' : 'Show ') + 'the codes in ' + moduleLabel(row.moduleCode)"
+                                      (click)="toggleModule(row.moduleCode)">
+                                <span class="apv-mx-ico"><i [class]="moduleIcon(row.moduleCode)" aria-hidden="true"></i></span>
+                                <span class="apv-mx-label">{{ moduleLabel(row.moduleCode) }}</span>
+                                <i class="ri-arrow-down-s-line apv-mx-chev" aria-hidden="true"></i>
+                              </button>
+                            </td>
+                            @for (col of actionColumns; track col.key) {
+                              <td class="apv-mx-cell">
+                                <span [class]="'apv-box apv-box--' + cell(row, col.key).state" [title]="cellTitle(row, col)">
+                                  @if (cell(row, col.key).state === 'on' || cell(row, col.key).state === 'sens') { <i class="ri-check-line" aria-hidden="true"></i> }
+                                </span>
+                              </td>
+                            }
+                          </tr>
+
+                          @if (isModuleOpen(row.moduleCode)) {
+                            <tr class="apv-mx-detail">
+                              <td [attr.colspan]="actionColumns.length + 1">
+                                <div class="apv-detail">
+                                  <div class="apv-detail-head">
+                                    <span class="apv-pill">{{ row.grantedCount }} granted</span>
+                                    @if (row.sensitiveCount > 0) { <span class="apv-pill apv-pill--danger">{{ row.sensitiveCount }} sensitive</span> }
+                                    <span class="apv-pill apv-pill--muted">{{ row.permissions.length }} codes</span>
+                                  </div>
+                                  <div class="apv-codes">
+                                    @for (permission of row.permissions; track permission.code) {
+                                      <div class="apv-code-row" [class.is-off]="permission.isGranted !== true">
+                                        <span class="apv-box apv-box--sm" [class.apv-box--on]="permission.isGranted === true && permission.isSensitive !== true"
+                                              [class.apv-box--sens]="permission.isGranted === true && permission.isSensitive === true"
+                                              [class.apv-box--off]="permission.isGranted !== true">
+                                          @if (permission.isGranted === true) { <i class="ri-check-line" aria-hidden="true"></i> }
+                                        </span>
+                                        <span class="apv-code-name">{{ permission.name || permission.code }}</span>
+                                        <code class="apv-code">{{ permission.code }}</code>
+                                        <span class="apv-code-via">{{ permission.isGranted ? 'via ' + grantedViaLabel(permission) : 'Not granted' }}</span>
+                                        @if (permission.isSensitive) { <span class="apv-pill apv-pill--danger" title="Use of this permission writes an enhanced audit row">Sensitive</span> }
+                                      </div>
+                                    }
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          }
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+
+              <!-- Legend -->
+              <div class="apv-card apv-legend">
+                <span class="apv-legend-item"><span class="apv-box apv-box--xs apv-box--on"></span><span class="apv-t">Granted</span></span>
+                <span class="apv-legend-item"><span class="apv-box apv-box--xs apv-box--sens"></span><span class="apv-t">Granted &amp; sensitive</span></span>
+                <span class="apv-legend-item"><span class="apv-box apv-box--xs apv-box--off"></span><span class="apv-t">Available, not granted</span></span>
+                <span class="apv-legend-item"><span class="apv-box apv-box--xs apv-box--na"></span><span class="apv-t">Not applicable</span></span>
+              </div>
+
+              <!-- ================= ROLES ================= -->
+              <div class="apv-section-head">
+                <h2 class="apv-h2">Roles <span class="apv-h2-sub">— where the access comes from</span></h2>
+              </div>
+              <div class="apv-card apv-table-card">
+                <div class="apv-table-wrap">
+                  <table class="apv-table">
+                    <thead><tr><th>Role</th><th>Permissions</th><th class="d-none d-md-table-cell">Effective</th><th class="d-none d-lg-table-cell">Assigned by</th><th>State</th></tr></thead>
+                    <tbody>
+                      @for (role of roles(); track role.id) {
+                        <tr>
+                          <td>
+                            <span class="apv-strong">{{ role.roleName || role.roleCode }}</span>
+                            @if (role.isPrimary) { <span class="apv-pill">Primary</span> }
+                          </td>
+                          <td class="apv-num">{{ role.permissionCount ?? 0 }}</td>
+                          <td class="apv-num d-none d-md-table-cell">
+                            {{ formatDate(role.effectiveFromUtc) }}
+                            @if (role.effectiveToUtc) { → {{ formatDate(role.effectiveToUtc) }} } @else { <span class="apv-muted">→ no end</span> }
+                          </td>
+                          <td class="d-none d-lg-table-cell">{{ role.assignedByName || '—' }}</td>
+                          <td>
+                            @if (role.isEffective) { <span class="apv-pill apv-pill--ok">In force</span> }
+                            @else { <span class="apv-pill apv-pill--muted">Not in force</span> }
+                          </td>
+                        </tr>
+                      } @empty {
+                        <tr><td colspan="5" class="apv-empty-cell">This person holds no roles.</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- ================= DATA SCOPES ================= -->
+              @if (dataScopes().length > 0) {
+                <div class="apv-section-head">
+                  <h2 class="apv-h2">Data scopes <span class="apv-h2-sub">— which records the permissions reach</span></h2>
+                </div>
+                <div class="apv-card apv-table-card">
+                  <div class="apv-table-wrap">
+                    <table class="apv-table">
+                      <thead><tr><th>Kind</th><th>Value</th><th class="d-none d-md-table-cell">Effective</th><th>State</th></tr></thead>
+                      <tbody>
+                        @for (scope of dataScopes(); track scope.id) {
+                          <tr>
+                            <td>{{ scopeLabel(scope.scopeType) }}</td>
+                            <td class="apv-strong">{{ scope.displayLabel || scope.scopeValue || 'All' }}</td>
+                            <td class="apv-num d-none d-md-table-cell">{{ formatDate(scope.effectiveFromUtc) }} @if (scope.effectiveToUtc) { → {{ formatDate(scope.effectiveToUtc) }} }</td>
+                            <td>
+                              @if (scope.isEffective) { <span class="apv-pill apv-pill--ok">In force</span> }
+                              @else { <span class="apv-pill apv-pill--muted">Not in force</span> }
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              }
+
+              <!-- ================= DIRECT GRANTS ================= -->
+              @if (directClaims().length > 0) {
+                <div class="apv-section-head">
+                  <h2 class="apv-h2">Granted directly <span class="apv-h2-sub">— on top of any role</span></h2>
+                </div>
+                <div class="apv-card apv-claims">
+                  @for (claim of directClaims(); track claim) { <code class="apv-code">{{ claim }}</code> }
+                </div>
+              }
             }
-          }
-        </section>
+          </section>
+        </div>
       </div>
     </div>
   </div>

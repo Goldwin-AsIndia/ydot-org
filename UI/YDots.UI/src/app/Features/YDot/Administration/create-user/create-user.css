@@ -1,735 +1,76 @@
 /* ============================================================================
    IAM-USR-01 — Create a new user.
-   Design follows the approved reference image:
-     · mint hero band with a white icon tile, serif title, handwritten-feel tagline
-       and the leaves / ID-card / green-plus artwork;
-     · a tinted stepper band — numbered circles, a title and a one-line brief,
-       joined by dashed connectors, the current step highlighted;
-     · a white form card with icon-prefixed rounded fields and red required stars;
-     · the "Invitation & Security" band with the envelope-and-paper-plane art;
-     · a footer of Cancel / Back on the left and a deep-green Save & Continue on
-       the right.
-   Green derives from the app token --primary (#315746) so the page stays on
-   theme if the token changes. Page width and padding come from the shell's
-   container-fluid, as on every other page here.
+
+   · stepper card: kicker + progress line, numbered nodes on a rail;
+   · step card: a heading band with the big step number, title and brief;
+   · fields: the icon sits in its OWN tinted tile on the left, split from the
+     input by a divider — the tile lights up on focus and turns red on error;
+   · dropdowns: no native <select>; a custom trigger + floating menu (search
+     box on long lists, check mark on the chosen row);
+   · footer bar: Back / Cancel left, the gold action right.
+   Gold is --lx-gold (#c1a466) with dark ink, as on the rest of the wizard.
    ============================================================================ */
 
 :host {
   /* ---- Colour ---- */
   --cu-green: var(--primary, hsl(var(--theme-hue) 27.9% 26.7%));
-  --cu-green-deep: hsl(calc(var(--theme-hue) + 6) 32.1% 20.8%);
-  --cu-green-soft: hsl(calc(var(--theme-hue) - 18) 27.3% 91.4%);
-  --cu-green-line: hsl(calc(var(--theme-hue) - 13) 21.7% 86.5%);
   --cu-ink: hsl(calc(var(--theme-hue) - 1) 20% 16.7%);
-  --cu-ink-strong: hsl(calc(var(--theme-hue) + 8) 37.8% 14.5%);
-  --cu-muted: #6b7280;
-  --cu-field-line: hsl(calc(var(--theme-hue) - 18) 13.3% 88.2%);
-  --cu-field-icon: #9aa79f;
-  --cu-card: #ffffff;
+  --cu-muted: var(--theme-muted, #5b6b65);
   --cu-danger: #d84a3f;
+  --cu-danger-bg: #fdecea;
+  --cu-danger-line: #f3c3be;
 
-  /* ---- Type ---- */
-  --cu-font-serif: var(--font-display);
-
-  /* ---- Shape / elevation ---- */
-  --cu-radius: 18px;
-  --cu-radius-field: 10px;
-  --cu-shadow-card: none;
-  --cu-shadow-pop: none;
-
-  display: block;
-}
-
-/* Every card on this page — loading, failure, confirmation and the form card —
-   shares the rounded, softly-lifted look of the reference. */
-.card {
-  border-radius: var(--yc-radius);
-  border-color: var(--cu-green-line);
-  box-shadow: none;
-}
-
-/* ============================================================================
-   1 · HERO — icon tile, serif title, tagline, artwork, and the way back
-   ============================================================================ */
-
-/* .cu-hero {
-  position: relative;
-  border-radius: 20px;
-  border: 1px solid var(--cu-green-line);
-  background: #f4f9f5;
-  padding: 26px 28px;
-  overflow: hidden;
-} */
-
-.cu-hero-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.cu-hero-id {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  min-width: 0;
-}
-
-.cu-hero-tile {
-  width: 64px;
-  height: 64px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 16px;
-  background: var(--cu-card);
-  color: var(--cu-green);
-  font-size: 1.7rem;
-  box-shadow: none;
-}
-
-.cu-hero-title {
-  margin: 0;
-  font-family: var(--cu-font-serif);
-  font-weight: 700;
-  font-size: clamp(1.6rem, 2.4vw, 2.15rem);
-  line-height: 1.15;
-  letter-spacing: -0.01em;
-  color: var(--cu-ink-strong);
-}
-
-.cu-hero-sub {
-  margin: 0.4rem 0 0;
-  font-size: 0.95rem;
-  color: var(--cu-muted);
-}
-
-/* The handwritten-feel tagline. No script face is self-hosted, so the serif set
-   in its synthesized italic, tilted, does the same visual job without adding a
-   font the build would have to fetch. */
-.cu-hero-tag {
-  margin: 0;
-  font-family: var(--cu-font-serif);
-  font-style: italic;
-  font-weight: 600;
-  font-size: 1.02rem;
-  line-height: 1.5;
-  text-align: center;
-  color: hsl(calc(var(--theme-hue) + 1) 27.7% 32.5%);
-  transform: rotate(-7deg);
-  opacity: 0.92;
-  flex: none;
-}
-
-.cu-hero-side {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex: none;
-}
-
-.cu-hero-art {
-  width: 232px;
-  height: auto;
-  display: block;
-}
-
-/* White pill for the way back, floating top-right on wide screens as in the
-   reference; in flow on small ones where there is no room beside the title. */
-.cu-hero-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-top: 16px;
-  padding: 0.5rem 1.1rem;
-  border-radius: 999px;
-  border: 1px solid var(--cu-green-line);
-  background: var(--cu-card);
-  color: var(--cu-ink);
-  font-size: 0.88rem;
-  font-weight: 600;
-  box-shadow: none;
-}
-
-.cu-hero-back:hover {
-  border-color: var(--cu-green);
-  color: var(--cu-green);
-}
-
-.cu-hero-back i {
-  font-size: 1rem;
-}
-
-/* ---- Hero artwork colours ------------------------------------------------- */
-
-.cu-art-leaf path {
-  fill: hsl(calc(var(--theme-hue) - 16) 26.6% 84.5%);
-}
-
-.cu-art-vein {
-  fill: none;
-  stroke: hsl(calc(var(--theme-hue) - 8) 21% 68.2%);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  opacity: 0.8;
-}
-
-.cu-art-card rect {
-  fill: var(--cu-card);
-  stroke: hsl(calc(var(--theme-hue) - 19) 18.7% 82.2%);
-  stroke-width: 2;
-}
-
-.cu-art-card circle {
-  fill: var(--cu-green-soft);
-}
-
-.cu-art-card path {
-  fill: none;
-  stroke: hsl(calc(var(--theme-hue) - 8) 21% 68.2%);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-/* The text lines on the card read as a lighter rule, not an outline. */
-.cu-art-card path[d^='M150'] {
-  stroke: hsl(calc(var(--theme-hue) - 15) 21.5% 84.5%);
-  stroke-width: 4;
-}
-
-.cu-art-plus circle {
-  fill: var(--cu-green);
-}
-
-.cu-art-plus path {
-  stroke: var(--cu-card);
-  stroke-width: 2.4;
-  stroke-linecap: round;
-}
-
-/* ============================================================================
-   2 · STEPPER — numbered circles, titles and briefs, dashed connectors
-   ============================================================================ */
-
-.cu-stepper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 16px;
-  border-radius: 16px;
-    border: 1px solid 
-color-mix(in srgb, var(--primary) 18%, white);
-    background: 
-color-mix(in srgb, var(--primary) 5%, white);
-  overflow-x: auto;
-}
-
-.cu-step {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border: none;
-  border-radius: 14px;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  min-width: 0;
-}
-
-.cu-step:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.65);
-}
-
-/* The current step reads as the deeper-mint tile of the reference. */
-.cu-step.active {
-background: 
-color-mix(in srgb, var(--primary) 10%, white);
-    box-shadow: inset 0 0 0 1px 
-color-mix(in srgb, var(--primary) 15%, white);
-}
-
-.cu-step-dot {
-  width: 36px;
-  height: 36px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--cu-card);
-  border: 1px solid hsl(calc(var(--theme-hue) - 21) 14.7% 86.7%);
-  color: #8a958e;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.cu-step.active .cu-step-dot {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #fff;
-    box-shadow: none;
-}
-
-.cu-step.done .cu-step-dot {
-  background: #315746;
-  border-color: #315746;
-  color: #fff;
-  opacity: 0.75;
-}
-
-.cu-step-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.cu-step-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--cu-ink);
-  white-space: nowrap;
-}
-
-.cu-step.active .cu-step-title {
-  color: var(--cu-ink-strong);
-}
-
-.cu-step-desc {
-  margin-top: 2px;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  color: var(--cu-muted);
-  white-space: nowrap;
-}
-
-.cu-step-link {
-  flex: 1 1 30px;
-  min-width: 22px;
-  border-top: 2px dashed hsl(calc(var(--theme-hue) - 12) 13.8% 75.9%);
-}
-
-/* ============================================================================
-   3 · FORM CARD — section heads, labels, icon-prefixed fields
-   ============================================================================ */
-
-.cu-section-head {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 1.6rem;
-}
-
-.cu-section-icon {
-  width: 52px;
-  height: 52px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  /* background: var(--cu-green-soft); */
-  color: var(--cu-green);
-  font-size: 30px;
-}
-.cu-section-icon i{
-font-size: 30px !important;
-}
-.cu-section-title {
-  margin: 0;
-  font-family: var(--cu-font-serif);
-  font-weight: 700;
-  font-size: 1.4rem;
-  line-height: 1.2;
-  color: var(--cu-ink-strong);
-}
-
-.cu-section-sub {
-  margin: 0.3rem 0 0;
-  font-size: 0.9rem;
-  color: var(--cu-muted);
-}
-
-.cu-label {
-  display: block;
-  margin-bottom: 0.45rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: hsl(calc(var(--theme-hue) - 3) 12.1% 22.7%);
-}
-
-/* The little red star, as in the reference. */
-.cu-req {
-  margin-left: 2px;
-  color: var(--cu-danger);
-  font-weight: 700;
-}
-
-.cu-hint {
-  display: block;
-  margin-top: 0.4rem;
-  font-size: 0.8rem;
-  line-height: 1.45;
-  color: var(--cu-muted);
-}
-
-/* ---- Field: bordered box with the leading icon inside, like the reference -- */
-
-.cu-field {
-  position: relative;
-}
-
-.cu-field-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 1;
-  color: var(--cu-field-icon);
-  font-size: 1.05rem;
-  pointer-events: none;
-}
-
-/* A textarea's icon sits at its first line instead of its middle. */
-.cu-field--area .cu-field-icon {
-  top: 15px;
-  transform: none;
-}
-
-.cu-field .form-control,
-.cu-field .form-select {
-  min-height: 46px;
-  padding-left: 56px;
-  border-radius: var(--cu-radius-field);
-  border-color: #80808069;
-  background-color: var(--cu-card);
-  font-size: 0.92rem;
-  color: hsl(calc(var(--theme-hue) - 5) 14.6% 17.5%);
-}
-
-.cu-field .form-select {
-  padding-right: 2.4rem;
-}
-
-.cu-field textarea.form-control {
-  min-height: 0;
-  padding-top: 0.65rem;
-  padding-bottom: 0.65rem;
-  line-height: 1.5;
-}
-
-.cu-field .form-control::placeholder {
-  color: #a4b0a8;
-}
-
-.cu-field .form-control:focus,
-.cu-field .form-select:focus {
-  border-color: var(--cu-green);
-  box-shadow: none;
-}
-
-.cu-field .form-control.is-invalid,
-.cu-field .form-select.is-invalid {
-  border-color: var(--cu-danger);
-}
-
-.invalid-feedback {
-  font-size: 0.8rem;
-}
-
-/* ---- Invitation & Security band ------------------------------------------- */
-
-.cu-invite {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: var(--yc-pad);
-  border-radius: var(--yc-radius);
-    border: 1px solid 
-color-mix(in srgb, var(--primary) 36%, white);
-    background: 
-color-mix(in srgb, var(--primary) 3%, white);
-}
-/* Icon glyphs inside a field are handled by .cu-field-icon (a plain inset glyph,
-   no boxed gutter) — a boxed/bordered icon panel used to sit here too, doubling
-   the field's own border with a second inner box. Removed: one surface per field. */
-.cu-invite-icon {
-  width: var(--yc-icon-size);
-  height: var(--yc-icon-size);
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-    background: 
-color-mix(in srgb, var(--primary) 10%, white);
-    color: var(--primary);
-  font-size: 1.3rem;
-  box-shadow: none;
-  border: 1px solid currentColor;
-}
-.cu-invite-icon i{
-  font-size: 30px !important;
-}
-.cu-invite-title {
-  margin: 0;
-  font-size: var(--yc-heading-size);
-  font-weight: var(--yc-heading-weight);
-  color: var(--cu-ink);
-}
-
-.cu-invite-sub {
-  margin: 0.15rem 0 0;
-  font-size: var(--yc-subtitle-size);
-  line-height: 1.5;
-  color: var(--cu-muted);
-}
-
-.cu-invite-art {
-  margin-left: auto;
-  width: 150px;
-  flex: none;
-}
-
-/* ---- Invitation artwork colours ------------------------------------------- */
-
-.cu-invite-dash {
-  fill: none;
-  stroke: hsl(calc(var(--theme-hue) - 8) 21% 68.2%);
-  stroke-width: 2;
-  stroke-dasharray: 4 5;
-  stroke-linecap: round;
-}
-
-.cu-invite-mail rect {
-  fill: var(--cu-card);
-  stroke: var(--cu-green);
-  stroke-width: 2;
-}
-
-.cu-invite-mail path {
-  fill: none;
-  stroke: var(--cu-green);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.cu-invite-plane path {
-  fill: var(--cu-card);
-  stroke: var(--cu-green);
-  stroke-width: 2;
-  stroke-linejoin: round;
-}
-
-/* ============================================================================
-   4 · REVIEW PANEL — the read-only recap keeps its caption/value pattern
-   ============================================================================ */
-
-.cu-review {
-  background: hsl(calc(var(--theme-hue) - 13) 23.1% 97.5%);
-  border-color: var(--cu-green-line) !important;
-}
-
-/* Inside the review these captions are the small uppercase labels of the old
-   design; everywhere else .cu-label is the form label above a field. */
-.cu-review .cu-label {
-  margin-bottom: 0.1rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #7a877f;
-}
-
-.cu-review .cu-value {
-  font-size: 0.92rem;
-  font-weight: 500;
-  color: var(--cu-ink);
-  word-break: break-word;
-}
-
-/* ============================================================================
-   5 · FOOTER — Cancel / Back on the left, Save & Continue on the right
-   ============================================================================ */
-
-.cu-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid hsl(calc(var(--theme-hue) - 24) 14.9% 90.8%);
-}
-
-.cu-btn-ghost {
-  padding: 0.55rem 1.3rem;
-  border: 1px solid hsl(calc(var(--theme-hue) - 20) 13.4% 86.9%);
-  border-radius: var(--cu-radius-field);
-  background: var(--cu-card);
-  color: hsl(calc(var(--theme-hue) - 3) 12.1% 22.7%);
-  font-size: 0.92rem;
-  font-weight: 600;
-}
-
-.cu-btn-ghost:hover:not(:disabled) {
-  border-color: var(--cu-green);
-  color: var(--cu-green);
-  background: hsl(calc(var(--theme-hue) - 18) 28.6% 97.3%);
-}
-
-.cu-btn-primary {
-  padding: 0.55rem 1.4rem;
-  border: 1px solid var(--cu-green);
-  border-radius: var(--cu-radius-field);
-  background: var(--cu-green);
-  color: #fff;
-  font-size: 0.92rem;
-  font-weight: 600;
-  box-shadow: none;
-}
-
-.cu-btn-primary:hover:not(:disabled) {
-  background: var(--cu-green-deep);
-  border-color: var(--cu-green-deep);
-  color: #fff;
-}
-
-.cu-btn-primary:disabled {
-  opacity: 0.55;
-}
-
-/* Alerts on this page (server-error summary, the review note, the confirmation
-   "what happens next" box) sit quietly inside the card look. */
-.alert {
-  border-radius: 12px;
-}
-
-.alert-light {
-  background: hsl(calc(var(--theme-hue) - 13) 23.1% 97.5%);
-  border-color: var(--cu-green-line);
-}
-
-/* ============================================================================
-   6 · RESPONSIVE — the hero art and tagline go first; the stepper wraps
-   ============================================================================ */
-
-@media (min-width: 992px) {
-  /* The back pill floats over the hero's top-right corner, as in the reference;
-     the row keeps clear of it. */
-  .cu-hero-back {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    margin-top: 0;
-  }
-
-  .cu-hero-row {
-    padding-right: 150px;
-  }
-}
-
-@media (max-width: 991.98px) {
-  /* No room for the tagline and artwork beside the title. */
-  .cu-hero-side {
-    display: none;
-  }
-
-  /* Two-by-two stepper without the dashed rails. */
-  .cu-stepper {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .cu-step-link {
-    display: none;
-  }
-
-  .cu-step {
-    flex: 1 1 44%;
-  }
-
-  .cu-step-desc {
-    display: none;
-  }
-
-  .cu-invite-art {
-    display: none;
-  }
-}
-
-@media (max-width: 575.98px) {
-  .cu-hero {
-    padding: 20px;
-  }
-
-  .cu-hero-tile {
-    width: 52px;
-    height: 52px;
-    font-size: 1.4rem;
-  }
-
-  .cu-step {
-    flex: 1 1 100%;
-  }
-}
-
-
-
-
-/* ---- Review panel ---------------------------------------------------------------------------- */
-
-.cu-review {
-  background-color: #f9fafb;
-}
-
-.cu-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #6b7280;
-  margin-bottom: 0.1rem;
-}
-
-.cu-value {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #1f2430;
-  word-break: break-word;
-}
-
-
-/* ============================================================================
-   WIZARD REDESIGN (final layer) - the same pattern as the New Campaign wizard.
-     - a stepper card: kicker + progress line, then numbered nodes on a rail;
-     - a step card whose heading band carries the big step number, the title and the brief;
-     - uppercase field labels over rounded controls; a focus border in gold;
-     - one footer bar with Back / Cancel on the left and the gold action on the right.
-   Flat: no shadows, no accent bars, no dots. Gold is #c1a466 (--lx-gold) with dark ink.
-   ============================================================================ */
-:host {
   --cu-line: var(--lx-card-line, #efe6c8);
   --cu-gold: var(--lx-gold, #c1a466);
   --cu-gold-dark: var(--lx-gold-dark, #a98c4d);
   --cu-gold-deep: var(--lx-gold-deep, #6f571f);
   --cu-gold-ink: var(--lx-gold-ink, #1e1907);
+
+  /* Field frame — strong enough to actually see */
+  --cu-input-line: #dcd4bd;
+  --cu-tile-bg: color-mix(in srgb, var(--cu-gold) 13%, #ffffff);
+  --cu-tile-bg-on: color-mix(in srgb, var(--cu-gold) 30%, #ffffff);
+
+  /* ---- Shape ---- */
   --cu-pad: calc(24px * var(--ui-scale, 1));
+  --cu-radius-field: calc(12px * var(--ui-scale, 1));
+  --cu-field-h: calc(48px * var(--ui-scale, 1));
+  --cu-tile: calc(46px * var(--ui-scale, 1));
+
+  display: block;
 }
 
-/* ---------- Stepper ---------- */
+/* Every card on this page — loading, failure, confirmation and the form card. */
+.card {
+  border-radius: var(--yc-radius);
+  border-color: var(--cu-line);
+  box-shadow: none;
+}
+
+.alert {
+  border-radius: 12px;
+}
+
+.alert-light {
+  background: color-mix(in srgb, var(--cu-gold) 5%, #ffffff);
+  border-color: var(--cu-line);
+}
+
+/* ============================================================================
+   1 · STEPPER
+   ============================================================================ */
+
 .cu-stepper {
   display: block;
   position: relative;
-  margin: 0 0 calc(20px * var(--ui-scale, 1));
+  margin: 0 0 calc(17px * var(--ui-scale, 1));
   padding: calc(16px * var(--ui-scale, 1)) var(--cu-pad);
   overflow: hidden;
   border: 1px solid var(--cu-line);
   border-radius: calc(18px * var(--ui-scale, 1));
   background: #ffffff;
 }
+
 .cu-stepper-head {
   display: flex;
   align-items: baseline;
@@ -738,6 +79,7 @@ color-mix(in srgb, var(--primary) 10%, white);
   gap: 4px 16px;
   margin-bottom: calc(12px * var(--ui-scale, 1));
 }
+
 .cu-stepper-kicker {
   font-size: calc(var(--fs-base) * .92) !important;
   font-weight: 800 !important;
@@ -745,11 +87,13 @@ color-mix(in srgb, var(--primary) 10%, white);
   text-transform: uppercase;
   color: var(--cu-gold-deep);
 }
+
 .cu-stepper-pct {
   font-size: calc(var(--fs-base) * 1.02) !important;
   font-weight: 600 !important;
-  color: var(--theme-muted, #5b6b65);
+  color: var(--cu-muted);
 }
+
 .cu-steps {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -757,16 +101,16 @@ color-mix(in srgb, var(--primary) 10%, white);
   padding: 0;
   list-style: none;
 }
+
 .cu-step {
   position: relative;
   display: block;
-  flex: none;
   min-width: 0;
   padding: 0;
   border: 0;
-  border-radius: 0;
-  background: transparent !important;
+  background: transparent;
 }
+
 /* The rail between two nodes. */
 .cu-step:not(:last-child)::after {
   content: "";
@@ -778,9 +122,11 @@ color-mix(in srgb, var(--primary) 10%, white);
   border-radius: 2px;
   background: color-mix(in srgb, var(--theme-deep, hsl(calc(var(--theme-hue) - 7) 26.7% 11.8%)) 14%, transparent);
 }
+
 .cu-step.done:not(:last-child)::after {
   background: var(--cu-gold-dark);
 }
+
 .cu-step-btn {
   display: flex;
   flex-direction: column;
@@ -796,7 +142,8 @@ color-mix(in srgb, var(--primary) 10%, white);
   text-align: center;
   cursor: pointer;
 }
-.cu-step .cu-step-dot {
+
+.cu-step-dot {
   display: grid;
   place-items: center;
   flex: none;
@@ -805,31 +152,36 @@ color-mix(in srgb, var(--primary) 10%, white);
   border: 1.5px solid color-mix(in srgb, var(--theme-deep, hsl(calc(var(--theme-hue) - 7) 26.7% 11.8%)) 16%, #ffffff);
   border-radius: 50%;
   background: #ffffff;
-  color: var(--theme-muted, #5b6b65);
+  color: var(--cu-muted);
   font-size: calc(var(--fs-base) * 1.05) !important;
   font-weight: 800 !important;
-  opacity: 1;
 }
-.cu-step-btn:hover .cu-step-dot { border-color: var(--cu-gold-dark); }
+
+.cu-step-btn:hover .cu-step-dot {
+  border-color: var(--cu-gold-dark);
+}
+
 .cu-step.active .cu-step-dot {
   border-color: var(--cu-gold-dark);
   background: var(--cu-gold);
   color: var(--cu-gold-ink);
 }
+
 .cu-step.done .cu-step-dot {
   border-color: var(--cu-gold-dark);
   background: #ffffff;
   color: var(--cu-gold-deep);
-  opacity: 1;
 }
-.cu-step .cu-step-text {
+
+.cu-step-text {
   display: flex;
   flex-direction: column;
   align-items: center;
   min-width: 0;
   max-width: 100%;
 }
-.cu-step .cu-step-title {
+
+.cu-step-title {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -838,15 +190,17 @@ color-mix(in srgb, var(--primary) 10%, white);
   font-weight: 700 !important;
   color: var(--theme-ink, hsl(calc(var(--theme-hue) + 6) 19.4% 14.1%));
 }
-.cu-step .cu-step-desc {
+
+.cu-step-desc {
   margin-top: 2px;
   max-width: 100%;
   font-size: calc(var(--fs-base) * .95) !important;
   line-height: 1.35;
-  color: var(--theme-muted, #5b6b65);
+  color: var(--cu-muted);
   white-space: normal;
   text-align: center;
 }
+
 .cu-step.active .cu-step-title::after {
   content: "";
   display: block;
@@ -857,25 +211,34 @@ color-mix(in srgb, var(--primary) 10%, white);
   background: var(--cu-gold);
 }
 
-/* ---------- Step card ---------- */
+/* ============================================================================
+   2 · STEP CARD — heading band
+   ============================================================================ */
+
+/* Visible, so an open dropdown near the bottom of the card is not clipped.
+   The heading band rounds its own top corners instead. */
 .cu-card {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--cu-line) !important;
   border-radius: calc(22px * var(--ui-scale, 1)) !important;
 }
+
 .cu-card-body {
-  padding: 0 var(--cu-pad) calc(20px * var(--ui-scale, 1)) !important;
+  padding: 0 var(--cu-pad) calc(22px * var(--ui-scale, 1)) !important;
 }
+
 .cu-section-head {
   display: flex;
   align-items: center;
   gap: calc(14px * var(--ui-scale, 1));
-  margin: 0 calc(-1 * var(--cu-pad)) calc(20px * var(--ui-scale, 1));
+  margin: 0 calc(-1 * var(--cu-pad)) calc(22px * var(--ui-scale, 1));
   padding: calc(16px * var(--ui-scale, 1)) var(--cu-pad);
   border-bottom: 1px solid var(--cu-line);
+  border-radius: calc(21px * var(--ui-scale, 1)) calc(21px * var(--ui-scale, 1)) 0 0;
   background: var(--lx-wash-stat, #fff3c9);
 }
+
 .cu-card-num {
   flex: none;
   font-family: var(--font-heading, Georgia, serif);
@@ -885,9 +248,11 @@ color-mix(in srgb, var(--primary) 10%, white);
   letter-spacing: -.02em;
   color: var(--cu-gold-deep);
 }
+
 .cu-section-headtext {
   min-width: 0;
 }
+
 .cu-section-title {
   margin: 0;
   font-size: calc(19px * var(--ui-scale, 1)) !important;
@@ -895,14 +260,18 @@ color-mix(in srgb, var(--primary) 10%, white);
   letter-spacing: -.005em;
   color: var(--theme-deep, hsl(calc(var(--theme-hue) - 7) 26.7% 11.8%));
 }
+
 .cu-section-sub {
   margin: 3px 0 0;
   font-size: calc(var(--fs-base) * 1.02) !important;
-  color: var(--theme-muted, #5b6b65);
+  color: var(--cu-muted);
 }
 
-/* ---------- Fields ---------- */
-.cu-card-body .cu-label {
+/* ============================================================================
+   3 · LABELS + HINTS
+   ============================================================================ */
+
+.cu-label {
   display: block;
   margin-bottom: .5rem;
   font-size: calc(var(--fs-base) * .95) !important;
@@ -911,79 +280,498 @@ color-mix(in srgb, var(--primary) 10%, white);
   text-transform: uppercase;
   color: var(--theme-deep, hsl(calc(var(--theme-hue) - 7) 26.7% 11.8%));
 }
-.cu-card-body .cu-req { color: var(--cu-gold-deep); }
-.cu-field .form-control,
-.cu-field .form-select {
-  min-height: calc(48px * var(--ui-scale, 1));
-  border: 1px solid var(--cu-line);
-  border-radius: calc(12px * var(--ui-scale, 1));
-  background-color: #ffffff;
-  color: var(--theme-ink, hsl(calc(var(--theme-hue) + 6) 19.4% 14.1%));
-  transition: border-color .18s ease;
+
+.cu-req {
+  margin-left: 2px;
+  color: var(--cu-danger);
+  font-weight: 700;
 }
-.cu-field .form-control:hover:not(:disabled),
-.cu-field .form-select:hover:not(:disabled) {
+
+.cu-hint {
+  display: block;
+  margin-top: .4rem;
+  font-size: .8rem;
+  line-height: 1.45;
+  color: var(--cu-muted);
+}
+
+.invalid-feedback {
+  font-size: .8rem;
+}
+
+/* ============================================================================
+   4 · FIELD — icon in its own tinted tile, split from the input
+   ┌──────┬──────────────────────────────┐
+   │ icon │ input text                   │
+   └──────┴──────────────────────────────┘
+   ============================================================================ */
+
+.cu-field {
+  position: relative;
+}
+
+.cu-field-icon {
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    left: 1px;
+    z-index: 2;
+    width: var(--cu-tile);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--cu-input-line);
+    border-radius: 9px 0px 0 8px;
+    background: #1f4d3a0f;
+    color: gray !important;
+    font-size: 31px !important;
+    line-height: 1;
+    pointer-events: none;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+
+/* A textarea's tile runs its full height, with the glyph at the first line. */
+.cu-field--area .cu-field-icon {
+  align-items: flex-start;
+  padding-top: calc(14px * var(--ui-scale, 1));
+}
+
+/* Tile lights up while its field has focus (input, textarea or dropdown trigger). */
+.cu-field:focus-within .cu-field-icon,
+.cu-dd-open .cu-field-icon {
+  /* background: var(--cu-tile-bg-on);
+  border-right-color: var(--cu-gold-dark);
+  color: var(--cu-gold-ink); */
+}
+
+/* …and turns red with its field. */
+.cu-field:has(.is-invalid) .cu-field-icon,
+.cu-field-invalid .cu-field-icon {
+  background: var(--cu-danger-bg);
+  border-right-color: var(--cu-danger-line);
+  color: var(--cu-danger);
+}
+
+.cu-field .form-control {
+  min-height: var(--cu-field-h);
+  padding-left: calc(var(--cu-tile) + 14px);
+  border: 1px solid var(--cu-input-line);
+  border-radius: var(--cu-radius-field);
+  background-color: #ffffff;
+  font-size: .92rem;
+  color: var(--theme-ink, hsl(calc(var(--theme-hue) + 6) 19.4% 14.1%));
+  box-shadow: none;
+  transition: border-color .15s ease, outline-color .15s ease;
+}
+
+.cu-field textarea.form-control {
+  min-height: 0;
+  padding-top: .7rem;
+  padding-bottom: .7rem;
+  line-height: 1.5;
+}
+
+.cu-field .form-control::placeholder {
+  color: #a4ab9f;
+}
+
+.cu-field .form-control:hover:not(:disabled) {
   border-color: var(--cu-gold-dark);
 }
-.cu-field .form-control:focus,
-.cu-field .form-select:focus {
+
+.cu-field .form-control:focus {
+  border-color: var(--cu-gold-dark);
+  outline: 2px solid color-mix(in srgb, var(--cu-gold) 55%, transparent);
+  outline-offset: 0;
+  box-shadow: none;
+}
+
+.cu-field .form-control.is-invalid,
+.cu-field .form-control.is-invalid:focus {
+  border-color: var(--cu-danger);
+  outline-color: color-mix(in srgb, var(--cu-danger) 30%, transparent);
+  background-image: none;          /* Bootstrap's red "!" icon would sit on top of the text */
+  padding-right: .75rem;
+}
+
+/* ============================================================================
+   5 · CUSTOM DROPDOWN (#cuDd) — replaces the native <select>
+   ============================================================================ */
+
+.cu-dd-trigger {
+  width: 100%;
+  min-height: var(--cu-field-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 42px 10px calc(var(--cu-tile) + 14px);
+  border: 1px solid var(--cu-input-line);
+  border-radius: 9px;
+  background: #ffffff;
+  font-size: .92rem;
+  font-weight: 500;
+  color: var(--theme-ink, hsl(calc(var(--theme-hue) + 6) 19.4% 14.1%));
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, outline-color .15s ease;
+}
+
+.cu-dd-trigger:hover {
+  border-color: var(--cu-gold-dark);
+}
+
+.cu-dd-open .cu-dd-trigger,
+.cu-dd-trigger:focus-visible {
   border-color: var(--cu-gold-dark);
   outline: 2px solid color-mix(in srgb, var(--cu-gold) 55%, transparent);
   outline-offset: 0;
 }
-.cu-field .form-control.is-invalid,
-.cu-field .form-select.is-invalid {
+
+.cu-field-invalid .cu-dd-trigger {
   border-color: var(--cu-danger);
 }
-.cu-field-icon { color: var(--cu-gold-deep); }
+
+.cu-dd-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cu-dd-placeholder {
+  color: #a4ab9f;
+  font-weight: 400;
+}
+
+.cu-dd-chev {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  font-size: 18px !important;
+  color: var(--cu-muted);
+  pointer-events: none;
+  transition: transform .2s ease, color .2s ease;
+}
+
+.cu-dd-open .cu-dd-chev {
+  transform: translateY(-50%) rotate(180deg);
+  color: var(--cu-gold-deep);
+}
+
+/* Floating menu */
+.cu-dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  min-width: 220px;
+  z-index: 80;
+  padding: 6px;
+  border: 1px solid var(--cu-input-line);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px -10px rgba(40, 32, 10, .22), 0 2px 6px rgba(40, 32, 10, .06);
+  animation: cu-dd-in .14s ease;
+}
+
+@keyframes cu-dd-in {
+  from { opacity: 0; transform: translateY(-4px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.cu-dd-search {
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.cu-dd-search i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  font-size: 14px !important;
+  color: var(--cu-muted);
+}
+
+.cu-dd-search input {
+  width: 100%;
+  padding: 8px 10px 8px 30px;
+  border: 1px solid var(--cu-input-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cu-gold) 4%, #ffffff);
+  font-size: .85rem;
+  outline: none;
+}
+
+.cu-dd-search input:focus {
+  border-color: var(--cu-gold-dark);
+  background: #ffffff;
+}
+
+.cu-dd-list {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cu-dd-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cu-dd-list::-webkit-scrollbar-thumb {
+  background: var(--cu-input-line);
+  border-radius: 6px;
+}
+
+.cu-dd-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: .9rem;
+  font-weight: 500;
+  color: var(--cu-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cu-dd-option:hover,
+.cu-dd-option:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--cu-gold) 9%, #ffffff);
+}
+
+.cu-dd-option-on,
+.cu-dd-option-on:hover {
+  background: color-mix(in srgb, var(--cu-gold) 18%, #ffffff);
+  color: var(--cu-gold-deep);
+  font-weight: 700;
+}
+
+.cu-dd-option i {
+  flex-shrink: 0;
+  font-size: 16px !important;
+}
+
+.cu-dd-muted {
+  color: var(--cu-muted);
+  font-weight: 400;
+}
+
+.cu-dd-empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: .85rem;
+  color: var(--cu-muted);
+}
+
+/* ============================================================================
+   6 · REVIEW PANEL
+   ============================================================================ */
+
 .cu-review {
   border-color: var(--cu-line) !important;
   background: color-mix(in srgb, var(--cu-gold) 5%, #ffffff);
 }
+
 .cu-review .cu-label {
+  margin-bottom: .1rem;
   font-size: calc(var(--fs-base) * .9) !important;
+  font-weight: 700 !important;
   letter-spacing: .06em;
-  color: var(--theme-muted, #5b6b65);
+  color: var(--cu-muted);
 }
 
-/* ---------- Footer bar ---------- */
+.cu-value {
+  font-size: .92rem;
+  font-weight: 500;
+  color: var(--cu-ink);
+  word-break: break-word;
+}
+
+/* ============================================================================
+   7 · INVITATION BAND (markup is commented out for now; kept for when it returns)
+   ============================================================================ */
+
+.cu-invite {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: var(--yc-pad);
+  border-radius: var(--yc-radius);
+  border: 1px solid color-mix(in srgb, var(--primary) 36%, white);
+  background: color-mix(in srgb, var(--primary) 3%, white);
+}
+
+.cu-invite-icon {
+  width: var(--yc-icon-size);
+  height: var(--yc-icon-size);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, var(--primary) 10%, white);
+  color: var(--primary);
+}
+
+.cu-invite-icon i {
+  font-size: 30px !important;
+}
+
+.cu-invite-title {
+  margin: 0;
+  font-size: var(--yc-heading-size);
+  font-weight: var(--yc-heading-weight);
+  color: var(--cu-ink);
+}
+
+.cu-invite-sub {
+  margin: .15rem 0 0;
+  font-size: var(--yc-subtitle-size);
+  line-height: 1.5;
+  color: var(--cu-muted);
+}
+
+.cu-invite-art {
+  margin-left: auto;
+  width: 150px;
+  flex: none;
+}
+
+.cu-invite-dash {
+  fill: none;
+  stroke: hsl(calc(var(--theme-hue) - 8) 21% 68.2%);
+  stroke-width: 2;
+  stroke-dasharray: 4 5;
+  stroke-linecap: round;
+}
+
+.cu-invite-mail rect,
+.cu-invite-plane path {
+  fill: #ffffff;
+  stroke: var(--cu-green);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.cu-invite-mail path {
+  fill: none;
+  stroke: var(--cu-green);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================================
+   8 · FOOTER BAR
+   ============================================================================ */
+
 .cu-footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: calc(16px * var(--ui-scale, 1)) 0 0;
+  /* margin: calc(16px * var(--ui-scale, 1)) 0 0; */
   padding: calc(16px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1));
   border: 1px solid var(--cu-line);
   border-radius: calc(18px * var(--ui-scale, 1));
   background: #ffffff;
 }
+
 .cu-footer .btn {
   min-height: calc(42px * var(--ui-scale, 1));
   padding: 8px calc(22px * var(--ui-scale, 1));
   border-radius: calc(12px * var(--ui-scale, 1));
 }
 
-/* ---------- Responsive ---------- */
+/* ============================================================================
+   9 · RESPONSIVE
+   ============================================================================ */
+
 @media (max-width: 991.98px) {
-  .cu-stepper { padding-inline: calc(22px * var(--ui-scale, 1)); }
-  .cu-step .cu-step-desc { display: none; }
+  .cu-stepper {
+    padding-inline: calc(22px * var(--ui-scale, 1));
+  }
+
+  .cu-step-desc,
+  .cu-invite-art {
+    display: none;
+  }
 }
+
 @media (max-width: 767.98px) {
-  :host { --cu-pad: 18px; }
-  .cu-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 8px; }
-  .cu-step::after { display: none !important; }
-  .cu-card-num { font-size: 24px !important; }
-  .cu-section-head { gap: 12px; padding-block: 14px; }
-  .cu-footer { padding: 14px; }
+  :host {
+    --cu-pad: 18px;
+    --cu-tile: 42px;
+  }
+
+  .cu-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 8px;
+  }
+
+  .cu-step::after {
+    display: none !important;
+  }
+
+  .cu-card-num {
+    font-size: 24px !important;
+  }
+
+  .cu-section-head {
+    gap: 12px;
+    padding-block: 14px;
+  }
+
+  .cu-footer {
+    padding: 14px;
+  }
 }
+
 @media (max-width: 479.98px) {
-  .cu-steps { grid-template-columns: minmax(0, 1fr); }
-  .cu-step-btn { flex-direction: row; gap: 12px; text-align: left; padding: 6px 4px; }
-  .cu-step .cu-step-text { align-items: flex-start; }
-  .cu-step.active .cu-step-title::after { margin-left: 0; }
-  .cu-footer { flex-direction: column-reverse; align-items: stretch; }
-  .cu-footer .btn, .cu-footer > div { width: 100%; }
-  .cu-footer > div { display: flex; flex-direction: column; }
+  .cu-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cu-step-btn {
+    flex-direction: row;
+    gap: 12px;
+    padding: 6px 4px;
+    text-align: left;
+  }
+
+  .cu-step-text {
+    align-items: flex-start;
+  }
+
+  .cu-step.active .cu-step-title::after {
+    margin-left: 0;
+  }
+
+  .cu-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .cu-footer .btn,
+  .cu-footer > div {
+    width: 100%;
+  }
+
+  .cu-footer > div {
+    display: flex;
+    flex-direction: column;
+  }
 }

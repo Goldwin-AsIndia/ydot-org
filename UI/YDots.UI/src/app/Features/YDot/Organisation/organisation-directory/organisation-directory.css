@@ -66,28 +66,6 @@
   }
 }
 
-/* The hero's own height stayed fixed while .org-page above kept widening,
-   so on a big monitor the banner grew wide but stayed just as short — the
-   artwork's visible slice (object-fit: cover at a fixed height) ended up
-   far wider than tall, cropping it down to an oddly thin strip. Growing
-   the height at the same breakpoints keeps the crop close to its original
-   proportions instead of flattening it out. */
-@media (min-width: 1440px) {
-  .org-hero {
-    height: 200px;
-  }
-}
-@media (min-width: 1920px) {
-  .org-hero {
-    height: 230px;
-  }
-}
-@media (min-width: 2560px) {
-  .org-hero {
-    height: 260px;
-  }
-}
-
 /* ---------- Breadcrumb ---------- */
 .org-breadcrumb {
   display: flex;
@@ -114,334 +92,7 @@
   font-weight: 600;
 }
 
-/* ---------- Header ---------- */
-.org-header {
-  margin-bottom: 20px;
-}
-
-/* Hugs the hero banner's actual top-right corner, on top of the artwork.
-   A frosted-glass pill rather than a flat colour block — it picks up
-   whatever is behind it (sky, building, foliage) through the blur, so it
-   reads as sitting on the photo instead of a sticker glued over it, while
-   staying clearly legible against any part of the image. */
-.org-hero-cta {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  /* padding: 8px 14px;
-  border-radius: 20px; */
-  /* background: rgba(255, 255, 255, 0.68); */
-  /* backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px); */
-  /* border: 1px solid rgba(255, 255, 255, 0.55); */
-  color: white;
-  font-size: 12.5px !important;
-  font-weight: 700 !important;
-  text-decoration: none;
-  box-shadow: none;
-  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-.org-hero-cta a{
-  color: white;
-}
-
-.org-hero-cta i {
-  font-size: 15px !important;
-}
-
-.org-hero-cta:hover {
-  background: rgba(255, 255, 255, 0.85);
-  transform: translateY(-1px);
-  box-shadow: none;
-}
-
-.org-title {
-  font-family: var(--font-body) !important;
-  font-size: 24px;
-  line-height: 1.15;
-  font-weight: 400;
-  letter-spacing: -0.3px;
-  margin: 0 0 4px;
-  color: #000;
-}
-.org-subtitle {
-  font-size: 13px;
-  color: var(--org-ink-2);
-  margin: 0;
-  max-width: 46ch;
-}
-.org-meta {
-  font-size: 13px;
-  color: var(--org-muted);
-  margin: 4px 0 0;
-}
-
-/* ---------- Hero banner — same brand-gradient, animated-icon, animated
-   title-underline treatment as the setup wizard's own header. ---------- */
-.org-hero {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 24px;
-  height: 172px;
-  border-radius: 22px;
-  /* The photo's one dominant, unifying colour is its clear blue sky — a
-     stronger sky-blue wash reads as "one piece with the image" far more
-     than trying to also echo its wood tones did. */
-  background: linear-gradient(
-    115deg,
-    #ffffff 0%,
-    #e7f2fa 40%,
-    #bfdff2 100%
-  );
-  background-size: 220% 220%;
-  box-shadow: none;
-  overflow: hidden;
-  animation: org-hero-in 0.35s ease both, org-header-drift 14s ease-in-out infinite;
-}
-
-@keyframes org-hero-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes org-header-drift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
-/* A quiet underline under the page title — draws in once on load and then
-   sits still; hovering the header sends a single soft sheen across it,
-   rather than looping forever. */
-.wiz-title-underline {
-  position: relative;
-  display: block;
-  width: 84px;
-  height: 4px;
-  border-radius: 4px;
-  margin: 2px 0 10px;
-  overflow: hidden;
-  background: linear-gradient(
-    90deg,
-    var(--org-meadow), var(--org-blue), var(--org-plum), var(--org-gold)
-  );
-  transform-origin: left center;
-  animation: org-underline-grow 0.5s 0.1s cubic-bezier(0.22, 0.9, 0.32, 1) both;
-}
-
-.wiz-title-underline::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -60%;
-  width: 45%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
-  transition: left 0.7s ease;
-}
-
-.org-hero:hover .wiz-title-underline::after {
-  left: 140%;
-}
-
-@keyframes org-underline-grow {
-  from { transform: scaleX(0); opacity: 0; }
-  to { transform: scaleX(1); opacity: 1; }
-}
-
-.org-hero-main {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-  padding: 18px 0 18px 28px;
-  z-index: 1;
-}
-
-/* The header icon has one plain, always-visible copy of the glyph
-   (.wiz-icon-static) plus five clipped copies used only transiently, on
-   hover, to animate — same technique as the setup wizard's header icon.
-   Stacking clipped copies of a thin line-icon PERMANENTLY causes visible
-   seams (their clip edges don't anti-alias identically), so the five
-   pieces only exist on screen for the ~1.6s hover animation; before hover,
-   and again the instant it finishes, only the single clean static icon is
-   shown, with a hard, imperceptible cut between the two. */
-.org-title-icon {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 56px;
-  height: 56px;
-  color: var(--org-meadow);
-}
-
-/* !important: styles.css has a global reset that targets the bare <i> tag
-   directly and pins its font-size with its own !important. Setting
-   font-size on the wrapping .org-title-icon span does nothing for the <i>
-   itself — it has to be set on the <i> to out-specificity that rule. */
-.wiz-icon-static,
-.wiz-icon-part {
-  font-size: 56px !important;
-}
-
-.wiz-icon-part {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-}
-
-.wiz-icon-part--base { clip-path: inset(75% 0 0 0); }
-.wiz-icon-part--side-left { clip-path: inset(50% 50% 25% 0); }
-.wiz-icon-part--side-right { clip-path: inset(50% 0 25% 50%); }
-.wiz-icon-part--mid { clip-path: inset(25% 0 50% 0); }
-.wiz-icon-part--top { clip-path: inset(0 0 75% 0); }
-
-/* Every piece falls in from above the header — as if dropped from the top
-   of the section — landing in this order: base first, then both walls,
-   then the middle, then the roof last. */
-.org-hero:hover .wiz-icon-static {
-  animation: wiz-icon-static-handoff 1.6s both;
-}
-.org-hero:hover .wiz-icon-part--base {
-  animation: wiz-icon-fall-base 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.org-hero:hover .wiz-icon-part--side-left,
-.org-hero:hover .wiz-icon-part--side-right {
-  animation: wiz-icon-fall-sides 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.org-hero:hover .wiz-icon-part--mid {
-  animation: wiz-icon-fall-mid 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.org-hero:hover .wiz-icon-part--top {
-  animation: wiz-icon-fall-top 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-/* The clean icon: gone the instant hover starts, back the instant every
-   piece has finished (96% = 1.53s in). */
-@keyframes wiz-icon-static-handoff {
-  0% { opacity: 1; }
-  1% { opacity: 0; animation-timing-function: steps(1, jump-end); }
-  95% { opacity: 0; animation-timing-function: steps(1, jump-end); }
-  96% { opacity: 1; }
-  100% { opacity: 1; }
-}
-
-@keyframes wiz-icon-fall-base {
-  0% { opacity: 0; transform: translateY(-60px); }
-  27% { opacity: 1; transform: translateY(8px); }
-  34% { opacity: 1; transform: translateY(0); }
-  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
-  96% { opacity: 0; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(0); }
-}
-@keyframes wiz-icon-fall-sides {
-  0% { opacity: 0; transform: translateY(-60px); }
-  19% { opacity: 0; transform: translateY(-60px); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
-  47% { opacity: 1; transform: translateY(8px); }
-  53% { opacity: 1; transform: translateY(0); }
-  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
-  96% { opacity: 0; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(0); }
-}
-@keyframes wiz-icon-fall-mid {
-  0% { opacity: 0; transform: translateY(-60px); }
-  41% { opacity: 0; transform: translateY(-60px); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
-  66% { opacity: 1; transform: translateY(8px); }
-  72% { opacity: 1; transform: translateY(0); }
-  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
-  96% { opacity: 0; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(0); }
-}
-@keyframes wiz-icon-fall-top {
-  0% { opacity: 0; transform: translateY(-60px); }
-  59% { opacity: 0; transform: translateY(-60px); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
-  89% { opacity: 1; transform: translateY(8px); }
-  94% { opacity: 1; transform: translateY(0); }
-  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
-  96% { opacity: 0; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(0); }
-}
-
-.org-hero-side {
-  flex: 0 0 22%;
-  display: flex;
-  min-width: 0;
-  z-index: 1;
-}
-
-.org-hero-art {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 100% 26%;
-  flex: 1 1 auto;
-  border-radius: 0 22px 22px 0;
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 18%);
-  mask-image: linear-gradient(to right, transparent 0%, #000 18%);
-}
-
-@media (max-width: 860px) {
-  .org-hero {
-    flex-direction: column;
-    height: auto;
-  }
-  /* No longer sitting over the artwork at this width — it drops below the
-     title, so it just joins the normal stacked flow instead of floating. */
-  .org-hero-cta {
-    position: static;
-    align-self: flex-start;
-    margin: 16px 0 0 22px;
-  }
-  .org-hero-main {
-    padding: 14px 22px 0 22px;
-  }
-  .org-hero-side {
-    flex: none;
-    width: 100%;
-    padding: 0 22px 22px 22px;
-  }
-  .org-hero-art {
-    height: 140px;
-    border-radius: 14px;
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .org-hero,
-  .wiz-title-underline {
-    animation: none;
-  }
-  .wiz-title-underline::after {
-    transition: none;
-  }
-  .org-hero:hover .wiz-title-underline::after {
-    left: -60%;
-  }
-  .org-hero:hover .wiz-icon-static {
-    animation: none;
-  }
-  .org-hero:hover .wiz-icon-part--base,
-  .org-hero:hover .wiz-icon-part--side-left,
-  .org-hero:hover .wiz-icon-part--side-right,
-  .org-hero:hover .wiz-icon-part--mid,
-  .org-hero:hover .wiz-icon-part--top {
-    animation: none;
-    opacity: 0;
-  }
-}
+/* The page header (.od-hero, its animated icon and counters) comes from Shared/styles/page-hero.css. */
 
 /* ---------- Buttons ---------- */
 .org-btn {
@@ -704,40 +355,6 @@
   border-bottom-color: var(--org-good);
 }
 
-/* ---------- Filters card ---------- */
-/* Same asymmetric corner shape and one-shot sheen as the stat cards above,
-   flipping to the mirror shape on hover rather than lifting. */
-.org-filters-card {
-  background: var(--org-card);
-  border: var(--yc-border);
-  border-radius: 30px 10px 30px 10px;
-  padding: var(--yc-pad);
-  margin-bottom: 20px;
-  position: relative;
-  overflow: hidden;
-  box-shadow: none;
-  transition: border-radius 0.45s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
-}
-.org-filters-card:hover {
-  border-radius: 10px 30px 10px 30px;
-  box-shadow: none;
-}
-.org-filters-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -60%;
-  width: 40%;
-  height: 100%;
-  background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.65), transparent);
-  transform: skewX(-15deg);
-  transition: left 0.65s ease;
-  pointer-events: none;
-}
-.org-filters-card:hover::after {
-  left: 130%;
-}
-
 /* ---------- Shared section header: icon tile + title + subtitle, with
    actions on the right. Used above both the filters and the results. ---------- */
 .org-section-head {
@@ -782,6 +399,222 @@
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* The list toolbar: search, status, "awaiting my review" and the view toggle in one white
+   bar above the list (it replaces the separate Filters card). */
+.org-list-section { padding-top: 0; margin-top: 0; }
+.org-list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 10px 10px 10px 12px;
+  background: #fff;
+  border: 1px solid #e7e9ec;
+  border-radius: 14px;
+}
+.org-tb-search { position: relative; flex: 1 1 280px; min-width: 200px; }
+.org-tb-search i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px !important;
+  color: #9aa3ad;
+  pointer-events: none;
+}
+.org-tb-search input,
+.org-tb-select {
+  height: 40px;
+  border: 1px solid #dde1e5;
+  border-radius: 10px;
+  background-color: #fff;
+  color: #16202a;
+  font-size: 13.5px !important;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.org-tb-search input { width: 100%; padding: 0 12px 0 36px; }
+.org-tb-search input::placeholder { color: #b3bac2; }
+.org-tb-select {
+  flex: 0 0 auto;
+  min-width: 150px;
+  padding: 0 34px 0 12px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%234a564e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+}
+.org-tb-search input:focus,
+.org-tb-select:focus {
+  outline: none;
+  border-color: var(--org-meadow);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--org-meadow) 15%, transparent);
+}
+.org-tb-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #dde1e5;
+  border-radius: 10px;
+  background: #fff;
+  color: #3c4854;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.org-tb-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.org-tb-toggle i { font-size: 15px !important; }
+.org-tb-toggle:hover { border-color: var(--org-warn); }
+.org-tb-toggle.is-on { background: var(--org-warn-soft); border-color: var(--org-warn); color: var(--org-warn); }
+.org-tb-toggle:has(input:focus-visible) { outline: 2px solid var(--org-warn); outline-offset: 2px; }
+.org-tb-clear {
+  flex: none;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: #6b7682;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.org-tb-clear:hover { color: var(--org-meadow); }
+.org-tb-end { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; }
+
+@media (max-width: 991.98px) {
+  .org-list-toolbar { flex-wrap: wrap; }
+  .org-tb-search { flex-basis: 100%; }
+}
+
+/* ---------- Table view, styled like the Departments list ---------- */
+.dl-card { background: #fff; border: 1px solid #e7e9ec; border-radius: 18px; overflow: hidden; }
+.dl-table-wrap { overflow-x: auto; }
+.dl-table { width: 100%; border-collapse: collapse; }
+.dl-table th {
+  padding: 13px 20px;
+  background: #f7f8f9 !important;
+  border-bottom: 1px solid #e7e9ec;
+  color: #6b7682 !important;
+  font-family: var(--font-heading);
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+.dl-table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid #eff1f3;
+  color: #16202a;
+  font-size: 13.5px !important;
+  vertical-align: middle;
+}
+.dl-table tbody tr:last-child td { border-bottom: 0; }
+.dl-table tbody tr { transition: background-color .15s ease; }
+.dl-table tbody tr:hover td { background: #fafbfb; }
+.dl-th-actions, .dl-td-actions { text-align: right !important; width: 1%; white-space: nowrap; }
+
+.dl-name { display: flex; flex-direction: column; min-width: 180px; }
+.dl-name-main {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: #16202a;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+}
+.dl-name-main:hover { color: var(--org-meadow); text-decoration: underline; }
+.dl-name-sub { font-family: var(--font-number); font-size: 12px !important; color: #6b7682; }
+
+.dl-code {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: #f7f8f9;
+  border: 1px solid #e7e9ec;
+  color: #3c4854;
+  font-family: var(--font-number, ui-monospace, monospace);
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+}
+.dl-person { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 260px; }
+.dl-person-mono {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #eff1f3;
+  color: #3c4854;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+}
+.dl-person-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.dl-none { color: #9aa3ad; font-size: 13px !important; font-style: italic; }
+.dl-count { font-family: var(--font-number); font-weight: 600 !important; }
+.dl-date { white-space: nowrap; color: #3c4854; }
+
+.dl-status-cell { display: inline-flex; align-items: center; gap: 8px; }
+/* Status column centred, as on the Currency list. */
+.dl-table th.dl-col-status,
+.dl-table td.dl-col-status { text-align: center !important; }
+.dl-table td.dl-col-status .dl-status-cell { justify-content: center; }
+.dl-status { display: inline-grid; place-items: center; width: 28px; height: 28px; color: #9aa3ad; cursor: default; }
+.dl-status i { font-size: 20px !important; line-height: 1; }
+.dl-status.is-good  { color: var(--org-good); }
+.dl-status.is-warn  { color: var(--org-warn); }
+.dl-status.is-error { color: var(--org-error); }
+.dl-status.is-plum  { color: var(--org-plum); }
+.dl-status.is-info  { color: #2f6fd6; }
+.dl-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 7px;
+  background: var(--org-warn-soft);
+  color: var(--org-warn);
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
+}
+.dl-flag i { font-size: 13px !important; }
+
+.dl-actions { display: inline-flex; gap: 8px; }
+.dl-act {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #e7e9ec;
+  border-radius: 10px;
+  background: #fff;
+  color: #3c4854;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.dl-act i { font-size: 16px !important; line-height: 1; }
+.dl-act:hover:not(:disabled) {
+  background: var(--org-meadow-soft);
+  border-color: var(--org-meadow);
+  color: var(--org-meadow);
+}
+.dl-act-review { color: var(--org-warn); }
+.dl-act-review:hover:not(:disabled) { background: var(--org-warn-soft); border-color: var(--org-warn); color: var(--org-warn); }
+.dl-act:disabled { cursor: not-allowed; opacity: .45; }
+.dl-act:focus-visible { outline: 2px solid var(--org-meadow); outline-offset: 2px; }
 
 /* ---------- Card view / table view toggle ---------- */
 .org-view-toggle {
@@ -962,174 +795,6 @@
   flex: 1 1 auto;
   min-width: fit-content;
 }
-
-/* ---------- Stat summary boxes ---------- */
-.org-stat-grid {
-  display: grid;
-  grid-template-columns:  repeat(auto-fit, minmax(250px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
-}
-/* Each card carries its own accent as two custom properties — --stat-c
-   (the strong colour: icon, bar, value) and --stat-soft (the pale tint:
-   background wash, icon tile, hill silhouette) — so every tone-specific
-   rule below only has to set those two variables once. */
-.org-stat-card {
-  --stat-c: #3b6fd6;
-  --stat-soft: #e5edfb;
-  display: block;
-  width: 100%;
-  text-align: left;
-  font-family: inherit;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--stat-soft);
-  border-radius: var(--yc-radius);
-  padding: 22px 24px 46px;
-  background: linear-gradient(165deg, #ffffff 0%, var(--stat-soft) 160%);
-  box-shadow: none;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-.org-stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: none;
-}
-.org-stat-card.is-accent { --stat-c: var(--org-good); --stat-soft: var(--org-good-soft); }
-.org-stat-card.is-warn { --stat-c: #c98a1f; --stat-soft: var(--org-warn-soft); }
-.org-stat-card.is-info { --stat-c: #6a4fc2; --stat-soft: #eae5fa; }
-.org-stat-card.is-error { --stat-c: var(--org-error); --stat-soft: var(--org-error-soft); }
-
-/* Two overlapping circles tucked into the bottom-right corner — a smaller
-   hill peeking out from behind a taller one — rather than a wave repeating
-   across the card's full width. This element is a plain full-card-sized
-   wrapper (no visible box of its own); both circles are its own
-   pseudo-elements, positioned relative to the CARD's edges directly rather
-   than nested inside each other, which is what makes their right/bottom
-   offsets straightforward to reason about. Each circle is mostly pushed
-   below the card's own bottom edge (and clipped there by .org-stat-card's
-   overflow: hidden), so only its rounded cap shows, reading as a soft
-   watermark rather than a pattern that competes with the numbers above it.
-   Same colour/opacity on both means their overlap seam is invisible — they
-   read as one continuous two-bump skyline regardless of stacking order. */
-.org-stat-hill {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.org-stat-hill::before,
-.org-stat-hill::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  background: var(--stat-soft);
-}
-
-/* The taller hill, hugging the card's right edge. */
-.org-stat-hill::after {
-  right: -16px;
-  bottom: -90px;
-  width: 170px;
-  height: 170px;
-}
-
-/* The shorter hill, overlapping in front of it and further left. */
-.org-stat-hill::before {
-  right: 88px;
-  bottom: -55px;
-  width: 100px;
-  height: 100px;
-}
-
-/* A thin decorative capacity bar along the bottom edge. */
-.org-stat-bar {
-  position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 12px;
-  z-index: 1;
-  display: block;
-  height: 4px;
-  border-radius: 4px;
-  background: var(--org-border);
-  overflow: hidden;
-}
-.org-stat-bar span {
-  display: block;
-  height: 100%;
-  width: 35%;
-  border-radius: 4px;
-  background: var(--stat-c);
-}
-.org-stat-card.is-accent .org-stat-bar span { width: 18%; }
-.org-stat-card.is-warn .org-stat-bar span { width: 14%; }
-.org-stat-card.is-info .org-stat-bar span { width: 48%; }
-.org-stat-card.is-error .org-stat-bar span { width: 14%; }
-
-/* The icon sits in its own rounded, tinted tile — a badge, not a bare
-   floating glyph — and springs into a tilt on hover. The tile itself
-   (size, background) stays put; only the glyph inside grows. */
-.org-stat-icon {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--yc-icon-size);
-  height: var(--yc-icon-size);
-  border-radius: var(--yc-radius-badge);
-  margin-bottom: 14px;
-  background: var(--stat-soft);
-  color: var(--stat-c);
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  border: 1px solid currentColor;
-}
-/* !important: styles.css has a global reset that targets the bare <i> tag
-   directly and pins its font-size with its own !important. Setting
-   font-size on the wrapping .org-stat-icon div does nothing for the <i>
-   itself — it has to be set on the <i> to out-specificity that rule. */
-.org-stat-icon i {
-  font-size: 28px !important;
-}
-.org-stat-card:hover .org-stat-icon {
-  transform: rotate(-8deg) scale(1.12);
-}
-.org-stat-label {
-  position: relative;
-  z-index: 1;
-  font-size: var(--yc-eyebrow-size);
-  font-weight: var(--yc-eyebrow-weight);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--org-muted);
-  margin: 0 0 8px;
-  letter-spacing: var(--yc-eyebrow-tracking);
-  text-transform: uppercase;
-}
-/* !important on both: this is a bare <p>, and the global stylesheet's
-   giant selector list — body, p, span, div, ... — forces its own
-   font-size AND font-weight onto every one, each with its own !important.
-   Without matching it here the number silently renders at the smaller,
-   regular-weight fallback no matter what is set below. */
-.org-stat-value {
-  position: relative;
-  z-index: 1;
-  font-family: var(--font-body) !important;
-  font-size: 36px !important;
-  font-weight: 800 !important;
-  color: var(--stat-c);
-  margin: 0;
-  line-height: 1;
-}
-.org-stat-caption {
-  position: relative;
-  z-index: 1;
-  font-size: var(--yc-caption-size);
-  color: var(--org-muted);
-  margin: 4px 0 0;
-}
-
 
 /* ---------- Key/value read rows ---------- */
 .org-kv-label {
@@ -1681,9 +1346,6 @@
   .org-page {
     padding: 18px 14px 40px;
   }
-  .org-stat-grid {
-    grid-template-columns: 1fr;
-  }
   .org-card {
     padding: 16px 18px;
   }
@@ -1738,3 +1400,9 @@
     flex-wrap: wrap;
   }
 }
+
+/* SPACING BETWEEN BLOCKS. A section that follows a header or card starts flush - the card's own 20px
+   margin is the gap - instead of adding its own top padding on top of it (which left a ~50px hole under
+   the header). Sections that follow each other keep their spacing around the divider. */
+.org-doc-section { padding-top: 0; }
+.org-doc-section + .org-doc-section { padding-top: 24px; }

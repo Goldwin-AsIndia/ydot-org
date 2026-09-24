@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, takeUntil } from 'rxjs';
 import { IamAdminApiService } from '../../../../Service/iam-admin-api.service';
@@ -245,6 +245,213 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
   });
 
   // ===========================================================================================
+  // Layout: section rail (top-level menus) + workspace (the chosen section's contents)
+  // ===========================================================================================
+
+  /** The top-level menu open in the workspace. Null falls back to the first visible one. */
+  readonly activeSectionId = signal<string | null>(null);
+
+  /** Whether the "how visibility works" note is open. */
+  readonly showRule = signal(false);
+
+  /** Top-level menus for the rail — already filtered by the search, ancestors kept. */
+  readonly sections = computed<readonly Row[]>(() => this.rows().filter((row) => row.depth === 0));
+
+  readonly activeSection = computed<Row | null>(() => {
+    const list = this.sections();
+    return list.find((row) => row.id === this.activeSectionId()) ?? list[0] ?? null;
+  });
+
+  /** Everything under the active section, flattened (depth 1 = submenu, 2 = child submenu). */
+  readonly sectionRows = computed<readonly Row[]>(() => {
+    const section = this.activeSection();
+    if (!section) {
+      return [];
+    }
+    const term = this.search().trim().toLowerCase();
+    const expanded = this.expanded();
+    const out: Row[] = [];
+
+    const walk = (list: readonly TenantMenuNodeResponse[], depth: number): void => {
+      for (const node of list) {
+        const id = node.menuDefinitionId;
+        if (!id || !this.matchesSearch(node, term)) {
+          continue;
+        }
+        const children = node.children ?? [];
+        out.push({ id, node, depth, hasChildren: children.length > 0 });
+        if (children.length > 0 && (expanded[id] === true || term.length > 0)) {
+          walk(children, depth + 1);
+        }
+      }
+    };
+
+    walk(section.node.children ?? [], 1);
+    return out;
+  });
+
+  /** Every node, flat — for the summary figures. */
+  private readonly allNodes = computed<TenantMenuNodeResponse[]>(() => {
+    const out: TenantMenuNodeResponse[] = [];
+    const walk = (list: readonly TenantMenuNodeResponse[]): void => {
+      for (const node of list) {
+        out.push(node);
+        walk(node.children ?? []);
+      }
+    };
+    walk(this.nodes());
+    return out;
+  });
+
+  readonly customisedCount = computed(() => this.allNodes().filter((node) => this.hasOverride(node)).length);
+  readonly ownedCount = computed(() => this.allNodes().filter((node) => node.isOrganisationOwned).length);
+
+  readonly landingName = computed(() => {
+    const id = this.landingMenuId();
+    const node = id ? this.allNodes().find((n) => n.menuDefinitionId === id) : undefined;
+    return node ? this.pendingName(node) : '';
+  });
+
+  /** How many items differ from what is stored, for the save bar. */
+  readonly pendingCount = computed(() => {
+    if (this.mode() === 'roles') {
+      const now = this.mapped();
+      const before = this.savedMapped();
+      const ids = new Set([...Object.keys(now), ...Object.keys(before)]);
+      return [...ids].filter((id) => !!now[id] !== !!before[id]).length;
+    }
+    const enabled = this.enabled();
+    const savedEnabled = this.savedEnabled();
+    const overrides = this.overrides();
+    const savedOverrides = this.savedOverrides();
+    return Object.keys(enabled).filter(
+      (id) =>
+        enabled[id] !== savedEnabled[id] ||
+        JSON.stringify(overrides[id] ?? null) !== JSON.stringify(savedOverrides[id] ?? null),
+    ).length;
+  });
+
+  selectSection(id: string): void {
+    this.activeSectionId.set(id);
+    this.activeSubId.set(null);
+  }
+
+  // ---- Column view: Menus → Submenus → Child submenus --------------------------------------
+
+  /** The submenu open in the third column. Null falls back to the first one that has children. */
+  readonly activeSubId = signal<string | null>(null);
+
+  private childRows(node: TenantMenuNodeResponse | undefined, depth: number): Row[] {
+    const term = this.search().trim().toLowerCase();
+    return (node?.children ?? [])
+      .filter((child) => !!child.menuDefinitionId && this.matchesSearch(child, term))
+      .map((child) => ({
+        id: child.menuDefinitionId as string,
+        node: child,
+        depth,
+        hasChildren: (child.children ?? []).length > 0,
+      }));
+  }
+
+  /** Second column: the submenus of the chosen menu. */
+  readonly subItems = computed<readonly Row[]>(() => this.childRows(this.activeSection()?.node, 1));
+
+  readonly activeSub = computed<Row | null>(() => {
+    const list = this.subItems();
+    return list.find((row) => row.id === this.activeSubId()) ?? list.find((row) => row.hasChildren) ?? null;
+  });
+
+  /** Third column: the child submenus of the chosen submenu. */
+  readonly childItems = computed<readonly Row[]>(() => this.childRows(this.activeSub()?.node, 2));
+
+  selectSub(id: string): void {
+    this.activeSubId.set(id);
+  }
+
+  // ---- Card board: one card per top-level menu ---------------------------------------------
+
+  /** Everything inside a top-level menu, flattened (depth 1 = submenu, 2 = child submenu). */
+  cardRows(node: TenantMenuNodeResponse): Row[] {
+    const term = this.search().trim().toLowerCase();
+    const out: Row[] = [];
+    const walk = (list: readonly TenantMenuNodeResponse[], depth: number): void => {
+      for (const child of list) {
+        const id = child.menuDefinitionId;
+        if (!id || !this.matchesSearch(child, term)) {
+          continue;
+        }
+        const children = child.children ?? [];
+        out.push({ id, node: child, depth, hasChildren: children.length > 0 });
+        walk(children, depth + 1);
+      }
+    };
+    walk(node.children ?? [], 1);
+    return out;
+  }
+
+  /** "on / total" for a card's own items (the card itself excluded). */
+  cardOnCount(node: TenantMenuNodeResponse): number {
+    return this.descendantIds(node).filter((id) => (this.mode() === 'roles' ? this.isMapped(id) : this.isEnabled(id))).length;
+  }
+
+  cardTotal(node: TenantMenuNodeResponse): number {
+    return this.descendantIds(node).length;
+  }
+
+  /** Ids of a node's descendants (not the node itself). */
+  private descendantIds(node: TenantMenuNodeResponse): string[] {
+    const out: string[] = [];
+    const walk = (list: readonly TenantMenuNodeResponse[]): void => {
+      for (const child of list) {
+        if (child.menuDefinitionId) {
+          out.push(child.menuDefinitionId);
+        }
+        walk(child.children ?? []);
+      }
+    };
+    walk(node.children ?? []);
+    return out;
+  }
+
+  /** "n items · m on" (organisation) or "m of n shown" (roles), for the rail. */
+  sectionSummary(node: TenantMenuNodeResponse): string {
+    const ids = this.descendantIds(node);
+    if (ids.length === 0) {
+      return node.route ? 'Single page' : 'Empty heading';
+    }
+    if (this.mode() === 'roles') {
+      return `${ids.filter((id) => this.isMapped(id)).length} of ${ids.length} shown`;
+    }
+    return `${ids.length} item${ids.length === 1 ? '' : 's'} · ${ids.filter((id) => this.isEnabled(id)).length} on`;
+  }
+
+  /** 0–100, share of the section's items that are on (or mapped), for the rail meter. */
+  sectionFill(node: TenantMenuNodeResponse): number {
+    const ids = [node.menuDefinitionId ?? '', ...this.descendantIds(node)].filter(Boolean);
+    if (ids.length === 0) {
+      return 0;
+    }
+    const on = ids.filter((id) => (this.mode() === 'roles' ? this.isMapped(id) : this.isEnabled(id))).length;
+    return Math.round((on / ids.length) * 100);
+  }
+
+  private matchesSearch(node: TenantMenuNodeResponse, term: string): boolean {
+    if (!term) {
+      return true;
+    }
+    const haystack = [
+      node.resolvedName ?? '',
+      node.catalogueName ?? '',
+      node.code ?? '',
+      node.route ?? '',
+      node.requiredPermissionCode ?? '',
+    ]
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(term) || (node.children ?? []).some((child) => this.matchesSearch(child, term));
+  }
+
+  // ===========================================================================================
   // Lifecycle
   // ===========================================================================================
 
@@ -313,9 +520,9 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
             parents[id] = parentId;
           }
 
-          // Top level opens by default; anything deeper stays as the person left it. A tree
+          // New nodes open by default; anything already known stays as the person left it. A tree
           // that reopened wholly on every save would lose their place after every edit.
-          if (expanded[id] === undefined && parentId === null) {
+          if (expanded[id] === undefined) {
             expanded[id] = true;
           }
         }
@@ -345,6 +552,120 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   isExpanded(id: string): boolean {
     return this.expanded()[id] === true;
+  }
+
+  /** Opens every node that has children. */
+  expandAll(): void {
+    const all: Record<string, boolean> = {};
+    for (const [id, node] of Object.entries(this.byId)) {
+      if ((node.children ?? []).length > 0) {
+        all[id] = true;
+      }
+    }
+    this.expanded.set(all);
+  }
+
+  /** Closes the whole tree back to its top level. */
+  collapseAll(): void {
+    const all: Record<string, boolean> = {};
+    for (const id of Object.keys(this.byId)) {
+      all[id] = false;
+    }
+    this.expanded.set(all);
+  }
+
+  /** How many direct children a node has, for the count beside its name. */
+  childCount(node: TenantMenuNodeResponse): number {
+    return (node.children ?? []).length;
+  }
+
+  // ---- Custom dropdowns (role picker, permission picker) — no native <select> -------------
+
+  readonly roleDdOpen = signal(false);
+  readonly permDdOpen = signal(false);
+  readonly ddQuery = signal('');
+
+  readonly filteredRoles = computed(() => {
+    const q = this.ddQuery().trim().toLowerCase();
+    return this.roles().filter((role) => !q || (role.name ?? '').toLowerCase().includes(q));
+  });
+
+  readonly filteredPermissionOptions = computed(() => {
+    const q = this.ddQuery().trim().toLowerCase();
+    return this.permissionOptions().filter(
+      (option) => !q || option.name.toLowerCase().includes(q) || option.code.toLowerCase().includes(q),
+    );
+  });
+
+  /** Permission options grouped by module, for the permission dropdown's section headers. */
+  readonly groupedPermissionOptions = computed(() => {
+    const groups = new Map<string, { code: string; name: string; moduleCode: string }[]>();
+    for (const option of this.filteredPermissionOptions()) {
+      const key = option.moduleCode || 'Other';
+      const list = groups.get(key) ?? [];
+      list.push(option);
+      groups.set(key, list);
+    }
+    return [...groups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([module, options]) => ({ module, options }));
+  });
+
+  readonly permissionLabel = computed(() => {
+    const code = this.draft()?.permission;
+    return code ? (this.permissionOptions().find((option) => option.code === code)?.name ?? code) : '';
+  });
+
+  toggleRoleDd(): void {
+    this.ddQuery.set('');
+    this.permDdOpen.set(false);
+    this.roleDdOpen.update((open) => !open);
+  }
+
+  togglePermDd(): void {
+    if (!this.draftIsOwned()) {
+      return;
+    }
+    this.ddQuery.set('');
+    this.roleDdOpen.set(false);
+    this.permDdOpen.update((open) => !open);
+  }
+
+  pickRole(roleId: string): void {
+    this.roleDdOpen.set(false);
+    this.onRoleSelected(roleId);
+  }
+
+  pickPermission(code: string): void {
+    this.permDdOpen.set(false);
+    this.patchDraft({ permission: code });
+  }
+
+  stepOrder(delta: number): void {
+    const current = Number(this.draft()?.order || 0) || 0;
+    this.patchDraft({ order: String(Math.max(0, current + delta)) });
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.roleDdOpen.set(false);
+    this.permDdOpen.set(false);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.roleDdOpen() || this.permDdOpen()) {
+      this.roleDdOpen.set(false);
+      this.permDdOpen.set(false);
+      return;
+    }
+    if (this.confirmingDelete()) {
+      this.cancelDelete();
+      return;
+    }
+    if (this.draft()) {
+      this.closeEditor();
+    }
   }
 
   setMode(mode: Mode): void {
@@ -749,6 +1070,28 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     const id = this.draft()?.id;
 
     return id ? this.byId[id] : undefined;
+  });
+
+  /** The icon the open draft will show: its own choice, else the product's. */
+  readonly draftIconClass = computed(() => {
+    const draft = this.draft();
+    if (!draft) return '';
+    const icon = draft.icon ?? (this.draftIsOwned() ? null : this.draftNode()?.resolvedIcon ?? null);
+    return icon ? this.navigation.iconClass(icon) : '';
+  });
+
+  /** Where the draft sits in the tree, for the breadcrumb in the panel header. */
+  readonly draftParentName = computed(() => {
+    const parentId = this.draft()?.parentId;
+    const parent = parentId ? this.byId[parentId] : undefined;
+    return parent ? this.pendingName(parent) : '';
+  });
+
+  /** The name shown in the panel header: the typed name, else the product's. */
+  readonly draftDisplayName = computed(() => {
+    const d = this.draft();
+    if (!d) return '';
+    return d.name.trim() || (d.kind === 'edit' ? (this.draftNode()?.catalogueName ?? '') : '') || 'Untitled item';
   });
 
   /** Whether the open draft edits a node this organisation owns outright. */

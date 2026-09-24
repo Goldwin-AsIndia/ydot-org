@@ -413,6 +413,27 @@ export class CommunicationTimelineComponent {
     return this.formatRelativeDate(list[0].date);
   });
 
+  readonly lastContactMeta = computed(() => {
+    const record = this.records()[0];
+    if (!record) return 'No contact logged';
+    const type = record.type === 'Internal Note' ? 'Internal note' : record.type;
+    return `${record.date} · ${type}`;
+  });
+
+  readonly lastUpdatedDisplay = computed(() => this.records()[0]?.date ?? '—');
+
+  readonly callLastDateDisplay = computed(() => {
+    const call = this.records().find((record) => record.type === 'Call');
+    return call ? `Last on ${call.date}` : 'No calls logged';
+  });
+
+  readonly healthGaugeDashArray = computed(() => {
+    const circumference = 2 * Math.PI * 50;
+    const score = Math.max(0, Math.min(100, this.leadHealthScore()));
+    const filled = circumference * (score / 100);
+    return `${filled.toFixed(1)} ${(circumference - filled).toFixed(1)}`;
+  });
+
   readonly nextFollowUpRecord = computed(() => {
     const pending = this.records()
       .filter((record) => record.followUpDate && record.followUpStatus === 'Pending')
@@ -537,6 +558,10 @@ export class CommunicationTimelineComponent {
   });
 
   openEntryDrawer(type: CommunicationType = 'Call'): void {
+    this.isFilterOpen.set(false);
+    this.closeActionMenu();
+    this.isDetailDrawerOpen.set(false);
+    this.selectedCommunication.set(null);
     this.editingId.set(null);
     this.formErrors.set([]);
     this.form.set(this.createEmptyForm(type));
@@ -864,6 +889,20 @@ export class CommunicationTimelineComponent {
     this.dateToFilter.set('');
     this.searchQuery.set('');
     this.currentPage.set(1);
+  }
+
+  timelineTitle(record: CommunicationRecord): string {
+    switch (record.type) {
+      case 'Internal Note': return 'Internal note';
+      case 'Call': return 'Follow-up call';
+      case 'Email': return 'Campaign information sent';
+      case 'Meeting': return 'Review meeting planned';
+      case 'WhatsApp': return 'WhatsApp follow-up';
+      case 'SMS': return 'SMS follow-up';
+      case 'Visit': return 'Donor visit';
+      case 'Event': return 'Event follow-up';
+      default: return record.type;
+    }
   }
 
   communicationIcon(type: CommunicationType): string {

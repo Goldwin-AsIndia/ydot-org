@@ -14,6 +14,214 @@
                   @case ('warning') { <path d="M12 8v5M12 16.5h.01"></path> }
                   @default { <path d="M12 16v-5M12 7.5h.01"></path> }
                 }
+<!-- ================= Toasts ================= -->
+<div class="tz-toast-stack" *ngIf="toasts.length">
+  <div class="tz-toast" [ngClass]="'toast-' + toast.type" *ngFor="let toast of toasts; trackBy: trackByToastId">
+    <div class="tz-toast-icon">
+      <svg *ngIf="toast.type === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      <svg *ngIf="toast.type === 'error'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+      <svg *ngIf="toast.type === 'warning'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a1.5 1.5 0 0 0 1.3 2.3h17.8a1.5 1.5 0 0 0 1.3-2.3L13.7 3.9a1.5 1.5 0 0 0-2.6 0Z"/></svg>
+      <svg *ngIf="toast.type === 'info'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="tz-toast-body">
+      <strong>{{ toast.title }}</strong>
+      <span>{{ toast.message }}</span>
+    </div>
+    <button type="button" class="tz-toast-close" (click)="dismissToast(toast.id)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+    </button>
+  </div>
+</div>
+
+<div  *ngIf="isInitialized">
+
+  <!-- ============================================================
+       LIST VIEW
+       ============================================================ -->
+  <ng-container *ngIf="view === 'list'">
+
+    <!-- Header -->
+    <!-- Header: the same card as the Offices and regions list - label, title and purpose, Create on the
+         right. -->
+    <section class="od-hero">
+      <div class="od-hero-top">
+        <div class="od-hero-text">
+          <span class="od-eyebrow">Master data</span>
+          <h1 class="od-title">Time zones</h1>
+          <p class="od-sub">Manage and monitor your organisation's time zones.</p>
+        </div>
+        <button type="button" class="od-btn-create" (click)="openCreateForm()">
+          <i class="ri-add-line"></i> Add a time zone
+        </button>
+      </div>
+    </section>
+
+
+    <!-- Table + inline details workspace -->
+    <div class="tz-workspace" [class.has-selection]="showViewPanel && selectedTimeZone">
+      <div class="tz-table-card">
+      <!-- Search and filters, merged into the top of the table card. -->
+    <div class="tz-toolbar">
+      <div class="tz-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input
+          type="search"
+          placeholder="Search time zones..."
+          [ngModel]="searchText"
+          (ngModelChange)="onSearchInput($event)"
+        />
+      </div>
+
+      <div class="tz-filters">
+        <!--
+          THE COUNTRY FILTER IS GONE, and its absence is deliberate rather than an omission. A
+          time zone is not a property of a country on this platform: Asia/Kolkata is one zone
+          whoever uses it, and the United States spans six. The relationship runs the other way -
+          a STATE names its default zone - so the filter belonged on the State screen and was
+          only ever possible here because the mock data invented a countryId the domain has no
+          column for. A control that cannot narrow anything is worse than one that is not drawn.
+
+          The DST and status filters below are both real: the API supports both.
+        -->
+
+        <div class="tz-select">
+          <select [(ngModel)]="selectedDST" (change)="onDstFilterChange()">
+            <option value="">All DST</option>
+            <option value="yes">Supports DST</option>
+            <option value="no">No DST</option>
+          </select>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+
+        <div class="tz-select">
+          <select [(ngModel)]="selectedStatus" (change)="onStatusFilterChange()">
+            <option value="">All Status</option>
+            <option *ngFor="let s of statusOptions" [value]="s.value">{{ s.label }}</option>
+          </select>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+    </div>
+
+      <div class="tz-table-scroll">
+        <table class="tz-table">
+          <thead>
+            <tr>
+              <th class="col-id">Time Zone ID</th>
+              <th class="col-name">Name</th>
+              <th class="col-country">Default</th>
+              <th class="col-offset">UTC Offset</th>
+              <th class="col-status">Status</th>
+              <th class="col-action">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let t of pagedTimeZones; trackBy: trackByTzId">
+<td class="col-id">
+                <button type="button" class="tz-link" (click)="viewTimeZone(t)">{{ t.timeZoneKey }}</button>
+              </td>
+              <td class="col-name">
+                <div class="tz-name-cell">
+                  <span class="tz-name">{{ t.displayName }}</span>
+                  <span class="tz-badge" [ngClass]="t.supportsDST ? 'badge-info' : 'badge-neutral'">
+                    {{ t.supportsDST ? 'DST' : 'No DST' }}
+                  </span>
+                </div>
+              </td>
+              <td class="col-country">
+                @if (t.isDefaultRecommended) {
+                  <span class="tz-badge badge-info">Recommended</span>
+                } @else {
+                  <span class="tz-muted">&mdash;</span>
+                }
+              </td>
+              <td class="col-offset">{{ formatOffset(t.standardUtcOffsetMinutes) }}</td>
+              <td class="col-status">
+                <!-- Icon only, as on the Departments list; the word is the tooltip. (This cell held
+                     unresolved merge-conflict markers, which rendered as text in the table.) -->
+                <span class="dl-status" [class.is-active]="t.isActive" role="img"
+                      [attr.aria-label]="statusLabel(t.status) || '—'" [title]="statusLabel(t.status) || '—'">
+                  <i [class]="t.isActive ? 'ri-checkbox-circle-line' : 'ri-indeterminate-circle-line'"></i>
+                </span>
+              </td>
+              <td class="col-action">
+                <div class="tz-actions">
+                  <button type="button" class="tz-round-btn" title="View" (click)="viewTimeZone(t)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                  </button>
+                  <button type="button" class="tz-round-btn" title="Edit" (click)="openEditForm(t)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="tz-round-btn"
+                    [title]="t.isActive ? 'Deactivate' : 'Activate'"
+                    (click)="t.isActive ? confirmDeactivate(t) : confirmActivate(t)"
+                  >
+                    <svg *ngIf="t.isActive" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"> <rect x="3" y="6.5" width="18" height="11" rx="5.5"/> <circle cx="16.5" cy="12" r="3" fill="currentColor" stroke="none"/> </svg>
+                    <svg *ngIf="!t.isActive" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"> <rect x="3" y="6.5" width="18" height="11" rx="5.5"/> <circle cx="7.5" cy="12" r="3" fill="currentColor" stroke="none"/> </svg>
+                  </button>
+                  <button type="button" class="tz-round-btn danger" title="Delete" (click)="confirmDelete(t)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="M3 6h18"/> <path d="M8 6V4h8v2"/> <path d="M19 6l-1 14H6L5 6"/> <path d="M10 11v5"/> <path d="M14 11v5"/> </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <tr *ngIf="!pagedTimeZones.length">
+              <td colspan="6" class="tz-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
+                <span>No time zones found</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="tz-pagination" *ngIf="filteredTimeZones.length">
+        <div class="tz-page-size">
+          <span>Rows per page</span>
+          <div class="tz-select tz-select-sm">
+            <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <span class="tz-range-text">{{ rangeStart }}–{{ rangeEnd }} of {{ filteredTimeZones.length }}</span>
+        </div>
+
+        <nav class="tz-page-nav">
+          <button type="button" class="tz-page-btn" [disabled]="currentPage === 1" (click)="previousPage()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button
+            type="button"
+            class="tz-page-btn"
+            *ngFor="let p of pageNumbers"
+            [class.active]="currentPage === p"
+            (click)="goToPage(p)"
+          >{{ p }}</button>
+          <button type="button" class="tz-page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </nav>
+      </div>
+      </div>
+
+      <!-- Inline details view: no overlay, drawer, modal, or off-canvas behavior. -->
+      <aside class="tz-details-card" *ngIf="showViewPanel && selectedTimeZone as tz">
+        <div class="tz-details-header">
+          <div class="tz-details-heading">
+            <span class="tz-details-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M3 12h18"/>
+                <path d="M12 3a14 14 0 0 1 0 18"/>
+                <path d="M12 3a14 14 0 0 0 0 18"/>
               </svg>
             </span>
             <div class="gm-toast-body">
@@ -466,6 +674,17 @@
                 <span class="gm-form-bar-note">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg>
                   Fields marked <span class="gm-req">*</span> are required
+        <div class="tz-details-body">
+          <div class="tz-details-summary">
+            <div class="tz-summary-item">
+              <span>UTC Offset</span>
+              <strong>{{ formatOffset(tz.standardUtcOffsetMinutes) }}</strong>
+            </div>
+            <div class="tz-summary-item">
+              <span>Status</span>
+              <strong>
+                <span class="tz-status-pill" [ngClass]="statusBadgeClass(tz.status)">
+                  <span class="dot"></span>{{ statusLabel(tz.status) || '—' }}
                 </span>
                 <div class="gm-form-bar-actions">
                   <button type="button" class="gm-btn gm-btn-outline" (click)="cancelForm()">
@@ -496,6 +715,231 @@
               <button type="button" class="gm-btn gm-btn-outline" (click)="closeModals()">Cancel</button>
               <button type="button" class="gm-btn gm-btn-primary" (click)="activateConfirmed()">Yes, Activate</button>
             </div>
+              <div>
+                <span>Recommended default</span>
+                <strong>{{ tz.isDefaultRecommended ? 'Yes' : 'No' }}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="tz-details-section">
+            <h4>Offset &amp; DST Metadata</h4>
+            <div class="tz-details-grid">
+              <div><span>Standard UTC Offset</span><strong>{{ formatOffset(tz.standardUtcOffsetMinutes) }}</strong></div>
+              <div><span>Offset (Minutes)</span><strong>{{ tz.standardUtcOffsetMinutes ?? '—' }}</strong></div>
+              <div><span>Supports DST</span><strong>{{ tz.supportsDST ? 'Yes' : 'No' }}</strong></div>
+              <div><span>DST Rule Note</span><strong>{{ tz.dstRuleNote || '—' }}</strong></div>
+            </div>
+          </section>
+
+          <section class="tz-details-section">
+            <h4>Display &amp; Formatting</h4>
+            <div class="tz-details-grid">
+              <div><span>Sort Order</span><strong>{{ tz.sortOrder }}</strong></div>
+              <div><span>Recommended Default</span><strong>{{ tz.isDefaultRecommended ? 'Yes' : 'No' }}</strong></div>
+            </div>
+          </section>
+
+          <section class="tz-details-section">
+            <h4>Status &amp; Usage</h4>
+            <div class="tz-details-grid">
+              <div><span>Status</span><strong>{{ statusLabel(tz.status) || '—' }}</strong></div>
+              <div><span>Notes</span><strong>{{ getPlainText(tz.notes) }}</strong></div>
+              <div><span>Created</span><strong>{{ tz.createdAt | date: 'dd-MMM-yyyy' }}</strong></div>
+              <div><span>Created By</span><strong>{{ tz.createdBy || '—' }}</strong></div>
+              <div *ngIf="tz.updatedAt"><span>Updated</span><strong>{{ tz.updatedAt | date: 'dd-MMM-yyyy' }}</strong></div>
+              <div *ngIf="tz.updatedBy"><span>Updated By</span><strong>{{ tz.updatedBy }}</strong></div>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
+  </ng-container>
+
+  <!-- ============================================================
+       CREATE / EDIT FORM VIEW
+       ============================================================ -->
+  <ng-container *ngIf="view === 'form'">
+    <!-- Header: the same card as the Add an office page - a back link, the title and what this does. -->
+    <section class="of-hero">
+      <div class="of-hero-top">
+        <div class="of-hero-text">
+          <button type="button" class="of-crumb" (click)="cancelForm()">
+            <i class="ri-arrow-left-s-line"></i> Time zones
+          </button>
+          <h1 class="of-hero-title">{{ isEdit ? 'Edit time zone' : 'Add a time zone' }}</h1>
+          <p class="of-hero-sub">{{ isEdit ? 'Update this time zone. Its ID cannot change.' : 'Define a time zone: its IANA ID, offset and daylight saving, and how it is shown.' }}</p>
+        </div>
+      </div>
+    </section>
+
+    <form class="tzf-page" (ngSubmit)="handleSubmit()" novalidate>
+
+      <!-- Identity -->
+      <!-- Sections as numbered cards on a two-column grid, like the Add an office page. -->
+      <div class="of-form tzf-form">
+      <section class="of-card tzf-card">
+        <header class="of-section-head">
+          <span class="of-step-no">1</span>
+          <div>
+            <h2>Time Zone Identity</h2>
+            <p>The IANA ID and the name people see.</p>
+          </div>
+        </header>
+      <div class="tz-form-grid">
+        <div class="tz-field">
+          <label>Time Zone ID (IANA) <span class="req">*</span></label>
+          <input
+            type="text"
+            [class.invalid]="submitted && fieldErrors['timeZoneKey']"
+            [(ngModel)]="formModel.timeZoneKey"
+            name="timeZoneKey"
+            [disabled]="isEdit"
+            (blur)="onKeyChange()"
+            placeholder="e.g., Asia/Kolkata, America/New_York"
+            maxlength="60"
+          />
+          <span class="tz-error" *ngIf="submitted && fieldErrors['timeZoneKey']">{{ fieldErrors['timeZoneKey'] }}</span>
+          <small>Must be valid IANA format (e.g., Area/Location)</small>
+        </div>
+
+        <div class="tz-field">
+          <label>Display Name <span class="req">*</span></label>
+          <input
+            type="text"
+            [class.invalid]="submitted && fieldErrors['displayName']"
+            [(ngModel)]="formModel.displayName"
+            name="displayName"
+            (blur)="onDisplayNameChange()"
+            placeholder="e.g., (UTC+05:30) India Standard Time"
+            maxlength="120"
+          />
+          <span class="tz-error" *ngIf="submitted && fieldErrors['displayName']">{{ fieldErrors['displayName'] }}</span>
+        </div>
+
+        <div class="tz-field">
+          <label>Short Name</label>
+          <input
+            type="text"
+            [(ngModel)]="formModel.shortName"
+            name="shortName"
+            (blur)="onShortNameChange()"
+            placeholder="e.g., IST, SGT"
+            maxlength="20"
+          />
+          <small>For compact display</small>
+        </div>
+      </div>
+      </section>
+
+      <!-- Country -->
+      <section class="of-card tzf-card">
+        <header class="of-section-head">
+          <span class="of-step-no">2</span>
+          <div>
+            <h2>Defaults</h2>
+            <p>Whether this zone is suggested by default.</p>
+          </div>
+        </header>
+      <div class="tz-form-grid">
+        <!--
+          WAS an "Associated Country" picker, which the domain has no column for. Replaced with the
+          recommended-default flag, which is a real field on the record and the one an operator
+          actually sets here: it decides which zone a new state is offered first.
+        -->
+        <div class="tz-field">
+          <label>Recommended default</label>
+          <div class="tz-switch">
+            <input
+              type="checkbox"
+              id="isDefaultRecommended"
+              name="isDefaultRecommended"
+              [(ngModel)]="formModel.isDefaultRecommended"
+            />
+            <label for="isDefaultRecommended">
+              {{ formModel.isDefaultRecommended ? 'Offered first to new states' : 'Not a default' }}
+            </label>
+          </div>
+          <small>Optional &mdash; the zone a new state is offered before any other.</small>
+        </div>
+      </div>
+      </section>
+
+      <!-- Offset & DST -->
+      <section class="of-card tzf-card">
+        <header class="of-section-head">
+          <span class="of-step-no">3</span>
+          <div>
+            <h2>Offset &amp; DST Metadata</h2>
+            <p>The standard offset from UTC and daylight saving.</p>
+          </div>
+        </header>
+      <div class="tz-form-grid">
+        <div class="tz-field">
+          <label>Standard UTC Offset (Minutes)</label>
+          <input type="number" [(ngModel)]="formModel.standardUtcOffsetMinutes" name="offset" placeholder="e.g., 330 for India" />
+          <small>India = 330, Singapore = 480</small>
+        </div>
+
+        <div class="tz-field">
+          <label>DST Rule Note</label>
+          <input type="text" [(ngModel)]="formModel.dstRuleNote" name="dstRuleNote" placeholder="e.g., DST varies by year; use IANA rules" maxlength="200" />
+        </div>
+
+        <div class="tz-field tz-field-check">
+          <label class="tz-checkbox">
+            <input type="checkbox" [(ngModel)]="formModel.supportsDST" name="supportsDST" />
+            <span>Supports Daylight Saving</span>
+          </label>
+          <small>Informational only</small>
+        </div>
+      </div>
+      </section>
+
+      <!-- Display & Formatting -->
+      <section class="of-card tzf-card">
+        <header class="of-section-head">
+          <span class="of-step-no">4</span>
+          <div>
+            <h2>Display &amp; Formatting</h2>
+            <p>How times in this zone are shown.</p>
+          </div>
+        </header>
+      <div class="tz-form-grid">
+        <div class="tz-field">
+          <label>Sort Order</label>
+          <input type="number" [(ngModel)]="formModel.sortOrder" name="sortOrder" placeholder="e.g., 1" min="0" />
+          <small>Keep frequently used zones at top</small>
+        </div>
+
+        <div class="tz-field tz-field-check">
+          <label class="tz-checkbox">
+            <input type="checkbox" [(ngModel)]="formModel.isDefaultRecommended" name="isDefaultRecommended" />
+            <span>Recommended Default</span>
+          </label>
+          <small>Highlight in UI</small>
+        </div>
+      </div>
+      </section>
+
+      <!-- Status & Notes -->
+      <section class="of-card tzf-card">
+        <header class="of-section-head">
+          <span class="of-step-no">5</span>
+          <div>
+            <h2>Usage Controls &amp; Status</h2>
+            <p>Where it can be used, and whether it is active.</p>
+          </div>
+        </header>
+      <div class="tz-form-grid">
+        <div class="tz-field">
+          <label>Status <span class="req">*</span></label>
+          <div class="tz-select tz-select-block" [class.invalid]="statusValidationError">
+            <select [(ngModel)]="formModel.status" name="status" (change)="onStatusChanged()" [disabled]="isEdit">
+              <option [ngValue]="null">--Select Status--</option>
+              <option *ngFor="let s of statusOptions" [ngValue]="s.value">{{ s.label }}</option>
+            </select>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </div>
         </div>
       }
@@ -544,6 +988,105 @@
           </div>
         </div>
       }
+      </div>
+      </section>
+      </div>
+
+      <!-- Actions at the foot of the page, as on the Add an office page. -->
+      <div class="of-actionbar">
+        <span class="of-actionbar-note"><i class="ri-information-line"></i> Fields marked * are required.</span>
+        <div class="of-actionbar-btns">
+          <button type="button" class="of-btn of-btn-ghost" (click)="cancelForm()">
+            <i class="ri-close-line"></i> Cancel
+          </button>
+          <button type="submit" class="of-btn of-btn-primary">
+            <i class="ri-check-line"></i> {{ isEdit ? 'Save changes' : 'Add time zone' }}
+          </button>
+        </div>
+      </div>
+    </form>
+  </ng-container>
+</div>
+
+<!-- ============================================================
+     ACTIVATE CONFIRM MODAL
+     ============================================================ -->
+<div class="tz-overlay" *ngIf="showActivateModal" (click)="closeModals()"></div>
+<div class="tz-modal" *ngIf="showActivateModal">
+  <div class="tz-modal-icon icon-success">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="11" rx="5.5"/><circle cx="7.5" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+  </div>
+  <h3>Activate Time Zone</h3>
+  <p>Are you sure you want to activate <strong>{{ selectedTimeZone?.displayName }}</strong>?</p>
+  <div class="tz-modal-actions">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeModals()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+      Cancel
+    </button>
+    <button type="button" class="btn btn-primary btn-sm" (click)="activateConfirmed()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="11" rx="5.5"/><circle cx="7.5" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+      Yes, Activate
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================
+     DEACTIVATE CONFIRM MODAL
+     ============================================================ -->
+<div class="tz-overlay" *ngIf="showDeactivateModal" (click)="closeModals()"></div>
+<div class="tz-modal" *ngIf="showDeactivateModal">
+  <div class="tz-modal-icon icon-warning">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="11" rx="5.5"/><circle cx="16.5" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+  </div>
+  <h3>Deactivate Time Zone</h3>
+  <p *ngIf="!canDeactivate" class="tz-danger-text">
+    Cannot deactivate! This time zone is set as the recommended default.
+  </p>
+  <p *ngIf="canDeactivate">
+    Are you sure you want to deactivate <strong>{{ selectedTimeZone?.displayName }}</strong>?
+  </p>
+  <div class="tz-modal-actions">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeModals()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+      Cancel
+    </button>
+    <button type="button" class="btn btn-warning btn-sm" *ngIf="canDeactivate" (click)="deactivateConfirmed()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="11" rx="5.5"/><circle cx="16.5" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+      Yes, Deactivate
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================
+     DELETE CONFIRM MODAL
+     ============================================================ -->
+<div class="tz-overlay" *ngIf="showDeleteModal" (click)="closeModals()"></div>
+<div class="tz-modal" *ngIf="showDeleteModal">
+  <div class="tz-modal-icon icon-danger">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
+  </div>
+  <h3>Delete Time Zone</h3>
+  <p *ngIf="!canDelete" class="tz-danger-text">
+    Cannot delete! This time zone is set as the recommended default.
+  </p>
+  <p *ngIf="canDelete">
+    Are you sure you want to delete <strong>{{ selectedTimeZone?.displayName }}</strong>?
+  </p>
+  <div class="tz-alert" *ngIf="canDelete">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a1.5 1.5 0 0 0 1.3 2.3h17.8a1.5 1.5 0 0 0 1.3-2.3L13.7 3.9a1.5 1.5 0 0 0-2.6 0Z"/></svg>
+    This action cannot be undone.
+  </div>
+  <div class="tz-modal-actions">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeModals()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+      Cancel
+    </button>
+    <button type="button" class="btn btn-danger btn-sm" *ngIf="canDelete" (click)="deleteConfirmed()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
+      Yes, Delete
+    </button>
+  </div>
+</div>
     </div>
   </div>
 </main>

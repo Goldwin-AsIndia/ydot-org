@@ -8,7 +8,6 @@ import {
   BusinessUnitResponse,
   OrganisationStatisticsResponse,
 } from '../../../../Shared/models/iam-contract.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 /**
  * The BusinessUnit: the platform itself.
@@ -28,9 +27,9 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
 @Component({
   selector: 'app-business-unit',
   standalone: true,
-  imports: [PageHeader, CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './business-unit.html',
-  styleUrl: './business-unit.css',
+  styleUrls: ['./business-unit.css'],
 })
 export class BusinessUnitComponent implements OnInit, OnDestroy {
   private readonly api = inject(OrganisationApiService);
@@ -60,7 +59,7 @@ export class BusinessUnitComponent implements OnInit, OnDestroy {
 
   readonly capacityClass = computed(() => {
     const percent = this.capacityPercent();
-    return percent >= 90 ? 'bg-danger' : percent >= 75 ? 'bg-warning' : 'bg-success';
+    return percent >= 90 ? 'is-error' : percent >= 75 ? 'is-warn' : 'is-good';
   });
 
   ngOnInit(): void {
@@ -97,12 +96,14 @@ export class BusinessUnitComponent implements OnInit, OnDestroy {
       });
   }
 
-  statusClass(status: string | undefined): string {
+  /** Tone for the status tag in the card head. */
+  statusTone(status: string | undefined): string {
     switch (status) {
-      case 'active': return 'bg-success-subtle text-success';
-      case 'suspended': return 'bg-danger-subtle text-danger';
-      case 'archived': return 'bg-secondary-subtle text-secondary';
-      default: return 'bg-info-subtle text-info';
+      case 'active': return 'is-good';
+      case 'suspended': return 'is-error';
+      case 'archived': return 'is-muted';
+      default: return 'is-info';
     }
   }
+
 }

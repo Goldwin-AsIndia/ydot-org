@@ -2,8 +2,71 @@
 <div class="page-wrapper">
   <div class="container-fluid py-6">
 
-    <app-page-header screen="business-unit" title="Platform" subtitle="The root of the whole system. Every organisation is a subdomain beneath it.">
-    </app-page-header>
+    <!-- Header: the same card as the Organisations page (without its icon) - title and purpose, and the
+         organisation counters along its foot once they have loaded. -->
+    <section class="od-hero">
+      <div class="od-hero-top">
+        <div class="od-hero-id">
+          <div class="od-hero-text">
+            <span class="od-eyebrow">Business unit</span>
+            <h1 class="od-title">Platform</h1>
+            <p class="od-sub">The root of the whole system. Every organisation is a subdomain beneath it.</p>
+          </div>
+        </div>
+        <a routerLink="/app/administration/organisation/directory" class="od-btn-create">
+          <i class="ri-list-check"></i> See all organisations
+        </a>
+      </div>
+
+      @if (businessUnit()) {
+        <div class="od-stats">
+          <div class="od-stat">
+            <span class="od-stat-icon" aria-hidden="true"><i class="ri-building-4-line"></i></span>
+            <span class="od-stat-body">
+              <span class="od-stat-label">Organisations</span>
+              <span class="od-stat-value">{{ organisationCount() }}@if (maximumOrganisations()) {<small>of {{ maximumOrganisations() }}</small>}</span>
+              <span class="od-stat-cap">
+                @if (maximumOrganisations()) { {{ capacityPercent() }}% of capacity in use } @else { No limit set }
+              </span>
+            </span>
+          </div>
+          @if (statistics(); as stats) {
+            <div class="od-stat is-good">
+              <span class="od-stat-icon" aria-hidden="true"><i class="ri-checkbox-circle-line"></i></span>
+              <span class="od-stat-body">
+                <span class="od-stat-label">Active</span>
+                <span class="od-stat-value">{{ stats.active ?? 0 }}</span>
+                <span class="od-stat-cap">Currently active</span>
+              </span>
+            </div>
+            <div class="od-stat is-warn">
+              <span class="od-stat-icon" aria-hidden="true"><i class="ri-time-line"></i></span>
+              <span class="od-stat-body">
+                <span class="od-stat-label">Awaiting review</span>
+                <span class="od-stat-value">{{ stats.awaitingReview ?? 0 }}</span>
+                <span class="od-stat-cap">Under review</span>
+              </span>
+            </div>
+            <div class="od-stat is-info">
+              <span class="od-stat-icon" aria-hidden="true"><i class="ri-draft-line"></i></span>
+              <span class="od-stat-body">
+                <span class="od-stat-label">Onboarding</span>
+                <span class="od-stat-value">{{ stats.onboarding ?? 0 }}</span>
+                <span class="od-stat-cap">Still onboarding</span>
+              </span>
+            </div>
+            <div class="od-stat is-error">
+              <span class="od-stat-icon" aria-hidden="true"><i class="ri-forbid-2-line"></i></span>
+              <span class="od-stat-body">
+                <span class="od-stat-label">Suspended</span>
+                <span class="od-stat-value">{{ stats.suspended ?? 0 }}</span>
+                <span class="od-stat-cap">Temporarily suspended</span>
+              </span>
+            </div>
+          }
+        </div>
+      }
+    </section>
 
     @if (loading()) {
       <div class="card border-0 shadow-sm">
@@ -24,129 +87,91 @@
       </div>
     } @else if (businessUnit(); as unit) {
 
-      <div class="row g-6">
-        <div class="col-lg-7">
-          <div class="card border-0 shadow-sm h-100 bu-main-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h6 class="mb-0">{{ unit.name }}</h6>
-              <span class="badge" [ngClass]="statusClass(unit.status)">{{ unit.status | titlecase }}</span>
+      <!-- Content cards in the organisation profile's style: an icon + title head, then label-over-value
+           pairs two per row with a hairline between rows. Same fields as before. -->
+      <div class="bu-grid">
+        <section class="bu-card">
+          <header class="bu-card-head">
+            <span class="bu-glyph"><i class="ri-government-line"></i></span>
+            <div class="bu-card-head-text">
+              <h3 class="bu-card-title">{{ unit.name }}</h3>
+              <p class="bu-card-sub">The platform's own record</p>
             </div>
-
-            <div class="card-body">
-              <dl class="row mb-0">
-                <dt class="col-sm-4 text-muted fw-normal small">Reference</dt>
-                <dd class="col-sm-8"><code>{{ unit.code }}</code></dd>
-
-                <dt class="col-sm-4 text-muted fw-normal small">Registered legal name</dt>
-                <dd class="col-sm-8">{{ unit.legalName || '—' }}</dd>
-
-                <dt class="col-sm-4 text-muted fw-normal small">Root domain</dt>
-                <dd class="col-sm-8">
-                  <code>{{ unit.rootDomain }}</code>
-                  <!--
-                    Read-only for a reason worth naming: every organisation's web address is a
-                    subdomain of this, so changing it would invalidate all of them at once. That
-                    is a migration, not a form field.
-                  -->
-                  <small class="text-muted d-block mt-1">
-                    Every organisation sits beneath this, so it cannot be changed here.
-                  </small>
-                </dd>
-
-                <dt class="col-sm-4 text-muted fw-normal small">Contact</dt>
-                <dd class="col-sm-8">{{ unit.contactEmail || '—' }}</dd>
-
-                <dt class="col-sm-4 text-muted fw-normal small">Support</dt>
-                <dd class="col-sm-8">{{ unit.supportEmail || '—' }}</dd>
-
-                <dt class="col-sm-4 text-muted fw-normal small">Defaults</dt>
-                <dd class="col-sm-8">
-                  {{ unit.timeZone }} · {{ unit.defaultCurrency }} · {{ unit.defaultCulture }}
-                </dd>
-
-                @if (unit.description) {
-                  <dt class="col-sm-4 text-muted fw-normal small">About</dt>
-                  <dd class="col-sm-8 mb-0">{{ unit.description }}</dd>
-                }
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-lg-5">
-          <div class="card border-0 shadow-sm mb-6">
-            <div class="card-header">
-              <h6 class="mb-0">Organisations</h6>
-            </div>
-            <div class="card-body">
-              <div class="d-flex align-items-baseline gap-2 mb-3">
-                <span class="display-6 mb-0">{{ organisationCount() }}</span>
-                @if (maximumOrganisations()) {
-                  <span class="text-muted">of {{ maximumOrganisations() }}</span>
-                }
-              </div>
-
-              @if (maximumOrganisations()) {
+            <span class="bu-status" [ngClass]="statusTone(unit.status)">
+              <span class="bu-status-dot" aria-hidden="true"></span>{{ unit.status | titlecase }}
+            </span>
+          </header>
+          <dl class="bu-dl">
+            <div><dt>Reference</dt><dd class="bu-mono">{{ unit.code }}</dd></div>
+            <div><dt>Registered legal name</dt><dd>{{ unit.legalName || '—' }}</dd></div>
+            <div class="bu-span-2">
+              <dt>Root domain</dt>
+              <dd>
+                <span class="bu-mono">{{ unit.rootDomain }}</span>
                 <!--
-                  Shown as a proportion, because "180 of 200" only means something once somebody
-                  has done the division — and the point is to notice before the ceiling is
-                  reached rather than after.
+                  Read-only for a reason worth naming: every organisation's web address is a
+                  subdomain of this, so changing it would invalidate all of them at once. That
+                  is a migration, not a form field.
                 -->
-                <div class="progress" style="height: 8px;">
-                  <div class="progress-bar" [ngClass]="capacityClass()"
-                       [style.width.%]="capacityPercent()"
-                       role="progressbar"
-                       [attr.aria-valuenow]="capacityPercent()"
-                       aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-                <small class="text-muted d-block mt-2">
-                  {{ capacityPercent() }}% of the platform's capacity is in use.
-                </small>
-              }
-
-              <a routerLink="/app/administration/organisation/directory"
-                 class="btn btn-sm btn-outline-secondary mt-4">
-                <i class="ri-list-check me-1"></i> See all organisations
-              </a>
+                <span class="bu-note">Every organisation sits beneath this, so it cannot be changed here.</span>
+              </dd>
             </div>
-          </div>
+            <div><dt>Contact</dt><dd>{{ unit.contactEmail || '—' }}</dd></div>
+            <div><dt>Support</dt><dd>{{ unit.supportEmail || '—' }}</dd></div>
+            <div class="bu-span-2"><dt>Defaults</dt><dd>{{ unit.timeZone }} · {{ unit.defaultCurrency }} · {{ unit.defaultCulture }}</dd></div>
+            @if (unit.description) {
+              <div class="bu-span-2"><dt>About</dt><dd class="bu-about">{{ unit.description }}</dd></div>
+            }
+          </dl>
+        </section>
+
+        <div class="bu-side">
+          <section class="bu-card">
+            <header class="bu-card-head">
+              <span class="bu-glyph"><i class="ri-building-4-line"></i></span>
+              <div class="bu-card-head-text">
+                <h3 class="bu-card-title">Organisations</h3>
+                <p class="bu-card-sub">On this platform</p>
+              </div>
+            </header>
+            <div class="bu-capacity">
+              <span class="bu-capacity-num">{{ organisationCount() }}</span>
+              @if (maximumOrganisations()) { <span class="bu-capacity-of">of {{ maximumOrganisations() }}</span> }
+            </div>
+            @if (maximumOrganisations()) {
+              <!--
+                Shown as a proportion, because "180 of 200" only means something once somebody
+                has done the division — and the point is to notice before the ceiling is
+                reached rather than after.
+              -->
+              <div class="bu-meter" role="progressbar" [attr.aria-valuenow]="capacityPercent()" aria-valuemin="0" aria-valuemax="100">
+                <span [ngClass]="capacityClass()" [style.width.%]="capacityPercent()"></span>
+              </div>
+              <span class="bu-note">{{ capacityPercent() }}% of the platform's capacity is in use.</span>
+            }
+            <a routerLink="/app/administration/organisation/directory" class="bu-btn">
+              <i class="ri-list-check"></i> See all organisations
+            </a>
+          </section>
 
           @if (statistics(); as stats) {
-            <div class="card border-0 shadow-sm">
-              <div class="card-header">
-                <h6 class="mb-0">Where they are in onboarding</h6>
-              </div>
-              <ul class="list-group list-group-flush">
-                <li class="list-group-item d-flex justify-content-between">
-                  <span>Active</span>
-                  <span class="badge bg-success-subtle text-success">{{ stats.active ?? 0 }}</span>
-                </li>
-                <li class="list-group-item d-flex justify-content-between">
-                  <span>Awaiting review</span>
-                  <span class="badge bg-warning-subtle text-warning">
-                    {{ stats.awaitingReview ?? 0 }}
-                  </span>
-                </li>
-                <li class="list-group-item d-flex justify-content-between">
-                  <span>Still onboarding</span>
-                  <span class="badge bg-info-subtle text-info">{{ stats.onboarding ?? 0 }}</span>
-                </li>
-                <li class="list-group-item d-flex justify-content-between">
-                  <span>Rejected</span>
-                  <span class="badge bg-danger-subtle text-danger">{{ stats.rejected ?? 0 }}</span>
-                </li>
-                <li class="list-group-item d-flex justify-content-between">
-                  <span>Suspended</span>
-                  <span class="badge bg-danger-subtle text-danger">{{ stats.suspended ?? 0 }}</span>
-                </li>
-                <li class="list-group-item d-flex justify-content-between">
-                  <span>Archived</span>
-                  <span class="badge bg-secondary-subtle text-secondary">
-                    {{ stats.archived ?? 0 }}
-                  </span>
-                </li>
-              </ul>
-            </div>
+            <section class="bu-card">
+              <header class="bu-card-head">
+                <span class="bu-glyph"><i class="ri-route-line"></i></span>
+                <div class="bu-card-head-text">
+                  <h3 class="bu-card-title">Where they are in onboarding</h3>
+                  <p class="bu-card-sub">Organisations by stage</p>
+                </div>
+              </header>
+              <dl class="bu-rows">
+                <div><dt>Active</dt><dd class="is-good">{{ stats.active ?? 0 }}</dd></div>
+                <div><dt>Awaiting review</dt><dd class="is-warn">{{ stats.awaitingReview ?? 0 }}</dd></div>
+                <div><dt>Still onboarding</dt><dd class="is-info">{{ stats.onboarding ?? 0 }}</dd></div>
+                <div><dt>Rejected</dt><dd class="is-error">{{ stats.rejected ?? 0 }}</dd></div>
+                <div><dt>Suspended</dt><dd class="is-error">{{ stats.suspended ?? 0 }}</dd></div>
+                <div><dt>Archived</dt><dd class="is-muted">{{ stats.archived ?? 0 }}</dd></div>
+              </dl>
+            </section>
           }
         </div>
       </div>

@@ -46,7 +46,7 @@ type WizardStep = 'organisation' | 'address' | 'administrator' | 'review' | 'don
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule],
   templateUrl:'./organisation-setup-wizard.html',
-  styleUrl: './organisation-setup-wizard.css',
+  styleUrls: ['../../../../../styles/page-hero.css', './organisation-setup-wizard.css'],
 })
 export class OrganisationSetupWizardComponent implements OnDestroy {
   private readonly api = inject(OrganisationApiService);
@@ -185,6 +185,22 @@ export class OrganisationSetupWizardComponent implements OnDestroy {
       default: return 5;
     }
   });
+
+  /** The four steps, for the stepper; `title` / `sub` also head the step's own section. */
+  readonly steps = [
+    { key: 'organisation', label: 'Organisation', hint: 'Basic details',
+      title: 'Organisation details', sub: 'Enter the core information about the organisation.' },
+    { key: 'address', label: 'Contact', hint: 'Primary contact information',
+      title: 'Contact and defaults',
+      sub: 'All optional. The administrator completes the full profile once they activate their account, and the organisation cannot be approved until they have.' },
+    { key: 'administrator', label: 'Administrator', hint: 'Invite first administrator',
+      title: 'First administrator',
+      sub: "They receive an invitation link, choose their own password, and then complete the organisation's profile. No password is ever created here or sent by e-mail." },
+    { key: 'review', label: 'Review', hint: 'Review and confirm details',
+      title: 'Check before creating', sub: 'Review everything below before the organisation is created.' },
+  ] as const;
+
+  readonly currentStep = computed(() => this.steps[Math.min(this.stepNumber(), 4) - 1]);
 
   constructor() {
     // The business unit owns the root domain. Loaded once, so the suffix beside the address field
