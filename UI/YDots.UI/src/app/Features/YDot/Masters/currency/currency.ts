@@ -141,7 +141,7 @@ function blankCurrency(): Currency {
   standalone: true,
   imports: [PageHeader, CommonModule, FormsModule],
   templateUrl: './currency.html',
-  styleUrl: './currency.css',
+  styleUrls: ['../masters-ui.css', './currency.css'],
 })
 export class CurrencyComponent implements OnInit {
   private readonly masters = inject(MasterService);

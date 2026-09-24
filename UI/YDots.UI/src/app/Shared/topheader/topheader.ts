@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { LayoutService } from '../../Service/layout-service';
@@ -41,7 +41,7 @@ import { ToastService } from '../services/toast.service';
   templateUrl: './topheader.html',
   styleUrl: './topheader.css',
 })
-export class TopheaderComponent implements OnInit, OnDestroy {
+export class TopheaderComponent implements OnDestroy {
   private readonly tokens = inject(AuthTokenService);
   private readonly session = inject(AuthSessionService);
   private readonly organisations = inject(OrganisationContextService);
@@ -49,7 +49,6 @@ export class TopheaderComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
   private readonly layout = inject(LayoutService);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   private readonly destroy$ = new Subject<void>();
 
@@ -145,133 +144,12 @@ export class TopheaderComponent implements OnInit, OnDestroy {
       .slice(0, 2);
   });
 
-  // ---- Auto-hide while scrolling ---------------------------------------------------------------------
-  //
-  // The bar stays put and visible at all times; the only thing that makes it disappear is the page actually
-  // scrolling. It hides the instant a scroll starts and comes back on its own once scrolling settles - there
-  // is no hover-to-reveal any more (chasing the pointer up to the top edge made the bar feel like it was
-  // constantly moving even when nobody had scrolled). The page keeps the strip reserved for it, so showing
-  // or hiding never moves or covers any content. Applies on every device: a phone benefits from the same
-  // "out of the way while scrolling" behaviour as a mouse, and unlike the old hover trick this one needs no
-  // pointer to bring the bar back.
-
-  readonly barHidden = signal(false);
-
-  private idleTimer: ReturnType<typeof setTimeout> | null = null;
-
-  /** How long the page must sit still before the bar returns. */
-  private static readonly SCROLL_IDLE_MS = 400;
-
-  ngOnInit(): void {
-    document.documentElement.classList.add('topbar-auto');
-    // Capture, because `scroll` does not bubble and the page may scroll in an inner container.
-    document.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
-    this.host.nativeElement.addEventListener('focusin', this.onFocusIn);
-  }
+  // The bar is fixed: it stays put and visible however the page scrolls.
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-
-    this.clearIdleTimer();
-    document.documentElement.classList.remove('topbar-auto', 'topbar-hidden', 'topbar-instant');
-    document.removeEventListener('scroll', this.onScroll, { capture: true });
-    this.host.nativeElement.removeEventListener('focusin', this.onFocusIn);
   }
-
-  private headerElement(): HTMLElement | null {
-    return this.host.nativeElement.querySelector<HTMLElement>('#appHeader');
-  }
-
-  private reveal(): void {
-    this.clearIdleTimer();
-    this.setHidden(false);
-  }
-
-  private clearIdleTimer(): void {
-    if (this.idleTimer !== null) {
-      clearTimeout(this.idleTimer);
-      this.idleTimer = null;
-    }
-  }
-
-  /** Scroll events before this time were caused by our own correction below, not by the person. */
-  private ignoreScrollUntil = 0;
-
-  /**
-   * The one place the bar's state changes. Besides flipping the bar it gives the page its strip back (hidden)
-   * or takes it again (shown): `topbar-hidden` on <html> removes / restores the padding the theme reserves above
-   * every page (see styles.css).
-   *
-   * NOT LOSING THE PLACE ON SCREEN. Near the top of the page that padding is on screen, so the page is meant to
-   * visibly slide up or down with the bar. Scrolled further down it is not on screen, and changing it would shift
-   * whatever the person is reading by the strip's height in one frame. There the change is applied instantly and
-   * the scroll position is moved by the same amount, so nothing on screen moves at all.
-   */
-  private setHidden(hidden: boolean): void {
-    if (this.barHidden() === hidden) {
-      return;
-    }
-
-    this.barHidden.set(hidden);
-
-    const root = document.documentElement;
-    const strip = this.headerElement()?.offsetHeight ?? 0;
-    const scrolled = window.scrollY;
-    const instant = strip > 0 && scrolled >= strip;
-
-    if (instant) {
-      root.classList.add('topbar-instant');
-    }
-
-    root.classList.toggle('topbar-hidden', hidden);
-
-    if (instant) {
-      // Reading a layout property makes the new padding take effect now, with transitions off.
-      void root.offsetHeight;
-      this.ignoreScrollUntil = performance.now() + 150;
-      window.scrollTo({ top: Math.max(0, scrolled + (hidden ? -strip : strip)), behavior: 'instant' });
-      root.classList.remove('topbar-instant');
-    }
-  }
-
-  private closeOpenMenus(): void {
-    const bootstrap = (window as unknown as {
-      bootstrap?: { Dropdown?: { getOrCreateInstance(el: Element): { hide(): void } } };
-    }).bootstrap;
-
-    this.headerElement()
-      ?.querySelectorAll('[data-bs-toggle="dropdown"][aria-expanded="true"]')
-      .forEach((toggle) => bootstrap?.Dropdown?.getOrCreateInstance(toggle).hide());
-  }
-
-  private readonly onScroll = (event: Event): void => {
-    // Our own scroll correction (setHidden) must not count as the page scrolling, or showing the bar
-    // would hide it again in the same breath.
-    if (performance.now() < this.ignoreScrollUntil) {
-      return;
-    }
-
-    // Scrolling the bar's own menus (the organisation list) is not the page scrolling.
-    if (event.target instanceof Node && this.host.nativeElement.contains(event.target)) {
-      return;
-    }
-
-    this.closeOpenMenus();
-    this.clearIdleTimer();
-    this.setHidden(true);
-
-    // Comes back on its own once the page has sat still for a beat - no pointer needed.
-    this.idleTimer = setTimeout(() => {
-      this.idleTimer = null;
-      this.setHidden(false);
-    }, TopheaderComponent.SCROLL_IDLE_MS);
-  };
-
-  private readonly onFocusIn = (): void => {
-    // Tabbing into a bar that is out of sight has to bring it into sight.
-    this.reveal();
-  };
 
   /**
    * Loads the list when the switcher is opened, not on every page.

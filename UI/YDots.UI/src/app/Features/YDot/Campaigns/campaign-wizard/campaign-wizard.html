@@ -1,11 +1,13 @@
 <main class="app-wrapper">
   <div class="page-wrapper">
-    <div class="container-fluid px-4 py-3">
+    <div class="container-fluid px-4 pt-1 pb-3">
       <div [attr.data-ui-state]="uiState()">
         <!-- ============ TASK HEADER ============ -->
-        <app-page-header screen="campaign-wizard" title="New Campaign" subtitle="Create a campaign in simple steps.">
+        <app-page-header [showInfo]="false" screen="campaign-wizard"
+          [title]="stableReference() ? 'Edit Campaign' : 'New Campaign'"
+          [subtitle]="stableReference() ? 'Update the details entered when this campaign was created.' : 'Create a campaign in simple steps.'">
           @if (lifecycleState() !== 'No record') {
-            <span meta class="ph-chip">{{ lifecycleState() }}</span>
+            <span meta class="ph-chip">{{ liveEditStatus() ?? lifecycleState() }}</span>
           }
           <span meta class="ph-chip" title="Active scope">{{ activeScope }}</span>
           <span meta class="ph-chip">{{ operatingTimeZone }}</span>
@@ -14,44 +16,8 @@
           }
         </app-page-header>
 
-        <!-- ============ STEP PROGRESS — progressive disclosure ============ -->
-        <nav class="stepper" aria-label="Campaign wizard steps">
-          <div class="stepper-head">
-            <span class="stepper-kicker">Step {{ stepIndex() + 1 }} of {{ totalSteps }}</span>
-            <span class="stepper-pct">{{ progressPct() }}% of required details complete</span>
-          </div>
-          <ol>
-            @for (step of steps; track step.title; let i = $index) {
-              <li
-                class="step"
-                [class.active]="stepIndex() === i"
-                [class.done]="stepCompletion()[i]"
-              >
-                <button
-                  type="button"
-                  class="step-btn"
-                  (click)="goToStep(i)"
-                  [attr.aria-current]="stepIndex() === i ? 'step' : null"
-                >
-                  <span class="step-index" aria-hidden="true">
-                    @if (stepCompletion()[i] && stepIndex() !== i) {
-                      ✓
-                    } @else {
-                      {{ i + 1 }}
-                    }
-                  </span>
-                  <span class="step-text">
-                    <span class="step-title">{{ step.title }}</span>
-                    <span class="step-caption">{{ step.caption }}</span>
-                  </span>
-                </button>
-              </li>
-            }
-          </ol>
-        </nav>
-
-        <!-- ============ WORK AREA — two-region layout ============ -->
-        <div class="wizard-body" [class.wizard-body-full]="isLastStep()">
+        <!-- ============ WORK AREA — one full-width column ============ -->
+        <div class="wizard-body">
           <!-- ---- Main work column ---- -->
           <div class="work-main">
             <!-- LOADING — retain task title, scope and safe skeleton; announce loading -->
@@ -208,6 +174,39 @@
 
               <!-- ---------- STEP CARD ---------- -->
               <section class="work-card" aria-labelledby="step-heading">
+                <!-- STEP PROGRESS: the card's top band, so the steps and the form read as one surface -->
+                <nav class="stepper" aria-label="Campaign wizard steps">
+                  <ol class="stepper-track">
+                    @for (step of steps; track step.title; let i = $index) {
+                      <li
+                        class="step"
+                        [class.active]="stepIndex() === i"
+                        [class.done]="stepCompletion()[i]"
+                      >
+                        <button
+                          type="button"
+                          class="step-btn"
+                          (click)="goToStep(i)"
+                          [attr.aria-current]="stepIndex() === i ? 'step' : null"
+                          [attr.aria-label]="'Step ' + (i + 1) + ': ' + step.title + ' — ' + (stepIndex() === i ? 'in progress' : stepCompletion()[i] ? 'completed' : 'upcoming')"
+                        >
+                          <span class="step-marker" aria-hidden="true">
+                            @if (stepCompletion()[i] && stepIndex() !== i) {
+                              <svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+                            } @else {
+                              {{ i + 1 }}
+                            }
+                          </span>
+                          <span class="step-title" aria-hidden="true">{{ step.title }}</span>
+                        </button>
+                        @if (i < totalSteps - 1) {
+                          <span class="step-line" aria-hidden="true"><span class="step-line-fill"></span></span>
+                        }
+                      </li>
+                    }
+                  </ol>
+                </nav>
+
                 <header class="work-card-head">
                   <span class="work-card-num" aria-hidden="true">0{{ stepIndex() + 1 }}</span>
                   <div class="work-card-headtext">
@@ -246,7 +245,7 @@
 
                     <!-- Campaign code — fully editable, user-typed code, auto-uppercased,
                          20 characters maximum (no fixed prefix) -->
-                    <div class="field">
+                    <div class="field field-3">
                       <label class="field-label" for="f-code"
                         >Campaign code <span class="req" aria-hidden="true">*</span></label
                       >
@@ -278,7 +277,7 @@
                          inputmode="decimal" rather than type="number": a number input accepts
                          "1e5" and "--3" from a keyboard and then reports an empty string for
                          both, so the value is filtered on the way in instead. -->
-                    <div class="field">
+                    <div class="field field-3">
                       <label class="field-label" for="f-campaign-amount"
                         >Campaign amount <span class="req" aria-hidden="true">*</span></label
                       >
@@ -309,100 +308,6 @@
                           The amount this campaign is stated at{{ currencyCode() ? ', in ' + currencyCode() : '' }}. Donors see it when they choose this campaign.
                         </p>
                       }
-                    </div>
-
-                    <!-- Purpose — rich-text editor with character counter, 10–1,000 -->
-                    <div class="field field-wide">
-                      <label class="field-label" for="f-purpose"
-                        >Purpose <span class="req" aria-hidden="true">*</span></label
-                      >
-
-                      <div class="rte-editor">
-                        <div
-                          class="rte-toolbar"
-                          role="toolbar"
-                          aria-label="Purpose formatting"
-                          (mousedown)="$event.preventDefault(); stashSelection()"
-                        >
-                          <button type="button" class="rte-btn" title="Bold" aria-label="Bold" (click)="applyFormat(purposeBody, 'bold')">
-                            <strong>B</strong>
-                          </button>
-                          <button type="button" class="rte-btn" title="Italic" aria-label="Italic" (click)="applyFormat(purposeBody, 'italic')">
-                            <em>I</em>
-                          </button>
-                          <button type="button" class="rte-btn" title="Underline" aria-label="Underline" (click)="applyFormat(purposeBody, 'underline')">
-                            <span style="text-decoration: underline">U</span>
-                          </button>
-                          <span class="rte-sep" aria-hidden="true"></span>
-                          <button type="button" class="rte-btn" title="Bulleted list" aria-label="Bulleted list" (click)="applyFormat(purposeBody, 'insertUnorderedList')">
-                            • List
-                          </button>
-                          <button type="button" class="rte-btn" title="Numbered list" aria-label="Numbered list" (click)="applyFormat(purposeBody, 'insertOrderedList')">
-                            1. List
-                          </button>
-                          <span class="rte-sep" aria-hidden="true"></span>
-                          <span class="rte-sep" aria-hidden="true"></span>
-                          <button type="button" class="rte-btn" title="Align left" aria-label="Align left" (click)="applyFormat(purposeBody, 'justifyLeft')">
-                            ⯇
-                          </button>
-                          <button type="button" class="rte-btn" title="Align centre" aria-label="Align centre" (click)="applyFormat(purposeBody, 'justifyCenter')">
-                            ☰
-                          </button>
-                          <button type="button" class="rte-btn" title="Align right" aria-label="Align right" (click)="applyFormat(purposeBody, 'justifyRight')">
-                            ⯈
-                          </button>
-                          <span class="rte-sep" aria-hidden="true"></span>
-                          <label class="rte-select-wrap">
-                            <span class="rte-sr">Font size</span>
-                            <select class="rte-select" aria-label="Font size" (change)="applyFormat(purposeBody, 'fontSize', $any($event.target).value)">
-                              <option value="" disabled selected>Size</option>
-                              @for (s of fontSizes; track s.value) {
-                                <option [value]="s.value">{{ s.label }}</option>
-                              }
-                            </select>
-                          </label>
-                          <span class="rte-sep" aria-hidden="true"></span>
-                          <button type="button" class="rte-btn" title="Clear formatting" aria-label="Clear formatting" (click)="applyFormat(purposeBody, 'removeFormat')">
-                            Clear
-                          </button>
-                        </div>
-
-                        <div
-                          #purposeBody
-                          id="f-purpose"
-                          class="control rte-body"
-                          contenteditable="true"
-                          role="textbox"
-                          aria-multiline="true"
-                          aria-labelledby="f-purpose"
-                          [attr.aria-invalid]="
-                            !purposeValid() && (purposeLen() > 0 || wasAttempted(0)) ? 'true' : null
-                          "
-                          [innerHTML]="purposeSeed()"
-                          (input)="syncEditor(purposeBody)"
-                          (paste)="handlePaste($event, purposeBody)"
-                          data-placeholder="Describe the controlled purpose of this campaign…"
-                        ></div>
-                      </div>
-                      <div class="counter-row">
-                        @if (!purposeValid() && (purposeLen() > 0 || wasAttempted(0))) {
-                          <span class="field-error"
-                            >Review Purpose. Enter {{ purposeMin }}–{{
-                              purposeMax
-                            }}
-                            characters.</span
-                          >
-                        } @else if (purposeValid()) {
-                          <span class="looks-good">✓ Looks good!</span>
-                        } @else {
-                          <span class="field-hint"
-                            >Meaningful text required for this controlled decision.</span
-                          >
-                        }
-                        <span class="char-count" [class.over]="purposeLen() > purposeMax"
-                          >{{ purposeLen() }} / {{ purposeMax }} characters</span
-                        >
-                      </div>
                     </div>
 
                     <!-- Fund or programme — text input -->
@@ -572,6 +477,100 @@
                         </p>
                       }
                     </div>
+
+                    <!-- Purpose — rich-text editor with character counter, 10–1,000 -->
+                    <div class="field field-wide">
+                      <label class="field-label" for="f-purpose"
+                        >Purpose <span class="req" aria-hidden="true">*</span></label
+                      >
+
+                      <div class="rte-editor">
+                        <div
+                          class="rte-toolbar"
+                          role="toolbar"
+                          aria-label="Purpose formatting"
+                          (mousedown)="$event.preventDefault(); stashSelection()"
+                        >
+                          <button type="button" class="rte-btn" title="Bold" aria-label="Bold" (click)="applyFormat(purposeBody, 'bold')">
+                            <strong>B</strong>
+                          </button>
+                          <button type="button" class="rte-btn" title="Italic" aria-label="Italic" (click)="applyFormat(purposeBody, 'italic')">
+                            <em>I</em>
+                          </button>
+                          <button type="button" class="rte-btn" title="Underline" aria-label="Underline" (click)="applyFormat(purposeBody, 'underline')">
+                            <span style="text-decoration: underline">U</span>
+                          </button>
+                          <span class="rte-sep" aria-hidden="true"></span>
+                          <button type="button" class="rte-btn" title="Bulleted list" aria-label="Bulleted list" (click)="applyFormat(purposeBody, 'insertUnorderedList')">
+                            • List
+                          </button>
+                          <button type="button" class="rte-btn" title="Numbered list" aria-label="Numbered list" (click)="applyFormat(purposeBody, 'insertOrderedList')">
+                            1. List
+                          </button>
+                          <span class="rte-sep" aria-hidden="true"></span>
+                          <span class="rte-sep" aria-hidden="true"></span>
+                          <button type="button" class="rte-btn" title="Align left" aria-label="Align left" (click)="applyFormat(purposeBody, 'justifyLeft')">
+                            ⯇
+                          </button>
+                          <button type="button" class="rte-btn" title="Align centre" aria-label="Align centre" (click)="applyFormat(purposeBody, 'justifyCenter')">
+                            ☰
+                          </button>
+                          <button type="button" class="rte-btn" title="Align right" aria-label="Align right" (click)="applyFormat(purposeBody, 'justifyRight')">
+                            ⯈
+                          </button>
+                          <span class="rte-sep" aria-hidden="true"></span>
+                          <label class="rte-select-wrap">
+                            <span class="rte-sr">Font size</span>
+                            <select class="rte-select" aria-label="Font size" (change)="applyFormat(purposeBody, 'fontSize', $any($event.target).value)">
+                              <option value="" disabled selected>Size</option>
+                              @for (s of fontSizes; track s.value) {
+                                <option [value]="s.value">{{ s.label }}</option>
+                              }
+                            </select>
+                          </label>
+                          <span class="rte-sep" aria-hidden="true"></span>
+                          <button type="button" class="rte-btn" title="Clear formatting" aria-label="Clear formatting" (click)="applyFormat(purposeBody, 'removeFormat')">
+                            Clear
+                          </button>
+                        </div>
+
+                        <div
+                          #purposeBody
+                          id="f-purpose"
+                          class="control rte-body"
+                          contenteditable="true"
+                          role="textbox"
+                          aria-multiline="true"
+                          aria-labelledby="f-purpose"
+                          [attr.aria-invalid]="
+                            !purposeValid() && (purposeLen() > 0 || wasAttempted(0)) ? 'true' : null
+                          "
+                          [innerHTML]="purposeSeed()"
+                          (input)="syncEditor(purposeBody)"
+                          (paste)="handlePaste($event, purposeBody)"
+                          data-placeholder="Describe the controlled purpose of this campaign…"
+                        ></div>
+                      </div>
+                      <div class="counter-row">
+                        @if (!purposeValid() && (purposeLen() > 0 || wasAttempted(0))) {
+                          <span class="field-error"
+                            >Review Purpose. Enter {{ purposeMin }}–{{
+                              purposeMax
+                            }}
+                            characters.</span
+                          >
+                        } @else if (purposeValid()) {
+                          <span class="looks-good">✓ Looks good!</span>
+                        } @else {
+                          <span class="field-hint"
+                            >Meaningful text required for this controlled decision.</span
+                          >
+                        }
+                        <span class="char-count" [class.over]="purposeLen() > purposeMax"
+                          >{{ purposeLen() }} / {{ purposeMax }} characters</span
+                        >
+                      </div>
+                    </div>
                   </div>
                 }
 
@@ -611,7 +610,7 @@
                       }
                     </div>
                     <!-- Country — searchable single-select from the full country list -->
-                    <div class="field">
+                    <div class="field field-3">
                       <label class="field-label" for="f-country"
                         >Country <span class="req" aria-hidden="true">*</span></label
                       >
@@ -675,7 +674,7 @@
                          free-text fallback: `stateId` is a Guid, so a typed name could never be
                          sent. A country with no states in the master data leaves this empty and
                          `regionValid` treats that as satisfied. -->
-                    <div class="field">
+                    <div class="field field-3">
                       <label class="field-label" for="f-region"
                         >State
                         @if (regionOptions().length) {
@@ -739,7 +738,7 @@
 
                     <!-- City — the state's own cities from the masters API. Free text is gone
                          for the same reason as State: `cityId` is a Guid. -->
-                    <div class="field">
+                    <div class="field field-3">
                       <label class="field-label" for="f-city"
                         >City
                         @if (cityOptions().length) {
@@ -802,7 +801,7 @@
                     </div>
 
                     <!-- Zip code — free-text -->
-                    <div class="field">
+                    <div class="field field-3">
                       <label class="field-label" for="f-pincode"
                         >Zip code <span class="req" aria-hidden="true">*</span></label
                       >
@@ -1453,11 +1452,13 @@
                   @if (isLastStep() && permissions().saveDraft) {
                     <button
                       type="button"
-                      class="btn btn-outline-secondary btn-sm"
+                      class="btn btn-sm"
+                      [class.btn-outline-secondary]="!liveEditStatus()"
+                      [class.btn-primary]="!!liveEditStatus()"
                       (click)="saveDraft()"
                       [disabled]="!saveDraftAllowed()"
                     >
-                      Save Draft
+                      {{ liveEditStatus() ? 'Save Changes' : 'Save Draft' }}
                     </button>
                   }
                   <button
@@ -1467,7 +1468,7 @@
                   >
                     Discard
                   </button>
-                  @if (isLastStep() && permissions().submit) {
+                  @if (isLastStep() && permissions().submit && !liveEditStatus()) {
                     <button
                       type="button"
                       class="btn btn-primary btn-sm"
@@ -1485,79 +1486,6 @@
               </nav>
             }
           </div>
-
-          <!-- ---- Secondary panel — Campaign Summary / Persistent outcome.
-               Hidden on Review & Launch: that step already shows a full recap of every
-               section, so the summary panel would only duplicate it and waste width. ---- -->
-          @if (!isLastStep()) {
-          <aside class="work-side" aria-label="Campaign summary">
-            <section class="card summary-card">
-              <h2 class="panel-title">Campaign Summary</h2>
-              <dl class="kv-list">
-                <div>
-                  <dt>Campaign Name</dt>
-                  <dd>{{ campaignName().trim() || '—' }}</dd>
-                </div>
-                <div>
-                  <dt>Campaign Code</dt>
-                  <dd class="mono">{{ campaignCode() || '—' }}</dd>
-                </div>
-                <div>
-                  <dt>Campaign Amount</dt>
-                  <dd class="mono">{{ campaignAmountLabel() }}</dd>
-                </div>
-                <div>
-                  <dt>Owner</dt>
-                  <dd>{{ ownersLabel() }}</dd>
-                </div>
-                <div>
-                  <dt>Start Date</dt>
-                  <dd>{{ interpretDate(startDate()) }}</dd>
-                </div>
-                <div>
-                  <dt>End Date</dt>
-                  <dd>{{ interpretDate(endDate()) }}</dd>
-                </div>
-                <div>
-                  <dt>Status</dt>
-                  <dd>
-                    <span class="badge badge-warn">{{
-                      lifecycleState() === 'Draft' ? 'Draft' : 'Not saved'
-                    }}</span>
-                  </dd>
-                </div>
-              </dl>
-            </section>
-
-            <!-- Progress — reflects completed steps -->
-            <section class="card progress-card">
-              <div class="progress-head">
-                <span class="panel-title">Progress</span>
-                <span class="progress-count"
-                  >{{ requiredDone() }} of {{ requiredTotal() }} required</span
-                >
-              </div>
-              <div
-                class="progress-track"
-                role="progressbar"
-                [attr.aria-valuenow]="progressPct()"
-                aria-valuemin="0"
-                aria-valuemax="100"
-              >
-                <div class="progress-fill" [style.width.%]="progressPct()"></div>
-              </div>
-              <span class="progress-pct">{{ progressPct() }}%</span>
-            </section>
-
-            <!-- Tip — supports the Save draft affordance -->
-            <section class="card tip-card">
-              <p class="tip-title">Tip</p>
-              <p class="tip-body">
-                You can save this campaign as draft and complete the remaining steps later.
-              </p>
-            </section>
-          </aside>
-          }
         </div>
 
         <!-- ============ Fields marked with * note — shown only while validating ============ -->
@@ -1578,11 +1506,17 @@
               aria-labelledby="submit-title"
               (click)="$event.stopPropagation()"
             >
-              <h3 class="cw-modal-title" id="submit-title">Submit campaign configuration</h3>
+              <header class="ov-head">
+              <button type="button" class="cw-modal-x" (click)="cancelSubmit()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+          <h3 class="cw-modal-title" id="submit-title">Submit campaign configuration</h3>
               <p class="cw-modal-lead">
                 Review the configuration before submit. This executes idempotently and will show the
                 stable reference, committed result, any pending dependency and the safe next action.
               </p>
+              </header>
+              <div class="ov-body">
               <dl class="review-list compact">
                 <div>
                   <dt>Reference</dt>
@@ -1597,6 +1531,7 @@
                   <dd class="mono">cam.campaign-wizard.submit</dd>
                 </div>
               </dl>
+              </div>
               <div class="cw-modal-actions">
                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelSubmit()">
                   <span aria-hidden="true">✕</span> Cancel
@@ -1619,12 +1554,18 @@
               aria-labelledby="delete-title"
               (click)="$event.stopPropagation()"
             >
-              <h3 class="cw-modal-title" id="delete-title">Confirm Delete unused draft</h3>
+              <header class="ov-head">
+              <button type="button" class="cw-modal-x" (click)="cancelDeleteDraft()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+          <h3 class="cw-modal-title" id="delete-title">Confirm Delete unused draft</h3>
               <p class="cw-modal-lead">
                 Review the affected record, consequence, reason and effective time. Linked history
                 is preserved; only this unused draft with no downstream reference is removed. This
                 requires explicit confirmation.
               </p>
+              </header>
+              <div class="ov-body">
               <dl class="review-list compact">
                 <div>
                   <dt>Affected record</dt>
@@ -1656,6 +1597,7 @@
                   </p>
                 }
               </div>
+              </div>
               <div class="cw-modal-actions">
                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDeleteDraft()">
                   <span aria-hidden="true">✕</span> Cancel
@@ -1683,7 +1625,9 @@
               aria-labelledby="preview-title"
               (click)="$event.stopPropagation()"
             >
+              <header class="ov-head">
               <h3 class="cw-modal-title" id="preview-title">{{ previewFieldLabel() }}</h3>
+              </header>
 
               @if (!previewEditing()) {
                 <!-- READ VIEW -->

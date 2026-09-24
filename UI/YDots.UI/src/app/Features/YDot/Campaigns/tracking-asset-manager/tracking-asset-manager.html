@@ -1,20 +1,18 @@
 <main class="app-wrapper">
   <div class="page-wrapper">
-   <div class="container-fluid px-4 py-3">
-<div  [attr.data-ui-state]="uiState()">
+   <div class="container-fluid px-4 pt-1 pb-3">
+<div class="tam-page" [attr.data-ui-state]="uiState()">
 
-
-
-
-<app-page-header screen="tracking-asset-manager"
+  @if (!generateDialogOpen()) {
+  <app-page-header [showInfo]="false" screen="tracking-asset-manager"
         [title]="pageTitle"
         [subtitle]="pageSubtitle"
         [ownerLabel]="owner"
         [updatedLabel]="'Data updated ' + lastRefresh()">
         <ng-container actions>
           <button #tamFiltersToggle type="button" class="ph-btn ph-btn--ghost" (click)="toggleFiltersVisible()"
-                  [attr.aria-expanded]="filtersVisible()">
-            <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h17l-6.5 7.5v5.5l-4 2v-7.5z"/></svg>
+                  [attr.aria-expanded]="filtersVisible()" aria-controls="tam-filterbar">
+            <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
             {{ filtersVisible() ? 'Hide filters' : 'Filters' }}
             @if (activeFilterSummary().length) { <span class="tam-count">{{ activeFilterSummary().length }}</span> }
           </button>
@@ -25,460 +23,400 @@
                     [disabled]="!generateAllowed()"
                     [attr.title]="generateAllowed() ? null : generateDisabledReason()">
               <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-              Create
+              Create asset
             </button>
           }
         </ng-container>
-      </app-page-header>
+  </app-page-header>
 
-
-
-
-  <!-- ============ CONTEXT: TOTALS QUALIFIED BY SCOPE AND LAST REFRESH ============ -->
+  <!-- ============ TOTALS IN SCOPE ============ -->
   <section class="tam-metrics" aria-label="Tracking asset totals in scope">
     <div class="tam-metric tam-metric--green">
       <span class="tam-metric-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg></span>
       <div class="tam-metric-body">
-        <div class="tam-metric-top">
-          <span class="tam-metric-label">Total Assets</span>
-          @if (newAssetsCount() > 0) {
-            <span class="tam-metric-chip">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
-              {{ newAssetsCount() }} new
-            </span>
-          }
-        </div>
+        <span class="tam-metric-label">Total assets</span>
         <span class="tam-metric-value">{{ totalRecords() }}</span>
-        <span class="tam-metric-sub">Across {{ assetTypeCount() }} types</span>
+        <span class="tam-metric-sub">
+          Across {{ assetTypeCount() }} types
+          @if (newAssetsCount() > 0) { <span class="tam-metric-chip">+{{ newAssetsCount() }} new</span> }
+        </span>
       </div>
     </div>
     <div class="tam-metric tam-metric--blue">
-      <span class="tam-metric-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a2 2 0 0 0-2 2v4"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <span class="tam-metric-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
       <div class="tam-metric-body">
-        <div class="tam-metric-top">
-          <span class="tam-metric-label">Active</span>
-          <span class="tam-metric-chip">{{ onlinePercent() }}% online</span>
-        </div>
+        <span class="tam-metric-label">Active</span>
         <span class="tam-metric-value">{{ activeCount() }}</span>
-        <span class="tam-metric-sub">Assets Online</span>
+        <span class="tam-metric-sub">{{ onlinePercent() }}% of assets online</span>
       </div>
     </div>
     <div class="tam-metric tam-metric--orange">
-      <span class="tam-metric-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span>
+      <span class="tam-metric-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg></span>
       <div class="tam-metric-body">
-        <div class="tam-metric-top">
-          <span class="tam-metric-label">Total Usage</span>
-          <span class="tam-metric-chip">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
-            {{ usageSharePercent() }}%
-          </span>
-        </div>
+        <span class="tam-metric-label">Total usage</span>
         <span class="tam-metric-value">{{ formatUsage(totalUsage()) }}</span>
-        <span class="tam-metric-sub">Data Events Received</span>
+        <span class="tam-metric-sub">Data events received · {{ usageSharePercent() }}%</span>
       </div>
     </div>
     <div class="tam-metric tam-metric--purple">
       <span class="tam-metric-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
       <div class="tam-metric-body">
-        <div class="tam-metric-top"><span class="tam-metric-label">Pending Approval</span></div>
+        <span class="tam-metric-label">Pending approval</span>
         <span class="tam-metric-value">{{ pendingApprovalCount() }}</span>
-        <span class="tam-metric-sub">Assets Awaiting Verification</span>
-     
+        <span class="tam-metric-sub">Awaiting verification</span>
       </div>
     </div>
   </section>
 
-  <!-- ============ CONTEXT AND FILTERS — shown only when the Filter button is used ============ -->
-  @if (filtersVisible()) {
-  <section class="tam-filters-card" aria-label="Search and filters"
-           appClickOutside [clickOutsideExcept]="tamFiltersToggle" (appClickOutside)="filtersVisible.set(false)">
-    <div class="tam-filters-toolbar">
-      <span class="tam-filters-heading">Filters</span>
-      <button type="button" class="tam-link" (click)="toggleFiltersVisible()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-        Hide filters
-      </button>
-    </div>
-    <div class="tam-filter-grid">
-      <!-- Search — scope-aware search -->
-      <label class="tam-field tam-field-search">
-        <span class="tam-field-label">Search</span>
-        <span class="tam-input-wrap">
-          <input type="search" class="tam-input" placeholder="Search by reference, destination or campaign…"
+  <!-- ============ WORKSPACE: toolbar, filters, index ============
+       The index always keeps the full canvas width; the asset detail opens as a
+       fixed drawer on top of it (not in-flow), so the table never reflows when an
+       asset is selected. -->
+  <section class="tam-panel" aria-labelledby="tam-records-heading">
+
+    <!-- Toolbar: title + count on the left, search and saved view on the right -->
+    <header class="tam-panel-head">
+      <div class="tam-panel-heading">
+        <h2 id="tam-records-heading" class="tam-panel-title">Tracking assets</h2>
+        <p class="tam-panel-sub">
+          <span class="tam-panel-num">{{ recordCount() }}</span> {{ recordCount() === 1 ? 'asset' : 'assets' }} in view
+          @if (campaignFilter()) { <span class="tam-panel-sep" aria-hidden="true">·</span> {{ campaignFilterName() }} }
+        </p>
+      </div>
+      <div class="tam-panel-tools">
+        <label class="tam-search">
+          <svg class="tam-search-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" class="tam-search-input" placeholder="Search reference, destination or campaign"
                  [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event); currentPage.set(1)"
                  aria-label="Search tracking assets" />
-          <svg class="tam-input-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        </span>
-      </label>
-
-      <!-- Asset type — in-app themed single-select -->
-      <div class="tam-field">
-        <span class="tam-field-label">Asset type</span>
-        <div class="tam-combo" [class.is-open]="openMenu() === 'f-assetType'" appClickOutside (appClickOutside)="onClickOutside('f-assetType')">
-          <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-assetType')"
-                  role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-assetType'" aria-label="Asset type">
-            <span class="tam-combo-value" [class.tam-combo-ph]="!assetTypeFilter()">{{ assetTypeFilter() || 'All types' }}</span>
+        </label>
+        <div class="tam-combo tam-view-select" [class.is-open]="openMenu() === 'f-saved'" appClickOutside (appClickOutside)="onClickOutside('f-saved')">
+          <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-saved')"
+                  role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-saved'" aria-label="Saved view">
+            <svg class="tam-combo-lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+            <span class="tam-combo-value">{{ savedView() }}</span>
             <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </button>
-          @if (openMenu() === 'f-assetType') {
-            <ul class="tam-combo-list" role="listbox">
-              <li role="option" [attr.aria-selected]="!assetTypeFilter()"><button type="button" class="tam-combo-option" [class.is-selected]="!assetTypeFilter()" (click)="assetTypeFilter.set(''); closeMenu()">All types</button></li>
-              @for (t of assetTypeCatalogue; track t) {
-                <li role="option" [attr.aria-selected]="assetTypeFilter() === t"><button type="button" class="tam-combo-option" [class.is-selected]="assetTypeFilter() === t" (click)="assetTypeFilter.set(t); closeMenu()">{{ t }}</button></li>
+          @if (openMenu() === 'f-saved') {
+            <ul class="tam-combo-list tam-combo-list-end" role="listbox">
+              @for (v of savedViews; track v) {
+                <li role="option" [attr.aria-selected]="savedView() === v"><button type="button" class="tam-combo-option" [class.is-selected]="savedView() === v" (click)="savedView.set(v); closeMenu()">{{ v }}</button></li>
               }
             </ul>
           }
         </div>
       </div>
+    </header>
 
-      <!-- Channel — in-app themed single-select -->
-      <div class="tam-field">
-        <span class="tam-field-label">Channel</span>
-        <div class="tam-combo" [class.is-open]="openMenu() === 'f-channel'" appClickOutside (appClickOutside)="onClickOutside('f-channel')">
-          <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-channel')"
-                  role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-channel'" aria-label="Channel">
-            <span class="tam-combo-value" [class.tam-combo-ph]="!channelFilter()">{{ channelFilter() || 'All channels' }}</span>
-            <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          @if (openMenu() === 'f-channel') {
-            <ul class="tam-combo-list" role="listbox">
-              <li role="option" [attr.aria-selected]="!channelFilter()"><button type="button" class="tam-combo-option" [class.is-selected]="!channelFilter()" (click)="channelFilter.set(''); closeMenu()">All channels</button></li>
-              @for (c of channelCatalogue(); track c) {
-                <li role="option" [attr.aria-selected]="channelFilter() === c"><button type="button" class="tam-combo-option" [class.is-selected]="channelFilter() === c" (click)="channelFilter.set(c); closeMenu()">{{ c }}</button></li>
+    <!-- Filter bar — opened from the header's Filters button -->
+    @if (filtersVisible()) {
+      <div id="tam-filterbar" class="tam-filterbar" role="region" aria-label="Filters">
+        <div class="tam-filter-grid">
+          <!-- Asset type -->
+          <div class="tam-field">
+            <span class="tam-field-label">Asset type</span>
+            <div class="tam-combo" [class.is-open]="openMenu() === 'f-assetType'" appClickOutside (appClickOutside)="onClickOutside('f-assetType')">
+              <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-assetType')"
+                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-assetType'" aria-label="Asset type">
+                <span class="tam-combo-value" [class.tam-combo-ph]="!assetTypeFilter()">{{ assetTypeFilter() || 'All types' }}</span>
+                <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              @if (openMenu() === 'f-assetType') {
+                <ul class="tam-combo-list" role="listbox">
+                  <li role="option" [attr.aria-selected]="!assetTypeFilter()"><button type="button" class="tam-combo-option" [class.is-selected]="!assetTypeFilter()" (click)="assetTypeFilter.set(''); currentPage.set(1); closeMenu()">All types</button></li>
+                  @for (t of assetTypeCatalogue; track t) {
+                    <li role="option" [attr.aria-selected]="assetTypeFilter() === t"><button type="button" class="tam-combo-option" [class.is-selected]="assetTypeFilter() === t" (click)="assetTypeFilter.set(t); currentPage.set(1); closeMenu()">{{ t }}</button></li>
+                  }
+                </ul>
               }
-            </ul>
-          }
-        </div>
-      </div>
+            </div>
+          </div>
 
-      <!-- Asset status — in-app themed single-select -->
-      <div class="tam-field">
-        <span class="tam-field-label">Status</span>
-        <div class="tam-combo" [class.is-open]="openMenu() === 'f-status'" appClickOutside (appClickOutside)="onClickOutside('f-status')">
-          <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-status')"
-                  role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-status'" aria-label="Asset status">
-            <span class="tam-combo-value" [class.tam-combo-ph]="!statusFilter()">{{ statusFilter() || 'All statuses' }}</span>
-            <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          @if (openMenu() === 'f-status') {
-            <ul class="tam-combo-list" role="listbox">
-              <li role="option" [attr.aria-selected]="!statusFilter()"><button type="button" class="tam-combo-option" [class.is-selected]="!statusFilter()" (click)="statusFilter.set(''); closeMenu()">All statuses</button></li>
-              @for (s of statusCatalogue; track s) {
-                <li role="option" [attr.aria-selected]="statusFilter() === s"><button type="button" class="tam-combo-option" [class.is-selected]="statusFilter() === s" (click)="statusFilter.set(s); closeMenu()">{{ s }}</button></li>
+          <!-- Channel -->
+          <div class="tam-field">
+            <span class="tam-field-label">Channel</span>
+            <div class="tam-combo" [class.is-open]="openMenu() === 'f-channel'" appClickOutside (appClickOutside)="onClickOutside('f-channel')">
+              <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-channel')"
+                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-channel'" aria-label="Channel">
+                <span class="tam-combo-value" [class.tam-combo-ph]="!channelFilter()">{{ channelFilter() || 'All channels' }}</span>
+                <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              @if (openMenu() === 'f-channel') {
+                <ul class="tam-combo-list" role="listbox">
+                  <li role="option" [attr.aria-selected]="!channelFilter()"><button type="button" class="tam-combo-option" [class.is-selected]="!channelFilter()" (click)="channelFilter.set(''); currentPage.set(1); closeMenu()">All channels</button></li>
+                  @for (c of channelCatalogue(); track c) {
+                    <li role="option" [attr.aria-selected]="channelFilter() === c"><button type="button" class="tam-combo-option" [class.is-selected]="channelFilter() === c" (click)="channelFilter.set(c); currentPage.set(1); closeMenu()">{{ c }}</button></li>
+                  }
+                </ul>
               }
-            </ul>
-          }
-        </div>
-      </div>
+            </div>
+          </div>
 
-      <!-- Active from / to — date range with time-zone label -->
-      <div class="tam-field" [class.tam-field-invalid]="rangeInvalid()">
-        <span class="tam-field-label">Date range <span class="tam-tz">{{ operatingTimeZone }}</span></span>
-        <div class="tam-range">
-          <span class="tam-input-wrap">
-            <input type="date" class="tam-input" [ngModel]="rangeStart()" (ngModelChange)="rangeStart.set($event)" aria-label="Active from date" />
-          </span>
-          <span class="tam-range-sep" aria-hidden="true">→</span>
-          <span class="tam-input-wrap">
-            <input type="date" class="tam-input" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event)" aria-label="Active to date" />
-          </span>
-        </div>
-      </div>
+          <!-- Asset status -->
+          <div class="tam-field">
+            <span class="tam-field-label">Status</span>
+            <div class="tam-combo" [class.is-open]="openMenu() === 'f-status'" appClickOutside (appClickOutside)="onClickOutside('f-status')">
+              <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-status')"
+                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-status'" aria-label="Asset status">
+                <span class="tam-combo-value" [class.tam-combo-ph]="!statusFilter()">{{ statusFilter() || 'All statuses' }}</span>
+                <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              @if (openMenu() === 'f-status') {
+                <ul class="tam-combo-list" role="listbox">
+                  <li role="option" [attr.aria-selected]="!statusFilter()"><button type="button" class="tam-combo-option" [class.is-selected]="!statusFilter()" (click)="statusFilter.set(''); currentPage.set(1); closeMenu()">All statuses</button></li>
+                  @for (s of statusCatalogue; track s) {
+                    <li role="option" [attr.aria-selected]="statusFilter() === s"><button type="button" class="tam-combo-option" [class.is-selected]="statusFilter() === s" (click)="statusFilter.set(s); currentPage.set(1); closeMenu()">{{ s }}</button></li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
 
-      <!-- Filters — progressive disclosure holding Data scope -->
-      <div class="tam-field tam-field-more">
-        <span class="tam-field-label" aria-hidden="true">&nbsp;</span>
-        <button #tamMoreBtn type="button" class="btn btn-outline-secondary btn-sm tam-more-btn" (click)="toggleMoreFilters()"
-                [attr.aria-expanded]="moreFiltersOpen()">
-          <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h17l-6.5 7.5v5.5l-4 2v-7.5z"/></svg>
-          Filters
-          @if (moreFiltersCount()) { <span class="tam-count">{{ moreFiltersCount() }}</span> }
-        </button>
-      </div>
-    </div>
+          <!-- Active window — date range in the operating time zone -->
+          <div class="tam-field tam-field-range" [class.tam-field-invalid]="rangeInvalid()">
+            <span class="tam-field-label">Active between</span>
+            <div class="tam-range">
+              <input type="date" class="tam-input" [ngModel]="rangeStart()" (ngModelChange)="rangeStart.set($event)" aria-label="Active from date" />
+              <span class="tam-range-sep" aria-hidden="true">–</span>
+              <input type="date" class="tam-input" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event)" aria-label="Active to date" />
+            </div>
+          </div>
 
-    <!-- Secondary filters panel (Data scope) — collapsed by default -->
-    @if (moreFiltersOpen()) {
-      <div class="tam-more-panel"
-           appClickOutside [clickOutsideExcept]="tamMoreBtn" (appClickOutside)="moreFiltersOpen.set(false)">
-        <div class="tam-field">
-          <span class="tam-field-label">Data scope</span>
-          <div class="tam-combo" [class.is-open]="openMenu() === 'f-scope'" appClickOutside (appClickOutside)="onClickOutside('f-scope')">
-            <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-scope')"
-                    role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-scope'" aria-label="Data scope">
-              <span class="tam-combo-value">{{ scopeFilter() }}</span>
-              <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            @if (openMenu() === 'f-scope') {
-              <ul class="tam-combo-list" role="listbox">
-                @for (sc of scopeOptions; track sc) {
-                  <li role="option" [attr.aria-selected]="scopeFilter() === sc"><button type="button" class="tam-combo-option" [class.is-selected]="scopeFilter() === sc" (click)="scopeFilter.set(sc); closeMenu()">{{ sc }}</button></li>
-                }
-              </ul>
-            }
+          <!-- Data scope — the actor's effective scope (one organisation, read-only) -->
+          <div class="tam-field">
+            <span class="tam-field-label">Data scope</span>
+            <span class="tam-scope-value" [attr.title]="scopeFilter()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
+              {{ scopeFilter() }}
+            </span>
           </div>
         </div>
-        <p class="tam-field-hint" [class.tam-field-error]="rangeInvalid()" role="status">
-          @if (rangeInvalid()) { Review Date range. The value does not meet the stated format or range. }
-          @else { Interpreted as {{ interpretedRange() }} }
-        </p>
-        <div class="tam-more-actions">
-          <button type="button" class="btn btn-primary btn-sm" (click)="applyFilter()" [disabled]="!filterAllowed()">Apply filters</button>
+
+        <div class="tam-filterbar-foot">
+          <p class="tam-field-hint" [class.tam-field-error]="rangeInvalid()" role="status">
+            @if (rangeInvalid()) { Review the date range — the end date is before the start date. }
+            @else { {{ interpretedRange() }} }
+          </p>
+          <div class="tam-filterbar-actions">
+            <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm" (click)="clearFilters()">Reset</button>
+            <button type="button" class="tam-btn tam-btn-primary tam-btn-sm" (click)="applyFilter()" [disabled]="!filterAllowed()">Apply filters</button>
+          </div>
         </div>
       </div>
     }
 
-    <!-- Active-filter summary + saved filter -->
-    <div class="tam-active-row">
-      <span class="tam-active-label">Active filters:</span>
-      @for (chip of activeFilterSummary(); track chip.key) {
-        <span class="tam-chip">
-          {{ chip.label }}
-          <button type="button" class="tam-chip-x" (click)="removeFilterChip(chip.key)"
-                  [attr.aria-label]="'Remove filter ' + chip.label">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-          </button>
-        </span>
-      } @empty {
-        <span class="tam-active-none">None applied</span>
-      }
-      <!-- Clear all appears only when at least one filter value is set -->
-      @if (activeFilterSummary().length) {
-        <button type="button" class="tam-link" (click)="clearFilters()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4.5v4h-4"/></svg>
-          Clear all
-        </button>
-      }
-
-      <span class="tam-active-spacer"></span>
-
-      <span class="tam-saved-label">Saved filter:</span>
-      <div class="tam-combo tam-saved-select" [class.is-open]="openMenu() === 'f-saved'" appClickOutside (appClickOutside)="onClickOutside('f-saved')">
-        <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-saved')"
-                role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-saved'" aria-label="Saved filter">
-          <span class="tam-combo-value">{{ savedView() }}</span>
-          <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        @if (openMenu() === 'f-saved') {
-          <ul class="tam-combo-list tam-combo-list-end" role="listbox">
-            @for (v of savedViews; track v) {
-              <li role="option" [attr.aria-selected]="savedView() === v"><button type="button" class="tam-combo-option" [class.is-selected]="savedView() === v" (click)="savedView.set(v); closeMenu()">{{ v }}</button></li>
-            }
-          </ul>
+    <!-- Active filters — shown only when something narrows the list -->
+    @if (activeFilterSummary().length) {
+      <div class="tam-active-row">
+        <span class="tam-active-label">Filtered by</span>
+        @for (chip of activeFilterSummary(); track chip.key) {
+          <span class="tam-chip">
+            {{ chip.label }}
+            <button type="button" class="tam-chip-x" (click)="removeFilterChip(chip.key)"
+                    [attr.aria-label]="'Remove filter ' + chip.label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            </button>
+          </span>
         }
+        <button type="button" class="tam-link" (click)="clearFilters()">Clear all</button>
       </div>
-    </div>
-  </section>
-  }
+    }
 
-  <!-- ============ WORK AREA: index + overlay detail drawer ============
-       The index always keeps the full canvas width; the asset detail opens as a
-       fixed half-canvas drawer on top of it (not in-flow), so the table layout
-       never has to reflow when an asset is selected. -->
-  <div class="tam-work">
+    @if (compareMode()) {
+      <p class="tam-compare-hint" role="status">
+        Compare mode — tick two or three rows, then press Compare.
+        <button type="button" class="tam-link" (click)="toggleCompareMode()">Exit</button>
+      </p>
+    }
 
-    <!-- ---------- MAIN WORK: tracking asset index ---------- -->
-    <section class="tam-main" aria-labelledby="tam-records-heading">
-      <!-- Reference-image card header: list icon + title, Compare + Export actions -->
-      <div class="tam-card-head">
-        <div class="tam-card-head-left">
-        
-          <h2  class="card-title">Tracking Assets</h2>
-        </div>
+    <!-- Situational banners -->
+    @if (uiState() === 'validation') {
+      <div class="tam-banner tam-banner-error" role="alert">
+        <span class="tam-banner-body"><strong>Review the highlighted fields.</strong>
+          A value does not meet the stated format or range. Correct it to continue; entered values are kept.</span>
+        <button type="button" class="tam-banner-x" (click)="dismissBanner()" aria-label="Dismiss">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
       </div>
-      @if (compareMode()) {
-        <p class="tam-compare-hint" role="status">
-          Compare mode: tick two or three rows, then press Compare
-          <button type="button" class="tam-link" (click)="toggleCompareMode()">Exit</button>
-        </p>
-      }
-
-      <!-- Situational banners -->
-      @if (uiState() === 'validation') {
-        <div class="tam-banner tam-banner-error" role="alert">
-          <strong>Review the highlighted fields.</strong>
-          A value does not meet the stated format or range. Correct it to continue; entered values are kept.
-          <button type="button" class="tam-banner-x" (click)="dismissBanner()" aria-label="Dismiss">✕</button>
-        </div>
-      }
-      @if (uiState() === 'duplicate') {
-        <div class="tam-banner tam-banner-warn" role="alert">
-          A tracking asset with this destination and channel already exists. Link, merge, change the value, request
-          review or cancel — nothing is overwritten silently.
-          <button type="button" class="tam-banner-x" (click)="dismissBanner()" aria-label="Dismiss">✕</button>
-        </div>
-      }
-      @if (uiState() === 'conflict') {
-        <div class="tam-banner tam-banner-warn" role="alert">
-          This record changed after you opened it. Review the latest version before continuing.
-          <span class="tam-banner-actions">
-            <a href="javascript:void(0)" (click)="dismissBanner()">Compare</a>
-            <a href="javascript:void(0)" (click)="reapplyLatestVersion()">Reapply eligible changes</a>
-            <a href="javascript:void(0)" (click)="dismissBanner()">Cancel</a>
-          </span>
-        </div>
-      }
-      @if (uiState() === 'dependency-failure') {
-        <div class="tam-banner tam-banner-warn" role="alert">
-          We could not complete the dependent service step. Your confirmed local result is unchanged.
-          <span class="tam-banner-actions">
-            <span class="tam-corr">Correlation INT-88421</span>
-            <a href="javascript:void(0)" (click)="dismissBanner()">Retry dependency</a>
-          </span>
-        </div>
-      }
-      @if (uiState() === 'success') {
-        <div class="tam-banner tam-banner-success" role="status">
-          Saved successfully. Reference {{ persistentOutcome().reference }}; state {{ persistentOutcome().state }};
-          effective {{ persistentOutcome().effectiveTime }}. Pending dependencies and the next permitted route are shown
-          in Persistent outcome.
+    }
+    @if (uiState() === 'duplicate') {
+      <div class="tam-banner tam-banner-warn" role="alert">
+        <span class="tam-banner-body">A tracking asset with this destination and channel already exists. Link, merge, change the value,
+          request review or cancel — nothing is overwritten silently.</span>
+        <button type="button" class="tam-banner-x" (click)="dismissBanner()" aria-label="Dismiss">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+    }
+    @if (uiState() === 'conflict') {
+      <div class="tam-banner tam-banner-warn" role="alert">
+        <span class="tam-banner-body">This record changed after you opened it. Review the latest version before continuing.</span>
+        <span class="tam-banner-actions">
+          <button type="button" class="tam-link" (click)="dismissBanner()">Compare</button>
+          <button type="button" class="tam-link" (click)="reapplyLatestVersion()">Reapply eligible changes</button>
+          <button type="button" class="tam-link" (click)="dismissBanner()">Cancel</button>
+        </span>
+      </div>
+    }
+    @if (uiState() === 'dependency-failure') {
+      <div class="tam-banner tam-banner-warn" role="alert">
+        <span class="tam-banner-body">We could not complete the dependent service step. Your confirmed local result is unchanged.
+          <span class="tam-corr">Correlation INT-88421</span></span>
+        <span class="tam-banner-actions">
+          <button type="button" class="tam-link" (click)="dismissBanner()">Retry dependency</button>
+        </span>
+      </div>
+    }
+    @if (uiState() === 'success') {
+      <div class="tam-banner tam-banner-success" role="status">
+        <span class="tam-banner-body">
+          <strong>Saved.</strong> Reference {{ persistentOutcome().reference }} · {{ persistentOutcome().state }} ·
+          effective {{ persistentOutcome().effectiveTime }}.
           @if (generatedReferences().length > 1) {
             <span class="tam-multi-generated">Created {{ generatedReferences().length }} place assets: {{ generatedReferences().join(', ') }}.</span>
           }
-          <button type="button" class="tam-banner-x" (click)="dismissBanner()" aria-label="Dismiss">✕</button>
-        </div>
-      }
+        </span>
+        <button type="button" class="tam-banner-x" (click)="dismissBanner()" aria-label="Dismiss">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+    }
 
-      <!-- LOADING -->
-      @if (uiState() === 'loading') {
-        <div class="tam-state-block" role="status" aria-live="polite">
-          <p class="tam-state-title">Loading Tracking asset manager…</p>
-          <div class="tam-skeleton" aria-hidden="true">
-            @for (n of [1,2,3,4,5,6]; track n) { <div class="tam-skeleton-row"></div> }
-          </div>
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="setUiState('ready')"><span aria-hidden="true">✕</span> Cancel</button>
+    <!-- LOADING -->
+    @if (uiState() === 'loading') {
+      <div class="tam-state" role="status" aria-live="polite">
+        <p class="tam-visually-hidden">Loading tracking assets…</p>
+        <div class="tam-skeleton" aria-hidden="true">
+          @for (n of [1,2,3,4,5,6]; track n) { <div class="tam-skeleton-row"></div> }
         </div>
-      }
+        <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="setUiState('ready')">Cancel</button>
+      </div>
+    }
 
-      <!-- EMPTY -->
-      @else if (uiState() === 'empty') {
-        <div class="tam-state-block">
-          <p class="tam-state-title">No tracking assets match this scope and filter.</p>
-          <p class="tam-state-body">Zero results come from the current filters, not a global zero. Adjust the search,
-            type, channel, status, date or scope, or reset filters to continue.</p>
-          <div class="tam-state-actions">
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearFilters()">Reset filters</button>
-            @if (generateAllowed()) {
-              <button type="button" class="btn btn-primary btn-sm" (click)="openGenerate()"><span aria-hidden="true">＋</span> Create</button>
-            }
-          </div>
+    <!-- EMPTY -->
+    @else if (uiState() === 'empty') {
+      <div class="tam-state tam-state-center">
+        <svg class="tam-state-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8.5 11h5"/></svg>
+        <p class="tam-state-title">No tracking assets match this scope and filter</p>
+        <p class="tam-state-body">The zero comes from the current filters, not from the register. Adjust the search,
+          type, channel, status or dates — or reset the filters.</p>
+        <div class="tam-state-actions">
+          <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="clearFilters()">Reset filters</button>
+          @if (generateAllowed()) {
+            <button type="button" class="tam-btn tam-btn-primary tam-btn-sm" (click)="openGenerate()">Create asset</button>
+          }
         </div>
-      }
+      </div>
+    }
 
-      <!-- NO ACCESS -->
-      @else if (uiState() === 'no-access') {
-        <div class="tam-state-block">
-          <p class="tam-state-title">This value cannot be displayed with your current access.</p>
-          <p class="tam-state-body">Restricted records, fields, counts, actions and search suggestions are hidden.
-            Return to your permitted landing page to continue.</p>
-          <a class="tam-btn tam-btn-outline tam-btn-sm" href="javascript:void(0)" (click)="setUiState('ready')">Return to My Workspace</a>
-        </div>
-      }
+    <!-- NO ACCESS -->
+    @else if (uiState() === 'no-access') {
+      <div class="tam-state tam-state-center">
+        <svg class="tam-state-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <p class="tam-state-title">This value cannot be displayed with your current access</p>
+        <p class="tam-state-body">Restricted records, fields, counts, actions and search suggestions are hidden.
+          Return to your permitted landing page to continue.</p>
+        <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="setUiState('ready')">Return to My Workspace</button>
+      </div>
+    }
 
-      <!-- READY / VALIDATION / DUPLICATE / CONFLICT / DEPENDENCY-FAILURE / SUCCESS keep the index visible -->
-      @else {
-        <div class="tam-table-scroll" (scroll)="closeRowMenu()">
-          <table class="tam-table">
-            <thead>
-              <tr>
-                <th scope="col" class="tam-col-name" [attr.aria-sort]="nameSort() === 'asc' ? 'ascending' : nameSort() === 'desc' ? 'descending' : 'none'">
-                  <button type="button" class="tam-sort-btn" (click)="toggleNameSort()"
-                          [title]="nameSort() === 'asc' ? 'Sorted A→Z' : nameSort() === 'desc' ? 'Sorted Z→A' : 'Sort by asset name'">
-                    Asset Name
-                    <svg class="tam-sort-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 9 4-4 4 4"/><path d="m8 15 4 4 4-4"/></svg>
-                  </button>
-                </th>
-                <th scope="col">Type</th>
-                <th scope="col">Channel</th>
-                <th scope="col">Destination / URL</th>
-                <th scope="col">Status</th>
-                <th scope="col" class="tam-col-num">Usage</th>
-                <th scope="col" class="tam-col-actions">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (r of pagedRecords(); track r.trackingReference) {
-                <tr [class.tam-row-selected]="isSelected(r.trackingReference)"
-                    [class.tam-row-compare-picked]="compareMode() && compareRefs().includes(r.trackingReference)"
-                    (click)="compareMode() ? toggleCompareSelection(r.trackingReference) : selectAsset(r.trackingReference)">
-                  <!-- Tracking reference (stable, read-only) + Campaign context -->
-                  <td class="tam-cell-asset" data-label="Asset Name">
-                    <div class="tam-asset-id">
-                      <span class="tam-asset-ic" [class.tam-asset-ic--qr]="assetIconKey(r.assetType, r.isQr) === 'qr'"
-                            [class.tam-asset-ic--page]="assetIconKey(r.assetType, r.isQr) === 'page'" aria-hidden="true">
-                        @switch (assetIconKey(r.assetType, r.isQr)) {
-                          @case ('qr') {
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 14v.01M14 20v.01M20 20v.01M17 20v.01M20 17v.01"/></svg>
-                          }
-                          @case ('page') {
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>
-                          }
-                          @default {
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
-                          }
+    <!-- READY / VALIDATION / DUPLICATE / CONFLICT / DEPENDENCY-FAILURE / SUCCESS keep the index visible -->
+    @else {
+      <div class="tam-table-scroll" (scroll)="closeRowMenu()">
+        <table class="tam-table">
+          <thead>
+            <tr>
+              <th scope="col" class="tam-col-name" [attr.aria-sort]="nameSort() === 'asc' ? 'ascending' : nameSort() === 'desc' ? 'descending' : 'none'">
+                <button type="button" class="tam-sort-btn" (click)="toggleNameSort()"
+                        [title]="nameSort() === 'asc' ? 'Sorted A→Z' : nameSort() === 'desc' ? 'Sorted Z→A' : 'Sort by asset'">
+                  Asset
+                  <svg class="tam-sort-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 9 4-4 4 4"/><path d="m8 15 4 4 4-4"/></svg>
+                </button>
+              </th>
+              <th scope="col" class="tam-col-type">Asset type</th>
+              <th scope="col" class="tam-col-channel">Channel</th>
+              <th scope="col" class="tam-col-dest">Destination / URL</th>
+              <th scope="col" class="tam-col-status">Status</th>
+              <th scope="col" class="tam-col-num">Usage</th>
+              <th scope="col" class="tam-col-actions"><span class="tam-visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of pagedRecords(); track r.trackingReference) {
+              <tr [class.tam-row-selected]="isSelected(r.trackingReference)"
+                  [class.tam-row-compare-picked]="compareMode() && compareRefs().includes(r.trackingReference)"
+                  (click)="compareMode() ? toggleCompareSelection(r.trackingReference) : selectAsset(r.trackingReference)">
+                <!-- Tracking reference (stable, read-only) + Campaign context -->
+                <td class="tam-cell-asset" data-label="Asset">
+                  <div class="tam-asset-id">
+                    <span class="tam-asset-glyph" [attr.data-kind]="assetIconKey(r.assetType, r.isQr)" aria-hidden="true">
+                      @switch (assetIconKey(r.assetType, r.isQr)) {
+                        @case ('qr') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 14v.01M14 20v.01M20 20v.01M17 20v.01M20 17v.01"/></svg>
                         }
-                      </span>
-                      <div class="tam-asset-id-text">
-                        <button type="button" class="tam-asset-link" (click)="selectAsset(r.trackingReference); $event.stopPropagation()">
-                          {{ r.trackingReference }}
-                        </button>
-                        <span class="tam-asset-campaign">{{ campaignOf(r.campaignRef).name }}</span>
-                      </div>
-                    </div>
-                  </td>
-
-                  <!-- Asset type (catalogue value) -->
-                  <td data-label="Type"><span class="tam-type-pill" [class]="typeClass(r.assetType)">{{ r.assetType }}</span></td>
-
-                  <!-- Channel (catalogue value) -->
-                  <td data-label="Channel">
-                    <span class="tam-channel"><span class="tam-dot" [class]="channelDotClass(r.channel)" aria-hidden="true"></span>{{ r.channel }}</span>
-                  </td>
-
-                  <!-- Destination + Generated URL or QR (read-only) -->
-                  <td class="tam-cell-dest" data-label="Destination / URL">
-                    <span class="tam-dest-line" (click)="$event.stopPropagation()">
-                      <span class="tam-dest-url" [attr.title]="r.generatedUrl">{{ r.generatedUrl }}</span>
-                      @if (r.generatedUrl) {
-                        <button type="button" class="tam-copy-btn" [class.is-copied]="copiedRowRef() === r.trackingReference"
-                                (click)="copyRowUrl(r.trackingReference, r.generatedUrl)"
-                                [attr.title]="copiedRowRef() === r.trackingReference ? 'Copied' : 'Copy link'"
-                                [attr.aria-label]="copiedRowRef() === r.trackingReference ? 'Link copied' : 'Copy link'">
-                          @if (copiedRowRef() === r.trackingReference) {
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>
-                          } @else {
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
-                          }
-                        </button>
+                        @case ('page') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>
+                        }
+                        @default {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
+                        }
                       }
                     </span>
-                  </td>
-
-                  <!-- Asset status (catalogue value) -->
-                  <td data-label="Status">
-                    <span class="tam-badge" [class]="statusClass(r.assetStatus)">{{ r.assetStatus }}</span>
-                  </td>
-
-                  <!-- Usage count (read-only) -->
-                  <td class="tam-col-num tam-usage" data-label="Usage">{{ formatUsage(r.usageCount) }}</td>
-
-                  <!-- Row actions: Test / Approve / Disable / Replace / Delete unused draft -->
-                  <td class="tam-col-actions" (click)="$event.stopPropagation()">
-                    <div class="tam-inline-actions" aria-label="Actions">
-                      <button type="button" class="tam-icon-action" title="View asset" aria-label="View asset"
-                              (click)="selectAsset(r.trackingReference)">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                    <div class="tam-asset-id-text">
+                      <button type="button" class="tam-asset-link" (click)="selectAsset(r.trackingReference); $event.stopPropagation()">
+                        {{ r.trackingReference }}
                       </button>
-                      @if (canEverEdit()) {
-                        <button type="button" class="tam-icon-action" title="Edit asset" aria-label="Edit asset"
-                                (click)="requestEdit(r)" [disabled]="!editAllowed(r)">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 5 5 5M4 20l3.5-.8L19 7.7a2 2 0 0 0-2.7-2.7L4.8 16.5 4 20Z"/></svg>
-                        </button>
-                      }
+                      <span class="tam-asset-campaign">{{ campaignOf(r.campaignRef).name }}</span>
+                    </div>
+                  </div>
+                </td>
+
+                <td class="tam-col-type" data-label="Asset type">{{ r.assetType }}</td>
+
+                <td data-label="Channel">
+                  <span class="tam-channel"><span class="tam-dot" [class]="channelDotClass(r.channel)" aria-hidden="true"></span>{{ r.channel }}</span>
+                </td>
+
+                <!-- Destination + Generated URL or QR (read-only) -->
+                <td class="tam-cell-dest" data-label="Destination / URL">
+                  <span class="tam-dest-line" (click)="$event.stopPropagation()">
+                    <span class="tam-dest-url" [attr.title]="r.generatedUrl">{{ r.generatedUrl || '—' }}</span>
+                    @if (r.generatedUrl) {
+                      <button type="button" class="tam-copy-btn" [class.is-copied]="copiedRowRef() === r.trackingReference"
+                              (click)="copyRowUrl(r.trackingReference, r.generatedUrl)"
+                              [attr.title]="copiedRowRef() === r.trackingReference ? 'Copied' : 'Copy link'"
+                              [attr.aria-label]="copiedRowRef() === r.trackingReference ? 'Link copied' : 'Copy link'">
+                        @if (copiedRowRef() === r.trackingReference) {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>
+                        } @else {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                        }
+                      </button>
+                    }
+                  </span>
+                </td>
+
+                <td data-label="Status">
+                  <span class="tam-badge" [class]="statusClass(r.assetStatus)">{{ r.assetStatus }}</span>
+                </td>
+
+                <td class="tam-col-num tam-usage" data-label="Usage">{{ formatUsage(r.usageCount) }}</td>
+
+                <!-- Row actions: view / edit / more -->
+                <td class="tam-col-actions" (click)="$event.stopPropagation()">
+                  <div class="tam-inline-actions" aria-label="Actions">
+                    @if (canEverEdit()) {
+                      <button type="button" class="tam-icon-action" title="Edit asset" aria-label="Edit asset"
+                              (click)="requestEdit(r)" [disabled]="!editAllowed(r)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 5 5 5M4 20l3.5-.8L19 7.7a2 2 0 0 0-2.7-2.7L4.8 16.5 4 20Z"/></svg>
+                      </button>
+                    }
                     <div class="tam-menu-wrap">
-                      <button #tamRowBtn type="button" class="tam-row-action" (click)="toggleRowMenu(r.trackingReference, tamRowBtn)"
+                      <button #tamRowBtn type="button" class="tam-icon-action" (click)="toggleRowMenu(r.trackingReference, tamRowBtn)"
                               [attr.aria-expanded]="openRowMenu() === r.trackingReference" aria-haspopup="menu"
-                              aria-label="More actions" title="More actions">⋯</button>
+                              aria-label="More actions" title="More actions">
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+                      </button>
                       @if (openRowMenu() === r.trackingReference) {
                         <div class="tam-menu" role="menu" aria-label="Tracking asset actions"
                              [class.tam-menu-up]="rowMenuUp()" [ngStyle]="rowMenuStyle()"
@@ -486,12 +424,11 @@
                           <!-- A VERB THIS ROLE DOES NOT HOLD IS NOT RENDERED AT ALL. Every item
                                below is wrapped in the permission that governs it; what stays
                                inside `[disabled]` is the record's STATE, which is a "not yet"
-                               worth explaining rather than a "never". A menu of greyed-out verbs
-                               a role can never use teaches people to stop reading it. -->
-                          <button type="button" class="tam-menu-item" role="menuitem" (click)="selectAsset(r.trackingReference)">Open</button>
+                               worth explaining rather than a "never". -->
+                          <button type="button" class="tam-menu-item" role="menuitem" (click)="selectAsset(r.trackingReference)">Open details</button>
                           @if (canEverSubmit()) {
                             <button type="button" class="tam-menu-item" role="menuitem" (click)="requestSubmit(r)"
-                                    [disabled]="!submitAllowed(r)" [title]="submitAllowed(r) ? '' : submitDisabledReason(r)">Submit</button>
+                                    [disabled]="!submitAllowed(r)" [title]="submitAllowed(r) ? '' : submitDisabledReason(r)">Submit for approval</button>
                           }
                           @if (canEverApprove()) {
                             <button type="button" class="tam-menu-item" role="menuitem" (click)="requestApprove(r)"
@@ -504,6 +441,9 @@
                           @if (canEverEdit()) {
                             <button type="button" class="tam-menu-item" role="menuitem" (click)="requestEdit(r)"
                                     [disabled]="!editAllowed(r)" [title]="editAllowed(r) ? '' : editDisabledReason(r)">Edit</button>
+                          }
+                          @if (canEverRequestDisable() || canEverDisable() || canDeleteDraft(r)) {
+                            <div class="tam-menu-divider" role="separator"></div>
                           }
                           @if (canEverRequestDisable()) {
                             <button type="button" class="tam-menu-item tam-menu-danger" role="menuitem" (click)="askForDisable(r)"
@@ -523,494 +463,741 @@
                         </div>
                       }
                     </div>
-                    </div>
-                  </td>
-                </tr>
-              } @empty {
-                <tr>
-                  <td colspan="7" class="tam-table-empty">
-                    No tracking assets match this scope and filter. Reset filters to continue.
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Footer: visible range + pagination -->
-        <div class="tam-table-footer">
-          <span class="tam-tz-note">
-            Showing {{ showingFrom() }}–{{ showingTo() }} of {{ recordCount() }} assets
-          </span>
-          <nav class="tam-pagination" aria-label="Pagination">
-            <button type="button" class="tam-page-btn" aria-label="Previous page" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">‹</button>
-            @for (p of pageNumbers(); track p) {
-              <button type="button" class="tam-page-btn" [class.is-current]="currentPage() === p"
-                      [attr.aria-current]="currentPage() === p ? 'page' : null" (click)="goToPage(p)">{{ p }}</button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="tam-table-empty">
+                  No tracking assets match this scope and filter.
+                  <button type="button" class="tam-link" (click)="clearFilters()">Reset filters</button>
+                </td>
+              </tr>
             }
-            <button type="button" class="tam-page-btn" aria-label="Next page" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">›</button>
-          </nav>
-        </div>
-      }
-    </section>
+          </tbody>
+        </table>
+      </div>
 
-    <!-- ---------- SECONDARY PANEL: asset details ----------
-         Hidden until a row is selected; opens as a fixed half-canvas drawer that
-         overlays the right of the viewport (dimming backdrop behind it). Full-width
-         on small screens so it stays usable on every device. -->
-    @if (detailAsset(); as a) {
-      <div class="tam-detail-backdrop" (click)="selectAsset('')" aria-hidden="true"></div>
-      <aside class="tam-detail" role="dialog" aria-modal="true" aria-label="Asset details">
-        <div class="tam-detail-head">
-          <div class="tam-detail-id">
-            <span class="tam-detail-badge" aria-hidden="true">
-              @if (a.isQr) {
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 14v.01M14 20v.01M20 20v.01M17 20v.01M20 17v.01"/></svg>
-              } @else {
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
-              }
-            </span>
-            <div>
-              <h2 class="tam-detail-title">{{ a.trackingReference }}
-                <span class="tam-badge" [class]="statusClass(a.assetStatus)">{{ a.assetStatus }}</span>
-              </h2>
-              <p class="tam-detail-sub">{{ a.assetType }} · {{ a.channel }}</p>
-            </div>
-          </div>
-          <button type="button" class="tam-detail-close" (click)="selectAsset('')" aria-label="Close asset details">✕</button>
-        </div>
+      <!-- Footer: visible range + pagination -->
+      <footer class="tam-table-footer">
+        <span class="tam-range-note">
+          Showing <strong>{{ showingFrom() }}–{{ showingTo() }}</strong> of <strong>{{ recordCount() }}</strong>
+        </span>
+        <nav class="tam-pagination" aria-label="Pagination">
+          <button type="button" class="tam-page-btn" aria-label="Previous page" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+          </button>
+          @for (p of pageNumbers(); track p) {
+            <button type="button" class="tam-page-btn" [class.is-current]="currentPage() === p"
+                    [attr.aria-current]="currentPage() === p ? 'page' : null" (click)="goToPage(p)">{{ p }}</button>
+          }
+          <button type="button" class="tam-page-btn" aria-label="Next page" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+          </button>
+        </nav>
+      </footer>
+    }
+  </section>
+  } @else {
+  <!-- ============ CREATE ASSET — full screen ============
+       Replaces the list while it is open (the list comes back on Cancel, or once the asset is
+       created). A grid of section cards plus a live preview whose design and size follow the asset
+       type, and an action bar pinned to the bottom so Create is always in reach. -->
+  <app-page-header [showInfo]="false" screen="tracking-asset-manager"
+        title="Create tracking asset"
+        subtitle="Set up a trackable link or QR destination for a campaign. The tracking reference and short link are issued once the asset is approved.">
+        <ng-container actions>
+          <button type="button" class="ph-btn ph-btn--ghost" (click)="cancelGenerate()">
+            <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+            Back to tracking assets
+          </button>
+        </ng-container>
+  </app-page-header>
 
-        <!-- OVERVIEW: all read-only field values + persistent outcome -->
-        <div class="tam-detail-body" role="tabpanel">
-            <dl class="tam-kv">
-              <div><dt>Tracking reference</dt><dd>{{ a.trackingReference }}</dd></div>
-              <div><dt>Asset type</dt><dd>{{ a.assetType }}</dd></div>
-              <div><dt>Channel</dt><dd>{{ a.channel }}</dd></div>
-              @if (a.place) { <div><dt>Place</dt><dd>{{ a.place }}</dd></div> }
-              @if (a.placeCity) { <div><dt>City</dt><dd>{{ a.placeCity }}</dd></div> }
-              @if (a.placeState) { <div><dt>State</dt><dd>{{ a.placeState }}</dd></div> }
-              @for (f of a.placeCustomFields ?? []; track f.key) { <div><dt>{{ f.key }}</dt><dd>{{ f.value }}</dd></div> }
-              <div><dt>Campaign</dt><dd>{{ campaignOf(a.campaignRef).name }} · {{ a.campaignRef }}</dd></div>
-              <div><dt>Destination</dt><dd class="tam-break">{{ a.destination }}</dd></div>
-              <div><dt>Source</dt><dd>{{ a.source || '—' }}</dd></div>
-              <div><dt>Medium</dt><dd>{{ a.medium || '—' }}</dd></div>
-              <div><dt>Content tag</dt><dd>{{ a.contentTag || '—' }}</dd></div>
-              <div><dt>Active from</dt><dd>{{ formatDate(a.activeFrom) }}</dd></div>
-              <div><dt>Active to</dt><dd>{{ formatDate(a.activeTo) }}</dd></div>
-              <div><dt>Approval state</dt><dd><span class="tam-badge" [class]="approvalClass(a.approvalState)">{{ a.approvalState }}</span></dd></div>
-              <div><dt>Usage count</dt><dd>{{ formatUsage(a.usageCount) }}</dd></div>
-              <div><dt>Total received</dt><dd>{{ formatMoney(a.amountReceived) }}</dd></div>
-            </dl>
+  <div class="tam-create" role="region" aria-label="Create tracking asset">
+            @if (errorSummary().length > 0) {
+              <div class="tam-error-summary" role="alert" aria-label="There is a problem">
+                <strong>There is a problem</strong>
+                <ul>
+                  @for (e of errorSummary(); track e.key) {
+                    <li>{{ e.label }}</li>
+                  }
+                </ul>
+              </div>
+            }
 
-            <!-- Generated URL or QR — read-only; copy/open preserves the exact stable value -->
-            <div class="tam-generated">
-              <span class="tam-generated-label">Generated URL or QR</span>
-              @if (a.isQr) {
-                <span class="tam-qr" role="img" [attr.aria-label]="'QR code for ' + a.generatedUrl">
-                  <svg [attr.viewBox]="qrViewBox()" shape-rendering="crispEdges" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
-                    <rect width="100%" height="100%" fill="#ffffff"/>
-                    <path [attr.d]="qrPath()" fill="#1e2a24"/>
-                  </svg>
+            <!-- One 12-column grid of cards: Campaign & type beside the preview, Destination beside
+                 Active window, Attribution across the full width. Each card re-flows its own fields to
+                 the width it is given. -->
+            <div class="tam-create-grid tam-modal-create" [class.is-onground]="isOnGround()">
+              <section class="tam-sec tam-create-card tam-area-type" id="tam-step-1">
+              <header class="tam-card-head">
+                <span class="tam-card-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V4"/><path d="M4 4h12l-2.5 4L16 12H4"/></svg>
                 </span>
-              }
-              <code class="tam-generated-url">{{ a.generatedUrl }}</code>
-              <div class="tam-generated-actions">
-                <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="copyUrl(a.generatedUrl)">
-                  <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-                  {{ copiedRef() === a.trackingReference ? 'Copied' : 'Copy' }}
-                </button>
-                <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="openUrl(a.generatedUrl)">
-                  <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg>
-                  Open
-                </button>
-                <!-- Download details — hidden for now; re-enable later if needed.
-                <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="downloadAssetDetails(a)">
-                  <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-                  Download details
-                </button>
-                -->
-                @if (a.isQr) {
-                  <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="downloadQr(a)">
-                    <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14h2v2h-2zM14 19h2v2h-2zM19 19h2v2h-2z"/></svg>
-                    Download QR
-                  </button>
+                <div class="tam-card-titles">
+                  <p class="tam-card-step">Step 1 of 4</p>
+                  <h3 class="tam-card-title">Campaign &amp; type</h3>
+                  <p class="tam-card-lead">Pick the campaign first. Channel, source and dates fill in from what it was set up with.</p>
+                </div>
+                @if (createSteps()[0].done) {
+                  <span class="tam-card-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Complete</span>
                 }
+              </header>
+              <div class="tam-sec-grid">
+
+              <!-- Campaign (required) — captured FIRST: selecting it auto-fills channel, source and
+                   active from/to from what was chosen for that campaign in the Campaign Wizard -->
+              <div class="tam-field tam-c8" [class.tam-field-invalid]="missing('campaign')">
+                <label class="tam-field-label" for="g-campaign">Campaign <span class="tam-req">*</span>
+                  <span class="tam-label-aside">{{ gCampaign() ? campaignOf(gCampaign()).context : 'Auto-fills channel, source &amp; dates' }}</span></label>
+                <div class="tam-combo" [class.is-open]="openMenu() === 'g-campaign'" appClickOutside (appClickOutside)="onClickOutside('g-campaign')">
+                  <button id="g-campaign" type="button" class="tam-combo-btn" (click)="toggleMenu('g-campaign')"
+                          role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-campaign'">
+                    <span class="tam-combo-value" [class.tam-combo-ph]="!gCampaign()">{{ gCampaign() ? (campaignOf(gCampaign()).name + ' · ' + gCampaign()) : 'Select an eligible campaign in scope…' }}</span>
+                    <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  @if (openMenu() === 'g-campaign') {
+                    <ul class="tam-combo-list" role="listbox">
+                      @for (c of campaignOptions(); track c.reference) {
+                        <li role="option" [attr.aria-selected]="gCampaign() === c.reference">
+                          <button type="button" class="tam-combo-option" [class.is-selected]="gCampaign() === c.reference" (click)="onCampaignSelect(c.reference); closeMenu()">
+                            <span class="tam-combo-opt-label">{{ c.name }}</span>
+                            <span class="tam-combo-opt-context">{{ c.reference }} · {{ c.context }}</span>
+                          </button>
+                        </li>
+                      } @empty {
+                        <li class="tam-combo-empty">No eligible campaign in scope.</li>
+                      }
+                    </ul>
+                  }
+                </div>
+                @if (missing('campaign')) { <p class="tam-field-hint tam-field-error">Enter Campaign.</p> }
+              </div>
+
+              <!-- Channel (required) — auto-filled from the campaign -->
+              <div class="tam-field tam-c4 tam-fill-mid" [class.tam-field-invalid]="missing('channel')">
+                <label class="tam-field-label" for="g-channel">Channel <span class="tam-req">*</span></label>
+                <div class="tam-combo" [class.is-open]="openMenu() === 'g-channel'" appClickOutside (appClickOutside)="onClickOutside('g-channel')">
+                  <button id="g-channel" type="button" class="tam-combo-btn" (click)="toggleMenu('g-channel')"
+                          role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-channel'">
+                    <span class="tam-combo-value" [class.tam-combo-ph]="!gChannel()">{{ gChannel() ? channelLabel(gChannel()) : 'Select a channel…' }}</span>
+                    <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  @if (openMenu() === 'g-channel') {
+                    <ul class="tam-combo-list" role="listbox">
+                      <li role="option" [attr.aria-selected]="!gChannel()"><button type="button" class="tam-combo-option" [class.is-selected]="!gChannel()" (click)="gChannel.set(''); closeMenu()">Select a channel…</button></li>
+                      @for (c of channelChoices(); track c.ref) {
+                        <li role="option" [attr.aria-selected]="gChannel() === c.ref"><button type="button" class="tam-combo-option" [class.is-selected]="gChannel() === c.ref" (click)="gChannel.set(c.ref); closeMenu()">{{ c.label }}</button></li>
+                      }
+                    </ul>
+                  }
+                </div>
+                @if (missing('channel')) { <p class="tam-field-hint tam-field-error">Enter Channel.</p> }
+              </div>
+
+              <!-- Asset type (required) — one tile per type, so the choice reads at a glance -->
+              <div class="tam-field tam-field-span" [class.tam-field-invalid]="missing('assetType')">
+                <span class="tam-field-label" id="g-assetType">Asset type <span class="tam-req">*</span></span>
+                <div class="tam-type-grid" role="radiogroup" aria-labelledby="g-assetType">
+                  @for (t of assetTypeCatalogue; track t) {
+                    <button type="button" class="tam-tile" role="radio" [attr.aria-checked]="gAssetType() === t"
+                            [class.is-selected]="gAssetType() === t" (click)="gAssetType.set(t)">
+                      <span class="tam-type-ic" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="assetTypeMeta(t).icon"/></svg>
+                      </span>
+                      <span class="tam-type-name">{{ t }}</span>
+                      <span class="tam-type-desc">{{ assetTypeMeta(t).desc }}</span>
+                      <span class="tam-type-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
+                    </button>
+                  }
+                </div>
+                @if (missing('assetType')) { <p class="tam-field-hint tam-field-error">Enter Asset type.</p> }
+              </div>
+
+              <!-- ---------- 2. Destination ---------- -->
+              </div>
+              </section>
+
+              <!-- Live preview: its design follows the asset type (a scan-to-give card for a QR code, a
+                   message for a short link, the destination for a UTM link, a browser page for a landing
+                   page, the list of places for an on-ground event). It takes the height of Campaign &
+                   type beside it and centres its content in that space. -->
+              <aside class="tam-pv tam-area-preview" [attr.data-kind]="pvKind()" aria-live="polite" aria-label="Live preview">
+                <div class="tam-pv-head">
+                  <span class="tam-pv-eyebrow"><span class="tam-pv-pulse" aria-hidden="true"></span>Live preview</span>
+                  <h3 class="tam-pv-title">{{ isOnGround() ? 'On-ground places' : (gAssetType() || 'Your tracking asset') }}</h3>
+                  <p class="tam-pv-sub">{{ gCampaign() ? campaignOf(gCampaign()).name : 'Choose a campaign to begin' }}</p>
+                </div>
+
+                <div class="tam-pv-stage">
+                  @switch (pvKind()) {
+                    @case ('qr') {
+                      <div class="tam-pv-poster">
+                        @if (previewUrl()) {
+                          <span class="tam-qr tam-pv-qr" role="img" aria-label="QR code preview">
+                            <svg [attr.viewBox]="previewQrViewBox(previewUrl())" shape-rendering="crispEdges" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+                              <rect width="100%" height="100%" fill="#ffffff"/>
+                              <path [attr.d]="previewQrPath(previewUrl())" fill="#1e2a24"/>
+                            </svg>
+                          </span>
+                        } @else {
+                          <span class="tam-pv-qr tam-pv-qr-empty" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="assetTypeMeta('QR Code').icon"/></svg>
+                          </span>
+                        }
+                        <div class="tam-pv-poster-text">
+                          <span class="tam-pv-poster-kicker">Scan to give</span>
+                          <span class="tam-pv-poster-name">{{ gCampaign() ? campaignOf(gCampaign()).name : 'Your campaign' }}</span>
+                          <span class="tam-pv-poster-hint">{{ previewHost() || 'Add the destination URL' }}</span>
+                        </div>
+                      </div>
+                    }
+                    @case ('short') {
+                      <div class="tam-pv-chat">
+                        <div class="tam-pv-bubble">
+                          <p>Every gift counts. Support {{ gCampaign() ? campaignOf(gCampaign()).name : 'our campaign' }} today:</p>
+                          <span class="tam-pv-bubble-link">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path [attr.d]="assetTypeMeta('Short Link').icon"/></svg>
+                            short link · issued on approval
+                          </span>
+                        </div>
+                        <div class="tam-pv-card-link">
+                          <span class="tam-pv-card-link-host">{{ previewHost() || 'your-destination.org' }}</span>
+                          <span class="tam-pv-card-link-path">{{ previewPath() || 'The page the link opens' }}</span>
+                        </div>
+                      </div>
+                    }
+                    @case ('utm') {
+                      <div class="tam-pv-utm">
+                        <span class="tam-pv-label">Destination</span>
+                        <code class="tam-pv-url">{{ previewUrl() || 'https://your-destination.org' }}</code>
+                        <p class="tam-pv-note">The tracking tags are added when this asset is approved.</p>
+                      </div>
+                    }
+                    @case ('landing') {
+                      <div class="tam-pv-browser">
+                        <div class="tam-pv-browser-bar">
+                          <span class="tam-pv-browser-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                          <span class="tam-pv-browser-url">{{ previewHost() || 'your-page.org' }}</span>
+                        </div>
+                        <div class="tam-pv-browser-page">
+                          <span class="tam-pv-sk tam-pv-sk-hero" aria-hidden="true"></span>
+                          <strong class="tam-pv-page-title">{{ gCampaign() ? campaignOf(gCampaign()).name : 'Your campaign' }}</strong>
+                          <span class="tam-pv-sk" style="width: 88%" aria-hidden="true"></span>
+                          <span class="tam-pv-page-cta" aria-hidden="true">Donate now</span>
+                        </div>
+                      </div>
+                    }
+                    @case ('onground') {
+                      <ul class="tam-pv-places">
+                        @for (p of gPlaces(); track p.id; let i = $index) {
+                          <li class="tam-pv-place">
+                            <span class="tam-pv-place-ic" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                            </span>
+                            <span class="tam-pv-place-name">{{ p.label.trim() || 'Place ' + (i + 1) }}</span>
+                            <span class="tam-pv-place-state" [class.is-ready]="!!p.destination.trim()">{{ p.destination.trim() ? 'Ready' : 'Needs destination' }}</span>
+                          </li>
+                        }
+                      </ul>
+                    }
+                    @default {
+                      <div class="tam-pv-empty">
+                        <span class="tam-pv-ghost" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>
+                        </span>
+                        <p class="tam-pv-note">Pick an asset type and it takes shape here.</p>
+                      </div>
+                    }
+                  }
+                </div>
+              </aside>
+
+              <section class="tam-sec tam-create-card tam-area-dest" id="tam-step-2">
+              <header class="tam-card-head">
+                <span class="tam-card-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                </span>
+                <div class="tam-card-titles">
+                  <p class="tam-card-step">Step 2 of 4</p>
+                  <h3 class="tam-card-title">{{ isOnGround() ? 'Places' : 'Destination' }}</h3>
+                  <p class="tam-card-lead">{{ isOnGround() ? 'Each on-ground place gets its own QR or link, so you can see which one performs.' : 'Where people land when they scan the code or open the link.' }}</p>
+                </div>
+                @if (createSteps()[1].done) {
+                  <span class="tam-card-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Complete</span>
+                }
+              </header>
+              <div class="tam-sec-grid">
+
+              @if (!missing('channel') && isOnGround()) {
+                <p class="tam-field-hint tam-field-span tam-hint-onground">On-ground event — add one or more places below; each gets its own separate QR/link.</p>
+              }
+
+              @if (!isOnGround()) {
+                <!-- Destination (required) — the landing URL this QR / short link / UTM link sends people to -->
+                <div class="tam-field tam-field-span" [class.tam-field-invalid]="missing('destination')">
+                  <label class="tam-field-label" for="g-destination">Destination URL <span class="tam-req">*</span>
+                    <span class="tam-label-aside">The page this link or QR code opens</span></label>
+                  <input id="g-destination" type="text" class="tam-input" [ngModel]="gDestination()"
+                         (ngModelChange)="gDestination.set($event)" placeholder="https://ydot.org/educate-a-child/donate" />
+                  @if (missing('destination')) { <p class="tam-field-hint tam-field-error">Enter Destination.</p> }
+                </div>
+
+                <!-- The address as typed, read in the browser (nothing is fetched). Fills the rest of the card. -->
+                <div class="tam-field tam-field-span tam-destinfo" [class.is-filled]="destInfo() && destInfo() !== 'invalid'">
+                  @if (destInfo(); as d) {
+                    @if (d === 'invalid') {
+                      <p class="tam-destinfo-msg is-bad">That doesn't look like a web address. Enter it in full, such as https://ydot.org/donate.</p>
+                    } @else {
+                      <div class="tam-destinfo-row">
+                        <span class="tam-destinfo-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z"/></svg></span>
+                        <div class="tam-destinfo-text">
+                          <strong>{{ d.host }}</strong>
+                          <span>{{ d.href }}</span>
+                        </div>
+                      </div>
+                      <div class="tam-destinfo-badges">
+                        <span [class.is-ok]="d.secure" [class.is-warn]="!d.secure">{{ d.secure ? 'Secure (HTTPS)' : 'Not secure (HTTP)' }}</span>
+                        @if (d.params) { <span>{{ d.params }} {{ d.params === 1 ? 'parameter' : 'parameters' }}</span> }
+                      </div>
+                    }
+                  } @else {
+                    <span class="tam-destinfo-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg></span>
+                    <p class="tam-destinfo-msg">Paste the page this asset should open.</p>
+                  }
+                </div>
+              } @else {
+                <!-- On-ground event: one customisable place per row, each with its own destination -->
+                <div class="tam-field tam-field-span" [class.tam-field-invalid]="missing('places')">
+                  <div class="tam-places">
+                    @for (p of gPlaces(); track p.id; let i = $index) {
+                      <div class="tam-place">
+                        <div class="tam-place-top">
+                          <span class="tam-place-num">Place {{ i + 1 }}</span>
+                          <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm tam-place-remove" (click)="removePlace(p.id)" [disabled]="gPlaces().length <= 1">Remove</button>
+                        </div>
+                        <div class="tam-place-row">
+                          <label class="tam-place-cell tam-place-cell-name">
+                            <span class="tam-place-cell-label">Place name</span>
+                            <input type="text" class="tam-input" placeholder="e.g. Main entrance stall"
+                                   [ngModel]="p.label" (ngModelChange)="updatePlaceLabel(p.id, $event)" />
+                          </label>
+                          <!-- City / State — read-only, read live from the selected campaign -->
+                          <label class="tam-place-cell">
+                            <span class="tam-place-cell-label">City</span>
+                            <input type="text" class="tam-input tam-input-auto" readonly
+                                   placeholder="From campaign" [ngModel]="placeLocation().city" [ngModelOptions]="{ standalone: true }" />
+                          </label>
+                          <label class="tam-place-cell">
+                            <span class="tam-place-cell-label">State</span>
+                            <input type="text" class="tam-input tam-input-auto" readonly
+                                   placeholder="From campaign" [ngModel]="placeLocation().state" [ngModelOptions]="{ standalone: true }" />
+                          </label>
+                        </div>
+                        <label class="tam-place-cell">
+                          <span class="tam-place-cell-label">Destination</span>
+                          <input type="text" class="tam-input" placeholder="Destination for this place"
+                                 [ngModel]="p.destination" (ngModelChange)="updatePlaceDestination(p.id, $event)" />
+                        </label>
+
+                        <!-- Custom fields — attach any further named detail to this place -->
+                        <div class="tam-place-custom">
+                          @for (f of p.customFields; track f.id) {
+                            <div class="tam-place-custom-row">
+                              <input type="text" class="tam-input" placeholder="Field name (e.g. Stall number)"
+                                     [ngModel]="f.key" (ngModelChange)="updatePlaceCustomFieldKey(p.id, f.id, $event)" />
+                              <input type="text" class="tam-input" placeholder="Value"
+                                     [ngModel]="f.value" (ngModelChange)="updatePlaceCustomFieldValue(p.id, f.id, $event)" />
+                              <button type="button" class="tam-icon-action" (click)="removePlaceCustomField(p.id, f.id)" aria-label="Remove custom field">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                              </button>
+                            </div>
+                          }
+                          <button type="button" class="tam-link" (click)="addPlaceCustomField(p.id)">+ Add custom field</button>
+                        </div>
+
+                        <!-- Generated QR / link preview for this place -->
+                        @if (previewReady() && p.destination.trim()) {
+                          <div class="tam-preview tam-preview-inline">
+                            @if (gAssetType() === 'QR Code') {
+                              <span class="tam-qr tam-qr-sm" role="img" [attr.aria-label]="'QR code preview for ' + p.label">
+                                <svg [attr.viewBox]="previewQrViewBox(placePreviewUrl(i))" shape-rendering="crispEdges" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+                                  <rect width="100%" height="100%" fill="#ffffff"/>
+                                  <path [attr.d]="previewQrPath(placePreviewUrl(i))" fill="#1e2a24"/>
+                                </svg>
+                              </span>
+                            }
+                            <span class="tam-preview-body">
+                              <span class="tam-preview-ref">@if (p.label.trim()) { {{ p.label.trim() }} } @else { This place }</span>
+                              <code class="tam-preview-url">{{ placePreviewUrl(i) }}</code>
+                              <span class="tam-preview-note">Encodes the destination. The printed code carries a tracking link issued on approval.</span>
+                            </span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                  <button type="button" class="tam-btn tam-btn-outline tam-btn-sm tam-add-place" (click)="addPlace()">+ Add another place</button>
+                  @if (missing('places')) { <p class="tam-field-hint tam-field-error">Enter at least one place name and destination.</p> }
+                </div>
+              }
+
+              <!-- ---------- 3. Attribution ---------- -->
+              </div>
+              </section>
+
+              <section class="tam-sec tam-create-card tam-area-window" id="tam-step-3">
+              <header class="tam-card-head">
+                <span class="tam-card-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+                </span>
+                <div class="tam-card-titles">
+                  <p class="tam-card-step">Step 3 of 4</p>
+                  <h3 class="tam-card-title">Active window</h3>
+                  <p class="tam-card-lead">The asset only resolves scans and clicks between these dates.</p>
+                </div>
+                <span class="tam-sec-tz">{{ operatingTimeZone }}</span>
+                @if (createSteps()[3].done) {
+                  <span class="tam-card-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Complete</span>
+                }
+              </header>
+              <div class="tam-sec-grid">
+
+              <div class="tam-field tam-c3" [class.tam-field-invalid]="missing('activeFrom')">
+                <label class="tam-field-label" for="g-activeFrom">Active from <span class="tam-req">*</span></label>
+                <input id="g-activeFrom" type="date" class="tam-input" [ngModel]="gActiveFrom()" (ngModelChange)="gActiveFrom.set($event)" />
+                @if (missing('activeFrom')) { <p class="tam-field-hint tam-field-error">Enter Active from.</p> }
+              </div>
+
+              <div class="tam-field tam-c3" [class.tam-field-invalid]="missing('activeTo') || gRangeInvalid()">
+                <label class="tam-field-label" for="g-activeTo">Active to <span class="tam-req">*</span></label>
+                <input id="g-activeTo" type="date" class="tam-input" [ngModel]="gActiveTo()" (ngModelChange)="gActiveTo.set($event)" />
+                @if (gRangeInvalid()) { <p class="tam-field-hint tam-field-error">Review Active to. The value does not meet the stated format or range.</p> }
+                @else if (missing('activeTo')) { <p class="tam-field-hint tam-field-error">Enter Active to.</p> }
+              </div>
+              <!-- Duration: how long the asset is live, where today sits in that window, and the
+                   interpreted range in the operating time zone. Always rendered, so the card keeps its shape. -->
+              <div class="tam-field tam-field-span tam-window" role="status">
+                @if (windowInfo(); as w) {
+                  <div class="tam-window-top">
+                    <span class="tam-window-days"><strong>{{ w.days }}</strong> {{ w.days === 1 ? 'day' : 'days' }} live</span>
+                    <span class="tam-window-state" [attr.data-phase]="w.phase">{{ w.label }}</span>
+                  </div>
+                  <div class="tam-window-bar" aria-hidden="true">
+                    <span class="tam-window-fill" [style.width.%]="w.elapsedPct"></span>
+                    @if (w.phase === 'live') { <span class="tam-window-today" [style.left.%]="w.elapsedPct"></span> }
+                  </div>
+                  <div class="tam-window-ends"><span>{{ w.fromLabel }}</span><span>{{ w.toLabel }}</span></div>
+                  <p class="tam-window-range">{{ gInterpretedRange() }}</p>
+                } @else {
+                  <span class="tam-window-empty-ic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h3M8 17h6"/></svg>
+                  </span>
+                  <p class="tam-window-empty">Set both dates to see how long the asset stays live, in {{ operatingTimeZone }}.</p>
+                }
+              </div>
+              </div>
+              </section>
+
+              <section class="tam-sec tam-create-card tam-area-attr" id="tam-step-4">
+              <header class="tam-card-head">
+                <span class="tam-card-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V5M16 20v-6M21 20H3"/></svg>
+                </span>
+                <div class="tam-card-titles">
+                  <p class="tam-card-step">Step 4 of 4</p>
+                  <h3 class="tam-card-title">Attribution</h3>
+                  <p class="tam-card-lead">How donations that arrive through this asset are credited in reports.</p>
+                </div>
+                @if (createSteps()[2].done) {
+                  <span class="tam-card-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Complete</span>
+                }
+              </header>
+              <div class="tam-sec-grid">
+
+              <!-- Source (required) — CHOSEN FROM THE CATALOGUE, NOT TYPED: the API takes a Guid. -->
+              <div class="tam-field tam-c4" [class.tam-field-invalid]="missing('source')">
+                <label class="tam-field-label" for="g-source">Source <span class="tam-req">*</span></label>
+                <div class="tam-combo" [class.is-open]="openMenu() === 'g-source'" appClickOutside (appClickOutside)="onClickOutside('g-source')">
+                  <button id="g-source" type="button" class="tam-combo-btn" (click)="toggleMenu('g-source')"
+                          role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-source'">
+                    <span class="tam-combo-value" [class.tam-combo-ph]="!gSource()">{{ gSource() ? sourceLabel(gSource()) : 'Select a source…' }}</span>
+                    <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  @if (openMenu() === 'g-source') {
+                    <ul class="tam-combo-list" role="listbox">
+                      <li role="option" [attr.aria-selected]="!gSource()"><button type="button" class="tam-combo-option" [class.is-selected]="!gSource()" (click)="gSource.set(''); closeMenu()">Select a source…</button></li>
+                      @for (o of sourceChoices(); track o.ref) {
+                        <li role="option" [attr.aria-selected]="gSource() === o.ref"><button type="button" class="tam-combo-option" [class.is-selected]="gSource() === o.ref" (click)="gSource.set(o.ref); closeMenu()">{{ o.label }}</button></li>
+                      }
+                    </ul>
+                  }
+                </div>
+                @if (missing('source')) { <p class="tam-field-hint tam-field-error">Choose a source.</p> }
+              </div>
+
+              <!-- Medium (required) — chosen from the catalogue, for the same reason as Source. -->
+              <div class="tam-field tam-c4" [class.tam-field-invalid]="missing('medium')">
+                <label class="tam-field-label" for="g-medium">Medium <span class="tam-req">*</span></label>
+                <div class="tam-combo" [class.is-open]="openMenu() === 'g-medium'" appClickOutside (appClickOutside)="onClickOutside('g-medium')">
+                  <button id="g-medium" type="button" class="tam-combo-btn" (click)="toggleMenu('g-medium')"
+                          role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-medium'">
+                    <span class="tam-combo-value" [class.tam-combo-ph]="!gMedium()">{{ gMedium() ? mediumLabel(gMedium()) : 'Select a medium…' }}</span>
+                    <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  @if (openMenu() === 'g-medium') {
+                    <ul class="tam-combo-list" role="listbox">
+                      <li role="option" [attr.aria-selected]="!gMedium()"><button type="button" class="tam-combo-option" [class.is-selected]="!gMedium()" (click)="gMedium.set(''); closeMenu()">Select a medium…</button></li>
+                      @for (o of mediumChoices(); track o.ref) {
+                        <li role="option" [attr.aria-selected]="gMedium() === o.ref"><button type="button" class="tam-combo-option" [class.is-selected]="gMedium() === o.ref" (click)="gMedium.set(o.ref); closeMenu()">{{ o.label }}</button></li>
+                      }
+                    </ul>
+                  }
+                </div>
+                @if (missing('medium')) { <p class="tam-field-hint tam-field-error">Choose a medium.</p> }
+              </div>
+
+              <!-- Content tag (optional) -->
+              <div class="tam-field tam-c4 tam-fill-mid">
+                <label class="tam-field-label" for="g-contentTag">Content tag <span class="tam-label-aside">{{ gContentTag().length }} / {{ gContentTagMax }}</span></label>
+                <input id="g-contentTag" type="text" class="tam-input" [ngModel]="gContentTag()" (ngModelChange)="gContentTag.set($event)"
+                       [attr.maxlength]="gContentTagMax" placeholder="Optional · e.g. may-issue" />
+              </div>
+
+              <!-- Asset status (required) — a segmented control: five fixed states, all visible at once -->
+              <div class="tam-field tam-field-span">
+                <span class="tam-field-label" id="g-status">Asset status <span class="tam-req">*</span>
+                  <span class="tam-label-aside">Draft keeps it private until you submit it for approval</span></span>
+                <div class="tam-seg" role="radiogroup" aria-labelledby="g-status">
+                  @for (st of assetStatusChoices; track st) {
+                    <button type="button" class="tam-seg-btn" role="radio" [attr.aria-checked]="gAssetStatus() === st"
+                            [class.is-selected]="gAssetStatus() === st" (click)="gAssetStatus.set(st)">
+                      <span class="tam-seg-dot" [attr.data-status]="st" aria-hidden="true"></span>{{ st }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <!-- ---------- 4. Active window ---------- -->
+              </div>
+              </section>
+            </div>
+
+    <!-- Sticky action bar: always in reach -->
+    <footer class="tam-create-foot">
+      <p class="tam-create-foot-note">
+        @if (gCampaign()) {
+          Creating for <strong>{{ campaignOf(gCampaign()).name }}</strong>
+        } @else {
+          <span class="tam-req">*</span> Required fields
+        }
+      </p>
+      <button type="button" class="tam-btn tam-btn-outline" (click)="cancelGenerate()">Cancel</button>
+      <button type="button" class="tam-btn tam-btn-primary" (click)="confirmGenerate()">
+        <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Create asset
+      </button>
+    </footer>
+  </div>
+  }
+
+  <!-- ============ ASSET DETAILS — off-canvas drawer ============
+       Hidden until a row is selected; a fixed sheet over the right of the viewport
+       with a dimming backdrop. Full width on small screens. -->
+  @if (detailAsset(); as a) {
+    <div class="tam-detail-backdrop" (click)="selectAsset('')" aria-hidden="true"></div>
+    <aside class="tam-detail" role="dialog" aria-modal="true" aria-labelledby="tam-detail-title">
+      <header class="tam-detail-head">
+        <p class="tam-detail-kicker">
+          <span class="tam-asset-glyph" [attr.data-kind]="assetIconKey(a.assetType, a.isQr)" aria-hidden="true">
+            @if (a.isQr) {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 14v.01M14 20v.01M20 20v.01M17 20v.01M20 17v.01"/></svg>
+            } @else {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
+            }
+          </span>
+          Tracking asset
+        </p>
+        <h2 id="tam-detail-title" class="tam-detail-title">{{ a.trackingReference }}</h2>
+        <p class="tam-detail-meta">
+          <span class="tam-badge" [class]="statusClass(a.assetStatus)">{{ a.assetStatus }}</span>
+          <span class="tam-detail-sep" aria-hidden="true"></span>
+          <span>{{ a.assetType }}</span>
+          <span class="tam-detail-sep" aria-hidden="true"></span>
+          <span>{{ a.channel }}</span>
+        </p>
+        <button type="button" class="tam-detail-close" (click)="selectAsset('')" aria-label="Close asset details">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </header>
+
+      <div class="tam-detail-body">
+        <!-- Generated URL or QR — read-only; copy / open preserve the exact stable value -->
+        <section class="tam-generated" aria-labelledby="tam-generated-heading">
+          <h3 id="tam-generated-heading" class="tam-section-title">Generated {{ a.isQr ? 'QR code' : 'link' }}</h3>
+          <div class="tam-generated-main">
+            @if (a.isQr) {
+              <span class="tam-qr" role="img" [attr.aria-label]="'QR code for ' + a.generatedUrl">
+                <svg [attr.viewBox]="qrViewBox()" shape-rendering="crispEdges" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+                  <rect width="100%" height="100%" fill="#ffffff"/>
+                  <path [attr.d]="qrPath()" fill="#1e2a24"/>
+                </svg>
+              </span>
+            }
+            <div class="tam-generated-text">
+              <code class="tam-generated-url">{{ a.generatedUrl || 'Issued on approval' }}</code>
+            </div>
+            <div class="tam-generated-actions">
                 <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="shareAsset(a)">
                   <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="m8.1 10.7 7.8-4.4M8.1 13.3l7.8 4.4"/></svg>
                   Share
                 </button>
-              </div>
-              @if (shareStatus()) {
-                <p class="tam-field-hint" role="status">{{ shareStatus() }}</p>
-              }
-            </div>
-
-            <!-- Available workflow actions on this asset -->
-            <div class="tam-detail-actions">
-              @if (canEverSubmit()) {
-                <button type="button" class="btn btn-primary btn-sm" (click)="requestSubmit(a)" [disabled]="!submitAllowed(a)" [title]="submitAllowed(a) ? '' : submitDisabledReason(a)"><span aria-hidden="true">✓</span> Submit</button>
-              }
-              @if (canEverApprove()) {
-                <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm" (click)="requestApprove(a)" [disabled]="!approveAllowed(a)" [title]="approveAllowed(a) ? '' : approveDisabledReason(a)">Approve</button>
-              }
-              @if (canEverActivate()) {
-                <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm" (click)="requestActivate(a)" [disabled]="!activateAllowed(a)" [title]="activateAllowed(a) ? '' : activateDisabledReason(a)">Activate</button>
-              }
-              @if (canEverEdit()) {
-                <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm" (click)="requestEdit(a)" [disabled]="!editAllowed(a)" [title]="editAllowed(a) ? '' : editDisabledReason(a)">Edit</button>
-              }
-              @if (canEverRequestDisable()) {
-                <button type="button" class="tam-btn tam-btn-danger tam-btn-sm" (click)="askForDisable(a)" [disabled]="!requestDisableAllowed(a)" [title]="requestDisableAllowed(a) ? '' : requestDisableDisabledReason(a)">Request disable</button>
-              }
-              @if (canEverDisable()) {
-                <button type="button" class="tam-btn tam-btn-danger tam-btn-sm" (click)="requestDisable(a)" [disabled]="!disableAllowed(a)" [title]="disableAllowed(a) ? '' : disableDisabledReason(a)">
-                  {{ a.assetStatus === 'Disable requested' ? 'Approve disable' : 'Disable' }}
+                <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="copyUrl(a.generatedUrl)" [disabled]="!a.generatedUrl">
+                  <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                  {{ copiedRef() === a.trackingReference ? 'Copied' : 'Copy' }}
                 </button>
-              }
-              @if (canDeleteDraft(a)) {
-                <button type="button" class="tam-btn tam-btn-danger tam-btn-sm" (click)="requestDeleteDraft(a)">Delete draft</button>
-              }
+                <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="openUrl(a.generatedUrl)" [disabled]="!a.generatedUrl">
+                  <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg>
+                  Open
+                </button>
+                @if (a.isQr) {
+                  <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="downloadQr(a)">
+                    <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+                    Download QR
+                  </button>
+                }
             </div>
-            <!-- Disabled options explain the missing permission, state or dependency rather than a
-                 plain grey-out. -->
-            @if (!approveAllowed(a) && approveDisabledReason(a)) {
-              <p class="tam-field-hint">{{ approveDisabledReason(a) }}</p>
+            @if (shareStatus()) {
+              <p class="tam-field-hint tam-generated-status" role="status">{{ shareStatus() }}</p>
             }
           </div>
-      </aside>
-    }
-  </div>
+        </section>
 
-  <!-- ============ GENERATE DIALOG ============ -->
-  @if (generateDialogOpen()) {
-    <div class="tam-modal-backdrop">
-      <div class="tam-modal tam-modal-wide" role="dialog" aria-modal="true" aria-labelledby="tam-generate-title" (click)="$event.stopPropagation()">
-        <h2 id="tam-generate-title" class="tam-modal-title">Create asset manager</h2>
-        <p class="tam-modal-lead">Create a link or QR destination inside your effective scope. The tracking reference and
-          generated URL or QR are derived by the server after generation.</p>
-
-        <!-- Error summary linking to the exact fields -->
-        @if (errorSummary().length > 0) {
-          <div class="tam-error-summary" role="alert" aria-label="There is a problem">
-            <strong>There is a problem</strong>
-            <ul>
-              @for (e of errorSummary(); track e.key) {
-                <li><a href="javascript:void(0)">{{ e.label }}</a></li>
-              }
-            </ul>
+        <!-- Performance at a glance -->
+        <section class="tam-detail-stats" aria-label="Performance">
+          <div class="tam-detail-stat">
+            <span class="tam-detail-stat-label">Usage</span>
+            <span class="tam-detail-stat-value">{{ formatUsage(a.usageCount) }}</span>
+            <span class="tam-detail-stat-sub">scans &amp; clicks</span>
           </div>
-        }
-
-        <div class="tam-form-grid">
-          <!-- Campaign (required) — captured FIRST: selecting it auto-fills channel, source and
-               active from/to from what was chosen for that campaign in the Campaign Wizard -->
-          <div class="tam-field tam-field-span" [class.tam-field-invalid]="missing('campaign')">
-            <label class="tam-field-label" for="g-campaign">Campaign <span class="tam-req">*</span></label>
-            <div class="tam-combo" [class.is-open]="openMenu() === 'g-campaign'" appClickOutside (appClickOutside)="onClickOutside('g-campaign')">
-              <button id="g-campaign" type="button" class="tam-combo-btn" (click)="toggleMenu('g-campaign')"
-                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-campaign'">
-                <span class="tam-combo-value" [class.tam-combo-ph]="!gCampaign()">{{ gCampaign() ? (campaignOf(gCampaign()).name + ' · ' + gCampaign()) : 'Select an eligible campaign in scope…' }}</span>
-                <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              @if (openMenu() === 'g-campaign') {
-                <ul class="tam-combo-list" role="listbox">
-                  @for (c of campaignOptions(); track c.reference) {
-                    <li role="option" [attr.aria-selected]="gCampaign() === c.reference">
-                      <button type="button" class="tam-combo-option" [class.is-selected]="gCampaign() === c.reference" (click)="onCampaignSelect(c.reference); closeMenu()">
-                        <span class="tam-combo-opt-label">{{ c.name }}</span>
-                        <span class="tam-combo-opt-context">{{ c.reference }} · {{ c.context }}</span>
-                      </button>
-                    </li>
-                  } @empty {
-                    <li class="tam-combo-empty">No eligible campaign in scope.</li>
-                  }
-                </ul>
-              }
-            </div>
-            @if (gCampaign()) { <p class="tam-field-hint">Selected: {{ campaignOf(gCampaign()).name }} · {{ campaignOf(gCampaign()).context }} — channel, source and active dates below were fetched from this campaign.</p> }
-            @if (missing('campaign')) { <p class="tam-field-hint tam-field-error">Enter Campaign.</p> }
+          <div class="tam-detail-stat">
+            <span class="tam-detail-stat-label">Received</span>
+            <span class="tam-detail-stat-value">{{ formatMoney(a.amountReceived) }}</span>
+            <span class="tam-detail-stat-sub">attributed total</span>
           </div>
-
-          <!-- Asset type (required) — searchable controlled choice -->
-          <div class="tam-field" [class.tam-field-invalid]="missing('assetType')">
-            <label class="tam-field-label" for="g-assetType">Asset type <span class="tam-req">*</span></label>
-            <div class="tam-combo" [class.is-open]="openMenu() === 'g-assetType'" appClickOutside (appClickOutside)="onClickOutside('g-assetType')">
-              <button id="g-assetType" type="button" class="tam-combo-btn" (click)="toggleMenu('g-assetType')"
-                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-assetType'">
-                <span class="tam-combo-value" [class.tam-combo-ph]="!gAssetType()">{{ gAssetType() || 'Select an asset type…' }}</span>
-                <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              @if (openMenu() === 'g-assetType') {
-                <ul class="tam-combo-list" role="listbox">
-                  @for (t of assetTypeCatalogue; track t) {
-                    <li role="option" [attr.aria-selected]="gAssetType() === t"><button type="button" class="tam-combo-option" [class.is-selected]="gAssetType() === t" (click)="gAssetType.set(t); closeMenu()">{{ t }}</button></li>
-                  }
-                </ul>
-              }
-            </div>
-            @if (missing('assetType')) { <p class="tam-field-hint tam-field-error">Enter Asset type.</p> }
+          <div class="tam-detail-stat">
+            <span class="tam-detail-stat-label">Live window</span>
+            <span class="tam-detail-stat-value tam-detail-stat-value--text">{{ formatDate(a.activeFrom) }}</span>
+            <span class="tam-detail-stat-sub">to {{ formatDate(a.activeTo) }}</span>
           </div>
+        </section>
 
-          <!-- Channel (required) — searchable controlled choice; auto-filled from the campaign -->
-          <div class="tam-field" [class.tam-field-invalid]="missing('channel')">
-            <label class="tam-field-label" for="g-channel">Channel <span class="tam-req">*</span></label>
-            <div class="tam-combo" [class.is-open]="openMenu() === 'g-channel'" appClickOutside (appClickOutside)="onClickOutside('g-channel')">
-              <button id="g-channel" type="button" class="tam-combo-btn" (click)="toggleMenu('g-channel')"
-                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-channel'">
-                <span class="tam-combo-value" [class.tam-combo-ph]="!gChannel()">{{ gChannel() ? channelLabel(gChannel()) : 'Select a channel…' }}</span>
-                <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              @if (openMenu() === 'g-channel') {
-                <ul class="tam-combo-list" role="listbox">
-                  <li role="option" [attr.aria-selected]="!gChannel()"><button type="button" class="tam-combo-option" [class.is-selected]="!gChannel()" (click)="gChannel.set(''); closeMenu()">Select a channel…</button></li>
-                  @for (c of channelChoices(); track c.ref) {
-                    <li role="option" [attr.aria-selected]="gChannel() === c.ref"><button type="button" class="tam-combo-option" [class.is-selected]="gChannel() === c.ref" (click)="gChannel.set(c.ref); closeMenu()">{{ c.label }}</button></li>
-                  }
-                </ul>
-              }
-            </div>
-            @if (missing('channel')) { <p class="tam-field-hint tam-field-error">Enter Channel.</p> }
-          </div>
-
-          <!-- ON ONE LINE, WHICH IS WHY IT IS OUT HERE. This sentence used to sit inside the
-               Channel field above, and Channel is one of two columns in a `1fr 1fr` grid - so a
-               nineteen-word sentence wrapped across three lines in a half-width box and pushed
-               the field beside it out of alignment. Spanning the grid gives it the width it needs
-               to read as the single line it is. -->
-          @if (!missing('channel') && isOnGround()) {
-            <p class="tam-field-hint tam-field-span tam-hint-onground">On-ground event — add one or more places below; each gets its own separate QR/link.</p>
-          }
-
-          @if (!isOnGround()) {
-            <!-- Destination (required) — the landing URL this QR / short link / UTM link sends
-                 people to; the tracking asset has nothing to resolve to without it. -->
-            <div class="tam-field tam-field-span" [class.tam-field-invalid]="missing('destination')">
-              <label class="tam-field-label" for="g-destination">Destination <span class="tam-req">*</span></label>
-              <input id="g-destination" type="text" class="tam-input" [ngModel]="gDestination()"
-                     (ngModelChange)="gDestination.set($event)" placeholder="e.g. https://ydot.org/educate-a-child/donate" />
-              @if (missing('destination')) { <p class="tam-field-hint tam-field-error">Enter Destination.</p> }
-              @else { <p class="tam-field-hint">The web page this link or QR code opens when scanned or clicked.</p> }
-            </div>
-          } @else {
-            <!-- On-ground event: one customisable place per row, each with its own destination
-                 lets the team see which physical place is driving the most contributions. -->
-            <div class="tam-field tam-field-span" [class.tam-field-invalid]="missing('places')">
-              <label class="tam-field-label">Places <span class="tam-req">*</span></label>
-              <div class="tam-places">
-                @for (p of gPlaces(); track p.id; let i = $index) {
-                  <div class="tam-place-card">
-                    <div class="tam-place-row">
-                      <!-- Place name — editable -->
-                      <label class="tam-place-cell">
-                        <span class="tam-place-cell-label">Place name</span>
-                        <input type="text" class="tam-input" placeholder="Place name (e.g. Main entrance stall)"
-                               [ngModel]="p.label" (ngModelChange)="updatePlaceLabel(p.id, $event)" />
-                      </label>
-                      <!-- City — read-only, read live from the selected campaign (not typed by hand) -->
-                      <label class="tam-place-cell">
-                        <span class="tam-place-cell-label">City</span>
-                        <input type="text" class="tam-input tam-input-auto" readonly
-                               placeholder="From campaign" [ngModel]="placeLocation().city" [ngModelOptions]="{ standalone: true }" />
-                      </label>
-                      <!-- State — read-only, read live from the selected campaign (not typed by hand) -->
-                      <label class="tam-place-cell">
-                        <span class="tam-place-cell-label">State</span>
-                        <input type="text" class="tam-input tam-input-auto" readonly
-                               placeholder="From campaign" [ngModel]="placeLocation().state" [ngModelOptions]="{ standalone: true }" />
-                      </label>
-                      <button type="button" class="tam-btn tam-btn-outline tam-btn-sm tam-place-remove" (click)="removePlace(p.id)" [disabled]="gPlaces().length <= 1">Remove</button>
-                    </div>
-                    <!-- Destination — editable -->
-                    <label class="tam-place-cell tam-place-dest">
-                      <span class="tam-place-cell-label">Destination</span>
-                      <input type="text" class="tam-input" placeholder="Destination for this place"
-                             [ngModel]="p.destination" (ngModelChange)="updatePlaceDestination(p.id, $event)" />
-                    </label>
-
-                    <!-- Customisable add fields — attach any further named detail to this place -->
-                    <div class="tam-place-custom">
-                      @for (f of p.customFields; track f.id) {
-                        <div class="tam-place-custom-row">
-                          <input type="text" class="tam-input" placeholder="Field name (e.g. Stall number)"
-                                 [ngModel]="f.key" (ngModelChange)="updatePlaceCustomFieldKey(p.id, f.id, $event)" />
-                          <input type="text" class="tam-input" placeholder="Value"
-                                 [ngModel]="f.value" (ngModelChange)="updatePlaceCustomFieldValue(p.id, f.id, $event)" />
-                          <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm" (click)="removePlaceCustomField(p.id, f.id)" aria-label="Remove custom field">✕</button>
-                        </div>
-                      }
-                      <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm" (click)="addPlaceCustomField(p.id)">+ Add custom field</button>
-                    </div>
-
-                    <!-- Generated QR / link for this exact place — shown right beside its entry -->
-                    @if (previewReady() && p.destination.trim()) {
-                      <div class="tam-place-preview-inline">
-                        @if (gAssetType() === 'QR Code') {
-                          <span class="tam-qr tam-qr-sm" role="img" [attr.aria-label]="'QR code preview for ' + p.label">
-                            <svg [attr.viewBox]="previewQrViewBox(placePreviewUrl(i))" shape-rendering="crispEdges" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
-                              <rect width="100%" height="100%" fill="#ffffff"/>
-                              <path [attr.d]="previewQrPath(placePreviewUrl(i))" fill="#1e2a24"/>
-                            </svg>
-                          </span>
-                        }
-                        <span class="tam-preview-body">
-                          <span class="tam-preview-ref">@if (p.label.trim()) { {{ p.label.trim() }} } @else { This place }</span>
-                          <code class="tam-preview-url">{{ placePreviewUrl(i) }}</code>
-                          <span class="tam-preview-note">Encodes the destination. The printed code carries a tracking link issued on approval.</span>
-                        </span>
-                      </div>
-                    }
-                  </div>
-                }
+        <!-- Record details — compact, grouped: context strip, destination, then two tidy rows -->
+        <section aria-labelledby="tam-details-heading">
+          <h3 id="tam-details-heading" class="tam-section-title">Details</h3>
+          <div class="tam-dx">
+            <div class="tam-dx-hero">
+              <div class="tam-dx-cell">
+                <span class="tam-dx-label">Campaign</span>
+                <span class="tam-dx-value tam-dx-campaign">{{ campaignOf(a.campaignRef).name }} <span class="tam-kv-dim">{{ a.campaignRef }}</span></span>
               </div>
-              <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm" (click)="addPlace()">+ Add another place</button>
-              @if (missing('places')) { <p class="tam-field-hint tam-field-error">Enter at least one place name and destination.</p> }
+              <div class="tam-dx-cell tam-dx-cell--end">
+                <span class="tam-dx-label">Approval</span>
+                <span class="tam-badge" [class]="approvalClass(a.approvalState)">{{ a.approvalState }}</span>
+              </div>
             </div>
-          }
-
-          <!-- Source (required) — CHOSEN FROM THE CATALOGUE, NOT TYPED.
-               This was a free-text box whose contents went straight into the create call as
-               `sourceId`, which the API declares as a Guid. Anything a person typed was refused
-               by model binding before a handler saw it, so no tracking asset could be created
-               from this form at all. -->
-          <div class="tam-field" [class.tam-field-invalid]="missing('source')">
-            <label class="tam-field-label" for="g-source">Source <span class="tam-req">*</span></label>
-            <div class="tam-combo" [class.is-open]="openMenu() === 'g-source'" appClickOutside (appClickOutside)="onClickOutside('g-source')">
-              <button id="g-source" type="button" class="tam-combo-btn" (click)="toggleMenu('g-source')"
-                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-source'">
-                <span class="tam-combo-value" [class.tam-combo-ph]="!gSource()">{{ gSource() ? sourceLabel(gSource()) : 'Select a source…' }}</span>
-                <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              @if (openMenu() === 'g-source') {
-                <ul class="tam-combo-list" role="listbox">
-                  <li role="option" [attr.aria-selected]="!gSource()"><button type="button" class="tam-combo-option" [class.is-selected]="!gSource()" (click)="gSource.set(''); closeMenu()">Select a source…</button></li>
-                  @for (o of sourceChoices(); track o.ref) {
-                    <li role="option" [attr.aria-selected]="gSource() === o.ref"><button type="button" class="tam-combo-option" [class.is-selected]="gSource() === o.ref" (click)="gSource.set(o.ref); closeMenu()">{{ o.label }}</button></li>
-                  }
-                </ul>
-              }
-            </div>
-            @if (missing('source')) { <p class="tam-field-hint tam-field-error">Choose a source.</p> }
-          </div>
-
-          <!-- Medium (required) — chosen from the catalogue, for the same reason as Source. -->
-          <div class="tam-field" [class.tam-field-invalid]="missing('medium')">
-            <label class="tam-field-label" for="g-medium">Medium <span class="tam-req">*</span></label>
-            <div class="tam-combo" [class.is-open]="openMenu() === 'g-medium'" appClickOutside (appClickOutside)="onClickOutside('g-medium')">
-              <button id="g-medium" type="button" class="tam-combo-btn" (click)="toggleMenu('g-medium')"
-                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-medium'">
-                <span class="tam-combo-value" [class.tam-combo-ph]="!gMedium()">{{ gMedium() ? mediumLabel(gMedium()) : 'Select a medium…' }}</span>
-                <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              @if (openMenu() === 'g-medium') {
-                <ul class="tam-combo-list" role="listbox">
-                  <li role="option" [attr.aria-selected]="!gMedium()"><button type="button" class="tam-combo-option" [class.is-selected]="!gMedium()" (click)="gMedium.set(''); closeMenu()">Select a medium…</button></li>
-                  @for (o of mediumChoices(); track o.ref) {
-                    <li role="option" [attr.aria-selected]="gMedium() === o.ref"><button type="button" class="tam-combo-option" [class.is-selected]="gMedium() === o.ref" (click)="gMedium.set(o.ref); closeMenu()">{{ o.label }}</button></li>
-                  }
-                </ul>
-              }
-            </div>
-            @if (missing('medium')) { <p class="tam-field-hint tam-field-error">Choose a medium.</p> }
-          </div>
-
-          <!-- Content tag (optional) — text input, left column -->
-          <div class="tam-field">
-            <label class="tam-field-label" for="g-contentTag">Content tag</label>
-            <input id="g-contentTag" type="text" class="tam-input" [ngModel]="gContentTag()" (ngModelChange)="gContentTag.set($event)"
-                   [attr.maxlength]="gContentTagMax" placeholder="e.g. may-issue" />
-            <p class="tam-field-hint">{{ gContentTag().length }} / {{ gContentTagMax }} characters</p>
-          </div>
-
-          <!-- Asset status (required) — catalogue value, right column beside Content tag -->
-          <div class="tam-field">
-            <label class="tam-field-label" for="g-status">Asset status <span class="tam-req">*</span></label>
-            <div class="tam-combo" [class.is-open]="openMenu() === 'g-status'" appClickOutside (appClickOutside)="onClickOutside('g-status')">
-              <button id="g-status" type="button" class="tam-combo-btn" (click)="toggleMenu('g-status')"
-                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-status'">
-                <span class="tam-combo-value">{{ gAssetStatus() }}</span>
-                <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              @if (openMenu() === 'g-status') {
-                <ul class="tam-combo-list" role="listbox">
-                  <li role="option" [attr.aria-selected]="gAssetStatus() === 'Draft'"><button type="button" class="tam-combo-option" [class.is-selected]="gAssetStatus() === 'Draft'" (click)="gAssetStatus.set('Draft'); closeMenu()">Draft</button></li>
-                  <li role="option" [attr.aria-selected]="gAssetStatus() === 'Submitted'"><button type="button" class="tam-combo-option" [class.is-selected]="gAssetStatus() === 'Submitted'" (click)="gAssetStatus.set('Submitted'); closeMenu()">Submitted</button></li>
-                  <li role="option" [attr.aria-selected]="gAssetStatus() === 'Approved'"><button type="button" class="tam-combo-option" [class.is-selected]="gAssetStatus() === 'Approved'" (click)="gAssetStatus.set('Approved'); closeMenu()">Approved</button></li>
-                  <li role="option" [attr.aria-selected]="gAssetStatus() === 'Active'"><button type="button" class="tam-combo-option" [class.is-selected]="gAssetStatus() === 'Active'" (click)="gAssetStatus.set('Active'); closeMenu()">Active</button></li>
-                  <li role="option" [attr.aria-selected]="gAssetStatus() === 'Inactive'"><button type="button" class="tam-combo-option" [class.is-selected]="gAssetStatus() === 'Inactive'" (click)="gAssetStatus.set('Inactive'); closeMenu()">Inactive</button></li>
-                </ul>
-              }
-            </div>
-          </div>
-
-          <!-- Active from (required) — date with time-zone label -->
-          <div class="tam-field" [class.tam-field-invalid]="missing('activeFrom')">
-            <label class="tam-field-label" for="g-activeFrom">Active from <span class="tam-req">*</span> <span class="tam-tz">{{ operatingTimeZone }}</span></label>
-            <input id="g-activeFrom" type="date" class="tam-input" [ngModel]="gActiveFrom()" (ngModelChange)="gActiveFrom.set($event)" />
-            @if (missing('activeFrom')) { <p class="tam-field-hint tam-field-error">Enter Active from.</p> }
-          </div>
-
-          <!-- Active to (required) — date with time-zone label -->
-          <div class="tam-field" [class.tam-field-invalid]="missing('activeTo') || gRangeInvalid()">
-            <label class="tam-field-label" for="g-activeTo">Active to <span class="tam-req">*</span> <span class="tam-tz">{{ operatingTimeZone }}</span></label>
-            <input id="g-activeTo" type="date" class="tam-input" [ngModel]="gActiveTo()" (ngModelChange)="gActiveTo.set($event)" />
-            @if (gRangeInvalid()) { <p class="tam-field-hint tam-field-error">Review Active to. The value does not meet the stated format or range.</p> }
-            @else if (missing('activeTo')) { <p class="tam-field-hint tam-field-error">Enter Active to.</p> }
-          </div>
-          @if (gActiveFrom() || gActiveTo()) {
-            <p class="tam-field-hint tam-field-span" role="status">Interpreted as {{ gInterpretedRange() }}</p>
-          }
-        </div>
-
-        <!-- Live preview — the QR / link appears here as soon as there's enough information,
-             before the asset is actually generated. On-ground places preview
-             inline beside each place instead, since each place gets its own separate result. -->
-        @if (previewReady() && !isOnGround()) {
-          <div class="tam-preview" role="status" aria-label="Asset preview">
-            <span class="tam-preview-heading">Preview</span>
-            <div class="tam-preview-row">
-              @if (gAssetType() === 'QR Code') {
-                <span class="tam-qr tam-qr-sm" role="img" aria-label="QR code preview">
-                  <svg [attr.viewBox]="previewQrViewBox(previewUrl())" shape-rendering="crispEdges" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
-                    <rect width="100%" height="100%" fill="#ffffff"/>
-                    <path [attr.d]="previewQrPath(previewUrl())" fill="#1e2a24"/>
-                  </svg>
-                </span>
-              }
-              <!-- THE DESTINATION, NOT AN INVENTED REFERENCE. The tracking reference and the
-                   short URL are allocated by the server on approval, so there is nothing real to
-                   preview until then; this line used to show a client-side placeholder
-                   ('QR-PENDING-271381') beside an empty URL and an empty QR square. -->
-              <span class="tam-preview-body">
-                <code class="tam-preview-url">{{ previewUrl() }}</code>
-                <span class="tam-preview-note">Encodes the destination. The tracking reference and short link are issued when this asset is approved.</span>
+            <div class="tam-dx-dest">
+              <span class="tam-dx-label">Destination</span>
+              <span class="tam-dx-dest-value" [title]="a.destination">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
+                <span>{{ a.destination }}</span>
               </span>
             </div>
+            <dl class="tam-dx-grid">
+              <div class="tam-dx-cell"><dt class="tam-dx-label">Source</dt><dd class="tam-dx-value">{{ a.source || '—' }}</dd></div>
+              <div class="tam-dx-cell"><dt class="tam-dx-label">Medium</dt><dd class="tam-dx-value">{{ a.medium || '—' }}</dd></div>
+              <div class="tam-dx-cell"><dt class="tam-dx-label">Content tag</dt><dd class="tam-dx-value">{{ a.contentTag || '—' }}</dd></div>
+            </dl>
+          </div>
+        </section>
+
+        @if (a.place || a.placeCity || a.placeState || (a.placeCustomFields ?? []).length) {
+          <section aria-labelledby="tam-place-heading">
+            <h3 id="tam-place-heading" class="tam-section-title">Place</h3>
+            <dl class="tam-kv tam-kv-grid">
+              @if (a.place) { <div class="tam-kv-wide"><dt>Place</dt><dd>{{ a.place }}</dd></div> }
+              @if (a.placeCity) { <div><dt>City</dt><dd>{{ a.placeCity }}</dd></div> }
+              @if (a.placeState) { <div><dt>State</dt><dd>{{ a.placeState }}</dd></div> }
+              @for (f of a.placeCustomFields ?? []; track f.key) { <div><dt>{{ f.key }}</dt><dd>{{ f.value }}</dd></div> }
+            </dl>
+          </section>
+        }
+      </div>
+
+      <!-- Workflow actions on this asset -->
+      <footer class="tam-detail-foot">
+        @if (!approveAllowed(a) && approveDisabledReason(a) && canEverApprove()) {
+          <p class="tam-field-hint tam-detail-why">{{ approveDisabledReason(a) }}</p>
+        }
+        <div class="tam-detail-actions">
+          @if (canEverEdit()) {
+            <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="requestEdit(a)" [disabled]="!editAllowed(a)" [title]="editAllowed(a) ? '' : editDisabledReason(a)">Edit</button>
+          }
+          @if (canEverActivate()) {
+            <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="requestActivate(a)" [disabled]="!activateAllowed(a)" [title]="activateAllowed(a) ? '' : activateDisabledReason(a)">Activate</button>
+          }
+          @if (canEverApprove()) {
+            <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="requestApprove(a)" [disabled]="!approveAllowed(a)" [title]="approveAllowed(a) ? '' : approveDisabledReason(a)">Approve</button>
+          }
+          @if (canEverSubmit()) {
+            <button type="button" class="tam-btn tam-btn-primary tam-btn-sm" (click)="requestSubmit(a)" [disabled]="!submitAllowed(a)" [title]="submitAllowed(a) ? '' : submitDisabledReason(a)">Submit for approval</button>
+          }
+        </div>
+        <!-- Take-down verbs sit apart from the workflow, as quiet red links. -->
+        @if (canDeleteDraft(a) || canEverRequestDisable() || canEverDisable()) {
+          <div class="tam-detail-danger">
+            <span class="tam-detail-danger-label">Take down</span>
+            @if (canEverRequestDisable()) {
+              <button type="button" class="tam-danger-link" (click)="askForDisable(a)" [disabled]="!requestDisableAllowed(a)" [title]="requestDisableAllowed(a) ? '' : requestDisableDisabledReason(a)">Request disable</button>
+            }
+            @if (canEverDisable()) {
+              <button type="button" class="tam-danger-link" (click)="requestDisable(a)" [disabled]="!disableAllowed(a)" [title]="disableAllowed(a) ? '' : disableDisabledReason(a)">
+                {{ a.assetStatus === 'Disable requested' ? 'Approve disable' : 'Disable' }}
+              </button>
+            }
+            @if (canDeleteDraft(a)) {
+              <button type="button" class="tam-danger-link" (click)="requestDeleteDraft(a)">Delete draft</button>
+            }
           </div>
         }
-
-        <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelGenerate()"><span aria-hidden="true">✕</span> Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="confirmGenerate()"><span aria-hidden="true">＋</span> Create</button>
-        </div>
-      </div>
-    </div>
+      </footer>
+    </aside>
   }
 
   <!-- ============ SUBMIT DIALOG ============ -->
   @if (submitDialogOpen() && submitTarget()) {
     <div class="tam-modal-backdrop">
       <div class="tam-modal" role="dialog" aria-modal="true" aria-labelledby="tam-submit-title" (click)="$event.stopPropagation()">
-        <h2 id="tam-submit-title" class="tam-modal-title">Submit tracking asset</h2>
-        <p class="tam-modal-lead">Submit this draft for approval. It moves from Draft to Submitted and is opened for
-          independent review; the stable tracking reference and history are preserved.</p>
+        <header class="ov-head">
+          <p class="tam-modal-kicker">Submit · {{ submitTarget()!.trackingReference }}</p>
+          <h2 id="tam-submit-title" class="tam-modal-title">Submit for approval</h2>
+          <p class="tam-modal-lead">The draft moves to Submitted and opens for independent review. The stable tracking
+            reference and history are preserved.</p>
+          <button type="button" class="tam-modal-x" (click)="cancelSubmit()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <div class="ov-body">
         <dl class="tam-kv">
           <div><dt>Tracking reference</dt><dd>{{ submitTarget()!.trackingReference }}</dd></div>
           <div><dt>Destination</dt><dd class="tam-break">{{ submitTarget()!.destination }}</dd></div>
-          <div><dt>Before → after</dt><dd>{{ submitTarget()!.assetStatus }} → Submitted</dd></div>
+          <div><dt>Status change</dt><dd>{{ submitTarget()!.assetStatus }} → Submitted</dd></div>
         </dl>
+        </div>
         <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelSubmit()"><span aria-hidden="true">✕</span> Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="confirmSubmit()"><span aria-hidden="true">✓</span> Submit for approval</button>
+          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelSubmit()">Cancel</button>
+          <button type="button" class="tam-btn tam-btn-primary" (click)="confirmSubmit()">Submit for approval</button>
         </div>
       </div>
     </div>
@@ -1020,29 +1207,38 @@
   @if (approveDialogOpen() && approveTarget()) {
     <div class="tam-modal-backdrop">
       <div class="tam-modal" role="dialog" aria-modal="true" aria-labelledby="tam-approve-title" (click)="$event.stopPropagation()">
-        <h2 id="tam-approve-title" class="tam-modal-title">Confirm Approve</h2>
-        <p class="tam-modal-lead">Review the affected record, consequence, reason and effective time. This decision records
-          independent authority and moves the asset forward.</p>
+        <header class="ov-head">
+          <p class="tam-modal-kicker">Approval · {{ approveTarget()!.trackingReference }}</p>
+          <h2 id="tam-approve-title" class="tam-modal-title">Approve tracking asset</h2>
+          <p class="tam-modal-lead">This decision records independent authority and moves the asset forward. Review the
+            record, consequence and effective time.</p>
+          <button type="button" class="tam-modal-x" (click)="cancelApprove()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <div class="ov-body">
         <dl class="tam-kv">
           <div><dt>Tracking reference</dt><dd>{{ approveTarget()!.trackingReference }}</dd></div>
-          <div><dt>Before → after</dt><dd>{{ approveTarget()!.approvalState }} → Approved</dd></div>
-          <div><dt>Independent authority</dt><dd>Authorised independent approver</dd></div>
+          <div><dt>Approval change</dt><dd>{{ approveTarget()!.approvalState }} → Approved</dd></div>
+          <div><dt>Authority</dt><dd>Authorised independent approver</dd></div>
           <div><dt>Effective version</dt><dd>v-current · {{ lastRefresh() }}</dd></div>
-          <div><dt>Resulting state</dt><dd>Approved · next accountable owner: {{ owner }}</dd></div>
+          <div><dt>Resulting state</dt><dd>Approved · next owner {{ owner }}</dd></div>
         </dl>
         <div class="tam-field">
-          <label class="tam-field-label" for="tam-approve-reason">Reason <span class="tam-conf-tag">Required</span></label>
+          <label class="tam-field-label" for="tam-approve-reason">Reason <span class="tam-req">*</span></label>
           <textarea id="tam-approve-reason" class="tam-input tam-textarea" rows="3"
                     [ngModel]="approveReason()" (ngModelChange)="approveReason.set($event)"
                     [attr.maxlength]="approveReasonMax"
                     placeholder="Record the reason for approving this tracking asset…"></textarea>
-          <p class="tam-field-hint" [class.tam-field-error]="approveReasonCount() > 0 && !approveReasonValid()" role="status">
-            {{ approveReasonCount() }} / {{ approveReasonMax }} characters (minimum {{ approveReasonMin }})
+          <p class="tam-field-hint tam-field-count" [class.tam-field-error]="approveReasonCount() > 0 && !approveReasonValid()" role="status">
+            <span>Minimum {{ approveReasonMin }} characters</span>
+            <span>{{ approveReasonCount() }} / {{ approveReasonMax }}</span>
           </p>
         </div>
+        </div>
         <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelApprove()"><span aria-hidden="true">✕</span> Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="confirmApprove()" [disabled]="!approveReasonValid()"><span aria-hidden="true">✓</span> Confirm approve</button>
+          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelApprove()">Cancel</button>
+          <button type="button" class="tam-btn tam-btn-primary" (click)="confirmApprove()" [disabled]="!approveReasonValid()">Confirm approval</button>
         </div>
       </div>
     </div>
@@ -1052,19 +1248,27 @@
   @if (activateDialogOpen() && activateTarget()) {
     <div class="tam-modal-backdrop">
       <div class="tam-modal" role="dialog" aria-modal="true" aria-labelledby="tam-activate-title" (click)="$event.stopPropagation()">
-        <h2 id="tam-activate-title" class="tam-modal-title">Activate tracking asset</h2>
-        <p class="tam-modal-lead">Bring this approved asset live. From Active it resolves scans and clicks inside its own
-          date window; the tracking reference, generated URL and history are unchanged.</p>
+        <header class="ov-head">
+          <p class="tam-modal-kicker">Go live · {{ activateTarget()!.trackingReference }}</p>
+          <h2 id="tam-activate-title" class="tam-modal-title">Activate tracking asset</h2>
+          <p class="tam-modal-lead">Once Active it resolves scans and clicks inside its own date window. The tracking
+            reference, generated URL and history are unchanged.</p>
+          <button type="button" class="tam-modal-x" (click)="cancelActivate()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <div class="ov-body">
         <dl class="tam-kv">
           <div><dt>Tracking reference</dt><dd>{{ activateTarget()!.trackingReference }}</dd></div>
           <div><dt>Destination</dt><dd class="tam-break">{{ activateTarget()!.destination }}</dd></div>
-          <div><dt>Before &rarr; after</dt><dd>{{ activateTarget()!.assetStatus }} &rarr; Active</dd></div>
+          <div><dt>Status change</dt><dd>{{ activateTarget()!.assetStatus }} &rarr; Active</dd></div>
           <div><dt>Live window</dt><dd>{{ formatDate(activateTarget()!.activeFrom) }} &ndash; {{ formatDate(activateTarget()!.activeTo) }}</dd></div>
           <div><dt>Effective time</dt><dd>{{ lastRefresh() }}</dd></div>
         </dl>
+        </div>
         <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelActivate()"><span aria-hidden="true">✕</span> Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="confirmActivate()"><span aria-hidden="true">✓</span> Confirm activate</button>
+          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelActivate()">Cancel</button>
+          <button type="button" class="tam-btn tam-btn-primary" (click)="confirmActivate()">Activate asset</button>
         </div>
       </div>
     </div>
@@ -1073,30 +1277,39 @@
   <!-- ============ REQUEST DISABLE DIALOG ============ -->
   @if (requestDisableDialogOpen() && requestDisableTarget()) {
     <div class="tam-modal-backdrop">
-      <div class="tam-modal" role="dialog" aria-modal="true" aria-labelledby="tam-request-disable-title" (click)="$event.stopPropagation()">
-        <h2 id="tam-request-disable-title" class="tam-modal-title">Request disable</h2>
-        <p class="tam-modal-lead">Ask an approver to take this asset down. It stays live and goes on resolving scans
-          until the request is decided; the tracking reference and history are preserved either way.</p>
+      <div class="tam-modal tam-modal--danger" role="dialog" aria-modal="true" aria-labelledby="tam-request-disable-title" (click)="$event.stopPropagation()">
+        <header class="ov-head ov-head--danger">
+          <p class="tam-modal-kicker">Take down · {{ requestDisableTarget()!.trackingReference }}</p>
+          <h2 id="tam-request-disable-title" class="tam-modal-title">Request disable</h2>
+          <p class="tam-modal-lead">Ask an approver to take this asset down. It stays live until the request is decided;
+            the tracking reference and history are preserved either way.</p>
+          <button type="button" class="tam-modal-x" (click)="cancelRequestDisable()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <div class="ov-body">
         <dl class="tam-kv">
           <div><dt>Tracking reference</dt><dd>{{ requestDisableTarget()!.trackingReference }}</dd></div>
           <div><dt>Destination</dt><dd class="tam-break">{{ requestDisableTarget()!.destination }}</dd></div>
-          <div><dt>Before &rarr; after</dt><dd>{{ requestDisableTarget()!.assetStatus }} &rarr; Disable requested</dd></div>
+          <div><dt>Status change</dt><dd>{{ requestDisableTarget()!.assetStatus }} &rarr; Disable requested</dd></div>
           <div><dt>Consequence</dt><dd>None yet &mdash; an approver decides whether the asset comes down</dd></div>
           <div><dt>Effective time</dt><dd>{{ lastRefresh() }}</dd></div>
         </dl>
         <div class="tam-field">
-          <label class="tam-field-label" for="tam-request-disable-reason">Reason <span class="tam-conf-tag">Required</span></label>
+          <label class="tam-field-label" for="tam-request-disable-reason">Reason <span class="tam-req">*</span></label>
           <textarea id="tam-request-disable-reason" class="tam-input tam-textarea" rows="3"
                     [ngModel]="requestDisableReason()" (ngModelChange)="requestDisableReason.set($event)"
                     [attr.maxlength]="requestDisableReasonMax"
                     placeholder="Why should this asset be taken down?"></textarea>
-          <p class="tam-field-hint" [class.tam-field-error]="requestDisableReasonCount() > 0 && !requestDisableReasonValid()" role="status">
-            {{ requestDisableReasonCount() }} / {{ requestDisableReasonMax }} characters (minimum {{ requestDisableReasonMin }})
+          <p class="tam-field-hint tam-field-count" [class.tam-field-error]="requestDisableReasonCount() > 0 && !requestDisableReasonValid()" role="status">
+            <span>Minimum {{ requestDisableReasonMin }} characters</span>
+            <span>{{ requestDisableReasonCount() }} / {{ requestDisableReasonMax }}</span>
           </p>
         </div>
+        </div>
         <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelRequestDisable()"><span aria-hidden="true">✕</span> Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="confirmRequestDisable()" [disabled]="!requestDisableReasonValid()"><span aria-hidden="true">✓</span> Send request</button>
+          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelRequestDisable()">Cancel</button>
+          <button type="button" class="tam-btn tam-btn-primary" (click)="confirmRequestDisable()" [disabled]="!requestDisableReasonValid()">Send request</button>
         </div>
       </div>
     </div>
@@ -1105,10 +1318,16 @@
   <!-- ============ DISABLE DIALOG ============ -->
   @if (disableDialogOpen() && disableTarget()) {
     <div class="tam-modal-backdrop">
-      <div class="tam-modal" role="dialog" aria-modal="true" aria-labelledby="tam-disable-title" (click)="$event.stopPropagation()">
-        <h2 id="tam-disable-title" class="tam-modal-title">Confirm Disable</h2>
-        <p class="tam-modal-lead">Review the affected record, consequence, reason and effective time. Linked history is
-          preserved; the tracking reference is retained.</p>
+      <div class="tam-modal tam-modal--danger" role="dialog" aria-modal="true" aria-labelledby="tam-disable-title" (click)="$event.stopPropagation()">
+        <header class="ov-head ov-head--danger">
+          <p class="tam-modal-kicker">Take down · {{ disableTarget()!.trackingReference }}</p>
+          <h2 id="tam-disable-title" class="tam-modal-title">Disable tracking asset</h2>
+          <p class="tam-modal-lead">New scans and redirects stop. Linked history is preserved and the tracking reference is retained.</p>
+          <button type="button" class="tam-modal-x" (click)="cancelDisable()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <div class="ov-body">
         <dl class="tam-kv">
           <div><dt>Tracking reference</dt><dd>{{ disableTarget()!.trackingReference }}</dd></div>
           <div><dt>Consequence</dt><dd>Stops new redirects and scans for this asset</dd></div>
@@ -1116,17 +1335,19 @@
           <div><dt>Effective time</dt><dd>{{ lastRefresh() }}</dd></div>
         </dl>
         <div class="tam-field">
-          <label class="tam-field-label" for="tam-disable-reason">Reason <span class="tam-conf-tag">Required</span></label>
+          <label class="tam-field-label" for="tam-disable-reason">Reason <span class="tam-req">*</span></label>
           <textarea id="tam-disable-reason" class="tam-input tam-textarea" rows="3"
                     [ngModel]="disableReason()" (ngModelChange)="disableReason.set($event)"
                     [attr.maxlength]="disableReasonMax"
                     placeholder="Record the reason for disabling this tracking asset…"></textarea>
-          <p class="tam-field-hint" [class.tam-field-error]="disableReasonCount() > 0 && !disableReasonValid()" role="status">
-            {{ disableReasonCount() }} / {{ disableReasonMax }} characters (minimum {{ disableReasonMin }})
+          <p class="tam-field-hint tam-field-count" [class.tam-field-error]="disableReasonCount() > 0 && !disableReasonValid()" role="status">
+            <span>Minimum {{ disableReasonMin }} characters</span>
+            <span>{{ disableReasonCount() }} / {{ disableReasonMax }}</span>
           </p>
         </div>
+        </div>
         <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDisable()"><span aria-hidden="true">✕</span> Cancel</button>
+          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelDisable()">Cancel</button>
           <button type="button" class="tam-btn tam-btn-danger" (click)="confirmDisable()" [disabled]="!disableReasonValid()">Disable asset</button>
         </div>
       </div>
@@ -1137,24 +1358,29 @@
   @if (editDialogOpen() && editTarget()) {
     <div class="tam-modal-backdrop">
       <div class="tam-modal tam-modal-wide" role="dialog" aria-modal="true" aria-labelledby="tam-edit-title" (click)="$event.stopPropagation()">
-        <h2 id="tam-edit-title" class="tam-modal-title">Edit tracking asset</h2>
-        <p class="tam-modal-lead">Edit this draft's details while preserving the stable tracking reference and its linked
-          history. Editing is only available while the asset is a Draft.</p>
+        <header class="ov-head">
+          <p class="tam-modal-kicker">Edit draft · {{ editTarget()!.trackingReference }}</p>
+          <h2 id="tam-edit-title" class="tam-modal-title">Edit tracking asset</h2>
+          <p class="tam-modal-lead">Editing is available while the asset is a Draft. The stable tracking reference and
+            its linked history are preserved.</p>
+          <button type="button" class="tam-modal-x" (click)="cancelEdit()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <div class="ov-body">
         <dl class="tam-kv">
-          <div><dt>Tracking reference</dt><dd>{{ editTarget()!.trackingReference }} <span class="tam-hint-inline">(preserved)</span></dd></div>
+          <div><dt>Tracking reference</dt><dd>{{ editTarget()!.trackingReference }} <span class="tam-kv-dim">preserved</span></dd></div>
           <div><dt>Status</dt><dd><span class="tam-badge" [class]="statusClass(editTarget()!.assetStatus)">{{ editTarget()!.assetStatus }}</span></dd></div>
         </dl>
 
         <div class="tam-form-grid">
-          <!-- Destination (required) -->
           <div class="tam-field tam-field-span" [class.tam-field-invalid]="editSubmitted() && !editDestinationValid()">
-            <label class="tam-field-label" for="tam-edit-dest">Destination <span class="tam-req">*</span></label>
+            <label class="tam-field-label" for="tam-edit-dest">Destination URL <span class="tam-req">*</span></label>
             <input id="tam-edit-dest" type="text" class="tam-input" [ngModel]="editDestination()"
                    (ngModelChange)="editDestination.set($event)" placeholder="Enter the destination URL or path" />
             @if (editSubmitted() && !editDestinationValid()) { <p class="tam-field-hint tam-field-error">Enter Destination.</p> }
           </div>
 
-          <!-- Channel -->
           <div class="tam-field">
             <label class="tam-field-label" for="tam-edit-channel">Channel</label>
             <div class="tam-combo" [class.is-open]="openMenu() === 'e-channel'" appClickOutside (appClickOutside)="onClickOutside('e-channel')">
@@ -1174,41 +1400,37 @@
             </div>
           </div>
 
-          <!-- Source -->
-          <div class="tam-field">
-            <label class="tam-field-label" for="tam-edit-source">Source</label>
-            <input id="tam-edit-source" type="text" class="tam-input" [ngModel]="editSource()" (ngModelChange)="editSource.set($event)" placeholder="e.g. newsletter" />
-          </div>
-
-          <!-- Medium -->
-          <div class="tam-field">
-            <label class="tam-field-label" for="tam-edit-medium">Medium</label>
-            <input id="tam-edit-medium" type="text" class="tam-input" [ngModel]="editMedium()" (ngModelChange)="editMedium.set($event)" placeholder="e.g. email" />
-          </div>
-
-          <!-- Content tag -->
           <div class="tam-field">
             <label class="tam-field-label" for="tam-edit-content">Content tag</label>
             <input id="tam-edit-content" type="text" class="tam-input" [ngModel]="editContentTag()" (ngModelChange)="editContentTag.set($event)" [attr.maxlength]="gContentTagMax" placeholder="e.g. may-issue" />
           </div>
 
-          <!-- Active from -->
+          <div class="tam-field">
+            <label class="tam-field-label" for="tam-edit-source">Source</label>
+            <input id="tam-edit-source" type="text" class="tam-input" [ngModel]="editSource()" (ngModelChange)="editSource.set($event)" placeholder="e.g. newsletter" />
+          </div>
+
+          <div class="tam-field">
+            <label class="tam-field-label" for="tam-edit-medium">Medium</label>
+            <input id="tam-edit-medium" type="text" class="tam-input" [ngModel]="editMedium()" (ngModelChange)="editMedium.set($event)" placeholder="e.g. email" />
+          </div>
+
           <div class="tam-field">
             <label class="tam-field-label" for="tam-edit-from">Active from <span class="tam-tz">{{ operatingTimeZone }}</span></label>
             <input id="tam-edit-from" type="date" class="tam-input" [ngModel]="editActiveFrom()" (ngModelChange)="editActiveFrom.set($event)" />
           </div>
 
-          <!-- Active to -->
           <div class="tam-field" [class.tam-field-invalid]="editRangeInvalid()">
             <label class="tam-field-label" for="tam-edit-to">Active to <span class="tam-tz">{{ operatingTimeZone }}</span></label>
             <input id="tam-edit-to" type="date" class="tam-input" [ngModel]="editActiveTo()" (ngModelChange)="editActiveTo.set($event)" />
             @if (editRangeInvalid()) { <p class="tam-field-hint tam-field-error">Review Active to. The value does not meet the stated format or range.</p> }
           </div>
         </div>
+        </div>
 
         <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEdit()"><span aria-hidden="true">✕</span> Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="confirmEdit()"><span aria-hidden="true">✓</span> Save changes</button>
+          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelEdit()">Cancel</button>
+          <button type="button" class="tam-btn tam-btn-primary" (click)="confirmEdit()">Save changes</button>
         </div>
       </div>
     </div>
@@ -1217,10 +1439,16 @@
   <!-- ============ DELETE UNUSED DRAFT DIALOG ============ -->
   @if (deleteDialogOpen() && deleteTarget()) {
     <div class="tam-modal-backdrop">
-      <div class="tam-modal" role="dialog" aria-modal="true" aria-labelledby="tam-delete-title" (click)="$event.stopPropagation()">
-        <h2 id="tam-delete-title" class="tam-modal-title">Confirm Delete unused draft</h2>
-        <p class="tam-modal-lead">Delete is available only for an unused draft with no downstream reference. Review the
-          affected record, consequence, reason and effective time; required history is preserved.</p>
+      <div class="tam-modal tam-modal--danger" role="dialog" aria-modal="true" aria-labelledby="tam-delete-title" (click)="$event.stopPropagation()">
+        <header class="ov-head ov-head--danger">
+          <p class="tam-modal-kicker">Delete · {{ deleteTarget()!.trackingReference }}</p>
+          <h2 id="tam-delete-title" class="tam-modal-title">Delete unused draft</h2>
+          <p class="tam-modal-lead">Available only for a draft with no downstream reference. Required history is preserved.</p>
+          <button type="button" class="tam-modal-x" (click)="cancelDelete()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <div class="ov-body">
         <dl class="tam-kv">
           <div><dt>Tracking reference</dt><dd>{{ deleteTarget()!.trackingReference }}</dd></div>
           <div><dt>Consequence</dt><dd>Removes an unused draft with no downstream reference</dd></div>
@@ -1228,17 +1456,19 @@
           <div><dt>Effective time</dt><dd>{{ lastRefresh() }}</dd></div>
         </dl>
         <div class="tam-field">
-          <label class="tam-field-label" for="tam-delete-reason">Reason <span class="tam-conf-tag">Required</span></label>
+          <label class="tam-field-label" for="tam-delete-reason">Reason <span class="tam-req">*</span></label>
           <textarea id="tam-delete-reason" class="tam-input tam-textarea" rows="3"
                     [ngModel]="deleteReason()" (ngModelChange)="deleteReason.set($event)"
                     [attr.maxlength]="deleteReasonMax"
                     placeholder="Record the named reason for deleting this unused draft…"></textarea>
-          <p class="tam-field-hint" [class.tam-field-error]="deleteReasonCount() > 0 && !deleteReasonValid()" role="status">
-            {{ deleteReasonCount() }} / {{ deleteReasonMax }} characters (minimum {{ deleteReasonMin }})
+          <p class="tam-field-hint tam-field-count" [class.tam-field-error]="deleteReasonCount() > 0 && !deleteReasonValid()" role="status">
+            <span>Minimum {{ deleteReasonMin }} characters</span>
+            <span>{{ deleteReasonCount() }} / {{ deleteReasonMax }}</span>
           </p>
         </div>
+        </div>
         <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDelete()"><span aria-hidden="true">✕</span> Cancel</button>
+          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelDelete()">Cancel</button>
           <button type="button" class="tam-btn tam-btn-danger" (click)="confirmDeleteDraft()" [disabled]="!deleteReasonValid()">Delete draft</button>
         </div>
       </div>
@@ -1249,8 +1479,15 @@
   @if (compareDialogOpen() && compareAssets().length >= 2) {
     <div class="tam-modal-backdrop" (click)="closeCompare()">
       <div class="tam-modal tam-modal-compare" role="dialog" aria-modal="true" aria-labelledby="tam-compare-title" (click)="$event.stopPropagation()">
-        <h2 id="tam-compare-title" class="tam-modal-title">Compare assets</h2>
-        <p class="tam-modal-lead">{{ compareAssets().length }} assets side by side. Every field is read from the shared store.</p>
+        <header class="ov-head">
+          <p class="tam-modal-kicker">Side by side</p>
+          <h2 id="tam-compare-title" class="tam-modal-title">Compare assets</h2>
+          <p class="tam-modal-lead">{{ compareAssets().length }} assets. Every field is read from the shared store.</p>
+          <button type="button" class="tam-modal-x" (click)="closeCompare()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <div class="ov-body">
         <div class="tam-compare-scroll">
           <table class="tam-compare-table">
             <thead>
@@ -1262,7 +1499,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr><th scope="row">Asset type</th>@for (a of compareAssets(); track a.trackingReference) { <td><span class="tam-type-pill" [class]="typeClass(a.assetType)">{{ a.assetType }}</span></td> }</tr>
+              <tr><th scope="row">Asset type</th>@for (a of compareAssets(); track a.trackingReference) { <td>{{ a.assetType }}</td> }</tr>
               <tr><th scope="row">Channel</th>@for (a of compareAssets(); track a.trackingReference) { <td><span class="tam-channel"><span class="tam-dot" [class]="channelDotClass(a.channel)" aria-hidden="true"></span>{{ a.channel }}</span></td> }</tr>
               <tr><th scope="row">Campaign</th>@for (a of compareAssets(); track a.trackingReference) { <td>{{ campaignOf(a.campaignRef).name }}</td> }</tr>
               <tr><th scope="row">Destination</th>@for (a of compareAssets(); track a.trackingReference) { <td class="tam-break">{{ a.destination }}</td> }</tr>
@@ -1275,13 +1512,13 @@
             </tbody>
           </table>
         </div>
+        </div>
         <div class="tam-modal-actions">
-          <button type="button" class="btn btn-primary btn-sm" (click)="closeCompare()"><span aria-hidden="true">✓</span> Done</button>
+          <button type="button" class="tam-btn tam-btn-primary" (click)="closeCompare()">Done</button>
         </div>
       </div>
     </div>
   }
-
 
 </div>
 </div>

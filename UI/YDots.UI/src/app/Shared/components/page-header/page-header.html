@@ -1,4 +1,4 @@
-<header class="ph">
+<header class="ph" [class.ph--card]="variant() === 'card'">
   <!-- Decoration: the base layer (ring + glow, painted by .ph__deco itself) and the screen's one watermark icon.
        Decorative only: hidden from assistive technology. The layer clips what bleeds off the panel. -->
   <div class="ph__deco" aria-hidden="true">
@@ -7,10 +7,15 @@
 
   <div class="ph__main">
     <div class="ph__text">
+      @if (variant() === 'card' && eyebrow()) {
+        <p class="ph__eyebrow">{{ eyebrow() }}</p>
+      }
       <div class="ph__title-row">
         <h1 class="ph__title">{{ title() }}</h1>
-        <span class="ph__info" [attr.role]="info() ? 'img' : null" [attr.aria-label]="info() || null"
-              [attr.aria-hidden]="info() ? null : 'true'" [attr.title]="info() || null">i</span>
+        @if (showInfo()) {
+          <span class="ph__info" [attr.role]="info() ? 'img' : null" [attr.aria-label]="info() || null"
+                [attr.aria-hidden]="info() ? null : 'true'" [attr.title]="info() || null">i</span>
+        }
       </div>
 
       @if (subtitle()) {

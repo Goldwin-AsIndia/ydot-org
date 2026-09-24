@@ -150,7 +150,17 @@ export class CampaignDetailComponent {
    * connected to anything.
    */
   private readonly people = inject(PeopleDirectoryService);
-  private readonly initialRecord = this.store.get(this.route.snapshot.queryParamMap.get('ref') ?? '');
+  /**
+   * The campaign code from the URL (?ref=...).
+   *
+   * READ FROM THE URL, NOT FROM THE STORE. On a refresh or a deep link the campaign list has not
+   * loaded yet when this screen is built, so a store lookup finds nothing - and the reference used
+   * to fall back to the built-in demo campaign, which is how a refreshed "Hope Foundation Annual
+   * Giving" page turned into "Educate a Child 2025". The URL is the one thing that survives a
+   * refresh, so it decides which campaign this is; the record fills in when the list arrives.
+   */
+  private readonly routeRef = this.route.snapshot.queryParamMap.get('ref')?.trim() || null;
+  private readonly initialRecord = this.store.get(this.routeRef ?? '');
 
   constructor() {
     // THE DETAIL RECORD, NOT JUST THE REGISTER ROW. Everything on this screen below the header -
@@ -175,6 +185,9 @@ export class CampaignDetailComponent {
     }
 
     effect(() => {
+      // `apiId` reads a plain Map, which no effect can track; reading the record makes this
+      // re-run when the campaign list lands, which is also when the id becomes known.
+      this.liveRecord();
       const campaignId = this.store.apiId(this.reference);
 
       if (!campaignId || historyLoadedFor === campaignId) {
@@ -182,7 +195,13 @@ export class CampaignDetailComponent {
       }
 
       historyLoadedFor = campaignId;
-      untracked(() => this.loadActivity());
+      untracked(() => {
+        // On a cold load the constructor's loadDetail / donations calls found no id and did
+        // nothing; now that the list has arrived, fetch this campaign's detail and donations.
+        this.store.loadDetail(this.reference);
+        this.loadDonations();
+        this.loadActivity();
+      });
     });
 
     // Donations-in-scope is modelled as a backend fetch: stamp a freshly-fetched time on load,
@@ -192,7 +211,7 @@ export class CampaignDetailComponent {
 
   // ================= Task header =================
   /** Campaign reference — server-derived, immutable in this view. */
-  protected readonly reference = this.initialRecord?.code ?? 'EDU-2025-001';
+  protected readonly reference = this.routeRef ?? 'EDU-2025-001';
   /**
    * Live re-read of this campaign's record from the shared store on every access
    * NOT a one-time snapshot — so a change made on another page (Wizard edit, Operate
@@ -200,7 +219,9 @@ export class CampaignDetailComponent {
    */
   private readonly liveRecord = computed(() => this.store.get(this.reference));
   /** Campaign name — read-only. */
-  protected readonly campaignName = computed(() => this.liveRecord()?.name ?? 'Educate a Child 2025');
+  protected readonly campaignName = computed(
+    () => this.liveRecord()?.name ?? (this.routeRef ? 'Loading campaign…' : 'Educate a Child 2025'),
+  );
   /**
    * Status — server-derived current state, READ LIVE FROM THE RECORD.
    *
@@ -320,8 +341,18 @@ export class CampaignDetailComponent {
   protected readonly exportAllowed = computed(
     () => (this.allows('Export') || this.permissions().export) && this.uiState() !== 'no-access',
   );
-  /** Edit is offered only for a Draft campaign — opens the Campaign Wizard pre-filled with this record. */
+  /** Edit is offered for a Draft or Active campaign (the server decides) — opens the Campaign Wizard pre-filled with this record. */
   protected readonly canEdit = computed(() => this.allows('Edit') && this.uiState() !== 'no-access');
+  /** Tooltip for the overview's edit icon — says why it is unavailable when it is. */
+  protected readonly editHint = computed(() => {
+    if (this.canEdit()) {
+      return 'Edit campaign';
+    }
+    const status = this.status();
+    return status !== 'Draft' && status !== 'Active'
+      ? `Only a Draft or Active campaign can be edited. This one is ${status}.`
+      : 'You do not have permission to edit this campaign.';
+  });
   protected openEdit(): void {
     if (!this.canEdit()) {
       return;
@@ -389,17 +420,17 @@ export class CampaignDetailComponent {
    * opened directly without a reference (no real campaign to filter by).
    */
   protected readonly trackingAssets = computed<
-    readonly (HistoryRow & { createdOn?: string; usageCount?: number })[]
+    readonly (HistoryRow & { createdOn?: string; usageCount?: number; dayKey?: string | null })[]
   >(() => {
-    if (!this.initialRecord) {
+    if (!this.routeRef) {
       return [
         {
           primary: 'education-2025-link-07', secondary: 'UTM tracking link · Website',
-          meta: 'Created 12 May 2025, 10:45 AM', createdOn: '12 May 2025', usageCount: 0,
+          meta: 'Created 12 May 2025, 10:45 AM', createdOn: '12 May 2025', usageCount: 0, dayKey: this.dayKeyOf('2025-05-12'),
         },
         {
           primary: 'QR-EDU-2025-03', secondary: 'QR destination · Print flyer',
-          meta: 'Active · 214 scans', createdOn: '18 May 2025', usageCount: 214,
+          meta: 'Active · 214 scans', createdOn: '18 May 2025', usageCount: 214, dayKey: this.dayKeyOf('2025-05-18'),
         },
       ];
     }
@@ -407,6 +438,7 @@ export class CampaignDetailComponent {
       primary: a.trackingReference,
       secondary: `${a.assetType} · ${a.channel}`,
       createdOn: a.activeFrom ? this.formatDate(a.activeFrom) : '—',
+      dayKey: this.dayKeyOf(a.activeFrom),
       usageCount: a.usageCount,
       meta: `${a.assetStatus} · ${a.usageCount.toLocaleString('en-IN')} uses`,
     }));
@@ -430,7 +462,7 @@ export class CampaignDetailComponent {
    * this campaign, permission-checked and organisation-scoped server-side like every other read.
    * A campaign with no donations shows the empty state, which is the truth.
    */
-  protected readonly donations = signal<readonly HistoryRow[]>([]);
+  protected readonly donations = signal<readonly (HistoryRow & { dayKey?: string | null })[]>([]);
   protected readonly donationsCount = signal(0);
   protected readonly donationsLoading = signal(false);
   protected readonly donationsError = signal<string | null>(null);
@@ -701,6 +733,7 @@ export class CampaignDetailComponent {
               .filter((part): part is string => !!part)
               .join(' · ') || donation.statusDescription,
             meta: this.donationWhen(donation.donatedAtUtc),
+            dayKey: this.dayKeyOf(donation.donatedAtUtc),
           })),
         );
 
@@ -979,12 +1012,6 @@ export class CampaignDetailComponent {
     return amount ? this.rupeeINR(amount) : '₹12,40,000';
   });
 
-  /** The same figure, compact — 12.4L rather than ₹12,40,000 — for the card's footer line. */
-  protected readonly kpiRevenueCompact = computed(() => {
-    const amount = this.liveRecord()?.campaignAmount ?? 1_240_000;
-    return this.compactValue(amount);
-  });
-
   /**
    * Donut segments for a 100-unit circumference starting at 12 o'clock — the classic
    * r=15.9155 circle, so percentages map straight onto dash lengths.
@@ -1131,16 +1158,21 @@ export class CampaignDetailComponent {
     { label: 'Campaign Launch', kind: 'launch', color: '#22c55e' },
   ];
 
-  /** The glyph on an event card's tile, one per event kind (Remix line icons, as elsewhere in the app). */
+  /** The logo stacked on a calendar day, one per event kind or channel (Remix icons, as elsewhere in the app). */
   protected calKindIcon(kind: string): string {
     const icons: Record<string, string> = {
       email: 'ri-mail-line',
-      sms: 'ri-message-3-line',
-      donor: 'ri-user-line',
+      sms: 'ri-message-2-line',
+      whatsapp: 'ri-whatsapp-line',
+      instagram: 'ri-instagram-line',
+      facebook: 'ri-facebook-line',
+      linkedin: 'ri-linkedin-line',
+      x: 'ri-twitter-x-line',
+      donor: 'ri-user-heart-line',
       social: 'ri-share-line',
-      report: 'ri-bar-chart-2-line',
+      report: 'ri-file-chart-line',
       website: 'ri-global-line',
-      launch: 'ri-rocket-line',
+      launch: 'ri-rocket-2-line',
     };
     return icons[kind] ?? 'ri-calendar-event-line';
   }
@@ -1272,24 +1304,53 @@ export class CampaignDetailComponent {
     return cells;
   });
 
-  /** Clicking a day opens its panel; clicking the same day again closes it. */
+  /**
+   * Clicking a day filters the tabbed lists below the calendar (Tracking, Payments, Leads, Donors,
+   * Source, SMS, Whatsapp, Instagram) to that date and scrolls them into view. Clicking the same
+   * day again goes back to today, which is what the lists show when no date is picked.
+   */
   protected selectCalDay(cell: { key: string }): void {
-    this.calSelected.update((current) => (current === cell.key ? null : cell.key));
+    const next = this.calSelected() === cell.key ? null : cell.key;
+    this.calSelected.set(next);
+    this.trackPage.set(1);
+    if (next) {
+      setTimeout(() =>
+        document.getElementById('cd-date-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      );
+    }
   }
 
-  /** The selected day, ready for the panel; null while nothing is selected. */
-  protected readonly calSelectedDay = computed(() => {
-    // A blank alignment cell is never `selected` (see calCells), so a found match always has a date.
-    const cell = this.calCells().find((c) => c.selected && c.date);
-    if (!cell?.date) {
+  /** The same key `dateKey` builds, for a stored date string. A bare `YYYY-MM-DD` is read as a
+   *  local calendar day (not UTC midnight, which lands on the previous day west of Greenwich). */
+  private dayKeyOf(value: string | null | undefined): string | null {
+    if (!value) {
       return null;
     }
-    return {
-      weekday: cell.date.toLocaleDateString('en-GB', { weekday: 'long' }),
-      dateLabel: cell.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
-      events: cell.events,
-    };
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    const date = ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : this.tryDate(value);
+    return date ? this.dateKey(date) : null;
+  }
+
+  /**
+   * The day the tab lists show: the date picked on the calendar, or TODAY when none is picked,
+   * so the tabs always read as "what happened on this day".
+   */
+  private readonly activeDayKey = computed(() => this.calSelected() ?? this.dateKey(new Date()));
+
+  /** The day the tab lists are filtered to, for their empty-state messages. */
+  protected readonly calFilterLabel = computed(() => {
+    const cell = this.calCells().find((c) => c.selected && c.date);
+    const date = cell?.date ?? new Date();
+    const label = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return cell ? label : `Today · ${label}`;
   });
+
+  /** Payments, narrowed to the selected calendar day when one is picked. */
+  protected readonly paymentRows = computed(() => {
+    const day = this.activeDayKey();
+    return this.donations().filter((row) => row.dayKey === day);
+  });
+
   // ================= Campaign Overview summary card content =================
   // Campaign reference / name / status / owner are already shown in the task header directly
   // above this card, so the summary card itself surfaces the fields that aren't shown there:
@@ -1402,6 +1463,12 @@ export class CampaignDetailComponent {
   }
   protected readonly readMoreTitle = computed(() => (this.readMoreField() === 'terms' ? 'Terms and notice' : 'Public description'));
   protected readonly readMoreHtml = computed(() => (this.readMoreField() === 'terms' ? this.termsNoticeHtml() : this.publicDescriptionHtml()));
+  /** Word count and reading time for the popup footer, counted on the visible text (tags stripped). */
+  protected readonly readMoreWordCount = computed(() => {
+    const text = String(this.readMoreHtml() ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+    return text ? text.split(/\s+/).length : 0;
+  });
+  protected readonly readMoreMinutes = computed(() => Math.max(1, Math.round(this.readMoreWordCount() / 200)));
 
   // ================= Main work: tabs =================
   /**
@@ -1500,14 +1567,17 @@ export class CampaignDetailComponent {
         uses: parts.slice(1).join('·').trim(),
         usesCount: row.usageCount != null ? `${row.usageCount.toLocaleString('en-IN')} Uses` : '—',
         createdOn: row.createdOn ?? '—',
+        dayKey: row.dayKey ?? null,
         tone: this.statusTone(status),
       };
     });
+    const day = this.activeDayKey();
+    const dated = rows.filter((row) => row.dayKey === day);
     const term = this.trackSearchTerm().trim().toLowerCase();
     if (!term) {
-      return rows;
+      return dated;
     }
-    return rows.filter(
+    return dated.filter(
       (row) => row.primary.toLowerCase().includes(term) || row.secondary.toLowerCase().includes(term),
     );
   });

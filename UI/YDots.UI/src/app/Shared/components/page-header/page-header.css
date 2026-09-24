@@ -1,6 +1,11 @@
 :host {
   display: block;
-  margin-bottom: 20px;
+  margin-bottom: calc(19px * var(--ui-scale, 1));
+}
+
+/* The card variant is a Campaigns header: it leaves the same gap below it as every other card there. */
+:host(.ph-host--card) {
+  margin-bottom: var(--campaign-gap, calc(17px * var(--ui-scale, 1)));
 }
 
 /* NO HEADER CONTAINER. The header used to be a fixed-height, padded, coloured banner - a card in
@@ -16,7 +21,7 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px 24px;
+  gap: calc(12px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
   padding: 0;
   color: var(--theme-ink, #1f2d2a);
   box-shadow: none;
@@ -40,9 +45,9 @@ app-header-watermark {
 .ph__main {
   display: flex;
   align-items: flex-start;
-  gap: 18px;
+  gap: calc(18px * var(--ui-scale, 1));
   min-width: 0;
-  flex: 1 1 420px;
+  flex: 1 1 calc(420px * var(--ui-scale, 1));
   align-items: center;
 }
 
@@ -53,7 +58,7 @@ app-header-watermark {
 .ph__title-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: calc(10px * var(--ui-scale, 1));
   min-width: 0;
 }
 
@@ -76,12 +81,12 @@ app-header-watermark {
   place-items: center;
   flex: none;
   box-sizing: border-box;
-  width: 19px;
-  height: 19px;
+  width: calc(19px * var(--ui-scale, 1));
+  height: calc(19px * var(--ui-scale, 1));
   border: 1.5px solid currentColor;
   border-radius: 50%;
   color: var(--theme-muted, #64716c);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-scale, 1));
   font-weight: 700;
   font-style: italic;
   line-height: 1;
@@ -90,7 +95,7 @@ app-header-watermark {
 }
 
 .ph__subtitle {
-  margin: 6px 0 0;
+  margin: calc(6px * var(--ui-scale, 1)) 0 0;
   font-size: calc(14.5px * var(--ui-scale, 1));
   line-height: 1.5;
   color: var(--theme-muted, #64716c);
@@ -106,8 +111,8 @@ app-header-watermark {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px 12px;
-  margin-top: 10px;
+  gap: calc(6px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
+  margin-top: calc(10px * var(--ui-scale, 1));
   min-width: 0;
 }
 
@@ -119,7 +124,7 @@ app-header-watermark {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: calc(8px * var(--ui-scale, 1));
   margin: 0;
   font-size: calc(13px * var(--ui-scale, 1));
   line-height: 1.4;
@@ -127,9 +132,9 @@ app-header-watermark {
 }
 
 .ph__dash {
-  width: 14px;
-  height: 6px;
-  border-radius: 999px;
+  width: calc(14px * var(--ui-scale, 1));
+  height: calc(6px * var(--ui-scale, 1));
+  border-radius: calc(999px * var(--ui-scale, 1));
   background: currentColor;
 }
 
@@ -137,7 +142,7 @@ app-header-watermark {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: calc(8px * var(--ui-scale, 1));
 }
 
 .ph__actions {
@@ -145,12 +150,53 @@ app-header-watermark {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: calc(10px * var(--ui-scale, 1));
   margin-left: auto;
 }
 
 .ph__actions:empty {
   display: none;
+}
+
+/* CARD VARIANT (opt-in via variant="card"; used by the Campaigns module). Mirrors the Campaign readiness
+   checklist header: white card, uppercase eyebrow, bold headline, one quiet meta row, actions on the right. */
+.ph--card {
+  padding: calc(22px * var(--ui-scale, 1)) calc(28px * var(--ui-scale, 1));
+  background: #ffffff;
+  border-radius: var(--yc-radius, calc(20px * var(--ui-scale, 1)));
+}
+
+.ph__eyebrow {
+  margin: 0 0 calc(6px * var(--ui-scale, 1));
+  font-size: calc(11px * var(--ui-scale, 1));
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--theme-primary, #375c4c);
+}
+
+.ph--card .ph__title {
+  font-size: calc(24px * var(--ui-scale, 1));
+  letter-spacing: -0.015em;
+}
+
+.ph--card .ph__subtitle {
+  margin-top: calc(4px * var(--ui-scale, 1));
+}
+
+.ph--card .ph__facts {
+  margin-top: calc(12px * var(--ui-scale, 1));
+}
+
+/* The bar-shaped dash is a plain-header flourish; the card's meta row reads as text. */
+.ph--card .ph__dash {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .ph--card {
+    padding: calc(20px * var(--ui-scale, 1));
+  }
 }
 
 /* Wide windows: single-line content, nothing wraps unnecessarily. */
@@ -172,7 +218,7 @@ app-header-watermark {
 
 @media (max-width: 640px) {
   .ph__title {
-    font-size: 22px;
+    font-size: calc(22px * var(--ui-scale, 1));
   }
 
   .ph__actions {

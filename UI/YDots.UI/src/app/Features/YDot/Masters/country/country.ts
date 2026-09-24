@@ -82,7 +82,7 @@ interface Toast {
   standalone: true,
   imports: [PageHeader, FormsModule, DatePipe],
   templateUrl: './country.html',
-  styleUrl: './country.css',
+  styleUrls: ['../masters-ui.css', './country.css'],
 })
 export class Country implements OnInit {
   private readonly masterService = inject(MasterService);

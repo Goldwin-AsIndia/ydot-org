@@ -101,6 +101,12 @@ export class CampaignWizardComponent {
   // 'Submitted' is a state this wizard can genuinely be in: confirmSubmit leaves the campaign
   // with its approver, and the header must say so rather than still calling it a draft.
   protected readonly lifecycleState = signal<'No record' | 'Draft' | 'Submitted'>('No record');
+  /**
+   * Set when the wizard is editing a campaign that is already live (Active) rather than a Draft.
+   * The save then keeps that status, returns to the campaign's detail page, and the draft-only
+   * actions (Submit, delete draft) are not offered.
+   */
+  protected readonly liveEditStatus = signal<CampaignStatus | null>(null);
   /** Owner is captured as a field below; the header echoes the accountable owner. */
   protected readonly operatingTimeZone = 'Asia/Kolkata · IST (UTC+05:30)';
   /** Freshness for the working configuration. */
@@ -1211,6 +1217,7 @@ export class CampaignWizardComponent {
 
     this.stableReference.set(record.code);
     this.lifecycleState.set('Draft');
+    this.liveEditStatus.set(record.status && record.status !== 'Draft' ? record.status : null);
     this.draftVersion.set('Draft v1 — saved');
   }
 
@@ -1323,10 +1330,11 @@ export class CampaignWizardComponent {
     if (!this.saveDraftAllowed()) return;
     this.actionsMenuOpen.set(false);
 
-    this.persistToStore(this.stableReference(), 'Draft', (outcome) => {
+    const liveStatus = this.liveEditStatus();
+    this.persistToStore(this.stableReference(), liveStatus ?? 'Draft', (outcome) => {
       if (!outcome.saved) {
         this.toast.show(
-          'Draft not saved',
+          liveStatus ? 'Changes not saved' : 'Draft not saved',
           outcome.error ?? 'The campaign could not be saved.',
           'error',
         );
@@ -1335,6 +1343,13 @@ export class CampaignWizardComponent {
       }
 
       const ref = outcome.reference;
+
+      if (liveStatus) {
+        // A live campaign: the edit is done, so go back to the campaign it was made on.
+        this.toast.show('Changes saved', `${ref} has been updated.`, 'success');
+        this.router.navigate(['/app/fundraising/campaigns/campaign-detail'], { queryParams: { ref } });
+        return;
+      }
 
       this.stableReference.set(ref);
       this.lifecycleState.set('Draft');
@@ -1556,6 +1571,12 @@ export class CampaignWizardComponent {
    * a consequence preview before it disappears; `confirmDeleteDraft` navigates once that is done.
    */
   protected discard(): void {
+    // Editing a live campaign: nothing to delete - just leave without saving.
+    const liveRef = this.liveEditStatus() ? this.stableReference() : null;
+    if (liveRef) {
+      this.router.navigate(['/app/fundraising/campaigns/campaign-detail'], { queryParams: { ref: liveRef } });
+      return;
+    }
     if (this.lifecycleState() === 'Draft') {
       this.requestDeleteDraft();
       return;
@@ -1744,8 +1765,15 @@ export class CampaignWizardComponent {
       this.loadExistingDraft(editRef);
       this.store.loadDetail(editRef);
       let detailApplied = false;
+      let detailRequested = false;
       effect(() => {
         const record = this.store.get(editRef);
+        // On a refresh the list arrives after this constructor, so the loadDetail call above found
+        // no id and did nothing. Ask again - once - the moment the record is in the store.
+        if (record && !record.detailLoaded && !detailRequested && this.store.apiId(editRef)) {
+          detailRequested = true;
+          untracked(() => this.store.loadDetail(editRef));
+        }
         if (!detailApplied && record?.detailLoaded) {
           detailApplied = true;
           untracked(() => this.loadExistingDraft(editRef));

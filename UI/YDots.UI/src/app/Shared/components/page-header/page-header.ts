@@ -35,7 +35,7 @@ import { HeaderScreenKey, headerWatermarks } from '../header-watermark/header-wa
   imports: [HeaderWatermark],
   // A static title="..." on <app-page-header> would also stay on the host as a DOM attribute and pop a
   // native tooltip over the whole panel; the value is only wanted as the input.
-  host: { '[attr.title]': 'null' },
+  host: { '[attr.title]': 'null', '[class.ph-host--card]': "variant() === 'card'" },
 })
 export class PageHeader {
   readonly title = input.required<string>();
@@ -49,9 +49,20 @@ export class PageHeader {
 
   /** Optional tooltip text for the info icon beside the title. */
   readonly info = input<string | null | undefined>('');
+  /** Whether the small info (i) mark shows beside the title. On by default; a screen can turn it off. */
+  readonly showInfo = input<boolean>(true);
 
   /** The screen's key in `headerWatermarks`; it selects the header's one watermark icon. */
   readonly screen = input.required<HeaderScreenKey>();
+
+  /**
+   * 'plain' (default) sits directly on the page. 'card' is the Campaign readiness checklist header: a white card
+   * with an eyebrow line above the title. Opt-in, so no other module's header changes.
+   */
+  readonly variant = input<'plain' | 'card'>('plain');
+
+  /** Small uppercase label above the title. Shown by the 'card' variant only. */
+  readonly eyebrow = input<string | null | undefined>('');
 
   protected readonly watermark = computed(() => headerWatermarks[this.screen()]);
 }

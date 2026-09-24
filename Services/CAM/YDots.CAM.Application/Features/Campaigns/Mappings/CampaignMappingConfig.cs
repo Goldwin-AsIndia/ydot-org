@@ -429,16 +429,14 @@ public static class CampaignMappingConfig
             actions.Add("Export");
         }
 
-        // Only a Draft may be freely edited. Past that the campaign has been seen by an
-        // approver, and changing its target or dates underneath them would make the approval
-        // meaningless.
+        // Edit is offered while Draft and, by request, once Active (see Campaign.IsEditable).
+        if (campaign.IsEditable && hasPermission(PermissionCodes.CampaignsEdit))
+        {
+            actions.Add("Edit");
+        }
+
         if (campaign.Status == CampaignStatus.Draft)
         {
-            if (hasPermission(PermissionCodes.CampaignsEdit))
-            {
-                actions.Add("Edit");
-            }
-
             if (hasPermission(PermissionCodes.CampaignsSubmit))
             {
                 actions.Add("Submit");

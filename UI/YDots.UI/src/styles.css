@@ -259,27 +259,18 @@
     padding-right: 0 !important;
 }
 
-/* AUTO-HIDING TOP BAR (Shared/topheader).
-   The theme reserves the bar's height above every page (.app-wrapper padding-top). While the bar is hidden that
-   strip is given back, so the page - its header banner included - sits at the very top; when the bar returns
-   the strip returns and the page moves down to make room. The bar's own slide uses the same duration and easing
-   as the theme's .app-wrapper transition, so the two move together.
-   These classes are only ever put on <html> on mouse devices (see TopheaderComponent). */
-html.topbar-hidden .app-wrapper {
-  padding-top: 0;
+/* FOLDED SIDEBAR: NO PHANTOM SCROLL.
+   The theme (app.min.css) pins a fixed height for its demo pages while the sidebar is folded to the icon
+   rail: `[data-sidebar='icon'] body { min-height: 1300px }` and `[data-sidebar='icon'] .app-wrapper
+   { min-height: 1430px }`. Every routed page was therefore at least 1430px tall, so a short screen (a
+   five-row table, an empty state) scrolled a full extra screen of blank grey below its last card. The
+   shell (applayout.css) already sizes the page to the viewport, so both are reset here; the selectors
+   are as specific as the theme's so they win whatever order the sheets load in. */
+html[data-sidebar='icon'] body,
+html[data-sidebar='icon'] .app-wrapper {
+  min-height: 0;
 }
 
-/* Chrome and Firefox nudge the scroll position to keep the content in view when something above it changes size.
-   Here the change is intended and is compensated by hand (TopheaderComponent), so the browser must not also do it. */
-html.topbar-auto {
-  overflow-anchor: none;
-}
-
-/* A change made while the reserved strip is scrolled out of view has nothing to animate; it is applied at once,
-   together with a matching scroll correction, so the page does not visibly jump. */
-html.topbar-instant .app-wrapper {
-  transition: none !important;
-}
 /* NOTE: .app-footer class rule removed — nothing uses class="app-footer";
    the component renders as <app-footer> wrapping <footer class="footer"> */
 .footer{

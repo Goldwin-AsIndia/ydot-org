@@ -15,9 +15,9 @@
       <section class="py-5">
         <p class="text-muted text-center small">Loading Pause, resume and close campaign…</p>
         <div class="d-flex justify-content-center gap-2 mt-2">
-          <div class="skeleton-box" style="width: 60px; height: 12px;"></div>
-          <div class="skeleton-box" style="width: 80px; height: 12px;"></div>
-          <div class="skeleton-box" style="width: 40px; height: 12px;"></div>
+          <div class="skeleton-box" style="width: calc(60px * var(--ui-scale, 1)); height: calc(12px * var(--ui-scale, 1));"></div>
+          <div class="skeleton-box" style="width: calc(80px * var(--ui-scale, 1)); height: calc(12px * var(--ui-scale, 1));"></div>
+          <div class="skeleton-box" style="width: calc(40px * var(--ui-scale, 1)); height: calc(12px * var(--ui-scale, 1));"></div>
         </div>
       </section>
     } @else if (viewState() === 'empty') {
@@ -275,8 +275,11 @@
       @if (showConfirmDialog() && activeAction(); as action) {
         <div class="prc-modal-overlay" (click)="cancelConfirm()"></div>
         <div class="prc-modal" role="alertdialog" aria-modal="true" [attr.aria-label]="action.confirmVerb">
-          <h6 class="mb-1">{{ action.confirmVerb }}</h6>
-          <p class="small text-muted">Review before committing.</p>
+          <header class="ov-head">
+            <h6 class="prc-modal-title">{{ action.confirmVerb }}</h6>
+            <p class="prc-modal-lead">Review before committing.</p>
+          </header>
+          <div class="ov-body">
           <div class="confirm-summary mb-2">
             <div class="confirm-row"><span class="label">Record</span><span class="value">{{ c.code }} — {{ c.name }}</span></div>
             <div class="confirm-row"><span class="label">Before</span><span class="status-badge" [class]="statusClass(currentState())">{{ currentState() }}</span></div>
@@ -306,7 +309,8 @@
                 [ngModel]="typedConfirmValue()" (ngModelChange)="typedConfirmValue.set($event)" />
             </div>
           }
-          <div class="d-flex justify-content-end gap-2">
+          </div>
+          <div class="prc-modal-actions d-flex justify-content-end gap-2">
             <button class="btn btn-sm btn-outline-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
             <button class="btn btn-sm action-btn" [class.btn-primary]="action.placement === 'primary'" [class.btn-danger]="action.placement === 'danger'"
               type="button" [disabled]="!typedConfirmSatisfied() || submitting()" (click)="confirmAndSubmit()">

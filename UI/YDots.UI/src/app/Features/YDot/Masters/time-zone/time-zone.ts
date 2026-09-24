@@ -108,7 +108,7 @@ type ViewMode = 'list' | 'form';
   standalone: true,
   imports: [PageHeader, CommonModule, FormsModule],
   templateUrl: './time-zone.html',
-  styleUrl: './time-zone.css',
+  styleUrls: ['../masters-ui.css', './time-zone.css'],
 })
 export class TimeZoneComponent implements OnInit {
   private readonly masters = inject(MasterService);

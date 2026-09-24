@@ -117,4 +117,7 @@ public class Campaign : TenantEntity, ICodedEntity
 
     /// <summary>Only a Draft campaign may be edited freely or deleted.</summary>
     public bool IsDraft => Status == CampaignStatus.Draft;
+
+    /// <summary>Whether the campaign's details may be edited: while Draft, or once Active.</summary>
+    public bool IsEditable => Status is CampaignStatus.Draft or CampaignStatus.Active;
 }

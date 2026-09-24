@@ -465,6 +465,14 @@ export class CampaignReadinessChecklistComponent {
     return status === 'Passed' ? 'pass' : status === 'Failed' ? 'fail' : 'pending';
   }
 
+  /** Status tab over the checks list. A view filter only: counts, verdict and meter always read every check. */
+  protected readonly checkFilter = signal<'all' | 'pending' | 'fail' | 'pass'>('all');
+  protected readonly visibleChecks = computed<readonly ReadinessCheck[]>(() => {
+    const filter = this.checkFilter();
+    const items = this.checklistItems();
+    return filter === 'all' ? items : items.filter((c) => this.checklistStatusClass(c.status) === filter);
+  });
+
   // ----- Row overflow menu: Delete / Edit / Pass·Completed -----
   protected readonly checklistRowMenuOpen = signal<string | null>(null);
   protected toggleChecklistRowMenu(id: string): void {

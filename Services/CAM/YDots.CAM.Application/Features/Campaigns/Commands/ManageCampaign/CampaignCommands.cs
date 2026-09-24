@@ -152,16 +152,17 @@ public sealed class CampaignCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.Concurrency());
         }
 
-        // ONLY A DRAFT MAY BE EDITED. Past that an approver has seen it, and changing the
-        // target or the dates underneath them would make the approval meaningless.
-        if (!campaign.IsDraft)
+        // A DRAFT OR AN ACTIVE CAMPAIGN MAY BE EDITED. Active is allowed by request, so a running
+        // campaign's details can be corrected without closing it. Submitted / Approved / Scheduled
+        // stay locked while an approval is in play, and Paused / Closed / Cancelled stay as they are.
+        if (!campaign.IsEditable)
         {
             logger.LogWarning(
                 "Cannot update campaign {CampaignId} because its current status is {Status}.",
                 campaign.Id, campaign.Status);
 
             return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
-                $"Only a Draft campaign can be edited. This one is {campaign.Status}."));
+                $"Only a Draft or Active campaign can be edited. This one is {campaign.Status}."));
         }
 
         request.ApplyTo(campaign);

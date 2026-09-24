@@ -23,26 +23,11 @@
   --tb-hover: color-mix(in srgb, var(--theme-primary, #375c4c) 8%, transparent);
 }
 
-/* The theme fixes the bar's position, height and frame; the inner row just fills it. The bar itself never
-   moves except to hide for an active scroll (`.tb--hidden`) - the `left` transition is only there so it
-   glides with the sidebar instead of jumping when the rail folds. */
+/* The theme fixes the bar's position, height and frame; the inner row just fills it. The bar never moves
+   with the page scroll - the `left` transition is only there so it glides with the sidebar instead of
+   jumping when the rail folds. */
 .app-header.tb {
-  /* Same duration and easing as the theme's .app-wrapper transition, so the bar and the page move together. */
-  transition: left 0.2s ease, transform 0.2s ease-in-out, opacity 0.2s ease-in-out !important;
-}
-
-/* Out of sight: slid up past the top edge and not clickable. It keeps its size, and it stays focusable -
-   tabbing into it brings it back. The page gives the strip back meanwhile (see styles.css, `topbar-hidden`). */
-.app-header.tb.tb--hidden {
-  transform: translateY(calc(-100% - 12px));
-  opacity: 0;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-header.tb {
-    transition: left 0.2s ease !important;
-  }
+  transition: left 0.2s ease !important;
 }
 
 .tb__inner {

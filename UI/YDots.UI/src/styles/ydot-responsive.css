@@ -11,7 +11,8 @@
    --ui-scale is stepped by viewport width:
        < 576px   .95   phones
        576-1439  1     laptops / small monitors (the design size)
-       1440+     1.05  1680+ 1.15   1920+ 1.25   2304+ 1.45   2560+ 1.6   3200+ 2   3840+ 2.4
+       1440+     1.05  1680+ 1.15   1920+ 1.25   2304+ 1.45   2560+ 1.6   3200+ 2   3840+ 2.4   5120+ 3.2   7680+ 4.8
+       (wide-but-short ultrawide windows are capped by height - see below)
 
    The customiser font-size control still works: it sets --font-size-base, this file multiplies it.
 
@@ -34,12 +35,18 @@
   --yc-head-pad: calc(16px * var(--ui-scale)) calc(20px * var(--ui-scale));
   --yc-gap: calc(12px * var(--ui-scale));
   --yc-gap-kpi: calc(10px * var(--ui-scale));
+  /* The gap between cards and containers on every Campaigns screen (header, KPI tiles, panels, rails). */
+  --campaign-gap: calc(17px * var(--ui-scale));
   --yc-icon-size: calc(32px * var(--ui-scale));
   --yc-title-size: calc(20px * var(--ui-scale));
   --yc-heading-size: calc(13px * var(--ui-scale));
   --yc-value-size: calc(28px * var(--ui-scale));
   --yc-value-line: calc(32px * var(--ui-scale));
   --yc-radius: calc(20px * var(--ui-scale));
+  --yc-radius-inner: calc(16px * var(--ui-scale));
+  --yc-subtitle-size: calc(11px * var(--ui-scale));
+  --yc-eyebrow-size: calc(10px * var(--ui-scale));
+  --yc-caption-size: calc(11px * var(--ui-scale));
   --lx-radius: calc(11px * var(--ui-scale));
 
   /* Glyph size inside stat tiles and row icons */
@@ -54,6 +61,18 @@
 @media (min-width: 2560px)    { :root { --ui-scale: 1.6; } }
 @media (min-width: 3200px)    { :root { --ui-scale: 2; } }
 @media (min-width: 3840px)    { :root { --ui-scale: 2.4; } }
+@media (min-width: 5120px)    { :root { --ui-scale: 3.2; } }
+@media (min-width: 7680px)    { :root { --ui-scale: 4.8; } }
+
+/* ULTRAWIDE AND SUPER-ULTRAWIDE (21:9, 32:9): wide but short. Scaling by width alone would leave a 2560x1080 or
+   5120x1440 screen only ~450-680 px of working height at the design size, so the header, KPI tiles and filters
+   would fill it before the first table row. Capped by the window's height instead, so every monitor keeps at
+   least ~850 design px of depth; the extra width goes to wider columns (and, past 2400 px, to the margins -
+   see "Super-wide" below). Listed after the width steps so they win. */
+@media (min-width: 2304px) and (max-height: 1199.98px)                          { :root { --ui-scale: 1.25; } }
+@media (min-width: 3200px) and (min-height: 1200px) and (max-height: 1699.98px) { :root { --ui-scale: 1.6; } }
+@media (min-width: 5120px) and (min-height: 1700px) and (max-height: 2399.98px) { :root { --ui-scale: 2.4; } }
+@media (min-width: 7680px) and (min-height: 2400px) and (max-height: 3599.98px) { :root { --ui-scale: 3.2; } }
 
 /* The template sidebar, dropdowns, form controls and headings are rem-based: scaling the root scales them.
    It is written on :root, not html, because Bootstrap sets `:root { font-size: var(--pe-root-font-size) }` and a
@@ -81,6 +100,14 @@
 
 img, video {
   max-width: 100%;
+}
+
+/* Super-wide: past 2400 design px (only ultrawide monitors get there once --ui-scale has grown) a screen's
+   content stops widening and centres, so a 32:9 display reads as one focused workspace instead of rows
+   stretched thin across a metre of glass. */
+.page-wrapper > :is(.container-fluid, .msec-page, .cr-page) {
+  max-width: calc(2400px * var(--ui-scale));
+  margin-inline: auto;
 }
 
 /* Cards and their text never define the width of their column. */

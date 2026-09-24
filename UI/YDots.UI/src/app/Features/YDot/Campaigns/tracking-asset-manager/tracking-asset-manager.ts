@@ -145,6 +145,36 @@ export class TrackingAssetManagerComponent {
   ];
   protected readonly assetTypeFilter = signal<string>('');
 
+  /** Icon (one SVG path) and a one-line description for each asset-type tile on the create screen. */
+  private static readonly ASSET_TYPE_META: Readonly<Record<string, { icon: string; desc: string }>> = {
+    'QR Code': {
+      icon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2.5v2.5H14zM18 18h2v2h-2zM14 19.5h2M19.5 14v2',
+      desc: 'A printable code that opens the destination',
+    },
+    'Short Link': {
+      icon: 'M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1',
+      desc: 'A compact link for messages and posts',
+    },
+    'UTM Link': {
+      icon: 'M3 12V4.5A1.5 1.5 0 0 1 4.5 3H12l9 9-9 9zM7.5 7.5h.01',
+      desc: 'The full URL, tagged for campaign analytics',
+    },
+    'Landing Page': {
+      icon: 'M4 4h16v16H4zM4 9h16M9 9v11',
+      desc: 'A dedicated page for this campaign',
+    },
+  };
+  protected assetTypeMeta(type: string): { icon: string; desc: string } {
+    return (
+      TrackingAssetManagerComponent.ASSET_TYPE_META[type] ?? {
+        icon: 'M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1',
+        desc: '',
+      }
+    );
+  }
+  /** The asset states offered on create, in lifecycle order. */
+  protected readonly assetStatusChoices = ['Draft', 'Submitted', 'Approved', 'Active', 'Inactive'] as const;
+
   /**
    * Channel, source and medium — THE CAM CATALOGUES, BY ID.
    *
@@ -617,16 +647,6 @@ export class TrackingAssetManagerComponent {
   }
 
   // ================= Reference-image table: pill / dot / icon keys =================
-  /** Colour key for the asset-type pill. */
-  protected typeClass(assetType: string): string {
-    switch (assetType) {
-      case 'QR Code': return 'tam-type--qr';
-      case 'Short Link': return 'tam-type--short';
-      case 'UTM Link': return 'tam-type--utm';
-      case 'Landing Page': return 'tam-type--landing';
-      default: return 'tam-type--utm';
-    }
-  }
   /** Which glyph the asset's round avatar shows: QR, link or page. */
   protected assetIconKey(assetType: string, isQr: boolean): 'qr' | 'link' | 'page' {
     if (isQr) return 'qr';
@@ -1230,6 +1250,91 @@ export class TrackingAssetManagerComponent {
         return false;
     }
   }
+  /** Which live-preview design the create screen shows. On-ground wins: it previews places, not one asset. */
+  protected readonly pvKind = computed<'qr' | 'short' | 'utm' | 'landing' | 'onground' | 'none'>(() => {
+    if (this.isOnGround()) return 'onground';
+    switch (this.gAssetType()) {
+      case 'QR Code': return 'qr';
+      case 'Short Link': return 'short';
+      case 'UTM Link': return 'utm';
+      case 'Landing Page': return 'landing';
+      default: return 'none';
+    }
+  });
+  /**
+   * The destination as typed, read in the browser (nothing is fetched): the site, the full
+   * address and whether it is secure. 'invalid' when it cannot be read as a web address.
+   */
+  protected readonly destInfo = computed<
+    { host: string; href: string; secure: boolean; params: number } | 'invalid' | null
+  >(() => {
+    const raw = this.gDestination().trim();
+    if (!raw) return null;
+    try {
+      const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`);
+      if ((u.protocol !== 'https:' && u.protocol !== 'http:') || !u.hostname.includes('.')) return 'invalid';
+      return { host: u.hostname.replace(/^www\./, ''), href: u.toString(), secure: u.protocol === 'https:', params: [...u.searchParams.keys()].length };
+    } catch {
+      return 'invalid';
+    }
+  });
+  /** The destination split for the preview: host, and the path after it. */
+  private readonly previewParts = computed(() => {
+    const raw = this.gDestination().trim().replace(/^https?:\/\//i, '');
+    const slash = raw.indexOf('/');
+    return slash < 0 ? { host: raw, path: '' } : { host: raw.slice(0, slash), path: raw.slice(slash) };
+  });
+  protected readonly previewHost = computed(() => this.previewParts().host);
+  protected readonly previewPath = computed(() => this.previewParts().path);
+
+  /** The active window as a duration panel: days live, where today falls in it, and the phase. */
+  protected readonly windowInfo = computed(() => {
+    const from = this.gActiveFrom();
+    const to = this.gActiveTo();
+    if (!from || !to || this.gRangeInvalid()) return null;
+    const day = (v: string) => {
+      const [y, m, d] = v.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    };
+    const start = day(from);
+    const end = day(to);
+    const MS = 86_400_000;
+    const days = Math.round((end.getTime() - start.getTime()) / MS) + 1;
+    if (!(days > 0)) return null;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    let phase: 'upcoming' | 'live' | 'ended';
+    let label: string;
+    let elapsedPct: number;
+    if (today < start) {
+      const inDays = Math.round((start.getTime() - today.getTime()) / MS);
+      phase = 'upcoming';
+      label = inDays === 1 ? 'Starts tomorrow' : `Starts in ${inDays} days`;
+      elapsedPct = 0;
+    } else if (today > end) {
+      phase = 'ended';
+      label = 'Window has ended';
+      elapsedPct = 100;
+    } else {
+      const left = Math.round((end.getTime() - today.getTime()) / MS) + 1;
+      phase = 'live';
+      label = `Live now · ${left} ${left === 1 ? 'day' : 'days'} left`;
+      elapsedPct = Math.min(100, Math.max(0, ((today.getTime() - start.getTime()) / MS / days) * 100));
+    }
+    return { days, phase, label, elapsedPct, fromLabel: fmt(start), toLabel: fmt(end) };
+  });
+
+  /** The full-screen create page's four sections, each marked Complete once its required fields are in. */
+  protected readonly createSteps = computed(() => [
+    { label: 'Campaign & type', done: !!(this.gCampaign() && this.gAssetType() && this.gChannel()) },
+    {
+      label: this.isOnGround() ? 'Places' : 'Destination',
+      done: this.isOnGround() ? this.placesValid() : !!this.gDestination().trim(),
+    },
+    { label: 'Attribution', done: !!(this.gSource().trim() && this.gMedium().trim() && this.gAssetStatus()) },
+    { label: 'Active window', done: !!(this.gActiveFrom() && this.gActiveTo()) && !this.gRangeInvalid() },
+  ]);
   /** The list of invalid fields for the error summary. */
   protected readonly errorSummary = computed(() => {
     if (!this.generateSubmitted()) return [] as { key: string; label: string }[];
@@ -1266,6 +1371,8 @@ export class TrackingAssetManagerComponent {
     this.generateSubmitted.set(false);
     this.generatedReferences.set([]);
     this.generateDialogOpen.set(true);
+    // The create screen replaces the list in place: start it at the top of the page.
+    setTimeout(() => document.querySelector('app-tracking-asset-manager')?.scrollIntoView({ block: 'start' }));
   }
   protected cancelGenerate(): void {
     this.generateDialogOpen.set(false);

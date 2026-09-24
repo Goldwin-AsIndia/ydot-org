@@ -46,6 +46,8 @@ export interface HistoryEvent {
 
 export interface FollowUp {
   id: string;
+  /** The human-readable reference (FU-…). `id` is the GUID the API writes against. */
+  reference: string;
   recordId?: string;
   recordName: string;
   recordType: RecordType;
@@ -69,6 +71,7 @@ export interface FollowUp {
   lastCommunicationOutcome?: string;
   lastCommunicationDate?: string;
   reminderSettings: string;
+  notes: string;
   attachments: string[];
   history: HistoryEvent[];
   /** The server's row version. Every write on this screen sends it back for the concurrency check. */
@@ -92,7 +95,19 @@ export interface CalendarDay {
 export interface AgendaItem {
   time: string;
   title: string;
+  name: string;
+  type: FollowUpType;
+  status: FollowUpStatus;
   followUpId: string;
+}
+
+export interface KpiTile {
+  key: Exclude<QuickFilterKey, null>;
+  label: string;
+  value: number;
+  hint: string;
+  icon: string;
+  tone: "info" | "ok" | "danger" | "violet" | "warn";
 }
 
 /**
@@ -110,6 +125,7 @@ export const SAVED_VIEWS: SavedView[] = [
   { id: "overdue", label: "Overdue" },
   { id: "upcoming", label: "Upcoming" },
   { id: "high", label: "High Priority" },
+  { id: "attention", label: "Needs Attention" },
   { id: "meetings", label: "Meetings" },
   { id: "calls", label: "Calls" },
   { id: "escalated", label: "Escalated" },
@@ -156,12 +172,13 @@ function buildCalendarStrip(
   return days;
 }
 
+/** Minutes past midnight for "14:30" (what `toTimeInput` produces) or "2:30 PM". */
 function to24h(time: string): number {
-  const match = /(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(time);
+  const match = /(\d{1,2}):(\d{2})\s*(AM|PM)?/i.exec(time);
   if (!match) return 0;
   let hours = parseInt(match[1], 10);
   const minutes = parseInt(match[2], 10);
-  const period = match[3].toUpperCase();
+  const period = match[3]?.toUpperCase();
   if (period === "PM" && hours !== 12) hours += 12;
   if (period === "AM" && hours === 12) hours = 0;
   return hours * 60 + minutes;
@@ -366,6 +383,7 @@ export class FollowUpQueueComponent {
 
     return {
       id: item.id,
+      reference: item.followUpReference || item.id,
       recordId: item.leadId ?? item.donorId ?? undefined,
       recordName:
         item.donorDisplayName ?? item.leadReference ?? item.followUpReference,
@@ -401,6 +419,7 @@ export class FollowUpQueueComponent {
       successCriteria: "",
       lastCommunicationOutcome: item.completionOutcome ?? undefined,
       reminderSettings: "",
+      notes: item.isNotesMasked ? "" : (item.notes ?? ""),
       attachments: [],
       history: [],
       version: item.version,
@@ -474,7 +493,8 @@ export class FollowUpQueueComponent {
       if (this.recordFilterId() && f.recordId !== this.recordFilterId())
         return false;
       if (term) {
-        const hay = `${f.id} ${f.recordName} ${f.phone}`.toLowerCase();
+        const hay =
+          `${f.id} ${f.reference} ${f.recordName} ${f.phone} ${f.purpose}`.toLowerCase();
         if (!hay.includes(term)) return false;
       }
       if (gf.status.size && !gf.status.has(f.status)) return false;
@@ -486,52 +506,57 @@ export class FollowUpQueueComponent {
       if (gf.dateTo && f.scheduledDate > gf.dateTo) return false;
       if (strip && f.scheduledDate !== strip) return false;
 
-      switch (quick) {
-        case "dueToday":
-        case "today":
-          if (f.scheduledDate !== TODAY_ISO) return false;
-          break;
-        case "overdue":
-          if (!(f.scheduledDate < TODAY_ISO && f.status === "Pending"))
-            return false;
-          break;
-        case "upcoming":
-          if (!(f.scheduledDate > TODAY_ISO && f.status === "Pending"))
-            return false;
-          break;
-        case "highPriority":
-          if (!(f.priority === "High" || f.priority === "Urgent")) return false;
-          break;
-        case "attention":
-          if (
-            !(
-              f.status === "Escalated" ||
-              f.slaStatus === "Breached" ||
-              f.dependencyStatus === "Blocked"
-            )
-          )
-            return false;
-          break;
-        case "mine":
-          // The planner request already enforces onlyMine on the server.
-          break;
-        case "escalated":
-          if (f.status !== "Escalated") return false;
-          break;
-        case "meetings":
-          if (f.followUpType !== "Meeting") return false;
-          break;
-        case "calls":
-          if (f.followUpType !== "Call") return false;
-          break;
-        case "completedToday":
-          if (!(f.status === "Completed" && f.scheduledDate === TODAY_ISO))
-            return false;
-          break;
-      }
-      return true;
+      return this.matchesQuick(f, quick);
     });
   });
+
+  /** Whether a follow-up belongs to a quick filter / saved view. Shared by the list and the view counts. */
+  private matchesQuick(f: FollowUp, quick: QuickFilterKey): boolean {
+    switch (quick) {
+      case "dueToday":
+      case "today":
+        if (f.scheduledDate !== TODAY_ISO) return false;
+        break;
+      case "overdue":
+        if (!(f.scheduledDate < TODAY_ISO && f.status === "Pending"))
+          return false;
+        break;
+      case "upcoming":
+        if (!(f.scheduledDate > TODAY_ISO && f.status === "Pending"))
+          return false;
+        break;
+      case "highPriority":
+        if (!(f.priority === "High" || f.priority === "Urgent")) return false;
+        break;
+      case "attention":
+        if (
+          !(
+            f.status === "Escalated" ||
+            f.slaStatus === "Breached" ||
+            f.dependencyStatus === "Blocked"
+          )
+        )
+          return false;
+        break;
+      case "mine":
+        // The planner request already enforces onlyMine on the server.
+        break;
+      case "escalated":
+        if (f.status !== "Escalated") return false;
+        break;
+      case "meetings":
+        if (f.followUpType !== "Meeting") return false;
+        break;
+      case "calls":
+        if (f.followUpType !== "Call") return false;
+        break;
+      case "completedToday":
+        if (!(f.status === "Completed" && f.scheduledDate === TODAY_ISO))
+          return false;
+        break;
+    }
+    return true;
+  }
 
   readonly pageSize = 10;
   readonly sortOrder = signal("newest");
@@ -704,9 +729,37 @@ export class FollowUpQueueComponent {
       .map((f) => ({
         time: f.scheduledTime,
         title: `${f.followUpType} \u00b7 ${f.recordName}`,
+        name: f.recordName,
+        type: f.followUpType,
+        status: f.status,
         followUpId: f.id,
       })),
   );
+
+  readonly agendaDone = computed(
+    () => this.agendaItems().filter((a) => a.status === "Completed").length,
+  );
+  readonly agendaLeft = computed(
+    () => this.agendaItems().filter((a) => a.status !== "Completed").length,
+  );
+
+  /** Rows the agenda card shows in total: today first, then what is coming up, so the card is always full. */
+  private readonly agendaRows = 5;
+  readonly agendaToday = computed(() =>
+    this.agendaItems().slice(0, this.agendaRows),
+  );
+  readonly agendaNext = computed(() => {
+    const room = this.agendaRows - this.agendaToday().length;
+    if (room <= 0) return [];
+    return this.followUps()
+      .filter((f) => f.status === "Pending" && f.scheduledDate > TODAY_ISO)
+      .sort((a, b) =>
+        `${a.scheduledDate}T${a.scheduledTime}`.localeCompare(
+          `${b.scheduledDate}T${b.scheduledTime}`,
+        ),
+      )
+      .slice(0, room);
+  });
 
   readonly kpiDueToday = computed(
     () =>
@@ -799,6 +852,164 @@ export class FollowUpQueueComponent {
     return this.followUps().filter((f) => ids.has(f.id));
   });
 
+  /** The long form of today, for the header ("Thursday, 24 September"). */
+  readonly todayLabel = new Date(TODAY_ISO + "T00:00:00").toLocaleDateString(
+    "en-GB",
+    { weekday: "long", day: "numeric", month: "long" },
+  );
+
+  /** The five headline tiles. Each one is also the quick filter it names. */
+  readonly kpiTiles = computed<KpiTile[]>(() => [
+    {
+      key: "dueToday",
+      label: "Due today",
+      value: this.kpiDueToday(),
+      hint: "Pending for today",
+      icon: "clock",
+      tone: "info",
+    },
+    {
+      key: "upcoming",
+      label: "Upcoming",
+      value: this.kpiUpcoming(),
+      hint: "Scheduled ahead",
+      icon: "calendar",
+      tone: "ok",
+    },
+    {
+      key: "overdue",
+      label: "Overdue",
+      value: this.kpiOverdue(),
+      hint: "Past their due date",
+      icon: "alert",
+      tone: "danger",
+    },
+    {
+      key: "completedToday",
+      label: "Completed today",
+      value: this.kpiCompletedToday(),
+      hint: "Closed out today",
+      icon: "check-circle",
+      tone: "violet",
+    },
+    {
+      key: "escalated",
+      label: "Escalated",
+      value: this.kpiEscalated(),
+      hint: "Need attention",
+      icon: "flag",
+      tone: "warn",
+    },
+  ]);
+
+  readonly slaTotal = computed(() => {
+    const s = this.slaBreakdown();
+    return s.onTime + s.approaching + s.breached;
+  });
+
+  readonly agingTotal = computed(() => {
+    const b = this.agingBuckets();
+    return b.b0 + b.b1 + b.b2 + b.b3;
+  });
+
+  /** What the queue panel is showing, as its title. */
+  readonly queueTitle = computed(() => {
+    const strip = this.selectedStripDate();
+    if (strip) {
+      return strip === TODAY_ISO
+        ? "Today's follow-ups"
+        : `Follow-ups on ${this.formatDate(strip)}`;
+    }
+    const saved = this.savedViews.find(
+      (v) => v.id === this.activeSavedViewId(),
+    );
+    if (saved) return saved.label;
+    const tile = this.kpiTiles().find(
+      (k) => k.key === this.activeQuickFilter(),
+    );
+    if (tile) return tile.label.charAt(0).toUpperCase() + tile.label.slice(1);
+    return "All follow-ups";
+  });
+
+  /** True when anything narrows the list, so the toolbar can offer one "clear all". */
+  readonly isNarrowed = computed(
+    () =>
+      !!this.searchTerm().trim() ||
+      this.activeFilterCount() > 0 ||
+      !!this.activeQuickFilter() ||
+      !!this.selectedStripDate() ||
+      !!this.activeSavedViewId(),
+  );
+
+  /** Follow-ups in each saved view, so the view pills can show their size. */
+  readonly viewCounts = computed<Record<string, number>>(() => {
+    const map: Record<string, QuickFilterKey> = {
+      mine: "mine",
+      today: "today",
+      overdue: "overdue",
+      upcoming: "upcoming",
+      high: "highPriority",
+      attention: "attention",
+      meetings: "meetings",
+      calls: "calls",
+      escalated: "escalated",
+      completedToday: "completedToday",
+    };
+    const scoped = this.followUps().filter(
+      (f) => !this.recordFilterId() || f.recordId === this.recordFilterId(),
+    );
+    const counts: Record<string, number> = { all: scoped.length };
+    for (const view of this.savedViews) {
+      counts[view.id] = scoped.filter((f) =>
+        this.matchesQuick(f, map[view.id] ?? null),
+      ).length;
+    }
+    return counts;
+  });
+
+  readonly kpiBlocked = computed(
+    () =>
+      this.followUps().filter(
+        (f) => f.dependencyStatus === "Blocked" && f.status === "Pending",
+      ).length,
+  );
+
+  /** The four aging buckets as columns for the pulse panel's chart. */
+  readonly agingColumns = computed(() => {
+    const b = this.agingBuckets();
+    const max = Math.max(1, b.b0, b.b1, b.b2, b.b3);
+    return [
+      { label: "0–3d", value: b.b0, tone: "ok" },
+      { label: "4–7d", value: b.b1, tone: "warn" },
+      { label: "8–15d", value: b.b2, tone: "hot" },
+      { label: "15d+", value: b.b3, tone: "danger" },
+    ].map((c) => ({ ...c, height: (c.value / max) * 100 }));
+  });
+
+  /** "21 – 27 Sep" for the week the date rail shows. */
+  readonly stripRangeLabel = computed(() => {
+    const days = this.calendarStrip();
+    if (!days.length) return "";
+    const fmt = (iso: string) =>
+      new Date(iso + "T00:00:00").toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+      });
+    return `${fmt(days[0].date)} – ${fmt(days[days.length - 1].date)}`;
+  });
+
+  /** The busiest day in the rail, so each day's load bar is relative to it. */
+  readonly stripMax = computed(() =>
+    Math.max(1, ...this.calendarStrip().map((d) => d.count)),
+  );
+
+  readonly stripMonthLabel = computed(() =>
+    new Date(this.calendarCenterDate() + "T00:00:00").toLocaleDateString(
+      "en-US",
+      { month: "long", year: "numeric" },
+    ),
+  );
+
   setView(view: QueueView) {
     this.viewMode.set(view);
   }
@@ -889,6 +1100,7 @@ export class FollowUpQueueComponent {
       overdue: "overdue",
       upcoming: "upcoming",
       high: "highPriority",
+      attention: "attention",
       meetings: "meetings",
       calls: "calls",
       escalated: "escalated",
@@ -1318,7 +1530,7 @@ export class FollowUpQueueComponent {
         "Status",
       ],
       ...rows.map((f) => [
-        f.id,
+        f.reference,
         f.recordName,
         f.followUpType,
         f.purpose,
@@ -1393,5 +1605,94 @@ export class FollowUpQueueComponent {
   maxBucket(): number {
     const b = this.agingBuckets();
     return Math.max(1, b.b0, b.b1, b.b2, b.b3);
+  }
+
+  /** The sprite symbol (see the <svg> sprite at the top of the template) for a channel. */
+  typeIcon(type: FollowUpType): string {
+    switch (type) {
+      case "Call":
+        return "phone";
+      case "Meeting":
+        return "users";
+      case "Email":
+        return "mail";
+      case "SMS":
+        return "message";
+      case "WhatsApp":
+        return "chat";
+      case "Site Visit":
+        return "pin";
+      default:
+        return "task";
+    }
+  }
+
+  initialsOf(name: string): string {
+    return initials(name || "?");
+  }
+
+  /** "Today", "Tomorrow", "In 3 days", "2 days overdue" - how far the due date is from today. */
+  dueLabel(f: FollowUp): string {
+    if (!f.scheduledDate) return "Unscheduled";
+    const days = Math.round(
+      (new Date(f.scheduledDate + "T00:00:00").getTime() -
+        new Date(TODAY_ISO + "T00:00:00").getTime()) /
+        86_400_000,
+    );
+    if (days === 0) return "Today";
+    if (days === 1) return "Tomorrow";
+    if (days === -1) return f.status === "Pending" ? "1 day overdue" : "Yesterday";
+    if (days > 1) return `In ${days} days`;
+    return f.status === "Pending"
+      ? `${-days} days overdue`
+      : `${-days} days ago`;
+  }
+
+  /** "Fri 25" - a day in the agenda's coming-up list. */
+  shortDay(iso: string): string {
+    const d = new Date(iso + "T00:00:00");
+    return `${d.toLocaleDateString("en-GB", { weekday: "short" })} ${d.getDate()}`;
+  }
+
+  /** "14:30" as "2:30 PM". */
+  formatTime(time: string): string {
+    if (!time) return "";
+    const minutes = to24h(time);
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+  }
+
+  /** A second click on the selected day lets go of it. */
+  toggleStripDate(iso: string): void {
+    if (this.selectedStripDate() === iso) {
+      this.selectedStripDate.set(null);
+      return;
+    }
+    this.onStripDateClick(iso);
+  }
+
+  /** The "All" tab: drops the tab, tile and day narrowing but keeps the search and the filter panel's choices. */
+  showAll(): void {
+    this.activeQuickFilter.set(null);
+    this.activeSavedViewId.set(null);
+    this.selectedStripDate.set(null);
+  }
+
+  readonly hasData = computed(() => this.followUps().length > 0);
+
+  jumpToToday(): void {
+    this.calendarCenterDate.set(TODAY_ISO);
+    this.calendarMonthCursor.set(TODAY_ISO.slice(0, 7) + "-01");
+  }
+
+  percentOf(value: number, total: number): number {
+    return total ? Math.round((value / total) * 100) : 0;
+  }
+
+  /** Circumference share of the completion ring (r = 42). */
+  ringDash(percent: number): string {
+    const c = 2 * Math.PI * 42;
+    return `${(c * percent) / 100} ${c}`;
   }
 }

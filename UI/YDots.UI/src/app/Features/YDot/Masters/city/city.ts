@@ -99,7 +99,7 @@ export interface ToastMessage {
   standalone: true,
   imports: [PageHeader, CommonModule, FormsModule, ReactiveFormsModule],
   templateUrl: './city.html',
-  styleUrl: './city.css',
+  styleUrls: ['../masters-ui.css', './city.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CityComponent implements OnInit {

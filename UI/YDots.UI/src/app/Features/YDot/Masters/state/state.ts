@@ -126,7 +126,7 @@ function newId(): string {
   selector: 'app-state',
   imports: [PageHeader, CommonModule, FormsModule],
   templateUrl: './state.html',
-  styleUrl: './state.css',
+  styleUrls: ['../masters-ui.css', './state.css'],
 })
 export class StateComponent implements OnInit {
   // -------------------------------------------------------------------

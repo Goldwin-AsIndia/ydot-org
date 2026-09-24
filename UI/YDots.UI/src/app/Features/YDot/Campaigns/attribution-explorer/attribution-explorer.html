@@ -1,8 +1,8 @@
 <main class="app-wrapper">
   <div class="page-wrapper">
-    <div class="container-fluid px-4 py-3">
+    <div class="container-fluid px-4 pt-1 pb-3">
       <div [attr.data-ui-state]="uiState()">
-        <app-page-header screen="attribution-explorer" [title]="pageTitle" [subtitle]="pageSubtitle" [ownerLabel]="owner()"
+        <app-page-header [showInfo]="false" screen="attribution-explorer" [title]="pageTitle" [subtitle]="pageSubtitle" [ownerLabel]="owner()"
                          [updatedLabel]="'Updated ' + lastRefresh()">
           @if (taskReference()) { <span meta class="ph-chip">{{ taskReference() }}</span> }
           @if (lifecycleState()) { <span meta class="ph-chip">{{ lifecycleState() }}</span> }
@@ -689,6 +689,7 @@
             aria-labelledby="ae-corr-title"
             (click)="$event.stopPropagation()"
           >
+            <header class="ov-head">
             <div class="ae-modal-head">
               <h2 id="ae-corr-title" class="ae-modal-title">Request correction</h2>
               <button
@@ -704,6 +705,8 @@
               Raise a correction request against a read-only attribution record. The record is not
               overwritten; a reviewer decides the outcome.
             </p>
+            </header>
+            <div class="ov-body">
 
             <dl class="ae-kv ae-kv-box">
               <div>
@@ -759,6 +762,7 @@
                 >
               </div>
             </div>
+            </div>
 
             <div class="ae-modal-actions">
               <button type="button" class="ae-btn ae-btn-outline" (click)="cancelCorrection()">
@@ -782,6 +786,7 @@
             aria-labelledby="ae-del-title"
             (click)="$event.stopPropagation()"
           >
+            <header class="ov-head">
             <div class="ae-modal-head">
               <h2 id="ae-del-title" class="ae-modal-title ae-modal-title-danger">
                 Confirm Delete unused draft
@@ -794,6 +799,8 @@
               Review the affected record, consequence, reason and effective time. This removes an
               unused draft with no downstream reference; linked history is preserved.
             </p>
+            </header>
+            <div class="ov-body">
 
             <dl class="ae-kv ae-kv-box">
               <div>
@@ -873,6 +880,7 @@
               @if (deleteSubmitted() && !deleteConfirmValid()) {
                 <span class="ae-field-error">Type DELETE to confirm.</span>
               }
+            </div>
             </div>
 
             <div class="ae-modal-actions">

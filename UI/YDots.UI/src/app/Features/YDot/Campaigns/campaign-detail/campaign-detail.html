@@ -1,8 +1,8 @@
 <main class="app-wrapper">
   <div class="page-wrapper">
-    <div class="container-fluid px-4 py-3">
+    <div class="container-fluid px-4 pt-1 pb-3">
       <!-- ============ TASK HEADER ============ -->
-      <app-page-header screen="campaign-detail" [title]="campaignName()" subtitle="View complete campaign information and details.">
+      <app-page-header [showInfo]="false" screen="campaign-detail" [title]="campaignName()" subtitle="View complete campaign information and details.">
         <span meta class="ph-chip">{{ status() }}</span>
         @if (reference) { <span meta class="ph-chip">{{ reference }}</span> }
         <ng-container actions>
@@ -44,10 +44,10 @@
             Export
           </button>
           }
-          <!-- Edit — opens the Campaign Wizard pre-filled with this record; Draft campaigns only -->
+          <!-- Edit — opens the Campaign Wizard pre-filled with this record; Draft or Active campaigns -->
           @if (canEdit()) {
           <button type="button" class="ph-btn ph-btn--ghost" (click)="openEdit()"
-            aria-label="Edit draft campaign in the wizard">
+            aria-label="Edit campaign in the wizard">
             <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 20h9" />
@@ -188,10 +188,6 @@
                     <span class="cd-stat-chip is-up">↑ 12%</span>
                   </div>
                   <span class="cd-stat-value">{{ kpiRevenue() }}</span>
-                  <span class="cd-stat-sub">
-                    <span>Total <strong>{{ kpiRevenueCompact() }}</strong></span>
-                    <button type="button" class="cd-stat-link">View details <span aria-hidden="true">→</span></button>
-                  </span>
                 </div>
               </article>
 
@@ -241,10 +237,9 @@
 
               <!-- Campaign Calendar — the campaign's real dates first (launch, close), the
                    mock's demo activities around them so the month reads like the design.
-                   Ported from Figma node 3:118, including its own right-hand activity rail. The rail's
-                   event cards (title + time + status, owner and note, or an amount for a donation)
-                   are Figma node 3:349; the rail opens for the clicked day and has no date heading. -->
-              <article class="fk-panel fk-cal-panel cd-cal-panel" [class.has-selection]="calSelectedDay() !== null">
+                   Ported from Figma node 3:118. Clicking a day filters the tabbed lists below it to
+                   that date and scrolls down to them. -->
+              <article class="fk-panel fk-cal-panel cd-cal-panel">
                 <div class="fk-cal-head">
                   <p class="fk-cal-title">Campaign Calendar</p>
                   <div class="fk-cal-tools">
@@ -273,7 +268,7 @@
                         @if (cell.events.length) {
                         <span class="fk-cal-dots" aria-hidden="true">
                           @for (ev of cell.events.slice(0, 4); track ev.label) {
-                          <span class="fk-cal-dot" [attr.data-kind]="ev.kind"></span>
+                          <span class="fk-cal-logo" [attr.data-kind]="ev.kind" [attr.title]="ev.label"><i [class]="calKindIcon(ev.kind)"></i></span>
                           }
                           @if (cell.events.length > 4) {
                           <span class="fk-cal-more">+{{ cell.events.length - 4 }}</span>
@@ -290,53 +285,11 @@
                     </div>
                     <ul class="fk-cal-legend">
                       @for (item of calLegend; track item.kind) {
-                      <li><span class="fk-legend-dot" [style.background]="item.color"></span>{{ item.label }}</li>
+                      <li><span class="fk-cal-logo" [attr.data-kind]="item.kind" aria-hidden="true"><i [class]="calKindIcon(item.kind)"></i></span>{{ item.label }}</li>
                       }
                     </ul>
                   </div>
 
-                  <!-- Day panel: only while a date is selected. The calendar gives up the width it needs,
-                       and the list scrolls inside the panel so the card never grows with it. -->
-                  @if (calSelectedDay(); as day) {
-                  <aside class="fk-cal-rail" aria-label="Activities on {{ day.dateLabel }}">
-                    <div class="fk-cal-rail-inner">
-                      @if (day.events.length) {
-                      <ul class="fk-day-list">
-                        @for (ev of day.events; track ev.label) {
-                        <li class="fk-ev" [attr.data-kind]="ev.kind">
-                          <div class="fk-ev-head">
-                            <span class="fk-ev-tile" aria-hidden="true"><i [class]="calKindIcon(ev.kind)"></i></span>
-                            <div class="fk-ev-head-text">
-                              <p class="fk-ev-title">{{ ev.label }}</p>
-                              <p class="fk-ev-time">{{ ev.time ? (ev.end ? ev.time + ' - ' + ev.end : ev.time) : 'Campaign date' }}</p>
-                              @if (ev.status) {
-                              <p class="fk-ev-status" [attr.data-status]="ev.status"><span class="fk-ev-status-dot" aria-hidden="true"></span>{{ ev.status }}</p>
-                              }
-                            </div>
-                          </div>
-                          <div class="fk-ev-body">
-                            @if (ev.amount) {
-                            <p class="fk-ev-amount">{{ ev.amount }}</p>
-                            } @else if (ev.owner) {
-                            <p class="fk-ev-owner">
-                              <span class="fk-ev-avatar" aria-hidden="true"><i class="ri-user-line"></i></span>
-                              <span class="fk-ev-owner-label">Owner</span>
-                              <span class="fk-ev-owner-name">{{ ev.owner }}</span>
-                            </p>
-                            }
-                            @if (ev.note) {
-                            <p class="fk-ev-note">{{ ev.note }}</p>
-                            }
-                          </div>
-                        </li>
-                        }
-                      </ul>
-                      } @else {
-                      <p class="fk-day-empty">Nothing is scheduled for this day.</p>
-                      }
-                    </div>
-                  </aside>
-                  }
                 </div>
               </article>
 
@@ -349,7 +302,17 @@
               <article class="fk-panel fk-overview-panel">
                 <div class="fk-overview-head">
                   <p class="fk-overview-title">Campaign overview</p>
-                  <span class="fk-programme-pill">{{ fundProgramme() }}</span>
+                  <!-- Edit — opens the Campaign Wizard pre-filled with everything entered at creation -->
+                  @if (uiState() !== 'no-access') {
+                  <button type="button" class="fk-overview-edit" (click)="openEdit()" [disabled]="!canEdit()"
+                    [attr.aria-label]="editHint()" [title]="editHint()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                  </button>
+                  }
                 </div>
 
                 <div class="fk-overview-grid">
@@ -383,7 +346,6 @@
 
                 <p class="fk-overview-desc">
                   {{ purpose() }}
-                  <span class="fk-overview-note">Budget and target are planning amounts; they are not donations received.</span>
                 </p>
 
                 @if (hasPublicDescription() || hasTermsNotice()) {
@@ -398,85 +360,8 @@
                 }
               </article>
 
-              <!-- Donations by Channel — the real donation trend, split across the mock's
-                   channels so the chart reads like the design while staying honest.
-                   Ported from Figma node 13:2; the design's exported wavy lines are
-                   decorative renders of this same idea, so the path data here stays
-                   live/computed rather than embedding the static export. -->
-              <article class="fk-panel fk-chart-panel cd-channels-panel">
-                <div class="fk-chart-head">
-                  <p class="fk-chart-title">Donations By Channel</p>
-                  <div class="fk-chart-legend">
-                    @for (item of channelLegend; track item.label) {
-                    <span class="fk-chart-legend-item">
-                      <span class="fk-chart-legend-dot" [style.background]="item.color"></span>{{ item.label }}
-                    </span>
-                    }
-                    <span class="fk-period-pill fk-period-pill-sm">
-                      <select class="fk-period-select" [value]="trendRange()"
-                        (change)="setTrendRange($any($event.target).value)" aria-label="Chart period">
-                        <option value="12">Last 12 Months</option>
-                        <option value="6">Last 6 Months</option>
-                      </select>
-                      <span aria-hidden="true">▾</span>
-                    </span>
-                  </div>
-                </div>
-                <div class="fk-chart-wrap">
-                  <svg class="fk-chart" viewBox="0 0 660 124" preserveAspectRatio="none" role="img"
-                    aria-label="Donations by channel, month by month"
-                    (pointermove)="onChannelMove($event)" (pointerleave)="channelHover.set(null)">
-                    <defs>
-                      <linearGradient id="cdBandFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="11.19%" stop-color="rgba(218,19,48,0.1)" />
-                        <stop offset="88.81%" stop-color="rgba(224,8,39,0.5)" />
-                      </linearGradient>
-                    </defs>
-
-                    @for (tick of channelTicks(); track tick.value) {
-                    <line class="fk-chart-gridline" x1="15" [attr.y1]="trendY(tick.value)" x2="645"
-                      [attr.y2]="trendY(tick.value)"></line>
-                    }
-                    @for (lb of channelXLabels(); track lb.x) {
-                    <line class="fk-chart-gridline" [attr.x1]="lb.x" y1="6" [attr.x2]="lb.x" y2="118"></line>
-                    }
-
-                    @if (channelTip(); as tip) {
-                    <rect class="fk-chart-band" [attr.x]="tip.x - 16" y="6" width="32" height="112" rx="16"></rect>
-                    }
-
-                    @for (s of channelSeries(); track s.key) {
-                    <path class="fk-chart-line" [attr.d]="s.line" [attr.stroke]="s.color"></path>
-                    }
-
-                    @if (channelTip(); as tip) {
-                    @for (row of tip.rows; track row.key) {
-                    <circle class="fk-chart-dot" [attr.cx]="tip.x" [attr.cy]="row.y" r="3.5" [attr.fill]="row.color">
-                    </circle>
-                    }
-                    }
-                  </svg>
-
-                  @if (channelTip(); as tip) {
-                  <div class="cd-chart-tip" [class.below]="tip.below" [style.left.%]="tip.left"
-                    [style.top.%]="tip.top">
-                    <strong class="cd-chart-tip-title">{{ tip.label }}</strong>
-                    <ul>
-                      @for (row of tip.rows; track row.key) {
-                      <li>
-                        <span class="cd-legend-dot" [style.background]="row.color"></span>
-                        <span class="cd-chart-tip-label">{{ row.label }}</span>
-                        <strong>{{ row.display }}</strong>
-                      </li>
-                      }
-                    </ul>
-                  </div>
-                  }
-                </div>
-              </article>
-
-              <!-- Donations by Channel — the donor mix. Sits directly under the graph and shares its
-                   column, so its left and right edges are the graph's. Ring on the left, one row per
+              <!-- Donations by Channel — the donor mix. Sits directly under Campaign overview and shares
+                   its column. Ring on the left, one row per
                    channel on the right (swatch, name, donors) and a total-donors row under them. The ring
                    uses soft pastel colours, not the graph's own. -->
               <article class="fk-panel cd-mix-panel">
@@ -521,7 +406,7 @@
 
               <!-- Tracking card — the compact tabbed table from the design. Narrower now,
                    sitting directly below the Calendar, to the left of Recent Activity. -->
-              <section class="fk-panel fk-table-card cd-work-card cd-work-card-compact">
+              <section class="fk-panel fk-table-card cd-work-card cd-work-card-compact" id="cd-date-tabs">
                   <div class="fk-table-head">
                     <nav class="fk-tabs" role="tablist" aria-label="Campaign detail sections">
                       @for (t of tabs; track t.key) {
@@ -547,17 +432,16 @@
                           <thead>
                             <tr>
                               <th>Type - Channel</th>
-                              <th>Status</th>
+                              <th class="fk-col-status">Status</th>
                               <th>Usage</th>
                               <th class="d-none d-xl-table-cell">Created On</th>
-                              <th class="fk-col-actions">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
                             @for (row of pagedTrackingRows(); track row.primary) {
                             <tr>
                               <td>{{ row.secondary }}</td>
-                              <td>
+                              <td class="fk-col-status">
                                 <span class="fk-status-chip" [attr.data-tone]="row.tone">
                                   <span class="fk-status-chip-dot" aria-hidden="true"></span>
                                   {{ row.statusText }}
@@ -565,16 +449,13 @@
                               </td>
                               <td>{{ row.usesCount }}</td>
                               <td class="d-none d-xl-table-cell">{{ row.createdOn }}</td>
-                              <td class="fk-col-actions">
-                                <button type="button" class="fk-row-menu" aria-label="More actions">⋯</button>
-                              </td>
                             </tr>
                             }
                           </tbody>
                         </table>
                       </div>
                       } @else {
-                      <p class="cd-state-note">No tracking assets recorded for this campaign yet.</p>
+                      <p class="cd-state-note">No tracking assets on {{ calFilterLabel() }}.</p>
                       }
                       <div class="fk-table-foot">
                         <span class="fk-table-showing">{{ trackShowing() }}</span>
@@ -598,7 +479,7 @@
                       <p class="cd-state-note">{{ donationsError() }}</p>
                       } @else {
                       <ng-container
-                        *ngTemplateOutlet="rowTable; context: { $implicit: donations(), cols: ['Donation', 'Source · Method', 'Received'] }"></ng-container>
+                        *ngTemplateOutlet="rowTable; context: { $implicit: paymentRows(), cols: ['Donation', 'Source · Method', 'Received'] }"></ng-container>
                       }
                     </div>
                     }
@@ -622,7 +503,7 @@
                 <div class="fk-recent-head">
                   <div>
                     <p class="fk-recent-title">Recent Activity</p>
-                    <p class="fk-recent-sub">Latest {{ recentActivity().slice(0, 10).length }} campaign activities</p>
+                    <p class="fk-recent-sub">{{ recentActivity().length }} campaign {{ recentActivity().length === 1 ? 'activity' : 'activities' }}</p>
                   </div>
                   <span class="fk-period-pill ra-period">Last 12 Months
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -635,8 +516,10 @@
                 } @else if (recentActivity().length) {
                 <!-- Time | dashed rail with a channel icon | tinted card (title + campaign). The colour follows the
                      channel / step (activityKind), not the theme. -->
+                <!-- Six rows show at once; anything beyond that scrolls inside this box instead of growing the card. -->
+                <div class="ra-scroll">
                 <ul class="ra-list">
-                  @for (item of recentActivity().slice(0, 10); track item.time + item.title) {
+                  @for (item of recentActivity(); track $index) {
                   <li class="ra-row" [attr.data-kind]="activityKind(item)">
                     <span class="ra-when">
                       <span class="ra-time">{{ activityWhen(item).time }}</span>
@@ -680,6 +563,7 @@
                   </li>
                   }
                 </ul>
+                </div>
                 } @else {
                 <p class="cd-state-note">No activity recorded for this campaign yet.</p>
                 }
@@ -718,18 +602,24 @@
           </table>
         </div>
         } @else {
-        <p class="cd-state-note">Nothing recorded for this campaign in scope — this is not a global zero.</p>
+        <p class="cd-state-note">Nothing recorded on {{ calFilterLabel() }}.</p>
         }
       </ng-template>
 
       <!-- ============ HIGH-RISK CONFIRM: Operate according to lifecycle ============ -->
       @if (operateDialogOpen()) {
       <div class="cd-modal-backdrop" (click)="cancelOperate()">
-        <div class="cd-modal" role="dialog" aria-modal="true" aria-labelledby="cd-op-title" style="border-radius: 0.5rem"
+        <div class="cd-modal" role="dialog" aria-modal="true" aria-labelledby="cd-op-title"
           (click)="$event.stopPropagation()">
+          <header class="ov-head">
+          <button type="button" class="cd-modal-x" (click)="cancelOperate()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
           <h2 class="cd-modal-title" id="cd-op-title">Confirm {{ proposedTransition()?.label }}</h2>
           <p class="cd-modal-lead">Review the affected record, consequence, reason and effective time. This decision
             requires explicit confirmation.</p>
+          </header>
+          <div class="ov-body">
 
           @if (dialogOptions().length > 1) {
           <fieldset class="cd-modal-field">
@@ -778,6 +668,7 @@
               operateReasonMax }} characters.</span>
             }
           </label>
+          </div>
 
           <div class="cd-modal-actions">
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelOperate()">Cancel</button>
@@ -793,8 +684,14 @@
       <div class="cd-modal-backdrop" (click)="cancelDeleteDraft()">
         <div class="cd-modal" role="dialog" aria-modal="true" aria-labelledby="cd-del-title"
           (click)="$event.stopPropagation()">
+          <header class="ov-head">
+          <button type="button" class="cd-modal-x" (click)="cancelDeleteDraft()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
           <h2 class="cd-modal-title" id="cd-del-title">Delete this draft?</h2>
           <p class="cd-modal-lead">This permanently removes the draft campaign. This cannot be undone.</p>
+          </header>
+          <div class="ov-body">
           <dl class="cd-facts cd-modal-facts">
             <div class="cd-fact">
               <dt>Affected record</dt>
@@ -805,6 +702,7 @@
               <dd>Draft permanently deleted</dd>
             </div>
           </dl>
+          </div>
           <div class="cd-modal-actions">
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDeleteDraft()">Cancel</button>
             <button type="button" class="btn btn-danger btn-sm" (click)="confirmDeleteDraft()">Delete draft</button>
@@ -816,11 +714,27 @@
       <!-- ============ READ MORE — Public description / Terms and notice popup ============ -->
       @if (readMoreField()) {
       <div class="cd-modal-backdrop" (click)="closeReadMore()">
-        <div class="cd-modal cd-modal-lg" role="dialog" aria-modal="true" aria-labelledby="cd-readmore-title"
+        <div class="cd-modal cd-modal-readmore" [class.cd-readmore--terms]="readMoreField() === 'terms'"
+          role="dialog" aria-modal="true" aria-labelledby="cd-readmore-title" aria-describedby="cd-readmore-lead"
           (click)="$event.stopPropagation()">
-          <h2 class="cd-modal-title" id="cd-readmore-title">{{ readMoreTitle() }}</h2>
-          <div class="cd-readmore-body" [innerHTML]="readMoreHtml()"></div>
+          <header class="ov-head">
+            <button type="button" class="cd-modal-x" (click)="closeReadMore()" aria-label="Close">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            </button>
+            <p class="cd-modal-kicker">{{ campaignName() }}</p>
+            <h2 class="cd-modal-title" id="cd-readmore-title">{{ readMoreTitle() }}</h2>
+            <p class="cd-modal-lead" id="cd-readmore-lead">
+              {{ readMoreField() === 'terms' ? 'The terms and notices donors see before they give.' : 'How this campaign is presented to donors on public pages.' }}
+            </p>
+          </header>
+          <div class="ov-body">
+            <article class="cd-readmore-body" [innerHTML]="readMoreHtml()"></article>
+          </div>
           <div class="cd-modal-actions">
+            <span class="cd-readmore-meta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              {{ readMoreWordCount() | number }} words · {{ readMoreMinutes() }} min read
+            </span>
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeReadMore()">Close</button>
           </div>
         </div>

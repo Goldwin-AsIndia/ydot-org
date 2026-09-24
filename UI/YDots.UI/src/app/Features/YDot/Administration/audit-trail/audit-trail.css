@@ -2,6 +2,19 @@
    trailing uselessly past the last card in the column. */
 .audit-right-col > .card:last-child { margin-bottom: 0; }
 
+/* Below 1200px the timeline and this column stack (the page splits at xl, not lg: with the sidebar open a
+   992-1199px window left the column ~210px wide, too narrow for its legend). Stacked, the three cards sit side
+   by side rather than as full-width strips. */
+@media (max-width: 1199.98px) {
+  .audit-right-col {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(calc(280px * var(--ui-scale, 1)), 1fr));
+    gap: calc(20px * var(--ui-scale, 1));
+    margin-top: calc(4px * var(--ui-scale, 1));
+  }
+  .audit-right-col > .card { margin-bottom: 0; }
+}
+
 .audit-card-outline {
   border: var(--yc-border);
   border-radius: var(--yc-radius);
@@ -22,16 +35,16 @@
 
   /* Bounded in both directions: a large payload must not push later rows off the screen, and a
      single long line must not widen the card past the viewport. */
-  max-height: 320px;
+  max-height: calc(320px * var(--ui-scale, 1));
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.audit-payload::-webkit-scrollbar { width: 8px; height: 8px; }
+.audit-payload::-webkit-scrollbar { width: calc(8px * var(--ui-scale, 1)); height: calc(8px * var(--ui-scale, 1)); }
 .audit-payload::-webkit-scrollbar-thumb {
   background: var(--bs-border-color, rgba(0, 0, 0, 0.2));
-  border-radius: 4px;
+  border-radius: calc(4px * var(--ui-scale, 1));
 }
 
 .font-monospace { font-size: 0.75rem; }
@@ -61,7 +74,7 @@
   --at-gold: #b7791f;
 
   background: #ffffff;
-  border-radius: var(--yc-radius, 20px);
+  border-radius: var(--yc-radius, calc(20px * var(--ui-scale, 1)));
   color: var(--at-ink);
 }
 
@@ -138,11 +151,11 @@
 
 .at-ratio {
   display: flex;
-  gap: 3px;
-  height: 8px;
+  gap: calc(3px * var(--ui-scale, 1));
+  height: calc(8px * var(--ui-scale, 1));
   margin-top: auto;
   padding-top: 0;
-  border-radius: 999px;
+  border-radius: calc(999px * var(--ui-scale, 1));
   overflow: hidden;
   background: var(--at-line);
 }
@@ -169,8 +182,8 @@
 }
 
 .at-legend__dot {
-  width: 8px;
-  height: 8px;
+  width: calc(8px * var(--ui-scale, 1));
+  height: calc(8px * var(--ui-scale, 1));
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -203,7 +216,7 @@
   display: inline-flex;
   align-items: center;
   padding: 0.1rem 0.5rem;
-  border-radius: 999px;
+  border-radius: calc(999px * var(--ui-scale, 1));
   font-size: 0.72rem !important;
   font-weight: 700 !important;
   line-height: 1.4 !important;
@@ -292,7 +305,7 @@
   padding: 0 0.9rem;
   background: var(--at-well);
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: calc(12px * var(--ui-scale, 1));
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
@@ -355,7 +368,7 @@
   height: 2.75rem;
   padding: 0 1rem;
   border: 1px solid var(--at-line);
-  border-radius: 12px;
+  border-radius: calc(12px * var(--ui-scale, 1));
   background: #ffffff;
   color: var(--at-ink);
   font-size: 0.85rem !important;
@@ -448,7 +461,7 @@
 }
 
 .audit-activity-title {
-  border-left: 3px solid var(--pe-success, #37c37e);
+  border-left: calc(3px * var(--ui-scale, 1)) solid var(--pe-success, #37c37e);
   padding-left: 0.75rem;
 }
 
@@ -458,7 +471,7 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 150px;
+  width: calc(150px * var(--ui-scale, 1));
   height: 82%;
   pointer-events: none;
 }
@@ -499,7 +512,7 @@
      padding this had before, where the cell's 50% midpoint landed left of the icon's actual
      visual centre (icon width + only left padding meant the cell's true centre and the icon's
      centre were two different points), which is why the connecting line looked offset. */
-  width: 64px;
+  width: calc(64px * var(--ui-scale, 1));
   text-align: center;
   padding-left: 1rem !important;
   padding-right: 1rem !important;
@@ -537,11 +550,11 @@
 
 .audit-table tbody td.audit-table-icon-col::before {
   top: 0;
-  height: calc(50% - 12.5px - 6px); /* icon glyph half-height (25px / 2) + gap */
+  height: calc(50% - calc(12.5px * var(--ui-scale, 1)) - calc(6px * var(--ui-scale, 1))); /* icon glyph half-height (25px / 2) + gap */
 }
 
 .audit-table tbody td.audit-table-icon-col::after {
-  top: calc(50% + 12.5px + 6px);
+  top: calc(50% + calc(12.5px * var(--ui-scale, 1)) + calc(6px * var(--ui-scale, 1)));
   bottom: 0;
 }
 
@@ -552,7 +565,7 @@
    `font-size: var(--fs-base) !important` to every bare `i` tag in the whole app, which
    silently caps icon glyph sizes unless beaten with an equally-important, more specific rule. */
 .audit-table-icon {
-  font-size: 25px !important;
+  font-size: calc(25px * var(--ui-scale, 1)) !important;
 }
 
 
@@ -560,8 +573,8 @@
   border: none;
   background: transparent;
   color: var(--bs-secondary-color, #6c757d);
-  width: 28px;
-  height: 28px;
+  width: calc(28px * var(--ui-scale, 1));
+  height: calc(28px * var(--ui-scale, 1));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -584,7 +597,7 @@
 
 .audit-donut-wrap {
   position: relative;
-  width: 140px;
+  width: calc(140px * var(--ui-scale, 1));
   flex-shrink: 0;
 }
 
@@ -604,14 +617,14 @@
 /* ---- Activity heatmap ---------------------------------------------------------------------- */
 .audit-heatmap-body {
   display: flex;
-  gap: 8px;
+  gap: calc(8px * var(--ui-scale, 1));
 }
 
 .audit-heatmap-labels {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  width: 40px;
+  width: calc(40px * var(--ui-scale, 1));
   flex-shrink: 0;
 }
 
@@ -626,23 +639,23 @@
      wide card. Width now follows the card; height never does. */
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-auto-rows: 24px;
-  gap: 4px;
+  grid-auto-rows: calc(24px * var(--ui-scale, 1));
+  gap: calc(4px * var(--ui-scale, 1));
   width: 100%;
 }
 
 .audit-heatmap-cell {
-  border-radius: 4px;
+  border-radius: calc(4px * var(--ui-scale, 1));
   background-color: var(--bs-tertiary-bg, #f1f3f5);
   width: 100%;
-  height: 24px;
+  height: calc(24px * var(--ui-scale, 1));
 }
 
 .audit-heatmap-days {
   display: flex;
-  gap: 4px;
-  margin-left: 48px;
-  margin-top: 6px;
+  gap: calc(4px * var(--ui-scale, 1));
+  margin-left: calc(48px * var(--ui-scale, 1));
+  margin-top: calc(6px * var(--ui-scale, 1));
 }
 
 .audit-heatmap-days span {
@@ -667,8 +680,8 @@
 }
 
 .audit-insight-icon {
-  width: 40px;
-  height: 40px;
+  width: calc(40px * var(--ui-scale, 1));
+  height: calc(40px * var(--ui-scale, 1));
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -678,7 +691,7 @@
 }
 
 @media (max-width: 767.98px) {
-  .audit-payload { max-height: 220px; }
+  .audit-payload { max-height: calc(220px * var(--ui-scale, 1)); }
   .audit-timeline-when { width: auto; }
   .audit-timeline-outcome { flex-basis: 100%; }
 }

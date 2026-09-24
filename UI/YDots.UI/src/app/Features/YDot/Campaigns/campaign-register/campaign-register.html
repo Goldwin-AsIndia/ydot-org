@@ -2,7 +2,7 @@
   <div class="page-wrapper">
     <div class="cr-page" [attr.data-ui-state]="uiState()">
       <!-- ============ TASK HEADER ============ -->
-      <app-page-header screen="campaign-register" title="Campaign Overview"
+      <app-page-header [showInfo]="false" screen="campaign-register" title="Campaign Overview"
                        subtitle="Track campaign performance, donations, donor activity, and impact at a glance.">
         <ng-container actions>
             <button #crFiltersToggle type="button" class="ph-btn ph-btn--ghost"
@@ -544,10 +544,16 @@
       <div class="cr-modal-backdrop" (click)="closeCompare()">
         <div class="cr-modal cr-modal-wide" role="dialog" aria-modal="true" aria-labelledby="cr-compare-title"
           (click)="$event.stopPropagation()">
+          <header class="ov-head">
+          <button type="button" class="cr-modal-x" (click)="closeCompare()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
           <h2 id="cr-compare-title" class="cr-modal-title">Compare campaigns</h2>
           <p class="cr-modal-lead">
             Comparing {{ compareRecords().length }} selected campaigns from the current scope.
           </p>
+          </header>
+          <div class="ov-body">
           <div class="cr-table-scroll">
             <table class="cr-table cr-compare-table">
               <thead>
@@ -602,6 +608,7 @@
               </tbody>
             </table>
           </div>
+          </div>
           <div class="cr-modal-actions">
             <button type="button" class="cr-btn cr-btn-primary" (click)="closeCompare()">
               Close
@@ -617,11 +624,17 @@
       <div class="cr-modal-backdrop" (click)="closeOwnersPopup()">
         <div class="cr-modal" role="dialog" aria-modal="true" aria-labelledby="cr-owners-title"
           (click)="$event.stopPropagation()">
+          <header class="ov-head">
+          <button type="button" class="cr-modal-x" (click)="closeOwnersPopup()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
           <h2 id="cr-owners-title" class="cr-modal-title">Owners</h2>
           <p class="cr-modal-lead">
             {{ target.name }} <span class="cr-code">{{ target.code }}</span> has
             {{ ownersOf(target).length }} accountable {{ ownersOf(target).length === 1 ? 'owner' : 'owners' }}.
           </p>
+          </header>
+          <div class="ov-body">
           <ul class="cr-owners-list">
             @for (o of ownersOf(target); track o.reference) {
             <li class="cr-owners-list-item">
@@ -642,6 +655,7 @@
             </li>
             }
           </ul>
+          </div>
           <div class="cr-modal-actions">
             <button type="button" class="cr-btn cr-btn-primary" (click)="closeOwnersPopup()">
               Close
@@ -656,6 +670,10 @@
       <div class="cr-modal-backdrop" (click)="closeOwnerDetail()">
         <div class="cr-modal cr-modal-owner" role="dialog" aria-modal="true" aria-labelledby="cr-owner-detail-title"
           (click)="$event.stopPropagation()">
+          <header class="ov-head ov-head--plain">
+          <button type="button" class="cr-modal-x" (click)="closeOwnerDetail()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
           <div class="cr-owner-detail-head">
             @if (o.avatarUrl && !avatarFailed(o.reference)) {
             <img class="cr-avatar cr-avatar-lg cr-avatar-img" [src]="o.avatarUrl" [alt]="o.name"
@@ -668,6 +686,8 @@
               @if (o.context) { <p class="cr-owner-detail-sub">{{ o.context }}</p> }
             </div>
           </div>
+          </header>
+          <div class="ov-body">
           <!-- REFERENCE IS THE USR CODE, NOT THE API ID. It used to print `o.reference`, which
                  is the Guid every request carries — so the popup showed a 36-character
                  identifier under a heading a person reads as "the reference I can quote". Role
@@ -697,6 +717,7 @@
             </div>
             }
           </dl>
+          </div>
           <div class="cr-modal-actions">
             <button type="button" class="cr-btn cr-btn-primary" (click)="closeOwnerDetail()">
               Close
@@ -711,11 +732,17 @@
       <div class="cr-modal-backdrop" (click)="cancelExport()">
         <div class="cr-modal" role="dialog" aria-modal="true" aria-labelledby="cr-export-title"
           (click)="$event.stopPropagation()">
+          <header class="ov-head">
+          <button type="button" class="cr-modal-x" (click)="cancelExport()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
           <h2 id="cr-export-title" class="cr-modal-title">Confirm Export</h2>
           <p class="cr-modal-lead">
             Confirm classification, purpose, scope, count, expiry and audit reference before the
             protected output is made available.
           </p>
+          </header>
+          <div class="ov-body">
           <dl class="cr-kv">
             <div>
               <dt>Classification</dt>
@@ -753,6 +780,7 @@
               {{ exportReasonMin }})
             </p>
           </div>
+          </div>
           <div class="cr-modal-actions">
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelExport()">
               Cancel
@@ -771,11 +799,17 @@
       <div class="cr-modal-backdrop" (click)="cancelDelete()">
         <div class="cr-modal" role="dialog" aria-modal="true" aria-labelledby="cr-delete-title"
           (click)="$event.stopPropagation()">
+          <header class="ov-head">
+          <button type="button" class="cr-modal-x" (click)="cancelDelete()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
           <h2 id="cr-delete-title" class="cr-modal-title">Confirm Delete unused draft</h2>
           <p class="cr-modal-lead">
             Review the affected record, consequence, reason and effective time. Linked history is
             preserved; this cannot be undone.
           </p>
+          </header>
+          <div class="ov-body">
           <dl class="cr-kv">
             <div>
               <dt>Campaign</dt>
@@ -806,6 +840,7 @@
               {{ deleteReasonMin }})
             </p>
           </div>
+          </div>
           <div class="cr-modal-actions">
             <button type="button" class="cr-btn cr-btn-outline" (click)="cancelDelete()">
               Cancel
@@ -825,10 +860,16 @@
       <div class="cr-modal-backdrop" (click)="cancelApprove()">
         <div class="cr-modal" role="dialog" aria-modal="true" aria-labelledby="cr-approve-title"
           (click)="$event.stopPropagation()">
+          <header class="ov-head">
+          <button type="button" class="cr-modal-x" (click)="cancelApprove()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
           <h2 id="cr-approve-title" class="cr-modal-title">Confirm Approve</h2>
           <p class="cr-modal-lead">
             Approving moves this campaign out of Submitted and schedules it for launch.
           </p>
+          </header>
+          <div class="ov-body">
           <dl class="cr-kv">
             <div>
               <dt>Campaign</dt>
@@ -851,6 +892,7 @@
               <dd>{{ lastRefresh() }}</dd>
             </div>
           </dl>
+          </div>
           <div class="cr-modal-actions">
             <button type="button" class="cr-btn cr-btn-outline" (click)="cancelApprove()">
               Cancel

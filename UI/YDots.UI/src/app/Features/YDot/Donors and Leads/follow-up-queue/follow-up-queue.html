@@ -1,2603 +1,1183 @@
 <main class="app-wrapper">
+  <!-- ============================== ICON SPRITE ==============================
+       Every glyph on the screen is drawn once here and referenced with <use>, so the markup below stays
+       readable. Stroke, width and colour come from .fq-i in the stylesheet. -->
+  <svg class="fq-sprite" aria-hidden="true" focusable="false">
+    <symbol id="fq-i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 4v6h-6" /></symbol>
+    <symbol id="fq-i-download" viewBox="0 0 24 24"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></symbol>
+    <symbol id="fq-i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+    <symbol id="fq-i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></symbol>
+    <symbol id="fq-i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M3 10h18M8 3v4M16 3v4" /></symbol>
+    <symbol id="fq-i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5h.01" /></symbol>
+    <symbol id="fq-i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7" /></symbol>
+    <symbol id="fq-i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="m8.5 12.5 2.5 2.5 4.5-5.5" /></symbol>
+    <symbol id="fq-i-flag" viewBox="0 0 24 24"><path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /></symbol>
+    <symbol id="fq-i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" /></symbol>
+    <symbol id="fq-i-board" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5" /><path d="M9 3v18M15 3v18" /></symbol>
+    <symbol id="fq-i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></symbol>
+    <symbol id="fq-i-sort" viewBox="0 0 24 24"><path d="M7 4v16M4 17l3 3 3-3M17 20V4M14 7l3-3 3 3" /></symbol>
+    <symbol id="fq-i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" /></symbol>
+    <symbol id="fq-i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></symbol>
+    <symbol id="fq-i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
+    <symbol id="fq-i-phone" viewBox="0 0 24 24"><path d="M21 16.5v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 3.1 3.7 2 2 0 0 1 5.1 1.5h3a2 2 0 0 1 2 1.7c.1.9.4 1.9.7 2.8a2 2 0 0 1-.5 2.1L9.1 9.4a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.8.7a2 2 0 0 1 1.7 2z" /></symbol>
+    <symbol id="fq-i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m3.5 7 8.5 6 8.5-6" /></symbol>
+    <symbol id="fq-i-message" viewBox="0 0 24 24"><path d="M20 15a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" /></symbol>
+    <symbol id="fq-i-chat" viewBox="0 0 24 24"><path d="M20.5 11.5a8.4 8.4 0 0 1-12.3 7.4L3.5 20.5l1.6-4.6A8.4 8.4 0 1 1 20.5 11.5z" /></symbol>
+    <symbol id="fq-i-users" viewBox="0 0 24 24"><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20" /><circle cx="10" cy="8" r="3.5" /><path d="M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.6a3.5 3.5 0 0 1 0 6.8" /></symbol>
+    <symbol id="fq-i-task" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2.5" /><path d="M9 3h6v3H9zM9 13l2 2 4-4" /></symbol>
+    <symbol id="fq-i-pin" viewBox="0 0 24 24"><path d="M19 10c0 5.5-7 11-7 11s-7-5.5-7-11a7 7 0 0 1 14 0z" /><circle cx="12" cy="10" r="2.5" /></symbol>
+    <symbol id="fq-i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" /></symbol>
+    <symbol id="fq-i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></symbol>
+    <symbol id="fq-i-more" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="18.5" r="1.7" fill="currentColor" stroke="none" /></symbol>
+    <symbol id="fq-i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.7-6.4L3 8" /><path d="M3 3.5V8h4.5M12 7.5V12l3 2" /></symbol>
+    <symbol id="fq-i-reassign" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5" /><path d="M3 20v-1a5 5 0 0 1 5-5h2M16 14l3 3-3 3M21 17h-7" /></symbol>
+    <symbol id="fq-i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2.5" /><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" /></symbol>
+    <symbol id="fq-i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></symbol>
+    <symbol id="fq-i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="m15 9-6 6M9 9l6 6" /></symbol>
+    <symbol id="fq-i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5" /><path d="M8 11V7.5a4 4 0 0 1 8 0V11" /></symbol>
+    <symbol id="fq-i-escalate" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8" /></symbol>
+    <symbol id="fq-i-inbox" viewBox="0 0 24 24"><path d="M21.5 12.5h-5.5l-2 3h-4l-2-3H2.5" /><path d="M5.5 5.1 2.5 12v6a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2v-6l-3-6.9A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.1z" /></symbol>
+    <symbol id="fq-i-zap" viewBox="0 0 24 24"><path d="M13 2.5 4 14h7.5l-1 7.5L20 10h-7.5z" /></symbol>
+    <symbol id="fq-i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><path d="M12 12h.01" /></symbol>
+    <symbol id="fq-i-activity" viewBox="0 0 24 24"><path d="M21 12h-4l-3 8-4-16-3 8H3" /></symbol>
+    <symbol id="fq-i-hourglass" viewBox="0 0 24 24"><path d="M6 3h12M6 21h12M7 3v3.5a5 5 0 0 0 10 0V3M7 21v-3.5a5 5 0 0 1 10 0V21" /></symbol>
+    <symbol id="fq-i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" /></symbol>
+    <symbol id="fq-i-note" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></symbol>
+    <symbol id="fq-i-clip" viewBox="0 0 24 24"><path d="m21 11-8.8 8.8a5.5 5.5 0 0 1-7.8-7.8l9.2-9.2a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.2a1.8 1.8 0 0 1-2.6-2.6L15.5 6" /></symbol>
+  </svg>
+
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3">
       <!-- ============================== HEADER ============================== -->
-      <app-page-header screen="follow-up-queue" title="Follow-Up Queue" subtitle="Manage scheduled engagement activities and daily work items.">
+      <app-page-header
+        screen="follow-up-queue"
+        title="Follow-Up Queue"
+        subtitle="Your scheduled engagement work - prioritised, on the clock, and one click from done."
+      >
+        <span meta class="ph-chip">{{ todayLabel }}</span>
+        <span meta class="ph-chip">Queue health: {{ queueHealth() }}</span>
         <ng-container actions>
-            <button
-              type="button"
-              class="ph-btn ph-btn--ghost"
-              (click)="refresh()"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                <path d="M21 4v6h-6" />
-              </svg>
-              Refresh
-            </button>
-            <button
-              type="button"
-              class="ph-btn ph-btn--ghost"
-              (click)="exportQueue()"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <path d="M12 3v12" />
-                <path d="m7 10 5 5 5-5" />
-                <path d="M5 21h14" />
-              </svg>
-              Export
-            </button>
-            <button
-              type="button"
-              class="ph-btn ph-btn--ghost"
-              (click)="setView('calendar')"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <path d="M3 10h18M8 2v4M16 2v4" />
-              </svg>
-              Calendar View
-            </button>
-            <button
-              type="button"
-              class="ph-btn ph-btn--primary"
-              (click)="createFollowUp()"
-              title="Add"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Add
-            </button>
-  </ng-container>
+          <button type="button" class="ph-btn ph-btn--ghost" (click)="refresh()">
+            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-refresh" /></svg>
+            Refresh
+          </button>
+          <button type="button" class="ph-btn ph-btn--ghost" (click)="exportQueue()">
+            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-download" /></svg>
+            Export
+          </button>
+          <button type="button" class="ph-btn ph-btn--primary" (click)="createFollowUp()">
+            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-plus" /></svg>
+            New follow-up
+          </button>
+        </ng-container>
       </app-page-header>
 
-      <!-- ============================== KPI SUMMARY CARDS ============================== -->
-      <section class="kpi-grid" aria-label="Queue summary metrics">
-        <button
-          type="button"
-          class="btn btn-outline-secondary btn-sm kpi-card accent-blue"
-          title="Show due today"
-          [attr.aria-pressed]="activeQuickFilter() === 'dueToday'"
-          (click)="setQuickFilter('dueToday')"
-        >
-          <span class="kpi-icon"
-            ><svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+      <div class="fq-page">
+        <!-- ============================== KPI TILES ============================== -->
+        <section class="fq-kpis" aria-label="Queue summary">
+          @for (k of kpiTiles(); track k.key) {
+            <button
+              type="button"
+              class="fq-kpi"
+              [attr.data-kind]="k.tone"
+              [class.is-active]="activeQuickFilter() === k.key"
+              [attr.aria-pressed]="activeQuickFilter() === k.key"
+              [title]="'Show ' + k.label.toLowerCase()"
+              (click)="setQuickFilter(k.key)"
             >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3 2" /></svg></span
-          ><span class="kpi-copy"
-            ><span class="kpi-label">Due Today</span
-            ><span class="kpi-value">{{ kpiDueToday() }}</span
-            ><span class="kpi-description">Follow-ups due today</span></span
-          ><span class="kpi-arrow"
-            ><svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M5 12h14m-6-6 6 6-6 6" /></svg
-          ></span></button
-        ><button
-          type="button"
-          class="kpi-card accent-green"
-          title="Show upcoming"
-          [attr.aria-pressed]="activeQuickFilter() === 'upcoming'"
-          (click)="setQuickFilter('upcoming')"
-        >
-          <span class="kpi-icon"
-            ><svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <rect x="3" y="5" width="18" height="16" rx="2" />
-              <path d="M3 10h18M8 3v4M16 3v4" /></svg></span
-          ><span class="kpi-copy"
-            ><span class="kpi-label">Upcoming</span
-            ><span class="kpi-value">{{ kpiUpcoming() }}</span
-            ><span class="kpi-description"
-              >Scheduled upcoming follow-ups</span
-            ></span
-          ><span class="kpi-arrow"
-            ><svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M5 12h14m-6-6 6 6-6 6" /></svg
-          ></span></button
-        ><button
-          type="button"
-          class="kpi-card accent-red"
-          title="Show overdue"
-          [attr.aria-pressed]="activeQuickFilter() === 'overdue'"
-          (click)="setQuickFilter('overdue')"
-        >
-          <span class="kpi-icon"
-            ><svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v6M12 17h.01" /></svg></span
-          ><span class="kpi-copy"
-            ><span class="kpi-label">Overdue</span
-            ><span class="kpi-value">{{ kpiOverdue() }}</span
-            ><span class="kpi-description">Past due follow-ups</span></span
-          ><span class="kpi-arrow"
-            ><svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M5 12h14m-6-6 6 6-6 6" /></svg
-          ></span></button
-        ><button
-          type="button"
-          class="kpi-card accent-purple"
-          title="Show completed today"
-          [attr.aria-pressed]="activeQuickFilter() === 'completedToday'"
-          (click)="setQuickFilter('completedToday')"
-        >
-          <span class="kpi-icon"
-            ><svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="m5 12 4 4L19 6" /></svg></span
-          ><span class="kpi-copy"
-            ><span class="kpi-label">Completed Today</span
-            ><span class="kpi-value">{{ kpiCompletedToday() }}</span
-            ><span class="kpi-description">Follow-ups completed</span></span
-          ><span class="kpi-arrow"
-            ><svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M5 12h14m-6-6 6 6-6 6" /></svg
-          ></span></button
-        ><button
-          type="button"
-          class="kpi-card accent-orange"
-          title="Show escalated"
-          [attr.aria-pressed]="activeQuickFilter() === 'escalated'"
-          (click)="setQuickFilter('escalated')"
-        >
-          <span class="kpi-icon"
-            ><svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="m12 3 10 18H2L12 3ZM12 9v5M12 17h.01" /></svg></span
-          ><span class="kpi-copy"
-            ><span class="kpi-label">Escalated</span
-            ><span class="kpi-value">{{ kpiEscalated() }}</span
-            ><span class="kpi-description">Require attention</span></span
-          ><span class="kpi-arrow"
-            ><svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M5 12h14m-6-6 6 6-6 6" /></svg
-          ></span>
-        </button>
-      </section>
-
-      <!-- ============================== SAVED VIEWS ============================== -->
-      <nav class="saved-views" aria-label="Saved views">
-        @for (v of savedViews; track v.id) {
-        <button
-          type="button"
-          class="btn btn-outline-secondary btn-sm view-pill"
-          [class.active]="activeSavedViewId() === v.id"
-          [attr.aria-pressed]="activeSavedViewId() === v.id"
-          (click)="applySavedView(v)"
-        >
-          {{ v.label }}
-        </button>
-        }
-      </nav>
-
-      <!-- ============================== CALENDAR STRIP ============================== -->
-      <div class="calendar-strip" role="group" aria-label="Jump to date">
-        <button
-          type="button"
-          class="date-nav btn btn-outline-secondary btn-sm"
-          title="Previous seven dates"
-          aria-label="Previous seven dates"
-          (click)="shiftStripWeek(-1)"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"
-          >
-            <path d="m15 18-6-6 6-6" />
-          </svg>
-        </button>
-        @for (d of calendarStrip(); track trackByDay($index, d)) {
-        <button
-          type="button"
-          class="btn btn-outline-secondary btn-sm strip-day"
-          [attr.aria-current]="d.date === today ? 'date' : null"
-          [attr.aria-pressed]="selectedStripDate() === d.date"
-          [title]="formatDate(d.date)"
-          [class.active]="selectedStripDate() === d.date"
-          (click)="onStripDateClick(d.date)"
-        >
-          <span class="dow">{{ d.label }}</span>
-          <span class="dnum">{{ d.dayNumber }}</span>
-          @if (d.count > 0) {
-          <span class="strip-count">{{ d.count }}</span>
+              <span class="fq-kpi-bubble">
+                <svg class="fq-i" aria-hidden="true"><use [attr.href]="'#fq-i-' + k.icon" /></svg>
+              </span>
+              <span class="fq-kpi-text">
+                <strong class="fq-kpi-value">{{ k.value }}</strong>
+                <span class="fq-kpi-label">{{ k.label }}</span>
+                <span class="fq-kpi-hint">{{ k.hint }}</span>
+              </span>
+            </button>
           }
-        </button>
-        }
-        <button
-          type="button"
-          class="date-nav btn btn-outline-secondary btn-sm"
-          title="Next seven dates"
-          aria-label="Next seven dates"
-          (click)="shiftStripWeek(1)"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"
-          >
-            <path d="m9 18 6-6-6-6" />
-          </svg>
-        </button>
-      </div>
+        </section>
 
-      <!-- ============================== QUICK ACTION CARDS ============================== -->
-
-      <!-- ============================== MAIN BODY ============================== -->
-      <div class="fq-body">
-        <div class="fq-main">
-          <!-- View switcher + search & filters -->
-          <div class="fq-toolbar">
-            <div class="segmented" role="tablist" aria-label="Queue view">
-              <button
-                type="button"
-                role="tab"
-                [attr.aria-selected]="viewMode() === 'grid'"
-                [class.active]="viewMode() === 'grid'"
-                (click)="setView('grid')"
-                class="btn btn-outline-secondary btn-sm"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="3" y="3" width="6" height="6" rx="1" />
-                  <rect x="15" y="3" width="6" height="6" rx="1" />
-                  <rect x="3" y="15" width="6" height="6" rx="1" />
-                  <rect x="15" y="15" width="6" height="6" rx="1" /></svg
-                >Grid
-              </button>
-              <button
-                type="button"
-                role="tab"
-                [attr.aria-selected]="viewMode() === 'kanban'"
-                [class.active]="viewMode() === 'kanban'"
-                (click)="setView('kanban')"
-                class="btn btn-outline-secondary btn-sm"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <path d="M9 3v18M15 3v18M6 7v5M12 7v8M18 7v3" /></svg
-                >Kanban
-              </button>
-              <button
-                type="button"
-                role="tab"
-                [attr.aria-selected]="viewMode() === 'calendar'"
-                [class.active]="viewMode() === 'calendar'"
-                (click)="setView('calendar')"
-                class="btn btn-outline-secondary btn-sm"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="3" y="5" width="18" height="16" rx="2" />
-                  <path d="M3 10h18M8 3v4M16 3v4" /></svg
-                >Calendar
-              </button>
+        <!-- ============================== INSIGHTS ==============================
+             One pulse panel (health · SLA · age) beside today's agenda: two blocks, one row, no gaps. -->
+        <section class="fq-insights" aria-label="Queue insights">
+          <div class="fq-panel fq-pulse">
+            <!-- Health -->
+            <div class="fq-seg-block">
+              <div class="fq-block-head">
+                <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-activity" /></svg>
+                <h3 class="fq-block-title">Queue health</h3>
+                <span class="fq-health" [attr.data-h]="queueHealth()">{{ queueHealth() }}</span>
+              </div>
+              <div class="fq-health-main">
+                <svg class="fq-ring" viewBox="0 0 100 100" role="img"
+                     [attr.aria-label]="'Completion rate ' + kpiCompletionRate() + ' percent'">
+                  <circle class="fq-ring-track" cx="50" cy="50" r="42" />
+                  <circle class="fq-ring-fill" cx="50" cy="50" r="42" [attr.stroke-dasharray]="ringDash(kpiCompletionRate())" />
+                  <text x="50" y="50" class="fq-ring-value">{{ kpiCompletionRate() }}%</text>
+                  <text x="50" y="65" class="fq-ring-label">complete</text>
+                </svg>
+                <div class="fq-block-lead">
+                  <strong class="fq-block-figure">{{ overduePercent() }}<small>%</small></strong>
+                  <span class="fq-block-caption">of open work is overdue</span>
+                </div>
+              </div>
+              <dl class="fq-minis">
+                <div><dt>Overdue</dt><dd>{{ kpiOverdue() }}</dd></div>
+                <div><dt>Escalated</dt><dd>{{ kpiEscalated() }}</dd></div>
+                <div><dt>Blocked</dt><dd>{{ kpiBlocked() }}</dd></div>
+              </dl>
             </div>
 
-            <div class="search-filter-row">
-              <div class="search-input-wrap">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" />
-                </svg>
-                <label for="fq-search" class="visually-hidden"
-                  >Search lead, donor, follow-up ID, or phone</label
-                >
+            <!-- SLA -->
+            <div class="fq-seg-block">
+              <div class="fq-block-head">
+                <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-target" /></svg>
+                <h3 class="fq-block-title">SLA monitor</h3>
+                <span class="fq-block-note">{{ slaTotal() }} open</span>
+              </div>
+              <div class="fq-block-lead">
+                <strong class="fq-block-figure">{{ percentOf(slaBreakdown().onTime, slaTotal()) }}<small>%</small></strong>
+                <span class="fq-block-caption">of open follow-ups are on time</span>
+              </div>
+              <div class="fq-stack" role="img"
+                   [attr.aria-label]="slaBreakdown().onTime + ' on time, ' + slaBreakdown().approaching + ' due within 24 hours, ' + slaBreakdown().breached + ' breached'">
+                @if (slaTotal() === 0) {
+                  <span class="fq-stack-seg is-none"></span>
+                } @else {
+                  <span class="fq-stack-seg is-ok" [style.flex-grow]="slaBreakdown().onTime"></span>
+                  <span class="fq-stack-seg is-warn" [style.flex-grow]="slaBreakdown().approaching"></span>
+                  <span class="fq-stack-seg is-danger" [style.flex-grow]="slaBreakdown().breached"></span>
+                }
+              </div>
+              <dl class="fq-minis">
+                <div><dt><i class="fq-dot is-ok" aria-hidden="true"></i>On time</dt><dd>{{ slaBreakdown().onTime }}</dd></div>
+                <div><dt><i class="fq-dot is-warn" aria-hidden="true"></i>Within 24h</dt><dd>{{ slaBreakdown().approaching }}</dd></div>
+                <div><dt><i class="fq-dot is-danger" aria-hidden="true"></i>Breached</dt><dd>{{ slaBreakdown().breached }}</dd></div>
+              </dl>
+            </div>
+
+            <!-- Age -->
+            <div class="fq-seg-block">
+              <div class="fq-block-head">
+                <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-hourglass" /></svg>
+                <h3 class="fq-block-title">Pending by age</h3>
+                <span class="fq-block-note">{{ agingTotal() }} pending</span>
+              </div>
+              <div class="fq-cols" role="img"
+                   [attr.aria-label]="'Pending follow-ups by days since due: ' + agingBuckets().b0 + ' up to 3 days, ' + agingBuckets().b1 + ' 4 to 7 days, ' + agingBuckets().b2 + ' 8 to 15 days, ' + agingBuckets().b3 + ' over 15 days'">
+                @for (col of agingColumns(); track col.label) {
+                  <div class="fq-col" [attr.data-c]="col.tone">
+                    <span class="fq-col-val">{{ col.value }}</span>
+                    <span class="fq-col-track"><span class="fq-col-fill" [style.height.%]="col.height"></span></span>
+                    <span class="fq-col-label">{{ col.label }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+
+          <!-- Today's agenda -->
+          <section class="fq-panel fq-agenda-card" aria-labelledby="fq-agenda-title">
+            <div class="fq-block-head">
+              <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-sun" /></svg>
+              <h3 id="fq-agenda-title" class="fq-block-title">Today's agenda</h3>
+              <span class="fq-counter">{{ agendaItems().length }}</span>
+            </div>
+            <p class="fq-agenda-date">{{ todayLabel }}</p>
+            @if (agendaItems().length === 0 && agendaNext().length === 0) {
+              <div class="fq-agenda-empty">
+                <svg class="fq-i" aria-hidden="true"><use href="#fq-i-calendar" /></svg>
+                <p class="fq-agenda-empty-title">A clear day</p>
+                <p class="fq-agenda-empty-text">Nothing is scheduled for today or the days ahead.</p>
+                <button type="button" class="fq-link" (click)="createFollowUp()">Plan a follow-up</button>
+              </div>
+            } @else {
+              @if (agendaItems().length === 0) {
+                <p class="fq-agenda-none">Nothing due today.</p>
+              } @else {
+                <ol class="fq-agenda">
+                  @for (item of agendaToday(); track item.followUpId) {
+                    <li>
+                      <button type="button" class="fq-agenda-item" [class.is-done]="item.status === 'Completed'"
+                              (click)="openPreview(item.followUpId)">
+                        <span class="fq-agenda-time">{{ formatTime(item.time) || '—' }}</span>
+                        <span class="fq-agenda-dot" aria-hidden="true"></span>
+                        <span class="fq-agenda-text">
+                          <span class="fq-agenda-name">{{ item.name }}</span>
+                          <span class="fq-agenda-type">{{ item.type }}{{ item.status !== 'Pending' ? ' · ' + item.status : '' }}</span>
+                        </span>
+                      </button>
+                    </li>
+                  }
+                </ol>
+              }
+              @if (agendaNext().length > 0) {
+                <p class="fq-agenda-sub">Coming up</p>
+                <ol class="fq-agenda is-next">
+                  @for (f of agendaNext(); track f.id) {
+                    <li>
+                      <button type="button" class="fq-agenda-item" (click)="openPreview(f.id)">
+                        <span class="fq-agenda-time">{{ shortDay(f.scheduledDate) }}</span>
+                        <span class="fq-agenda-dot" aria-hidden="true"></span>
+                        <span class="fq-agenda-text">
+                          <span class="fq-agenda-name">{{ f.recordName }}</span>
+                          <span class="fq-agenda-type">{{ f.followUpType }}{{ f.scheduledTime ? ' · ' + formatTime(f.scheduledTime) : '' }}</span>
+                        </span>
+                      </button>
+                    </li>
+                  }
+                </ol>
+              }
+              <footer class="fq-agenda-foot">
+                <span class="fq-agenda-tally">
+                  <strong class="fq-num">{{ agendaLeft() }}</strong> to do today
+                  <span class="fq-sep" aria-hidden="true">&middot;</span>
+                  <strong class="fq-num">{{ agendaDone() }}</strong> done
+                </span>
+                <button type="button" class="fq-link" (click)="toggleStripDate(today)">
+                  {{ agendaItems().length > agendaToday().length ? 'See all ' + agendaItems().length : 'Open in list' }}
+                </button>
+              </footer>
+            }
+          </section>
+        </section>
+
+        <!-- ============================== QUEUE PANEL ============================== -->
+        <section class="fq-panel fq-queue" aria-labelledby="fq-queue-title">
+          @if (loading() && hasData()) {
+            <div class="fq-progress" role="progressbar" aria-label="Updating the queue"></div>
+          }
+
+          <header class="fq-qhead">
+            <div class="fq-qtitle">
+              <p class="fq-eyebrow">Work queue</p>
+              <div class="fq-qtitle-row">
+                <h2 id="fq-queue-title" class="fq-panel-title">{{ queueTitle() }}</h2>
+                <span class="fq-counter is-lg">{{ filteredFollowUps().length }}</span>
+              </div>
+              <p class="fq-panel-sub">
+                {{ filteredFollowUps().length === 1 ? 'Follow-up' : 'Follow-ups' }} in view, {{ sortOrder() === 'oldest' ? 'earliest' : 'latest' }} first
+                @if (isNarrowed()) {
+                  <span class="fq-sep" aria-hidden="true">&middot;</span>
+                  <button type="button" class="fq-link" (click)="resetFilters()">Clear all</button>
+                }
+              </p>
+            </div>
+
+            <div class="fq-qtools">
+              <div class="fq-search">
+                <svg class="fq-i" aria-hidden="true"><use href="#fq-i-search" /></svg>
+                <label for="fq-search" class="visually-hidden">Search follow-ups</label>
                 <input
                   id="fq-search"
                   type="search"
-                  class="search-input"
-                  placeholder="Search Lead, Donor, Follow-Up ID, Phone"
+                  placeholder="Search name, reference or purpose"
+                  autocomplete="off"
                   [value]="searchTerm()"
                   (input)="onSearchChange($any($event.target).value)"
                 />
               </div>
-              <label class="sort-control" for="fq-sort"
-                >Sort by
-                <select
-                  id="fq-sort"
-                  class="field-select"
-                  [value]="sortOrder()"
-                  (change)="sortOrder.set($any($event.target).value)"
-                >
-                  <option value="newest">Scheduled Date (Newest)</option>
-                  <option value="oldest">Scheduled Date (Oldest)</option>
-                </select></label
-              ><button
+              <label class="fq-sort" for="fq-sort">
+                <svg class="fq-i" aria-hidden="true"><use href="#fq-i-sort" /></svg>
+                <span class="visually-hidden">Sort</span>
+                <select id="fq-sort" [value]="sortOrder()" (change)="sortOrder.set($any($event.target).value)">
+                  <option value="newest">Latest first</option>
+                  <option value="oldest">Earliest first</option>
+                </select>
+              </label>
+              <button
                 type="button"
-                class="filters-toggle btn btn-outline-secondary btn-sm"
-                [class.has-filters]="activeFilterCount() > 0"
+                class="fq-btn fq-btn--ghost fq-filter-btn"
+                [class.is-on]="filtersOpen() || activeFilterCount() > 0"
                 [attr.aria-expanded]="filtersOpen()"
                 (click)="toggleFiltersPanel()"
               >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  aria-hidden="true"
-                >
-                  <path d="M4 6h16M7 12h10M10 18h4" />
-                </svg>
-                Filters @if (activeFilterCount() > 0) {
-                <span class="filter-count-badge"
-                  >{{ activeFilterCount() }}</span
-                >
+                <svg class="fq-i" aria-hidden="true"><use href="#fq-i-filter" /></svg>
+                Filters
+                @if (activeFilterCount() > 0) {
+                  <span class="fq-count">{{ activeFilterCount() }}</span>
                 }
               </button>
             </div>
+
+            <div class="fq-seg" role="tablist" aria-label="Queue view">
+              <button type="button" role="tab" [attr.aria-selected]="viewMode() === 'grid'"
+                      [class.is-active]="viewMode() === 'grid'" (click)="setView('grid')" title="List">
+                <svg class="fq-i" aria-hidden="true"><use href="#fq-i-list" /></svg><span class="fq-seg-label">List</span>
+              </button>
+              <button type="button" role="tab" [attr.aria-selected]="viewMode() === 'kanban'"
+                      [class.is-active]="viewMode() === 'kanban'" (click)="setView('kanban')" title="Board">
+                <svg class="fq-i" aria-hidden="true"><use href="#fq-i-board" /></svg><span class="fq-seg-label">Board</span>
+              </button>
+              <button type="button" role="tab" [attr.aria-selected]="viewMode() === 'calendar'"
+                      [class.is-active]="viewMode() === 'calendar'" (click)="setView('calendar')" title="Calendar">
+                <svg class="fq-i" aria-hidden="true"><use href="#fq-i-calendar" /></svg><span class="fq-seg-label">Calendar</span>
+              </button>
+            </div>
+          </header>
+
+          <!-- Saved views: pills that carry their own size -->
+          <nav class="fq-views" aria-label="Saved views">
+            <button type="button" class="fq-view"
+                    [class.is-active]="!activeSavedViewId() && !activeQuickFilter() && !selectedStripDate()"
+                    (click)="showAll()">
+              <span class="fq-view-label">All</span>
+              <span class="fq-view-num">{{ viewCounts()['all'] }}</span>
+            </button>
+            @for (v of savedViews; track v.id) {
+              <button type="button" class="fq-view"
+                      [class.is-active]="activeSavedViewId() === v.id"
+                      [class.is-zero]="!viewCounts()[v.id]"
+                      [attr.aria-pressed]="activeSavedViewId() === v.id"
+                      (click)="applySavedView(v)">
+                <span class="fq-view-label">{{ v.label }}</span>
+                <span class="fq-view-num">{{ viewCounts()[v.id] }}</span>
+              </button>
+            }
+          </nav>
+
+          <!-- Date rail -->
+          <div class="fq-dates" role="group" aria-label="Jump to a date">
+            <div class="fq-dates-head">
+              <div class="fq-dates-title">
+                <span class="fq-dates-month">{{ stripMonthLabel() }}</span>
+                <span class="fq-dates-range">{{ stripRangeLabel() }}</span>
+              </div>
+              <div class="fq-dates-nav">
+                <button type="button" class="fq-mini-btn" (click)="jumpToToday()">Today</button>
+                <button type="button" class="fq-mini-btn is-icon" title="Previous week" aria-label="Previous week"
+                        (click)="shiftStripWeek(-1)">
+                  <svg class="fq-i" aria-hidden="true"><use href="#fq-i-chevron-left" /></svg>
+                </button>
+                <button type="button" class="fq-mini-btn is-icon" title="Next week" aria-label="Next week"
+                        (click)="shiftStripWeek(1)">
+                  <svg class="fq-i" aria-hidden="true"><use href="#fq-i-chevron-right" /></svg>
+                </button>
+              </div>
+            </div>
+            <div class="fq-dates-rail">
+              @for (d of calendarStrip(); track trackByDay($index, d)) {
+                <button
+                  type="button"
+                  class="fq-date"
+                  [class.is-today]="d.date === today"
+                  [class.is-active]="selectedStripDate() === d.date"
+                  [class.is-free]="d.count === 0"
+                  [attr.aria-current]="d.date === today ? 'date' : null"
+                  [attr.aria-pressed]="selectedStripDate() === d.date"
+                  [attr.aria-label]="formatDate(d.date) + ', ' + d.count + ' follow-ups'"
+                  (click)="toggleStripDate(d.date)"
+                >
+                  <span class="fq-date-dow">{{ d.date === today ? 'Today' : d.label }}</span>
+                  <span class="fq-date-num">{{ d.dayNumber }}</span>
+                  <span class="fq-date-load" aria-hidden="true">
+                    <span class="fq-date-load-fill" [style.width.%]="d.count ? (d.count / stripMax()) * 100 : 0"></span>
+                  </span>
+                  <span class="fq-date-count">{{ d.count ? d.count + ' due' : 'Free' }}</span>
+                </button>
+              }
+            </div>
           </div>
 
-          <!-- Filters panel -->
-          @if (filtersOpen()) {
-          <div class="filters-panel">
-            <div class="filters-grid">
-              <div>
-                <p class="filter-group-label">Status</p>
-                <div class="chip-group">
-                  @for (s of statusOptions; track trackByString($index, s)) {
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm chip"
-                    [class.active]="draftFilters().status.has(s)"
-                    (click)="toggleDraftSet('status', s)"
-                  >
-                    {{ s }}
-                  </button>
-                  }
-                </div>
-              </div>
-              <div>
-                <p class="filter-group-label">Type</p>
-                <div class="chip-group">
-                  @for (t of typeOptions; track trackByString($index, t)) {
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm chip"
-                    [class.active]="draftFilters().type.has(t)"
-                    (click)="toggleDraftSet('type', t)"
-                  >
-                    {{ t }}
-                  </button>
-                  }
-                </div>
-              </div>
-              <div>
-                <p class="filter-group-label">Priority</p>
-                <div class="chip-group">
-                  @for (p of priorityOptions; track trackByString($index, p)) {
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm chip"
-                    [class.active]="draftFilters().priority.has(p)"
-                    (click)="toggleDraftSet('priority', p)"
-                  >
-                    {{ p }}
-                  </button>
-                  }
-                </div>
-              </div>
-              <div>
-                <label class="filter-group-label" for="fq-owner">Owner</label>
-                @if (owners().length > 20) {<input
-                  type="search"
-                  class="field-input option-search"
-                  aria-label="Search fq-owner"
-                  placeholder="Search optionsâ€¦"
-                  [value]="ownerSearch()"
-                  (input)="ownerSearch.set($any($event.target).value)"
-                />}<select
-                  id="fq-owner"
-                  class="field-select"
-                  [value]="draftFilters().owner ?? ''"
-                  (change)="setDraftOwner($any($event.target).value)"
-                >
-                  <option value="">All owners</option>
-                  @for (o of matchingOptions(owners(), ownerSearch(),
-                  draftFilters().owner ?? ''); track trackByString($index, o)) {
-                  <option [value]="o">{{ o }}</option>
-                  }
-                </select>
-              </div>
-              <div>
-                <label class="filter-group-label" for="fq-campaign"
-                  >Campaign</label
-                >
-                @if (campaigns().length > 20) {<input
-                  type="search"
-                  class="field-input option-search"
-                  aria-label="Search fq-campaign"
-                  placeholder="Search optionsâ€¦"
-                  [value]="campaignSearch()"
-                  (input)="campaignSearch.set($any($event.target).value)"
-                />}<select
-                  id="fq-campaign"
-                  class="field-select"
-                  [value]="draftFilters().campaign ?? ''"
-                  (change)="setDraftCampaign($any($event.target).value)"
-                >
-                  <option value="">All campaigns</option>
-                  @for (c of matchingOptions(campaigns(), campaignSearch(),
-                  draftFilters().campaign ?? ''); track trackByString($index,
-                  c)) {
-                  <option [value]="c">{{ c }}</option>
-                  }
-                </select>
-              </div>
-              <div>
-                <p class="filter-group-label">Date range</p>
-                <div class="date-range-row">
-                  <label class="visually-hidden" for="fq-date-from">From</label>
-                  <input
-                    id="fq-date-from"
-                    type="date"
-                    class="field-input"
-                    [value]="draftFilters().dateFrom ?? ''"
-                    (change)="setDraftDateFrom($any($event.target).value)"
-                  />
-                  <span aria-hidden="true">â€“</span>
-                  <label class="visually-hidden" for="fq-date-to">To</label>
-                  <input
-                    id="fq-date-to"
-                    type="date"
-                    class="field-input"
-                    [value]="draftFilters().dateTo ?? ''"
-                    (change)="setDraftDateTo($any($event.target).value)"
-                  />
-                </div>
-              </div>
-            </div>
-            <div class="filters-actions">
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="resetFilters()"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m5 12 4 4L19 6" />
-                </svg>
-                Reset Filters
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="applyFilters()"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m5 12 4 4L19 6" />
-                </svg>
-                Apply Filters
-              </button>
-            </div>
-          </div>
-          }
-
-          <!-- Bulk action toolbar -->
-          @if (selectedIds().size > 0) {
-          <div class="bulk-toolbar">
-            <span class="bulk-count">{{ selectedIds().size }} selected</span>
-            <div class="bulk-actions">
-              <button
-                type="button"
-                class="btn btn-primary btn-sm"
-                (click)="openBulkComplete()"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m5 12 4 4L19 6" />
-                </svg>
-                Mark Complete
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="openBulkReassign()"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m5 12 4 4L19 6" />
-                </svg>
-                Reassign
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="openBulkReschedule()"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m5 12 4 4L19 6" />
-                </svg>
-                Reschedule
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="exportQueue()"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m5 12 4 4L19 6" />
-                </svg>
-                Export
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="openBulkCancel()"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m6 6 12 12M6 18 18 6" />
-                </svg>
-                Cancel Selected
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="clearSelection()"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m5 12 4 4L19 6" />
-                </svg>
-                Clear
-              </button>
-            </div>
-          </div>
-          }
-
-          <!-- ============================== GRID VIEW ============================== -->
-          @if (viewMode() === 'grid') { @if (loading()) { <div class="fq-card empty-state" role="status">Loading follow-ups…</div> } @else if (loadError()) { <div class="fq-card empty-state" role="alert"><p>{{ loadError() }}</p><button type="button" class="btn btn-outline-secondary btn-sm" (click)="refresh()" title="Retry loading follow-ups">Retry</button></div> } @else if (filteredFollowUps().length === 0) {
-          <div class="fq-card empty-state">
-            <div class="empty-icon">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <path d="M8 2v4M16 2v4M3 10h18" />
-              </svg>
-            </div>
-            <h3>No follow-ups found</h3>
-            <p>
-              Try adjusting your filters, or create a new follow-up to get
-              started.
-            </p>
-            <div class="empty-actions">
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="resetFilters()"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m5 12 4 4L19 6" />
-                </svg>
-                Clear Filters
-              </button>
-              <button
-                type="button"
-                class="btn btn-primary btn-sm"
-                (click)="createFollowUp()"
-                title="Add"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                Add
-              </button>
-            </div>
-          </div>
-          } @else {
-          <div class="fq-card table-scroll">
-            <table class="fq-table">
-              <thead>
-                <tr>
-                  <th>Follow-Up ID</th>
-                  <th>Related To</th>
-                  <th>Follow-Up Type</th>
-                  <th>Reason</th>
-                  <th>Scheduled Date &amp; Time</th>
-                  <th class="d-none d-xl-table-cell">Assigned User</th>
-                  <th>Priority</th>
-                  <th>Status</th>
-                  <th class="d-none d-xl-table-cell">Dependency</th>
-                  <th class="actions-cell">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (f of pagedFollowUps(); track trackById($index, f)) {
-                <tr [class.row-overdue]="isOverdue(f)">
-                  <td>
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary btn-sm fu-id-link"
-                      (click)="openPreview(f.id)"
-                    >
-                      {{ f.id }}
-                    </button>
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary btn-sm record-name-btn"
-                      (click)="openPreview(f.id)"
-                    >
-                      {{ f.recordName }}
-                    </button>
-                    <span class="record-type-tag">{{ f.recordType }}</span>
-                  </td>
-                  <td>
-                    <span class="type-badge" [attr.data-type]="f.followUpType"
-                      >@switch (f.followUpType) { @case ('Call') {<svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M4 3h4l2 5-3 2a15 15 0 0 0 7 7l2-3 5 2v4c-9 3-20-8-17-17Z"
-                        /></svg
-                      >} @case ('Email') {<svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        aria-hidden="true"
-                      >
-                        <rect x="3" y="5" width="18" height="14" rx="2" />
-                        <path d="m3 6 9 7 9-7" /></svg
-                      >} @default {<svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                      >
-                        <rect x="3" y="5" width="18" height="16" rx="2" />
-                        <path d="M3 10h18M8 3v4M16 3v4" /></svg
-                      >} }{{ f.followUpType }}</span
-                    >
-                  </td>
-                  <td class="reason-cell">{{ f.purpose || 'â€”' }}</td>
-                  <td class="mono-cell">
-                    {{ formatDate(f.scheduledDate) }}<br />{{ f.scheduledTime }}
-                  </td>
-                  <td class="d-none d-xl-table-cell">
-                    <span class="avatar-chip">
-                      <span class="avatar-circle"
-                        >{{ f.assignedToInitials }}</span
-                      >
-                      {{ f.assignedTo }}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      class="badge priority-badge"
-                      [ngClass]="priorityClass(f.priority)"
-                      >{{ f.priority }}</span
-                    >
-                  </td>
-                  <td>
-                    <span class="badge" [ngClass]="statusClass(f.status)"
-                      >{{ f.status }}</span
-                    >
-                  </td>
-                  <td class="d-none d-xl-table-cell">
-                    <span
-                      class="badge"
-                      [ngClass]="f.dependencyStatus === 'Ready' ? 'dep-ready' : 'dep-blocked'"
-                      >{{ f.dependencyStatus }}</span
-                    >
-                    @if (f.dependencyStatus === 'Blocked' &&
-                    f.dependencyBlockedReason) {
-                    <span class="dependency-flag">
-                      <svg
-                        width="10"
-                        height="10"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="3"
-                      >
-                        <path d="M12 8v5M12 16h.01" />
-                      </svg>
-                      {{ f.dependencyBlockedReason }}
-                    </span>
-                    }
-                  </td>
-                  <td class="actions-cell">
-                    <div class="row-actions">
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary btn-sm icon-btn"
-                        title="View"
-                        [attr.aria-label]="'View ' + f.id"
-                        (click)="openPreview(f.id)"
-                      >
-                        <svg
-                          width="18"
-                          height="18"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.8"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"
-                          />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg></button
-                      ><button
-                        type="button"
-                        class="icon-btn"
-                        title="Edit schedule"
-                        [attr.aria-label]="'Edit schedule for ' + f.id"
-                        (click)="openReschedule(f.id)"
-                      >
-                        <svg
-                          width="18"
-                          height="18"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.8"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14v6ZM13 20h8"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary btn-sm icon-btn"
-                        [disabled]="!canExecute(f) || f.status !== 'Pending'"
-                        [attr.aria-label]="'Execute ' + f.id"
-                        [title]="canExecute(f) ? 'Execute' : 'Blocked: ' + (f.dependencyBlockedReason ?? 'dependency pending')"
-                        (click)="executeFollowUp(f)"
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path d="M5 3v18l15-9L5 3Z" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary btn-sm icon-btn"
-                        title="View history"
-                        [attr.aria-label]="'View history for ' + f.id"
-                        (click)="openHistory(f.id)"
-                      >
-                        <svg
-                          width="18"
-                          height="18"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.8"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          aria-hidden="true"
-                        >
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M12 7v5l3 2" />
-                        </svg></button
-                      ><button
-                        type="button"
-                        class="icon-btn"
-                        title="More actions"
-                        [attr.aria-label]="'More actions for ' + f.id"
-                        (click)="toggleActionMenu(f.id, $event)"
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <circle cx="12" cy="5" r="1" />
-                          <circle cx="12" cy="12" r="1" />
-                          <circle cx="12" cy="19" r="1" />
-                        </svg>
-                      </button>
-                      @if (openActionMenuId() === f.id) {
-                      <div
-                        class="action-menu"
-                        (click)="$event.stopPropagation()"
-                      >
-                        <button
-                          type="button"
-                          (click)="openPreview(f.id); closeActionMenu()"
-                          class="btn btn-outline-secondary btn-sm"
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            aria-hidden="true"
-                          >
-                            <path d="M5 12h14m-6-6 6 6-6 6" />
-                          </svg>
-                          Preview
-                        </button>
-                        <button
-                          type="button"
-                          (click)="openReschedule(f.id); closeActionMenu()"
-                          class="btn btn-outline-secondary btn-sm"
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            aria-hidden="true"
-                          >
-                            <path d="M5 12h14m-6-6 6 6-6 6" />
-                          </svg>
-                          Reschedule
-                        </button>
-                        <button
-                          type="button"
-                          (click)="openReassign(f.id); closeActionMenu()"
-                          class="btn btn-outline-secondary btn-sm"
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            aria-hidden="true"
-                          >
-                            <path d="M5 12h14m-6-6 6 6-6 6" />
-                          </svg>
-                          Reassign
-                        </button>
-                        <button
-                          type="button"
-                          (click)="openEscalate(f.id); closeActionMenu()"
-                          class="btn btn-outline-secondary btn-sm"
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            aria-hidden="true"
-                          >
-                            <path d="M5 12h14m-6-6 6 6-6 6" />
-                          </svg>
-                          Escalate
-                        </button>
-                        <button
-                          type="button"
-                          (click)="openHistory(f.id); closeActionMenu()"
-                          class="btn btn-outline-secondary btn-sm"
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            aria-hidden="true"
-                          >
-                            <path d="M5 12h14m-6-6 6 6-6 6" />
-                          </svg>
-                          View History
-                        </button>
-                        <button
-                          type="button"
-                          (click)="duplicateFollowUp(f.id); closeActionMenu()"
-                          class="btn btn-outline-secondary btn-sm"
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            aria-hidden="true"
-                          >
-                            <path d="M5 12h14m-6-6 6 6-6 6" />
-                          </svg>
-                          Duplicate
-                        </button>
-                        <div class="divider"></div>
-                        <button
-                          type="button"
-                          class="btn btn-outline-secondary btn-sm danger"
-                          (click)="openCancel(f.id); closeActionMenu()"
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            aria-hidden="true"
-                          >
-                            <path d="M5 12h14m-6-6 6 6-6 6" />
-                          </svg>
-                          Cancel
-                        </button>
-                      </div>
+          <!-- Filter panel -->
+            @if (filtersOpen()) {
+              <div class="fq-filters">
+                <div class="fq-filters-grid">
+                  <fieldset class="fq-fgroup">
+                    <legend>Status</legend>
+                    <div class="fq-chips">
+                      @for (s of statusOptions; track trackByString($index, s)) {
+                        <button type="button" class="fq-chip" [class.is-on]="draftFilters().status.has(s)"
+                                [attr.aria-pressed]="draftFilters().status.has(s)"
+                                (click)="toggleDraftSet('status', s)">{{ s }}</button>
                       }
                     </div>
-                  </td>
-                </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          <footer class="queue-pagination" aria-label="Pagination">
-            <span role="status"
-              >Showing {{ pageStart() }}â€“{{ pageEnd() }} of {{
-              filteredFollowUps().length }} follow-ups</span
-            >
-            <nav aria-label="Follow-up pages">
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm page-button"
-                title="Previous page"
-                aria-label="Previous page"
-                [disabled]="currentPage() === 1"
-                (click)="goToPage(currentPage() - 1)"
-              >
-                â€¹</button
-              >@for (page of pageNumbers(); track page) {<button
-                type="button"
-                class="page-button"
-                [class.active]="currentPage() === page"
-                [attr.aria-current]="currentPage() === page ? 'page' : null"
-                [attr.aria-label]="'Page ' + page"
-                (click)="goToPage(page)"
-              >
-                {{ page }}</button
-              >}<button
-                type="button"
-                class="page-button"
-                title="Next page"
-                aria-label="Next page"
-                [disabled]="currentPage() === totalPages()"
-                (click)="goToPage(currentPage() + 1)"
-              >
-                â€º
-              </button>
-            </nav>
-          </footer>
-          } }
-
-          <!-- ============================== KANBAN VIEW ============================== -->
-          @if (viewMode() === 'kanban') {
-          <div class="kanban-board">
-            @for (col of kanbanColumns(); track col.key) {
-            <div class="kanban-col">
-              <div class="kanban-col-header">
-                <span class="kanban-col-title">{{ col.label }}</span>
-                <span class="kanban-count">{{ col.items.length }}</span>
-              </div>
-              <div
-                class="kanban-dropzone"
-                (dragover)="allowDrop($event)"
-                (drop)="col.key === 'completed' ? onDropOnCompleted($event) : null"
-              >
-                @if (col.items.length === 0) {
-                <p class="kanban-empty">No follow-ups</p>
-                } @for (f of col.items; track trackById($index, f)) {
-                <div
-                  class="kanban-card"
-                  draggable="true"
-                  (dragstart)="onDragStart(f.id, $event)"
-                  (click)="openPreview(f.id)"
-                >
-                  <span class="kanban-card-id">{{ f.id }}</span>
-                  <p class="kanban-card-name">{{ f.recordName }}</p>
-                  <div class="kanban-card-meta">
-                    <span class="badge" [ngClass]="priorityClass(f.priority)"
-                      >{{ f.priority }}</span
-                    >
-                    <span class="badge" [ngClass]="slaClass(f.slaStatus)"
-                      >{{ f.slaStatus }}</span
-                    >
+                  </fieldset>
+                  <fieldset class="fq-fgroup">
+                    <legend>Channel</legend>
+                    <div class="fq-chips">
+                      @for (t of typeOptions; track trackByString($index, t)) {
+                        <button type="button" class="fq-chip" [class.is-on]="draftFilters().type.has(t)"
+                                [attr.aria-pressed]="draftFilters().type.has(t)"
+                                (click)="toggleDraftSet('type', t)">
+                          <svg class="fq-i" aria-hidden="true"><use [attr.href]="'#fq-i-' + typeIcon(t)" /></svg>{{ t }}
+                        </button>
+                      }
+                    </div>
+                  </fieldset>
+                  <fieldset class="fq-fgroup">
+                    <legend>Priority</legend>
+                    <div class="fq-chips">
+                      @for (p of priorityOptions; track trackByString($index, p)) {
+                        <button type="button" class="fq-chip" [class.is-on]="draftFilters().priority.has(p)"
+                                [attr.aria-pressed]="draftFilters().priority.has(p)"
+                                (click)="toggleDraftSet('priority', p)">
+                          <span class="fq-prio-dot" [attr.data-p]="p" aria-hidden="true"></span>{{ p }}
+                        </button>
+                      }
+                    </div>
+                  </fieldset>
+                  <div class="fq-fgroup">
+                    <label class="fq-flabel" for="fq-owner">Owner</label>
+                    @if (owners().length > 20) {
+                      <input type="search" class="fq-input fq-option-search" aria-label="Search owners"
+                             placeholder="Search owners…" [value]="ownerSearch()"
+                             (input)="ownerSearch.set($any($event.target).value)" />
+                    }
+                    <select id="fq-owner" class="fq-input" [value]="draftFilters().owner ?? ''"
+                            (change)="setDraftOwner($any($event.target).value)">
+                      <option value="">All owners</option>
+                      @for (o of matchingOptions(owners(), ownerSearch(), draftFilters().owner ?? ''); track trackByString($index, o)) {
+                        <option [value]="o">{{ o }}</option>
+                      }
+                    </select>
+                  </div>
+                  @if (campaigns().length > 0) {
+                    <div class="fq-fgroup">
+                      <label class="fq-flabel" for="fq-campaign">Campaign</label>
+                      @if (campaigns().length > 20) {
+                        <input type="search" class="fq-input fq-option-search" aria-label="Search campaigns"
+                               placeholder="Search campaigns…" [value]="campaignSearch()"
+                               (input)="campaignSearch.set($any($event.target).value)" />
+                      }
+                      <select id="fq-campaign" class="fq-input" [value]="draftFilters().campaign ?? ''"
+                              (change)="setDraftCampaign($any($event.target).value)">
+                        <option value="">All campaigns</option>
+                        @for (c of matchingOptions(campaigns(), campaignSearch(), draftFilters().campaign ?? ''); track trackByString($index, c)) {
+                          <option [value]="c">{{ c }}</option>
+                        }
+                      </select>
+                    </div>
+                  }
+                  <div class="fq-fgroup">
+                    <span class="fq-flabel">Due between</span>
+                    <div class="fq-daterange">
+                      <label class="visually-hidden" for="fq-date-from">From</label>
+                      <input id="fq-date-from" type="date" class="fq-input" [value]="draftFilters().dateFrom ?? ''"
+                             (change)="setDraftDateFrom($any($event.target).value)" />
+                      <span class="fq-daterange-sep" aria-hidden="true">to</span>
+                      <label class="visually-hidden" for="fq-date-to">To</label>
+                      <input id="fq-date-to" type="date" class="fq-input" [value]="draftFilters().dateTo ?? ''"
+                             (change)="setDraftDateTo($any($event.target).value)" />
+                    </div>
                   </div>
                 </div>
-                }
+                <div class="fq-filters-foot">
+                  <button type="button" class="fq-btn fq-btn--quiet" (click)="resetFilters()">Reset</button>
+                  <button type="button" class="fq-btn fq-btn--primary" (click)="applyFilters()">
+                    <svg class="fq-i" aria-hidden="true"><use href="#fq-i-check" /></svg>
+                    Apply filters
+                  </button>
+                </div>
               </div>
-            </div>
             }
-          </div>
-          }
 
-          <!-- ============================== CALENDAR VIEW ============================== -->
-          @if (viewMode() === 'calendar') {
-          <div class="fq-card" style="padding: 1rem">
-            <div class="calendar-header-row">
-              <span class="calendar-month-label"
-                >{{ calendarMonthLabel() }}</span
-              >
-              <div class="calendar-nav">
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary btn-sm icon-btn"
-                  aria-label="Previous month"
-                  (click)="shiftCalendarMonth(-1)"
-                  title="Previous month"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="m15 18-6-6 6-6" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary btn-sm icon-btn"
-                  aria-label="Next month"
-                  (click)="shiftCalendarMonth(1)"
-                  title="Next month"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div class="calendar-grid">
-              @for (dow of ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; track
-              dow) {
-              <div class="calendar-dow">{{ dow }}</div>
-              } @for (week of calendarWeeks(); track $index) { @for (day of
-              week; track day.iso) {
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm calendar-cell"
-                [class.out-month]="!day.inMonth"
-                [class.is-today]="day.iso === today"
-                (click)="onCalendarDayClick(day)"
-              >
-                <span class="cell-day-num">{{ day.dayNumber }}</span>
-                <div class="cell-items">
-                  @for (item of day.items.slice(0, 2); track item.id) {
-                  <span class="cell-chip" [class.overdue-chip]="isOverdue(item)"
-                    >{{ item.recordName }}</span
-                  >
-                  } @if (day.items.length > 2) {
-                  <span class="cell-more"
-                    >+{{ day.items.length - 2 }} more</span
-                  >
+            <!-- ============================== CONTENT ============================== -->
+            <div class="fq-content">
+              @if (loading() && !hasData()) {
+                <div class="fq-skeleton" role="status" aria-label="Loading follow-ups">
+                  @for (row of [1, 2, 3, 4, 5]; track row) {
+                    <div class="fq-skel-row">
+                      <span class="fq-skel fq-skel--avatar"></span>
+                      <span class="fq-skel-lines">
+                        <span class="fq-skel fq-skel--w60"></span>
+                        <span class="fq-skel fq-skel--w35"></span>
+                      </span>
+                      <span class="fq-skel fq-skel--pill"></span>
+                      <span class="fq-skel fq-skel--pill"></span>
+                    </div>
                   }
                 </div>
-              </button>
-              } }
-            </div>
-          </div>
-          }
-
-          <details class="queue-extras">
-            <summary>
-              More queue tools &amp; insights
-              <span class="completion-rate"
-                >Completion rate: {{ kpiCompletionRate() }}%</span
-              >
-            </summary>
-            <section class="quick-actions" aria-label="Quick filters">
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm qa-card qa-blue"
-                [class.active]="activeQuickFilter() === 'dueToday'"
-                (click)="setQuickFilter('dueToday')"
-              >
-                <span class="qa-icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 7v5l3 3" /></svg
-                ></span>
-                <span>
-                  <p class="qa-title">Due Today</p>
-                  <p class="qa-desc">Show today's queue</p>
-                </span>
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm qa-card qa-orange"
-                [class.active]="activeQuickFilter() === 'highPriority'"
-                (click)="setQuickFilter('highPriority')"
-              >
-                <span class="qa-icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="M12 2 2 21h20L12 2Z" />
-                    <path d="M12 9v5M12 17h.01" /></svg
-                ></span>
-                <span>
-                  <p class="qa-title">High Priority</p>
-                  <p class="qa-desc">High + Urgent items</p>
-                </span>
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm qa-card qa-red"
-                [class.active]="activeQuickFilter() === 'overdue'"
-                (click)="setQuickFilter('overdue')"
-              >
-                <span class="qa-icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="M12 8v5" />
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 16h.01" /></svg
-                ></span>
-                <span>
-                  <p class="qa-title">Overdue</p>
-                  <p class="qa-desc">Show overdue queue</p>
-                </span>
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm qa-card qa-orange"
-                [class.active]="activeQuickFilter() === 'attention'"
-                (click)="setQuickFilter('attention')"
-              >
-                <span class="qa-icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
-                    />
-                    <path d="M12 9v4M12 17h.01" /></svg
-                ></span>
-                <span>
-                  <p class="qa-title">Requiring Attention</p>
-                  <p class="qa-desc">Escalated, SLA breached, or blocked</p>
-                </span>
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm qa-card qa-blue"
-                [class.active]="activeQuickFilter() === 'meetings'"
-                (click)="setQuickFilter('meetings')"
-              >
-                <span class="qa-icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                    <path d="M3 10h18M8 2v4M16 2v4" /></svg
-                ></span>
-                <span>
-                  <p class="qa-title">Upcoming Meetings</p>
-                  <p class="qa-desc">Type = Meeting</p>
-                </span>
-              </button>
-            </section>
-            <section
-              class="health-sla-grid"
-              aria-label="Queue health and SLA monitoring"
-            >
-              <div class="fq-card">
-                <p class="fq-section-title">Queue Health</p>
-                <span class="health-badge" [ngClass]="healthClass()"
-                  >{{ queueHealth() }}</span
-                >
-                <p class="health-subtext">
-                  {{ overduePercent() }}% of open follow-ups are overdue.
-                </p>
-              </div>
-
-              <div class="fq-card">
-                <p class="fq-section-title">Follow-Up Aging</p>
-                <div class="bar-row">
-                  <span class="bar-label">0â€“3 days</span>
-                  <div class="bar-track">
-                    <div
-                      class="bar-fill"
-                      [style.width.%]="(agingBuckets().b0 / maxBucket()) * 100"
-                    ></div>
-                  </div>
-                  <span class="bar-value">{{ agingBuckets().b0 }}</span>
-                </div>
-                <div class="bar-row">
-                  <span class="bar-label">4â€“7 days</span>
-                  <div class="bar-track">
-                    <div
-                      class="bar-fill fill-orange"
-                      [style.width.%]="(agingBuckets().b1 / maxBucket()) * 100"
-                    ></div>
-                  </div>
-                  <span class="bar-value">{{ agingBuckets().b1 }}</span>
-                </div>
-                <div class="bar-row">
-                  <span class="bar-label">8â€“15 days</span>
-                  <div class="bar-track">
-                    <div
-                      class="bar-fill fill-orange"
-                      [style.width.%]="(agingBuckets().b2 / maxBucket()) * 100"
-                    ></div>
-                  </div>
-                  <span class="bar-value">{{ agingBuckets().b2 }}</span>
-                </div>
-                <div class="bar-row">
-                  <span class="bar-label">15+ days</span>
-                  <div class="bar-track">
-                    <div
-                      class="bar-fill fill-red"
-                      [style.width.%]="(agingBuckets().b3 / maxBucket()) * 100"
-                    ></div>
-                  </div>
-                  <span class="bar-value">{{ agingBuckets().b3 }}</span>
-                </div>
-              </div>
-
-              <div class="fq-card">
-                <p class="fq-section-title">SLA Monitoring</p>
-                <div class="bar-row">
-                  <span class="bar-label">On Time</span>
-                  <div class="bar-track">
-                    <div
-                      class="bar-fill"
-                      [style.width.%]="(slaBreakdown().onTime / maxBucket()) * 100"
-                    ></div>
-                  </div>
-                  <span class="bar-value">{{ slaBreakdown().onTime }}</span>
-                </div>
-                <div class="bar-row">
-                  <span class="bar-label">Approaching</span>
-                  <div class="bar-track">
-                    <div
-                      class="bar-fill fill-orange"
-                      [style.width.%]="(slaBreakdown().approaching / maxBucket()) * 100"
-                    ></div>
-                  </div>
-                  <span class="bar-value"
-                    >{{ slaBreakdown().approaching }}</span
-                  >
-                </div>
-                <div class="bar-row">
-                  <span class="bar-label">Breached</span>
-                  <div class="bar-track">
-                    <div
-                      class="bar-fill fill-red"
-                      [style.width.%]="(slaBreakdown().breached / maxBucket()) * 100"
-                    ></div>
-                  </div>
-                  <span class="bar-value">{{ slaBreakdown().breached }}</span>
-                </div>
-              </div>
-            </section>
-            <aside class="fq-agenda">
-              <div class="fq-card agenda-panel">
-                <p class="fq-section-title">Today's Agenda</p>
-                @if (agendaItems().length === 0) {
-                <p class="agenda-empty">No follow-ups scheduled for today.</p>
-                } @else {
-                <ul class="agenda-timeline">
-                  @for (item of agendaItems(); track item.followUpId) {
-                  <li>
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary btn-sm agenda-item"
-                      (click)="openPreview(item.followUpId)"
-                    >
-                      <span class="agenda-time">{{ item.time }}</span>
-                      <span class="agenda-title">{{ item.title }}</span>
+              } @else if (loadError() && !hasData()) {
+                <div class="fq-state" role="alert">
+                  <span class="fq-state-ic is-danger">
+                    <svg class="fq-i" aria-hidden="true"><use href="#fq-i-alert" /></svg>
+                  </span>
+                  <h3>The queue couldn't be loaded</h3>
+                  <p>{{ loadError() }}</p>
+                  <div class="fq-state-actions">
+                    <button type="button" class="fq-btn fq-btn--primary" (click)="refresh()">
+                      <svg class="fq-i" aria-hidden="true"><use href="#fq-i-refresh" /></svg>
+                      Try again
                     </button>
-                  </li>
-                  }
-                </ul>
-                }
-              </div>
-            </aside>
-          </details>
-        </div>
+                  </div>
+                </div>
+              } @else {
+                <!-- ------------------------------ LIST ------------------------------ -->
+                @if (viewMode() === 'grid') {
+                  @if (filteredFollowUps().length === 0) {
+                    <div class="fq-state">
+                      <span class="fq-state-ic">
+                        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-inbox" /></svg>
+                      </span>
+                      <h3>{{ isNarrowed() ? 'Nothing matches this view' : 'Your queue is clear' }}</h3>
+                      <p>
+                        {{ isNarrowed()
+                          ? 'Try a different tab or loosen the filters to see more follow-ups.'
+                          : 'No follow-ups are scheduled for you. Plan the next touchpoint to keep relationships warm.' }}
+                      </p>
+                      <div class="fq-state-actions">
+                        @if (isNarrowed()) {
+                          <button type="button" class="fq-btn fq-btn--ghost" (click)="resetFilters()">Clear filters</button>
+                        }
+                        <button type="button" class="fq-btn fq-btn--primary" (click)="createFollowUp()">
+                          <svg class="fq-i" aria-hidden="true"><use href="#fq-i-plus" /></svg>
+                          New follow-up
+                        </button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="fq-table-wrap">
+                      <table class="fq-table">
+                        <thead>
+                          <tr>
+                            <th class="fq-col-check">
+                              <input type="checkbox" class="fq-check" aria-label="Select all on this page"
+                                     [checked]="allVisibleSelected()" (change)="toggleSelectAllVisible()" />
+                            </th>
+                            <th class="fq-col-record">Follow-up</th>
+                            <th class="fq-col-due">Due</th>
+                            <th class="fq-col-owner">Owner</th>
+                            <th class="fq-col-prio">Priority</th>
+                            <th class="fq-col-status">Status</th>
+                            <th class="fq-col-actions"><span class="visually-hidden">Actions</span></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (f of pagedFollowUps(); track trackById($index, f); let i = $index, last = $last) {
+                            <tr [class.is-overdue]="isOverdue(f)" [class.is-selected]="isSelected(f.id)">
+                              <td class="fq-col-check">
+                                <input type="checkbox" class="fq-check" [attr.aria-label]="'Select ' + f.recordName"
+                                       [checked]="isSelected(f.id)" (change)="toggleSelect(f.id)" />
+                              </td>
+                              <td class="fq-col-record">
+                                <button type="button" class="fq-record" (click)="openPreview(f.id)">
+                                  <span class="fq-channel" [attr.data-type]="f.followUpType" [title]="f.followUpType" role="img" [attr.aria-label]="f.followUpType">
+                                    <svg class="fq-i" aria-hidden="true"><use [attr.href]="'#fq-i-' + typeIcon(f.followUpType)" /></svg>
+                                  </span>
+                                  <span class="fq-record-text">
+                                    <span class="fq-record-name">{{ f.recordName }}</span>
+                                    @if (f.purpose) {
+                                      <span class="fq-purpose" [title]="f.purpose">{{ f.purpose }}</span>
+                                    }
+                                    <span class="fq-record-meta">
+                                      <span class="fq-kind">{{ f.recordType }}</span>
+                                      <span class="fq-ref">{{ f.reference }}</span>
+                                    </span>
+                                  </span>
+                                </button>
+                                @if (f.dependencyStatus === 'Blocked') {
+                                  <span class="fq-blocked" [title]="f.dependencyBlockedReason ?? 'Blocked'">
+                                    <svg class="fq-i" aria-hidden="true"><use href="#fq-i-lock" /></svg>
+                                    Blocked{{ f.dependencyBlockedReason ? ': ' + f.dependencyBlockedReason : '' }}
+                                  </span>
+                                }
+                              </td>
+                              <td class="fq-col-due">
+                                <span class="fq-due">
+                                  <span class="fq-due-date">{{ f.scheduledDate ? formatDate(f.scheduledDate) : '—' }}</span>
+                                  <span class="fq-due-rel" [class.is-late]="isOverdue(f)" [attr.data-sla]="f.slaStatus">
+                                    {{ dueLabel(f) }}@if (f.scheduledTime) {<span class="fq-sep" aria-hidden="true">&middot;</span>{{ formatTime(f.scheduledTime) }}}
+                                  </span>
+                                </span>
+                              </td>
+                              <td class="fq-col-owner">
+                                <span class="fq-owner">
+                                  <span class="fq-avatar" aria-hidden="true">{{ f.assignedToInitials }}</span>
+                                  <span class="fq-owner-name">{{ f.assignedTo }}</span>
+                                </span>
+                              </td>
+                              <td class="fq-col-prio">
+                                <span class="fq-prio" [attr.data-p]="f.priority">
+                                  <span class="fq-prio-dot" [attr.data-p]="f.priority" aria-hidden="true"></span>{{ f.priority }}
+                                </span>
+                              </td>
+                              <td class="fq-col-status">
+                                <span class="fq-status" [attr.data-s]="f.status">{{ f.status }}</span>
+                              </td>
+                              <td class="fq-col-actions">
+                                <div class="fq-row-actions">
+                                  <button
+                                    type="button"
+                                    class="fq-icon-btn is-go"
+                                    [disabled]="!canExecute(f) || f.status !== 'Pending'"
+                                    [attr.aria-label]="'Execute ' + f.reference"
+                                    [title]="canExecute(f) ? 'Execute' : 'Blocked: ' + (f.dependencyBlockedReason ?? 'dependency pending')"
+                                    (click)="executeFollowUp(f)"
+                                  >
+                                    <svg class="fq-i" aria-hidden="true"><use href="#fq-i-play" /></svg>
+                                  </button>
+                                  <button type="button" class="fq-icon-btn" title="Reschedule"
+                                          [attr.aria-label]="'Reschedule ' + f.reference" (click)="openReschedule(f.id)">
+                                    <svg class="fq-i" aria-hidden="true"><use href="#fq-i-calendar" /></svg>
+                                  </button>
+                                  <button type="button" class="fq-icon-btn" title="More actions"
+                                          [class.is-open]="openActionMenuId() === f.id"
+                                          [attr.aria-expanded]="openActionMenuId() === f.id"
+                                          [attr.aria-label]="'More actions for ' + f.reference"
+                                          (click)="toggleActionMenu(f.id, $event)">
+                                    <svg class="fq-i" aria-hidden="true"><use href="#fq-i-more" /></svg>
+                                  </button>
+                                  @if (openActionMenuId() === f.id) {
+                                    <div class="fq-menu" [class.is-up]="last && i > 2" role="menu" (click)="$event.stopPropagation()">
+                                      <button type="button" role="menuitem" (click)="openPreview(f.id); closeActionMenu()">
+                                        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-eye" /></svg>Open details
+                                      </button>
+                                      <button type="button" role="menuitem" (click)="openReassign(f.id); closeActionMenu()">
+                                        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-reassign" /></svg>Reassign
+                                      </button>
+                                      <button type="button" role="menuitem" (click)="openEscalate(f.id); closeActionMenu()">
+                                        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-escalate" /></svg>Escalate
+                                      </button>
+                                      <button type="button" role="menuitem" (click)="openHistory(f.id); closeActionMenu()">
+                                        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-history" /></svg>View history
+                                      </button>
+                                      <button type="button" role="menuitem" (click)="duplicateFollowUp(f.id); closeActionMenu()">
+                                        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-copy" /></svg>Duplicate
+                                      </button>
+                                      <span class="fq-menu-rule" aria-hidden="true"></span>
+                                      <button type="button" role="menuitem" class="is-danger" (click)="openCancel(f.id); closeActionMenu()">
+                                        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x-circle" /></svg>Cancel follow-up
+                                      </button>
+                                    </div>
+                                  }
+                                </div>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
 
-        <!-- ============================== DAILY AGENDA PANEL ============================== -->
+                    <footer class="fq-pager" aria-label="Pagination">
+                      <span class="fq-pager-info" role="status">
+                        Showing <strong class="fq-num">{{ pageStart() }}–{{ pageEnd() }}</strong>
+                        of <strong class="fq-num">{{ filteredFollowUps().length }}</strong>
+                      </span>
+                      @if (totalPages() > 1) {
+                        <nav class="fq-pages" aria-label="Follow-up pages">
+                          <button type="button" class="fq-page-btn" aria-label="Previous page" title="Previous page"
+                                  [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">
+                            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-chevron-left" /></svg>
+                          </button>
+                          @for (page of pageNumbers(); track page) {
+                            <button type="button" class="fq-page-btn" [class.is-active]="currentPage() === page"
+                                    [attr.aria-current]="currentPage() === page ? 'page' : null"
+                                    [attr.aria-label]="'Page ' + page" (click)="goToPage(page)">{{ page }}</button>
+                          }
+                          <button type="button" class="fq-page-btn" aria-label="Next page" title="Next page"
+                                  [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">
+                            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-chevron-right" /></svg>
+                          </button>
+                        </nav>
+                      }
+                    </footer>
+                  }
+                }
+
+                <!-- ------------------------------ BOARD ------------------------------ -->
+                @if (viewMode() === 'kanban') {
+                  <div class="fq-board">
+                    @for (col of kanbanColumns(); track col.key) {
+                      <div class="fq-lane" [attr.data-lane]="col.key">
+                        <div class="fq-lane-head">
+                          <span class="fq-lane-dot" aria-hidden="true"></span>
+                          <span class="fq-lane-title">{{ col.label }}</span>
+                          <span class="fq-lane-count">{{ col.items.length }}</span>
+                        </div>
+                        <div
+                          class="fq-lane-body"
+                          (dragover)="allowDrop($event)"
+                          (drop)="col.key === 'completed' ? onDropOnCompleted($event) : null"
+                        >
+                          @for (f of col.items; track trackById($index, f)) {
+                            <div
+                              role="button"
+                              tabindex="0"
+                              class="fq-bcard"
+                              (keydown.enter)="openPreview(f.id)"
+                              draggable="true"
+                              (dragstart)="onDragStart(f.id, $event)"
+                              (click)="openPreview(f.id)"
+                            >
+                              <span class="fq-bcard-head">
+                                <span class="fq-channel is-sm" [attr.data-type]="f.followUpType">
+                                  <svg class="fq-i" aria-hidden="true"><use [attr.href]="'#fq-i-' + typeIcon(f.followUpType)" /></svg>
+                                </span>
+                                <span class="fq-bcard-ref">{{ f.reference }}</span>
+                                <span class="fq-prio-dot" [attr.data-p]="f.priority" [title]="f.priority + ' priority'"></span>
+                              </span>
+                              <span class="fq-bcard-name">{{ f.recordName }}</span>
+                              @if (f.purpose) {
+                                <span class="fq-bcard-purpose">{{ f.purpose }}</span>
+                              }
+                              <span class="fq-bcard-foot">
+                                <span class="fq-bcard-due" [class.is-late]="isOverdue(f)">
+                                  <svg class="fq-i" aria-hidden="true"><use href="#fq-i-clock" /></svg>
+                                  {{ dueLabel(f) }}
+                                </span>
+                                <span class="fq-avatar is-sm" [title]="f.assignedTo">{{ f.assignedToInitials }}</span>
+                              </span>
+                            </div>
+                          } @empty {
+                            <p class="fq-lane-empty">
+                              {{ col.key === 'completed' ? 'Drop a card here to complete it' : 'Nothing here' }}
+                            </p>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+
+                <!-- ------------------------------ CALENDAR ------------------------------ -->
+                @if (viewMode() === 'calendar') {
+                  <div class="fq-cal">
+                    <div class="fq-cal-head">
+                      <h3 class="fq-cal-title">{{ calendarMonthLabel() }}</h3>
+                      <div class="fq-cal-nav">
+                        <button type="button" class="fq-btn fq-btn--quiet" (click)="jumpToToday()">Today</button>
+                        <button type="button" class="fq-icon-btn" aria-label="Previous month" title="Previous month"
+                                (click)="shiftCalendarMonth(-1)">
+                          <svg class="fq-i" aria-hidden="true"><use href="#fq-i-chevron-left" /></svg>
+                        </button>
+                        <button type="button" class="fq-icon-btn" aria-label="Next month" title="Next month"
+                                (click)="shiftCalendarMonth(1)">
+                          <svg class="fq-i" aria-hidden="true"><use href="#fq-i-chevron-right" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="fq-cal-grid">
+                      @for (dow of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; track dow) {
+                        <div class="fq-cal-dow">{{ dow }}</div>
+                      }
+                      @for (week of calendarWeeks(); track $index) {
+                        @for (day of week; track day.iso) {
+                          <button
+                            type="button"
+                            class="fq-cal-cell"
+                            [class.is-out]="!day.inMonth"
+                            [class.is-today]="day.iso === today"
+                            [class.has-items]="day.items.length > 0"
+                            [attr.aria-label]="formatDate(day.iso) + ', ' + day.items.length + ' follow-ups'"
+                            (click)="onCalendarDayClick(day)"
+                          >
+                            <span class="fq-cal-num">{{ day.dayNumber }}</span>
+                            <span class="fq-cal-items">
+                              @for (item of day.items.slice(0, 2); track item.id) {
+                                <span class="fq-cal-event" [class.is-late]="isOverdue(item)" [attr.data-type]="item.followUpType">
+                                  {{ item.recordName }}
+                                </span>
+                              }
+                              @if (day.items.length > 2) {
+                                <span class="fq-cal-more">+{{ day.items.length - 2 }} more</span>
+                              }
+                            </span>
+                          </button>
+                        }
+                      }
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+          </section>
       </div>
     </div>
   </div>
 
-  <!-- ============================== PREVIEW DRAWER ============================== -->
-  @if (previewFollowUp(); as f) {
-  <button
-    type="button"
-    class="drawer-backdrop"
-    aria-label="Close preview"
-    (click)="closePreview()"
-    title="Close preview"
-  ></button>
-  <aside
-    class="preview-drawer"
-    role="dialog"
-    aria-modal="true"
-    [attr.aria-label]="'Follow-up ' + f.id"
-  >
-    <div class="drawer-header">
-      <div>
-        <p class="drawer-id">{{ f.id }}</p>
-        <h2 class="drawer-record-name">{{ f.recordName }}</h2>
-        <div class="drawer-header-badges">
-          <span class="badge" [ngClass]="priorityClass(f.priority)"
-            >{{ f.priority }}</span
-          >
-          <span class="badge" [ngClass]="statusClass(f.status)"
-            >{{ f.status }}</span
-          >
-          <span class="badge" [ngClass]="slaClass(f.slaStatus)"
-            >{{ f.slaStatus }}</span
-          >
-        </div>
-      </div>
-      <button
-        type="button"
-        class="drawer-close btn btn-outline-secondary btn-sm"
-        aria-label="Close"
-        (click)="closePreview()"
-        title="Close"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
+  <!-- ============================== BULK BAR ============================== -->
+  @if (selectedIds().size > 0) {
+    <div class="fq-bulk" role="region" aria-label="Bulk actions">
+      <span class="fq-bulk-count"><strong>{{ selectedIds().size }}</strong> selected</span>
+      <span class="fq-bulk-rule" aria-hidden="true"></span>
+      <button type="button" class="fq-bulk-btn is-primary" (click)="openBulkComplete()">
+        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-check" /></svg>Complete
+      </button>
+      <button type="button" class="fq-bulk-btn" (click)="openBulkReschedule()">
+        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-calendar" /></svg>Reschedule
+      </button>
+      <button type="button" class="fq-bulk-btn" (click)="openBulkReassign()">
+        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-reassign" /></svg>Reassign
+      </button>
+      <button type="button" class="fq-bulk-btn" (click)="exportQueue()">
+        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-download" /></svg>Export
+      </button>
+      <button type="button" class="fq-bulk-btn is-danger" (click)="openBulkCancel()">
+        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x-circle" /></svg>Cancel
+      </button>
+      <button type="button" class="fq-bulk-close" aria-label="Clear selection" title="Clear selection" (click)="clearSelection()">
+        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x" /></svg>
       </button>
     </div>
-
-    <div class="drawer-body">
-      @if (f.dependencyStatus === 'Blocked') {
-      <div class="dependency-banner">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          style="flex: 0 0 auto"
-        >
-          <path d="M12 8v5M12 16h.01" />
-          <circle cx="12" cy="12" r="9" />
-        </svg>
-        <span
-          >Dependency not completed â€” {{ f.dependencyBlockedReason }}.
-          Execution is blocked.</span
-        >
-      </div>
-      }
-
-      <div class="drawer-section">
-        <p class="drawer-section-title">Follow-Up Summary</p>
-        <div class="kv-grid">
-          <div class="kv-item">
-            <p class="kv-label">Type</p>
-            <p class="kv-value">{{ f.followUpType }}</p>
-          </div>
-          <div class="kv-item">
-            <p class="kv-label">Record type</p>
-            <p class="kv-value">{{ f.recordType }}</p>
-          </div>
-          <div class="kv-item">
-            <p class="kv-label">Date</p>
-            <p class="kv-value mono">{{ formatDate(f.scheduledDate) }}</p>
-          </div>
-          <div class="kv-item">
-            <p class="kv-label">Time</p>
-            <p class="kv-value mono">{{ f.scheduledTime }}</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="drawer-section">
-        <p class="drawer-section-title">Related Record</p>
-        <div class="kv-grid">
-          <div class="kv-item">
-            <p class="kv-label">Campaign</p>
-            <p class="kv-value">{{ f.campaign }}</p>
-          </div>
-          <div class="kv-item">
-            <p class="kv-label">Phone</p>
-            <p class="kv-value mono">{{ f.phone }}</p>
-          </div>
-          <div class="kv-item">
-            <p class="kv-label">Email</p>
-            <p class="kv-value">{{ f.email }}</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="drawer-section">
-        <p class="drawer-section-title">Follow-Up Information</p>
-        <p class="drawer-text"><strong>Purpose:</strong> {{ f.purpose }}</p>
-        <p class="drawer-text">
-          <strong>Expected outcome:</strong> {{ f.expectedOutcome }}
-        </p>
-        <p class="drawer-text">
-          <strong>Success criteria:</strong> {{ f.successCriteria }}
-        </p>
-      </div>
-
-      @if (f.lastCommunicationType) {
-      <div class="drawer-section">
-        <p class="drawer-section-title">Linked Communication</p>
-        <div class="kv-grid">
-          <div class="kv-item">
-            <p class="kv-label">Type</p>
-            <p class="kv-value">{{ f.lastCommunicationType }}</p>
-          </div>
-          <div class="kv-item">
-            <p class="kv-label">Outcome</p>
-            <p class="kv-value">{{ f.lastCommunicationOutcome }}</p>
-          </div>
-          <div class="kv-item">
-            <p class="kv-label">Date</p>
-            <p class="kv-value mono">{{ f.lastCommunicationDate }}</p>
-          </div>
-        </div>
-      </div>
-      }
-
-      <div class="drawer-section">
-        <p class="drawer-section-title">Reminder Settings</p>
-        <p class="drawer-text">{{ f.reminderSettings }}</p>
-      </div>
-
-      @if (f.attachments.length > 0) {
-      <div class="drawer-section">
-        <p class="drawer-section-title">Attachments</p>
-        @for (a of f.attachments; track a) {
-        <span class="attachment-chip">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l7.78-7.78"
-            />
-          </svg>
-          {{ a }}
-        </span>
-        }
-      </div>
-      }
-    </div>
-
-    <div class="drawer-footer">
-      <button
-        type="button"
-        class="btn btn-primary btn-sm"
-        [disabled]="!canExecute(f)"
-        (click)="executeFollowUp(f)"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m5 12 4 4L19 6" />
-        </svg>
-        Execute
-      </button>
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="openReschedule(f.id)"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m5 12 4 4L19 6" />
-        </svg>
-        Reschedule
-      </button>
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="openReassign(f.id)"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m5 12 4 4L19 6" />
-        </svg>
-        Reassign
-      </button>
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="openHistory(f.id)"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m5 12 4 4L19 6" />
-        </svg>
-        View History
-      </button>
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="openCancel(f.id)"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m6 6 12 12M6 18 18 6" />
-        </svg>
-        Cancel
-      </button>
-    </div>
-  </aside>
   }
 
-  <!-- ============================== MODALS ============================== -->
-  @if (activeModal(); as modal) {
-  <div class="modal-backdrop" aria-hidden="true"></div>
+  <!-- ============================== DETAILS DRAWER ============================== -->
+  @if (previewFollowUp(); as f) {
+    <button type="button" class="fq-scrim is-drawer" aria-label="Close details" title="Close details" (click)="closePreview()"></button>
+    <aside class="fq-drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Follow-up ' + f.reference">
+      <header class="fq-drawer-head">
+        <div class="fq-drawer-top">
+          <span class="fq-channel is-lg" [attr.data-type]="f.followUpType">
+            <svg class="fq-i" aria-hidden="true"><use [attr.href]="'#fq-i-' + typeIcon(f.followUpType)" /></svg>
+          </span>
+          <div class="fq-drawer-titles">
+            <p class="fq-eyebrow">{{ f.followUpType }} &middot; {{ f.reference }}</p>
+            <h2 class="fq-drawer-title">{{ f.recordName }}</h2>
+          </div>
+          <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closePreview()">
+            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x" /></svg>
+          </button>
+        </div>
+        <div class="fq-drawer-badges">
+          <span class="fq-status" [attr.data-s]="f.status">{{ f.status }}</span>
+          <span class="fq-prio" [attr.data-p]="f.priority">
+            <span class="fq-prio-dot" [attr.data-p]="f.priority" aria-hidden="true"></span>{{ f.priority }} priority
+          </span>
+          <span class="fq-sla" [attr.data-sla]="f.slaStatus">SLA {{ f.slaStatus.toLowerCase() }}</span>
+        </div>
+      </header>
 
-  @switch (modal.kind) { @case ('reschedule') {
-  <div
-    class="modal-panel"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="reschedule-title"
-  >
-    <div class="modal-header">
-      <h2 id="reschedule-title">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" /></svg
-        >Reschedule follow-up{{ modal.ids.length > 1 ? ' (' + modal.ids.length +
-        ')' : '' }}
-      </h2>
-      <button
-        type="button"
-        class="drawer-close btn btn-outline-secondary btn-sm"
-        aria-label="Close"
-        (click)="closeModal()"
-        title="Close"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <div class="form-row-2">
-        <div class="form-field">
-          <label for="resched-date">New date</label>
-          <input
-            id="resched-date"
-            type="date"
-            class="field-input"
-            [value]="rescheduleDate()"
-            (change)="rescheduleDate.set($any($event.target).value)"
-          />
-        </div>
-        <div class="form-field">
-          <label for="resched-time">New time</label>
-          <input
-            id="resched-time"
-            type="time"
-            class="field-input"
-            [value]="rescheduleTime()"
-            (change)="rescheduleTime.set($any($event.target).value)"
-          />
-        </div>
-      </div>
-      <div class="form-field">
-        <label for="resched-reason">Reason</label>
-        <input
-          id="resched-reason"
-          type="text"
-          class="field-input"
-          placeholder="Why is this being rescheduled?"
-          [value]="rescheduleReason()"
-          (input)="rescheduleReason.set($any($event.target).value)"
-        />
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="closeModal()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m6 6 12 12M6 18 18 6" />
-        </svg>
-        Cancel
-      </button>
-      <button
-        type="button"
-        class="btn btn-primary btn-sm"
-        [disabled]="!rescheduleDate() || !rescheduleTime()"
-        (click)="confirmReschedule()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M4 3h13l4 4v14H3V3h1ZM7 3v6h10V3M7 21v-8h10v8" />
-        </svg>
-        Save
-      </button>
-    </div>
-  </div>
-  } @case ('reassign') {
-  <div
-    class="modal-panel"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="reassign-title"
-  >
-    <div class="modal-header">
-      <h2 id="reassign-title">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" /></svg
-        >Reassign follow-up{{ modal.ids.length > 1 ? ' (' + modal.ids.length +
-        ')' : '' }}
-      </h2>
-      <button
-        type="button"
-        class="drawer-close btn btn-outline-secondary btn-sm"
-        aria-label="Close"
-        (click)="closeModal()"
-        title="Close"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <div class="form-field">
-        <label for="reassign-owner">New owner</label>
-        @if (owners().length > 20) {<input
-          type="search"
-          class="field-input option-search"
-          aria-label="Search reassign-owner"
-          placeholder="Search optionsâ€¦"
-          [value]="reassignSearch()"
-          (input)="reassignSearch.set($any($event.target).value)"
-        />}<select
-          id="reassign-owner"
-          class="field-select"
-          [value]="reassignOwner()"
-          (change)="reassignOwner.set($any($event.target).value)"
-        >
-          <option value="" disabled>Select an owner</option>
-          @for (o of matchingOptions(owners(), reassignSearch(),
-          reassignOwner()); track trackByString($index, o)) {
-          <option [value]="o">{{ o }}</option>
-          }
-        </select>
-      </div>
-      <div class="form-field">
-        <label for="reassign-reason">Reason (optional)</label>
-        <input
-          id="reassign-reason"
-          type="text"
-          class="field-input"
-          [value]="reassignReason()"
-          (input)="reassignReason.set($any($event.target).value)"
-        />
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="closeModal()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m6 6 12 12M6 18 18 6" />
-        </svg>
-        Cancel
-      </button>
-      <button
-        type="button"
-        class="btn btn-primary btn-sm"
-        [disabled]="!reassignOwner()"
-        (click)="confirmReassign()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M4 3h13l4 4v14H3V3h1ZM7 3v6h10V3M7 21v-8h10v8" />
-        </svg>
-        Save
-      </button>
-    </div>
-  </div>
-  } @case ('cancel') {
-  <div
-    class="modal-panel"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="cancel-title"
-  >
-    <div class="modal-header">
-      <h2 id="cancel-title">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" /></svg
-        >Cancel follow-up{{ modal.ids.length > 1 ? ' (' + modal.ids.length + ')'
-        : '' }}
-      </h2>
-      <button
-        type="button"
-        class="drawer-close btn btn-outline-secondary btn-sm"
-        aria-label="Close"
-        (click)="closeModal()"
-        title="Close"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <div class="form-field">
-        <label for="cancel-reason">Cancellation reason</label>
-        <input
-          id="cancel-reason"
-          type="text"
-          class="field-input"
-          placeholder="Required"
-          [value]="cancelReason()"
-          (input)="cancelReason.set($any($event.target).value)"
-        />
-        <p class="field-hint">
-          This follow-up will be marked Cancelled but retained for reporting.
-        </p>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="closeModal()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m6 6 12 12M6 18 18 6" />
-        </svg>
-        Keep it
-      </button>
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        [disabled]="!cancelReason().trim()"
-        (click)="confirmCancel()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m6 6 12 12M6 18 18 6" />
-        </svg>
-        Confirm Cancel
-      </button>
-    </div>
-  </div>
-  } @case ('escalate') {
-  <div
-    class="modal-panel"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="escalate-title"
-  >
-    <div class="modal-header">
-      <h2 id="escalate-title">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" /></svg
-        >Escalate follow-up
-      </h2>
-      <button
-        type="button"
-        class="drawer-close btn btn-outline-secondary btn-sm"
-        aria-label="Close"
-        (click)="closeModal()"
-        title="Close"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <div class="form-field">
-        <label for="escalate-to">Escalate to</label>
-        @if (owners().length > 20) {<input
-          type="search"
-          class="field-input option-search"
-          aria-label="Search escalate-to"
-          placeholder="Search optionsâ€¦"
-          [value]="escalateSearch()"
-          (input)="escalateSearch.set($any($event.target).value)"
-        />}<select
-          id="escalate-to"
-          class="field-select"
-          [value]="escalateTo()"
-          (change)="escalateTo.set($any($event.target).value)"
-        >
-          <option value="" disabled>Select a manager</option>
-          @for (o of matchingOptions(owners(), escalateSearch(), escalateTo());
-          track trackByString($index, o)) {
-          <option [value]="o">{{ o }}</option>
-          }
-        </select>
-      </div>
-      <div class="form-field">
-        <label for="escalate-reason">Reason</label>
-        <input
-          id="escalate-reason"
-          type="text"
-          class="field-input"
-          placeholder="Required"
-          [value]="escalateReason()"
-          (input)="escalateReason.set($any($event.target).value)"
-        />
-      </div>
-      <div class="form-field">
-        <label for="escalate-notes">Notes (optional)</label>
-        <textarea
-          id="escalate-notes"
-          class="field-input"
-          rows="3"
-          [value]="escalateNotes()"
-          (input)="escalateNotes.set($any($event.target).value)"
-        ></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="closeModal()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m6 6 12 12M6 18 18 6" />
-        </svg>
-        Cancel
-      </button>
-      <button
-        type="button"
-        class="btn btn-primary btn-sm"
-        [disabled]="!escalateTo() || !escalateReason().trim()"
-        (click)="confirmEscalate()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m5 12 4 4L19 6" />
-        </svg>
-        Escalate
-      </button>
-    </div>
-  </div>
-  } @case ('complete') {
-  <div
-    class="modal-panel"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="complete-title"
-  >
-    <div class="modal-header">
-      <h2 id="complete-title">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" /></svg
-        >Mark complete{{ modal.ids.length > 1 ? ' (' + modal.ids.length + ')' :
-        '' }}
-      </h2>
-      <button
-        type="button"
-        class="drawer-close btn btn-outline-secondary btn-sm"
-        aria-label="Close"
-        (click)="closeModal()"
-        title="Close"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <div class="form-field">
-        <label for="completion-note">Completion note (optional)</label>
-        <textarea
-          id="completion-note"
-          class="field-input"
-          rows="3"
-          placeholder="What happened on this follow-up?"
-          [value]="completionNote()"
-          (input)="completionNote.set($any($event.target).value)"
-        ></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="closeModal()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m6 6 12 12M6 18 18 6" />
-        </svg>
-        Cancel
-      </button>
-      <button
-        type="button"
-        class="btn btn-primary btn-sm"
-        (click)="confirmBulkComplete()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m5 12 4 4L19 6" />
-        </svg>
-        Mark Complete
-      </button>
-    </div>
-  </div>
-  } @case ('history') {
-  <div
-    class="modal-panel"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="history-title"
-  >
-    <div class="modal-header">
-      <h2 id="history-title">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" /></svg
-        >History â€” {{ modal.ids[0] }}
-      </h2>
-      <button
-        type="button"
-        class="drawer-close btn btn-outline-secondary btn-sm"
-        aria-label="Close"
-        (click)="closeModal()"
-        title="Close"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      @if (historyFollowUp(); as hf) {
-      <ul class="history-timeline">
-        @for (h of hf.history; track $index) {
-        <li class="history-item">
-          <span class="history-dot-col">
-            <span class="history-dot"></span>
-            <span class="history-line"></span>
-          </span>
-          <span>
-            <span class="history-date">{{ h.date }}</span><br />
-            <span class="history-label">{{ h.label }}</span>
-          </span>
-        </li>
+      <div class="fq-drawer-body">
+        @if (f.dependencyStatus === 'Blocked') {
+          <div class="fq-banner" role="note">
+            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-lock" /></svg>
+            <span><strong>Execution is blocked.</strong> {{ f.dependencyBlockedReason || 'A dependency is not yet complete.' }}</span>
+          </div>
         }
-      </ul>
+
+        <div class="fq-facts">
+          <div class="fq-fact">
+            <span class="fq-fact-label">Due</span>
+            <span class="fq-fact-value">{{ f.scheduledDate ? formatDate(f.scheduledDate) : '—' }}</span>
+            <span class="fq-fact-sub" [class.is-late]="isOverdue(f)">{{ dueLabel(f) }}</span>
+          </div>
+          <div class="fq-fact">
+            <span class="fq-fact-label">Time</span>
+            <span class="fq-fact-value">{{ formatTime(f.scheduledTime) || '—' }}</span>
+            <span class="fq-fact-sub">Local time</span>
+          </div>
+          <div class="fq-fact">
+            <span class="fq-fact-label">Owner</span>
+            <span class="fq-fact-value">{{ f.assignedTo }}</span>
+            <span class="fq-fact-sub">{{ f.recordType }} relationship</span>
+          </div>
+        </div>
+
+        <section class="fq-dsection">
+          <h3 class="fq-dsection-title">Purpose &amp; outcome</h3>
+          <dl class="fq-sheet">
+            <div><dt>Purpose</dt><dd>{{ f.purpose || '—' }}</dd></div>
+            <div><dt>Next action</dt><dd>{{ f.expectedOutcome || '—' }}</dd></div>
+            @if (f.successCriteria) {
+              <div><dt>Success criteria</dt><dd>{{ f.successCriteria }}</dd></div>
+            }
+            @if (f.lastCommunicationOutcome) {
+              <div><dt>Recorded outcome</dt><dd>{{ f.lastCommunicationOutcome }}</dd></div>
+            }
+          </dl>
+        </section>
+
+        <section class="fq-dsection">
+          <h3 class="fq-dsection-title">Relationship</h3>
+          <dl class="fq-sheet">
+            <div><dt>Record</dt><dd>{{ f.recordName }}</dd></div>
+            <div><dt>Record type</dt><dd>{{ f.recordType }}</dd></div>
+            <div><dt>Channel</dt><dd>{{ f.followUpType }}</dd></div>
+            @if (f.campaign) {
+              <div><dt>Campaign</dt><dd>{{ f.campaign }}</dd></div>
+            }
+            @if (f.phone) {
+              <div><dt>Phone</dt><dd class="fq-num">{{ f.phone }}</dd></div>
+            }
+            @if (f.email) {
+              <div><dt>Email</dt><dd>{{ f.email }}</dd></div>
+            }
+          </dl>
+        </section>
+
+        @if (f.lastCommunicationType) {
+          <section class="fq-dsection">
+            <h3 class="fq-dsection-title">Linked communication</h3>
+            <dl class="fq-sheet">
+              <div><dt>Type</dt><dd>{{ f.lastCommunicationType }}</dd></div>
+              <div><dt>Outcome</dt><dd>{{ f.lastCommunicationOutcome }}</dd></div>
+              <div><dt>Date</dt><dd class="fq-num">{{ f.lastCommunicationDate }}</dd></div>
+            </dl>
+          </section>
+        }
+
+        @if (f.notes) {
+          <section class="fq-dsection">
+            <h3 class="fq-dsection-title">Notes</h3>
+            <p class="fq-note">{{ f.notes }}</p>
+          </section>
+        }
+
+        @if (f.reminderSettings) {
+          <section class="fq-dsection">
+            <h3 class="fq-dsection-title">Reminders</h3>
+            <p class="fq-note">{{ f.reminderSettings }}</p>
+          </section>
+        }
+
+        @if (f.attachments.length > 0) {
+          <section class="fq-dsection">
+            <h3 class="fq-dsection-title">Attachments</h3>
+            <div class="fq-files">
+              @for (a of f.attachments; track a) {
+                <span class="fq-file"><svg class="fq-i" aria-hidden="true"><use href="#fq-i-clip" /></svg>{{ a }}</span>
+              }
+            </div>
+          </section>
+        }
+      </div>
+
+      <footer class="fq-drawer-foot">
+        <button type="button" class="fq-btn fq-btn--primary fq-btn--grow" [disabled]="!canExecute(f)" (click)="executeFollowUp(f)">
+          <svg class="fq-i" aria-hidden="true"><use href="#fq-i-play" /></svg>
+          Execute follow-up
+        </button>
+        <div class="fq-drawer-tools">
+          <button type="button" class="fq-icon-btn is-boxed" title="Reschedule" aria-label="Reschedule" (click)="openReschedule(f.id)">
+            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-calendar" /></svg>
+          </button>
+          <button type="button" class="fq-icon-btn is-boxed" title="Reassign" aria-label="Reassign" (click)="openReassign(f.id)">
+            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-reassign" /></svg>
+          </button>
+          <button type="button" class="fq-icon-btn is-boxed" title="View history" aria-label="View history" (click)="openHistory(f.id)">
+            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-history" /></svg>
+          </button>
+          <button type="button" class="fq-icon-btn is-boxed is-danger" title="Cancel follow-up" aria-label="Cancel follow-up" (click)="openCancel(f.id)">
+            <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x-circle" /></svg>
+          </button>
+        </div>
+      </footer>
+    </aside>
+  }
+
+  <!-- ============================== DIALOGS ============================== -->
+  @if (activeModal(); as modal) {
+    <div class="fq-scrim is-modal" aria-hidden="true"></div>
+
+    @switch (modal.kind) {
+      @case ('reschedule') {
+        <div class="fq-modal" role="dialog" aria-modal="true" aria-labelledby="fq-dlg-title">
+          <header class="fq-modal-head">
+            <span class="fq-modal-ic"><svg class="fq-i" aria-hidden="true"><use href="#fq-i-calendar" /></svg></span>
+            <div class="fq-modal-titles">
+              <h2 id="fq-dlg-title">Reschedule {{ modal.ids.length > 1 ? modal.ids.length + ' follow-ups' : 'follow-up' }}</h2>
+              <p>Pick a new date and time for this work.</p>
+            </div>
+            <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closeModal()">
+              <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x" /></svg>
+            </button>
+          </header>
+          <div class="fq-modal-body">
+            <div class="fq-form-row">
+              <div class="fq-field">
+                <label for="resched-date">New date</label>
+                <input id="resched-date" type="date" class="fq-input" [value]="rescheduleDate()"
+                       (change)="rescheduleDate.set($any($event.target).value)" />
+              </div>
+              <div class="fq-field">
+                <label for="resched-time">New time</label>
+                <input id="resched-time" type="time" class="fq-input" [value]="rescheduleTime()"
+                       (change)="rescheduleTime.set($any($event.target).value)" />
+              </div>
+            </div>
+            <div class="fq-field">
+              <label for="resched-reason">Reason <span class="fq-optional">optional</span></label>
+              <input id="resched-reason" type="text" class="fq-input" placeholder="Why is this moving?"
+                     [value]="rescheduleReason()" (input)="rescheduleReason.set($any($event.target).value)" />
+            </div>
+          </div>
+          <footer class="fq-modal-foot">
+            <button type="button" class="fq-btn fq-btn--quiet" (click)="closeModal()">Cancel</button>
+            <button type="button" class="fq-btn fq-btn--primary" [disabled]="!rescheduleDate() || !rescheduleTime()"
+                    (click)="confirmReschedule()">Save new time</button>
+          </footer>
+        </div>
       }
-    </div>
-    <div class="modal-footer">
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="closeModal()"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m6 6 12 12M6 18 18 6" />
-        </svg>
-        Close
-      </button>
-    </div>
-  </div>
-  } } }
+      @case ('reassign') {
+        <div class="fq-modal" role="dialog" aria-modal="true" aria-labelledby="fq-dlg-title">
+          <header class="fq-modal-head">
+            <span class="fq-modal-ic"><svg class="fq-i" aria-hidden="true"><use href="#fq-i-reassign" /></svg></span>
+            <div class="fq-modal-titles">
+              <h2 id="fq-dlg-title">Reassign {{ modal.ids.length > 1 ? modal.ids.length + ' follow-ups' : 'follow-up' }}</h2>
+              <p>Hand the work to another relationship owner.</p>
+            </div>
+            <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closeModal()">
+              <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x" /></svg>
+            </button>
+          </header>
+          <div class="fq-modal-body">
+            <div class="fq-field">
+              <label for="reassign-owner">New owner</label>
+              @if (owners().length > 20) {
+                <input type="search" class="fq-input fq-option-search" aria-label="Search owners"
+                       placeholder="Search owners…" [value]="reassignSearch()"
+                       (input)="reassignSearch.set($any($event.target).value)" />
+              }
+              <select id="reassign-owner" class="fq-input" [value]="reassignOwner()"
+                      (change)="reassignOwner.set($any($event.target).value)">
+                <option value="" disabled>Select an owner</option>
+                @for (o of matchingOptions(owners(), reassignSearch(), reassignOwner()); track trackByString($index, o)) {
+                  <option [value]="o">{{ o }}</option>
+                }
+              </select>
+            </div>
+            <div class="fq-field">
+              <label for="reassign-reason">Reason <span class="fq-optional">optional</span></label>
+              <input id="reassign-reason" type="text" class="fq-input" [value]="reassignReason()"
+                     (input)="reassignReason.set($any($event.target).value)" />
+            </div>
+          </div>
+          <footer class="fq-modal-foot">
+            <button type="button" class="fq-btn fq-btn--quiet" (click)="closeModal()">Cancel</button>
+            <button type="button" class="fq-btn fq-btn--primary" [disabled]="!reassignOwner()" (click)="confirmReassign()">Reassign</button>
+          </footer>
+        </div>
+      }
+      @case ('cancel') {
+        <div class="fq-modal" role="dialog" aria-modal="true" aria-labelledby="fq-dlg-title">
+          <header class="fq-modal-head">
+            <span class="fq-modal-ic is-danger"><svg class="fq-i" aria-hidden="true"><use href="#fq-i-x-circle" /></svg></span>
+            <div class="fq-modal-titles">
+              <h2 id="fq-dlg-title">Cancel {{ modal.ids.length > 1 ? modal.ids.length + ' follow-ups' : 'follow-up' }}</h2>
+              <p>It is marked cancelled but kept for reporting.</p>
+            </div>
+            <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closeModal()">
+              <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x" /></svg>
+            </button>
+          </header>
+          <div class="fq-modal-body">
+            <div class="fq-field">
+              <label for="cancel-reason">Cancellation reason</label>
+              <input id="cancel-reason" type="text" class="fq-input" placeholder="Required"
+                     [value]="cancelReason()" (input)="cancelReason.set($any($event.target).value)" />
+            </div>
+          </div>
+          <footer class="fq-modal-foot">
+            <button type="button" class="fq-btn fq-btn--quiet" (click)="closeModal()">Keep it</button>
+            <button type="button" class="fq-btn fq-btn--danger" [disabled]="!cancelReason().trim()" (click)="confirmCancel()">Cancel follow-up</button>
+          </footer>
+        </div>
+      }
+      @case ('escalate') {
+        <div class="fq-modal" role="dialog" aria-modal="true" aria-labelledby="fq-dlg-title">
+          <header class="fq-modal-head">
+            <span class="fq-modal-ic is-warn"><svg class="fq-i" aria-hidden="true"><use href="#fq-i-escalate" /></svg></span>
+            <div class="fq-modal-titles">
+              <h2 id="fq-dlg-title">Escalate follow-up</h2>
+              <p>Hand it to a more senior owner and record why.</p>
+            </div>
+            <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closeModal()">
+              <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x" /></svg>
+            </button>
+          </header>
+          <div class="fq-modal-body">
+            <div class="fq-field">
+              <label for="escalate-to">Escalate to</label>
+              @if (owners().length > 20) {
+                <input type="search" class="fq-input fq-option-search" aria-label="Search managers"
+                       placeholder="Search…" [value]="escalateSearch()"
+                       (input)="escalateSearch.set($any($event.target).value)" />
+              }
+              <select id="escalate-to" class="fq-input" [value]="escalateTo()" (change)="escalateTo.set($any($event.target).value)">
+                <option value="" disabled>Select a manager</option>
+                @for (o of matchingOptions(owners(), escalateSearch(), escalateTo()); track trackByString($index, o)) {
+                  <option [value]="o">{{ o }}</option>
+                }
+              </select>
+            </div>
+            <div class="fq-field">
+              <label for="escalate-reason">Reason</label>
+              <input id="escalate-reason" type="text" class="fq-input" placeholder="Required"
+                     [value]="escalateReason()" (input)="escalateReason.set($any($event.target).value)" />
+            </div>
+            <div class="fq-field">
+              <label for="escalate-notes">Notes <span class="fq-optional">optional</span></label>
+              <textarea id="escalate-notes" class="fq-input" rows="3" [value]="escalateNotes()"
+                        (input)="escalateNotes.set($any($event.target).value)"></textarea>
+            </div>
+          </div>
+          <footer class="fq-modal-foot">
+            <button type="button" class="fq-btn fq-btn--quiet" (click)="closeModal()">Cancel</button>
+            <button type="button" class="fq-btn fq-btn--primary" [disabled]="!escalateTo() || !escalateReason().trim()"
+                    (click)="confirmEscalate()">Escalate</button>
+          </footer>
+        </div>
+      }
+      @case ('complete') {
+        <div class="fq-modal" role="dialog" aria-modal="true" aria-labelledby="fq-dlg-title">
+          <header class="fq-modal-head">
+            <span class="fq-modal-ic is-ok"><svg class="fq-i" aria-hidden="true"><use href="#fq-i-check-circle" /></svg></span>
+            <div class="fq-modal-titles">
+              <h2 id="fq-dlg-title">Complete {{ modal.ids.length > 1 ? modal.ids.length + ' follow-ups' : 'follow-up' }}</h2>
+              <p>Record what happened, then close it out.</p>
+            </div>
+            <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closeModal()">
+              <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x" /></svg>
+            </button>
+          </header>
+          <div class="fq-modal-body">
+            <div class="fq-field">
+              <label for="completion-note">Outcome <span class="fq-optional">optional</span></label>
+              <textarea id="completion-note" class="fq-input" rows="4" placeholder="What happened on this follow-up?"
+                        [value]="completionNote()" (input)="completionNote.set($any($event.target).value)"></textarea>
+            </div>
+          </div>
+          <footer class="fq-modal-foot">
+            <button type="button" class="fq-btn fq-btn--quiet" (click)="closeModal()">Cancel</button>
+            <button type="button" class="fq-btn fq-btn--primary" (click)="confirmBulkComplete()">
+              <svg class="fq-i" aria-hidden="true"><use href="#fq-i-check" /></svg>
+              Mark complete
+            </button>
+          </footer>
+        </div>
+      }
+      @case ('history') {
+        <div class="fq-modal" role="dialog" aria-modal="true" aria-labelledby="fq-dlg-title">
+          <header class="fq-modal-head">
+            <span class="fq-modal-ic"><svg class="fq-i" aria-hidden="true"><use href="#fq-i-history" /></svg></span>
+            <div class="fq-modal-titles">
+              <h2 id="fq-dlg-title">History</h2>
+              <p>{{ historyFollowUp()?.reference }} &middot; {{ historyFollowUp()?.recordName }}</p>
+            </div>
+            <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closeModal()">
+              <svg class="fq-i" aria-hidden="true"><use href="#fq-i-x" /></svg>
+            </button>
+          </header>
+          <div class="fq-modal-body">
+            @if (historyFollowUp(); as hf) {
+              @if (hf.history.length === 0) {
+                <p class="fq-empty-note">No history has been recorded for this follow-up yet.</p>
+              } @else {
+                <ol class="fq-timeline">
+                  @for (h of hf.history; track $index) {
+                    <li>
+                      <span class="fq-timeline-dot" aria-hidden="true"></span>
+                      <span class="fq-timeline-label">{{ h.label }}</span>
+                      <span class="fq-timeline-date">{{ h.date }}</span>
+                    </li>
+                  }
+                </ol>
+              }
+            }
+          </div>
+          <footer class="fq-modal-foot">
+            <button type="button" class="fq-btn fq-btn--ghost" (click)="closeModal()">Close</button>
+          </footer>
+        </div>
+      }
+    }
+  }
 
   <!-- ============================== TOAST ============================== -->
   @if (toastMessage(); as msg) {
-  <div class="toast" role="status" aria-live="polite">{{ msg }}</div>
+    <div class="fq-toast" role="status" aria-live="polite">
+      <svg class="fq-i" aria-hidden="true"><use href="#fq-i-check-circle" /></svg>{{ msg }}
+    </div>
   }
 </main>
-

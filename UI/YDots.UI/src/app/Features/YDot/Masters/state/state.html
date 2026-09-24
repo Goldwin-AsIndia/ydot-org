@@ -1,730 +1,771 @@
 <main class="app-wrapper">
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3">
-      <div class="state-module">
-        <div class="toast-stack" role="region" aria-label="Notifications" aria-live="polite">
-          @for (t of toasts; track t.id) {
-            <div class="toast-item toast-{{ t.kind }}" role="status">
-              <div class="toast-copy">
-                <strong>{{ t.title }}</strong>
-                <span>{{ t.message }}</span>
-              </div>
-              <button type="button" class="toast-close" [attr.aria-label]="'Dismiss: ' + t.title" (click)="dismissToast(t.id)">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
-              </button>
-            </div>
-          }
-        </div>
 
-        @if (!isInitialized) {
-          <div class="page-loading-overlay" role="status" aria-live="polite" aria-label="Loading"><div class="whirly-loader"></div></div>
-        } @else {
-
-          <!-- ================= LIST VIEW ================= -->
-          @if (viewMode === 'list') {
-            <div class="content list-view">
-              <app-page-header screen="state" title="State &amp; Province List" subtitle="Manage jurisdictions, tax codes and regional settings.">
-                <span meta class="ph-chip">GLOBAL MASTERS / GEOGRAPHY</span>
-                <ng-container actions>
-                  <button type="button" class="ph-btn ph-btn--primary" (click)="openCreateForm()">
-                    <span class="btn-plus">+</span>
-                    Create
-                  </button>
-  </ng-container>
-              </app-page-header>
-
-
-              <div class="toolbar-row">
-                <div class="search-input">
-                  <svg class="search-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="11" cy="11" r="7.5"/>
-                    <path d="m20 20-3.7-3.7"/>
-                  </svg>
-                  <label class="visually-hidden" for="stateSearch">Search state or province</label>
-                  <input id="stateSearch" type="search" class="form-control" placeholder="Search by code, name or GST code..." [ngModel]="searchText" (ngModelChange)="onSearch($event)" />
-                </div>
-
-                <div class="filter-row">
-                  <label class="visually-hidden" for="filterCountry">Filter by country</label>
-                  <select id="filterCountry" class="form-select pill-select" [ngModel]="selectedCountryId" (ngModelChange)="onCountryFilterChange($event)">
-                    <option value="">All Countries</option>
-                    @for (country of tableCountries; track country.id) {
-                      <option [value]="country.id">{{ country.countryName }}</option>
-                    }
-                  </select>
-
-                  <label class="visually-hidden" for="filterJurisdiction">Filter by jurisdiction</label>
-                  <select id="filterJurisdiction" class="form-select pill-select" [ngModel]="selectedJurisdictionType" (ngModelChange)="onJurisdictionFilterChange($event)">
-                    <option value="">All Jurisdictions</option>
-                    @for (type of tableJurisdictionTypes; track type.value) {
-                      <option [value]="type.value">{{ type.label }}</option>
-                    }
-                  </select>
-
-                  <label class="visually-hidden" for="filterStatus">Filter by status</label>
-                  <select id="filterStatus" class="form-select pill-select" [ngModel]="selectedStatus" (ngModelChange)="onStatusFilterChange($event)">
-                    <option value="">All Status</option>
-                    @for (option of statusOptions; track option.value) {
-                      <option [value]="option.value">{{ option.label }}</option>
-                    }
-                  </select>
-                </div>
-              </div>
-
-              <section class="workspace-shell" [class.has-details]="detailsOpen()">
-                <article class="table-pane card">
-                  <div class="table-pane-header">
-                    <div>
-                      <h2>States &amp; Provinces</h2>
-                      <p>{{ scopedCount }} result{{ scopedCount === 1 ? '' : 's' }} in current scope</p>
-                    </div>
-                    @if (selectedState && detailsOpen()) {
-                      <span class="selection-label">
-                        <span class="selection-dot"></span>
-                        {{ selectedState.stateProvinceCode }} selected
-                      </span>
-                    }
-                  </div>
-
-                  <div class="table-scroll">
-                    <table class="data-table">
-                      <caption class="visually-hidden">States and provinces</caption>
-                      <colgroup>
-                        <col class="col-toggle" />
-                        <col class="col-code" />
-                        <col class="col-name" />
-                        <col class="col-country" />
-                        <col class="col-jurisdiction" />
-                        <col class="col-gst" />
-                        <col class="col-status" />
-                        <col class="col-action" />
-                      </colgroup>
-                      <thead>
-                        <tr>
-                          <th class="col-toggle" scope="col" aria-hidden="true"></th>
-                          <th class="col-code" scope="col">Code</th>
-                          <th class="col-name" scope="col">State / Province</th>
-                          <th class="col-country" scope="col">Country</th>
-                          <th class="col-jurisdiction" scope="col">Jurisdiction</th>
-                          <th class="col-gst" scope="col">GST</th>
-                          <th class="col-status" scope="col">Status</th>
-                          <th class="col-action text-end" scope="col">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @if (pagedStates.length > 0) {
-                          @for (s of pagedStates; track s.id) {
-                            <tr [class.row-selected]="detailsOpen() && selectedState?.id === s.id" (click)="viewState(s)" tabindex="0" (keydown.enter)="viewState(s)" [attr.aria-selected]="detailsOpen() && selectedState?.id === s.id">
-                              <td class="col-toggle td-toggle">
-                                <button type="button" class="mobile-open-btn" [attr.aria-label]="'View more details for ' + s.stateProvinceName" (click)="$event.stopPropagation(); viewState(s)">+</button>
-                              </td>
-                              <td class="col-code">
-                                <button type="button" class="code-button" [attr.aria-label]="s.stateProvinceCode + ' details'" (click)="$event.stopPropagation(); viewState(s)">{{ s.stateProvinceCode }}</button>
-                              </td>
-                              <td class="col-name">
-                                <div class="name-cell">
-                                  <span class="name-primary">{{ s.stateProvinceName }}</span>
-                                  @if (s.displayName) {
-                                    <span class="name-secondary">{{ s.displayName }}</span>
-                                  }
-                                </div>
-                              </td>
-                              <td class="col-country">{{ s.countryName || '—' }}</td>
-                              <td class="col-jurisdiction">
-                                <span class="badge badge-neutral">{{ jurisdictionLabel(s) }}</span>
-                              </td>
-                              <td class="col-gst">{{ s.gstStateCode || '—' }}</td>
-                              <td class="col-status">
-                                <span class="status-pill" [class.active]="s.status === 'active'" [class.inactive]="s.status === 'inactive'" [class.draft]="s.status === 'draft'">
-                                  <span class="status-dot" aria-hidden="true"></span>{{ statusLabel(s.status) }}
-                                </span>
-                              </td>
-                              <td class="col-action">
-                                <div class="row-actions">
-                                  <button type="button" class="row-icon" title="View" [attr.aria-label]="'View ' + s.stateProvinceName" (click)="$event.stopPropagation(); viewState(s)">
-                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/>
-                                    </svg>
-                                  </button>
-                                  <button type="button" class="row-icon" title="Edit" [attr.aria-label]="'Edit ' + s.stateProvinceName" (click)="$event.stopPropagation(); openEditForm(s)">
-                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                      <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                                    </svg>
-                                  </button>
-                                  @if (s.isActive) {
-                                    <button type="button" class="row-icon" title="Deactivate" [attr.aria-label]="'Deactivate ' + s.stateProvinceName" (click)="$event.stopPropagation(); confirmDeactivate(s)">
-                                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="3" y="6.5" width="18" height="11" rx="5.5"/><circle cx="16.5" cy="12" r="3" fill="currentColor" stroke="none"/>
-                                      </svg>
-                                    </button>
-                                  } @else {
-                                    <button type="button" class="row-icon" title="Activate" [attr.aria-label]="'Activate ' + s.stateProvinceName" (click)="$event.stopPropagation(); confirmActivate(s)">
-                                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="3" y="6.5" width="18" height="11" rx="5.5"/><circle cx="7.5" cy="12" r="3" fill="currentColor" stroke="none"/>
-                                      </svg>
-                                    </button>
-                                  }
-                                  <button type="button" class="row-icon delete" title="Delete" [attr.aria-label]="'Delete ' + s.stateProvinceName" (click)="$event.stopPropagation(); confirmDelete(s)">
-                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                      <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/>
-                                    </svg>
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          }
-                        } @else {
-                          <tr><td colspan="8" class="empty-row">No states/provinces found</td></tr>
-                        }
-                      </tbody>
-                    </table>
-                  </div>
-
-                  @if (filteredStates.length > 0) {
-                    <div class="table-footer">
-                      <div class="page-size">
-                        <label for="pageSizeSelect">Rows per page</label>
-                        <select id="pageSizeSelect" class="form-select" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
-                          <option value="5">5</option>
-                          <option value="10">10</option>
-                          <option value="25">25</option>
-                          <option value="50">50</option>
-                        </select>
-                      </div>
-                      <span class="footer-count">Showing {{ ((currentPage - 1) * pageSize) + 1 }}–{{ pageEndItem }} of {{ scopedCount }}</span>
-                      <nav class="pagination" aria-label="Table pagination">
-                        <button type="button" class="page-btn" [disabled]="currentPage === 1" aria-label="Previous page" (click)="previousPage()">‹</button>
-                        @for (p of pageNumbers(); track p) {
-                          <button type="button" class="page-btn" [class.active]="currentPage === p" [attr.aria-current]="currentPage === p ? 'page' : null" [attr.aria-label]="'Page ' + p" (click)="goToPage(p)">{{ p }}</button>
-                        }
-                        <button type="button" class="page-btn" [disabled]="currentPage === totalPages" aria-label="Next page" (click)="nextPage()">›</button>
-                      </nav>
-                    </div>
-                  }
-                </article>
-
-                @if (detailsOpen() && selectedState) {
-                  <aside class="details-pane" aria-label="State details">
-                    <div class="details-header">
-                      <div class="details-identity">
-                        <div class="details-code">{{ selectedState.stateProvinceCode }}</div>
-                        <div class="details-title-block">
-                          <div class="details-kicker">STATE / PROVINCE</div>
-                          <h2>{{ selectedState.stateProvinceName }}</h2>
-                          <p>{{ selectedState.displayName || selectedState.stateProvinceName }}</p>
-                        </div>
-                      </div>
-                      <button type="button" class="icon-btn details-close" aria-label="Close details" title="Close details" (click)="closeViewOffcanvas()">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
-                      </button>
-                    </div>
-
-                    <div class="details-toolbar">
-                      <span class="status-pill" [class.active]="selectedState.status === 'active'" [class.inactive]="selectedState.status === 'inactive'" [class.draft]="selectedState.status === 'draft'">
-                        <span class="status-dot" aria-hidden="true"></span>{{ statusLabel(selectedState.status) }}
-                      </span>
-                      <div class="details-actions">
-                        <button type="button" class="mini-action" title="Edit" (click)="openEditForm(selectedState)">
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                          Edit
-                        </button>
-                        @if (selectedState.isActive) {
-                          <button type="button" class="mini-action" title="Deactivate" (click)="confirmDeactivate(selectedState)">
-                            Deactivate
-                          </button>
-                        } @else {
-                          <button type="button" class="mini-action primary-soft" title="Activate" (click)="confirmActivate(selectedState)">
-                            Activate
-                          </button>
-                        }
-                        <button type="button" class="mini-action danger-soft" title="Delete" (click)="confirmDelete(selectedState)">Delete</button>
-                      </div>
-                    </div>
-
-                    <div class="details-scroll">
-                      <section class="detail-section">
-                        <div class="detail-section-title"><span class="detail-section-icon">01</span><span>State / Province Identity</span></div>
-                        <div class="detail-grid">
-                          <div><span>Code</span><strong>{{ selectedState.stateProvinceCode }}</strong></div>
-                          <div><span>Name</span><strong>{{ selectedState.stateProvinceName }}</strong></div>
-                          <div class="wide"><span>Display Name</span><strong>{{ selectedState.displayName || '—' }}</strong></div>
-                        </div>
-                      </section>
-
-                      <section class="detail-section">
-                        <div class="detail-section-title"><span class="detail-section-icon">02</span><span>Country &amp; Jurisdiction</span></div>
-                        <div class="detail-grid">
-                          <div><span>Country</span><strong>{{ selectedState.countryName || '—' }}</strong></div>
-                          <div><span>Jurisdiction Type</span><strong><span class="badge badge-neutral">{{ jurisdictionLabel(selectedState) || '—' }}</span></strong></div>
-                          <div><span>Federal Jurisdiction</span><strong>{{ selectedState.isFederalJurisdiction ? 'Yes' : 'No' }}</strong></div>
-                        </div>
-                      </section>
-
-                      <section class="detail-section">
-                        <div class="detail-section-title"><span class="detail-section-icon">03</span><span>Compliance &amp; Tax Codes</span></div>
-                        <div class="detail-grid">
-                          <div><span>GST State Code</span><strong>{{ selectedState.gstStateCode || '—' }}</strong></div>
-                          <div><span>State Tax Jurisdiction Code</span><strong>{{ selectedState.stateTaxJurisdictionCode || '—' }}</strong></div>
-                          <div class="wide"><span>Default Time Zone</span><strong>{{ selectedState.defaultTimeZoneName || getTimeZoneName(selectedState.defaultTimeZoneId) || '—' }}</strong></div>
-                        </div>
-                      </section>
-
-                      <section class="detail-section">
-                        <div class="detail-section-title"><span class="detail-section-icon">04</span><span>Address &amp; Postal Rules</span></div>
-                        <div class="detail-grid">
-                          <div class="wide"><span>Postal Code Pattern</span><strong><code>{{ selectedState.postalCodePattern || '—' }}</code></strong></div>
-                          <div class="wide"><span>Address Format Hint</span><strong>{{ selectedState.addressFormatHint || '—' }}</strong></div>
-                        </div>
-                      </section>
-
-                      <section class="detail-section">
-                        <div class="detail-section-title"><span class="detail-section-icon">05</span><span>Status &amp; Governance</span></div>
-                        <div class="detail-grid">
-                          <div><span>Status</span><strong>{{ statusLabel(selectedState.status) || '—' }}</strong></div>
-                          <div><span>Sort Order</span><strong>{{ selectedState.sortOrder }}</strong></div>
-                          <div><span>Created</span><strong>{{ selectedState.createdAt | date:'dd-MMM-yyyy' }}</strong></div>
-                          <div><span>Created By</span><strong>{{ selectedState.createdBy || '—' }}</strong></div>
-                          <div><span>Updated</span><strong>{{ selectedState.updatedAt ? (selectedState.updatedAt | date:'dd-MMM-yyyy') : '—' }}</strong></div>
-                          <div><span>Updated By</span><strong>{{ selectedState.updatedBy || '—' }}</strong></div>
-                          <div class="wide"><span>Notes</span><strong class="detail-note">{{ selectedState.notes || '—' }}</strong></div>
-                        </div>
-                      </section>
-                    </div>
-                  </aside>
+      <!-- Notifications -->
+      <div class="gm-toasts" role="region" aria-label="Notifications" aria-live="polite">
+        @for (t of toasts; track t.id) {
+          <div class="gm-toast is-{{ t.kind }}" role="status">
+            <span class="gm-toast-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                @switch (t.kind) {
+                  @case ('success') { <path d="M20 6 9 17l-5-5"></path> }
+                  @case ('error') { <path d="M18 6 6 18M6 6l12 12"></path> }
+                  @case ('warning') { <path d="M12 8v5M12 16.5h.01"></path> }
+                  @default { <path d="M12 16v-5M12 7.5h.01"></path> }
                 }
-              </section>
+              </svg>
+            </span>
+            <div class="gm-toast-body">
+              <strong>{{ t.title }}</strong>
+              <span>{{ t.message }}</span>
             </div>
-          }
-
-          <!-- ================= ADD / EDIT FORM ================= -->
-          @if (viewMode === 'form') {
-            <div class="content accordion-form">
-              <app-page-header screen="state" [title]="pageTitle" [subtitle]="pageSubTitle">
-                <button actions type="button" class="ph-btn ph-btn--ghost" (click)="cancelForm()">← Back</button>
-              </app-page-header>
-              <form (ngSubmit)="handleSubmit()">
-                <div class="tl-accordion">
-                  <!-- Left rail (desktop) -->
-                  <div class="tl-left-panel" aria-hidden="true">
-                    <div class="tl-label" [class.active]="showIdentity" (click)="toggleAccordion('stateIdentity')">
-                      <div class="tl-label-icon ico-neutral">01</div>
-                      <div class="tl-label-text">
-                        <div class="tl-label-title">State / Province Identity</div>
-                        <div class="tl-label-sub">Basic state/province information</div>
-                      </div>
-                    </div>
-                    <div class="tl-label" [class.active]="showCountry" (click)="toggleAccordion('countryLinkage')">
-                      <div class="tl-label-icon ico-neutral">02</div>
-                      <div class="tl-label-text">
-                        <div class="tl-label-title">Country & Jurisdiction</div>
-                        <div class="tl-label-sub">Country linkage settings</div>
-                      </div>
-                    </div>
-                    <div class="tl-label" [class.active]="showCompliance" (click)="toggleAccordion('compliance')">
-                      <div class="tl-label-icon ico-neutral">03</div>
-                      <div class="tl-label-text">
-                        <div class="tl-label-title">Compliance & Tax Codes</div>
-                        <div class="tl-label-sub">Tax jurisdiction settings</div>
-                      </div>
-                    </div>
-                    <div class="tl-label" [class.active]="showAddressRules" (click)="toggleAccordion('addressRules')">
-                      <div class="tl-label-icon ico-neutral">04</div>
-                      <div class="tl-label-text">
-                        <div class="tl-label-title">Address & Postal Rules</div>
-                        <div class="tl-label-sub">Postal & format settings</div>
-                      </div>
-                    </div>
-                    <div class="tl-label" [class.active]="showStatus" (click)="toggleAccordion('statusGovernance')">
-                      <div class="tl-label-icon ico-neutral">05</div>
-                      <div class="tl-label-text">
-                        <div class="tl-label-title">Status & Governance</div>
-                        <div class="tl-label-sub">Status and settings</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Right cards -->
-                  <div class="tl-right-area">
-                    <!-- Identity -->
-                    <div class="tl-card" [class.card-active]="showIdentity">
-                      <h3 class="tl-card-header" role="button" tabindex="0" id="sec-identity-btn" [attr.aria-expanded]="showIdentity" aria-controls="sec-identity-body" (click)="toggleAccordion('stateIdentity')" (keydown.enter)="toggleAccordion('stateIdentity')" (keydown.space)="toggleAccordion('stateIdentity')">
-                        <span class="tl-card-header-title"><span class="tl-step step-neutral" aria-hidden="true">01</span> State / Province Identity</span>
-                      </h3>
-                      @if (showIdentity) {
-                        <div class="tl-card-body" id="sec-identity-body" role="region" aria-labelledby="sec-identity-btn">
-                          <div class="form-row">
-                            <div class="form-col col-3">
-                              <label for="stateProvinceCode">Code <span class="req" aria-hidden="true">*</span></label>
-                              <input
-                                id="stateProvinceCode"
-                                type="text"
-                                class="form-control uppercase"
-                                [class.is-invalid]="stateProvinceCodeValidationError"
-                                [attr.aria-invalid]="!!stateProvinceCodeValidationError"
-                                [attr.aria-describedby]="stateProvinceCodeValidationError ? 'stateProvinceCode-error' : null"
-                                [(ngModel)]="stateProvince.stateProvinceCode"
-                                name="stateProvinceCode"
-                                (input)="onStateProvinceCodeChanged()"
-                                [disabled]="isEdit"
-                                placeholder="e.g., TN, KA"
-                                maxlength="10" />
-                              @if (stateProvinceCodeValidationError) {
-                                <span class="field-error" id="stateProvinceCode-error">{{ stateProvinceCodeValidationError }}</span>
-                              }
-                            </div>
-                            <div class="form-col col-5">
-                              <label for="stateProvinceName">Name <span class="req" aria-hidden="true">*</span></label>
-                              <input
-                                id="stateProvinceName"
-                                type="text"
-                                class="form-control"
-                                [class.is-invalid]="stateProvinceNameValidationError"
-                                [attr.aria-invalid]="!!stateProvinceNameValidationError"
-                                [attr.aria-describedby]="stateProvinceNameValidationError ? 'stateProvinceName-error' : null"
-                                [(ngModel)]="stateProvince.stateProvinceName"
-                                name="stateProvinceName"
-                                (input)="onStateProvinceNameChanged()"
-                                (blur)="onStateNameChangedTrim()"
-                                placeholder="e.g., Tamil Nadu"
-                                maxlength="150" />
-                              @if (stateProvinceNameValidationError) {
-                                <span class="field-error" id="stateProvinceName-error">{{ stateProvinceNameValidationError }}</span>
-                              }
-                            </div>
-                            <div class="form-col col-4">
-                              <label for="displayName">Display Name</label>
-                              <input
-                                id="displayName"
-                                type="text"
-                                class="form-control"
-                                [(ngModel)]="stateProvince.displayName"
-                                name="displayName"
-                                (blur)="onDisplayNameChanged()"
-                                (input)="touchState()"
-                                placeholder="e.g., Tamil Nadu (TN)"
-                                maxlength="200" />
-                            </div>
-                          </div>
-                        </div>
-                      }
-                    </div>
-
-                    <!-- Country & Jurisdiction -->
-                    <div class="tl-card" [class.card-active]="showCountry">
-                      <h3 class="tl-card-header" role="button" tabindex="0" id="sec-country-btn" [attr.aria-expanded]="showCountry" aria-controls="sec-country-body" (click)="toggleAccordion('countryLinkage')" (keydown.enter)="toggleAccordion('countryLinkage')" (keydown.space)="toggleAccordion('countryLinkage')">
-                        <span class="tl-card-header-title"><span class="tl-step step-neutral" aria-hidden="true">02</span> Country & Jurisdiction</span>
-                      </h3>
-                      @if (showCountry) {
-                        <div class="tl-card-body" id="sec-country-body" role="region" aria-labelledby="sec-country-btn">
-                          <div class="form-row">
-                            <div class="form-col col-4">
-                              <label for="countryId">Country <span class="req" aria-hidden="true">*</span></label>
-                              <select
-                                id="countryId"
-                                class="form-select"
-                                [class.is-invalid]="countryValidationError"
-                                [attr.aria-invalid]="!!countryValidationError"
-                                [(ngModel)]="stateProvince.countryId"
-                                name="countryId"
-                                (ngModelChange)="onCountryChanged()"
-                                [disabled]="isEdit">
-                                <option [ngValue]="null">--Select Country--</option>
-                                @for (country of formCountries; track country.id) {
-                                  <option [ngValue]="country.id">{{ country.countryName }} ({{ country.countryCode }})</option>
-                                }
-                              </select>
-                              @if (countryValidationError) {
-                                <span class="field-error">{{ countryValidationError }}</span>
-                              }
-                            </div>
-                            <div class="form-col col-4">
-                              <label for="jurisdictionType">Jurisdiction Type <span class="req" aria-hidden="true">*</span></label>
-                              <select
-                                id="jurisdictionType"
-                                class="form-select"
-                                [class.is-invalid]="jurisdictionTypeValidationError"
-                                [attr.aria-invalid]="!!jurisdictionTypeValidationError"
-                                [(ngModel)]="stateProvince.jurisdictionType"
-                                name="jurisdictionType"
-                                (ngModelChange)="onJurisdictionTypeChanged()">
-                                <option [ngValue]="null">--Select Jurisdiction Type--</option>
-                                @for (type of jurisdictionOptions; track type.value) {
-                                  <option [ngValue]="type.value">{{ type.label }}</option>
-                                }
-                              </select>
-                              @if (jurisdictionTypeValidationError) {
-                                <span class="field-error">{{ jurisdictionTypeValidationError }}</span>
-                              }
-                              <!-- The server requires a description for "Other"; without this box
-                                   the choice could never be saved. -->
-                              @if (isOtherJurisdiction) {
-                                <input
-                                  id="otherJurisdictionType"
-                                  type="text"
-                                  class="form-control mt-2"
-                                  [class.is-invalid]="otherJurisdictionTypeValidationError"
-                                  [attr.aria-invalid]="!!otherJurisdictionTypeValidationError"
-                                  aria-label="Describe the jurisdiction type"
-                                  [(ngModel)]="stateProvince.otherJurisdictionType"
-                                  name="otherJurisdictionType"
-                                  (input)="otherJurisdictionTypeValidationError = null"
-                                  placeholder="Describe it, e.g. Autonomous Region"
-                                  maxlength="100" />
-                                @if (otherJurisdictionTypeValidationError) {
-                                  <span class="field-error">{{ otherJurisdictionTypeValidationError }}</span>
-                                }
-                              }
-                            </div>
-                            <div class="form-col col-4 checkbox-col">
-                              <label class="checkbox-label" for="isFederalJurisdiction">
-                                <input
-                                  id="isFederalJurisdiction"
-                                  type="checkbox"
-                                  [(ngModel)]="stateProvince.isFederalJurisdiction"
-                                  name="isFederalJurisdiction"
-                                  (change)="touchAddress()" />
-                                Federal Jurisdiction
-                              </label>
-                              <small class="muted">Informational – reporting/compliance</small>
-                            </div>
-                          </div>
-                        </div>
-                      }
-                    </div>
-
-                    <!-- Compliance -->
-                    <div class="tl-card" [class.card-active]="showCompliance">
-                      <h3 class="tl-card-header" role="button" tabindex="0" id="sec-compliance-btn" [attr.aria-expanded]="showCompliance" aria-controls="sec-compliance-body" (click)="toggleAccordion('compliance')" (keydown.enter)="toggleAccordion('compliance')" (keydown.space)="toggleAccordion('compliance')">
-                        <span class="tl-card-header-title"><span class="tl-step step-neutral" aria-hidden="true">03</span> Compliance & Tax Codes</span>
-                      </h3>
-                      @if (showCompliance) {
-                        <div class="tl-card-body" id="sec-compliance-body" role="region" aria-labelledby="sec-compliance-btn">
-                          <div class="form-row">
-                            <div class="form-col col-3">
-                              <label for="gstStateCode">GST State Code @if (isIndiaSelected) { <span class="req" aria-hidden="true">*</span> }</label>
-                              <input
-                                id="gstStateCode"
-                                type="text"
-                                class="form-control"
-                                [class.is-invalid]="gstStateCodeValidationError"
-                                [attr.aria-invalid]="!!gstStateCodeValidationError"
-                                [(ngModel)]="stateProvince.gstStateCode"
-                                name="gstStateCode"
-                                (input)="onGstInput()"
-                                placeholder="e.g., 33"
-                                maxlength="2" />
-                              @if (gstStateCodeValidationError) {
-                                <span class="field-error">{{ gstStateCodeValidationError }}</span>
-                              }
-                            </div>
-                            <div class="form-col col-4">
-                              <label for="stateTaxJurisdictionCode">State Tax Jurisdiction Code</label>
-                              <input
-                                id="stateTaxJurisdictionCode"
-                                type="text"
-                                class="form-control"
-                                [(ngModel)]="stateProvince.stateTaxJurisdictionCode"
-                                name="stateTaxJurisdictionCode"
-                                (input)="touchContact()"
-                                placeholder="For countries with state tax systems"
-                                maxlength="30" />
-                            </div>
-                            <div class="form-col col-5">
-                              <label for="defaultTimeZoneId">Default Time Zone</label>
-                              <select id="defaultTimeZoneId" class="form-select" [(ngModel)]="stateProvince.defaultTimeZoneId" name="defaultTimeZoneId">
-                                <option [ngValue]="null">--Select Time Zone--</option>
-                                @for (tz of formTimeZones; track tz.id) {
-                                  <option [ngValue]="tz.id">{{ tz.displayName }}</option>
-                                }
-                              </select>
-                              <!-- Said plainly rather than left to be inferred. When the country
-                                   has no zones mapped the full catalogue is shown, and the person
-                                   deserves to know the list is not specific to it. -->
-                              @if (stateProvince.countryId && !timeZonesAreCountryFiltered) {
-                                <small class="text-muted">
-                                  Showing all time zones — none are mapped to this country yet.
-                                </small>
-                              }
-                            </div>
-                          </div>
-                        </div>
-                      }
-                    </div>
-
-                    <!-- Address Rules -->
-                    <div class="tl-card" [class.card-active]="showAddressRules">
-                      <h3 class="tl-card-header" role="button" tabindex="0" id="sec-address-btn" [attr.aria-expanded]="showAddressRules" aria-controls="sec-address-body" (click)="toggleAccordion('addressRules')" (keydown.enter)="toggleAccordion('addressRules')" (keydown.space)="toggleAccordion('addressRules')">
-                        <span class="tl-card-header-title"><span class="tl-step step-neutral" aria-hidden="true">04</span> Address & Postal Rules</span>
-                      </h3>
-                      @if (showAddressRules) {
-                        <div class="tl-card-body" id="sec-address-body" role="region" aria-labelledby="sec-address-btn">
-                          <div class="form-row">
-                            <div class="form-col col-5">
-                              <label for="postalCodePattern">Postal Code Validation Pattern</label>
-                              <input
-                                id="postalCodePattern"
-                                type="text"
-                                class="form-control"
-                                [(ngModel)]="stateProvince.postalCodePattern"
-                                name="postalCodePattern"
-                                (input)="touchFinance()"
-                                placeholder="e.g., 600001"
-                                maxlength="100" />
-                            </div>
-                            <div class="form-col col-7">
-                              <label for="addressFormatHint">Address Format Hint</label>
-                              <input
-                                id="addressFormatHint"
-                                type="text"
-                                class="form-control"
-                                [(ngModel)]="stateProvince.addressFormatHint"
-                                name="addressFormatHint"
-                                (input)="touchFinance()"
-                                placeholder="Country/state-specific address patterns"
-                                maxlength="200" />
-                            </div>
-                          </div>
-                        </div>
-                      }
-                    </div>
-
-                    <!-- Status & Governance -->
-                    <div class="tl-card" [class.card-active]="showStatus">
-                      <h3 class="tl-card-header" role="button" tabindex="0" id="sec-status-btn" [attr.aria-expanded]="showStatus" aria-controls="sec-status-body" (click)="toggleAccordion('statusGovernance')" (keydown.enter)="toggleAccordion('statusGovernance')" (keydown.space)="toggleAccordion('statusGovernance')">
-                        <span class="tl-card-header-title"><span class="tl-step step-neutral" aria-hidden="true">05</span> Status & Governance</span>
-                      </h3>
-                      @if (showStatus) {
-                        <div class="tl-card-body" id="sec-status-body" role="region" aria-labelledby="sec-status-btn">
-                          <div class="form-row">
-                            <div class="form-col col-3">
-                              <label for="status">Status <span class="req" aria-hidden="true">*</span></label>
-                              <select
-                                id="status"
-                                class="form-select"
-                                [class.is-invalid]="statusValidationError"
-                                [attr.aria-invalid]="!!statusValidationError"
-                                [(ngModel)]="stateProvince.status"
-                                name="status"
-                                [disabled]="isEdit"
-                                (ngModelChange)="onStatusChanged()">
-                                <option [ngValue]="null">--Select Status--</option>
-                                @for (status of statusOptions; track status.value) {
-                                  <option [ngValue]="status.value">{{ status.label }}</option>
-                                }
-                              </select>
-                              @if (statusValidationError) {
-                                <span class="field-error">{{ statusValidationError }}</span>
-                              }
-                              <!-- An edit has no status field on the server; Activate and
-                                   Deactivate are separate, separately permissioned actions. A
-                                   select that looked editable here saved nothing. -->
-                              @if (isEdit) {
-                                <small class="muted">Use Activate or Deactivate on the list to change it.</small>
-                              }
-                            </div>
-                            <div class="form-col col-3">
-                              <label for="sortOrder">Sort Order</label>
-                              <input
-                                id="sortOrder"
-                                type="number"
-                                class="form-control"
-                                [(ngModel)]="stateProvince.sortOrder"
-                                name="sortOrder"
-                                min="0"
-                                (input)="touchReport()" />
-                            </div>
-                            <div class="form-col col-6">
-                              <label for="notes">Notes</label>
-                              <textarea
-                                id="notes"
-                                class="form-control"
-                                rows="3"
-                                [(ngModel)]="stateProvince.notes"
-                                name="notes"
-                                placeholder="Additional notes..."
-                                (input)="touchReport()"></textarea>
-                            </div>
-                          </div>
-                        </div>
-                      }
-                    </div>
-                  </div>
-                </div>
-
-                <div class="form-footer">
-                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelForm()">      
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="    width: 15px;"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
-Cancel</button>
-                  <button type="submit" class="btn btn-primary btn-sm">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="    width: 15px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
-
-                    {{ isEdit ? 'Update' : 'Save' }}
-                  </button>
-                </div>
-              </form>
-            </div>
-          }
-
-
-          <!-- ================= CONFIRMATION MODALS ================= -->
-          @if (showActivateModal) {
-            <div class="modal-backdrop" (click)="closeModals()"></div>
-            <div class="modal-box confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="activate-title" (keydown.escape)="closeModals()">
-              <div class="confirm-icon confirm-success">✓</div>
-              <h4 id="activate-title">Activate State/Province</h4>
-              <p>Are you sure you want to activate <strong>{{ selectedState?.stateProvinceName }}</strong>?</p>
-              <div class="confirm-actions">
-                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeModals()">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm" (click)="activateConfirmed()">Yes, Activate</button>
-              </div>
-            </div>
-          }
-
-          @if (showDeactivateModal) {
-            <div class="modal-backdrop" (click)="closeModals()"></div>
-            <div class="modal-box confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="deactivate-title" (keydown.escape)="closeModals()">
-              <div class="confirm-icon confirm-warning">!</div>
-              <h4 id="deactivate-title">Deactivate State/Province</h4>
-              @if (actionsLoading) {
-                <p>Checking what can be done with <strong>{{ selectedState?.stateProvinceName }}</strong>…</p>
-              } @else if (!canDeactivate) {
-                <p class="text-danger">{{ deactivateBlockedReason }}</p>
-              } @else {
-                <p>Are you sure you want to deactivate <strong>{{ selectedState?.stateProvinceName }}</strong>?</p>
-              }
-              <div class="confirm-actions">
-                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeModals()">Cancel</button>
-                @if (canDeactivate && !actionsLoading) {
-                  <button type="button" class="btn btn-warning btn-sm" (click)="deactivateConfirmed()">Yes, Deactivate</button>
-                }
-              </div>
-            </div>
-          }
-
-          @if (showDeleteModal) {
-            <div class="modal-backdrop" (click)="closeModals()"></div>
-            <div class="modal-box confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" (keydown.escape)="closeModals()">
-              <div class="confirm-icon confirm-danger">×</div>
-              <h4 id="delete-title">Delete State/Province</h4>
-              @if (actionsLoading) {
-                <p>Checking what can be done with <strong>{{ selectedState?.stateProvinceName }}</strong>…</p>
-              } @else if (!canDelete) {
-                <p class="text-danger">{{ deleteBlockedReason }}</p>
-              } @else {
-                <p>Are you sure you want to delete <strong>{{ selectedState?.stateProvinceName }}</strong>?</p>
-                <div class="alert-danger-box">This action cannot be undone.</div>
-              }
-              <div class="confirm-actions">
-                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeModals()">Cancel</button>
-                @if (canDelete && !actionsLoading) {
-                  <button type="button" class="btn btn-danger btn-sm" (click)="deleteConfirmed()">Yes, Delete</button>
-                }
-              </div>
-            </div>
-          }
-
+            <button type="button" class="gm-toast-close" [attr.aria-label]="'Dismiss: ' + t.title" (click)="dismissToast(t.id)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+            </button>
+          </div>
         }
       </div>
+
+      <!-- ======================================================= LIST VIEW -->
+      @if (viewMode === 'list') {
+        <div class="gm-page">
+          <app-page-header [showInfo]="false" screen="state" title="State &amp; Province List" subtitle="Manage jurisdictions, tax codes and regional settings.">
+            <span meta class="ph-chip">Global Masters / Geography</span>
+            <ng-container actions>
+              <button type="button" class="ph-btn ph-btn--primary" (click)="openCreateForm()">
+                <svg class="gm-ph-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                <span>Create State</span>
+              </button>
+            </ng-container>
+          </app-page-header>
+
+          <!-- Table + details -->
+          <section class="gm-workspace" [class.has-aside]="detailsOpen() && !!selectedState">
+            <div class="gm-panel">
+              @if (isLoading) {
+                <div class="gm-progress" role="progressbar" aria-label="Loading states"></div>
+              }
+
+              <div class="gm-panel-head">
+                <div class="gm-panel-title">
+                  <span class="gm-panel-title-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"></path><path d="M9 3v15M15 6v15"></path></svg>
+                  </span>
+                  <div>
+                    <h2>States &amp; Provinces</h2>
+                    <p>{{ scopedCount }} result{{ scopedCount === 1 ? '' : 's' }} in current scope</p>
+                  </div>
+                </div>
+
+                <div class="gm-toolbar" role="search" aria-label="State search and filters">
+                  <div class="gm-search">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7.5"></circle><path d="m20 20-3.8-3.8"></path></svg>
+                    <label class="sr-only" for="stateSearch">Search state or province</label>
+                    <input id="stateSearch" type="search" placeholder="Search by code, name or GST code..." [ngModel]="searchText" (ngModelChange)="onSearch($event)">
+                  </div>
+
+                  <label class="gm-filter" [class.is-set]="!!selectedCountryId">
+                    <span class="sr-only">Filter by country</span>
+                    <select [ngModel]="selectedCountryId" (ngModelChange)="onCountryFilterChange($event)">
+                      <option value="">All Countries</option>
+                      @for (country of tableCountries; track country.id) {
+                        <option [value]="country.id">{{ country.countryName }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label class="gm-filter" [class.is-set]="!!selectedJurisdictionType">
+                    <span class="sr-only">Filter by jurisdiction</span>
+                    <select [ngModel]="selectedJurisdictionType" (ngModelChange)="onJurisdictionFilterChange($event)">
+                      <option value="">All Jurisdictions</option>
+                      @for (type of tableJurisdictionTypes; track type.value) {
+                        <option [value]="type.value">{{ type.label }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label class="gm-filter" [class.is-set]="!!selectedStatus">
+                    <span class="sr-only">Filter by status</span>
+                    <select [ngModel]="selectedStatus" (ngModelChange)="onStatusFilterChange($event)">
+                      <option value="">All Statuses</option>
+                      @for (option of statusOptions; track option.value) {
+                        <option [value]="option.value">{{ option.label }}</option>
+                      }
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="gm-table-wrap" [class.is-busy]="isLoading">
+                <table class="gm-table">
+                  <caption class="sr-only">States and provinces</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">State / Province</th>
+                      <th scope="col" class="gm-hide-md">Country</th>
+                      <th scope="col" class="gm-col-opt2 gm-hide-lg">Jurisdiction</th>
+                      <th scope="col" class="gm-col-opt gm-hide-md">GST</th>
+                      <th scope="col" class="gm-hide-sm">Status</th>
+                      <th scope="col" class="col-actions">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (s of pagedStates; track s.id) {
+                      <tr class="gm-row"
+                          [class.is-selected]="detailsOpen() && selectedState?.id === s.id"
+                          (click)="viewState(s)"
+                          tabindex="0"
+                          (keydown.enter)="viewState(s)"
+                          [attr.aria-selected]="detailsOpen() && selectedState?.id === s.id">
+                        <td>
+                          <button type="button" class="gm-ident" [attr.aria-label]="s.stateProvinceCode + ' details'" (click)="$event.stopPropagation(); viewState(s)">
+                            <span class="gm-avatar is-code mono" aria-hidden="true"><span>{{ s.stateProvinceCode }}</span></span>
+                            <span class="gm-ident-text">
+                              <span class="gm-ident-name">{{ s.stateProvinceName }}</span>
+                              <span class="gm-ident-sub">{{ s.displayName || s.stateProvinceCode }}</span>
+                            </span>
+                          </button>
+                        </td>
+                        <td class="gm-hide-md">{{ s.countryName || '—' }}</td>
+                        <td class="gm-col-opt2 gm-hide-lg">
+                          @if (jurisdictionLabel(s)) {
+                            <span class="gm-chip is-muted">{{ jurisdictionLabel(s) }}</span>
+                          } @else {
+                            <span class="gm-muted">—</span>
+                          }
+                        </td>
+                        <td class="gm-col-opt gm-hide-md">
+                          @if (s.gstStateCode) {
+                            <span class="gm-code mono">{{ s.gstStateCode }}</span>
+                          } @else {
+                            <span class="gm-muted">—</span>
+                          }
+                        </td>
+                        <td class="gm-hide-sm">
+                          <span class="gm-status" [class.is-active]="s.status === 'active'" [class.is-inactive]="s.status === 'inactive'" [class.is-draft]="s.status === 'draft'">{{ statusLabel(s.status) || '—' }}</span>
+                        </td>
+                        <td class="col-actions">
+                          <div class="gm-actions">
+                            <button type="button" class="gm-icon-btn" title="View" [attr.aria-label]="'View ' + s.stateProvinceName" (click)="$event.stopPropagation(); viewState(s)">
+                              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg>
+                            </button>
+                            <button type="button" class="gm-icon-btn" title="Edit" [attr.aria-label]="'Edit ' + s.stateProvinceName" (click)="$event.stopPropagation(); openEditForm(s)">
+                              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                            </button>
+                            @if (s.isActive) {
+                              <button type="button" class="gm-icon-btn is-on" title="Deactivate" [attr.aria-label]="'Deactivate ' + s.stateProvinceName" (click)="$event.stopPropagation(); confirmDeactivate(s)">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="16.5" cy="12" r="3"></circle></svg>
+                              </button>
+                            } @else {
+                              <button type="button" class="gm-icon-btn" title="Activate" [attr.aria-label]="'Activate ' + s.stateProvinceName" (click)="$event.stopPropagation(); confirmActivate(s)">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="7.5" cy="12" r="3"></circle></svg>
+                              </button>
+                            }
+                            <button type="button" class="gm-icon-btn is-danger" title="Delete" [attr.aria-label]="'Delete ' + s.stateProvinceName" (click)="$event.stopPropagation(); confirmDelete(s)">
+                              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"></path></svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td colspan="6" class="gm-empty-cell">
+                          <div class="gm-empty">
+                            <span class="gm-empty-icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"></path><path d="M9 3v15M15 6v15"></path></svg>
+                            </span>
+                            <strong>{{ isLoading ? 'Loading states…' : 'No states or provinces found' }}</strong>
+                            <span>Try adjusting your search or filters, or add a new state.</span>
+                            <button type="button" class="gm-btn sm gm-btn-primary" (click)="openCreateForm()">
+                              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                              Create State
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+
+              @if (filteredStates.length > 0) {
+                <div class="gm-panel-foot">
+                  <label class="gm-rows" for="pageSizeSelect">
+                    <span>Rows per page</span>
+                    <select id="pageSizeSelect" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+                      <option value="5">5</option>
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                    </select>
+                  </label>
+
+                  <span class="gm-range">Showing <strong>{{ ((currentPage - 1) * pageSize) + 1 }}–{{ pageEndItem }}</strong> of <strong>{{ scopedCount }}</strong></span>
+
+                  <nav class="gm-pager" aria-label="Table pagination">
+                    <button type="button" class="gm-page-btn" [disabled]="currentPage === 1" aria-label="Previous page" (click)="previousPage()">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+                    </button>
+                    @for (p of pageNumbers(); track p) {
+                      <button type="button" class="gm-page-btn" [class.is-active]="currentPage === p" [attr.aria-current]="currentPage === p ? 'page' : null" [attr.aria-label]="'Page ' + p" (click)="goToPage(p)">{{ p }}</button>
+                    }
+                    <button type="button" class="gm-page-btn" [disabled]="currentPage === totalPages" aria-label="Next page" (click)="nextPage()">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                    </button>
+                  </nav>
+                </div>
+              }
+            </div>
+
+            <!-- Details -->
+            @if (detailsOpen() && selectedState) {
+              <aside class="gm-aside" aria-label="State details">
+                <header class="gm-aside-head">
+                  <span class="gm-avatar lg is-code mono" aria-hidden="true"><span>{{ selectedState.stateProvinceCode }}</span></span>
+                  <div class="gm-aside-id">
+                    <span class="gm-eyebrow">State / Province</span>
+                    <h3>{{ selectedState.stateProvinceName }}</h3>
+                    <p>{{ selectedState.displayName || selectedState.countryName || selectedState.stateProvinceName }}</p>
+                  </div>
+                  <button type="button" class="gm-aside-close" aria-label="Close details" title="Close details" (click)="closeViewOffcanvas()">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                  </button>
+                </header>
+
+                <div class="gm-aside-actions">
+                  <button type="button" class="gm-btn gm-btn-outline" (click)="openEditForm(selectedState)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    Edit
+                  </button>
+                  @if (selectedState.isActive) {
+                    <button type="button" class="gm-btn gm-btn-outline" (click)="confirmDeactivate(selectedState)">Deactivate</button>
+                  } @else {
+                    <button type="button" class="gm-btn gm-btn-outline" (click)="confirmActivate(selectedState)">Activate</button>
+                  }
+                  <button type="button" class="gm-btn gm-btn-danger" (click)="confirmDelete(selectedState)">Delete</button>
+                </div>
+
+                <div class="gm-aside-body">
+                  <section class="gm-dl-section">
+                    <h4 class="gm-dl-title">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="9" cy="10" r="2"></circle><path d="M5 17c.6-2 2.2-3 4-3s3.4 1 4 3M15 9h4M15 13h4"></path></svg>
+                      Identity
+                    </h4>
+                    <dl class="gm-dl">
+                      <div class="gm-dl-row"><dt>Code</dt><dd class="mono">{{ selectedState.stateProvinceCode }}</dd></div>
+                      <div class="gm-dl-row"><dt>Name</dt><dd>{{ selectedState.stateProvinceName }}</dd></div>
+                      <div class="gm-dl-row"><dt>Display name</dt><dd>{{ selectedState.displayName || '—' }}</dd></div>
+                    </dl>
+                  </section>
+
+                  <section class="gm-dl-section">
+                    <h4 class="gm-dl-title">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.3 2.5 3.5 5.5 3.5 9S14.3 18.5 12 21c-2.3-2.5-3.5-5.5-3.5-9S9.7 5.5 12 3Z"></path></svg>
+                      Country &amp; Jurisdiction
+                    </h4>
+                    <dl class="gm-dl">
+                      <div class="gm-dl-row"><dt>Country</dt><dd>{{ selectedState.countryName || '—' }}</dd></div>
+                      <div class="gm-dl-row"><dt>Jurisdiction type</dt><dd>@if (jurisdictionLabel(selectedState)) { <span class="gm-chip is-muted">{{ jurisdictionLabel(selectedState) }}</span> } @else { — }</dd></div>
+                      <div class="gm-dl-row"><dt>Federal jurisdiction</dt><dd><span class="gm-chip" [class.is-info]="selectedState.isFederalJurisdiction">{{ selectedState.isFederalJurisdiction ? 'Yes' : 'No' }}</span></dd></div>
+                    </dl>
+                  </section>
+
+                  <section class="gm-dl-section">
+                    <h4 class="gm-dl-title">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"></path><path d="M14 3v6h6M8 13h8M8 17h5"></path></svg>
+                      Compliance &amp; Tax
+                    </h4>
+                    <dl class="gm-dl">
+                      <div class="gm-dl-row"><dt>GST state code</dt><dd class="mono">{{ selectedState.gstStateCode || '—' }}</dd></div>
+                      <div class="gm-dl-row"><dt>State tax jurisdiction</dt><dd class="mono">{{ selectedState.stateTaxJurisdictionCode || '—' }}</dd></div>
+                      <div class="gm-dl-row"><dt>Default time zone</dt><dd>{{ selectedState.defaultTimeZoneName || getTimeZoneName(selectedState.defaultTimeZoneId) || '—' }}</dd></div>
+                    </dl>
+                  </section>
+
+                  <section class="gm-dl-section">
+                    <h4 class="gm-dl-title">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+                      Address &amp; Postal
+                    </h4>
+                    <dl class="gm-dl">
+                      <div class="gm-dl-row"><dt>Postal code pattern</dt><dd class="mono">{{ selectedState.postalCodePattern || '—' }}</dd></div>
+                      <div class="gm-dl-row"><dt>Address format hint</dt><dd>{{ selectedState.addressFormatHint || '—' }}</dd></div>
+                    </dl>
+                  </section>
+
+                  <section class="gm-dl-section">
+                    <h4 class="gm-dl-title">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+                      Status &amp; Governance
+                    </h4>
+                    <dl class="gm-dl">
+                      <div class="gm-dl-row">
+                        <dt>Status</dt>
+                        <dd><span class="gm-status" [class.is-active]="selectedState.status === 'active'" [class.is-inactive]="selectedState.status === 'inactive'" [class.is-draft]="selectedState.status === 'draft'">{{ statusLabel(selectedState.status) || '—' }}</span></dd>
+                      </div>
+                      <div class="gm-dl-row"><dt>Sort order</dt><dd class="mono">{{ selectedState.sortOrder }}</dd></div>
+                      <div class="gm-dl-row"><dt>Created</dt><dd>{{ selectedState.createdAt | date: 'dd MMM yyyy' }}</dd></div>
+                      <div class="gm-dl-row"><dt>Created by</dt><dd>{{ selectedState.createdBy || '—' }}</dd></div>
+                      <div class="gm-dl-row"><dt>Updated</dt><dd>{{ selectedState.updatedAt ? (selectedState.updatedAt | date: 'dd MMM yyyy') : '—' }}</dd></div>
+                      <div class="gm-dl-row"><dt>Updated by</dt><dd>{{ selectedState.updatedBy || '—' }}</dd></div>
+                      @if (selectedState.notes) {
+                        <div class="gm-dl-row is-block"><dt>Notes</dt><dd>{{ selectedState.notes }}</dd></div>
+                      }
+                    </dl>
+                  </section>
+                </div>
+              </aside>
+            }
+          </section>
+        </div>
+      }
+
+      <!-- ======================================================= FORM VIEW -->
+      @if (viewMode === 'form') {
+        <div class="gm-page">
+          <app-page-header [showInfo]="false" screen="state" [title]="pageTitle" [subtitle]="pageSubTitle">
+            <span meta class="ph-chip">State Master</span>
+            <button actions type="button" class="ph-btn ph-btn--ghost" (click)="cancelForm()">
+              <svg class="gm-ph-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"></path></svg>
+              <span>Back to State List</span>
+            </button>
+          </app-page-header>
+
+          <form class="gm-form" (ngSubmit)="handleSubmit()" novalidate>
+            <!-- 01 Identity -->
+            <section class="gm-fsec">
+              <div class="gm-fsec-meta">
+                <div class="gm-fsec-head">
+                  <span class="gm-fsec-num">01</span>
+                  <div>
+                    <h3>State / Province Identity</h3>
+                    <p>The code and names used in addresses, reports and dropdowns.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gm-fields cols-3">
+                <div class="gm-field">
+                  <label class="gm-label" for="stateProvinceCode">Code <span class="gm-req" aria-hidden="true">*</span></label>
+                  <input
+                    id="stateProvinceCode"
+                    type="text"
+                    class="gm-input uppercase mono"
+                    [class.is-invalid]="stateProvinceCodeValidationError"
+                    [attr.aria-invalid]="!!stateProvinceCodeValidationError"
+                    [attr.aria-describedby]="stateProvinceCodeValidationError ? 'stateProvinceCode-error' : null"
+                    [(ngModel)]="stateProvince.stateProvinceCode"
+                    name="stateProvinceCode"
+                    (input)="onStateProvinceCodeChanged()"
+                    [disabled]="isEdit"
+                    placeholder="e.g., TN, KA"
+                    maxlength="10">
+                  @if (stateProvinceCodeValidationError) {
+                    <span class="gm-error" id="stateProvinceCode-error">{{ stateProvinceCodeValidationError }}</span>
+                  } @else {
+                    <small class="gm-hint">{{ isEdit ? 'The code cannot be changed once saved' : 'Letters, numbers, _ and -' }}</small>
+                  }
+                </div>
+
+                <div class="gm-field">
+                  <label class="gm-label" for="stateProvinceName">Name <span class="gm-req" aria-hidden="true">*</span></label>
+                  <input
+                    id="stateProvinceName"
+                    type="text"
+                    class="gm-input"
+                    [class.is-invalid]="stateProvinceNameValidationError"
+                    [attr.aria-invalid]="!!stateProvinceNameValidationError"
+                    [attr.aria-describedby]="stateProvinceNameValidationError ? 'stateProvinceName-error' : null"
+                    [(ngModel)]="stateProvince.stateProvinceName"
+                    name="stateProvinceName"
+                    (input)="onStateProvinceNameChanged()"
+                    (blur)="onStateNameChangedTrim()"
+                    placeholder="e.g., Tamil Nadu"
+                    maxlength="150">
+                  @if (stateProvinceNameValidationError) {
+                    <span class="gm-error" id="stateProvinceName-error">{{ stateProvinceNameValidationError }}</span>
+                  } @else {
+                    <small class="gm-hint">Official state or province name</small>
+                  }
+                </div>
+
+                <div class="gm-field">
+                  <label class="gm-label" for="displayName">Display Name</label>
+                  <input
+                    id="displayName"
+                    type="text"
+                    class="gm-input"
+                    [(ngModel)]="stateProvince.displayName"
+                    name="displayName"
+                    (blur)="onDisplayNameChanged()"
+                    (input)="touchState()"
+                    placeholder="e.g., Tamil Nadu (TN)"
+                    maxlength="200">
+                  <small class="gm-hint">Shown in dropdowns</small>
+                </div>
+              </div>
+            </section>
+
+            <!-- 02 Country & jurisdiction -->
+            <section class="gm-fsec">
+              <div class="gm-fsec-meta">
+                <div class="gm-fsec-head">
+                  <span class="gm-fsec-num">02</span>
+                  <div>
+                    <h3>Country &amp; Jurisdiction</h3>
+                    <p>Where this state sits and what kind of jurisdiction it is.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gm-fields cols-3">
+                <div class="gm-field">
+                  <label class="gm-label" for="countryId">Country <span class="gm-req" aria-hidden="true">*</span></label>
+                  <select
+                    id="countryId"
+                    class="gm-input"
+                    [class.is-invalid]="countryValidationError"
+                    [attr.aria-invalid]="!!countryValidationError"
+                    [(ngModel)]="stateProvince.countryId"
+                    name="countryId"
+                    (ngModelChange)="onCountryChanged()"
+                    [disabled]="isEdit">
+                    <option [ngValue]="null">Select country</option>
+                    @for (country of formCountries; track country.id) {
+                      <option [ngValue]="country.id">{{ country.countryName }} ({{ country.countryCode }})</option>
+                    }
+                  </select>
+                  @if (countryValidationError) {
+                    <span class="gm-error">{{ countryValidationError }}</span>
+                  } @else {
+                    <small class="gm-hint">{{ isEdit ? 'Fixed once the state is created' : 'Active countries only' }}</small>
+                  }
+                </div>
+
+                <div class="gm-field">
+                  <label class="gm-label" for="jurisdictionType">Jurisdiction Type <span class="gm-req" aria-hidden="true">*</span></label>
+                  <select
+                    id="jurisdictionType"
+                    class="gm-input"
+                    [class.is-invalid]="jurisdictionTypeValidationError"
+                    [attr.aria-invalid]="!!jurisdictionTypeValidationError"
+                    [(ngModel)]="stateProvince.jurisdictionType"
+                    name="jurisdictionType"
+                    (ngModelChange)="onJurisdictionTypeChanged()">
+                    <option [ngValue]="null">Select jurisdiction type</option>
+                    @for (type of jurisdictionOptions; track type.value) {
+                      <option [ngValue]="type.value">{{ type.label }}</option>
+                    }
+                  </select>
+                  @if (jurisdictionTypeValidationError) {
+                    <span class="gm-error">{{ jurisdictionTypeValidationError }}</span>
+                  } @else {
+                    <small class="gm-hint">State, union territory, province…</small>
+                  }
+                </div>
+
+                <div class="gm-field">
+                  <span class="gm-label">Federal Jurisdiction</span>
+                  <label class="gm-toggle" for="isFederalJurisdiction">
+                    <input
+                      id="isFederalJurisdiction"
+                      type="checkbox"
+                      [(ngModel)]="stateProvince.isFederalJurisdiction"
+                      name="isFederalJurisdiction"
+                      (change)="touchAddress()">
+                    <span class="gm-switch" aria-hidden="true"></span>
+                    <span>{{ stateProvince.isFederalJurisdiction ? 'Federal jurisdiction' : 'Not federal' }}</span>
+                  </label>
+                  <small class="gm-hint">Informational, for reporting and compliance</small>
+                </div>
+
+                <!-- The server requires a description for "Other"; without this box the choice could
+                     never be saved. -->
+                @if (isOtherJurisdiction) {
+                  <div class="gm-field span-all">
+                    <label class="gm-label" for="otherJurisdictionType">Describe the Jurisdiction <span class="gm-req" aria-hidden="true">*</span></label>
+                    <input
+                      id="otherJurisdictionType"
+                      type="text"
+                      class="gm-input"
+                      [class.is-invalid]="otherJurisdictionTypeValidationError"
+                      [attr.aria-invalid]="!!otherJurisdictionTypeValidationError"
+                      [(ngModel)]="stateProvince.otherJurisdictionType"
+                      name="otherJurisdictionType"
+                      (input)="otherJurisdictionTypeValidationError = null"
+                      placeholder="e.g., Autonomous Region"
+                      maxlength="100">
+                    @if (otherJurisdictionTypeValidationError) {
+                      <span class="gm-error">{{ otherJurisdictionTypeValidationError }}</span>
+                    }
+                  </div>
+                }
+              </div>
+            </section>
+
+            <!-- 03 Compliance -->
+            <section class="gm-fsec">
+              <div class="gm-fsec-meta">
+                <div class="gm-fsec-head">
+                  <span class="gm-fsec-num">03</span>
+                  <div>
+                    <h3>Compliance &amp; Tax Codes</h3>
+                    <p>Tax identifiers and the time zone new records in this state default to.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gm-fields cols-3">
+                <div class="gm-field">
+                  <label class="gm-label" for="gstStateCode">GST State Code @if (isIndiaSelected) { <span class="gm-req" aria-hidden="true">*</span> }</label>
+                  <input
+                    id="gstStateCode"
+                    type="text"
+                    class="gm-input mono"
+                    [class.is-invalid]="gstStateCodeValidationError"
+                    [attr.aria-invalid]="!!gstStateCodeValidationError"
+                    [(ngModel)]="stateProvince.gstStateCode"
+                    name="gstStateCode"
+                    (input)="onGstInput()"
+                    placeholder="e.g., 33"
+                    maxlength="2">
+                  @if (gstStateCodeValidationError) {
+                    <span class="gm-error">{{ gstStateCodeValidationError }}</span>
+                  } @else {
+                    <small class="gm-hint">{{ isIndiaSelected ? 'Required for India' : 'Two-digit GST code' }}</small>
+                  }
+                </div>
+
+                <div class="gm-field">
+                  <label class="gm-label" for="stateTaxJurisdictionCode">State Tax Jurisdiction Code</label>
+                  <input
+                    id="stateTaxJurisdictionCode"
+                    type="text"
+                    class="gm-input mono"
+                    [(ngModel)]="stateProvince.stateTaxJurisdictionCode"
+                    name="stateTaxJurisdictionCode"
+                    (input)="touchContact()"
+                    placeholder="e.g., CA-001"
+                    maxlength="30">
+                  <small class="gm-hint">For countries with state tax systems</small>
+                </div>
+
+                <div class="gm-field">
+                  <label class="gm-label" for="defaultTimeZoneId">Default Time Zone</label>
+                  <select id="defaultTimeZoneId" class="gm-input" [(ngModel)]="stateProvince.defaultTimeZoneId" name="defaultTimeZoneId">
+                    <option [ngValue]="null">Select time zone</option>
+                    @for (tz of formTimeZones; track tz.id) {
+                      <option [ngValue]="tz.id">{{ tz.displayName }}</option>
+                    }
+                  </select>
+                  <!-- Said plainly rather than left to be inferred. When the country has no zones
+                       mapped the full catalogue is shown, and the person deserves to know the list is
+                       not specific to it. -->
+                  @if (stateProvince.countryId && !timeZonesAreCountryFiltered) {
+                    <small class="gm-hint">Showing all time zones — none are mapped to this country yet</small>
+                  } @else {
+                    <small class="gm-hint">Narrowed to the selected country</small>
+                  }
+                </div>
+              </div>
+            </section>
+
+            <!-- 04 Address rules -->
+            <section class="gm-fsec">
+              <div class="gm-fsec-meta">
+                <div class="gm-fsec-head">
+                  <span class="gm-fsec-num">04</span>
+                  <div>
+                    <h3>Address &amp; Postal Rules</h3>
+                    <p>State-level overrides for postal validation and address layout.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gm-fields">
+                <div class="gm-field">
+                  <label class="gm-label" for="postalCodePattern">Postal Code Validation Pattern</label>
+                  <input
+                    id="postalCodePattern"
+                    type="text"
+                    class="gm-input mono"
+                    [(ngModel)]="stateProvince.postalCodePattern"
+                    name="postalCodePattern"
+                    (input)="touchFinance()"
+                    placeholder="e.g., ^6[0-4][0-9]{4}$"
+                    maxlength="100">
+                  <small class="gm-hint">Regex applied to postal codes in this state</small>
+                </div>
+
+                <div class="gm-field">
+                  <label class="gm-label" for="addressFormatHint">Address Format Hint</label>
+                  <input
+                    id="addressFormatHint"
+                    type="text"
+                    class="gm-input"
+                    [(ngModel)]="stateProvince.addressFormatHint"
+                    name="addressFormatHint"
+                    (input)="touchFinance()"
+                    placeholder="e.g., Door No, Street, Area, City - PIN"
+                    maxlength="200">
+                  <small class="gm-hint">Guidance shown when capturing addresses</small>
+                </div>
+              </div>
+            </section>
+
+            <!-- 05 Status & governance -->
+            <section class="gm-fsec">
+              <div class="gm-fsec-meta">
+                <div class="gm-fsec-head">
+                  <span class="gm-fsec-num">05</span>
+                  <div>
+                    <h3>Status &amp; Governance</h3>
+                    <p>Availability, dropdown ordering and internal notes.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gm-fields">
+                <div class="gm-field">
+                  <label class="gm-label" for="status">Status <span class="gm-req" aria-hidden="true">*</span></label>
+                  <select
+                    id="status"
+                    class="gm-input"
+                    [class.is-invalid]="statusValidationError"
+                    [attr.aria-invalid]="!!statusValidationError"
+                    [(ngModel)]="stateProvince.status"
+                    name="status"
+                    [disabled]="isEdit"
+                    (ngModelChange)="onStatusChanged()">
+                    <option [ngValue]="null">Select status</option>
+                    @for (status of statusOptions; track status.value) {
+                      <option [ngValue]="status.value">{{ status.label }}</option>
+                    }
+                  </select>
+                  <!-- An edit has no status field on the server; Activate and Deactivate are separate,
+                       separately permissioned actions. A select that looked editable here saved nothing. -->
+                  @if (statusValidationError) {
+                    <span class="gm-error">{{ statusValidationError }}</span>
+                  } @else if (isEdit) {
+                    <small class="gm-hint">Use Activate or Deactivate on the list to change it</small>
+                  } @else {
+                    <small class="gm-hint">Draft states are not offered for selection</small>
+                  }
+                </div>
+
+                <div class="gm-field">
+                  <label class="gm-label" for="sortOrder">Sort Order</label>
+                  <input
+                    id="sortOrder"
+                    type="number"
+                    class="gm-input mono"
+                    [(ngModel)]="stateProvince.sortOrder"
+                    name="sortOrder"
+                    min="0"
+                    (input)="touchReport()">
+                  <small class="gm-hint">Lower numbers appear first in dropdowns</small>
+                </div>
+
+                <div class="gm-field span-all">
+                  <label class="gm-label" for="notes">Notes</label>
+                  <textarea
+                    id="notes"
+                    class="gm-input"
+                    rows="3"
+                    [(ngModel)]="stateProvince.notes"
+                    name="notes"
+                    placeholder="Internal notes about this state or province..."
+                    (input)="touchReport()"></textarea>
+                </div>
+              </div>
+            </section>
+
+            <div class="gm-form-bar">
+              <span class="gm-form-bar-note">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg>
+                Fields marked <span class="gm-req">*</span> are required
+              </span>
+              <div class="gm-form-bar-actions">
+                <button type="button" class="gm-btn gm-btn-outline" (click)="cancelForm()">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                  Cancel
+                </button>
+                <button type="submit" class="gm-btn gm-btn-primary">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11Z"></path><path d="M17 21v-8H7v8M7 3v5h8"></path></svg>
+                  {{ isEdit ? 'Update State' : 'Save State' }}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      }
+
+      <!-- ======================================================= CONFIRMATIONS -->
+      @if (showActivateModal) {
+        <div class="gm-overlay" (click)="closeModals()">
+          <div class="gm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="activate-title" (click)="$event.stopPropagation()" (keydown.escape)="closeModals()">
+            <span class="gm-dialog-icon is-success" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="7.5" cy="12" r="3"></circle></svg>
+            </span>
+            <h3 id="activate-title">Activate State / Province</h3>
+            <p>Are you sure you want to activate <strong>{{ selectedState?.stateProvinceName }}</strong>?</p>
+            <div class="gm-dialog-actions">
+              <button type="button" class="gm-btn gm-btn-outline" (click)="closeModals()">Cancel</button>
+              <button type="button" class="gm-btn gm-btn-primary" (click)="activateConfirmed()">Yes, Activate</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (showDeactivateModal) {
+        <div class="gm-overlay" (click)="closeModals()">
+          <div class="gm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="deactivate-title" (click)="$event.stopPropagation()" (keydown.escape)="closeModals()">
+            <span class="gm-dialog-icon is-warning" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="16.5" cy="12" r="3"></circle></svg>
+            </span>
+            <h3 id="deactivate-title">Deactivate State / Province</h3>
+            @if (actionsLoading) {
+              <p class="gm-checking">Checking what can be done with <strong>{{ selectedState?.stateProvinceName }}</strong>…</p>
+            } @else if (!canDeactivate) {
+              <div class="gm-note is-danger">{{ deactivateBlockedReason }}</div>
+            } @else {
+              <p>Are you sure you want to deactivate <strong>{{ selectedState?.stateProvinceName }}</strong>?</p>
+            }
+            <div class="gm-dialog-actions">
+              <button type="button" class="gm-btn gm-btn-outline" (click)="closeModals()">Cancel</button>
+              @if (canDeactivate && !actionsLoading) {
+                <button type="button" class="gm-btn gm-btn-warn" (click)="deactivateConfirmed()">Yes, Deactivate</button>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (showDeleteModal) {
+        <div class="gm-overlay" (click)="closeModals()">
+          <div class="gm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" (click)="$event.stopPropagation()" (keydown.escape)="closeModals()">
+            <span class="gm-dialog-icon is-danger" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"></path></svg>
+            </span>
+            <h3 id="delete-title">Delete State / Province</h3>
+            @if (actionsLoading) {
+              <p class="gm-checking">Checking what can be done with <strong>{{ selectedState?.stateProvinceName }}</strong>…</p>
+            } @else if (!canDelete) {
+              <div class="gm-note is-danger">{{ deleteBlockedReason }}</div>
+            } @else {
+              <p>Are you sure you want to delete <strong>{{ selectedState?.stateProvinceName }}</strong>?</p>
+              <div class="gm-note is-danger">This action cannot be undone.</div>
+            }
+            <div class="gm-dialog-actions">
+              <button type="button" class="gm-btn gm-btn-outline" (click)="closeModals()">Cancel</button>
+              @if (canDelete && !actionsLoading) {
+                <button type="button" class="gm-btn gm-btn-danger" (click)="deleteConfirmed()">Yes, Delete</button>
+              }
+            </div>
+          </div>
+        </div>
+      }
     </div>
   </div>
 </main>

@@ -87,7 +87,7 @@
 }
 .pe-app-sidebar:not(.theme-bg-active) .pe-menu-title {
   color: var(--theme-accent-dark) !important;
-  font-size: 10.5px !important;
+  font-size: calc(10.5px * var(--ui-scale, 1)) !important;
   font-weight: 800 !important;
   letter-spacing: .16em !important;
   text-transform: uppercase;
@@ -95,7 +95,7 @@
 .pe-app-sidebar:not(.theme-bg-active) .pe-nav-icon,
 .pe-app-sidebar:not(.theme-bg-active) .pe-nav-icon i {
   color: var(--theme-tone-1) !important;
-  font-size: 19px !important;
+  font-size: calc(19px * var(--ui-scale, 1)) !important;
   background: none !important;
 }
 .pe-app-sidebar:not(.theme-bg-active) .pe-main-menu > li:nth-child(6n+2) .pe-nav-icon { color: var(--theme-tone-2) !important; }
@@ -538,7 +538,7 @@ thead > tr > :is(th, td),
   border-top: 0 !important;
   border-bottom: 1px solid var(--lx-head-line) !important;
   box-shadow: none !important;
-  font-size: 11.5px !important;
+  font-size: calc(11.5px * var(--ui-scale, 1)) !important;
   font-weight: 800 !important;
   letter-spacing: .09em !important;
   text-transform: uppercase;
@@ -1174,7 +1174,7 @@ select:focus-visible {
 
 /* =========================================================================================
    5b. RHYTHM - room to breathe. Cards used to sit 6-16px apart with 16px of padding; every screen now shares
-   one spacing scale: 24px between cards (20px between the fixed-height KPI tiles, so six of them still fit on
+   one spacing scale: 22px between cards (19px between the fixed-height KPI tiles, so six of them still fit on
    a laptop), 24px inside a card, a wider page margin. Grid / flex containers that lay out cards or tiles are
    listed by name because each screen sets its own gap in its own stylesheet (hence !important); to give a new
    card grid the same spacing, add its class to the two lists below.
@@ -1187,13 +1187,13 @@ select:focus-visible {
 
 /* Bootstrap rows of cards: the stock 6-12px gutter is what squeezed them together. */
 .row:not(.g-0):has(> [class*="col"] > :is(.card, [class*="-card"], [class*="-panel"], [class*="kpi"], [class*="stat"], [class*="tile"])) {
-  --pe-gutter-x: 1.5rem;
-  --pe-gutter-y: 1.5rem;
+  --pe-gutter-x: 1.375rem;
+  --pe-gutter-y: 1.375rem;
 }
 
 /* Cards stacked in normal flow. */
 :is(.card, [class$="-card"], [class$="-panel"]):is(.mb-1, .mb-2, .mb-3) {
-  margin-bottom: 1.5rem !important;
+  margin-bottom: 1.375rem !important;
 }
 
 /* Bootstrap card interiors. Anything that sets its own padding (p-0 tables, tight lists) is left alone. */
@@ -1212,18 +1212,23 @@ select:focus-visible {
 
 /* Rows of KPI tiles / summary cards / stat strips. */
 .summary-grid, .summary-cards, .summary-strip, .stats-grid, .stats-row, .kpi-grid, .kpi-cards,
-.cd-kpi-grid, .tam-metrics, .metrics, .metric-grid, .div-kpi-grid, .ab-kpis, .lq-kpi-row,
+.metrics, .metric-grid, .div-kpi-grid, .ab-kpis, .lq-kpi-row,
 .dl-kpis, .ct-kpi-grid, .ct-summary-grid, .tz-stats, .tz-view-summary, .sh-stats,
 .rwn-summary-grid, .pci-totals-grid, .ode-ref-strip {
-  gap: calc(20px * var(--ui-scale, 1)) !important;
+  gap: calc(19px * var(--ui-scale, 1)) !important;
 }
 
 /* Layouts that put cards side by side (a main column and its side panel, a grid of cards). */
 .access-layout, .layout, .layout-grid, .body-grid, .ct-body-grid, .div-content-grid, .df-layout,
-.rc-grid, .ab-card-grid, .mc-compare-grid, .ae-outcome-grid, .svb-recent-grid, .records-row,
-.msec-mfa-grid, .msec-top-row, .crc-launch-grid, .cd-row-2col, .cd-right-top, .cd-row, .cd-col, .cd-work,
-.cd-side, .cd-dash {
-  gap: calc(24px * var(--ui-scale, 1)) !important;
+.rc-grid, .ab-card-grid, .mc-compare-grid, .svb-recent-grid, .records-row,
+.msec-mfa-grid, .msec-top-row, .crc-launch-grid {
+  gap: calc(22px * var(--ui-scale, 1)) !important;
+}
+
+/* Campaigns module: KPI rows and side-by-side cards use the module's own gap (--campaign-gap, ydot-responsive.css). */
+.cd-kpi-grid, .tam-metrics, .ae-outcome-grid,
+.cd-row-2col, .cd-right-top, .cd-row, .cd-col, .cd-work, .cd-side, .cd-dash {
+  gap: var(--campaign-gap, 17px) !important;
 }
 
 }  /* end @scope */
