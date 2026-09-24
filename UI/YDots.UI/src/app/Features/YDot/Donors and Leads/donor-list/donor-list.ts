@@ -268,6 +268,7 @@ export class DonorListComponent {
     const verification = this.verificationFilter();
     const consent = this.consentFilter();
 
+
     let result = this.donors().filter((donor) => {
       const matchesSearch =
         term.length === 0 ||
