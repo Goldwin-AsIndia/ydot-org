@@ -1,15 +1,10 @@
 /* SCR-IAM-001 — User directory.
    Page width, padding and position still come from the shell's app-wrapper / page-wrapper /
    container-fluid, exactly as before — .dir-page only scopes tokens and owns nothing about the
-   page box itself, so nothing here can slide the content out from under the header again.
+   page box itself.
 
-   FIX: the design tokens below used to live on `.dir-page { --dir-brand: ...; }`. The popup
-   (.dir-dialog) and offcanvas (.dir-sheet) are rendered OUTSIDE .dir-page on purpose — they are
-   fixed-position overlays placed after </main> so they don't inherit the page's padding or
-   stacking context. But that also means they are not descendants of .dir-page, so every
-   var(--dir-*) inside them resolved to nothing and the popup/offcanvas design never applied.
-   Moving the tokens to :root fixes that — they now cascade to every element on the page,
-   .dir-page included. */
+   Design tokens live on :root because the popup (.dir-dialog) and offcanvas (.dir-sheet) are
+   rendered OUTSIDE .dir-page (fixed overlays after </main>), so they must still see var(--dir-*). */
 
 :root {
   --dir-brand-900: hsl(calc(var(--theme-hue) - 1) 25.3% 14.7%);
@@ -70,17 +65,43 @@
 .dir-head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   gap: 20px;
   flex-wrap: wrap;
   margin-bottom: 20px;
+  padding: 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--primary) 15%, white);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 4%, white);
+  box-shadow: none;
+}
+
+.dir-head-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary) 15%, white);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 9%, white);
+  color: var(--primary);
+  font-size: 21px;
+}
+
+.dir-head-icon i {
+  font-size: 22px !important;
+}
+
+.dir-head-text {
+  min-width: 0;
 }
 
 .dir-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--dir-ink-900);
-  letter-spacing: -0.01em;
+  letter-spacing: -.02em;
 }
 
 .dir-subtitle {
@@ -101,16 +122,23 @@
 .dir-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   border-radius: 10px;
-  padding: 8px 14px;
-  min-height: 36px;
+  padding: 8px 16px;
+  min-height: 38px;
   font-size: 13px;
   font-weight: 650;
   cursor: pointer;
   border: 1px solid transparent;
   transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease;
   white-space: nowrap;
+}
+
+.dir-btn i {
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  line-height: 1;
 }
 
 .dir-btn:disabled {
@@ -134,13 +162,13 @@
 .dir-btn-line {
   background: #fff;
   color: var(--dir-ink-700);
-  border-color: var(--dir-line);
+  border-color: #80808045;
 }
 
 .dir-btn-line:hover:not(:disabled) {
-  border-color: hsl(calc(var(--theme-hue) - 6) 25.5% 81.6%);
+  border-color: #80808080;
   color: hsl(calc(var(--theme-hue) - 1) 38.1% 22.2%);
-  background: hsl(calc(var(--theme-hue) - 21) 23.8% 95.9%);
+  background: hsl(calc(var(--theme-hue) - 21) 23.8% 96.5%);
 }
 
 .dir-btn-warning {
@@ -170,9 +198,21 @@
   background: #8a3320;
 }
 
+/* Confirm button that follows the dialog's tone (see .dir-dialog[data-tone]) */
+.dir-btn-tone {
+  background: var(--tone);
+  border-color: var(--tone);
+  color: #fff;
+}
+
+.dir-btn-tone:hover:not(:disabled) {
+  background: var(--tone-strong);
+  border-color: var(--tone-strong);
+  transform: translateY(-1px);
+}
+
 .dir-count-chip {
-  background:
-color-mix(in srgb, var(--primary) 8%, white);
+  background: color-mix(in srgb, var(--primary) 8%, white);
   color: var(--primary);
   border-radius: 999px;
   padding: 1px 7px;
@@ -180,21 +220,13 @@ color-mix(in srgb, var(--primary) 8%, white);
   margin-left: 2px;
 }
 
-/* ---- Status tabs — base ONLY (look: kadaisi .dir-tab block) -------------------- */
-
-.dir-tabs {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 14px;
+@keyframes dir-spin {
+  to { transform: rotate(360deg); }
 }
 
-.dir-tab {
-  min-width: 0;
-  cursor: pointer;
-}
-
-.dir-tab-num {
-  font-variant-numeric: tabular-nums;
+.dir-spin {
+  display: inline-block;
+  animation: dir-spin .8s linear infinite;
 }
 
 /* ---- Toolbar ------------------------------------------------------------------------------ */
@@ -205,12 +237,19 @@ color-mix(in srgb, var(--primary) 8%, white);
   align-items: center;
   gap: 10px;
   margin-bottom: 14px;
+  border: 1px solid #e3e9e5;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+  box-shadow: none;
 }
 
 .dir-search {
   position: relative;
-  flex: 1 1 280px;
-  max-width: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .dir-search-icon {
@@ -224,14 +263,14 @@ color-mix(in srgb, var(--primary) 8%, white);
 
 .dir-search-input {
   width: 100%;
-  padding: 9px 40px 9px 34px;
+  padding: 9px 40px 9px 40px;
   border-radius: 9px;
-  border: 1px solid var(--dir-line);
-  background: #fff;
+  border: 1px solid transparent;
+  background: hsl(calc(var(--theme-hue) - 3) 14.3% 97.3%);
   font-size: 13.5px;
   color: var(--dir-ink-900);
   outline: none;
-  transition: border-color .12s ease, box-shadow .12s ease;
+  transition: border-color .12s ease, box-shadow .12s ease, background-color .12s ease;
 }
 
 .dir-search-input::placeholder {
@@ -239,6 +278,7 @@ color-mix(in srgb, var(--primary) 8%, white);
 }
 
 .dir-search-input:focus {
+  background: #fff;
   border-color: var(--dir-brand-400);
   box-shadow: none;
 }
@@ -262,43 +302,8 @@ color-mix(in srgb, var(--primary) 8%, white);
 
 .dir-search-adorn:hover,
 .dir-search-adorn-on {
-  background:
-color-mix(in srgb, var(--primary) 9%, white);
+  background: color-mix(in srgb, var(--primary) 9%, white);
   color: var(--primary);
-}
-
-.dir-select-wrap {
-  position: relative;
-}
-
-.dir-select {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 100%;
-  padding: 9px 30px 9px 12px;
-  border-radius: 9px;
-  border: 1px solid var(--dir-line);
-  background: #fff;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--dir-ink-700);
-  cursor: pointer;
-  outline: none;
-  transition: border-color .12s ease;
-}
-
-.dir-select:focus {
-  border-color: var(--dir-brand-400);
-}
-
-.dir-select-chev {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: var(--dir-ink-400);
-  font-size: 15px;
 }
 
 .dir-toolbar-spacer {
@@ -342,9 +347,17 @@ color-mix(in srgb, var(--primary) 9%, white);
   border-color: hsl(calc(var(--theme-hue) - 6) 25.5% 81.6%);
 }
 
+@media (min-width: 992px) {
+  .d-lg-none.dir-icon-btn {
+    display: none;
+  }
+}
+
 /* ---- Advanced filter panel ------------------------------------------------------------------ */
 
 .dir-advanced {
+  position: relative;
+  z-index: 5;
   padding: var(--yc-pad);
   border: var(--yc-border);
   border-radius: var(--yc-radius);
@@ -359,28 +372,279 @@ color-mix(in srgb, var(--primary) 9%, white);
 }
 
 .dir-pill {
-  border: 1px solid var(--dir-line);
+  border: 1px solid var(--primary);
   background: #fff;
-  color: var(--dir-ink-500);
+  color: var(--primary);
   font-size: 12.5px;
   font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 999px;
+  padding: 2px 14px;
+  border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
   transition: background-color .12s ease, border-color .12s ease, color .12s ease;
 }
 
 .dir-pill:hover {
-  border-color: var(--dir-brand-400);
-  color: var(--dir-brand-700);
+  border-color: var(--primary);
+  color: white;
+  background: var(--primary);
 }
 
 .dir-pill-active,
 .dir-pill-active:hover {
-  background: var(--dir-brand);
-  border-color: var(--dir-brand);
-  color: #fff;
+  border-color: var(--primary);
+  color: white;
+  background: var(--primary);
+}
+
+/* ==========================================================================
+   CUSTOM DROPDOWN — replaces the native <select> (filters + page size)
+   ========================================================================== */
+
+.dir-dd {
+  position: relative;
+}
+
+.dir-dd-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 7px 36px 7px 8px;
+  border: 1px solid #8080804a;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dir-ink-900);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+
+.dir-dd-trigger:hover {
+  border-color: hsl(calc(var(--theme-hue) - 6) 25.5% 81.6%);
+  background: hsl(calc(var(--theme-hue) - 21) 23.8% 98.5%);
+}
+
+.dir-dd-open .dir-dd-trigger,
+.dir-dd-trigger:focus-visible {
+  outline: none;
+  border-color: var(--primary, var(--dir-brand-400));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #375c4c) 14%, transparent);
+  background: #fff;
+}
+
+.dir-dd-lead {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  font-size: 16px !important;
+  color: var(--primary, var(--dir-brand));
+  background: color-mix(in srgb, var(--primary, #375c4c) 8%, white);
+}
+
+.dir-dd-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dir-dd-placeholder {
+  color: var(--dir-ink-400);
+}
+
+.dir-dd-chev {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 17px;
+  color: var(--dir-ink-400);
+  pointer-events: none;
+  transition: transform .2s ease, color .2s ease;
+}
+
+.dir-dd-open .dir-dd-chev {
+  transform: translateY(-50%) rotate(180deg);
+  color: var(--primary, var(--dir-brand));
+}
+
+/* Clear (×) sits beside the chevron only when a value is chosen */
+.dir-dd-has-value .dir-dd-trigger {
+  padding-right: 60px;
+}
+
+.dir-dd-clear {
+  position: absolute;
+  right: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--dir-line-soft);
+  color: var(--dir-ink-500);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color .12s ease, color .12s ease;
+}
+
+.dir-dd-clear:hover {
+  background: var(--dir-red-bg);
+  color: var(--dir-red);
+}
+
+/* Floating menu */
+.dir-dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  min-width: 200px;
+  z-index: 60;
+  background: #fff;
+  border: 1px solid var(--dir-line);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px -8px rgba(20, 30, 25, .18), 0 2px 6px rgba(20, 30, 25, .06);
+  padding: 6px;
+  animation: dir-dd-in .14s ease;
+}
+
+@keyframes dir-dd-in {
+  from { opacity: 0; transform: translateY(-4px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dir-dd-up .dir-dd-menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+  animation-name: dir-dd-in-up;
+}
+
+@keyframes dir-dd-in-up {
+  from { opacity: 0; transform: translateY(4px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dir-dd-search {
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.dir-dd-search i {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--dir-ink-400);
+}
+
+.dir-dd-search input {
+  width: 100%;
+  padding: 7px 10px 7px 30px;
+  border: 1px solid var(--dir-line);
+  border-radius: 8px;
+  font-size: 12.5px;
+  background: hsl(calc(var(--theme-hue) - 3) 14.3% 97.3%);
+  outline: none;
+}
+
+.dir-dd-search input:focus {
+  background: #fff;
+  border-color: var(--dir-brand-400);
+}
+
+.dir-dd-list {
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dir-dd-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dir-dd-list::-webkit-scrollbar-thumb {
+  background: var(--dir-line);
+  border-radius: 6px;
+}
+
+.dir-dd-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dir-ink-700);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dir-dd-option:hover,
+.dir-dd-option:focus-visible {
+  outline: none;
+  background: hsl(calc(var(--theme-hue) - 13) 25% 95.3%);
+  color: var(--dir-ink-900);
+}
+
+.dir-dd-option-on,
+.dir-dd-option-on:hover {
+  background: color-mix(in srgb, var(--primary, #375c4c) 9%, white);
+  color: var(--primary, var(--dir-brand));
+  font-weight: 650;
+}
+
+.dir-dd-option i {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.dir-dd-empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--dir-ink-400);
+}
+
+/* Small variant — pager "per page" */
+.dir-dd-sm .dir-dd-trigger {
+  min-height: 34px;
+  padding: 6px 30px 6px 11px;
+  border-color: transparent;
+  background: hsl(calc(var(--theme-hue) - 13) 25% 95.3%);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--dir-ink-700);
+  min-width: 193px;
+}
+
+.dir-dd-sm .dir-dd-chev {
+  right: 8px;
+  font-size: 15px;
+}
+
+.dir-dd-sm .dir-dd-menu {
+  min-width: 193px;
+  right: auto;
 }
 
 /* ---- Table card ------------------------------------------------------------------------- */
@@ -393,15 +657,19 @@ color-mix(in srgb, var(--primary) 9%, white);
   overflow: hidden;
 }
 
+/* The card clips with overflow:hidden — let the pager dropdown escape while it is open */
+/* .dir-table-card:has(.dir-dd-open) {
+  overflow: visible;
+} */
+
 .dir-table thead th {
-  font-size: 10.5px;
+    font-size: 12.5px !important;
   font-weight: 700;
-  /* text-transform: uppercase; */
   letter-spacing: .05em;
   color: black;
-  padding: 12px 16px;
+  padding:20px 21px;
   background: #6666660d;
-  border-bottom: 1px solid #bebebe45;
+  border-bottom: 1px solid #bebebe45 !important;
   white-space: nowrap;
 }
 
@@ -436,17 +704,170 @@ color-mix(in srgb, var(--primary) 9%, white);
   background-color: color-mix(in srgb, var(--primary) 2%, white);
 }
 
-.dir-table tbody tr.dir-row-selected td:first-child {
-  box-shadow: none;
-  border-radius: 0;
-}
-
 .dir-table .form-check-input {
   width: 1.05rem;
   height: 1.05rem;
   border-color: #c9cddd;
   accent-color: hsl(calc(var(--theme-hue) - 1) 39% 30.2%);
   cursor: pointer;
+}
+
+/* ---- Row selection — checkbox column ------------------------------------------------------ */
+
+.dir-table th.dir-col-check,
+.dir-table td.dir-col-check {
+  width: 48px;
+  padding-right: 0 !important;
+}
+
+/* A selected row gets a primary bar down its left edge */
+.dir-table tbody tr.dir-row-selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--primary, #375c4c);
+      border-radius: 0;
+}
+
+.dir-table tbody tr.dir-row-selected td,
+.dir-table tbody tr.dir-row-selected:hover td {
+  background-color: color-mix(in srgb, var(--primary, #375c4c) 5%, white) !important;
+}
+
+/* Custom checkbox: the real <input> stays for keyboard + screen readers, the box is drawn */
+.dir-check {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.dir-check input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dir-check-box {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid #b9c2bd;
+  border-radius: 5px;
+  background: #fff;
+  pointer-events: none;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+
+.dir-check:hover .dir-check-box {
+  border-color: var(--primary, #375c4c);
+}
+
+.dir-check input:focus-visible + .dir-check-box {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #375c4c) 22%, transparent);
+}
+
+.dir-check input:checked + .dir-check-box,
+.dir-check input:indeterminate + .dir-check-box {
+  border-color: var(--primary, #375c4c);
+  background: var(--primary, #375c4c);
+}
+
+/* Tick */
+.dir-check input:checked + .dir-check-box::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Dash — some but not all rows on the page */
+.dir-check input:indeterminate + .dir-check-box::after {
+  content: "";
+  width: 9px;
+  height: 2px;
+  border-radius: 2px;
+  background: #fff;
+}
+
+/* ---- Selection bar ------------------------------------------------------------------------ */
+
+.dir-selbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid color-mix(in srgb, var(--primary, #375c4c) 30%, white);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary, #375c4c) 6%, white);
+  animation: dir-selbar-in .18s ease;
+}
+
+@keyframes dir-selbar-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dir-selbar-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--dir-ink-700);
+}
+
+.dir-selbar-count i {
+  font-size: 17px !important;
+  color: var(--primary, #375c4c);
+}
+
+.dir-selbar-count strong {
+  color: var(--primary, #375c4c);
+  font-weight: 800;
+}
+
+.dir-selbar-hint {
+  font-size: 12.5px;
+  color: var(--dir-ink-400);
+}
+
+.dir-selbar-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--dir-ink-500);
+  cursor: pointer;
+}
+
+.dir-selbar-clear i {
+  font-size: 15px !important;
+}
+
+.dir-selbar-clear:hover {
+  background: var(--dir-red-bg);
+  color: var(--dir-red);
+}
+
+.dir-selbar-go {
+  min-height: 34px;
+  padding: 6px 14px;
 }
 
 .min-w-0 {
@@ -460,10 +881,14 @@ color-mix(in srgb, var(--primary) 9%, white);
   border: none;
   background: none;
   padding: 0;
-  color: inherit;
   font: inherit;
-  font-weight: 600;
   cursor: pointer;
+  text-transform: uppercase;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: .05em;
+  color: black;
+  white-space: nowrap;
 }
 
 .dir-sort-arrow {
@@ -520,7 +945,57 @@ color-mix(in srgb, var(--primary) 9%, white);
   max-width: 200px;
 }
 
-/* ---- Status + MFA pills (statusClass() returns ud-badge-good / danger / blue / muted) -------- */
+/* ---- Row actions — thin outline icon buttons, one tone per intent ------------------------- */
+
+.dir-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.dir-act {
+  --tone: var(--dir-ink-500);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
+  background: #fff;
+  color: var(--tone);
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+
+/* Remix "-line" icons at normal weight — nothing global can thicken them */
+.dir-act i {
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dir-act:hover {
+  background: color-mix(in srgb, var(--tone) 9%, white);
+  border-color: color-mix(in srgb, var(--tone) 60%, transparent);
+  transform: translateY(-1px);
+}
+
+.dir-act:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+
+.dir-act-view   { --tone: #2f6ea3; }
+.dir-act-edit   { --tone: #56655e; }
+.dir-act-invite { --tone: #0e7490; }
+.dir-act-warn   { --tone: #a3660c; }
+.dir-act-ok     { --tone: #22714d; }
+.dir-act-danger { --tone: #b3402a; }
+
+/* ---- Status + MFA pills ------------------------------------------------------------------- */
 
 .dir-status-pill {
   display: inline-flex;
@@ -535,57 +1010,32 @@ color-mix(in srgb, var(--primary) 9%, white);
   letter-spacing: .01em;
 }
 
-.dir-status-pill .dir-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-
-.ud-badge-good.dir-status-pill,
-.dir-status-pill.ud-badge-good {
-  background: #e6f4ec;
-  color: #22714d;
-  border-color: #bfe3cd;
-}
-
-.ud-badge-danger.dir-status-pill,
-.dir-status-pill.ud-badge-danger {
-  background: #fbeae9;
-  color: #a5402a;
-  border-color: #f0cec2;
-}
-
-.ud-badge-blue.dir-status-pill,
-.dir-status-pill.ud-badge-blue {
-  background: #e8f1f8;
-  color: #2f5d7d;
-  border-color: #c3d9e8;
-}
-
-.ud-badge-muted.dir-status-pill,
-.dir-status-pill.ud-badge-muted {
-  background: #eef1f5;
-  color: #5b6472;
-  border-color: #d8dde4;
-}
-
-.ud-badge-active.dir-status-pill,
+.dir-status-pill.ud-badge-good,
 .dir-status-pill.ud-badge-active {
   background: #e6f4ec;
   color: #22714d;
   border-color: #bfe3cd;
 }
 
-.ud-badge-info.dir-status-pill,
+.dir-status-pill.ud-badge-danger {
+  background: #fbeae9;
+  color: #a5402a;
+  border-color: #f0cec2;
+}
+
+.dir-status-pill.ud-badge-blue,
 .dir-status-pill.ud-badge-info {
   background: #e8f1f8;
   color: #2f5d7d;
   border-color: #c3d9e8;
 }
 
-.ud-badge-warn.dir-status-pill,
+.dir-status-pill.ud-badge-muted {
+  background: #eef1f5;
+  color: #5b6472;
+  border-color: #d8dde4;
+}
+
 .dir-status-pill.ud-badge-warn {
   background: #faf0da;
   color: #96660a;
@@ -629,250 +1079,68 @@ color-mix(in srgb, var(--primary) 9%, white);
   border-color: #d8dde4;
 }
 
-/* ---- Kebab menu (native <details>/<summary>, no extra component state needed) ------------ */
-
-.dir-menu-wrap {
-  position: relative;
-  display: inline-block;
-}
-
-.dir-menu-wrap summary {
-  list-style: none;
-}
-
-.dir-menu-wrap summary::-webkit-details-marker {
-  display: none;
-}
-
-.dir-kebab {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--dir-ink-500);
-  border: 1px solid transparent;
-}
-
-.dir-menu-wrap[open] .dir-kebab {
-  background: var(--dir-brand-100);
-  color: var(--dir-brand-700);
-  border-color: var(--dir-brand-200);
-}
-
-.dir-menu {
-  position: absolute;
-  right: 0;
-  top: 36px;
-  z-index: 40;
-  background: #fff;
-  border: 1px solid var(--dir-line);
-  border-radius: 12px;
-  box-shadow: none;
-  min-width: 210px;
-  padding: 6px;
-  text-align: left;
-  animation: dir-menu-in .14s ease;
-}
-
-@keyframes dir-menu-in {
-  from { opacity: 0; transform: translateY(-4px) scale(.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.dir-menu button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: none;
-  background: none;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--dir-ink-700);
-  cursor: pointer;
-  text-align: left;
-}
-
-.dir-menu button:hover {
-  background: hsl(calc(var(--theme-hue) - 13) 25% 95.3%);
-  color: hsl(calc(var(--theme-hue) - 9) 28% 19.6%);
-}
-
-.dir-menu-danger {
-  color: var(--dir-red) !important;
-}
-
-.dir-menu-danger:hover {
-  background: var(--dir-red-bg) !important;
-}
-
-.dir-menu-sep {
-  height: 1px;
-  background: var(--dir-line-soft);
-  margin: 5px 4px;
-}
-
-/* ---- Avatar — letter profile, different colour per first letter -------------------------- */
+/* ---- Avatar — light pastel background + deep text, different per person ----------------- */
 
 .dir-avatar {
-  width: 38px;
-  height: 38px;
+  width: 45px;
+  height: 45px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background: hsl(calc(var(--theme-hue) - 1) 39% 30.2%);
   color: #fff;
-  font-weight: 700;
-  font-size: 12.5px;
+  font-weight: 600 !important;
+  /* padding: 10px; */
+  font-size: 15px !important;
   border: 2px solid #fff;
   outline: 1px solid hsl(calc(var(--theme-hue) - 6) 25.5% 81.6%);
   box-shadow: none;
   flex-shrink: 0;
 }
 
-/* First-letter buckets — avatarClass() in TS returns dir-av-0 … dir-av-7.
-   Unprefixed so these apply consistently both in the table (inside .dir-page) and in the
-   slide-over's larger avatar (outside .dir-page) — see FIX note at the top of this file. */
-.dir-avatar.dir-av-0 { background: hsl(calc(var(--theme-hue) - 1) 39% 30.2%); outline-color: hsl(calc(var(--theme-hue) - 6) 25.5% 81.6%); }
-.dir-avatar.dir-av-1 { background: #35617f; outline-color: #c3d9e8; }
-.dir-avatar.dir-av-2 { background: #6d4fc2; outline-color: #d4cdea; }
-.dir-avatar.dir-av-3 { background: #a5402a; outline-color: #f0cec2; }
-.dir-avatar.dir-av-4 { background: #a3660c; outline-color: #f0dcb2; }
-.dir-avatar.dir-av-5 { background: #0e7490; outline-color: #bfe6f1; }
-.dir-avatar.dir-av-6 { background: #4d5f6b; outline-color: #cfd9de; }
-.dir-avatar.dir-av-7 { background: #334155; outline-color: #c6d0da; }
-
-/* Card filter — NOTE: full look kadaisi .dir-tab block-la.
-   Inga per-tab image base + gray overlay base mattum. */
-
-.dir-tab {
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 14px 16px;
-  border: 0;
-  border-radius: 14px;
-  background: #334155;
-  color: #fff;
-  overflow: hidden;
-  box-shadow: none;
+.dir-avatar-lg {
+  width: 64px;
+  height: 64px;
+  font-size: 20px;
+  border-width: 3px;
 }
 
-.dir-tab::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background: #334155;
-}
+.dir-avatar.dir-av-0 { background: #e3f4ea; color: #1f6b45; }  /* mint    */
+.dir-avatar.dir-av-1 { background: #e4eefb; color: #2456a0; }  /* sky     */
+.dir-avatar.dir-av-2 { background: #efe9fc; color: #5b3fb0; }  /* lavender*/
+.dir-avatar.dir-av-3 { background: #fde8ee; color: #a3294f; }  /* rose    */
+.dir-avatar.dir-av-4 { background: #fdf2dc; color: #93600a; }  /* amber   */
+.dir-avatar.dir-av-5 { background: #dff4f3; color: #0f6e6a; }  /* teal    */
+.dir-avatar.dir-av-6 { background: #fdeadf; color: #b04a18; }  /* peach   */
+.dir-avatar.dir-av-7 { background: #e9edf3; color: #3e4c5e; }  /* slate   */
+.dir-avatar.dir-av-8 { background: #f9e7f6; color: #92307f; }  /* orchid  */
+.dir-avatar.dir-av-9 { background: #eef4dc; color: #56701a; }  /* olive   */
 
-/* MELLA: gray overlay — image-ku mela, content-ku keela */
-.dir-tab::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: rgba(45,55,72,.90);
-}
+/* ---- Table footer / pagination ------------------------------------------------------------ */
 
-.dir-tab[data-tab="invited"]::before {
-  background: #0c4a6e;
-}
-
-.dir-tab[data-tab="suspended"]::before {
-  background: #78350f;
-}
-
-.dir-tab[data-tab="draft"]::before {
-  background: #334155;
-}
-
-.dir-tab[data-tab="all"]::before,
-.dir-tab[data-tab="active"]::before {
-  background: #065f46;
-}
-
-.dir-tab .dir-tab-ico {
-  order: 1;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  font-size: 18px;
-  background: rgba(255,255,255,.20);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,.45);
-  backdrop-filter: blur(2px);
-}
-
-/* Number — bold + big (kadaisi block 34px-ku override pannum) */
-.dir-tab-num {
-  order: 2;
-  font-size: 30px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -.02em;
-  color: #fff;
-  text-shadow: 0 2px 8px rgba(0,0,0,.40);
-}
-
-.dir-tab-label {
-  order: 3;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: rgba(255,255,255,.94);
-  text-shadow: 0 1px 4px rgba(0,0,0,.35);
-}
-
-.dir-tab-active {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-  box-shadow: none;
-}
-
-.dir-tab-active .dir-tab-num { color: #fff; }
-
-/* ---- Table footer / pagination — already irukura page design (card + dir tokens).
-   NOTE: the real override for this lives in the "PRO OVERRIDES" block below, targeting
-   .dir-table-foot directly — the markup has no .dir-pagination-shell wrapper, so a selector
-   requiring one never matched. */
 .dir-table-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 12px 18px;
-  border-top: 1px solid var(--dir-line);
+  padding: 20px 24px;
+  border-top: 1px solid #80808030;
   background: #fff;
 }
 
-.dir-page-size {
-  border: 1px solid transparent;
-  border-radius: 9px;
-  padding: 7px 10px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--dir-ink-700);
-  background: hsl(calc(var(--theme-hue) - 13) 25% 95.3%);
-  outline: none;
-  cursor: pointer;
+.dir-foot-count {
+  font-size: 13.5px;
+  color: var(--dir-ink-500);
+  font-variant-numeric: tabular-nums;
 }
 
-.dir-page-size:focus { background: #fff; border-color: hsl(calc(var(--theme-hue) - 9) 17.4% 42.7%); box-shadow: none; }
+.dir-foot-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
 .dir-pager {
   display: flex;
@@ -887,7 +1155,7 @@ color-mix(in srgb, var(--primary) 9%, white);
   min-width: 34px;
   height: 34px;
   border-radius: 9px;
-  border: 1px solid var(--dir-line);
+  border: 1px solid #80808030;
   background: #fff;
   color: var(--dir-ink-500);
   font-size: 13px;
@@ -897,6 +1165,7 @@ color-mix(in srgb, var(--primary) 9%, white);
   align-items: center;
   justify-content: center;
   box-shadow: none;
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease, transform .12s ease;
 }
 
 .dir-pager-btn:hover:not(:disabled) {
@@ -908,9 +1177,9 @@ color-mix(in srgb, var(--primary) 9%, white);
 
 .dir-pager-current,
 .dir-pager-current:hover {
-  background: hsl(var(--theme-hue) 27.9% 26.7%);
-  border-color: hsl(var(--theme-hue) 27.9% 26.7%);
-  color: #fff;
+  background: hsl(var(--theme-hue) 27.9% 26.7%) !important;
+  border-color: hsl(var(--theme-hue) 27.9% 26.7%) !important;
+  color: #fff !important;
   box-shadow: none;
 }
 
@@ -924,6 +1193,7 @@ color-mix(in srgb, var(--primary) 9%, white);
 .dir-state {
   text-align: center;
   padding: 64px 24px;
+  border-radius: 14px;
 }
 
 .dir-state-icon {
@@ -931,17 +1201,18 @@ color-mix(in srgb, var(--primary) 9%, white);
   height: 52px;
   margin: 0 auto 14px;
   border-radius: 50%;
-  background:
-color-mix(in srgb, var(--primary) 5%, white);
+  background: color-mix(in srgb, var(--primary) 5%, white);
   color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 22px;
 }
+
 .dir-state-icon i {
-  font-size: 22px !important;
+  font-size: 44px !important;
 }
+
 .dir-state-icon-danger {
   background: var(--dir-red-bg);
   color: var(--dir-red);
@@ -958,163 +1229,286 @@ color-mix(in srgb, var(--primary) 5%, white);
   font-size: 13.5px;
 }
 
-/* ---- Bulk bar ------------------------------------------------------------------------------- */
-
-.dir-bulk-bar {
-  position: fixed;
-  left: 50%;
-  bottom: 22px;
-  transform: translateX(-50%);
-  background: var(--dir-brand-900);
-  color: #fff;
-  padding: 10px 12px 10px 18px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  box-shadow: none;
-  z-index: 1040;
-}
-
-.dir-bulk-count {
-  font-size: 13.5px;
-  font-weight: 600;
-}
-
-.dir-bulk-bar .dir-btn-primary {
-  background: #fff;
-  color: var(--dir-brand-900);
-}
-
-.dir-bulk-bar .dir-btn-primary:hover {
-  background: var(--dir-brand-100);
-}
-
-.dir-bulk-bar .dir-btn-line {
-  background: none;
-  border-color: rgba(255, 255, 255, .28);
-  color: #fff;
-}
-
-.dir-bulk-bar .dir-btn-line:hover {
-  background: rgba(255, 255, 255, .12);
-}
-
-/* ---- Overlay + slide-over ------------------------------------------------------------------ */
+/* =======================================================================================
+   OVERLAY
+   ======================================================================================= */
 
 .dir-overlay,
 .dir-backdrop {
   position: fixed;
   inset: 0;
-  background: hsl(calc(var(--theme-hue) + 7) 20% 11.8% / .55);
-  backdrop-filter: blur(2px);
+  background: hsl(calc(var(--theme-hue) + 7) 20% 11.8% / .5);
+  backdrop-filter: blur(3px);
   z-index: 1050;
+  animation: dir-fade-in .18s ease;
 }
 
-.dir-backdrop { z-index: 1055; }
+.dir-backdrop {
+  z-index: 1055;
+}
+
+@keyframes dir-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* =======================================================================================
+   OFFCANVAS (View / Edit) — tinted hero, sectioned body, sticky footer
+   ======================================================================================= */
 
 .dir-sheet {
   position: fixed;
-  top: 0;
-  right: 0;
-  height: 100%;
-  width: 460px;
-  max-width: calc(100vw - 32px);
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: 500px;
+  max-width: calc(100vw - 24px);
   background: #fff;
-  border-left: 1px solid var(--dir-line);
-  box-shadow: none;
+  border: 1px solid #80808030;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px -20px rgba(15, 25, 20, .35);
   z-index: 1060;
   display: flex;
   flex-direction: column;
-  animation: dir-slide-in .22s ease;
+  overflow: hidden;
+  animation: dir-slide-in .26s cubic-bezier(.2, .8, .2, 1);
 }
 
 @keyframes dir-slide-in {
-  from { transform: translateX(30px); opacity: .4; }
+  from { transform: translateX(40px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
 
-.dir-sheet-head {
-  padding: 20px 24px 16px;
-  background: hsl(calc(var(--theme-hue) - 13) 25% 95.3%);
-  border-bottom: 1px solid var(--dir-line);
+/* Hero */
+.dir-sheet-hero {
+  flex-shrink: 0;
+  padding: 16px 22px 20px;
+  background:
+    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--primary, #375c4c) 14%, white) 0%, transparent 60%),
+    color-mix(in srgb, var(--primary, #375c4c) 5%, white);
+  border-bottom: 1px solid #80808024;
+}
+
+.dir-sheet-bar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.dir-sheet-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--primary, var(--dir-brand));
+}
+
+.dir-sheet-eyebrow i {
+  font-size: 14px !important;
+}
+
+.dir-sheet-x,
+.dir-dialog-x {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid #80808030;
+  background: #fff;
+  color: var(--dir-ink-500);
+  cursor: pointer;
+  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+
+.dir-sheet-x i,
+.dir-dialog-x i {
+  font-size: 17px !important;
+}
+
+.dir-sheet-x:hover,
+.dir-dialog-x:hover {
+  background: var(--dir-red-bg);
+  border-color: var(--dir-red-line);
+  color: var(--dir-red);
+}
+
+.dir-sheet-id {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dir-sheet-id-sm .dir-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 14px;
 }
 
 .dir-sheet-name {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: -.01em;
   color: var(--dir-ink-900);
+  line-height: 1.25;
 }
 
-.dir-sheet-hint {
-  font-size: 12.5px;
+.dir-sheet-mail {
+  font-size: 13px;
   color: var(--dir-ink-500);
-  display: block;
-  margin-top: 4px;
-  max-width: 34ch;
+  margin-top: 1px;
 }
 
-.dir-sheet-body {
-  padding: 22px 24px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.dir-sheet-foot {
-  padding: 16px 24px;
-  border-top: 1px solid var(--dir-line);
+.dir-sheet-chips {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
 }
 
-.dir-section-label {
-  font-size: 11.5px;
+.dir-chip-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--dir-brand-600);
-  margin: 22px 0 10px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: var(--dir-red-bg);
+  color: var(--dir-red);
+  border: 1px solid var(--dir-red-line);
 }
 
-.dir-section-label:first-child {
-  margin-top: 0;
+/* Body */
+.dir-sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 22px 24px;
+  background: hsl(calc(var(--theme-hue) - 3) 16.7% 98.6%);
 }
 
-.dir-field-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px 16px;
+.dir-sheet-body::-webkit-scrollbar {
+  width: 6px;
 }
 
-.dir-k {
-  font-size: 11.5px;
-  color: var(--dir-ink-400);
-  margin-bottom: 2px;
+.dir-sheet-body::-webkit-scrollbar-thumb {
+  background: #80808040;
+  border-radius: 6px;
 }
 
-.dir-v {
-  font-size: 13.5px;
+/* Section cards */
+.dir-sec {
+  background: #fff;
+  border: 1px solid #80808024;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.dir-sec:last-child {
+  margin-bottom: 0;
+}
+
+.dir-sec-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--dir-ink-900);
+  margin: 0 0 12px;
+}
+
+.dir-sec-ico {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary, #375c4c) 9%, white);
+  color: var(--primary, var(--dir-brand));
+}
+
+.dir-sec-ico i {
+  font-size: 14px !important;
+}
+
+.dir-sec-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dir-ink-400);
+}
+
+/* Key / value rows */
+.dir-kv-list {
+  margin: 0;
+}
+
+.dir-kv-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-top: 1px dashed #80808028;
+}
+
+.dir-kv-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.dir-kv-row:last-child {
+  padding-bottom: 0;
+}
+
+.dir-kv-row dt {
+  flex-shrink: 0;
+  font-size: 12.5px;
   font-weight: 500;
+  color: var(--dir-ink-500);
+}
+
+.dir-kv-row dd {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--dir-ink-900);
+  text-align: right;
   word-break: break-word;
 }
 
+.ud-mono {
+  font-family: var(--font-number, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12.5px;
+}
+
 .dir-role-chip {
-  border: 1px solid var(--dir-line);
+  border: 1px solid #80808035;
   background: #fff;
   color: var(--dir-ink-700);
   font-size: 12px;
-  padding: 5px 10px;
+  font-weight: 600;
+  padding: 5px 11px;
   border-radius: 999px;
+}
+
+.dir-role-chip-primary {
+  border-color: color-mix(in srgb, var(--primary, #375c4c) 40%, white);
+  background: color-mix(in srgb, var(--primary, #375c4c) 7%, white);
+  color: var(--primary, var(--dir-brand));
 }
 
 .dir-tag {
   color: var(--dir-brand-600);
   font-weight: 600;
   margin-left: 4px;
+  font-size: 11px;
 }
 
 .dir-tag-muted {
@@ -1123,7 +1517,7 @@ color-mix(in srgb, var(--primary) 5%, white);
 }
 
 .dir-callout {
-  border-radius: var(--yc-radius-inner);
+  border-radius: 12px;
   padding: 12px 14px;
   font-size: 13px;
   display: flex;
@@ -1134,9 +1528,37 @@ color-mix(in srgb, var(--primary) 5%, white);
 }
 
 .dir-callout i {
-  font-size: 16px;
+  font-size: 17px;
   color: var(--dir-red);
   margin-top: 1px;
+}
+
+.dir-note {
+  display: flex;
+  gap: 9px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #e8f1f8;
+  border: 1px solid #c3d9e8;
+  color: #2f5d7d;
+  font-size: 12.5px;
+}
+
+.dir-note i {
+  font-size: 15px;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+/* Footer */
+.dir-sheet-foot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 22px;
+  border-top: 1px solid #80808028;
+  background: #fff;
 }
 
 /* ---- Forms (edit sheet + dialogs) ----------------------------------------------------------- */
@@ -1144,28 +1566,14 @@ color-mix(in srgb, var(--primary) 5%, white);
 .dir-form-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 
-.dir-f-span-1 {
-  grid-column: span 1;
-}
-
-.dir-f-span-2 {
-  grid-column: span 2;
-}
-
-.dir-f-span-3 {
-  grid-column: span 3;
-}
-
-.dir-f-span-4 {
-  grid-column: span 4;
-}
-
-.dir-f-span-6 {
-  grid-column: span 6;
-}
+.dir-f-span-1 { grid-column: span 1; }
+.dir-f-span-2 { grid-column: span 2; }
+.dir-f-span-3 { grid-column: span 3; }
+.dir-f-span-4 { grid-column: span 4; }
+.dir-f-span-6 { grid-column: span 6; }
 
 .dir-f-label {
   display: block;
@@ -1175,26 +1583,50 @@ color-mix(in srgb, var(--primary) 5%, white);
   margin-bottom: 5px;
 }
 
+.dir-req {
+  color: var(--dir-red);
+}
+
+.dir-opt {
+  color: var(--dir-ink-400);
+  font-weight: 500;
+}
+
 .dir-f-control {
-width: 100%;
-    padding: 9px 11px;
-    border: 1px solid #80808059;
-    border-radius: 9px;
-    font-size: 13.5px;
-    color: black;
-    font-family: inherit;
-    outline: none;
-    background: #fff;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #80808059;
+  border-radius: 9px;
+  font-size: 13.5px;
+  color: black;
+  font-family: inherit;
+  outline: none;
+  background: #fff;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.dir-f-control::placeholder {
+  color: var(--dir-ink-400);
+}
+
+.dir-f-control:hover {
+  border-color: #80808080;
 }
 
 .dir-f-control:focus {
-  border-color: hsl(calc(var(--theme-hue) - 9) 17.4% 42.7%);
-  box-shadow: none;
+  border-color: var(--primary, var(--dir-brand-400));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #375c4c) 14%, transparent);
+}
+
+.dir-f-control-ok,
+.dir-f-control-ok:focus {
+  border-color: #3a9a6a;
+  box-shadow: 0 0 0 3px #3a9a6a22;
 }
 
 textarea.dir-f-control {
   resize: vertical;
-  min-height: 64px;
+  min-height: 72px;
 }
 
 .dir-f-note {
@@ -1203,16 +1635,35 @@ textarea.dir-f-control {
   margin: 6px 0 0;
 }
 
+.dir-f-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--dir-ink-400);
+  font-variant-numeric: tabular-nums;
+}
+
+.dir-f-ok {
+  color: #22714d;
+  font-weight: 600;
+}
+
+.dir-sec-audit {
+  border-color: color-mix(in srgb, var(--primary, #375c4c) 25%, white);
+}
+
 .dir-alert-inline {
   display: flex;
   gap: 9px;
   padding: 11px 13px;
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--dir-red-bg);
   border: 1px solid var(--dir-red-line);
   color: #7a2e1c;
   font-size: 12.5px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .dir-alert-inline i {
@@ -1222,75 +1673,237 @@ textarea.dir-f-control {
   flex-shrink: 0;
 }
 
-/* ---- Centered dialog (suspend / reactivate / delete / invite) — page tokens match ------- */
+/* =======================================================================================
+   CONFIRM DIALOG (suspend / reactivate / delete / invite)
+   head: tone icon + title + close   body: target card, what happens, inputs   foot: actions
+   ======================================================================================= */
 
 .dir-dialog {
+  --tone: var(--primary, #375c4c);
+  --tone-strong: color-mix(in srgb, var(--tone) 80%, black);
+  --tone-bg: color-mix(in srgb, var(--tone) 9%, white);
+  --tone-line: color-mix(in srgb, var(--tone) 25%, white);
+
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 460px;
+  width: 480px;
   max-width: calc(100vw - 32px);
-  max-height: 88vh;
-  overflow-y: auto;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
   background: #fff;
-  border: 1px solid var(--dir-line);
+  border: 1px solid #80808030;
   border-radius: 18px;
-  box-shadow: none;
+  box-shadow: 0 30px 70px -24px rgba(15, 25, 20, .4);
   z-index: 1070;
-  padding: 26px;
-  animation: dir-pop-in .18s ease;
+  overflow: hidden;
+  animation: dir-pop-in .2s cubic-bezier(.2, .8, .2, 1);
+}
+
+.dir-dialog[data-tone="danger"]  { --tone: #b3402a; }
+.dir-dialog[data-tone="warning"] { --tone: #a3660c; }
+.dir-dialog[data-tone="success"] { --tone: #2a7350; }
+.dir-dialog[data-tone="primary"] { --tone: var(--primary, #375c4c); }
+
+/* Thin accent line across the top */
+.dir-dialog::before {
+  content: '';
+  flex-shrink: 0;
+  height: 4px;
+  background: var(--tone);
 }
 
 @keyframes dir-pop-in {
-  from { opacity: 0; transform: translate(-50%,-48%) scale(.97); }
-  to { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  from { opacity: 0; transform: translate(-50%, -47%) scale(.97); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.dir-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px 22px 16px;
 }
 
 .dir-dialog-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 14px;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--tone-bg);
+  border: 1px solid var(--tone-line);
+  color: var(--tone);
+}
+
+.dir-dialog-icon i {
+  font-size: 22px !important;
+}
+
+.dir-dialog-titles {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.dir-dialog-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: var(--dir-ink-900);
+}
+
+.dir-dialog-sub {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--dir-ink-500);
+}
+
+.dir-dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 22px 20px;
+}
+
+/* Who the action applies to */
+.dir-dialog-target {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-  font-size: 23px;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #80808028;
+  background: hsl(calc(var(--theme-hue) - 3) 16.7% 98%);
+  margin-bottom: 14px;
 }
 
-.dir-di-warning {
-  background: var(--dir-amber-bg);
-  color: var(--dir-amber);
+.dir-dialog-target .dir-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 12px;
 }
 
-.dir-di-danger {
-  background: var(--dir-red-bg);
-  color: var(--dir-red);
+.dir-dialog-target-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--dir-ink-900);
 }
 
-.dir-di-success {
-  background: #dfeae2;
-  color: #24402f;
+/* What will happen */
+.dir-dialog-points {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--tone-bg);
+  border: 1px solid var(--tone-line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.dir-di-primary {
-  background: var(--dir-brand-100);
-  color: var(--dir-brand-700);
+.dir-dialog-points li {
+  display: flex;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--dir-ink-700);
+  line-height: 1.45;
 }
 
-.dir-dialog-desc {
-  margin: 0 0 18px;
-  font-size: 13.5px;
-  color: var(--dir-ink-500);
+.dir-dialog-points i {
+  flex-shrink: 0;
+  font-size: 15px !important;
+  color: var(--tone);
+  margin-top: 1px;
+}
+
+.dir-confirm-name {
+  color: var(--tone);
+  font-weight: 700;
+}
+
+.dir-dialog-foot {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 22px;
+  border-top: 1px solid #80808024;
+  background: hsl(calc(var(--theme-hue) - 3) 16.7% 98.6%);
+}
+
+/* ==========================================================================
+   STATUS FILTERS — underline tabs (markup is commented out in the HTML for now,
+   kept so the tabs look right when they are switched back on).
+   ========================================================================== */
+
+.dir-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: transparent;
+  border-bottom: 1px solid var(--theme-border, #e5e8ec);
+  margin: 0 0 20px;
+  overflow-x: auto;
+}
+
+.dir-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 12px 18px 12px 4px;
+  margin-right: 8px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--theme-muted, #64716c);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease;
+}
+
+.dir-tab-ico {
+  display: inline-flex;
+  color: inherit;
+}
+
+.dir-tab-ico i {
+  font-size: 16px !important;
+}
+
+.dir-tab-num {
+  color: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dir-tab-label {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dir-tab:hover {
+  color: var(--theme-primary, #375c4c);
+  border-bottom-color: color-mix(in srgb, var(--theme-primary, #375c4c) 35%, transparent);
+}
+
+.dir-tab-active,
+.dir-tab.dir-tab-active {
+  border-bottom-color: var(--theme-primary, #375c4c);
+  color: var(--theme-primary, #375c4c);
 }
 
 /* ---- Responsive ------------------------------------------------------------------------------ */
 
 @media (max-width: 900px) {
-  .dir-field-grid {
-    grid-template-columns: 1fr;
-  }
-
   .dir-form-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1298,7 +1911,8 @@ textarea.dir-f-control {
   .dir-f-span-1,
   .dir-f-span-2,
   .dir-f-span-3,
-  .dir-f-span-4 {
+  .dir-f-span-4,
+  .dir-f-span-6 {
     grid-column: span 2;
   }
 }
@@ -1313,579 +1927,48 @@ textarea.dir-f-control {
     flex-basis: 100%;
   }
 
-  .dir-sheet {
-    width: 100%;
-  }
-
-  .dir-tab {
-    min-width: 76px;
-  }
-}
-
-.dir-head-icon {
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
-  display: grid;
-  place-items: center;
-  border: 1px solid
-color-mix(in srgb, var(--primary) 15%, white);
-  border-radius: 12px;
-  background:
-color-mix(in srgb, var(--primary) 9%, white);
-  color: var(--primary);
-  font-size: 21px;
-}
-
-.dir-head-icon i {
-  font-size: 22px !important;
-}
-
-.dir-head-text {
-  min-width: 0;
-}
-
-.dir-head {
-  align-items: center;
-  padding: 14px 18px;
-  border: 1px solid
-color-mix(in srgb, var(--primary) 15%, white);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--primary) 4%, white);
-  box-shadow: none;
-}
-
-.dir-title {
-  font-size: 20px;
-  letter-spacing: -.02em;
-}
-
-.dir-tabs {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  border: 0;
-  background: none;
-  padding: 0;
-  gap: 12px;
-}
-
-.dir-tab {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  min-width: 0;
-  padding: 14px 16px;
-  border: 0;
-  border-radius: 14px;
-  color: #fff;
-  box-shadow: none;
-}
-
-/* KEELA image layer, MELLA gradient layer — ::after image-ku mela varum */
-.dir-tab::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background-size: cover;
-  background-position: center;
-  opacity: .9;
-}
-
-.dir-tab::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-}
-
-.dir-tab[data-tab="all"] {
-  background: #1f6a4a;
-}
-
-.dir-tab[data-tab="all"]::after {
-  background: rgba(45,55,72,.90);
-}
-
-.dir-tab[data-tab="all"]::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='120' viewBox='0 0 220 120'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.22'%3E%3Ccircle cx='178' cy='20' r='34'/%3E%3Ccircle cx='196' cy='46' r='52'/%3E%3Ccircle cx='36' cy='104' r='26'/%3E%3Cpath d='M150 96l14 14 26-30' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='.14'%3E%3Ccircle cx='52' cy='28' r='4'/%3E%3Ccircle cx='70' cy='20' r='2.6'/%3E%3Ccircle cx='120' cy='92' r='3.4'/%3E%3C/g%3E%3C/svg%3E");
-}
-
-.dir-tab[data-tab="active"] {
-  background: #0f766e;
-}
-
-.dir-tab[data-tab="active"]::after {
-  background: rgba(45,55,72,.90);
-}
-
-.dir-tab[data-tab="active"]::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='120' viewBox='0 0 220 120'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.24'%3E%3Ccircle cx='180' cy='26' r='36'/%3E%3Cpath d='M168 26l9 9 18-20' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M22 92l10-10 8 8 12-14' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='.16'%3E%3Ccircle cx='46' cy='30' r='4'/%3E%3Ccircle cx='120' cy='88' r='3'/%3E%3C/g%3E%3C/svg%3E");
-}
-
-.dir-tab[data-tab="invited"] {
-  background: #1d4ed8;
-}
-
-.dir-tab[data-tab="invited"]::after {
-  background: rgba(45,55,72,.90);
-}
-
-.dir-tab[data-tab="invited"]::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='120' viewBox='0 0 220 120'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.26'%3E%3Crect x='138' y='30' width='56' height='38' rx='8' stroke-width='6'/%3E%3Cpath d='M140 34l26 20 26-20' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='40' cy='88' r='24'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='.16'%3E%3Ccircle cx='56' cy='26' r='3.6'/%3E%3Ccircle cx='108' cy='92' r='3'/%3E%3C/g%3E%3C/svg%3E");
-}
-
-.dir-tab[data-tab="suspended"] {
-  background: #b45309;
-}
-
-.dir-tab[data-tab="suspended"]::after {
-  background: rgba(45,55,72,.90);
-}
-
-.dir-tab[data-tab="suspended"]::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='120' viewBox='0 0 220 120'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.28'%3E%3Ccircle cx='180' cy='52' r='30' stroke-width='6'/%3E%3Cpath d='M172 44v16' stroke-width='7' stroke-linecap='round'/%3E%3Ccircle cx='172' cy='68' r='3.4' fill='%23ffffff' stroke='none'/%3E%3Cpath d='M24 88l36-36M60 88L24 52' stroke-width='6' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
-}
-
-.dir-tab[data-tab="draft"] {
-  background: #475569;
-}
-
-.dir-tab[data-tab="draft"]::after {
-  background: rgba(45,55,72,.90);
-}
-
-.dir-tab[data-tab="draft"]::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='120' viewBox='0 0 220 120'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.26'%3E%3Crect x='140' y='26' width='54' height='64' rx='9' stroke-width='6'/%3E%3Cpath d='M150 44h34M150 58h34M150 72h22' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='42' cy='86' r='24'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='.15'%3E%3Ccircle cx='60' cy='26' r='3.6'/%3E%3C/g%3E%3C/svg%3E");
-}
-
-
-.dir-tab-active {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-  box-shadow: none;
-}
-.dir-tab-ico i{
-  font-size: 18px !important;
-}
-
-.dir-tab-num {
-  order: 2;
-  font-size: 34px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -.02em;
-  color: #fff;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, .55);
-  font-variant-numeric: tabular-nums;
-}
-
-.dir-tab-active .dir-tab-num {
-  color: #fff;
-}
-
-.dir-tab-label {
-  order: 3;
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .07em;
-  color: rgba(255, 255, 255, .94);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, .4);
-}
-
-.dir-tab .dir-tab-ico {
-  order: 1;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  font-size: 17px;
-  background: rgba(255, 255, 255, .2);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, .45);
-  backdrop-filter: blur(2px);
-}
-
-.dir-toolbar {
-  border: 1px solid #e3e9e5;
-  border-radius: 12px;
-  background: #fff;
-  padding: 10px;
-  box-shadow: none;
-}
-
-.dir-state {
-  border-radius: 14px;
-}
-
-.dir-search input {
-  background: hsl(calc(var(--theme-hue) - 3) 14.3% 97.3%);
-  border-color: transparent;
-}
-
-.dir-search input:focus {
-  background: #fff;
-}
-
-.dir-result-line {
-  border: 1px dashed #e3e9e5;
-  border-radius: 10px;
-  padding: 8px 12px;
-  background: #fbfcfb;
-}
-
-.dir-selected-bar {
-  border-color: hsl(calc(var(--theme-hue) - 6) 25.5% 81.6%) !important;
-  background: hsl(calc(var(--theme-hue) - 15) 29.4% 93.3%) !important;
-}
-
-.ud-mono {
-  font-family: var(--font-number);
-  font-size: 11.5px;
-}
-
-@media (max-width: 1100px) {
-  .dir-tabs {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 680px) {
-  .dir-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .dir-head {
     align-items: stretch;
     flex-direction: column;
   }
-}
 
-@media (min-width: 992px) {
-  .d-lg-none.dir-icon-btn {
-    display: none;
+  .dir-sheet {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    border: 0;
   }
-}
 
-/* ==========================================================================
-   PRO REDESIGN OVERRIDES — popup / offcanvas / pagination (page design match)
+  .dir-dialog {
+    width: calc(100vw - 24px);
+  }
 
-   FIX applied here: these used to be scoped under `.dir-page .dir-dialog`,
-   `.dir-page .dir-sheet`, `.dir-page .dir-avatar…`, and
-   `.dir-page .dir-pagination-shell .dir-table-foot`. The dialog and sheet are rendered
-   OUTSIDE .dir-page in the template (they're fixed overlays placed after </main> on
-   purpose), and there is no .dir-pagination-shell wrapper in the markup at all — so none
-   of those selectors could ever match, and this whole block was dead CSS. The `.dir-page`
-   prefix is dropped below (the tab rules didn't need it either, since .dir-tab only
-   exists inside .dir-page, but removing it there is harmless) and `.dir-pagination-shell`
-   is dropped in favour of `.dir-table-foot` directly, which is the element that actually
-   exists.
-   ========================================================================== */
+  .dir-dialog-foot .dir-btn {
+    flex: 1;
+  }
 
-/* ---- 1. Filter cards: gray overlay mela, number bold big, content white ---- */
-.dir-tabs {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-  border: 0;
-  background: none;
-  padding: 0;
-}
+  .dir-kv-row {
+    flex-direction: column;
+    gap: 2px;
+  }
 
-.dir-tab {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  min-width: 0;
-  padding: 14px 16px;
-  border: 0;
-  border-radius: 14px;
-  background: #334155;
-  color: #fff;
-  cursor: pointer;
-  box-shadow: none;
-}
+  .dir-kv-row dd {
+    text-align: left;
+  }
 
-/* KEELA: background image layer */
-.dir-tab::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background: #334155;
-}
+  .dir-table-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
-/* MELLA: GRAY overlay — image-ku mela, content white-la mela show aagum */
-.dir-tab::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: rgba(45,55,72,.90);
-}
+  .dir-pager {
+    justify-content: center;
+  }
 
-.dir-tab[data-tab="all"]::before,
-.dir-tab[data-tab="active"]::before {
-  background: #065f46;
-}
-.dir-tab[data-tab="invited"]::before {
-  background: #0c4a6e;
-}
-.dir-tab[data-tab="suspended"]::before {
-  background: #78350f;
-}
-.dir-tab[data-tab="draft"]::before {
-  background: #334155;
-}
-
-/* .dir-tab:hover { transform: translateY(-2px); } */
-.dir-tab-active {
-  background: #334155;
-  border: 0;
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-  box-shadow: none;
-}
-
-/* Number — BOLD + BIG */
-.dir-tab-num {
-  order: 2;
-  display: block;
-  font-size: 34px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -.02em;
-  color: #fff;
-  text-shadow: 0 2px 10px rgba(0,0,0,.55);
-  font-variant-numeric: tabular-nums;
-}
-.dir-tab-active .dir-tab-num { color: #fff; }
-.dir-tab-label {
-  order: 3;
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .07em;
-  color: rgba(255,255,255,.94);
-  text-shadow: 0 1px 4px rgba(0,0,0,.4);
-}
-.dir-tab .dir-tab-ico {
-  order: 1;
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 11px;
-  font-size: 18px;
-  background: rgba(255,255,255,.20);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,.45);
-}
-
-/* ---- 2. Letter avatar — different colour per first letter ---- */
-.dir-avatar {
-  color: #fff;
-  box-shadow: none;
-}
-
-.dir-avatar.dir-av-0 { background: hsl(calc(var(--theme-hue) - 1) 39% 30.2%); outline-color: hsl(calc(var(--theme-hue) - 6) 25.5% 81.6%); }
-.dir-avatar.dir-av-1 { background: #35617f; outline-color: #c3d9e8; }
-.dir-avatar.dir-av-2 { background: #6d4fc2; outline-color: #d4cdea; }
-.dir-avatar.dir-av-3 { background: #a5402a; outline-color: #f0cec2; }
-.dir-avatar.dir-av-4 { background: #a3660c; outline-color: #f0dcb2; }
-.dir-avatar.dir-av-5 { background: #0e7490; outline-color: #bfe6f1; }
-.dir-avatar.dir-av-6 { background: #4d5f6b; outline-color: #cfd9de; }
-.dir-avatar.dir-av-7 { background: #334155; outline-color: #c6d0da; }
-
-/* ---- 3. Popup dialog (suspend / reactivate / delete / invite) ---- */
-.dir-backdrop { background: hsl(calc(var(--theme-hue) + 7) 20% 11.8% / .55); backdrop-filter: blur(2px); }
-.dir-dialog {
-  width: 460px;
-  border: 1px solid hsl(calc(var(--theme-hue) - 16) 13.7% 90%);
-  border-radius: 18px;
-  box-shadow: none;
-  padding: 0;
-  overflow: hidden;
-  animation: dir-pop-in .18s ease;
-}
-.dir-dialog > * { padding-left: 26px; padding-right: 26px; }
-.dir-dialog > :first-child { padding-top: 26px; }
-.dir-dialog > :last-child { padding-bottom: 26px; }
-.dir-dialog-icon {
-  width: 50px; height: 50px;
-  border-radius: 14px;
-  margin-bottom: 16px;
-}
-.dir-dialog h5 { font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
-.dir-dialog-desc { font-size: 13.5px; }
-
-/* ---- 4. Offcanvas sheet (view profile / edit) ---- */
-.dir-sheet {
-  width: 460px;
-  border-left: 1px solid hsl(calc(var(--theme-hue) - 16) 13.7% 90%);
-  box-shadow: none;
-  animation: dir-slide-in .22s ease;
-}
-.dir-sheet-head {
-  background: hsl(calc(var(--theme-hue) - 13) 25% 95.3%);
-  border-bottom: 1px solid hsl(calc(var(--theme-hue) - 16) 13.7% 90%);
-  padding: 20px 24px 16px;
-}
-.dir-sheet-body { padding: 20px 24px 26px; }
-.dir-sheet-name { font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
-.dir-field { background: hsl(calc(var(--theme-hue) - 3) 16.7% 97.6%); border: 1px solid hsl(calc(var(--theme-hue) - 21) 16.1% 93.9%); border-radius: 12px;     padding: 12px;}
-.dir-kv { background: hsl(calc(var(--theme-hue) - 3) 16.7% 97.6%); border: 1px solid hsl(calc(var(--theme-hue) - 21) 16.1% 93.9%); border-radius: 10px; }
-.dir-avatar-lg { width: 60px; height: 60px; font-size: 18px; }
-
-/* ---- 5. Pagination — page design match (card + dir tokens).
-   The footer element IS .dir-table-foot directly — no wrapper class needed. ---- */
-.dir-table-foot {
-  background: #fff;
-  border: 1px solid hsl(calc(var(--theme-hue) - 16) 13.7% 90%);
-  border-radius: 12px;
-  box-shadow: none;
-  padding: 12px 18px;
-  margin-top: 12px;
-}
-.dir-page-size {
-  background: hsl(calc(var(--theme-hue) - 13) 25% 95.3%);
-  border-color: transparent;
-  border-radius: 9px;
-  font-weight: 600;
-  padding: 7px 10px;
-}
-.dir-page-size:focus { background: #fff; border-color: hsl(calc(var(--theme-hue) - 9) 17.4% 42.7%); box-shadow: none; outline: none; }
-.dir-pager { gap: 6px; }
-.dir-pager-btn {
-  min-width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  font-size: 13px;
-  box-shadow: none;
-}
-.dir-pager-btn:hover:not(:disabled) {
-  border-color: hsl(calc(var(--theme-hue) - 11) 18.6% 71.6%);
-  color: hsl(calc(var(--theme-hue) - 9) 28% 19.6%);
-  background: hsl(calc(var(--theme-hue) - 13) 25% 95.3%);
-  transform: translateY(-1px);
-}
-.dir-pager-current,
-.dir-pager-current:hover {
-  background: hsl(var(--theme-hue) 27.9% 26.7%);
-  border-color: hsl(var(--theme-hue) 27.9% 26.7%);
-  color: #fff;
-  box-shadow: none;
-}
-
-@media (max-width: 1100px) {
-  .dir-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (max-width: 680px) {
-  .dir-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dir-tab-num { font-size: 28px; }
-  .dir-sheet { width: 100%; }
-  .dir-dialog { width: calc(100vw - 32px); }
-  .dir-table-foot { flex-direction: column; align-items: stretch; }
-  .dir-pager { justify-content: center; }
-}
-/* ==========================================================================
-   STATUS FILTERS — underline tabs, not cards (final layer; wins over every earlier
-   .dir-tabs/.dir-tab block above by source order).
-   The five status filters went through bordered "card" tiles more than once - by request that card
-   look is gone entirely: no fill, no border, no radius. A row of plain labels on a shared hairline,
-   the active one picked out by its own underline and the theme's ink/primary, is the premium version
-   of the same five filters.
-   ========================================================================== */
-.dir-tabs {
-  display: flex !important;
-  align-items: stretch !important;
-  gap: 0 !important;
-  grid-template-columns: none !important;
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 1px solid var(--theme-border, #e5e8ec) !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
-  margin: 0 0 20px !important;
-  overflow-x: auto;
-  box-shadow: none !important;
-}
-.dir-tab {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 8px !important;
-  flex: none !important;
-  padding: 12px 18px 12px 4px !important;
-  margin-right: 8px !important;
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 2px solid transparent !important;
-  border-radius: 0 !important;
-  color: var(--theme-muted, #64716c) !important;
-  box-shadow: none !important;
-  outline: 0;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color .15s ease, border-color .15s ease;
-}
-.dir-tab::before,
-.dir-tab::after,
-.dir-tab[data-tab]::before {
-  content: none !important;
-  display: none !important;
-}
-.dir-tab-ico {
-  display: inline-flex !important;
-  background: transparent !important;
-  border: 0 !important;
-  color: inherit !important;
-  font-size: 16px !important;
-  width: auto !important;
-  height: auto !important;
-}
-.dir-tab-ico i { font-size: 16px !important; }
-.dir-tab-num {
-  color: inherit !important;
-  font-size: 15px !important;
-  font-weight: 700 !important;
-  text-shadow: none !important;
-}
-.dir-tab-label {
-  color: inherit !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  text-shadow: none !important;
-}
-.dir-tab:hover {
-  color: var(--theme-primary, #375c4c) !important;
-  border-bottom-color: color-mix(in srgb, var(--theme-primary, #375c4c) 35%, transparent) !important;
-}
-.dir-tab-active,
-.dir-tab.dir-tab-active {
-  background: transparent !important;
-  border-bottom-color: var(--theme-primary, #375c4c) !important;
-  color: var(--theme-primary, #375c4c) !important;
-  outline: 0 !important;
-}
-.dir-tab-active .dir-tab-num,
-.dir-tab-active .dir-tab-label,
-.dir-tab-active .dir-tab-ico {
-  color: inherit !important;
-}
-@media (max-width: 680px) {
-  .dir-tab-num { font-size: 14px !important; }
+  .dir-tab-num {
+    font-size: 14px;
+  }
 }

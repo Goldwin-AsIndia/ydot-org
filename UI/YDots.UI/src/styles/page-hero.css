@@ -1,0 +1,290 @@
+/* =================================================================================================
+   Page hero - the card header shared by the platform screens (Organisations, Create an organisation,
+   Business unit). Each component lists this file in its styleUrls, so the rules are scoped to it.
+
+     <section class="od-hero">
+       <div class="od-hero-top">
+         <div class="od-hero-id">
+           <span class="od-icon">…static glyph + five slices…</span>
+           <div class="od-hero-text"> eyebrow / title / sub </div>
+         </div>
+         actions (optional)
+       </div>
+       <div class="od-stats"> counters (optional) </div>
+     </section>
+
+   THE ICON rebuilds itself when the header is hovered: one plain copy of the glyph (.od-icon-static)
+   plus five clipped slices that drop in from above - base, both walls, middle, top - and only exist
+   on screen for that 1.6s, because permanently stacked clipped copies of a thin line icon leave faint
+   seams. Before and after, only the clean glyph shows.
+
+   Colours are its own variables with theme fallbacks, so a screen needs no variables of its own.
+   Sizes on span/p/a/button carry !important: the theme customiser forces a base size on those.
+   ================================================================================================= */
+.od-hero {
+  --od-brand: var(--pe-primary, var(--theme-primary, #2c4a3d));
+  --od-ink: #16202a;
+  --od-ink-2: #3c4854;
+  --od-muted: #6b7682;
+  --od-faint: #9aa3ad;
+  --od-line: #e7e9ec;
+  --od-line-2: #eff1f3;
+  --od-well: #f7f8f9;
+  --od-good: #1f8a52;
+  --od-warn: #b26b0e;
+  --od-warn-soft: #fdf3e3;
+  --od-info: #6a4fc2;
+  --od-error: #c0392b;
+
+  position: relative;
+  margin-bottom: 20px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--od-line);
+  border-radius: 18px;
+  animation: od-rise .45s cubic-bezier(.2, .7, .2, 1) both;
+}
+.od-hero-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 28px;
+}
+/* The slim accent pill on the left of the title block - the same as every other header. */
+.od-hero-top::after {
+  content: '';
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 12px;
+  width: 2px;
+  border-radius: 99px;
+  background: var(--od-brand);
+}
+.od-hero-id { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.od-hero-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.od-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  width: fit-content;
+  font-family: var(--font-heading);
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--od-brand);
+  text-decoration: none;
+}
+a.od-eyebrow i { font-size: 15px !important; transition: transform .2s ease; }
+a.od-eyebrow:hover i { transform: translateX(-3px); }
+.od-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 2.1vw, 30px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -.01em;
+  color: var(--od-ink);
+}
+.od-sub { margin: 0; max-width: 64ch; font-size: 13.5px !important; line-height: 1.5 !important; color: var(--od-ink-2); }
+
+.od-btn-create {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: var(--od-brand);
+  color: #fff !important;
+  font-family: var(--font-heading);
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color .15s ease, transform .2s ease, box-shadow .2s ease;
+}
+.od-btn-create i { font-size: 17px !important; line-height: 1; }
+.od-btn-create:hover {
+  background: color-mix(in srgb, var(--od-brand) 86%, #000);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px -12px var(--od-brand);
+}
+.od-btn-create:focus-visible { outline: 2px solid var(--od-brand); outline-offset: 2px; }
+
+/* ---- The animated icon ---- */
+.od-icon {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  color: var(--od-brand);
+}
+/* !important: a global reset pins the bare <i>'s font-size with its own !important. */
+.od-icon-static,
+.od-icon-part { font-size: 56px !important; line-height: 1; }
+.od-icon-part {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+.od-icon-part--base       { clip-path: inset(75% 0 0 0); }
+.od-icon-part--side-left  { clip-path: inset(50% 50% 25% 0); }
+.od-icon-part--side-right { clip-path: inset(50% 0 25% 50%); }
+.od-icon-part--mid        { clip-path: inset(25% 0 50% 0); }
+.od-icon-part--top        { clip-path: inset(0 0 75% 0); }
+.od-hero:hover .od-icon-static { animation: od-icon-handoff 1.6s both; }
+.od-hero:hover .od-icon-part--base { animation: od-icon-fall-base 1.6s cubic-bezier(.34, 1.56, .64, 1) both; }
+.od-hero:hover .od-icon-part--side-left,
+.od-hero:hover .od-icon-part--side-right { animation: od-icon-fall-sides 1.6s cubic-bezier(.34, 1.56, .64, 1) both; }
+.od-hero:hover .od-icon-part--mid { animation: od-icon-fall-mid 1.6s cubic-bezier(.34, 1.56, .64, 1) both; }
+.od-hero:hover .od-icon-part--top { animation: od-icon-fall-top 1.6s cubic-bezier(.34, 1.56, .64, 1) both; }
+
+@keyframes od-icon-handoff {
+  0% { opacity: 1; }
+  1% { opacity: 0; animation-timing-function: steps(1, jump-end); }
+  95% { opacity: 0; animation-timing-function: steps(1, jump-end); }
+  96% { opacity: 1; }
+  100% { opacity: 1; }
+}
+@keyframes od-icon-fall-base {
+  0% { opacity: 0; transform: translateY(-60px); }
+  27% { opacity: 1; transform: translateY(8px); }
+  34% { opacity: 1; transform: translateY(0); }
+  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
+  96% { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+@keyframes od-icon-fall-sides {
+  0% { opacity: 0; transform: translateY(-60px); }
+  19% { opacity: 0; transform: translateY(-60px); animation-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
+  47% { opacity: 1; transform: translateY(8px); }
+  53% { opacity: 1; transform: translateY(0); }
+  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
+  96% { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+@keyframes od-icon-fall-mid {
+  0% { opacity: 0; transform: translateY(-60px); }
+  41% { opacity: 0; transform: translateY(-60px); animation-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
+  66% { opacity: 1; transform: translateY(8px); }
+  72% { opacity: 1; transform: translateY(0); }
+  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
+  96% { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+@keyframes od-icon-fall-top {
+  0% { opacity: 0; transform: translateY(-60px); }
+  59% { opacity: 0; transform: translateY(-60px); animation-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
+  89% { opacity: 1; transform: translateY(8px); }
+  94% { opacity: 1; transform: translateY(0); }
+  95% { opacity: 1; transform: translateY(0); animation-timing-function: steps(1, jump-end); }
+  96% { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+/* ---- The counters strip along the foot ---- */
+.od-stats {
+  display: grid;
+  /* One row of equal columns, however many counters a screen has. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  border-top: 1px solid var(--od-line-2);
+  background: color-mix(in srgb, var(--od-well) 70%, transparent);
+}
+.od-stat {
+  --st: var(--od-ink);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 14px 24px;
+  border: 0;
+  border-left: 1px solid var(--od-line-2);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+}
+.od-stat:first-child { border-left: 0; }
+.od-stat.is-good  { --st: var(--od-good); }
+.od-stat.is-warn  { --st: var(--od-warn); }
+.od-stat.is-info  { --st: var(--od-info); }
+.od-stat.is-error { --st: var(--od-error); }
+.od-stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-heading);
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--od-faint);
+}
+.od-stat-label i { font-size: 15px !important; line-height: 1; color: var(--st); }
+.od-stat-value {
+  font-family: var(--font-number);
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  color: var(--st);
+}
+.od-stat-value small { margin-left: 4px; font-size: 13px !important; font-weight: 500 !important; color: var(--od-faint); }
+.od-stat-cap { font-size: 12px !important; color: var(--od-muted); }
+.od-stat.is-toggle { cursor: pointer; transition: background-color .15s ease; }
+.od-stat.is-toggle:hover { background: #fff; }
+.od-stat.is-toggle.is-on { background: var(--od-warn-soft); box-shadow: inset 0 -3px 0 var(--od-warn); }
+.od-stat.is-toggle:focus-visible { outline: 2px solid var(--od-warn); outline-offset: -2px; }
+
+@keyframes od-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 1199.98px) {
+  .od-stats { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .od-stat:nth-child(3n + 1) { border-left: 0; }
+  .od-stat:nth-child(n + 4) { border-top: 1px solid var(--od-line-2); }
+}
+@media (max-width: 767.98px) {
+  .od-hero-top { flex-direction: column; align-items: flex-start; padding: 20px 18px; }
+  .od-hero-top::after { left: 7px; }
+  .od-btn-create { width: 100%; justify-content: center; }
+  .od-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .od-stat { padding: 12px 18px; border-top: 1px solid var(--od-line-2); border-left: 1px solid var(--od-line-2); }
+  .od-stat:nth-child(-n + 2) { border-top: 0; }
+  .od-stat:nth-child(odd) { border-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .od-hero { animation: none; }
+  .od-hero:hover .od-icon-static { animation: none; }
+  .od-hero:hover .od-icon-part { animation: none; opacity: 0; }
+}
+
+/* Each counter: its icon on the left, vertically centred against the label, number and caption, which
+   stack beside it; the pair sits in the middle of the cell. */
+.od-stat {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: left !important;
+}
+.od-stat-icon {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--st);
+}
+.od-stat-icon i { font-size: 26px !important; line-height: 1; }
+.od-stat-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+

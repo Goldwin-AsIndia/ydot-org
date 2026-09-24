@@ -1,604 +1,548 @@
 <main class="app-wrapper">
 <div class="page-wrapper">
   <div class="container-fluid px-4 py-3">
+  <div class="ux-page">
 
-    <!-- Loading State -->
+    <!-- ============ LOADING ============ -->
     @if (loading()) {
-      <div class="text-center py-5">
-        <div class="spinner-border text-primary mb-3" role="status" style="width: 2.5rem; height: 2.5rem;">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="text-muted">Loading user profile...</p>
+      <div class="ux-card ux-state">
+        <div class="ux-tile ux-tile--lg"><i class="ri-loader-4-line up-spin" aria-hidden="true"></i></div>
+        <div class="ux-state-title">Loading user profile…</div>
       </div>
     }
 
-    <!-- Error State -->
+    <!-- ============ ERROR ============ -->
     @if (loadError() && !loading()) {
-      <div class="empty-state">
-        <div class="empty-state-icon"><i class="ri-error-warning-line"></i></div>
-        <h5 class="fw-bold">Failed to load</h5>
-        <p class="text-muted mb-3">The user profile couldn't be retrieved. Try again.</p>
-        <button class="btn btn-primary" (click)="retry()"><i class="ri-refresh-line me-1"></i> Retry</button>
+      <div class="ux-card ux-state">
+        <div class="ux-tile ux-tile--lg ux-tile--danger"><i class="ri-error-warning-line" aria-hidden="true"></i></div>
+        <div class="ux-state-title">Failed to load</div>
+        <div class="ux-state-sub">The user profile couldn't be retrieved. Try again.</div>
+        <button type="button" class="up-btn up-btn--primary" (click)="retry()"><i class="ri-refresh-line" aria-hidden="true"></i> Retry</button>
       </div>
     }
 
     @if (!loading() && !loadError()) {
 
-      <!-- Profile Header -->
-      <app-page-header screen="user-profile" [title]="data()?.displayName || 'User profile'" [subtitle]="headerSummary()">
-        <span meta class="ph-chip">{{ data()?.accountStatus || 'Unknown' }}</span>
-        @if (data()?.accountCategory) {
-          <span meta class="ph-chip">{{ data()?.accountCategory }}</span>
-        }
-        <ng-container actions>
-          <button class="ph-btn ph-btn--ghost" (click)="openThemeSettings()">
-            <i class="ri-settings-3-line me-1"></i> Settings
-          </button>
-          <button class="ph-btn ph-btn--primary" (click)="openEditModal()">
-            <i class="ri-edit-line me-1"></i> Edit profile
-          </button>
-        </ng-container>
-      </app-page-header>
-
-      <!-- Tabs -->
-      <div class="tab-bar-underline mb-4">
-        <button class="tab-underline-item" [class.active]="activeTab()==='profile'" (click)="setTab('profile')">Profile</button>
-        <button class="tab-underline-item" [class.active]="activeTab()==='access'" (click)="setTab('access')">
-          Access <span class="tab-count-pill">{{ accessCount() }}</span>
-        </button>
-        <button class="tab-underline-item" [class.active]="activeTab()==='security'" (click)="setTab('security')">Security</button>
-      </div>
-
-      <!-- Two column layout -->
-      <div class="row g-3">
-        <!-- Main content (tab-dependent) -->
-        <div class="col-lg-8">
-
-          @if (activeTab() === 'profile') {
-            <!-- Identity Card -->
-            <div class="detail-card mb-3">
-              <div class="detail-card-header">
-                <h6 class="mb-0 fw-bold">Identity</h6>
-                <!-- <a href="javascript:void(0)" class="edit-link" (click)="openEditModal()"><i class="ri-pencil-line me-1"></i>Edit</a> -->
-              </div>
-              <div class="detail-card-body">
-                <div class="row g-4">
-                  <!-- EVERY VALUE FALLS BACK TO AN EM DASH. A blank cell looks like a screen
-                       that failed to load; "—" says the field is genuinely empty. -->
-                  <div class="col-md-4"><small class="info-label d-block">Reference</small><span class="info-value">{{ data()?.reference || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Employee ID</small><span class="info-value">{{ data()?.employeeId || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Username</small><span class="info-value">{{ data()?.username || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Email</small><span class="info-value">{{ data()?.loginEmail || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Mobile</small><span class="info-value">{{ data()?.mobileNumber || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Language and timezone</small><span class="info-value">{{ localeSummary() }}</span></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Organisation Card -->
-            <div class="detail-card mb-3">
-              <div class="detail-card-header">
-                <h6 class="mb-0 fw-bold">Organisation</h6>
-                <!-- <a href="javascript:void(0)" class="edit-link" (click)="openEditModal()"><i class="ri-pencil-line me-1"></i>Edit</a> -->
-              </div>
-              <div class="detail-card-body">
-                <div class="row g-4">
-                  <!--
-                    WORK LOCATION IS GONE. There is no such column on a user and there never was,
-                    so the component wrote it as an empty string and this row rendered blank for
-                    every account on the platform — which reads as data that failed to load
-                    rather than as a field nobody collects.
-
-                    JOINED NOW READS `joinedOn` rather than the access-window start, which is a
-                    different fact and only coincidentally the same date. The access window keeps
-                    its own two rows on the Access tab.
-                  -->
-                  <div class="col-md-4"><small class="info-label d-block">Organisation unit</small><span class="info-value">{{ data()?.organisationUnit || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Department</small><span class="info-value">{{ data()?.department || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Designation</small><span class="info-value">{{ data()?.designation || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Manager</small><span class="info-value">{{ data()?.manager || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Joined</small><span class="info-value">{{ data()?.joinedOn || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Data scopes</small><span class="info-value">{{ data()?.dataScopes || '—' }}</span></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Assigned Roles Card — search + sort + chevron rows + pagination,
-                 matching the "Recently Viewed Projects" card in the reference. -->
-            <div class="detail-card">
-              <div class="detail-card-header">
-                <h6 class="mb-0 fw-bold">Assigned roles</h6>
-                <a href="javascript:void(0)" class="edit-link" (click)="setTab('access')">View all <i class="ri-arrow-right-line ms-1"></i></a>
-              </div>
-              <div class="search-sort-bar">
-                <!-- BOUND NOW. It was a bare <input>: you could type a role name into it and
-                     the table below never changed, which reads as "no such role here". -->
-                <div class="search-sort-input">
-                  <i class="ri-search-line"></i>
-                  <input type="text" placeholder="Search assigned roles..."
-                         [ngModel]="roleSearch()" (ngModelChange)="roleSearch.set($event)">
-                </div>
-   <div class="position-relative">
-                  <button type="button" class="sort-btn" (click)="toggleSortMenu()">
-                    <i class="ri-sort-desc"></i> Sort by
-                    <i class="ri-arrow-down-s-line ms-1"></i>
-                  </button>
-                  @if (showSortMenu()) {
-                    <div class="sort-menu">
-                      <button type="button" class="sort-menu-item" [class.active]="sortField()==='role'" (click)="setSort('role')">
-                        Role @if (sortField()==='role') { <i class="ri-arrow-{{ sortAsc() ? 'up' : 'down' }}-line"></i> }
-                      </button>
-                      <button type="button" class="sort-menu-item" [class.active]="sortField()==='scope'" (click)="setSort('scope')">
-                        Scope @if (sortField()==='scope') { <i class="ri-arrow-{{ sortAsc() ? 'up' : 'down' }}-line"></i> }
-                      </button>
-                      <button type="button" class="sort-menu-item" [class.active]="sortField()==='term'" (click)="setSort('term')">
-                        Term @if (sortField()==='term') { <i class="ri-arrow-{{ sortAsc() ? 'up' : 'down' }}-line"></i> }
-                      </button>
-                    </div>
-                  }
-                </div>              </div>
-              <div class="table-responsive">
-                <table class="table role-table mb-0">
-                  <thead>
-                    <tr><th>Role</th><th>Scope</th><th>Permissions</th><th>Term</th></tr>
-                  </thead>
-                  <tbody>
-                    <!--
-                      `visibleRoleAssignments`, not the raw list. Both tables iterated
-                      `roleAssignments()`, so the Sort by menu ticked a field and changed nothing
-                      — `sortedRoleAssignments` was computed and never read by anything.
-
-                      The trailing chevron is gone with the empty column it sat in: it made every
-                      row look like it opened something, and no row has ever opened anything.
-                    -->
-                    @for (r of visibleRoleAssignments(); track r.role) {
-                      <tr>
-                        <td>
-                          <div class="fw-semibold">{{ r.role }}</div>
-                          <div class="text-muted small">{{ r.assignmentType }}</div>
-                        </td>
-                        <td>{{ r.scope }}</td>
-                        <td>{{ r.permissions }}</td>
-                        <td>
-                          @if (r.term === 'Permanent') {
-                            <span class="pill-soft pill-green"><span class="dot"></span> {{ r.term }}</span>
-                          } @else {
-                            <span class="pill-soft pill-amber"><span class="dot"></span> {{ r.term }}</span>
-                          }
-                        </td>
-                      </tr>
-                    }
-                    @empty {
-                      <tr><td colspan="4" class="text-center text-muted py-3">
-                        @if (roleSearch().trim()) {
-                          No assigned role matches “{{ roleSearch() }}”.
-                        } @else {
-                          No role assignments found.
-                        }
-                      </td></tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-              <!--
-                THE ARROWS ARE GONE. They were two icons with no handler, on a table that is not
-                paged — a person's roles arrive in one payload and all of them are on screen.
-                The count now describes what is actually rendered, so it stops disagreeing with
-                the table the moment somebody searches.
-              -->
-              <div class="pagination-footer-simple">
-                <span>
-                  Showing {{ visibleRoleAssignments().length }} of
-                  {{ roleAssignments().length }}
-                  {{ roleAssignments().length === 1 ? 'role' : 'roles' }}
+      <!-- ============ HEADER ============ -->
+      <!-- Page header built here (not app-page-header) so the status / type icons can sit right
+           beside the name and their tooltips are not clipped by the shared header's meta row. -->
+      <header class="ux-head">
+        <div class="ux-head-text">
+          <div class="ux-head-line">
+            <h1 class="ux-head-title">{{ data()?.displayName || 'User profile' }}</h1>
+            <div class="ux-head-marks">
+              <!-- Status + category as icon marks with a hover / focus tooltip, not text chips -->
+              <span class="ux-mark"
+                    [class.is-ok]="(data()?.accountStatus || '').toLowerCase() === 'active'"
+                    [class.is-warn]="['suspended', 'invited', 'pending', 'locked'].includes((data()?.accountStatus || '').toLowerCase())"
+                    [class.is-danger]="['deactivated', 'withdrawn', 'expired', 'disabled', 'terminated'].includes((data()?.accountStatus || '').toLowerCase())"
+                    tabindex="0" role="img" [attr.aria-label]="'Account status: ' + (data()?.accountStatus || 'Unknown')">
+                <i [class]="(data()?.accountStatus || '').toLowerCase() === 'active' ? 'ri-verified-badge-fill'
+                          : (data()?.accountStatus || '').toLowerCase() === 'suspended' ? 'ri-pause-circle-fill'
+                          : (data()?.accountStatus || '').toLowerCase() === 'locked' ? 'ri-lock-fill'
+                          : (data()?.accountStatus || '').toLowerCase() === 'invited' || (data()?.accountStatus || '').toLowerCase() === 'pending' ? 'ri-mail-send-fill'
+                          : ['deactivated', 'withdrawn', 'expired', 'disabled', 'terminated'].includes((data()?.accountStatus || '').toLowerCase()) ? 'ri-close-circle-fill'
+                          : 'ri-question-fill'" aria-hidden="true"></i>
+                <span class="ux-tip" aria-hidden="true"><span class="ux-tip-k">Account status</span><span class="ux-tip-v">{{ data()?.accountStatus || 'Unknown' }}</span></span>
+              </span>
+              @if (data()?.accountCategory) {
+                <span class="ux-mark ux-mark--cat" tabindex="0" role="img" [attr.aria-label]="'Account type: ' + data()?.accountCategory">
+                  <i [class]="(data()?.accountCategory || '').toLowerCase().includes('employee') ? 'ri-user-3-fill'
+                            : (data()?.accountCategory || '').toLowerCase().includes('contract') ? 'ri-briefcase-4-fill'
+                            : (data()?.accountCategory || '').toLowerCase().includes('service') || (data()?.accountCategory || '').toLowerCase().includes('system') ? 'ri-robot-2-fill'
+                            : (data()?.accountCategory || '').toLowerCase().includes('guest') || (data()?.accountCategory || '').toLowerCase().includes('external') ? 'ri-user-shared-fill'
+                            : 'ri-price-tag-3-fill'" aria-hidden="true"></i>
+                  <span class="ux-tip" aria-hidden="true"><span class="ux-tip-k">Account type</span><span class="ux-tip-v">{{ data()?.accountCategory }}</span></span>
                 </span>
-              </div>
-            </div>
-          }
-
-          @if (activeTab() === 'access') {
-            <div class="detail-card">
-              <div class="detail-card-header">
-                <h6 class="mb-0 fw-bold">Role Assignments & Data Scopes</h6>
-              </div>
-              <div class="search-sort-bar">
-                <!-- BOUND NOW. It was a bare <input>: you could type a role name into it and
-                     the table below never changed, which reads as "no such role here". -->
-                <div class="search-sort-input">
-                  <i class="ri-search-line"></i>
-                  <input type="text" placeholder="Search assigned roles..."
-                         [ngModel]="roleSearch()" (ngModelChange)="roleSearch.set($event)">
-                </div>
-   <div class="position-relative">
-                  <button type="button" class="sort-btn" (click)="toggleSortMenu()">
-                    <i class="ri-sort-desc"></i> Sort by
-                    <i class="ri-arrow-down-s-line ms-1"></i>
-                  </button>
-                  @if (showSortMenu()) {
-                    <div class="sort-menu">
-                      <button type="button" class="sort-menu-item" [class.active]="sortField()==='role'" (click)="setSort('role')">
-                        Role @if (sortField()==='role') { <i class="ri-arrow-{{ sortAsc() ? 'up' : 'down' }}-line"></i> }
-                      </button>
-                      <button type="button" class="sort-menu-item" [class.active]="sortField()==='scope'" (click)="setSort('scope')">
-                        Scope @if (sortField()==='scope') { <i class="ri-arrow-{{ sortAsc() ? 'up' : 'down' }}-line"></i> }
-                      </button>
-                      <button type="button" class="sort-menu-item" [class.active]="sortField()==='term'" (click)="setSort('term')">
-                        Term @if (sortField()==='term') { <i class="ri-arrow-{{ sortAsc() ? 'up' : 'down' }}-line"></i> }
-                      </button>
-                    </div>
-                  }
-                </div>              </div>
-              <div class="table-responsive">
-                <table class="table role-table mb-0">
-                  <thead>
-                    <tr><th>Role</th><th>Scope</th><th>Permissions</th><th>Term</th></tr>
-                  </thead>
-                  <tbody>
-                    <!--
-                      `visibleRoleAssignments`, not the raw list. Both tables iterated
-                      `roleAssignments()`, so the Sort by menu ticked a field and changed nothing
-                      — `sortedRoleAssignments` was computed and never read by anything.
-
-                      The trailing chevron is gone with the empty column it sat in: it made every
-                      row look like it opened something, and no row has ever opened anything.
-                    -->
-                    @for (r of visibleRoleAssignments(); track r.role) {
-                      <tr>
-                        <td>
-                          <div class="fw-semibold">{{ r.role }}</div>
-                          <div class="text-muted small">{{ r.assignmentType }}</div>
-                        </td>
-                        <td>{{ r.scope }}</td>
-                        <td>{{ r.permissions }}</td>
-                        <td>
-                          @if (r.term === 'Permanent') {
-                            <span class="pill-soft pill-green"><span class="dot"></span> {{ r.term }}</span>
-                          } @else {
-                            <span class="pill-soft pill-amber"><span class="dot"></span> {{ r.term }}</span>
-                          }
-                        </td>
-                      </tr>
-                    }
-                    @empty {
-                      <tr><td colspan="4" class="text-center text-muted py-3">
-                        @if (roleSearch().trim()) {
-                          No assigned role matches “{{ roleSearch() }}”.
-                        } @else {
-                          No role assignments found.
-                        }
-                      </td></tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-              <!--
-                THE ARROWS ARE GONE. They were two icons with no handler, on a table that is not
-                paged — a person's roles arrive in one payload and all of them are on screen.
-                The count now describes what is actually rendered, so it stops disagreeing with
-                the table the moment somebody searches.
-              -->
-              <div class="pagination-footer-simple">
-                <span>
-                  Showing {{ visibleRoleAssignments().length }} of
-                  {{ roleAssignments().length }}
-                  {{ roleAssignments().length === 1 ? 'role' : 'roles' }}
-                </span>
-              </div>
-              <div class="detail-card-body border-top">
-                <div class="row g-4">
-                  <!--
-                    "REVIEW DUE" WAS ALWAYS BLANK. There is no review date on a user: a
-                    certification is a record on the review campaign, and this page has no
-                    endpoint for one. The row now points at the screen that does hold the
-                    answer instead of showing an empty date beside two real ones.
-                  -->
-                  <div class="col-md-4"><small class="info-label d-block">Access start</small><span class="info-value">{{ data()?.accessStartDate || '—' }}</span></div>
-                  <div class="col-md-4"><small class="info-label d-block">Access end</small><span class="info-value">{{ data()?.accessEndDate || 'No end date' }}</span></div>
-                  <div class="col-md-4">
-                    <small class="info-label d-block">Access review</small>
-                    <span class="info-value text-muted">Not tracked on the account</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          }
-
-          @if (activeTab() === 'security') {
-            @if (securityUnavailable()) {
-              <div class="detail-card">
-                <div class="detail-card-body text-center py-5">
-                  <div class="empty-state-icon"><i class="ri-lock-line"></i></div>
-                  <h6 class="fw-bold mb-1">Security details unavailable</h6>
-                  <p class="text-muted mb-0 small">
-                    You do not have permission to see the sessions, devices and sign-in history
-                    for this account.
-                  </p>
-                </div>
-              </div>
-            } @else {
-            <div class="detail-card">
-              <div class="detail-card-header">
-                <h6 class="mb-0 fw-bold">Security Overview</h6>
-                @if (securityLoading()) {
-                  <span class="spinner-border spinner-border-sm text-muted"></span>
-                }
-              </div>
-              <div class="detail-card-body">
-                <!--
-                  THESE FOUR USED TO READ 0, 0, 0 FOR EVERY ACCOUNT. The component set them to
-                  zero with a comment saying the security tab would fill them in, and then never
-                  made the call. They now come from the security endpoint.
-                -->
-                <div class="row g-4">
-                  <div class="col-md-6"><small class="info-label d-block">MFA status</small><span class="status-pill" [class.status-active]="mfaEnabled()" [class.status-neutral]="!mfaEnabled()"><span class="dot"></span> {{ getMfaStatusLabel() }}</span></div>
-                  <div class="col-md-6"><small class="info-label d-block">Active sessions</small><span class="info-value">{{ activeSessionCount() }}</span></div>
-                  <div class="col-md-6"><small class="info-label d-block">Trusted devices</small><span class="info-value">{{ trustedDeviceCount() }}</span></div>
-                  <div class="col-md-6">
-                    <small class="info-label d-block">Failed sign-ins (24h / 7d)</small>
-                    <span class="info-value">
-                      {{ failedSignIns().last24Hours }} / {{ failedSignIns().last7Days }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- MFA Methods Card -->
-            <div class="detail-card mt-4">
-              <div class="detail-card-header">
-                <h6 class="mb-0 fw-bold">Authentication Methods</h6>
-                <span class="tab-count-pill">{{ mfaMethods().length }} enrolled</span>
-              </div>
-              <div class="detail-card-body">
-                <div class="mfa-methods-list">
-                  <!--
-                    WHAT IS ACTUALLY ENROLLED, not a catalogue of what could be. This list used
-                    to be five fixed rows written in the component with `enabled: false` on every
-                    one, so it showed the same five "Not set up" methods for everybody — including
-                    one ("Biometric") the server does not support at all.
-                  -->
-                  @for (method of mfaMethods(); track method.id) {
-                    <div class="mfa-method-row" [class.enabled]="method.enabled">
-                      <div class="mfa-method-icon" [class.tone-success]="method.enabled" [class.tone-muted]="!method.enabled">
-                        <i class="{{ method.icon }}"></i>
-                      </div>
-                      <div class="mfa-method-info">
-                        <div class="mfa-method-name">{{ method.name }}</div>
-                        <div class="mfa-method-desc">{{ method.description }}</div>
-                      </div>
-                      <!--
-                        Remove, not a switch. A factor cannot be turned back on from here:
-                        enrolling one needs a code from the device it lives on, which is the
-                        entire point of it. A toggle promised something nobody can deliver.
-
-                        AND ONLY ON YOUR OWN ACCOUNT — there is no per-method endpoint for
-                        somebody else's, so removing one of theirs means Reset two-step
-                        verification, which clears the lot together.
-                      -->
-                      <div class="mfa-method-toggle">
-                        @if (isSelf()) {
-                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                [disabled]="submitting()"
-                                (click)="removeMfaMethod(method.id)">
-                          <i class="ri-delete-bin-line me-1"></i> Remove
-                        </button>
-                        } @else {
-                        <span class="badge bg-secondary-subtle text-secondary">
-                          {{ method.enabled ? 'Active' : 'Pending' }}
-                        </span>
-                        }
-                      </div>
-                    </div>
-                  }
-                  @empty {
-                    <p class="text-muted small mb-0">
-                      No second factor is set up. Anybody with the password can sign in to this
-                      account.
-                    </p>
-                  }
-                </div>
-              </div>
-            </div>
-            }
-          }
-
-    
-        </div>
-
-        <!-- Persistent Sidebar — notification-style rows: tinted icon,
-             bold title, muted sub-line, trailing status on the right. -->
-        <div class="col-lg-4">
-          <!--
-            EVERY ROW HERE IS READ FROM THE SECURITY ENDPOINT. It used to be four hardcoded
-            lines: "Multi-factor / Authenticator app / Enrolled" for accounts with no factor,
-            "Password / Changed 68 days ago / Rotate soon" for one changed this morning, and an
-            access review "due in 19 days, last certified 12 February 2026" for somebody who has
-            never been reviewed. A panel that states a security position gets acted on, so it
-            has to be reporting one.
-          -->
-          <div class="detail-card mb-3">
-            <div class="detail-card-header">
-              <h6 class="mb-0 fw-bold">Security</h6>
-              @if (securityLoading()) {
-                <span class="spinner-border spinner-border-sm text-muted"></span>
-              }
-            </div>
-            <div class="detail-card-body">
-              @if (securityUnavailable()) {
-                <p class="text-muted small mb-0">
-                  <i class="ri-lock-line me-1"></i>
-                  The security details for this account are not available to you.
-                </p>
-              } @else {
-                @if (lockout().locked) {
-                  <div class="alert alert-danger py-2 small">
-                    <i class="ri-lock-line me-1"></i>
-                    <strong>Locked out.</strong> {{ lockout().reason }}
-                    @if (lockout().until) { <span> Until {{ lockout().until }}.</span> }
-                  </div>
-                }
-                <div class="notif-row">
-                  <div class="notif-avatar" [class]="'notif-avatar ' + mfaSummary().iconTone">
-                    <i class="ri-shield-check-line"></i>
-                  </div>
-                  <div class="notif-body">
-                    <div class="notif-title">Multi-factor</div>
-                    <div class="notif-sub">{{ mfaSummary().detail }}</div>
-                  </div>
-                  <span class="notif-trailing" [class]="'notif-trailing ' + mfaSummary().tone">
-                    {{ mfaSummary().status }}
-                  </span>
-                </div>
-                <div class="notif-row">
-                  <div class="notif-avatar" [class]="'notif-avatar ' + passwordSummary().iconTone">
-                    <i class="ri-lock-password-line"></i>
-                  </div>
-                  <div class="notif-body">
-                    <div class="notif-title">Password</div>
-                    <div class="notif-sub">{{ passwordSummary().detail }}</div>
-                  </div>
-                  <span class="notif-trailing" [class]="'notif-trailing ' + passwordSummary().tone">
-                    {{ passwordSummary().trailing }}
-                  </span>
-                </div>
-                <div class="notif-row">
-                  <div class="notif-avatar tone-accent"><i class="ri-login-circle-line"></i></div>
-                  <div class="notif-body">
-                    <div class="notif-title">Last sign-in</div>
-                    <div class="notif-sub">{{ data()?.lastSignIn }}</div>
-                  </div>
-                </div>
-                <div class="notif-row border-0">
-                  <div class="notif-avatar tone-muted"><i class="ri-computer-line"></i></div>
-                  <div class="notif-body">
-                    <div class="notif-title">Active sessions</div>
-                    <div class="notif-sub">
-                      @if (activeSessionCount() === 0) {
-                        Not signed in anywhere
-                      } @else {
-                        On {{ activeSessionDevices() }}
-                        {{ activeSessionDevices() === 1 ? 'device' : 'devices' }}
-                      }
-                    </div>
-                  </div>
-                  <span class="notif-trailing text-muted">{{ activeSessionCount() }}</span>
-                </div>
               }
             </div>
           </div>
-
-          <!--
-            THE ACCESS REVIEW CARD IS GONE, along with the screen it pointed at.
-
-            It never carried data of its own: access review is a governance record rather than a
-            field on a person, so the card existed only to link to the review campaign screen.
-            That screen has been withdrawn from the product - the API and its records remain, so
-            restoring it is a route and a component away - and a card whose only content was a
-            link to a route that no longer resolves would bounce the operator to the dashboard
-            and read as this profile being broken.
-          -->
+          @if (headerSummary()) { <div class="ux-head-sub">{{ headerSummary() }}</div> }
         </div>
-      </div>
+        <div class="ux-head-actions">
+          <button type="button" class="up-btn up-btn--line" (click)="openThemeSettings()">
+            <i class="ri-settings-3-line" aria-hidden="true"></i> Settings
+          </button>
+          <button type="button" class="up-btn up-btn--primary" (click)="openEditModal()">
+            <i class="ri-edit-line" aria-hidden="true"></i> Edit profile
+          </button>
+        </div>
+      </header>
+
+      <!-- ============ KPI CARDS — text left, line icon right; hover fills the card and draws the icon ============ -->
+      <section class="ux-kpis" aria-label="At a glance">
+        <div class="ux-kcard" tabindex="0">
+          <div class="ux-kcard-text">
+            <div class="ux-label">Roles</div>
+            <div class="ux-kcard-v" style="font-weight: 800 !important;">{{ roleAssignments().length }}</div>
+            <div class="ux-kcard-sub">{{ roleAssignments().length === 1 ? 'Role assigned' : 'Roles assigned' }}</div>
+          </div>
+          <div class="ux-kcard-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path pathLength="1" d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path pathLength="1" d="M6.38 18.91a6 6 0 0 1 11.25 0"/><circle pathLength="1" cx="12" cy="11" r="4"/></svg>
+          </div>
+        </div>
+
+        <div class="ux-kcard" tabindex="0" [class.is-ok]="mfaEnabled()" [class.is-warn]="!mfaEnabled()">
+          <div class="ux-kcard-text">
+            <div class="ux-label">Two-step</div>
+            <div class="ux-kcard-v ux-kcard-v--text">{{ getMfaStatusLabel() }}</div>
+            <div class="ux-kcard-sub">{{ mfaEnabled() ? 'Second factor required' : 'Password only' }}</div>
+          </div>
+          <div class="ux-kcard-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path pathLength="1" d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path pathLength="1" d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path pathLength="1" d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path pathLength="1" d="M2 12a10 10 0 0 1 18-6"/><path pathLength="1" d="M21.8 16c.2-2 .13-5.35 0-6"/><path pathLength="1" d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path pathLength="1" d="M8.65 22c.21-.66.45-1.32.57-2"/><path pathLength="1" d="M9 6.8a6 6 0 0 1 9 5.2v2"/></svg>
+          </div>
+        </div>
+
+        <div class="ux-kcard" tabindex="0">
+          <div class="ux-kcard-text">
+            <div class="ux-label">Active sessions</div>
+            <div class="ux-kcard-v" style="font-weight: 800 !important;">{{ activeSessionCount() }}</div>
+            <div class="ux-kcard-sub">
+              @if (activeSessionCount() === 0) { Not signed in anywhere }
+              @else { On {{ activeSessionDevices() }} {{ activeSessionDevices() === 1 ? 'device' : 'devices' }} }
+            </div>
+          </div>
+          <div class="ux-kcard-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect pathLength="1" x="2" y="3" width="20" height="14" rx="2"/><path pathLength="1" d="M8 21h8"/><path pathLength="1" d="M12 17v4"/></svg>
+          </div>
+        </div>
+
+        <div class="ux-kcard" tabindex="0">
+          <div class="ux-kcard-text">
+            <div class="ux-label">Last sign-in</div>
+            <div class="ux-kcard-v ux-kcard-v--text">{{ data()?.lastSignIn || '—' }}</div>
+            <div class="ux-kcard-sub">Most recent successful sign-in</div>
+          </div>
+          <div class="ux-kcard-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path pathLength="1" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path pathLength="1" d="M10 17l5-5-5-5"/><path pathLength="1" d="M15 12H3"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TABS (segmented) ============ -->
+      <nav class="ux-tabs" role="tablist" aria-label="Profile sections">
+        <button type="button" role="tab" class="ux-tab" [class.is-active]="activeTab()==='profile'"
+                [attr.aria-selected]="activeTab()==='profile'" (click)="setTab('profile')">
+          <i class="ri-user-3-line" aria-hidden="true"></i> Profile
+        </button>
+        <button type="button" role="tab" class="ux-tab" [class.is-active]="activeTab()==='access'"
+                [attr.aria-selected]="activeTab()==='access'" (click)="setTab('access')">
+          <i class="ri-key-2-line" aria-hidden="true"></i> Access <span class="ux-tab-n">{{ accessCount() }}</span>
+        </button>
+        <button type="button" role="tab" class="ux-tab" [class.is-active]="activeTab()==='security'"
+                [attr.aria-selected]="activeTab()==='security'" (click)="setTab('security')">
+          <i class="ri-shield-check-line" aria-hidden="true"></i> Security
+        </button>
+      </nav>
+
+      <!-- =====================================================================================
+           PROFILE TAB — three cards in a row, then the roles
+           ===================================================================================== -->
+      @if (activeTab() === 'profile') {
+        <div class="ux-trio">
+          <!-- Identity -->
+          <section class="ux-card">
+            <header class="ux-card-head"><div class="ux-card-title">Identity</div></header>
+            <ul class="ux-rows">
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-hashtag" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Reference</div><div class="ux-value">{{ data()?.reference || '—' }}</div></div></li>
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-profile-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Employee ID</div><div class="ux-value">{{ data()?.employeeId || '—' }}</div></div></li>
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-at-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Username</div><div class="ux-value">{{ data()?.username || '—' }}</div></div></li>
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-mail-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Email</div><div class="ux-value">{{ data()?.loginEmail || '—' }}</div></div></li>
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-phone-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Mobile</div><div class="ux-value">{{ data()?.mobileNumber || '—' }}</div></div></li>
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-global-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Language and timezone</div><div class="ux-value">{{ localeSummary() || '—' }}</div></div></li>
+            </ul>
+          </section>
+
+          <!-- Organisation -->
+          <section class="ux-card">
+            <header class="ux-card-head"><div class="ux-card-title">Organisation</div></header>
+            <ul class="ux-rows">
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-building-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Organisation unit</div><div class="ux-value">{{ data()?.organisationUnit || '—' }}</div></div></li>
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-team-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Department</div><div class="ux-value">{{ data()?.department || '—' }}</div></div></li>
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-briefcase-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Designation</div><div class="ux-value">{{ data()?.designation || '—' }}</div></div></li>
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-user-star-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Manager</div><div class="ux-value">{{ data()?.manager || '—' }}</div></div></li>
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-calendar-check-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Joined</div><div class="ux-value">{{ data()?.joinedOn || '—' }}</div></div></li>
+              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-focus-3-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Data scopes</div><div class="ux-value">{{ data()?.dataScopes || '—' }}</div></div></li>
+            </ul>
+          </section>
+
+          <!-- Security summary -->
+          <section class="ux-card">
+            <header class="ux-card-head">
+              <div class="ux-card-title">Security</div>
+              @if (securityLoading()) { <i class="ri-loader-4-line up-spin ux-faint" aria-hidden="true"></i> }
+            </header>
+            @if (securityUnavailable()) {
+              <div class="ux-note"><i class="ri-lock-line" aria-hidden="true"></i> The security details for this account are not available to you.</div>
+            } @else {
+              @if (lockout().locked) {
+                <div class="ux-alert"><i class="ri-lock-line" aria-hidden="true"></i><div><b>Locked out.</b> {{ lockout().reason }}@if (lockout().until) { Until {{ lockout().until }}. }</div></div>
+              }
+              <ul class="ux-rows">
+                <li class="ux-row">
+                  <div [class]="'ux-tile ' + mfaSummary().iconTone"><i class="ri-shield-check-line" aria-hidden="true"></i></div>
+                  <div class="ux-row-body"><div class="ux-value">Multi-factor</div><div class="ux-sub">{{ mfaSummary().detail }}</div></div>
+                  <span [class]="'ux-trail ' + mfaSummary().tone">{{ mfaSummary().status }}</span>
+                </li>
+                <li class="ux-row">
+                  <div [class]="'ux-tile ' + passwordSummary().iconTone"><i class="ri-lock-password-line" aria-hidden="true"></i></div>
+                  <div class="ux-row-body"><div class="ux-value">Password</div><div class="ux-sub">{{ passwordSummary().detail }}</div></div>
+                  <span [class]="'ux-trail ' + passwordSummary().tone">{{ passwordSummary().trailing }}</span>
+                </li>
+                <li class="ux-row">
+                  <div class="ux-tile"><i class="ri-computer-line" aria-hidden="true"></i></div>
+                  <div class="ux-row-body">
+                    <div class="ux-value">Active sessions</div>
+                    <div class="ux-sub">
+                      @if (activeSessionCount() === 0) { Not signed in anywhere }
+                      @else { On {{ activeSessionDevices() }} {{ activeSessionDevices() === 1 ? 'device' : 'devices' }} }
+                    </div>
+                  </div>
+                  <span class="ux-trail">{{ activeSessionCount() }}</span>
+                </li>
+              </ul>
+            }
+          </section>
+        </div>
+
+        <section class="ux-card">
+          <header class="ux-card-head ux-card-head--tools">
+            <div class="ux-card-title">Assigned roles <span class="ux-badge">{{ roleAssignments().length }}</span></div>
+            <div class="ux-tools">
+              <div class="ux-search">
+                <i class="ri-search-line" aria-hidden="true"></i>
+                <input type="text" placeholder="Search assigned roles…" aria-label="Search assigned roles"
+                       [ngModel]="roleSearch()" (ngModelChange)="roleSearch.set($event)">
+              </div>
+              <div class="ux-dd" [class.is-open]="showSortMenu()">
+                <button type="button" class="ux-dd-trigger" (click)="toggleSortMenu()" aria-haspopup="menu" [attr.aria-expanded]="showSortMenu()">
+                  <i class="ri-sort-desc" aria-hidden="true"></i>
+                  <span class="ux-dd-label">{{ sortField() === 'scope' ? 'Scope' : sortField() === 'term' ? 'Term' : 'Role' }}</span>
+                  <i class="ri-arrow-down-s-line ux-dd-chev" aria-hidden="true"></i>
+                </button>
+                @if (showSortMenu()) {
+                  <div class="ux-dd-menu" role="menu">
+                    <div class="ux-dd-head">Sort by</div>
+                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='role'" [attr.aria-checked]="sortField()==='role'" (click)="setSort('role')">
+                      <i class="ri-shield-user-line" aria-hidden="true"></i><span class="ux-dd-text">Role</span>
+                      @if (sortField()==='role') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
+                    </button>
+                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='scope'" [attr.aria-checked]="sortField()==='scope'" (click)="setSort('scope')">
+                      <i class="ri-focus-3-line" aria-hidden="true"></i><span class="ux-dd-text">Scope</span>
+                      @if (sortField()==='scope') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
+                    </button>
+                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='term'" [attr.aria-checked]="sortField()==='term'" (click)="setSort('term')">
+                      <i class="ri-time-line" aria-hidden="true"></i><span class="ux-dd-text">Term</span>
+                      @if (sortField()==='term') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+          </header>
+
+          <ul class="ux-roles">
+            @for (r of visibleRoleAssignments(); track r.role) {
+              <li class="ux-role">
+                <div class="ux-tile"><i class="ri-shield-user-line" aria-hidden="true"></i></div>
+                <div class="ux-role-main">
+                  <div class="ux-value">{{ r.role }}</div>
+                  <div class="ux-sub">{{ r.assignmentType }}</div>
+                </div>
+                <div class="ux-role-meta">
+                  <span class="ux-meta"><i class="ri-focus-3-line" aria-hidden="true"></i>{{ r.scope }}</span>
+                  <span class="ux-meta"><i class="ri-key-2-line" aria-hidden="true"></i>{{ r.permissions }} permissions</span>
+                </div>
+                <span class="ux-status" [class.is-ok]="r.term === 'Permanent'" [class.is-warn]="r.term !== 'Permanent'">{{ r.term }}</span>
+              </li>
+            } @empty {
+              <li class="ux-empty-row">
+                <div class="ux-tile ux-tile--muted"><i class="ri-search-line" aria-hidden="true"></i></div>
+                <div class="ux-sub">
+                  @if (roleSearch().trim()) { No assigned role matches “{{ roleSearch() }}”. } @else { No role assignments found. }
+                </div>
+              </li>
+            }
+          </ul>
+          <footer class="ux-card-foot">
+            Showing {{ visibleRoleAssignments().length }} of {{ roleAssignments().length }} {{ roleAssignments().length === 1 ? 'role' : 'roles' }}
+            @if (activeTab() === 'profile') {
+              <button type="button" class="ux-link" (click)="setTab('access')">View all <i class="ri-arrow-right-line" aria-hidden="true"></i></button>
+            }
+          </footer>
+        </section>
+      }
+
+      <!-- =====================================================================================
+           ACCESS TAB
+           ===================================================================================== -->
+      @if (activeTab() === 'access') {
+        <div class="ux-window">
+          <div class="ux-card ux-kpi">
+            <div class="ux-tile"><i class="ri-calendar-event-line" aria-hidden="true"></i></div>
+            <div class="ux-kpi-body"><div class="ux-label">Access start</div><div class="ux-kpi-v ux-kpi-v--text">{{ data()?.accessStartDate || '—' }}</div></div>
+          </div>
+          <div class="ux-card ux-kpi">
+            <div class="ux-tile"><i class="ri-calendar-close-line" aria-hidden="true"></i></div>
+            <div class="ux-kpi-body"><div class="ux-label">Access end</div><div class="ux-kpi-v ux-kpi-v--text">{{ data()?.accessEndDate || 'No end date' }}</div></div>
+          </div>
+          <div class="ux-card ux-kpi">
+            <div class="ux-tile ux-tile--muted"><i class="ri-file-search-line" aria-hidden="true"></i></div>
+            <div class="ux-kpi-body"><div class="ux-label">Access review</div><div class="ux-kpi-v ux-kpi-v--text ux-muted">Not tracked on the account</div></div>
+          </div>
+        </div>
+
+        <section class="ux-card">
+          <header class="ux-card-head ux-card-head--tools">
+            <div class="ux-card-title">Assigned roles <span class="ux-badge">{{ roleAssignments().length }}</span></div>
+            <div class="ux-tools">
+              <div class="ux-search">
+                <i class="ri-search-line" aria-hidden="true"></i>
+                <input type="text" placeholder="Search assigned roles…" aria-label="Search assigned roles"
+                       [ngModel]="roleSearch()" (ngModelChange)="roleSearch.set($event)">
+              </div>
+              <div class="ux-dd" [class.is-open]="showSortMenu()">
+                <button type="button" class="ux-dd-trigger" (click)="toggleSortMenu()" aria-haspopup="menu" [attr.aria-expanded]="showSortMenu()">
+                  <i class="ri-sort-desc" aria-hidden="true"></i>
+                  <span class="ux-dd-label">{{ sortField() === 'scope' ? 'Scope' : sortField() === 'term' ? 'Term' : 'Role' }}</span>
+                  <i class="ri-arrow-down-s-line ux-dd-chev" aria-hidden="true"></i>
+                </button>
+                @if (showSortMenu()) {
+                  <div class="ux-dd-menu" role="menu">
+                    <div class="ux-dd-head">Sort by</div>
+                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='role'" [attr.aria-checked]="sortField()==='role'" (click)="setSort('role')">
+                      <i class="ri-shield-user-line" aria-hidden="true"></i><span class="ux-dd-text">Role</span>
+                      @if (sortField()==='role') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
+                    </button>
+                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='scope'" [attr.aria-checked]="sortField()==='scope'" (click)="setSort('scope')">
+                      <i class="ri-focus-3-line" aria-hidden="true"></i><span class="ux-dd-text">Scope</span>
+                      @if (sortField()==='scope') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
+                    </button>
+                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='term'" [attr.aria-checked]="sortField()==='term'" (click)="setSort('term')">
+                      <i class="ri-time-line" aria-hidden="true"></i><span class="ux-dd-text">Term</span>
+                      @if (sortField()==='term') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+          </header>
+
+          <ul class="ux-roles">
+            @for (r of visibleRoleAssignments(); track r.role) {
+              <li class="ux-role">
+                <div class="ux-tile"><i class="ri-shield-user-line" aria-hidden="true"></i></div>
+                <div class="ux-role-main">
+                  <div class="ux-value">{{ r.role }}</div>
+                  <div class="ux-sub">{{ r.assignmentType }}</div>
+                </div>
+                <div class="ux-role-meta">
+                  <span class="ux-meta"><i class="ri-focus-3-line" aria-hidden="true"></i>{{ r.scope }}</span>
+                  <span class="ux-meta"><i class="ri-key-2-line" aria-hidden="true"></i>{{ r.permissions }} permissions</span>
+                </div>
+                <span class="ux-status" [class.is-ok]="r.term === 'Permanent'" [class.is-warn]="r.term !== 'Permanent'">{{ r.term }}</span>
+              </li>
+            } @empty {
+              <li class="ux-empty-row">
+                <div class="ux-tile ux-tile--muted"><i class="ri-search-line" aria-hidden="true"></i></div>
+                <div class="ux-sub">
+                  @if (roleSearch().trim()) { No assigned role matches “{{ roleSearch() }}”. } @else { No role assignments found. }
+                </div>
+              </li>
+            }
+          </ul>
+          <footer class="ux-card-foot">
+            Showing {{ visibleRoleAssignments().length }} of {{ roleAssignments().length }} {{ roleAssignments().length === 1 ? 'role' : 'roles' }}
+            @if (activeTab() === 'profile') {
+              <button type="button" class="ux-link" (click)="setTab('access')">View all <i class="ri-arrow-right-line" aria-hidden="true"></i></button>
+            }
+          </footer>
+        </section>
+      }
+
+      <!-- =====================================================================================
+           SECURITY TAB
+           ===================================================================================== -->
+      @if (activeTab() === 'security') {
+        @if (securityUnavailable()) {
+          <div class="ux-card ux-state">
+            <div class="ux-tile ux-tile--lg ux-tile--muted"><i class="ri-lock-line" aria-hidden="true"></i></div>
+            <div class="ux-state-title">Security details unavailable</div>
+            <div class="ux-state-sub">You do not have permission to see the sessions, devices and sign-in history for this account.</div>
+          </div>
+        } @else {
+          <div class="ux-duo">
+            <section class="ux-card">
+              <header class="ux-card-head">
+                <div class="ux-card-title">Authentication methods</div>
+                <span class="ux-badge">{{ mfaMethods().length }} enrolled</span>
+              </header>
+              <ul class="ux-rows">
+                @for (method of mfaMethods(); track method.id) {
+                  <li class="ux-row">
+                    <div class="ux-tile" [class.ux-tile--ok]="method.enabled" [class.ux-tile--muted]="!method.enabled"><i class="{{ method.icon }}" aria-hidden="true"></i></div>
+                    <div class="ux-row-body">
+                      <div class="ux-value">{{ method.name }}</div>
+                      <div class="ux-sub">{{ method.description }}</div>
+                    </div>
+                    @if (isSelf()) {
+                      <button type="button" class="up-btn up-btn--danger-line up-btn--sm" [disabled]="submitting()" (click)="removeMfaMethod(method.id)">
+                        <i class="ri-delete-bin-line" aria-hidden="true"></i> Remove
+                      </button>
+                    } @else {
+                      <span class="ux-status" [class.is-ok]="method.enabled" [class.is-warn]="!method.enabled">{{ method.enabled ? 'Active' : 'Pending' }}</span>
+                    }
+                  </li>
+                } @empty {
+                  <li class="ux-empty-row">
+                    <div class="ux-tile ux-tile--warn"><i class="ri-error-warning-line" aria-hidden="true"></i></div>
+                    <div class="ux-sub">No second factor is set up. Anybody with the password can sign in to this account.</div>
+                  </li>
+                }
+              </ul>
+            </section>
+
+            <section class="ux-card">
+              <header class="ux-card-head">
+                <div class="ux-card-title">Sign-in activity</div>
+                @if (securityLoading()) { <i class="ri-loader-4-line up-spin ux-faint" aria-hidden="true"></i> }
+              </header>
+              <div class="ux-mini">
+                <div class="ux-mini-item"><div class="ux-label">Trusted devices</div><div class="ux-mini-v">{{ trustedDeviceCount() }}</div></div>
+                <div class="ux-mini-item"><div class="ux-label">Failed · 24h</div><div class="ux-mini-v">{{ failedSignIns().last24Hours }}</div></div>
+                <div class="ux-mini-item"><div class="ux-label">Failed · 7d</div><div class="ux-mini-v">{{ failedSignIns().last7Days }}</div></div>
+              </div>
+              @if (securityUnavailable()) {
+              <div class="ux-note"><i class="ri-lock-line" aria-hidden="true"></i> The security details for this account are not available to you.</div>
+            } @else {
+              @if (lockout().locked) {
+                <div class="ux-alert"><i class="ri-lock-line" aria-hidden="true"></i><div><b>Locked out.</b> {{ lockout().reason }}@if (lockout().until) { Until {{ lockout().until }}. }</div></div>
+              }
+              <ul class="ux-rows">
+                <li class="ux-row">
+                  <div [class]="'ux-tile ' + mfaSummary().iconTone"><i class="ri-shield-check-line" aria-hidden="true"></i></div>
+                  <div class="ux-row-body"><div class="ux-value">Multi-factor</div><div class="ux-sub">{{ mfaSummary().detail }}</div></div>
+                  <span [class]="'ux-trail ' + mfaSummary().tone">{{ mfaSummary().status }}</span>
+                </li>
+                <li class="ux-row">
+                  <div [class]="'ux-tile ' + passwordSummary().iconTone"><i class="ri-lock-password-line" aria-hidden="true"></i></div>
+                  <div class="ux-row-body"><div class="ux-value">Password</div><div class="ux-sub">{{ passwordSummary().detail }}</div></div>
+                  <span [class]="'ux-trail ' + passwordSummary().tone">{{ passwordSummary().trailing }}</span>
+                </li>
+                <li class="ux-row">
+                  <div class="ux-tile"><i class="ri-computer-line" aria-hidden="true"></i></div>
+                  <div class="ux-row-body">
+                    <div class="ux-value">Active sessions</div>
+                    <div class="ux-sub">
+                      @if (activeSessionCount() === 0) { Not signed in anywhere }
+                      @else { On {{ activeSessionDevices() }} {{ activeSessionDevices() === 1 ? 'device' : 'devices' }} }
+                    </div>
+                  </div>
+                  <span class="ux-trail">{{ activeSessionCount() }}</span>
+                </li>
+              </ul>
+            }
+            </section>
+          </div>
+        }
+      }
     }
   </div>
+  </div>
 
-  <!-- Edit Modal -->
+  <!-- ============ EDIT PROFILE — custom modal ============ -->
   @if (showEditModal()) {
-    <div class="modal d-block" tabindex="-1">
-      <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-          <div class="modal-header border-bottom" style="padding-bottom: 15px;">
-            <h5 class="modal-title fw-bold"><i class="ri-edit-line me-2 text-warning"></i>Edit Profile</h5>
-            <button type="button" class="btn-close" (click)="closeEditModal()"></button>
+    <div class="up-backdrop" (click)="closeEditModal()">
+      <div class="up-modal up-modal--lg" role="dialog" aria-modal="true" aria-labelledby="upEditTitle" (click)="$event.stopPropagation()">
+        <header class="up-modal-head">
+          <div>
+            <h3 class="up-modal-title" id="upEditTitle">Edit profile</h3>
+            <div class="up-modal-sub">{{ data()?.displayName }}</div>
           </div>
-          <div class="modal-body">
-            <!--
-              THREE FIELDS SAVE, AND THE DIALOG NOW ONLY OFFERS THOSE THREE.
+          <button type="button" class="up-x" aria-label="Close" (click)="closeEditModal()"><i class="ri-close-line" aria-hidden="true"></i></button>
+        </header>
 
-              It used to collect six. E-mail was never sent, because changing what somebody signs
-              in with has its own verified flow; Department and Manager could not be sent, because
-              the contract takes ids and these were free-text names. All three were accepted,
-              discarded, and answered with "The changes have been saved."
-            -->
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label class="form-label small fw-semibold">Display name <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" [ngModel]="editForm().displayName"
-                       (ngModelChange)="editForm.set({...editForm(), displayName: $event})">
-              </div>
-              <div class="col-md-6">
-                <label class="form-label small fw-semibold">Designation</label>
-                <input type="text" class="form-control" [ngModel]="editForm().designation"
-                       (ngModelChange)="editForm.set({...editForm(), designation: $event})">
-              </div>
-              <div class="col-md-3">
-                <label class="form-label small fw-semibold">Country code</label>
-                <input type="text" class="form-control" placeholder="+91"
+        <div class="up-modal-body">
+          <div class="up-form">
+            <div class="up-field">
+              <label class="up-lbl" for="upName">Display name <em class="up-req">*</em></label>
+              <input id="upName" type="text" class="up-input" [ngModel]="editForm().displayName"
+                     (ngModelChange)="editForm.set({...editForm(), displayName: $event})">
+            </div>
+            <div class="up-field">
+              <label class="up-lbl" for="upDesig">Designation</label>
+              <input id="upDesig" type="text" class="up-input" [ngModel]="editForm().designation"
+                     (ngModelChange)="editForm.set({...editForm(), designation: $event})">
+            </div>
+            <div class="up-field up-field--full">
+              <label class="up-lbl" for="upMobile">Mobile number</label>
+              <div class="up-phone">
+                <input type="text" class="up-phone-code" placeholder="+91" aria-label="Country code"
                        [ngModel]="editForm().mobileCountryCode"
                        (ngModelChange)="editForm.set({...editForm(), mobileCountryCode: $event})">
-              </div>
-              <div class="col-md-9">
-                <label class="form-label small fw-semibold">Mobile number</label>
-                <input type="text" class="form-control" [ngModel]="editForm().mobileNumber"
+                <input id="upMobile" type="text" class="up-phone-num" placeholder="Mobile number"
+                       [ngModel]="editForm().mobileNumber"
                        (ngModelChange)="editForm.set({...editForm(), mobileNumber: $event})">
-                <div class="form-text">The server validates the code and the number together.</div>
               </div>
-              <div class="col-12">
-                <label class="form-label small fw-semibold">Email</label>
-                <input type="email" class="form-control" [ngModel]="editForm().email" disabled>
-                <div class="form-text">
-                  <i class="ri-lock-line me-1"></i>
-                  This is what the account signs in with, so it changes through
-                  <a class="edit-link" (click)="viewLoginIdentifierChange()" role="button">
-                    Change sign-in identifier</a>, which verifies the new address first.
-                </div>
+              <div class="up-help">The server validates the code and the number together.</div>
+            </div>
+            <div class="up-field up-field--full">
+              <label class="up-lbl" for="upEmail">Email</label>
+              <div class="up-locked">
+                <i class="ri-lock-line" aria-hidden="true"></i>
+                <input id="upEmail" type="email" [ngModel]="editForm().email" disabled>
               </div>
-              <div class="col-12">
-                <p class="text-muted small mb-0">
-                  Department, manager and organisation unit are set from the organisation
-                  structure rather than here.
-                </p>
+              <div class="up-help">
+                This is what the account signs in with, so it changes through
+                <button type="button" class="up-inline-link" (click)="viewLoginIdentifierChange()">Change sign-in identifier</button>,
+                which verifies the new address first.
               </div>
             </div>
           </div>
-          <div class="modal-footer border-top mt-6" style="padding-top: 13px !important">
-            <button class="btn btn-light btn-sm " (click)="closeEditModal()">Cancel</button>
-            <button class="btn btn-primary btn-sm " (click)="saveProfile()" [disabled]="submitting()">
-              @if(submitting()){<span class="spinner-border spinner-border-sm me-1"></span>}<i class="ri-save-line me-1"></i> Save Changes
-            </button>
-          </div>
+          <div class="up-note">Department, manager and organisation unit are set from the organisation structure rather than here.</div>
         </div>
+
+        <footer class="up-modal-foot">
+          <button type="button" class="up-btn up-btn--line" (click)="closeEditModal()">Cancel</button>
+          <button type="button" class="up-btn up-btn--primary" (click)="saveProfile()" [disabled]="submitting()">
+            @if (submitting()) { <i class="ri-loader-4-line up-spin" aria-hidden="true"></i> Saving… } @else { Save changes }
+          </button>
+        </footer>
       </div>
     </div>
-    <div class="modal-backdrop fade show"></div>
   }
 
-  <!-- Suspend Modal -->
+  <!-- ============ SUSPEND — custom modal ============ -->
   @if (showSuspendModal()) {
-    <div class="modal d-block" tabindex="-1">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-          <div class="modal-header border-bottom" style="padding-bottom: 15px;">
-            <h5 class="modal-title fw-bold"><i class="ri-alert-line me-2 text-warning"></i>Suspend Account</h5>
-            <button type="button" class="btn-close" (click)="closeSuspendModal()"></button>
+    <div class="up-backdrop" (click)="closeSuspendModal()">
+      <div class="up-modal" role="dialog" aria-modal="true" aria-labelledby="upSuspendTitle" (click)="$event.stopPropagation()">
+        <header class="up-modal-head">
+          <div>
+            <h3 class="up-modal-title" id="upSuspendTitle">Suspend account</h3>
+            <div class="up-modal-sub">{{ data()?.displayName }}</div>
           </div>
-          <div class="modal-body">
-            <div class="alert alert-warning py-2"><i class="ri-information-line me-1"></i><small>This will revoke active sessions and prevent access.</small></div>
-            <label class="form-label small fw-semibold">Reason <span class="text-danger">*</span></label>
-            <textarea class="form-control" rows="3" placeholder="Enter reason..." [ngModel]="suspendReason()" (ngModelChange)="suspendReason.set($event)"></textarea>
+          <button type="button" class="up-x" aria-label="Close" (click)="closeSuspendModal()"><i class="ri-close-line" aria-hidden="true"></i></button>
+        </header>
+        <div class="up-modal-body">
+          <div class="up-alert up-alert--warn">
+            <i class="ri-information-line" aria-hidden="true"></i>
+            <div>This revokes active sessions and prevents access until the account is restored.</div>
           </div>
-          <div class="modal-footer border-top" style="padding-top: 18px;">
-            <button class="btn btn-light btn-sm" (click)="closeSuspendModal()">Cancel</button>
-            <button class="btn btn-warning btn-sm" (click)="confirmSuspend()" [disabled]="!suspendReason().trim()||submitting()">
-              @if(submitting()){<span class="spinner-border spinner-border-sm me-1"></span>}<i class="ri-pause-circle-line me-1"></i> Suspend
-            </button>
+          <div class="up-field">
+            <label class="up-lbl" for="upReason">Reason <em class="up-req">*</em></label>
+            <textarea id="upReason" class="up-input up-textarea" rows="3" placeholder="Why is this account being suspended?"
+                      [ngModel]="suspendReason()" (ngModelChange)="suspendReason.set($event)"></textarea>
           </div>
         </div>
+        <footer class="up-modal-foot">
+          <button type="button" class="up-btn up-btn--line" (click)="closeSuspendModal()">Cancel</button>
+          <button type="button" class="up-btn up-btn--warn" (click)="confirmSuspend()" [disabled]="!suspendReason().trim() || submitting()">
+            @if (submitting()) { <i class="ri-loader-4-line up-spin" aria-hidden="true"></i> Suspending… } @else { <i class="ri-pause-circle-line" aria-hidden="true"></i> Suspend }
+          </button>
+        </footer>
       </div>
     </div>
-    <div class="modal-backdrop fade show"></div>
   }
-
 
 </div>
 </main>

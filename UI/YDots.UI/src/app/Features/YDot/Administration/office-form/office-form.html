@@ -1,0 +1,299 @@
+<main class="app-wrapper">
+<div class="page-wrapper">
+  <div class="container-fluid py-6">
+
+    <!-- ---------------------------------------------------------------- Header -->
+    <section class="of-hero" aria-label="Office">
+      <div class="of-hero-top">
+        <div class="of-hero-text">
+          <a class="of-crumb" [routerLink]="listUrl">
+            <i class="ri-arrow-left-s-line"></i> Offices and regions
+          </a>
+          <h1 class="of-hero-title">{{ isNew() ? 'Add an office' : 'Edit ' + (form().name || 'office') }}</h1>
+          <p class="of-hero-sub">
+            @if (isNew()) {
+              Where people sit: a head office, a branch or a region. Only the name and code are required - the rest can follow.
+            } @else {
+              Changes apply as soon as they are saved. The code stays with the office wherever it is referenced.
+            }
+          </p>
+        </div>
+      </div>
+
+    </section>
+
+    @if (errorMessage()) {
+      <div class="of-alert">
+        <i class="ri-error-warning-line"></i>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="of-card of-state">
+        <i class="ri-loader-4-line of-spin"></i>
+        <span>Loading…</span>
+      </div>
+    } @else if (notFound()) {
+      <div class="of-card of-state">
+        <i class="ri-map-pin-line"></i>
+        <strong>This office could not be found</strong>
+        <span>It may have been removed. Go back to the list and pick it again.</span>
+        <button type="button" class="of-btn of-btn-primary" (click)="cancel()">Back to offices</button>
+      </div>
+    } @else {
+
+    <!-- Basics on the left; People & contact and Settings stacked on the right; Address along the
+         bottom at full width - so the cards fill the page with no empty column. -->
+    <div class="of-layout">
+      <div class="of-form">
+
+        <!-- 1. Basics -->
+        <section class="of-card of-area-basics" id="of-basics">
+          <header class="of-section-head">
+            <span class="of-step-no">1</span>
+            <div>
+              <h2>Basics</h2>
+              <p>What the office is called and where it sits in the structure.</p>
+            </div>
+          </header>
+
+          <div class="of-grid">
+            <div class="of-field of-span-2">
+              <label for="of-name">Name <em>*</em></label>
+              <input id="of-name" type="text" class="of-input" maxlength="200" placeholder="e.g. Chennai head office"
+                     [class.is-invalid]="(attempted() && !nameValid()) || fieldErrors()['name']"
+                     [ngModel]="form().name" (ngModelChange)="update('name', $event)">
+              @if (fieldErrors()['name']) { <span class="of-error">{{ fieldErrors()['name'] }}</span> }
+              @else if (attempted() && !nameValid()) { <span class="of-error">Give the office a name of at least two characters.</span> }
+            </div>
+
+            <div class="of-field">
+              <label for="of-code">Code <em>*</em></label>
+              <input id="of-code" type="text" class="of-input of-mono" maxlength="20" placeholder="e.g. CHN-HO"
+                     autocapitalize="characters" spellcheck="false"
+                     [class.is-invalid]="(attempted() && !codeValid()) || fieldErrors()['code']"
+                     [ngModel]="form().code" (ngModelChange)="update('code', $event.toUpperCase())">
+              @if (fieldErrors()['code']) { <span class="of-error">{{ fieldErrors()['code'] }}</span> }
+              @else if (attempted() && !codeValid()) { <span class="of-error">At least two characters.</span> }
+              @else { <span class="of-hint">Short and permanent. Unique inside this organisation.</span> }
+            </div>
+
+            <div class="of-field">
+              <label for="of-parent">Sits under</label>
+              <select id="of-parent" class="of-input" [ngModel]="form().parentId" (ngModelChange)="update('parentId', $event)">
+                <option value="">Top level</option>
+                @for (option of parentOptions(); track option.id) {
+                  <option [value]="option.id">{{ option.name }}</option>
+                }
+              </select>
+              @if (fieldErrors()['parentUnitId']) { <span class="of-error">{{ fieldErrors()['parentUnitId'] }}</span> }
+              @else { <span class="of-hint">Leave as top level for a head office or a region.</span> }
+            </div>
+
+            <div class="of-field of-span-2">
+              <label for="of-kind">Kind</label>
+              <input id="of-kind" type="text" class="of-input" maxlength="50" placeholder="Head office, branch, region…"
+                     [ngModel]="form().unitType" (ngModelChange)="update('unitType', $event)">
+              <div class="of-suggest" role="group" aria-label="Common kinds">
+                @for (kind of kindSuggestions; track kind) {
+                  <button type="button" class="of-suggest-opt" [class.is-on]="form().unitType === kind"
+                          (click)="update('unitType', kind)">{{ kind }}</button>
+                }
+              </div>
+            </div>
+
+            <div class="of-field of-span-2">
+              <label for="of-description">Description</label>
+              <textarea id="of-description" class="of-input" rows="3" maxlength="500"
+                        placeholder="Anything that helps people recognise this office."
+                        [ngModel]="form().description" (ngModelChange)="update('description', $event)"></textarea>
+              <span class="of-hint of-count">{{ form().description.length }} / 500</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. People & contact -->
+        <section class="of-card of-area-people" id="of-people">
+          <header class="of-section-head">
+            <span class="of-step-no">2</span>
+            <div>
+              <h2>People &amp; contact</h2>
+              <p>Who runs the office and how to reach it.</p>
+            </div>
+          </header>
+
+          <div class="of-grid">
+            <div class="of-field of-span-2">
+              <label for="of-manager">Manager</label>
+              <select id="of-manager" class="of-input" [ngModel]="form().managerUserId"
+                      (ngModelChange)="update('managerUserId', $event)">
+                <option value="">No manager yet</option>
+                @if (personMissing(form().managerUserId)) {
+                  <option [value]="form().managerUserId">{{ people.name(form().managerUserId) }}</option>
+                }
+                @for (person of people.assignable(); track person.reference) {
+                  <option [value]="person.reference">{{ person.name }}@if (person.context) { — {{ person.context }} }</option>
+                }
+              </select>
+              @if (people.loadError()) { <span class="of-error">{{ people.loadError() }}</span> }
+            </div>
+
+            <div class="of-field">
+              <label for="of-email">Contact e-mail</label>
+              <div class="of-affix">
+                <i class="ri-mail-line"></i>
+                <input id="of-email" type="email" class="of-input" maxlength="256" placeholder="office@example.org"
+                       [class.is-invalid]="!emailValid()"
+                       [ngModel]="form().contactEmail" (ngModelChange)="update('contactEmail', $event)">
+              </div>
+              @if (!emailValid()) { <span class="of-error">That doesn't look like an e-mail address.</span> }
+            </div>
+
+            <div class="of-field">
+              <label for="of-phone">Contact phone</label>
+              <div class="of-affix">
+                <i class="ri-phone-line"></i>
+                <input id="of-phone" type="tel" class="of-input" maxlength="30" placeholder="+91 98765 43210"
+                       [ngModel]="form().contactPhone" (ngModelChange)="update('contactPhone', $event)">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. Address - full width along the bottom -->
+        <section class="of-card of-area-address" id="of-address">
+          <header class="of-section-head">
+            <span class="of-step-no">4</span>
+            <div>
+              <h2>Address</h2>
+              <p>Country, state and city come from the same catalogue as every other address.</p>
+            </div>
+          </header>
+
+          <div class="of-grid of-grid-4">
+            <div class="of-field of-span-half">
+              <label for="of-address1">Address line 1</label>
+              <input id="of-address1" type="text" class="of-input" maxlength="200" placeholder="Building, street"
+                     [ngModel]="form().addressLine1" (ngModelChange)="update('addressLine1', $event)">
+            </div>
+            <div class="of-field of-span-half">
+              <label for="of-address2">Address line 2</label>
+              <input id="of-address2" type="text" class="of-input" maxlength="200" placeholder="Area, landmark (optional)"
+                     [ngModel]="form().addressLine2" (ngModelChange)="update('addressLine2', $event)">
+            </div>
+
+            <div class="of-field">
+              <label for="of-country">Country</label>
+              <select id="of-country" class="of-input" [ngModel]="form().country" (ngModelChange)="onCountryChange($event)">
+                <option value="">Select a country</option>
+                @if (form().country && !geo.countryNames().includes(form().country)) {
+                  <option [value]="form().country">{{ form().country }}</option>
+                }
+                @for (name of geo.countryNames(); track name) { <option [value]="name">{{ name }}</option> }
+              </select>
+            </div>
+
+            <div class="of-field">
+              <label for="of-state">State or province</label>
+              @if (geo.hasStates()) {
+                <select id="of-state" class="of-input" [ngModel]="form().state" (ngModelChange)="onStateChange($event)">
+                  <option value="">Select a state</option>
+                  @if (form().state && !geo.stateNames().includes(form().state)) {
+                    <option [value]="form().state">{{ form().state }}</option>
+                  }
+                  @for (name of geo.stateNames(); track name) { <option [value]="name">{{ name }}</option> }
+                </select>
+              } @else {
+                <input id="of-state" type="text" class="of-input" maxlength="100"
+                       [placeholder]="form().country ? 'State or province' : 'Pick a country first'"
+                       [ngModel]="form().state" (ngModelChange)="onStateChange($event)">
+              }
+            </div>
+
+            <div class="of-field">
+              <label for="of-city">City</label>
+              @if (geo.cityNames().length) {
+                <select id="of-city" class="of-input" [ngModel]="form().city" (ngModelChange)="update('city', $event)">
+                  <option value="">Select a city</option>
+                  @if (form().city && !geo.cityNames().includes(form().city)) {
+                    <option [value]="form().city">{{ form().city }}</option>
+                  }
+                  @for (name of geo.cityNames(); track name) { <option [value]="name">{{ name }}</option> }
+                </select>
+              } @else {
+                <input id="of-city" type="text" class="of-input" maxlength="100"
+                       [ngModel]="form().city" (ngModelChange)="update('city', $event)">
+              }
+            </div>
+
+            <div class="of-field">
+              <label for="of-postal">Postal code</label>
+              <input id="of-postal" type="text" class="of-input of-mono" maxlength="20"
+                     [ngModel]="form().postalCode" (ngModelChange)="update('postalCode', $event)">
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. Settings -->
+        <section class="of-card of-area-settings" id="of-settings">
+          <header class="of-section-head">
+            <span class="of-step-no">3</span>
+            <div>
+              <h2>Settings</h2>
+              <p>Local time, where it appears in lists and whether it is in use.</p>
+            </div>
+          </header>
+
+          <div class="of-grid">
+            <div class="of-field of-span-2">
+              <label for="of-timezone">Time zone</label>
+              <select id="of-timezone" class="of-input" [ngModel]="form().timeZone" (ngModelChange)="update('timeZone', $event)">
+                <option value="">Select a time zone</option>
+                @if (orphanTimeZone()) { <option [value]="orphanTimeZone()">{{ orphanTimeZone() }}</option> }
+                @for (zone of geo.timeZones(); track zone.id) { <option [value]="zone.ianaKey">{{ zone.name }}</option> }
+              </select>
+            </div>
+
+            <div class="of-field">
+              <label for="of-order">Display order</label>
+              <input id="of-order" type="number" class="of-input" min="0"
+                     [ngModel]="form().displayOrder" (ngModelChange)="update('displayOrder', +$event)">
+              <span class="of-hint">Lower numbers come first in lists.</span>
+            </div>
+
+            @if (!isNew()) {
+              <div class="of-field">
+                <label for="of-status">Status</label>
+                <select id="of-status" class="of-input" [ngModel]="form().status" (ngModelChange)="update('status', $event)">
+                  @for (option of statusOptions(); track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+                <span class="of-hint">Inactive hides it from the pickers but keeps its history.</span>
+              </div>
+            }
+          </div>
+        </section>
+      </div>
+
+      <!-- Actions at the foot of the page, after the last section. -->
+      <div class="of-actionbar">
+        <span class="of-actionbar-note"><i class="ri-information-line"></i> Only the name and code are required.</span>
+        <div class="of-actionbar-btns">
+          <button type="button" class="of-btn of-btn-ghost" (click)="cancel()">
+            <i class="ri-close-line"></i> Cancel
+          </button>
+          <button type="button" class="of-btn of-btn-primary" [disabled]="saving() || loading() || notFound()" (click)="save()">
+            @if (saving()) { <i class="ri-loader-4-line of-spin"></i> Saving… }
+            @else { <i class="ri-check-line"></i> {{ isNew() ? 'Add office' : 'Save changes' }} }
+          </button>
+        </div>
+      </div>
+
+    </div>
+    }
+
+  </div>
+</div>
+</main>

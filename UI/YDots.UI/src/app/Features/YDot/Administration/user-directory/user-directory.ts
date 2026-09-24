@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -55,11 +55,38 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   // ---- Bulk selection ------------------------------------------------------------------------
   /** User ids checked in the table for a bulk action. */
-  readonly selectedIds = signal<Set<string>>(new Set());
-  readonly bulkSelectionCount = computed(() => this.selectedIds().size);
+  /**
+   * The rows checked for a bulk action, keyed by user id.
+   *
+   * A Map of the rows themselves rather than a Set of ids, so a selection SURVIVES paging,
+   * searching and filtering: tick two people on page 1, three on page 2, and Bulk Actions still
+   * receives all five - the old code re-read them from the current page and silently dropped
+   * the rest.
+   */
+  readonly selectedUsers = signal<Map<string, UserListItem>>(new Map());
+
+  /** Just the ids, for quick look-ups in the template. */
+  readonly selectedIds = computed(() => new Set(this.selectedUsers().keys()));
+
+  readonly bulkSelectionCount = computed(() => this.selectedUsers().size);
+
+  /** Every row on this page is ticked — drives the header checkbox. */
   readonly allOnPageSelected = computed(() => {
     const page = this.users();
-    return page.length > 0 && page.every((u) => this.selectedIds().has((u.id ?? '')));
+    const ids = this.selectedIds();
+    return page.length > 0 && page.every((u) => ids.has(u.id ?? ''));
+  });
+
+  /** Some, but not all, rows on this page are ticked — the header checkbox shows a dash. */
+  readonly someOnPageSelected = computed(() => {
+    const ids = this.selectedIds();
+    return !this.allOnPageSelected() && this.users().some((u) => ids.has(u.id ?? ''));
+  });
+
+  /** Ticked rows that are NOT on the current page, for the selection bar's hint. */
+  readonly selectedOffPage = computed(() => {
+    const onPage = new Set(this.users().map((u) => u.id ?? ''));
+    return [...this.selectedIds()].filter((id) => !onPage.has(id)).length;
   });
 
   // ---- Tabs, filter panel and page sort -------------------------------------------------------
@@ -97,6 +124,15 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   /** Client-side sort of the loaded page by name: asc, then desc, then off. */
   readonly sortDirection = signal<'asc' | 'desc' | 'none'>('none');
+
+  // ---- Custom dropdowns ------------------------------------------------------------------------
+  /** Which custom dropdown is open: 'accountCategory' | 'organisationUnitId' | 'roleId' | 'pageSize'. */
+  readonly openDropdown = signal<string | null>(null);
+
+  /** Text typed in the open dropdown's search box. */
+  readonly dropdownQuery = signal('');
+
+  readonly pageSizes = [10, 25, 50, 100];
 
   reason = '';
   readonly deleteConfirmation = signal('');
@@ -145,6 +181,16 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   readonly pageSize = computed(() => this.data()?.users.pageSize ?? 10);
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize())));
 
+  /** First row number on this page — "Showing 11–20 of 42". */
+  readonly rangeStart = computed(() =>
+    this.totalCount() === 0 ? 0 : (this.pageIndex() - 1) * this.pageSize() + 1,
+  );
+
+  /** Last row number on this page. */
+  readonly rangeEnd = computed(() =>
+    Math.min(this.totalCount(), this.rangeStart() + Math.max(0, this.users().length - 1)),
+  );
+
   readonly statusOptions = computed<LookupItem[]>(() => this.data()?.statusOptions ?? []);
   readonly categoryOptions = computed<LookupItem[]>(() => this.data()?.accountCategoryOptions ?? []);
   readonly unitOptions = computed<LookupItem[]>(() => this.data()?.organisationUnitOptions ?? []);
@@ -152,9 +198,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   /**
    * Statuses that don't already have their own tab card (active/invited/suspended/draft) —
-   * e.g. expired, deactivated, withdrawn. Rendered as chips behind the sliders button, per the
-   * comment on {@link showAdvancedFilters}: the search bar's sliders button opens the filters
-   * that did not earn a tab.
+   * e.g. expired, deactivated, withdrawn. Rendered as chips behind the sliders button.
    */
   readonly extraStatusOptions = computed<LookupItem[]>(() => {
     const tabStatuses = new Set<string>(['active', 'invited', 'suspended', 'draft']);
@@ -168,10 +212,8 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
    * These stay visible until the server has actually said "no".
    *
    * Gating purely on `permittedActions.includes(…)` hides the button whenever `data()` is null —
-   * which is also true while the page is loading and after a failed load. The result is a missing
-   * Create User button that looks like a permissions problem when it is really a network one.
-   * Showing it until we know otherwise is the kinder failure: the server still refuses an
-   * unauthorised create, so nothing is actually exposed by an optimistic button.
+   * which is also true while the page is loading and after a failed load. Showing it until we
+   * know otherwise is the kinder failure: the server still refuses an unauthorised create.
    */
   private readonly loaded = computed(() => this.data() !== null);
 
@@ -200,10 +242,6 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   });
 
   /**
-   * A draft that was never invited can be erased; anything else is deactivated.
-   * Driving the dialog from this keeps the wording honest about what will happen.
-   */
-  /**
    * True when the record can simply be removed rather than deactivated.
    *
    * Only a DRAFT qualifies: nobody has ever signed in as it, so there is no history to preserve
@@ -216,14 +254,24 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     () => this.deleteConfirmation().trim().toLowerCase() === (this.selected()?.displayName ?? '').toLowerCase(),
   );
 
+  /** Tone + icon for the centered confirm dialog — drives its accent colour. */
+  readonly dialogMeta = computed<{ tone: 'danger' | 'warning' | 'success' | 'primary'; icon: string }>(() => {
+    switch (this.dialog()) {
+      case 'suspend': return { tone: 'warning', icon: 'ri-forbid-2-line' };
+      case 'reactivate': return { tone: 'success', icon: 'ri-play-circle-line' };
+      case 'delete': return { tone: 'danger', icon: 'ri-delete-bin-6-line' };
+      case 'invite': return { tone: 'primary', icon: 'ri-mail-send-line' };
+      default: return { tone: 'primary', icon: 'ri-information-line' };
+    }
+  });
+
   // =========================================================================================
   // Lifecycle
   // =========================================================================================
 
   ngOnInit(): void {
     // Typing fires a request per keystroke without this. 350 ms is long enough to finish a word
-    // and short enough that the list still feels live; distinctUntilChanged drops the repeat
-    // that arrow keys and Ctrl produce.
+    // and short enough that the list still feels live.
     this.searchInput$
       .pipe(debounceTime(350), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe((text) => {
@@ -282,8 +330,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.filter.update((current) => ({
       ...current,
       [key]: value || undefined,
-      // Any filter change invalidates the current page number: page 7 of the old result set is
-      // meaningless in the new one.
+      // Any filter change invalidates the current page number.
       pageIndex: 1,
     }));
 
@@ -291,6 +338,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   }
 
   clearFilters(): void {
+    this.openDropdown.set(null);
     this.searchText = '';
     this.activeTab.set('all');
     this.filter.set({ pageIndex: 1, pageSize: this.pageSize() });
@@ -314,6 +362,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   toggleAdvancedFilters(): void {
     this.showAdvancedFilters.update((open) => !open);
+    this.openDropdown.set(null);
   }
 
   /** The header's search icon: jumps the pointer to the search box instead of duplicating it. */
@@ -321,12 +370,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     document.getElementById('udSearch')?.focus();
   }
 
-  /**
-   * A status chosen outside the cards — the chips in the filter panel.
-   *
-   * A status with its own card lights that card up; one without (drafts, deactivated…) simply
-   * leaves every card dark rather than pretending a card is open when it is not.
-   */
+  /** A status chosen outside the cards — the chips in the filter panel. */
   setStatus(status: string): void {
     this.activeTab.set(status || 'all');
     this.filter.update((current) => ({ ...current, status: status || undefined, pageIndex: 1 }));
@@ -338,12 +382,83 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.sortDirection.update((current) => (current === 'asc' ? 'desc' : current === 'desc' ? 'none' : 'asc'));
   }
 
+  // =========================================================================================
+  // Custom dropdowns (replace native <select>)
+  // =========================================================================================
+
+  toggleDropdown(key: string): void {
+    this.dropdownQuery.set('');
+    this.openDropdown.update((current) => (current === key ? null : key));
+  }
+
+  /** Picks a value in a filter dropdown; '' means "All …". */
+  pickOption(key: string, value: string): void {
+    this.openDropdown.set(null);
+
+    if (this.filterValue(key) === String(value ?? '')) {
+      return;
+    }
+
+    this.setFilter(key as keyof UserSearchFilter, value);
+  }
+
+  pickPageSize(size: number): void {
+    this.openDropdown.set(null);
+
+    if (size !== this.pageSize()) {
+      this.changePageSize(size);
+    }
+  }
+
+  /**
+   * The current value of a filter field, typed for the template.
+   * Indexing `filter()[key]` directly in the template fails strict mode (TS7053) because the
+   * ng-template context variable is `any`.
+   */
+  filterValue(key: string): string {
+    const value = this.filter()[key as keyof UserSearchFilter];
+    return value === undefined || value === null ? '' : String(value);
+  }
+
+  /** The text shown on a dropdown's trigger. */
+  optionLabel(options: LookupItem[], value: unknown, placeholder: string): string {
+    if (!value) {
+      return placeholder;
+    }
+
+    return options.find((o) => String(o.id) === String(value))?.name ?? placeholder;
+  }
+
+  isPicked(value: unknown, id: unknown): boolean {
+    return !!value && String(value) === String(id);
+  }
+
+  /** Options narrowed by the search box inside the open dropdown. */
+  filterOptions(options: LookupItem[]): LookupItem[] {
+    const q = this.dropdownQuery().trim().toLowerCase();
+    return q ? options.filter((o) => (o.name ?? '').toLowerCase().includes(q)) : options;
+  }
+
+  /** Any click outside a dropdown closes it — clicks inside stop propagation in the template. */
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.openDropdown() !== null) {
+      this.openDropdown.set(null);
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.openDropdown.set(null);
+  }
+
+  // =========================================================================================
+  // Status counts
+  // =========================================================================================
+
   /**
    * Counts for the tab badges, read straight off the search endpoint with a page of one.
-   *
-   * Five cheap requests rather than one clever one: the server already returns totalCount for
-   * any filter, and a page of a single row is the smallest page there is. Deliberately cosmetic
-   * — a failed count leaves the tabs working and the badges blank rather than breaking the page.
+   * Deliberately cosmetic — a failed count leaves the tabs working and the badges blank.
    */
   private loadStatusCounts(): void {
     const countFor = (status?: UserStatus) =>
@@ -370,12 +485,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
       });
   }
 
-  /**
-   * Rolls the stat cards from their current numbers to the new ones.
-   *
-   * 700 ms of ease-out is long enough to read as motion and short enough that a fast typist
-   * never waits for it; a newer animation always cancels the older one mid-flight.
-   */
+  /** Rolls the stat cards from their current numbers to the new ones (700 ms ease-out). */
   private animateCounts(target: Record<DirectoryTab, number>): void {
     if (this.countRaf !== null) {
       cancelAnimationFrame(this.countRaf);
@@ -436,47 +546,61 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   // =========================================================================================
 
   toggleRowSelection(user: UserListItem): void {
-    this.selectedIds.update((current) => {
-      const next = new Set(current);
-      if (next.has((user.id ?? ''))) {
-        next.delete((user.id ?? ''));
+    const id = user.id ?? '';
+    if (!id) {
+      return;
+    }
+
+    this.selectedUsers.update((current) => {
+      const next = new Map(current);
+      if (next.has(id)) {
+        next.delete(id);
       } else {
-        next.add((user.id ?? ''));
+        next.set(id, user);
       }
       return next;
     });
   }
 
+  /** Header checkbox: ticks the whole page, or clears it when it is already all ticked. */
   toggleAllOnPage(): void {
-    this.selectedIds.update((current) => {
-      const next = new Set(current);
-      const page = this.users();
-      if (this.allOnPageSelected()) {
-        page.forEach((u) => next.delete((u.id ?? '')));
-      } else {
-        page.forEach((u) => next.add((u.id ?? '')));
+    const selectAll = !this.allOnPageSelected();
+
+    this.selectedUsers.update((current) => {
+      const next = new Map(current);
+      for (const user of this.users()) {
+        const id = user.id ?? '';
+        if (!id) {
+          continue;
+        }
+        if (selectAll) {
+          next.set(id, user);
+        } else {
+          next.delete(id);
+        }
       }
       return next;
     });
   }
 
   isRowSelected(user: UserListItem): boolean {
-    return this.selectedIds().has((user.id ?? ''));
+    return this.selectedIds().has(user.id ?? '');
   }
 
   clearSelection(): void {
-    this.selectedIds.set(new Set());
+    this.selectedUsers.set(new Map());
   }
 
   goToBulkActions(): void {
-    const selected = this.users().filter((u) => this.selectedIds().has((u.id ?? '')));
+    // Every ticked row, from every page — not just the rows that happen to be on screen.
+    const selected = [...this.selectedUsers().values()];
+
     if (selected.length === 0) {
       this.toast.show('No Selection', 'Select at least one user to run a bulk action.', 'warning');
       return;
     }
 
-    // Pass the API rows (with the GUID `id`) so the bulk page can send real user ids to the
-    // bulk API — the server rejects reference strings like USR-000104 for `userIds`.
+    // Pass the API rows (with the GUID `id`) so the bulk page can send real user ids.
     void this.router.navigate(['/app/administration/users/bulk-actions'], {
       state: { selectedUsers: selected },
     });
@@ -498,8 +622,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.errorMessage.set('');
     this.reason = '';
 
-    // The list row does not carry every editable field, so the full record is fetched. Editing
-    // from a partial row would blank out whatever the row happened not to include.
+    // The list row does not carry every editable field, so the full record is fetched.
     this.loadDetail((user.id ?? ''), (detail) => {
       this.editForm.set({
         title: '',
@@ -610,7 +733,6 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
         mobileNumber: form.mobileNumber || null,
         employeeNumber: form.employeeNumber || null,
         // Sent back unchanged: this dialog does not move people between units or departments.
-        // Doing that needs its own approval, which is why neither is a field on this screen.
         organisationUnitId: detail.organisationUnitId ?? null,
         departmentId: detail.departmentId ?? null,
         designation: form.designation || null,
@@ -618,8 +740,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
         preferredCulture: form.preferredLanguage,
         timeZone: form.timeZoneId,
         reason: this.reason.trim(),
-        // Carrying the version back is what lets the server refuse the write if somebody else
-        // saved in the meantime, rather than silently discarding their change.
+        // Carrying the version back lets the server refuse the write if somebody else saved.
         expectedVersion: (detail.version ?? 0),
       })
       .subscribe({
@@ -670,14 +791,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * True when the invitation has not been accepted, so withdrawing applies rather than
-   * deactivating.
-   *
-   * The user's own status carries this: `invited` means an outstanding invitation and an account
-   * nobody has ever used. Withdrawing kills the link as well as the account, which deactivating
-   * would not.
-   */
+  /** True when the invitation has not been accepted, so withdrawing applies rather than deactivating. */
   isPendingInvite(user: UserListItem): boolean {
     return user.status === 'invited';
   }
@@ -699,16 +813,6 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
     const request = { reason: this.reason.trim(), expectedVersion: (user.version ?? 0) };
 
-    // What "delete" means depends on how far the account has been used:
-    //   • a draft never invited        → erased with delete-unused-draft
-    //   • an invitation still open     → withdrawn with withdraw-invitation (that is what the
-    //                                     server's "Withdraw invitation" permission allows here)
-    //   • an account with history      → deactivated so the audit trail survives
-    // The server enforces the same rules, so this wording is about behaviour, not permission.
-    //
-    // The calls return different payloads (OutcomeResponse and UserDetail), and none is used
-    // here — the list is re-read from the server afterwards either way. Widening to
-    // Observable<unknown> lets one subscribe cover all three without inventing a shared type.
     // A draft and an unaccepted invitation are both WITHDRAWN: nobody ever signed in as
     // either, so there is no history to keep and the invitation link has to stop working.
     // Anything else is deactivated, never deleted, because a person's past actions must stay
@@ -779,13 +883,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   // Presentation helpers
   // =========================================================================================
 
-  /**
-   * The badge colour for a status.
-   *
-   * Keyed off the stored value rather than the display text: `statusDisplay` is what a person
-   * reads and is free to be reworded, and a badge that turned grey because somebody changed
-   * "Active" to "In use" would be a very quiet bug.
-   */
+  /** The badge colour for a status — keyed off the stored value, not the display text. */
   statusClass(status: UserStatus | undefined): string {
     switch (status) {
       case 'active': return 'ud-badge-good';
@@ -808,25 +906,13 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     return enrolled ? 'Enrolled' : 'Not enrolled';
   }
 
-  /**
-   * The roles somebody holds, as one line.
-   *
-   * Joined here rather than in the template so the empty case reads as an answer — nobody has
-   * given this person a role yet — rather than as a blank cell that could equally mean the
-   * column failed to load.
-   */
+  /** The roles somebody holds, as one line. */
   roleSummary(user: UserListItem): string {
     const roles = user.roleNames ?? [];
     return roles.length > 0 ? roles.join(', ') : 'No roles';
   }
 
-  /**
-   * Whether an invitation can be sent to this row.
-   *
-   * A draft has never been invited; an invited account has an outstanding link that can be sent
-   * again; an expired one needs a fresh link. An active account does not get invited — it is
-   * already in use, and re-inviting would be a password reset by another name.
-   */
+  /** Whether an invitation can be sent to this row. */
   canInvite(user: UserListItem): boolean {
     return user.status === 'draft' || user.status === 'invited' || user.status === 'expired';
   }
@@ -864,13 +950,19 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Avatar colour per user — first letter bucket (A–Z) mapped to 8 palette
-   * classes (dir-av-0 … dir-av-7). Same letter always gets same colour.
+   * Avatar colour per user — a hash of the whole name mapped to 10 light palettes
+   * (dir-av-0 … dir-av-9). Two people who share a first letter still get different colours,
+   * and the same person always gets the same one.
    */
   avatarClass(name: string | null | undefined): string {
-    const letter = (name ?? '').trim().charAt(0).toUpperCase();
-    const code = letter >= 'A' && letter <= 'Z' ? letter.charCodeAt(0) - 65 : 0;
-    return `dir-av-${code % 8}`;
+    const text = (name ?? '').trim().toLowerCase();
+    let hash = 0;
+
+    for (let i = 0; i < text.length; i++) {
+      hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+    }
+
+    return `dir-av-${hash % 10}`;
   }
 
   copy(text: string | null | undefined, field: string): void {

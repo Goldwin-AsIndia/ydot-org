@@ -33,17 +33,26 @@
   <ng-container *ngIf="view === 'list'">
 
     <!-- Header -->
-    <app-page-header screen="time-zone" title="Time Zone List" subtitle="Manage and monitor your organization's time zones.">
-      <ng-container actions>
-        <button type="button" class="ph-btn ph-btn--primary" (click)="openCreateForm()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-          Create
+    <!-- Header: the same card as the Offices and regions list - label, title and purpose, Create on the
+         right. -->
+    <section class="od-hero">
+      <div class="od-hero-top">
+        <div class="od-hero-text">
+          <span class="od-eyebrow">Master data</span>
+          <h1 class="od-title">Time zones</h1>
+          <p class="od-sub">Manage and monitor your organisation's time zones.</p>
+        </div>
+        <button type="button" class="od-btn-create" (click)="openCreateForm()">
+          <i class="ri-add-line"></i> Add a time zone
         </button>
-  </ng-container>
-    </app-page-header>
+      </div>
+    </section>
 
 
-    <!-- Search + filters -->
+    <!-- Table + inline details workspace -->
+    <div class="tz-workspace" [class.has-selection]="showViewPanel && selectedTimeZone">
+      <div class="tz-table-card">
+      <!-- Search and filters, merged into the top of the table card. -->
     <div class="tz-toolbar">
       <div class="tz-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -86,9 +95,6 @@
       </div>
     </div>
 
-    <!-- Table + inline details workspace -->
-    <div class="tz-workspace" [class.has-selection]="showViewPanel && selectedTimeZone">
-      <div class="tz-table-card">
       <div class="tz-table-scroll">
         <table class="tz-table">
           <thead>
@@ -123,12 +129,11 @@
               </td>
               <td class="col-offset">{{ formatOffset(t.standardUtcOffsetMinutes) }}</td>
               <td class="col-status">
-                <span class="tz-status-pill" [ngClass]="statusBadgeClass(t.status)">
-<<<<<<< HEAD
-                 {{ t.status || '—' }}
-=======
-                  <span class="dot"></span>{{ statusLabel(t.status) || '—' }}
->>>>>>> 70cf44fac337c00c1aa0d7a280c3a9103a17e591
+                <!-- Icon only, as on the Departments list; the word is the tooltip. (This cell held
+                     unresolved merge-conflict markers, which rendered as text in the table.) -->
+                <span class="dl-status" [class.is-active]="t.isActive" role="img"
+                      [attr.aria-label]="statusLabel(t.status) || '—'" [title]="statusLabel(t.status) || '—'">
+                  <i [class]="t.isActive ? 'ri-checkbox-circle-line' : 'ri-indeterminate-circle-line'"></i>
                 </span>
               </td>
               <td class="col-action">
@@ -235,11 +240,7 @@
               <span>Status</span>
               <strong>
                 <span class="tz-status-pill" [ngClass]="statusBadgeClass(tz.status)">
-<<<<<<< HEAD
-                 {{ tz.status || '—' }}
-=======
                   <span class="dot"></span>{{ statusLabel(tz.status) || '—' }}
->>>>>>> 70cf44fac337c00c1aa0d7a280c3a9103a17e591
                 </span>
               </strong>
             </div>
@@ -316,17 +317,32 @@
        CREATE / EDIT FORM VIEW
        ============================================================ -->
   <ng-container *ngIf="view === 'form'">
-    <app-page-header screen="time-zone" [title]="pageTitle" [subtitle]="pageSubTitle">
-      <button actions type="button" class="ph-btn ph-btn--ghost" (click)="cancelForm()">Back</button>
-    </app-page-header>
+    <!-- Header: the same card as the Add an office page - a back link, the title and what this does. -->
+    <section class="of-hero">
+      <div class="of-hero-top">
+        <div class="of-hero-text">
+          <button type="button" class="of-crumb" (click)="cancelForm()">
+            <i class="ri-arrow-left-s-line"></i> Time zones
+          </button>
+          <h1 class="of-hero-title">{{ isEdit ? 'Edit time zone' : 'Add a time zone' }}</h1>
+          <p class="of-hero-sub">{{ isEdit ? 'Update this time zone. Its ID cannot change.' : 'Define a time zone: its IANA ID, offset and daylight saving, and how it is shown.' }}</p>
+        </div>
+      </div>
+    </section>
 
-    <form class="tz-form-card" (ngSubmit)="handleSubmit()" novalidate>
+    <form class="tzf-page" (ngSubmit)="handleSubmit()" novalidate>
 
       <!-- Identity -->
-      <h3 class="tz-section-title">
-        <span class="tz-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
-        Time Zone Identity
-      </h3>
+      <!-- Sections as numbered cards on a two-column grid, like the Add an office page. -->
+      <div class="of-form tzf-form">
+      <section class="of-card tzf-card">
+        <header class="of-section-head">
+          <span class="of-step-no">1</span>
+          <div>
+            <h2>Time Zone Identity</h2>
+            <p>The IANA ID and the name people see.</p>
+          </div>
+        </header>
       <div class="tz-form-grid">
         <div class="tz-field">
           <label>Time Zone ID (IANA) <span class="req">*</span></label>
@@ -371,12 +387,17 @@
           <small>For compact display</small>
         </div>
       </div>
+      </section>
 
       <!-- Country -->
-      <h3 class="tz-section-title">
-        <span class="tz-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18"/><path d="M4 4h13l-2 3.5L17 11H4"/></svg></span>
-        Defaults
-      </h3>
+      <section class="of-card tzf-card">
+        <header class="of-section-head">
+          <span class="of-step-no">2</span>
+          <div>
+            <h2>Defaults</h2>
+            <p>Whether this zone is suggested by default.</p>
+          </div>
+        </header>
       <div class="tz-form-grid">
         <!--
           WAS an "Associated Country" picker, which the domain has no column for. Replaced with the
@@ -399,12 +420,17 @@
           <small>Optional &mdash; the zone a new state is offered before any other.</small>
         </div>
       </div>
+      </section>
 
       <!-- Offset & DST -->
-      <h3 class="tz-section-title">
-        <span class="tz-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.3 17.7-1.4 1.4"/><path d="m19.1 4.9-1.4 1.4"/></svg></span>
-        Offset & DST Metadata
-      </h3>
+      <section class="of-card tzf-card">
+        <header class="of-section-head">
+          <span class="of-step-no">3</span>
+          <div>
+            <h2>Offset &amp; DST Metadata</h2>
+            <p>The standard offset from UTC and daylight saving.</p>
+          </div>
+        </header>
       <div class="tz-form-grid">
         <div class="tz-field">
           <label>Standard UTC Offset (Minutes)</label>
@@ -425,12 +451,17 @@
           <small>Informational only</small>
         </div>
       </div>
+      </section>
 
       <!-- Display & Formatting -->
-      <h3 class="tz-section-title">
-        <span class="tz-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
-        Display & Formatting
-      </h3>
+      <section class="of-card tzf-card">
+        <header class="of-section-head">
+          <span class="of-step-no">4</span>
+          <div>
+            <h2>Display &amp; Formatting</h2>
+            <p>How times in this zone are shown.</p>
+          </div>
+        </header>
       <div class="tz-form-grid">
         <div class="tz-field">
           <label>Sort Order</label>
@@ -446,12 +477,17 @@
           <small>Highlight in UI</small>
         </div>
       </div>
+      </section>
 
       <!-- Status & Notes -->
-      <h3 class="tz-section-title">
-        <span class="tz-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span>
-        Usage Controls & Status
-      </h3>
+      <section class="of-card tzf-card">
+        <header class="of-section-head">
+          <span class="of-step-no">5</span>
+          <div>
+            <h2>Usage Controls &amp; Status</h2>
+            <p>Where it can be used, and whether it is active.</p>
+          </div>
+        </header>
       <div class="tz-form-grid">
         <div class="tz-field">
           <label>Status <span class="req">*</span></label>
@@ -472,16 +508,20 @@
           <textarea [(ngModel)]="formModel.notes" name="notes" rows="3" placeholder="Additional notes..."></textarea>
         </div>
       </div>
+      </section>
+      </div>
 
-      <div class="tz-form-actions">
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelForm()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
-          Cancel
-        </button>
-        <button type="submit" class="btn btn-primary btn-sm">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
-          {{ isEdit ? 'Save Changes' : 'Create' }}
-        </button>
+      <!-- Actions at the foot of the page, as on the Add an office page. -->
+      <div class="of-actionbar">
+        <span class="of-actionbar-note"><i class="ri-information-line"></i> Fields marked * are required.</span>
+        <div class="of-actionbar-btns">
+          <button type="button" class="of-btn of-btn-ghost" (click)="cancelForm()">
+            <i class="ri-close-line"></i> Cancel
+          </button>
+          <button type="submit" class="of-btn of-btn-primary">
+            <i class="ri-check-line"></i> {{ isEdit ? 'Save changes' : 'Add time zone' }}
+          </button>
+        </div>
       </div>
     </form>
   </ng-container>

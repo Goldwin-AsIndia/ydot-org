@@ -40,7 +40,7 @@ import { ToastService } from '../../../../Shared/services/toast.service';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './organisation-directory.html',
-  styleUrl: './organisation-directory.css',
+  styleUrls: ['./organisation-directory.css'],
 })
 export class OrganisationDirectoryComponent implements OnInit, OnDestroy {
   private readonly api = inject(OrganisationApiService);
@@ -308,6 +308,18 @@ export class OrganisationDirectoryComponent implements OnInit, OnDestroy {
    * needs attention, stopped — rather than one colour per status, which produces a rainbow
    * nobody can read at a glance.
    */
+  /** The table's icon for a status; the word itself is the icon's tooltip. */
+  statusIcon(status: TenantStatus | undefined): string {
+    switch (this.statusClass(status)) {
+      case 'is-good': return 'ri-checkbox-circle-line';
+      case 'is-warn': return 'ri-time-line';
+      case 'is-error': return 'ri-close-circle-line';
+      case 'is-muted': return 'ri-archive-line';
+      case 'is-plum': return 'ri-mail-check-line';
+      default: return 'ri-information-line';
+    }
+  }
+
   statusClass(status: TenantStatus | undefined): string {
     switch (status) {
       case 'active':

@@ -1,30 +1,28 @@
-
 <main class="app-wrapper">
 <div class="page-wrapper">
   <div class="container-fluid px-4 py-3">
   <div class="dir-page">
 
   <!-- Breadcrumb + header -->
- 
 
   <app-page-header screen="user-directory" title="User directory" subtitle="Search, review and manage accounts.">
-    @if (dataScopeSummary()) {
+    <!-- @if (dataScopeSummary()) {
       <span meta class="ph-chip">{{ dataScopeSummary() }}</span>
-    }
+    } -->
     <ng-container actions>
       @if (canExport()) {
-        <button type="button" class="ph-btn ph-btn--ghost" [disabled]="busy() || loading()" (click)="exportCsv()">
+        <button type="button" class="btn btn-primary btn-sm" [disabled]="busy() || loading()" (click)="exportCsv()">
           <i class="ri-download-2-line"></i> Export
         </button>
       }
-      <button type="button" class="ph-btn ph-btn--ghost" [disabled]="bulkSelectionCount() === 0" (click)="goToBulkActions()">
+      <button type="button" class="btn btn-primary btn-sm" [disabled]="bulkSelectionCount() === 0" (click)="goToBulkActions()">
         <i class="ri-group-2-line"></i> Bulk Actions
         @if (bulkSelectionCount() > 0) {
           <span class="dir-count-chip">{{ bulkSelectionCount() }}</span>
         }
       </button>
       @if (canCreate()) {
-        <button type="button" class="ph-btn ph-btn--primary" (click)="createUser()">
+        <button type="button" class="btn btn-primary btn-sm" (click)="createUser()">
           <i class="ri-user-add-line"></i> Create
         </button>
       }
@@ -32,7 +30,7 @@
   </app-page-header>
 
   <!-- Status cards — filter by status -->
-  <div class="dir-tabs" role="tablist" aria-label="Filter by status">
+  <!-- <div class="dir-tabs" role="tablist" aria-label="Filter by status">
     <button type="button" class="dir-tab" data-tab="all" role="tab" [class.dir-tab-active]="activeTab() === 'all'" (click)="selectTab('all')">
       <span class="dir-tab-ico" aria-hidden="true"><i class="ri-apps-2-line"></i></span>
       <span class="dir-tab-num">{{ shownCounts().all }}</span>
@@ -58,7 +56,7 @@
       <span class="dir-tab-num">{{ shownCounts().draft }}</span>
       <span class="dir-tab-label">Draft</span>
     </button>
-  </div>
+  </div> -->
 
   <!-- Toolbar — search + filters -->
   <div class="dir-toolbar">
@@ -81,58 +79,27 @@
     <button type="button" class="dir-icon-btn d-lg-none" (click)="focusSearch()" aria-label="Search">
       <i class="ri-search-line"></i>
     </button>
-
-    <div class="dir-toolbar-spacer"></div>
-
-    @if (hasActiveFilters()) {
-      <small class="dir-filter-summary">{{ filterSummary() }}</small>
-      <button type="button" class="dir-clear-link" (click)="clearFilters()">Clear all</button>
-    }
   </div>
 
   @if (showAdvancedFilters()) {
     <div class="dir-advanced">
       <div class="row g-3 mb-3">
         <div class="col-sm-4">
-          <label class="dir-f-label" for="dirCategory">Account type</label>
-          <div class="dir-select-wrap">
-            <select id="dirCategory" class="dir-select" [value]="filter().accountCategory ?? ''"
-                    (change)="setFilter('accountCategory', $any($event.target).value)">
-              <option value="">All account types</option>
-              @for (option of categoryOptions(); track option.id) {
-                <option [value]="option.id">{{ option.name }}</option>
-              }
-            </select>
-            <i class="ri-arrow-down-s-line dir-select-chev"></i>
-          </div>
+          <ng-container *ngTemplateOutlet="ddFilter; context: {
+            key: 'accountCategory', label: 'Account type', placeholder: 'All account types',
+            options: categoryOptions(), icon: 'ri-shield-user-line' }"></ng-container>
         </div>
 
         <div class="col-sm-4">
-          <label class="dir-f-label" for="dirUnit">Organisation unit</label>
-          <div class="dir-select-wrap">
-            <select id="dirUnit" class="dir-select" [value]="filter().organisationUnitId ?? ''"
-                    (change)="setFilter('organisationUnitId', $any($event.target).value)">
-              <option value="">All organisation units</option>
-              @for (option of unitOptions(); track option.id) {
-                <option [value]="option.id">{{ option.name }}</option>
-              }
-            </select>
-            <i class="ri-arrow-down-s-line dir-select-chev"></i>
-          </div>
+          <ng-container *ngTemplateOutlet="ddFilter; context: {
+            key: 'organisationUnitId', label: 'Organisation unit', placeholder: 'All organisation units',
+            options: unitOptions(), icon: 'ri-building-2-line' }"></ng-container>
         </div>
 
         <div class="col-sm-4">
-          <label class="dir-f-label" for="dirRole">Role</label>
-          <div class="dir-select-wrap">
-            <select id="dirRole" class="dir-select" [value]="filter().roleId ?? ''"
-                    (change)="setFilter('roleId', $any($event.target).value)">
-              <option value="">All roles</option>
-              @for (option of roleOptions(); track option.id) {
-                <option [value]="option.id">{{ option.name }}</option>
-              }
-            </select>
-            <i class="ri-arrow-down-s-line dir-select-chev"></i>
-          </div>
+          <ng-container *ngTemplateOutlet="ddFilter; context: {
+            key: 'roleId', label: 'Role', placeholder: 'All roles',
+            options: roleOptions(), icon: 'ri-key-2-line' }"></ng-container>
         </div>
       </div>
 
@@ -147,8 +114,17 @@
           }
         </div>
       }
+
+      @if (hasActiveFilters()) {
+        <div class="col-sm-4 mt-4">
+          <button type="button" class="btn btn-primary btn-sm" (click)="clearFilters()" style="color: var(--primary);">Clear all</button>
+        </div>
+      }
     </div>
   }
+
+  <!-- Selection bar — appears once a row is ticked; the selection survives paging and search. -->
+
 
   <!-- Results -->
   <div class="dir-table-card">
@@ -197,6 +173,16 @@
         <table class="table align-middle mb-0 dir-table">
           <thead>
             <tr>
+              <th class="dir-col-check">
+                <label class="dir-check" title="Select all on this page">
+                  <input type="checkbox"
+                         [checked]="allOnPageSelected()"
+                         [indeterminate]="someOnPageSelected()"
+                         (change)="toggleAllOnPage()"
+                         aria-label="Select all users on this page">
+                  <span class="dir-check-box" aria-hidden="true"></span>
+                </label>
+              </th>
               <th>
                 <button type="button" class="dir-sort-btn" [class.dir-sort-on]="sortDirection() !== 'none'" (click)="toggleSort()">
                   User
@@ -215,10 +201,21 @@
           <tbody>
             @for (user of sortedUsers(); track user.id) {
               <tr [class.dir-row-selected]="isRowSelected(user)">
+                <!-- Tick to add this person to the bulk action -->
+                <td class="dir-col-check">
+                  <label class="dir-check">
+                    <input type="checkbox"
+                           [checked]="isRowSelected(user)"
+                           (change)="toggleRowSelection(user)"
+                           [attr.aria-label]="'Select ' + user.displayName">
+                    <span class="dir-check-box" aria-hidden="true"></span>
+                  </label>
+                </td>
+
                 <!-- Identity — clicking the name opens the quick-look panel -->
                 <td>
                   <div class="d-flex align-items-center gap-3">
-                    <span class="dir-avatar flex-shrink-0" [class]="avatarClass(user.displayName)">{{ initials(user.displayName) }}</span>
+                    <!-- <span class="dir-avatar flex-shrink-0" [class]="avatarClass(user.displayName)">{{ initials(user.displayName) }}</span> -->
                     <div class="min-w-0">
                       <button type="button" class="dir-name-btn text-truncate d-block"
                               (click)="openView(user)">
@@ -264,39 +261,42 @@
                   </small>
                 </td>
 
-                <!-- Which actions appear depends on the row's state, so no button is offered
-                     that the server would refuse. A native <details> holds the menu so no
-                     extra component state is needed; every item closes the menu itself before
-                     calling the existing handler. -->
+                <!-- Outline icon buttons, one colour per intent. Which actions appear depends on
+                     the row's state, so no button is offered that the server would refuse. -->
                 <td class="text-end">
-                  <div class=" gap-2 d-flex justify-content-end d-flex">
-                   <button type="button" class="btn btn-outline-primary btn-sm" (click)="openView(user)">
-                        <i class="ri-eye-line"></i> 
+                  <div class="dir-actions">
+                    <button type="button" class="dir-act dir-act-view" title="View" aria-label="View"
+                            (click)="openView(user)">
+                      <i class="ri-eye-line"></i>
+                    </button>
+                    <button type="button" class="dir-act dir-act-edit" title="Edit" aria-label="Edit"
+                            (click)="openEdit(user)">
+                      <i class="ri-pencil-line"></i>
+                    </button>
+                    @if (canInvite(user)) {
+                      <button type="button" class="dir-act dir-act-invite" title="Send invitation" aria-label="Send invitation"
+                              (click)="openInvite(user)">
+                        <i class="ri-mail-send-line"></i>
                       </button>
-                      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openEdit(user)">
-                        <i class="ri-edit-line"></i>
+                    }
+                    @if (canSuspend() && user.status === 'active') {
+                      <button type="button" class="dir-act dir-act-warn" title="Suspend" aria-label="Suspend"
+                              (click)="openSuspend(user)">
+                        <i class="ri-forbid-2-line"></i>
                       </button>
-                      @if (canInvite(user)) {
-                        <button type="button" class="btn btn-outline-info btn-sm" (click)="openInvite(user)">
-                          <i class="ri-mail-send-line"></i>
-                        </button>
-                      }
-
-                          @if (canSuspend() && user.status === 'active') {
-                        <button type="button" class="btn btn-outline-danger btn-sm" (click)="openSuspend(user)">
-                          <i class="ri-forbid-2-line"></i> 
-                        </button>
-                      }
-                      @if (user.status === 'suspended') {
-                        <button type="button" class="btn btn-outline-success btn-sm" (click)="openReactivate(user)">
-                          <i class="ri-play-circle-line"></i> 
-                        </button>
-                      }
-                      @if (user.status !== 'deactivated') {
-                        <button type="button" class="btn btn-outline-danger btn-sm" (click)="openDelete(user)">
-                          <i class="ri-delete-bin-line"></i>
-                        </button>
-                      }
+                    }
+                    @if (user.status === 'suspended') {
+                      <button type="button" class="dir-act dir-act-ok" title="Reactivate" aria-label="Reactivate"
+                              (click)="openReactivate(user)">
+                        <i class="ri-play-circle-line"></i>
+                      </button>
+                    }
+                    @if (user.status !== 'deactivated') {
+                      <button type="button" class="dir-act dir-act-danger" title="Delete" aria-label="Delete"
+                              (click)="openDelete(user)">
+                        <i class="ri-delete-bin-6-line"></i>
+                      </button>
+                    }
                   </div>
                 </td>
               </tr>
@@ -305,44 +305,67 @@
         </table>
       </div>
 
-      <!-- Pager -->
+      <!-- Pager — "Showing 1–3 of 3" + page size on the left, ‹ 1 2 3 › on the right -->
       <div class="dir-table-foot">
-        <div class="d-flex align-items-center gap-2">
-          <small class="dir-org-secondary">
-            Showing {{ users().length }} of {{ totalCount() }} account(s)
-          </small>
-          <select class="dir-page-size" [value]="pageSize()" (change)="changePageSize(+$any($event.target).value)">
-            @for (size of [10, 25, 50, 100]; track size) {
-              <option [value]="size">{{ size }} per page</option>
+        <div class="d-flex gap-3 align-items-center">
+          <span class="dir-foot-count">
+            Showing {{ rangeStart() }}–{{ rangeEnd() }} of {{ totalCount() }}
+          </span>
+
+          <!-- Page size — custom dropdown, opens upwards -->
+          <div class="dir-dd dir-dd-sm dir-dd-up" [class.dir-dd-open]="openDropdown() === 'pageSize'"
+               (click)="$event.stopPropagation()">
+            <button type="button" class="dir-dd-trigger" aria-haspopup="listbox"
+                    [attr.aria-expanded]="openDropdown() === 'pageSize'" (click)="toggleDropdown('pageSize')">
+              <span class="dir-dd-value">{{ pageSize() }}  page</span>
+              <i class="ri-arrow-down-s-line dir-dd-chev"></i>
+            </button>
+
+            @if (openDropdown() === 'pageSize') {
+              <div class="dir-dd-menu" role="listbox">
+                <div class="dir-dd-list">
+                  @for (size of pageSizes; track size) {
+                    <button type="button" role="option" class="dir-dd-option"
+                            [class.dir-dd-option-on]="size === pageSize()"
+                            [attr.aria-selected]="size === pageSize()" (click)="pickPageSize(size)">
+                      <span>{{ size }}  page</span>
+                      @if (size === pageSize()) { <i class="ri-check-line"></i> }
+                    </button>
+                  }
+                </div>
+              </div>
             }
-          </select>
+          </div>
         </div>
 
-        @if (totalPages() > 1) {
-          <nav>
+        <div class="dir-foot-right">
+          <nav aria-label="Pagination">
             <ul class="dir-pager mb-0">
               <li>
-                <button type="button" class="dir-pager-btn" [disabled]="pageIndex() === 1" (click)="goToPage(pageIndex() - 1)">
+                <button type="button" class="dir-pager-btn dir-pager-nav" aria-label="Previous page"
+                        [disabled]="pageIndex() === 1" (click)="goToPage(pageIndex() - 1)">
                   <i class="ri-arrow-left-s-line"></i>
                 </button>
               </li>
 
               @for (page of pageNumbers(); track page) {
                 <li>
-                  <button type="button" class="dir-pager-btn" [class.dir-pager-current]="page === pageIndex()" (click)="goToPage(page)">
+                  <button type="button" class="dir-pager-btn" [class.dir-pager-current]="page === pageIndex()"
+                          [attr.aria-current]="page === pageIndex() ? 'page' : null" (click)="goToPage(page)">
                     {{ page }}
                   </button>
                 </li>
               }
 
               <li>
-                <button type="button" class="dir-pager-btn" [disabled]="pageIndex() === totalPages()" (click)="goToPage(pageIndex() + 1)">
+                <button type="button" class="dir-pager-btn dir-pager-nav" aria-label="Next page"
+                        [disabled]="pageIndex() === totalPages()" (click)="goToPage(pageIndex() + 1)">
                   <i class="ri-arrow-right-s-line"></i>
                 </button>
               </li>
             </ul>
           </nav>
-        }
+        </div>
       </div>
     }
   </div>
@@ -354,74 +377,52 @@
 
 
 <!-- =====================================================================================
-     View / Edit — a right-hand slide-over rather than a centered dialog, since both show a
-     record's worth of fields and read better in a tall, scrollable panel. Outside the shell
-     wrappers on purpose: fixed-position overlays must not inherit the page's padding or
-     stacking context.
+     View / Edit — right-hand offcanvas. Outside the shell wrappers on purpose: fixed-position
+     overlays must not inherit the page's padding or stacking context.
      ===================================================================================== -->
 @if (dialog() === 'view' || dialog() === 'edit') {
   <div class="dir-overlay" (click)="closeDialog()"></div>
-  <aside class="dir-sheet">
+  <aside class="dir-sheet" role="dialog" aria-modal="true">
 
     <!-- ===== View ===== -->
     @if (dialog() === 'view') {
-      <div class="dir-sheet-head">
-        <h5 class="mb-0">Account details</h5>
-        <button type="button" class="dir-icon-btn" (click)="closeDialog()"><i class="ri-close-line"></i></button>
+      <div class="dir-sheet-hero">
+        <div class="dir-sheet-bar">
+          <span class="dir-sheet-eyebrow"><i class="ri-user-3-line"></i> Account details</span>
+          <button type="button" class="dir-sheet-x" aria-label="Close" (click)="closeDialog()">
+            <i class="ri-close-line"></i>
+          </button>
+        </div>
+
+        @if (detail(); as d) {
+          <div class="dir-sheet-id">
+            <span class="dir-avatar dir-avatar-lg" [class]="avatarClass(d.displayName)">{{ initials(d.displayName) }}</span>
+            <div class="min-w-0">
+              <div class="dir-sheet-name text-truncate">{{ d.displayName }}</div>
+              <div class="dir-sheet-mail text-truncate">{{ d.email }}</div>
+              <div class="dir-sheet-chips">
+                <span class="dir-status-pill" [class]="statusClass(d.status)">{{ d.statusDisplay || d.status }}</span>
+                <span class="dir-mfa" [class]="mfaClass(d.mfaEnabled)">
+                  <i class="ri-shield-check-line"></i>{{ mfaLabel(d.mfaEnabled) }}
+                </span>
+                @if (d.isLockedOut) {
+                  <span class="dir-chip-locked"><i class="ri-lock-line"></i>Locked</span>
+                }
+              </div>
+            </div>
+          </div>
+        }
       </div>
 
       <div class="dir-sheet-body">
         @if (detailLoading()) {
           <div class="dir-state"><div class="spinner-border text-primary" role="status"></div></div>
         } @else if (detail(); as d) {
-          <div class="d-flex align-items-center gap-3 mb-4">
-            <span class="dir-avatar dir-avatar-lg" [class]="avatarClass(d.displayName)">{{ initials(d.displayName) }}</span>
-            <div class="min-w-0">
-              <div class="dir-sheet-name text-truncate">{{ d.displayName }}</div>
-              <small class="dir-email d-block text-truncate">{{ d.email }}</small>
-              <span class="dir-status-pill" [class]="statusClass(d.status)">{{ d.statusDisplay || d.status }}</span>
-            </div>
-          </div>
-
-          <div class="dir-section-label">Identity</div>
-          <div class="dir-field-grid mb-4">
-            <div class="dir-field"><div class="dir-k">Reference</div><div class="dir-v">{{ d.code }}</div></div>
-            <div class="dir-field"><div class="dir-k">Username</div><div class="dir-v">{{ d.username }}</div></div>
-            <div class="dir-field"><div class="dir-k">Account type</div><div class="dir-v">{{ d.accountCategory }}</div></div>
-            <div class="dir-field"><div class="dir-k">Organisation unit</div><div class="dir-v">{{ d.organisationUnitName || '—' }}</div></div>
-            <div class="dir-field"><div class="dir-k">Department</div><div class="dir-v">{{ d.departmentName || '—' }}</div></div>
-            <div class="dir-field"><div class="dir-k">Designation</div><div class="dir-v">{{ d.designation || '—' }}</div></div>
-            <div class="dir-field"><div class="dir-k">Mobile</div><div class="dir-v">{{ d.mobileNumber ? d.mobileCountryCode + ' ' + d.mobileNumber : '—' }}</div></div>
-            <div class="dir-field"><div class="dir-k">Manager</div><div class="dir-v">{{ d.managerName || '—' }}</div></div>
-          </div>
-
-          <div class="dir-section-label">Access</div>
-          <div class="dir-field-grid mb-4">
-            <div class="dir-field"><div class="dir-k">Second factor</div><div class="dir-v">{{ mfaRequirementLabel(d) }}</div></div>
-            <div class="dir-field"><div class="dir-k">Invitation</div><div class="dir-v">{{ invitationLabel(d) }}</div></div>
-            <div class="dir-field"><div class="dir-k">Access starts</div><div class="dir-v">{{ d.accessStartsAtUtc | date: 'mediumDate' }}</div></div>
-            <div class="dir-field"><div class="dir-k">Access ends</div><div class="dir-v">{{ d.accessEndsAtUtc ? (d.accessEndsAtUtc | date: 'mediumDate') : 'No end date' }}</div></div>
-            <div class="dir-field"><div class="dir-k">Last sign-in</div><div class="dir-v">{{ d.lastLoginAtUtc ? (d.lastLoginAtUtc | date: 'medium') : 'Never' }}</div></div>
-            <div class="dir-field"><div class="dir-k">Signed in from</div><div class="dir-v">{{ d.lastLoginIpAddress || '—' }}</div></div>
-          </div>
-
-          @if ((d.roles ?? []).length > 0) {
-            <div class="dir-section-label">Roles</div>
-            <div class="d-flex flex-wrap gap-2 mb-4">
-              @for (role of d.roles ?? []; track role.id) {
-                <span class="dir-role-chip">
-                  {{ role.roleName }}
-                  @if (role.isPrimary) { <span class="dir-tag">primary</span> }
-                  @if (role.isEffective === false) { <span class="dir-tag dir-tag-muted">not in effect</span> }
-                </span>
-              }
-            </div>
-          }
 
           <!-- A lockout is the one status that carries its own explanation, and it is the one
-               somebody looking at a blocked account most needs to read. -->
+               somebody looking at a blocked account most needs to read — so it comes first. -->
           @if (d.isLockedOut) {
-            <div class="dir-callout mb-4">
+            <div class="dir-callout mb-3">
               <i class="ri-error-warning-line"></i>
               <div>
                 <strong class="d-block">Locked out</strong>
@@ -432,18 +433,72 @@
               </div>
             </div>
           }
+
+          <section class="dir-sec">
+            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-id-card-line"></i></span>Identity</h6>
+            <dl class="dir-kv-list">
+              <div class="dir-kv-row"><dt>Reference</dt><dd class="ud-mono">{{ d.code || '—' }}</dd></div>
+              <div class="dir-kv-row"><dt>Username</dt><dd>{{ d.username || '—' }}</dd></div>
+              <div class="dir-kv-row"><dt>Account type</dt><dd>{{ d.accountCategory || '—' }}</dd></div>
+              <div class="dir-kv-row"><dt>Mobile</dt><dd>{{ d.mobileNumber ? d.mobileCountryCode + ' ' + d.mobileNumber : '—' }}</dd></div>
+            </dl>
+          </section>
+
+          <section class="dir-sec">
+            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-building-2-line"></i></span>Organisation</h6>
+            <dl class="dir-kv-list">
+              <div class="dir-kv-row"><dt>Organisation unit</dt><dd>{{ d.organisationUnitName || '—' }}</dd></div>
+              <div class="dir-kv-row"><dt>Department</dt><dd>{{ d.departmentName || '—' }}</dd></div>
+              <div class="dir-kv-row"><dt>Designation</dt><dd>{{ d.designation || '—' }}</dd></div>
+              <div class="dir-kv-row"><dt>Manager</dt><dd>{{ d.managerName || '—' }}</dd></div>
+            </dl>
+          </section>
+
+          <section class="dir-sec">
+            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-shield-keyhole-line"></i></span>Access</h6>
+            <dl class="dir-kv-list">
+              <div class="dir-kv-row"><dt>Second factor</dt><dd>{{ mfaRequirementLabel(d) }}</dd></div>
+              <div class="dir-kv-row"><dt>Invitation</dt><dd>{{ invitationLabel(d) }}</dd></div>
+              <div class="dir-kv-row"><dt>Access starts</dt><dd>{{ d.accessStartsAtUtc ? (d.accessStartsAtUtc | date: 'mediumDate') : '—' }}</dd></div>
+              <div class="dir-kv-row"><dt>Access ends</dt><dd>{{ d.accessEndsAtUtc ? (d.accessEndsAtUtc | date: 'mediumDate') : 'No end date' }}</dd></div>
+              <div class="dir-kv-row"><dt>Last sign-in</dt><dd>{{ d.lastLoginAtUtc ? (d.lastLoginAtUtc | date: 'medium') : 'Never' }}</dd></div>
+              <div class="dir-kv-row"><dt>Signed in from</dt><dd class="ud-mono">{{ d.lastLoginIpAddress || '—' }}</dd></div>
+            </dl>
+          </section>
+
+          <section class="dir-sec">
+            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-key-2-line"></i></span>Roles</h6>
+            @if ((d.roles ?? []).length > 0) {
+              <div class="d-flex flex-wrap gap-2">
+                @for (role of d.roles ?? []; track role.id) {
+                  <span class="dir-role-chip" [class.dir-role-chip-primary]="role.isPrimary">
+                    {{ role.roleName }}
+                    @if (role.isPrimary) { <span class="dir-tag">primary</span> }
+                    @if (role.isEffective === false) { <span class="dir-tag dir-tag-muted">not in effect</span> }
+                  </span>
+                }
+              </div>
+            } @else {
+              <p class="dir-sec-empty">No roles assigned yet.</p>
+            }
+          </section>
         } @else {
-          <div class="alert alert-danger">{{ errorMessage() }}</div>
+          <div class="dir-alert-inline"><i class="ri-error-warning-line"></i><span>{{ errorMessage() }}</span></div>
         }
       </div>
 
       @if (!detailLoading() && detail()) {
         <div class="dir-sheet-foot">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="copy(detail()!.email, 'email')">
-            <i class="ri-file-copy-line"></i> {{ copiedField() === 'email' ? 'Copied' : 'Copy e-mail' }}
+          <button type="button" class="dir-btn dir-btn-line" (click)="copy(detail()!.email, 'email')">
+            <i [class]="copiedField() === 'email' ? 'ri-check-line' : 'ri-file-copy-line'"></i>
+            {{ copiedField() === 'email' ? 'Copied' : 'Copy e-mail' }}
           </button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="openProfile(selected()!)">
-            Open full profile
+          <span class="flex-grow-1"></span>
+          <button type="button" class="dir-btn dir-btn-line" (click)="openEdit(selected()!)">
+            <i class="ri-pencil-line"></i> Edit
+          </button>
+          <button type="button" class="dir-btn dir-btn-primary" (click)="openProfile(selected()!)">
+            Full profile <i class="ri-arrow-right-line"></i>
           </button>
         </div>
       }
@@ -451,111 +506,148 @@
 
     <!-- ===== Edit ===== -->
     @if (dialog() === 'edit') {
-      <div class="dir-sheet-head">
-        <div>
-          <h5 class="mb-1">Edit profile</h5>
-          <small class="dir-sheet-hint">
-            The login e-mail, role and data scope are changed elsewhere, because each needs its
-            own approval.
-          </small>
+      <div class="dir-sheet-hero">
+        <div class="dir-sheet-bar">
+          <span class="dir-sheet-eyebrow"><i class="ri-pencil-line"></i> Edit profile</span>
+          <button type="button" class="dir-sheet-x" aria-label="Close" (click)="closeDialog()">
+            <i class="ri-close-line"></i>
+          </button>
         </div>
-        <button type="button" class="dir-icon-btn" (click)="closeDialog()"><i class="ri-close-line"></i></button>
+
+        <div class="dir-sheet-id dir-sheet-id-sm">
+          <span class="dir-avatar" [class]="avatarClass(selected()?.displayName)">{{ initials(selected()?.displayName) }}</span>
+          <div class="min-w-0">
+            <div class="dir-sheet-name text-truncate">{{ selected()?.displayName }}</div>
+            <div class="dir-sheet-mail text-truncate">{{ selected()?.email }}</div>
+          </div>
+        </div>
       </div>
 
       <div class="dir-sheet-body">
         @if (detailLoading()) {
           <div class="dir-state"><div class="spinner-border text-primary" role="status"></div></div>
         } @else if (detail()) {
+          <div class="dir-note mb-3">
+            <i class="ri-information-line"></i>
+            <span>The login e-mail, role and data scope are changed elsewhere, because each needs its own approval.</span>
+          </div>
+
           @if (errorMessage()) {
             <div class="dir-alert-inline" role="alert">
               <i class="ri-error-warning-line"></i><span>{{ errorMessage() }}</span>
             </div>
           }
 
-          <div class="dir-form-grid mb-4">
-            <div class="dir-f-span-1">
-              <label class="dir-f-label" for="edTitle">Title</label>
-              <input id="edTitle" class="dir-f-control" [value]="editForm().title"
-                     (input)="updateEditField('title', $any($event.target).value)">
+          <section class="dir-sec">
+            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-user-3-line"></i></span>Name</h6>
+            <div class="dir-form-grid">
+              <div class="dir-f-span-2">
+                <label class="dir-f-label" for="edTitle">Title</label>
+                <input id="edTitle" class="dir-f-control" placeholder="Mr / Ms / Dr" [value]="editForm().title"
+                       (input)="updateEditField('title', $any($event.target).value)">
+              </div>
+              <div class="dir-f-span-4">
+                <label class="dir-f-label" for="edFirst">First name <span class="dir-req">*</span></label>
+                <input id="edFirst" class="dir-f-control" [value]="editForm().firstName"
+                       (input)="updateEditField('firstName', $any($event.target).value)">
+              </div>
+              <div class="dir-f-span-3">
+                <label class="dir-f-label" for="edMiddle">Middle name</label>
+                <input id="edMiddle" class="dir-f-control" [value]="editForm().middleName"
+                       (input)="updateEditField('middleName', $any($event.target).value)">
+              </div>
+              <div class="dir-f-span-3">
+                <label class="dir-f-label" for="edLast">Last name <span class="dir-req">*</span></label>
+                <input id="edLast" class="dir-f-control" [value]="editForm().lastName"
+                       (input)="updateEditField('lastName', $any($event.target).value)">
+              </div>
+              <div class="dir-f-span-3">
+                <label class="dir-f-label" for="edDisplay">Display name <span class="dir-req">*</span></label>
+                <input id="edDisplay" class="dir-f-control" [value]="editForm().displayName"
+                       (input)="updateEditField('displayName', $any($event.target).value)">
+              </div>
+              <div class="dir-f-span-3">
+                <label class="dir-f-label" for="edPreferred">Preferred name</label>
+                <input id="edPreferred" class="dir-f-control" [value]="editForm().preferredName"
+                       (input)="updateEditField('preferredName', $any($event.target).value)">
+              </div>
             </div>
-            <div class="dir-f-span-2">
-              <label class="dir-f-label" for="edFirst">First name *</label>
-              <input id="edFirst" class="dir-f-control" [value]="editForm().firstName"
-                     (input)="updateEditField('firstName', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-3">
-              <label class="dir-f-label" for="edMiddle">Middle name</label>
-              <input id="edMiddle" class="dir-f-control" [value]="editForm().middleName"
-                     (input)="updateEditField('middleName', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-3">
-              <label class="dir-f-label" for="edLast">Last name *</label>
-              <input id="edLast" class="dir-f-control" [value]="editForm().lastName"
-                     (input)="updateEditField('lastName', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-3">
-              <label class="dir-f-label" for="edDisplay">Display name *</label>
-              <input id="edDisplay" class="dir-f-control" [value]="editForm().displayName"
-                     (input)="updateEditField('displayName', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-3">
-              <label class="dir-f-label" for="edPreferred">Preferred name</label>
-              <input id="edPreferred" class="dir-f-control" [value]="editForm().preferredName"
-                     (input)="updateEditField('preferredName', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-2">
-              <label class="dir-f-label" for="edCode">Country code</label>
-              <input id="edCode" class="dir-f-control" placeholder="+91" [value]="editForm().mobileCountryCode"
-                     (input)="updateEditField('mobileCountryCode', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-4">
-              <label class="dir-f-label" for="edMobile">Mobile</label>
-              <input id="edMobile" class="dir-f-control" [value]="editForm().mobileNumber"
-                     (input)="updateEditField('mobileNumber', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-3">
-              <label class="dir-f-label" for="edEmployee">Employee number</label>
-              <input id="edEmployee" class="dir-f-control" [value]="editForm().employeeNumber"
-                     (input)="updateEditField('employeeNumber', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-3">
-              <label class="dir-f-label" for="edDesignation">Designation</label>
-              <input id="edDesignation" class="dir-f-control" [value]="editForm().designation"
-                     (input)="updateEditField('designation', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-3">
-              <label class="dir-f-label" for="edLocation">Work location</label>
-              <input id="edLocation" class="dir-f-control" [value]="editForm().workLocation"
-                     (input)="updateEditField('workLocation', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-2">
-              <label class="dir-f-label" for="edLanguage">Preferred language</label>
-              <input id="edLanguage" class="dir-f-control" [value]="editForm().preferredLanguage"
-                     (input)="updateEditField('preferredLanguage', $any($event.target).value)">
-            </div>
-            <div class="dir-f-span-1">
-              <label class="dir-f-label" for="edTimeZone">Time zone</label>
-              <input id="edTimeZone" class="dir-f-control" [value]="editForm().timeZoneId"
-                     (input)="updateEditField('timeZoneId', $any($event.target).value)">
-            </div>
+          </section>
 
-            <!-- The API requires a reason on every profile change, so it is a field, not an
-                 afterthought. It is what makes the audit trail answer "why", not just "what". -->
-            <div class="dir-f-span-6">
-              <label class="dir-f-label" for="edReason">Reason for this change *</label>
-              <textarea id="edReason" class="dir-f-control" rows="2"
-                        placeholder="For example: corrected the spelling of the surname at the user's request."
-                        [(ngModel)]="reason" name="editReason"></textarea>
-              <p class="dir-f-note">At least 10 characters — recorded in the audit trail.</p>
+          <section class="dir-sec">
+            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-phone-line"></i></span>Contact</h6>
+            <div class="dir-form-grid">
+              <div class="dir-f-span-2">
+                <label class="dir-f-label" for="edCode">Country code</label>
+                <input id="edCode" class="dir-f-control" placeholder="+91" [value]="editForm().mobileCountryCode"
+                       (input)="updateEditField('mobileCountryCode', $any($event.target).value)">
+              </div>
+              <div class="dir-f-span-4">
+                <label class="dir-f-label" for="edMobile">Mobile</label>
+                <input id="edMobile" class="dir-f-control" [value]="editForm().mobileNumber"
+                       (input)="updateEditField('mobileNumber', $any($event.target).value)">
+              </div>
             </div>
-          </div>
+          </section>
+
+          <section class="dir-sec">
+            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-briefcase-line"></i></span>Work</h6>
+            <div class="dir-form-grid">
+              <div class="dir-f-span-3">
+                <label class="dir-f-label" for="edEmployee">Employee number</label>
+                <input id="edEmployee" class="dir-f-control" [value]="editForm().employeeNumber"
+                       (input)="updateEditField('employeeNumber', $any($event.target).value)">
+              </div>
+              <div class="dir-f-span-3">
+                <label class="dir-f-label" for="edDesignation">Designation</label>
+                <input id="edDesignation" class="dir-f-control" [value]="editForm().designation"
+                       (input)="updateEditField('designation', $any($event.target).value)">
+              </div>
+              <div class="dir-f-span-6">
+                <label class="dir-f-label" for="edLocation">Work location</label>
+                <input id="edLocation" class="dir-f-control" [value]="editForm().workLocation"
+                       (input)="updateEditField('workLocation', $any($event.target).value)">
+              </div>
+            </div>
+          </section>
+
+          <section class="dir-sec">
+            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-global-line"></i></span>Preferences</h6>
+            <div class="dir-form-grid">
+              <div class="dir-f-span-3">
+                <label class="dir-f-label" for="edLanguage">Preferred language</label>
+                <input id="edLanguage" class="dir-f-control" [value]="editForm().preferredLanguage"
+                       (input)="updateEditField('preferredLanguage', $any($event.target).value)">
+              </div>
+              <div class="dir-f-span-3">
+                <label class="dir-f-label" for="edTimeZone">Time zone</label>
+                <input id="edTimeZone" class="dir-f-control" [value]="editForm().timeZoneId"
+                       (input)="updateEditField('timeZoneId', $any($event.target).value)">
+              </div>
+            </div>
+          </section>
+
+          <!-- The API requires a reason on every profile change. It is what makes the audit
+               trail answer "why", not just "what". -->
+          <section class="dir-sec dir-sec-audit">
+            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-file-list-3-line"></i></span>Reason for this change <span class="dir-req">*</span></h6>
+            <textarea id="edReason" class="dir-f-control" rows="3"
+                      placeholder="For example: corrected the spelling of the surname at the user's request."
+                      [(ngModel)]="reason" name="editReason"></textarea>
+            <div class="dir-f-meta">
+              <span>Recorded in the audit trail.</span>
+              <span [class.dir-f-ok]="reason.trim().length >= 10">{{ reason.trim().length }} / 10 min</span>
+            </div>
+          </section>
         }
       </div>
 
       @if (!detailLoading() && detail()) {
         <div class="dir-sheet-foot">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeDialog()">Cancel</button>
-          <button type="button" class="btn btn-primary" [disabled]="busy()" (click)="saveEdit()">
+          <span class="flex-grow-1"></span>
+          <button type="button" class="dir-btn dir-btn-line" (click)="closeDialog()">Cancel</button>
+          <button type="button" class="dir-btn dir-btn-primary" [disabled]="busy()" (click)="saveEdit()">
+            <i [class]="busy() ? 'ri-loader-4-line dir-spin' : 'ri-save-3-line'"></i>
             {{ busy() ? 'Saving…' : 'Save changes' }}
           </button>
         </div>
@@ -565,146 +657,223 @@
 }
 
 <!-- =====================================================================================
-     Suspend / Reactivate / Delete / Invite — quick confirmations stay as a centered dialog.
+     Suspend / Reactivate / Delete / Invite — centered confirm dialog.
+     One shell (head / body / foot); the accent colour comes from dialogMeta().tone.
      ===================================================================================== -->
 @if (dialog() === 'suspend' || dialog() === 'reactivate' || dialog() === 'delete' || dialog() === 'invite') {
   <div class="dir-overlay" (click)="closeDialog()"></div>
-  <div class="dir-dialog">
+  <div class="dir-dialog" role="dialog" aria-modal="true" [attr.data-tone]="dialogMeta().tone">
 
-    <!-- ===== Suspend ===== -->
-    @if (dialog() === 'suspend') {
-      <div class="dir-dialog-icon dir-di-warning"><i class="ri-forbid-2-line"></i></div>
-      <h5 class="mb-2">Suspend {{ selected()?.displayName }}?</h5>
-      <p class="dir-dialog-desc">
-        They will be signed out of every device immediately and will not be able to sign in.
-        They can ask for the suspension to be lifted from the sign-in screen.
-      </p>
-
-      @if (errorMessage()) {
-        <div class="dir-alert-inline"><i class="ri-error-warning-line"></i><span>{{ errorMessage() }}</span></div>
-      }
-
-      <label class="dir-f-label" for="suspendReason">Reason (recorded in the audit trail) *</label>
-      <textarea id="suspendReason" class="dir-f-control" rows="3"
-                placeholder="Why is this account being suspended?"
-                [(ngModel)]="reason" name="suspendReason"></textarea>
-      <p class="dir-f-note mb-4">At least 10 characters.</p>
-
-      <div class="d-flex gap-2">
-        <button type="button" class="dir-btn dir-btn-line flex-grow-1" (click)="closeDialog()">Cancel</button>
-        <button type="button" class="dir-btn dir-btn-warning flex-grow-1" [disabled]="busy()" (click)="confirmSuspend()">
-          {{ busy() ? 'Suspending…' : 'Suspend account' }}
-        </button>
+    <!-- Head -->
+    <div class="dir-dialog-head">
+      <div class="dir-dialog-icon"><i [ngClass]="dialogMeta().icon"></i></div>
+      <div class="dir-dialog-titles">
+        <h5 class="dir-dialog-title">
+          @switch (dialog()) {
+            @case ('suspend') { Suspend account }
+            @case ('reactivate') { Reactivate account }
+            @case ('invite') { Send invitation }
+            @case ('delete') {
+              @if (isHardDelete()) { Delete draft }
+              @else if (isPendingInvite(selected()!)) { Withdraw invitation }
+              @else { Deactivate account }
+            }
+          }
+        </h5>
+        <p class="dir-dialog-sub">
+          @switch (dialog()) {
+            @case ('suspend') { Access is blocked until it is reactivated. }
+            @case ('reactivate') { They can sign in again straight away. }
+            @case ('invite') { An activation link is e-mailed to them. }
+            @case ('delete') {
+              @if (isHardDelete()) { This cannot be undone. }
+              @else if (isPendingInvite(selected()!)) { The open invitation link stops working. }
+              @else { The record and its history are kept. }
+            }
+          }
+        </p>
       </div>
-    }
+      <button type="button" class="dir-dialog-x" aria-label="Close" (click)="closeDialog()">
+        <i class="ri-close-line"></i>
+      </button>
+    </div>
 
-    <!-- ===== Reactivate ===== -->
-    @if (dialog() === 'reactivate') {
-      <div class="dir-dialog-icon dir-di-success"><i class="ri-play-circle-line"></i></div>
-      <h5 class="mb-2">Reactivate {{ selected()?.displayName }}?</h5>
-      <p class="dir-dialog-desc">They will be able to sign in again straight away.</p>
-
-      @if (errorMessage()) {
-        <div class="dir-alert-inline"><i class="ri-error-warning-line"></i><span>{{ errorMessage() }}</span></div>
-      }
-
-      <label class="dir-f-label" for="reactivateReason">Reason (recorded in the audit trail) *</label>
-      <textarea id="reactivateReason" class="dir-f-control" rows="3"
-                placeholder="Why is access being restored?"
-                [(ngModel)]="reason" name="reactivateReason"></textarea>
-      <p class="dir-f-note mb-4">At least 10 characters.</p>
-
-      <div class="d-flex gap-2">
-        <button type="button" class="dir-btn dir-btn-line flex-grow-1" (click)="closeDialog()">Cancel</button>
-        <button type="button" class="dir-btn dir-btn-success flex-grow-1" [disabled]="busy()" (click)="confirmReactivate()">
-          {{ busy() ? 'Reactivating…' : 'Reactivate account' }}
-        </button>
+    <!-- Body -->
+    <div class="dir-dialog-body">
+      <!-- Who this applies to -->
+      <div class="dir-dialog-target">
+        <span class="dir-avatar" [class]="avatarClass(selected()?.displayName)">{{ initials(selected()?.displayName) }}</span>
+        <div class="min-w-0">
+          <div class="dir-dialog-target-name text-truncate">{{ selected()?.displayName }}</div>
+          <div class="dir-email text-truncate">{{ selected()?.email }}</div>
+        </div>
+        <span class="dir-status-pill ms-auto" [class]="statusClass(selected()?.status)">
+          {{ selected()?.statusDisplay || selected()?.status }}
+        </span>
       </div>
-    }
 
-    <!-- ===== Delete / deactivate ===== -->
-    @if (dialog() === 'delete') {
-      <div class="dir-dialog-icon dir-di-danger"><i class="ri-delete-bin-line"></i></div>
-
-      <!-- The three cases are genuinely different, so the wording is too. -->
-      <h5 class="mb-2">
-        @if (isHardDelete()) {
-          Delete this draft?
-        } @else if (isPendingInvite(selected()!)) {
-          Withdraw the invitation for {{ selected()?.displayName }}?
-        } @else {
-          Deactivate {{ selected()?.displayName }}?
+      <!-- What will happen -->
+      <ul class="dir-dialog-points">
+        @switch (dialog()) {
+          @case ('suspend') {
+            <li><i class="ri-logout-box-r-line"></i>Signed out of every device immediately.</li>
+            <li><i class="ri-lock-line"></i>Cannot sign in until the account is reactivated.</li>
+            <li><i class="ri-question-answer-line"></i>They can ask for the suspension to be lifted from the sign-in screen.</li>
+          }
+          @case ('reactivate') {
+            <li><i class="ri-login-box-line"></i>Sign-in is allowed again straight away.</li>
+            <li><i class="ri-key-2-line"></i>Existing roles and access come back unchanged.</li>
+          }
+          @case ('invite') {
+            <li><i class="ri-mail-line"></i>They receive an e-mail with an activation link.</li>
+            <li><i class="ri-link-unlink"></i>Any earlier link stops working at once.</li>
+          }
+          @case ('delete') {
+            @if (isHardDelete()) {
+              <li><i class="ri-delete-bin-6-line"></i>The draft was never invited, so it is erased completely.</li>
+              <li><i class="ri-error-warning-line"></i>This cannot be undone.</li>
+            } @else if (isPendingInvite(selected()!)) {
+              <li><i class="ri-link-unlink"></i>The invitation is withdrawn and the link stops working.</li>
+              <li><i class="ri-mail-send-line"></i>The account can be invited again later.</li>
+            } @else {
+              <li><i class="ri-logout-box-r-line"></i>The account is closed and every session is revoked.</li>
+              <li><i class="ri-history-line"></i>The record and its history are kept — an audit trail with gaps is not an audit trail.</li>
+            }
+          }
         }
-      </h5>
-
-      <p class="dir-dialog-desc">
-        @if (isHardDelete()) {
-          This draft was never invited, so it can be erased completely. This cannot be undone.
-        } @else if (isPendingInvite(selected()!)) {
-          The invitation is still open, so it will be withdrawn and the link will stop working.
-          The account can be invited again later.
-        } @else {
-          The account is closed and every session is revoked. The record and its history are
-          <strong>kept</strong>, because an audit trail with gaps in it is not an audit trail.
-        }
-      </p>
+      </ul>
 
       @if (errorMessage()) {
         <div class="dir-alert-inline"><i class="ri-error-warning-line"></i><span>{{ errorMessage() }}</span></div>
       }
 
-      <label class="dir-f-label" for="deleteReason">Reason (recorded in the audit trail) *</label>
-      <textarea id="deleteReason" class="dir-f-control mb-1" rows="2"
-                [(ngModel)]="reason" name="deleteReason"></textarea>
-      <p class="dir-f-note mb-3">At least 10 characters.</p>
+      <!-- Inputs -->
+      @if (dialog() === 'invite') {
+        <label class="dir-f-label" for="welcomeMessage">Welcome message <span class="dir-opt">(optional)</span></label>
+        <textarea id="welcomeMessage" class="dir-f-control" rows="3"
+                  placeholder="Anything you would like them to read before they start."
+                  [(ngModel)]="welcomeMessage" name="welcomeMessage"></textarea>
+      } @else {
+        <label class="dir-f-label" for="dlgReason">Reason <span class="dir-req">*</span></label>
+        <textarea id="dlgReason" class="dir-f-control" rows="3"
+                  [placeholder]="dialog() === 'suspend' ? 'Why is this account being suspended?'
+                               : dialog() === 'reactivate' ? 'Why is access being restored?'
+                               : 'Why is this account being removed?'"
+                  [(ngModel)]="reason" name="dlgReason"></textarea>
+        <div class="dir-f-meta">
+          <span>Recorded in the audit trail.</span>
+          <span [class.dir-f-ok]="reason.trim().length >= 10">{{ reason.trim().length }} / 10 min</span>
+        </div>
+      }
 
       <!-- Typing the name is a deliberate speed bump on an action that is hard to reverse. -->
-      <label class="dir-f-label" for="deleteConfirm">
-        Type <strong>{{ selected()?.displayName }}</strong> to confirm
-      </label>
-      <input id="deleteConfirm" class="dir-f-control mb-4" autocomplete="off"
-             [ngModel]="deleteConfirmation()" (ngModelChange)="deleteConfirmation.set($event)" name="deleteConfirm">
-
-      <div class="d-flex gap-2">
-        <button type="button" class="dir-btn dir-btn-line flex-grow-1" (click)="closeDialog()">Cancel</button>
-        <button type="button" class="dir-btn dir-btn-danger flex-grow-1" [disabled]="busy() || !canConfirmDelete()" (click)="confirmDelete()">
-          {{
-            busy()
-              ? 'Working…'
-              : isHardDelete()
-                ? 'Delete draft'
-                : isPendingInvite(selected()!)
-                  ? 'Withdraw invitation'
-                  : 'Deactivate account'
-          }}
-        </button>
-      </div>
-    }
-
-    <!-- ===== Send invitation ===== -->
-    @if (dialog() === 'invite') {
-      <div class="dir-dialog-icon dir-di-primary"><i class="ri-mail-send-line"></i></div>
-      <h5 class="mb-2">Send an invitation to {{ selected()?.displayName }}?</h5>
-      <p class="dir-dialog-desc">
-        They receive an e-mail with an activation link. Any earlier link stops working at once.
-      </p>
-
-      @if (errorMessage()) {
-        <div class="dir-alert-inline"><i class="ri-error-warning-line"></i><span>{{ errorMessage() }}</span></div>
+      @if (dialog() === 'delete') {
+        <label class="dir-f-label mt-3" for="deleteConfirm">
+          Type <strong class="dir-confirm-name">{{ selected()?.displayName }}</strong> to confirm
+        </label>
+        <input id="deleteConfirm" class="dir-f-control" autocomplete="off"
+               [class.dir-f-control-ok]="canConfirmDelete()"
+               [ngModel]="deleteConfirmation()" (ngModelChange)="deleteConfirmation.set($event)" name="deleteConfirm">
       }
+    </div>
 
-      <label class="dir-f-label" for="welcomeMessage">Welcome message (optional)</label>
-      <textarea id="welcomeMessage" class="dir-f-control mb-4" rows="3"
-                placeholder="Anything you would like them to read before they start."
-                [(ngModel)]="welcomeMessage" name="welcomeMessage"></textarea>
+    <!-- Foot -->
+    <div class="dir-dialog-foot">
+      <button type="button" class="dir-btn dir-btn-line" (click)="closeDialog()">Cancel</button>
 
-      <div class="d-flex gap-2">
-        <button type="button" class="dir-btn dir-btn-line flex-grow-1" (click)="closeDialog()">Cancel</button>
-        <button type="button" class="dir-btn dir-btn-primary flex-grow-1" [disabled]="busy()" (click)="confirmInvite()">
-          {{ busy() ? 'Sending…' : 'Send invitation' }}
-        </button>
-      </div>
-    }
-
+      @switch (dialog()) {
+        @case ('suspend') {
+          <button type="button" class="dir-btn dir-btn-tone" [disabled]="busy()" (click)="confirmSuspend()">
+            <i class="ri-forbid-2-line"></i> {{ busy() ? 'Suspending…' : 'Suspend account' }}
+          </button>
+        }
+        @case ('reactivate') {
+          <button type="button" class="dir-btn dir-btn-tone" [disabled]="busy()" (click)="confirmReactivate()">
+            <i class="ri-play-circle-line"></i> {{ busy() ? 'Reactivating…' : 'Reactivate account' }}
+          </button>
+        }
+        @case ('invite') {
+          <button type="button" class="dir-btn dir-btn-tone" [disabled]="busy()" (click)="confirmInvite()">
+            <i class="ri-send-plane-line"></i> {{ busy() ? 'Sending…' : 'Send invitation' }}
+          </button>
+        }
+        @case ('delete') {
+          <button type="button" class="dir-btn dir-btn-tone" [disabled]="busy() || !canConfirmDelete()" (click)="confirmDelete()">
+            <i class="ri-delete-bin-6-line"></i>
+            {{
+              busy()
+                ? 'Working…'
+                : isHardDelete()
+                  ? 'Delete draft'
+                  : isPendingInvite(selected()!)
+                    ? 'Withdraw invitation'
+                    : 'Deactivate account'
+            }}
+          </button>
+        }
+      }
+    </div>
   </div>
 }
+
+
+<!-- =====================================================================================
+     Custom dropdown — replaces the native <select> so every filter has the same designed
+     look. Clicks inside stop propagation; any click outside (or Esc) closes it.
+     ===================================================================================== -->
+<ng-template #ddFilter let-key="key" let-label="label" let-placeholder="placeholder"
+             let-options="options" let-icon="icon">
+  <label class="dir-f-label" [id]="'dd-lbl-' + key">{{ label }}</label>
+
+  <div class="dir-dd" [class.dir-dd-open]="openDropdown() === key"
+       [class.dir-dd-has-value]="!!filterValue(key)" (click)="$event.stopPropagation()">
+
+    <button type="button" class="dir-dd-trigger" aria-haspopup="listbox"
+            [attr.aria-expanded]="openDropdown() === key"
+            [attr.aria-labelledby]="'dd-lbl-' + key" (click)="toggleDropdown(key)">
+      <i class="dir-dd-lead" [ngClass]="icon"></i>
+      <span class="dir-dd-value" [class.dir-dd-placeholder]="!filterValue(key)">
+        {{ optionLabel(options, filterValue(key), placeholder) }}
+      </span>
+      <i class="ri-arrow-down-s-line dir-dd-chev"></i>
+    </button>
+
+    @if (filterValue(key)) {
+      <button type="button" class="dir-dd-clear" aria-label="Clear" (click)="pickOption(key, '')">
+        <i class="ri-close-line"></i>
+      </button>
+    }
+
+    @if (openDropdown() === key) {
+      <div class="dir-dd-menu" role="listbox">
+        @if (options.length > 6) {
+          <div class="dir-dd-search">
+            <i class="ri-search-line"></i>
+            <input type="text" placeholder="Search…" [value]="dropdownQuery()"
+                   (input)="dropdownQuery.set($any($event.target).value)">
+          </div>
+        }
+
+        <div class="dir-dd-list">
+          <button type="button" role="option" class="dir-dd-option"
+                  [class.dir-dd-option-on]="!filterValue(key)" (click)="pickOption(key, '')">
+            <span>{{ placeholder }}</span>
+            @if (!filterValue(key)) { <i class="ri-check-line"></i> }
+          </button>
+
+          @for (option of filterOptions(options); track option.id) {
+            <button type="button" role="option" class="dir-dd-option"
+                    [class.dir-dd-option-on]="isPicked(filterValue(key), option.id)"
+                    [attr.aria-selected]="isPicked(filterValue(key), option.id)"
+                    (click)="pickOption(key, option.id ?? '')">
+              <span class="text-truncate">{{ option.name }}</span>
+              @if (isPicked(filterValue(key), option.id)) { <i class="ri-check-line"></i> }
+            </button>
+          } @empty {
+            <div class="dir-dd-empty">No matches</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</ng-template>

@@ -81,6 +81,7 @@ import { AuditTrailComponent } from './Features/YDot/Administration/audit-trail/
 import { PaymentGatewayConfigurationComponent } from './Features/YDot/Configuration/payment/payment-gateway-configuration';
 import { MenuConfigurationComponent } from './Features/YDot/Administration/menu-configuration/menu-configuration';
 import { OrganisationStructureComponent } from './Features/YDot/Administration/organisation-structure/organisation-structure';
+import { OfficeFormComponent } from './Features/YDot/Administration/office-form/office-form';
 import { BusinessUnitComponent } from './Features/YDot/Platform/business-unit/business-unit';
 import { MenuCatalogueComponent } from './Features/YDot/Platform/menu-catalogue/menu-catalogue';
 import { PermissionCatalogueComponent } from './Features/YDot/Platform/permission-catalogue/permission-catalogue';
@@ -429,6 +430,18 @@ export const routes: Routes = [
         component: OrganisationStructureComponent,
         data: { mode: 'units' },
         canActivate: [organisationContextGuard, requirePermission('iam.organisation.view', 'iam.organisation.manage-units')],
+      },
+      // Adding or editing an office is a page of its own rather than a card above the list: the
+      // address section alone is longer than the screen. Managing needs manage-units, not view.
+      {
+        path: 'administration/organisation/units/new',
+        component: OfficeFormComponent,
+        canActivate: [organisationContextGuard, requirePermission('iam.organisation.manage-units')],
+      },
+      {
+        path: 'administration/organisation/units/:id/edit',
+        component: OfficeFormComponent,
+        canActivate: [organisationContextGuard, requirePermission('iam.organisation.manage-units')],
       },
 
       // =========================================================================

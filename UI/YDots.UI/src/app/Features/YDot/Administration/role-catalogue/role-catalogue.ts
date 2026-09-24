@@ -1,4 +1,4 @@
-  import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
   import { CommonModule } from '@angular/common';
   import { FormsModule } from '@angular/forms';
   import { RouterModule, Router } from '@angular/router';
@@ -370,6 +370,193 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
       }
     }
 
+    /**
+     * The open role as a list row — what Compare and Delete take. Looked up across ALL roles, not
+     * just the filtered ones, so the detail actions keep working when a filter hides the row.
+     */
+    readonly selectedItem = computed<RoleItemView | null>(() => {
+      const id = this.detailRole()?.id;
+      if (!id) return null;
+      const row = (this.data()?.roles ?? []).find((r) => r.id === id);
+      return row ? this.toRoleItemView(row) : null;
+    });
+
+    /** The master-detail layout always shows a role: open the first one if nothing is open. */
+    private selectFirstIfNone(): void {
+      if (this.detailRole()) return;
+      const first = this.filteredRoles()[0];
+      if (first) this.openDetail(first);
+    }
+
+    /** Up to two initials for the live preview in the create panel. */
+    initials(name: string): string {
+      const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 0) return '+';
+      return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
+    }
+
+    // =========================================================================================
+    // Custom dropdowns — replace every native <select> / <datalist> on this screen.
+    // One key is open at a time; clicks inside a dropdown stop propagation, anything else closes.
+    // =========================================================================================
+    readonly openDd = signal<string | null>(null);
+    /** Search text inside the open dropdown. */
+    readonly ddQuery = signal('');
+
+    toggleDd(key: string): void {
+      this.ddQuery.set('');
+      this.openDd.set(this.openDd() === key ? null : key);
+    }
+
+    closeDd(): void {
+      this.openDd.set(null);
+    }
+
+    /** Does a label match the dropdown search? */
+    ddMatch(text: string | null | undefined): boolean {
+      const q = this.ddQuery().trim().toLowerCase();
+      return !q || (text ?? '').toLowerCase().includes(q);
+    }
+
+    @HostListener('document:click')
+    onDocumentClick(): void {
+      if (this.openDd()) this.openDd.set(null);
+    }
+
+    @HostListener('document:keydown.escape')
+    onEscape(): void {
+      if (this.openDd()) { this.openDd.set(null); return; }
+      if (this.showCompareModal()) { this.closeCompareModal(); return; }
+      if (this.showDeleteRoleModal()) { this.closeDeleteRoleModal(); return; }
+      if (this.showCreateModal()) { this.closeCreateModal(); }
+    }
+
+    readonly conflictRoleLabel = computed(() => {
+      const id = this.conflictForm().conflictingRoleId;
+      return id ? (this.conflictCandidates().find((c) => c.id === id)?.name ?? '') : '';
+    });
+
+    /** Roles the compare dialog can pick: everything except the base role. */
+    readonly compareCandidates = computed(() => {
+      const baseId = this.actionRole()?.id;
+      return (this.data()?.roles ?? [])
+        .filter((r) => r.id !== baseId)
+        .map((r) => ({ id: r.id ?? '', name: r.name ?? '', code: r.code ?? '' }));
+    });
+
+    readonly compareRoleLabel = computed(() =>
+      this.compareCandidates().find((c) => c.id === this.compareRoleId())?.name ?? '');
+
+    // ---- Create panel: permission picker ----------------------------------------------------
+    /** Which list the permission picker writes to: granted, or explicitly denied. */
+    readonly permMode = signal<'grant' | 'deny'>('grant');
+    readonly permQuery = signal('');
+
+    readonly filteredPermissionChoices = computed(() => {
+      const q = this.permQuery().trim().toLowerCase();
+      const all = this.permissionChoices();
+      return q
+        ? all.filter((p) => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))
+        : all;
+    });
+
+    readonly incompatQuery = signal('');
+
+    readonly filteredIncompatRoles = computed(() => {
+      const q = this.incompatQuery().trim().toLowerCase();
+      return (this.data()?.roles ?? []).filter((r) =>
+        !q || (r.name ?? '').toLowerCase().includes(q) || (r.code ?? '').toLowerCase().includes(q));
+    });
+
+    /** Owning-function suggestions matching what has been typed. */
+    readonly owningSuggestions = computed(() => {
+      const q = (this.createRoleForm().displayTag ?? '').trim().toLowerCase();
+      return this.owningFunctions().filter((fn) => !q || fn.toLowerCase().includes(q));
+    });
+
+    permissionName(code: string): string {
+      return this.permissionChoices().find((p) => p.code === code)?.name ?? code;
+    }
+
+    roleNameById(id: string): string {
+      return (this.data()?.roles ?? []).find((r) => r.id === id)?.name ?? id;
+    }
+
+    togglePermPick(code: string): void {
+      if (this.permMode() === 'grant') this.togglePermission(code);
+      else this.toggleDeniedPermission(code);
+    }
+
+    isPermPicked(code: string): boolean {
+      return this.permMode() === 'grant' ? this.isPermissionSelected(code) : this.isPermissionDenied(code);
+    }
+
+    setOwningFunction(value: string): void {
+      this.createRoleForm.set({ ...this.createRoleForm(), displayTag: value });
+    }
+
+    stepPriority(delta: number): void {
+      const next = Math.min(9999, Math.max(0, (this.createRoleForm().priority ?? 0) + delta));
+      this.createRoleForm.set({ ...this.createRoleForm(), priority: next });
+    }
+
+    // ---- Detail pane: permissions grouped by module -----------------------------------------
+    private static readonly MODULE_LABELS: Record<string, string> = {
+      iam: 'Identity & access',
+      don: 'Donors',
+      cam: 'Campaigns',
+      pay: 'Payments',
+      vol: 'Volunteers',
+      evt: 'Events',
+      cms: 'Content',
+      rpt: 'Reports',
+    };
+
+    readonly permFilter = signal('');
+    readonly closedGroups = signal<string[]>([]);
+
+    readonly detailPermGroups = computed(() => {
+      const d = this.detailView();
+      if (!d) return [];
+      const q = this.permFilter().trim().toLowerCase();
+      const rows = [
+        ...d.permissionBundle.map((p) => ({ ...p, denied: false })),
+        ...d.excludedPermissions.map((p) => ({ ...p, denied: true })),
+      ].filter((p) => !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q));
+
+      const groups = new Map<string, typeof rows>();
+      for (const row of rows) {
+        const key = (row.code.split('.')[0] || 'other').toLowerCase();
+        groups.set(key, [...(groups.get(key) ?? []), row]);
+      }
+      return [...groups.entries()]
+        .map(([key, items]) => ({
+          key,
+          label: RoleCatalogueComponent.MODULE_LABELS[key] ?? key.toUpperCase(),
+          items,
+          sensitive: items.filter((i) => i.isSensitive).length,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    });
+
+    readonly permStats = computed(() => {
+      const d = this.detailView();
+      return {
+        granted: d?.permissionBundle.length ?? 0,
+        denied: d?.excludedPermissions.length ?? 0,
+        sensitive: (d?.permissionBundle ?? []).filter((p) => p.isSensitive).length,
+      };
+    });
+
+    isGroupClosed(key: string): boolean {
+      return this.closedGroups().includes(key);
+    }
+
+    toggleGroup(key: string): void {
+      const c = this.closedGroups();
+      this.closedGroups.set(c.includes(key) ? c.filter((k) => k !== key) : [...c, key]);
+    }
+
     // ===== Compare & Delete Modal =====
     showCompareModal = signal(false);
     showDeleteRoleModal = signal(false);
@@ -396,6 +583,7 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
           this.data.set(res);
           this.loading.set(false);
           this.applyFilters();
+          this.selectFirstIfNone();
         },
         error: (error: Error) => {
           this.loading.set(false);
@@ -532,6 +720,10 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
       this.selectedIncompatibleRoleIds.set([]);
       this.permissionDropdownOpen.set(false);
       this.incompatibleDropdownOpen.set(false);
+      this.permMode.set('grant');
+      this.permQuery.set('');
+      this.incompatQuery.set('');
+      this.openDd.set(null);
       this.errorMessage.set('');
       this.showCreateModal.set(true);
 
@@ -722,6 +914,13 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
         this.submitting.set(false);
         this.showCreateModal.set(false);
 
+        // Open the role that was just created, so the detail pane shows it straight away.
+        const created = this.detailCache.get(roleId);
+        if (created) {
+          this.detailRole.set(created);
+          this.showDetailModal.set(true);
+        }
+
         if (conflictError) {
           this.toast.show(
             'Role created, rules not recorded',
@@ -755,6 +954,8 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
 
     // ===== ROLE DETAIL =====
     openDetail(role: RoleItemView): void {
+      this.permFilter.set('');
+      this.closedGroups.set([]);
       const cached = this.detailCache.get((role.id ?? ''));
       if (cached) {
         this.detailRole.set(cached);
@@ -992,6 +1193,9 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
         next: (outcome) => {
           this.submitting.set(false);
           this.closeDeleteRoleModal();
+          if (this.detailRole()?.id === target.id) {
+            this.detailRole.set(null);
+          }
           this.toast.show('Role Deleted', `Role ${target.roleCode} was permanently deleted.`, 'success');
           this.loadData();
         },
@@ -1017,7 +1221,7 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
             'Role activated',
             `${this.roleDisplayName(role)} is now in use.`,
             'success');
-          this.closeDetail();
+          this.refreshIfOpen(role.id ?? '');
           this.loadData();
         },
         error: (error: Error) => {
@@ -1034,7 +1238,7 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
           this.submitting.set(false);
           this.detailCache.delete((role.id ?? ''));
           this.toast.show('Role retired', `${this.roleDisplayName(role)} has been retired.`, 'info');
-          this.closeDetail();
+          this.refreshIfOpen(role.id ?? '');
           this.loadData();
         },
         error: (error: Error) => {
@@ -1042,6 +1246,13 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
           this.toast.show('Retire Failed', error.message, 'error');
         },
       });
+    }
+
+    /** Re-reads the role if it is the one open in the detail pane. */
+    private refreshIfOpen(roleId: string): void {
+      if (roleId && this.detailRole()?.id === roleId) {
+        this.refreshOpenRole(roleId);
+      }
     }
 
     private roleDisplayName(role: RoleItemView | RoleDetailView): string {

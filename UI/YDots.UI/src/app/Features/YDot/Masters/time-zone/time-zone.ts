@@ -12,7 +12,6 @@ import {
   canPerform,
 } from '../../../../Shared/models/global-master.model';
 import { MasterService } from '../master.service';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 /* ============================================================
    Models
@@ -106,9 +105,9 @@ type ViewMode = 'list' | 'form';
 @Component({
   selector: 'app-time-zone',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './time-zone.html',
-  styleUrl: './time-zone.css',
+  styleUrls: ['../../Administration/office-form/office-form.css', './time-zone.css'],
 })
 export class TimeZoneComponent implements OnInit {
   private readonly masters = inject(MasterService);

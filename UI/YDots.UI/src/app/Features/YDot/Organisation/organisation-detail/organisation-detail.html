@@ -21,20 +21,20 @@
 
     <!-- ================================================================= Identity header
          One card: who the organisation is, its state, the quick facts, and the tabs along its foot, so
-         the page reads top-down with no loose band between the title and the content. -->
+         the page reads top-down with no loose band between the title and the content. It fades up on
+         arrival; the title block, actions, facts and tabs follow one after another. -->
     <section class="og-hero" aria-label="Organisation">
       <div class="og-hero-top">
         <div class="og-hero-id">
-          @if (org.logoUrl) {
-            <img class="og-avatar og-avatar-img" [src]="org.logoUrl" alt="" />
-          } @else {
-            <span class="og-avatar" aria-hidden="true">{{ initials(org.name) }}</span>
-          }
           <div class="og-hero-text">
+            <span class="og-hero-eyebrow">{{ isSettingsPage() ? 'Organisation settings' : 'Organisation profile' }}</span>
             <div class="og-hero-title-row">
               <h1 class="og-hero-title">{{ org.name ?? 'Organisation' }}</h1>
-              <span class="og-status" [ngClass]="statusClass(org.status)">
-                <span class="og-status-dot" aria-hidden="true"></span>{{ org.statusDisplay || org.status }}
+              <!-- Status as an icon only; hovering (or focusing) it shows the word, e.g. "Active". -->
+              <span class="og-status-mark" [ngClass]="statusClass(org.status)" tabindex="0" role="img"
+                    [attr.aria-label]="'Status: ' + (org.statusDisplay || org.status)"
+                    [attr.data-tip]="org.statusDisplay || org.status">
+                <i [class]="statusIcon(org.status)" aria-hidden="true"></i>
               </span>
             </div>
             <div class="og-hero-meta">
@@ -58,7 +58,7 @@
               </a>
             }
           }
-          @if (tab() === 'profile' && canEditProfile() && !editing()) {
+          @if (!isSettingsPage() && tab() === 'profile' && canEditProfile() && !editing()) {
             <button type="button" class="og-btn og-btn-primary" (click)="startEditing()">
               <i class="ri-edit-line"></i> Edit profile
             </button>
@@ -66,7 +66,8 @@
         </div>
       </div>
 
-      <dl class="og-facts">
+      <!-- The settings page shows People, Administrator and Last updated only. -->
+      <dl class="og-facts" [class.og-facts-3]="isSettingsPage()">
         <div class="og-fact">
           <dt>People</dt>
           <dd>{{ org.userCount ?? 0 }}@if (org.maximumUsers) {<small> / {{ org.maximumUsers }}</small>}</dd>
@@ -75,65 +76,84 @@
           <dt>Administrator</dt>
           <dd [title]="org.primaryAdmin?.email || ''">{{ org.primaryAdmin?.displayName || '—' }}</dd>
         </div>
-        <div class="og-fact">
-          <dt>Documents</dt>
-          <dd>{{ documents().length }}</dd>
-        </div>
-        <div class="og-fact">
-          <dt>Web addresses</dt>
-          <dd>{{ domains().length }}</dd>
-        </div>
+        @if (!isSettingsPage()) {
+          <div class="og-fact">
+            <dt>Documents</dt>
+            <dd>{{ documents().length }}</dd>
+          </div>
+          <div class="og-fact">
+            <dt>Web addresses</dt>
+            <dd>{{ domains().length }}</dd>
+          </div>
+        }
         <div class="og-fact">
           <dt>Last updated</dt>
           <dd>{{ (org.updatedAtUtc || org.createdAtUtc) ? ((org.updatedAtUtc || org.createdAtUtc) | date: 'd MMM y') : '—' }}</dd>
         </div>
       </dl>
 
-      <nav class="og-tabs" role="tablist" aria-label="Organisation sections">
-        <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'profile'"
-                [attr.aria-selected]="tab() === 'profile'" (click)="tab.set('profile')">
-          <i class="ri-file-text-line"></i> Profile
-        </button>
-        <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'documents'"
-                [attr.aria-selected]="tab() === 'documents'" (click)="tab.set('documents')">
-          <i class="ri-attachment-2"></i> Documents
-          @if (documents().length) { <span class="og-tab-count">{{ documents().length }}</span> }
-        </button>
-        @if (showReviewTab()) {
-          <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'review'"
-                  [attr.aria-selected]="tab() === 'review'" (click)="tab.set('review')">
-            <i class="ri-send-plane-line"></i> Review &amp; submit
-            @if (!isProfileComplete()) { <i class="ri-error-warning-fill og-tab-warn"></i> }
-          </button>
-        }
-        @if (isOwnOrganisation() && isApproved()) {
+    </section>
+
+    <!-- The tabs: a card of their own under the header. Two pages, two sets of tabs. Settings page: Security settings, Profile, History.
+         Profile page: Profile, Documents, Review & submit, Web addresses, History. -->
+    <!-- The settings page is Security settings alone - no tabs. -->
+    @if (!isSettingsPage()) {
+      <nav class="og-tabs og-tabs-card" role="tablist" aria-label="Organisation sections">
+        @if (showSecurityTab()) {
           <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'settings'"
                   [attr.aria-selected]="tab() === 'settings'" (click)="tab.set('settings')">
             <i class="ri-shield-keyhole-line"></i> Security settings
           </button>
         }
-        <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'domains'"
-                [attr.aria-selected]="tab() === 'domains'" (click)="tab.set('domains')">
-          <i class="ri-global-line"></i> Web addresses
+        <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'profile'"
+                [attr.aria-selected]="tab() === 'profile'" (click)="tab.set('profile')">
+          <i class="ri-file-text-line"></i> Profile
         </button>
+        @if (!isSettingsPage()) {
+          <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'documents'"
+                  [attr.aria-selected]="tab() === 'documents'" (click)="tab.set('documents')">
+            <i class="ri-attachment-2"></i> Documents
+            @if (documents().length) { <span class="og-tab-count">{{ documents().length }}</span> }
+          </button>
+          @if (showReviewTab()) {
+            <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'review'"
+                    [attr.aria-selected]="tab() === 'review'" (click)="tab.set('review')">
+              <i class="ri-send-plane-line"></i> Review &amp; submit
+              @if (!isProfileComplete()) { <i class="ri-error-warning-fill og-tab-warn"></i> }
+            </button>
+          }
+          <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'domains'"
+                  [attr.aria-selected]="tab() === 'domains'" (click)="tab.set('domains')">
+            <i class="ri-global-line"></i> Web addresses
+          </button>
+        }
         <button type="button" class="og-tab" role="tab" [class.is-active]="tab() === 'timeline'"
                 [attr.aria-selected]="tab() === 'timeline'" (click)="tab.set('timeline')">
           <i class="ri-history-line"></i> History
         </button>
       </nav>
-    </section>
+    }
 
     <!-- ================================================================= Notices -->
-    @if (isOwnOrganisation() && !isProfileComplete() && outstandingFields().length > 0) {
-      <div class="og-alert is-warn">
-        <i class="ri-information-line"></i>
-        <div>
-          <strong>Your profile is not finished yet.</strong>
-          <p>These are still needed before it can be sent for approval:</p>
+    @if (!isSettingsPage() && isOwnOrganisation() && !isProfileComplete() && outstandingFields().length > 0) {
+      <!-- One compact banner: what is missing reads as the form's own labels, laid out as tags in a
+           single wrapping row, with the way to fix it on the right. -->
+      <div class="og-alert is-warn og-todo">
+        <span class="og-todo-glyph"><i class="ri-error-warning-line"></i></span>
+        <div class="og-todo-body">
+          <div class="og-todo-head">
+            <strong>Complete your profile to send it for approval</strong>
+            <span class="og-todo-count">{{ outstandingFieldLabels().length }} {{ outstandingFieldLabels().length === 1 ? 'detail' : 'details' }} missing</span>
+          </div>
           <ul class="og-outstanding">
-            @for (field of outstandingFields(); track field) { <li>{{ field }}</li> }
+            @for (label of outstandingFieldLabels(); track label) { <li>{{ label }}</li> }
           </ul>
         </div>
+        @if (canEditProfile() && !editing()) {
+          <button type="button" class="og-btn og-btn-warn" (click)="tab.set('profile'); startEditing()">
+            <i class="ri-edit-line"></i> Complete profile
+          </button>
+        }
       </div>
     }
     @if (org.status === 'rejected' && org.rejectionReason) {
@@ -155,8 +175,17 @@
       </div>
     }
 
+    <!-- Settings page before approval: nothing to set yet, so say so rather than showing the profile. -->
+    @if (isSettingsPage() && !showSecurityTab()) {
+      <section class="og-card og-empty">
+        <span class="og-empty-glyph"><i class="ri-shield-keyhole-line"></i></span>
+        <h3 class="og-empty-title">Security settings are not available yet</h3>
+        <p class="og-empty-body">They open once the platform has approved this organisation.</p>
+      </section>
+    }
+
     <!-- ================================================================= Profile -->
-    @if (tab() === 'profile') {
+    @if (tab() === 'profile' && !isSettingsPage()) {
       @if (editing()) {
         <!-- EDIT: one card, a section per group - title + note on the left, fields on the right. -->
         <section class="og-card og-form">
@@ -384,9 +413,10 @@
           </div>
         </section>
       } @else {
-        <!-- VIEW: main column (identity, contact + address) beside a narrow column (about, regional, people). -->
+        <!-- VIEW: two equal-height cards side by side - identity (with business unit and about) and
+             contact + registered address (with time zone). -->
         <div class="og-profile">
-          <div class="og-main">
+          <div class="og-row og-row-2">
             <section class="og-card">
               <header class="og-card-head">
                 <span class="og-glyph"><i class="ri-profile-line"></i></span>
@@ -403,12 +433,17 @@
                 <div><dt>PAN</dt><dd class="og-mono">{{ org.panNumber || '—' }}</dd></div>
                 <div><dt>GST</dt><dd class="og-mono">{{ org.gstNumber || '—' }}</dd></div>
                 <div><dt>Established</dt><dd>{{ org.establishedOn ? (org.establishedOn | date: 'd MMM y') : '—' }}</dd></div>
-                <div>
+                <div><dt>Business unit</dt><dd>{{ org.businessUnitName || '—' }}</dd></div>
+                <div class="og-span-2">
                   <dt>Website</dt>
                   <dd>
                     @if (org.websiteUrl) { <a [href]="org.websiteUrl" target="_blank" rel="noopener" class="og-link">{{ org.websiteUrl }}</a> }
                     @else { — }
                   </dd>
+                </div>
+                <div class="og-span-2">
+                  <dt>About</dt>
+                  <dd class="og-about" [class.og-muted]="!org.description">{{ org.description || 'No description has been added yet.' }}</dd>
                 </div>
               </dl>
             </section>
@@ -421,123 +456,127 @@
                   <p class="og-card-sub">How to reach the organisation</p>
                 </div>
               </header>
-              <div class="og-split">
-                <dl class="og-dl og-dl-1">
-                  <div><dt>Contact person</dt><dd>{{ org.contactPersonName || '—' }}</dd></div>
-                  <div>
-                    <dt>Contact e-mail</dt>
-                    <dd>
-                      @if (org.contactEmail) { <a [href]="'mailto:' + org.contactEmail" class="og-link">{{ org.contactEmail }}</a> }
-                      @else { — }
-                    </dd>
-                  </div>
-                  <div><dt>Telephone</dt><dd>{{ org.contactPhone ? org.contactPhoneCountryCode + ' ' + org.contactPhone : '—' }}</dd></div>
-                </dl>
-                <div class="og-address">
-                  <span class="og-address-label"><i class="ri-map-pin-2-line"></i> Registered address</span>
-                  @if (org.addressLine1 || org.city || org.country) {
-                    <address>
-                      @if (org.addressLine1) { {{ org.addressLine1 }}<br> }
-                      @if (org.addressLine2) { {{ org.addressLine2 }}<br> }
-                      {{ cityLine(org.city, org.state) }}@if (org.postalCode) { – {{ org.postalCode }} }<br>
-                      {{ org.country }}
-                    </address>
-                  } @else {
-                    <p class="og-muted">No address recorded yet.</p>
-                  }
+              <dl class="og-dl">
+                <div><dt>Contact person</dt><dd>{{ org.contactPersonName || '—' }}</dd></div>
+                <div><dt>Telephone</dt><dd>{{ org.contactPhone ? org.contactPhoneCountryCode + ' ' + org.contactPhone : '—' }}</dd></div>
+                <div>
+                  <dt>Contact e-mail</dt>
+                  <dd>
+                    @if (org.contactEmail) { <a [href]="'mailto:' + org.contactEmail" class="og-link">{{ org.contactEmail }}</a> }
+                    @else { — }
+                  </dd>
                 </div>
+                <div><dt>Time zone</dt><dd>{{ org.timeZone || '—' }}</dd></div>
+              </dl>
+              <!-- Registered address: same label-over-value pairs, two per row, as Registration & identity. -->
+              <div class="og-address">
+                <span class="og-address-label">Registered address</span>
+                @if (org.addressLine1 || org.city || org.country) {
+                  <dl class="og-dl">
+                    <div class="og-span-2">
+                      <dt>Street</dt>
+                      <dd>
+                        {{ org.addressLine1 || '—' }}
+                        @if (org.addressLine2) { <span class="og-address-line2">{{ org.addressLine2 }}</span> }
+                      </dd>
+                    </div>
+                    <div><dt>City</dt><dd>{{ org.city || '—' }}</dd></div>
+                    <div><dt>State</dt><dd>{{ org.state || '—' }}</dd></div>
+                    <div><dt>Postal code</dt><dd class="og-mono">{{ org.postalCode || '—' }}</dd></div>
+                    <div><dt>Country</dt><dd>{{ org.country || '—' }}</dd></div>
+                  </dl>
+                } @else {
+                  <p class="og-muted og-address-none">No address recorded yet.</p>
+                }
               </div>
             </section>
           </div>
 
-          <aside class="og-side">
-            <section class="og-card">
-              <header class="og-card-head">
-                <span class="og-glyph"><i class="ri-information-line"></i></span>
-                <div><h3 class="og-card-title">About</h3></div>
-              </header>
-              <p class="og-about" [class.og-muted]="!org.description">{{ org.description || 'No description has been added yet.' }}</p>
-            </section>
-
-            <section class="og-card">
-              <header class="og-card-head">
-                <span class="og-glyph"><i class="ri-earth-line"></i></span>
-                <div><h3 class="og-card-title">Regional &amp; setup</h3></div>
-              </header>
-              <dl class="og-rows">
-                <div><dt>Business unit</dt><dd>{{ org.businessUnitName || '—' }}</dd></div>
-                <div><dt>Time zone</dt><dd>{{ org.timeZone || '—' }}</dd></div>
-                <div><dt>Currency</dt><dd>{{ org.defaultCurrency || '—' }}</dd></div>
-                <div><dt>Language</dt><dd>{{ org.defaultCulture || '—' }}</dd></div>
-                <div><dt>Created</dt><dd>{{ org.createdAtUtc ? (org.createdAtUtc | date: 'd MMM y') : '—' }}</dd></div>
-              </dl>
-            </section>
-
-            <section class="og-card">
-              <header class="og-card-head">
-                <span class="og-glyph"><i class="ri-group-line"></i></span>
-                <div><h3 class="og-card-title">People &amp; administration</h3></div>
-              </header>
-              <div class="og-admin">
-                <span class="og-avatar og-avatar-sm" aria-hidden="true">{{ initials(org.primaryAdmin?.displayName) }}</span>
-                <div class="og-admin-text">
-                  <span class="og-admin-name">{{ org.primaryAdmin?.displayName || 'No administrator' }}</span>
-                  @if (org.primaryAdmin?.email) { <span class="og-admin-mail">{{ org.primaryAdmin?.email }}</span> }
-                </div>
-                <span class="og-admin-role">Admin</span>
-              </div>
-              <div class="og-seats">
-                <div class="og-seats-row">
-                  <span>People</span>
-                  <strong>{{ org.userCount ?? 0 }}@if (org.maximumUsers) { <small>of {{ org.maximumUsers }}</small> }</strong>
-                </div>
-                @if (org.maximumUsers) {
-                  <div class="og-meter" role="progressbar" [attr.aria-valuenow]="org.userCount ?? 0"
-                       aria-valuemin="0" [attr.aria-valuemax]="org.maximumUsers">
-                    <span [style.width.%]="seatPercent(org.userCount, org.maximumUsers)"></span>
-                  </div>
-                }
-              </div>
-            </section>
-          </aside>
         </div>
       }
     }
 
     <!-- ================================================================= Review & submit -->
+    <!-- A readiness checklist on the left - profile, documents, web address, status - and the send panel on
+         the right: where things stand, a note for the reviewer, and the button. -->
     @if (tab() === 'review') {
-      <section class="og-card og-narrow">
-        <header class="og-card-head">
-          <span class="og-glyph" [class.is-warn]="!isProfileComplete()" [class.is-good]="isProfileComplete()">
-            <i class="ri-send-plane-line"></i>
-          </span>
-          <div>
-            <h3 class="og-card-title">Review &amp; submit</h3>
-            <p class="og-card-sub">Send this organisation's profile to the platform team for approval</p>
-          </div>
-        </header>
-        <div class="og-review-body">
-          <p class="og-lead">
-            The platform team reviews the profile and the documents. Until it is approved, this organisation cannot be
-            used for live work.
-          </p>
+      <div class="og-review">
+        <section class="og-card og-review-check">
+          <header class="og-card-head">
+            <span class="og-glyph"><i class="ri-list-check-3"></i></span>
+            <div>
+              <h3 class="og-card-title">Before you send</h3>
+              <p class="og-card-sub">What the platform team checks when it reviews this organisation</p>
+            </div>
+          </header>
+          <ul class="og-checklist">
+            <li [class.is-done]="isProfileComplete()" [class.is-todo]="!isProfileComplete()">
+              <span class="og-check-mark"><i [class]="isProfileComplete() ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'"></i></span>
+              <div class="og-check-text">
+                <strong>Profile details</strong>
+                @if (isProfileComplete()) { <span>Complete</span> }
+                @else { <span>{{ outstandingFieldLabels().length }} {{ outstandingFieldLabels().length === 1 ? 'detail' : 'details' }} missing: {{ outstandingFieldLabels().join(', ') }}</span> }
+              </div>
+              @if (!isProfileComplete() && canEditProfile()) {
+                <button type="button" class="og-check-action" (click)="tab.set('profile'); startEditing()">Complete</button>
+              }
+            </li>
+            <li [class.is-done]="documents().length > 0" [class.is-note]="documents().length === 0">
+              <span class="og-check-mark"><i [class]="documents().length ? 'ri-checkbox-circle-line' : 'ri-file-warning-line'"></i></span>
+              <div class="og-check-text">
+                <strong>Supporting documents</strong>
+                <span>{{ documents().length ? documents().length + ' uploaded' : 'None uploaded yet - the reviewer checks your details against them' }}</span>
+              </div>
+              <button type="button" class="og-check-action" (click)="tab.set('documents')">{{ documents().length ? 'View' : 'Upload' }}</button>
+            </li>
+            <li [class.is-done]="domains().length > 0">
+              <span class="og-check-mark"><i class="ri-checkbox-circle-line"></i></span>
+              <div class="og-check-text">
+                <strong>Web address</strong>
+                <span>{{ org.hostName || 'Reserved when the organisation was created' }}</span>
+              </div>
+            </li>
+            <li class="is-info">
+              <span class="og-check-mark"><i [class]="statusIcon(org.status)"></i></span>
+              <div class="og-check-text">
+                <strong>Current status</strong>
+                <span>{{ org.statusDisplay || org.status }}</span>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <section class="og-card og-review-send">
+          <header class="og-card-head">
+            <span class="og-glyph"><i class="ri-send-plane-line"></i></span>
+            <div>
+              <h3 class="og-card-title">Send for approval</h3>
+              <p class="og-card-sub">Until it is approved, this organisation cannot be used for live work</p>
+            </div>
+          </header>
+
+          @if (canSubmit()) {
+            <div class="og-review-state is-good"><i class="ri-checkbox-circle-line"></i><span>Everything needed is in place. You can send it now.</span></div>
+          } @else if (!isProfileComplete()) {
+            <div class="og-review-state is-warn"><i class="ri-error-warning-line"></i><span>Finish the missing profile details first.</span></div>
+          } @else {
+            <div class="og-review-state is-info"><i class="ri-information-line"></i><span>Nothing to send right now - this organisation is {{ org.statusDisplay || org.status }}.</span></div>
+          }
+
           <div class="og-field">
-            <label class="og-label" for="d-submit-notes">Anything to add</label>
-            <textarea id="d-submit-notes" class="og-input" rows="3" maxlength="500"
+            <label class="og-label" for="d-submit-notes">Note for the reviewer <span class="og-optional">optional</span></label>
+            <textarea id="d-submit-notes" class="og-input" rows="4" maxlength="500"
+                      [disabled]="!canSubmit()"
                       [ngModel]="submitNotes()" (ngModelChange)="submitNotes.set($event)"
-                      placeholder="Optional. Anything the reviewer should know."></textarea>
+                      placeholder="Anything the reviewer should know."></textarea>
+            <span class="og-hint og-count">{{ submitNotes().length }} / 500</span>
           </div>
-        </div>
-        <div class="og-actionbar">
-          <span class="og-actionbar-note">
-            @if (!isProfileComplete()) { <i class="ri-error-warning-line"></i> Finish the outstanding profile fields listed above first. }
-            @else { <i class="ri-checkbox-circle-line"></i> Everything needed is in place. }
-          </span>
-          <button type="button" class="og-btn og-btn-primary" [disabled]="!canSubmit() || submitting()" (click)="submitForApproval()">
+
+          <button type="button" class="og-btn og-btn-primary og-review-btn" [disabled]="!canSubmit() || submitting()" (click)="submitForApproval()">
             @if (submitting()) { <i class="ri-loader-4-line og-spin"></i> Sending… } @else { <i class="ri-send-plane-line"></i> Send for approval }
           </button>
-        </div>
-      </section>
+        </section>
+      </div>
     }
 
     <!-- ================================================================= Documents -->
@@ -586,7 +625,7 @@
     }
 
     <!-- ================================================================= Security settings -->
-    @if (tab() === 'settings' && isOwnOrganisation()) {
+    @if (tab() === 'settings' && showSecurityTab()) {
       <!-- These may be tightened but never loosened below the platform floor: the server clamps every value,
            so a looser number comes back raised rather than accepted. -->
       <section class="og-card og-settings">
@@ -598,7 +637,6 @@
               <p class="og-card-sub">Sign-in and password rules for everyone in this organisation</p>
             </div>
           </div>
-          <span class="og-floor"><i class="ri-shield-check-line"></i> Stricter than the platform default only — weaker values are raised when saved</span>
         </header>
 
         <div class="og-set-group">
@@ -723,23 +761,27 @@
           <div class="og-blank"><i class="ri-global-line"></i><span>No addresses are recorded.</span></div>
         } @else {
           <div class="og-table-wrap">
-            <table class="og-table">
-              <thead><tr><th>Address</th><th>Kind</th><th>Primary</th><th>Verified</th></tr></thead>
+            <!-- Styled like the Departments list: address as a tag, kind as a grey tag, and Primary / Verified
+                 as centred icons (the words and the verification date are their tooltips). -->
+            <table class="og-table og-table-list">
+              <thead><tr><th>Address</th><th class="is-center">Kind</th><th class="is-center">Primary</th><th class="is-center">Verified</th></tr></thead>
               <tbody>
                 @for (domain of domains(); track domain.id) {
                   <tr>
-                    <td><span class="og-host"><i class="ri-link"></i>{{ domain.hostName }}</span></td>
-                    <td>{{ domain.domainType }}</td>
-                    <td>
-                      @if (domain.isPrimary) { <span class="og-status is-good"><span class="og-status-dot"></span>Primary</span> }
-                      @else { <span class="og-muted">—</span> }
+                    <td><span class="og-host-tag"><i class="ri-link"></i>{{ domain.hostName }}</span></td>
+                    <td class="is-center"><span class="og-kind">{{ domain.domainType }}</span></td>
+                    <td class="is-center">
+                      <span class="og-cell-mark" [class.is-good]="domain.isPrimary" role="img"
+                            [attr.aria-label]="domain.isPrimary ? 'Primary' : 'Not primary'" [title]="domain.isPrimary ? 'Primary' : 'Not primary'">
+                        <i [class]="domain.isPrimary ? 'ri-star-line' : 'ri-subtract-line'"></i>
+                      </span>
                     </td>
-                    <td>
-                      @if (domain.isVerified) {
-                        <span class="og-status is-good"><span class="og-status-dot"></span>Verified {{ domain.verifiedAtUtc | date: 'd MMM y' }}</span>
-                      } @else {
-                        <span class="og-status is-warn"><span class="og-status-dot"></span>Not verified</span>
-                      }
+                    <td class="is-center">
+                      <span class="og-cell-mark" [class.is-good]="domain.isVerified" [class.is-warn]="!domain.isVerified" role="img"
+                            [attr.aria-label]="domain.isVerified ? 'Verified ' + (domain.verifiedAtUtc | date: 'd MMM y') : 'Not verified'"
+                            [title]="domain.isVerified ? 'Verified ' + (domain.verifiedAtUtc | date: 'd MMM y') : 'Not verified'">
+                        <i [class]="domain.isVerified ? 'ri-checkbox-circle-line' : 'ri-time-line'"></i>
+                      </span>
                     </td>
                   </tr>
                 }

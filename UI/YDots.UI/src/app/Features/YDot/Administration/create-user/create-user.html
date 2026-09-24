@@ -5,9 +5,8 @@
   organisation units are identifiers rather than words, and a form that invents its own would look
   correct and refuse to save.
 
-  Visual design follows the approved "Create New User" reference: a mint hero band with the serif
-  page title and the Build-People tagline, a described stepper with dashed connectors, and fields
-  that carry a leading icon. Structure is unchanged from the working form — only presentation.
+  Fields: the icon sits in its own tinted tile on the left, split from the input by a divider.
+  Dropdowns: no native <select> — every list is the custom #cuDd dropdown at the end of this file.
 -->
 <!-- Same shell contract as every other page in this area. See the note in user-directory.html. -->
 <main class="app-wrapper">
@@ -16,8 +15,8 @@
 
   <app-page-header screen="create-user" title="Create New User"
                    subtitle="Create the account and e-mail them a link to set their own password.">
-    <button actions type="button" class="ph-btn ph-btn--ghost" (click)="goBack()">
-      <i class="ri-arrow-left-line" aria-hidden="true"></i> Back to directory
+    <button actions type="button" class="btn btn-primary" (click)="goBack()">
+      <i class="ri-arrow-left-line" aria-hidden="true"></i> Back
     </button>
   </app-page-header>
 
@@ -105,9 +104,6 @@
        =================================================================================== -->
   @else {
 
-    <!-- Step rail - the same pattern as the New Campaign wizard: a kicker and progress line, then numbered
-         nodes on a rail, each with a title and a one-line brief. Still buttons: going back to fix something
-         should not mean pressing Back four times. -->
     <nav class="cu-stepper" aria-label="Create-user steps">
       <div class="cu-stepper-head">
         <span class="cu-stepper-kicker">Step {{ activeStep() + 1 }} of {{ steps.length }}</span>
@@ -139,8 +135,6 @@
           <i class="ri-error-warning-line mt-1"></i><span>{{ errorMessage() }}</span>
         </div>
 
-        <!-- The server's summary says "review the highlighted fields", so the fields it named
-             are listed here with the step each sits on. Clicking one goes straight there. -->
         @if (serverErrorList().length > 0) {
           <ul class="mb-0 mt-2 ps-4 small">
             @for (item of serverErrorList(); track item.field) {
@@ -173,29 +167,16 @@
           <div class="row g-3 g-lg-4">
             <div class="col-6 col-lg-3">
               <label class="cu-label" for="cuCategory">Account type <span class="cu-req" aria-hidden="true">*</span></label>
-              <div class="cu-field">
-                <i class="ri-briefcase-line cu-field-icon" aria-hidden="true"></i>
-                <select id="cuCategory" class="form-select" [value]="form().accountCategory"
-                        (change)="update('accountCategory', $any($event.target).value)">
-                  @for (option of accountCategories(); track option.value) {
-                    <option [value]="option.value">{{ option.label }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'accountCategory', id: 'cuCategory', icon: 'ri-briefcase-line',
+                placeholder: 'Select account type', allowEmpty: false, invalid: false }"></ng-container>
             </div>
 
             <div class="col-6 col-lg-3">
               <label class="cu-label" for="cuTitle">Title</label>
-              <div class="cu-field cu-field--title">
-                <i class="ri-honour-line cu-field-icon cu-field-icon--title" aria-hidden="true"></i>
-                <select id="cuTitle" class="form-select" [value]="form().title"
-                        (change)="update('title', $any($event.target).value)">
-                  <option value="">Select title</option>
-                  @for (t of titles; track t) {
-                    <option [value]="t">{{ t }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'title', id: 'cuTitle', icon: 'ri-honour-line',
+                placeholder: 'Select title', allowEmpty: true, invalid: !!errorFor('title') }"></ng-container>
               @if (errorFor('title')) {
                 <div class="invalid-feedback d-block">{{ errorFor('title') }}</div>
               }
@@ -203,8 +184,8 @@
 
             <div class="col-lg-3">
               <label class="cu-label" for="cuFirst">First name <span class="cu-req" aria-hidden="true">*</span></label>
-              <div class="cu-field cu-field--first">
-                <i class="ri-user-line cu-field-icon cu-field-icon--first" aria-hidden="true"></i>
+              <div class="cu-field">
+                <i class="ri-user-line cu-field-icon" aria-hidden="true"></i>
                 <input id="cuFirst" class="form-control" [class.is-invalid]="isFieldInvalid('firstName')"
                        placeholder="Enter first name"
                        [value]="form().firstName"
@@ -218,8 +199,8 @@
 
             <div class="col-lg-3">
               <label class="cu-label" for="cuLast">Last name <span class="cu-req" aria-hidden="true">*</span></label>
-              <div class="cu-field cu-field--last">
-                <i class="ri-user-2-line cu-field-icon cu-field-icon--last" aria-hidden="true"></i>
+              <div class="cu-field">
+                <i class="ri-user-2-line cu-field-icon" aria-hidden="true"></i>
                 <input id="cuLast" class="form-control" [class.is-invalid]="isFieldInvalid('lastName')"
                        placeholder="Enter last name"
                        [value]="form().lastName"
@@ -233,8 +214,8 @@
 
             <div class="col-lg-6">
               <label class="cu-label" for="cuDisplay">Display name <span class="cu-req" aria-hidden="true">*</span></label>
-              <div class="cu-field cu-field--display">
-                <i class="ri-account-box-line cu-field-icon cu-field-icon--display" aria-hidden="true"></i>
+              <div class="cu-field">
+                <i class="ri-account-box-line cu-field-icon" aria-hidden="true"></i>
                 <input id="cuDisplay" class="form-control" [class.is-invalid]="isFieldInvalid('displayName')"
                        placeholder="Enter display name"
                        [value]="form().displayName"
@@ -309,28 +290,18 @@
               </div>
             }
 
-            <!-- A list, not a text box: the API requires the international form (+91), and a
-                 typed "91" used to sail through the browser and fail on the final step. -->
+            <!-- A list, not a text box: the API requires the international form (+91). -->
             <div class="col-6 col-lg-3">
               <label class="cu-label" for="cuCode">Country code</label>
-              <div class="cu-field">
-                <i class="ri-global-line cu-field-icon" aria-hidden="true"></i>
-                <select id="cuCode" class="form-select"
-                        [class.is-invalid]="errorFor('mobileCountryCode')"
-                        [value]="form().mobileCountryCode"
-                        (change)="update('mobileCountryCode', $any($event.target).value)">
-                  @for (code of countryCodes(); track code) {
-                    <option [value]="code">{{ code }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'mobileCountryCode', id: 'cuCode', icon: 'ri-global-line',
+                placeholder: 'Code', allowEmpty: false, invalid: !!errorFor('mobileCountryCode') }"></ng-container>
               @if (errorFor('mobileCountryCode')) {
                 <div class="invalid-feedback d-block">{{ errorFor('mobileCountryCode') }}</div>
               }
             </div>
 
-            <!-- Whether these are required depends on the account type, and the server says which.
-                 The asterisk appears and disappears as the category changes. -->
+            <!-- Whether these are required depends on the account type, and the server says which. -->
             <div class="col-6 col-lg-3">
               <label class="cu-label" for="cuMobile">
                 Mobile @if (mobileRequired()) { <span class="cu-req" aria-hidden="true">*</span> }
@@ -370,27 +341,6 @@
               </small>
             </div>
           </div>
-
-          <!-- Invitation & Security — the band from the reference design, restating what the API
-               actually does: the invite goes to the address above and no password is set here. -->
-          <!-- <aside class="cu-invite mt-4">
-            <span class="cu-invite-icon" aria-hidden="true"><i class="ri-shield-check-line"></i></span>
-            <div class="cu-invite-text">
-              <h6 class="cu-invite-title">Invitation &amp; Security</h6>
-              <p class="cu-invite-sub">An invitation link will be sent to the provided e-mail address. The user will set their own password.</p>
-            </div>
-            <svg class="cu-invite-art" viewBox="0 0 152 64" fill="none" aria-hidden="true" focusable="false">
-              <path class="cu-invite-dash" d="M52 54c22-18 42-24 66-22" />
-              <g class="cu-invite-mail">
-                <rect x="8" y="32" width="34" height="23" rx="5" />
-                <path d="M11 36l14 10 14-10" />
-              </g>
-              <g class="cu-invite-plane">
-                <path d="M98 36l44-22-17 44-10-16z" />
-                <path d="M115 42l27-28" />
-              </g>
-            </svg>
-          </aside> -->
         }
 
         <!-- ============================= STEP 2 — Organisation ============================= -->
@@ -406,16 +356,9 @@
           <div class="row g-3 g-lg-4">
             <div class="col-lg-4">
               <label class="cu-label" for="cuEngagement">Engagement</label>
-              <div class="cu-field">
-                <i class="ri-briefcase-4-line cu-field-icon" aria-hidden="true"></i>
-                <select id="cuEngagement" class="form-select" [value]="form().engagementType"
-                        (change)="update('engagementType', $any($event.target).value)"
-                       [class.is-invalid]="isFieldInvalid('engagementType')">
-                  @for (option of engagementTypes(); track option.value) {
-                    <option [value]="option.value">{{ option.label }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'engagementType', id: 'cuEngagement', icon: 'ri-briefcase-4-line',
+                placeholder: 'Select engagement', allowEmpty: false, invalid: isFieldInvalid('engagementType') }"></ng-container>
               @if (errorFor('engagementType')) {
                 <div class="invalid-feedback d-block">{{ errorFor('engagementType') }}</div>
               }
@@ -423,17 +366,9 @@
 
             <div class="col-lg-4">
               <label class="cu-label" for="cuUnit">Organisation unit</label>
-              <div class="cu-field">
-                <i class="ri-building-2-line cu-field-icon" aria-hidden="true"></i>
-                <select id="cuUnit" class="form-select"
-                        [value]="form().organisationUnitId"
-                        (change)="update('organisationUnitId', $any($event.target).value)">
-                  <option value="">Not set</option>
-                  @for (option of organisationUnits(); track option.id) {
-                    <option [value]="option.id">{{ option.name }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'organisationUnitId', id: 'cuUnit', icon: 'ri-building-2-line',
+                placeholder: 'Not set', allowEmpty: true, invalid: false }"></ng-container>
               @if (organisationUnits().length === 0) {
                 <div class="cu-hint">
                   No units yet. Create them under Organisation &rsaquo; Branches and Units;
@@ -444,17 +379,9 @@
 
             <div class="col-lg-4">
               <label class="cu-label" for="cuDept">Department</label>
-              <div class="cu-field">
-                <i class="ri-community-line cu-field-icon" aria-hidden="true"></i>
-                <select id="cuDept" class="form-select" [value]="form().departmentId"
-                        (change)="update('departmentId', $any($event.target).value)"
-                       [class.is-invalid]="isFieldInvalid('departmentId')">
-                  <option value="">Not set</option>
-                  @for (option of departments(); track option.id) {
-                    <option [value]="option.id">{{ option.name }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'departmentId', id: 'cuDept', icon: 'ri-community-line',
+                placeholder: 'Not set', allowEmpty: true, invalid: isFieldInvalid('departmentId') }"></ng-container>
               @if (errorFor('departmentId')) {
                 <div class="invalid-feedback d-block">{{ errorFor('departmentId') }}</div>
               }
@@ -488,23 +415,12 @@
               }
             </div>
 
+            <!-- Option VALUE is the culture code, because users.preferred_language stores exactly that. -->
             <div class="col-lg-6">
               <label class="cu-label" for="cuLanguage">Preferred language</label>
-              <div class="cu-field">
-                <i class="ri-translate-2 cu-field-icon" aria-hidden="true"></i>
-                <select id="cuLanguage" class="form-select" [value]="form().preferredLanguage"
-                        (change)="update('preferredLanguage', $any($event.target).value)"
-                       [class.is-invalid]="isFieldInvalid('preferredLanguage')">
-                  <!-- The full catalogue. This form asks for no country, so the language list is
-                       the unfiltered one and needs no country link to load - the same supported
-                       case as the time-zone field below. The option VALUE is the culture code,
-                       because users.preferred_language stores exactly that. -->
-                  <option value="">Select a language</option>
-                  @for (language of geo.languages(); track language.id) {
-                    <option [value]="language.cultureCode">{{ language.displayLabel }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'preferredLanguage', id: 'cuLanguage', icon: 'ri-translate-2',
+                placeholder: 'Select a language', allowEmpty: true, invalid: isFieldInvalid('preferredLanguage') }"></ng-container>
               @if (errorFor('preferredLanguage')) {
                 <div class="invalid-feedback d-block">{{ errorFor('preferredLanguage') }}</div>
               }
@@ -512,19 +428,9 @@
 
             <div class="col-lg-6">
               <label class="cu-label" for="cuTimezone">Time zone</label>
-              <div class="cu-field">
-                <i class="ri-time-line cu-field-icon" aria-hidden="true"></i>
-                <select id="cuTimezone" class="form-select" [value]="form().timeZoneId"
-                        (change)="update('timeZoneId', $any($event.target).value)"
-                       [class.is-invalid]="isFieldInvalid('timeZoneId')">
-                  <!-- The full zone catalogue. This form asks for no country, so the list is the
-                       unfiltered one and needs no country link to load. -->
-                  <option value="">Select a time zone</option>
-                  @for (zone of geo.timeZones(); track zone.id) {
-                    <option [value]="zone.ianaKey">{{ zone.name }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'timeZoneId', id: 'cuTimezone', icon: 'ri-time-line',
+                placeholder: 'Select a time zone', allowEmpty: true, invalid: isFieldInvalid('timeZoneId') }"></ng-container>
               @if (errorFor('timeZoneId')) {
                 <div class="invalid-feedback d-block">{{ errorFor('timeZoneId') }}</div>
               }
@@ -545,17 +451,9 @@
           <div class="row g-3 g-lg-4">
             <div class="col-lg-6">
               <label class="cu-label" for="cuRole">Primary role <span class="cu-req" aria-hidden="true">*</span></label>
-              <div class="cu-field">
-                <i class="ri-user-star-line cu-field-icon" aria-hidden="true"></i>
-                <select id="cuRole" class="form-select" [class.is-invalid]="isFieldInvalid('primaryRoleId')"
-                        [value]="form().primaryRoleId"
-                        (change)="update('primaryRoleId', $any($event.target).value)">
-                  <option value="">Choose…</option>
-                  @for (option of roles(); track option.id) {
-                    <option [value]="option.id">{{ option.name }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'primaryRoleId', id: 'cuRole', icon: 'ri-user-star-line',
+                placeholder: 'Choose a role…', allowEmpty: false, invalid: isFieldInvalid('primaryRoleId') }"></ng-container>
               @if (errorFor('primaryRoleId')) {
                 <div class="invalid-feedback d-block">{{ errorFor('primaryRoleId') }}</div>
               }
@@ -563,16 +461,9 @@
 
             <div class="col-lg-6">
               <label class="cu-label" for="cuScope">Data scope</label>
-              <div class="cu-field">
-                <i class="ri-database-2-line cu-field-icon" aria-hidden="true"></i>
-                <select id="cuScope" class="form-select" [value]="form().dataScopeType"
-                        (change)="update('dataScopeType', $any($event.target).value)"
-                       [class.is-invalid]="isFieldInvalid('dataScopeType')">
-                  @for (option of dataScopeTypes(); track option.value) {
-                    <option [value]="option.value">{{ option.label }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'dataScopeType', id: 'cuScope', icon: 'ri-database-2-line',
+                placeholder: 'Select data scope', allowEmpty: false, invalid: isFieldInvalid('dataScopeType') }"></ng-container>
               @if (errorFor('dataScopeType')) {
                 <div class="invalid-feedback d-block">{{ errorFor('dataScopeType') }}</div>
               }
@@ -590,7 +481,7 @@
             <div class="col-lg-6">
               <label class="cu-label" for="cuEnd">Access ends</label>
               <div class="cu-field">
-                <i class="ri-calendar-line cu-field-icon" aria-hidden="true"></i>
+                <i class="ri-calendar-check-line cu-field-icon" aria-hidden="true"></i>
                 <input id="cuEnd" type="date" class="form-control" [value]="form().accessEndsAt"
                        (change)="update('accessEndsAt', $any($event.target).value)">
               </div>
@@ -599,16 +490,9 @@
 
             <div class="col-lg-6">
               <label class="cu-label" for="cuMfa">Two-step verification</label>
-              <div class="cu-field">
-                <i class="ri-lock-password-line cu-field-icon" aria-hidden="true"></i>
-                <select id="cuMfa" class="form-select" [value]="form().mfaRequirement"
-                        (change)="update('mfaRequirement', $any($event.target).value)"
-                       [class.is-invalid]="isFieldInvalid('mfaRequirement')">
-                  @for (option of mfaRequirements(); track option.value) {
-                    <option [value]="option.value">{{ option.label }}</option>
-                  }
-                </select>
-              </div>
+              <ng-container *ngTemplateOutlet="cuDd; context: {
+                key: 'mfaRequirement', id: 'cuMfa', icon: 'ri-lock-password-line',
+                placeholder: 'Select', allowEmpty: false, invalid: isFieldInvalid('mfaRequirement') }"></ng-container>
               @if (errorFor('mfaRequirement')) {
                 <div class="invalid-feedback d-block">{{ errorFor('mfaRequirement') }}</div>
               }
@@ -652,13 +536,11 @@
               <div class="col-sm-6"><div class="cu-label">Name</div><div class="cu-value">{{ form().displayName || '—' }}</div></div>
               <div class="col-sm-6"><div class="cu-label">Login e-mail</div><div class="cu-value">{{ form().email || '—' }}</div></div>
               <div class="col-sm-6"><div class="cu-label">Username</div><div class="cu-value">{{ form().username || '—' }}</div></div>
-              <div class="col-sm-6"><div class="cu-label">Account type</div><div class="cu-value">{{ form().accountCategory }}</div></div>
+              <div class="col-sm-6"><div class="cu-label">Account type</div><div class="cu-value">{{ ddLabel('accountCategory', '—') }}</div></div>
               <div class="col-sm-6"><div class="cu-label">Access starts</div><div class="cu-value">{{ form().accessStartsAt || '—' }}</div></div>
               <div class="col-sm-6"><div class="cu-label">Access ends</div><div class="cu-value">{{ form().accessEndsAt || 'Open-ended' }}</div></div>
-              <div class="col-sm-6"><div class="cu-label">Two-step verification</div><div class="cu-value">{{ form().mfaRequirement }}</div></div>
-              <!-- THE TWO FIELDS THAT DECIDE WHAT THE ACCOUNT CAN DO. Everything else on this
-                   panel describes who the person is; these describe what they are being given,
-                   and this is the screen an administrator is meant to check before granting it. -->
+              <div class="col-sm-6"><div class="cu-label">Two-step verification</div><div class="cu-value">{{ ddLabel('mfaRequirement', '—') }}</div></div>
+              <!-- THE TWO FIELDS THAT DECIDE WHAT THE ACCOUNT CAN DO. -->
               <div class="col-sm-6"><div class="cu-label">Primary role</div><div class="cu-value">{{ primaryRoleName() }}</div></div>
               <div class="col-sm-6"><div class="cu-label">Data scope</div><div class="cu-value">{{ dataScopeName() }}</div></div>
               <div class="col-12"><div class="cu-label">Justification</div><div class="cu-value">{{ form().businessJustification || '—' }}</div></div>
@@ -686,10 +568,7 @@
       </div>
     </div>
 
-    <!-- ============================= Footer =============================
-         Cancel returns to the directory on the first step, as the reference design shows;
-         later steps go Back. "Save & Continue" advances; on the review step the two create
-         actions take its place, the gold one being the invitation path. -->
+    <!-- ============================= Footer ============================= -->
     <div class="cu-footer">
       @if (activeStep() === 0) {
         <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()">
@@ -721,3 +600,65 @@
   </div><!-- /container-fluid -->
 </div><!-- /page-wrapper -->
 </main><!-- /app-wrapper -->
+
+
+<!-- =====================================================================================
+     Custom dropdown — replaces every native <select> on this page.
+       key         the form field it writes (update(key, value))
+       id          the trigger's id, so <label for> still points at it
+       icon        Remix icon for the left tile
+       placeholder text when nothing is chosen
+       allowEmpty  adds a "placeholder" option that clears the value
+       invalid     red border
+     Clicks inside stop propagation; any click outside, or Esc, closes it.
+     Lists longer than 8 items get a search box (languages, time zones, units…).
+     ===================================================================================== -->
+<ng-template #cuDd let-key="key" let-id="id" let-icon="icon" let-placeholder="placeholder"
+             let-allowEmpty="allowEmpty" let-invalid="invalid">
+  <div class="cu-field cu-dd"
+       [class.cu-dd-open]="openDd() === key"
+       [class.cu-field-invalid]="invalid"
+       (click)="$event.stopPropagation()">
+    <i class="cu-field-icon" [ngClass]="icon" aria-hidden="true"></i>
+
+    <button type="button" class="cu-dd-trigger" [id]="id" aria-haspopup="listbox"
+            [attr.aria-expanded]="openDd() === key" (click)="toggleDd(key)">
+      <span class="cu-dd-value" [class.cu-dd-placeholder]="!formValue(key)">{{ ddLabel(key, placeholder) }}</span>
+      <i class="ri-arrow-down-s-line cu-dd-chev" aria-hidden="true"></i>
+    </button>
+
+    @if (openDd() === key) {
+      <div class="cu-dd-menu" role="listbox" [attr.aria-labelledby]="id">
+        @if (ddOptions(key).length > 8) {
+          <div class="cu-dd-search">
+            <i class="ri-search-line" aria-hidden="true"></i>
+            <input type="text" placeholder="Search…" [value]="ddQuery()"
+                   (input)="ddQuery.set($any($event.target).value)">
+          </div>
+        }
+
+        <div class="cu-dd-list">
+          @if (allowEmpty && !ddQuery()) {
+            <button type="button" role="option" class="cu-dd-option"
+                    [class.cu-dd-option-on]="!formValue(key)" (click)="pickDd(key, '')">
+              <span class="cu-dd-muted">{{ placeholder }}</span>
+              @if (!formValue(key)) { <i class="ri-check-line"></i> }
+            </button>
+          }
+
+          @for (opt of ddFiltered(key); track opt.value) {
+            <button type="button" role="option" class="cu-dd-option"
+                    [class.cu-dd-option-on]="formValue(key) === opt.value"
+                    [attr.aria-selected]="formValue(key) === opt.value"
+                    (click)="pickDd(key, opt.value)">
+              <span class="text-truncate">{{ opt.label }}</span>
+              @if (formValue(key) === opt.value) { <i class="ri-check-line"></i> }
+            </button>
+          } @empty {
+            <div class="cu-dd-empty">No matches</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</ng-template>

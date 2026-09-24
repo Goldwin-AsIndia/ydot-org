@@ -1,13 +1,12 @@
 <main class="app-wrapper">
-    <div class="container-fluid">
+    <div class="container-fluid mt-3">
         <app-page-header screen="bulk-user-administration" title="Bulk User Administration"
                          subtitle="Perform narrow, reviewable actions over an authorised selection of users">
-            <button actions type="button" class="ph-btn ph-btn--ghost" (click)="goBack()">
-                <i class="uil uil-arrow-left me-1"></i>Back to Directory
+            <button actions type="button" class="bu-btn bu-btn--line" (click)="goBack()">
+                <i class="ri-arrow-left-line"></i> Back
             </button>
         </app-page-header>
 
-        <!-- Loading -->
         @if (loading()) {
             <div class="loading-container">
                 <div class="spinner-border text-primary" role="status">
@@ -18,302 +17,353 @@
         } @else if (loadError()) {
             <div class="text-center py-5">
                 <p class="text-danger mb-3">Failed to load data.</p>
-                <button class="btn btn-primary" (click)="retry()">Retry</button>
+                <button class="bu-btn bu-btn--primary" (click)="retry()">Retry</button>
             </div>
         } @else {
-            <form [formGroup]="bulkForm">
-                <div class="row g-4">
-                    <!-- LEFT COLUMN — Main Form -->
-                    <div class="col-lg-8">
+            <form [formGroup]="bulkForm" class="bu-page">
 
-                        <!-- SECTION: Bulk Action Type -->
-                        <div class="form-section">
-                            <div class="form-section-header">
-                                <div class="form-section-icon" style="background: rgba(var(--pe-primary-rgb), 0.1); color: var(--pe-primary);">
-                                    <i class="uil uil-layer-group"></i>
-                                </div>
-                                <div>
-                                    <h3 class="form-section-title">Bulk Action Type</h3>
-                                    <span class="form-section-subtitle">Select the action to perform on multiple user accounts</span>
-                                </div>
-                            </div>
+              
+                <!-- ============================================================
+                     Action picker — one grid
+                     ============================================================ -->
+                <section class="bu-panel" id="buSectionAction">
+                    <header class="bu-panel-head">
+                        <div class="bu-panel-heading">
+                            <div class="bu-title">Choose a bulk action</div>
+                            <div class="bu-sub">One action is applied to every selected account.</div>
+                        </div>
+                        @if (bulkForm.controls.action.invalid && bulkForm.controls.action.touched) {
+                            <span class="bu-error"><i class="ri-error-warning-line"></i> Select an action</span>
+                        }
+                    </header>
 
-                            <!-- Action Card Grid -->
-                            <div class="action-grid">
-                                @for (act of data()?.availableActions; track act.value) {
-                                    <div
-                                        class="action-card-item"
-                                        [class.selected]="selectedAction() === act.value"
-                                        (click)="bulkForm.controls.action.setValue(act.value); onActionChange()">
-                                        <div class="radio-indicator"></div>
-                                        <div class="action-item-title">{{ act.label }}</div>
-                                        <div class="action-item-desc">{{ act.description }}</div>
-                                    </div>
-                                }
-                            </div>
-
-                            <!-- Conditional Fields -->
-                            <!--
-                                THESE COMPARE AGAINST THE ACTION VALUES, which are camelCase.
-
-                                They used to read 'Suspend', 'Deactivate', 'RequirePasswordReset'
-                                and 'RevokeSessions' - PascalCase names taken from a local enum in
-                                bulk-user-administration.model.ts that does not match the API's
-                                BulkActionType at all. Nothing ever matched, so every conditional
-                                field on this form was unreachable: the role picker Add a role
-                                needs and the date Extend access needs could not be filled in, and
-                                the server refused both actions for the missing value.
-                            -->
-                            @if (selectedAction() === 'suspend' || selectedAction() === 'deactivate') {
-                                <div class="conditional-field">
-                                    <label class="conditional-field-label">Reason for Suspension / Deactivation</label>
-                                    <textarea class="form-control" formControlName="suspensionReason" rows="2" placeholder="Provide a detailed reason..."></textarea>
-                                </div>
-                            }
-
-                            @if (selectedAction() === 'assignRole' || selectedAction() === 'removeRole') {
-                                <div class="conditional-field">
-                                    <label class="conditional-field-label">
-                                        Role <span class="text-danger">*</span>
-                                    </label>
-                                    <select class="form-select" formControlName="roleId">
-                                        <option value="">-- Choose a role --</option>
-                                        @for (role of roleOptions(); track role.id) {
-                                            <option [value]="role.id">{{ role.name }}</option>
-                                        }
-                                    </select>
-                                </div>
-                            }
-
-                            @if (selectedAction() === 'extendAccess') {
-                                <div class="conditional-field">
-                                    <label class="conditional-field-label">
-                                        New access end date <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="datetime-local" class="form-control" formControlName="accessEndsAt">
-                                </div>
+                    <div class="bu-panel-body">
+                        <div class="bu-actions" role="radiogroup" aria-label="Bulk action">
+                            @for (act of data()?.availableActions; track act.value) {
+                                <button type="button" role="radio" class="bu-action"
+                                        [class.bu-action--on]="selectedAction() === act.value"
+                                        [attr.aria-checked]="selectedAction() === act.value"
+                                        (click)="pickAction(act.value)">
+                                    <span class="bu-action-ico" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" class="bu-draw">
+                                            @for (d of actionPaths(act.value); track $index) {
+                                                <path [attr.d]="d" pathLength="1"></path>
+                                            }
+                                        </svg>
+                                    </span>
+                                    <span class="bu-action-text">
+                                        <span class="bu-action-title">{{ act.label }}</span>
+                                        <span class="bu-action-desc">{{ act.description }}</span>
+                                    </span>
+                                    <span class="bu-action-check" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1"></path></svg>
+                                    </span>
+                                </button>
                             }
                         </div>
 
-                        <!-- SECTION: Selection Scope -->
-                        <div class="form-section">
-                            <div class="form-section-header">
-                                <div class="form-section-icon" style="background: rgba(37, 99, 235, 0.1); color: #2563eb;">
-                                    <i class="uil uil-sliders-v-alt"></i>
+                        <!-- Extra inputs for the chosen action -->
+                        @if (selectedAction() === 'suspend' || selectedAction() === 'deactivate') {
+                            <div class="bu-extra">
+                                <label class="bu-label" for="buReason">Reason for suspension / deactivation</label>
+                                <textarea id="buReason" class="bu-control" formControlName="suspensionReason" rows="2"
+                                          placeholder="Provide a detailed reason..."></textarea>
+                            </div>
+                        }
+
+                        @if (selectedAction() === 'assignRole' || selectedAction() === 'removeRole') {
+                            <div class="bu-extra">
+                                <label class="bu-label" id="buRoleLbl">Role <span class="bu-req">*</span></label>
+                                <div class="bu-dd" [class.bu-dd--open]="roleDdOpen()" (click)="$event.stopPropagation()">
+                                    <button type="button" class="bu-control bu-dd-trigger" aria-haspopup="listbox"
+                                            aria-labelledby="buRoleLbl" [attr.aria-expanded]="roleDdOpen()"
+                                            (click)="toggleRoleDd()">
+                                        <span class="bu-dd-value" [class.bu-dd-placeholder]="!roleId()">
+                                            {{ roleLabel() || 'Choose a role' }}
+                                        </span>
+                                        <i class="ri-arrow-down-s-line bu-dd-chev"></i>
+                                    </button>
+
+                                    @if (roleDdOpen()) {
+                                        <div class="bu-dd-menu" role="listbox">
+                                            @if (roleOptions().length > 6) {
+                                                <input type="text" class="bu-dd-search" placeholder="Search roles…"
+                                                       [value]="roleQuery()"
+                                                       (input)="roleQuery.set($any($event.target).value)">
+                                            }
+                                            <div class="bu-dd-list">
+                                                @for (role of filteredRoles(); track role.id) {
+                                                    <button type="button" role="option" class="bu-dd-option"
+                                                            [class.bu-dd-option--on]="roleId() === role.id"
+                                                            [attr.aria-selected]="roleId() === role.id"
+                                                            (click)="pickRole(role.id ?? '')">
+                                                        <span class="text-truncate">{{ role.name }}</span>
+                                                        @if (roleId() === role.id) { <i class="ri-check-line"></i> }
+                                                    </button>
+                                                } @empty {
+                                                    <div class="bu-dd-empty">No roles found</div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
                                 </div>
-                                <div>
-                                    <h3 class="form-section-title">Selection Scope</h3>
-                                    <span class="form-section-subtitle">Define the scope of users this action applies to</span>
+                            </div>
+                        }
+
+                        @if (selectedAction() === 'extendAccess') {
+                            <div class="bu-extra">
+                                <label class="bu-label" id="buEndsLbl">New access end date <span class="bu-req">*</span></label>
+
+                                <!-- Custom date-time picker — no native datetime-local -->
+                                <div class="bu-dp" [class.bu-dp--open]="dpOpen()" (click)="$event.stopPropagation()">
+                                    <button type="button" class="bu-control bu-dp-trigger" aria-haspopup="dialog"
+                                            aria-labelledby="buEndsLbl" [attr.aria-expanded]="dpOpen()"
+                                            (click)="toggleDp()">
+                                        <svg class="bu-dp-lead" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path>
+                                            <path d="M4 10h16M8 2v4M16 2v4"></path>
+                                        </svg>
+                                        <span class="bu-dp-value" [class.bu-dd-placeholder]="!accessEndsLabel()">
+                                            {{ accessEndsLabel() || 'Pick a date' }}
+                                        </span>
+                                        <i class="ri-arrow-down-s-line bu-dd-chev"></i>
+                                    </button>
+
+                                    @if (dpOpen()) {
+                                        <div class="bu-dp-pop" role="dialog" aria-label="Choose access end date">
+
+                                            <!-- Header — the chosen date, large -->
+                                            <div class="bu-dp-hero">
+                                                <span class="bu-dp-hero-label">Access ends on</span>
+                                                <button type="button" class="bu-dp-hero-year" (click)="dpShowYears()">{{ dpHeadYear() }}</button>
+                                                <span class="bu-dp-hero-day" [class.bu-dp-hero-day--empty]="!dpDate()">{{ dpHeadDay() }}</span>
+                                                @if (dpDraftDays() !== null) {
+                                                    <span class="bu-dp-hero-note">
+                                                        {{ dpDraftDays() === 0 ? 'Today' : dpDraftDays() === 1 ? 'Tomorrow' : 'In ' + dpDraftDays() + ' days' }}
+                                                    </span>
+                                                }
+                                            </div>
+
+                                            <!-- Toolbar -->
+                                            <div class="bu-dp-bar">
+                                                <div class="bu-dp-switch">
+                                                    <button type="button" [class.on]="dpMode() === 'month'" (click)="dpShowMonths()">
+                                                        {{ dpMonthName() }} <i class="ri-arrow-down-s-fill"></i>
+                                                    </button>
+                                                    <button type="button" [class.on]="dpMode() === 'year'" (click)="dpShowYears()">
+                                                        {{ dpView().y }} <i class="ri-arrow-down-s-fill"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="bu-dp-navs">
+                                                    <button type="button" class="bu-dp-nav" aria-label="Previous"
+                                                            [disabled]="!dpCanPrev()" (click)="dpShift(-1)">
+                                                        <i class="ri-arrow-left-s-line"></i>
+                                                    </button>
+                                                    <button type="button" class="bu-dp-nav" aria-label="Next"
+                                                            [disabled]="!dpCanNext()" (click)="dpShift(1)">
+                                                        <i class="ri-arrow-right-s-line"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Grids -->
+                                            <div class="bu-dp-stage">
+                                                @switch (dpMode()) {
+                                                    @case ('day') {
+                                                        <div class="bu-dp-grid">
+                                                            @for (w of dpWeekdays; track w) {
+                                                                <span class="bu-dp-wd">{{ w }}</span>
+                                                            }
+                                                            @for (c of dpCells(); track c.key) {
+                                                                <button type="button" class="bu-dp-day"
+                                                                        [class.bu-dp-day--out]="!c.inMonth"
+                                                                        [class.bu-dp-day--today]="c.isToday"
+                                                                        [class.bu-dp-day--on]="c.isSelected"
+                                                                        [disabled]="c.isPast"
+                                                                        [attr.aria-pressed]="c.isSelected"
+                                                                        (click)="dpPick(c)">{{ c.day }}</button>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    @case ('month') {
+                                                        <div class="bu-dp-tiles">
+                                                            @for (mo of dpMonths(); track mo.m) {
+                                                                <button type="button" class="bu-dp-tile"
+                                                                        [class.bu-dp-tile--now]="mo.isCurrent"
+                                                                        [class.bu-dp-tile--on]="mo.isSelected"
+                                                                        [disabled]="mo.isPast"
+                                                                        (click)="dpPickMonth(mo.m)">{{ mo.label }}</button>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    @case ('year') {
+                                                        <div class="bu-dp-tiles">
+                                                            @for (yr of dpYears(); track yr.y) {
+                                                                <button type="button" class="bu-dp-tile"
+                                                                        [class.bu-dp-tile--now]="yr.isCurrent"
+                                                                        [class.bu-dp-tile--on]="yr.isSelected"
+                                                                        (click)="dpPickYear(yr.y)">{{ yr.y }}</button>
+                                                            }
+                                                        </div>
+                                                    }
+                                                }
+                                            </div>
+
+                                            <!-- Footer -->
+                                            <div class="bu-dp-foot">
+                                                <button type="button" class="bu-dp-link" (click)="dpToday()">Today</button>
+                                                <div class="bu-dp-foot-btns">
+                                                    <button type="button" class="bu-btn bu-btn--text" (click)="dpClear()">Clear</button>
+                                                    <button type="button" class="bu-btn bu-btn--primary" [disabled]="!dpDate()" (click)="dpApply()">Done</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
                                 </div>
+                            </div>
+                        }
+                    </div>
+                </section>
+
+                <!-- ============================================================
+                     Users + justification, side by side
+                     ============================================================ -->
+                <div class="bu-split">
+
+                    <section class="bu-panel" id="buSectionScope">
+                        <header class="bu-panel-head">
+                            <div class="bu-panel-heading">
+                                <div class="bu-title">Selected users</div>
+                                <div class="bu-sub">Passed from the User Directory.</div>
+                            </div>
+                            <span class="bu-count-badge">{{ selectedUsers().length }}</span>
+                        </header>
+
+                        <div class="bu-panel-body">
+                            <div class="bu-counts">
+                                <span class="bu-count"><i class="bu-dot bu-dot--active"></i>Active <b>{{ activeCategoryCount }}</b></span>
+                                <span class="bu-count"><i class="bu-dot bu-dot--invited"></i>Invited <b>{{ invitedCategoryCount }}</b></span>
+                                <span class="bu-count"><i class="bu-dot bu-dot--suspended"></i>Suspended <b>{{ suspendedCategoryCount }}</b></span>
+                                <span class="bu-count"><i class="bu-dot bu-dot--locked"></i>Locked <b>{{ lockedCategoryCount }}</b></span>
                             </div>
 
                             @if (selectedUsers().length > 0) {
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold fs-13">
-                                        Selected Users from Directory
-                                        <span class="badge bg-primary-subtle text-primary ms-1">{{ selectedUsers().length }} total</span>
-                                    </label>
-                                    <div class="selected-users-list">
-                                        @for (user of visibleSelectedUsers; track user.id) {
-                                            <div class="selected-user-chip">
-                                                <span class="selected-user-avatar">{{ (user.displayName || '?').charAt(0) }}</span>
-                                                <span class="selected-user-name">{{ user.displayName }}</span>
-                                                <span class="selected-user-ref">{{ user.code }}</span>
-                                            </div>
-                                        }
-                                        @if (hiddenSelectedCount > 0) {
-                                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" (click)="toggleShowAllSelected()">
-                                                <i class="uil uil-ellipsis-h me-1"></i>
-                                                {{ showAllSelected() ? 'Show less' : '+' + hiddenSelectedCount + ' more' }}
-                                            </button>
-                                        }
+                                <div class="bu-users">
+                                    @for (user of visibleSelectedUsers; track user.id) {
+                                        <div class="bu-user">
+                                            <span class="bu-avatar">{{ initial(user.displayName) }}</span>
+                                            <span class="bu-user-main">
+                                                <span class="bu-user-name">{{ user.displayName }}</span>
+                                                <span class="bu-user-ref">{{ user.code }}</span>
+                                            </span>
+                                            <span class="bu-status">{{ user.status | titlecase }}</span>
+                                            @if (user.isLockedOut) { <span class="bu-status bu-status--grey">Locked</span> }
+                                        </div>
+                                    }
+                                </div>
+
+                                @if (hiddenSelectedCount > 0) {
+                                    <button type="button" class="bu-link" (click)="toggleShowAllSelected()">
+                                        {{ showAllSelected() ? 'Show fewer' : 'Show all ' + selectedUsers().length + ' users' }}
+                                    </button>
+                                }
+
+                                <div class="bu-validate">
+                                    <div class="bu-validate-stats">
+                                        <div><span>Total</span><b>{{ totalCount() }}</b></div>
+                                        <div><span>Excluded</span><b class="bu-text-red">{{ excludedCount() }}</b></div>
+                                        <div><span>Affected</span><b class="bu-primary">{{ totalCount() > 0 ? (affectedCount() > 0 ? affectedCount() : totalCount() - excludedCount()) : 0 }}</b></div>
+                                    </div>
+                                    <div class="bu-validate-btns">
+                                        <button type="button" class="bu-btn bu-btn--soft" (click)="validateSelection()"
+                                                [disabled]="validating()">
+                                            @if (validating()) { <span class="spinner-border spinner-border-sm"></span> }
+                                            @else { <i class="ri-checkbox-circle-line"></i> }
+                                            Validate
+                                        </button>
+                                        <button type="button" class="bu-btn bu-btn--line" (click)="previewImpact()"
+                                                [disabled]="validating() || totalCount() === 0">
+                                            <i class="ri-eye-line"></i> Preview
+                                        </button>
                                     </div>
                                 </div>
                             } @else {
-                                <!--
-                                    ARRIVING WITH NOBODY SELECTED IS A DEAD END, so it says so
-                                    here rather than letting somebody choose an action, write a
-                                    justification and discover it at the Validate button.
-
-                                    It is reachable only by bookmark or stale link now that the
-                                    sidebar entry is gone - which is exactly when a screen has to
-                                    explain itself, because there is no obvious way back.
-                                -->
-                                <div class="text-center py-4">
-                                    <i class="ri-group-2-line fs-1 text-muted d-block mb-2"></i>
-                                    <h6 class="fw-semibold mb-1">No users selected</h6>
-                                    <p class="text-muted small mb-3" style="max-width:460px; margin:0 auto;">
-                                        A bulk action runs over a list somebody has looked at. Pick
-                                        the people in the User Directory first, then bring them
-                                        here with its <strong>Bulk Actions</strong> button.
-                                    </p>
-                                    <a class="btn btn-primary btn-sm"
-                                       routerLink="/app/administration/access/user-directory">
-                                        <i class="ri-arrow-left-line me-1"></i> Go to User Directory
+                                <div class="bu-empty">
+                                    <span class="bu-empty-ico"><i class="ri-user-search-line"></i></span>
+                                    <div class="bu-empty-title">No users selected</div>
+                                    <div class="bu-empty-text">
+                                        Select people in the User Directory, then use its <strong>Bulk Actions</strong> button.
+                                    </div>
+                                    <a class="bu-btn bu-btn--primary" routerLink="/app/administration/access/user-directory">
+                                        <i class="ri-arrow-left-line"></i> Go to User Directory
                                     </a>
                                 </div>
                             }
-
-                            <!--
-                                SCOPE TYPE IS GONE, because it never did anything.
-
-                                `CreateBulkOperationRequest` has no scope field: the operation is
-                                defined by the explicit user ids handed over from the directory,
-                                which is deliberate - a bulk action driven by a scope expression
-                                is one where nobody has looked at the list, and the preview exists
-                                so that somebody does. The dropdown was collected, bound to a form
-                                control, and dropped on the floor in buildRequest, so an operator
-                                setting it believed they had narrowed the action when they had
-                                not.
-                            -->
-
-                            <div class="d-flex gap-2 flex-wrap">
-                                <button type="button" class="btn btn-primary btn-sm" (click)="validateSelection()" [disabled]="loading()">
-                                    @if (loading()) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                                    <i class="uil uil-check-circle me-1"></i>Validate Selection
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="previewImpact()" [disabled]="totalCount() === 0">
-                                    <i class="uil uil-eye me-1"></i>Preview Impact
-                                </button>
-                            </div>
-
-                            <!-- Selection Summary -->
-                            @if (totalCount() > 0) {
-                                <div class="selection-summary">
-                                    <div class="summary-block">
-                                        <div class="summary-block-value" style="color: var(--pe-primary);">{{ totalCount() }}</div>
-                                        <div class="summary-block-label" style="color: var(--pe-primary);">Total Selected</div>
-                                    </div>
-                                    <div class="summary-block">
-                                        <div class="summary-block-value text-danger">{{ excludedCount() }}</div>
-                                        <div class="summary-block-label text-danger">Excluded</div>
-                                    </div>
-                                    <div class="summary-block">
-                                        <div class="summary-block-value text-success">{{ affectedCount() > 0 ? affectedCount() : totalCount() - excludedCount() }}</div>
-                                        <div class="summary-block-label text-success">Will be Affected</div>
-                                    </div>
-                                </div>
-                            }
                         </div>
+                    </section>
 
-                        <!-- SECTION: Business Justification -->
-                        <div class="form-section">
-                            <div class="form-section-header">
-                                <div class="form-section-icon" style="background: rgba(217, 119, 6, 0.1); color: #d97706;">
-                                    <i class="uil uil-pen"></i>
-                                </div>
-                                <div>
-                                    <h3 class="form-section-title">Business Justification <span class="text-danger">*</span></h3>
-                                    <span class="form-section-subtitle">Explain why this bulk action is necessary</span>
-                                </div>
+                    <section class="bu-panel" id="buSectionJustification">
+                        <header class="bu-panel-head">
+                            <div class="bu-panel-heading">
+                                <div class="bu-title">Business justification <span class="bu-req">*</span></div>
+                                <div class="bu-sub">The approver reads this before execution.</div>
                             </div>
+                        </header>
 
-                            <div class="mb-1">
-                                <textarea
-                                    class="form-control"
-                                    formControlName="businessJustification"
-                                    rows="3"
-                                    placeholder="Provide a detailed business justification (10-1000 characters)..."
-                                    [class.is-invalid]="bulkForm.controls.businessJustification.invalid && bulkForm.controls.businessJustification.touched">
-                                </textarea>
-                                @if (bulkForm.controls.businessJustification.invalid && bulkForm.controls.businessJustification.touched) {
-                                    <div class="invalid-feedback">
+                        <div class="bu-panel-body bu-panel-body--fill">
+                            <textarea class="bu-control bu-control--area" formControlName="businessJustification" rows="7"
+                                      placeholder="Explain why this bulk action is necessary (10–1000 characters)"
+                                      [class.is-invalid]="bulkForm.controls.businessJustification.invalid && bulkForm.controls.businessJustification.touched"></textarea>
+
+                            <div class="bu-meta">
+                                <span class="bu-error">
+                                    @if (bulkForm.controls.businessJustification.invalid && bulkForm.controls.businessJustification.touched) {
+                                        <i class="ri-error-warning-line"></i>
                                         @if (bulkForm.controls.businessJustification.errors?.['required']) { Required. }
                                         @if (bulkForm.controls.businessJustification.errors?.['minlength']) { Minimum 10 characters. }
                                         @if (bulkForm.controls.businessJustification.errors?.['maxlength']) { Maximum 1000 characters. }
-                                    </div>
-                                }
-                                <div class="text-end mt-1">
-                                    <small class="text-muted">{{ bulkForm.controls.businessJustification.value?.length || 0 }}/1000</small>
-                                </div>
+                                    }
+                                </span>
+                                <span class="bu-counter" [class.bu-counter--ok]="justificationLength() >= 10">
+                                    {{ justificationLength() }} / 1000
+                                </span>
+                            </div>
+
+                            <div class="bu-note">
+                                <i class="ri-information-line"></i>
+                                <span style="    font-size: 14px !important;">Bulk actions need independent approval. The result file is available after completion.</span>
                             </div>
                         </div>
+                    </section>
+                </div>
 
-                    
-
-                        <!-- Action Buttons -->
-                        <div class="d-flex gap-3 mb-4">
-                            <button type="button" class="btn btn-primary btn-sm px-4" (click)="submitBulkAction()" [disabled]="submitting() || totalCount() === 0">
-                                @if (submitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                                <i class="uil uil-check me-1"></i>Submit Bulk Action
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm px-4" (click)="cancel()" [disabled]="submitting()">
-                                <i class="uil uil-times me-1"></i>Cancel
-                            </button>
+                <!-- ============================================================
+                     Sticky action bar
+                     ============================================================ -->
+                <div class="bu-bar">
+                    <div class="bu-bar-info">
+                        <span class="bu-bar-ico"><i class="ri-send-plane-2-line"></i></span>
+                        <div>
+                            <div class="bu-bar-title">
+                                @if (selectedAction()) {
+                                    {{ getActionLabel(selectedAction()) }} · {{ selectedUsers().length }} users
+                                } @else {
+                                    Nothing to submit yet
+                                }
+                            </div>
+                            <div class="bu-bar-sub">Submitting sends this request for approval.</div>
                         </div>
                     </div>
-
-                    <!-- RIGHT COLUMN — Sidebar -->
-                    <div class="col-lg-4">
-
-                        <!-- Action Summary -->
-                        <div class="sidebar-card">
-                            <div class="sidebar-card-header">
-                                <i class="uil uil-info-circle fs-5" style="color: var(--pe-primary);"></i>
-                                <h6>Action Summary</h6>
-                            </div>
-                            <div class="sidebar-card-body">
-                                <div class="sidebar-row">
-                                    <span class="sidebar-label">Action</span>
-                                    <span class="sidebar-value">{{ selectedAction() ? getActionLabel(selectedAction()) : '—' }}</span>
-                                </div>
-                                <div class="sidebar-row">
-                                    <span class="sidebar-label">Scope</span>
-                                    <span class="sidebar-value">{{ selectedUsers().length }} selected from the directory</span>
-                                </div>
-                                <div class="sidebar-row">
-                                    <span class="sidebar-label">Approval</span>
-                                    <span class="sidebar-value">
-                                        <span class="badge bg-warning-subtle text-warning">Required</span>
-                                    </span>
-                                </div>
-                                <div class="sidebar-row">
-                                    <span class="sidebar-label">Status</span>
-                                    <span class="sidebar-value">
-                                        <span class="badge bg-info-subtle text-info">Draft</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Account Categories -->
-                        <div class="sidebar-card">
-                            <div class="sidebar-card-header">
-                                <i class="uil uil-users-alt fs-5 text-secondary"></i>
-                                <h6>Account Categories</h6>
-                            </div>
-                            <div class="sidebar-card-body">
-                                <div class="category-strip">
-                                    <div class="category-chip" style="background: #f0fdf4;">
-                                        <span class="category-chip-value text-success">{{ activeCategoryCount }}</span>
-                                        <span class="category-chip-label text-success">Active</span>
-                                    </div>
-                                    <div class="category-chip" style="background: #fffbeb;">
-                                        <span class="category-chip-value text-warning">{{ invitedCategoryCount }}</span>
-                                        <span class="category-chip-label text-warning">Invited</span>
-                                    </div>
-                                    <div class="category-chip" style="background: #fef2f2;">
-                                        <span class="category-chip-value text-danger">{{ suspendedCategoryCount }}</span>
-                                        <span class="category-chip-label text-danger">Suspended</span>
-                                    </div>
-                                    <div class="category-chip" style="background: #f8fafc;">
-                                        <span class="category-chip-value text-secondary">{{ lockedCategoryCount }}</span>
-                                        <span class="category-chip-label text-secondary">Locked</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Important Notice -->
-                        <div class="info-notice">
-                            <div class="info-notice-header">
-                                <i class="uil uil-exclamation-triangle"></i>
-                                Important Notice
-                            </div>
-                            <div class="info-notice-body">
-                                Bulk actions require independent approval. An approver will review the scope, action and justification before execution. Result files are available for download after completion.
-                            </div>
-                        </div>
+                    <div class="bu-bar-btns">
+                        <button type="button" class="bu-btn bu-btn--line" (click)="cancel()" [disabled]="submitting()">
+                            Cancel
+                        </button>
+                        <button type="button" class="bu-btn bu-btn--primary" (click)="submitBulkAction()"
+                                [disabled]="submitting() || totalCount() === 0">
+                            @if (submitting()) { <span class="spinner-border spinner-border-sm"></span> }
+                            @else { <i class="ri-send-plane-line"></i> }
+                            Submit for approval
+                        </button>
                     </div>
                 </div>
             </form>
@@ -321,125 +371,76 @@
     </div>
 </main>
 
-<!-- Preview Modal -->
+<!-- Preview modal -->
 @if (showPreviewModal()) {
-    <div class="modal-overlay" (click)="closePreview()">
-        <div class="modal-modern" (click)="$event.stopPropagation()">
-            <div class="modal-modern-header">
-                <h5><i class="uil uil-eye me-2 text-info"></i>Impact Preview</h5>
-                <button type="button" class="btn-close" (click)="closePreview()"></button>
+    <div class="modal-overlay" data-scroll-lock (click)="closePreview()">
+        <div class="bu-modal" (click)="$event.stopPropagation()">
+            <div class="bu-modal-head">
+                <div class="bu-modal-title">Impact preview</div>
+                <button type="button" class="bu-x" aria-label="Close" (click)="closePreview()"><i class="ri-close-line"></i></button>
             </div>
-            <div class="modal-modern-body">
-                <div class="alert alert-info d-flex align-items-start gap-2 py-2 px-3 mb-3" role="alert">
-                    <i class="uil uil-info-circle fs-5 flex-shrink-0"></i>
-                    <p class="mb-0 small">This is a preview of the users that will be affected by this action.</p>
-                </div>
-                <div class="summary-box">
-                    <div class="summary-row">
-                        <span class="summary-row-label">Total Affected</span>
-                        <span class="summary-row-value fw-bold" style="color: var(--pe-primary);">{{ affectedCount() > 0 ? affectedCount() : totalCount() - excludedCount() }}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-row-label">Excluded</span>
-                        <span class="summary-row-value">{{ excludedCount() }}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-row-label">Action</span>
-                        <span class="summary-row-value">{{ getActionLabel(selectedAction()) }}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-row-label">Scope</span>
-                        <span class="summary-row-value">{{ selectedUsers().length }} selected from the directory</span>
-                    </div>
-                </div>
+            <div class="bu-modal-body">
+                <dl class="bu-kv">
+                    <div><dt>Will be affected</dt><dd class="bu-primary">{{ affectedCount() > 0 ? affectedCount() : totalCount() - excludedCount() }}</dd></div>
+                    <div><dt>Excluded</dt><dd>{{ excludedCount() }}</dd></div>
+                    <div><dt>Action</dt><dd>{{ getActionLabel(selectedAction()) }}</dd></div>
+                    <div><dt>Scope</dt><dd>{{ selectedUsers().length }} selected from the directory</dd></div>
+                </dl>
             </div>
-            <div class="modal-modern-footer">
-                <button type="button" class="btn btn-secondary" (click)="closePreview()">Close Preview</button>
+            <div class="bu-modal-foot">
+                <button type="button" class="bu-btn bu-btn--line" (click)="closePreview()">Close</button>
             </div>
         </div>
     </div>
 }
 
-<!-- Confirm Modal -->
+<!-- Confirm modal -->
 @if (showConfirmModal()) {
-    <div class="modal-overlay" (click)="closeModal()">
-        <div class="modal-modern" (click)="$event.stopPropagation()">
-            <div class="modal-modern-header">
-                <h5><i class="uil uil-shield-exclamation me-2" style="color: var(--pe-primary);"></i>Confirm Bulk Action</h5>
-                <button type="button" class="btn-close" (click)="closeModal()"></button>
+    <div class="modal-overlay" data-scroll-lock (click)="closeModal()">
+        <div class="bu-modal" (click)="$event.stopPropagation()">
+            <div class="bu-modal-head">
+                <div class="bu-modal-title">Confirm bulk action</div>
+                <button type="button" class="bu-x" aria-label="Close" (click)="closeModal()"><i class="ri-close-line"></i></button>
             </div>
-            <div class="modal-modern-body">
-                <div class="alert alert-warning d-flex align-items-start gap-2 py-3 px-3 mb-3" role="alert">
-                    <i class="uil uil-exclamation-triangle fs-5 flex-shrink-0"></i>
-                    <p class="mb-0 fs-13">This action will affect <strong>{{ affectedCount() > 0 ? affectedCount() : totalCount() - excludedCount() }}</strong> users. An independent approver must review this request.</p>
+            <div class="bu-modal-body">
+                <div class="bu-modal-text">
+                    This will affect <strong class="bu-primary">{{ affectedCount() > 0 ? affectedCount() : totalCount() - excludedCount() }}</strong>
+                    users. An independent approver must review it.
                 </div>
-                <div class="summary-box">
-                    <div class="summary-row">
-                        <span class="summary-row-label">Action</span>
-                        <span class="summary-row-value">{{ getActionLabel(selectedAction()) }}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-row-label">Scope</span>
-                        <span class="summary-row-value">{{ selectedUsers().length }} selected from the directory</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-row-label">Affected Users</span>
-                        <span class="summary-row-value fw-bold" style="color: var(--pe-primary);">{{ affectedCount() > 0 ? affectedCount() : totalCount() - excludedCount() }}</span>
-                    </div>
-                </div>
+                <dl class="bu-kv">
+                    <div><dt>Action</dt><dd>{{ getActionLabel(selectedAction()) }}</dd></div>
+                    <div><dt>Scope</dt><dd>{{ selectedUsers().length }} selected from the directory</dd></div>
+                </dl>
             </div>
-            <div class="modal-modern-footer">
-                <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="submitting()">Cancel</button>
-                <button type="button" class="btn btn-primary" (click)="confirmSubmit()" [disabled]="submitting()">
-                    @if (submitting()) {
-                        <span class="spinner-border spinner-border-sm me-1"></span> Processing...
-                    } @else {
-                        <i class="uil uil-check-circle me-1"></i> Confirm & Submit
-                    }
+            <div class="bu-modal-foot">
+                <button type="button" class="bu-btn bu-btn--line" (click)="closeModal()" [disabled]="submitting()">Cancel</button>
+                <button type="button" class="bu-btn bu-btn--primary" (click)="confirmSubmit()" [disabled]="submitting()">
+                    @if (submitting()) { <span class="spinner-border spinner-border-sm"></span> Processing... }
+                    @else { Confirm &amp; submit }
                 </button>
             </div>
         </div>
     </div>
 }
 
-<!-- Result Modal -->
+<!-- Result modal -->
 @if (showResultModal()) {
-    <div class="modal-overlay" (click)="closeModal()">
-        <div class="modal-modern" (click)="$event.stopPropagation()">
-            <div class="modal-modern-header">
-                <h5><i class="uil uil-file-check-alt me-2 text-success"></i>Action Completed</h5>
-                <button type="button" class="btn-close" (click)="closeModal()"></button>
+    <div class="modal-overlay" data-scroll-lock (click)="closeModal()">
+        <div class="bu-modal" (click)="$event.stopPropagation()">
+            <div class="bu-modal-body text-center pt-4">
+                <div class="bu-done"><i class="ri-check-line"></i></div>
+                <div class="bu-modal-title mb-1">Bulk action executed</div>
+                <div class="bu-modal-text">{{ affectedCount() > 0 ? affectedCount() : totalCount() - excludedCount() }} users have been processed.</div>
+                <dl class="bu-kv text-start">
+                    <div><dt>Result file</dt><dd>{{ resultFileUrl() }}</dd></div>
+                    <div><dt>Action</dt><dd>{{ getActionLabel(selectedAction()) }}</dd></div>
+                </dl>
             </div>
-            <div class="modal-modern-body text-center">
-                <div class="mb-3">
-                    <div style="width: 72px; height: 72px; background: #f0fdf4; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
-                        <i class="uil uil-check-circle text-success" style="font-size: 42px;"></i>
-                    </div>
-                </div>
-                <h5 class="fw-bold mb-2">Bulk Action Executed Successfully</h5>
-                <p class="text-muted small mb-3">{{ affectedCount() > 0 ? affectedCount() : totalCount() - excludedCount() }} users have been processed.</p>
-
-                <div class="summary-box text-start mb-3">
-                    <div class="summary-row">
-                        <span class="summary-row-label">Result File</span>
-                        <span class="summary-row-value">{{ resultFileUrl() }}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-row-label">Action</span>
-                        <span class="summary-row-value">{{ getActionLabel(selectedAction()) }}</span>
-                    </div>
-                </div>
-
-                <div class="alert alert-info py-2 px-3 small" role="alert">
-                    <i class="uil uil-file-download me-1"></i>
-                    Download the result file for a detailed report.
-                </div>
-            </div>
-            <div class="modal-modern-footer justify-content-center">
-                <button type="button" class="btn btn-success" (click)="downloadResult()">
-                    <i class="uil uil-file-download me-1"></i>Download Result
+            <div class="bu-modal-foot justify-content-center">
+                <button type="button" class="bu-btn bu-btn--line" (click)="closeModal()">Close</button>
+                <button type="button" class="bu-btn bu-btn--primary" (click)="downloadResult()">
+                    <i class="ri-download-2-line"></i> Download result
                 </button>
-                <button type="button" class="btn btn-secondary" (click)="closeModal()">Close</button>
             </div>
         </div>
     </div>

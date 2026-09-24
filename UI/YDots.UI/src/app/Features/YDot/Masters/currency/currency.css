@@ -385,38 +385,9 @@ color-mix(in srgb, var(--primary) 11%, white);
   border-right: 1px solid var(--line);
 }
 
-.table-pane-header {
-  min-height: 57px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--line);
-  background: #fbfdfc;
-}
 
-.table-pane-header h2 {
-  margin: 2px 0 0;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: -.01em;
-}
 
-.table-kicker {
-  color: var(--primary);
-  font-size: .62rem;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
 
-.result-count {
-  flex-shrink: 0;
-  color: var(--muted);
-  font-size: .7rem;
-}
 
 .table-responsive {
   width: 100%;
@@ -1331,8 +1302,6 @@ select.form-control {
     grid-template-rows: minmax(300px, .95fr) minmax(330px, 1.05fr);
   }
 
-  .table-pane-header { padding-inline: 12px; }
-  .table-pane-header h2 { font-size: .95rem; }
 
   .details-header { padding-inline: 12px; }
   .details-scroll { padding-inline: 12px; }
@@ -1426,3 +1395,190 @@ select.form-control {
   .btn.btn-primary .plus { font-size: .95rem; }
   .summary-icon { width: 31px; height: 31px; flex-basis: 31px; }
 }
+
+/* =========================================================
+   TABLE STYLED LIKE THE DEPARTMENTS LIST (2026-09-24)
+   A rounded white card with a light header row in small capitals, even row spacing and a soft hover,
+   codes as grey tags, the name in bold over its secondary line, an outline status icon (the word is its
+   tooltip) and square icon-only action buttons. Content and columns are unchanged. Comes last so it
+   wins over the rules above.
+   ========================================================= */
+.table-pane {
+  --dl-brand: var(--pe-primary, var(--theme-primary, #2c4a3d));
+  --dl-brand-soft: color-mix(in srgb, var(--dl-brand) 10%, #fff);
+  background: #fff !important;
+  border: 1px solid #e7e9ec !important;
+  border-radius: 18px !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+.table-pane .data-table1 { width: 100%; border-collapse: collapse; }
+.table-pane .data-table1 thead th {
+  padding: 13px 20px !important;
+  background: #f7f8f9 !important;
+  border-bottom: 1px solid #e7e9ec !important;
+  color: #6b7682 !important;
+  font-family: var(--font-heading);
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.table-pane .data-table1 tbody td {
+  padding: 14px 20px !important;
+  border-bottom: 1px solid #eff1f3 !important;
+  color: #16202a;
+  font-size: 13.5px !important;
+  vertical-align: middle;
+  background: transparent;
+}
+.table-pane .data-table1 tbody tr:last-child td { border-bottom: 0 !important; }
+.table-pane .data-table1 tbody tr { transition: background-color .15s ease; }
+.table-pane .data-table1 tbody tr:hover td { background: #fafbfb !important; }
+
+/* Status: an outline icon only. */
+.table-pane .dl-status { display: inline-grid; place-items: center; width: 28px; height: 28px; color: #9aa3ad; cursor: default; }
+.table-pane .dl-status i { font-size: 20px !important; line-height: 1; }
+.table-pane .dl-status.is-active { color: #1f8a52; }
+
+/* Code and type as grey tags; the name in bold over its type. */
+.table-pane .code-cell {
+  display: inline-block;
+  padding: 3px 9px !important;
+  border: 1px solid #e7e9ec !important;
+  border-radius: 7px !important;
+  background: #f7f8f9 !important;
+  color: #3c4854 !important;
+  font-family: var(--font-number, ui-monospace, monospace);
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+}
+.table-pane .code-cell:hover { border-color: var(--dl-brand) !important; color: var(--dl-brand) !important; }
+.table-pane .name-primary { font-size: 14px !important; font-weight: 600 !important; color: #16202a; }
+.table-pane .name-secondary { font-size: 12.5px !important; color: #6b7682; }
+.table-pane .symbol-cell { font-family: var(--font-number); font-weight: 600 !important; }
+.table-pane .type-badge {
+  display: inline-block;
+  padding: 3px 9px !important;
+  border: 1px solid #e7e9ec !important;
+  border-radius: 7px !important;
+  background: #f7f8f9 !important;
+  color: #3c4854 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+/* Actions: square icon-only buttons, tinted on hover. */
+.table-pane .action-buttons { display: inline-flex; justify-content: flex-end; gap: 8px; }
+.table-pane .action-btn {
+  width: 34px !important;
+  height: 34px !important;
+  display: inline-grid !important;
+  place-items: center;
+  padding: 0 !important;
+  border: 1px solid #e7e9ec !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #3c4854 !important;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.table-pane .action-btn svg { width: 16px; height: 16px; }
+.table-pane .action-btn:hover { background: var(--dl-brand-soft) !important; border-color: var(--dl-brand) !important; color: var(--dl-brand) !important; }
+.table-pane .action-btn.danger { color: #c0392b !important; }
+.table-pane .action-btn.danger:hover { background: #fdecea !important; border-color: #c0392b !important; }
+
+/* =========================================================
+   CREATE / EDIT, LIKE THE ADD AN OFFICE PAGE (2026-09-24)
+   The header card, the numbered section cards and the bottom action bar come from the office page's
+   stylesheet (office-form.css); these rules lay the four cards out two per row at equal height and
+   bring this page's own field classes (form-control, form-label...) to the office page's look.
+   ========================================================= */
+.cf-form {
+  grid-template-areas: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+.cf-card .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+  margin: 0;
+}
+.cf-card .form-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; }
+.cf-card .form-field-wide { grid-column: 1 / -1; }
+.cf-card .form-label {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #3c4854;
+}
+.cf-card .form-label .required { color: #c0392b; }
+.cf-card .form-control {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #dde1e5;
+  border-radius: 11px;
+  background-color: #fff;
+  color: #16202a;
+  font-size: 14px !important;
+  box-shadow: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.cf-card .form-control::placeholder { color: #b3bac2; }
+.cf-card .form-control:hover:not(:disabled) { border-color: #c9ced4; }
+.cf-card .form-control:focus {
+  outline: none;
+  border-color: var(--of-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--of-brand) 15%, transparent);
+}
+.cf-card .form-control:disabled { background: #f7f8f9; color: #6b7682; }
+.cf-card .form-control.is-invalid { border-color: #c0392b; background-color: #fffafa; }
+.cf-card textarea.form-control { min-height: 90px; resize: vertical; }
+.cf-card .field-hint { font-size: 12px !important; color: #6b7682; }
+.cf-card .validation-message { font-size: 12px !important; color: #c0392b; }
+.of-actionbar-btns .of-btn i { font-size: 17px !important; }
+button.of-crumb { padding: 0; border: 0; background: none; cursor: pointer; }
+
+@media (max-width: 991.98px) {
+  .cf-form { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 575.98px) {
+  .cf-card .form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ALIGNMENT. The Actions column was 150px but its four 34px buttons plus the cell padding need 200px,
+   and its cells were left-aligned under a right-aligned ACTIONS heading. Both now line up. */
+.table-pane .data-table1 th.col-action,
+.table-pane .data-table1 tbody td:last-child { width: 200px !important; text-align: right !important; }
+.table-pane .data-table1 tbody td.empty-state:last-child { text-align: center !important; width: auto !important; }
+@media (max-width: 767.98px) {
+  .table-pane .data-table1 th.col-action,
+  .table-pane .data-table1 tbody td:last-child { width: 176px !important; }
+  .table-pane .action-btn { width: 30px !important; height: 30px !important; }
+  .table-pane .action-buttons { gap: 6px; }
+}
+
+/* CENTRED COLUMNS. Symbol, Type, Decimals, Status and Actions - headings and cells - sit mid-column; only
+   the code and the name stay left-aligned. */
+.table-pane .data-table1 th.col-action,
+.table-pane .data-table1 tbody td:last-child { text-align: center !important; }
+.table-pane .action-buttons { justify-content: center !important; }
+
+/* FILTERS MERGED INTO THE TABLE CARD. The search and filters sit as a flat strip along the top of the
+   table card - no card of their own - with a hairline between them and the table's header row. */
+.table-pane > .filters-card {
+  margin: 0 !important;
+  padding: 12px 16px !important;
+  background: #fff !important;
+  border: 0 !important;
+  border-bottom: 1px solid #eff1f3 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+

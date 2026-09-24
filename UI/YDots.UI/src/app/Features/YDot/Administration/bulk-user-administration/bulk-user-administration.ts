@@ -1,5 +1,7 @@
 import {
   Component,
+  HostListener,
+  computed,
   effect,
   inject,
   signal,
@@ -91,6 +93,244 @@ export class BulkUserAdministrationComponent {
 
   // Conditional fields
   selectedAction = signal('');
+
+  /** Section anchors on the single-page layout: 0 Action, 1 Selected users, 2 Justification. */
+  private static readonly SECTION_IDS = ['buSectionAction', 'buSectionScope', 'buSectionJustification'];
+
+  /**
+   * Line-icon paths per action (24×24 viewBox, stroke only). Drawn as inline SVG so the
+   * selected card can animate each stroke being drawn, line by line.
+   */
+  private static readonly ACTION_PATHS: Record<string, string[]> = {
+    invite: ['M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z', 'M3 7l9 6 9-6'],
+    activate: ['M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18z', 'M8 12.5l2.5 2.5L16 9.5'],
+    suspend: ['M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18z', 'M10 9v6', 'M14 9v6'],
+    reactivate: ['M6 11h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z', 'M8 11V7a4 4 0 0 1 7.5-2', 'M12 15v2'],
+    deactivate: ['M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18z', 'M9 9l6 6', 'M15 9l-6 6'],
+    assignRole: ['M9 4a4 4 0 1 1 0 8a4 4 0 1 1 0-8z', 'M2 21a7 7 0 0 1 14 0', 'M19 8v6', 'M16 11h6'],
+    removeRole: ['M9 4a4 4 0 1 1 0 8a4 4 0 1 1 0-8z', 'M2 21a7 7 0 0 1 14 0', 'M16 11h6'],
+    resetPassword: ['M7.5 11.5a4 4 0 1 1 0 8a4 4 0 1 1 0-8z', 'M10.5 12.5L20 3', 'M16 7l3 3', 'M13.5 9.5l2 2'],
+    forceSignOut: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
+    requireMfaReset: ['M12 3l8 3v6c0 5-3.5 8-8 9c-4.5-1-8-4-8-9V6z', 'M9 12l2 2 4-4'],
+    extendAccess: ['M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18z', 'M12 7v5l3 2'],
+    export: ['M12 3v12', 'M7 10l5 5 5-5', 'M5 21h14'],
+  };
+
+  /** The stroke paths for an action's line icon. */
+  actionPaths(value: string): string[] {
+    return BulkUserAdministrationComponent.ACTION_PATHS[value] ?? ['M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18z'];
+  }
+
+  /** Remix icon per action, for the action cards. */
+  private static readonly ACTION_ICONS: Record<string, string> = {
+    invite: 'ri-mail-line',
+    activate: 'ri-checkbox-circle-line',
+    suspend: 'ri-pause-circle-line',
+    reactivate: 'ri-lock-unlock-line',
+    deactivate: 'ri-close-circle-line',
+    assignRole: 'ri-user-add-line',
+    removeRole: 'ri-user-unfollow-line',
+    resetPassword: 'ri-lock-password-line',
+    forceSignOut: 'ri-logout-box-r-line',
+    requireMfaReset: 'ri-shield-keyhole-line',
+    extendAccess: 'ri-time-line',
+    export: 'ri-download-2-line',
+  };
+
+  // =========================================================================================
+  // Custom date picker (Extend access) — replaces the native datetime-local input.
+  // Date only: access ends at the end of the chosen day, so the value is written to the
+  // `accessEndsAt` control as 'YYYY-MM-DDT23:59' (same shape datetime-local produced) and
+  // buildRequest() is unchanged.
+  // =========================================================================================
+  readonly dpOpen = signal(false);
+  /** Which grid is showing: days of a month, months of a year, or a range of years. */
+  readonly dpMode = signal<'day' | 'month' | 'year'>('day');
+  /** The month on screen: year + month index (0–11). */
+  readonly dpView = signal(this.monthOf(new Date()));
+  /** Draft selection inside the open picker. */
+  readonly dpDate = signal<Date | null>(null);
+  /** The applied value, mirrored from the form control for display. */
+  readonly accessEnds = signal('');
+
+  readonly dpWeekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  readonly dpMonthName = computed(() =>
+    new Date(this.dpView().y, this.dpView().m, 1).toLocaleDateString('en-GB', { month: 'long' }));
+
+  /** Header: the draft date in large type. */
+  readonly dpHeadDay = computed(() => {
+    const d = this.dpDate();
+    return d ? d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Select a date';
+  });
+
+  readonly dpHeadYear = computed(() => (this.dpDate() ?? new Date()).getFullYear());
+
+  /** Days from today to the draft date. */
+  readonly dpDraftDays = computed(() => {
+    const d = this.dpDate();
+    if (!d) return null;
+    return Math.round((d.getTime() - this.startOfDay(new Date()).getTime()) / 86400000);
+  });
+
+  /** 6 weeks × 7 days, Monday first. */
+  readonly dpCells = computed(() => {
+    const { y, m } = this.dpView();
+    const first = new Date(y, m, 1);
+    const offset = (first.getDay() + 6) % 7;
+    const today = this.startOfDay(new Date());
+    const picked = this.dpDate();
+    return Array.from({ length: 42 }, (_, i) => {
+      const date = new Date(y, m, 1 - offset + i);
+      return {
+        key: date.toDateString(),
+        date,
+        day: date.getDate(),
+        inMonth: date.getMonth() === m,
+        isToday: date.getTime() === today.getTime(),
+        isPast: date < today,
+        isSelected: !!picked && date.toDateString() === picked.toDateString(),
+      };
+    });
+  });
+
+  /** The 12 months of the year on screen. */
+  readonly dpMonths = computed(() => {
+    const { y } = this.dpView();
+    const now = this.monthOf(new Date());
+    const picked = this.dpDate();
+    return Array.from({ length: 12 }, (_, m) => ({
+      m,
+      label: new Date(y, m, 1).toLocaleDateString('en-GB', { month: 'short' }),
+      isPast: y < now.y || (y === now.y && m < now.m),
+      isCurrent: y === now.y && m === now.m,
+      isSelected: !!picked && picked.getFullYear() === y && picked.getMonth() === m,
+    }));
+  });
+
+  /** 12 years starting from this year. */
+  readonly dpYears = computed(() => {
+    const start = new Date().getFullYear();
+    const picked = this.dpDate()?.getFullYear();
+    return Array.from({ length: 12 }, (_, i) => ({
+      y: start + i,
+      isCurrent: i === 0,
+      isSelected: picked === start + i,
+    }));
+  });
+
+  /** Can the user go back? Not before the current month / year. */
+  readonly dpCanPrev = computed(() => {
+    const v = this.dpView(), now = this.monthOf(new Date());
+    if (this.dpMode() === 'month') return v.y > now.y;
+    if (this.dpMode() === 'year') return false;
+    return v.y > now.y || (v.y === now.y && v.m > now.m);
+  });
+
+  readonly dpCanNext = computed(() => this.dpMode() !== 'year');
+
+  /** Human label for the trigger, e.g. "Sat, 31 Oct 2026". */
+  readonly accessEndsLabel = computed(() => {
+    const v = this.accessEnds();
+    if (!v) return '';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+  });
+
+  toggleDp(): void {
+    if (this.dpOpen()) { this.dpOpen.set(false); return; }
+    this.roleDdOpen.set(false);
+    const current = this.accessEnds() ? new Date(this.accessEnds()) : null;
+    const valid = !!current && !isNaN(current.getTime());
+    this.dpDate.set(valid ? this.startOfDay(current!) : null);
+    this.dpView.set(this.monthOf(valid ? current! : new Date()));
+    this.dpMode.set('day');
+    this.dpOpen.set(true);
+  }
+
+  /** Previous / next month, year, depending on the grid showing. */
+  dpShift(delta: number): void {
+    const { y, m } = this.dpView();
+    if (this.dpMode() === 'day') this.dpView.set(this.monthOf(new Date(y, m + delta, 1)));
+    else if (this.dpMode() === 'month') this.dpView.set({ y: y + delta, m });
+  }
+
+  dpShowMonths(): void {
+    this.dpMode.set(this.dpMode() === 'month' ? 'day' : 'month');
+  }
+
+  dpShowYears(): void {
+    this.dpMode.set(this.dpMode() === 'year' ? 'day' : 'year');
+  }
+
+  dpPickMonth(m: number): void {
+    this.dpView.update((v) => ({ y: v.y, m }));
+    this.dpMode.set('day');
+  }
+
+  dpPickYear(y: number): void {
+    const now = this.monthOf(new Date());
+    const m = y === now.y ? Math.max(this.dpView().m, now.m) : this.dpView().m;
+    this.dpView.set({ y, m });
+    this.dpMode.set('month');
+  }
+
+  dpPick(cell: { date: Date; isPast: boolean; inMonth: boolean }): void {
+    if (cell.isPast) return;
+    this.dpDate.set(this.startOfDay(cell.date));
+    if (!cell.inMonth) this.dpView.set(this.monthOf(cell.date));
+  }
+
+  dpToday(): void {
+    const t = this.startOfDay(new Date());
+    this.dpDate.set(t);
+    this.dpView.set(this.monthOf(t));
+    this.dpMode.set('day');
+  }
+
+  dpApply(): void {
+    const d = this.dpDate();
+    if (!d) return;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    // End of the chosen day.
+    const value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T23:59`;
+    this.accessEnds.set(value);
+    this.bulkForm.controls.accessEndsAt.setValue(value);
+    this.bulkForm.controls.accessEndsAt.markAsTouched();
+    this.dpOpen.set(false);
+  }
+
+  dpClear(): void {
+    this.dpDate.set(null);
+    this.accessEnds.set('');
+    this.bulkForm.controls.accessEndsAt.setValue('');
+    this.dpOpen.set(false);
+  }
+
+  private monthOf(d: Date): { y: number; m: number } {
+    return { y: d.getFullYear(), m: d.getMonth() };
+  }
+
+  private startOfDay(d: Date): Date {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  /** Custom role dropdown (Add / Remove a role) — no native <select>. */
+  readonly roleDdOpen = signal(false);
+  readonly roleQuery = signal('');
+  readonly roleId = signal('');
+
+  readonly roleLabel = computed(() => {
+    const id = this.roleId();
+    return id ? (this.roleOptions().find((r) => String(r.id) === id)?.name ?? id) : '';
+  });
+
+  readonly filteredRoles = computed(() => {
+    const q = this.roleQuery().trim().toLowerCase();
+    const all = this.roleOptions();
+    return q ? all.filter((r) => (r.name ?? '').toLowerCase().includes(q)) : all;
+  });
   validationErrors = signal<string[]>([]);
 
   bulkForm = this.fb.group({
@@ -389,10 +629,13 @@ export class BulkUserAdministrationComponent {
   submitBulkAction(): void {
     this.bulkForm.markAllAsTouched();
     if (this.bulkForm.invalid) {
+      // Scroll to the section that holds the problem, rather than a toast pointing nowhere.
+      this.goStep(this.bulkForm.controls.action.invalid ? 0 : 2);
       this.toast.show('Validation Error', 'Please fix the form errors before submitting.', 'error');
       return;
     }
     if (this.affectedCount() === 0 && this.totalCount() === 0) {
+      this.goStep(1);
       this.toast.show('Validation Error', 'Validate the selection before submitting.', 'warning');
       return;
     }
@@ -528,6 +771,9 @@ export class BulkUserAdministrationComponent {
     this.excludedCount.set(0);
     this.affectedCount.set(0);
     this.selectedAction.set('');
+    this.roleId.set('');
+    this.accessEnds.set('');
+    this.dpOpen.set(false);
     this.selectedUsers.set([]);
     this.showAllSelected.set(false);
     this.impactPreview.set(null);
@@ -584,6 +830,66 @@ export class BulkUserAdministrationComponent {
   getActionLabel(value: string): string {
     const found = this.data()?.availableActions.find(a => a.value === value);
     return found?.label ?? 'Not selected';
+  }
+
+  // =========================================================================================
+  // Presentation helpers
+  // =========================================================================================
+
+  /** Scrolls to a section of the page (there are no tabs any more). */
+  goStep(index: number): void {
+    this.roleDdOpen.set(false);
+    this.dpOpen.set(false);
+    const ids = BulkUserAdministrationComponent.SECTION_IDS;
+    const id = ids[Math.max(0, Math.min(index, ids.length - 1))];
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /** Picks an action card. */
+  pickAction(value: string): void {
+    this.bulkForm.controls.action.setValue(value);
+    this.onActionChange();
+  }
+
+  actionIcon(value: string): string {
+    return BulkUserAdministrationComponent.ACTION_ICONS[value] ?? 'ri-checkbox-blank-circle-line';
+  }
+
+  toggleRoleDd(): void {
+    this.roleQuery.set('');
+    this.roleDdOpen.update((open) => !open);
+  }
+
+  pickRole(id: string): void {
+    this.roleId.set(id);
+    this.bulkForm.controls.roleId.setValue(id);
+    this.roleDdOpen.set(false);
+  }
+
+  /** Any click outside the role dropdown closes it (clicks inside stop propagation). */
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.roleDdOpen()) {
+      this.roleDdOpen.set(false);
+    }
+    if (this.dpOpen()) {
+      this.dpOpen.set(false);
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.roleDdOpen.set(false);
+    this.dpOpen.set(false);
+  }
+
+  initial(name: string | null | undefined): string {
+    return (name ?? '?').trim().charAt(0).toUpperCase() || '?';
+  }
+
+  /** Characters typed in the justification, for the counter. */
+  justificationLength(): number {
+    return (this.bulkForm.controls.businessJustification.value ?? '').length;
   }
 
   goBack(): void {

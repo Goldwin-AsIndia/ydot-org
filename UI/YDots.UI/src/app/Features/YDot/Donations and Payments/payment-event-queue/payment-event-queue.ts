@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin, switchMap } from 'rxjs';
@@ -245,6 +245,73 @@ export class PaymentEventQueueComponent {
   protected onStatusChange(value: PaymentOutcome | ''): void {
     this.paymentStatusFilter.set(value);
     this.refreshAfterFilterChange();
+  }
+
+  // ===========================================================================================
+  // Payment status dropdown - the custom replacement for the native <select>
+  // ===========================================================================================
+
+  /** '' is "All statuses", listed first. */
+  protected readonly statusMenuItems: readonly (PaymentOutcome | '')[] = ['', ...this.paymentStatusOptions];
+  protected readonly statusMenuOpen = signal(false);
+  protected readonly statusActiveIndex = signal(0);
+
+  protected toggleStatusMenu(): void {
+    if (this.statusMenuOpen()) {
+      this.statusMenuOpen.set(false);
+      return;
+    }
+    // Open on the current choice, so the highlight starts where the user already is.
+    this.statusActiveIndex.set(Math.max(0, this.statusMenuItems.indexOf(this.paymentStatusFilter())));
+    this.statusMenuOpen.set(true);
+  }
+
+  /** Picking the value already chosen closes the menu without re-fetching. */
+  protected pickStatus(value: PaymentOutcome | ''): void {
+    this.statusMenuOpen.set(false);
+    if (value !== this.paymentStatusFilter()) {
+      this.onStatusChange(value);
+    }
+  }
+
+  /** Arrow keys move, Enter picks, Escape / Tab close. Focus stays on the trigger throughout. */
+  protected onStatusMenuKeydown(event: KeyboardEvent): void {
+    const count = this.statusMenuItems.length;
+
+    switch (event.key) {
+      case 'ArrowDown':
+      case 'ArrowUp': {
+        event.preventDefault();
+        if (!this.statusMenuOpen()) {
+          this.toggleStatusMenu();
+          return;
+        }
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        this.statusActiveIndex.update((i) => (i + step + count) % count);
+        break;
+      }
+      case 'Enter':
+      case ' ': {
+        if (!this.statusMenuOpen()) {
+          return; // the button's own click opens it
+        }
+        event.preventDefault();
+        this.pickStatus(this.statusMenuItems[this.statusActiveIndex()]);
+        break;
+      }
+      case 'Escape':
+      case 'Tab':
+        this.statusMenuOpen.set(false);
+        break;
+    }
+  }
+
+  /** A click anywhere outside the dropdown closes it. */
+  @HostListener('document:mousedown', ['$event'])
+  protected onDocumentMouseDown(event: MouseEvent): void {
+    if (this.statusMenuOpen() && !(event.target as HTMLElement | null)?.closest('.pr-dd')) {
+      this.statusMenuOpen.set(false);
+    }
   }
 
   /** Search affects the summary tiles too (they are scoped by the same search term), so both

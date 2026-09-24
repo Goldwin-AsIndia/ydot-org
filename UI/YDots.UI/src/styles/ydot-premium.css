@@ -1182,7 +1182,7 @@ select:focus-visible {
 
 /* The page itself: a wider margin on every side and a longer runway at the foot. */
 .page-wrapper > .container-fluid {
-  padding: calc(28px * var(--ui-scale, 1)) calc(36px * var(--ui-scale, 1)) calc(56px * var(--ui-scale, 1)) !important;
+  /* padding: calc(28px * var(--ui-scale, 1)) calc(36px * var(--ui-scale, 1)) calc(56px * var(--ui-scale, 1)) !important; */
 }
 
 /* Bootstrap rows of cards: the stock 6-12px gutter is what squeezed them together. */
@@ -1308,7 +1308,7 @@ select:focus-visible {
    the routed host or on their outer wrapper; those are overridden here so they all match.
    Cards, panels, tables and popups keep their own white surface.
    ========================================================================================= */
-html,
+/* html,
 body,
 #layout-wrapper,
 .content-page,
@@ -1321,8 +1321,26 @@ app-lead-capture .lc-page,
 .content-page :is(.gs-page, .svb-page) {
   background-color: #e9e9e9 !important;
   background-image: none !important;
-}
+} */
 
+html,
+body,
+#layout-wrapper,
+.content-page,
+.content-page > router-outlet + *,
+.content-page > router-outlet + * > :is(.app-wrapper, .page-wrapper),
+.content-page > router-outlet + * > .app-wrapper > .page-wrapper,
+.content-page .page-wrapper > .container-fluid.cpc,
+app-duplicate-review .page,
+app-lead-capture .lc-page,
+.content-page :is(.gs-page, .svb-page) {
+  background-color: #e9e9e9 !important;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.039) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.039)  1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+  background-position: -1px -1px !important;
+}
 /* =========================================================================================
    LIST TABLES - columns hug their content and row actions never overlap.
    1. The row-action rule at the top of this file gives a table button whose only ELEMENT child is an

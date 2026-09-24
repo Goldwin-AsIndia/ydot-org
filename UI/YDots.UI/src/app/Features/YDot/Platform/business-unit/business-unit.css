@@ -1,107 +1,170 @@
 /* ---------------------------------------------------------------------------------------
-   Built from the theme's card and table classes. The one thing that needs its own styling
-   is the permission code: it is an identifier people copy, so it wants a monospace face and
-   a clear affordance that it is clickable.
-   --------------------------------------------------------------------------------------- */
+   Business unit. The header is the shared page hero (Shared/styles/page-hero.css); the content
+   below is in the organisation profile's card style: an icon + title head, then label-over-value
+   pairs two per row with a hairline between rows, beside a narrow column of summary cards.
 
-/* ---------- Header: a gradient hero card instead of a plain title row ---------- */
-.bu-hero {
-  position: relative;
-  display: flex;
-  align-items: center;
+   Sizes on span/p/a/dd carry !important because the theme customiser forces a base font size
+   on those elements. Class names avoid "icon" / "badge" / "pill" / "chip": the premium layer
+   strips backgrounds from those.
+   --------------------------------------------------------------------------------------- */
+:host {
+  --bu-ink: #16202a;
+  --bu-ink-2: #3c4854;
+  --bu-muted: #6b7682;
+  --bu-faint: #9aa3ad;
+  --bu-line: #e7e9ec;
+  --bu-line-2: #eff1f3;
+  --bu-well: #f7f8f9;
+  --bu-brand: var(--pe-primary, var(--theme-primary, #2c4a3d));
+  --bu-good: #1f8a52;   --bu-good-soft: #e8f6ee;
+  --bu-warn: #b26b0e;   --bu-warn-soft: #fdf3e3;
+  --bu-error: #c0392b;  --bu-error-soft: #fdecea;
+  --bu-info: #2f6fd6;   --bu-info-soft: #eaf1fd;
+  --bu-mutedc: #6b7682; --bu-muted-soft: #f1f3f5;
+  display: block;
+  color: var(--bu-ink);
+}
+
+/* EQUAL HEIGHTS. The two columns stretch to the taller one; the main card fills its column, and in the
+   side column the last card grows to take up the rest, so both columns end on the same line. */
+.bu-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 38%);
   gap: 20px;
-  padding: 26px 28px;
-  border-radius: 20px;
-  overflow: hidden;
-  background: #ffffff;
-  background-size: 220% 220%;
-  box-shadow: none;
-  animation: bu-hero-drift 14s ease-in-out infinite;
+  align-items: stretch;
 }
-@keyframes bu-hero-drift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+.bu-grid > .bu-card { height: 100%; }
+.bu-side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.bu-side > .bu-card:last-child { flex: 1; }
+/* The main card's details fill its height evenly rather than bunching at the top. */
+.bu-grid > .bu-card > .bu-dl { flex: 1; }
+
+/* ---- Cards ---- */
+.bu-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 22px 24px;
+  background: #fff;
+  border: 1px solid var(--bu-line);
+  border-radius: 18px;
 }
-.bu-hero-icon {
+.bu-card-head { display: flex; align-items: center; gap: 12px; }
+.bu-card-head-text { flex: 1; min-width: 0; }
+/* The card icon: a plain glyph in the theme colour, no tile behind it. */
+.bu-glyph { flex: none; display: inline-grid; place-items: center; width: 34px; height: 34px; color: var(--bu-brand); }
+.bu-glyph i { font-size: 26px !important; line-height: 1; }
+.bu-card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--bu-ink);
+}
+.bu-card-sub { margin: 2px 0 0; font-size: 12.5px !important; line-height: 1.4 !important; color: var(--bu-muted); }
+
+.bu-status {
+  --st: var(--bu-info);
+  --st-soft: var(--bu-info-soft);
+  flex: none;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 52px;
-  height: 52px;
-  font-size: 26px;
-  color: var(--pe-primary, hsl(calc(var(--theme-hue) - 1) 27.7% 18.4%));
+  gap: 7px;
+  padding: 4px 11px 4px 9px;
+  border-radius: 999px;
+  background: var(--st-soft);
+  color: var(--st);
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
 }
-.bu-hero-title {
-  font-size: 24px;
+.bu-status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.bu-status.is-good  { --st: var(--bu-good);  --st-soft: var(--bu-good-soft); }
+.bu-status.is-error { --st: var(--bu-error); --st-soft: var(--bu-error-soft); }
+.bu-status.is-muted { --st: var(--bu-mutedc); --st-soft: var(--bu-muted-soft); }
+
+/* ---- Label over value, two per row, a hairline between rows ---- */
+.bu-dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 28px;
+  align-content: start;
+  margin: 0;
+}
+.bu-dl > div { min-width: 0; padding: 12px 0; border-top: 1px solid var(--bu-line-2); }
+.bu-dl > .bu-span-2 { grid-column: 1 / -1; }
+.bu-dl dt {
+  margin: 0 0 3px;
+  font-family: var(--font-heading);
+  font-size: 11.5px !important;
   font-weight: 600;
-  margin: 0 0 4px;
-  color: hsl(calc(var(--theme-hue) - 9) 18.5% 10.6%);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--bu-faint);
 }
-.bu-hero-subtitle {
-  font-size: 14px;
-  color: #4a564e;
-  max-width: 60ch;
+.bu-dl dd { margin: 0; font-size: 14.5px !important; font-weight: 500; color: var(--bu-ink); overflow-wrap: anywhere; }
+.bu-mono { font-family: var(--font-number) !important; letter-spacing: .01em; }
+.bu-about { font-weight: 400 !important; line-height: 1.6 !important; color: var(--bu-ink-2) !important; }
+.bu-note { display: block; margin-top: 4px; font-size: 12.5px !important; font-weight: 400; color: var(--bu-muted); }
+
+/* ---- Organisations card ---- */
+.bu-capacity { display: flex; align-items: baseline; gap: 8px; }
+.bu-capacity-num { font-family: var(--font-number); font-size: 34px !important; font-weight: 700 !important; line-height: 1 !important; color: var(--bu-ink); }
+.bu-capacity-of { font-size: 14px !important; color: var(--bu-faint); }
+.bu-meter { height: 8px; border-radius: 999px; background: var(--bu-line-2); overflow: hidden; }
+.bu-meter span { display: block; height: 100%; border-radius: inherit; background: var(--bu-good); transition: width .4s ease; }
+.bu-meter span.is-warn  { background: var(--bu-warn); }
+.bu-meter span.is-error { background: var(--bu-error); }
+.bu-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--bu-line);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--bu-ink-2) !important;
+  font-family: var(--font-heading);
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-decoration: none;
+  transition: border-color .15s ease, color .15s ease;
+}
+.bu-btn i { font-size: 16px !important; }
+.bu-btn:hover { border-color: var(--bu-brand); color: var(--bu-brand) !important; }
+
+/* ---- Onboarding card: label left, value right ---- */
+.bu-rows { margin: 0; }
+.bu-rows > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--bu-line-2);
+}
+.bu-rows > div:first-child { border-top: 0; padding-top: 0; }
+.bu-rows dt { margin: 0; font-size: 13.5px !important; font-weight: 500; color: var(--bu-muted); }
+.bu-rows dd { margin: 0; font-family: var(--font-number); font-size: 15px !important; font-weight: 700; color: var(--bu-ink); }
+.bu-rows dd.is-good  { color: var(--bu-good); }
+.bu-rows dd.is-warn  { color: var(--bu-warn); }
+.bu-rows dd.is-info  { color: var(--bu-info); }
+.bu-rows dd.is-error { color: var(--bu-error); }
+.bu-rows dd.is-muted { color: var(--bu-faint); }
+
+@media (max-width: 1199.98px) {
+  .bu-grid { grid-template-columns: minmax(0, 1fr); }
+  .bu-side { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: stretch; }
+  .bu-side > .bu-card:last-child { flex: none; }
+}
+@media (max-width: 767.98px) {
+  .bu-card { padding: 18px; }
+  .bu-dl { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .bu-hero {
-    animation: none;
-  }
-}
-
-/* ---------- The main business-unit card — a coloured accent edge and a
-   soft corner glow, rather than a flat white Bootstrap card. ---------- */
-.bu-main-card {
-  position: relative;
-  overflow: hidden;
-  border-left: 0 !important;
-}
-.bu-main-card::after {
-  content: '';
-  position: absolute;
-  top: -35%;
-  right: -12%;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: hsl(calc(var(--theme-hue) - 33) 20% 92.2%);
-  pointer-events: none;
-}
-.bu-main-card .card-header,
-.bu-main-card .card-body {
-  position: relative;
-  z-index: 1;
-}
-.font-monospace {
-  font-size: 0.8125rem;
-  word-break: break-all;
-}
-
-/* The module header is a button so it can be operated from the keyboard, but it should read
-   as a header rather than as a control. */
-.card-header.btn,
-button.card-header {
-  cursor: pointer;
-  padding: 1rem 1.25rem;
-}
-
-button.card-header:hover {
-  background-color: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.02)) !important;
-}
-
-button.card-header:focus-visible {
-  outline: 2px solid var(--bs-primary, #0d6efd);
-  outline-offset: -2px;
-}
-
-.table-sm td {
-  padding: 0.5rem 0.75rem;
-}
-
-@media (max-width: 767.98px) {
-  /* The code column cannot hold a full permission code and a name side by side on a phone, so
-     the table scrolls rather than compressing both into illegibility. */
-  .table-responsive .table {
-    min-width: 640px;
-  }
+  .bu-meter span { transition: none; }
 }

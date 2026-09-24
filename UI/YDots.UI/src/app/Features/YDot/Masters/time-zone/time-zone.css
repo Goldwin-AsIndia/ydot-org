@@ -1761,3 +1761,202 @@ color-mix(in srgb, var(--primary) 6%, white);
 
   .tz-details-heading h2 { font-size: 16px; }
 }
+
+/* =========================================================
+   TABLE STYLED LIKE THE DEPARTMENTS LIST (2026-09-24)
+   A rounded white card with a light header row in small capitals, even row spacing and a soft hover,
+   codes as grey tags, the name in bold over its secondary line, an outline status icon (the word is its
+   tooltip) and square icon-only action buttons. Content and columns are unchanged. Comes last so it
+   wins over the rules above.
+   ========================================================= */
+.tz-table-card {
+  --dl-brand: var(--pe-primary, var(--theme-primary, #2c4a3d));
+  --dl-brand-soft: color-mix(in srgb, var(--dl-brand) 10%, #fff);
+  background: #fff !important;
+  border: 1px solid #e7e9ec !important;
+  border-radius: 18px !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+.tz-table-card .tz-table { width: 100%; border-collapse: collapse; }
+.tz-table-card .tz-table thead th {
+  padding: 13px 20px !important;
+  background: #f7f8f9 !important;
+  border-bottom: 1px solid #e7e9ec !important;
+  color: #6b7682 !important;
+  font-family: var(--font-heading);
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tz-table-card .tz-table tbody td {
+  padding: 14px 20px !important;
+  border-bottom: 1px solid #eff1f3 !important;
+  color: #16202a;
+  font-size: 13.5px !important;
+  vertical-align: middle;
+  background: transparent;
+}
+.tz-table-card .tz-table tbody tr:last-child td { border-bottom: 0 !important; }
+.tz-table-card .tz-table tbody tr { transition: background-color .15s ease; }
+.tz-table-card .tz-table tbody tr:hover td { background: #fafbfb !important; }
+
+/* Status: an outline icon only. */
+.tz-table-card .dl-status { display: inline-grid; place-items: center; width: 28px; height: 28px; color: #9aa3ad; cursor: default; }
+.tz-table-card .dl-status i { font-size: 20px !important; line-height: 1; }
+.tz-table-card .dl-status.is-active { color: #1f8a52; }
+
+/* The ID as a grey tag; the name in bold. */
+.tz-table-card .tz-link {
+  display: inline-block;
+  padding: 3px 9px !important;
+  border: 1px solid #e7e9ec !important;
+  border-radius: 7px !important;
+  background: #f7f8f9 !important;
+  color: #3c4854 !important;
+  font-family: var(--font-number, ui-monospace, monospace);
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+.tz-table-card .tz-link:hover { border-color: var(--dl-brand) !important; color: var(--dl-brand) !important; }
+.tz-table-card .tz-name { font-size: 14px !important; font-weight: 600 !important; color: #16202a; }
+.tz-table-card .tz-badge {
+  padding: 2px 8px !important;
+  border: 1px solid #e7e9ec !important;
+  border-radius: 7px !important;
+  background: #f7f8f9 !important;
+  color: #3c4854 !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+}
+.tz-table-card .col-offset { font-family: var(--font-number); font-weight: 600 !important; }
+
+/* Actions: square icon-only buttons, tinted on hover. */
+.tz-table-card .tz-actions { display: inline-flex; justify-content: flex-end; gap: 8px; }
+.tz-table-card .tz-round-btn {
+  width: 34px !important;
+  height: 34px !important;
+  display: inline-grid !important;
+  place-items: center;
+  padding: 0 !important;
+  border: 1px solid #e7e9ec !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #3c4854 !important;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.tz-table-card .tz-round-btn svg { width: 16px !important; height: 16px !important; }
+.tz-table-card .tz-round-btn:hover { background: var(--dl-brand-soft) !important; border-color: var(--dl-brand) !important; color: var(--dl-brand) !important; }
+.tz-table-card .tz-round-btn.danger { color: #c0392b !important; }
+.tz-table-card .tz-round-btn.danger:hover { background: #fdecea !important; border-color: #c0392b !important; }
+
+/* =========================================================
+   CREATE / EDIT, LIKE THE ADD AN OFFICE PAGE (2026-09-24)
+   The header card, numbered section cards and bottom action bar come from office-form.css; these
+   rules lay the five cards out two per row at equal height (the odd last one spans the row, so there is
+   no empty half) and bring this page's fields (.tz-field) to the office page's look.
+   ========================================================= */
+.tzf-page { display: block; background: none; border: 0; padding: 0; box-shadow: none; }
+.tzf-form {
+  grid-template-areas: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+.tzf-form > .of-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.tzf-card .tz-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+  margin: 0;
+}
+.tzf-card .tz-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; }
+.tzf-card .tz-field > label {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #3c4854;
+}
+.tzf-card .tz-field .req { color: #c0392b; }
+.tzf-card .tz-field input:not([type="checkbox"]):not([type="radio"]),
+.tzf-card .tz-field select,
+.tzf-card .tz-field textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #dde1e5;
+  border-radius: 11px;
+  background-color: #fff;
+  color: #16202a;
+  font-size: 14px !important;
+  box-shadow: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.tzf-card .tz-field input::placeholder,
+.tzf-card .tz-field textarea::placeholder { color: #b3bac2; }
+.tzf-card .tz-field input:hover:not(:disabled),
+.tzf-card .tz-field select:hover:not(:disabled) { border-color: #c9ced4; }
+.tzf-card .tz-field input:focus,
+.tzf-card .tz-field select:focus,
+.tzf-card .tz-field textarea:focus {
+  outline: none;
+  border-color: var(--of-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--of-brand) 15%, transparent);
+}
+.tzf-card .tz-field input:disabled,
+.tzf-card .tz-field select:disabled { background: #f7f8f9; color: #6b7682; }
+.tzf-card .tz-field .invalid { border-color: #c0392b !important; background-color: #fffafa !important; }
+.tzf-card .tz-field small { font-size: 12px !important; color: #6b7682; }
+.tzf-card .tz-error { font-size: 12px !important; color: #c0392b; }
+.of-actionbar-btns .of-btn i { font-size: 17px !important; }
+button.of-crumb { padding: 0; border: 0; background: none; cursor: pointer; }
+
+@media (max-width: 991.98px) {
+  .tzf-form { grid-template-columns: minmax(0, 1fr); }
+  .tzf-form > .of-card:last-child:nth-child(odd) { grid-column: auto; }
+}
+@media (max-width: 575.98px) {
+  .tzf-card .tz-form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ALIGNMENT. The Actions column was 150px but its four 34px buttons plus the cell padding need 200px, so
+   the buttons spilled past the heading. It now fits and lines up with its heading. */
+.tz-table-card .tz-table th.col-action,
+.tz-table-card .tz-table td.col-action { width: 200px !important; text-align: right !important; }
+.tz-table-card .tz-actions { justify-content: flex-end; }
+/* Status column centred, as on the Currency list: the heading and the tick both sit mid-column. */
+.tz-table-card .tz-table th.col-status,
+.tz-table-card .tz-table td.col-status { text-align: center !important; }
+@media (max-width: 767.98px) {
+  .tz-table-card .tz-table th.col-action,
+  .tz-table-card .tz-table td.col-action { width: 176px !important; }
+  .tz-table-card .tz-round-btn { width: 30px !important; height: 30px !important; }
+  .tz-table-card .tz-actions { gap: 6px; }
+}
+
+/* CENTRED COLUMNS. Default, UTC offset, Status and Actions - headings and cells - sit mid-column; only
+   the ID and the name, which are read left to right, stay left-aligned. */
+.tz-table-card .tz-table th.col-country, .tz-table-card .tz-table td.col-country,
+.tz-table-card .tz-table th.col-offset,  .tz-table-card .tz-table td.col-offset,
+.tz-table-card .tz-table th.col-status,  .tz-table-card .tz-table td.col-status,
+.tz-table-card .tz-table th.col-action,  .tz-table-card .tz-table td.col-action { text-align: center !important; }
+.tz-table-card .tz-actions { justify-content: center !important; }
+
+/* FILTERS MERGED INTO THE TABLE CARD. The search and filters sit as a flat strip along the top of the
+   table card - no card of their own - with a hairline between them and the table's header row. */
+.tz-table-card > .tz-toolbar {
+  margin: 0 !important;
+  padding: 12px 16px !important;
+  background: #fff !important;
+  border: 0 !important;
+  border-bottom: 1px solid #eff1f3 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
