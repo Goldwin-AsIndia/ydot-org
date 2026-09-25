@@ -21,6 +21,16 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
     code: string;
     name: string;
     isSensitive: boolean;
+    /** view / create / edit / submit / approve / operate / export - drives the action strip. */
+    action: string;
+  }
+
+  /** One action on a module card: lit when the role grants it, struck when it denies it. */
+  interface ActionKeyView {
+    key: string;
+    label: string;
+    short: string;
+    state: 'granted' | 'denied' | 'none';
   }
 
   /** One segregation-of-duties rule, as the detail panel lists it. */
@@ -99,6 +109,9 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
     effectiveDate: string;
     retirementReason: string;
     isSystemRole: boolean;
+    isPrivileged: boolean;
+    isDefaultRole: boolean;
+    permissionCount: number;
     version: number;
   }
 
@@ -196,7 +209,7 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
       const s = (status ?? '').toLowerCase();
       if (s === 'active' || s === 'approved') return 'active';
       if (s === 'draft' || s === 'pending') return 'draft';
-      if (s === 'retired' || s === 'rejected') return 'retired';
+      if (s === 'retired' || s === 'inactive' || s === 'rejected') return 'retired';
       return 'default';
     }
 
@@ -221,29 +234,12 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
       }
     }
 
-    // ===== NEW: deterministic light-color avatar per role name =====
-    private readonly avatarPalette: { background: string; color: string }[] = [
-      { background: '#E9FBF3', color: '#12946A' }, // green
-      { background: '#EAF1FF', color: '#3157C7' }, // blue
-      { background: '#FFF3E0', color: '#B9711F' }, // orange
-      { background: '#F1F0FF', color: '#6A5ACD' }, // purple
-      { background: '#FDEEEE', color: '#C1443A' }, // red
-      { background: '#E6FAF8', color: '#0E8074' }, // teal
-      { background: '#FFF8E6', color: '#B08A1E' }, // yellow
-      { background: '#FCE9F5', color: '#B23D82' }, // pink
-    ];
-
-    avatarStyle(name: string): { background: string; color: string } {
-      const idx = this.hashString(name ?? '') % this.avatarPalette.length;
-      return this.avatarPalette[idx];
-    }
-
-    private hashString(value: string): number {
-      let hash = 0;
-      for (let i = 0; i < value.length; i++) {
-        hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
-      }
-      return hash;
+    /**
+     * Monogram colours. One restrained neutral for every role: the screen reads as a register, and
+     * a rainbow of per-role tints competed with the status marks that actually carry meaning.
+     */
+    avatarStyle(_name: string): { background: string; color: string } {
+      return { background: '#f1f3f2', color: '#3d4744' };
     }
 
     // ===== Create Role Modal =====
@@ -307,6 +303,7 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
         code: permission.permissionCode ?? '',
         name: permission.permissionName ?? permission.permissionCode ?? '',
         isSensitive: permission.isSensitive === true,
+        action: (permission.action ?? (permission.permissionCode ?? '').split('.').pop() ?? '').toLowerCase(),
       });
 
       const status = detail.status ?? '';
@@ -380,13 +377,6 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
       const row = (this.data()?.roles ?? []).find((r) => r.id === id);
       return row ? this.toRoleItemView(row) : null;
     });
-
-    /** The master-detail layout always shows a role: open the first one if nothing is open. */
-    private selectFirstIfNone(): void {
-      if (this.detailRole()) return;
-      const first = this.filteredRoles()[0];
-      if (first) this.openDetail(first);
-    }
 
     /** Up to two initials for the live preview in the create panel. */
     initials(name: string): string {
@@ -512,8 +502,21 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
       rpt: 'Reports',
     };
 
+    /** The seven verbs a permission can carry, in the order the action strip prints them. */
+    private static readonly ACTIONS: { key: string; label: string; short: string }[] = [
+      { key: 'view', label: 'View', short: 'V' },
+      { key: 'create', label: 'Create', short: 'C' },
+      { key: 'edit', label: 'Edit', short: 'E' },
+      { key: 'submit', label: 'Submit', short: 'S' },
+      { key: 'approve', label: 'Approve', short: 'A' },
+      { key: 'operate', label: 'Operate', short: 'O' },
+      { key: 'export', label: 'Export', short: 'X' },
+    ];
+
     readonly permFilter = signal('');
-    readonly closedGroups = signal<string[]>([]);
+
+    /** Modules whose permission names are unfolded under the matrix row. Folded by default; a search unfolds all. */
+    readonly openGroups = signal<string[]>([]);
 
     readonly detailPermGroups = computed(() => {
       const d = this.detailView();
@@ -530,12 +533,26 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
         groups.set(key, [...(groups.get(key) ?? []), row]);
       }
       return [...groups.entries()]
-        .map(([key, items]) => ({
-          key,
-          label: RoleCatalogueComponent.MODULE_LABELS[key] ?? key.toUpperCase(),
-          items,
-          sensitive: items.filter((i) => i.isSensitive).length,
-        }))
+        .map(([key, items]) => {
+          const denied = items.filter((i) => i.denied).length;
+          const actions: ActionKeyView[] = RoleCatalogueComponent.ACTIONS.map((a) => {
+            const hits = items.filter((i) => i.action === a.key);
+            const state: ActionKeyView['state'] = hits.some((i) => !i.denied)
+              ? 'granted'
+              : hits.length ? 'denied' : 'none';
+            return { ...a, state };
+          });
+          return {
+            key,
+            label: RoleCatalogueComponent.MODULE_LABELS[key] ?? key.toUpperCase(),
+            items,
+            granted: items.length - denied,
+            denied,
+            sensitive: items.filter((i) => i.isSensitive).length,
+            actions,
+            litActions: actions.filter((a) => a.state === 'granted').length,
+          };
+        })
         .sort((a, b) => a.label.localeCompare(b.label));
     });
 
@@ -548,14 +565,86 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
       };
     });
 
-    isGroupClosed(key: string): boolean {
-      return this.closedGroups().includes(key);
+    isGroupOpen(key: string): boolean {
+      return !!this.permFilter().trim() || this.openGroups().includes(key);
     }
 
     toggleGroup(key: string): void {
-      const c = this.closedGroups();
-      this.closedGroups.set(c.includes(key) ? c.filter((k) => k !== key) : [...c, key]);
+      const o = this.openGroups();
+      this.openGroups.set(o.includes(key) ? o.filter((k) => k !== key) : [...o, key]);
     }
+
+    /** Unfold every module, or fold them all back when they are all open. */
+    toggleAllGroups(): void {
+      this.openGroups.set(this.allGroupsOpen() ? [] : this.detailPermGroups().map((g) => g.key));
+    }
+
+    readonly allGroupsOpen = computed(() => {
+      const groups = this.detailPermGroups();
+      return groups.length > 0 && groups.every((g) => this.openGroups().includes(g.key));
+    });
+
+    // ---- Catalogue masthead figures and the grouped role index ------------------------------
+    readonly catalogueFigures = computed(() => {
+      const roles = this.data()?.roles ?? [];
+      const total = roles.length || 1;
+      const share = (status: string) =>
+        Math.round((roles.filter((r) => this.statusBucket(r.status ?? '') === status).length / total) * 100);
+      return {
+        total: roles.length,
+        active: roles.filter((r) => r.status === 'active').length,
+        draft: roles.filter((r) => r.status === 'draft').length,
+        retired: roles.filter((r) => this.statusBucket(r.status ?? '') === 'retired').length,
+        privileged: roles.filter((r) => r.isPrivileged).length,
+        system: roles.filter((r) => r.isSystemRole).length,
+        holders: roles.reduce((sum, r) => sum + (r.memberCount ?? 0), 0),
+        permissions: roles.reduce((sum, r) => sum + (r.permissionCount ?? 0), 0),
+        shares: { active: share('active'), draft: share('draft'), retired: share('retired'), other: share('default') },
+      };
+    });
+
+    /**
+     * The catalogue's state ring: one arc per state, drawn as stroke-dasharray segments on a circle
+     * of radius 52. Tones, not hues - the ring is shades of one colour, strongest for "in use".
+     */
+    readonly stateRing = computed(() => {
+      const f = this.catalogueFigures();
+      const total = f.total || 1;
+      const circumference = 2 * Math.PI * 52;
+      let run = 0;
+      return [
+        { key: 'active', label: 'In use', count: f.active },
+        { key: 'draft', label: 'Draft', count: f.draft },
+        { key: 'retired', label: 'Retired', count: f.retired },
+      ].map((seg) => {
+        const length = (seg.count / total) * circumference;
+        const arc = { ...seg, dash: `${length} ${circumference - length}`, offset: -run };
+        run += length;
+        return arc;
+      });
+    });
+
+    /** Share of this role's module actions that are granted, 0-100, for the module bars. */
+    moduleShare(granted: number, total: number): number {
+      return total ? Math.round((granted / total) * 100) : 0;
+    }
+
+    /** The filtered roles, sectioned by state in the same order as the status segments. */
+    readonly roleSections = computed(() => {
+      const labels = new Map(this.statusBreakdown().map((s) => [s.status, s.label]));
+      const order = this.statusBreakdown().map((s) => s.status);
+      const sections = new Map<string, RoleItemView[]>();
+      for (const role of this.filteredRoles()) {
+        sections.set(role.status, [...(sections.get(role.status) ?? []), role]);
+      }
+      return [...sections.entries()]
+        .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
+        .map(([status, roles]) => ({ status, label: labels.get(status) ?? status, roles }));
+    });
+
+    /** The widest permission count in the catalogue - scales each index row's bar. */
+    readonly maxPermissionCount = computed(() =>
+      Math.max(1, ...(this.data()?.roles ?? []).map((r) => r.permissionCount ?? 0)));
 
     // ===== Compare & Delete Modal =====
     showCompareModal = signal(false);
@@ -583,7 +672,6 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
           this.data.set(res);
           this.loading.set(false);
           this.applyFilters();
-          this.selectFirstIfNone();
         },
         error: (error: Error) => {
           this.loading.set(false);
@@ -683,6 +771,9 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
         effectiveDate: r.updatedAtUtc ? this.formatDate(r.updatedAtUtc) : '—',
         retirementReason: '',
         isSystemRole: r.isSystemRole === true,
+        isPrivileged: r.isPrivileged === true,
+        isDefaultRole: r.isDefaultRole === true,
+        permissionCount: r.permissionCount ?? granted.length,
         version: r.version ?? 0,
       };
     }
@@ -955,7 +1046,7 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
     // ===== ROLE DETAIL =====
     openDetail(role: RoleItemView): void {
       this.permFilter.set('');
-      this.closedGroups.set([]);
+      this.openGroups.set([]);
       const cached = this.detailCache.get((role.id ?? ''));
       if (cached) {
         this.detailRole.set(cached);
@@ -973,6 +1064,20 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
           this.toast.show('Load Failed', error.message, 'error');
         },
       });
+    }
+
+    /** Which tab of the open role's details is showing. */
+    readonly detailTab = signal<'perms' | 'sod' | 'info'>('perms');
+
+    /** A row click opens that role beneath its row, or closes it when it is already open. */
+    toggleRow(role: RoleItemView): void {
+      if (this.detailRole()?.id === role.id) {
+        this.closeDetail();
+        return;
+      }
+      this.detailTab.set('perms');
+      this.resetConflictForm();
+      this.openDetail(role);
     }
 
     closeDetail(): void {

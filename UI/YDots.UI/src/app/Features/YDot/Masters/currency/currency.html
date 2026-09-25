@@ -23,11 +23,11 @@
       <!-- ======================================================= LIST VIEW -->
       @if (view === 'list') {
         <div class="gm-page">
-          <app-page-header screen="currency" title="Currency List" subtitle="Manage currency definitions, formatting and availability.">
-            <span meta class="ph-chip">Currency Master</span>
+          <app-page-header [showInfo]="false" screen="currency" title="Currency List" subtitle="Manage currency definitions, formatting and availability.">
+            <span meta class="ph-chip">Global Masters / Finance</span>
             <ng-container actions>
               <button type="button" class="ph-btn ph-btn--primary" (click)="openCreate()">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                <svg class="gm-ph-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
                 <span>Create Currency</span>
               </button>
             </ng-container>
@@ -104,7 +104,7 @@
                         </td>
                         <td class="gm-hide-sm ta-center"><span class="gm-symbol">{{ c.symbol || '—' }}</span></td>
                         <td class="gm-col-opt2 gm-hide-md">
-                          <span class="gm-chip" [class.is-gold]="c.currencyType === 'crypto'" [class.is-info]="c.currencyType !== 'crypto'">{{ typeLabel(c.currencyType) || '—' }}</span>
+                          <span class="gm-chip" [class.is-gold]="c.currencyType === 'crypto'" [class.is-muted]="c.currencyType !== 'crypto'">{{ typeLabel(c.currencyType) || '—' }}</span>
                         </td>
                         <td class="gm-col-opt gm-hide-lg ta-center mono">{{ c.decimalPlaces ?? '—' }}</td>
                         <td class="gm-hide-sm">
@@ -363,9 +363,12 @@
       <!-- ======================================================= FORM VIEW -->
       @if (view === 'form') {
         <div class="gm-page">
-          <app-page-header screen="currency" [title]="pageTitle" [subtitle]="pageSubTitle">
+          <app-page-header [showInfo]="false" screen="currency" [title]="pageTitle" [subtitle]="pageSubTitle">
             <span meta class="ph-chip">Currency Master</span>
-            <button actions type="button" class="ph-btn ph-btn--ghost" (click)="backToList()">Back to Currency List</button>
+            <button actions type="button" class="ph-btn ph-btn--ghost" (click)="backToList()">
+              <svg class="gm-ph-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"></path></svg>
+              <span>Back to Currency List</span>
+            </button>
           </app-page-header>
 
           <form class="gm-form" #currencyForm="ngForm" (ngSubmit)="save(currencyForm)" novalidate>

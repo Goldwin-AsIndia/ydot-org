@@ -32,6 +32,16 @@ export class Donor360Component {
     readonly upcoming = computed(() => (this.response()?.followUps ?? []).filter(f => !['Completed','Cancelled'].includes(f.status)).slice().sort((a,b) => (a.dueAtUtc ? Date.parse(a.dueAtUtc) : Infinity) - (b.dueAtUtc ? Date.parse(b.dueAtUtc) : Infinity)));
     readonly latestDocument = computed(() => this.documents().slice().sort((a,b) => Date.parse(b.uploadedOn)-Date.parse(a.uploadedOn))[0]);
     readonly initials = computed(() => this.donor().fullName.trim().split(/\s+/).map(n => n[0]).slice(0,2).join(''));
+    readonly ownerInitials = computed(() => this.donor().owner.trim().split(/\s+/).map(n => n[0]).slice(0,2).join('').toUpperCase());
+    tabCount(id: TabId): number {
+      switch (id) {
+        case 'donations': return this.totalDonationsCount();
+        case 'follow-ups': return this.upcoming().length;
+        case 'documents': return this.documents().length;
+        case 'activity': return this.activity().length;
+        default: return 0;
+      }
+    }
     filtered<T extends object>(rows: readonly T[]): T[] { const q = this.searchTerm().trim().toLowerCase(); return rows.filter(row => !q || Object.values(row).some(v => String(v ?? '').toLowerCase().includes(q))); }
     pageCount(rows: readonly object[]): number { return Math.max(1, Math.ceil(this.filtered(rows).length / this.pageSize)); }
     pageNumber(key: string, rows: readonly object[]): number { return Math.min(this.pages()[key] ?? 1, this.pageCount(rows)); }
@@ -370,7 +380,130 @@ export class Donor360Component {
     intentDueDate = signal('');
     intentNotes = signal('');
     intentErrors = signal<Record<string, string>>({});
-  
+
+    // Presentation for the "Record a pledge" note: quick amounts, currency glyph, amount in words,
+    // date shortcuts and the one-line pledge statement. None of it changes what is submitted.
+    readonly intentCurrencies = ['INR', 'USD', 'GBP', 'EUR', 'AED', 'SGD'];
+    readonly intentPresets = [5000, 10000, 25000, 50000, 100000];
+    readonly intentDueShortcuts = [
+      { id: 'two-weeks', label: 'In 2 weeks' },
+      { id: 'month-end', label: 'End of month' },
+      { id: 'quarter', label: 'In 3 months' },
+    ] as const;
+    readonly todayIso = this.isoDate(new Date());
+    readonly pledgeDonorName = computed(() => this.hasPermission('don.contact.view') ? this.donor().fullName : this.maskedFullName());
+    readonly intentCurrencyOptions = computed(() => {
+      const code = this.intentCurrency().trim().toUpperCase();
+      return code && !this.intentCurrencies.includes(code) ? [code, ...this.intentCurrencies] : this.intentCurrencies;
+    });
+    readonly intentSymbol = computed(() => {
+      const code = this.intentCurrency().trim().toUpperCase();
+      try {
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' })
+          .formatToParts(0).find(p => p.type === 'currency')?.value ?? code;
+      } catch {
+        return code;
+      }
+    });
+    readonly intentFormatted = computed(() => {
+      const amount = this.intentAmount();
+      return amount && amount > 0 ? this.formatIntentAmount(amount) : '';
+    });
+    readonly intentInWords = computed(() => {
+      const amount = this.intentAmount();
+      if (!amount || !(amount > 0) || amount >= 1e12) return '';
+      const code = this.intentCurrency().trim().toUpperCase();
+      const names: Record<string, string> = { INR: 'Rupees', USD: 'US dollars', GBP: 'Pounds sterling', EUR: 'Euros', AED: 'Dirhams', SGD: 'Singapore dollars' };
+      const whole = Math.floor(amount);
+      const cents = Math.round((amount - whole) * 100);
+      const words = this.numberInWords(whole, code === 'INR');
+      return `${names[code] ?? code} ${words}${cents ? ` and ${cents}/100` : ''} only`;
+    });
+    readonly intentDueLabel = computed(() => {
+      const [y, m, d] = this.intentDueDate().split('-').map(Number);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return y && m && d ? `${d} ${months[m - 1]} ${y}` : '';
+    });
+
+    /** The big figure shows grouped digits (1,25,000) at rest and the plain number while typing. */
+    readonly intentAmountFocused = signal(false);
+    private readonly intentAmountRaw = signal('');
+    readonly intentAmountText = computed(() => {
+      const amount = this.intentAmount();
+      if (amount === null || isNaN(amount)) return '';
+      if (this.intentAmountFocused()) return this.intentAmountRaw();
+      const locale = this.intentCurrency().trim().toUpperCase() === 'INR' ? 'en-IN' : 'en-GB';
+      return amount.toLocaleString(locale, { maximumFractionDigits: 2 });
+    });
+
+    focusIntentAmount() {
+      const amount = this.intentAmount();
+      this.intentAmountRaw.set(amount === null || isNaN(amount) ? '' : String(amount));
+      this.intentAmountFocused.set(true);
+    }
+
+    setIntentAmountText(input: HTMLInputElement) {
+      const clean = input.value.replace(/[^0-9.]/g, '');
+      if (input.value !== clean) input.value = clean;
+      this.intentAmountRaw.set(clean);
+      this.intentAmount.set(clean === '' || isNaN(Number(clean)) ? null : Number(clean));
+    }
+    readonly intentDueDistance = computed(() => {
+      const due = this.intentDueDate();
+      if (!due) return '';
+      const days = Math.round((Date.parse(due + 'T00:00:00') - Date.parse(this.todayIso + 'T00:00:00')) / 86400000);
+      if (isNaN(days)) return '';
+      if (days === 0) return 'today';
+      if (days === 1) return 'tomorrow';
+      return days > 0 ? `in ${days} days` : `${-days} days ago`;
+    });
+
+    formatIntentAmount(amount: number): string {
+      const code = this.intentCurrency().trim().toUpperCase();
+      const locale = code === 'INR' ? 'en-IN' : 'en-GB';
+      try {
+        return new Intl.NumberFormat(locale, { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol', maximumFractionDigits: 2, minimumFractionDigits: 0 }).format(amount);
+      } catch {
+        return `${code} ${amount.toLocaleString(locale)}`;
+      }
+    }
+
+    dueFor(id: 'two-weeks' | 'month-end' | 'quarter'): string {
+      const d = new Date();
+      if (id === 'two-weeks') d.setDate(d.getDate() + 14);
+      else if (id === 'month-end') d.setMonth(d.getMonth() + 1, 0);
+      else d.setMonth(d.getMonth() + 3);
+      return this.isoDate(d);
+    }
+
+    private isoDate(d: Date): string {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    /** Cheque-style words: lakh / crore for rupees, thousand / million / billion otherwise. */
+    private numberInWords(n: number, indian: boolean): string {
+      if (n === 0) return 'Zero';
+      const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve',
+        'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+      const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+      const below1000 = (x: number): string => {
+        const parts: string[] = [];
+        if (x >= 100) { parts.push(ones[Math.floor(x / 100)] + ' Hundred'); x %= 100; }
+        if (x >= 20) { parts.push(tens[Math.floor(x / 10)] + (x % 10 ? '-' + ones[x % 10] : '')); }
+        else if (x > 0) { parts.push(ones[x]); }
+        return parts.join(' ');
+      };
+      const scales: [number, string][] = indian
+        ? [[1e7, 'Crore'], [1e5, 'Lakh'], [1e3, 'Thousand']]
+        : [[1e9, 'Billion'], [1e6, 'Million'], [1e3, 'Thousand']];
+      const out: string[] = [];
+      for (const [size, name] of scales) {
+        if (n >= size) { out.push(this.numberInWords(Math.floor(n / size), indian) + ' ' + name); n %= size; }
+      }
+      if (n > 0) out.push(below1000(n));
+      return out.join(' ');
+    }
+
     /**
      * THE RECORD'S OWN STATE IS THE SERVER'S TO JUDGE, and it already has.
      *
@@ -486,6 +619,14 @@ export class Donor360Component {
         this.correctOwner.set(this.response()?.donor?.relationshipOwnerUserId ?? '');
         this.correctReason.set('');
         this.ownerSearch.set('');
+      }
+
+      // A fresh note each time: the last pledge's figures must not reappear on the next one.
+      if (action === 'create-intent') {
+        this.intentAmount.set(null);
+        this.intentCurrency.set('INR');
+        this.intentDueDate.set('');
+        this.intentNotes.set('');
       }
 
       this.correctErrors.set({});

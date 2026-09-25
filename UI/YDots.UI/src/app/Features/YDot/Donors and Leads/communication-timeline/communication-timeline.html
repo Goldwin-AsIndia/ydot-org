@@ -1,302 +1,422 @@
 <main class="app-wrapper" aria-label="Communication timeline workspace">
-
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3">
+      <div class="cj">
 
-      <div class="head">
-        <div style="min-width:0">
-          <p class="eyebrow">Lead workspace</p>
-          <h1>{{ relationship().name || 'Communication record' }}</h1>
-          <p class="sub">Every call, message and meeting logged against this lead.</p>
-          <div class="lead-status-strip">
-            <div class="lead-status-main">
-              <span class="status-dot" aria-hidden="true"></span>
-              <span class="status-text">{{ relationship().stage || 'Active' }}</span>
-              <span class="status-divider" aria-hidden="true"></span>
-              <span class="lead-id">{{ relationship().reference || '—' }}</span>
+        <!-- MASTHEAD: who, how to reach them, the figures, and eight weeks of contact at a glance -->
+        <section class="cj-mast" aria-label="Relationship summary">
+          <div class="cj-mast-top">
+            <div class="cj-who">
+              <p class="cj-kicker">
+                <span>{{ donorId() ? 'Donor' : 'Lead' }} correspondence</span>
+                <span class="cj-dot" aria-hidden="true"></span>
+                <span class="cj-ref">{{ relationship().reference || '—' }}</span>
+                @if (relationship().stage) { <span class="cj-dot" aria-hidden="true"></span><span class="cj-stage">{{ relationship().stage }}</span> }
+              </p>
+              <h1 class="cj-name">{{ relationship().name || 'Communication record' }}</h1>
+              <p class="cj-reach">
+                <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z"/></svg><span class="cj-mono">{{ relationship().mobile || 'No mobile' }}</span></span>
+                <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg><span>{{ relationship().email || 'No email' }}</span></span>
+                @if (relationship().language) { <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h9M8.5 3v2M6 5c0 4 3 7 6 8M11 5c0 3-3 7-7 8"/><path d="m13 21 4-9 4 9M14.5 18h5"/></svg><span>{{ relationship().language }}</span></span> }
+                <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span>Owned by <b>{{ relationship().owner }}</b></span></span>
+              </p>
             </div>
-            <div class="lead-owner">
-              <span class="owner-avatar">{{ relationship().owner?.charAt(0) || 'Y' }}</span>
-              <span>Owned by <b>{{ relationship().owner || 'YDot Administrator' }}</b></span>
+            <div class="cj-acts">
+              <button class="cj-primary" type="button" (click)="openEntryDrawer('Call')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Log communication</button>
+              <div class="cj-acts-quiet">
+                <button class="cj-lnk" type="button" (click)="openExportModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 11l4 4 4-4M4 20h16"/></svg>Export</button>
+                <span class="cj-rule" aria-hidden="true"></span>
+                <button class="cj-lnk" type="button" (click)="handleOpenMyLeads()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>{{ donorId() ? 'Donor 360' : 'My leads' }}</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="head-actions">
-          <button class="btn" type="button" (click)="openEntryDrawer('Call')" title="Log communication">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Log communication
-          </button>
-          <button class="btn" type="button" (click)="openExportModal()" title="Export timeline">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 20h16"/></svg>Export timeline
-          </button>
-          <button class="btn btn-primary" type="button" (click)="handleOpenMyLeads()" title="Open my leads">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M17 8h4M19 6v4"/></svg>Open my leads
-          </button>
-        </div>
-      </div>
 
-      <section class="stats theme-widget-surface" aria-label="Communication summary">
-        <div class="stat feature">
-          <div class="top"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-5.2A8 8 0 1 1 21 12z"/></svg></span><span class="label">Communications</span></div>
-          <div class="value">{{ totalCommunications() }}</div>
-          <p class="foot">Logged in this timeline</p>
-        </div>
-        <div class="stat s-sky">
-          <div class="top"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z"/></svg></span><span class="label">Calls</span></div>
-          <div class="value">{{ callsCount() }}</div>
-          <p class="foot">{{ callsCount() ? callLastDateDisplay() : 'No calls logged' }}</p>
-        </div>
-        <div class="stat s-lime">
-          <div class="top"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg></span><span class="label">Emails</span></div>
-          <div class="value">{{ emailsCount() }}</div>
-          <p class="foot">{{ emailsCount() ? 'Delivered, no reply yet' : 'No emails logged' }}</p>
-        </div>
-        <div class="stat s-amber">
-          <div class="top"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><span class="label">Meetings</span></div>
-          <div class="value">{{ meetingsCount() }}</div>
-          <p class="foot">{{ meetingsCount() ? 'Planned, not yet held' : 'No meetings logged' }}</p>
-        </div>
-        <div class="stat s-violet">
-          <div class="top"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><span class="label">Last contact</span></div>
-          <div class="value small">{{ lastContactDisplay() }}</div>
-          <p class="foot">{{ lastContactMeta() }}</p>
-        </div>
-      </section>
+          <dl class="cj-figs">
+            <div><dt>Logged</dt><dd class="cj-num">{{ totalCommunications() }}</dd><dd class="cj-sub">entries on this timeline</dd></div>
+            <div class="cj-ch-call"><dt><i aria-hidden="true"></i>Calls</dt><dd class="cj-num">{{ callsCount() }}</dd><dd class="cj-sub">{{ callLastDateDisplay() }}</dd></div>
+            <div class="cj-ch-email"><dt><i aria-hidden="true"></i>Emails</dt><dd class="cj-num">{{ emailsCount() }}</dd><dd class="cj-sub">{{ emailsCount() ? 'Sent and received' : 'No emails logged' }}</dd></div>
+            <div class="cj-ch-meeting"><dt><i aria-hidden="true"></i>Meetings</dt><dd class="cj-num">{{ meetingsCount() }}</dd><dd class="cj-sub">{{ meetingsCount() ? 'Held or planned' : 'No meetings logged' }}</dd></div>
+            <div><dt>Last contact</dt><dd class="cj-num cj-num-word">{{ lastContactDisplay() }}</dd><dd class="cj-sub">{{ lastContactMeta() }}</dd></div>
+          </dl>
 
-      <section class="lead-panel theme-widget-surface" aria-label="Lead details">
-        <div class="lp-title">
-          <h2>Lead details</h2>
-          <span>Last updated {{ lastUpdatedDisplay() }}</span>
-        </div>
-        <dl class="detail">
-          <div><span class="fico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><dt>Lead ID</dt><dd>{{ relationship().reference || '—' }}</dd></div></div>
-          <div><span class="fico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z"/></svg></span><div><dt>Mobile</dt><dd>{{ relationship().mobile || 'Not recorded' }}</dd></div></div>
-          <div><span class="fico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg></span><div><dt>Email</dt><dd>{{ relationship().email || 'Not recorded' }}</dd></div></div>
-          <div><span class="fico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.4-7-9.4A4 4 0 0 1 12 7a4 4 0 0 1 7-.5c0 5-7 13.5-7 13.5z"/></svg></span><div><dt>Preferred contact</dt><dd class="blank">{{ relationship().preferredContactMethod || 'Not set' }}</dd></div></div>
-          <div><span class="fico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M15 9h3a2 2 0 0 1 2 2v10"/><path d="M2 21h20"/></svg></span><div><dt>Campaign</dt><dd>{{ relationship().campaign || 'Not recorded' }}</dd></div></div>
-          <div><span class="fico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.4-3.4"/></svg></span><div><dt>Lead source</dt><dd class="blank">{{ relationship().source || 'Not recorded' }}</dd></div></div>
-          <div><span class="fico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg></span><div><dt>Temperature</dt><dd><span class="pill pill-warm">{{ currentTemperature() }}</span></dd></div></div>
-          <div><span class="fico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-9.4A4 4 0 0 1 12 7a4 4 0 0 1 7-.5c0 5-7 13.5-7 13.5z"/></svg></span><div><dt>Donation potential</dt><dd><span class="pill pill-soft">{{ donationPotential() }}</span></dd></div></div>
-        </dl>
-      </section>
-
-      <div class="cols">
-        <div class="stack">
-          <section class="panel theme-widget-surface" aria-label="Communication timeline">
-            <div class="panel-head">
-              <div>
-                <h2>Communication timeline</h2>
-                <p>All engagement history in chronological order</p>
-              </div>
-              <button class="btn btn-sm" type="button" [class.btn-primary]="isFilterOpen()" (click)="toggleFilterPanel()" [attr.aria-expanded]="isFilterOpen()" title="Filters">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.3V19l-3.6-2v-4.7z"/></svg>Filters
-              </button>
+          <div class="cj-cadence">
+            <div class="cj-cad-line">
+              <span class="cj-cap">Contact cadence</span>
+              <span class="cj-cad-note"><b class="cj-mono">{{ cadenceActiveDays() }}</b> of {{ cadenceDays }} days with contact</span>
+              <ul class="cj-key" aria-label="Channel colours">
+                <li class="cj-ch-call"><i></i>Call</li><li class="cj-ch-email"><i></i>Email</li><li class="cj-ch-whatsapp"><i></i>Message</li><li class="cj-ch-meeting"><i></i>Meeting</li><li class="cj-ch-note"><i></i>Note</li>
+              </ul>
             </div>
+            <ol class="cj-ticks" [attr.aria-label]="cadenceActiveDays() + ' days with contact in the last eight weeks'">
+              @for (day of cadence(); track day.label) {
+                <li [class.is-on]="day.count > 0" [class.is-week]="day.monday" [class.is-today]="day.today" [class]="day.lead ? 'cj-ch-' + channelKey(day.lead) : ''" [attr.data-n]="day.count > 2 ? 3 : day.count" [attr.title]="day.label + (day.count ? ' · ' + day.count + ' logged' : '')"><i></i></li>
+              }
+            </ol>
+            <div class="cj-cad-ends"><span>{{ cadenceStart() }}</span><span>Today</span></div>
+          </div>
+        </section>
+
+        @if (loadError()) {
+          <p class="cj-alert" role="alert"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>{{ loadError() }}</p>
+        }
+
+        <div class="cj-body">
+          <!-- JOURNAL -->
+          <section class="cj-journal" aria-label="Communication timeline" [attr.aria-busy]="loading()">
+            <header class="cj-j-head">
+              <div class="cj-j-title">
+                <h2 class="cj-title">Correspondence</h2>
+                <p class="cj-meta">{{ filteredRecords().length }} of {{ records().length }} entries · newest first</p>
+              </div>
+              <div class="cj-j-tools">
+                <label class="cj-search">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                  <input type="search" aria-label="Search communications" placeholder="Search summaries, notes, people…" [ngModel]="searchQuery()" (ngModelChange)="setSearchQuery($event)" />
+                </label>
+                <button class="cj-tool" type="button" [class.is-on]="isFilterOpen() || activeFilterCount() > 0" [attr.aria-expanded]="isFilterOpen()" (click)="toggleFilterPanel()">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filters
+                  @if (activeFilterCount()) { <span class="cj-tool-count">{{ activeFilterCount() }}</span> }
+                </button>
+              </div>
+            </header>
+
+            <nav class="cj-lanes" role="tablist" aria-label="Filter by channel">
+              @for (lane of lanes(); track lane.id) {
+                <button type="button" role="tab" class="cj-lane" [attr.aria-selected]="activeTab() === lane.id" (click)="setTab(lane.id)">{{ lane.label }}<span class="cj-lane-n">{{ lane.count }}</span></button>
+              }
+            </nav>
 
             @if (isFilterOpen()) {
-              <section class="filter-panel" aria-label="Timeline filters">
-                <div class="filter-panel-head">
-                  <div>
-                    <h3>Filter communications</h3>
-                    <p>Refine the timeline by type, outcome, or direction.</p>
-                  </div>
-                  <button class="filter-close" type="button" aria-label="Close filters" title="Close filters" (click)="isFilterOpen.set(false)">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-                  </button>
+              <section class="cj-filters" aria-label="Timeline filters">
+                <label class="cj-f"><span class="cj-f-label">Type</span><select [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event); currentPage.set(1)"><option value="All">All types</option>@for (type of communicationTypes; track type) {<option [value]="type">{{ channelLabel(type) }}</option>}</select></label>
+                <label class="cj-f"><span class="cj-f-label">Outcome</span><select [ngModel]="outcomeFilter()" (ngModelChange)="outcomeFilter.set($event); currentPage.set(1)"><option value="All">All outcomes</option>@for (outcome of outcomes; track outcome) {<option [value]="outcome">{{ outcome }}</option>}</select></label>
+                <label class="cj-f"><span class="cj-f-label">Direction</span><select [ngModel]="directionFilter()" (ngModelChange)="directionFilter.set($event); currentPage.set(1)"><option value="All">Both directions</option><option value="Incoming">Incoming</option><option value="Outgoing">Outgoing</option></select></label>
+                <label class="cj-f"><span class="cj-f-label">From</span><input type="date" [ngModel]="dateFromFilter()" (ngModelChange)="dateFromFilter.set($event || ''); currentPage.set(1)" /></label>
+                <label class="cj-f"><span class="cj-f-label">To</span><input type="date" [ngModel]="dateToFilter()" (ngModelChange)="dateToFilter.set($event || ''); currentPage.set(1)" /></label>
+                <label class="cj-f cj-f-toggle"><input type="checkbox" [ngModel]="importantOnly()" (ngModelChange)="importantOnly.set($event); currentPage.set(1)" /><span class="cj-switch" aria-hidden="true"></span><span>Important only</span></label>
+                <div class="cj-f-end">
+                  <button class="cj-lnk" type="button" (click)="resetFilters()">Reset</button>
+                  <button class="cj-done" type="button" (click)="isFilterOpen.set(false)">Done</button>
                 </div>
-                <div class="filter-grid">
-                  <label class="filter-field"><span>Communication type</span><div class="filter-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.3V19l-3.6-2v-4.7z"/></svg><select [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event)"><option value="All">All types</option>@for (type of communicationTypes; track type){<option [value]="type">{{ type }}</option>}</select></div></label>
-                  <label class="filter-field"><span>Outcome</span><div class="filter-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><select [ngModel]="outcomeFilter()" (ngModelChange)="outcomeFilter.set($event)"><option value="All">All outcomes</option>@for (outcome of outcomes; track outcome){<option [value]="outcome">{{ outcome }}</option>}</select></div></label>
-                  <label class="filter-field"><span>Direction</span><div class="filter-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7h10M8 12h10M8 17h10"/><circle cx="4" cy="7" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="17" r="1"/></svg><select [ngModel]="directionFilter()" (ngModelChange)="directionFilter.set($event)"><option value="All">All directions</option><option value="Incoming">Incoming</option><option value="Outgoing">Outgoing</option></select></div></label>
-                  <label class="filter-check"><input type="checkbox" [ngModel]="importantOnly()" (ngModelChange)="importantOnly.set($event)" /><span><strong>Important only</strong><small>Show only marked communications</small></span></label>
-                </div>
-                <div class="filter-actions"><button class="btn btn-sm" type="button" (click)="resetFilters()">Reset filters</button><button class="btn btn-primary btn-sm" type="button" (click)="isFilterOpen.set(false)">Apply filters</button></div>
               </section>
             }
 
-            <div class="seg" role="tablist" aria-label="Filter timeline">
-              <button type="button" [class.is-active]="activeTab() === 'All'" (click)="setTab('All')">All</button>
-              <button type="button" [class.is-active]="activeTab() === 'Call'" (click)="setTab('Call')">Calls</button>
-              <button type="button" [class.is-active]="activeTab() === 'Email'" (click)="setTab('Email')">Emails</button>
-              <button type="button" [class.is-active]="activeTab() === 'SMS'" (click)="setTab('SMS')">SMS</button>
-              <button type="button" [class.is-active]="activeTab() === 'WhatsApp'" (click)="setTab('WhatsApp')">WhatsApp</button>
-              <button type="button" [class.is-active]="activeTab() === 'Meeting'" (click)="setTab('Meeting')">Meetings</button>
-              <button type="button" [class.is-active]="activeTab() === 'Event'" (click)="setTab('Event')">Events</button>
-              <button type="button" [class.is-active]="activeTab() === 'Important'" (click)="setTab('Important')">Important</button>
-            </div>
-
-            <div class="timeline">
-              @if (filteredRecords().length === 0) {
-                <div class="empty-event theme-widget-surface">
-                  <div class="empty-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H11l-4.5 4v-4.3A2.5 2.5 0 0 1 4 13.5z"/><path d="M8 8h8M8 11h5"/></svg>
-                  </div>
-                  <h3>{{ records().length ? 'No matching communications' : 'No communication history' }}</h3>
-                  <p>{{ records().length ? 'There are no timeline entries matching the selected filters.' : 'Start the relationship history by logging the first communication.' }}</p>
-                  <div class="empty-actions">
-                    @if (records().length && (isFilterOpen() || typeFilter() !== 'All' || outcomeFilter() !== 'All' || directionFilter() !== 'All' || importantOnly())) {
-                      <button class="btn btn-sm" type="button" (click)="resetFilters()">Reset filters</button>
-                    }
-                    <button class="btn btn-primary btn-sm" type="button" (click)="openEntryDrawer('Call')">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                      Log communication
-                    </button>
+            <div class="cj-days">
+              @if (loading() && !records().length) {
+                <p class="cj-quiet-state">Loading the timeline…</p>
+              } @else if (filteredRecords().length === 0) {
+                <div class="cj-empty">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4.3A2.5 2.5 0 0 1 4 13.5z"/><path d="M8 8h8M8 11h5"/></svg>
+                  <h3>{{ records().length ? 'Nothing matches these filters' : 'No conversations yet' }}</h3>
+                  <p>{{ records().length ? 'Widen the channel, outcome or dates to see more of the record.' : 'Start the relationship history by logging the first call, message or meeting.' }}</p>
+                  <div class="cj-empty-acts">
+                    @if (records().length) { <button class="cj-lnk" type="button" (click)="resetFilters(); setTab('All')">Clear filters</button> }
+                    <button class="cj-primary cj-primary-sm" type="button" (click)="openEntryDrawer('Call')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Log communication</button>
                   </div>
                 </div>
               } @else {
-                @for (record of paginatedRecords(); track record.id; let last = $last) {
-                  <article class="item">
-                    <div class="rail">
-                      <span class="bead" [class.b-note]="record.type === 'Internal Note'" [class.b-call]="record.type === 'Call'" [class.b-mail]="record.type === 'Email'" [class.b-meet]="record.type === 'Meeting'">
-                        @switch (record.type) {
-                          @case ('Call') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z"/></svg> }
-                          @case ('Email') { <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg> }
-                          @case ('Meeting') { <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> }
-                          @case ('Internal Note') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z"/></svg> }
-                          @default { <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg> }
-                        }
-                      </span>
-                      @if (!last) { <span class="line"></span> }
+                @for (group of dayGroups(); track group.key) {
+                  <section class="cj-day" [attr.aria-label]="group.key">
+                    <div class="cj-date">
+                      <span class="cj-date-d">{{ group.day }}</span>
+                      <span class="cj-date-m">{{ group.month }}</span>
+                      <span class="cj-date-w">{{ group.weekday }}</span>
+                      @if (group.relative) { <span class="cj-date-r">{{ group.relative }}</span> }
                     </div>
-                    <div class="event theme-widget-surface">
-                      <div class="event-top">
-                        <h3>{{ timelineTitle(record) }}</h3>
-                        <span class="stamp">{{ record.date }} · {{ record.time }}</span>
-                      </div>
-                      <div class="chips">
-                        <span class="chip">{{ record.type === 'Internal Note' ? 'Recorded by ' + record.createdBy : record.type }}</span>
-                        <span class="chip info">{{ record.direction }}</span>
-                        @if (record.outcome) { <span class="chip" [class.ok]="record.outcome === 'No Answer' || record.outcome === 'Requested Callback' || record.outcome === 'Interested' || record.outcome === 'Meeting Completed'" [class.warn]="record.outcome === 'Requested Callback' || record.outcome === 'Requested Information' || record.outcome === 'Meeting Scheduled'">{{ record.outcome }}</span> }
-                      </div>
-                      <p>{{ record.summary }}</p>
-                      <div class="row-actions"><button type="button" (click)="openDetails(record)">View details</button>@if (record.type === 'Internal Note' || record.type === 'Call' || record.type === 'Email' || record.type === 'Meeting') {<button type="button" (click)="editCommunication(record)">Edit</button>}</div>
-                    </div>
-                  </article>
+                    <ol class="cj-entries">
+                      @for (record of group.items; track record.id) {
+                        <li class="cj-entry cj-ch-{{ channelKey(record.type) }}" [class.is-flag]="record.important">
+                          <span class="cj-node"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: record.type }" /></span>
+                          <div class="cj-entry-main">
+                            <div class="cj-entry-top">
+                              <h3 class="cj-entry-title">{{ timelineTitle(record) }}@if (record.important) { <span class="cj-flag" title="Marked important"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span> }</h3>
+                              <span class="cj-time">{{ record.time }}</span>
+                            </div>
+                            <p class="cj-entry-meta">
+                              <span class="cj-chan">{{ channelLabel(record.type) }}</span>
+                              <span class="cj-dot" aria-hidden="true"></span>
+                              <span class="cj-dir">
+                                @if (record.direction === 'Incoming') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 7 7 17M7 9v8h8"/></svg> } @else { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg> }{{ record.direction }}
+                              </span>
+                              @if (record.outcome) { <span class="cj-dot" aria-hidden="true"></span><span class="cj-out {{ outcomeClass(record.outcome) }}"><i aria-hidden="true"></i>{{ record.outcome }}</span> }
+                              @if (record.createdBy) { <span class="cj-dot" aria-hidden="true"></span><span class="cj-by">by {{ record.createdBy }}</span> }
+                            </p>
+                            <p class="cj-summary">{{ record.summary }}</p>
+                            @if (record.notes) {
+                              <p class="cj-notes"><span class="cj-notes-cap">Internal note</span>{{ record.notes }}</p>
+                            }
+                            @if (record.attachment) {
+                              <p class="cj-attach"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/></svg>{{ record.attachment }}</p>
+                            }
+                            <div class="cj-entry-acts">
+                              <button type="button" class="cj-lnk" (click)="openDetails(record)">View details</button>
+                              <button type="button" class="cj-lnk" (click)="editCommunication(record)">Edit</button>
+                              <button type="button" class="cj-lnk" [attr.aria-pressed]="record.important" (click)="toggleImportant(record)">{{ record.important ? 'Unmark important' : 'Mark important' }}</button>
+                            </div>
+                          </div>
+                        </li>
+                      }
+                    </ol>
+                  </section>
                 }
               }
             </div>
 
-            @if (totalPages() > 1) {
-              <nav class="pagination" aria-label="Timeline pagination">
-                <span>Showing {{ firstVisibleRecord() }}–{{ lastVisibleRecord() }} of {{ filteredRecords().length }}</span>
-                <div><button class="btn btn-sm" type="button" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">‹</button>@for (page of pageNumbers(); track page){<button class="btn btn-sm" type="button" [class.btn-primary]="page === currentPage()" (click)="goToPage(page)">{{ page }}</button>}<button class="btn btn-sm" type="button" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">›</button></div>
-              </nav>
+            @if (filteredRecords().length) {
+              <footer class="cj-j-foot">
+                <span class="cj-range">Showing <b class="cj-mono">{{ firstVisibleRecord() }}–{{ lastVisibleRecord() }}</b> of <b class="cj-mono">{{ filteredRecords().length }}</b></span>
+                @if (totalPages() > 1) {
+                  <nav class="cj-pager" aria-label="Timeline pagination">
+                    <button type="button" class="cj-pg" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)" aria-label="Previous page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+                    @for (page of pageNumbers(); track page) {
+                      <button type="button" class="cj-pg" [attr.aria-current]="page === currentPage() ? 'page' : null" (click)="goToPage(page)">{{ page }}</button>
+                    }
+                    <button type="button" class="cj-pg" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)" aria-label="Next page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+                  </nav>
+                } @else {
+                  <span class="cj-end-mark" aria-hidden="true">End of record</span>
+                }
+              </footer>
             }
           </section>
-        </div>
 
-        <div class="stack">
-          <section class="health theme-widget-surface" aria-label="Relationship health">
-            <h2>Relationship health</h2>
-            <p class="hint">Scored on recency, frequency and follow-through.</p>
-            <div class="gauge">
-              <div class="wrap">
-                <svg viewBox="0 0 120 120" width="128" height="128" aria-hidden="true">
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="var(--line)" stroke-width="13"/>
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="var(--rose-ink)" stroke-width="13" stroke-linecap="round" [attr.stroke-dasharray]="healthGaugeDashArray()"/>
+          <!-- RELATIONSHIP SHEET -->
+          <aside class="cj-side" aria-label="Relationship">
+            <section class="cj-part cj-health health-{{ relationshipHealthClass(relationshipHealthStatus()).replace('health-', '') }}">
+              <p class="cj-cap">Relationship health</p>
+              <div class="cj-gauge">
+                <svg viewBox="0 0 120 120" aria-hidden="true">
+                  <circle cx="60" cy="60" r="50" class="cj-gauge-track"/>
+                  <circle cx="60" cy="60" r="50" class="cj-gauge-arc" [attr.stroke-dasharray]="healthGaugeDashArray()"/>
                 </svg>
-                <div class="center"><div><div class="num">{{ leadHealthScore() }}</div><div class="cap">of 100</div></div></div>
+                <div class="cj-gauge-mid"><span class="cj-gauge-n">{{ leadHealthScore() }}</span><span class="cj-gauge-of">of 100</span></div>
               </div>
-            </div>
-            <div class="tags" style="justify-content:center"><span class="pill pill-risk">{{ relationshipHealthStatus() }}</span><span class="meta-line">{{ relationshipHealthReason() }}</span></div>
-            <div class="note"><b>Suggested next action</b><p>Log a call or WhatsApp this week. One touch moves this lead out of the at-risk band.</p></div>
-            <button class="btn btn-primary wide-btn" type="button" (click)="openFollowUpPlanner()">Schedule a follow-up</button>
-          </section>
+              <div class="cj-health-text">
+                <p class="cj-health-state"><i aria-hidden="true"></i>{{ relationshipHealthStatus() }}</p>
+                <p class="cj-health-why">{{ relationshipHealthReason() }}</p>
+                <p class="cj-health-basis">Scored on recency, engagement and outcomes.</p>
+              </div>
+            </section>
 
-          <section class="insights theme-widget-surface" aria-label="Activity insights">
-            <h2>Activity insights</h2>
-            <p class="hint">Last evaluated {{ lastUpdatedDisplay() }}</p>
-            <div class="metric-grid">
-              <div class="metric"><div class="m-label">Communication trend</div><div class="m-value m-tone-amber">{{ communicationTrend() }}</div></div>
-              <div class="metric"><div class="m-label">Engagement trend</div><div class="m-value m-tone-teal">{{ engagementTrend() }}</div></div>
-              <div class="metric"><div class="m-label">Meetings held</div><div class="m-value">{{ meetingsCount() }}</div></div>
-              <div class="metric"><div class="m-label">Stage</div><div class="m-value m-tone-lime">{{ relationship().stage || 'Active' }}</div></div>
-              <div class="metric wide"><div><div class="m-label">Follow-ups completed</div><div class="bar-track" style="width:150px"><div class="bar-fill" [style.width.%]="followUpCompletionRate()"></div></div></div><div class="m-value">{{ followUpCompletionRate() }}%</div></div>
-            </div>
-          </section>
+            <section class="cj-part cj-next">
+              <p class="cj-cap">Next best step</p>
+              <p class="cj-next-what">{{ suggestedAction().label }}</p>
+              <p class="cj-next-why">{{ suggestedAction().detail }}</p>
+              <button class="cj-outline" type="button" (click)="openFollowUpPlanner()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Schedule a follow-up</button>
+            </section>
+
+            <section class="cj-part">
+              <div class="cj-part-top"><p class="cj-cap">Temperature</p><button class="cj-lnk" type="button" (click)="openTemperatureModal()">Update</button></div>
+              <ol class="cj-scale cj-scale-temp" [attr.aria-label]="'Temperature ' + currentTemperature()">
+                @for (t of temperatures; track t) { <li class="cj-t-{{ t.toLowerCase() }}" [attr.aria-current]="t === currentTemperature() ? 'true' : null">{{ t }}</li> }
+              </ol>
+              <div class="cj-part-top cj-part-gap"><p class="cj-cap">Donation potential</p><button class="cj-lnk" type="button" (click)="openDonationPotentialModal()">Update</button></div>
+              <ol class="cj-scale" [attr.aria-label]="'Donation potential ' + donationPotential()">
+                @for (p of donationPotentials; track p) { <li [attr.aria-current]="p === donationPotential() ? 'true' : null">{{ p }}</li> }
+              </ol>
+            </section>
+
+            <section class="cj-part">
+              <p class="cj-cap">Record</p>
+              <dl class="cj-dl">
+                <div><dt>Reference</dt><dd class="cj-mono">{{ relationship().reference || '—' }}</dd></div>
+                <div><dt>Campaign</dt><dd>{{ relationship().campaign || 'Not recorded' }}</dd></div>
+                <div><dt>Source</dt><dd>{{ relationship().source || 'Not recorded' }}</dd></div>
+                <div><dt>Stage</dt><dd>{{ relationship().stage || '—' }}</dd></div>
+                <div><dt>Last entry</dt><dd>{{ lastUpdatedDisplay() }}</dd></div>
+              </dl>
+            </section>
+
+            <section class="cj-part">
+              <p class="cj-cap">Activity insights</p>
+              <dl class="cj-dl">
+                <div><dt>Contact rhythm</dt><dd>{{ communicationTrend() }}</dd></div>
+                <div><dt>Engagement</dt><dd class="cj-trend cj-trend-{{ engagementTrend().toLowerCase() }}">{{ engagementTrend() }}</dd></div>
+                <div><dt>Interested replies</dt><dd class="cj-mono">{{ interestedCount() }}</dd></div>
+              </dl>
+              <div class="cj-meter-row">
+                <span>Follow-ups completed</span><b class="cj-mono">{{ followUpCompletionRate() }}%</b>
+                <span class="cj-meter" aria-hidden="true"><i [style.width.%]="followUpCompletionRate()"></i></span>
+              </div>
+            </section>
+          </aside>
         </div>
       </div>
-
     </div>
   </div>
 </main>
+
+<!-- One glyph per channel, used by the journal nodes and the drawer's channel picker -->
+<ng-template #glyph let-type>
+  @switch (type) {
+    @case ('Call') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z"/></svg> }
+    @case ('Email') { <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg> }
+    @case ('SMS') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg> }
+    @case ('WhatsApp') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.8 7L4 20l1.1-4A8 8 0 1 1 20 12z"/><path d="M9 9.5c.5 2.3 2.2 4 4.5 4.5l1-1.2 1.8.7"/></svg> }
+    @case ('Meeting') { <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M2.5 19a5.5 5.5 0 0 1 11 0M14 14.5a4.5 4.5 0 0 1 7.5 3.5"/></svg> }
+    @case ('Visit') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10M10 20v-5h4v5"/></svg> }
+    @case ('Event') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.4 5 5.6.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.6-.8z"/></svg> }
+    @default { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M13 7l3 3"/></svg> }
+  }
+</ng-template>
 
 <!-- COMMUNICATION DETAIL DRAWER -->
 @if (isDetailDrawerOpen() && selectedCommunication(); as record) {
   <div class="ct-overlay" (click)="closeDetails()"></div>
   <aside class="ct-drawer" role="dialog" aria-modal="true" aria-label="Communication details">
     <div class="ct-drawer-header">
-      <h2>{{ record.type }} &middot; {{ record.date }}</h2>
+      <h2>{{ timelineTitle(record) }}</h2>
       <button type="button" class="btn btn-outline-secondary btn-sm ct-drawer-close" (click)="closeDetails()" aria-label="Close" title="Close">&times;</button>
     </div>
 
     <div class="ct-drawer-body">
-      <div class="ct-detail-row"><span>Type</span><strong>{{ record.type }}</strong></div>
-      <div class="ct-detail-row"><span>Date</span><strong>{{ record.date }}</strong></div>
-      <div class="ct-detail-row"><span>Time</span><strong>{{ record.time }}</strong></div>
-      <div class="ct-detail-row"><span>Direction</span><strong>{{ record.direction }}</strong></div>
-      <div class="ct-detail-row"><span>Outcome</span><strong>{{ record.outcome }}</strong></div>
-      <div class="ct-detail-row"><span>Engagement Level</span><strong>{{ record.engagement }}</strong></div>
+      <p class="ct-detail-when cj-ch-{{ channelKey(record.type) }}"><span class="ct-detail-glyph"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: record.type }" /></span><span>{{ channelLabel(record.type) }} · {{ record.direction }}<small>{{ record.date }} at {{ record.time }}@if (record.createdBy) { · by {{ record.createdBy }} }</small></span></p>
+      <div class="ct-detail-row"><span>Outcome</span><strong class="cj-out {{ outcomeClass(record.outcome) }}"><i aria-hidden="true"></i>{{ record.outcome }}</strong></div>
+      <div class="ct-detail-row"><span>Engagement level</span><strong>{{ record.engagement }}</strong></div>
       @if (record.quality) {
-        <div class="ct-detail-row"><span>Communication Quality</span><strong>{{ record.quality }}</strong></div>
+        <div class="ct-detail-row"><span>Communication quality</span><strong>{{ record.quality }}</strong></div>
       }
+      <div class="ct-detail-row"><span>Important</span><strong>{{ record.important ? 'Yes' : 'No' }}</strong></div>
       <div class="ct-detail-block">
         <span>Summary</span>
         <p>{{ record.summary }}</p>
       </div>
       @if (record.notes) {
-        <div class="ct-detail-block">
-          <span>Internal Notes</span>
+        <div class="ct-detail-block ct-detail-note">
+          <span>Internal notes</span>
           <p>{{ record.notes }}</p>
         </div>
       }
       @if (record.attachment) {
-        <div class="ct-detail-row"><span>Attachments</span><strong>&#128206; {{ record.attachment }}</strong></div>
+        <div class="ct-detail-row"><span>Attachment</span><strong>{{ record.attachment }}</strong></div>
       }
       @if (record.followUpDate) {
         <div class="ct-detail-row">
-          <span>Related Follow-Up</span>
+          <span>Related follow-up</span>
           <strong>{{ record.followUpStatus }} &middot; {{ record.followUpDate }}</strong>
         </div>
       }
     </div>
 
     <div class="ct-drawer-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="editCommunication(record)" title="Edit communication"><span aria-hidden="true">&#9998;</span> Edit</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openTemperatureModal()">Update Temperature</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDonationPotentialModal()">Update Donation Potential</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeDetails()"><span aria-hidden="true">&#10005;</span> Close</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openTemperatureModal()">Update temperature</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDonationPotentialModal()">Update potential</button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="editCommunication(record)" title="Edit communication">Edit entry</button>
     </div>
   </aside>
 }
 
-<!-- LOG COMMUNICATION DRAWER -->
+<!-- LOG COMMUNICATION DRAWER: its own design (not the shared dialog layer) -->
 @if (isEntryDrawerOpen()) {
-  <div class="backdrop" [class.is-open]="isEntryDrawerOpen()" (click)="closeEntryDrawer()" aria-hidden="true"></div>
-  <aside class="offcanvas" [class.is-open]="isEntryDrawerOpen()" role="dialog" aria-modal="true" aria-labelledby="ocTitle">
-    <div class="oc-head">
-      <div>
-        <h2 id="ocTitle">{{ editingId() ? 'Edit communication' : 'Log communication' }}</h2>
-        <p>Add a new entry to {{ relationship().name || 'this lead' }}'s timeline</p>
+  <div class="lg-scrim" (click)="closeEntryDrawer()" aria-hidden="true"></div>
+  <aside class="lg" role="dialog" aria-modal="true" aria-labelledby="lgTitle">
+    <header class="lg-top">
+      <div class="lg-top-text">
+        <p class="lg-kicker">{{ editingId() ? 'Amend entry' : 'New entry' }}<span class="lg-dot" aria-hidden="true"></span><span class="lg-ref">{{ relationship().reference || '—' }}</span></p>
+        <h2 id="lgTitle" class="lg-heading">{{ editingId() ? 'Edit communication' : 'Log communication' }}</h2>
+        <p class="lg-for">On <b>{{ relationship().name || 'this record' }}</b>'s timeline · recorded by {{ relationship().owner }}</p>
       </div>
-      <button class="oc-close" type="button" aria-label="Close" (click)="closeEntryDrawer()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    </div>
+      <button class="lg-shut" type="button" aria-label="Close" title="Close" (click)="closeEntryDrawer()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
 
-    <form class="oc-body theme-widget-surface" (submit)="$event.preventDefault(); saveCommunication()" novalidate>
+    <form class="lg-form" (submit)="$event.preventDefault(); saveCommunication()" novalidate>
       @if (formErrors().length) {
-        <div class="ct-form-errors" role="alert"><ul>@for (error of formErrors(); track error){<li>{{ error }}</li>}</ul></div>
+        <div class="lg-alert" role="alert">
+          <strong>{{ formErrors().length === 1 ? 'One thing to fix before saving' : formErrors().length + ' things to fix before saving' }}</strong>
+          <ul>@for (error of formErrors(); track error) {<li>{{ error }}</li>}</ul>
+        </div>
       }
-      <div class="field"><label>Communication type <span class="req">*</span></label><select [ngModel]="form().type" name="type" (ngModelChange)="updateForm('type', $event)">@for (type of communicationTypes; track type){<option [value]="type">{{ type }}</option>}</select></div>
-      <div class="field-row"><div class="field"><label>Communication date <span class="req">*</span></label><input type="date" [ngModel]="form().date" name="date" [attr.max]="getTodayIso()" (ngModelChange)="updateForm('date', $event)" /></div><div class="field"><label>Communication time <span class="req">*</span></label><input type="time" [ngModel]="form().time" name="time" (ngModelChange)="updateForm('time', $event)" /></div></div>
-      <div class="field"><label>Direction <span class="req">*</span></label><select [ngModel]="form().direction" name="direction" (ngModelChange)="updateForm('direction', $event)"><option value="Outgoing">Outgoing</option><option value="Incoming">Incoming</option></select></div>
-      <div class="field"><label>Outcome <span class="req">*</span></label><select [ngModel]="form().outcome" name="outcome" (ngModelChange)="updateForm('outcome', $event)">@for (outcome of outcomes; track outcome){<option [value]="outcome">{{ outcome }}</option>}</select></div>
-      <div class="field-row"><div class="field"><label>Engagement level <span class="req">*</span></label><select [ngModel]="form().engagement" name="engagement" (ngModelChange)="updateForm('engagement', $event)">@for (level of engagementLevels; track level){<option [value]="level">{{ level }}</option>}</select></div><div class="field"><label>Communication quality <span class="req">*</span></label><select [ngModel]="form().quality" name="quality" (ngModelChange)="updateForm('quality', $event)">@for (quality of qualities; track quality){<option [value]="quality">{{ quality }}</option>}</select></div></div>
-      <div class="field"><label>Summary <span class="req">*</span><span class="label-count">{{ form().summary.length }}/2000</span></label><textarea name="summary" maxlength="2000" placeholder="What happened on this communication?" [ngModel]="form().summary" (ngModelChange)="updateForm('summary', $event)"></textarea></div>
-      <div class="field"><label>Internal notes <span class="label-count">{{ form().notes.length }}/3000</span></label><textarea name="notes" maxlength="3000" placeholder="Notes visible to your team only" [ngModel]="form().notes" (ngModelChange)="updateForm('notes', $event)"></textarea></div>
-      <div class="field"><label>Attachments</label><div class="file-row"><label class="choose" for="communicationAttachment">Choose file</label><span class="fname">{{ form().attachmentName || 'No file chosen' }}</span></div><input id="communicationAttachment" type="file" hidden accept=".pdf,.docx,.png,.jpg,.jpeg" (change)="onAttachmentSelected($event)"/><p class="file-hint">PDF, DOCX, PNG, JPG · Max 10MB</p></div>
-      <div class="field check-row"><input id="important" type="checkbox" [ngModel]="form().important" name="important" (ngModelChange)="updateForm('important', $event)"/><label for="important">Important communication</label></div>
+
+      <section class="lg-sec">
+        <div class="lg-sec-head"><span class="lg-no">01</span><h3>Channel</h3><span class="lg-aside">{{ channelLabel(form().type) }}</span></div>
+        <div class="lg-channels" role="radiogroup" aria-label="Communication type">
+          @for (type of communicationTypes; track type) {
+            <button type="button" role="radio" class="lg-chan cj-ch-{{ channelKey(type) }}" [attr.aria-checked]="form().type === type" (click)="updateForm('type', type)">
+              <ng-container *ngTemplateOutlet="glyph; context: { $implicit: type }" /><span>{{ type === 'Internal Note' ? 'Note' : type }}</span>
+            </button>
+          }
+        </div>
+      </section>
+
+      <section class="lg-sec">
+        <div class="lg-sec-head"><span class="lg-no">02</span><h3>When &amp; which way</h3><button type="button" class="lg-now" (click)="setNow()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>Use now</button></div>
+        <div class="lg-pair">
+          <label class="lg-field"><span class="lg-label">Date <em>*</em></span><input type="date" name="date" [ngModel]="form().date" [attr.max]="getTodayIso()" (ngModelChange)="updateForm('date', $event)" /></label>
+          <label class="lg-field"><span class="lg-label">Time <em>*</em></span><input type="time" name="time" [ngModel]="form().time" (ngModelChange)="updateForm('time', $event)" /></label>
+        </div>
+        <div class="lg-field">
+          <span class="lg-label">Direction</span>
+          <div class="lg-seg" role="radiogroup" aria-label="Direction">
+            <button type="button" role="radio" [attr.aria-checked]="form().direction === 'Outgoing'" (click)="updateForm('direction', 'Outgoing')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg><span><b>Outgoing</b><small>We reached out</small></span></button>
+            <button type="button" role="radio" [attr.aria-checked]="form().direction === 'Incoming'" (click)="updateForm('direction', 'Incoming')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 7 7 17M7 9v8h8"/></svg><span><b>Incoming</b><small>They reached us</small></span></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="lg-sec">
+        <div class="lg-sec-head"><span class="lg-no">03</span><h3>Outcome</h3><span class="lg-aside">{{ form().outcome }}</span></div>
+        <div class="lg-outcomes" role="radiogroup" aria-label="Outcome">
+          @for (outcome of outcomes; track outcome) {
+            <button type="button" role="radio" class="lg-out {{ outcomeClass(outcome) }}" [attr.aria-checked]="form().outcome === outcome" (click)="updateForm('outcome', outcome)"><i aria-hidden="true"></i>{{ outcome }}</button>
+          }
+        </div>
+      </section>
+
+      <section class="lg-sec">
+        <div class="lg-sec-head"><span class="lg-no">04</span><h3>Assessment</h3></div>
+        <div class="lg-scale-row">
+          <span class="lg-label">Engagement</span>
+          <div class="lg-scale" role="radiogroup" aria-label="Engagement level">
+            @for (level of engagementLevels; track level; let i = $index) {
+              <button type="button" role="radio" [attr.aria-checked]="form().engagement === level" (click)="updateForm('engagement', level)"><span class="lg-bars" [attr.data-l]="i + 1" aria-hidden="true"><i></i><i></i><i></i></span>{{ level }}</button>
+            }
+          </div>
+        </div>
+        <div class="lg-scale-row">
+          <span class="lg-label">Quality</span>
+          <div class="lg-scale lg-scale-4" role="radiogroup" aria-label="Communication quality">
+            @for (quality of qualities; track quality; let i = $index) {
+              <button type="button" role="radio" [attr.aria-checked]="form().quality === quality" (click)="updateForm('quality', quality)"><span class="lg-bars lg-bars-4" [attr.data-l]="i + 1" aria-hidden="true"><i></i><i></i><i></i><i></i></span>{{ quality }}</button>
+            }
+          </div>
+        </div>
+      </section>
+
+      <section class="lg-sec">
+        <div class="lg-sec-head"><span class="lg-no">05</span><h3>What was said</h3></div>
+        <label class="lg-field">
+          <span class="lg-label">Summary <em>*</em><span class="lg-count" [class.is-ok]="form().summary.trim().length >= 10">{{ form().summary.length }} / 2000</span></span>
+          <textarea name="summary" rows="4" maxlength="2000" placeholder="What happened, what was agreed, what comes next…" [ngModel]="form().summary" (ngModelChange)="updateForm('summary', $event)"></textarea>
+        </label>
+        <label class="lg-field">
+          <span class="lg-label"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Internal notes<span class="lg-count">{{ form().notes.length }} / 3000</span></span>
+          <textarea name="notes" rows="3" maxlength="3000" placeholder="Visible to your team only" [ngModel]="form().notes" (ngModelChange)="updateForm('notes', $event)"></textarea>
+        </label>
+      </section>
+
+      <section class="lg-sec">
+        <div class="lg-sec-head"><span class="lg-no">06</span><h3>Attachment &amp; flag</h3></div>
+        <label class="lg-drop" for="communicationAttachment">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/></svg>
+          <span class="lg-drop-text"><b>{{ form().attachmentName || 'Attach a file' }}</b><small>PDF, DOCX, PNG or JPG · up to 10 MB</small></span>
+          <span class="lg-drop-act">{{ form().attachmentName ? 'Replace' : 'Browse' }}</span>
+        </label>
+        <input id="communicationAttachment" type="file" hidden accept=".pdf,.docx,.png,.jpg,.jpeg" (change)="onAttachmentSelected($event)" />
+        <label class="lg-flag">
+          <input type="checkbox" name="important" [ngModel]="form().important" (ngModelChange)="updateForm('important', $event)" />
+          <span class="lg-switch" aria-hidden="true"></span>
+          <span class="lg-flag-text"><b>Mark as important</b><small>Keeps it under the Important lane on this timeline</small></span>
+        </label>
+      </section>
     </form>
 
-    <div class="oc-foot"><button class="btn" type="button" (click)="closeEntryDrawer()">Cancel</button><button class="btn btn-primary" type="button" (click)="saveCommunication()">Save communication</button></div>
+    <footer class="lg-end">
+      <p class="lg-recap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg><span>{{ entryRecap() }}</span></p>
+      <div class="lg-buttons">
+        <button class="lg-cancel" type="button" (click)="closeEntryDrawer()">Cancel</button>
+        <button class="lg-save" type="button" (click)="saveCommunication()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>{{ editingId() ? 'Save changes' : 'Save entry' }}</button>
+      </div>
+    </footer>
   </aside>
 }
 
@@ -304,12 +424,11 @@
 @if (isTemperatureModalOpen()) {
   <div class="ct-overlay" aria-hidden="true"></div>
   <div class="ct-modal" role="dialog" aria-modal="true" aria-label="Update temperature">
-    <h2 class="ct-modal-title"><span class="ct-modal-icon" aria-hidden="true">&#9788;</span> Update Temperature</h2>
-
-    <div class="ct-detail-row"><span>Current Temperature</span><strong>{{ currentTemperature() }}</strong></div>
+    <h2 class="ct-modal-title">Update temperature</h2>
+    <p class="ct-modal-copy">Currently <b>{{ currentTemperature() }}</b>. The reason is kept on the audit trail.</p>
 
     <label class="ct-field">
-      <span class="ct-field-label">New Temperature <em>*</em></span>
+      <span class="ct-field-label">New temperature <em>*</em></span>
       <select class="ct-select theme-widget-control" [ngModel]="newTemperature()" (ngModelChange)="newTemperature.set($event)">
         @for (temperature of temperatures; track temperature) {
           <option [value]="temperature">{{ temperature }}</option>
@@ -319,19 +438,12 @@
 
     <label class="ct-field">
       <span class="ct-field-label">Reason <em>*</em></span>
-      <textarea
-        class="ct-textarea theme-widget-control"
-        rows="3"
-        [ngModel]="temperatureReason()"
-        (ngModelChange)="temperatureReason.set($event)"
-      ></textarea>
+      <textarea class="ct-textarea theme-widget-control" rows="3" [ngModel]="temperatureReason()" (ngModelChange)="temperatureReason.set($event)"></textarea>
     </label>
 
     <div class="ct-modal-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeTemperatureModal()"><span aria-hidden="true">&#10005;</span> Cancel</button>
-      <button type="button" class="btn btn-primary btn-sm" [disabled]="!temperatureReason().trim()" (click)="saveTemperature()">
-        <span aria-hidden="true">&#10003;</span> Save
-      </button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeTemperatureModal()">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" [disabled]="!temperatureReason().trim()" (click)="saveTemperature()">Save</button>
     </div>
   </div>
 }
@@ -340,12 +452,11 @@
 @if (isDonationPotentialModalOpen()) {
   <div class="ct-overlay" aria-hidden="true"></div>
   <div class="ct-modal" role="dialog" aria-modal="true" aria-label="Update donation potential">
-    <h2 class="ct-modal-title"><span class="ct-modal-icon" aria-hidden="true">&#9670;</span> Update Donation Potential</h2>
-
-    <div class="ct-detail-row"><span>Current Potential</span><strong>{{ donationPotential() }}</strong></div>
+    <h2 class="ct-modal-title">Update donation potential</h2>
+    <p class="ct-modal-copy">Currently <b>{{ donationPotential() }}</b>. The reason is kept on the audit trail.</p>
 
     <label class="ct-field">
-      <span class="ct-field-label">New Donation Potential <em>*</em></span>
+      <span class="ct-field-label">New donation potential <em>*</em></span>
       <select class="ct-select theme-widget-control" [ngModel]="newDonationPotential()" (ngModelChange)="newDonationPotential.set($event)">
         @for (potential of donationPotentials; track potential) {
           <option [value]="potential">{{ potential }}</option>
@@ -355,43 +466,30 @@
 
     <label class="ct-field">
       <span class="ct-field-label">Reason <em>*</em></span>
-      <textarea
-        class="ct-textarea theme-widget-control"
-        rows="3"
-        [ngModel]="donationPotentialReason()"
-        (ngModelChange)="donationPotentialReason.set($event)"
-      ></textarea>
+      <textarea class="ct-textarea theme-widget-control" rows="3" [ngModel]="donationPotentialReason()" (ngModelChange)="donationPotentialReason.set($event)"></textarea>
     </label>
 
     <div class="ct-modal-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeDonationPotentialModal()"><span aria-hidden="true">&#10005;</span> Cancel</button>
-      <button
-        type="button"
-        class="btn btn-primary btn-sm"
-        [disabled]="!donationPotentialReason().trim()"
-        (click)="saveDonationPotential()"
-      >
-        <span aria-hidden="true">&#10003;</span> Save
-      </button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeDonationPotentialModal()">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" [disabled]="!donationPotentialReason().trim()" (click)="saveDonationPotential()">Save</button>
     </div>
   </div>
 }
-
 
 <!-- EXPORT MODAL -->
 @if (isExportModalOpen()) {
   <div class="ct-overlay" aria-hidden="true"></div>
   <div class="ct-modal ct-modal-sm" role="dialog" aria-modal="true" aria-label="Export timeline">
-    <h2 class="ct-modal-title"><span class="ct-modal-icon" aria-hidden="true">&#8681;</span> Export Timeline</h2>
-    <p class="ct-modal-copy">Choose a format to export the currently filtered communications.</p>
+    <h2 class="ct-modal-title">Export timeline</h2>
+    <p class="ct-modal-copy">Exports the {{ filteredRecords().length }} entries that match the current filters.</p>
 
     <div class="ct-export-options">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportAsExcel()">Excel</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportAsPdf()">PDF</button>
+      <button type="button" class="ct-export" (click)="exportAsExcel()"><b>Spreadsheet</b><small>CSV, opens in Excel</small></button>
+      <button type="button" class="ct-export" (click)="exportAsPdf()"><b>PDF</b><small>Print-ready copy</small></button>
     </div>
 
     <div class="ct-modal-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeExportModal()"><span aria-hidden="true">&#10005;</span> Close</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeExportModal()">Close</button>
     </div>
   </div>
 }

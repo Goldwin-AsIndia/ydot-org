@@ -142,7 +142,9 @@ svg {
   width: calc(38px * var(--ui-scale, 1));
   height: calc(38px * var(--ui-scale, 1));
   border-radius: calc(11px * var(--ui-scale, 1));
-  color: var(--gm-surface);
+  /* The global icon rule strips the tile behind every *-icon, so the glyph carries the brand colour
+     itself; a white glyph here vanished on the panel head. */
+  color: var(--gm-brand);
   background: var(--gm-brand);
 }
 
@@ -1789,4 +1791,21 @@ textarea.gm-input {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* =========================================================================================
+   SHARED BY ALL FIVE MASTERS (Country, State, City, Currency, Time Zone)
+   ========================================================================================= */
+
+/* Header buttons: the icon is a fixed 16px glyph beside the label, never stretching the button. */
+.gm-ph-ic {
+  flex: none;
+  width: calc(16px * var(--ui-scale, 1));
+  height: calc(16px * var(--ui-scale, 1));
+}
+
+/* The code in front of a name in the list (TN, BLR, INR, IST): plain text, no tile behind it. */
+.gm-table .gm-avatar.is-code {
+  background: none;
+  border-color: transparent;
 }

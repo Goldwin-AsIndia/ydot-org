@@ -12,13 +12,32 @@
         @case ('dependency-failure') { <section class="state-panel" role="alert"><h2>Unable to load this donor</h2><p>Please retry when the service is available.</p><button type="button" class="btn btn-outline-secondary btn-sm" (click)="refreshData()">↻ Retry</button></section> }
         @default {
           @if (effectiveState() === 'conflict') { <div class="notice" role="alert">This record has changed.<button type="button" class="btn btn-outline-secondary btn-sm" (click)="reviewConflict()">↻ Review latest version</button></div> }
-          <section class="profile-card" aria-label="Donor summary">
-            <div class="avatar" aria-hidden="true">{{ initials() }}</div>
-            <div class="profile-summary"><h2>{{ hasPermission('don.contact.view') ? donor().fullName : maskedFullName() }}</h2><p>▣ <span>Donor ID</span> <span class="number">{{ donor().reference }}</span></p><div class="contact-row"><span>♧ {{ hasPermission('don.contact.view') ? (donor().phone || '—') : maskedPhone() }}</span><span>✉ {{ hasPermission('don.contact.view') ? (donor().email || '—') : maskedEmail() }}</span></div></div>
-            <div class="profile-owner"><div><span>Owner</span><strong>{{ donor().owner }}</strong></div><div><span>Status</span><span class="badge-pill badge-{{ badgeClass(donor().lifecycleState) }}">● {{ donor().lifecycleState }}</span></div></div>
-            <div class="profile-actions"><button type="button" class="btn btn-primary btn-sm" [disabled]="!canCreateIntent()" (click)="openAction('create-intent')">＋ Create Donation Intent</button><div><button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="!canFollowUp()" (click)="openFollowUpPlanner()">▣ Schedule Follow-up</button><button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCommunicationHistory()">➤ View Communication Timeline</button></div></div>
+          <section class="d360-head" aria-label="Donor summary">
+            <div class="d360-head-body">
+              <div class="d360-monogram" aria-hidden="true"><span>{{ initials() }}</span></div>
+              <div class="d360-identity">
+                <p class="d360-eyebrow"><span>Donor</span><span class="d360-sep" aria-hidden="true"></span><span class="d360-ref">{{ donor().reference }}</span>@if (donor().freshness) { <span class="d360-sep" aria-hidden="true"></span><span class="d360-updated">Updated {{ donor().freshness }}</span> }</p>
+                <h2 class="d360-name">{{ hasPermission('don.contact.view') ? donor().fullName : maskedFullName() }}</h2>
+                <div class="d360-contact">
+                  <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg><span class="d360-mono">{{ hasPermission('don.contact.view') ? (donor().phone || '—') : maskedPhone() }}</span></span>
+                  <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><span>{{ hasPermission('don.contact.view') ? (donor().email || '—') : maskedEmail() }}</span></span>
+                </div>
+              </div>
+              <dl class="d360-facts">
+                <div><dt>Relationship owner</dt><dd><span class="d360-owner-ring" aria-hidden="true">{{ ownerInitials() }}</span>{{ donor().owner }}</dd></div>
+                <div><dt>Standing</dt><dd class="d360-standing d360-tone-{{ badgeClass(donor().lifecycleState) }}"><i aria-hidden="true"></i>{{ donor().lifecycleState || '—' }}</dd></div>
+              </dl>
+              <div class="d360-actions">
+                <button type="button" class="btn btn-primary d360-primary" [disabled]="!canCreateIntent()" (click)="openAction('create-intent')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Create donation intent</button>
+                <div class="d360-quiet">
+                  <button type="button" class="d360-link" [disabled]="!canFollowUp()" (click)="openFollowUpPlanner()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Schedule follow-up</button>
+                  <span class="d360-sep" aria-hidden="true"></span>
+                  <button type="button" class="d360-link" (click)="openCommunicationHistory()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Communication timeline</button>
+                </div>
+              </div>
+            </div>
+            <nav class="d360-tabs" aria-label="Donor sections">@for (tab of tabs; track tab.id) { <button type="button" class="d360-tab" [attr.aria-current]="activeTab() === tab.id ? 'page' : null" (click)="selectTab(tab.id)">{{ tab.label }}@if (tabCount(tab.id); as n) { <span class="d360-tab-count">{{ n }}</span> }</button> }</nav>
           </section>
-          <nav class="tab-strip" aria-label="Donor sections">@for (tab of tabs; track tab.id) { <button type="button" class="btn btn-outline-secondary btn-sm" [attr.aria-current]="activeTab() === tab.id ? 'page' : null" (click)="selectTab(tab.id)">{{ tab.label }}</button> }</nav>
           <section class="related-section">
             @if (activeTab() === 'overview') {
               <section class="kpi-cards" aria-label="Donor statistics">
@@ -274,7 +293,7 @@
 
 
 
-<dialog #actionDialog class="action-dialog" [attr.aria-labelledby]="dialogTitleId()" (cancel)="closeAction()">
+<dialog #actionDialog class="action-dialog" [class.pn-dialog]="activeAction() === 'create-intent'" [attr.data-dg-own]="activeAction() === 'create-intent' ? '' : null" [attr.aria-labelledby]="dialogTitleId()" (cancel)="closeAction()">
   @switch (activeAction()) {
 
     @case ('correct') {
@@ -339,40 +358,82 @@
     }
 
     @case ('create-intent') {
-      <form class="dialog-form" (ngSubmit)="submitCreateIntent()">
-        <header class="dialog-header">
-          <h2 id="intent-title"><span aria-hidden="true">▣</span> Create intent</h2>
-          <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Close dialog" (click)="closeAction()" title="Close dialog">✕</button>
+      <form class="pn" (ngSubmit)="submitCreateIntent()" novalidate>
+        <header class="pn-top">
+          <span class="pn-seal" aria-hidden="true">{{ initials() }}</span>
+          <div class="pn-who">
+            <p class="pn-kicker">New pledge<span class="pn-dot" aria-hidden="true"></span><span class="pn-ref">{{ donor().reference }}</span></p>
+            <h2 id="intent-title" class="pn-heading">Record a pledge</h2>
+            <p class="pn-for">From <strong>{{ pledgeDonorName() }}</strong>@if (donor().owner) { <span class="pn-dot" aria-hidden="true"></span>Owner {{ donor().owner }} }</p>
+          </div>
+          <button type="button" class="pn-shut" aria-label="Close dialog" title="Close dialog" (click)="closeAction()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </header>
-        
-        <div class="dialog-body">
-          <p class="dialog-note">
-            Records a pledge against this donor. It is not a payment request — the donor pays
-            through their own donation link.
-          </p>
-          <label class="field">
-            <span class="field-label">Amount</span>
-            <input type="number" min="1" step="1" [ngModel]="intentAmount()" (ngModelChange)="intentAmount.set($any($event))" name="intentAmount" />
-            @if (intentErrors()['amount']) { <span class="field-error">{{ intentErrors()['amount'] }}</span> }
-          </label>
-          <label class="field">
-            <span class="field-label">Currency</span>
-            <input type="text" maxlength="3" [ngModel]="intentCurrency()" (ngModelChange)="intentCurrency.set($any($event))" name="intentCurrency" />
-            @if (intentErrors()['currency']) { <span class="field-error">{{ intentErrors()['currency'] }}</span> }
-          </label>
-          <label class="field">
-            <span class="field-label">Expected by <span class="field-optional">(optional)</span></span>
-            <input type="date" [ngModel]="intentDueDate()" (ngModelChange)="intentDueDate.set($any($event))" name="intentDueDate" />
-          </label>
-          <label class="field">
-            <span class="field-label">Notes</span>
-            <textarea rows="3" [ngModel]="intentNotes()" (ngModelChange)="intentNotes.set($any($event))" name="intentNotes"></textarea>
-            @if (intentErrors()['notes']) { <span class="field-error">{{ intentErrors()['notes'] }}</span> }
-          </label>
-        </div>
-        <footer class="dialog-footer">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeAction()">✕ Cancel</button>
-          <button type="submit" class="btn btn-primary btn-sm">✓ Record pledge</button>
+
+        <section class="pn-sum" aria-label="Pledge amount">
+          <div class="pn-row">
+            <label class="pn-label" for="pn-amount">Pledge amount</label>
+            <label class="pn-cur">
+              <span class="pn-cur-name">Currency</span>
+              <select [ngModel]="intentCurrency()" (ngModelChange)="intentCurrency.set($any($event))" name="intentCurrency" aria-label="Currency">
+                @for (c of intentCurrencyOptions(); track c) { <option [value]="c">{{ c }}</option> }
+              </select>
+            </label>
+          </div>
+          <div class="pn-figure" [class.pn-invalid]="intentErrors()['amount']">
+            <span class="pn-symbol" aria-hidden="true">{{ intentSymbol() }}</span>
+            <input id="pn-amount" type="text" inputmode="decimal" placeholder="0" autocomplete="off" name="intentAmount"
+                   [value]="intentAmountText()" (input)="setIntentAmountText($any($event.target))"
+                   (focus)="focusIntentAmount()" (blur)="intentAmountFocused.set(false)"
+                   [attr.aria-invalid]="intentErrors()['amount'] ? true : null" [attr.aria-describedby]="intentErrors()['amount'] ? 'pn-amount-error' : 'pn-amount-words'" />
+          </div>
+          @if (intentErrors()['amount']) { <p id="pn-amount-error" class="pn-error" role="alert">{{ intentErrors()['amount'] }}</p> }
+          @else { <p id="pn-amount-words" class="pn-words" [class.pn-words-empty]="!intentInWords()">{{ intentInWords() || 'The amount will read back here in words.' }}</p> }
+          @if (intentErrors()['currency']) { <p class="pn-error" role="alert">{{ intentErrors()['currency'] }}</p> }
+          <div class="pn-presets" role="group" aria-label="Quick amounts">
+            @for (p of intentPresets; track p) {
+              <button type="button" class="pn-preset" [attr.aria-pressed]="intentAmount() === p" (click)="intentAmount.set(p)">{{ formatIntentAmount(p) }}</button>
+            }
+          </div>
+        </section>
+
+        <section class="pn-when" aria-label="Expected by">
+          <div class="pn-row">
+            <label class="pn-label" for="pn-due">Expected by</label>
+            <span class="pn-aside">@if (intentDueDistance()) { {{ intentDueDistance() }} } @else { Optional }</span>
+          </div>
+          <div class="pn-when-row">
+            <div class="pn-when-opts" role="group" aria-label="Quick dates">
+              @for (s of intentDueShortcuts; track s.id) {
+                <button type="button" class="pn-when-opt" [attr.aria-pressed]="intentDueDate() === dueFor(s.id)" (click)="intentDueDate.set(dueFor(s.id))">{{ s.label }}</button>
+              }
+              <button type="button" class="pn-when-opt" [attr.aria-pressed]="!intentDueDate()" (click)="intentDueDate.set('')">No date</button>
+            </div>
+            <input id="pn-due" class="pn-date" type="date" [min]="todayIso" [ngModel]="intentDueDate()" (ngModelChange)="intentDueDate.set($any($event) || '')" name="intentDueDate" />
+          </div>
+        </section>
+
+        <section class="pn-notes" aria-label="Notes">
+          <div class="pn-row">
+            <label class="pn-label" for="pn-notes">Notes</label>
+            <span class="pn-aside pn-count" [class.pn-count-ok]="intentNotes().trim().length >= 10">{{ intentNotes().trim().length }} / 10 min</span>
+          </div>
+          <textarea id="pn-notes" rows="3" placeholder="How the pledge was made, any conditions, who was present…"
+                    [ngModel]="intentNotes()" (ngModelChange)="intentNotes.set($any($event))" name="intentNotes"
+                    [attr.aria-invalid]="intentErrors()['notes'] ? true : null"></textarea>
+          @if (intentErrors()['notes']) { <p class="pn-error" role="alert">{{ intentErrors()['notes'] }}</p> }
+        </section>
+
+        <p class="pn-statement" aria-live="polite">
+          <span class="pn-quote" aria-hidden="true">&ldquo;</span>{{ pledgeDonorName() }} promises
+          @if (intentFormatted()) {<strong>{{ intentFormatted() }}</strong>} @else {an amount still to be entered}@if (intentDueLabel()) {, expected by <strong>{{ intentDueLabel() }}</strong>} @else {, with no date set}.
+        </p>
+
+        <footer class="pn-end">
+          <p class="pn-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>A pledge only. The donor pays through their own donation link.</span></p>
+          <div class="pn-buttons">
+            <button type="button" class="pn-cancel" (click)="closeAction()">Cancel</button>
+            <button type="submit" class="pn-submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>Record pledge@if (intentFormatted()) { <span class="pn-submit-sum">{{ intentFormatted() }}</span> }</button>
+          </div>
         </footer>
       </form>
     }

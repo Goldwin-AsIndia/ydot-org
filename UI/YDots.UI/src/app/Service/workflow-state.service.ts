@@ -73,6 +73,12 @@ export interface WorkflowDonor {
   engagementTag: string;
   consentReviewRequired: boolean;
   createdDate: string;
+  /** Lifecycle status from the API: Prospect | Active | Restricted | Archived | Merged. */
+  status?: string;
+  /** ISO currency of the giving figures on the row. */
+  currency?: string;
+  /** The server masked mobile and e-mail (caller lacks don.donors.view-sensitive-contact). */
+  contactMasked?: boolean;
 }
 
 export interface WorkflowFollowUp {
@@ -460,25 +466,30 @@ export class WorkflowStateService {
     return {
       donorId: item.id,
       name: item.displayName,
-      mobile: '',
-      email: '',
+      // CONTACT AND GIVING COME ON THE ROW (DonorListItem) - they used to be blanked here, so the
+      // Donor List drew every donor with no contact, no campaign and ₹0 given.
+      mobile: item.mobileNumber ?? '',
+      email: item.emailAddress ?? '',
       location: '',
       region: '',
-      campaign: '',
+      campaign: item.campaignName ?? '',
       owner: owner || (ownerPerson?.name ?? 'Unassigned'),
       ownerUserId: item.relationshipOwnerUserId,
       ownerInitials: ownerPerson?.initials ?? this.initials(owner || 'Unassigned'),
       ownerColor: '#1F3B57',
       reference: item.displayCode,
-      lastDonationAmount: 0,
-      lastDonationDate: '',
-      lifetimeGiving: 0,
-      followUpStatus: 'None',
-      consentStatus: '',
-      verificationStatus: '',
+      lastDonationAmount: item.lastDonationAmount ?? 0,
+      lastDonationDate: item.lastDonationAtUtc ?? '',
+      lifetimeGiving: item.lifetimeGiving ?? 0,
+      followUpStatus: item.followUpStatus || 'None',
+      consentStatus: item.consentStatus ?? '',
+      verificationStatus: item.verificationStatus ?? '',
       engagementTag: item.status,
-      consentReviewRequired: false,
+      consentReviewRequired: item.consentReviewRequired ?? false,
       createdDate: item.updatedAtUtc?.slice(0, 10) ?? '',
+      status: item.status,
+      currency: item.currency || 'INR',
+      contactMasked: item.isContactMasked ?? false,
     };
   }
 

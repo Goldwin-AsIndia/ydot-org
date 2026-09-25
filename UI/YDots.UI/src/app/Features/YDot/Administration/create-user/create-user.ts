@@ -221,6 +221,14 @@ export class CreateUserComponent implements OnInit {
    * what the account can actually DO. "Check before you send" was missing the thing worth
    * checking.
    */
+  /** Two letters for the confirmation monogram, from the display name or the first / last name. */
+  readonly previewInitials = computed(() => {
+    const f = this.form();
+    const parts = (f.displayName || `${f.firstName} ${f.lastName}`).trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) { return '+'; }
+    return ((parts[0]?.charAt(0) ?? '') + (parts.length > 1 ? parts[parts.length - 1]?.charAt(0) ?? '' : '')).toUpperCase();
+  });
+
   readonly primaryRoleName = computed(() => {
     const chosen = String(this.form().primaryRoleId ?? '');
 

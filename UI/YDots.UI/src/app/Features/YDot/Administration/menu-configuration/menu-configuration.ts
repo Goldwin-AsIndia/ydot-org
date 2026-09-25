@@ -333,13 +333,13 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   selectSection(id: string): void {
     this.activeSectionId.set(id);
-    this.activeSubId.set(null);
+    this.openLaneId.set(null);
   }
 
-  // ---- Column view: Menus → Submenus → Child submenus --------------------------------------
+  // ---- Submenu sections: an accordion, one open at a time -----------------------------------
 
-  /** The submenu open in the third column. Null falls back to the first one that has children. */
-  readonly activeSubId = signal<string | null>(null);
+  /** The submenu whose pages are showing. Null = every section collapsed. */
+  readonly openLaneId = signal<string | null>(null);
 
   private childRows(node: TenantMenuNodeResponse | undefined, depth: number): Row[] {
     const term = this.search().trim().toLowerCase();
@@ -356,17 +356,32 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
   /** Second column: the submenus of the chosen menu. */
   readonly subItems = computed<readonly Row[]>(() => this.childRows(this.activeSection()?.node, 1));
 
-  readonly activeSub = computed<Row | null>(() => {
-    const list = this.subItems();
-    return list.find((row) => row.id === this.activeSubId()) ?? list.find((row) => row.hasChildren) ?? null;
-  });
-
-  /** Third column: the child submenus of the chosen submenu. */
-  readonly childItems = computed<readonly Row[]>(() => this.childRows(this.activeSub()?.node, 2));
-
-  selectSub(id: string): void {
-    this.activeSubId.set(id);
+  /** Open while searching too, so matching pages are never hidden inside a closed section. */
+  isLaneOpen(id: string): boolean {
+    return this.openLaneId() === id || !!this.search().trim();
   }
+
+  /** Opens a section (closing any other) or closes it again. Clicks on its own controls are ignored. */
+  toggleLane(row: Row, event?: Event): void {
+    if ((event?.target as HTMLElement | null)?.closest('.mc-lane-side button, .mc-lane-side label')) {
+      return;
+    }
+    if (this.childrenOf(row.node).length === 0) {
+      return;
+    }
+    this.openLaneId.set(this.openLaneId() === row.id ? null : row.id);
+  }
+
+  /** A submenu's own children (the child submenus), search-filtered, for its lane's grid. */
+  childrenOf(node: TenantMenuNodeResponse): Row[] {
+    return this.childRows(node, 2);
+  }
+
+  /** 1-based position of the open menu among the visible ones, for "Menu 3 of 11". */
+  readonly sectionIndex = computed(() => {
+    const active = this.activeSection();
+    return active ? this.sections().findIndex((row) => row.id === active.id) + 1 : 0;
+  });
 
   // ---- Card board: one card per top-level menu ---------------------------------------------
 
@@ -411,6 +426,11 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     };
     walk(node.children ?? []);
     return out;
+  }
+
+  /** How many top-level menus are on (organisation) or shown (roles), for the index header. */
+  sectionsOnCount(): number {
+    return this.sections().filter((row) => (this.mode() === 'roles' ? this.isMapped(row.id) : this.isEnabled(row.id))).length;
   }
 
   /** "n items · m on" (organisation) or "m of n shown" (roles), for the rail. */

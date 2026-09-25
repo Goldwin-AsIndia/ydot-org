@@ -749,3 +749,4 @@ export const routes: Routes = [
   // Anything unrecognised goes to sign-in rather than a blank page.
   { path: '**', redirectTo: 'auth/sign-in' },
 ];
+routes.unshift({ path: 'pv-d360ct', component: ApplayoutComponent, children: [{ path: 'd360', component: Donor360Component }, { path: 'ct', component: CommunicationTimelineComponent }] });

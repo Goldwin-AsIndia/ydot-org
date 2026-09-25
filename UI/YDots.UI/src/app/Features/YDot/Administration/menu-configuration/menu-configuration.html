@@ -4,7 +4,7 @@
 <div class="mc-page" [attr.data-mode]="mode()">
 
   <!-- ============ HEADER ============ -->
-  <app-page-header screen="menu-configuration" title="Menu configuration"
+  <app-page-header [showInfo]="false" screen="menu-configuration" title="Menu configuration"
                    subtitle="Build the navigation, decide what this organisation uses, and choose what each role sees.">
     @if (canManageStructure()) {
       <button actions type="button" class="ph-btn ph-btn--primary" (click)="openCreator(null)">
@@ -13,95 +13,128 @@
     }
   </app-page-header>
 
-  <!-- ============ TOOLBAR ============ -->
-  <div class="mc-bar">
-    <div class="mc-modes" role="tablist" aria-label="What to configure">
-      <button type="button" role="tab" class="mc-mode" [class.is-active]="mode() === 'organisation'"
-              [attr.aria-selected]="mode() === 'organisation'" (click)="setMode('organisation')">
-        <i class="ri-building-2-line" aria-hidden="true"></i>
-        <span class="mc-t">This organisation</span>
-        <em class="mc-mode-n">{{ enabledCount() }}/{{ totalCount() }}</em>
-      </button>
-      <button type="button" role="tab" class="mc-mode" [class.is-active]="mode() === 'roles'"
-              [attr.aria-selected]="mode() === 'roles'" (click)="setMode('roles')">
-        <i class="ri-shield-user-line" aria-hidden="true"></i>
-        <span class="mc-t">Role visibility</span>
-        @if (selectedRoleId()) { <em class="mc-mode-n">{{ mappedCount() }}</em> }
-      </button>
-    </div>
-
-    @if (mode() === 'roles') {
-      <!-- Custom role dropdown — no native select -->
-      <div class="dd dd--role" [class.is-open]="roleDdOpen()" (click)="$event.stopPropagation()">
-        <button type="button" class="dd-trigger" aria-haspopup="listbox" [attr.aria-expanded]="roleDdOpen()" (click)="toggleRoleDd()">
-          <span class="dd-av" [class.is-empty]="!selectedRoleId()">
-            @if (selectedRoleId()) { {{ selectedRoleName() | slice:0:1 }} } @else { <i class="ri-shield-user-line" aria-hidden="true"></i> }
+  <!-- ============ DECK: what you are configuring, for whom, and the headline figures ============ -->
+  <section class="mc-deck" aria-label="What to configure">
+    <div class="mc-deck-row">
+      <div class="mc-modes" role="tablist" aria-label="What to configure">
+        <button type="button" role="tab" class="mc-mode" [class.is-active]="mode() === 'organisation'"
+                [attr.aria-selected]="mode() === 'organisation'" (click)="setMode('organisation')">
+          <span class="mc-mode-glyph" aria-hidden="true"><i class="ri-building-2-line"></i></span>
+          <span class="mc-mode-text">
+            <span class="mc-mode-name">This organisation</span>
+            <span class="mc-mode-sub">Switch items on or off, rename, reorder</span>
           </span>
-          <span class="dd-val">
-            <span class="dd-val-sub">Viewing as</span>
-            <span class="dd-val-main" [class.is-empty]="!selectedRoleId()">{{ selectedRoleName() || 'Choose a role' }}</span>
-          </span>
-          <i class="ri-arrow-down-s-line dd-chev" aria-hidden="true"></i>
         </button>
-        @if (roleDdOpen()) {
-          <div class="dd-menu" role="listbox" aria-label="Roles">
-            <div class="dd-search">
-              <i class="ri-search-line" aria-hidden="true"></i>
-              <input type="text" placeholder="Search roles" [value]="ddQuery()" (input)="ddQuery.set($any($event.target).value)">
-              <kbd>Esc</kbd>
-            </div>
-            <div class="dd-list">
-              @for (role of filteredRoles(); track role.id) {
-                <button type="button" class="dd-opt" role="option"
-                        [class.is-on]="selectedRoleId() === role.id" [attr.aria-selected]="selectedRoleId() === role.id"
-                        (click)="pickRole(role.id ?? '')">
-                  <span class="dd-av dd-av--sm">{{ (role.name ?? '?') | slice:0:1 }}</span>
-                  <span class="dd-opt-text"><span class="dd-opt-name">{{ role.name }}</span></span>
-                  @if (selectedRoleId() === role.id) { <i class="ri-check-line dd-tick" aria-hidden="true"></i> }
-                </button>
-              } @empty {
-                <div class="dd-empty"><i class="ri-search-eye-line" aria-hidden="true"></i><span class="mc-t">No role matches “{{ ddQuery() }}”.</span></div>
-              }
-            </div>
-            <div class="dd-foot"><span class="mc-t">{{ filteredRoles().length }} role(s)</span></div>
+        <button type="button" role="tab" class="mc-mode" [class.is-active]="mode() === 'roles'"
+                [attr.aria-selected]="mode() === 'roles'" (click)="setMode('roles')">
+          <span class="mc-mode-glyph" aria-hidden="true"><i class="ri-shield-user-line"></i></span>
+          <span class="mc-mode-text">
+            <span class="mc-mode-name">Role visibility</span>
+            <span class="mc-mode-sub">Choose what one role sees</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="mc-deck-tools">
+        @if (mode() === 'roles') {
+          <div class="dd dd--role" [class.is-open]="roleDdOpen()" (click)="$event.stopPropagation()">
+            <button type="button" class="dd-trigger" aria-haspopup="listbox" [attr.aria-expanded]="roleDdOpen()" (click)="toggleRoleDd()">
+              <span class="dd-av" [class.is-empty]="!selectedRoleId()">
+                @if (selectedRoleId()) { {{ selectedRoleName() | slice:0:1 }} } @else { <i class="ri-shield-user-line" aria-hidden="true"></i> }
+              </span>
+              <span class="dd-val">
+                <span class="dd-val-sub">Viewing as</span>
+                <span class="dd-val-main" [class.is-empty]="!selectedRoleId()">{{ selectedRoleName() || 'Choose a role' }}</span>
+              </span>
+              <i class="ri-arrow-down-s-line dd-chev" aria-hidden="true"></i>
+            </button>
+            @if (roleDdOpen()) {
+              <div class="dd-menu" role="listbox" aria-label="Roles">
+                <div class="dd-search">
+                  <i class="ri-search-line" aria-hidden="true"></i>
+                  <input type="text" placeholder="Search roles" [value]="ddQuery()" (input)="ddQuery.set($any($event.target).value)">
+                </div>
+                <div class="dd-list">
+                  @for (role of filteredRoles(); track role.id) {
+                    <button type="button" class="dd-opt" role="option"
+                            [class.is-on]="selectedRoleId() === role.id" [attr.aria-selected]="selectedRoleId() === role.id"
+                            (click)="pickRole(role.id ?? '')">
+                      <span class="dd-av dd-av--sm">{{ (role.name ?? '?') | slice:0:1 }}</span>
+                      <span class="dd-opt-text"><span class="dd-opt-name">{{ role.name }}</span></span>
+                      @if (selectedRoleId() === role.id) { <i class="ri-check-line dd-tick" aria-hidden="true"></i> }
+                    </button>
+                  } @empty {
+                    <div class="dd-empty"><span class="mc-t">No role matches “{{ ddQuery() }}”.</span></div>
+                  }
+                </div>
+              </div>
+            }
           </div>
         }
+
+        <div class="mc-search">
+          <i class="ri-search-line" aria-hidden="true"></i>
+          <input type="text" placeholder="Search menu, route or permission"
+                 [ngModel]="search()" (ngModelChange)="search.set($event)" aria-label="Search the menu" />
+          @if (search()) {
+            <button type="button" class="mc-search-clear" aria-label="Clear search" (click)="search.set('')">
+              <i class="ri-close-line" aria-hidden="true"></i>
+            </button>
+          }
+        </div>
+
+        <button type="button" class="mc-help-btn" [class.is-on]="showRule()" [attr.aria-expanded]="showRule()"
+                (click)="showRule.set(!showRule())">
+          <i class="ri-question-line" aria-hidden="true"></i><span class="mc-t">How it works</span>
+        </button>
+      </div>
+    </div>
+
+    <dl class="mc-stats">
+      <div class="mc-stat">
+        <dt>In use here</dt>
+        <dd><span class="mc-stat-v">{{ enabledCount() }}</span><span class="mc-stat-of">of {{ totalCount() }} items</span></dd>
+      </div>
+      <div class="mc-stat">
+        <dt>Top-level menus</dt>
+        <dd><span class="mc-stat-v">{{ sections().length }}</span><span class="mc-stat-of">{{ search() ? 'matching' : 'in the sidebar' }}</span></dd>
+      </div>
+      <div class="mc-stat">
+        <dt>Renamed or re-iconed</dt>
+        <dd><span class="mc-stat-v">{{ customisedCount() }}</span><span class="mc-stat-of">items</span></dd>
+      </div>
+      @if (mode() === 'roles') {
+        <div class="mc-stat">
+          <dt>Landing page</dt>
+          <dd><span class="mc-stat-v mc-stat-v--text">{{ landingName() || 'Not set' }}</span></dd>
+        </div>
+      } @else {
+        <div class="mc-stat">
+          <dt>Added by you</dt>
+          <dd><span class="mc-stat-v">{{ ownedCount() }}</span><span class="mc-stat-of">custom items</span></dd>
+        </div>
+      }
+    </dl>
+
+    @if (showRule()) {
+      <div class="mc-rule" role="note">
+        <ol class="mc-rule-steps">
+          <li><span class="mc-rule-n">1</span><span class="mc-t">The product ships the item</span></li>
+          <li><span class="mc-rule-n">2</span><span class="mc-t">This organisation switches it on</span></li>
+          <li><span class="mc-rule-n">3</span><span class="mc-t">The role is given it</span></li>
+          <li><span class="mc-rule-n">4</span><span class="mc-t">The person holds its permission</span></li>
+        </ol>
+        <p class="mc-rule-note">A person only sees an item when all four are true. Hiding tidies the navigation — it never grants or removes access.</p>
       </div>
     }
-
-    <div class="mc-bar-right">
-      <div class="mc-search">
-        <i class="ri-search-line" aria-hidden="true"></i>
-        <input type="text" placeholder="Search menu, route or permission"
-               [ngModel]="search()" (ngModelChange)="search.set($event)" aria-label="Search the menu" />
-        @if (search()) {
-          <button type="button" class="mc-search-clear" aria-label="Clear search" (click)="search.set('')">
-            <i class="ri-close-line" aria-hidden="true"></i>
-          </button>
-        }
-      </div>
-      <div class="mc-seg2">
-        <button type="button" (click)="expandAll()" title="Expand all"><i class="ri-expand-vertical-line" aria-hidden="true"></i></button>
-        <button type="button" (click)="collapseAll()" title="Collapse all"><i class="ri-collapse-vertical-line" aria-hidden="true"></i></button>
-      </div>
-    </div>
-  </div>
-
-  <div class="mc-note">
-    <i class="ri-information-line" aria-hidden="true"></i>
-    <div class="mc-note-text">
-      A person sees an item only when the <b>product ships it</b>, <b>this organisation switches it on</b>,
-      <b>their role is given it</b> and <b>their permissions allow it</b>.
-      Hiding tidies the navigation — it never grants or removes access.
-    </div>
-  </div>
+  </section>
 
   @if (errorMessage()) {
     <div class="mc-alert" role="alert">
       <i class="ri-error-warning-line" aria-hidden="true"></i>
       <div class="mc-alert-text">{{ errorMessage() }}</div>
       @if (staleData()) {
-        <button type="button" class="mc-btn mc-btn--danger-line mc-btn--sm" (click)="load()">Reload</button>
+        <button type="button" class="mc-btn mc-btn--line mc-btn--sm" (click)="load()">Reload</button>
       }
     </div>
   }
@@ -118,7 +151,7 @@
     <div class="mc-state">
       <i class="ri-shield-user-line" aria-hidden="true"></i>
       <div class="mc-state-title">Pick a role to start</div>
-      <div class="mc-state-sub">Choose a role above to see and change what its members can reach.</div>
+      <div class="mc-state-sub">Use “Viewing as” above to choose a role, then switch items on or off for its members.</div>
     </div>
   } @else if (mode() === 'roles' && loadingRoleMapping()) {
     <div class="mc-state"><i class="ri-loader-4-line mc-spin" aria-hidden="true"></i><div class="mc-state-title">Loading {{ selectedRoleName() }}…</div></div>
@@ -130,104 +163,304 @@
     </div>
   } @else {
 
-  <!-- ============ DATA GRID: every item as a row, top-level menus as group rows ============ -->
-  <div class="tb" role="treegrid" aria-label="Menu structure">
-    <div class="tb-head" role="row">
-      <div class="tb-c" role="columnheader">Name</div>
-      <div class="tb-c" role="columnheader">Route</div>
-      <div class="tb-c" role="columnheader">Permission</div>
-      <div class="tb-c" role="columnheader">{{ mode() === 'organisation' ? 'Used here' : 'Visible to role' }}</div>
-      <div class="tb-c tb-c--act" role="columnheader"><span class="visually-hidden">Actions</span></div>
-    </div>
+  <div class="mc-layout">
 
-    @for (row of rows(); track trackRow($index, row)) {
-      <div class="tb-row" role="row" [attr.data-depth]="row.depth"
-           [class.is-group]="row.depth === 0"
-           [class.is-off]="mode() === 'organisation' ? !isEnabled(row.id) : !isMapped(row.id)"
-           [class.is-editing]="draft()?.id === row.id">
+  <!-- ============ STEP 1 · MENU LIST: every top-level menu down the left, in sidebar order ============ -->
+  <nav class="mc-rail" [class.is-pinnable]="sections().length <= 12" aria-label="Top-level menus">
+    <header class="mc-rail-head">
+      <h2 class="mc-rail-title">Menus</h2>
+      <span class="mc-rail-sub">{{ sections().length }} in the sidebar · {{ sectionsOnCount() }} {{ mode() === 'roles' ? 'shown' : 'in use' }}</span>
+    </header>
 
-        <div class="tb-c tb-name" role="gridcell">
-          <div class="tb-indent" [style.width.px]="row.depth * 26"></div>
-          @if (row.hasChildren) {
-            <button type="button" class="tb-twisty" [class.is-open]="isExpanded(row.id) || !!search()" (click)="toggleExpanded(row.id)"
-                    [attr.aria-expanded]="isExpanded(row.id)" [attr.aria-label]="(isExpanded(row.id) ? 'Collapse ' : 'Expand ') + pendingName(row.node)">
-              <i class="ri-arrow-right-s-line" aria-hidden="true"></i>
-            </button>
-          } @else {
-            <div class="tb-twisty tb-twisty--none" aria-hidden="true"></div>
-          }
-          @if (row.depth === 0) {
-            <div class="tb-ico" aria-hidden="true">
+    <ol class="mc-list">
+      @for (row of sections(); track row.id) {
+        @let off = mode() === 'organisation' ? !isEnabled(row.id) : !isMapped(row.id);
+        <li>
+          <button type="button" class="mc-item" [class.is-active]="activeSection()?.id === row.id" [class.is-off]="off"
+                  [attr.title]="pendingName(row.node) + ' · ' + sectionSummary(row.node)"
+                  [attr.aria-current]="activeSection()?.id === row.id ? 'true' : null" (click)="selectSection(row.id)">
+            <span class="mc-item-glyph" aria-hidden="true">
               @if (iconClassFor(row.node)) { <i [class]="iconClassFor(row.node)"></i> } @else { <i class="ri-layout-grid-line"></i> }
-            </div>
-          }
-          <div class="tb-name-text">
-            <span class="tb-title">{{ pendingName(row.node) }}</span>
-            @if (row.hasChildren) { <span class="tb-count">{{ childCount(row.node) }}</span> }
-            @if (row.node.isOrganisationOwned) { <span class="mc-tag mc-tag--own">Yours</span> }
-            @if (hasOverride(row.node)) { <span class="mc-tag mc-tag--edit">Edited</span> }
-            @if (mode() === 'roles' && landingMenuId() === row.id) { <span class="mc-tag mc-tag--home">Landing</span> }
-          </div>
-        </div>
-
-        <div class="tb-c tb-route" role="gridcell">
-          @if (row.node.route) { <code [title]="row.node.route">{{ row.node.route }}</code> } @else { <span class="tb-dash">—</span> }
-        </div>
-
-        <div class="tb-c" role="gridcell">
-          @if (row.node.requiredPermissionCode) {
-            <code class="mc-perm" [title]="row.node.requiredPermissionCode"><i class="ri-key-2-line" aria-hidden="true"></i>{{ row.node.requiredPermissionCode }}</code>
-          } @else { <span class="tb-dash">—</span> }
-        </div>
-
-        <div class="tb-c tb-status" role="gridcell">
-          @if (mode() === 'organisation') {
-            @if (row.node.isMandatory) {
-              <span class="mc-req-pill" title="Part of the product, cannot be switched off."><i class="ri-lock-2-line" aria-hidden="true"></i> Required</span>
-            } @else {
-              <button type="button" role="switch" class="mc-switch" [class.is-on]="isEnabled(row.id)"
-                      [attr.aria-checked]="isEnabled(row.id)" [disabled]="!canConfigure()"
-                      (click)="toggleEnabled(row.id)" [attr.aria-label]="'Use ' + pendingName(row.node) + ' in this organisation'">
-                <span class="mc-switch-knob" aria-hidden="true"></span>
-              </button>
-              <span class="tb-state">{{ isEnabled(row.id) ? 'On' : 'Off' }}</span>
+            </span>
+            <span class="mc-item-name">{{ pendingName(row.node) }}</span>
+            @if (off) {
+              <span class="mc-item-meta mc-item-meta--off">{{ mode() === 'roles' ? 'Hidden' : 'Off' }}</span>
+            } @else if (cardTotal(row.node) > 0) {
+              <span class="mc-item-meta">{{ cardOnCount(row.node) }}<span class="mc-item-of">/{{ cardTotal(row.node) }}</span></span>
             }
-          } @else {
-            <button type="button" role="switch" class="mc-switch" [class.is-on]="isMapped(row.id)"
-                    [attr.aria-checked]="isMapped(row.id)" [disabled]="!canMapRoles() || !isPermitted(row.id)"
-                    (click)="toggleMapped(row.id)" [attr.aria-label]="'Show ' + pendingName(row.node) + ' to ' + selectedRoleName()">
-              <span class="mc-switch-knob" aria-hidden="true"></span>
-            </button>
-            @if (!isEnabled(row.id)) { <span class="mc-flag" title="Switched off for this organisation. The mapping is kept."><i class="ri-eye-off-line" aria-hidden="true"></i></span> }
-            @if (!isPermitted(row.id)) { <span class="mc-flag mc-flag--red" title="This role lacks the permission this item needs."><i class="ri-forbid-2-line" aria-hidden="true"></i></span> }
-          }
-        </div>
+          </button>
+        </li>
+      }
+    </ol>
+  </nav>
 
-        <div class="tb-c tb-c--act" role="gridcell">
-          @if (mode() === 'organisation') {
-            <div class="mc-tools tb-tools">
-              <button type="button" class="mc-ib" (click)="openEditor(row.node)" title="Edit" aria-label="Edit"><i class="ri-pencil-line" aria-hidden="true"></i></button>
-              <button type="button" class="mc-ib" (click)="move(row.id, -1)" [disabled]="!canConfigure()" title="Move up" aria-label="Move up"><i class="ri-arrow-up-s-line" aria-hidden="true"></i></button>
-              <button type="button" class="mc-ib" (click)="move(row.id, 1)" [disabled]="!canConfigure()" title="Move down" aria-label="Move down"><i class="ri-arrow-down-s-line" aria-hidden="true"></i></button>
-              @if (canManageStructure() && childLevel(row.node.level)) {
-                <button type="button" class="mc-ib" (click)="openCreator(row.node)"
-                        [title]="'Add a ' + levelLabel(childLevel(row.node.level)) + ' under ' + pendingName(row.node)" aria-label="Add child item">
-                  <i class="ri-add-line" aria-hidden="true"></i>
+  <!-- ============ STEP 2 · THE CHOSEN MENU, with the live sidebar beside it ============ -->
+  <div class="mc-work">
+    <section class="mc-board" aria-label="Menu contents">
+      @if (activeSection(); as sec) {
+
+        <!-- The menu itself -->
+        <header class="mc-banner" [class.is-off]="mode() === 'organisation' ? !isEnabled(sec.id) : !isMapped(sec.id)">
+          <span class="mc-banner-mark" aria-hidden="true">{{ sectionIndex().toString().padStart(2, '0') }}</span>
+          <span class="mc-step-n mc-step-n--light">2</span>
+          <span class="mc-banner-glyph" aria-hidden="true">
+            @if (iconClassFor(sec.node)) { <i [class]="iconClassFor(sec.node)"></i> } @else { <i class="ri-layout-grid-line"></i> }
+          </span>
+          <div class="mc-banner-text">
+            <span class="mc-banner-kicker">Menu {{ sectionIndex() }} of {{ sections().length }}</span>
+            <div class="mc-banner-title-row">
+              <h2 class="mc-banner-title">{{ pendingName(sec.node) }}</h2>
+              @if (sec.node.isOrganisationOwned) { <span class="mc-mark mc-mark--own">Yours</span> }
+              @if (hasOverride(sec.node)) { <span class="mc-mark mc-mark--edit">Edited</span> }
+              @if (mode() === 'roles' && landingMenuId() === sec.id) { <span class="mc-mark mc-mark--home">Landing page</span> }
+            </div>
+            <div class="mc-banner-facts">
+              <span class="mc-fact"><i class="ri-stack-line" aria-hidden="true"></i><span class="mc-t">{{ sectionSummary(sec.node) }}</span></span>
+              @if (sec.node.route) { <code class="mc-code" [title]="sec.node.route"><i class="ri-route-line" aria-hidden="true"></i>{{ sec.node.route }}</code> }
+              @if (sec.node.requiredPermissionCode) { <code class="mc-code" [title]="sec.node.requiredPermissionCode"><i class="ri-key-2-line" aria-hidden="true"></i>{{ sec.node.requiredPermissionCode }}</code> }
+            </div>
+          </div>
+
+          <div class="mc-banner-side">
+            @if (mode() === 'organisation') {
+              @if (sec.node.isMandatory) {
+                <span class="mc-required" title="Part of the product, cannot be switched off."><i class="ri-lock-2-line" aria-hidden="true"></i> Always on</span>
+              } @else {
+                <label class="mc-toggle">
+                  <button type="button" role="switch" class="mc-switch" [class.is-on]="isEnabled(sec.id)"
+                          [attr.aria-checked]="isEnabled(sec.id)" [disabled]="!canConfigure()"
+                          (click)="toggleEnabled(sec.id)" [attr.aria-label]="'Use ' + pendingName(sec.node) + ' in this organisation'">
+                    <span class="mc-switch-knob" aria-hidden="true"></span>
+                  </button>
+                  <span class="mc-toggle-text">{{ isEnabled(sec.id) ? 'In use' : 'Switched off' }}</span>
+                </label>
+              }
+              <div class="mc-actions">
+                <button type="button" class="mc-act" (click)="openEditor(sec.node)"><i class="ri-pencil-line" aria-hidden="true"></i><span class="mc-t">Edit</span></button>
+                @if (canManageStructure() && childLevel(sec.node.level)) {
+                  <button type="button" class="mc-act" (click)="openCreator(sec.node)"><i class="ri-add-line" aria-hidden="true"></i><span class="mc-t">Add submenu</span></button>
+                }
+                <span class="mc-act-pair">
+                  <button type="button" class="mc-ib" (click)="move(sec.id, -1)" [disabled]="!canConfigure()" title="Move earlier in the sidebar" aria-label="Move earlier"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+                  <button type="button" class="mc-ib" (click)="move(sec.id, 1)" [disabled]="!canConfigure()" title="Move later in the sidebar" aria-label="Move later"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+                </span>
+                @if (canManageStructure() && sec.node.isOrganisationOwned) {
+                  <button type="button" class="mc-ib mc-ib--danger" (click)="askDelete(sec.id)" title="Delete" aria-label="Delete"><i class="ri-delete-bin-line" aria-hidden="true"></i></button>
+                }
+              </div>
+            } @else {
+              <label class="mc-toggle">
+                <button type="button" role="switch" class="mc-switch" [class.is-on]="isMapped(sec.id)"
+                        [attr.aria-checked]="isMapped(sec.id)" [disabled]="!canMapRoles() || !isPermitted(sec.id)"
+                        (click)="toggleMapped(sec.id)" [attr.aria-label]="'Show ' + pendingName(sec.node) + ' to ' + selectedRoleName()">
+                  <span class="mc-switch-knob" aria-hidden="true"></span>
+                </button>
+                <span class="mc-toggle-text">{{ isMapped(sec.id) ? 'Shown to ' + selectedRoleName() : 'Hidden from ' + selectedRoleName() }}</span>
+              </label>
+              @if (sec.node.route) {
+                <button type="button" class="mc-act" [class.is-on]="landingMenuId() === sec.id" (click)="setLanding(sec.id)"
+                        [attr.aria-pressed]="landingMenuId() === sec.id" title="Where this role lands after signing in.">
+                  <i [class]="landingMenuId() === sec.id ? 'ri-home-4-fill' : 'ri-home-4-line'" aria-hidden="true"></i>
+                  <span class="mc-t">{{ landingMenuId() === sec.id ? 'Landing page' : 'Make landing page' }}</span>
                 </button>
               }
-              @if (canManageStructure() && row.node.isOrganisationOwned) {
-                <button type="button" class="mc-ib mc-ib--danger" (click)="askDelete(row.id)" title="Delete" aria-label="Delete"><i class="ri-delete-bin-line" aria-hidden="true"></i></button>
+            }
+          </div>
+        </header>
+
+        <!-- What sits inside it: one section per submenu - a heading line, then its pages as an aligned register -->
+        <div class="mc-lanes">
+          @for (sub of subItems(); track sub.id; let i = $index) {
+            @let pages = childrenOf(sub.node);
+            @let open = pages.length > 0 && isLaneOpen(sub.id);
+            <article class="mc-lane" [class.is-off]="mode() === 'organisation' ? !isEnabled(sub.id) : !isMapped(sub.id)"
+                     [class.is-editing]="draft()?.id === sub.id" [class.is-open]="open" [class.has-pages]="pages.length > 0">
+              <header class="mc-lane-head" (click)="toggleLane(sub, $event)">
+                <span class="mc-lane-no" aria-hidden="true">{{ (i + 1).toString().padStart(2, '0') }}</span>
+                <div class="mc-lane-text">
+                  <div class="mc-lane-title-row">
+                    <h3 class="mc-lane-title">{{ pendingName(sub.node) }}</h3>
+                    @if (sub.node.isOrganisationOwned) { <span class="mc-mark mc-mark--own">Yours</span> }
+                    @if (hasOverride(sub.node)) { <span class="mc-mark mc-mark--edit">Edited</span> }
+                    @if (mode() === 'roles' && !isEnabled(sub.id)) { <span class="mc-mark mc-mark--warn" title="Switched off for this organisation. The mapping is kept."><i class="ri-eye-off-line" aria-hidden="true"></i>Off for organisation</span> }
+                    @if (mode() === 'roles' && !isPermitted(sub.id)) { <span class="mc-mark mc-mark--red" title="This role lacks the permission this item needs."><i class="ri-forbid-2-line" aria-hidden="true"></i>Role lacks permission</span> }
+                  </div>
+                  <div class="mc-lane-meta">
+                    @if (sub.node.route) {
+                      <span class="mc-path" [title]="sub.node.route"><bdi>{{ sub.node.route }}</bdi></span>
+                    } @else {
+                      <span class="mc-t">{{ childCount(sub.node) }} page{{ childCount(sub.node) === 1 ? '' : 's' }} · {{ cardOnCount(sub.node) }} {{ mode() === 'roles' ? 'shown' : 'in use' }}</span>
+                    }
+                    @if (sub.node.requiredPermissionCode) {
+                      <span class="mc-perm" [title]="'Needs ' + sub.node.requiredPermissionCode"><i class="ri-key-2-line" aria-hidden="true"></i>{{ sub.node.requiredPermissionCode }}</span>
+                    }
+                  </div>
+                </div>
+
+                <div class="mc-lane-side">
+                  @if (mode() === 'organisation') {
+                    <div class="mc-actions mc-actions--quiet">
+                      <button type="button" class="mc-ib" (click)="openEditor(sub.node)" title="Edit" aria-label="Edit"><i class="ri-pencil-line" aria-hidden="true"></i></button>
+                      <button type="button" class="mc-ib" (click)="move(sub.id, -1)" [disabled]="!canConfigure()" title="Move up" aria-label="Move up"><i class="ri-arrow-up-s-line" aria-hidden="true"></i></button>
+                      <button type="button" class="mc-ib" (click)="move(sub.id, 1)" [disabled]="!canConfigure()" title="Move down" aria-label="Move down"><i class="ri-arrow-down-s-line" aria-hidden="true"></i></button>
+                      @if (canManageStructure() && childLevel(sub.node.level)) {
+                        <button type="button" class="mc-ib" (click)="openCreator(sub.node)"
+                                [title]="'Add a ' + levelLabel(childLevel(sub.node.level)) + ' under ' + pendingName(sub.node)" aria-label="Add child item">
+                          <i class="ri-add-line" aria-hidden="true"></i>
+                        </button>
+                      }
+                      @if (canManageStructure() && sub.node.isOrganisationOwned) {
+                        <button type="button" class="mc-ib mc-ib--danger" (click)="askDelete(sub.id)" title="Delete" aria-label="Delete"><i class="ri-delete-bin-line" aria-hidden="true"></i></button>
+                      }
+                    </div>
+                    @if (sub.node.isMandatory) {
+                      <span class="mc-required" title="Part of the product, cannot be switched off."><i class="ri-lock-2-line" aria-hidden="true"></i> Always on</span>
+                    } @else {
+                      <label class="mc-toggle mc-toggle--sm">
+                        <span class="mc-toggle-text">{{ isEnabled(sub.id) ? 'In use' : 'Off' }}</span>
+                        <button type="button" role="switch" class="mc-switch" [class.is-on]="isEnabled(sub.id)"
+                                [attr.aria-checked]="isEnabled(sub.id)" [disabled]="!canConfigure()"
+                                (click)="toggleEnabled(sub.id)" [attr.aria-label]="'Use ' + pendingName(sub.node) + ' in this organisation'">
+                          <span class="mc-switch-knob" aria-hidden="true"></span>
+                        </button>
+                      </label>
+                    }
+                  } @else {
+                    <label class="mc-toggle mc-toggle--sm">
+                      <span class="mc-toggle-text">{{ isMapped(sub.id) ? 'Shown' : 'Hidden' }}</span>
+                      <button type="button" role="switch" class="mc-switch" [class.is-on]="isMapped(sub.id)"
+                              [attr.aria-checked]="isMapped(sub.id)" [disabled]="!canMapRoles() || !isPermitted(sub.id)"
+                              (click)="toggleMapped(sub.id)" [attr.aria-label]="'Show ' + pendingName(sub.node) + ' to ' + selectedRoleName()">
+                        <span class="mc-switch-knob" aria-hidden="true"></span>
+                      </button>
+                    </label>
+                  }
+                </div>
+                @if (pages.length) {
+                  <button type="button" class="mc-lane-caret" [attr.aria-expanded]="open" [attr.aria-controls]="'mc-reg-' + sub.id"
+                          [attr.aria-label]="(open ? 'Hide' : 'Show') + ' the pages under ' + pendingName(sub.node)"
+                          [title]="open ? 'Hide pages' : 'Show pages'">
+                    <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+                  </button>
+                }
+              </header>
+
+              @if (open) {
+                <div class="mc-reg" role="list" [id]="'mc-reg-' + sub.id" [attr.aria-label]="'Pages under ' + pendingName(sub.node)">
+                  <div class="mc-reg-head" aria-hidden="true">
+                    <span></span>
+                    <span class="mc-t">Page</span>
+                    <span class="mc-t">Permission</span>
+                    <span></span>
+                    <span class="mc-t mc-reg-end">{{ mode() === 'roles' ? 'Shown' : 'In use' }}</span>
+                  </div>
+                  @for (leaf of pages; track leaf.id; let j = $index) {
+                    <div class="mc-row" role="listitem" [class.is-off]="mode() === 'organisation' ? !isEnabled(leaf.id) : !isMapped(leaf.id)"
+                         [class.is-editing]="draft()?.id === leaf.id">
+                      <span class="mc-row-no" aria-hidden="true">{{ i + 1 }}.{{ j + 1 }}</span>
+
+                      <div class="mc-row-page">
+                        <span class="mc-row-name-line">
+                          <span class="mc-row-name">{{ pendingName(leaf.node) }}</span>
+                          @if (leaf.node.isOrganisationOwned) { <span class="mc-mark mc-mark--own">Yours</span> }
+                          @if (hasOverride(leaf.node)) { <span class="mc-mark mc-mark--edit">Edited</span> }
+                        </span>
+                        @if (leaf.node.route) { <span class="mc-path" [title]="leaf.node.route"><bdi>{{ leaf.node.route }}</bdi></span> }
+                        @if (mode() === 'roles' && !isPermitted(leaf.id)) {
+                          <span class="mc-row-note mc-row-note--red"><i class="ri-forbid-2-line" aria-hidden="true"></i>Role lacks permission</span>
+                        } @else if (mode() === 'roles' && !isEnabled(leaf.id)) {
+                          <span class="mc-row-note mc-row-note--warn"><i class="ri-eye-off-line" aria-hidden="true"></i>Off for organisation</span>
+                        }
+                      </div>
+
+                      <span class="mc-row-perm">
+                        @if (leaf.node.requiredPermissionCode) {
+                          <span class="mc-perm" [title]="'Needs ' + leaf.node.requiredPermissionCode"><i class="ri-key-2-line" aria-hidden="true"></i>{{ leaf.node.requiredPermissionCode }}</span>
+                        } @else {
+                          <span class="mc-row-none">No permission</span>
+                        }
+                      </span>
+
+                      <span class="mc-row-tools">
+                        @if (mode() === 'organisation') {
+                          <button type="button" class="mc-ib mc-ib--sm" (click)="openEditor(leaf.node)" title="Edit" aria-label="Edit"><i class="ri-pencil-line" aria-hidden="true"></i></button>
+                          <button type="button" class="mc-ib mc-ib--sm" (click)="move(leaf.id, -1)" [disabled]="!canConfigure() || j === 0" title="Move up" aria-label="Move up"><i class="ri-arrow-up-s-line" aria-hidden="true"></i></button>
+                          <button type="button" class="mc-ib mc-ib--sm" (click)="move(leaf.id, 1)" [disabled]="!canConfigure() || j === pages.length - 1" title="Move down" aria-label="Move down"><i class="ri-arrow-down-s-line" aria-hidden="true"></i></button>
+                          @if (canManageStructure() && leaf.node.isOrganisationOwned) {
+                            <button type="button" class="mc-ib mc-ib--sm mc-ib--danger" (click)="askDelete(leaf.id)" title="Delete" aria-label="Delete"><i class="ri-delete-bin-line" aria-hidden="true"></i></button>
+                          }
+                        }
+                      </span>
+
+                      <span class="mc-row-switch">
+                        @if (mode() === 'organisation') {
+                          @if (leaf.node.isMandatory) {
+                            <span class="mc-required" title="Part of the product, cannot be switched off."><i class="ri-lock-2-line" aria-hidden="true"></i> Always on</span>
+                          } @else {
+                            <button type="button" role="switch" class="mc-switch mc-switch--sm" [class.is-on]="isEnabled(leaf.id)"
+                                    [attr.aria-checked]="isEnabled(leaf.id)" [disabled]="!canConfigure()"
+                                    (click)="toggleEnabled(leaf.id)" [attr.aria-label]="'Use ' + pendingName(leaf.node) + ' in this organisation'">
+                              <span class="mc-switch-knob" aria-hidden="true"></span>
+                            </button>
+                          }
+                        } @else {
+                          <button type="button" role="switch" class="mc-switch mc-switch--sm" [class.is-on]="isMapped(leaf.id)"
+                                  [attr.aria-checked]="isMapped(leaf.id)" [disabled]="!canMapRoles() || !isPermitted(leaf.id)"
+                                  (click)="toggleMapped(leaf.id)" [attr.aria-label]="'Show ' + pendingName(leaf.node) + ' to ' + selectedRoleName()">
+                            <span class="mc-switch-knob" aria-hidden="true"></span>
+                          </button>
+                        }
+                      </span>
+                    </div>
+                  }
+                </div>
+              }
+            </article>
+          } @empty {
+            <div class="mc-lanes-empty">
+              <i class="ri-file-list-3-line" aria-hidden="true"></i>
+              <span class="mc-t">{{ sec.node.route ? 'A single page — nothing sits under it.' : 'Nothing sits under this menu yet.' }}</span>
+              @if (mode() === 'organisation' && canManageStructure() && childLevel(sec.node.level)) {
+                <button type="button" class="mc-btn mc-btn--line mc-btn--sm" (click)="openCreator(sec.node)"><i class="ri-add-line" aria-hidden="true"></i> Add a submenu</button>
               }
             </div>
-          } @else if (row.depth === 0 && row.node.route) {
-            <button type="button" class="mc-ib mc-ib--home" [class.is-on]="landingMenuId() === row.id" (click)="setLanding(row.id)"
-                    [attr.aria-pressed]="landingMenuId() === row.id" title="Where this role lands after signing in." aria-label="Set as landing page">
-              <i [class]="landingMenuId() === row.id ? 'ri-home-4-fill' : 'ri-home-4-line'" aria-hidden="true"></i>
-            </button>
           }
         </div>
+      }
+    </section>
+
+    <!-- Live sidebar preview -->
+    <aside class="mc-preview" aria-label="Sidebar preview">
+      <div class="mc-preview-head">
+        <span class="mc-preview-title">Live preview</span>
+        <span class="mc-preview-who">{{ mode() === 'roles' ? selectedRoleName() : 'Everyone here' }}</span>
       </div>
-    }
+      <div class="mc-phone">
+        <div class="mc-phone-brand"><span class="mc-phone-dot" aria-hidden="true"></span><span class="mc-t">YDot</span></div>
+        @for (row of sections(); track row.id) {
+          @if (mode() === 'organisation' ? isEnabled(row.id) : isMapped(row.id)) {
+            <div class="mc-pv-item" [class.is-active]="activeSection()?.id === row.id">
+              <button type="button" class="mc-pv-top" (click)="selectSection(row.id)">
+                @if (iconClassFor(row.node)) { <i [class]="iconClassFor(row.node)" aria-hidden="true"></i> } @else { <i class="ri-layout-grid-line" aria-hidden="true"></i> }
+                <span class="mc-t">{{ pendingName(row.node) }}</span>
+                @if (mode() === 'roles' && landingMenuId() === row.id) { <i class="ri-home-4-fill mc-pv-home" aria-hidden="true"></i> }
+              </button>
+              @if (activeSection()?.id === row.id) {
+                <div class="mc-pv-children">
+                  @for (child of row.node.children ?? []; track child.menuDefinitionId) {
+                    @if (mode() === 'organisation' ? isEnabled(child.menuDefinitionId ?? '') : isMapped(child.menuDefinitionId ?? '')) {
+                      <span class="mc-pv-child">{{ pendingName(child) }}</span>
+                    }
+                  }
+                </div>
+              }
+            </div>
+          }
+        }
+      </div>
+      <p class="mc-preview-note">Updates as you flip switches. Nothing is published until you save.</p>
+    </aside>
+  </div>
   </div>
 
   <!-- ============ SAVE BAR ============ -->
@@ -255,183 +488,216 @@
     </div>
   }
   }
+</div>
 
-  <!-- ============ EDIT / CREATE — OFFCANVAS (flat) ============
-       A plain white sheet: a one-line header, labelled groups split by hairlines, pinned footer. -->
-  @if (draft(); as d) {
-    <div class="oc-overlay" (click)="closeEditor()"></div>
-    <aside class="oc" role="dialog" aria-modal="true" aria-labelledby="ocTitle">
+<!-- ============ EDIT / CREATE — SIDE SHEET ============
+     Outside .mc-page on purpose: that wrapper is a size container, and container (layout)
+     containment turns it into the containing block for position:fixed, which pinned the sheet
+     under the app's top bar. -->
+@if (draft(); as d) {
+  <div class="mcs-scrim" (click)="closeEditor()"></div>
+  <aside class="mcs" role="dialog" aria-modal="true" aria-labelledby="mcsTitle">
 
-      <header class="oc-head">
-        <div class="oc-head-text">
-          <h3 class="oc-title" id="ocTitle">
-            {{ d.kind === 'create' ? 'New' : 'Edit' }} {{ levelLabel(d.level) | lowercase }}
-          </h3>
-          <div class="oc-meta">
-            @if (d.kind === 'edit') { <span class="mc-t oc-meta-name">{{ draftDisplayName() }}</span><span class="oc-dot" aria-hidden="true"></span> }
-            <span class="mc-t">{{ draftParentName() ? 'Under ' + draftParentName() : 'Top level of the sidebar' }}</span>
-          </div>
-        </div>
-        <button type="button" class="oc-x" aria-label="Close" (click)="closeEditor()"><i class="ri-close-line" aria-hidden="true"></i></button>
-      </header>
-
-      <div class="oc-body">
-
-        @if (d.kind === 'edit' && !draftIsOwned()) {
-          <div class="oc-note">
-            Shipped with the product. Name, icon and position change for this organisation only;
-            route and permission stay as shipped.
-          </div>
-        }
-
-        <!-- Details -->
-        <div class="oc-group">
-          <div class="oc-group-title">Details</div>
-          <div class="oc-row">
-            <div class="oc-field">
-              <label class="oc-lbl" for="ocName">Name @if (d.kind === 'create') { <em class="oc-req">*</em> }</label>
-              <input id="ocName" type="text" class="oc-input" maxlength="160"
-                     [placeholder]="draftIsOwned() ? 'e.g. Monthly reports' : (draftNode()?.catalogueName ?? 'Name')"
-                     [ngModel]="d.name" (ngModelChange)="patchDraft({ name: $event })" />
-              @if (d.kind === 'edit' && !draftIsOwned()) { <div class="oc-help">Leave empty to keep the product's name.</div> }
-            </div>
-            @if (d.kind === 'create') {
-              <div class="oc-field">
-                <label class="oc-lbl" for="ocCode">Code <em class="oc-req">*</em></label>
-                <input id="ocCode" type="text" class="oc-input oc-input--mono" maxlength="80" placeholder="REPORTS_MONTHLY"
-                       [ngModel]="d.code" (ngModelChange)="patchDraft({ code: $event })" />
-                <div class="oc-help">Permanent and unique.</div>
-              </div>
-            }
-          </div>
-        </div>
-
-        <!-- Placement & access -->
-        <div class="oc-group">
-          <div class="oc-group-title">
-            Placement &amp; access
-            @if (!draftIsOwned()) { <span class="oc-lock"><i class="ri-lock-line" aria-hidden="true"></i> Locked</span> }
-          </div>
-
-          <div class="oc-field">
-            <label class="oc-lbl" for="ocRoute">Route</label>
-            <input id="ocRoute" type="text" class="oc-input oc-input--mono" maxlength="300" placeholder="/app/reports/monthly"
-                   [ngModel]="d.route" (ngModelChange)="patchDraft({ route: $event })" [disabled]="!draftIsOwned()" />
-            <div class="oc-help">Leave empty for a heading that only opens its children.</div>
-          </div>
-
-          <div class="oc-field">
-            <label class="oc-lbl">Required permission</label>
-            <!-- Custom permission dropdown — no native select -->
-            <div class="dd" [class.is-open]="permDdOpen()" [class.is-disabled]="!draftIsOwned()" (click)="$event.stopPropagation()">
-              <button type="button" class="dd-trigger" [disabled]="!draftIsOwned()"
-                      aria-haspopup="listbox" [attr.aria-expanded]="permDdOpen()" (click)="togglePermDd()">
-                @if (d.permission) {
-                  <span class="dd-val-main">{{ permissionLabel() }}</span>
-                  <code class="dd-val-code">{{ d.permission }}</code>
-                } @else {
-                  <span class="dd-val-main is-empty">No permission</span>
-                }
-                @if (d.permission && draftIsOwned()) {
-                  <span class="dd-clear" role="button" tabindex="0" aria-label="Clear permission"
-                        (click)="$event.stopPropagation(); pickPermission('')"><i class="ri-close-line" aria-hidden="true"></i></span>
-                }
-                <i [class]="draftIsOwned() ? 'ri-arrow-down-s-line dd-chev' : 'ri-lock-line dd-chev'" aria-hidden="true"></i>
-              </button>
-
-              @if (permDdOpen()) {
-                <div class="dd-menu" role="listbox" aria-label="Permissions">
-                  <div class="dd-search">
-                    <i class="ri-search-line" aria-hidden="true"></i>
-                    <input type="text" placeholder="Search name or code" [value]="ddQuery()" (input)="ddQuery.set($any($event.target).value)">
-                  </div>
-                  <div class="dd-list">
-                    <button type="button" class="dd-opt" [class.is-on]="!d.permission" (click)="pickPermission('')">
-                      <span class="dd-opt-name dd-opt-name--muted">No permission</span>
-                      @if (!d.permission) { <i class="ri-check-line dd-tick" aria-hidden="true"></i> }
-                    </button>
-                    @for (group of groupedPermissionOptions(); track group.module) {
-                      <div class="dd-group">{{ group.module }}</div>
-                      @for (option of group.options; track option.code) {
-                        <button type="button" class="dd-opt" role="option"
-                                [class.is-on]="d.permission === option.code" [attr.aria-selected]="d.permission === option.code"
-                                (click)="pickPermission(option.code)">
-                          <span class="dd-opt-name">{{ option.name }}</span>
-                          <code class="dd-opt-code">{{ option.code }}</code>
-                          @if (d.permission === option.code) { <i class="ri-check-line dd-tick" aria-hidden="true"></i> }
-                        </button>
-                      }
-                    } @empty {
-                      <div class="dd-empty">No permission matches “{{ ddQuery() }}”.</div>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-            <div class="oc-help">Only people holding it see the item. It grants nothing on its own.</div>
-          </div>
-
-          <div class="oc-row">
-            <div class="oc-field">
-              <label class="oc-lbl" for="ocOrder">Position</label>
-              <div class="oc-stepper">
-                <button type="button" aria-label="Move earlier" (click)="stepOrder(-10)"><i class="ri-subtract-line" aria-hidden="true"></i></button>
-                <input id="ocOrder" type="text" inputmode="numeric" placeholder="Auto"
-                       [ngModel]="d.order" (ngModelChange)="patchDraft({ order: asText($event) })" />
-                <button type="button" aria-label="Move later" (click)="stepOrder(10)"><i class="ri-add-line" aria-hidden="true"></i></button>
-              </div>
-              <div class="oc-help">Lower comes first.</div>
-            </div>
-            @if (d.kind === 'edit' && d.id && !draftNode()?.isMandatory) {
-              <div class="oc-field">
-                <span class="oc-lbl">Used in this organisation</span>
-                <div class="oc-switch-row">
-                  <button type="button" role="switch" class="mc-switch" [class.is-on]="isEnabled(d.id)"
-                          [attr.aria-checked]="isEnabled(d.id)" [disabled]="!canConfigure()" (click)="toggleEnabled(d.id)"
-                          aria-label="Used in this organisation">
-                    <span class="mc-switch-knob" aria-hidden="true"></span>
-                  </button>
-                  <span class="oc-switch-text">{{ isEnabled(d.id) ? 'On' : 'Off' }}</span>
-                </div>
-              </div>
-            }
-          </div>
-        </div>
-
-        <!-- Icon -->
-        <div class="oc-group">
-          <div class="oc-group-title">Icon</div>
-          <div class="oc-field">
-            <div class="oc-picker" [class.is-muted]="d.level !== 'menu'">
-              <app-icon-picker
-                [value]="d.icon"
-                [inheritedIcon]="draftIsOwned() ? null : (draftNode()?.resolvedIcon ?? null)"
-                (changed)="patchDraft({ icon: $event })" />
-            </div>
-            <div class="oc-help">
-              @if (d.level === 'menu') { Shown beside the name in the sidebar. } @else { Submenus do not show an icon in the sidebar. }
-            </div>
-          </div>
-        </div>
+    <header class="mcs-head">
+      <div class="mcs-head-top">
+        <span class="mcs-kind">
+          <i [class]="d.kind === 'create' ? 'ri-add-circle-line' : 'ri-pencil-line'" aria-hidden="true"></i>
+          {{ d.kind === 'create' ? 'New' : 'Edit' }} {{ levelLabel(d.level) | lowercase }}
+        </span>
+        <button type="button" class="mcs-x" aria-label="Close" (click)="closeEditor()"><i class="ri-close-line" aria-hidden="true"></i></button>
+      </div>
+      <h3 class="mcs-title" id="mcsTitle">{{ d.kind === 'create' ? 'Add a ' + (levelLabel(d.level) | lowercase) : draftDisplayName() }}</h3>
+      <div class="mcs-trail">
+        <span class="mc-t">Sidebar</span>
+        @if (draftParentName()) { <i class="ri-arrow-right-s-line" aria-hidden="true"></i><span class="mc-t">{{ draftParentName() }}</span> }
+        <i class="ri-arrow-right-s-line" aria-hidden="true"></i><b class="mc-t">{{ draftDisplayName() }}</b>
       </div>
 
-      <footer class="oc-foot">
-        <button type="button" class="mc-btn mc-btn--line" (click)="closeEditor()">Cancel</button>
-        <button type="button" class="mc-btn mc-btn--primary" (click)="applyEditor()" [disabled]="savingNode()">
-          @if (savingNode()) { <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i> Saving… }
-          @else if (d.kind === 'create') { Add {{ levelLabel(d.level) | lowercase }} }
-          @else { Save changes }
-        </button>
-      </footer>
-    </aside>
-  }
+      <div class="mcs-look">
+        <span class="mcs-look-label">How it will appear</span>
+        <div class="mcs-look-row">
+          <span class="mcs-look-glyph" aria-hidden="true"><i [class]="draftIconClass() || 'ri-layout-grid-line'"></i></span>
+          <span class="mcs-look-name">{{ draftDisplayName() }}</span>
+          @if (d.route) { <code class="mcs-look-route">{{ d.route }}</code> }
+        </div>
+      </div>
+    </header>
+
+    <div class="mcs-body">
+      @if (d.kind === 'edit' && !draftIsOwned()) {
+        <div class="mcs-note">
+          <i class="ri-information-line" aria-hidden="true"></i>
+          <span class="mc-t">Shipped with the product. Name, icon and position change for this organisation only; route and permission stay as shipped.</span>
+        </div>
+      }
+
+      <!-- 1 · Name -->
+      <section class="mcs-sec">
+        <div class="mcs-sec-head">
+          <span class="mcs-sec-n">1</span>
+          <div class="mcs-sec-text">
+            <h4 class="mcs-sec-title">Name</h4>
+            <span class="mcs-sec-sub">What people read in the sidebar.</span>
+          </div>
+        </div>
+        <div class="mcs-grid">
+          <div class="mcs-field">
+            <label class="mcs-lbl" for="ocName">Display name @if (d.kind === 'create') { <em class="mcs-req">*</em> }</label>
+            <input id="ocName" type="text" class="mcs-input" maxlength="160"
+                   [placeholder]="draftIsOwned() ? 'e.g. Monthly reports' : (draftNode()?.catalogueName ?? 'Name')"
+                   [ngModel]="d.name" (ngModelChange)="patchDraft({ name: $event })" />
+            @if (d.kind === 'edit' && !draftIsOwned()) { <span class="mcs-help">Leave empty to keep the product's name.</span> }
+          </div>
+          @if (d.kind === 'create') {
+            <div class="mcs-field">
+              <label class="mcs-lbl" for="ocCode">Code <em class="mcs-req">*</em></label>
+              <input id="ocCode" type="text" class="mcs-input mcs-input--mono" maxlength="80" placeholder="REPORTS_MONTHLY"
+                     [ngModel]="d.code" (ngModelChange)="patchDraft({ code: $event })" />
+              <span class="mcs-help">Permanent and unique.</span>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- 2 · Placement & access -->
+      <section class="mcs-sec">
+        <div class="mcs-sec-head">
+          <span class="mcs-sec-n">2</span>
+          <div class="mcs-sec-text">
+            <h4 class="mcs-sec-title">Where it goes and who may open it</h4>
+            <span class="mcs-sec-sub">Route, permission and position in the list.</span>
+          </div>
+          @if (!draftIsOwned()) { <span class="mcs-lock"><i class="ri-lock-line" aria-hidden="true"></i> Route &amp; permission locked</span> }
+        </div>
+
+        <div class="mcs-field">
+          <label class="mcs-lbl" for="ocRoute">Route</label>
+          <div class="mcs-affix" [class.is-disabled]="!draftIsOwned()">
+            <i class="ri-route-line" aria-hidden="true"></i>
+            <input id="ocRoute" type="text" class="mcs-input mcs-input--mono" maxlength="300" placeholder="/app/reports/monthly"
+                   [ngModel]="d.route" (ngModelChange)="patchDraft({ route: $event })" [disabled]="!draftIsOwned()" />
+          </div>
+          <span class="mcs-help">Leave empty for a heading that only opens its children.</span>
+        </div>
+
+        <div class="mcs-field">
+          <span class="mcs-lbl">Required permission</span>
+          <div class="dd" [class.is-open]="permDdOpen()" [class.is-disabled]="!draftIsOwned()" (click)="$event.stopPropagation()">
+            <button type="button" class="dd-trigger" [disabled]="!draftIsOwned()"
+                    aria-haspopup="listbox" [attr.aria-expanded]="permDdOpen()" (click)="togglePermDd()">
+              <i class="ri-key-2-line dd-lead" aria-hidden="true"></i>
+              @if (d.permission) {
+                <span class="dd-val-main">{{ permissionLabel() }}</span>
+                <code class="dd-val-code">{{ d.permission }}</code>
+              } @else {
+                <span class="dd-val-main is-empty">No permission — everyone given the item sees it</span>
+              }
+              @if (d.permission && draftIsOwned()) {
+                <span class="dd-clear" role="button" tabindex="0" aria-label="Clear permission"
+                      (click)="$event.stopPropagation(); pickPermission('')"><i class="ri-close-line" aria-hidden="true"></i></span>
+              }
+              <i [class]="draftIsOwned() ? 'ri-arrow-down-s-line dd-chev' : 'ri-lock-line dd-chev'" aria-hidden="true"></i>
+            </button>
+
+            @if (permDdOpen()) {
+              <div class="dd-menu" role="listbox" aria-label="Permissions">
+                <div class="dd-search">
+                  <i class="ri-search-line" aria-hidden="true"></i>
+                  <input type="text" placeholder="Search name or code" [value]="ddQuery()" (input)="ddQuery.set($any($event.target).value)">
+                </div>
+                <div class="dd-list">
+                  <button type="button" class="dd-opt" [class.is-on]="!d.permission" (click)="pickPermission('')">
+                    <span class="dd-opt-name dd-opt-name--muted">No permission</span>
+                    @if (!d.permission) { <i class="ri-check-line dd-tick" aria-hidden="true"></i> }
+                  </button>
+                  @for (group of groupedPermissionOptions(); track group.module) {
+                    <div class="dd-group">{{ group.module }}</div>
+                    @for (option of group.options; track option.code) {
+                      <button type="button" class="dd-opt" role="option"
+                              [class.is-on]="d.permission === option.code" [attr.aria-selected]="d.permission === option.code"
+                              (click)="pickPermission(option.code)">
+                        <span class="dd-opt-name">{{ option.name }}</span>
+                        <code class="dd-opt-code">{{ option.code }}</code>
+                        @if (d.permission === option.code) { <i class="ri-check-line dd-tick" aria-hidden="true"></i> }
+                      </button>
+                    }
+                  } @empty {
+                    <div class="dd-empty">No permission matches “{{ ddQuery() }}”.</div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+          <span class="mcs-help">Only people holding it see the item. It grants nothing on its own.</span>
+        </div>
+
+        <div class="mcs-grid">
+          <div class="mcs-field">
+            <label class="mcs-lbl" for="ocOrder">Position</label>
+            <div class="mcs-stepper">
+              <button type="button" aria-label="Move earlier" (click)="stepOrder(-10)"><i class="ri-subtract-line" aria-hidden="true"></i></button>
+              <input id="ocOrder" type="text" inputmode="numeric" placeholder="Auto"
+                     [ngModel]="d.order" (ngModelChange)="patchDraft({ order: asText($event) })" />
+              <button type="button" aria-label="Move later" (click)="stepOrder(10)"><i class="ri-add-line" aria-hidden="true"></i></button>
+            </div>
+            <span class="mcs-help">Lower numbers come first.</span>
+          </div>
+          @if (d.kind === 'edit' && d.id && !draftNode()?.isMandatory) {
+            <div class="mcs-field">
+              <span class="mcs-lbl">Used in this organisation</span>
+              <label class="mcs-switch-row">
+                <button type="button" role="switch" class="mc-switch" [class.is-on]="isEnabled(d.id)"
+                        [attr.aria-checked]="isEnabled(d.id)" [disabled]="!canConfigure()" (click)="toggleEnabled(d.id)"
+                        aria-label="Used in this organisation">
+                  <span class="mc-switch-knob" aria-hidden="true"></span>
+                </button>
+                <span class="mcs-switch-text">{{ isEnabled(d.id) ? 'In use' : 'Switched off' }}</span>
+              </label>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- 3 · Icon -->
+      <section class="mcs-sec">
+        <div class="mcs-sec-head">
+          <span class="mcs-sec-n">3</span>
+          <div class="mcs-sec-text">
+            <h4 class="mcs-sec-title">Icon</h4>
+            <span class="mcs-sec-sub">
+              @if (d.level === 'menu') { Shown beside the name in the sidebar. } @else { Submenus do not show an icon in the sidebar. }
+            </span>
+          </div>
+        </div>
+        <div class="mcs-picker" [class.is-muted]="d.level !== 'menu'">
+          <app-icon-picker
+            [value]="d.icon"
+            [inheritedIcon]="draftIsOwned() ? null : (draftNode()?.resolvedIcon ?? null)"
+            (changed)="patchDraft({ icon: $event })" />
+        </div>
+      </section>
+    </div>
+
+    <footer class="mcs-foot">
+      <span class="mcs-foot-hint">
+        @if (d.kind === 'create') { Appears in the sidebar as soon as it is added. } @else { Saved straight away for this organisation. }
+      </span>
+      <button type="button" class="mc-btn mc-btn--line" (click)="closeEditor()">Cancel</button>
+      <button type="button" class="mc-btn mc-btn--primary" (click)="applyEditor()" [disabled]="savingNode()">
+        @if (savingNode()) { <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i> Saving… }
+        @else if (d.kind === 'create') { <i class="ri-add-line" aria-hidden="true"></i> Add {{ levelLabel(d.level) | lowercase }} }
+        @else { <i class="ri-check-line" aria-hidden="true"></i> Save changes }
+      </button>
+    </footer>
+  </aside>
+}
 
   <!-- ============ DELETE CONFIRM ============ -->
   @if (confirmingDelete(); as id) {
     <div class="mc-modal-backdrop" (click)="cancelDelete()">
       <div class="mc-modal" role="dialog" aria-modal="true" aria-labelledby="mc-del-title" (click)="$event.stopPropagation()">
         <div class="mc-modal-top">
-          <span class="mc-modal-ico" aria-hidden="true"><i class="ri-delete-bin-6-line"></i></span>
+          <span class="mc-modal-ico is-danger" aria-hidden="true"><i class="ri-delete-bin-6-line"></i></span>
           <div>
             <h2 class="mc-modal-title" id="mc-del-title">Delete this menu item?</h2>
             <p class="mc-modal-lead">
@@ -452,7 +718,6 @@
       </div>
     </div>
   }
-</div>
 </div>
 </div>
 </main>

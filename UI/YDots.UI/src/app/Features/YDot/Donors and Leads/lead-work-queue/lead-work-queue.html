@@ -1,545 +1,256 @@
 <ng-template #icon let-name>
-  <svg
-    class="lq-icon"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.7"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-    focusable="false"
-  >
+  <svg class="lq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
     <path [attr.d]="icons[name]" />
   </svg>
 </ng-template>
 <main class="app-wrapper">
   <div class="page-wrapper">
-    <div class="container-fluid px-4 py-3" [attr.aria-busy]="uiState() === 'loading'">
-      <app-page-header screen="lead-work-queue" [title]="screen().title" [subtitle]="screen().purpose">
+    <div class="container-fluid px-4 py-3 lw-page" [attr.aria-busy]="uiState() === 'loading'">
+      <app-page-header [showInfo]="false" screen="lead-work-queue" [title]="screen().title" [subtitle]="screen().purpose">
+        <span meta class="ph-chip">Donors &amp; Leads</span>
         <ng-container actions>
-          @if (permissions().assign) {
-            <a
-              class="btn btn-outline-secondary btn-sm lq-board"
-              routerLink="/app/fundraising/relationships/assignment-board"
-              title="Assignment Board"
-              ><ng-container
-                [ngTemplateOutlet]="icon"
-                [ngTemplateOutletContext]="{ $implicit: 'grid' }"
-              />
-              Assignment Board</a
-            >
-          }
-          @if (permissions().create) {
-            <button
-              type="button"
-              class="ph-btn ph-btn--primary"
-              title="Lead Capture"
-              (click)="createLead()"
-            >
-              <ng-container
-                [ngTemplateOutlet]="icon"
-                [ngTemplateOutletContext]="{ $implicit: 'add' }"
-              />
-              Lead Capture
-            </button>
-          }
-          <button
-            type="button"
-            class="ph-btn ph-btn--ghost"
-            title="Refresh leads"
-            (click)="refresh()"
-            [disabled]="uiState() === 'loading'"
-          >
-            <ng-container
-              [ngTemplateOutlet]="icon"
-              [ngTemplateOutletContext]="{ $implicit: 'refresh' }"
-            />
-            Refresh
+          <button type="button" class="ph-btn ph-btn--ghost" title="Refresh leads" (click)="refresh()" [disabled]="uiState() === 'loading'">
+            <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'refresh' }" /> Refresh
           </button>
           @if (permissions().export) {
-            <button
-              type="button"
-              class="ph-btn ph-btn--ghost"
-              title="Export displayed leads"
-              (click)="exportLeads()"
-              [disabled]="!hasResults() || uiState() === 'loading'"
-            >
-              <ng-container
-                [ngTemplateOutlet]="icon"
-                [ngTemplateOutletContext]="{ $implicit: 'export' }"
-              />
-              Export Leads
+            <button type="button" class="ph-btn ph-btn--ghost" title="Export displayed leads" (click)="exportLeads()" [disabled]="!hasResults() || uiState() === 'loading'">
+              <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'export' }" /> Export
             </button>
           }
-  </ng-container>
+          @if (permissions().assign) {
+            <a class="ph-btn ph-btn--ghost" routerLink="/app/fundraising/relationships/assignment-board" title="Assignment Board">
+              <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'grid' }" /> Assignment board
+            </a>
+          }
+          @if (permissions().create) {
+            <button type="button" class="ph-btn ph-btn--primary" title="Lead Capture" (click)="createLead()">
+              <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'add' }" /> Capture lead
+            </button>
+          }
+        </ng-container>
       </app-page-header>
 
       @if (uiState() === 'success') {
-        <div class="lq-banner" role="status">
-          <span
-            ><ng-container
-              [ngTemplateOutlet]="icon"
-              [ngTemplateOutletContext]="{ $implicit: 'check' }"
-            />
-            Queue updated successfully.</span
-          ><button
-            type="button"
-            class="btn btn-outline-secondary btn-sm"
-            title="Dismiss notification"
-            aria-label="Dismiss notification"
-            (click)="dismissBanner()"
-          >
-            <ng-container
-              [ngTemplateOutlet]="icon"
-              [ngTemplateOutletContext]="{ $implicit: 'close' }"
-            />
+        <div class="lw-banner" role="status">
+          <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'check' }" />
+          <span class="lw-t">Queue updated successfully.</span>
+          <button type="button" class="lw-x" title="Dismiss notification" aria-label="Dismiss notification" (click)="dismissBanner()">
+            <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
           </button>
         </div>
       }
-      <section class="lq-kpi-row" aria-label="Lead summary">
+
+      <!-- ============ SCOREBOARD ============ -->
+      <section class="lw-score" aria-label="Lead summary">
         @for (kpi of primaryKpis(); track kpi.id) {
-          <article class="lq-kpi-card" [attr.data-kpi]="kpi.id">
-            <span class="lq-kpi-icon"
-              ><ng-container
-                [ngTemplateOutlet]="icon"
-                [ngTemplateOutletContext]="{
-                  $implicit:
-                    kpi.id === 'total'
-                      ? 'users'
-                      : kpi.id === 'converted'
-                        ? 'check'
-                        : kpi.id === 'potential'
-                          ? 'potential'
-                          : 'assign',
-                }"
-            /></span>
-            <div>
-              <p class="lq-kpi-label">{{ kpi.label }}</p>
-              <p class="lq-kpi-value lq-number">{{ kpi.value | number }}</p>
-              <p class="lq-kpi-hint">{{ kpi.hint }}</p>
-            </div>
-            <span class="lq-kpi-art" aria-hidden="true"><i></i><i></i><i></i></span>
-          </article>
+          <div class="lw-score-cell" [attr.data-kpi]="kpi.id">
+            <span class="lw-score-label">{{ kpi.label }}</span>
+            <span class="lw-score-v">{{ kpi.value | number }}</span>
+            <span class="lw-score-hint">{{ kpi.hint }}</span>
+          </div>
         } @empty {
-          @for (
-            label of [
-              'Total Leads',
-              'Unassigned Leads',
-              'Assigned Leads',
-              'Converted Leads',
-              'High Donation Potential',
-            ];
-            track label
-          ) {
-            <article class="lq-kpi-card">
-              <span class="lq-kpi-icon"
-                ><ng-container
-                  [ngTemplateOutlet]="icon"
-                  [ngTemplateOutletContext]="{ $implicit: 'users' }"
-              /></span>
-              <div>
-                <p class="lq-kpi-label">{{ label }}</p>
-                <p class="lq-kpi-value">—</p>
-                <p class="lq-kpi-hint">
-                  {{ uiState() === 'error' ? 'Unavailable' : 'Loading summary…' }}
-                </p>
-              </div>
-            </article>
+          @for (label of ['Total Leads', 'Unassigned Leads', 'Assigned Leads', 'Converted Leads', 'High Donation Potential']; track label) {
+            <div class="lw-score-cell">
+              <span class="lw-score-label">{{ label }}</span>
+              <span class="lw-score-v">—</span>
+              <span class="lw-score-hint">{{ uiState() === 'error' ? 'Unavailable' : 'Loading summary…' }}</span>
+            </div>
           }
         }
       </section>
 
-      <section class="lq-toolbar" aria-label="Views and filters">
-        <form
-          class="lq-search-row"
-          (ngSubmit)="refresh()"
-          role="search"
-          tabindex="0"
-          aria-label="Lead search and views"
-        >
-          <div class="lq-search-wrap">
-            <ng-container
-              [ngTemplateOutlet]="icon"
-              [ngTemplateOutletContext]="{ $implicit: 'search' }"
-            /><label class="visually-hidden" for="lq-search">Search leads</label
-            ><input
-              id="lq-search"
-              name="search"
-              type="search"
-              class="lq-search-input"
-              placeholder="Search Lead ID, Name, Phone, Email"
-              [ngModel]="searchTerm()"
-              (ngModelChange)="onSearchChange($event)"
-            />
+      <!-- ============ PIPELINE FUNNEL ============ -->
+      @if (pipeline().length > 0) {
+        <section class="lw-funnel" aria-label="Lead pipeline">
+          <div class="lw-funnel-head">
+            <span class="lw-funnel-title">Pipeline</span>
+            <span class="lw-funnel-hint">Click a stage to show only its leads</span>
           </div>
-          <div class="lq-saved-views" aria-label="Assignment views">
+          <div class="lw-funnel-track">
+            @for (stage of pipeline(); track stage.key; let i = $index) {
+              <button type="button" class="lw-stage" [attr.data-i]="i % 6"
+                      [class.is-on]="stageFilter() === stage.key" [attr.aria-pressed]="stageFilter() === stage.key"
+                      [style.flex-grow]="stage.count + 1" [title]="'Filter by ' + stage.label"
+                      (click)="selectPipelineStage(stage.key)">
+                <span class="lw-stage-n">{{ stage.count | number }}</span>
+                <span class="lw-stage-l">{{ stage.label }}</span>
+              </button>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- ============ TOOLBAR ============ -->
+      <section class="lw-toolbar" aria-label="Views and filters">
+        <form class="lw-toolbar-row" (ngSubmit)="refresh()" role="search" aria-label="Lead search and views">
+          <div class="lw-search">
+            <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'search' }" />
+            <label class="visually-hidden" for="lq-search">Search leads</label>
+            <input id="lq-search" name="search" type="search" placeholder="Search lead ID, name, phone or e-mail"
+                   [ngModel]="searchTerm()" (ngModelChange)="onSearchChange($event)" />
+          </div>
+          <div class="lw-views" aria-label="Assignment views">
             @for (view of primaryViews(); track view) {
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm lq-view-chip"
-                [class.lq-view-chip-active]="savedView() === view"
-                [attr.aria-pressed]="savedView() === view"
-                [title]="view"
-                (click)="selectSavedView(view)"
-              >
-                <ng-container
-                  [ngTemplateOutlet]="icon"
-                  [ngTemplateOutletContext]="{
-                    $implicit:
-                      view === 'All Leads'
-                        ? 'grid'
-                        : view === 'Unassigned Leads'
-                          ? 'assign'
-                          : 'user',
-                  }"
-                />
+              <button type="button" class="lw-view" [class.is-on]="savedView() === view" [attr.aria-pressed]="savedView() === view"
+                      [title]="view" (click)="selectSavedView(view)">
+                <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: view === 'All Leads' ? 'grid' : view === 'Unassigned Leads' ? 'assign' : 'user' }" />
                 {{ view === 'All Leads' ? view : view.replace(' Leads', '') }}
               </button>
             }
           </div>
-
-          <button
-            type="button"
-            class="btn btn-outline-secondary btn-sm"
-            title="Filters"
-            aria-controls="lq-filters"
-            [attr.aria-expanded]="showFilters()"
-            (click)="toggleFilters()"
-          >
-            <ng-container
-              [ngTemplateOutlet]="icon"
-              [ngTemplateOutletContext]="{ $implicit: 'filter' }"
-            />
-            Filters
+          <button type="button" class="lw-tool" [class.is-on]="showFilters()" aria-controls="lq-filters" [attr.aria-expanded]="showFilters()" (click)="toggleFilters()">
+            <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'filter' }" /> Filters
+            @if (activeFilterChips().length > 0) { <span class="lw-tool-n">{{ activeFilterChips().length }}</span> }
           </button>
-          @if (activeFilterChips().length > 0) {
-            <button
-              type="button"
-              class="btn btn-outline-secondary btn-sm"
-              title="Reset filters"
-              (click)="clearAllFilters()"
-            >
-              <ng-container
-                [ngTemplateOutlet]="icon"
-                [ngTemplateOutletContext]="{ $implicit: 'refresh' }"
-              />
-              Reset
-            </button>
-          }
         </form>
-        @if (showFilters()) {
-          <div class="lq-filter-panel" id="lq-filters">
-            <section class="lq-filter-extras" aria-label="Additional filters">
-              <h3>Saved views</h3>
-              <div class="lq-saved-views" aria-label="More saved views">
-                @for (view of extraViews(); track view) {
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm lq-view-chip"
-                    [class.lq-view-chip-active]="savedView() === view"
-                    [attr.aria-pressed]="savedView() === view"
-                    [title]="view"
-                    (click)="selectSavedView(view)"
-                  >
-                    {{ view }}
-                    @if (view === 'Hot Leads') {
-                      @for (kpi of extraKpis(); track kpi.id) {
-                        <span class="lq-number">({{ kpi.value | number }})</span>
-                      }
-                    }
-                  </button>
-                }
-              </div>
 
-              <h3>Pipeline</h3>
-              <div class="lq-pipeline" aria-label="Lead pipeline">
-                @for (stage of pipeline(); track stage.key) {
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm lq-view-chip"
-                    [class.lq-view-chip-active]="stageFilter() === stage.key"
-                    [attr.aria-pressed]="stageFilter() === stage.key"
-                    [title]="'Filter by ' + stage.label"
-                    (click)="selectPipelineStage(stage.key)"
-                  >
-                    {{ stage.label }} <span class="lq-number">{{ stage.count | number }}</span>
-                  </button>
-                }
+        @if (showFilters()) {
+          <div class="lw-filters" id="lq-filters">
+            <div class="lw-filters-top">
+              <div class="lw-filters-block">
+                <span class="lw-filters-title">Saved views</span>
+                <div class="lw-views">
+                  @for (view of extraViews(); track view) {
+                    <button type="button" class="lw-view" [class.is-on]="savedView() === view" [attr.aria-pressed]="savedView() === view" [title]="view" (click)="selectSavedView(view)">
+                      {{ view }}
+                      @if (view === 'Hot Leads') { @for (kpi of extraKpis(); track kpi.id) { <span class="lw-view-n">{{ kpi.value | number }}</span> } }
+                    </button>
+                  }
+                </div>
               </div>
-            </section>
-            <div class="lq-filter-grid">
+            </div>
+            <div class="lw-filter-grid">
               @for (field of filterFields(); track field.key) {
-                <div class="lq-filter-field">
+                <div class="lw-filter-field">
                   <label [for]="'lq-' + field.key">{{ field.label }}</label>
                   @if (field.options.length > 20) {
-                    <label class="visually-hidden" [for]="'lq-option-search-' + field.key"
-                      >Search {{ field.label }} options</label
-                    >
-                    <input
-                      class="lq-option-search"
-                      type="search"
-                      [id]="'lq-option-search-' + field.key"
-                      [placeholder]="'Search ' + field.label.toLowerCase() + '…'"
-                      [ngModel]="optionSearch()[field.key] ?? ''"
-                      (ngModelChange)="setOptionSearch(field.key, $event)"
-                    />
+                    <label class="visually-hidden" [for]="'lq-option-search-' + field.key">Search {{ field.label }} options</label>
+                    <input class="lw-option-search" type="search" [id]="'lq-option-search-' + field.key"
+                           [placeholder]="'Search ' + field.label.toLowerCase() + '…'"
+                           [ngModel]="optionSearch()[field.key] ?? ''" (ngModelChange)="setOptionSearch(field.key, $event)" />
                   }
-                  <select
-                    class="lq-select"
-                    [id]="'lq-' + field.key"
-                    [ngModel]="field.value"
-                    (ngModelChange)="setFilterValue(field.key, $event)"
-                  >
+                  <select class="lw-select" [id]="'lq-' + field.key" [ngModel]="field.value" (ngModelChange)="setFilterValue(field.key, $event)">
                     <option value="">All</option>
-                    @for (
-                      option of matchingOptions(field.key, field.options, field.value);
-                      track option.value
-                    ) {
+                    @for (option of matchingOptions(field.key, field.options, field.value); track option.value) {
                       <option [value]="option.value">{{ option.label }}</option>
                     }
                   </select>
                 </div>
               }
             </div>
-            <p class="lq-filter-note">Lead source narrows the displayed results.</p>
-            <div class="lq-filter-actions">
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="applyFilters()"
-              >
-                <ng-container
-                  [ngTemplateOutlet]="icon"
-                  [ngTemplateOutletContext]="{ $implicit: 'check' }"
-                />
-                Apply Filters</button
-              ><button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="clearAllFilters()"
-              >
-                <ng-container
-                  [ngTemplateOutlet]="icon"
-                  [ngTemplateOutletContext]="{ $implicit: 'close' }"
-                />
-                Clear
+            <div class="lw-filter-actions">
+              <span class="lw-filter-note">Lead source narrows the displayed results.</span>
+              <button type="button" class="lw-btn lw-btn--ghost" (click)="clearAllFilters()">Clear</button>
+              <button type="button" class="lw-btn lw-btn--primary" (click)="applyFilters()">
+                <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'check' }" /> Apply filters
               </button>
             </div>
           </div>
         }
+
         @if (activeFilterChips().length > 0) {
-          <div class="lq-chip-row" aria-label="Active filters">
+          <div class="lw-chips" aria-label="Active filters">
             @for (chip of activeFilterChips(); track chip.key) {
-              <span class="lq-filter-chip"
-                >{{ chip.label
-                }}<button
-                  type="button"
-                  class="btn btn-outline-secondary btn-sm lq-chip-remove"
-                  [title]="'Remove ' + chip.label"
-                  [attr.aria-label]="'Remove ' + chip.label"
-                  (click)="removeFilterChip(chip.key)"
-                >
-                  <ng-container
-                    [ngTemplateOutlet]="icon"
-                    [ngTemplateOutletContext]="{ $implicit: 'close' }"
-                  /></button
-              ></span>
+              <span class="lw-chipf">{{ chip.label }}
+                <button type="button" class="lw-chipf-x" [title]="'Remove ' + chip.label" [attr.aria-label]="'Remove ' + chip.label" (click)="removeFilterChip(chip.key)">
+                  <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'close' }" />
+                </button>
+              </span>
             }
+            <button type="button" class="lw-reset" (click)="clearAllFilters()">Reset all</button>
           </div>
         }
       </section>
 
-      <section class="lq-grid-wrap" aria-label="Leads">
+      <!-- ============ LEADS ============ -->
+      <section class="lw-leads" aria-label="Leads">
         @if (selectionCount() > 0) {
-          <div class="lq-bulk-bar" role="toolbar" aria-label="Bulk actions">
-            <span
-              ><span class="lq-number">{{ selectionCount() }}</span> selected</span
-            >
+          <div class="lw-bulk" role="toolbar" aria-label="Bulk actions">
+            <span class="lw-bulk-n">{{ selectionCount() }}</span><span class="lw-t">selected</span>
             @if (permissions().assign) {
-              <button type="button" class="btn btn-primary btn-sm" (click)="bulkAssign()">
-                <ng-container
-                  [ngTemplateOutlet]="icon"
-                  [ngTemplateOutletContext]="{ $implicit: 'assign' }"
-                />
-                Assign Selected
+              <button type="button" class="lw-btn lw-btn--light" (click)="bulkAssign()">
+                <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'assign' }" /> Assign selected
               </button>
             }
             @if (permissions().export) {
-              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="bulkExport()">
-                <ng-container
-                  [ngTemplateOutlet]="icon"
-                  [ngTemplateOutletContext]="{ $implicit: 'export' }"
-                />
-                Export Selected
+              <button type="button" class="lw-btn lw-btn--outline-light" (click)="bulkExport()">
+                <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'export' }" /> Export selected
               </button>
             }
           </div>
         }
+
         @if (uiState() === 'error') {
-          <div class="lq-empty lq-error" role="alert">
-            <ng-container
-              [ngTemplateOutlet]="icon"
-              [ngTemplateOutletContext]="{ $implicit: 'alert' }"
-            />
+          <div class="lw-state is-error" role="alert">
+            <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'alert' }" />
             <h3>Unable to load leads</h3>
             <p>{{ errorMessage() }}</p>
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refresh()">
-              <ng-container
-                [ngTemplateOutlet]="icon"
-                [ngTemplateOutletContext]="{ $implicit: 'refresh' }"
-              />
-              Try again
+            <button type="button" class="lw-btn lw-btn--ghost" (click)="refresh()">
+              <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'refresh' }" /> Try again
             </button>
           </div>
         } @else if (uiState() === 'loading') {
-          <div class="lq-empty" role="status">
-            <span class="lq-spinner" aria-hidden="true"></span>
+          <div class="lw-state" role="status">
+            <span class="lw-spinner" aria-hidden="true"></span>
             <p>Loading leads…</p>
           </div>
         } @else if (!hasResults()) {
-          <div class="lq-empty" role="status">
-            <ng-container
-              [ngTemplateOutlet]="icon"
-              [ngTemplateOutletContext]="{ $implicit: 'search' }"
-            />
+          <div class="lw-state" role="status">
+            <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'search' }" />
             <h3>No leads found</h3>
-            <p>Try adjusting your filters or add a lead.</p>
-            <div class="lq-empty-actions">
+            <p>Try adjusting your filters or capture a new lead.</p>
+            <div class="lw-state-actions">
+              <button type="button" class="lw-btn lw-btn--ghost" (click)="clearAllFilters()">Reset filters</button>
               @if (permissions().create) {
-                <button
-                  type="button"
-                  class="btn btn-primary btn-sm"
-                  title="Lead Capture"
-                  (click)="createLead()"
-                >
-                  <ng-container
-                    [ngTemplateOutlet]="icon"
-                    [ngTemplateOutletContext]="{ $implicit: 'add' }"
-                  />
-                  Lead Capture
+                <button type="button" class="lw-btn lw-btn--primary" title="Lead Capture" (click)="createLead()">
+                  <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'add' }" /> Capture lead
                 </button>
               }
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                (click)="clearAllFilters()"
-              >
-                <ng-container
-                  [ngTemplateOutlet]="icon"
-                  [ngTemplateOutletContext]="{ $implicit: 'refresh' }"
-                />
-                Reset Filters
-              </button>
             </div>
           </div>
         } @else {
-          <div class="lq-table-scroll" tabindex="0" role="region" aria-label="Leads table">
-            <table class="lq-table">
-              <caption class="visually-hidden">
-                Leads with contact details, campaign, owner, status and actions
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Lead Name</th>
-                  <th scope="col">Contact Details</th>
-                  <th scope="col">Campaign</th>
-                  <th scope="col">Owner</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (lead of filteredLeads(); track lead.id) {
-                  <tr
-                    [class.lq-row-selected]="isSelected(lead.id)"
-                    [class.lq-row-previewed]="isPreviewed(lead)"
-                  >
-                    <td>
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary btn-sm lq-name-btn"
-                        (click)="previewLead(lead)"
-                        [title]="'View ' + lead.name"
-                      >
-                        <span
-                          class="lq-avatar"
-                          aria-hidden="true"
-                          [style.background]="getAvatarColor(lead.name) + '18'"
-                          [style.color]="getAvatarColor(lead.name)"
-                          >{{ getInitials(lead.name) }}</span
-                        ><span>{{ lead.name }}</span>
-                      </button>
-                    </td>
-                    <td>
-                      <div class="lq-contact">
-                        <span class="lq-number">{{ displayValue(lead.mobile) }}</span
-                        ><span class="lq-email" [title]="displayValue(lead.email)">{{
-                          displayValue(lead.email)
-                        }}</span>
-                      </div>
-                    </td>
-                    <td class="lq-campaign">{{ displayValue(lead.campaign) }}</td>
-                    <td>{{ displayValue(lead.owner) }}</td>
-                    <td>
-                      <span class="lq-badge" [ngClass]="stageClass(lead.stage)">{{
-                        lead.stage
-                      }}</span>
-                    </td>
-                    <td>
-                      <div class="lq-row-actions">
-                        <button
-                          type="button"
-                          class="btn btn-outline-secondary btn-sm lq-icon-btn"
-                          title="View lead"
-                          [attr.aria-label]="'View ' + lead.name"
-                          (click)="previewLead(lead)"
-                        >
-                          <ng-container
-                            [ngTemplateOutlet]="icon"
-                            [ngTemplateOutletContext]="{ $implicit: 'eye' }"
-                          />
-                        </button>
-                        @if (lead.owner === 'Unassigned' && permissions().assign) {
-                          <button
-                            type="button"
-                            class="btn btn-outline-secondary btn-sm lq-icon-btn"
-                            title="Assign lead"
-                            [attr.aria-label]="'Assign ' + lead.name"
-                            (click)="onAssign(lead)"
-                          >
-                            <ng-container
-                              [ngTemplateOutlet]="icon"
-                              [ngTemplateOutletContext]="{ $implicit: 'assign' }"
-                            />
-                          </button>
-                        }
-                        @if (permissions().communicate) {
-                          <button
-                            type="button"
-                            class="btn btn-outline-secondary btn-sm lq-icon-btn"
-                            title="Communicate"
-                            [attr.aria-label]="'Communicate with ' + lead.name"
-                            (click)="onCommunicate(lead)"
-                          >
-                            <ng-container
-                              [ngTemplateOutlet]="icon"
-                              [ngTemplateOutletContext]="{ $implicit: 'chat' }"
-                            />
-                          </button>
-                        }
-                      </div>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+          <div class="lw-list-head" aria-hidden="true">
+            <span>Lead</span><span>Contact</span><span>Campaign</span><span>Owner</span><span>Stage</span><span></span>
           </div>
+          <ul class="lw-list" role="list" aria-label="Leads">
+            @for (lead of filteredLeads(); track lead.id) {
+              <li class="lw-lead" [class.is-selected]="isSelected(lead.id)" [class.is-previewed]="isPreviewed(lead)" [attr.data-stage]="lead.stage">
+                <button type="button" class="lw-lead-who" (click)="previewLead(lead)" [title]="'View ' + lead.name">
+                  <span class="lw-av" aria-hidden="true" [style.background]="getAvatarColor(lead.name) + '1f'" [style.color]="getAvatarColor(lead.name)">{{ getInitials(lead.name) }}</span>
+                  <span class="lw-lead-name">{{ lead.name }}</span>
+                </button>
+                <div class="lw-lead-contact">
+                  <span class="lw-num">{{ displayValue(lead.mobile) }}</span>
+                  <span class="lw-mail" [title]="displayValue(lead.email)">{{ displayValue(lead.email) }}</span>
+                </div>
+                <span class="lw-lead-campaign" [title]="displayValue(lead.campaign)">{{ displayValue(lead.campaign) }}</span>
+                <span class="lw-lead-owner" [class.is-none]="lead.owner === 'Unassigned'">
+                  @if (lead.owner !== 'Unassigned') { <span class="lw-owner-dot" aria-hidden="true">{{ getInitials(lead.owner) }}</span> }
+                  {{ displayValue(lead.owner) }}
+                </span>
+                <span class="lw-stagepill" [ngClass]="stageClass(lead.stage)">{{ lead.stage }}</span>
+                <div class="lw-lead-actions">
+                  <button type="button" class="lw-act" title="View lead" [attr.aria-label]="'View ' + lead.name" (click)="previewLead(lead)">
+                    <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'eye' }" />
+                  </button>
+                  @if (lead.owner === 'Unassigned' && permissions().assign) {
+                    <button type="button" class="lw-act" title="Assign lead" [attr.aria-label]="'Assign ' + lead.name" (click)="onAssign(lead)">
+                      <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'assign' }" />
+                    </button>
+                  }
+                  @if (permissions().communicate) {
+                    <button type="button" class="lw-act" title="Communicate" [attr.aria-label]="'Communicate with ' + lead.name" (click)="onCommunicate(lead)">
+                      <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: 'chat' }" />
+                    </button>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
           @if (filteredLeads().length !== totalCount()) {
-            <p class="lq-results-note">
-              Showing <span class="lq-number">{{ filteredLeads().length | number }}</span> of
-              <span class="lq-number">{{ totalCount() | number }}</span> leads. Refine your search
-              to narrow results.
+            <p class="lw-note">
+              Showing <b>{{ filteredLeads().length | number }}</b> of <b>{{ totalCount() | number }}</b> leads. Refine your search to narrow results.
             </p>
           }
         }
@@ -589,7 +300,7 @@
           >{{ getInitials(lead.name) }}</span
         >
         <h3>{{ lead.name }}</h3>
-        <span class="lq-badge" [ngClass]="stageClass(lead.stage)">{{ lead.stage }}</span>
+        <span class="lw-stagepill" [ngClass]="stageClass(lead.stage)">{{ lead.stage }}</span>
       </section>
       <section class="lq-drawer-section">
         <h3>

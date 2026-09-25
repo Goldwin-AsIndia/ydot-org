@@ -106,6 +106,10 @@ img, video {
    content stops widening and centres, so a 32:9 display reads as one focused workspace instead of rows
    stretched thin across a metre of glass. */
 .page-wrapper > :is(.container-fluid, .msec-page, .cr-page) {
+  /* width: 100% matters: .page-wrapper is a flex column, and an item with auto inline margins in a flex
+     column does NOT stretch - it shrinks to its content and centres. That is what left the Campaign
+     Overview narrower than the top bar with a gap on each side. */
+  width: 100%;
   max-width: calc(2400px * var(--ui-scale));
   margin-inline: auto;
 }

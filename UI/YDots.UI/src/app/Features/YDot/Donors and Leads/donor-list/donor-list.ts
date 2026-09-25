@@ -2,13 +2,18 @@ import {
   Component,
   ChangeDetectionStrategy,
   computed,
+  effect,
   signal,
+  untracked,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { WorkflowStateService } from '../../../../Service/workflow-state.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
-/** Donor record as surfaced from the Donation & Payments module. */
+/**
+ * One Donor List row, as `WorkflowStateService` maps it from `DON /api/v1/donors`
+ * (DonorListItem). Contact may arrive masked by the server; `contactMasked` says so.
+ */
 export interface Donor {
   donorId: string;
   name: string;
@@ -23,63 +28,43 @@ export interface Donor {
   reference: string;
   lastDonationAmount: number;
   lastDonationDate: string;
+  /** Received only; pledges are not counted. */
   lifetimeGiving: number;
-  followUpStatus: FollowUpStatus;
-  consentStatus: ConsentStatus;
-  verificationStatus: VerificationStatus;
-  engagementTag: EngagementTag;
+  /** Overdue | Due Today | Tomorrow | None */
+  followUpStatus: string;
+  /** Granted | Partial | Withdrawn | Not provided */
+  consentStatus: string;
+  /** Verified | Pending | Failed | Expired, or empty when never checked */
+  verificationStatus: string;
+  engagementTag: string;
   consentReviewRequired: boolean;
   createdDate: string;
-  /** Optional real values; no inferred donation history or verification. */
-  donationCount?: number;
-  donationType?: 'Recurring' | 'One-time';
-  givingGrowthPercent?: number;
+  /** Prospect | Active | Restricted | Archived | Merged */
+  status?: string;
+  currency?: string;
+  contactMasked?: boolean;
 }
 
-export type FollowUpStatus = 'Due Today' | 'Tomorrow' | 'Overdue' | 'None';
-export type ConsentStatus = 'Full Consent' | 'Partial' | 'Do Not Contact';
-export type VerificationStatus = 'Verified' | 'Pending' | 'Failed' | 'Expired';
-export type EngagementTag =
-  | 'High Potential'
-  | 'Follow-Up Due'
-  | 'No Contact'
-  | 'Dormant'
-  | 'Recently Active';
-
-type SortableColumn =
-  | 'name'
-  | 'lastDonationDate'
-  | 'lifetimeGiving'
-  | 'campaign'
-  | 'owner';
+type SortableColumn = 'name' | 'lastDonationDate' | 'lifetimeGiving' | 'campaign' | 'owner';
 type SortDirection = 'asc' | 'desc';
 type ExportFormat = 'excel' | 'csv' | 'pdf';
+type ViewMode = 'table' | 'cards';
+/** The "needs attention" shortcuts; each narrows the register to one piece of work. */
+type Attention = 'overdue' | 'today' | 'unverified' | 'consent' | 'unowned';
+type GiftPeriod = 'all' | '30' | '90' | '365' | 'never';
 
-interface Kpi {
+interface FilterToken {
   key: string;
   label: string;
-  value: number;
-  hint: string;
+  clear: () => void;
 }
 
-const ENGAGEMENT_TAGS: EngagementTag[] = [
-  'High Potential',
-  'Follow-Up Due',
-  'No Contact',
-  'Dormant',
-  'Recently Active',
-];
-const VERIFICATION_TAGS: VerificationStatus[] = [
-  'Verified',
-  'Pending',
-  'Failed',
-  'Expired',
-];
-const CONSENT_TAGS: ConsentStatus[] = [
-  'Full Consent',
-  'Partial',
-  'Do Not Contact',
-];
+/** Lifecycle order for the status composition; unknown values follow in data order. */
+const STATUS_ORDER = ['Active', 'Prospect', 'Restricted', 'Archived', 'Merged'];
+const FOLLOW_UP_OPTIONS = ['Overdue', 'Due Today', 'Tomorrow', 'None'];
+const VERIFICATION_OPTIONS = ['Verified', 'Pending', 'Failed', 'Expired', 'Not checked'];
+const CONSENT_OPTIONS = ['Granted', 'Partial', 'Withdrawn', 'Not provided'];
+const VIEW_KEY = 'ydot.donor-list.view';
 
 @Component({
   selector: 'app-donor-list',
@@ -94,290 +79,257 @@ const CONSENT_TAGS: ConsentStatus[] = [
   styleUrl: './donor-list.css',
 })
 export class DonorListComponent {
-  /** ----- Raw data + async state ----- */
+  /** ----- Data + async state (owned by the workflow service) ----- */
   protected readonly donors = computed<Donor[]>(() => this.workflow.donors() as Donor[]);
-  protected readonly loading = signal<boolean>(true);
-  protected readonly error = signal<string | null>(null);
+  protected readonly loading = computed(() => this.workflow.isLoading() && this.donors().length === 0);
+  protected readonly refreshing = computed(() => this.workflow.isLoading());
+  protected readonly error = computed(() => (this.donors().length === 0 ? this.workflow.loadError() : null));
   protected readonly lastRefreshed = signal<Date>(new Date());
 
+  /** ----- View ----- */
+  protected readonly viewMode = signal<ViewMode>(this.readView());
+
   /** ----- Search + filters ----- */
-  protected readonly periodFilter = signal('all');
-  protected readonly headerMenuOpen = signal(false);
+  protected readonly searchTerm = signal('');
+  protected readonly attention = signal<Attention | null>(null);
+  protected readonly statusFilter = signal('all');
+  protected readonly ownerFilter = signal('all');
+  protected readonly campaignFilter = signal('all');
+  protected readonly followUpFilter = signal('all');
+  protected readonly verificationFilter = signal('all');
+  protected readonly consentFilter = signal('all');
+  protected readonly giftPeriod = signal<GiftPeriod>('all');
+  protected readonly filterPanelOpen = signal(false);
 
-
-  protected setPeriodFilter(value: string): void {
-    this.periodFilter.set(value);
-    this.currentPage.set(1);
-  }
-
-  private inPeriod(value: string, period: string): boolean {
-    if (period === 'all') return true;
-    const date = new Date(value);
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    if (period === 'month') start.setDate(1);
-    else start.setDate(start.getDate() - Number(period) + 1);
-    return Number.isFinite(date.getTime()) && date >= start && date <= now;
-  }
-
-  protected readonly searchTerm = signal<string>('');
-  protected readonly filterPanelOpen = signal<boolean>(false);
-  protected readonly ownerFilter = signal<string>('all');
-  protected readonly campaignFilter = signal<string>('all');
-  protected readonly regionFilter = signal<string>('all');
-  protected readonly engagementFilter = signal<EngagementTag | 'all'>('all');
-  protected readonly verificationFilter = signal<VerificationStatus | 'all'>(
-    'all',
-  );
-  protected readonly consentFilter = signal<ConsentStatus | 'all' | 'review'>(
-    'all',
-  );
+  /** Option search appears inside Owner / Campaign only above 20 options. */
+  protected readonly ownerOptionSearch = signal('');
+  protected readonly campaignOptionSearch = signal('');
 
   /** ----- Sorting ----- */
   protected readonly sortColumn = signal<SortableColumn>('lastDonationDate');
   protected readonly sortDirection = signal<SortDirection>('desc');
 
-  /** ----- Selection + drawer + menus ----- */
+  /** ----- Selection, sheet, menus ----- */
   protected readonly selectedIds = signal<Set<string>>(new Set());
   protected readonly previewDonorId = signal<string | null>(null);
   protected readonly openMoreMenuId = signal<string | null>(null);
-  protected readonly exportMenuOpen = signal<boolean>(false);
+  protected readonly exportMenuOpen = signal(false);
 
-  /** ----- Pagination ----- */
-  protected readonly currentPage = signal<number>(1);
-  protected readonly pageSize = signal<number>(10);
-  protected readonly pageSizeOptions = [10];
+  /** ----- Pagination (multiples of 12 so the card grid fills its rows) ----- */
+  protected readonly currentPage = signal(1);
+  protected readonly pageSize = signal(12);
+  protected readonly pageSizeOptions = [12, 24, 48];
 
-  protected readonly engagementTags = ENGAGEMENT_TAGS;
-  protected readonly verificationTags = VERIFICATION_TAGS;
-  protected readonly consentTags = CONSENT_TAGS;
+  protected readonly followUpOptions = FOLLOW_UP_OPTIONS;
+  protected readonly verificationOptions = VERIFICATION_OPTIONS;
+  protected readonly consentOptions = CONSENT_OPTIONS;
 
   constructor(
     private readonly router: Router,
     private readonly workflow: WorkflowStateService,
   ) {
-    this.loadDonors();
+    // Stamp "Updated" whenever a read settles.
+    effect(() => {
+      if (!this.workflow.isLoading()) untracked(() => this.lastRefreshed.set(new Date()));
+    });
   }
 
-  /**
-   * Loads donor records handed off by the Donation & Payments module.
-   * `donors.json` stands in for that read API during development — it is
-   * served as a static asset, so swap the URL below for the real endpoint
-   * (e.g. `/api/donors`) once it is available. Kept as a runtime fetch
-   * rather than a build-time import so no tsconfig changes are required.
-   */
-  private loadDonors(): void {
-    this.loading.set(true);
-    this.error.set(null);
-    fetch('/assets/data/donors.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
-        }
-        return response.json() as Promise<Donor[]>;
-      })
-      .then((data) => {
-        this.workflow.seedDonors(data);
-        this.lastRefreshed.set(new Date());
-      })
-      .catch(() => {
-        this.error.set('Unable to load donors.');
-      })
-      .finally(() => {
-        this.loading.set(false);
-      });
-  }
+  /* =================================================================================
+     Derived data
+     ================================================================================= */
 
-  /** Search is enabled in profile dropdowns only above 20 options. */
-  protected readonly ownerOptionSearch = signal('');
-  protected readonly campaignOptionSearch = signal('');
-  protected readonly regionOptionSearch = signal('');
+  protected readonly ownerOptions = computed(() => this.uniqueSorted(this.donors().map((d) => d.owner)));
+  protected readonly campaignOptions = computed(() => this.uniqueSorted(this.donors().map((d) => d.campaign)));
 
-  protected searchDropdownOptions(options: string[], term: string, selected: string): string[] {
-    if (options.length <= 20) return options;
-    const query = term.trim().toLocaleLowerCase();
-    return options.filter(option => option === selected || option.toLocaleLowerCase().includes(query));
-  }
-
-  /** ----- Derived filter option lists ----- */
-  protected readonly ownerOptions = computed(() =>
-    this.uniqueSorted(this.donors().map((d) => d.owner)),
-  );
-  protected readonly campaignOptions = computed(() =>
-    this.uniqueSorted(this.donors().map((d) => d.campaign)),
-  );
-  protected readonly regionOptions = computed(() =>
-    this.uniqueSorted(this.donors().map((d) => d.region)),
-  );
-
-  /** ----- KPI cards ----- */
-  protected readonly kpis = computed<Kpi[]>(() => {
+  /** Status composition over every record, in lifecycle order. */
+  protected readonly statusMix = computed(() => {
     const list = this.donors();
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(now.getDate() - 30);
+    const counts = new Map<string, number>();
+    for (const donor of list) {
+      const status = this.statusOf(donor);
+      counts.set(status, (counts.get(status) ?? 0) + 1);
+    }
+    const known = STATUS_ORDER.filter((s) => counts.has(s));
+    const other = [...counts.keys()].filter((s) => !STATUS_ORDER.includes(s));
+    return [...known, ...other].map((status) => ({
+      status,
+      count: counts.get(status) ?? 0,
+      share: list.length ? ((counts.get(status) ?? 0) / list.length) * 100 : 0,
+    }));
+  });
 
-    const newDonors = list.filter(
-      (d) => this.periodFilter() === 'all'
-        ? new Date(d.createdDate) >= thirtyDaysAgo
-        : this.inPeriod(d.createdDate, this.periodFilter()),
-    ).length;
-    const activeDonors = list.filter(
-      (d) => d.engagementTag === 'Recently Active',
-    ).length;
-    const followUpsDue = list.filter((d) =>
-      ['Due Today', 'Tomorrow', 'Overdue'].includes(d.followUpStatus),
-    ).length;
+  /** Money figures over every record. */
+  protected readonly portfolio = computed(() => {
+    const list = this.donors();
+    const givers = list.filter((d) => (d.lifetimeGiving || 0) > 0);
+    const lifetime = givers.reduce((sum, d) => sum + d.lifetimeGiving, 0);
+    const since = Date.now() - 90 * 864e5;
+    const recent = list.filter((d) => {
+      const t = new Date(d.lastDonationDate).getTime();
+      return Number.isFinite(t) && t >= since && d.lastDonationAmount > 0;
+    });
+    return {
+      lifetime,
+      givers: givers.length,
+      average: givers.length ? Math.round(lifetime / givers.length) : 0,
+      recentCount: recent.length,
+      recentSum: recent.reduce((sum, d) => sum + d.lastDonationAmount, 0),
+      currency: this.portfolioCurrency(),
+    };
+  });
 
-    return [
-      {
-        key: 'total',
-        label: 'Total Donors',
-        value: list.length,
-        hint: 'All time records',
-      },
-      {
-        key: 'new',
-        label: 'New Donors',
-        value: newDonors,
-        hint: this.periodFilter() === 'all' ? 'Within the last 30 days' : 'Within selected period',
-      },
-      {
-        key: 'active',
-        label: 'Active Donors',
-        value: activeDonors,
-        hint: 'Recent donation activity',
-      },
-      {
-        key: 'followups',
-        label: 'Follow-Ups Due',
-        value: followUpsDue,
-        hint: 'Needs engagement',
-      },
+  protected readonly attentionItems = computed(() => {
+    const list = this.donors();
+    const items: { key: Attention; label: string; hint: string; glyph: string; tone: string }[] = [
+      { key: 'overdue', label: 'Follow-ups overdue', hint: 'Promised contact has slipped', glyph: 'ri-alarm-warning-line', tone: 'danger' },
+      { key: 'today', label: 'Follow-ups due today', hint: 'Planned for today', glyph: 'ri-calendar-event-line', tone: 'warn' },
+      { key: 'unverified', label: 'Identity not verified', hint: 'Pending, failed, expired or unchecked', glyph: 'ri-shield-user-line', tone: 'info' },
+      { key: 'consent', label: 'Consent to review', hint: 'A consent expired or was withdrawn', glyph: 'ri-shield-keyhole-line', tone: 'plum' },
+      { key: 'unowned', label: 'Without an owner', hint: 'Nobody looks after them yet', glyph: 'ri-user-unfollow-line', tone: 'slate' },
     ];
+    return items.map((item) => ({ ...item, count: list.filter((d) => this.needs(d, item.key)).length }));
   });
 
   /** ----- Search + filter + sort pipeline ----- */
   protected readonly filteredDonors = computed<Donor[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();
+    const attention = this.attention();
+    const status = this.statusFilter();
     const owner = this.ownerFilter();
     const campaign = this.campaignFilter();
-    const region = this.regionFilter();
-    const engagement = this.engagementFilter();
+    const followUp = this.followUpFilter();
     const verification = this.verificationFilter();
     const consent = this.consentFilter();
+    const period = this.giftPeriod();
 
-
-    let result = this.donors().filter((donor) => {
-      const matchesSearch =
-        term.length === 0 ||
-        [
-          donor.donorId,
-          donor.name,
-          donor.mobile,
-          donor.email,
-          donor.campaign,
-          donor.reference,
-        ].some((field) => field.toLowerCase().includes(term));
-
-      const matchesOwner = owner === 'all' || donor.owner === owner;
-      const matchesCampaign = campaign === 'all' || donor.campaign === campaign;
-      const matchesRegion = region === 'all' || donor.region === region;
-      const matchesEngagement =
-        engagement === 'all' || donor.engagementTag === engagement;
-      const matchesVerification =
-        verification === 'all' || donor.verificationStatus === verification;
-      const matchesConsent =
-        consent === 'all' ||
-        (consent === 'review'
-          ? donor.consentReviewRequired
-          : donor.consentStatus === consent);
-
-      return (
-        this.inPeriod(donor.createdDate, this.periodFilter()) &&
-        matchesSearch &&
-        matchesOwner &&
-        matchesCampaign &&
-        matchesRegion &&
-        matchesEngagement &&
-        matchesVerification &&
-        matchesConsent
-      );
-    });
+    const result = this.donors().filter((d) =>
+      (term.length === 0 ||
+        [d.donorId, d.reference, d.name, d.mobile, d.email, d.campaign, d.owner]
+          .some((field) => (field ?? '').toLowerCase().includes(term))) &&
+      (!attention || this.needs(d, attention)) &&
+      (status === 'all' || this.statusOf(d) === status) &&
+      (owner === 'all' || d.owner === owner) &&
+      (campaign === 'all' || d.campaign === campaign) &&
+      (followUp === 'all' || (d.followUpStatus || 'None') === followUp) &&
+      (verification === 'all' || this.verificationLabel(d) === verification) &&
+      (consent === 'all' || (d.consentStatus || 'Not provided') === consent) &&
+      this.inGiftPeriod(d, period));
 
     const col = this.sortColumn();
     const dir = this.sortDirection() === 'asc' ? 1 : -1;
-    result = [...result].sort((a, b) => {
+    return [...result].sort((a, b) => {
       switch (col) {
-        case 'name':
-          return a.name.localeCompare(b.name) * dir;
-        case 'campaign':
-          return a.campaign.localeCompare(b.campaign) * dir;
-        case 'owner':
-          return a.owner.localeCompare(b.owner) * dir;
-        case 'lifetimeGiving':
-          return (a.lifetimeGiving - b.lifetimeGiving) * dir;
-        case 'lastDonationDate':
-        default:
-          return (
-            (new Date(a.lastDonationDate).getTime() -
-              new Date(b.lastDonationDate).getTime()) *
-            dir
-          );
+        case 'name': return a.name.localeCompare(b.name) * dir;
+        case 'campaign': return (a.campaign || '').localeCompare(b.campaign || '') * dir;
+        case 'owner': return (a.owner || '').localeCompare(b.owner || '') * dir;
+        case 'lifetimeGiving': return ((a.lifetimeGiving || 0) - (b.lifetimeGiving || 0)) * dir;
+        default: {
+          // Donors who never gave sort last whichever the direction.
+          const ta = new Date(a.lastDonationDate).getTime();
+          const tb = new Date(b.lastDonationDate).getTime();
+          const va = Number.isFinite(ta) ? ta : null;
+          const vb = Number.isFinite(tb) ? tb : null;
+          if (va === null && vb === null) return 0;
+          if (va === null) return 1;
+          if (vb === null) return -1;
+          return (va - vb) * dir;
+        }
       }
     });
-
-    return result;
   });
 
   protected readonly totalRecords = computed(() => this.filteredDonors().length);
-
-  protected readonly totalPages = computed(() =>
-    Math.max(1, Math.ceil(this.totalRecords() / this.pageSize())),
-  );
-
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalRecords() / this.pageSize())));
   protected readonly effectivePage = computed(() => Math.min(this.currentPage(), this.totalPages()));
-
   protected readonly paginatedDonors = computed<Donor[]>(() => {
-    const page = this.effectivePage();
-    const size = this.pageSize();
-    const start = (page - 1) * size;
-    return this.filteredDonors().slice(start, start + size);
+    const start = (this.effectivePage() - 1) * this.pageSize();
+    return this.filteredDonors().slice(start, start + this.pageSize());
+  });
+  protected readonly rangeStart = computed(() =>
+    this.totalRecords() === 0 ? 0 : (this.effectivePage() - 1) * this.pageSize() + 1);
+  protected readonly rangeEnd = computed(() => Math.min(this.effectivePage() * this.pageSize(), this.totalRecords()));
+
+  /** Page numbers for the pager, `0` standing for a gap. */
+  protected readonly pageList = computed<number[]>(() => {
+    const total = this.totalPages();
+    const current = this.effectivePage();
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const sorted = [...new Set([1, total, current - 1, current, current + 1])]
+      .filter((p) => p >= 1 && p <= total)
+      .sort((a, b) => a - b);
+    const out: number[] = [];
+    sorted.forEach((page, i) => {
+      if (i > 0 && page - sorted[i - 1] > 1) out.push(0);
+      out.push(page);
+    });
+    return out;
   });
 
-  protected readonly rangeStart = computed(() =>
-    this.totalRecords() === 0 ? 0 : (this.effectivePage() - 1) * this.pageSize() + 1,
-  );
-  protected readonly rangeEnd = computed(() =>
-    Math.min(this.effectivePage() * this.pageSize(), this.totalRecords()),
-  );
+  /** The page's largest lifetime giving, so each row's bar reads relative to it. */
+  private readonly pageTopGiving = computed(() =>
+    Math.max(1, ...this.paginatedDonors().map((d) => d.lifetimeGiving || 0)));
 
-  protected readonly hasActiveFilters = computed(
-    () =>
-      this.periodFilter() !== 'all' ||
-      this.ownerFilter() !== 'all' ||
-      this.campaignFilter() !== 'all' ||
-      this.regionFilter() !== 'all' ||
-      this.engagementFilter() !== 'all' ||
-      this.verificationFilter() !== 'all' ||
-      this.consentFilter() !== 'all',
-  );
+  protected givingShare(donor: Donor): number {
+    return Math.round(((donor.lifetimeGiving || 0) / this.pageTopGiving()) * 100);
+  }
+
+  /** Every applied filter as a removable token. */
+  protected readonly filterTokens = computed<FilterToken[]>(() => {
+    const tokens: FilterToken[] = [];
+    const attention = this.attention();
+    if (attention) {
+      const item = this.attentionItems().find((a) => a.key === attention);
+      tokens.push({ key: 'attention', label: item?.label ?? attention, clear: () => this.setAttention(null) });
+    }
+    if (this.statusFilter() !== 'all') tokens.push({ key: 'status', label: 'Status: ' + this.statusFilter(), clear: () => this.setStatusFilter('all') });
+    if (this.ownerFilter() !== 'all') tokens.push({ key: 'owner', label: 'Owner: ' + this.ownerFilter(), clear: () => this.setFilter(this.ownerFilter, 'all') });
+    if (this.campaignFilter() !== 'all') tokens.push({ key: 'campaign', label: 'Campaign: ' + this.campaignFilter(), clear: () => this.setFilter(this.campaignFilter, 'all') });
+    if (this.followUpFilter() !== 'all') tokens.push({ key: 'followup', label: 'Follow-up: ' + this.followUpFilter(), clear: () => this.setFilter(this.followUpFilter, 'all') });
+    if (this.verificationFilter() !== 'all') tokens.push({ key: 'identity', label: 'Identity: ' + this.verificationFilter(), clear: () => this.setFilter(this.verificationFilter, 'all') });
+    if (this.consentFilter() !== 'all') tokens.push({ key: 'consent', label: 'Consent: ' + this.consentFilter(), clear: () => this.setFilter(this.consentFilter, 'all') });
+    if (this.giftPeriod() !== 'all') tokens.push({ key: 'period', label: this.periodLabel(this.giftPeriod()), clear: () => this.setGiftPeriod('all') });
+    return tokens;
+  });
+
+  /** Count of the filters that live in the Filters panel (drives its dot). */
+  protected readonly panelFilterCount = computed(() =>
+    [this.ownerFilter(), this.campaignFilter(), this.followUpFilter(), this.verificationFilter(), this.consentFilter(), this.giftPeriod()]
+      .filter((v) => v !== 'all').length);
 
   protected readonly previewDonor = computed<Donor | null>(() => {
     const id = this.previewDonorId();
-    if (!id) return null;
-    return this.donors().find((d) => d.donorId === id) ?? null;
+    return id ? this.donors().find((d) => d.donorId === id) ?? null : null;
   });
+
+  protected readonly selectedCount = computed(() => this.selectedIds().size);
 
   protected readonly allOnPageSelected = computed(() => {
     const page = this.paginatedDonors();
-    if (page.length === 0) return false;
     const selected = this.selectedIds();
-    return page.every((d) => selected.has(d.donorId));
+    return page.length > 0 && page.every((d) => selected.has(d.donorId));
   });
 
-  /** ----- Search + filter actions ----- */
+  protected readonly someOnPageSelected = computed(() => {
+    const selected = this.selectedIds();
+    return !this.allOnPageSelected() && this.paginatedDonors().some((d) => selected.has(d.donorId));
+  });
+
+  protected readonly sortLabel = computed(() => {
+    const labels: Record<SortableColumn, string> = {
+      name: 'name', lastDonationDate: 'last gift', lifetimeGiving: 'lifetime giving', campaign: 'campaign', owner: 'owner',
+    };
+    return labels[this.sortColumn()] + (this.sortDirection() === 'asc' ? ', ascending' : ', descending');
+  });
+
+  /* =================================================================================
+     Filter + view actions
+     ================================================================================= */
+
+  protected setView(mode: ViewMode): void {
+    this.viewMode.set(mode);
+    try { localStorage.setItem(VIEW_KEY, mode); } catch { /* storage unavailable */ }
+  }
+
   protected onSearchInput(value: string): void {
     this.searchTerm.set(value);
     this.currentPage.set(1);
@@ -388,53 +340,47 @@ export class DonorListComponent {
     this.currentPage.set(1);
   }
 
+  protected setAttention(key: Attention | null): void {
+    this.attention.set(this.attention() === key ? null : key);
+    this.currentPage.set(1);
+  }
+
+  protected setStatusFilter(status: string): void {
+    this.statusFilter.set(this.statusFilter() === status ? 'all' : status);
+    this.currentPage.set(1);
+  }
+
+  protected setFilter(target: { set(value: string): void }, value: string): void {
+    target.set(value);
+    this.currentPage.set(1);
+  }
+
+  protected setGiftPeriod(value: GiftPeriod): void {
+    this.giftPeriod.set(value);
+    this.currentPage.set(1);
+  }
+
   protected toggleFilterPanel(): void {
     this.filterPanelOpen.update((open) => !open);
   }
 
-  protected setOwnerFilter(value: string): void {
-    this.ownerFilter.set(value);
-    this.currentPage.set(1);
-  }
-
-  protected setCampaignFilter(value: string): void {
-    this.campaignFilter.set(value);
-    this.currentPage.set(1);
-  }
-
-  protected setRegionFilter(value: string): void {
-    this.regionFilter.set(value);
-    this.currentPage.set(1);
-  }
-
-  protected toggleEngagementFilter(tag: EngagementTag): void {
-    this.engagementFilter.set(this.engagementFilter() === tag ? 'all' : tag);
-    this.currentPage.set(1);
-  }
-
-  protected toggleVerificationFilter(tag: VerificationStatus): void {
-    this.verificationFilter.set(
-      this.verificationFilter() === tag ? 'all' : tag,
-    );
-    this.currentPage.set(1);
-  }
-
-  protected toggleConsentFilter(tag: ConsentStatus | 'review'): void {
-    this.consentFilter.set(this.consentFilter() === tag ? 'all' : tag);
-    this.currentPage.set(1);
+  protected searchDropdownOptions(options: string[], term: string, selected: string): string[] {
+    if (options.length <= 20) return options;
+    const query = term.trim().toLocaleLowerCase();
+    return options.filter((o) => o === selected || o.toLocaleLowerCase().includes(query));
   }
 
   protected clearFilters(): void {
     this.ownerOptionSearch.set('');
     this.campaignOptionSearch.set('');
-    this.regionOptionSearch.set('');
-    this.periodFilter.set('all');
+    this.attention.set(null);
+    this.statusFilter.set('all');
     this.ownerFilter.set('all');
     this.campaignFilter.set('all');
-    this.regionFilter.set('all');
-    this.engagementFilter.set('all');
+    this.followUpFilter.set('all');
     this.verificationFilter.set('all');
     this.consentFilter.set('all');
+    this.giftPeriod.set('all');
     this.currentPage.set(1);
   }
 
@@ -443,33 +389,32 @@ export class DonorListComponent {
     this.resetSearch();
   }
 
-  /** ----- Sorting ----- */
+  /* ----- Sorting ----- */
   protected toggleSort(column: SortableColumn): void {
     if (this.sortColumn() === column) {
       this.sortDirection.update((dir) => (dir === 'asc' ? 'desc' : 'asc'));
     } else {
       this.sortColumn.set(column);
-      this.sortDirection.set('asc');
+      this.sortDirection.set(column === 'name' || column === 'campaign' || column === 'owner' ? 'asc' : 'desc');
     }
+  }
+
+  protected setSortColumn(column: SortableColumn): void {
+    if (this.sortColumn() !== column) this.toggleSort(column);
   }
 
   protected sortIndicator(column: SortableColumn): 'asc' | 'desc' | 'none' {
     return this.sortColumn() === column ? this.sortDirection() : 'none';
   }
 
-  /** ----- Selection ----- */
+  /* ----- Selection ----- */
   protected toggleRowSelection(donorId: string, event: Event): void {
     event.stopPropagation();
     this.selectedIds.update((current) => {
       const next = new Set(current);
-      if (next.has(donorId)) {
-        next.delete(donorId);
-      } else {
-        next.add(donorId);
-      }
+      if (next.has(donorId)) next.delete(donorId); else next.add(donorId);
       return next;
     });
-    this.previewDonorId.set(donorId);
   }
 
   protected toggleSelectAllOnPage(): void {
@@ -478,11 +423,7 @@ export class DonorListComponent {
     this.selectedIds.update((current) => {
       const next = new Set(current);
       for (const donor of page) {
-        if (allSelected) {
-          next.delete(donor.donorId);
-        } else {
-          next.add(donor.donorId);
-        }
+        if (allSelected) next.delete(donor.donorId); else next.add(donor.donorId);
       }
       return next;
     });
@@ -492,12 +433,25 @@ export class DonorListComponent {
     return this.selectedIds().has(donorId);
   }
 
-  /** ----- Preview drawer ----- */
+  protected clearSelection(): void {
+    this.selectedIds.set(new Set());
+  }
+
+  /* ----- Quick-look sheet ----- */
+  protected openPreview(donor: Donor, event: Event): void {
+    event.stopPropagation();
+    this.openMoreMenuId.set(null);
+    this.previewDonorId.set(donor.donorId);
+  }
+
   protected closePreview(): void {
     this.previewDonorId.set(null);
   }
 
-  /** ----- Navigation / row actions ----- */
+  /* =================================================================================
+     Navigation (destinations and query parameters unchanged)
+     ================================================================================= */
+
   protected openDonor360(donor: Donor, event?: Event): void {
     event?.stopPropagation();
     this.router.navigate(['/app/fundraising/relationships/donor-360'], {
@@ -542,7 +496,7 @@ export class DonorListComponent {
 
   protected exportDonorRecord(donor: Donor, event: Event): void {
     event.stopPropagation();
-    this.downloadCsv([donor], `${donor.donorId}.csv`);
+    this.downloadCsv([donor], `${donor.reference || donor.donorId}.csv`);
     this.openMoreMenuId.set(null);
   }
 
@@ -552,35 +506,31 @@ export class DonorListComponent {
 
   protected toggleMoreMenu(donorId: string, event: Event): void {
     event.stopPropagation();
+    this.exportMenuOpen.set(false);
     this.openMoreMenuId.set(this.openMoreMenuId() === donorId ? null : donorId);
   }
 
-  /** ----- Header actions ----- */
+  /* ----- Header actions ----- */
   protected refresh(): void {
-    this.loadDonors();
+    this.workflow.refresh();
   }
 
   protected toggleExportMenu(): void {
+    this.openMoreMenuId.set(null);
     this.exportMenuOpen.update((open) => !open);
   }
 
   protected exportData(format: ExportFormat): void {
-    const rows =
-      this.selectedIds().size > 0
-        ? this.donors().filter((d) => this.selectedIds().has(d.donorId))
-        : this.filteredDonors();
-
-    if (format === 'csv') {
-      this.downloadCsv(rows, 'donor-list.csv');
-    } else if (format === 'excel') {
-      this.downloadExcel(rows, 'donor-list.xls');
-    } else {
-      this.printAsPdf(rows);
-    }
+    const rows = this.selectedIds().size > 0
+      ? this.donors().filter((d) => this.selectedIds().has(d.donorId))
+      : this.filteredDonors();
+    if (format === 'csv') this.downloadCsv(rows, 'donor-list.csv');
+    else if (format === 'excel') this.downloadExcel(rows, 'donor-list.xls');
+    else this.printAsPdf(rows);
     this.exportMenuOpen.set(false);
   }
 
-  /** ----- Pagination ----- */
+  /* ----- Pagination ----- */
   protected goToPage(page: number): void {
     this.currentPage.set(Math.min(Math.max(1, page), this.totalPages()));
   }
@@ -594,134 +544,234 @@ export class DonorListComponent {
   }
 
   protected setPageSize(size: number): void {
-    if (size !== 10) return;
-    this.pageSize.set(10);
+    if (!this.pageSizeOptions.includes(size)) return;
+    this.pageSize.set(size);
     this.currentPage.set(1);
   }
 
-  /** ----- Global escape handler for drawer / menus ----- */
   protected onEscape(): void {
-    this.headerMenuOpen.set(false);
     this.previewDonorId.set(null);
     this.openMoreMenuId.set(null);
     this.exportMenuOpen.set(false);
   }
 
   protected onDocumentClick(): void {
-    this.headerMenuOpen.set(false);
     this.openMoreMenuId.set(null);
     this.exportMenuOpen.set(false);
   }
 
-  /** ----- Formatting helpers ----- */
-  protected formatCurrency(value: number): string {
-    return '\u20b9' + new Intl.NumberFormat('en-IN').format(value);
+  /* =================================================================================
+     Display helpers
+     ================================================================================= */
+
+  protected statusOf(donor: Donor): string {
+    return donor.status || donor.engagementTag || 'Active';
+  }
+
+  protected verificationLabel(donor: Donor): string {
+    return donor.verificationStatus || 'Not checked';
+  }
+
+  protected consentLabel(donor: Donor): string {
+    return donor.consentStatus || 'Not provided';
+  }
+
+  protected followUpNote(donor: Donor): string {
+    switch (donor.followUpStatus) {
+      case 'Overdue': return 'A planned follow-up has passed its date.';
+      case 'Due Today': return 'A follow-up is planned for today.';
+      case 'Tomorrow': return 'A follow-up is planned for tomorrow.';
+      default: return 'Nothing is planned at the moment.';
+    }
+  }
+
+  protected identityNote(donor: Donor): string {
+    switch (donor.verificationStatus) {
+      case 'Verified': return 'Identity has been checked and confirmed.';
+      case 'Pending': return 'A check has started and is awaiting its result.';
+      case 'Failed': return 'The last check failed and needs another attempt.';
+      case 'Expired': return 'The verification has lapsed and should be renewed.';
+      default: return 'Identity has not been checked yet.';
+    }
+  }
+
+  protected consentNote(donor: Donor): string {
+    const base = (() => {
+      switch (donor.consentStatus) {
+        case 'Granted': return 'Every recorded channel is permitted.';
+        case 'Partial': return 'Some channels are permitted, others withdrawn.';
+        case 'Withdrawn': return 'Consent is withdrawn on every channel.';
+        default: return 'No consent has been recorded yet.';
+      }
+    })();
+    return donor.consentReviewRequired ? base + ' Review needed: a consent expired or changed.' : base;
+  }
+
+  protected hasGiven(donor: Donor): boolean {
+    return (donor.lifetimeGiving || 0) > 0 || (donor.lastDonationAmount || 0) > 0;
+  }
+
+  protected hasOwner(donor: Donor): boolean {
+    return !!donor.owner && donor.owner !== 'Unassigned';
+  }
+
+  protected formatMoney(value: number, currency = 'INR'): string {
+    try {
+      return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value || 0);
+    } catch {
+      return `${currency} ${new Intl.NumberFormat('en-IN').format(value || 0)}`;
+    }
+  }
+
+  /** Compact money for the overview: ₹4.2 L, ₹1.3 Cr for INR; 4.2M style otherwise. */
+  protected formatCompact(value: number, currency = 'INR'): string {
+    if (currency === 'INR') {
+      const trim = (n: number) => n.toFixed(2).replace(/\.?0+$/, '');
+      if (value >= 1e7) return '₹' + trim(value / 1e7) + ' Cr';
+      if (value >= 1e5) return '₹' + trim(value / 1e5) + ' L';
+      return this.formatMoney(value, currency);
+    }
+    try {
+      return new Intl.NumberFormat('en', { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(value);
+    } catch {
+      return this.formatMoney(value, currency);
+    }
   }
 
   protected formatDate(value: string): string {
     if (!value || !Number.isFinite(new Date(value).getTime())) return '—';
-    return new Intl.DateTimeFormat('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    }).format(new Date(value));
+    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
+  }
+
+  /** "Today", "3 days ago", "5 weeks ago", "4 months ago", "2 years ago". */
+  protected relativeDate(value: string): string {
+    const t = new Date(value).getTime();
+    if (!value || !Number.isFinite(t)) return '';
+    const days = Math.floor((Date.now() - t) / 864e5);
+    if (days <= 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days < 14) return `${days} days ago`;
+    if (days < 60) return `${Math.round(days / 7)} weeks ago`;
+    if (days < 365) return `${Math.round(days / 30)} months ago`;
+    const years = Math.round(days / 365);
+    return years === 1 ? 'A year ago' : `${years} years ago`;
   }
 
   protected formatDateTime(value: Date): string {
     return new Intl.DateTimeFormat('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
+      day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
     }).format(value);
   }
 
-  private uniqueSorted(values: string[]): string[] {
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+  protected initials(name: string): string {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
   }
 
-  private downloadCsv(rows: Donor[], filename: string): void {
-    const headers = [
-      'Donor ID',
-      'Donor Name',
-      'Mobile',
-      'Email',
-      'Location',
-      'Campaign',
-      'Owner',
-      'Last Donation Amount',
-      'Last Donation Date',
-      'Lifetime Giving',
-      'Follow-Up Status',
-      'Consent Status',
-      'Verification Status',
+  protected periodLabel(period: GiftPeriod): string {
+    switch (period) {
+      case '30': return 'Gave in the last 30 days';
+      case '90': return 'Gave in the last 90 days';
+      case '365': return 'Gave in the last 12 months';
+      case 'never': return 'Not given yet';
+      default: return 'Any time';
+    }
+  }
+
+  /* =================================================================================
+     Private
+     ================================================================================= */
+
+  private needs(donor: Donor, key: Attention): boolean {
+    switch (key) {
+      case 'overdue': return donor.followUpStatus === 'Overdue';
+      case 'today': return donor.followUpStatus === 'Due Today';
+      case 'unverified': return donor.verificationStatus !== 'Verified';
+      case 'consent': return donor.consentReviewRequired;
+      case 'unowned': return !this.hasOwner(donor);
+    }
+  }
+
+  private inGiftPeriod(donor: Donor, period: GiftPeriod): boolean {
+    if (period === 'all') return true;
+    const t = new Date(donor.lastDonationDate).getTime();
+    const gave = Number.isFinite(t) && (donor.lastDonationAmount || 0) > 0;
+    if (period === 'never') return !gave;
+    return gave && t >= Date.now() - Number(period) * 864e5;
+  }
+
+  /** The currency most rows use; the overview totals are only shown in one. */
+  private portfolioCurrency(): string {
+    const counts = new Map<string, number>();
+    for (const d of this.donors()) counts.set(d.currency || 'INR', (counts.get(d.currency || 'INR') ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'INR';
+  }
+
+  private readView(): ViewMode {
+    try {
+      return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'table';
+    } catch {
+      return 'table';
+    }
+  }
+
+  private uniqueSorted(values: string[]): string[] {
+    return Array.from(new Set(values.filter((v) => !!v && v !== 'Unassigned'))).sort((a, b) => a.localeCompare(b));
+  }
+
+  private exportRow(d: Donor): (string | number)[] {
+    return [
+      d.reference || d.donorId, d.name, this.statusOf(d), d.mobile, d.email, d.campaign, d.owner,
+      d.currency || 'INR', d.lastDonationAmount, d.lastDonationDate, d.lifetimeGiving,
+      d.followUpStatus, this.consentLabel(d), this.verificationLabel(d),
     ];
+  }
+
+  private readonly exportHeaders = [
+    'Donor ID', 'Donor Name', 'Status', 'Mobile', 'Email', 'Campaign', 'Owner', 'Currency',
+    'Last Donation Amount', 'Last Donation Date', 'Lifetime Giving', 'Follow-Up Status', 'Consent Status', 'Verification Status',
+  ];
+
+  private downloadCsv(rows: Donor[], filename: string): void {
     const lines = rows.map((d) =>
-      [
-        d.donorId,
-        d.name,
-        d.mobile,
-        d.email,
-        d.location,
-        d.campaign,
-        d.owner,
-        d.lastDonationAmount,
-        d.lastDonationDate,
-        d.lifetimeGiving,
-        d.followUpStatus,
-        d.consentStatus,
-        d.verificationStatus,
-      ]
-        .map((field) => `"${String(field).replace(/"/g, '""')}"`)
-        .join(','),
-    );
-    const csvContent = [headers.join(','), ...lines].join('\r\n');
-    this.triggerDownload(csvContent, filename, 'text/csv;charset=utf-8;');
+      this.exportRow(d).map((field) => `"${String(field ?? '').replace(/"/g, '""')}"`).join(','));
+    this.triggerDownload([this.exportHeaders.join(','), ...lines].join('\r\n'), filename, 'text/csv;charset=utf-8;');
   }
 
   private downloadExcel(rows: Donor[], filename: string): void {
-    const headerRow =
-      '<tr><th>Donor ID</th><th>Donor Name</th><th>Mobile</th><th>Email</th>' +
-      '<th>Location</th><th>Campaign</th><th>Owner</th><th>Last Donation</th>' +
-      '<th>Lifetime Giving</th><th>Follow-Up</th><th>Consent</th><th>Verification</th></tr>';
-    const bodyRows = rows
-      .map(
-        (d) =>
-          `<tr><td>${d.donorId}</td><td>${d.name}</td><td>${d.mobile}</td><td>${d.email}</td>` +
-          `<td>${d.location}</td><td>${d.campaign}</td><td>${d.owner}</td><td>${d.lastDonationAmount}</td>` +
-          `<td>${d.lifetimeGiving}</td><td>${d.followUpStatus}</td><td>${d.consentStatus}</td><td>${d.verificationStatus}</td></tr>`,
-      )
-      .join('');
-    const table = `<table>${headerRow}${bodyRows}</table>`;
-    this.triggerDownload(table, filename, 'application/vnd.ms-excel');
+    const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const head = '<tr>' + this.exportHeaders.map((h) => `<th>${h}</th>`).join('') + '</tr>';
+    const body = rows.map((d) => '<tr>' + this.exportRow(d).map((v) => `<td>${esc(v)}</td>`).join('') + '</tr>').join('');
+    this.triggerDownload(`<table>${head}${body}</table>`, filename, 'application/vnd.ms-excel');
   }
 
   private printAsPdf(rows: Donor[]): void {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    const rowsHtml = rows
-      .map(
-        (d) =>
-          `<tr><td>${d.donorId}</td><td>${d.name}</td><td>${d.campaign}</td>` +
-          `<td>${this.formatCurrency(d.lifetimeGiving)}</td><td>${d.verificationStatus}</td></tr>`,
-      )
-      .join('');
+    const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const rowsHtml = rows.map((d) =>
+      `<tr><td>${esc(d.reference || d.donorId)}</td><td>${esc(d.name)}</td><td>${esc(this.statusOf(d))}</td>` +
+      `<td>${esc(d.campaign || '—')}</td><td>${esc(d.owner)}</td>` +
+      `<td style="text-align:right">${esc(this.formatMoney(d.lifetimeGiving, d.currency))}</td>` +
+      `<td>${esc(this.verificationLabel(d))}</td></tr>`).join('');
     printWindow.document.write(`
       <html>
         <head>
           <title>Donor List</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 24px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
-            th { background: #f8f9fa; }
+            body { font-family: Georgia, serif; padding: 32px; color: #17211c; }
+            h2 { font-weight: 600; margin: 0 0 4px; }
+            p { font: 12px Arial, sans-serif; color: #5f6b65; margin: 0 0 20px; }
+            table { width: 100%; border-collapse: collapse; font: 12px Arial, sans-serif; }
+            th { text-align: left; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #5f6b65; border-bottom: 1.5px solid #17211c; padding: 8px; }
+            td { border-bottom: 1px solid #e3e6e4; padding: 8px; }
           </style>
         </head>
         <body>
           <h2>Donor List</h2>
+          <p>${rows.length} donors · printed ${esc(this.formatDateTime(new Date()))}</p>
           <table>
-            <thead><tr><th>Donor ID</th><th>Name</th><th>Campaign</th><th>Lifetime Giving</th><th>Verification</th></tr></thead>
+            <thead><tr><th>Donor ID</th><th>Name</th><th>Status</th><th>Campaign</th><th>Owner</th><th style="text-align:right">Lifetime giving</th><th>Identity</th></tr></thead>
             <tbody>${rowsHtml}</tbody>
           </table>
         </body>

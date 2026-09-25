@@ -389,6 +389,78 @@ export class CommunicationTimelineComponent {
   readonly firstVisibleRecord = computed(() => this.filteredRecords().length ? (this.currentPage() - 1) * this.pageSize + 1 : 0);
   readonly lastVisibleRecord = computed(() => Math.min(this.currentPage() * this.pageSize, this.filteredRecords().length));
 
+  /** The visible page, one group per calendar day, so the journal reads as dated entries. */
+  readonly dayGroups = computed(() => {
+    const groups: { key: string; day: string; month: string; weekday: string; relative: string; items: CommunicationRecord[] }[] = [];
+    for (const record of this.paginatedRecords()) {
+      let group = groups[groups.length - 1];
+      if (!group || group.key !== record.date) {
+        const parsed = this.parseDisplayDate(record.date);
+        group = {
+          key: record.date,
+          day: parsed ? String(parsed.getDate()).padStart(2, '0') : record.date,
+          month: parsed ? `${this.monthNames[parsed.getMonth()]} ${parsed.getFullYear()}` : '',
+          weekday: parsed ? parsed.toLocaleDateString('en-GB', { weekday: 'long' }) : '',
+          relative: parsed ? this.relativeDay(parsed) : '',
+          items: [],
+        };
+        groups.push(group);
+      }
+      group.items.push(record);
+    }
+    return groups;
+  });
+
+  /** Channel lanes above the journal; empty channels are left out unless selected. */
+  readonly lanes = computed(() => {
+    const list = this.records();
+    const count = (type: CommunicationType) => list.filter((record) => record.type === type).length;
+    const lanes: { id: 'All' | CommunicationType | 'Important'; label: string; count: number }[] = [
+      { id: 'All', label: 'All', count: list.length },
+      { id: 'Call', label: 'Calls', count: count('Call') },
+      { id: 'Email', label: 'Emails', count: count('Email') },
+      { id: 'SMS', label: 'SMS', count: count('SMS') },
+      { id: 'WhatsApp', label: 'WhatsApp', count: count('WhatsApp') },
+      { id: 'Meeting', label: 'Meetings', count: count('Meeting') },
+      { id: 'Visit', label: 'Visits', count: count('Visit') },
+      { id: 'Event', label: 'Events', count: count('Event') },
+      { id: 'Internal Note', label: 'Notes', count: count('Internal Note') },
+      { id: 'Important', label: 'Important', count: list.filter((record) => record.important).length },
+    ];
+    return lanes.filter((lane) => lane.id === 'All' || lane.id === 'Important' || lane.count > 0 || lane.id === this.activeTab());
+  });
+
+  /** How many of the filter panel's controls are away from their default. */
+  readonly activeFilterCount = computed(() =>
+    [this.typeFilter() !== 'All', this.outcomeFilter() !== 'All', this.directionFilter() !== 'All',
+      this.importantOnly(), !!this.dateFromFilter(), !!this.dateToFilter()].filter(Boolean).length);
+
+  /** The last eight weeks, one tick per day, marking the days somebody was in touch. */
+  readonly cadenceDays = 56;
+  readonly cadence = computed(() => {
+    const today = this.today();
+    const byDay = new Map<string, CommunicationType[]>();
+    for (const record of this.records()) {
+      byDay.set(record.date, [...(byDay.get(record.date) ?? []), record.type]);
+    }
+    return Array.from({ length: this.cadenceDays }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (this.cadenceDays - 1 - index));
+      const label = this.toDisplayDateFrom(date);
+      const types = byDay.get(label) ?? [];
+      return { label, count: types.length, lead: types[0] ?? null, monday: date.getDay() === 1, today: index === this.cadenceDays - 1 };
+    });
+  });
+  readonly cadenceActiveDays = computed(() => this.cadence().filter((day) => day.count > 0).length);
+  readonly cadenceStart = computed(() => this.cadence()[0]?.label ?? '');
+
+  /** One line under the drawer that reads back what is about to be saved. */
+  readonly entryRecap = computed(() => {
+    const value = this.form();
+    const when = value.date ? this.toDisplayDate(value.date) : 'no date';
+    return `${value.direction} ${this.channelLabel(value.type).toLowerCase()} · ${value.outcome} · ${when}${value.time ? ' at ' + value.time : ''}`;
+  });
+
   readonly totalCommunications = computed(() => this.records().length);
 
   readonly callsCount = computed(
@@ -903,6 +975,30 @@ export class CommunicationTimelineComponent {
       case 'Event': return 'Event follow-up';
       default: return record.type;
     }
+  }
+
+  /** Lower-case key for the per-channel colour classes. */
+  channelKey(type: CommunicationType): string {
+    return type === 'Internal Note' ? 'note' : type.toLowerCase();
+  }
+
+  channelLabel(type: CommunicationType): string {
+    return type === 'Internal Note' ? 'Internal note' : type;
+  }
+
+  /** Fills the date and time with this moment. */
+  setNow(): void {
+    const now = new Date();
+    this.updateForm('date', this.getTodayIso());
+    this.updateForm('time', `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+  }
+
+  private relativeDay(date: Date): string {
+    const diff = this.daysBetween(date, this.today());
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    if (diff > 1) return `${diff} days ago`;
+    return '';
   }
 
   communicationIcon(type: CommunicationType): string {

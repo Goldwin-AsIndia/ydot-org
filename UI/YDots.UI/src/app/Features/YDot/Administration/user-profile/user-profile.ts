@@ -199,6 +199,16 @@ export class UserProfileComponent {
     [this.data()?.designation, this.data()?.department, this.data()?.reference]
       .filter((part) => !!part).join(' · '));
 
+  /** Two letters for the monogram on the profile cover. */
+  readonly initials = computed(() => {
+    const parts = (this.data()?.displayName ?? '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) { return '?'; }
+    return ((parts[0]?.charAt(0) ?? '') + (parts.length > 1 ? parts[parts.length - 1]?.charAt(0) ?? '' : '')).toUpperCase();
+  });
+
+  /** The account status in lower case, for the status mark's tone. */
+  readonly statusKey = computed(() => (this.data()?.accountStatus || '').toLowerCase());
+
   readonly localeSummary = computed(() =>
     [this.data()?.preferredLanguage, this.data()?.timeZone]
       .filter((part) => !!part).join(' · ') || '—');
@@ -335,6 +345,50 @@ export class UserProfileComponent {
       tone: days >= 90 ? 'text-warning' : 'text-success',
       iconTone: days >= 90 ? 'tone-warning' : 'tone-success',
     };
+  });
+
+  /** The Identity column of the personnel record - one row per fact, empty ones kept so gaps show. */
+  readonly identityFacts = computed(() => {
+    const d = this.data();
+    return [
+      { label: 'Reference', icon: 'ri-hashtag', value: d?.reference || '', mono: true },
+      { label: 'Employee ID', icon: 'ri-profile-line', value: d?.employeeId || '', mono: true },
+      { label: 'Username', icon: 'ri-at-line', value: d?.username || '', mono: false },
+      { label: 'Email', icon: 'ri-mail-line', value: d?.loginEmail || '', mono: false },
+      { label: 'Mobile', icon: 'ri-smartphone-line', value: d?.mobileNumber || '', mono: false },
+      { label: 'Language · timezone', icon: 'ri-global-line',
+        value: [d?.preferredLanguage, d?.timeZone].filter((part) => !!part).join(' · '), mono: false },
+    ];
+  });
+
+  /** The Organisation column of the personnel record. */
+  readonly organisationFacts = computed(() => {
+    const d = this.data();
+    return [
+      { label: 'Unit', icon: 'ri-building-4-line', value: d?.organisationUnit || '', mono: false },
+      { label: 'Department', icon: 'ri-community-line', value: d?.department || '', mono: false },
+      { label: 'Designation', icon: 'ri-briefcase-4-line', value: d?.designation || '', mono: false },
+      { label: 'Manager', icon: 'ri-user-star-line', value: d?.manager || '', mono: false },
+      { label: 'Joined', icon: 'ri-calendar-check-line', value: d?.joinedOn || '', mono: false },
+      { label: 'Data scopes', icon: 'ri-focus-3-line', value: d?.dataScopes || '', mono: false },
+    ];
+  });
+
+  /** How much of the record is filled in - the meter in the record's header. */
+  readonly recordCompleteness = computed(() => {
+    const facts = [...this.identityFacts(), ...this.organisationFacts()];
+    const filled = facts.filter((fact) => !!fact.value).length;
+    return { filled, total: facts.length, pct: Math.round((filled / facts.length) * 100) };
+  });
+
+  /** Passing checks out of three (second factor, password age, not locked) - the posture ring. */
+  readonly postureScore = computed(() => {
+    const passed = [
+      this.mfaSummary().status === 'Enrolled',
+      this.passwordSummary().trailing === 'Current',
+      !this.lockout().locked,
+    ].filter(Boolean).length;
+    return { passed, total: 3, pct: Math.round((passed / 3) * 100) };
   });
 
   /** Whether the account is locked out right now, and why. */

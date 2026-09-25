@@ -586,6 +586,33 @@ export class PublicDonationInitiationComponent {
 
   protected readonly summaryCity = computed(() => this.cityLabel(this.cityId()) || '—');
 
+  /** The first step still open on the progress rail; 0 once all three are complete. */
+  protected readonly currentStep = computed(() =>
+    !this.donorComplete() ? 1 : !this.addressComplete() ? 2 : !this.consentChecked() ? 3 : 0,
+  );
+
+  /**
+   * The gift as the pledge leaf prints it: currency code and figure apart, so the figure can be
+   * set large. The campaign's stated amount, or a reopened intent's own; null when neither exists.
+   */
+  protected readonly amountFigure = computed<{ code: string; value: string } | null>(() => {
+    const amount = this.campaignAmount();
+    if (amount !== null && !this.amountFromIntent()) {
+      return {
+        code: this.campaignAmountCurrency() || this.currencyLabel(this.currency()) || this.currency(),
+        value: amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      };
+    }
+    const n = Number(this.donationAmount());
+    if (this.formLocked() && this.donationAmount() && !Number.isNaN(n)) {
+      return {
+        code: this.currencyLabel(this.currency()) || this.currency(),
+        value: n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      };
+    }
+    return null;
+  });
+
   // ==========================================================================================
   // Custom dropdowns (Currency / Country / State / City) — replaces the native <select>
   // ==========================================================================================
@@ -663,10 +690,13 @@ export class PublicDonationInitiationComponent {
   /** Clicking anywhere outside an open dropdown closes it. */
   @HostListener('document:mousedown', ['$event'])
   protected onDocumentMouseDown(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (this.campaignPickerOpen() && !target?.closest('.pf-cause')) {
+      this.campaignPickerOpen.set(false);
+    }
     if (!this.openDropdown()) {
       return;
     }
-    const target = event.target as HTMLElement | null;
     if (!target?.closest('.dd.is-open')) {
       this.closeDropdown();
     }
@@ -674,6 +704,10 @@ export class PublicDonationInitiationComponent {
 
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
+    if (this.campaignPickerOpen()) {
+      this.campaignPickerOpen.set(false);
+      this.hostEl.nativeElement.querySelector<HTMLElement>('#fld-campaign')?.focus();
+    }
     const key = this.openDropdown();
     if (key) {
       this.closeDropdown();

@@ -1,456 +1,434 @@
 <main class="app-wrapper">
 <div class="page-wrapper">
   <div class="container-fluid px-4 py-3">
-  <div class="ux-page">
+  <div class="dx-page">
 
-    <!-- ============ LOADING ============ -->
+    <!-- ============ LOADING / ERROR ============ -->
     @if (loading()) {
-      <div class="ux-card ux-state">
-        <div class="ux-tile ux-tile--lg"><i class="ri-loader-4-line up-spin" aria-hidden="true"></i></div>
-        <div class="ux-state-title">Loading user profile…</div>
+      <div class="dx-state">
+        <i class="ri-loader-4-line up-spin" aria-hidden="true"></i>
+        <div class="dx-state-title">Loading user profile…</div>
       </div>
     }
 
-    <!-- ============ ERROR ============ -->
     @if (loadError() && !loading()) {
-      <div class="ux-card ux-state">
-        <div class="ux-tile ux-tile--lg ux-tile--danger"><i class="ri-error-warning-line" aria-hidden="true"></i></div>
-        <div class="ux-state-title">Failed to load</div>
-        <div class="ux-state-sub">The user profile couldn't be retrieved. Try again.</div>
+      <div class="dx-state">
+        <i class="ri-error-warning-line is-danger" aria-hidden="true"></i>
+        <div class="dx-state-title">Failed to load</div>
+        <div class="dx-state-sub">The user profile couldn't be retrieved. Try again.</div>
         <button type="button" class="up-btn up-btn--primary" (click)="retry()"><i class="ri-refresh-line" aria-hidden="true"></i> Retry</button>
       </div>
     }
 
     @if (!loading() && !loadError()) {
 
-      <!-- ============ HEADER ============ -->
-      <!-- Page header built here (not app-page-header) so the status / type icons can sit right
-           beside the name and their tooltips are not clipped by the shared header's meta row. -->
-      <header class="ux-head">
-        <div class="ux-head-text">
-          <div class="ux-head-line">
-            <h1 class="ux-head-title">{{ data()?.displayName || 'User profile' }}</h1>
-            <div class="ux-head-marks">
-              <!-- Status + category as icon marks with a hover / focus tooltip, not text chips -->
-              <span class="ux-mark"
-                    [class.is-ok]="(data()?.accountStatus || '').toLowerCase() === 'active'"
-                    [class.is-warn]="['suspended', 'invited', 'pending', 'locked'].includes((data()?.accountStatus || '').toLowerCase())"
-                    [class.is-danger]="['deactivated', 'withdrawn', 'expired', 'disabled', 'terminated'].includes((data()?.accountStatus || '').toLowerCase())"
-                    tabindex="0" role="img" [attr.aria-label]="'Account status: ' + (data()?.accountStatus || 'Unknown')">
-                <i [class]="(data()?.accountStatus || '').toLowerCase() === 'active' ? 'ri-verified-badge-fill'
-                          : (data()?.accountStatus || '').toLowerCase() === 'suspended' ? 'ri-pause-circle-fill'
-                          : (data()?.accountStatus || '').toLowerCase() === 'locked' ? 'ri-lock-fill'
-                          : (data()?.accountStatus || '').toLowerCase() === 'invited' || (data()?.accountStatus || '').toLowerCase() === 'pending' ? 'ri-mail-send-fill'
-                          : ['deactivated', 'withdrawn', 'expired', 'disabled', 'terminated'].includes((data()?.accountStatus || '').toLowerCase()) ? 'ri-close-circle-fill'
+      <!-- ============ COVER ============ -->
+      <header class="dx-cover">
+        <div class="dx-cover-body">
+          <div class="dx-avatar" aria-hidden="true">
+            <span class="dx-avatar-text">{{ initials() }}</span>
+            <span class="dx-avatar-dot"
+                  [class.is-ok]="statusKey() === 'active'"
+                  [class.is-warn]="['suspended', 'invited', 'pending', 'locked'].includes(statusKey())"
+                  [class.is-danger]="['deactivated', 'withdrawn', 'expired', 'disabled', 'terminated'].includes(statusKey())"></span>
+          </div>
+          <div class="dx-who">
+            <span class="dx-kicker">{{ isSelf() ? 'My profile' : 'User profile & access' }}</span>
+            <h1 class="dx-name">{{ data()?.displayName || 'User profile' }}</h1>
+            @if (headerSummary()) { <p class="dx-summary">{{ headerSummary() }}</p> }
+            <div class="dx-flags">
+              <span class="dx-flag"
+                    [class.is-ok]="statusKey() === 'active'"
+                    [class.is-warn]="['suspended', 'invited', 'pending', 'locked'].includes(statusKey())"
+                    [class.is-danger]="['deactivated', 'withdrawn', 'expired', 'disabled', 'terminated'].includes(statusKey())">
+                <i [class]="statusKey() === 'active' ? 'ri-verified-badge-fill'
+                          : statusKey() === 'suspended' ? 'ri-pause-circle-fill'
+                          : statusKey() === 'locked' ? 'ri-lock-fill'
+                          : statusKey() === 'invited' || statusKey() === 'pending' ? 'ri-mail-send-fill'
+                          : ['deactivated', 'withdrawn', 'expired', 'disabled', 'terminated'].includes(statusKey()) ? 'ri-close-circle-fill'
                           : 'ri-question-fill'" aria-hidden="true"></i>
-                <span class="ux-tip" aria-hidden="true"><span class="ux-tip-k">Account status</span><span class="ux-tip-v">{{ data()?.accountStatus || 'Unknown' }}</span></span>
+                <span class="dx-t">{{ data()?.accountStatus || 'Unknown' }}</span>
               </span>
               @if (data()?.accountCategory) {
-                <span class="ux-mark ux-mark--cat" tabindex="0" role="img" [attr.aria-label]="'Account type: ' + data()?.accountCategory">
-                  <i [class]="(data()?.accountCategory || '').toLowerCase().includes('employee') ? 'ri-user-3-fill'
-                            : (data()?.accountCategory || '').toLowerCase().includes('contract') ? 'ri-briefcase-4-fill'
-                            : (data()?.accountCategory || '').toLowerCase().includes('service') || (data()?.accountCategory || '').toLowerCase().includes('system') ? 'ri-robot-2-fill'
-                            : (data()?.accountCategory || '').toLowerCase().includes('guest') || (data()?.accountCategory || '').toLowerCase().includes('external') ? 'ri-user-shared-fill'
-                            : 'ri-price-tag-3-fill'" aria-hidden="true"></i>
-                  <span class="ux-tip" aria-hidden="true"><span class="ux-tip-k">Account type</span><span class="ux-tip-v">{{ data()?.accountCategory }}</span></span>
+                <span class="dx-flag">
+                  <i class="ri-price-tag-3-line" aria-hidden="true"></i>
+                  <span class="dx-t">{{ data()?.accountCategory }}</span>
                 </span>
               }
+              @if (data()?.loginEmail) {
+                <span class="dx-flag"><i class="ri-mail-line" aria-hidden="true"></i><span class="dx-t">{{ data()?.loginEmail }}</span></span>
+              }
             </div>
           </div>
-          @if (headerSummary()) { <div class="ux-head-sub">{{ headerSummary() }}</div> }
-        </div>
-        <div class="ux-head-actions">
-          <button type="button" class="up-btn up-btn--line" (click)="openThemeSettings()">
-            <i class="ri-settings-3-line" aria-hidden="true"></i> Settings
-          </button>
-          <button type="button" class="up-btn up-btn--primary" (click)="openEditModal()">
-            <i class="ri-edit-line" aria-hidden="true"></i> Edit profile
-          </button>
-        </div>
-      </header>
-
-      <!-- ============ KPI CARDS — text left, line icon right; hover fills the card and draws the icon ============ -->
-      <section class="ux-kpis" aria-label="At a glance">
-        <div class="ux-kcard" tabindex="0">
-          <div class="ux-kcard-text">
-            <div class="ux-label">Roles</div>
-            <div class="ux-kcard-v" style="font-weight: 800 !important;">{{ roleAssignments().length }}</div>
-            <div class="ux-kcard-sub">{{ roleAssignments().length === 1 ? 'Role assigned' : 'Roles assigned' }}</div>
-          </div>
-          <div class="ux-kcard-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path pathLength="1" d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path pathLength="1" d="M6.38 18.91a6 6 0 0 1 11.25 0"/><circle pathLength="1" cx="12" cy="11" r="4"/></svg>
+          <div class="dx-cover-actions">
+            <button type="button" class="up-btn up-btn--line" (click)="openThemeSettings()">
+              <i class="ri-settings-3-line" aria-hidden="true"></i> Settings
+            </button>
+            <button type="button" class="up-btn up-btn--primary" (click)="openEditModal()">
+              <i class="ri-edit-line" aria-hidden="true"></i> Edit profile
+            </button>
           </div>
         </div>
 
-        <div class="ux-kcard" tabindex="0" [class.is-ok]="mfaEnabled()" [class.is-warn]="!mfaEnabled()">
-          <div class="ux-kcard-text">
-            <div class="ux-label">Two-step</div>
-            <div class="ux-kcard-v ux-kcard-v--text">{{ getMfaStatusLabel() }}</div>
-            <div class="ux-kcard-sub">{{ mfaEnabled() ? 'Second factor required' : 'Password only' }}</div>
+        <!-- At a glance, docked under the cover -->
+        <dl class="dx-glance">
+          <div class="dx-glance-item">
+            <dt>Roles</dt>
+            <dd>{{ roleAssignments().length }}</dd>
+            <span class="dx-glance-sub">{{ roleAssignments().length === 1 ? 'role assigned' : 'roles assigned' }}</span>
           </div>
-          <div class="ux-kcard-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path pathLength="1" d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path pathLength="1" d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path pathLength="1" d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path pathLength="1" d="M2 12a10 10 0 0 1 18-6"/><path pathLength="1" d="M21.8 16c.2-2 .13-5.35 0-6"/><path pathLength="1" d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path pathLength="1" d="M8.65 22c.21-.66.45-1.32.57-2"/><path pathLength="1" d="M9 6.8a6 6 0 0 1 9 5.2v2"/></svg>
+          <div class="dx-glance-item" [class.is-ok]="mfaEnabled()" [class.is-warn]="!mfaEnabled()">
+            <dt>Two-step</dt>
+            <dd class="dx-glance-text">{{ getMfaStatusLabel() }}</dd>
+            <span class="dx-glance-sub">{{ mfaEnabled() ? 'Second factor required' : 'Password only' }}</span>
           </div>
-        </div>
-
-        <div class="ux-kcard" tabindex="0">
-          <div class="ux-kcard-text">
-            <div class="ux-label">Active sessions</div>
-            <div class="ux-kcard-v" style="font-weight: 800 !important;">{{ activeSessionCount() }}</div>
-            <div class="ux-kcard-sub">
+          <div class="dx-glance-item">
+            <dt>Active sessions</dt>
+            <dd>{{ activeSessionCount() }}</dd>
+            <span class="dx-glance-sub">
               @if (activeSessionCount() === 0) { Not signed in anywhere }
               @else { On {{ activeSessionDevices() }} {{ activeSessionDevices() === 1 ? 'device' : 'devices' }} }
-            </div>
+            </span>
           </div>
-          <div class="ux-kcard-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><rect pathLength="1" x="2" y="3" width="20" height="14" rx="2"/><path pathLength="1" d="M8 21h8"/><path pathLength="1" d="M12 17v4"/></svg>
+          <div class="dx-glance-item">
+            <dt>Last sign-in</dt>
+            <dd class="dx-glance-text">{{ data()?.lastSignIn || '—' }}</dd>
+            <span class="dx-glance-sub">Most recent successful sign-in</span>
           </div>
-        </div>
+        </dl>
+      </header>
 
-        <div class="ux-kcard" tabindex="0">
-          <div class="ux-kcard-text">
-            <div class="ux-label">Last sign-in</div>
-            <div class="ux-kcard-v ux-kcard-v--text">{{ data()?.lastSignIn || '—' }}</div>
-            <div class="ux-kcard-sub">Most recent successful sign-in</div>
-          </div>
-          <div class="ux-kcard-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path pathLength="1" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path pathLength="1" d="M10 17l5-5-5-5"/><path pathLength="1" d="M15 12H3"/></svg>
-          </div>
-        </div>
-      </section>
+      <div class="dx-body">
 
-      <!-- ============ TABS (segmented) ============ -->
-      <nav class="ux-tabs" role="tablist" aria-label="Profile sections">
-        <button type="button" role="tab" class="ux-tab" [class.is-active]="activeTab()==='profile'"
-                [attr.aria-selected]="activeTab()==='profile'" (click)="setTab('profile')">
-          <i class="ri-user-3-line" aria-hidden="true"></i> Profile
-        </button>
-        <button type="button" role="tab" class="ux-tab" [class.is-active]="activeTab()==='access'"
-                [attr.aria-selected]="activeTab()==='access'" (click)="setTab('access')">
-          <i class="ri-key-2-line" aria-hidden="true"></i> Access <span class="ux-tab-n">{{ accessCount() }}</span>
-        </button>
-        <button type="button" role="tab" class="ux-tab" [class.is-active]="activeTab()==='security'"
-                [attr.aria-selected]="activeTab()==='security'" (click)="setTab('security')">
-          <i class="ri-shield-check-line" aria-hidden="true"></i> Security
-        </button>
-      </nav>
+        <!-- ============ SECTION RAIL ============ -->
+        <nav class="dx-rail" role="tablist" aria-label="Profile sections">
+          <button type="button" role="tab" class="dx-seg" [class.is-active]="activeTab()==='profile'"
+                  [attr.aria-selected]="activeTab()==='profile'" (click)="setTab('profile')">
+            <span class="dx-seg-glyph"><i class="ri-user-3-line" aria-hidden="true"></i></span>
+            <span class="dx-seg-text">
+              <span class="dx-seg-name">Overview</span>
+              <span class="dx-seg-cap">Record, posture &amp; roles</span>
+            </span>
+            <span class="dx-seg-num">{{ recordCompleteness().pct }}%</span>
+          </button>
+          <button type="button" role="tab" class="dx-seg" [class.is-active]="activeTab()==='access'"
+                  [attr.aria-selected]="activeTab()==='access'" (click)="setTab('access')">
+            <span class="dx-seg-glyph"><i class="ri-key-2-line" aria-hidden="true"></i></span>
+            <span class="dx-seg-text">
+              <span class="dx-seg-name">Access</span>
+              <span class="dx-seg-cap">Window &amp; role assignments</span>
+            </span>
+            <span class="dx-seg-num">{{ accessCount() }}</span>
+          </button>
+          <button type="button" role="tab" class="dx-seg" [class.is-active]="activeTab()==='security'"
+                  [attr.aria-selected]="activeTab()==='security'" (click)="setTab('security')">
+            <span class="dx-seg-glyph"><i class="ri-shield-check-line" aria-hidden="true"></i></span>
+            <span class="dx-seg-text">
+              <span class="dx-seg-name">Security</span>
+              <span class="dx-seg-cap">Factors, devices &amp; sign-ins</span>
+            </span>
+            <span class="dx-seg-num">{{ postureScore().passed }}/{{ postureScore().total }}</span>
+          </button>
+        </nav>
 
-      <!-- =====================================================================================
-           PROFILE TAB — three cards in a row, then the roles
-           ===================================================================================== -->
-      @if (activeTab() === 'profile') {
-        <div class="ux-trio">
-          <!-- Identity -->
-          <section class="ux-card">
-            <header class="ux-card-head"><div class="ux-card-title">Identity</div></header>
-            <ul class="ux-rows">
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-hashtag" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Reference</div><div class="ux-value">{{ data()?.reference || '—' }}</div></div></li>
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-profile-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Employee ID</div><div class="ux-value">{{ data()?.employeeId || '—' }}</div></div></li>
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-at-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Username</div><div class="ux-value">{{ data()?.username || '—' }}</div></div></li>
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-mail-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Email</div><div class="ux-value">{{ data()?.loginEmail || '—' }}</div></div></li>
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-phone-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Mobile</div><div class="ux-value">{{ data()?.mobileNumber || '—' }}</div></div></li>
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-global-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Language and timezone</div><div class="ux-value">{{ localeSummary() || '—' }}</div></div></li>
-            </ul>
-          </section>
-
-          <!-- Organisation -->
-          <section class="ux-card">
-            <header class="ux-card-head"><div class="ux-card-title">Organisation</div></header>
-            <ul class="ux-rows">
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-building-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Organisation unit</div><div class="ux-value">{{ data()?.organisationUnit || '—' }}</div></div></li>
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-team-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Department</div><div class="ux-value">{{ data()?.department || '—' }}</div></div></li>
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-briefcase-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Designation</div><div class="ux-value">{{ data()?.designation || '—' }}</div></div></li>
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-user-star-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Manager</div><div class="ux-value">{{ data()?.manager || '—' }}</div></div></li>
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-calendar-check-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Joined</div><div class="ux-value">{{ data()?.joinedOn || '—' }}</div></div></li>
-              <li class="ux-row"><div class="ux-tile ux-tile--sm"><i class="ri-focus-3-line" aria-hidden="true"></i></div><div class="ux-row-body"><div class="ux-label">Data scopes</div><div class="ux-value">{{ data()?.dataScopes || '—' }}</div></div></li>
-            </ul>
-          </section>
-
-          <!-- Security summary -->
-          <section class="ux-card">
-            <header class="ux-card-head">
-              <div class="ux-card-title">Security</div>
-              @if (securityLoading()) { <i class="ri-loader-4-line up-spin ux-faint" aria-hidden="true"></i> }
-            </header>
-            @if (securityUnavailable()) {
-              <div class="ux-note"><i class="ri-lock-line" aria-hidden="true"></i> The security details for this account are not available to you.</div>
-            } @else {
-              @if (lockout().locked) {
-                <div class="ux-alert"><i class="ri-lock-line" aria-hidden="true"></i><div><b>Locked out.</b> {{ lockout().reason }}@if (lockout().until) { Until {{ lockout().until }}. }</div></div>
-              }
-              <ul class="ux-rows">
-                <li class="ux-row">
-                  <div [class]="'ux-tile ' + mfaSummary().iconTone"><i class="ri-shield-check-line" aria-hidden="true"></i></div>
-                  <div class="ux-row-body"><div class="ux-value">Multi-factor</div><div class="ux-sub">{{ mfaSummary().detail }}</div></div>
-                  <span [class]="'ux-trail ' + mfaSummary().tone">{{ mfaSummary().status }}</span>
-                </li>
-                <li class="ux-row">
-                  <div [class]="'ux-tile ' + passwordSummary().iconTone"><i class="ri-lock-password-line" aria-hidden="true"></i></div>
-                  <div class="ux-row-body"><div class="ux-value">Password</div><div class="ux-sub">{{ passwordSummary().detail }}</div></div>
-                  <span [class]="'ux-trail ' + passwordSummary().tone">{{ passwordSummary().trailing }}</span>
-                </li>
-                <li class="ux-row">
-                  <div class="ux-tile"><i class="ri-computer-line" aria-hidden="true"></i></div>
-                  <div class="ux-row-body">
-                    <div class="ux-value">Active sessions</div>
-                    <div class="ux-sub">
-                      @if (activeSessionCount() === 0) { Not signed in anywhere }
-                      @else { On {{ activeSessionDevices() }} {{ activeSessionDevices() === 1 ? 'device' : 'devices' }} }
-                    </div>
+        <!-- ============ OVERVIEW ============ -->
+        @if (activeTab() === 'profile') {
+          <div class="dx-duo">
+            <!-- personnel record -->
+            <section class="dx-record" aria-label="Identity and organisation">
+              <header class="dx-record-head">
+                <div class="dx-head-text">
+                  <span class="dx-eyebrow">Personnel record</span>
+                  <h3 class="dx-h">Identity &amp; organisation</h3>
+                </div>
+                <div class="dx-meter" [attr.aria-label]="recordCompleteness().filled + ' of ' + recordCompleteness().total + ' fields complete'">
+                  <div class="dx-meter-top">
+                    <span class="dx-meter-k">Completeness</span>
+                    <span class="dx-meter-v">{{ recordCompleteness().filled }}<small>/{{ recordCompleteness().total }}</small></span>
                   </div>
-                  <span class="ux-trail">{{ activeSessionCount() }}</span>
-                </li>
-              </ul>
-            }
-          </section>
-        </div>
-
-        <section class="ux-card">
-          <header class="ux-card-head ux-card-head--tools">
-            <div class="ux-card-title">Assigned roles <span class="ux-badge">{{ roleAssignments().length }}</span></div>
-            <div class="ux-tools">
-              <div class="ux-search">
-                <i class="ri-search-line" aria-hidden="true"></i>
-                <input type="text" placeholder="Search assigned roles…" aria-label="Search assigned roles"
-                       [ngModel]="roleSearch()" (ngModelChange)="roleSearch.set($event)">
-              </div>
-              <div class="ux-dd" [class.is-open]="showSortMenu()">
-                <button type="button" class="ux-dd-trigger" (click)="toggleSortMenu()" aria-haspopup="menu" [attr.aria-expanded]="showSortMenu()">
-                  <i class="ri-sort-desc" aria-hidden="true"></i>
-                  <span class="ux-dd-label">{{ sortField() === 'scope' ? 'Scope' : sortField() === 'term' ? 'Term' : 'Role' }}</span>
-                  <i class="ri-arrow-down-s-line ux-dd-chev" aria-hidden="true"></i>
-                </button>
-                @if (showSortMenu()) {
-                  <div class="ux-dd-menu" role="menu">
-                    <div class="ux-dd-head">Sort by</div>
-                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='role'" [attr.aria-checked]="sortField()==='role'" (click)="setSort('role')">
-                      <i class="ri-shield-user-line" aria-hidden="true"></i><span class="ux-dd-text">Role</span>
-                      @if (sortField()==='role') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
-                    </button>
-                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='scope'" [attr.aria-checked]="sortField()==='scope'" (click)="setSort('scope')">
-                      <i class="ri-focus-3-line" aria-hidden="true"></i><span class="ux-dd-text">Scope</span>
-                      @if (sortField()==='scope') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
-                    </button>
-                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='term'" [attr.aria-checked]="sortField()==='term'" (click)="setSort('term')">
-                      <i class="ri-time-line" aria-hidden="true"></i><span class="ux-dd-text">Term</span>
-                      @if (sortField()==='term') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
-                    </button>
-                  </div>
-                }
-              </div>
-            </div>
-          </header>
-
-          <ul class="ux-roles">
-            @for (r of visibleRoleAssignments(); track r.role) {
-              <li class="ux-role">
-                <div class="ux-tile"><i class="ri-shield-user-line" aria-hidden="true"></i></div>
-                <div class="ux-role-main">
-                  <div class="ux-value">{{ r.role }}</div>
-                  <div class="ux-sub">{{ r.assignmentType }}</div>
+                  <span class="dx-meter-track"><span [style.width.%]="recordCompleteness().pct"></span></span>
                 </div>
-                <div class="ux-role-meta">
-                  <span class="ux-meta"><i class="ri-focus-3-line" aria-hidden="true"></i>{{ r.scope }}</span>
-                  <span class="ux-meta"><i class="ri-key-2-line" aria-hidden="true"></i>{{ r.permissions }} permissions</span>
-                </div>
-                <span class="ux-status" [class.is-ok]="r.term === 'Permanent'" [class.is-warn]="r.term !== 'Permanent'">{{ r.term }}</span>
-              </li>
-            } @empty {
-              <li class="ux-empty-row">
-                <div class="ux-tile ux-tile--muted"><i class="ri-search-line" aria-hidden="true"></i></div>
-                <div class="ux-sub">
-                  @if (roleSearch().trim()) { No assigned role matches “{{ roleSearch() }}”. } @else { No role assignments found. }
-                </div>
-              </li>
-            }
-          </ul>
-          <footer class="ux-card-foot">
-            Showing {{ visibleRoleAssignments().length }} of {{ roleAssignments().length }} {{ roleAssignments().length === 1 ? 'role' : 'roles' }}
-            @if (activeTab() === 'profile') {
-              <button type="button" class="ux-link" (click)="setTab('access')">View all <i class="ri-arrow-right-line" aria-hidden="true"></i></button>
-            }
-          </footer>
-        </section>
-      }
-
-      <!-- =====================================================================================
-           ACCESS TAB
-           ===================================================================================== -->
-      @if (activeTab() === 'access') {
-        <div class="ux-window">
-          <div class="ux-card ux-kpi">
-            <div class="ux-tile"><i class="ri-calendar-event-line" aria-hidden="true"></i></div>
-            <div class="ux-kpi-body"><div class="ux-label">Access start</div><div class="ux-kpi-v ux-kpi-v--text">{{ data()?.accessStartDate || '—' }}</div></div>
-          </div>
-          <div class="ux-card ux-kpi">
-            <div class="ux-tile"><i class="ri-calendar-close-line" aria-hidden="true"></i></div>
-            <div class="ux-kpi-body"><div class="ux-label">Access end</div><div class="ux-kpi-v ux-kpi-v--text">{{ data()?.accessEndDate || 'No end date' }}</div></div>
-          </div>
-          <div class="ux-card ux-kpi">
-            <div class="ux-tile ux-tile--muted"><i class="ri-file-search-line" aria-hidden="true"></i></div>
-            <div class="ux-kpi-body"><div class="ux-label">Access review</div><div class="ux-kpi-v ux-kpi-v--text ux-muted">Not tracked on the account</div></div>
-          </div>
-        </div>
-
-        <section class="ux-card">
-          <header class="ux-card-head ux-card-head--tools">
-            <div class="ux-card-title">Assigned roles <span class="ux-badge">{{ roleAssignments().length }}</span></div>
-            <div class="ux-tools">
-              <div class="ux-search">
-                <i class="ri-search-line" aria-hidden="true"></i>
-                <input type="text" placeholder="Search assigned roles…" aria-label="Search assigned roles"
-                       [ngModel]="roleSearch()" (ngModelChange)="roleSearch.set($event)">
-              </div>
-              <div class="ux-dd" [class.is-open]="showSortMenu()">
-                <button type="button" class="ux-dd-trigger" (click)="toggleSortMenu()" aria-haspopup="menu" [attr.aria-expanded]="showSortMenu()">
-                  <i class="ri-sort-desc" aria-hidden="true"></i>
-                  <span class="ux-dd-label">{{ sortField() === 'scope' ? 'Scope' : sortField() === 'term' ? 'Term' : 'Role' }}</span>
-                  <i class="ri-arrow-down-s-line ux-dd-chev" aria-hidden="true"></i>
-                </button>
-                @if (showSortMenu()) {
-                  <div class="ux-dd-menu" role="menu">
-                    <div class="ux-dd-head">Sort by</div>
-                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='role'" [attr.aria-checked]="sortField()==='role'" (click)="setSort('role')">
-                      <i class="ri-shield-user-line" aria-hidden="true"></i><span class="ux-dd-text">Role</span>
-                      @if (sortField()==='role') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
-                    </button>
-                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='scope'" [attr.aria-checked]="sortField()==='scope'" (click)="setSort('scope')">
-                      <i class="ri-focus-3-line" aria-hidden="true"></i><span class="ux-dd-text">Scope</span>
-                      @if (sortField()==='scope') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
-                    </button>
-                    <button type="button" role="menuitemradio" class="ux-dd-opt" [class.is-on]="sortField()==='term'" [attr.aria-checked]="sortField()==='term'" (click)="setSort('term')">
-                      <i class="ri-time-line" aria-hidden="true"></i><span class="ux-dd-text">Term</span>
-                      @if (sortField()==='term') { <i [class]="sortAsc() ? 'ri-arrow-up-line ux-dd-dir' : 'ri-arrow-down-line ux-dd-dir'" aria-hidden="true"></i> }
-                    </button>
-                  </div>
-                }
-              </div>
-            </div>
-          </header>
-
-          <ul class="ux-roles">
-            @for (r of visibleRoleAssignments(); track r.role) {
-              <li class="ux-role">
-                <div class="ux-tile"><i class="ri-shield-user-line" aria-hidden="true"></i></div>
-                <div class="ux-role-main">
-                  <div class="ux-value">{{ r.role }}</div>
-                  <div class="ux-sub">{{ r.assignmentType }}</div>
-                </div>
-                <div class="ux-role-meta">
-                  <span class="ux-meta"><i class="ri-focus-3-line" aria-hidden="true"></i>{{ r.scope }}</span>
-                  <span class="ux-meta"><i class="ri-key-2-line" aria-hidden="true"></i>{{ r.permissions }} permissions</span>
-                </div>
-                <span class="ux-status" [class.is-ok]="r.term === 'Permanent'" [class.is-warn]="r.term !== 'Permanent'">{{ r.term }}</span>
-              </li>
-            } @empty {
-              <li class="ux-empty-row">
-                <div class="ux-tile ux-tile--muted"><i class="ri-search-line" aria-hidden="true"></i></div>
-                <div class="ux-sub">
-                  @if (roleSearch().trim()) { No assigned role matches “{{ roleSearch() }}”. } @else { No role assignments found. }
-                </div>
-              </li>
-            }
-          </ul>
-          <footer class="ux-card-foot">
-            Showing {{ visibleRoleAssignments().length }} of {{ roleAssignments().length }} {{ roleAssignments().length === 1 ? 'role' : 'roles' }}
-            @if (activeTab() === 'profile') {
-              <button type="button" class="ux-link" (click)="setTab('access')">View all <i class="ri-arrow-right-line" aria-hidden="true"></i></button>
-            }
-          </footer>
-        </section>
-      }
-
-      <!-- =====================================================================================
-           SECURITY TAB
-           ===================================================================================== -->
-      @if (activeTab() === 'security') {
-        @if (securityUnavailable()) {
-          <div class="ux-card ux-state">
-            <div class="ux-tile ux-tile--lg ux-tile--muted"><i class="ri-lock-line" aria-hidden="true"></i></div>
-            <div class="ux-state-title">Security details unavailable</div>
-            <div class="ux-state-sub">You do not have permission to see the sessions, devices and sign-in history for this account.</div>
-          </div>
-        } @else {
-          <div class="ux-duo">
-            <section class="ux-card">
-              <header class="ux-card-head">
-                <div class="ux-card-title">Authentication methods</div>
-                <span class="ux-badge">{{ mfaMethods().length }} enrolled</span>
               </header>
-              <ul class="ux-rows">
-                @for (method of mfaMethods(); track method.id) {
-                  <li class="ux-row">
-                    <div class="ux-tile" [class.ux-tile--ok]="method.enabled" [class.ux-tile--muted]="!method.enabled"><i class="{{ method.icon }}" aria-hidden="true"></i></div>
-                    <div class="ux-row-body">
-                      <div class="ux-value">{{ method.name }}</div>
-                      <div class="ux-sub">{{ method.description }}</div>
-                    </div>
-                    @if (isSelf()) {
-                      <button type="button" class="up-btn up-btn--danger-line up-btn--sm" [disabled]="submitting()" (click)="removeMfaMethod(method.id)">
-                        <i class="ri-delete-bin-line" aria-hidden="true"></i> Remove
-                      </button>
-                    } @else {
-                      <span class="ux-status" [class.is-ok]="method.enabled" [class.is-warn]="!method.enabled">{{ method.enabled ? 'Active' : 'Pending' }}</span>
+              <div class="dx-record-cols">
+                <div class="dx-col">
+                  <h4 class="dx-col-title"><i class="ri-fingerprint-line" aria-hidden="true"></i>Identity</h4>
+                  <dl class="dx-ledger">
+                    @for (f of identityFacts(); track f.label) {
+                      <div class="dx-line" [class.is-empty]="!f.value">
+                        <dt><i [class]="f.icon" aria-hidden="true"></i><span class="dx-t">{{ f.label }}</span></dt>
+                        <dd [class.is-mono]="f.mono && !!f.value">{{ f.value || 'Not set' }}</dd>
+                      </div>
                     }
-                  </li>
-                } @empty {
-                  <li class="ux-empty-row">
-                    <div class="ux-tile ux-tile--warn"><i class="ri-error-warning-line" aria-hidden="true"></i></div>
-                    <div class="ux-sub">No second factor is set up. Anybody with the password can sign in to this account.</div>
-                  </li>
-                }
-              </ul>
+                  </dl>
+                </div>
+                <div class="dx-col">
+                  <h4 class="dx-col-title"><i class="ri-building-4-line" aria-hidden="true"></i>Organisation</h4>
+                  <dl class="dx-ledger">
+                    @for (f of organisationFacts(); track f.label) {
+                      <div class="dx-line" [class.is-empty]="!f.value">
+                        <dt><i [class]="f.icon" aria-hidden="true"></i><span class="dx-t">{{ f.label }}</span></dt>
+                        <dd>{{ f.value || 'Not set' }}</dd>
+                      </div>
+                    }
+                  </dl>
+                </div>
+              </div>
             </section>
 
-            <section class="ux-card">
-              <header class="ux-card-head">
-                <div class="ux-card-title">Sign-in activity</div>
-                @if (securityLoading()) { <i class="ri-loader-4-line up-spin ux-faint" aria-hidden="true"></i> }
+            <!-- security posture -->
+            <section class="dx-guard" aria-label="Security posture">
+              <header class="dx-guard-head">
+                <div class="dx-head-text">
+                  <span class="dx-eyebrow">Security posture</span>
+                  <h3 class="dx-h">How it is protected</h3>
+                </div>
+                @if (securityLoading()) {
+                  <i class="ri-loader-4-line up-spin dx-guard-spin" aria-hidden="true"></i>
+                } @else if (!securityUnavailable()) {
+                  <span class="dx-ring" [style.--p]="postureScore().pct"
+                        [class.is-ok]="postureScore().passed === postureScore().total"
+                        [attr.aria-label]="postureScore().passed + ' of ' + postureScore().total + ' checks passing'">
+                    <span class="dx-ring-v">{{ postureScore().passed }}<small>/{{ postureScore().total }}</small></span>
+                  </span>
+                }
               </header>
-              <div class="ux-mini">
-                <div class="ux-mini-item"><div class="ux-label">Trusted devices</div><div class="ux-mini-v">{{ trustedDeviceCount() }}</div></div>
-                <div class="ux-mini-item"><div class="ux-label">Failed · 24h</div><div class="ux-mini-v">{{ failedSignIns().last24Hours }}</div></div>
-                <div class="ux-mini-item"><div class="ux-label">Failed · 7d</div><div class="ux-mini-v">{{ failedSignIns().last7Days }}</div></div>
-              </div>
+
               @if (securityUnavailable()) {
-              <div class="ux-note"><i class="ri-lock-line" aria-hidden="true"></i> The security details for this account are not available to you.</div>
-            } @else {
-              @if (lockout().locked) {
-                <div class="ux-alert"><i class="ri-lock-line" aria-hidden="true"></i><div><b>Locked out.</b> {{ lockout().reason }}@if (lockout().until) { Until {{ lockout().until }}. }</div></div>
+                <div class="dx-guard-locked">
+                  <i class="ri-lock-line" aria-hidden="true"></i>
+                  <span class="dx-t">The security details for this account are not available to you.</span>
+                </div>
+              } @else {
+                @if (lockout().locked) {
+                  <div class="dx-guard-alert"><i class="ri-lock-line" aria-hidden="true"></i><div><b>Locked out.</b> {{ lockout().reason }}@if (lockout().until) { Until {{ lockout().until }}. }</div></div>
+                }
+                <ul class="dx-checks">
+                  <li class="dx-check" [class.is-ok]="mfaSummary().iconTone === 'tone-success'" [class.is-bad]="mfaSummary().iconTone !== 'tone-success'">
+                    <span class="dx-check-glyph"><i class="ri-shield-keyhole-line" aria-hidden="true"></i></span>
+                    <span class="dx-check-main">
+                      <span class="dx-check-k">Multi-factor</span>
+                      <span class="dx-check-d">{{ mfaSummary().detail }}</span>
+                    </span>
+                    <span class="dx-check-v">{{ mfaSummary().status }}</span>
+                  </li>
+                  <li class="dx-check" [class.is-ok]="passwordSummary().iconTone === 'tone-success'" [class.is-bad]="passwordSummary().iconTone !== 'tone-success'">
+                    <span class="dx-check-glyph"><i class="ri-lock-password-line" aria-hidden="true"></i></span>
+                    <span class="dx-check-main">
+                      <span class="dx-check-k">Password</span>
+                      <span class="dx-check-d">{{ passwordSummary().detail }}</span>
+                    </span>
+                    <span class="dx-check-v">{{ passwordSummary().trailing }}</span>
+                  </li>
+                  <li class="dx-check is-info">
+                    <span class="dx-check-glyph"><i class="ri-computer-line" aria-hidden="true"></i></span>
+                    <span class="dx-check-main">
+                      <span class="dx-check-k">Sessions</span>
+                      <span class="dx-check-d">
+                        @if (activeSessionCount() === 0) { Not signed in anywhere }
+                        @else { On {{ activeSessionDevices() }} {{ activeSessionDevices() === 1 ? 'device' : 'devices' }} }
+                      </span>
+                    </span>
+                    <span class="dx-check-v">{{ activeSessionCount() }} active</span>
+                  </li>
+                </ul>
               }
-              <ul class="ux-rows">
-                <li class="ux-row">
-                  <div [class]="'ux-tile ' + mfaSummary().iconTone"><i class="ri-shield-check-line" aria-hidden="true"></i></div>
-                  <div class="ux-row-body"><div class="ux-value">Multi-factor</div><div class="ux-sub">{{ mfaSummary().detail }}</div></div>
-                  <span [class]="'ux-trail ' + mfaSummary().tone">{{ mfaSummary().status }}</span>
-                </li>
-                <li class="ux-row">
-                  <div [class]="'ux-tile ' + passwordSummary().iconTone"><i class="ri-lock-password-line" aria-hidden="true"></i></div>
-                  <div class="ux-row-body"><div class="ux-value">Password</div><div class="ux-sub">{{ passwordSummary().detail }}</div></div>
-                  <span [class]="'ux-trail ' + passwordSummary().tone">{{ passwordSummary().trailing }}</span>
-                </li>
-                <li class="ux-row">
-                  <div class="ux-tile"><i class="ri-computer-line" aria-hidden="true"></i></div>
-                  <div class="ux-row-body">
-                    <div class="ux-value">Active sessions</div>
-                    <div class="ux-sub">
-                      @if (activeSessionCount() === 0) { Not signed in anywhere }
-                      @else { On {{ activeSessionDevices() }} {{ activeSessionDevices() === 1 ? 'device' : 'devices' }} }
-                    </div>
-                  </div>
-                  <span class="ux-trail">{{ activeSessionCount() }}</span>
-                </li>
-              </ul>
-            }
+              <button type="button" class="dx-guard-link" (click)="setTab('security')">
+                <span class="dx-t">Review security</span><i class="ri-arrow-right-up-line" aria-hidden="true"></i>
+              </button>
             </section>
           </div>
         }
-      }
+
+        <!-- ============ ACCESS WINDOW ============ -->
+        @if (activeTab() === 'access') {
+          <section class="dx-window">
+            <div class="dx-window-end">
+              <span class="dx-window-glyph"><i class="ri-login-circle-line" aria-hidden="true"></i></span>
+              <span class="dx-window-k">Access starts</span>
+              <span class="dx-window-v">{{ data()?.accessStartDate || 'From creation' }}</span>
+            </div>
+            <div class="dx-window-line" aria-hidden="true"><span></span></div>
+            <div class="dx-window-end is-right">
+              <span class="dx-window-glyph"><i class="ri-logout-circle-r-line" aria-hidden="true"></i></span>
+              <span class="dx-window-k">Access ends</span>
+              <span class="dx-window-v">{{ data()?.accessEndDate || 'No end date' }}</span>
+            </div>
+            <div class="dx-window-foot">
+              <span class="dx-t"><i class="ri-focus-3-line" aria-hidden="true"></i>{{ data()?.dataScopes || 'Whole organisation' }}</span>
+              <span class="dx-t"><i class="ri-file-search-line" aria-hidden="true"></i>Access review is not tracked on the account.</span>
+            </div>
+          </section>
+        }
+
+        <!-- ============ ROLES ============ -->
+        @if (activeTab() === 'profile' || activeTab() === 'access') {
+          <section class="dx-roles-card">
+            <header class="dx-roles-head">
+              <div class="dx-head-text">
+                <span class="dx-eyebrow">Entitlements</span>
+                <h3 class="dx-h">Assigned roles <span class="dx-h-count">{{ roleAssignments().length }}</span></h3>
+              </div>
+              <div class="dx-tools">
+                <label class="dx-search">
+                  <i class="ri-search-line" aria-hidden="true"></i>
+                  <input type="text" placeholder="Search roles…" aria-label="Search assigned roles"
+                         [ngModel]="roleSearch()" (ngModelChange)="roleSearch.set($event)">
+                </label>
+                <div class="dx-dd" [class.is-open]="showSortMenu()">
+                  <button type="button" class="dx-dd-trigger" (click)="toggleSortMenu()" aria-haspopup="menu" [attr.aria-expanded]="showSortMenu()">
+                    <i class="ri-sort-desc" aria-hidden="true"></i>
+                    <span class="dx-t">{{ sortField() === 'scope' ? 'Scope' : sortField() === 'term' ? 'Term' : 'Role' }}</span>
+                    <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+                  </button>
+                  @if (showSortMenu()) {
+                    <div class="dx-dd-menu" role="menu">
+                      <div class="dx-dd-head">Sort by</div>
+                      @for (f of ['role', 'scope', 'term']; track f) {
+                        <button type="button" role="menuitemradio" class="dx-dd-opt" [class.is-on]="sortField()===f" [attr.aria-checked]="sortField()===f" (click)="setSort($any(f))">
+                          <span class="dx-t">{{ f === 'role' ? 'Role' : f === 'scope' ? 'Scope' : 'Term' }}</span>
+                          @if (sortField()===f) { <i [class]="sortAsc() ? 'ri-arrow-up-line' : 'ri-arrow-down-line'" aria-hidden="true"></i> }
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            </header>
+
+            <div class="dx-grid-head" aria-hidden="true">
+              <span class="dx-t">Role</span><span class="dx-t">Scope</span><span class="dx-t">Permissions</span><span class="dx-t">Term</span>
+            </div>
+            <ul class="dx-roles">
+              @for (r of visibleRoleAssignments(); track r.role) {
+                <li class="dx-role">
+                  <div class="dx-role-id">
+                    <span class="dx-role-mono" aria-hidden="true">{{ (r.role || '?').charAt(0) }}</span>
+                    <span class="dx-role-main">
+                      <span class="dx-role-name">{{ r.role }}</span>
+                      <span class="dx-role-type">{{ r.assignmentType }}</span>
+                    </span>
+                  </div>
+                  <span class="dx-role-cell"><i class="ri-focus-3-line" aria-hidden="true"></i><span class="dx-t">{{ r.scope }}</span></span>
+                  <span class="dx-role-cell"><i class="ri-key-2-line" aria-hidden="true"></i><span class="dx-t"><b>{{ r.permissions }}</b> permissions</span></span>
+                  <span class="dx-term" [class.is-ok]="r.term === 'Permanent'"><span class="dx-term-dot" aria-hidden="true"></span>{{ r.term }}</span>
+                </li>
+              } @empty {
+                <li class="dx-empty">
+                  <i class="ri-search-line" aria-hidden="true"></i>
+                  <span class="dx-t">@if (roleSearch().trim()) { No assigned role matches “{{ roleSearch() }}”. } @else { No role assignments found. }</span>
+                </li>
+              }
+            </ul>
+            <footer class="dx-roles-foot">
+              <span class="dx-t">Showing <b>{{ visibleRoleAssignments().length }}</b> of {{ roleAssignments().length }} {{ roleAssignments().length === 1 ? 'role' : 'roles' }}</span>
+              @if (activeTab() === 'profile') {
+                <button type="button" class="dx-link" (click)="setTab('access')"><span class="dx-t">Open access</span> <i class="ri-arrow-right-line" aria-hidden="true"></i></button>
+              }
+            </footer>
+          </section>
+        }
+
+        <!-- ============ SECURITY ============ -->
+        @if (activeTab() === 'security') {
+          @if (securityUnavailable()) {
+            <div class="dx-state dx-state--inline">
+              <i class="ri-lock-line" aria-hidden="true"></i>
+              <div class="dx-state-title">Security details unavailable</div>
+              <div class="dx-state-sub">You do not have permission to see the sessions, devices and sign-in history for this account.</div>
+            </div>
+          } @else {
+            <section class="dx-stats">
+              <div class="dx-stat"><i class="ri-device-line" aria-hidden="true"></i><span class="dx-stat-v">{{ trustedDeviceCount() }}</span><span class="dx-stat-l">Trusted devices</span></div>
+              <div class="dx-stat" [class.is-bad]="failedSignIns().last24Hours > 0"><i class="ri-error-warning-line" aria-hidden="true"></i><span class="dx-stat-v">{{ failedSignIns().last24Hours }}</span><span class="dx-stat-l">Failed · 24h</span></div>
+              <div class="dx-stat" [class.is-bad]="failedSignIns().last7Days > 0"><i class="ri-calendar-close-line" aria-hidden="true"></i><span class="dx-stat-v">{{ failedSignIns().last7Days }}</span><span class="dx-stat-l">Failed · 7 days</span></div>
+              <div class="dx-stat"><i class="ri-computer-line" aria-hidden="true"></i><span class="dx-stat-v">{{ activeSessionCount() }}</span><span class="dx-stat-l">Active sessions</span></div>
+            </section>
+
+            @if (lockout().locked) {
+              <div class="dx-alert"><i class="ri-lock-line" aria-hidden="true"></i><div><b>Locked out.</b> {{ lockout().reason }}@if (lockout().until) { Until {{ lockout().until }}. }</div></div>
+            }
+
+            <div class="dx-duo">
+              <section class="dx-record">
+                <header class="dx-record-head">
+                  <div class="dx-head-text">
+                    <span class="dx-eyebrow">Second factors</span>
+                    <h3 class="dx-h">Authentication methods <span class="dx-h-count">{{ mfaMethods().length }}</span></h3>
+                  </div>
+                  @if (securityLoading()) { <i class="ri-loader-4-line up-spin dx-faint" aria-hidden="true"></i> }
+                </header>
+                <ul class="dx-methods">
+                  @for (method of mfaMethods(); track method.id) {
+                    <li class="dx-method" [class.is-pending]="!method.enabled">
+                      <span class="dx-method-glyph"><i class="{{ method.icon }}" aria-hidden="true"></i></span>
+                      <div class="dx-method-main">
+                        <span class="dx-method-name">{{ method.name }}</span>
+                        <span class="dx-method-desc">{{ method.description }}</span>
+                      </div>
+                      @if (isSelf()) {
+                        <button type="button" class="up-btn up-btn--danger-line up-btn--sm" [disabled]="submitting()" (click)="removeMfaMethod(method.id)">
+                          <i class="ri-delete-bin-line" aria-hidden="true"></i> Remove
+                        </button>
+                      } @else {
+                        <span class="dx-term" [class.is-ok]="method.enabled"><span class="dx-term-dot" aria-hidden="true"></span>{{ method.enabled ? 'Active' : 'Pending' }}</span>
+                      }
+                    </li>
+                  } @empty {
+                    <li class="dx-void">
+                      <span class="dx-void-glyph"><i class="ri-shield-cross-line" aria-hidden="true"></i></span>
+                      <span class="dx-void-title">No second factor is set up</span>
+                      <span class="dx-void-sub">Anybody with the password can sign in to this account.</span>
+                    </li>
+                  }
+                </ul>
+              </section>
+
+              <section class="dx-guard">
+                <header class="dx-guard-head">
+                  <div class="dx-head-text">
+                    <span class="dx-eyebrow">Protection summary</span>
+                    <h3 class="dx-h">Checks</h3>
+                  </div>
+                  <span class="dx-ring" [style.--p]="postureScore().pct" [class.is-ok]="postureScore().passed === postureScore().total">
+                    <span class="dx-ring-v">{{ postureScore().passed }}<small>/{{ postureScore().total }}</small></span>
+                  </span>
+                </header>
+                <ul class="dx-checks">
+                  <li class="dx-check" [class.is-ok]="mfaSummary().iconTone === 'tone-success'" [class.is-bad]="mfaSummary().iconTone !== 'tone-success'">
+                    <span class="dx-check-glyph"><i class="ri-shield-keyhole-line" aria-hidden="true"></i></span>
+                    <span class="dx-check-main">
+                      <span class="dx-check-k">Multi-factor</span>
+                      <span class="dx-check-d">{{ mfaSummary().detail }}</span>
+                    </span>
+                    <span class="dx-check-v">{{ mfaSummary().status }}</span>
+                  </li>
+                  <li class="dx-check" [class.is-ok]="passwordSummary().iconTone === 'tone-success'" [class.is-bad]="passwordSummary().iconTone !== 'tone-success'">
+                    <span class="dx-check-glyph"><i class="ri-lock-password-line" aria-hidden="true"></i></span>
+                    <span class="dx-check-main">
+                      <span class="dx-check-k">Password</span>
+                      <span class="dx-check-d">{{ passwordSummary().detail }}</span>
+                    </span>
+                    <span class="dx-check-v">{{ passwordSummary().trailing }}</span>
+                  </li>
+                  <li class="dx-check" [class.is-ok]="!lockout().locked" [class.is-bad]="lockout().locked">
+                    <span class="dx-check-glyph"><i class="ri-door-lock-line" aria-hidden="true"></i></span>
+                    <span class="dx-check-main">
+                      <span class="dx-check-k">Lockout</span>
+                      <span class="dx-check-d">{{ lockout().locked ? lockout().reason : 'Account can sign in normally' }}</span>
+                    </span>
+                    <span class="dx-check-v">{{ lockout().locked ? 'Locked' : 'Clear' }}</span>
+                  </li>
+                </ul>
+              </section>
+            </div>
+          }
+        }
+      </div>
     }
   </div>
   </div>
 
-  <!-- ============ EDIT PROFILE — custom modal ============ -->
+  <!-- ============ EDIT PROFILE ============ -->
   @if (showEditModal()) {
     <div class="up-backdrop" (click)="closeEditModal()">
       <div class="up-modal up-modal--lg" role="dialog" aria-modal="true" aria-labelledby="upEditTitle" (click)="$event.stopPropagation()">
@@ -499,7 +477,7 @@
               </div>
             </div>
           </div>
-          <div class="up-note">Department, manager and organisation unit are set from the organisation structure rather than here.</div>
+          <div class="up-note"><i class="ri-information-line" aria-hidden="true"></i> Department, manager and organisation unit are set from the organisation structure rather than here.</div>
         </div>
 
         <footer class="up-modal-foot">
@@ -512,7 +490,7 @@
     </div>
   }
 
-  <!-- ============ SUSPEND — custom modal ============ -->
+  <!-- ============ SUSPEND ============ -->
   @if (showSuspendModal()) {
     <div class="up-backdrop" (click)="closeSuspendModal()">
       <div class="up-modal" role="dialog" aria-modal="true" aria-labelledby="upSuspendTitle" (click)="$event.stopPropagation()">

@@ -1,423 +1,490 @@
 <main class="app-wrapper">
 <div class="page-wrapper">
-  <div class="container-fluid px-4 py-3">
+  <div class="container-fluid px-4 py-3 rx-page">
 
     <!-- ======================= Header ======================= -->
-    <app-page-header screen="role-catalogue" title="Role &amp; Permission Catalogue"
-                     subtitle="Maintain controlled business roles and permission bundles">
+    <app-page-header [showInfo]="false" screen="role-catalogue" title="Roles &amp; Permissions"
+                     subtitle="Maintain controlled business roles and the permission bundles they grant.">
+      <span meta class="ph-chip">Access and identity</span>
       <button actions class="ph-btn ph-btn--primary" type="button" (click)="createDraftRole()">
         <i class="ri-add-line" aria-hidden="true"></i>
-        <span>Create</span>
+        <span>Create role</span>
       </button>
     </app-page-header>
 
     <!-- ======================= Loading ======================= -->
     @if (loading()) {
       <div class="rx-state" role="status" aria-live="polite">
-        <span class="rx-state__icon"><i class="ri-loader-4-line rx-spin" aria-hidden="true"></i></span>
-        <p class="rx-state__title">Loading role catalogue…</p>
-        <p class="rx-state__hint">Fetching roles and permissions</p>
+        <i class="ri-loader-4-line rx-spin rx-state__glyph" aria-hidden="true"></i>
+        <p class="rx-state__title">Loading roles…</p>
       </div>
     }
 
     <!-- ======================= Error ======================= -->
     @if (loadFailed() && !loading()) {
       <div class="rx-state" role="alert">
-        <span class="rx-state__icon rx-state__icon--danger"><i class="ri-error-warning-line" aria-hidden="true"></i></span>
-        <p class="rx-state__title">Failed to load catalogue</p>
-        <p class="rx-state__hint">The role catalogue couldn't be retrieved. Please try again.</p>
+        <i class="ri-error-warning-line rx-state__glyph" aria-hidden="true"></i>
+        <p class="rx-state__title">The roles could not be loaded</p>
+        <p class="rx-state__hint">Please try again.</p>
         <button class="rx-btn rx-btn--line" type="button" (click)="retry()">
           <i class="ri-refresh-line" aria-hidden="true"></i> Retry
         </button>
       </div>
     }
 
-    <!-- ======================= Main ======================= -->
     @if (!loading() && !loadFailed()) {
 
-      <!-- -------- Search + Filter -------- -->
-      <div class="rx-toolbar">
-        <input type="checkbox" id="filterPanelToggle" class="rx-hidden-toggle" hidden>
+      <!-- ======================= Summary ======================= -->
+      <dl class="rx-summary" aria-label="Summary">
+        <div class="rx-stat">
+          <dt>Total roles</dt>
+          <dd>{{ catalogueFigures().total }}</dd>
+        </div>
+        <div class="rx-stat">
+          <dt><span class="rx-dot rx-dot--active" aria-hidden="true"></span>In use</dt>
+          <dd>{{ catalogueFigures().active }}</dd>
+        </div>
+        <div class="rx-stat">
+          <dt><span class="rx-dot rx-dot--draft" aria-hidden="true"></span>Drafts</dt>
+          <dd>{{ catalogueFigures().draft }}</dd>
+        </div>
+        <div class="rx-stat">
+          <dt><span class="rx-dot rx-dot--retired" aria-hidden="true"></span>Retired</dt>
+          <dd>{{ catalogueFigures().retired }}</dd>
+        </div>
+        <div class="rx-stat">
+          <dt>Privileged roles</dt>
+          <dd>{{ catalogueFigures().privileged }}</dd>
+        </div>
+        <div class="rx-stat">
+          <dt>People assigned</dt>
+          <dd>{{ catalogueFigures().holders }}</dd>
+        </div>
+      </dl>
 
-        <div class="rx-search">
-          <i class="ri-search-line" aria-hidden="true"></i>
-          <label for="roleSearchInput" class="visually-hidden">Search roles</label>
-          <input id="roleSearchInput" type="text" placeholder="Search by name, code or purpose…"
-                 [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)">
-          @if (searchQuery()) {
-            <button type="button" class="rx-search__clear" aria-label="Clear search" (click)="searchQuery.set('')">
-              <i class="ri-close-circle-fill" aria-hidden="true"></i>
+      <!-- ======================= Roles table ======================= -->
+      <section class="rx-sheet" aria-label="Roles">
+
+        <!-- Toolbar: status tabs (underlined) · search · filters -->
+        <div class="rx-toolbar">
+          <div class="rx-tabs" role="tablist" aria-label="Filter by status">
+            <button type="button" role="tab" class="rx-tab" [class.is-on]="filterStatus() === ''" [attr.aria-selected]="filterStatus() === ''" (click)="filterStatus.set('')">
+              All roles <span class="rx-tab__n">{{ roleCounts().total }}</span>
             </button>
-          }
-        </div>
-
-        <label for="filterPanelToggle" class="rx-filter-btn">
-          <i class="ri-equalizer-line" aria-hidden="true"></i>
-          <span>Filter</span>
-          @if (filterStatus() || filterType() || filterFunction()) {
-            <span class="rx-filter-btn__dot" aria-label="Filters active"></span>
-          }
-        </label>
-
-        <!-- Filter popover -->
-        <div class="rx-fpanel" role="dialog" aria-label="Filters">
-          <div class="rx-fpanel__head">
-            <div>
-              <div class="rx-fpanel__title">Filters</div>
-              <div class="rx-fpanel__sub">Narrow the catalogue</div>
-            </div>
-            <label for="filterPanelToggle" class="rx-x" aria-label="Close filters"><i class="ri-close-line" aria-hidden="true"></i></label>
+            @for (item of statusBreakdown(); track item.status) {
+              <button type="button" role="tab" class="rx-tab" [class.is-on]="filterStatus() === item.status" [attr.aria-selected]="filterStatus() === item.status" (click)="filterStatus.set(item.status)">
+                {{ item.label }} <span class="rx-tab__n">{{ item.count }}</span>
+              </button>
+            }
           </div>
 
-          <div class="rx-fpanel__body">
-            <!-- The chip SETS THE RAW STATUS and PRINTS THE LABEL: applyFilters compares raw values. -->
-            <div class="rx-fgroup">
-              <div class="rx-fgroup__label">Status</div>
-              <div class="rx-pills">
-                <button type="button" class="rx-pill" [class.rx-pill--on]="filterStatus() === ''" (click)="filterStatus.set('')">
-                  All <em>{{ roleCounts().total }}</em>
-                </button>
-                @for (item of statusBreakdown(); track item.status) {
-                  <button type="button" class="rx-pill" [class.rx-pill--on]="filterStatus() === item.status" (click)="filterStatus.set(item.status)">
-                    {{ item.label }} <em>{{ item.count }}</em>
-                  </button>
-                }
-              </div>
-            </div>
-
-            <div class="rx-fgroup">
-              <div class="rx-fgroup__label">Role type</div>
-              <div class="rx-pills">
-                <button type="button" class="rx-pill" [class.rx-pill--on]="filterType() === ''" (click)="filterType.set('')">All types</button>
-                @for (type of data()?.roleTypeOptions ?? []; track type.id) {
-                  <button type="button" class="rx-pill" [class.rx-pill--on]="filterType() === type.id" (click)="filterType.set(type.id ?? '')">{{ type.name }}</button>
-                }
-              </div>
-            </div>
-
-            <div class="rx-fgroup">
-              <div class="rx-fgroup__label">Owning function</div>
-              <!-- Custom dropdown. Options come from the roles the API returned: see owningFunctions(). -->
-              <div class="rx-dd" [class.rx-dd--open]="openDd() === 'fn'" (click)="$event.stopPropagation()">
-                <button type="button" class="rx-dd__trigger" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'fn'" (click)="toggleDd('fn')">
-                  <i class="ri-building-2-line rx-dd__lead" aria-hidden="true"></i>
-                  <span class="rx-dd__value" [class.rx-dd__ph]="!filterFunction()">{{ filterFunction() || 'All functions' }}</span>
-                  <i class="ri-arrow-down-s-line rx-dd__chev" aria-hidden="true"></i>
-                </button>
-                @if (openDd() === 'fn') {
-                  <div class="rx-dd__menu" role="listbox">
-                    @if (owningFunctions().length > 6) {
-                      <div class="rx-dd__search"><i class="ri-search-line" aria-hidden="true"></i>
-                        <input type="text" placeholder="Search…" [value]="ddQuery()" (input)="ddQuery.set($any($event.target).value)"></div>
-                    }
-                    <div class="rx-dd__list">
-                      <button type="button" class="rx-dd__opt" [class.rx-dd__opt--on]="!filterFunction()" (click)="filterFunction.set(''); closeDd()">
-                        All functions @if (!filterFunction()) { <i class="ri-check-line" aria-hidden="true"></i> }
-                      </button>
-                      @for (fn of owningFunctions(); track fn) {
-                        @if (ddMatch(fn)) {
-                          <button type="button" class="rx-dd__opt" [class.rx-dd__opt--on]="filterFunction() === fn" (click)="filterFunction.set(fn); closeDd()">
-                            {{ fn }} @if (filterFunction() === fn) { <i class="ri-check-line" aria-hidden="true"></i> }
-                          </button>
-                        }
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
-          </div>
-
-          <div class="rx-fpanel__foot">
-            <button type="button" class="rx-link" (click)="clearFilters()"><i class="ri-refresh-line" aria-hidden="true"></i> Reset</button>
-            <label for="filterPanelToggle" class="rx-btn rx-btn--primary rx-btn--sm">Done</label>
-          </div>
-        </div>
-      </div>
-
-      <!-- ======================= Empty ======================= -->
-      @if (filteredRoles().length === 0) {
-        <div class="rx-state">
-          <span class="rx-state__icon"><i class="ri-shield-line" aria-hidden="true"></i></span>
-          <p class="rx-state__title">No roles found</p>
-          <p class="rx-state__hint">No roles match the current search or filters.</p>
-          <button class="rx-btn rx-btn--line" type="button" (click)="clearFilters()">
-            <i class="ri-filter-off-line" aria-hidden="true"></i> Clear filters
-          </button>
-        </div>
-      } @else {
-
-        <!-- ======================= Master / Detail ======================= -->
-        <div class="rx-md">
-
-          <!-- -------- Role list -------- -->
-          <aside class="rx-list" aria-label="Roles">
-            <div class="rx-list__head">
-              <span class="rx-list__title">Roles</span>
-              <span class="rx-num">{{ filteredRoles().length }}</span>
-            </div>
-            <div class="rx-list__body" role="listbox" aria-label="Role list">
-              @for (role of filteredRoles(); track role.id) {
-                <button type="button" class="rx-li" role="option"
-                        [class.rx-li--on]="detailRole()?.id === role.id"
-                        [attr.aria-selected]="detailRole()?.id === role.id"
-                        [style.--rx-acc]="avatarStyle(role.roleName).color"
-                        (click)="openDetail(role)">
-                  <span class="rx-li__av" [ngStyle]="avatarStyle(role.roleName)" aria-hidden="true">{{ role.roleName | slice:0:1 }}</span>
-                  <span class="rx-li__text">
-                    <span class="rx-li__name">{{ role.roleName }}</span>
-                    <span class="rx-li__meta">
-                      <span class="rx-li__code">{{ role.roleCode }}</span>
-                      @if (role.status !== 'active') {
-                        <span class="rx-li__state" [ngClass]="'rx-tone--' + statusBucket(role.status)">{{ role.approvalState }}</span>
-                      }
-                    </span>
-                  </span>
-                  <span class="rx-li__users" title="Holders"><i class="ri-user-3-line" aria-hidden="true"></i>{{ role.assignedUserCount }}</span>
+          <div class="rx-toolbar__right">
+            <div class="rx-search">
+              <i class="ri-search-line" aria-hidden="true"></i>
+              <label for="roleSearchInput" class="visually-hidden">Search roles</label>
+              <input id="roleSearchInput" type="text" placeholder="Search by role name or code"
+                     [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)">
+              @if (searchQuery()) {
+                <button type="button" class="rx-search__clear" aria-label="Clear search" (click)="searchQuery.set('')">
+                  <i class="ri-close-line" aria-hidden="true"></i>
                 </button>
               }
             </div>
-          </aside>
 
-          <!-- -------- Role detail -------- -->
-          <section class="rx-detail" aria-labelledby="roleDetailTitle">
-            @if (detailView(); as role) {
+            <input type="checkbox" id="filterPanelToggle" class="rx-hidden-toggle" hidden>
+            <label for="filterPanelToggle" class="rx-btn rx-btn--line">
+              <i class="ri-filter-3-line" aria-hidden="true"></i> Filters
+              @if (filterType() || filterFunction()) { <span class="rx-filter-dot" aria-label="Filters active"></span> }
+            </label>
 
-              <!-- Hero -->
-              <header class="rx-hero">
-                <span class="rx-hero__av" [ngStyle]="avatarStyle(role.name)" aria-hidden="true">{{ role.name | slice:0:1 }}</span>
-                <div class="rx-hero__id">
-                  <div class="rx-hero__top">
-                    <h2 class="rx-hero__name" id="roleDetailTitle">{{ role.name }}</h2>
-                    <span class="rx-state-chip" [ngClass]="'rx-tone--' + statusBucket(role.approvalState)">
-                      <span class="rx-dot" aria-hidden="true"></span>{{ role.approvalState }}
-                    </span>
-                  </div>
-                  <div class="rx-hero__code">{{ role.code }}</div>
+            <!-- Filter popover -->
+            <div class="rx-fpanel" role="dialog" aria-label="Filters">
+              <div class="rx-fpanel__head">
+                <div>
+                  <div class="rx-fpanel__title">Filters</div>
+                  <div class="rx-fpanel__sub">Show only some roles</div>
                 </div>
-                <div class="rx-hero__actions">
-                  @if (selectedItem(); as item) {
-                    <button type="button" class="rx-ibtn" title="Compare with another role" aria-label="Compare with another role" (click)="openCompareModal(item)">
-                      <i class="ri-arrow-left-right-line" aria-hidden="true"></i>
-                    </button>
-                    @if (item.canDelete) {
-                      <button type="button" class="rx-ibtn rx-ibtn--danger" title="Delete draft" aria-label="Delete draft" (click)="openDeleteRoleModal(item)">
-                        <i class="ri-delete-bin-6-line" aria-hidden="true"></i>
-                      </button>
-                    }
-                  }
-                  @if (role.canRetire) {
-                    <button class="rx-btn rx-btn--line" type="button" [disabled]="submitting()" (click)="retireRole(role)">
-                      <i class="ri-archive-line" aria-hidden="true"></i> Retire
-                    </button>
-                  }
-                  @if (role.canActivate) {
-                    <button class="rx-btn rx-btn--primary" type="button" [disabled]="submitting()" (click)="submitRole(role)">
-                      <i class="ri-play-circle-line" aria-hidden="true"></i> Put into use
-                    </button>
-                  }
-                </div>
-              </header>
-
-              <!-- Key facts strip -->
-              <div class="rx-strip">
-                <div class="rx-strip__item"><span>Type</span><b>{{ role.roleType || '—' }}</b></div>
-                <div class="rx-strip__item"><span>Privilege</span>
-                  <b [class.rx-purple]="role.isPrivileged">
-                    <i [class]="role.isPrivileged ? 'ri-shield-keyhole-line' : 'ri-shield-line'" aria-hidden="true"></i>{{ role.privilegeLevel }}
-                  </b>
-                </div>
-                <div class="rx-strip__item"><span>Holders</span><b>{{ role.assignedUserCount }}</b></div>
-                <div class="rx-strip__item"><span>Permissions</span><b>{{ permStats().granted }}</b></div>
-                <div class="rx-strip__item"><span>Version</span><b>v{{ role.roleVersion }}</b></div>
+                <label for="filterPanelToggle" class="rx-x" aria-label="Close filters"><i class="ri-close-line" aria-hidden="true"></i></label>
               </div>
-
-              <div class="rx-detail__body">
-                <p class="rx-desc">{{ role.purpose || 'No purpose has been documented for this role.' }}</p>
-
-                @if (role.isSystemRole || role.isDefaultRole || role.grantsAllPermissions || role.owningFunction) {
-                  <div class="rx-tags">
-                    @if (role.owningFunction) { <span class="rx-tag"><i class="ri-briefcase-4-line" aria-hidden="true"></i>{{ role.owningFunction }}</span> }
-                    @if (role.isDefaultRole) { <span class="rx-tag rx-tag--amber"><i class="ri-group-line" aria-hidden="true"></i>Given to everybody</span> }
-                    @if (role.grantsAllPermissions) { <span class="rx-tag rx-tag--purple"><i class="ri-key-2-line" aria-hidden="true"></i>Every permission</span> }
-                    @if (role.isSystemRole) { <span class="rx-tag rx-tag--brand"><i class="ri-lock-line" aria-hidden="true"></i>Built in · cannot be edited</span> }
+              <div class="rx-fpanel__body">
+                <div class="rx-fgroup">
+                  <div class="rx-fgroup__label">Role type</div>
+                  <div class="rx-pills">
+                    <button type="button" class="rx-pill" [class.rx-pill--on]="filterType() === ''" (click)="filterType.set('')">All types</button>
+                    @for (type of data()?.roleTypeOptions ?? []; track type.id) {
+                      <button type="button" class="rx-pill" [class.rx-pill--on]="filterType() === type.id" (click)="filterType.set(type.id ?? '')">{{ type.name }}</button>
+                    }
                   </div>
-                }
-
-                <!-- ---- Permissions, grouped by module ---- -->
-                <div class="rx-sec">
-                  <div class="rx-sec__head">
-                    <div>
-                      <h3 class="rx-sec__title">Permissions</h3>
-                      <div class="rx-sec__sub">
-                        <span class="rx-legend rx-legend--ok">{{ permStats().granted }} granted</span>
-                        @if (permStats().denied) { <span class="rx-legend rx-legend--no">{{ permStats().denied }} denied</span> }
-                        @if (permStats().sensitive) { <span class="rx-legend rx-legend--warn">{{ permStats().sensitive }} sensitive</span> }
-                      </div>
-                    </div>
-                    <div class="rx-mini-search">
-                      <i class="ri-search-line" aria-hidden="true"></i>
-                      <input type="text" placeholder="Find a permission" aria-label="Find a permission"
-                             [value]="permFilter()" (input)="permFilter.set($any($event.target).value)">
-                    </div>
-                  </div>
-
-                  @for (g of detailPermGroups(); track g.key) {
-                    <div class="rx-pg" [class.rx-pg--closed]="isGroupClosed(g.key)">
-                      <button type="button" class="rx-pg__head" [attr.aria-expanded]="!isGroupClosed(g.key)" (click)="toggleGroup(g.key)">
-                        <span class="rx-pg__key">{{ g.key }}</span>
-                        <span class="rx-pg__label">{{ g.label }}</span>
-                        @if (g.sensitive) { <span class="rx-pg__warn"><i class="ri-alert-line" aria-hidden="true"></i>{{ g.sensitive }}</span> }
-                        <span class="rx-pg__count">{{ g.items.length }}</span>
-                        <i class="ri-arrow-down-s-line rx-pg__chev" aria-hidden="true"></i>
-                      </button>
-                      @if (!isGroupClosed(g.key)) {
-                        <div class="rx-pg__rows">
-                          @for (p of g.items; track p.code) {
-                            <div class="rx-pr" [class.rx-pr--deny]="p.denied">
-                              <span class="rx-pr__mark" [attr.title]="p.denied ? 'Denied' : 'Granted'">
-                                <i [class]="p.denied ? 'ri-close-line' : 'ri-check-line'" aria-hidden="true"></i>
-                              </span>
-                              <span class="rx-pr__name">
-                                {{ p.name }}
-                                @if (p.isSensitive) { <span class="rx-flag"><i class="ri-alert-line" aria-hidden="true"></i>Sensitive</span> }
-                                @if (p.denied) { <span class="rx-flag rx-flag--deny">Denied</span> }
-                              </span>
-                              <code class="rx-pr__code">{{ p.code }}</code>
-                            </div>
+                </div>
+                <div class="rx-fgroup">
+                  <div class="rx-fgroup__label">Owning function</div>
+                  <div class="rx-dd" [class.rx-dd--open]="openDd() === 'fn'" (click)="$event.stopPropagation()">
+                    <button type="button" class="rx-dd__trigger" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'fn'" (click)="toggleDd('fn')">
+                      <i class="ri-building-2-line rx-dd__lead" aria-hidden="true"></i>
+                      <span class="rx-dd__value" [class.rx-dd__ph]="!filterFunction()">{{ filterFunction() || 'All functions' }}</span>
+                      <i class="ri-arrow-down-s-line rx-dd__chev" aria-hidden="true"></i>
+                    </button>
+                    @if (openDd() === 'fn') {
+                      <div class="rx-dd__menu" role="listbox">
+                        @if (owningFunctions().length > 6) {
+                          <div class="rx-dd__search"><i class="ri-search-line" aria-hidden="true"></i>
+                            <input type="text" placeholder="Search…" [value]="ddQuery()" (input)="ddQuery.set($any($event.target).value)"></div>
+                        }
+                        <div class="rx-dd__list">
+                          <button type="button" class="rx-dd__opt" [class.rx-dd__opt--on]="!filterFunction()" (click)="filterFunction.set(''); closeDd()">
+                            All functions @if (!filterFunction()) { <i class="ri-check-line" aria-hidden="true"></i> }
+                          </button>
+                          @for (fn of owningFunctions(); track fn) {
+                            @if (ddMatch(fn)) {
+                              <button type="button" class="rx-dd__opt" [class.rx-dd__opt--on]="filterFunction() === fn" (click)="filterFunction.set(fn); closeDd()">
+                                {{ fn }} @if (filterFunction() === fn) { <i class="ri-check-line" aria-hidden="true"></i> }
+                              </button>
+                            }
                           }
                         </div>
-                      }
-                    </div>
-                  } @empty {
-                    <div class="rx-empty-inline">
-                      {{ permFilter() ? 'No permission matches "' + permFilter() + '".' : 'No permissions have been added to this role yet.' }}
-                    </div>
-                  }
-                </div>
-
-                <!-- ---- Segregation of duties ----
-                     Editable here: built-in roles (Initiator / Approver) can only be paired from this
-                     panel, and a conflict is about how THIS organisation staffs the role. -->
-                <div class="rx-sec">
-                  <div class="rx-sec__head">
-                    <div>
-                      <h3 class="rx-sec__title">Cannot be held alongside</h3>
-                      <div class="rx-sec__sub">Segregation-of-duties rules</div>
-                    </div>
-                    @if (!showConflictForm()) {
-                      <button type="button" class="rx-btn rx-btn--soft rx-btn--sm" (click)="openConflictForm()" [disabled]="conflictCandidates().length === 0">
-                        <i class="ri-add-line" aria-hidden="true"></i> Add rule
-                      </button>
+                      </div>
                     }
                   </div>
+                </div>
+              </div>
+              <div class="rx-fpanel__foot">
+                <button type="button" class="rx-link" (click)="clearFilters()"><i class="ri-refresh-line" aria-hidden="true"></i> Reset</button>
+                <label for="filterPanelToggle" class="rx-btn rx-btn--primary rx-btn--sm">Done</label>
+              </div>
+            </div>
+          </div>
+        </div>
 
-                  @for (conflict of role.incompatibleRoles; track conflict.id) {
-                    <div class="rx-rule">
-                      <span class="rx-rule__icon" [class.rx-rule__icon--block]="conflict.isBlocking">
-                        <i [class]="conflict.isBlocking ? 'ri-forbid-2-line' : 'ri-flag-2-line'" aria-hidden="true"></i>
+        @if (filteredRoles().length === 0) {
+          <div class="rx-empty">
+            <p>No roles match your search or filters.</p>
+            <button class="rx-link" type="button" (click)="clearFilters()">Clear filters</button>
+          </div>
+        } @else {
+          <p class="rx-hintline"><i class="ri-cursor-line" aria-hidden="true"></i>Click a role to see what it can do.</p>
+
+          <table class="rx-table">
+            <thead>
+              <tr>
+                <th scope="col">Role</th>
+                <th scope="col">Type</th>
+                <th scope="col">Owning function</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="is-num">People</th>
+                <th scope="col" class="is-num">Permissions</th>
+                <th scope="col">Last changed</th>
+                <th scope="col"><span class="visually-hidden">Open</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (role of filteredRoles(); track role.id) {
+                <tr class="rx-row" [class.is-open]="detailRole()?.id === role.id" (click)="toggleRow(role)">
+                  <td>
+                    <div class="rx-role">
+                      <span class="rx-role__mono" aria-hidden="true">{{ initials(role.roleName) }}</span>
+                      <span class="rx-role__text">
+                        <span class="rx-role__name">{{ role.roleName }}</span>
+                        <span class="rx-role__code">{{ role.roleCode }}</span>
                       </span>
-                      <div class="rx-rule__main">
-                        <div class="rx-rule__name">{{ conflict.name }}
-                          <span class="rx-flag" [class.rx-flag--deny]="conflict.isBlocking">{{ conflict.isBlocking ? 'Refused' : 'Flagged' }}</span>
-                        </div>
-                        <div class="rx-rule__why">{{ conflict.reason || '—' }}</div>
-                      </div>
-                      <button type="button" class="rx-ibtn rx-ibtn--danger rx-ibtn--sm" title="Remove this rule" aria-label="Remove this rule"
-                              [disabled]="conflictRemovingId() === conflict.id" (click)="removeConflict(conflict)">
-                        @if (conflictRemovingId() === conflict.id) { <span class="spinner-border spinner-border-sm" role="status"></span> }
-                        @else { <i class="ri-delete-bin-6-line" aria-hidden="true"></i> }
-                      </button>
+                      @if (role.isPrivileged) { <span class="rx-note" title="Every assignment of this role is reviewed">Privileged</span> }
+                      @if (role.isSystemRole) { <span class="rx-note" title="Comes with the platform and cannot be edited">Built in</span> }
                     </div>
-                  } @empty {
-                    @if (!showConflictForm()) { <div class="rx-empty-inline">No segregation-of-duties rules apply to this role.</div> }
-                  }
+                  </td>
+                  <td>{{ role.roleType || '—' }}</td>
+                  <td>{{ role.owningFunction || '—' }}</td>
+                  <td>
+                    <span class="rx-status" [ngClass]="'rx-status--' + statusBucket(role.status)">
+                      <span class="rx-dot" [ngClass]="'rx-dot--' + statusBucket(role.status)" aria-hidden="true"></span>{{ role.approvalState }}
+                    </span>
+                  </td>
+                  <td class="is-num">{{ role.assignedUserCount }}</td>
+                  <td class="is-num">{{ role.permissionCount }}</td>
+                  <td class="rx-muted">{{ role.effectiveDate }}</td>
+                  <td class="rx-row__chev">
+                    <button type="button" class="rx-x" [attr.aria-expanded]="detailRole()?.id === role.id"
+                            [attr.aria-label]="(detailRole()?.id === role.id ? 'Close ' : 'Open ') + role.roleName"
+                            (click)="$event.stopPropagation(); toggleRow(role)">
+                      <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                </tr>
 
-                  @if (showConflictForm()) {
-                    <div class="rx-cform">
-                      <div class="rx-field">
-                        <span class="rx-label">Cannot be held with</span>
-                        <div class="rx-dd" [class.rx-dd--open]="openDd() === 'conflict'" (click)="$event.stopPropagation()">
-                          <button type="button" class="rx-dd__trigger rx-dd__trigger--field" (click)="toggleDd('conflict')">
-                            <i class="ri-shield-user-line rx-dd__lead" aria-hidden="true"></i>
-                            <span class="rx-dd__value" [class.rx-dd__ph]="!conflictRoleLabel()">{{ conflictRoleLabel() || 'Choose a role' }}</span>
-                            <i class="ri-arrow-down-s-line rx-dd__chev" aria-hidden="true"></i>
+                <!-- ============ The open role, directly beneath its row ============ -->
+                @if (detailRole()?.id === role.id && detailView(); as d) {
+                  <tr class="rx-open">
+                    <td colspan="8">
+                      <div class="rx-detail">
+
+                        <div class="rx-detail__head">
+                          <div class="rx-detail__intro">
+                            <h2 class="rx-detail__name" id="roleDetailTitle">{{ d.name }}</h2>
+                            <p class="rx-detail__purpose">{{ d.purpose || 'No description has been written for this role yet.' }}</p>
+                            <ul class="rx-facts">
+                              <li><i [class]="d.isPrivileged ? 'ri-shield-keyhole-line' : 'ri-shield-line'" aria-hidden="true"></i>{{ d.isPrivileged ? 'Privileged — every assignment is reviewed' : 'Standard — assigned without extra review' }}</li>
+                              @if (d.isDefaultRole) { <li><i class="ri-group-line" aria-hidden="true"></i>Given to every new person</li> }
+                              @if (d.grantsAllPermissions) { <li><i class="ri-key-2-line" aria-hidden="true"></i>Grants every permission</li> }
+                              @if (d.isSystemRole) { <li><i class="ri-lock-2-line" aria-hidden="true"></i>Built in — cannot be edited</li> }
+                            </ul>
+                          </div>
+                          <div class="rx-detail__actions">
+                            @if (d.canActivate) {
+                              <button class="rx-btn rx-btn--primary" type="button" [disabled]="submitting()" (click)="submitRole(d)">
+                                <i class="ri-check-double-line" aria-hidden="true"></i> Put into use
+                              </button>
+                            }
+                            @if (d.canRetire) {
+                              <button class="rx-btn rx-btn--line" type="button" [disabled]="submitting()" (click)="retireRole(d)">
+                                <i class="ri-archive-line" aria-hidden="true"></i> Retire
+                              </button>
+                            }
+                            @if (selectedItem(); as item) {
+                              <button type="button" class="rx-btn rx-btn--line" (click)="openCompareModal(item)">
+                                <i class="ri-arrow-left-right-line" aria-hidden="true"></i> Compare
+                              </button>
+                              @if (item.canDelete) {
+                                <button type="button" class="rx-btn rx-btn--line rx-btn--danger-line" (click)="openDeleteRoleModal(item)">
+                                  <i class="ri-delete-bin-6-line" aria-hidden="true"></i> Delete
+                                </button>
+                              }
+                            }
+                          </div>
+                        </div>
+
+                        <!-- Underlined tabs -->
+                        <div class="rx-dtabs" role="tablist">
+                          <button type="button" role="tab" class="rx-tab" [class.is-on]="detailTab() === 'perms'" [attr.aria-selected]="detailTab() === 'perms'" (click)="detailTab.set('perms')">
+                            Permissions <span class="rx-tab__n">{{ permStats().granted }}</span>
                           </button>
-                          @if (openDd() === 'conflict') {
-                            <div class="rx-dd__menu">
-                              <div class="rx-dd__search"><i class="ri-search-line" aria-hidden="true"></i>
-                                <input type="text" placeholder="Search roles…" [value]="ddQuery()" (input)="ddQuery.set($any($event.target).value)"></div>
-                              <div class="rx-dd__list">
-                                @for (c of conflictCandidates(); track c.id) {
-                                  @if (ddMatch(c.name)) {
-                                    <button type="button" class="rx-dd__opt" [class.rx-dd__opt--on]="conflictForm().conflictingRoleId === c.id"
-                                            (click)="conflictForm.set({ ...conflictForm(), conflictingRoleId: c.id }); closeDd()">
-                                      <span class="rx-dd__av" [ngStyle]="avatarStyle(c.name)">{{ c.name | slice:0:1 }}</span>{{ c.name }}
-                                      @if (conflictForm().conflictingRoleId === c.id) { <i class="ri-check-line" aria-hidden="true"></i> }
-                                    </button>
+                          <button type="button" role="tab" class="rx-tab" [class.is-on]="detailTab() === 'sod'" [attr.aria-selected]="detailTab() === 'sod'" (click)="detailTab.set('sod')">
+                            Cannot be combined with <span class="rx-tab__n">{{ d.incompatibleRoles.length }}</span>
+                          </button>
+                          <button type="button" role="tab" class="rx-tab" [class.is-on]="detailTab() === 'info'" [attr.aria-selected]="detailTab() === 'info'" (click)="detailTab.set('info')">
+                            Details
+                          </button>
+                        </div>
+
+                        <!-- ---- Permissions ---- -->
+                        @if (detailTab() === 'perms') {
+                          <div class="rx-ptools">
+                            <p class="rx-ptools__text">
+                              <b>{{ permStats().granted }}</b> allowed
+                              @if (permStats().denied) { · <b>{{ permStats().denied }}</b> blocked }
+                              @if (permStats().sensitive) { · <b>{{ permStats().sensitive }}</b> sensitive }
+                            </p>
+                            <div class="rx-ptools__right">
+                              <div class="rx-search rx-search--sm">
+                                <i class="ri-search-line" aria-hidden="true"></i>
+                                <input type="text" placeholder="Find a permission" aria-label="Find a permission"
+                                       [value]="permFilter()" (input)="permFilter.set($any($event.target).value)">
+                              </div>
+                              @if (detailPermGroups().length) {
+                                <button type="button" class="rx-link" (click)="toggleAllGroups()">{{ allGroupsOpen() ? 'Hide all names' : 'Show all names' }}</button>
+                              }
+                            </div>
+                          </div>
+
+                          @if (detailPermGroups().length) {
+                            <table class="rx-matrix">
+                              <thead>
+                                <tr>
+                                  <th scope="col" class="rx-matrix__mod">Area</th>
+                                  @for (a of detailPermGroups()[0].actions; track a.key) {
+                                    <th scope="col" class="rx-matrix__act">{{ a.label }}</th>
+                                  }
+                                  <th scope="col" class="rx-matrix__tot">Allowed</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                @for (g of detailPermGroups(); track g.key) {
+                                  <tr class="rx-matrix__row" [class.is-open]="isGroupOpen(g.key)" (click)="toggleGroup(g.key)">
+                                    <th scope="row" class="rx-matrix__mod">
+                                      <i class="ri-arrow-right-s-line rx-matrix__chev" aria-hidden="true"></i>
+                                      <span class="rx-matrix__label">{{ g.label }}</span>
+                                      @if (g.sensitive) { <span class="rx-note rx-note--warn">{{ g.sensitive }} sensitive</span> }
+                                    </th>
+                                    @for (a of g.actions; track a.key) {
+                                      <td class="rx-matrix__act">
+                                        @switch (a.state) {
+                                          @case ('granted') { <i class="ri-check-line rx-cell rx-cell--yes" [attr.aria-label]="a.label + ': allowed'"></i> }
+                                          @case ('denied') { <i class="ri-close-line rx-cell rx-cell--no" [attr.aria-label]="a.label + ': blocked'"></i> }
+                                          @default { <span class="rx-cell rx-cell--none" [attr.aria-label]="a.label + ': not given'">–</span> }
+                                        }
+                                      </td>
+                                    }
+                                    <td class="rx-matrix__tot">{{ g.granted }} of {{ g.items.length }}</td>
+                                  </tr>
+                                  @if (isGroupOpen(g.key)) {
+                                    <tr class="rx-matrix__names">
+                                      <td [attr.colspan]="g.actions.length + 2">
+                                        <ul class="rx-plist">
+                                          @for (p of g.items; track p.code) {
+                                            <li [class.is-denied]="p.denied">
+                                              <i [class]="p.denied ? 'ri-close-line rx-plist__mark' : 'ri-check-line rx-plist__mark'" aria-hidden="true"></i>
+                                              <span class="rx-plist__name">{{ p.name }}</span>
+                                              @if (p.isSensitive) { <span class="rx-note rx-note--warn">Sensitive</span> }
+                                              @if (p.denied) { <span class="rx-note rx-note--deny">Blocked</span> }
+                                            </li>
+                                          }
+                                        </ul>
+                                      </td>
+                                    </tr>
                                   }
                                 }
+                              </tbody>
+                            </table>
+                            <p class="rx-legend">
+                              <span><i class="ri-check-line rx-cell rx-cell--yes" aria-hidden="true"></i>Allowed</span>
+                              <span><i class="ri-close-line rx-cell rx-cell--no" aria-hidden="true"></i>Blocked, even if another role allows it</span>
+                              <span><span class="rx-cell rx-cell--none" aria-hidden="true">–</span>Not given</span>
+                              <span class="rx-legend__tip">Click an area to see the permission names.</span>
+                            </p>
+                          } @else {
+                            <div class="rx-empty">
+                              <p>{{ permFilter() ? 'No permission matches "' + permFilter() + '".' : 'This role has no permissions yet.' }}</p>
+                            </div>
+                          }
+                        }
+
+                        <!-- ---- Segregation of duties ---- -->
+                        @if (detailTab() === 'sod') {
+                          <div class="rx-ptools">
+                            <p class="rx-ptools__text">A person holding <b>{{ d.name }}</b> cannot also be given these roles.</p>
+                            @if (!showConflictForm()) {
+                              <button type="button" class="rx-btn rx-btn--line rx-btn--sm" (click)="openConflictForm()" [disabled]="conflictCandidates().length === 0">
+                                <i class="ri-add-line" aria-hidden="true"></i> Add a rule
+                              </button>
+                            }
+                          </div>
+
+                          @if (d.incompatibleRoles.length) {
+                            <table class="rx-rules">
+                              <thead>
+                                <tr><th scope="col">Role</th><th scope="col">What happens</th><th scope="col">Reason</th><th scope="col"><span class="visually-hidden">Remove</span></th></tr>
+                              </thead>
+                              <tbody>
+                                @for (conflict of d.incompatibleRoles; track conflict.id) {
+                                  <tr>
+                                    <td class="rx-rules__role">{{ conflict.name }}</td>
+                                    <td>
+                                      <span class="rx-enf" [class.is-block]="conflict.isBlocking">
+                                        <i [class]="conflict.isBlocking ? 'ri-forbid-2-line' : 'ri-flag-2-line'" aria-hidden="true"></i>{{ conflict.isBlocking ? 'Not allowed' : 'Allowed, but flagged for review' }}
+                                      </span>
+                                    </td>
+                                    <td class="rx-muted">{{ conflict.reason || '—' }}</td>
+                                    <td class="rx-rules__end">
+                                      <button type="button" class="rx-link rx-link--danger" [disabled]="conflictRemovingId() === conflict.id" (click)="removeConflict(conflict)">
+                                        @if (conflictRemovingId() === conflict.id) { <span class="spinner-border spinner-border-sm" role="status"></span> }
+                                        Remove
+                                      </button>
+                                    </td>
+                                  </tr>
+                                }
+                              </tbody>
+                            </table>
+                          } @else if (!showConflictForm()) {
+                            <div class="rx-empty"><p>No rules yet. This role can be held together with any other role.</p></div>
+                          }
+
+                          @if (showConflictForm()) {
+                            <div class="rx-cform">
+                              <div class="rx-cform__grid">
+                                <div class="rx-field">
+                                  <span class="rx-label">Cannot be held with</span>
+                                  <div class="rx-dd" [class.rx-dd--open]="openDd() === 'conflict'" (click)="$event.stopPropagation()">
+                                    <button type="button" class="rx-dd__trigger rx-dd__trigger--field" (click)="toggleDd('conflict')">
+                                      <i class="ri-shield-user-line rx-dd__lead" aria-hidden="true"></i>
+                                      <span class="rx-dd__value" [class.rx-dd__ph]="!conflictRoleLabel()">{{ conflictRoleLabel() || 'Choose a role' }}</span>
+                                      <i class="ri-arrow-down-s-line rx-dd__chev" aria-hidden="true"></i>
+                                    </button>
+                                    @if (openDd() === 'conflict') {
+                                      <div class="rx-dd__menu">
+                                        <div class="rx-dd__search"><i class="ri-search-line" aria-hidden="true"></i>
+                                          <input type="text" placeholder="Search roles…" [value]="ddQuery()" (input)="ddQuery.set($any($event.target).value)"></div>
+                                        <div class="rx-dd__list">
+                                          @for (c of conflictCandidates(); track c.id) {
+                                            @if (ddMatch(c.name)) {
+                                              <button type="button" class="rx-dd__opt" [class.rx-dd__opt--on]="conflictForm().conflictingRoleId === c.id"
+                                                      (click)="conflictForm.set({ ...conflictForm(), conflictingRoleId: c.id }); closeDd()">
+                                                <span class="rx-dd__av" [ngStyle]="avatarStyle(c.name)">{{ c.name | slice:0:1 }}</span>{{ c.name }}
+                                                @if (conflictForm().conflictingRoleId === c.id) { <i class="ri-check-line" aria-hidden="true"></i> }
+                                              </button>
+                                            }
+                                          }
+                                        </div>
+                                      </div>
+                                    }
+                                  </div>
+                                </div>
+
+                                <div class="rx-field">
+                                  <span class="rx-label">What should happen</span>
+                                  <div class="rx-choice">
+                                    <button type="button" class="rx-choice__card" [class.rx-choice__card--on]="conflictForm().isBlocking"
+                                            (click)="conflictForm.set({ ...conflictForm(), isBlocking: true })">
+                                      <i class="ri-forbid-2-line" aria-hidden="true"></i>
+                                      <span><b>Not allowed</b><small>Block the combination</small></span>
+                                    </button>
+                                    <button type="button" class="rx-choice__card" [class.rx-choice__card--on]="!conflictForm().isBlocking"
+                                            (click)="conflictForm.set({ ...conflictForm(), isBlocking: false })">
+                                      <i class="ri-flag-2-line" aria-hidden="true"></i>
+                                      <span><b>Flag it</b><small>Allow, but mark for review</small></span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div class="rx-field">
+                                <label class="rx-label" for="conflictReason">Reason <span class="rx-req">*</span></label>
+                                <textarea id="conflictReason" class="rx-input" rows="2"
+                                          placeholder="e.g. The person who raises a payment must not also approve it."
+                                          [ngModel]="conflictForm().reason"
+                                          (ngModelChange)="conflictForm.set({ ...conflictForm(), reason: $event })"></textarea>
+                              </div>
+
+                              <div class="rx-cform__foot">
+                                <button type="button" class="rx-btn rx-btn--ghost rx-btn--sm" [disabled]="conflictSaving()" (click)="resetConflictForm()">Cancel</button>
+                                <button type="button" class="rx-btn rx-btn--primary rx-btn--sm" [disabled]="conflictSaving()" (click)="saveConflict()">
+                                  @if (conflictSaving()) { <span class="spinner-border spinner-border-sm" role="status"></span> }
+                                  Save rule
+                                </button>
                               </div>
                             </div>
                           }
-                        </div>
-                      </div>
+                        }
 
-                      <div class="rx-field">
-                        <label class="rx-label" for="conflictReason">Why <span class="rx-req">*</span></label>
-                        <!-- Shown to whoever is refused, which is why it is required. -->
-                        <textarea id="conflictReason" class="rx-input" rows="3"
-                                  placeholder="e.g. The maker and the checker must be different people."
-                                  [ngModel]="conflictForm().reason"
-                                  (ngModelChange)="conflictForm.set({ ...conflictForm(), reason: $event })"></textarea>
+                        <!-- ---- Details ---- -->
+                        @if (detailTab() === 'info') {
+                          <dl class="rx-props">
+                            <div><dt>Role code</dt><dd class="is-mono">{{ d.code }}</dd></div>
+                            <div><dt>Role type</dt><dd>{{ d.roleType || '—' }}</dd></div>
+                            <div><dt>Owning function</dt><dd>{{ d.owningFunction || '—' }}</dd></div>
+                            <div><dt>Status</dt><dd>{{ d.approvalState }}</dd></div>
+                            <div><dt>Privilege</dt><dd>{{ d.privilegeLevel }}</dd></div>
+                            <div><dt>Given to every new person</dt><dd>{{ d.isDefaultRole ? 'Yes' : 'No' }}</dd></div>
+                            <div><dt>People with this role</dt><dd>{{ d.assignedUserCount }}</dd></div>
+                            <div><dt>Menus they can see</dt><dd>{{ d.visibleMenuCount }}</dd></div>
+                            <div><dt>Priority (lower comes first)</dt><dd>{{ d.priority }}</dd></div>
+                            <div><dt>Version</dt><dd>{{ d.roleVersion }}</dd></div>
+                            <div><dt>Created</dt><dd>{{ d.createdAt }}</dd></div>
+                            <div><dt>Last changed</dt><dd>{{ d.updatedAt }}</dd></div>
+                          </dl>
+                        }
                       </div>
-
-                      <div class="rx-choice rx-choice--row">
-                        <button type="button" class="rx-choice__card" [class.rx-choice__card--on]="conflictForm().isBlocking"
-                                (click)="conflictForm.set({ ...conflictForm(), isBlocking: true })">
-                          <i class="ri-forbid-2-line" aria-hidden="true"></i>
-                          <span><b>Refuse</b><small>Block the combination outright</small></span>
-                        </button>
-                        <button type="button" class="rx-choice__card" [class.rx-choice__card--on]="!conflictForm().isBlocking"
-                                (click)="conflictForm.set({ ...conflictForm(), isBlocking: false })">
-                          <i class="ri-flag-2-line" aria-hidden="true"></i>
-                          <span><b>Flag</b><small>Allow it, but mark for review</small></span>
-                        </button>
-                      </div>
-
-                      <div class="rx-cform__foot">
-                        <button type="button" class="rx-btn rx-btn--ghost rx-btn--sm" [disabled]="conflictSaving()" (click)="resetConflictForm()">Cancel</button>
-                        <button type="button" class="rx-btn rx-btn--primary rx-btn--sm" [disabled]="conflictSaving()" (click)="saveConflict()">
-                          @if (conflictSaving()) { <span class="spinner-border spinner-border-sm" role="status"></span> }
-                          Save rule
-                        </button>
-                      </div>
-                    </div>
-                  }
-                </div>
-
-                <!-- ---- Record ---- -->
-                <div class="rx-record">
-                  <span><i class="ri-calendar-line" aria-hidden="true"></i>Created {{ role.createdAt }}</span>
-                  <span><i class="ri-history-line" aria-hidden="true"></i>Last changed {{ role.updatedAt }}</span>
-                  <span><i class="ri-sort-asc" aria-hidden="true"></i>Priority {{ role.priority }}</span>
-                  <span><i class="ri-menu-line" aria-hidden="true"></i>{{ role.visibleMenuCount }} menus visible</span>
-                </div>
-              </div>
-            } @else {
-              <div class="rx-state rx-state--flat">
-                <span class="rx-state__icon"><i class="ri-shield-user-line" aria-hidden="true"></i></span>
-                <p class="rx-state__title">Select a role</p>
-                <p class="rx-state__hint">Pick a role on the left to see what it grants.</p>
-              </div>
-            }
-          </section>
-        </div>
-      }
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        }
+      </section>
     }
   </div>
 </div>
 </main>
+
+
+
 
 <!-- =====================================================================
      CREATE DRAFT ROLE — offcanvas

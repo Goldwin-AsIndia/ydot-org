@@ -396,6 +396,18 @@ export class AccessPreviewComponent {
     return null;
   }
 
+  /** Share of the granted permissions that are sensitive, 0-100, for the ring in the header. */
+  readonly sensitiveShare = computed(() => {
+    const total = this.access()?.totalPermissionCount ?? 0;
+    const sensitive = this.access()?.sensitivePermissionCount ?? 0;
+    return total > 0 ? Math.round((sensitive / total) * 100) : 0;
+  });
+
+  /** How much of a module's recorded codes this person holds, 0-100, for the bar under its name. */
+  coverage(row: MatrixRow): number {
+    return row.permissions.length > 0 ? Math.round((row.grantedCount / row.permissions.length) * 100) : 0;
+  }
+
   expandAllRows(): void {
     this.openModules.set(new Set(this.matrix().map((row) => row.moduleCode)));
   }

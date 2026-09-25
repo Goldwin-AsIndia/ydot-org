@@ -45,7 +45,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   // ---- Filters ------------------------------------------------------------------------------
   searchText = '';
-  readonly filter = signal<UserSearchFilter>({ pageIndex: 1, pageSize: 10 });
+  readonly filter = signal<UserSearchFilter>({ pageIndex: 1, pageSize: 12 });
 
   // ---- Dialogs -------------------------------------------------------------------------------
   readonly dialog = signal<DialogKind>('none');
@@ -93,6 +93,18 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   /** The status filter that is open, so the matching stat card can light up. */
   readonly activeTab = signal<string>('all');
 
+  /** People as cards (the default) or as a compact table. */
+  readonly view = signal<'grid' | 'table'>('grid');
+
+  /** The status tabs above the results, with the icon each one shows. */
+  readonly statusTabs: { key: DirectoryTab; label: string; icon: string }[] = [
+    { key: 'all', label: 'Everyone', icon: 'ri-team-line' },
+    { key: 'active', label: 'Active', icon: 'ri-checkbox-circle-line' },
+    { key: 'invited', label: 'Invited', icon: 'ri-mail-send-line' },
+    { key: 'suspended', label: 'Suspended', icon: 'ri-pause-circle-line' },
+    { key: 'draft', label: 'Draft', icon: 'ri-draft-line' },
+  ];
+
   /** The real counts, as the server last reported them. */
   readonly statusCounts = signal<Record<DirectoryTab, number>>({
     all: 0,
@@ -132,7 +144,11 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   /** Text typed in the open dropdown's search box. */
   readonly dropdownQuery = signal('');
 
-  readonly pageSizes = [10, 25, 50, 100];
+  /** Multiples of 12 split evenly into 2, 3, 4 and 6 card columns, so the last row is never half empty. */
+  readonly pageSizes = [12, 24, 48, 96];
+
+  /** Placeholder cards shown while a page loads. */
+  readonly skeletons = [1, 2, 3, 4, 5, 6];
 
   reason = '';
   readonly deleteConfirmation = signal('');
@@ -178,7 +194,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   readonly totalCount = computed(() => this.data()?.users.totalCount ?? 0);
   readonly pageIndex = computed(() => this.data()?.users.page ?? 1);
-  readonly pageSize = computed(() => this.data()?.users.pageSize ?? 10);
+  readonly pageSize = computed(() => this.data()?.users.pageSize ?? 12);
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize())));
 
   /** First row number on this page — "Showing 11–20 of 42". */
