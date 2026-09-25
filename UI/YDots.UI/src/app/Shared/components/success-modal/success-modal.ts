@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { PopupComponent } from '../popup/popup';
 
 export interface SuccessModalData {
   title: string;
@@ -12,7 +13,7 @@ export interface SuccessModalData {
 
 @Component({
   selector: 'app-success-modal',
-  imports: [CommonModule],
+  imports: [CommonModule, PopupComponent],
   templateUrl: './success-modal.html',
   styleUrl: './success-modal.css',
 })

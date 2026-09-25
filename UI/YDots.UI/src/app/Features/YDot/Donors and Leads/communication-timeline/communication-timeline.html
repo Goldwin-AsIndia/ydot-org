@@ -1,5 +1,5 @@
 <main class="app-wrapper" aria-label="Communication timeline workspace">
-  <div class="page-wrapper">
+  <div class="page-wrapper" [style.display]="isEntryDrawerOpen() ? 'none' : null">
     <div class="container-fluid px-4 py-3">
       <div class="cj">
 
@@ -182,7 +182,7 @@
 
           <!-- RELATIONSHIP SHEET -->
           <aside class="cj-side" aria-label="Relationship">
-            <section class="cj-part cj-health health-{{ relationshipHealthClass(relationshipHealthStatus()).replace('health-', '') }}">
+            <section class="cj-part cj-health {{ relationshipHealthClass(relationshipHealthStatus()) }}">
               <p class="cj-cap">Relationship health</p>
               <div class="cj-gauge">
                 <svg viewBox="0 0 120 120" aria-hidden="true">
@@ -220,7 +220,7 @@
               <p class="cj-cap">Record</p>
               <dl class="cj-dl">
                 <div><dt>Reference</dt><dd class="cj-mono">{{ relationship().reference || '—' }}</dd></div>
-                <div><dt>Campaign</dt><dd>{{ relationship().campaign || 'Not recorded' }}</dd></div>
+                <div><dt>Stage</dt><dd>{{ relationship().stage || '—' }}</dd></div>
                 <div><dt>Source</dt><dd>{{ relationship().source || 'Not recorded' }}</dd></div>
                 <div><dt>Stage</dt><dd>{{ relationship().stage || '—' }}</dd></div>
                 <div><dt>Last entry</dt><dd>{{ lastUpdatedDisplay() }}</dd></div>
@@ -244,6 +244,253 @@
       </div>
     </div>
   </div>
+  <!-- LOG COMMUNICATION: the "Conversation brief", shown in place of the timeline inside the app shell (side menu and top bar stay).
+       A sticky bar with a live progress rule, then one brief sheet in three chapters (How you connected,
+       What came of it, The conversation) beside a context column (who, live preview, the thread so far). -->
+  @if (isEntryDrawerOpen()) {
+    <div class="lb" #entrySheet role="region" aria-labelledby="lbTitle" tabindex="-1" (keydown.escape)="closeEntryDrawer()">
+
+      <header class="lb-bar">
+        <button class="lb-back" type="button" (click)="closeEntryDrawer()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Timeline</button>
+        <span class="lb-bar-rule" aria-hidden="true"></span>
+        <div class="lb-title">
+          <span class="lb-kicker">{{ editingId() ? 'Amend entry' : 'New entry' }}<i aria-hidden="true"></i><span class="lb-mono">{{ relationship().reference || '—' }}</span></span>
+          <h1 id="lbTitle">{{ editingId() ? 'Edit communication' : 'Log communication' }}</h1>
+        </div>
+        <ol class="lb-steps" aria-label="Before saving">
+          @for (check of entryChecks(); track check.label) {
+            <li [class.is-ok]="check.ok" [attr.title]="check.detail">
+              <span class="lb-step-ring" aria-hidden="true">@if (check.ok) {<svg viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg>}</span>{{ check.label }}
+            </li>
+          }
+        </ol>
+        <div class="lb-bar-end">
+          <button class="lb-cancel" type="button" (click)="closeEntryDrawer()">Cancel</button>
+          <button class="lb-save" type="button" (click)="saveCommunication()">{{ editingId() ? 'Save changes' : 'Save entry' }}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+        <span class="lb-progress" aria-hidden="true"><i [style.width.%]="entryProgress()"></i></span>
+      </header>
+
+      <div class="lb-body">
+        <!-- THE BRIEF -->
+        <form class="lb-brief" (submit)="$event.preventDefault(); saveCommunication()" (keydown.control.enter)="saveCommunication()" (keydown.meta.enter)="saveCommunication()" novalidate>
+          @if (formErrors().length) {
+            <div class="lb-alert" role="alert">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>
+              <div><strong>{{ formErrors().length === 1 ? 'One thing to fix before saving' : formErrors().length + ' things to fix before saving' }}</strong>
+              <ul>@for (error of formErrors(); track error) {<li>{{ error }}</li>}</ul></div>
+            </div>
+          }
+
+          <!-- I. How you connected -->
+          <section class="lb-ch" aria-labelledby="lbCh1">
+            <header class="lb-ch-head">
+              <span class="lb-num" aria-hidden="true">I</span>
+              <h2 id="lbCh1">How you connected</h2>
+              <span class="lb-leader" aria-hidden="true"></span>
+              <span class="lb-answer">{{ form().direction }} {{ channelNoun(form().type) }}<i aria-hidden="true"></i>{{ entryDay().weekday || entryDay().month }}{{ form().time ? ', ' + form().time : '' }}</span>
+            </header>
+
+            <div class="lb-channels" role="radiogroup" aria-label="Communication type">
+              @for (type of communicationTypes; track type) {
+                <button type="button" role="radio" class="lb-channel cj-ch-{{ channelKey(type) }}" [attr.aria-checked]="form().type === type" (click)="updateForm('type', type)">
+                  <span class="lb-medal"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: type }" /></span>
+                  <b>{{ type === 'Internal Note' ? 'Note' : type }}</b>
+                  <small class="lb-mono">{{ channelCounts()[type] || 0 }} logged</small>
+                </button>
+              }
+            </div>
+
+            <div class="lb-when">
+              <div class="lb-field lb-field-day">
+                <span class="lb-label">Day</span>
+                <div class="lb-days" role="radiogroup" aria-label="Date">
+                  @for (day of entryDayStrip(); track day.iso) {
+                    <button type="button" role="radio" class="lb-day" [attr.aria-checked]="form().date === day.iso" (click)="updateForm('date', day.iso)">
+                      <small>{{ day.weekday }}</small><b class="lb-mono">{{ day.day }}</b><small>{{ day.month }}</small>
+                    </button>
+                  }
+                  <label class="lb-day lb-day-earlier" [class.is-on]="entryDateEarlier()">
+                    <small>Earlier</small>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+                    <input type="date" name="date" aria-label="Pick an earlier date" (click)="$any($event.target).showPicker?.()" [ngModel]="form().date" [attr.max]="getTodayIso()" (ngModelChange)="updateForm('date', $event)" />
+                    <small class="lb-mono">{{ entryDateEarlier() ? entryDay().day + ' ' + entryDay().month.slice(0, 3) : 'Pick' }}</small>
+                  </label>
+                </div>
+              </div>
+
+              <div class="lb-field">
+                <span class="lb-label">Time <button type="button" class="lb-link" (click)="setNow()">Use now</button></span>
+                <label class="lb-time">
+                  <input type="time" name="time" aria-label="Time" [ngModel]="form().time" (ngModelChange)="updateForm('time', $event)" />
+                </label>
+              </div>
+
+              <div class="lb-field">
+                <span class="lb-label">Direction</span>
+                <span class="lb-dirs" role="radiogroup" aria-label="Direction">
+                  <button type="button" role="radio" class="lb-dir" [attr.aria-checked]="form().direction === 'Outgoing'" (click)="updateForm('direction', 'Outgoing')">
+                    <span class="lb-dir-map" aria-hidden="true"><i>You</i><svg viewBox="0 0 24 24"><path d="M4 12h15M14 7l5 5-5 5"/></svg><i>{{ relationshipInitials() }}</i></span>Outgoing
+                  </button>
+                  <button type="button" role="radio" class="lb-dir" [attr.aria-checked]="form().direction === 'Incoming'" (click)="updateForm('direction', 'Incoming')">
+                    <span class="lb-dir-map" aria-hidden="true"><i>{{ relationshipInitials() }}</i><svg viewBox="0 0 24 24"><path d="M4 12h15M14 7l5 5-5 5"/></svg><i>You</i></span>Incoming
+                  </button>
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <!-- II. What came of it -->
+          <section class="lb-ch" aria-labelledby="lbCh2">
+            <header class="lb-ch-head">
+              <span class="lb-num" aria-hidden="true">II</span>
+              <h2 id="lbCh2">What came of it</h2>
+              <span class="lb-leader" aria-hidden="true"></span>
+              <span class="lb-answer"><span class="cj-out {{ outcomeClass(form().outcome) }}"><i aria-hidden="true"></i>{{ form().outcome }}</span></span>
+            </header>
+
+            <div class="lb-outcomes" role="radiogroup" aria-label="Outcome">
+              @for (group of outcomeGroups; track group.label; let g = $index) {
+                <div class="lb-kind lb-kind-{{ g }}">
+                  <p class="lb-kind-head"><b>{{ group.label }}</b><small>{{ group.hint }}</small></p>
+                  @for (outcome of group.items; track outcome) {
+                    <button type="button" role="radio" class="lb-out {{ outcomeClass(outcome) }}" [attr.aria-checked]="form().outcome === outcome" (click)="updateForm('outcome', outcome)"><i aria-hidden="true"></i>{{ outcome }}</button>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="lb-assess">
+              <div class="lb-field">
+                <span class="lb-label">Engagement</span>
+                <span class="lb-scale" role="radiogroup" aria-label="Engagement level">
+                  @for (level of engagementLevels; track level; let i = $index) {
+                    <button type="button" role="radio" [attr.aria-checked]="form().engagement === level" (click)="updateForm('engagement', level)">
+                      <span class="lb-bars" aria-hidden="true">@for (bar of engagementLevels; track bar; let b = $index) {<i [class.on]="b <= i"></i>}</span>{{ level }}
+                    </button>
+                  }
+                </span>
+              </div>
+              <span class="lb-assess-rule" aria-hidden="true"></span>
+              <div class="lb-field">
+                <span class="lb-label">Quality of the conversation</span>
+                <span class="lb-scale" role="radiogroup" aria-label="Communication quality">
+                  @for (quality of qualities; track quality; let i = $index) {
+                    <button type="button" role="radio" [attr.aria-checked]="form().quality === quality" (click)="updateForm('quality', quality)">
+                      <span class="lb-bars" aria-hidden="true">@for (bar of qualities; track bar; let b = $index) {<i [class.on]="b <= i"></i>}</span>{{ quality }}
+                    </button>
+                  }
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <!-- III. The conversation -->
+          <section class="lb-ch lb-ch-write" aria-labelledby="lbCh3">
+            <header class="lb-ch-head">
+              <span class="lb-num" aria-hidden="true">III</span>
+              <h2 id="lbCh3">The conversation</h2>
+              <span class="lb-leader" aria-hidden="true"></span>
+              <span class="lb-answer lb-mono" [class.is-ok]="form().summary.trim().length >= 10">{{ form().summary.length }} / 2000</span>
+            </header>
+
+            <div class="lb-papers">
+              <label class="lb-paper">
+                <span class="lb-label">Summary <em>*</em><small>Shown on the timeline</small></span>
+                <textarea #summaryBox name="summary" maxlength="2000" placeholder="What happened, what they said or asked for, and what happens next." [ngModel]="form().summary" (ngModelChange)="updateForm('summary', $event)"></textarea>
+                <span class="lb-starters" role="group" aria-label="Sentence openers">
+                  @for (starter of summaryStarters; track starter) {
+                    <button type="button" (click)="addStarter(starter); summaryBox.focus()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{ starter.trim() }}…</button>
+                  }
+                </span>
+              </label>
+              <label class="lb-paper lb-paper-note">
+                <span class="lb-label"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Internal note<small>Team only</small><span class="lb-mono lb-note-count">{{ form().notes.length }} / 3000</span></span>
+                <textarea name="notes" maxlength="3000" placeholder="Preferences, sensitivities, who else is involved…" [ngModel]="form().notes" (ngModelChange)="updateForm('notes', $event)"></textarea>
+              </label>
+            </div>
+          </section>
+
+          <footer class="lb-foot">
+            <label class="lb-attach" for="communicationAttachment" [class.is-on]="!!form().attachmentName">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/></svg>
+              <span><b>{{ form().attachmentName || 'Attach a file' }}</b><small>{{ form().attachmentName ? 'Click to replace' : 'PDF, DOCX, PNG or JPG · up to 10 MB' }}</small></span>
+            </label>
+            <input id="communicationAttachment" type="file" hidden accept=".pdf,.docx,.png,.jpg,.jpeg" (change)="onAttachmentSelected($event)" />
+            <label class="lb-flag" [class.is-on]="form().important">
+              <input type="checkbox" name="important" [ngModel]="form().important" (ngModelChange)="updateForm('important', $event)" />
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+              <span><b>{{ form().important ? 'Marked important' : 'Mark as important' }}</b><small>Starred on the timeline</small></span>
+            </label>
+            <span class="lb-keys" aria-hidden="true"><kbd>Ctrl</kbd><kbd>Enter</kbd> save<i></i><kbd>Esc</kbd> close</span>
+          </footer>
+        </form>
+
+        <!-- CONTEXT -->
+        <aside class="lb-side" aria-label="Context">
+          <section class="lb-sheet lb-who {{ relationshipHealthClass(relationshipHealthStatus()) }}">
+            <div class="lb-who-top">
+              <span class="lb-seal" aria-hidden="true">{{ relationshipInitials() }}</span>
+              <span class="lb-who-name">
+                <small>{{ donorId() ? 'Donor' : 'Lead' }}@if (relationship().stage) { · {{ relationship().stage }} }</small>
+                <b>{{ relationship().name || 'This record' }}</b>
+              </span>
+              <span class="lb-ring" [attr.title]="relationshipHealthReason()">
+                <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" class="lb-ring-track"/><circle cx="60" cy="60" r="50" class="lb-ring-arc" [attr.stroke-dasharray]="healthGaugeDashArray()"/></svg>
+                <b class="lb-mono">{{ leadHealthScore() }}</b>
+              </span>
+            </div>
+            <p class="lb-reach">
+              <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z"/></svg><span class="lb-mono">{{ relationship().mobile || 'No mobile' }}</span></span>
+              <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg><span>{{ relationship().email || 'No email' }}</span></span>
+            </p>
+            <dl class="lb-facts">
+              <div><dt>Health</dt><dd class="lb-health">{{ relationshipHealthStatus() }}</dd></div>
+              <div><dt>Last contact</dt><dd>{{ lastContactDisplay() }}</dd></div>
+              <div><dt>Temperature</dt><dd>{{ currentTemperature() }}</dd></div>
+              <div><dt>Potential</dt><dd>{{ donationPotential() }}</dd></div>
+            </dl>
+          </section>
+
+          <section class="lb-sheet lb-proof cj-ch-{{ channelKey(form().type) }}">
+            <p class="lb-cap">How it will read</p>
+            <div class="lb-proof-entry">
+              <span class="lb-proof-date"><b class="lb-mono">{{ entryDay().day }}</b><small>{{ entryDay().month }}</small></span>
+              <div class="lb-proof-text">
+                <p class="lb-proof-top"><span class="lb-proof-glyph"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: form().type }" /></span><b>{{ form().direction }} {{ channelNoun(form().type) }}</b>@if (form().important) {<svg class="lb-proof-flag" viewBox="0 0 24 24" aria-label="Important"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>}@if (form().time) {<span class="lb-mono">{{ form().time }}</span>}</p>
+                <p class="lb-proof-meta"><span class="cj-out {{ outcomeClass(form().outcome) }}"><i aria-hidden="true"></i>{{ form().outcome }}</span><i class="lb-dot" aria-hidden="true"></i><span>{{ form().engagement }} engagement</span></p>
+                <p class="lb-proof-sum" [class.is-empty]="!form().summary.trim()">{{ form().summary.trim() || 'Your summary will appear here as you write.' }}</p>
+                @if (form().attachmentName) { <p class="lb-proof-file"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/></svg>{{ form().attachmentName }}</p> }
+              </div>
+            </div>
+          </section>
+
+          <section class="lb-sheet lb-thread">
+            <div class="lb-sheet-top"><p class="lb-cap">The thread so far</p><span class="lb-mono">{{ totalCommunications() }} {{ totalCommunications() === 1 ? 'entry' : 'entries' }}</span></div>
+            <ol class="lb-rail">
+              <li class="lb-rail-new cj-ch-{{ channelKey(form().type) }}">
+                <span class="lb-node"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: form().type }" /></span>
+                <p><b>This entry</b><span>{{ entryDay().weekday || 'No date' }}</span></p>
+              </li>
+              @for (record of recentEntries().slice(0, 3); track record.id) {
+                <li class="cj-ch-{{ channelKey(record.type) }}">
+                  <span class="lb-node"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: record.type }" /></span>
+                  <div>
+                    <p><b>{{ channelLabel(record.type) }}</b><span class="lb-mono">{{ record.date }}</span></p>
+                    <p class="lb-rail-sum">{{ record.summary }}</p>
+                    <p class="cj-out {{ outcomeClass(record.outcome) }}"><i aria-hidden="true"></i>{{ record.outcome }}</p>
+                  </div>
+                </li>
+              } @empty {
+                <li class="lb-rail-first"><p>No earlier conversations. This will open the timeline.</p></li>
+              }
+            </ol>
+            <p class="lb-next"><small>Suggested next</small><b>{{ suggestedAction().label }}</b><span>{{ suggestedAction().detail }}</span></p>
+          </section>
+        </aside>
+      </div>
+    </div>
+  }
 </main>
 
 <!-- One glyph per channel, used by the journal nodes and the drawer's channel picker -->
@@ -303,120 +550,6 @@
       <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDonationPotentialModal()">Update potential</button>
       <button type="button" class="btn btn-primary btn-sm" (click)="editCommunication(record)" title="Edit communication">Edit entry</button>
     </div>
-  </aside>
-}
-
-<!-- LOG COMMUNICATION DRAWER: its own design (not the shared dialog layer) -->
-@if (isEntryDrawerOpen()) {
-  <div class="lg-scrim" (click)="closeEntryDrawer()" aria-hidden="true"></div>
-  <aside class="lg" role="dialog" aria-modal="true" aria-labelledby="lgTitle">
-    <header class="lg-top">
-      <div class="lg-top-text">
-        <p class="lg-kicker">{{ editingId() ? 'Amend entry' : 'New entry' }}<span class="lg-dot" aria-hidden="true"></span><span class="lg-ref">{{ relationship().reference || '—' }}</span></p>
-        <h2 id="lgTitle" class="lg-heading">{{ editingId() ? 'Edit communication' : 'Log communication' }}</h2>
-        <p class="lg-for">On <b>{{ relationship().name || 'this record' }}</b>'s timeline · recorded by {{ relationship().owner }}</p>
-      </div>
-      <button class="lg-shut" type="button" aria-label="Close" title="Close" (click)="closeEntryDrawer()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    </header>
-
-    <form class="lg-form" (submit)="$event.preventDefault(); saveCommunication()" novalidate>
-      @if (formErrors().length) {
-        <div class="lg-alert" role="alert">
-          <strong>{{ formErrors().length === 1 ? 'One thing to fix before saving' : formErrors().length + ' things to fix before saving' }}</strong>
-          <ul>@for (error of formErrors(); track error) {<li>{{ error }}</li>}</ul>
-        </div>
-      }
-
-      <section class="lg-sec">
-        <div class="lg-sec-head"><span class="lg-no">01</span><h3>Channel</h3><span class="lg-aside">{{ channelLabel(form().type) }}</span></div>
-        <div class="lg-channels" role="radiogroup" aria-label="Communication type">
-          @for (type of communicationTypes; track type) {
-            <button type="button" role="radio" class="lg-chan cj-ch-{{ channelKey(type) }}" [attr.aria-checked]="form().type === type" (click)="updateForm('type', type)">
-              <ng-container *ngTemplateOutlet="glyph; context: { $implicit: type }" /><span>{{ type === 'Internal Note' ? 'Note' : type }}</span>
-            </button>
-          }
-        </div>
-      </section>
-
-      <section class="lg-sec">
-        <div class="lg-sec-head"><span class="lg-no">02</span><h3>When &amp; which way</h3><button type="button" class="lg-now" (click)="setNow()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>Use now</button></div>
-        <div class="lg-pair">
-          <label class="lg-field"><span class="lg-label">Date <em>*</em></span><input type="date" name="date" [ngModel]="form().date" [attr.max]="getTodayIso()" (ngModelChange)="updateForm('date', $event)" /></label>
-          <label class="lg-field"><span class="lg-label">Time <em>*</em></span><input type="time" name="time" [ngModel]="form().time" (ngModelChange)="updateForm('time', $event)" /></label>
-        </div>
-        <div class="lg-field">
-          <span class="lg-label">Direction</span>
-          <div class="lg-seg" role="radiogroup" aria-label="Direction">
-            <button type="button" role="radio" [attr.aria-checked]="form().direction === 'Outgoing'" (click)="updateForm('direction', 'Outgoing')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg><span><b>Outgoing</b><small>We reached out</small></span></button>
-            <button type="button" role="radio" [attr.aria-checked]="form().direction === 'Incoming'" (click)="updateForm('direction', 'Incoming')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 7 7 17M7 9v8h8"/></svg><span><b>Incoming</b><small>They reached us</small></span></button>
-          </div>
-        </div>
-      </section>
-
-      <section class="lg-sec">
-        <div class="lg-sec-head"><span class="lg-no">03</span><h3>Outcome</h3><span class="lg-aside">{{ form().outcome }}</span></div>
-        <div class="lg-outcomes" role="radiogroup" aria-label="Outcome">
-          @for (outcome of outcomes; track outcome) {
-            <button type="button" role="radio" class="lg-out {{ outcomeClass(outcome) }}" [attr.aria-checked]="form().outcome === outcome" (click)="updateForm('outcome', outcome)"><i aria-hidden="true"></i>{{ outcome }}</button>
-          }
-        </div>
-      </section>
-
-      <section class="lg-sec">
-        <div class="lg-sec-head"><span class="lg-no">04</span><h3>Assessment</h3></div>
-        <div class="lg-scale-row">
-          <span class="lg-label">Engagement</span>
-          <div class="lg-scale" role="radiogroup" aria-label="Engagement level">
-            @for (level of engagementLevels; track level; let i = $index) {
-              <button type="button" role="radio" [attr.aria-checked]="form().engagement === level" (click)="updateForm('engagement', level)"><span class="lg-bars" [attr.data-l]="i + 1" aria-hidden="true"><i></i><i></i><i></i></span>{{ level }}</button>
-            }
-          </div>
-        </div>
-        <div class="lg-scale-row">
-          <span class="lg-label">Quality</span>
-          <div class="lg-scale lg-scale-4" role="radiogroup" aria-label="Communication quality">
-            @for (quality of qualities; track quality; let i = $index) {
-              <button type="button" role="radio" [attr.aria-checked]="form().quality === quality" (click)="updateForm('quality', quality)"><span class="lg-bars lg-bars-4" [attr.data-l]="i + 1" aria-hidden="true"><i></i><i></i><i></i><i></i></span>{{ quality }}</button>
-            }
-          </div>
-        </div>
-      </section>
-
-      <section class="lg-sec">
-        <div class="lg-sec-head"><span class="lg-no">05</span><h3>What was said</h3></div>
-        <label class="lg-field">
-          <span class="lg-label">Summary <em>*</em><span class="lg-count" [class.is-ok]="form().summary.trim().length >= 10">{{ form().summary.length }} / 2000</span></span>
-          <textarea name="summary" rows="4" maxlength="2000" placeholder="What happened, what was agreed, what comes next…" [ngModel]="form().summary" (ngModelChange)="updateForm('summary', $event)"></textarea>
-        </label>
-        <label class="lg-field">
-          <span class="lg-label"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Internal notes<span class="lg-count">{{ form().notes.length }} / 3000</span></span>
-          <textarea name="notes" rows="3" maxlength="3000" placeholder="Visible to your team only" [ngModel]="form().notes" (ngModelChange)="updateForm('notes', $event)"></textarea>
-        </label>
-      </section>
-
-      <section class="lg-sec">
-        <div class="lg-sec-head"><span class="lg-no">06</span><h3>Attachment &amp; flag</h3></div>
-        <label class="lg-drop" for="communicationAttachment">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/></svg>
-          <span class="lg-drop-text"><b>{{ form().attachmentName || 'Attach a file' }}</b><small>PDF, DOCX, PNG or JPG · up to 10 MB</small></span>
-          <span class="lg-drop-act">{{ form().attachmentName ? 'Replace' : 'Browse' }}</span>
-        </label>
-        <input id="communicationAttachment" type="file" hidden accept=".pdf,.docx,.png,.jpg,.jpeg" (change)="onAttachmentSelected($event)" />
-        <label class="lg-flag">
-          <input type="checkbox" name="important" [ngModel]="form().important" (ngModelChange)="updateForm('important', $event)" />
-          <span class="lg-switch" aria-hidden="true"></span>
-          <span class="lg-flag-text"><b>Mark as important</b><small>Keeps it under the Important lane on this timeline</small></span>
-        </label>
-      </section>
-    </form>
-
-    <footer class="lg-end">
-      <p class="lg-recap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg><span>{{ entryRecap() }}</span></p>
-      <div class="lg-buttons">
-        <button class="lg-cancel" type="button" (click)="closeEntryDrawer()">Cancel</button>
-        <button class="lg-save" type="button" (click)="saveCommunication()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>{{ editingId() ? 'Save changes' : 'Save entry' }}</button>
-      </div>
-    </footer>
   </aside>
 }
 

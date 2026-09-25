@@ -1,34 +1,14 @@
-@if(open && data){
-<div class="modal-overlay">
-    <div class="success-modal">
-        <div class="success-icon">
-            <i class="ri-checkbox-circle-line"></i>
-        </div>
-        <h3>{{ data.title }}</h3>
-        <p class="text-muted">{{ data.message }}</p>
-        <div class="details">
-            @if(data.referenceId){
-            <div class="mb-3">
-                <small>Reference ID</small>
-                <div class="fw-semibold">{{ data.referenceId }}</div>
-            </div>
-            }
-            @if(data.effectiveTime){
-            <div class="mb-3">
-                <small>Effective Time</small>
-                <div>{{ data.effectiveTime }}</div>
-            </div>
-            }
-            @if(data.sessionsNote){
-            <div>
-                <small>Sessions</small>
-                <div>{{ data.sessionsNote }}</div>
-            </div>
-            }
-        </div>
-        <button class="btn btn-primary w-100 mt-4" (click)="onAction()">
-            {{ data.buttonLabel || 'Go to Sign In' }}
-        </button>
-    </div>
-</div>
-}
+<app-popup [open]="open && !!data" [title]="data?.title ?? ''" [lead]="data?.message ?? ''"
+           tone="success" icon="ri-checkbox-circle-line" size="sm" [closeOnBackdrop]="false"
+           (closed)="onClose()">
+  @if (data?.referenceId || data?.effectiveTime || data?.sessionsNote) {
+    <dl class="yp-facts">
+      @if (data?.referenceId) { <div><dt>Reference ID</dt><dd>{{ data?.referenceId }}</dd></div> }
+      @if (data?.effectiveTime) { <div><dt>Effective time</dt><dd>{{ data?.effectiveTime }}</dd></div> }
+      @if (data?.sessionsNote) { <div><dt>Sessions</dt><dd>{{ data?.sessionsNote }}</dd></div> }
+    </dl>
+  }
+  <ng-container popupActions>
+    <button type="button" class="yp-btn yp-btn--primary" (click)="onAction()">{{ data?.buttonLabel || 'Go to Sign In' }}</button>
+  </ng-container>
+</app-popup>

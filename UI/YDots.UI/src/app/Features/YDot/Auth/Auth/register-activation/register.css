@@ -2,7 +2,7 @@
 
 .activation-card {
   /* Wider than the other auth cards because step 1 shows a two-column detail panel. */
-  max-width: 620px;
+  max-width: calc(620px * var(--ui-scale, 1));
 }
 
 /* ---- Progress rail -----------------------------------------------------------------------
@@ -22,8 +22,8 @@
 }
 
 .step-dot {
-  width: 32px;
-  height: 32px;
+  width: calc(32px * var(--ui-scale, 1));
+  height: calc(32px * var(--ui-scale, 1));
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -65,7 +65,7 @@
   background-color: #eef0f4;
   /* Pulls the connector up to the dots rather than the labels below them. */
   margin: 0 0.25rem 1.15rem;
-  min-width: 18px;
+  min-width: calc(18px * var(--ui-scale, 1));
   transition: background-color 0.2s ease;
 }
 
@@ -141,12 +141,12 @@
 }
 
 .method-icon {
-  width: 38px;
-  height: 38px;
+  width: calc(38px * var(--ui-scale, 1));
+  height: calc(38px * var(--ui-scale, 1));
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: calc(10px * var(--ui-scale, 1));
   background-color: rgba(79, 70, 229, 0.1);
   color: #4f46e5;
   font-size: 1.1rem;
@@ -159,11 +159,11 @@
 .qr-holder {
   /* A white plate behind the QR: scanners cope far better with maximum contrast, and a coloured
      page background bleeding through is a common reason a scan fails. */
-  width: 240px;
-  min-height: 240px;
-  padding: 10px;
+  width: calc(240px * var(--ui-scale, 1));
+  min-height: calc(240px * var(--ui-scale, 1));
+  padding: calc(10px * var(--ui-scale, 1));
   background-color: #fff;
-  border-radius: 12px;
+  border-radius: calc(12px * var(--ui-scale, 1));
   border: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
@@ -183,12 +183,12 @@
 
 .code-input {
   font-family: var(--font-number);
-  letter-spacing: 8px;
+  letter-spacing: calc(8px * var(--ui-scale, 1));
   font-weight: 600;
 }
 
 .code-input::placeholder {
-  letter-spacing: 8px;
+  letter-spacing: calc(8px * var(--ui-scale, 1));
   color: #d1d5db;
 }
 
@@ -216,15 +216,4 @@
   }
 }
 
-/* ---- Cancel and edit dialog --------------------------------------------------------------------- */
-
-.modal-backdrop-custom {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(15, 23, 42, 0.55);
-  z-index: 1055;
-}
-
-.cancel-dialog {
-  max-width: 460px;
-}
+/* The "Cancel and edit" dialog is the shared <app-popup> (styles/ydot-popup.css). */

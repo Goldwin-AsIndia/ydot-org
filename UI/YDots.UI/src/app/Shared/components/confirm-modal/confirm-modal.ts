@@ -2,15 +2,17 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfirmDialogConfig } from '../../models/donors-leads.model';
+import { PopupComponent } from '../popup/popup';
 
 /**
  * Shared confirmation modal for Donors and Leads screens.
  * Used by SCR-DON-001 … SCR-DON-006 + DON-UI-07 + DON-UI-08.
  * Supports reason capture, typed confirmation and before/after review.
+ * Rendered in the shared <app-popup> (the Tracking asset manager pop-up design).
  */
 @Component({
   selector: 'app-confirm-modal',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PopupComponent],
   templateUrl: './confirm-modal.html',
   styleUrl: './confirm-modal.css',
 })

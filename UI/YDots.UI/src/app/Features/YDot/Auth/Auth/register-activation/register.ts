@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import { AuthApiService } from '../../../../../Service/auth-api.service';
 import { ToastService } from '../../../../../Shared/services/toast.service';
 import { AuthSessionService } from '../../../../../Shared/services/auth-session.service';
+import { PopupComponent } from '../../../../../Shared/components/popup/popup';
 import {
   InvitationPreviewResponse,
   MFA_METHOD_LABELS,
@@ -46,7 +47,7 @@ type Step = 'details' | 'password' | 'security' | 'complete';
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, PopupComponent],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })

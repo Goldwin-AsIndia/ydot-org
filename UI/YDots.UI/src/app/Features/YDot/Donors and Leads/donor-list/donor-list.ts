@@ -6,6 +6,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { Router } from '@angular/router';
 import { WorkflowStateService } from '../../../../Service/workflow-state.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
@@ -69,7 +70,7 @@ const VIEW_KEY = 'ydot.donor-list.view';
 @Component({
   selector: 'app-donor-list',
   standalone: true,
-  imports: [PageHeader],
+  imports: [PageHeader, DecimalPipe, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(document:keydown.escape)': 'onEscape()',
@@ -157,6 +158,12 @@ export class DonorListComponent {
       share: list.length ? ((counts.get(status) ?? 0) / list.length) * 100 : 0,
     }));
   });
+
+  /** The two largest statuses for the summary line; the rest are counted as "other". */
+  protected readonly statusLead = computed(() =>
+    [...this.statusMix()].sort((a, b) => b.count - a.count).slice(0, 2));
+  protected readonly statusOther = computed(() =>
+    this.donors().length - this.statusLead().reduce((sum, s) => sum + s.count, 0));
 
   /** Money figures over every record. */
   protected readonly portfolio = computed(() => {
@@ -347,6 +354,11 @@ export class DonorListComponent {
 
   protected setStatusFilter(status: string): void {
     this.statusFilter.set(this.statusFilter() === status ? 'all' : status);
+    this.currentPage.set(1);
+  }
+
+  protected selectStatus(status: string): void {
+    this.statusFilter.set(status);
     this.currentPage.set(1);
   }
 

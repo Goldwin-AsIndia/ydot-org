@@ -182,7 +182,7 @@
     <div class="modal d-block" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
-          <div class="modal-header border-bottom" style="padding-bottom: 15px;">
+          <div class="modal-header border-bottom" style="padding-bottom: calc(15px * var(--ui-scale, 1));">
             <h5 class="modal-title fw-bold">
               <i [class]="mfaAction() === 'enable' ? 'ri-shield-keyhole-line me-2 text-success' : 'ri-shield-off-line me-2 text-danger'"></i>
               {{ mfaAction() === 'enable' ? 'Enable MFA' : 'Disable MFA' }}
@@ -222,7 +222,7 @@
                       [ngModel]="mfaReason()" (ngModelChange)="mfaReason.set($event)"></textarea>
             <small class="text-muted">This is recorded against your name in the audit trail.</small>
           </div>
-          <div class="modal-footer border-top" style="padding-top: 18px;">
+          <div class="modal-footer border-top" style="padding-top: calc(18px * var(--ui-scale, 1));">
             <button class="btn btn-light btn-sm" (click)="closeMfaModal()">Cancel</button>
             <button class="btn btn-sm" [class.btn-success]="mfaAction() === 'enable'" [class.btn-danger]="mfaAction() === 'disable'" (click)="toggleMfa()" [disabled]="mfaSubmitting()">
               @if (mfaSubmitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
@@ -240,7 +240,7 @@
     <div class="modal d-block" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
-          <div class="modal-header border-bottom" style="padding-bottom: 15px;">
+          <div class="modal-header border-bottom" style="padding-bottom: calc(15px * var(--ui-scale, 1));">
             <h5 class="modal-title fw-bold"><i class="ri-lock-password-line me-2 text-warning"></i>Forgot Password</h5>
             <button type="button" class="btn-close" (click)="closeForgotPasswordModal()"></button>
           </div>
@@ -268,7 +268,7 @@
               </div>
             }
           </div>
-          <div class="modal-footer border-top" style="padding-top: 18px;">
+          <div class="modal-footer border-top" style="padding-top: calc(18px * var(--ui-scale, 1));">
             <button class="btn btn-light btn-sm" (click)="closeForgotPasswordModal()">Close</button>
             @if (!forgotPasswordSent()) {
               <button class="btn btn-primary btn-sm" (click)="sendForgotPassword()" [disabled]="forgotPasswordSubmitting()">

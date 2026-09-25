@@ -1,9 +1,8 @@
 # Run: python tools/generate-dialog-styles.py   (from UI/YDots.UI)
-# Generates src/styles/ydot-dialogs.css - the pop-up (dialog) and off-canvas (drawer) designs for every module
-# except Campaigns. Each module gets its OWN design; the registries below name each screen's scrim, dialog and
-# drawer classes and which module every screen belongs to.
-# House rules (2026-09-25): no dark or colour-filled blocks anywhere (headers, sheets and footers are white; colour
-# lives in rules, glyphs, type and the primary button), no dead space, plain readable type.
+# Generates src/styles/ydot-dialogs.css - the pop-up (dialog) and off-canvas (drawer) design for every module
+# outside Campaigns. Every module shares ONE design: the Campaigns > Tracking asset manager pop-up (whose own
+# chrome lives in styles/ydot-overlays.css). The registries below name each screen's scrim, dialog and drawer
+# classes and which module every screen belongs to.
 import textwrap, pathlib
 
 OUT = pathlib.Path(__file__).resolve().parent.parent / "src" / "styles" / "ydot-dialogs.css"
@@ -43,10 +42,6 @@ ALL_HOSTS = [h for hs in MODULES.values() for h in hs]
 PREFIX = f":is({', '.join(ALL_HOSTS)}) "
 
 
-def M(mod):
-    return f":is({', '.join(MODULES[mod])})"
-
-
 # ------------------------------------------------------------------------------------------------ registries
 SCRIMS = [
     ".ar-backdrop", ".modal-overlay", ".mc-modal-backdrop", ".oc-overlay",
@@ -54,12 +49,12 @@ SCRIMS = [
     ".up-backdrop", ".sec-modal-overlay", "app-communication-exception-queue .scrim",
     "app-sla-policy-calendar .overlay", "app-outbound-message-composer .overlay", ".panel-backdrop",
     ".drawer-overlay", ".drawer-backdrop", ".pr-modal-backdrop", ".pr-detail-backdrop", ".dialog-backdrop",
-    ".ab-drawer-backdrop", ".ab-modal-backdrop", ".ct-overlay", "app-communication-timeline .backdrop",
+    ".ab-drawer-backdrop", ".ab-modal-backdrop", ".ct-overlay",
     ".dl-drawer-backdrop", ".fq-scrim", ".offcanvas-backdrop", ".ode-modal-backdrop",
     ".pci-modal-backdrop", ".rwn-offcanvas-backdrop", ".rwn-modal-backdrop", ".sb-modal-backdrop",
     ".gm-overlay", ".gs-modal-backdrop", ".nc-modal-scrim", ".sh-modal-backdrop",
     ".svb-modal-backdrop", ".slp-modal-backdrop", ".srd-modal-backdrop", ".dl-modal-backdrop",
-    ".org-modal-backdrop", ".df-backdrop",
+    ".org-modal-backdrop", ".df-backdrop", ".dq-scrim", "app-menu-configuration .mcs-scrim",
 ]
 # Scrims that fade themselves in and out with opacity / visibility (checkbox-driven): colour only.
 SCRIMS_COLOUR_ONLY = [".filter-modal-backdrop"]
@@ -69,7 +64,8 @@ DIALOGS = [
     ".rx-modal", ".modal-content", ".dir-dialog", ".up-modal", ".sec-modal",
     ".modal:not(.d-block):not(.fade):not(.modal-split):not(:has(> .modal-dialog))",
     "app-payment-gateway-configuration .modal-dialog", ".pr-modal",
-    "app-public-donation-initiation .dialog", ".ab-modal", ".ct-modal", "dialog.action-dialog",
+    "app-public-donation-initiation .dialog", ".ab-modal", ".ct-modal", "dialog.action-dialog > form",
+    ".dq-dialog", "dialog.xr-dialog", "dialog.fp-dialog",
     ".execution-modal", ".fup-confirm-dialog", ".fq-modal", ".ode-modal", ".pci-modal", ".rwn-modal",
     ".sb-modal", ".gm-dialog", ".gs-modal", ".nc-modal", ".sh-modal:not(.sh-palette)",
     ".svb-modal", ".slp-modal", ".srd-modal", ".dl-modal", ".success-modal",
@@ -81,22 +77,24 @@ DIALOGS_SM = [".gm-dialog", ".success-modal", ".org-modal", ".ct-modal-sm", ".ar
 # Dialogs that carry a form or a comparison and need room.
 DIALOGS_LG = [".ar-modal--lg", ".up-modal--lg", ".rx-modal--wide", ".execution-modal", ".bu-modal",
               "app-outbound-message-composer .review-panel:not(.review-panel--narrow)", ".fq-modal",
-              "app-duplicate-review .modal", "dialog.action-dialog", ".modal-modern"]
+              "app-duplicate-review .modal", "dialog.action-dialog > form", ".modal-modern"]
 
 DRAWERS = [
     ".dir-sheet", "app-menu-configuration .oc", "app-role-catalogue .rx-oc", "app-communication-exception-queue .drawer",
     "app-sla-policy-calendar .drawer", "app-template-catalogue .drawer",
     "app-suppression-and-contact-restriction .side-panel", "app-payment-gateway-configuration .details-pane",
-    ".pr-detail", ".ab-drawer", ".ct-drawer", "app-communication-timeline .offcanvas", ".dl-drawer",
-    ".fq-drawer", "dialog.lq-drawer", ".lead-offcanvas", ".rwn-offcanvas",
+    ".pr-detail", ".ab-drawer", ".ct-drawer", ".dl-drawer",
+    ".fq-drawer", "dialog.lq-drawer", ".lead-offcanvas", ".rwn-offcanvas", "app-menu-configuration .mcs",
+    "dialog.pq-drawer",
 ]
 # Drawers that slide in and out with their own transform: no entry animation from this layer.
-DRAWERS_SELF_ANIMATED = ["app-communication-timeline .offcanvas"]
+# (Communication Timeline's Log communication slip used to be here; it now has its own design, `.lg`.)
+DRAWERS_SELF_ANIMATED = []
 
-HEAD = (':is([class*="-head"]:not([class*="-heading"]), [class*="__head"], [class*="-header"], [class*="__header"], '
-        '[class*="-modal-top"], [class*="__top"], .modal-header, .dir-sheet-hero)')
+HEAD = (':is(header, [class*="-head"]:not([class*="-heading"]), [class*="__head"], [class*="-header"], [class*="__header"], '
+        '[class*="-modal-top"], [class*="-dialog-top"], [class*="__top"], .pn-top, .modal-header, .dir-sheet-hero)')
 BODY = ':is([class*="-body"], [class*="__body"], .modal-body)'
-FOOT = (':is([class*="-foot"], [class*="__foot"], [class*="-footer"], [class*="__footer"], '
+FOOT = (':is(footer, [class*="-foot"], [class*="__foot"], [class*="-footer"], [class*="__footer"], '
         '[class*="-actions"]:not([class*="-actions-"]), [class*="__actions"], .modal-footer, .button-row)')
 TITLE = ':is(h1, h2, h3, h4, h5, [class*="-title"]:not([class*="-titles"]), [class*="__title"])'
 LEAD = (':is([class*="-lead"], [class*="__lead"], [class*="-lede"], [class*="__lede"], [class*="-sub"]:not([class*="-subtle"]), '
@@ -212,39 +210,28 @@ DL_FLAT = " dl:has(> dt):not(:has(> div)):not(:is(table, [class*=\"grid\"]) dl)"
 
 css = []
 css.append("""/* =====================================================================================================
-   YDot Dialogs - pop-ups (dialogs) and off-canvas panels (drawers) for every module EXCEPT Campaigns and
-   Organisation, which keep their own designs.
+   YDot Dialogs - pop-ups (dialogs) and off-canvas panels (drawers) for every module outside Campaigns, all in
+   the Campaigns > Tracking asset manager design.
 
    GENERATED - do not edit by hand. Source: tools/generate-dialog-styles.py (run it from UI/YDots.UI).
 
-   ONE DESIGN PER MODULE, NO FILLED BLOCKS. Every header, sheet and footer is white; each module is told apart
-   by its rules, corners, type and glyph treatment - never by a dark or tinted slab:
-     Administration      "Folio"          - a theme bar down the header's left edge, display-face title, 14px sheet.
-     Communications      "Correspondence" - warm paper, a theme rule across the top, serif title with an italic
-                                            lead, dotted rules, pill buttons, drawers as a floating card.
-     Configuration       "Blueprint"      - a hairline frame, a full-width 2px theme rule under the header, a faint
-                                            outlined ring in the header corner, 8px corners.
-     Donations/Payments  "Receipt"        - centred header round a dashed-ring glyph, perforated (dashed) divider,
-                                            figures in the number face, full-width paired buttons.
-     Donors & Leads      "Aurora"         - generous 24px corners, the glyph in a thin theme ring, pill buttons,
-                                            floating rounded drawers.
-     Finance             "Ledger"         - crisp 8px corners, double rules round the header and footer, dotted
-                                            ledger leaders with right-aligned tabular figures, small-caps buttons.
-     Inventory           "Spec sheet"     - square corners, an uppercase stamped title over a 2px ink rule,
-                                            facts in a bordered spec grid, a light unblurred scrim.
-     Masters             "Medallion"      - everything centred round an outlined circular glyph medallion,
-                                            equal-width buttons.
-     Organisation        "Charter"        - a gold hairline under the header with a small diamond at its centre,
-                                            display-face title, gold eyebrow and glyph.
-     Platform            "Frame"          - a white sheet in a 2px theme frame, a short accent under the title,
-                                            outlined secondary buttons in the theme colour.
-     Workspace           "Glass"          - a frosted translucent sheet, a gradient hairline across the top,
-                                            compact controls, a strongly blurred light scrim.
+   ONE DESIGN FOR EVERY MODULE (2026-09-25): the Campaigns > Tracking asset manager pop-up. Campaigns get it from
+   styles/ydot-overlays.css; every other module gets the same look from this file:
+     - a tinted HEADER BAND with a soft theme glow, a 42px gradient ICON TILE (the header's own glyph, or a
+       document-check glyph drawn in CSS; a red warning tile on destructive dialogs), an uppercase theme kicker,
+       a display-face title and a compact muted lead;
+     - a quiet 34px close square in the band's corner;
+     - a white BODY that alone scrolls, with a slim rounded scrollbar;
+     - record facts as a tinted SUMMARY SHEET (label left, value right, hairline rows);
+     - 12px-radius FIELDS with a theme focus ring;
+     - a tinted, pinned ACTION FOOTER: 40px buttons, primary in the theme colour, destructive in a red gradient;
+     - 22px corners, a blurred theme scrim; drawers are full-height sheets from the right with the same band.
+   New pop-ups should use the shared <app-popup> component (src/app/Shared/components/popup), which renders
+   this design directly.
 
    HOW. A shared base (sections 1-9) lays out every dialog and drawer by ROLE - head, body, footer, title, lead,
    facts, fields, buttons - and reads every visual decision from --dg-* custom properties. Section 10 sets those
-   properties per module on the module's host elements (they inherit into the dialogs) and adds the few rules
-   a design needs beyond them.
+   properties once for every registered host and adds the icon tile, band glow and footer details.
 
    Screens name their parts differently, so the registries in the generator list each screen's scrim, dialog
    and drawer classes; the parts inside are found by name:
@@ -360,7 +347,7 @@ css.append("""/* ===============================================================
 # ---------------------------------------------------------------- 1. scrim
 css.append(section("1. SCRIM"))
 css.append(rule(G(SCRIMS) + NL + G(SCRIMS_COLOUR_ONLY) + NL +
-                f"{PREFIX}dialog:is(.action-dialog, .execution-modal, .fup-confirm-dialog, .lq-drawer)::backdrop", """
+                f"{PREFIX}dialog:is(.action-dialog, .execution-modal, .fup-confirm-dialog, .lq-drawer, .xr-dialog, .fp-dialog, .pq-drawer)::backdrop", """
     background-color: var(--dg-scrim) !important;
     -webkit-backdrop-filter: blur(var(--dg-blur)) saturate(120%);
     backdrop-filter: blur(var(--dg-blur)) saturate(120%);
@@ -436,6 +423,19 @@ css.append(rule(within(WITHBODY, f" > {BODY}"), """
     min-height: 0;
     overflow-y: auto !important;
     scrollbar-width: thin;
+    """))
+
+css.append(comment("A native <dialog> whose parts sit inside a <form> (Donor 360): the form is the sheet, the dialog only "
+                   "holds it."))
+css.append(rule(f"{PREFIX}dialog.action-dialog[open]", """
+    width: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: visible !important;
     """))
 
 # ---------------------------------------------------------------- 3. header
@@ -915,7 +915,7 @@ css.append(rule(f"{PREFIX}:is({', '.join(W)}):not(dialog:not([open])):not(:has(>
     overflow-y: auto !important;
     scrollbar-width: thin;
     """))
-css.append(rule(f"{PREFIX}dialog.lq-drawer[open]", "inset: var(--dg-drawer-inset) var(--dg-drawer-inset) var(--dg-drawer-inset) auto !important;"))
+css.append(rule(f"{PREFIX}dialog:is(.lq-drawer, .pq-drawer)[open]", "inset: var(--dg-drawer-inset) var(--dg-drawer-inset) var(--dg-drawer-inset) auto !important;"))
 
 # ---------------------------------------------------------------- 9. small screens
 css.append(section("9. SMALL SCREENS AND REDUCED MOTION"))
@@ -929,486 +929,263 @@ css.append("@media (prefers-reduced-motion: reduce) {\n")
 css.append(textwrap.indent(rule(G(D + W + SCRIMS), "animation: none !important;"), "  "))
 css.append("}\n")
 
-# ================================================================ 10. module designs
-css.append(section("10. MODULE DESIGNS - one per module; none shares another's look"))
+# ================================================================ 10. the shared design
+css.append(section("10. ONE SHARED DESIGN - the Campaigns > Tracking asset manager pop-up, for every module"))
 
-
-def mod_roots(mod):
-    return roots(M(mod) + " ")
-
-
-def module(mod, title, variables, extra=lambda r: ""):
-    return "".join([f"\n/* ---- {title} ---- */\n", rule(M(mod), variables), extra(mod_roots(mod))])
-
-
-# -- Administration: Folio --------------------------------------------------------------------------------
-def admin_extra(r):
-    return "".join([
-        comment("A theme bar runs down the header's left edge (an inset shadow: it never shifts the layout)."),
-        rule(within([r["STRUCT"], r["W"]], f" > {HEAD}| > {HEAD} + :is({LEAD}, p)") + NL + within([r["FLAT"]], FLAT_BAND),
-             "box-shadow: inset calc(4px * var(--dg-s)) 0 0 var(--dg-accent) !important;"),
-        rule(within([r["STRUCT"], r["W"], r["FLAT"]], f" {CLOSE}:is(button, a):hover"),
-             "border-color: color-mix(in srgb, var(--dg-accent) 40%, var(--dg-line)) !important;\ncolor: var(--dg-accent) !important;"),
-    ])
-
-
-css.append(module("admin", "ADMINISTRATION - Folio: white sheet, a theme bar down the header's left edge, display-face title", """
-    --dg-radius: calc(14px * var(--dg-s));
+S = PREFIX.strip()
+css.append(rule(S, """
+    --dg-pad: calc(28px * var(--dg-s));
+    --dg-radius: calc(22px * var(--dg-s));
     --dg-border: 1px solid var(--dg-line);
     --dg-border-top: var(--dg-border);
-    --dg-scrim: color-mix(in srgb, var(--dg-deep) 34%, transparent);
-    --dg-blur: calc(4px * var(--dg-s));
-    --dg-anim: dg-drop;
+    --dg-scrim: color-mix(in srgb, var(--dg-deep) 52%, transparent);
+    --dg-blur: calc(6px * var(--dg-s));
+    --dg-anim: dg-pop;
+    --dg-band: color-mix(in srgb, var(--theme-surface-tint, #eef1ef) 55%, #ffffff);
+    --dg-band-bg: var(--dg-band);
     --dg-band-rule: 1px solid var(--dg-line);
-    --dg-title-size: calc(21px * var(--dg-s));
-    --dg-close-radius: calc(10px * var(--dg-s));
-    --dg-sheet-radius: calc(12px * var(--dg-s));
-    --dg-field-radius: calc(10px * var(--dg-s));
-    --dg-btn-h: calc(40px * var(--dg-s));
-    --dg-btn-radius: calc(10px * var(--dg-s));
-    --dg-drawer-radius: 0;
-    --dg-drawer-w: min(calc(560px * var(--dg-s)), 100vw);
-    """, admin_extra))
-
-
-# -- Communications: Correspondence ------------------------------------------------------------------------
-css.append(module("comms", "COMMUNICATIONS - Correspondence: warm paper, a theme rule across the top, serif title, pill buttons, floating drawers", """
-    --dg-radius: calc(18px * var(--dg-s));
-    --dg-surface: #fffdf8;
-    --dg-border: 1px solid #ece4d3;
-    --dg-border-top: calc(4px * var(--dg-s)) solid var(--dg-accent);
-    --dg-scrim: color-mix(in srgb, #3b2f1c 30%, transparent);
-    --dg-blur: calc(3px * var(--dg-s));
-    --dg-anim: dg-rise;
-    --dg-band-bg: transparent;
-    --dg-band-rule: 1px dotted #d9ccb1;
-    --dg-title-font: Georgia, 'Times New Roman', serif;
-    --dg-title-size: calc(23px * var(--dg-s));
-    --dg-title-weight: 600;
-    --dg-title-track: 0;
-    --dg-lead-style: italic;
-    --dg-band-muted: #7a6d57;
-    --dg-close-bg: transparent;
-    --dg-close-border: 1px solid #e6dcc6;
-    --dg-close-radius: 999px;
-    --dg-sheet-bg: transparent;
-    --dg-sheet-border: 1px solid #ece4d3;
-    --dg-row-rule: 1px dotted #dccfb4;
-    --dg-quiet-bg: #f8f3e8;
-    --dg-field-bg: #fffefb;
-    --dg-field-line: #e2d7c0;
-    --dg-field-radius: calc(10px * var(--dg-s));
-    --dg-foot-bg: transparent;
-    --dg-foot-rule: 1px dashed #dccfb4;
-    --dg-btn-radius: 999px;
-    --dg-secondary-bg: transparent;
-    --dg-secondary-border: #d9ccb1;
-    --dg-drawer-inset: calc(14px * var(--dg-s));
-    --dg-drawer-radius: calc(22px * var(--dg-s));
-    """))
-
-
-# -- Configuration: Blueprint ------------------------------------------------------------------------------
-def config_extra(r):
-    return "".join([
-        comment("A faint outlined ring sits in the header's far corner (outline only, no fill)."),
-        rule(within([r["STRUCT"], r["W"]], f" > {HEAD}"), "overflow: hidden;"),
-        rule(within([r["STRUCT"], r["W"]], f" > {HEAD}::after"), """
-            content: '';
-            position: absolute;
-            right: calc(-34px * var(--dg-s));
-            bottom: calc(-58px * var(--dg-s));
-            width: calc(140px * var(--dg-s));
-            height: calc(140px * var(--dg-s));
-            border: 1.5px solid color-mix(in srgb, var(--dg-accent) 16%, transparent);
-            border-radius: 50%;
-            pointer-events: none;
-            """),
-    ])
-
-
-css.append(module("config", "CONFIGURATION - Blueprint: hairline frame, a full-width 2px theme rule under the header, faint corner ring", """
-    --dg-radius: calc(10px * var(--dg-s));
-    --dg-border: 1.5px solid color-mix(in srgb, var(--dg-accent) 22%, #e1e6e3);
-    --dg-border-top: var(--dg-border);
-    --dg-anim: dg-zoom;
-    --dg-band-rule: 2px solid var(--dg-accent);
-    --dg-title-font: var(--font-heading, inherit);
-    --dg-title-size: calc(19px * var(--dg-s));
-    --dg-title-track: .005em;
-    --dg-close-radius: calc(8px * var(--dg-s));
-    --dg-sheet-radius: calc(8px * var(--dg-s));
-    --dg-field-radius: calc(8px * var(--dg-s));
-    --dg-foot-rule: 1px solid color-mix(in srgb, var(--dg-accent) 18%, #e8ece9);
-    --dg-btn-radius: calc(8px * var(--dg-s));
-    --dg-drawer-radius: calc(10px * var(--dg-s)) 0 0 calc(10px * var(--dg-s));
-    """, config_extra))
-
-
-# -- Donations & Payments: Receipt -------------------------------------------------------------------------
-def payments_extra(r):
-    return "".join([
-        comment("The header glyph sits in a thin dashed ring, centred (a pseudo-element: glyph tiles are stripped)."),
-        rule(within([r["FLAT"]], f" > {GLYPH}:first-child:not(#dg-glyph)"), """
-            position: relative;
-            align-self: center !important;
-            justify-content: center !important;
-            align-items: center !important;
-            width: calc(56px * var(--dg-s)) !important;
-            height: calc(56px * var(--dg-s)) !important;
-            margin: calc(24px * var(--dg-s)) auto 0 !important;
-            padding: 0 !important;
-            """),
-        rule(within([r["FLAT"]], f" > {GLYPH}:first-child::before"), """
-            content: '';
-            position: absolute;
-            inset: 0;
-            border: 1.5px dashed color-mix(in srgb, currentColor 45%, transparent);
-            border-radius: 50%;
-            """),
-        rule(within([r["FLAT"]], f" > {GLYPH}:first-child + {TITLE}:not(#dg-title)"), "padding-top: calc(12px * var(--dg-s)) !important;"),
-        rule(within([r["STRUCT"], r["W"]], f" > {HEAD}"), "flex-direction: column;\njustify-content: center;"),
-        comment("Figures (amounts, references) in the number face."),
-        rule(within([r["D"], r["W"]], " dd"), "font-variant-numeric: tabular-nums;"),
-        comment("Actions share the footer's full width."),
-        rule(within([r["STRUCT"], r["W"], r["FLAT"]], f" > {FOOT} > div:has(button)"), "flex: 1 1 auto;"),
-    ])
-
-
-css.append(module("payments", "DONATIONS & PAYMENTS - Receipt: centred header, perforated divider, number-face figures, full-width paired buttons", """
-    --dg-radius: calc(22px * var(--dg-s));
-    --dg-border-top: var(--dg-border);
-    --dg-anim: dg-rise;
-    --dg-band-align: center;
-    --dg-band-rule: 2px dashed color-mix(in srgb, var(--dg-accent) 22%, #d6dcd9);
-    --dg-band-pt: calc(26px * var(--dg-s));
-    --dg-band-pb: calc(20px * var(--dg-s));
-    --dg-title-font: var(--font-heading, inherit);
-    --dg-title-size: calc(20px * var(--dg-s));
-    --dg-title-track: 0;
-    --dg-close-radius: 999px;
-    --dg-sheet-border: 1px dashed color-mix(in srgb, var(--dg-accent) 22%, #d6dcd9);
-    --dg-row-rule: 1px dashed var(--dg-line-soft);
-    --dg-value-font: var(--font-number, inherit);
-    --dg-foot-rule: 0 solid transparent;
-    --dg-foot-justify: stretch;
-    --dg-btn-flex: 1 1 0;
-    --dg-btn-h: calc(44px * var(--dg-s));
-    --dg-btn-radius: calc(12px * var(--dg-s));
-    --dg-drawer-radius: calc(22px * var(--dg-s)) 0 0 calc(22px * var(--dg-s));
-    """, payments_extra))
-
-
-# -- Donors & Leads: Aurora --------------------------------------------------------------------------------
-def donors_extra(r):
-    return "".join([
-        comment("The header glyph sits in a thin solid theme ring (outline only)."),
-        rule(within([r["STRUCT"], r["W"]], f" > {HEAD} > {GLYPH}:not(button):not({CLOSE})"), """
-            border: 1.5px solid color-mix(in srgb, var(--dg-accent) 35%, #ffffff) !important;
-            border-radius: 50% !important;
-            width: calc(44px * var(--dg-s)) !important;
-            height: calc(44px * var(--dg-s)) !important;
-            font-size: calc(20px * var(--dg-s)) !important;
-            """),
-    ])
-
-
-css.append(module("donors", "DONORS & LEADS - Aurora: generous 24px corners, glyph in a thin theme ring, pill buttons, floating drawers", """
-    --dg-radius: calc(24px * var(--dg-s));
-    --dg-border: 1px solid color-mix(in srgb, var(--dg-accent) 12%, #e8ecea);
-    --dg-border-top: var(--dg-border);
-    --dg-scrim: color-mix(in srgb, var(--dg-accent) 18%, rgba(20, 28, 25, .28));
-    --dg-blur: calc(8px * var(--dg-s));
-    --dg-anim: dg-zoom;
-    --dg-band-rule: 1px solid var(--dg-line-soft);
-    --dg-band-pt: calc(24px * var(--dg-s));
-    --dg-title-size: calc(22px * var(--dg-s));
-    --dg-close-radius: 999px;
-    --dg-sheet-radius: calc(16px * var(--dg-s));
-    --dg-field-radius: calc(14px * var(--dg-s));
-    --dg-foot-rule: 1px solid var(--dg-line-soft);
-    --dg-btn-radius: 999px;
-    --dg-btn-h: calc(42px * var(--dg-s));
-    --dg-secondary-border: color-mix(in srgb, var(--dg-accent) 30%, #dfe5e2);
-    --dg-secondary-ink: var(--dg-accent);
-    --dg-drawer-inset: calc(12px * var(--dg-s));
-    --dg-drawer-radius: calc(24px * var(--dg-s));
-    --dg-drawer-w: min(calc(520px * var(--dg-s)), 100vw);
-    """, donors_extra))
-
-
-# -- Finance: Ledger ---------------------------------------------------------------------------------------
-def finance_extra(r):
-    return "".join([
-        comment("Ledger rows: a dotted leader runs from the label to the figure; figures right-aligned and tabular."),
-        rule(within([r["D"], r["W"]], DL_ROWS + " > div"), "grid-template-columns: auto minmax(0, 1fr) !important;\nalign-items: end;"),
-        rule(within([r["D"], r["W"]], DL_ROWS + " > div > dd"), """
-            padding-left: calc(10px * var(--dg-s));
-            text-align: right !important;
-            font-variant-numeric: tabular-nums;
-            background: radial-gradient(circle, color-mix(in srgb, var(--dg-muted) 45%, transparent) 1px, transparent 1.3px) left calc(100% - 4px) / 6px 6px repeat-x;
-            """),
-    ])
-
-
-css.append(module("finance", "FINANCE - Ledger: crisp 8px corners, a double rule under the header, dotted ledger rows, small-caps buttons", """
-    --dg-radius: calc(8px * var(--dg-s));
-    --dg-border: 1px solid #d9dedb;
-    --dg-border-top: var(--dg-border);
-    --dg-scrim: rgba(24, 30, 28, .4);
-    --dg-blur: 0px;
-    --dg-anim: dg-drop;
-    --dg-band-rule: calc(3px * var(--dg-s)) double #cfd5d2;
-    --dg-title-font: var(--font-heading, inherit);
-    --dg-title-size: calc(18px * var(--dg-s));
-    --dg-title-track: .01em;
-    --dg-close-radius: calc(4px * var(--dg-s));
-    --dg-close-border: 1px solid #d9dedb;
-    --dg-sheet-border: 0 solid transparent;
-    --dg-sheet-radius: 0;
-    --dg-row-rule: 1px solid #edf0ee;
-    --dg-value-font: var(--font-number, inherit);
-    --dg-field-radius: calc(4px * var(--dg-s));
-    --dg-field-line: #cfd5d2;
-    --dg-foot-rule: calc(3px * var(--dg-s)) double #cfd5d2;
-    --dg-btn-h: calc(38px * var(--dg-s));
-    --dg-btn-radius: calc(4px * var(--dg-s));
-    --dg-btn-size: calc(12.5px * var(--dg-s));
-    --dg-btn-case: uppercase;
-    --dg-btn-track: .07em;
-    --dg-drawer-radius: 0;
-    """, finance_extra))
-
-
-# -- Inventory: Spec sheet ---------------------------------------------------------------------------------
-def inventory_extra(r):
-    return "".join([
-        comment("Bootstrap fact tiles become a bordered spec grid: square white cells sharing hairlines."),
-        rule(within([r["D"]], " .modal-body > .row:has(> [class*=\"col\"] > .bg-light)"), """
-            --bs-gutter-x: 0 !important;
-            --bs-gutter-y: 0 !important;
-            margin: 0 !important;
-            border: 1px solid #d5dad7;
-            border-radius: calc(4px * var(--dg-s));
-            overflow: hidden;
-            """),
-        rule(within([r["D"]], " .modal-body > .row > [class*=\"col\"] > .bg-light"), """
-            height: 100%;
-            border: 0 !important;
-            border-radius: 0 !important;
-            border-bottom: 1px solid #e3e7e5 !important;
-            background: #ffffff !important;
-            padding: calc(12px * var(--dg-s)) calc(14px * var(--dg-s)) !important;
-            """),
-        rule(within([r["D"]], " .modal-body > .row > [class*=\"col\"]:nth-child(odd) > .bg-light"), "border-right: 1px solid #e3e7e5 !important;"),
-        rule(within([r["D"]], " .modal-body > .row > [class*=\"col\"] > .bg-light small"), """
-            font-size: calc(10.5px * var(--dg-s)) !important;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-            """),
-    ])
-
-
-css.append(module("inventory", "INVENTORY - Spec sheet: square corners, stamped uppercase title over a 2px ink rule, bordered spec grid, light unblurred scrim", """
-    --dg-radius: calc(4px * var(--dg-s));
-    --dg-border: 1px solid #cdd3d0;
-    --dg-border-top: var(--dg-border);
-    --dg-scrim: rgba(30, 36, 34, .24);
-    --dg-blur: 0px;
-    --dg-anim: dg-pop;
-    --dg-band-rule: 2px solid var(--dg-ink);
-    --dg-band-pt: calc(20px * var(--dg-s));
-    --dg-band-pb: calc(14px * var(--dg-s));
-    --dg-title-font: var(--font-number, var(--font-heading, inherit));
-    --dg-title-size: calc(16px * var(--dg-s));
-    --dg-title-case: uppercase;
-    --dg-title-track: .06em;
-    --dg-glyph: var(--dg-ink);
-    --dg-close-radius: calc(4px * var(--dg-s));
-    --dg-close-border: 1px solid #cdd3d0;
-    --dg-sheet-border: 1px solid #d5dad7;
-    --dg-sheet-radius: calc(4px * var(--dg-s));
-    --dg-field-radius: calc(4px * var(--dg-s));
-    --dg-foot-rule: 1px solid #cdd3d0;
-    --dg-btn-h: calc(38px * var(--dg-s));
-    --dg-btn-radius: calc(4px * var(--dg-s));
-    --dg-btn-track: .02em;
-    --dg-drawer-radius: 0;
-    """, inventory_extra))
-
-
-# -- Masters: Medallion ------------------------------------------------------------------------------------
-def masters_extra(r):
-    return "".join([
-        comment("The glyph sits in an outlined circular medallion (a pseudo-element: glyph tiles are stripped)."),
-        rule(within([r["FLAT"]], f" > {GLYPH}:first-child:not(#dg-glyph)"), """
-            position: relative;
-            isolation: isolate;
-            align-self: center !important;
-            justify-content: center !important;
-            align-items: center !important;
-            width: calc(60px * var(--dg-s)) !important;
-            height: calc(60px * var(--dg-s)) !important;
-            margin: calc(26px * var(--dg-s)) auto calc(4px * var(--dg-s)) !important;
-            padding: 0 !important;
-            background: transparent !important;
-            """),
-        rule(within([r["FLAT"]], f" > {GLYPH}:first-child::before"), """
-            content: '';
-            position: absolute;
-            inset: 0;
-            z-index: -1;
-            border-radius: 50%;
-            border: 1.5px solid color-mix(in srgb, currentColor 40%, #ffffff);
-            outline: 1px solid color-mix(in srgb, currentColor 14%, #ffffff);
-            outline-offset: calc(5px * var(--dg-s));
-            """),
-        rule(within([r["FLAT"]], f" > {GLYPH}:first-child + {TITLE}:not(#dg-title)"), "padding-top: calc(16px * var(--dg-s)) !important;"),
-        comment("Notes under the header are centred too."),
-        rule(within([r["FLAT"]], f" > :not({FOOT}):not({GLYPH}):not({TITLE})"), "text-align: center !important;"),
-    ])
-
-
-css.append(module("masters", "MASTERS - Medallion: centred round an outlined circular glyph medallion, equal-width buttons", """
-    --dg-radius: calc(20px * var(--dg-s));
-    --dg-border-top: var(--dg-border);
-    --dg-anim: dg-zoom;
-    --dg-band-align: center;
-    --dg-band-rule: 0 solid transparent;
-    --dg-band-pt: calc(26px * var(--dg-s));
-    --dg-band-pb: calc(4px * var(--dg-s));
-    --dg-gap: calc(16px * var(--dg-s));
-    --dg-title-size: calc(22px * var(--dg-s));
-    --dg-foot-rule: 0 solid transparent;
-    --dg-foot-justify: stretch;
-    --dg-btn-flex: 1 1 0;
-    --dg-btn-radius: calc(12px * var(--dg-s));
-    --dg-btn-h: calc(44px * var(--dg-s));
-    """, masters_extra))
-
-
-# -- Organisation: Charter ---------------------------------------------------------------------------------
-def organisation_extra(r):
-    return "".join([
-        comment("A small gold diamond sits on the centre of the gold hairline under the header."),
-        # Pseudo-elements cannot sit inside :is(), so each band ending gets its own selector list entry.
-        rule(NL.join([within([r["STRUCT"], r["W"]], f" > {HEAD}:not(:has(+ :is({LEAD}, p)))::after"),
-                      within([r["STRUCT"], r["W"]], f" > {HEAD} + :is({LEAD}, p)::after")]
-                     + [within([r["FLAT"]], part + "::after") for part in FLAT_BAND_LAST.split("|")]), """
-            content: '';
-            position: absolute;
-            left: 50%;
-            bottom: calc(-5px * var(--dg-s));
-            width: calc(9px * var(--dg-s));
-            height: calc(9px * var(--dg-s));
-            translate: -50% 0;
-            rotate: 45deg;
-            border: 1px solid #b58a3a;
-            background: #ffffff;
-            pointer-events: none;
-            """),
-        rule(within([r["STRUCT"], r["W"]], f" > {HEAD} + :is({LEAD}, p)") + NL + within([r["FLAT"]], FLAT_BAND_LAST),
-             "position: relative;"),
-    ])
-
-
-css.append(module("organisation", "ORGANISATION - Charter: gold hairline under the header with a centred diamond, display-face title, gold eyebrow", """
-    --dg-radius: calc(16px * var(--dg-s));
-    --dg-border-top: var(--dg-border);
-    --dg-anim: dg-rise;
-    --dg-band-rule: 1px solid color-mix(in srgb, #b58a3a 60%, #ffffff);
-    --dg-band-pb: calc(20px * var(--dg-s));
-    --dg-eyebrow: #9a7430;
-    --dg-glyph: #9a7430;
-    --dg-title-size: calc(22px * var(--dg-s));
-    --dg-close-radius: 50%;
-    --dg-sheet-radius: calc(12px * var(--dg-s));
-    --dg-row-rule: 1px solid color-mix(in srgb, #b58a3a 14%, #eef0ef);
-    --dg-foot-rule: 1px solid var(--dg-line-soft);
-    --dg-btn-radius: calc(10px * var(--dg-s));
-    --dg-drawer-radius: calc(16px * var(--dg-s)) 0 0 calc(16px * var(--dg-s));
-    """, organisation_extra))
-
-
-# -- Platform: Frame ---------------------------------------------------------------------------------------
-def platform_extra(r):
-    return "".join([
-        comment("A short accent bar under the title (horizontal, drawn by the title itself)."),
-        rule(within([r["STRUCT"], r["W"]], f" > {HEAD} {TITLE}::after") + NL + within([r["FLAT"]], f" > {TITLE}:first-child::after"), """
-            content: '';
-            display: block;
-            width: calc(36px * var(--dg-s));
-            height: calc(3px * var(--dg-s));
-            margin-top: calc(10px * var(--dg-s));
-            border-radius: 99px;
-            background: var(--dg-accent);
-            """),
-    ])
-
-
-css.append(module("platform", "PLATFORM - Frame: white sheet in a 2px theme frame, a short accent under the title", """
-    --dg-radius: calc(12px * var(--dg-s));
-    --dg-border: 2px solid var(--dg-accent);
-    --dg-border-top: var(--dg-border);
-    --dg-anim: dg-pop;
-    --dg-band-rule: 1px solid var(--dg-line-soft);
-    --dg-title-font: var(--font-heading, inherit);
-    --dg-title-size: calc(20px * var(--dg-s));
-    --dg-title-track: 0;
-    --dg-close-radius: 50%;
-    --dg-sheet-radius: calc(10px * var(--dg-s));
-    --dg-foot-rule: 1px solid var(--dg-line-soft);
-    --dg-btn-radius: calc(10px * var(--dg-s));
-    --dg-secondary-border: var(--dg-accent);
-    --dg-secondary-ink: var(--dg-accent);
-    --dg-drawer-radius: 0;
-    """, platform_extra))
-
-
-# -- Workspace: Glass --------------------------------------------------------------------------------------
-def workspace_extra(r):
-    return "".join([
-        comment("Frosted sheet with a gradient hairline across its top edge."),
-        rule(r["D"] + NL + r["W"], """
-            -webkit-backdrop-filter: blur(calc(18px * var(--dg-s))) saturate(150%);
-            backdrop-filter: blur(calc(18px * var(--dg-s))) saturate(150%);
-            background-image: linear-gradient(90deg, var(--dg-accent), #c1a466 55%, var(--dg-accent)) !important;
-            background-size: 100% calc(3px * var(--dg-s)) !important;
-            background-repeat: no-repeat !important;
-            """),
-    ])
-
-
-css.append(module("workspace", "WORKSPACE - Glass: frosted translucent sheet, a gradient hairline across the top, compact controls", """
-    --dg-radius: calc(18px * var(--dg-s));
-    --dg-surface: color-mix(in srgb, #ffffff 90%, transparent);
-    --dg-border: 1px solid color-mix(in srgb, #ffffff 60%, var(--dg-line));
-    --dg-border-top: var(--dg-border);
-    --dg-scrim: rgba(235, 238, 237, .38);
-    --dg-blur: calc(14px * var(--dg-s));
-    --dg-anim: dg-drop;
-    --dg-band-bg: transparent;
-    --dg-band-rule: 1px solid color-mix(in srgb, var(--dg-line) 70%, transparent);
+    --dg-band-pt: calc(18px * var(--dg-s));
     --dg-band-pb: calc(16px * var(--dg-s));
-    --dg-title-font: var(--font-heading, inherit);
-    --dg-title-size: calc(18px * var(--dg-s));
-    --dg-title-track: 0;
+    --dg-glyph: var(--dg-accent);
+    --dg-eyebrow: var(--dg-accent);
+    --dg-title-font: var(--font-display, inherit);
+    --dg-title-size: calc(var(--fs-base, calc(14px * var(--dg-s))) * 1.357);
+    --dg-title-weight: 700;
+    --dg-title-case: none;
+    --dg-title-track: -0.01em;
+    --dg-lead-style: normal;
     --dg-close-bg: transparent;
     --dg-close-border: 1px solid transparent;
-    --dg-close-radius: calc(9px * var(--dg-s));
-    --dg-sheet-bg: transparent;
-    --dg-sheet-radius: calc(12px * var(--dg-s));
-    --dg-quiet-bg: color-mix(in srgb, #ffffff 60%, transparent);
-    --dg-field-bg: color-mix(in srgb, #ffffff 85%, transparent);
-    --dg-field-radius: calc(10px * var(--dg-s));
-    --dg-foot-bg: transparent;
-    --dg-foot-rule: 1px solid color-mix(in srgb, var(--dg-line) 70%, transparent);
-    --dg-btn-h: calc(38px * var(--dg-s));
-    --dg-btn-radius: calc(10px * var(--dg-s));
-    --dg-btn-size: calc(13.5px * var(--dg-s));
-    --dg-secondary-bg: color-mix(in srgb, #ffffff 70%, transparent);
-    --dg-drawer-radius: calc(18px * var(--dg-s)) 0 0 calc(18px * var(--dg-s));
-    """, workspace_extra))
+    --dg-close-ink: var(--dg-muted);
+    --dg-close-radius: calc(10px * var(--dg-s));
+    --dg-body-bg: #ffffff;
+    --dg-gap: calc(20px * var(--dg-s));
+    --dg-sheet-bg: color-mix(in srgb, var(--theme-surface-tint, #eef1ef) 22%, #ffffff);
+    --dg-sheet-border: 1px solid var(--dg-line);
+    --dg-sheet-radius: calc(14px * var(--dg-s));
+    --dg-row-rule: 1px solid var(--dg-line-soft);
+    --dg-field-radius: calc(12px * var(--dg-s));
+    --dg-field-line: color-mix(in srgb, var(--dg-accent) 18%, #dde2df);
+    --dg-foot-bg: color-mix(in srgb, var(--theme-surface-tint, #eef1ef) 30%, #ffffff);
+    --dg-foot-rule: 1px solid var(--dg-line);
+    --dg-foot-justify: flex-end;
+    --dg-btn-h: calc(40px * var(--dg-s));
+    --dg-btn-radius: calc(11px * var(--dg-s));
+    --dg-btn-size: calc(var(--fs-base, calc(14px * var(--dg-s))) * 0.964);
+    --dg-btn-case: none;
+    --dg-btn-track: 0;
+    --dg-btn-flex: 0 1 auto;
+    --dg-secondary-bg: #ffffff;
+    --dg-secondary-border: var(--dg-line);
+    --dg-secondary-ink: var(--dg-ink);
+    --dg-drawer-w: min(calc(560px * var(--dg-s)), 100vw);
+    --dg-drawer-inset: 0px;
+    --dg-drawer-radius: var(--dg-radius) 0 0 var(--dg-radius);
+    --dg-tile: calc(42px * var(--dg-s));
+    --dg-tile-fill: linear-gradient(145deg, var(--dg-accent), color-mix(in srgb, var(--dg-accent) 68%, #000000));
+    --dg-tile-danger: linear-gradient(145deg, var(--dg-danger), color-mix(in srgb, var(--dg-danger) 70%, #000000));
+    """))
+
+# A header's glyph: an icon class, a bare <i>/<svg>, or a glyph / ring wrapper. No :has() in here: it is used inside
+# :has(), and CSS does not allow :has() to nest (the whole selector list would be dropped).
+HG = (f":is({GLYPH}, i, svg, [class*=\"glyph\"], [class*=\"-ring\"], [class*=\"-seal\"], [class*=\"-medallion\"])"
+      f":not(button):not({CLOSE}):not([class*=\"title\"]):not([class*=\"text\"])")
+HG_DIRECT = f" > {HEAD} > {HG}:first-child"
+HG_NESTED = f" > {HEAD} > :first-child:not({CLOSE}):not({HG}) > {HG}:first-child"
+TILE_PSEUDO = (f" > {HEAD}:not(:has(> {HG}:first-child))"
+               f":not(:has(> :first-child:not({CLOSE}):not({HG}) > {HG}:first-child))")
+TILE_GLYPH = f" > {HEAD}:has(> {HG}:first-child)"
+DANGER_D = ':is([class*="danger"], [class*="destructive"])'
+DANGER_HEAD = f':has(:is([class*="title-danger"], [class*="-danger"]):not(button):not({CLOSE}))'
+DOC_ICON = ("url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' "
+            "stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 "
+            "2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5M9 14l2 2 4-4'/%3E%3C/svg%3E\")")
+WARN_ICON = ("url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' "
+             "stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 "
+             "0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'/%3E%3Cpath d='M12 9v4M12 17h.01'/%3E%3C/svg%3E\")")
+
+css.append(comment("Header band: a soft theme glow in the top-left corner over the tint (dialogs and drawers)."))
+css.append(rule(within(HEADS, f" > {HEAD}"), """
+    background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--dg-accent) 9%, transparent) 0%, transparent 60%), var(--dg-band) !important;
+    """))
+css.append(comment("Dialog headers are a two-column grid: the icon tile, then kicker / title / lead stacked beside it."))
+css.append(rule(within(STRUCT, f" > {HEAD}"), """
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: calc(14px * var(--dg-s)) !important;
+    row-gap: 0 !important;
+    align-items: center !important;
+    """))
+css.append(rule(within(STRUCT, TILE_PSEUDO) + NL + within(STRUCT, TILE_GLYPH), "grid-template-columns: var(--dg-tile) minmax(0, 1fr);"))
+css.append(rule(within(STRUCT, TILE_PSEUDO + f" > :not({CLOSE})") + NL + within(STRUCT, TILE_GLYPH + f" > :not({CLOSE}):not(:first-child)"),
+                "grid-column: 2;\nmin-width: 0;"))
+css.append(comment("A header without its own icon gets the tile drawn in CSS: a document-check glyph, or a warning "
+                   "triangle on a red tile for destructive dialogs. An icon set inline in front of the title gives way to it."))
+css.append(rule(within(STRUCT, TILE_PSEUDO + "::before"), f"""
+    content: '';
+    grid-column: 1;
+    grid-row: 1 / span 6;
+    align-self: start;
+    width: var(--dg-tile);
+    height: var(--dg-tile);
+    border-radius: calc(12px * var(--dg-s));
+    background: {DOC_ICON} center / calc(22px * var(--dg-s)) calc(22px * var(--dg-s)) no-repeat, var(--dg-tile-fill);
+    """))
+css.append(rule(NL.join([f"{STRUCT}{DANGER_D}{TILE_PSEUDO}::before", within(STRUCT, TILE_PSEUDO + DANGER_HEAD + "::before")]),
+                f"background: {WARN_ICON} center / calc(22px * var(--dg-s)) calc(22px * var(--dg-s)) no-repeat, var(--dg-tile-danger);"))
+css.append(rule(within(STRUCT, TILE_PSEUDO + f" {TITLE} > :is(i, svg):first-child"), "display: none !important;"))
+css.append(comment("A header's own glyph (first in the header, or first in its leading wrapper) becomes the tile: white "
+                   "glyph on the theme gradient (red for danger / error, amber for warnings)."))
+TILE_EL = within(STRUCT, HG_DIRECT) + NL + within(STRUCT, HG_NESTED)
+css.append(rule(within(STRUCT, HG_DIRECT), """
+    grid-column: 1;
+    grid-row: 1 / span 6;
+    align-self: start;
+    """))
+css.append(rule(TILE_EL, """
+    flex: none;
+    display: inline-grid !important;
+    place-items: center !important;
+    width: var(--dg-tile) !important;
+    min-width: var(--dg-tile) !important;
+    height: var(--dg-tile) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: calc(12px * var(--dg-s)) !important;
+    background: var(--dg-tile-fill) !important;
+    box-shadow: none !important;
+    color: #ffffff !important;
+    font-size: calc(21px * var(--dg-s)) !important;
+    line-height: 1 !important;
+    """))
+css.append(rule(within(STRUCT, f" > {HEAD} > {TITLE}:has(> {HG}:first-child)"), """
+    display: flex !important;
+    align-items: center !important;
+    gap: calc(14px * var(--dg-s)) !important;
+    """))
+css.append(rule(within(STRUCT, HG_DIRECT + " :is(svg, i)") + NL + within(STRUCT, HG_NESTED + " :is(svg, i)"), """
+    width: calc(22px * var(--dg-s)) !important;
+    height: calc(22px * var(--dg-s)) !important;
+    font-size: calc(21px * var(--dg-s)) !important;
+    color: #ffffff !important;
+    """))
+css.append(rule(within(STRUCT, HG_DIRECT + ":is([class*=\"danger\"], [class*=\"error\"])") + NL
+                + within(STRUCT, HG_NESTED + ":is([class*=\"danger\"], [class*=\"error\"])") + NL
+                + f"{STRUCT}{DANGER_D}{HG_DIRECT}" + NL + f"{STRUCT}{DANGER_D}{HG_NESTED}",
+                "background: var(--dg-tile-danger) !important;\ncolor: #ffffff !important;"))
+css.append(rule(within(STRUCT, HG_DIRECT + ":is([class*=\"warn\"])") + NL + within(STRUCT, HG_NESTED + ":is([class*=\"warn\"])"),
+                "background: linear-gradient(145deg, var(--dg-warn), color-mix(in srgb, var(--dg-warn) 70%, #000000)) !important;"))
+css.append(rule(within(STRUCT, HG_DIRECT + ":is([class*=\"success\"])") + NL + within(STRUCT, HG_NESTED + ":is([class*=\"success\"])"),
+                "background: linear-gradient(145deg, #2f7d4f, color-mix(in srgb, #2f7d4f 70%, #000000)) !important;"))
+
+css.append(comment("Dialogs without a head wrapper (title and lead sit loose in the dialog): the same tile, drawn by the "
+                   "dialog itself (or the dialog's own leading glyph, lifted out of the flow) in the band's top-left "
+                   "corner; the band parts step in to clear it."))
+FLAT_G = f" > {GLYPH}:first-child:not(button):not({CLOSE}):not(#dg-g)"
+FLAT_NOG = f"{FLAT}:not(:has({FLAT_G}))"
+css.append(rule(f":where({FLAT})", "position: relative;"))
+css.append(rule(within(FLAT, FLAT_BAND), "padding-left: calc(var(--dg-pad) + var(--dg-tile) + calc(14px * var(--dg-s))) !important;"))
+css.append(rule(within(FLAT, f" > {GLYPH}:first-child + {TITLE}:not(#dg-t)"), "padding-top: var(--dg-band-pt) !important;"))
+css.append(rule(within(FLAT, f"{FLAT_G}| > {CLOSE}:first-child + {GLYPH}:not(button):not(#dg-g)"), """
+    position: absolute !important;
+    top: var(--dg-band-pt) !important;
+    left: var(--dg-pad) !important;
+    z-index: 2;
+    display: grid !important;
+    place-items: center !important;
+    width: var(--dg-tile) !important;
+    height: var(--dg-tile) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: calc(12px * var(--dg-s)) !important;
+    background: var(--dg-tile-fill) !important;
+    color: #ffffff !important;
+    font-size: calc(21px * var(--dg-s)) !important;
+    """))
+css.append(rule(within(FLAT, f"{FLAT_G} svg| > {CLOSE}:first-child + {GLYPH}:not(button):not(#dg-g) svg"), """
+    width: calc(22px * var(--dg-s)) !important;
+    height: calc(22px * var(--dg-s)) !important;
+    color: #ffffff !important;
+    """))
+css.append(rule(NL.join([within(FLAT, f"{FLAT_G}:is([class*=\"danger\"], [class*=\"error\"])"), f"{FLAT}{DANGER_D}{FLAT_G}"]),
+                "background: var(--dg-tile-danger) !important;"))
+css.append(rule(f"{FLAT_NOG}::before", f"""
+    content: '';
+    position: absolute;
+    top: var(--dg-band-pt);
+    left: var(--dg-pad);
+    z-index: 2;
+    width: var(--dg-tile);
+    height: var(--dg-tile);
+    border-radius: calc(12px * var(--dg-s));
+    background: {DOC_ICON} center / calc(22px * var(--dg-s)) calc(22px * var(--dg-s)) no-repeat, var(--dg-tile-fill);
+    pointer-events: none;
+    """))
+css.append(rule(NL.join([f"{FLAT_NOG}{DANGER_D}::before", f"{FLAT_NOG}:has(> {TITLE}[class*=\"danger\"])::before"]),
+                f"background: {WARN_ICON} center / calc(22px * var(--dg-s)) calc(22px * var(--dg-s)) no-repeat, var(--dg-tile-danger);"))
+css.append(rule(NL.join([f"{FLAT}{DANGER_D} > {TITLE}:first-child", f"{FLAT}{DANGER_D} > :is({GLYPH}, {CLOSE}):first-child + {TITLE}"]),
+                "color: var(--dg-danger) !important;"))
+
+css.append(comment("Header type: uppercase theme kicker, display-face title, compact muted lead."))
+css.append(rule(within(HEADS, f" > {HEAD} :is([class*=\"eyebrow\"], [class*=\"kicker\"], [class*=\"-step\"])"), """
+    margin: 0 0 2px !important;
+    font-size: calc(var(--fs-base, calc(14px * var(--dg-s))) * 0.786) !important;
+    """))
+css.append(rule(NL.join([f"{STRUCT}{DANGER_D} > {HEAD} :is([class*=\"eyebrow\"], [class*=\"kicker\"])",
+                         f"{STRUCT}{DANGER_D} > {HEAD} {TITLE}"]), "color: var(--dg-danger) !important;"))
+css.append(rule(within(HEADS, f" > {HEAD} :is({LEAD}, {TITLE} + p)"), """
+    margin: calc(3px * var(--dg-s)) 0 0 !important;
+    font-size: calc(var(--fs-base, calc(14px * var(--dg-s))) * 0.893) !important;
+    line-height: 1.45 !important;
+    """))
+css.append(comment("Close button: a quiet square in the band's top-right corner; white with a hairline on hover."))
+css.append(rule(CLOSE_SEL, """
+    width: calc(34px * var(--dg-s)) !important;
+    height: calc(34px * var(--dg-s)) !important;
+    """))
+css.append(rule(within(ANY, f" {CLOSE}:is(button, a):hover"), """
+    rotate: none;
+    background-color: #ffffff !important;
+    border-color: var(--dg-line) !important;
+    color: var(--dg-ink) !important;
+    """))
+
+css.append(comment("A confirmation that is only a header and buttons: the band runs straight into the footer."))
+css.append(rule(within(ANY, f" > :is({HEAD}, {TITLE}, {LEAD}, p):has(+ {FOOT}):not(#dg-c)"), "margin-bottom: 0 !important;"))
+css.append(rule(within(ANY, f" > :is({HEAD}, {TITLE}, {LEAD}, p) + {FOOT}:not(#dg-c)"), "margin-top: 0 !important;\nborder-top: 0 !important;"))
+
+css.append(comment("Body: white, with a slim rounded scrollbar inset from the edge."))
+css.append(rule(within(WITHBODY, f" > {BODY}"), """
+    scrollbar-gutter: stable;
+    scrollbar-color: color-mix(in srgb, var(--dg-accent) 38%, #c9d1cd) transparent;
+    """))
+css.append(rule(NL.join(f"{r} > {BODY}::-webkit-scrollbar" for r in [WITHBODY]), "width: calc(12px * var(--dg-s));"))
+css.append(rule(NL.join(f"{r} > {BODY}::-webkit-scrollbar-thumb" for r in [WITHBODY]), """
+    border: calc(3px * var(--dg-s)) solid transparent;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--dg-accent) 38%, #c9d1cd);
+    background-clip: padding-box;
+    """))
+
+css.append(comment("Footer: tinted, pinned, compact; the destructive action wears the danger tile's red gradient."))
+css.append(rule(within(ANY, f" > {FOOT}:not({HEAD} *)"), "padding: calc(12px * var(--dg-s)) var(--dg-pad) !important;"))
+css.append(rule(within(ANY, BTN), "padding: 0 calc(18px * var(--dg-s)) !important;"))
+css.append(rule(within(ANY, DANGER_BTN), """
+    border: 1px solid color-mix(in srgb, var(--dg-danger) 70%, #000000) !important;
+    background: var(--dg-tile-danger) !important;
+    """))
+css.append(rule(within(ANY, DANGER_BTN + ":hover:not(:disabled)"),
+                "background: linear-gradient(145deg, color-mix(in srgb, var(--dg-danger) 88%, #000000), color-mix(in srgb, var(--dg-danger) 60%, #000000)) !important;"))
+
+css.append("@media (max-width: 575.98px) {\n")
+css.append(textwrap.indent(rule(within(STRUCT, f" > {HEAD}"), "grid-template-columns: minmax(0, 1fr) !important;"), "  "))
+css.append(textwrap.indent(rule(NL.join([within(STRUCT, TILE_PSEUDO + "::before"), TILE_EL]), "display: none !important;"), "  "))
+css.append(textwrap.indent(rule(within(STRUCT, f" > {HEAD} > *"), "grid-column: 1 !important;"), "  "))
+css.append(textwrap.indent(rule(NL.join([f"{FLAT_NOG}::before", within(FLAT, FLAT_G)]), "display: none !important;"), "  "))
+css.append(textwrap.indent(rule(within(FLAT, FLAT_BAND), "padding-left: var(--dg-pad) !important;"), "  "))
+css.append("}\n")
 
 OUT.write_text("".join(css), encoding="utf-8")
 print(OUT, len("".join(css)))

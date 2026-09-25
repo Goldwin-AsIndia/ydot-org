@@ -249,6 +249,7 @@ export class Donor360Component {
         due: followUp.dueAtUtc ? this.formatDate(followUp.dueAtUtc) : '',
         owner: followUp.relationshipOwnerName ?? '',
         status: followUp.status,
+        priority: followUp.priority ?? '',
       })),
     );
 
@@ -593,6 +594,88 @@ export class Donor360Component {
       const pledged = this.pledgedAmount();
       return pledged > 0 ? Math.round((this.lifetimeGiving() / pledged) * 100) : 0;
     });
+
+    // ============================================================
+    // TAB PRESENTATION — derived only from the arrays above
+    // ============================================================
+
+    /** Each stage's share of all money on record, for the proportion rule under the statement. */
+    readonly stageMix = computed(() => {
+      const stages = this.donationTotals().filter((stage) => stage.amount > 0);
+      const total = stages.reduce((sum, stage) => sum + stage.amount, 0);
+      return stages.map((stage, index) => ({ ...stage, tone: index % 5, share: total ? Math.round((stage.amount / total) * 100) : 0 }));
+    });
+
+    /** The consent state channel by channel, rather than the joined string. */
+    readonly channelConsents = computed(() =>
+      (this.response()?.communicationPreferences ?? []).map((preference) => ({
+        channel: this.channelName(preference.channel),
+        state: preference.consentState,
+        since: preference.effectiveAtUtc ? this.formatDate(preference.effectiveAtUtc) : '',
+        recognition: preference.publicRecognitionPreference,
+      })),
+    );
+
+    readonly language = computed(() => this.response()?.donor?.preferredLanguage ?? '');
+    readonly consentNotice = computed(() => this.response()?.consentStatus?.noticeVersion ?? '');
+
+    /** The pending promise that falls due first. */
+    readonly nextPromise = computed(() =>
+      this.promises()
+        .filter((promise) => promise.status === 'Pending')
+        .sort((a, b) => (Date.parse(a.dueDate) || Infinity) - (Date.parse(b.dueDate) || Infinity))[0] ?? null,
+    );
+
+    readonly followUpTally = computed(() => {
+      const list = this.followUps();
+      return {
+        open: list.filter((f) => !['Completed', 'Cancelled', 'Overdue'].includes(f.status)).length,
+        overdue: list.filter((f) => f.status === 'Overdue').length,
+        done: list.filter((f) => f.status === 'Completed').length,
+      };
+    });
+
+    /** "24 Sep 2026" → "24" and "Sep 2026", for the calendar leaves. */
+    dayOf(date: string): string { return date ? date.split(' ')[0] : '—'; }
+    monthOf(date: string): string { return date ? date.split(' ').slice(1).join(' ') : ''; }
+
+    channelName(channel: string): string {
+      const names: Record<string, string> = { PhoneCall: 'Phone call', Sms: 'SMS', WhatsApp: 'WhatsApp', Email: 'Email', Post: 'Post' };
+      return names[channel] ?? channel;
+    }
+
+    readonly tabHeading = computed(() => {
+      switch (this.activeTab()) {
+        case 'donations': return 'Giving ledger';
+        case 'communications': return 'Conversations';
+        case 'follow-ups': return 'Follow-up agenda';
+        case 'documents': return 'Files on record';
+        case 'activity': return 'Activity chronicle';
+        case 'consent': return 'Consent & preferences';
+        case 'identity-verification': return 'Identity verification';
+        default: return 'Overview';
+      }
+    });
+
+    readonly tabMeta = computed(() => {
+      switch (this.activeTab()) {
+        case 'donations': return `${this.donationTotals().length} stages · ${this.campaignHistory().length} campaigns · ${this.promises().length} promises`;
+        case 'communications': return `${this.conversations().length} conversations, newest first`;
+        case 'follow-ups': {
+          const tally = this.followUpTally();
+          return `${this.followUps().length} follow-ups · ${tally.open} open · ${tally.overdue} overdue · ${tally.done} completed`;
+        }
+        case 'documents': return `${this.documents().length} documents · ${this.duplicateLinks().length} possible duplicates`;
+        case 'activity': return `${this.activity().length} recorded actions, newest first`;
+        case 'consent': return this.donor().consentUpdated ? `Last recorded ${this.donor().consentUpdated}` : 'No consent recorded yet';
+        case 'identity-verification': return 'Checks run against this donor’s identity documents';
+        default: return '';
+      }
+    });
+
+    /** First/last row numbers of the visible page, for "11–20 of 34". */
+    pageFrom(key: string, rows: readonly object[]): number { return this.filtered(rows).length ? (this.pageNumber(key, rows) - 1) * this.pageSize + 1 : 0; }
+    pageTo(key: string, rows: readonly object[]): number { return Math.min(this.pageNumber(key, rows) * this.pageSize, this.filtered(rows).length); }
 
     /** Promises pending, surfaced in the snapshot panel. */
     pendingPromisesCount = computed(() => this.promises().filter((p) => p.status === 'Pending').length);
@@ -982,7 +1065,7 @@ export class Donor360Component {
   interface DonationStage { stage: string; amount: number; asOf: string; }
   interface CampaignHistoryItem { id: string; name: string; role: string; amount: number; date: string; status: string; }
   interface ConversationItem { id: string; channel: string; summary: string; date: string; owner: string; }
-  interface FollowUpItem { id: string; title: string; due: string; owner: string; status: string; }
+  interface FollowUpItem { id: string; title: string; due: string; owner: string; status: string; priority: string; }
   interface PromiseItem { id: string; amount: number; dueDate: string; status: string; }
   interface DocumentItem { id: string; name: string; type: string; uploadedOn: string; classification: string; }
   interface DuplicateLink { id: string; reference: string; matchReason: string; similarity: string; }

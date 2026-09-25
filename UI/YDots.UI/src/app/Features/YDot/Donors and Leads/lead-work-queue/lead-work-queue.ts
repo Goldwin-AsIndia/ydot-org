@@ -637,6 +637,81 @@ export class LeadWorkQueueComponent {
     return ids.length > 0 && ids.every((id) => this.selectedIds().has(id));
   });
 
+  // ===========================================================================================
+  // Prospect register presentation - counts beside each view, stage shares, next steps
+  // ===========================================================================================
+
+  /** Which summary figure counts each saved view. "Recently Added" has no server count. */
+  private readonly viewKpi: Record<string, string> = {
+    'All Leads': 'total',
+    'Unassigned Leads': 'unassigned',
+    'Assigned Leads': 'assigned',
+    'Hot Leads': 'hot',
+    'High Donation Potential': 'potential',
+    'Converted Leads': 'converted',
+  };
+
+  protected viewCount(view: string): number | null {
+    const id = this.viewKpi[view];
+    const kpi = id ? this.kpis().find((k) => k.id === id) : undefined;
+    return kpi ? kpi.value : null;
+  }
+
+  protected viewLabel(view: string): string {
+    const labels: Record<string, string> = {
+      'All Leads': 'All leads',
+      'High Donation Potential': 'High potential',
+      'Recently Added': 'Recently added',
+    };
+    return labels[view] ?? view.replace(' Leads', '');
+  }
+
+  /** The five figures beside the headline total, each one a shortcut to its saved view. */
+  protected readonly summaryFigures = computed(() => {
+    const byId = new Map(this.kpis().map((k) => [k.id, k.value]));
+    return [
+      { view: 'Unassigned Leads', label: 'Unassigned', glyph: 'ri-user-unfollow-line', hint: 'Waiting for an owner', value: byId.get('unassigned') },
+      { view: 'Assigned Leads', label: 'Assigned', glyph: 'ri-user-follow-line', hint: 'With a fundraiser', value: byId.get('assigned') },
+      { view: 'Hot Leads', label: 'Hot', glyph: 'ri-fire-line', hint: 'Ready to talk', value: byId.get('hot') },
+      { view: 'High Donation Potential', label: 'High potential', glyph: 'ri-vip-diamond-line', hint: 'Largest likely gifts', value: byId.get('potential') },
+      { view: 'Converted Leads', label: 'Converted', glyph: 'ri-hand-heart-line', hint: 'Donation recorded', value: byId.get('converted') },
+    ];
+  });
+
+  protected readonly totalLeads = computed(() => this.kpis().find((k) => k.id === 'total')?.value ?? null);
+
+  protected readonly pipelineMax = computed(() => Math.max(1, ...this.pipeline().map((s) => s.count)));
+  protected readonly pipelineTotal = computed(() => this.pipeline().reduce((sum, s) => sum + s.count, 0));
+
+  protected stageShare(count: number): number {
+    const total = this.pipelineTotal();
+    return total > 0 ? Math.round((count / total) * 100) : 0;
+  }
+
+  /** The document's recommended next step for a lead at each stage. */
+  protected nextStep(lead: LeadItem): string {
+    switch (lead.stage) {
+      case 'New': return 'Make the first contact';
+      case 'Assigned': return 'Hold a qualification call';
+      case 'Contacted': return 'Follow up the conversation';
+      case 'Engaged': return 'Discuss a proposal';
+      default: return lead.converted ? 'Continue on Donor 360' : 'Review where this lead stands';
+    }
+  }
+
+  protected potentialLevel(potential: string): number {
+    switch (potential) {
+      case 'High': return 3;
+      case 'Medium': return 2;
+      case 'Low': return 1;
+      default: return 0;
+    }
+  }
+
+  protected clearSelection(): void {
+    this.selectedIds.set(new Set());
+  }
+
   protected readonly statusPill = computed(() => {
     switch (this.uiState()) {
       case 'loading':

@@ -1,90 +1,92 @@
 <main class="app-wrapper">
-<div class="page">
+<div class="page-wrapper">
+<div class="container-fluid px-4 py-3 dq-page">
 
-  <!-- Live region for status announcements -->
-  <div class="sr-only" aria-live="polite">{{ liveMessage() }}</div>
+  <div class="visually-hidden" aria-live="polite">{{ liveMessage() }}</div>
 
-  <!-- ============================================================= -->
-  <!-- No access                                                      -->
-  <!-- ============================================================= -->
-  <section *ngIf="previewState() === 'no-access' || !permissions()['view']" class="ms-noaccess" role="alert">
-    <i class="ri-lock-2-line" aria-hidden="true"></i>
-    <h2>You don't have access to Duplicate review</h2>
-    <p>This task requires the Data Steward duplicate-review permission for your assigned scope. Ask a workspace admin
-      to grant access, or return to a page you're permitted to use.</p>
-    <div class="ms-row ms-row--center">
-      <button type="button" class="ms-btn ms-btn--primary">Return to dashboard</button>
-      <button type="button" class="ms-btn ms-btn--line">Request access</button>
-    </div>
-  </section>
-
-  <ng-container *ngIf="previewState() !== 'no-access' && permissions()['view']">
+  @if (previewState() === 'no-access' || (!permissions()['view'] && previewState() !== 'dependency-failure')) {
+    @if (previewState() !== 'loading') {
+      <section class="dq-sheet dq-denied" role="alert">
+        <span class="dq-ring-g" aria-hidden="true"><i class="ri-lock-2-line"></i></span>
+        <div class="dq-denied-copy">
+          <p class="dq-eyebrow">Duplicate review</p>
+          <h2>You don't have access to duplicate review</h2>
+          <p>This task needs the data-steward duplicate-review permission for your scope. Ask a workspace administrator to grant it, or return to a page you can use.</p>
+        </div>
+      </section>
+    } @else {
+      <section class="dq-sheet dq-denied" role="status">
+        <span class="dq-ring-g" aria-hidden="true"><i class="ri-loader-4-line dq-spin"></i></span>
+        <div class="dq-denied-copy"><h2>Opening the match docket…</h2></div>
+      </section>
+    }
+  } @else {
 
     <app-page-header [showInfo]="false" screen="duplicate-review" title="Duplicate review"
                      subtitle="Compare two donor records side by side and decide whether they are the same person.">
-      <span meta class="ph-chip" *ngIf="selected() as p">{{ p.reference }} · {{ p.status }} · {{ p.owner }}</span>
-      <span meta class="ph-chip" *ngIf="!selected()">Pick a pair from the queue to begin</span>
+      @if (selected(); as p) { <span meta class="ph-chip">{{ p.reference }} · {{ p.status }}</span> }
+      @else { <span meta class="ph-chip">Pick a pair from the docket</span> }
+      <span meta class="ph-chip">{{ openCount() }} open</span>
       <button actions type="button" class="ph-btn ph-btn--primary" [disabled]="!selected()" (click)="reviewEvidence()">
         <i class="ri-file-search-line" aria-hidden="true"></i> Review evidence
       </button>
     </app-page-header>
 
-    <!-- Persistent outcome -->
-    <section *ngIf="outcome() as o" class="ms-outcome" [class.is-warn]="o.kind === 'dependency-failure'" role="status">
-      <span class="ms-outcome-glyph"><i [class]="o.kind === 'success' ? 'ri-checkbox-circle-fill' : 'ri-error-warning-fill'" aria-hidden="true"></i></span>
-      <div class="ms-outcome-body">
-        <h2 class="ms-outcome-title">{{ o.kind === 'success' ? 'Saved successfully' : 'Dependent step failed' }}</h2>
-        <p *ngIf="o.kind === 'success'">Reference <strong>{{ o.reference }}</strong> · state <strong>{{ o.state }}</strong> · effective <strong>{{ o.effectiveTime }}</strong></p>
-        <p *ngIf="o.kind === 'dependency-failure'">Your confirmed local result is unchanged. Reference <strong>{{ o.reference }}</strong> · state <strong>{{ o.state }}</strong></p>
-        <div class="ms-outcome-facts">
-          <span><b>Downstream</b> {{ o.downstream }}</span>
-          <span><b>Owner</b> {{ o.owner }}</span>
-          <span *ngIf="o.correlationRef"><b>Correlation</b> {{ o.correlationRef }}</span>
-          <span><b>Next</b> {{ o.nextAction }}</span>
+    @if (outcome(); as o) {
+      <section class="dq-notice" [class.is-warn]="o.kind === 'dependency-failure'" role="status">
+        <i [class]="o.kind === 'success' ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'" aria-hidden="true"></i>
+        <div class="dq-notice-body">
+          <p class="dq-notice-title">{{ o.kind === 'success' ? 'Decision recorded' : 'A dependent step failed' }}</p>
+          <p class="dq-notice-text">
+            <b>{{ o.reference }}</b> is <b>{{ o.state | lowercase }}</b> · effective {{ o.effectiveTime }}
+            @if (o.kind === 'dependency-failure') { · {{ o.downstream }} }
+          </p>
+          <p class="dq-notice-next">Next: {{ o.nextAction }}</p>
         </div>
-        <div class="ms-row" *ngIf="o.kind === 'dependency-failure'">
-          <button type="button" class="ms-btn ms-btn--primary ms-btn--sm" (click)="retryDependency()">Retry dependent step</button>
-          <button type="button" class="ms-btn ms-btn--line ms-btn--sm">Contact support</button>
+        @if (o.kind === 'dependency-failure') {
+          <button type="button" class="dq-btn" (click)="retryDependency()">Retry step</button>
+        }
+        <button type="button" class="dq-x" (click)="dismissOutcome()" aria-label="Dismiss" title="Dismiss"><i class="ri-close-line" aria-hidden="true"></i></button>
+      </section>
+    }
+
+    @if (previewState() === 'conflict') {
+      <section class="dq-notice is-warn" role="alert">
+        <i class="ri-git-merge-line" aria-hidden="true"></i>
+        <div class="dq-notice-body">
+          <p class="dq-notice-title">This pair changed after you opened it</p>
+          <p class="dq-notice-text">Review the latest version before continuing. Your proposed decision has been kept.</p>
         </div>
-      </div>
-      <button type="button" class="ms-x" (click)="dismissOutcome()" aria-label="Dismiss"><i class="ri-close-line" aria-hidden="true"></i></button>
-    </section>
+        <button type="button" class="dq-btn dq-btn--primary" (click)="reapplyChanges()">Compare &amp; reapply</button>
+        <button type="button" class="dq-btn" (click)="discardConflict()">Cancel</button>
+      </section>
+    }
 
-    <!-- Conflict banner -->
-    <section *ngIf="previewState() === 'conflict'" class="ms-conflict" role="alert">
-      <i class="ri-git-merge-line" aria-hidden="true"></i>
-      <div class="ms-conflict-text">
-        <h2>This record changed after you opened it</h2>
-        <p>Review the latest version before continuing. Your proposed decision has been kept.</p>
-      </div>
-      <div class="ms-row">
-        <button type="button" class="ms-btn ms-btn--primary ms-btn--sm" (click)="reapplyChanges()">Compare &amp; reapply</button>
-        <button type="button" class="ms-btn ms-btn--line ms-btn--sm" (click)="discardConflict()">Cancel</button>
-      </div>
-    </section>
+    <div class="dq-desk">
 
-    <div class="ms-layout">
-
-      <!-- ---------------- Queue ---------------- -->
-      <aside class="ms-queue" aria-label="Duplicate candidate queue">
-        <div class="ms-queue-head">
-          <div class="ms-queue-title">
-            <span class="ms-queue-label">Match queue</span>
-            <span class="ms-queue-n">{{ filteredQueue().length }}</span>
+      <!-- =============================== DOCKET (tray across the top) =============================== -->
+      <section class="dq-sheet dq-docket" aria-label="Match docket">
+        <header class="dq-docket-head">
+          <div class="dq-docket-id">
+            <p class="dq-eyebrow"><i class="ri-stack-line" aria-hidden="true"></i>Match docket</p>
+            <h2 class="dq-docket-title">Pairs to review <span class="dq-count">{{ filteredQueue().length }}</span></h2>
           </div>
-          <button type="button" class="ms-refresh" (click)="refresh()" [attr.aria-label]="'Refresh, last ' + lastRefreshed()">
-            <i class="ri-refresh-line" [class.ms-spin]="refreshing()" aria-hidden="true"></i>
-          </button>
-        </div>
-
-        <div class="ms-queue-filters">
-          <label class="ms-search">
-            <i class="ri-search-line" aria-hidden="true"></i>
-            <input type="text" placeholder="Reference or name…" aria-label="Search reference or candidate name"
-                   [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event); onFilterChange()" />
-          </label>
-          <div class="ms-selects">
-            <select class="ms-select" aria-label="Status" [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event); onFilterChange()">
+          <div class="dq-mix" aria-label="Confidence mix">
+            @for (m of confidenceMix(); track m.level) {
+              <div class="dq-mix-cell" [attr.data-conf]="m.level">
+                <span class="dq-mix-n">{{ m.count }}</span>
+                <span class="dq-mix-l"><span class="dq-dot"></span>{{ m.level }}</span>
+                <span class="dq-mix-rule" aria-hidden="true"><span [style.width.%]="m.share"></span></span>
+              </div>
+            }
+          </div>
+          <div class="dq-docket-tools">
+            <label class="dq-search">
+              <i class="ri-search-line" aria-hidden="true"></i>
+              <input type="search" placeholder="Reference or name" aria-label="Search reference or candidate name"
+                     [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event); onFilterChange()" />
+            </label>
+            <select class="dq-select" aria-label="Status" [class.has-value]="statusFilter() !== 'all'" [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event); onFilterChange()">
               <option value="all">All statuses</option>
               <option value="Pending">Pending</option>
               <option value="In review">In review</option>
@@ -93,291 +95,353 @@
               <option value="Merged">Merged</option>
               <option value="Rejected">Rejected</option>
             </select>
-            <select class="ms-select" aria-label="Queue" [ngModel]="savedFilter()" (ngModelChange)="savedFilter.set($event); onFilterChange()">
+            <select class="dq-select" aria-label="Queue" [class.has-value]="savedFilter() !== 'all'" [ngModel]="savedFilter()" (ngModelChange)="savedFilter.set($event); onFilterChange()">
               <option value="all">All candidates</option>
-              <option value="mine">My queue</option>
+              <option value="mine">Decided</option>
               <option value="high-confidence">High confidence</option>
             </select>
-          </div>
-          <div class="ms-queue-meta">
-            <span>Updated {{ lastRefreshed() }}</span>
-            <button type="button" class="ms-link" (click)="clearFilters()" [disabled]="!filtersActive()">Clear filters</button>
-          </div>
-        </div>
-
-        <div *ngIf="previewState() === 'loading'" class="ms-skeleton" aria-busy="true">
-          <span class="sr-only">Loading duplicate review queue…</span>
-          <div class="ms-skel" *ngFor="let i of [1,2,3,4,5]"></div>
-        </div>
-
-        <div *ngIf="previewState() === 'empty'" class="ms-empty">
-          <p *ngIf="filtersActive()">No pairs match your current scope and filters.</p>
-          <p *ngIf="!filtersActive()">No pairs are queued for your assigned scope.</p>
-          <button *ngIf="filtersActive()" type="button" class="ms-btn ms-btn--line ms-btn--sm" (click)="clearFilters()">Clear filters</button>
-        </div>
-
-        <ng-container *ngIf="previewState() !== 'loading' && previewState() !== 'empty'">
-          <ul class="ms-pairs" role="list">
-            <li *ngFor="let p of pagedQueue()">
-              <button type="button" class="ms-pair" [class.is-on]="selectedId() === p.id" [attr.data-confidence]="p.confidence"
-                      (click)="selectItem(p)" [attr.aria-current]="selectedId() === p.id">
-                <span class="ms-pair-avs" aria-hidden="true">
-                  <span class="ms-pair-av">{{ p.candidateAName.charAt(0) }}</span>
-                  <span class="ms-pair-av is-b">{{ p.candidateBName.charAt(0) }}</span>
-                </span>
-                <span class="ms-pair-text">
-                  <span class="ms-pair-names">{{ p.candidateAName }} <em>&amp;</em> {{ p.candidateBName }}</span>
-                  <span class="ms-pair-sub">{{ p.reference }} · <span [ngClass]="'ms-ink ' + statusTone(p.status)">{{ p.status }}</span></span>
-                  <span class="ms-meter" aria-hidden="true"><span [style.width.%]="p.confidenceScore"></span></span>
-                </span>
-                <span class="ms-pair-score">{{ p.confidenceScore }}<small>%</small></span>
-              </button>
-            </li>
-          </ul>
-
-          <div class="ms-empty" *ngIf="pagedQueue().length === 0">
-            <p *ngIf="filtersActive()">No pairs match your current scope and filters.</p>
-            <p *ngIf="!filtersActive()">No pairs are queued for your assigned scope.</p>
-          </div>
-
-          <nav class="ms-pager" *ngIf="totalPages() > 1" aria-label="Queue pagination">
-            <button type="button" class="ms-page" (click)="setPage(currentPage() - 1)" [disabled]="currentPage() === 1" aria-label="Previous page"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
-            <button type="button" class="ms-page" *ngFor="let n of pageNumbers()" [class.is-on]="n === currentPage()"
-                    (click)="setPage(n)" [attr.aria-current]="n === currentPage() ? 'page' : null">{{ n }}</button>
-            <button type="button" class="ms-page" (click)="setPage(currentPage() + 1)" [disabled]="currentPage() === totalPages()" aria-label="Next page"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-          </nav>
-        </ng-container>
-      </aside>
-
-      <!-- ---------------- Studio ---------------- -->
-      <section class="ms-studio" aria-label="Compare candidates and decide">
-
-        <div *ngIf="!selected()" class="ms-pick">
-          <i class="ri-contrast-2-line" aria-hidden="true"></i>
-          <p>Select a pair from the match queue to compare the two records and record a decision.</p>
-        </div>
-
-        <ng-container *ngIf="selected() as p">
-
-          <div class="ms-privacy" *ngIf="previewState() === 'duplicate'">
-            <i class="ri-eye-off-line" aria-hidden="true"></i>
-            <span>Privacy-safe comparison — protected details stay masked until explicitly revealed.</span>
-          </div>
-
-          <!-- Face-off -->
-          <section class="ms-faceoff">
-            <div class="ms-side">
-              <span class="ms-side-tag">Record A</span>
-              <span class="ms-side-av" aria-hidden="true">{{ p.candidateAName.charAt(0) }}</span>
-              <strong class="ms-side-name">{{ p.candidateAName }}</strong>
-              <button type="button" class="ms-copy" (click)="copyValue(p.candidateAId)" [title]="'Copy ' + p.candidateAId"><i class="ri-file-copy-line" aria-hidden="true"></i>{{ p.candidateAId }}</button>
-              <span class="ms-side-stat">{{ p.candidateAGifts }} gifts · {{ p.candidateATotal }}</span>
-            </div>
-
-            <div class="ms-dial" [attr.data-confidence]="p.confidence" role="img" [attr.aria-label]="p.confidence + ' confidence, ' + p.confidenceScore + ' percent'">
-              <svg viewBox="0 0 44 44" aria-hidden="true">
-                <circle class="ms-dial-track" cx="22" cy="22" r="18"></circle>
-                <circle class="ms-dial-fill" cx="22" cy="22" r="18" pathLength="100" [attr.stroke-dasharray]="p.confidenceScore + ' 100'"></circle>
-              </svg>
-              <span class="ms-dial-v">{{ p.confidenceScore }}<small>%</small></span>
-              <span class="ms-dial-l">{{ p.confidence }} match</span>
-            </div>
-
-            <div class="ms-side is-b">
-              <span class="ms-side-tag">Record B</span>
-              <span class="ms-side-av" aria-hidden="true">{{ p.candidateBName.charAt(0) }}</span>
-              <strong class="ms-side-name">{{ p.candidateBName }}</strong>
-              <button type="button" class="ms-copy" (click)="copyValue(p.candidateBId)" [title]="'Copy ' + p.candidateBId"><i class="ri-file-copy-line" aria-hidden="true"></i>{{ p.candidateBId }}</button>
-              <span class="ms-side-stat">{{ p.candidateBGifts }} gifts · {{ p.candidateBTotal }}</span>
-            </div>
-          </section>
-
-          <!-- Field-by-field -->
-          <section class="ms-compare">
-            <table class="ms-table">
-              <caption class="sr-only">Field comparison between record A and record B</caption>
-              <thead>
-                <tr><th scope="col" class="ms-col-field">Field</th><th scope="col">Record A</th><th scope="col" class="ms-col-mark"><span class="sr-only">Match</span></th><th scope="col">Record B</th></tr>
-              </thead>
-              <tbody *ngFor="let g of compareGroups()">
-                <tr class="ms-group">
-                  <th scope="colgroup" colspan="4">
-                    {{ g }}
-                    <span class="ms-restricted" *ngIf="g === 'Contact'"><i class="ri-lock-line" aria-hidden="true"></i> Restricted</span>
-                  </th>
-                </tr>
-                <tr *ngFor="let row of rowsForGroup(g)" [class.is-conflict]="row.conflicting">
-                  <th scope="row">{{ row.field }}</th>
-                  <td [class.is-masked]="row.restricted">{{ row.valueA }}</td>
-                  <td class="ms-col-mark" aria-hidden="true"><span class="ms-mark">{{ row.conflicting ? '≠' : '=' }}</span></td>
-                  <td [class.is-masked]="row.restricted">{{ row.valueB }}</td>
-                </tr>
-                <tr class="ms-reveal" *ngIf="g === 'Contact' && !contactRevealed()">
-                  <td colspan="4">
-                    <span>This value cannot be displayed with your current access.</span>
-                    <button type="button" class="ms-link" *ngIf="permissions()['view']" (click)="revealContact()">Reveal for this record</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <button type="button" class="ms-evidence-toggle" (click)="toggleEvidence()" [attr.aria-expanded]="evidenceOpen()">
-              <i class="ri-arrow-down-s-line ms-chev" [class.is-open]="evidenceOpen()" aria-hidden="true"></i>
-              <span>Matching evidence ({{ p.evidence.length }})</span>
-              <span class="ms-conf">Confidential</span>
+            <button type="button" class="dq-round" (click)="refresh()" [title]="lastRefreshed() ? 'Refresh · last ' + lastRefreshed() : 'Refresh'" aria-label="Refresh the docket">
+              <i class="ri-refresh-line" [class.dq-spin]="refreshing()" aria-hidden="true"></i>
             </button>
-            <ul class="ms-evidence" *ngIf="evidenceOpen()">
-              <li *ngFor="let e of p.evidence"><i class="ri-checkbox-circle-line" aria-hidden="true"></i><span>{{ e }}</span></li>
-            </ul>
-          </section>
+          </div>
+        </header>
 
-          <!-- Decision -->
-          <section class="ms-decide">
-            <h3 class="ms-decide-title">Your decision</h3>
-
-            <div class="ms-errors" *ngIf="errors().decision || errors().reason || errors().surviving" role="alert">
-              <strong>Review the highlighted fields.</strong>
-              <ul>
-                <li *ngIf="errors().decision"><a href="#field-decision">{{ errors().decision }}</a></li>
-                <li *ngIf="errors().reason"><a href="#field-reason">{{ errors().reason }}</a></li>
-                <li *ngIf="errors().surviving"><a href="#field-surviving">{{ errors().surviving }}</a></li>
-              </ul>
-            </div>
-
-            <div class="ms-choices" id="field-decision" role="radiogroup" aria-label="Decision" [class.has-error]="errors().decision">
-              <ng-container *ngFor="let d of decisionOptions">
-                <button *ngIf="d.value" type="button" role="radio" class="ms-choice" [attr.data-choice]="d.value"
-                        [class.is-on]="decision() === d.value" [attr.aria-checked]="decision() === d.value"
-                        (click)="decision.set(d.value); onDecisionChange()">
-                  <i [class]="d.value === 'link' ? 'ri-links-line' : d.value === 'merge' ? 'ri-git-merge-line' : d.value === 'keep-separate' ? 'ri-git-branch-line' : 'ri-question-answer-line'" aria-hidden="true"></i>
-                  <span class="ms-choice-label">{{ d.label }}</span>
+        @if (previewState() === 'loading') {
+          <ul class="dq-pairs" aria-busy="true">
+            @for (i of [1, 2, 3, 4]; track i) { <li class="dq-pair-ghost"><span></span><span></span></li> }
+          </ul>
+          <span class="visually-hidden">Loading the duplicate review docket…</span>
+        } @else if (previewState() === 'dependency-failure' && queue().length === 0) {
+          <div class="dq-docket-empty">
+            <i class="ri-wifi-off-line" aria-hidden="true"></i>
+            <p>The docket could not be loaded. {{ loadError() }}</p>
+            <button type="button" class="dq-btn" (click)="refresh()">Try again</button>
+          </div>
+        } @else if (pagedQueue().length === 0) {
+          <div class="dq-docket-empty">
+            <i class="ri-checkbox-multiple-line" aria-hidden="true"></i>
+            <p>{{ filtersActive() ? 'No pairs match these filters.' : 'No pairs are queued for your scope.' }}</p>
+            @if (filtersActive()) { <button type="button" class="dq-btn" (click)="clearFilters()">Clear filters</button> }
+          </div>
+        } @else {
+          <ul class="dq-pairs" role="list">
+            @for (p of pagedQueue(); track p.id) {
+              <li>
+                <button type="button" class="dq-pair" [class.is-on]="selectedId() === p.id" [attr.aria-current]="selectedId() === p.id" (click)="selectItem(p)">
+                  <span class="dq-twin" aria-hidden="true">
+                    <span class="dq-twin-a">{{ initials(p.candidateAName) }}</span>
+                    <span class="dq-twin-b">{{ initials(p.candidateBName) }}</span>
+                  </span>
+                  <span class="dq-pair-text">
+                    <span class="dq-pair-name">{{ p.candidateAName }}</span>
+                    <span class="dq-pair-name dq-pair-name--b"><em>&amp;</em>{{ p.candidateBName }}</span>
+                    <span class="dq-pair-sub"><span class="dq-mono-t">{{ p.reference }}</span><span class="dq-status" [attr.data-status]="p.status"><span class="dq-dot"></span>{{ p.status }}</span></span>
+                  </span>
+                  <span class="dq-conf" [attr.data-conf]="p.confidence" [title]="p.confidence + ' confidence'">
+                    <span class="dq-conf-bars" [attr.data-level]="confidenceLevel(p.confidence)" aria-hidden="true"><span></span><span></span><span></span></span>
+                    <span class="dq-conf-t">{{ p.confidenceScore > 0 ? p.confidenceScore + '%' : p.confidence }}</span>
+                  </span>
                 </button>
-              </ng-container>
-            </div>
-            <p class="ms-field-error" *ngIf="errors().decision">{{ errors().decision }}</p>
+              </li>
+            }
+          </ul>
+        }
 
-            <div class="ms-field" *ngIf="decision() === 'merge'">
-              <label class="ms-label" for="field-surviving">Surviving record</label>
-              <div class="ms-survivor">
-                <button type="button" class="ms-survivor-opt" [class.is-on]="surviving() === p.candidateAId" (click)="surviving.set(p.candidateAId)">Keep A · {{ p.candidateAId }}</button>
-                <button type="button" class="ms-survivor-opt" [class.is-on]="surviving() === p.candidateBId" (click)="surviving.set(p.candidateBId)">Keep B · {{ p.candidateBId }}</button>
-                <input id="field-surviving" type="text" class="ms-input" autocomplete="off"
-                       [class.has-error]="errors().surviving || (mergePreview()?.unrecognised)"
-                       [ngModel]="surviving()" (ngModelChange)="surviving.set($event)"
-                       [attr.aria-invalid]="!!errors().surviving"
-                       placeholder="or type a reference, e.g. {{ p.candidateAId }}" />
-              </div>
-              <p class="ms-field-error" *ngIf="errors().surviving">{{ errors().surviving }}</p>
-              <p class="ms-field-error" *ngIf="!errors().surviving && mergePreview()?.unrecognised">
-                Review Surviving record. Enter a candidate reference shown in this review.
+        <footer class="dq-docket-foot">
+          <span>@if (lastRefreshed()) { Updated {{ lastRefreshed() }} } @else { Not yet refreshed }</span>
+          @if (filtersActive()) { <button type="button" class="dq-link" (click)="clearFilters()">Clear filters</button> }
+          @if (totalPages() > 1) {
+            <nav class="dq-pager" aria-label="Docket pages">
+              <button type="button" class="dq-page-b" (click)="setPage(currentPage() - 1)" [disabled]="currentPage() === 1" aria-label="Previous page"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+              @for (n of pageNumbers(); track n) {
+                <button type="button" class="dq-page-b" [class.is-on]="n === currentPage()" (click)="setPage(n)" [attr.aria-current]="n === currentPage() ? 'page' : null">{{ n }}</button>
+              }
+              <button type="button" class="dq-page-b" (click)="setPage(currentPage() + 1)" [disabled]="currentPage() === totalPages()" aria-label="Next page"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+            </nav>
+          }
+        </footer>
+      </section>
+
+      <!-- =============================== COLLATION =============================== -->
+      <section class="dq-sheet dq-collate" aria-label="Compare the two records and decide">
+
+        @if (!selected()) {
+          <div class="dq-pick">
+            <span class="dq-ring-g" aria-hidden="true"><i class="ri-contrast-2-line"></i></span>
+            <h2>Choose a pair from the docket</h2>
+            <p>The two records will be laid side by side here, field by field, with your decision underneath.</p>
+          </div>
+        } @else {
+          @let p = selected()!;
+
+          <header class="dq-col-head">
+            <div class="dq-col-titles">
+              <p class="dq-eyebrow"><i class="ri-git-pull-request-line" aria-hidden="true"></i>Collation<span class="dq-sep" aria-hidden="true"></span><span class="dq-mono-t">{{ p.reference }}</span></p>
+              <h2 class="dq-col-title">{{ p.candidateAName }} <em>&amp;</em> {{ p.candidateBName }}</h2>
+              <p class="dq-col-meta">
+                <span class="dq-status" [attr.data-status]="p.status"><span class="dq-dot"></span>{{ p.status }}</span>
+                <span class="dq-sep" aria-hidden="true"></span>Decision: {{ p.owner }}
+                @if (p.lastActivity) { <span class="dq-sep" aria-hidden="true"></span>Last activity {{ p.lastActivity | date: 'dd MMM yyyy, HH:mm' }} }
               </p>
             </div>
+            <div class="dq-seal" [attr.data-conf]="p.confidence" role="img" [attr.aria-label]="p.confidence + ' confidence match'">
+              <span class="dq-seal-n">{{ p.confidenceScore > 0 ? p.confidenceScore + '%' : p.confidence }}</span>
+              <span class="dq-conf-bars dq-conf-bars--lg" [attr.data-level]="confidenceLevel(p.confidence)" aria-hidden="true"><span></span><span></span><span></span></span>
+              <span class="dq-seal-l">{{ p.confidenceScore > 0 ? p.confidence + ' match' : 'confidence' }}</span>
+            </div>
+          </header>
 
-            <div class="ms-field">
-              <label class="ms-label" for="field-reason">Decision reason</label>
-              <textarea id="field-reason" class="ms-input ms-textarea" rows="3" maxlength="2000"
+          <div class="dq-tally">
+            <span><b>{{ agreeCount() }}</b> fields agree</span>
+            <span class="dq-tally-warn"><b>{{ conflictCount() }}</b> differ</span>
+            @if (!contactRevealed()) { <span class="dq-tally-lock"><i class="ri-eye-off-line" aria-hidden="true"></i>Contact details stay masked until revealed</span> }
+          </div>
+
+          <!-- side-by-side collation -->
+          <div class="dq-table-wrap">
+            <table class="dq-table">
+              <caption class="visually-hidden">Field comparison between record A and record B</caption>
+              <thead>
+                <tr>
+                  <th scope="col" class="dq-col-field"><span class="dq-cap">Field</span></th>
+                  <th scope="col" class="dq-col-rec">
+                    <span class="dq-rec">
+                      <span class="dq-rec-mono" aria-hidden="true">A</span>
+                      <span class="dq-rec-t">
+                        <span class="dq-rec-name">{{ p.candidateAName }}</span>
+                        <span class="dq-rec-sub">
+                          @if (p.candidateAId) { <button type="button" class="dq-copy" (click)="copyValue(p.candidateAId)" [title]="'Copy ' + p.candidateAId">{{ p.candidateAId }}<i class="ri-file-copy-line" aria-hidden="true"></i></button> }
+                          @else { Record A }
+                        </span>
+                      </span>
+                    </span>
+                  </th>
+                  <th scope="col" class="dq-col-mark"><span class="visually-hidden">Match</span></th>
+                  <th scope="col" class="dq-col-rec">
+                    <span class="dq-rec">
+                      <span class="dq-rec-mono dq-rec-mono--b" aria-hidden="true">B</span>
+                      <span class="dq-rec-t">
+                        <span class="dq-rec-name">{{ p.candidateBName }}</span>
+                        <span class="dq-rec-sub">
+                          @if (p.candidateBId) { <button type="button" class="dq-copy" (click)="copyValue(p.candidateBId)" [title]="'Copy ' + p.candidateBId">{{ p.candidateBId }}<i class="ri-file-copy-line" aria-hidden="true"></i></button> }
+                          @else { Record B }
+                        </span>
+                      </span>
+                    </span>
+                  </th>
+                </tr>
+              </thead>
+              @for (g of compareGroups(); track g) {
+                <tbody>
+                  <tr class="dq-group">
+                    <th scope="colgroup" colspan="4">
+                      <span>{{ g }}</span>
+                      @if (g === 'Contact') { <span class="dq-restricted"><i class="ri-lock-line" aria-hidden="true"></i>Restricted</span> }
+                    </th>
+                  </tr>
+                  @for (row of rowsForGroup(g); track row.field) {
+                    <tr [class.is-conflict]="row.conflicting" [class.is-masked]="row.restricted">
+                      <th scope="row">{{ row.field }}</th>
+                      <td>{{ row.valueA || '—' }}</td>
+                      <td class="dq-col-mark" aria-hidden="true"><span class="dq-mark">{{ row.restricted ? '·' : row.conflicting ? '≠' : '=' }}</span></td>
+                      <td>{{ row.valueB || '—' }}</td>
+                    </tr>
+                  }
+                  @if (g === 'Contact' && !contactRevealed()) {
+                    <tr class="dq-reveal">
+                      <td colspan="4">
+                        <span>These values are masked for your access.</span>
+                        @if (permissions()['view']) { <button type="button" class="dq-link" (click)="revealContact()">Reveal for this pair</button> }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              }
+            </table>
+          </div>
+
+          <div class="dq-evidence">
+            <button type="button" class="dq-evidence-toggle" (click)="toggleEvidence()" [attr.aria-expanded]="evidenceOpen()">
+              <i class="ri-arrow-right-s-line dq-chev" [class.is-open]="evidenceOpen()" aria-hidden="true"></i>
+              <span>Matching evidence</span><span class="dq-count">{{ p.evidence.length }}</span>
+              <span class="dq-conf-label"><i class="ri-shield-keyhole-line" aria-hidden="true"></i>Confidential</span>
+            </button>
+            @if (evidenceOpen()) {
+              @if (p.evidence.length > 0) {
+                <ul class="dq-evidence-list">
+                  @for (e of p.evidence; track e) { <li><i class="ri-check-line" aria-hidden="true"></i><span>{{ e }}</span></li> }
+                </ul>
+              } @else {
+                <p class="dq-evidence-none">The matching engine has not attached evidence to this pair yet.</p>
+              }
+            }
+          </div>
+
+          <!-- verdict -->
+          <section class="dq-verdict" aria-labelledby="dq-verdict-title">
+            <h3 id="dq-verdict-title" class="dq-sec-title"><span class="dq-no">01</span>Your verdict</h3>
+
+            @if (errors().decision || errors().reason || errors().surviving) {
+              <div class="dq-errors" role="alert">
+                <i class="ri-error-warning-line" aria-hidden="true"></i>
+                <div>
+                  <p>Review the highlighted fields.</p>
+                  <ul>
+                    @if (errors().decision) { <li><a href="#field-decision">{{ errors().decision }}</a></li> }
+                    @if (errors().reason) { <li><a href="#field-reason">{{ errors().reason }}</a></li> }
+                    @if (errors().surviving) { <li><a href="#field-surviving">{{ errors().surviving }}</a></li> }
+                  </ul>
+                </div>
+              </div>
+            }
+
+            <div class="dq-choices" id="field-decision" tabindex="-1" role="radiogroup" aria-label="Decision" [class.has-error]="errors().decision">
+              @for (d of verdicts; track d.value) {
+                <button type="button" role="radio" class="dq-choice" [attr.data-choice]="d.value"
+                        [class.is-on]="decision() === d.value" [attr.aria-checked]="decision() === d.value"
+                        (click)="decision.set(d.value); onDecisionChange()">
+                  <i [class]="decisionMeta[d.value].glyph" aria-hidden="true"></i>
+                  <span class="dq-choice-l">{{ d.label }}</span>
+                  <span class="dq-choice-h">{{ decisionMeta[d.value].hint }}</span>
+                </button>
+              }
+            </div>
+
+            @if (decision() === 'merge') {
+              <div class="dq-field">
+                <label class="dq-label" for="field-surviving"><span class="dq-no">02</span>Which record survives?</label>
+                <div class="dq-survivor">
+                  <button type="button" class="dq-keep" [class.is-on]="surviving() === (p.candidateAId || p.candidateAName)" (click)="surviving.set(p.candidateAId || p.candidateAName)">
+                    <span class="dq-radio" aria-hidden="true"></span><span class="dq-rec-mono" aria-hidden="true">A</span>Keep {{ p.candidateAName }}
+                  </button>
+                  <button type="button" class="dq-keep" [class.is-on]="surviving() === (p.candidateBId || p.candidateBName)" (click)="surviving.set(p.candidateBId || p.candidateBName)">
+                    <span class="dq-radio" aria-hidden="true"></span><span class="dq-rec-mono dq-rec-mono--b" aria-hidden="true">B</span>Keep {{ p.candidateBName }}
+                  </button>
+                  <input id="field-surviving" type="text" class="dq-input" autocomplete="off"
+                         [class.has-error]="errors().surviving || mergePreview()?.unrecognised"
+                         [ngModel]="surviving()" (ngModelChange)="surviving.set($event)"
+                         [attr.aria-invalid]="!!errors().surviving"
+                         placeholder="or type a reference or name" />
+                </div>
+                @if (errors().surviving) { <p class="dq-field-error">{{ errors().surviving }}</p> }
+                @else if (mergePreview()?.unrecognised) { <p class="dq-field-error">Enter a reference or name shown in this review.</p> }
+              </div>
+            }
+
+            <div class="dq-field">
+              <label class="dq-label" for="field-reason"><span class="dq-no">{{ decision() === 'merge' ? '03' : '02' }}</span>Why this verdict?</label>
+              <textarea id="field-reason" class="dq-input dq-textarea" rows="3" maxlength="2000"
                         [class.has-error]="errors().reason"
                         [ngModel]="reason()" (ngModelChange)="reason.set($event)"
                         [attr.aria-invalid]="!!errors().reason"
                         placeholder="Explain the evidence and rationale for this decision (10–2,000 characters)…"></textarea>
-              <div class="ms-field-foot">
-                <p class="ms-field-error" *ngIf="errors().reason">{{ errors().reason }}</p>
-                <span class="ms-counter">{{ reasonLength() }} / {{ reasonMax }}</span>
+              <div class="dq-field-foot">
+                @if (errors().reason) { <p class="dq-field-error">{{ errors().reason }}</p> } @else { <span class="dq-field-hint">Recorded against the pair in the audit trail.</span> }
+                <span class="dq-counter" [class.is-ok]="reasonLength() >= reasonMin">{{ reasonLength() }} / {{ reasonMax }}</span>
               </div>
             </div>
 
-            <ng-container *ngIf="mergePreview() as mp">
-              <div class="ms-merge" *ngIf="!mp.unrecognised">
-                <span><i class="ri-user-follow-line" aria-hidden="true"></i><b>Keeps</b> {{ mp.survivorName }}</span>
-                <span><i class="ri-user-unfollow-line" aria-hidden="true"></i><b>Retires</b> {{ mp.retiredName }}</span>
-                <span><i class="ri-hand-heart-line" aria-hidden="true"></i><b>Combined gifts</b> {{ mp.combinedGifts }}</span>
-              </div>
-            </ng-container>
+            @if (mergePreview(); as mp) {
+              @if (!mp.unrecognised) {
+                <div class="dq-merge">
+                  <span><i class="ri-user-follow-line" aria-hidden="true"></i>Keeps <b>{{ mp.survivorName }}</b></span>
+                  <span><i class="ri-user-unfollow-line" aria-hidden="true"></i>Retires <b>{{ mp.retiredName }}</b></span>
+                  <span><i class="ri-hand-heart-line" aria-hidden="true"></i>Combined gifts <b>{{ mp.combinedGifts }}</b></span>
+                </div>
+              }
+            }
 
-            <div class="ms-actions">
-              <span class="ms-hint" *ngIf="!permissions()['merge'] || !permissions()['reject']">Read-only access to some actions with this role.</span>
-              <button type="button" class="ms-btn ms-btn--danger-line" [disabled]="!permissions()['reject']" (click)="openRejectModal()">
-                <i class="ri-close-circle-line" aria-hidden="true"></i> Reject candidate
+            <div class="dq-actions">
+              @if (!permissions()['merge'] || !permissions()['reject']) {
+                <span class="dq-hint"><i class="ri-information-line" aria-hidden="true"></i>Some actions are read-only for your role.</span>
+              }
+              <button type="button" class="dq-btn dq-btn--danger" [disabled]="!permissions()['reject']" (click)="openRejectModal()">
+                <i class="ri-close-circle-line" aria-hidden="true"></i>Not the same person
               </button>
-              <button type="button" class="ms-btn ms-btn--primary" [disabled]="!permissions()['merge'] && decision() === 'merge'" (click)="saveDecision()">
-                {{ decision() === 'merge' ? 'Continue to merge' : 'Save decision' }} <i class="ri-arrow-right-line" aria-hidden="true"></i>
+              <button type="button" class="dq-btn dq-btn--primary" [disabled]="!permissions()['merge'] && decision() === 'merge'" (click)="saveDecision()">
+                {{ decision() === 'merge' ? 'Continue to merge' : 'Save verdict' }}<i class="ri-arrow-right-line" aria-hidden="true"></i>
               </button>
             </div>
           </section>
 
-          <!-- Related & history -->
-          <section class="ms-related">
-            <button type="button" class="ms-related-toggle" (click)="toggleRelated()" [attr.aria-expanded]="relatedOpen()">
-              <i class="ri-arrow-down-s-line ms-chev" [class.is-open]="relatedOpen()" aria-hidden="true"></i>
-              Related records &amp; history
-            </button>
-            <div class="ms-related-body" *ngIf="relatedOpen()">
-              <div class="ms-tabs" role="tablist">
-                <button type="button" role="tab" class="ms-tab" [class.is-on]="activeTab() === 'linked'" (click)="setTab('linked')">Linked</button>
-                <button type="button" role="tab" class="ms-tab" [class.is-on]="activeTab() === 'documents'" (click)="setTab('documents')">Documents</button>
-                <button type="button" role="tab" class="ms-tab" [class.is-on]="activeTab() === 'activity'" (click)="setTab('activity')">Activity</button>
-                <button type="button" role="tab" class="ms-tab" [class.is-on]="activeTab() === 'integration'" (click)="setTab('integration')">Integration</button>
-              </div>
-              <div class="ms-tab-panel" role="tabpanel">
-                <p *ngIf="activeTab() === 'linked'">Household record HH-{{ p.candidateAId }} links both candidates through a shared mailing address.</p>
-                <p *ngIf="activeTab() === 'documents'">No supporting documents attached to this comparison yet.</p>
-                <p *ngIf="activeTab() === 'activity'">Queued for review on {{ p.lastActivity }} by matching engine v3.2.</p>
-                <p *ngIf="activeTab() === 'integration'">CRM synchronisation: up to date. Email platform: pending next sync window.</p>
-              </div>
+          <!-- related & history -->
+          <section class="dq-related" aria-label="Related records and history">
+            <div class="dq-tabs" role="tablist">
+              <button type="button" role="tab" class="dq-tab" [class.is-on]="activeTab() === 'linked'" [attr.aria-selected]="activeTab() === 'linked'" (click)="setTab('linked')"><i class="ri-links-line" aria-hidden="true"></i>Linked</button>
+              <button type="button" role="tab" class="dq-tab" [class.is-on]="activeTab() === 'documents'" [attr.aria-selected]="activeTab() === 'documents'" (click)="setTab('documents')"><i class="ri-file-list-3-line" aria-hidden="true"></i>Documents</button>
+              <button type="button" role="tab" class="dq-tab" [class.is-on]="activeTab() === 'activity'" [attr.aria-selected]="activeTab() === 'activity'" (click)="setTab('activity')"><i class="ri-history-line" aria-hidden="true"></i>Activity</button>
+              <button type="button" role="tab" class="dq-tab" [class.is-on]="activeTab() === 'integration'" [attr.aria-selected]="activeTab() === 'integration'" (click)="setTab('integration')"><i class="ri-plug-line" aria-hidden="true"></i>Integration</button>
             </div>
+            <p class="dq-tab-panel" role="tabpanel">
+              @switch (activeTab()) {
+                @case ('linked') { Household record HH-{{ p.candidateAId || p.reference }} links both candidates through a shared mailing address. }
+                @case ('documents') { No supporting documents are attached to this comparison yet. }
+                @case ('activity') { Queued for review {{ p.lastActivity ? 'on ' + (p.lastActivity | date: 'dd MMM yyyy') : '' }} by the matching engine. }
+                @case ('integration') { CRM synchronisation is up to date. The e-mail platform picks this up in the next sync window. }
+              }
+            </p>
           </section>
-        </ng-container>
+        }
       </section>
     </div>
-  </ng-container>
-
-  <!-- Merge confirmation -->
-  <div class="modal-overlay" *ngIf="showConfirmModal()" (click)="cancelConfirm()">
-    <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" (click)="$event.stopPropagation()">
-      <h2 id="confirm-title">Confirm merge</h2>
-      <p>Review the affected record, consequence, reason and effective time. This action is irreversible.</p>
-
-      <dl class="ms-kv" *ngIf="selected() as p">
-        <div><dt>Reference</dt><dd>{{ p.reference }}</dd></div>
-        <div><dt>Keeps</dt><dd>{{ mergePreview()?.survivorName || 'Enter a surviving record' }}</dd></div>
-        <div><dt>Retires</dt><dd>{{ mergePreview()?.retiredName || '—' }}</dd></div>
-        <div><dt>Effective</dt><dd>Immediately on confirmation</dd></div>
-      </dl>
-
-      <div class="field-group">
-        <label class="field-label" for="confirm-input">Type <strong>MERGE</strong> to confirm</label>
-        <input id="confirm-input" type="text" class="control" autocomplete="off"
-               [ngModel]="confirmText()" (ngModelChange)="confirmText.set($event)" />
-        <p class="ms-field-error" *ngIf="confirmError()">{{ confirmError() }}</p>
-      </div>
-
-      <div class="button-row">
-        <button type="button" class="btn btn-ghost" (click)="cancelConfirm()">Cancel</button>
-        <button type="button" class="btn btn-danger" (click)="confirmMerge()">Confirm merge</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Reject -->
-  <div class="modal-overlay" *ngIf="showRejectModal()" (click)="cancelReject()">
-    <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="reject-title" (click)="$event.stopPropagation()">
-      <h2 id="reject-title">Reject candidate</h2>
-      <p>Record an independent decision that these are not duplicates. Both records stay separate.</p>
-
-      <div class="field-group">
-        <label class="field-label" for="reject-reason">Decision reason</label>
-        <textarea id="reject-reason" class="control textarea" rows="3" maxlength="2000"
-                  [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)"
-                  placeholder="Explain why these records are not duplicates (10–2,000 characters)…"></textarea>
-        <p class="ms-field-error" *ngIf="rejectError()">{{ rejectError() }}</p>
-      </div>
-
-      <div class="button-row">
-        <button type="button" class="btn btn-ghost" (click)="cancelReject()">Cancel</button>
-        <button type="button" class="btn btn-danger" (click)="confirmReject()">Confirm rejection</button>
-      </div>
-    </div>
-  </div>
+  }
 
 </div>
+</div>
+
+  <!-- =============================== MERGE CONFIRMATION =============================== -->
+  @if (showConfirmModal()) {
+    <div class="dq-scrim" (click)="cancelConfirm()"></div>
+    <div class="dq-dialog" role="alertdialog" aria-modal="true" aria-labelledby="dq-confirm-title">
+      <header class="dq-dialog-top">
+        <span class="dq-ring-g dq-ring-g--danger" aria-hidden="true"><i class="ri-git-merge-line"></i></span>
+        <div>
+          <p class="dq-eyebrow">Irreversible</p>
+          <h2 id="dq-confirm-title">Confirm the merge</h2>
+        </div>
+        <button type="button" class="dq-round" aria-label="Close" title="Close" (click)="cancelConfirm()"><i class="ri-close-line" aria-hidden="true"></i></button>
+      </header>
+      @if (selected(); as p) {
+        <dl class="dq-kv">
+          <div><dt>Pair</dt><dd class="dq-mono-t">{{ p.reference }}</dd></div>
+          <div><dt>Keeps</dt><dd>{{ mergePreview()?.survivorName || 'Enter a surviving record' }}</dd></div>
+          <div><dt>Retires</dt><dd>{{ mergePreview()?.retiredName || '—' }}</dd></div>
+          <div><dt>Effective</dt><dd>Immediately on confirmation</dd></div>
+        </dl>
+      }
+      <label class="dq-label" for="dq-confirm-input">Type <b class="dq-typed">MERGE</b> to confirm</label>
+      <input id="dq-confirm-input" type="text" class="dq-input" autocomplete="off" [class.is-ok]="confirmText().trim().toUpperCase() === 'MERGE'"
+             [ngModel]="confirmText()" (ngModelChange)="confirmText.set($event)" />
+      @if (confirmError()) { <p class="dq-field-error">{{ confirmError() }}</p> }
+      <footer class="dq-dialog-foot">
+        <button type="button" class="dq-btn" (click)="cancelConfirm()">Cancel</button>
+        <button type="button" class="dq-btn dq-btn--danger-solid" (click)="confirmMerge()"><i class="ri-git-merge-line" aria-hidden="true"></i>Merge records</button>
+      </footer>
+    </div>
+  }
+
+  <!-- =============================== REJECT =============================== -->
+  @if (showRejectModal()) {
+    <div class="dq-scrim" (click)="cancelReject()"></div>
+    <div class="dq-dialog" role="alertdialog" aria-modal="true" aria-labelledby="dq-reject-title">
+      <header class="dq-dialog-top">
+        <span class="dq-ring-g" aria-hidden="true"><i class="ri-git-branch-line"></i></span>
+        <div>
+          <p class="dq-eyebrow">Reject candidate</p>
+          <h2 id="dq-reject-title">Not the same person</h2>
+        </div>
+        <button type="button" class="dq-round" aria-label="Close" title="Close" (click)="cancelReject()"><i class="ri-close-line" aria-hidden="true"></i></button>
+      </header>
+      <p class="dq-dialog-lead">Both records stay separate, and the pair will not be proposed again on the next matching run.</p>
+      <label class="dq-label" for="dq-reject-reason">Reason</label>
+      <textarea id="dq-reject-reason" class="dq-input dq-textarea" rows="4" maxlength="2000"
+                [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)"
+                placeholder="Explain why these records are not duplicates (10–2,000 characters)…"></textarea>
+      @if (rejectError()) { <p class="dq-field-error">{{ rejectError() }}</p> }
+      <footer class="dq-dialog-foot">
+        <button type="button" class="dq-btn" (click)="cancelReject()">Cancel</button>
+        <button type="button" class="dq-btn dq-btn--primary" (click)="confirmReject()"><i class="ri-check-line" aria-hidden="true"></i>Confirm rejection</button>
+      </footer>
+    </div>
+  }
 </main>

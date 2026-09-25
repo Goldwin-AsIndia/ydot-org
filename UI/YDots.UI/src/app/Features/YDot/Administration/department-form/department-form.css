@@ -9,7 +9,7 @@
   z-index: 1080;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: calc(16px * var(--ui-scale, 1));
 }
 
 .df-backdrop {
@@ -24,11 +24,11 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(780px, 100%);
-  max-height: calc(100vh - 32px);
+  width: min(calc(780px * var(--ui-scale, 1)), 100%);
+  max-height: calc(100vh - calc(32px * var(--ui-scale, 1)));
   background: #fff;
-  border-radius: 20px;
-  box-shadow: 0 30px 70px -20px rgba(15, 23, 30, .45);
+  border-radius: calc(20px * var(--ui-scale, 1));
+  box-shadow: 0 calc(30px * var(--ui-scale, 1)) calc(70px * var(--ui-scale, 1)) calc(-20px * var(--ui-scale, 1)) rgba(15, 23, 30, .45);
   overflow: hidden;
   animation: df-in .25s cubic-bezier(.2, .8, .2, 1) backwards;
 }
@@ -37,34 +37,34 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 20px 24px 16px;
+  gap: calc(16px * var(--ui-scale, 1));
+  padding: calc(20px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
   border-bottom: 1px solid var(--of-line-2);
 }
 .df-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: calc(20px * var(--ui-scale, 1));
   font-weight: 700;
   line-height: 1.25;
   color: var(--of-ink);
 }
-.df-sub { margin: 4px 0 0; font-size: 13px !important; line-height: 1.45 !important; color: var(--of-muted); }
+.df-sub { margin: calc(4px * var(--ui-scale, 1)) 0 0; font-size: calc(13px * var(--ui-scale, 1)) !important; line-height: 1.45 !important; color: var(--of-muted); }
 .df-close {
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: calc(36px * var(--ui-scale, 1));
+  height: calc(36px * var(--ui-scale, 1));
   display: inline-grid;
   place-items: center;
   padding: 0;
   border: 1px solid var(--of-line);
-  border-radius: 10px;
+  border-radius: calc(10px * var(--ui-scale, 1));
   background: #fff;
   color: var(--of-ink-2);
   cursor: pointer;
   transition: border-color .15s ease, color .15s ease, background-color .15s ease;
 }
-.df-close i { font-size: 18px !important; line-height: 1; }
+.df-close i { font-size: calc(18px * var(--ui-scale, 1)) !important; line-height: 1; }
 .df-close:hover { border-color: var(--of-brand-line); color: var(--of-brand); background: var(--of-brand-soft); }
 .df-close:focus-visible { outline: 2px solid var(--of-brand); outline-offset: 2px; }
 
@@ -72,8 +72,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 24px 22px;
+  gap: calc(16px * var(--ui-scale, 1));
+  padding: calc(20px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1));
   /* Sized to fit without scrolling; the scroll is only a fallback for a very short window. */
   overflow-y: auto;
 }
@@ -83,52 +83,52 @@
 .df-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px 18px;
+  gap: calc(16px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
   align-items: start;
 }
 .df-span-2 { grid-column: span 2; }
 .df-span-3 { grid-column: 1 / -1; }
 /* The quick picks sit inside the Name field, under its box, and stay within its width. */
-.df-suggest { gap: 6px; margin-top: 2px; }
-.df-suggest .of-suggest-opt { padding: 4px 11px; font-size: 12.5px !important; }
-.df-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.df-count { font-size: 11.5px !important; font-weight: 500 !important; color: var(--of-faint); }
-.df-note { margin: 0; align-self: end; padding-bottom: 12px; font-size: 12px !important; line-height: 1.4 !important; color: var(--of-muted); }
+.df-suggest { gap: calc(6px * var(--ui-scale, 1)); margin-top: 2px; }
+.df-suggest .of-suggest-opt { padding: calc(4px * var(--ui-scale, 1)) calc(11px * var(--ui-scale, 1)); font-size: calc(12.5px * var(--ui-scale, 1)) !important; }
+.df-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: calc(8px * var(--ui-scale, 1)); }
+.df-count { font-size: calc(11.5px * var(--ui-scale, 1)) !important; font-weight: 500 !important; color: var(--of-faint); }
+.df-note { margin: 0; align-self: end; padding-bottom: calc(12px * var(--ui-scale, 1)); font-size: calc(12px * var(--ui-scale, 1)) !important; line-height: 1.4 !important; color: var(--of-muted); }
 
 .df-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 36px 16px;
+  gap: calc(8px * var(--ui-scale, 1));
+  padding: calc(36px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
   text-align: center;
   color: var(--of-muted);
 }
-.df-state i { font-size: 26px !important; color: var(--of-faint); }
-.df-state strong { font-size: 15px !important; color: var(--of-ink); }
+.df-state i { font-size: calc(26px * var(--ui-scale, 1)) !important; color: var(--of-faint); }
+.df-state strong { font-size: calc(15px * var(--ui-scale, 1)) !important; color: var(--of-ink); }
 
 .df-foot {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 24px;
+  gap: calc(10px * var(--ui-scale, 1));
+  padding: calc(14px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
   border-top: 1px solid var(--of-line-2);
   background: var(--of-well);
 }
 
 @keyframes df-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes df-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes df-in { from { opacity: 0; transform: translateY(calc(12px * var(--ui-scale, 1))) scale(.98); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 767.98px) {
   .df-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .df-span-2 { grid-column: 1 / -1; }
 }
 @media (max-width: 575.98px) {
-  :host { padding: 12px; }
+  :host { padding: calc(12px * var(--ui-scale, 1)); }
   .df-grid { grid-template-columns: minmax(0, 1fr); }
   .df-note { padding-bottom: 0; }
-  .df-head, .df-body { padding-left: 18px; padding-right: 18px; }
-  .df-foot { padding: 12px 18px; }
+  .df-head, .df-body { padding-left: calc(18px * var(--ui-scale, 1)); padding-right: calc(18px * var(--ui-scale, 1)); }
+  .df-foot { padding: calc(12px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1)); }
   .df-foot .of-btn { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) {

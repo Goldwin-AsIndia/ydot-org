@@ -3,15 +3,15 @@
     <div class="container-fluid px-4 py-3">
       <div class="dn-page">
 
-      <app-page-header [showInfo]="false" screen="donor-list" title="Donor List" subtitle="Everyone who has given: what they gave, who looks after them and what happens next.">
+      <app-page-header [showInfo]="false" screen="donor-list" title="Donor List" subtitle="Everyone who has given: what they gave, who looks after them and what needs doing next.">
         <span meta class="ph-chip">Updated {{ formatDateTime(lastRefreshed()) }}</span>
         <ng-container actions>
           <button type="button" class="ph-btn ph-btn--ghost" (click)="refresh()" [disabled]="refreshing()" aria-label="Refresh donor list" title="Refresh donor list">
             <i class="ri-refresh-line" [class.dn-spin]="refreshing()" aria-hidden="true"></i>
             <span>Refresh</span>
           </button>
-          <div class="dn-export" (click)="$event.stopPropagation()">
-            <button type="button" class="ph-btn ph-btn--primary" (click)="toggleExportMenu()" aria-haspopup="menu" [attr.aria-expanded]="exportMenuOpen()" title="Export">
+          <div class="dn-anchor" (click)="$event.stopPropagation()">
+            <button type="button" class="ph-btn ph-btn--primary" (click)="toggleExportMenu()" aria-haspopup="menu" [attr.aria-expanded]="exportMenuOpen()">
               <i class="ri-download-2-line" aria-hidden="true"></i>
               <span>Export{{ selectedCount() ? ' ' + selectedCount() + ' selected' : '' }}</span>
             </button>
@@ -20,223 +20,246 @@
                 <span class="dn-menu-cap">{{ selectedCount() ? selectedCount() + ' selected donors' : totalRecords() + ' donors in view' }}</span>
                 <button type="button" role="menuitem" class="dn-menu-item" (click)="exportData('excel')"><i class="ri-file-excel-2-line" aria-hidden="true"></i><span>Excel workbook</span></button>
                 <button type="button" role="menuitem" class="dn-menu-item" (click)="exportData('csv')"><i class="ri-file-text-line" aria-hidden="true"></i><span>CSV file</span></button>
-                <button type="button" role="menuitem" class="dn-menu-item" (click)="exportData('pdf')"><i class="ri-file-pdf-2-line" aria-hidden="true"></i><span>Print / PDF</span></button>
+                <button type="button" role="menuitem" class="dn-menu-item" (click)="exportData('pdf')"><i class="ri-printer-line" aria-hidden="true"></i><span>Print or save as PDF</span></button>
               </div>
             }
           </div>
         </ng-container>
       </app-page-header>
 
-      <!-- ============ GIVING STATEMENT ============ -->
-      <section class="dn-statement" aria-label="Giving statement" [attr.aria-busy]="loading()">
-        <div class="dn-total">
-          <span class="dn-cap">Lifetime giving <em>· donors in view</em></span>
-          @if (loading()) {
-            <span class="dn-skel dn-skel--total" aria-hidden="true"></span>
-          } @else {
-            <span class="dn-total-v" [title]="formatCurrency(givingInView())">{{ error() ? '—' : formatCompact(givingInView()) }}</span>
-            <span class="dn-total-s">
-              <b>{{ totalRecords() }}</b> {{ totalRecords() === 1 ? 'donor' : 'donors' }}
-              <span class="dn-sep" aria-hidden="true"></span>
-              average <b>{{ formatCurrency(averageGiving()) }}</b>
-            </span>
-          }
-        </div>
-
+      <!-- =============================== SUMMARY =============================== -->
+      <section class="dn-summary" aria-label="Donor summary" [attr.aria-busy]="loading()">
         <dl class="dn-figs">
-          @for (kpi of kpis(); track kpi.key) {
-            <div class="dn-fig" [attr.data-kpi]="kpi.key">
-              <dt>{{ kpi.label }}</dt>
-              <dd>
-                @if (loading()) { <span class="dn-skel dn-skel--fig" aria-hidden="true"></span> }
-                @else { <span class="dn-fig-v">{{ error() ? '—' : kpi.value }}</span> }
-                <span class="dn-fig-h">{{ kpi.hint }}</span>
-              </dd>
-            </div>
-          }
+          <div class="dn-fig">
+            <dt><i class="ri-hand-coin-line" aria-hidden="true"></i>Lifetime received</dt>
+            <dd>
+              @if (loading()) { <span class="dn-skel dn-skel--fig" aria-hidden="true"></span> }
+              @else { <span class="dn-fig-v" [title]="formatMoney(portfolio().lifetime, portfolio().currency)">{{ error() ? '—' : formatCompact(portfolio().lifetime, portfolio().currency) }}</span> }
+              <span class="dn-fig-s">
+                @if (portfolio().givers) { Average <b>{{ formatMoney(portfolio().average, portfolio().currency) }}</b> per donor }
+                @else { No gifts received yet }
+              </span>
+            </dd>
+          </div>
+          <div class="dn-fig">
+            <dt><i class="ri-team-line" aria-hidden="true"></i>Donors on record</dt>
+            <dd>
+              @if (loading()) { <span class="dn-skel dn-skel--fig" aria-hidden="true"></span> }
+              @else { <span class="dn-fig-v">{{ error() ? '—' : donors().length }}</span> }
+              <span class="dn-fig-s">
+                @for (seg of statusLead(); track seg.status; let last = $last) {
+                  <b>{{ seg.count }}</b> {{ seg.status.toLowerCase() }}@if (!last || statusOther()) {<span class="dn-sep" aria-hidden="true"></span>}
+                } @empty { None recorded yet }
+                @if (statusOther()) { <b>{{ statusOther() }}</b> other }
+              </span>
+            </dd>
+          </div>
+          <div class="dn-fig">
+            <dt><i class="ri-calendar-check-line" aria-hidden="true"></i>Gave in the last 90 days</dt>
+            <dd>
+              @if (loading()) { <span class="dn-skel dn-skel--fig" aria-hidden="true"></span> }
+              @else { <span class="dn-fig-v">{{ error() ? '—' : portfolio().recentCount }}</span> }
+              <span class="dn-fig-s"><b>{{ formatMoney(portfolio().recentSum, portfolio().currency) }}</b> in latest gifts</span>
+            </dd>
+          </div>
+          <div class="dn-fig">
+            <dt><i class="ri-user-heart-line" aria-hidden="true"></i>Yet to give</dt>
+            <dd>
+              @if (loading()) { <span class="dn-skel dn-skel--fig" aria-hidden="true"></span> }
+              @else { <span class="dn-fig-v">{{ error() ? '—' : donors().length - portfolio().givers }}</span> }
+              <span class="dn-fig-s">Donors with no gift received</span>
+            </dd>
+          </div>
         </dl>
 
-        <div class="dn-mix">
-          <div class="dn-mix-head">
-            <span class="dn-cap">Engagement mix</span>
-            @if (engagementFilter() !== 'all') {
-              <button type="button" class="dn-textbtn" (click)="toggleEngagementFilter($any(engagementFilter()))">Show every segment</button>
+        <div class="dn-attn">
+          <span class="dn-attn-cap"><i class="ri-focus-3-line" aria-hidden="true"></i>Needs attention</span>
+          <ul class="dn-attn-list" role="list">
+            @for (item of attentionItems(); track item.key) {
+              <li>
+                <button type="button" class="dn-attn-row" [attr.data-tone]="item.tone" [class.is-on]="attention() === item.key" [class.is-clear]="item.count === 0 || !!error()"
+                        [attr.aria-pressed]="attention() === item.key" (click)="setAttention(item.key)" [disabled]="(item.count === 0 || !!error()) && attention() !== item.key"
+                        [title]="item.hint">
+                  <span class="dn-attn-c">{{ error() ? '—' : item.count }}</span>
+                  <span class="dn-attn-l">{{ item.label }}</span>
+                  @if (item.count === 0 && !error()) { <i class="ri-check-line" aria-label="All clear"></i> }
+                </button>
+              </li>
             }
-          </div>
-          <div class="dn-mix-rule" role="img" [attr.aria-label]="'Engagement mix across ' + donors().length + ' donors'">
-            @for (seg of engagementMix(); track seg.tag) {
-              @if (seg.count) {
-                <span [attr.data-eng]="seg.tag" [style.flex-grow]="seg.count" [class.is-dim]="engagementFilter() !== 'all' && engagementFilter() !== seg.tag"></span>
-              }
-            }
-          </div>
-          <div class="dn-mix-legend">
-            @for (seg of engagementMix(); track seg.tag) {
-              <button type="button" class="dn-seg" [attr.data-eng]="seg.tag" [class.is-on]="engagementFilter() === seg.tag"
-                      [attr.aria-pressed]="engagementFilter() === seg.tag" (click)="toggleEngagementFilter(seg.tag)"
-                      [title]="'Show only ' + seg.tag + ' donors'">
-                <span class="dn-seg-dot" aria-hidden="true"></span>
-                <span class="dn-seg-name">{{ seg.tag }}</span>
-                <span class="dn-seg-n">{{ seg.count }}</span>
-              </button>
-            }
-          </div>
+          </ul>
         </div>
       </section>
 
-      <!-- ============ REGISTER ============ -->
+      <!-- =============================== REGISTER =============================== -->
       <section class="dn-register" [attr.aria-busy]="loading()">
-        <header class="dn-reg-top">
+        <header class="dn-reg-head">
           <div class="dn-reg-title">
-            <h2>Donor register</h2>
+            <h2>Donors</h2>
             <p>
               @if (totalRecords()) { Showing <b>{{ rangeStart() }}–{{ rangeEnd() }}</b> of <b>{{ totalRecords() }}</b> }
               @else { No donors match }
-              <span class="dn-sep" aria-hidden="true"></span>
-              sorted by {{ sortColumn() === 'lastDonationDate' ? 'last gift' : sortColumn() === 'lifetimeGiving' ? 'lifetime giving' : sortColumn() === 'campaign' ? 'campaign' : sortColumn() === 'owner' ? 'owner' : 'name' }},
-              {{ sortDirection() === 'asc' ? 'ascending' : 'descending' }}
+              <span class="dn-sep" aria-hidden="true"></span>sorted by {{ sortLabel() }}
             </p>
           </div>
+          <div class="dn-switch" role="group" aria-label="Layout">
+            <button type="button" class="dn-switch-b" [class.is-on]="viewMode() === 'table'" [attr.aria-pressed]="viewMode() === 'table'" (click)="setView('table')"><i class="ri-list-check-2" aria-hidden="true"></i><span>Table</span></button>
+            <button type="button" class="dn-switch-b" [class.is-on]="viewMode() === 'cards'" [attr.aria-pressed]="viewMode() === 'cards'" (click)="setView('cards')"><i class="ri-layout-grid-line" aria-hidden="true"></i><span>Cards</span></button>
+          </div>
+        </header>
+
+        @if (statusMix().length > 1) {
+          <nav class="dn-tabs" aria-label="Donor status">
+            <button type="button" class="dn-tab-b" [class.is-on]="statusFilter() === 'all'" [attr.aria-current]="statusFilter() === 'all' ? 'true' : null" (click)="selectStatus('all')">
+              <span>All donors</span><span class="dn-tab-n">{{ donors().length }}</span>
+            </button>
+            @for (seg of statusMix(); track seg.status) {
+              <button type="button" class="dn-tab-b" [attr.data-status]="seg.status" [class.is-on]="statusFilter() === seg.status" [attr.aria-current]="statusFilter() === seg.status ? 'true' : null" (click)="selectStatus(seg.status)">
+                <span>{{ seg.status }}</span><span class="dn-tab-n">{{ seg.count }}</span>
+              </button>
+            }
+          </nav>
+        }
+
+        <div class="dn-toolbar">
           <label class="dn-search" for="donorSearch">
             <i class="ri-search-line" aria-hidden="true"></i>
-            <input id="donorSearch" type="search" aria-label="Search donors" placeholder="Search name, donor ID, mobile, e-mail or campaign"
-                   [value]="searchTerm()" (input)="onSearchInput($any($event.target).value)" />
+            <input id="donorSearch" type="search" placeholder="Search by name, donor ID, mobile, e-mail, campaign or owner"
+                   [value]="searchTerm()" (input)="onSearchInput($any($event.target).value)" aria-label="Search donors" />
             @if (searchTerm()) {
               <button type="button" class="dn-clear" (click)="resetSearch()" aria-label="Clear search" title="Clear search"><i class="ri-close-line" aria-hidden="true"></i></button>
             }
           </label>
-        </header>
-
-        <div class="dn-bar">
-          <nav class="dn-views" aria-label="Donor views">
-            @for (view of quickViews(); track view.key) {
-              <button type="button" class="dn-view" [class.is-on]="quickView() === view.key" [attr.aria-current]="quickView() === view.key ? 'true' : null" (click)="setQuickView(view.key)">
-                <span>{{ view.label }}</span><span class="dn-view-n">{{ view.count }}</span>
-              </button>
-            }
-          </nav>
-          <div class="dn-tools">
+          <div class="dn-toolbar-r">
             <label class="dn-select">
-              <i class="ri-calendar-line" aria-hidden="true"></i>
-              <span class="dn-sr">Filter by donor creation period</span>
-              <select [value]="periodFilter()" (change)="setPeriodFilter($any($event.target).value)">
-                <option value="all">Any period</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="month">This month</option>
-              </select>
-            </label>
-            <label class="dn-select">
-              <i class="ri-arrow-up-down-line" aria-hidden="true"></i>
-              <span class="dn-sr">Sort by</span>
-              <select [value]="sortColumn()" (change)="toggleSort($any($event.target).value)">
-                <option value="name">Donor name</option><option value="campaign">Campaign</option><option value="owner">Owner</option>
-                <option value="lastDonationDate">Last gift</option><option value="lifetimeGiving">Lifetime giving</option>
+              <span class="dn-select-cap">Sort</span>
+              <select [value]="sortColumn()" (change)="setSortColumn($any($event.target).value)" aria-label="Sort by">
+                <option value="lastDonationDate">Last gift</option>
+                <option value="lifetimeGiving">Lifetime giving</option>
+                <option value="name">Donor name</option>
+                <option value="campaign">Campaign</option>
+                <option value="owner">Owner</option>
               </select>
             </label>
             <button type="button" class="dn-square" (click)="toggleSort(sortColumn())" [title]="sortDirection() === 'asc' ? 'Ascending, click to reverse' : 'Descending, click to reverse'" aria-label="Reverse sort direction">
               <i [class]="sortDirection() === 'asc' ? 'ri-sort-asc' : 'ri-sort-desc'" aria-hidden="true"></i>
             </button>
-            <button type="button" class="dn-filters-btn" [class.is-on]="filterPanelOpen()" (click)="toggleFilterPanel()" [attr.aria-expanded]="filterPanelOpen()" aria-controls="dn-filters">
-              <i class="ri-equalizer-line" aria-hidden="true"></i><span>Filters</span>
-              @if (hasActiveFilters()) { <span class="dn-live" aria-label="Filters applied"></span> }
+            <button type="button" class="dn-filter-btn" [class.is-on]="filterPanelOpen()" (click)="toggleFilterPanel()" [attr.aria-expanded]="filterPanelOpen()" aria-controls="dn-filters">
+              <i class="ri-equalizer-2-line" aria-hidden="true"></i><span>Filters</span>
+              @if (panelFilterCount()) { <span class="dn-count-dot">{{ panelFilterCount() }}</span> }
             </button>
           </div>
         </div>
 
         @if (filterPanelOpen()) {
-          <div class="dn-filters" id="dn-filters" aria-label="Donor filters">
-            <div class="dn-fields">
+          <div class="dn-filters" id="dn-filters" role="region" aria-label="Donor filters">
+            <div class="dn-filters-grid">
               <div class="dn-field">
                 <label for="dl-owner-select">Owner</label>
                 @if (ownerOptions().length > 20) {
-                  <input id="dl-owner-search" class="dn-mini-search" type="search" autocomplete="off" placeholder="Search owners..." [value]="ownerOptionSearch()"
+                  <input class="dn-mini-search" type="search" autocomplete="off" placeholder="Search owners…" [value]="ownerOptionSearch()"
                          (input)="ownerOptionSearch.set($any($event.target).value)" aria-controls="dl-owner-select" aria-label="Search owners" />
                 }
-                <select id="dl-owner-select" [value]="ownerFilter()" (change)="setOwnerFilter($any($event.target).value)">
-                  <option value="all">All owners</option>
+                <select id="dl-owner-select" [value]="ownerFilter()" (change)="setFilter(ownerFilter, $any($event.target).value)">
+                  <option value="all">Every owner</option>
                   @for (owner of searchDropdownOptions(ownerOptions(), ownerOptionSearch(), ownerFilter()); track owner) { <option [value]="owner">{{ owner }}</option> }
                 </select>
               </div>
               <div class="dn-field">
                 <label for="dl-campaign-select">Campaign</label>
                 @if (campaignOptions().length > 20) {
-                  <input id="dl-campaign-search" class="dn-mini-search" type="search" autocomplete="off" placeholder="Search campaigns..." [value]="campaignOptionSearch()"
+                  <input class="dn-mini-search" type="search" autocomplete="off" placeholder="Search campaigns…" [value]="campaignOptionSearch()"
                          (input)="campaignOptionSearch.set($any($event.target).value)" aria-controls="dl-campaign-select" aria-label="Search campaigns" />
                 }
-                <select id="dl-campaign-select" [value]="campaignFilter()" (change)="setCampaignFilter($any($event.target).value)">
-                  <option value="all">All campaigns</option>
+                <select id="dl-campaign-select" [value]="campaignFilter()" (change)="setFilter(campaignFilter, $any($event.target).value)">
+                  <option value="all">Every campaign</option>
                   @for (campaign of searchDropdownOptions(campaignOptions(), campaignOptionSearch(), campaignFilter()); track campaign) { <option [value]="campaign">{{ campaign }}</option> }
                 </select>
               </div>
               <div class="dn-field">
-                <label for="dl-region-select">Region</label>
-                @if (regionOptions().length > 20) {
-                  <input id="dl-region-search" class="dn-mini-search" type="search" autocomplete="off" placeholder="Search regions..." [value]="regionOptionSearch()"
-                         (input)="regionOptionSearch.set($any($event.target).value)" aria-controls="dl-region-select" aria-label="Search regions" />
-                }
-                <select id="dl-region-select" [value]="regionFilter()" (change)="setRegionFilter($any($event.target).value)">
-                  <option value="all">All regions</option>
-                  @for (region of searchDropdownOptions(regionOptions(), regionOptionSearch(), regionFilter()); track region) { <option [value]="region">{{ region }}</option> }
+                <label for="dl-period-select">Last gift</label>
+                <select id="dl-period-select" [value]="giftPeriod()" (change)="setGiftPeriod($any($event.target).value)">
+                  <option value="all">Any time</option>
+                  <option value="30">In the last 30 days</option>
+                  <option value="90">In the last 90 days</option>
+                  <option value="365">In the last 12 months</option>
+                  <option value="never">Not given yet</option>
                 </select>
               </div>
             </div>
-            <div class="dn-groups">
-              <div class="dn-group">
-                <span class="dn-group-t">Verification</span>
+            <div class="dn-facets">
+              <div class="dn-facet">
+                <span class="dn-facet-t">Follow-up</span>
                 <div class="dn-opts">
-                  @for (tag of verificationTags; track tag) {
-                    <button type="button" class="dn-opt" [class.is-on]="verificationFilter() === tag" [attr.aria-pressed]="verificationFilter() === tag" (click)="toggleVerificationFilter(tag)">{{ tag }}</button>
+                  @for (opt of followUpOptions; track opt) {
+                    <button type="button" class="dn-opt" [class.is-on]="followUpFilter() === opt" [attr.aria-pressed]="followUpFilter() === opt" (click)="setFilter(followUpFilter, followUpFilter() === opt ? 'all' : opt)">{{ opt === 'None' ? 'Nothing planned' : opt }}</button>
                   }
                 </div>
               </div>
-              <div class="dn-group">
-                <span class="dn-group-t">Consent</span>
+              <div class="dn-facet">
+                <span class="dn-facet-t">Identity</span>
                 <div class="dn-opts">
-                  @for (tag of consentTags; track tag) {
-                    <button type="button" class="dn-opt" [class.is-on]="consentFilter() === tag" [attr.aria-pressed]="consentFilter() === tag" (click)="toggleConsentFilter(tag)">{{ tag }}</button>
+                  @for (opt of verificationOptions; track opt) {
+                    <button type="button" class="dn-opt" [class.is-on]="verificationFilter() === opt" [attr.aria-pressed]="verificationFilter() === opt" (click)="setFilter(verificationFilter, verificationFilter() === opt ? 'all' : opt)">{{ opt }}</button>
                   }
-                  <button type="button" class="dn-opt" [class.is-on]="consentFilter() === 'review'" [attr.aria-pressed]="consentFilter() === 'review'" (click)="toggleConsentFilter('review')">Review required</button>
                 </div>
               </div>
-              <button type="button" class="dn-textbtn dn-reset" (click)="clearFilters()"><i class="ri-filter-off-line" aria-hidden="true"></i> Clear all filters</button>
+              <div class="dn-facet">
+                <span class="dn-facet-t">Consent</span>
+                <div class="dn-opts">
+                  @for (opt of consentOptions; track opt) {
+                    <button type="button" class="dn-opt" [class.is-on]="consentFilter() === opt" [attr.aria-pressed]="consentFilter() === opt" (click)="setFilter(consentFilter, consentFilter() === opt ? 'all' : opt)">{{ opt }}</button>
+                  }
+                </div>
+              </div>
+            </div>
+            <div class="dn-filters-foot">
+              <button type="button" class="dn-link dn-link--mute" (click)="clearFilters()"><i class="ri-filter-off-line" aria-hidden="true"></i>Reset filters</button>
+              <button type="button" class="ph-btn ph-btn--ghost" (click)="toggleFilterPanel()"><span>Done</span></button>
             </div>
           </div>
         }
 
-        @if (selectedCount()) {
-          <div class="dn-selection" role="status">
-            <span><b>{{ selectedCount() }}</b> {{ selectedCount() === 1 ? 'donor' : 'donors' }} selected</span>
-            <span class="dn-selection-acts">
-              <button type="button" class="dn-textbtn" (click)="exportData('excel')">Excel</button>
-              <button type="button" class="dn-textbtn" (click)="exportData('csv')">CSV</button>
-              <button type="button" class="dn-textbtn" (click)="exportData('pdf')">Print</button>
-              <button type="button" class="dn-textbtn dn-textbtn--mute" (click)="clearSelection()">Clear selection</button>
-            </span>
+        @if (filterTokens().length) {
+          <div class="dn-applied" aria-label="Applied filters">
+            <span class="dn-applied-cap">Showing</span>
+            @for (token of filterTokens(); track token.key) {
+              <button type="button" class="dn-token dn-token--removable" (click)="token.clear()" [title]="'Remove ' + token.label">
+                <span>{{ token.label }}</span><i class="ri-close-line" aria-hidden="true"></i>
+              </button>
+            }
+            <button type="button" class="dn-link dn-link--mute" (click)="clearFilters()">Clear all</button>
           </div>
         }
 
+        <!-- ---------- states ---------- -->
         @if (loading()) {
           <div class="dn-rows" aria-hidden="true">
-            @for (row of [1,2,3,4,5,6]; track row) { <div class="dn-row dn-row--skel"><span class="dn-skel"></span><span class="dn-skel"></span><span class="dn-skel"></span></div> }
+            @for (row of [1,2,3,4,5,6]; track row) {
+              <div class="dn-row dn-row--skel"><span class="dn-skel dn-skel--mono"></span><span class="dn-skel"></span><span class="dn-skel"></span><span class="dn-skel"></span></div>
+            }
           </div>
         } @else if (error()) {
           <div class="dn-empty">
-            <i class="ri-cloud-off-line is-bad" aria-hidden="true"></i>
+            <span class="dn-empty-glyph is-bad"><i class="ri-cloud-off-line" aria-hidden="true"></i></span>
             <p class="dn-empty-t">Donors could not be loaded</p>
             <p class="dn-empty-s">{{ error() }}</p>
             <button type="button" class="ph-btn ph-btn--primary" (click)="refresh()"><i class="ri-refresh-line" aria-hidden="true"></i><span>Try again</span></button>
           </div>
         } @else if (paginatedDonors().length === 0) {
           <div class="dn-empty">
-            <i class="ri-hand-heart-line" aria-hidden="true"></i>
-            <p class="dn-empty-t">No donors found</p>
-            <p class="dn-empty-s">{{ donors().length ? 'Nothing matches this search and these filters.' : 'Donor records appear here once the first gift is received.' }}</p>
+            <span class="dn-empty-glyph"><i class="ri-hand-heart-line" aria-hidden="true"></i></span>
+            <p class="dn-empty-t">{{ donors().length ? 'No donors match' : 'No donors yet' }}</p>
+            <p class="dn-empty-s">{{ donors().length ? 'Nothing matches this search and these filters. Try widening them.' : 'Donors appear here once the first gift is received or a lead is converted.' }}</p>
             @if (donors().length) {
               <button type="button" class="ph-btn ph-btn--ghost" (click)="clearAll()"><i class="ri-filter-off-line" aria-hidden="true"></i><span>Clear search and filters</span></button>
             }
           </div>
-        } @else {
+        } @else if (viewMode() === 'table') {
+
+          <!-- ---------- TABLE ---------- -->
           <div class="dn-cols">
             <label class="dn-check" title="Select every donor on this page">
-              <input type="checkbox" [checked]="allOnPageSelected()" (change)="toggleSelectAllOnPage()" aria-label="Select every donor on this page" />
+              <input type="checkbox" [checked]="allOnPageSelected()" [indeterminate]="someOnPageSelected()" (change)="toggleSelectAllOnPage()" aria-label="Select every donor on this page" />
             </label>
             <button type="button" class="dn-col" [attr.data-sort]="sortIndicator('name')" (click)="toggleSort('name')">Donor</button>
             <span class="dn-col dn-col--contact">Contact</span>
@@ -255,68 +278,75 @@
                 </label>
 
                 <div class="dn-who">
-                  <span class="dn-mono" [attr.data-eng]="donor.engagementTag" aria-hidden="true">{{ initials(donor.name) }}</span>
+                  <span class="dn-mono" [attr.data-status]="statusOf(donor)" aria-hidden="true">{{ initials(donor.name) }}</span>
                   <div class="dn-who-t">
-                    <button type="button" class="dn-name" (click)="openDonor360(donor, $event)" title="Open Donor 360">
-                      <span>{{ donor.name }}</span>
-                      @if (donor.verificationStatus === 'Verified') { <i class="ri-verified-badge-line dn-ok" aria-label="Verified"></i> }
-                    </button>
-                    <span class="dn-meta"><span class="dn-code">{{ donor.reference || donor.donorId }}</span>@if (donor.location) {<span class="dn-loc"><span class="dn-dotsep" aria-hidden="true"></span>{{ donor.location }}</span>}@if (donor.mobile) {<span class="dn-alt-phone"><span class="dn-dotsep" aria-hidden="true"></span>{{ donor.mobile }}</span>}</span>
+                    <button type="button" class="dn-name" (click)="openDonor360(donor, $event)" title="Open Donor 360"><span>{{ donor.name }}</span></button>
+                    <span class="dn-who-meta">
+                      <span class="dn-code">{{ donor.reference || donor.donorId }}</span>
+                      <span class="dn-token" [attr.data-status]="statusOf(donor)">{{ statusOf(donor) }}</span>
+                    </span>
+                    <span class="dn-alt-contact">{{ donor.mobile || donor.email || 'No contact on file' }}</span>
                   </div>
                 </div>
 
                 <div class="dn-contact">
-                  <span class="dn-phone">{{ donor.mobile || '—' }}</span>
-                  <span class="dn-mail" [title]="donor.email || ''">{{ donor.email || '—' }}</span>
+                  @if (donor.mobile || donor.email) {
+                    <span class="dn-phone">@if (donor.contactMasked) {<i class="ri-lock-2-line" title="Masked: sensitive contact is hidden for your role" aria-label="Masked"></i>}{{ donor.mobile || '—' }}</span>
+                    <span class="dn-mail" [title]="donor.email || ''">{{ donor.email || '—' }}</span>
+                  } @else {
+                    <span class="dn-none">No contact on file</span>
+                  }
                 </div>
 
                 <div class="dn-camp">
-                  <span class="dn-camp-n" [title]="donor.campaign">{{ donor.campaign || '—' }}@if (donor.donationType) {<em> · {{ donor.donationType }}</em> }</span>
+                  <span class="dn-camp-n" [class.dn-none]="!donor.campaign" [title]="donor.campaign || ''">{{ donor.campaign || 'No campaign' }}</span>
                   <span class="dn-owner">
-                    <span class="dn-owner-ring" [style.border-color]="donor.ownerColor || null" [style.color]="donor.ownerColor || null" aria-hidden="true">{{ donor.ownerInitials || initials(donor.owner || '?') }}</span>
-                    <span class="dn-owner-n">{{ donor.owner || 'Unassigned' }}</span>
+                    <span class="dn-owner-ring" [class.is-none]="!hasOwner(donor)" aria-hidden="true">{{ hasOwner(donor) ? (donor.ownerInitials || initials(donor.owner)) : '' }}</span>
+                    <span class="dn-owner-n" [class.dn-none]="!hasOwner(donor)">{{ hasOwner(donor) ? donor.owner : 'No owner' }}</span>
                   </span>
                 </div>
 
                 <div class="dn-gift">
-                  <button type="button" class="dn-amt" (click)="openDonations(donor, $event)" title="View donations">{{ formatCurrency(donor.lastDonationAmount) }}</button>
-                  <span class="dn-date">{{ formatDate(donor.lastDonationDate) }}</span>
+                  @if (donor.lastDonationAmount > 0) {
+                    <button type="button" class="dn-amt" (click)="openDonations(donor, $event)" title="View donations">{{ formatMoney(donor.lastDonationAmount, donor.currency) }}</button>
+                    <span class="dn-date" [title]="formatDate(donor.lastDonationDate)">{{ relativeDate(donor.lastDonationDate) || formatDate(donor.lastDonationDate) }}</span>
+                  } @else {
+                    <span class="dn-none">No gifts yet</span>
+                  }
                 </div>
 
                 <div class="dn-life">
-                  <span class="dn-life-v">{{ formatCurrency(donor.lifetimeGiving) }}</span>
-                  <span class="dn-share" aria-hidden="true"><span [style.width.%]="givingShare(donor)"></span></span>
-                  <span class="dn-life-s">
-                    @if (donor.donationCount !== undefined) { {{ donor.donationCount }} {{ donor.donationCount === 1 ? 'gift' : 'gifts' }} }
-                    @if (donor.givingGrowthPercent !== undefined) { <span class="dn-growth" [class.is-down]="donor.givingGrowthPercent < 0">{{ donor.givingGrowthPercent >= 0 ? '▲' : '▼' }} {{ donor.givingGrowthPercent }}%</span> }
-                  </span>
+                  @if (donor.lifetimeGiving > 0) {
+                    <span class="dn-life-v">{{ formatMoney(donor.lifetimeGiving, donor.currency) }}</span>
+                    <span class="dn-share" aria-hidden="true"><span [style.width.%]="givingShare(donor)"></span></span>
+                  } @else {
+                    <span class="dn-none">—</span>
+                  }
                 </div>
 
-                <div class="dn-standing">
-                  <span class="dn-st" [attr.data-fu]="donor.followUpStatus">
-                    <i [class]="donor.followUpStatus === 'None' ? 'ri-calendar-line' : donor.followUpStatus === 'Overdue' ? 'ri-alarm-warning-line' : 'ri-calendar-event-line'" aria-hidden="true"></i>
-                    {{ donor.followUpStatus === 'None' ? 'No follow-up' : donor.followUpStatus }}
-                  </span>
-                  <button type="button" class="dn-st dn-st--btn" [attr.data-idv]="donor.verificationStatus" (click)="openIdentityVerification(donor, $event)" title="Open identity verification">
-                    <i [class]="donor.verificationStatus === 'Verified' ? 'ri-shield-check-line' : donor.verificationStatus === 'Pending' ? 'ri-time-line' : 'ri-shield-cross-line'" aria-hidden="true"></i>
-                    {{ donor.verificationStatus === 'Verified' ? 'ID verified' : 'ID ' + donor.verificationStatus.toLowerCase() }}
-                  </button>
-                </div>
+                <ul class="dn-standing" role="list">
+                  <li class="dn-st" [attr.data-fu]="donor.followUpStatus || 'None'">
+                    <i [class]="donor.followUpStatus === 'Overdue' ? 'ri-alarm-warning-line' : (donor.followUpStatus && donor.followUpStatus !== 'None') ? 'ri-calendar-event-line' : 'ri-calendar-line'" aria-hidden="true"></i>
+                    <span>{{ !donor.followUpStatus || donor.followUpStatus === 'None' ? 'Nothing planned' : 'Follow-up ' + donor.followUpStatus.toLowerCase() }}</span>
+                  </li>
+                  <li class="dn-st" [attr.data-idv]="verificationLabel(donor)">
+                    <i [class]="donor.verificationStatus === 'Verified' ? 'ri-shield-check-line' : donor.verificationStatus === 'Pending' ? 'ri-time-line' : 'ri-shield-line'" aria-hidden="true"></i>
+                    <span>{{ donor.verificationStatus === 'Verified' ? 'ID verified' : 'ID ' + verificationLabel(donor).toLowerCase() }}</span>
+                  </li>
+                  <li class="dn-st" [attr.data-consent]="consentLabel(donor)" [class.is-review]="donor.consentReviewRequired">
+                    <i [class]="donor.consentReviewRequired ? 'ri-error-warning-line' : 'ri-shield-keyhole-line'" aria-hidden="true"></i>
+                    <span>{{ donor.consentReviewRequired ? 'Consent to review' : 'Consent ' + consentLabel(donor).toLowerCase() }}</span>
+                  </li>
+                </ul>
 
                 <div class="dn-acts" (click)="$event.stopPropagation()">
                   <button type="button" class="dn-act" (click)="openPreview(donor, $event)" aria-label="Quick look" title="Quick look"><i class="ri-eye-line" aria-hidden="true"></i></button>
-                  <button type="button" class="dn-act" (click)="openCommunicationTimeline(donor, $event)" aria-label="Open communication timeline" title="Communication timeline"><i class="ri-chat-3-line" aria-hidden="true"></i></button>
-                  <button type="button" class="dn-act" (click)="openFollowUpPlanner(donor, $event)" aria-label="Schedule follow-up" title="Schedule follow-up"><i class="ri-calendar-schedule-line" aria-hidden="true"></i></button>
-                  <div class="dn-more">
+                  <button type="button" class="dn-act" (click)="openCommunicationTimeline(donor, $event)" aria-label="Communication timeline" title="Communication timeline"><i class="ri-chat-history-line" aria-hidden="true"></i></button>
+                  <button type="button" class="dn-act" (click)="openFollowUpPlanner(donor, $event)" aria-label="Plan a follow-up" title="Plan a follow-up"><i class="ri-calendar-schedule-line" aria-hidden="true"></i></button>
+                  <div class="dn-anchor">
                     <button type="button" class="dn-act" (click)="toggleMoreMenu(donor.donorId, $event)" aria-label="More donor actions" [attr.aria-expanded]="openMoreMenuId() === donor.donorId" title="More"><i class="ri-more-2-fill" aria-hidden="true"></i></button>
                     @if (openMoreMenuId() === donor.donorId) {
-                      <div class="dn-menu dn-menu--row" role="menu">
-                        <button type="button" role="menuitem" class="dn-menu-item" (click)="openDonor360(donor, $event)"><i class="ri-user-3-line" aria-hidden="true"></i><span>Open Donor 360</span></button>
-                        <button type="button" role="menuitem" class="dn-menu-item" (click)="openDonations(donor, $event)"><i class="ri-hand-coin-line" aria-hidden="true"></i><span>Donations</span></button>
-                        <button type="button" role="menuitem" class="dn-menu-item" (click)="openConsentCentre(donor, $event)"><i class="ri-shield-user-line" aria-hidden="true"></i><span>Consent centre</span></button>
-                        <button type="button" role="menuitem" class="dn-menu-item" (click)="openIdentityVerification(donor, $event)"><i class="ri-fingerprint-line" aria-hidden="true"></i><span>Identity verification</span></button>
-                        <button type="button" role="menuitem" class="dn-menu-item" (click)="exportDonorRecord(donor, $event)"><i class="ri-download-2-line" aria-hidden="true"></i><span>Export donor record</span></button>
-                      </div>
+                      <ng-container *ngTemplateOutlet="moreMenu; context: { $implicit: donor }"></ng-container>
                     }
                   </div>
                 </div>
@@ -324,61 +354,200 @@
             }
           </ul>
 
+        } @else {
+
+          <!-- ---------- CARDS ---------- -->
+          <div class="dn-tiles-bar">
+            <label class="dn-check dn-check--text">
+              <input type="checkbox" [checked]="allOnPageSelected()" [indeterminate]="someOnPageSelected()" (change)="toggleSelectAllOnPage()" />
+              <span>Select this page</span>
+            </label>
+          </div>
+          <ul class="dn-tiles" role="list" aria-label="Donors">
+            @for (donor of paginatedDonors(); track donor.donorId) {
+              <li class="dn-tile" [class.is-selected]="isSelected(donor.donorId)" (click)="onRowClick(donor)">
+                <div class="dn-tile-head">
+                  <span class="dn-mono dn-mono--md" [attr.data-status]="statusOf(donor)" aria-hidden="true">{{ initials(donor.name) }}</span>
+                  <div class="dn-who-t">
+                    <button type="button" class="dn-name" (click)="openDonor360(donor, $event)" title="Open Donor 360"><span>{{ donor.name }}</span></button>
+                    <span class="dn-who-meta">
+                      <span class="dn-code">{{ donor.reference || donor.donorId }}</span>
+                      <span class="dn-token" [attr.data-status]="statusOf(donor)">{{ statusOf(donor) }}</span>
+                    </span>
+                  </div>
+                  <label class="dn-check" (click)="$event.stopPropagation()">
+                    <input type="checkbox" [checked]="isSelected(donor.donorId)" (change)="toggleRowSelection(donor.donorId, $event)" [attr.aria-label]="'Select ' + donor.name" />
+                  </label>
+                </div>
+
+                <div class="dn-tile-money">
+                  <div>
+                    <span class="dn-tile-cap">Lifetime</span>
+                    <span class="dn-tile-v">{{ donor.lifetimeGiving > 0 ? formatMoney(donor.lifetimeGiving, donor.currency) : '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="dn-tile-cap">Last gift</span>
+                    @if (donor.lastDonationAmount > 0) {
+                      <button type="button" class="dn-tile-v dn-amt" (click)="openDonations(donor, $event)" title="View donations">{{ formatMoney(donor.lastDonationAmount, donor.currency) }}</button>
+                      <span class="dn-date">{{ relativeDate(donor.lastDonationDate) || formatDate(donor.lastDonationDate) }}</span>
+                    } @else {
+                      <span class="dn-tile-v dn-none">None yet</span>
+                    }
+                  </div>
+                </div>
+
+                <ul class="dn-standing dn-standing--row" role="list">
+                  <li class="dn-st" [attr.data-fu]="donor.followUpStatus || 'None'"><i class="ri-calendar-event-line" aria-hidden="true"></i><span>{{ !donor.followUpStatus || donor.followUpStatus === 'None' ? 'Nothing planned' : donor.followUpStatus }}</span></li>
+                  <li class="dn-st" [attr.data-idv]="verificationLabel(donor)"><i class="ri-shield-user-line" aria-hidden="true"></i><span>{{ verificationLabel(donor) }}</span></li>
+                  <li class="dn-st" [attr.data-consent]="consentLabel(donor)" [class.is-review]="donor.consentReviewRequired"><i class="ri-shield-keyhole-line" aria-hidden="true"></i><span>{{ donor.consentReviewRequired ? 'Review' : consentLabel(donor) }}</span></li>
+                </ul>
+
+                <dl class="dn-tile-facts">
+                  <div><dt>Owner</dt><dd [class.dn-none]="!hasOwner(donor)">{{ hasOwner(donor) ? donor.owner : 'No owner' }}</dd></div>
+                  <div><dt>Campaign</dt><dd [class.dn-none]="!donor.campaign" [title]="donor.campaign || ''">{{ donor.campaign || 'No campaign' }}</dd></div>
+                  <div><dt>Contact</dt><dd [class.dn-none]="!donor.mobile && !donor.email">@if (donor.contactMasked) {<i class="ri-lock-2-line" aria-label="Masked"></i>}{{ donor.mobile || donor.email || 'Not on file' }}</dd></div>
+                </dl>
+
+                <div class="dn-tile-foot" (click)="$event.stopPropagation()">
+                  <button type="button" class="dn-tile-open" (click)="openDonor360(donor, $event)"><span>Open profile</span><i class="ri-arrow-right-line" aria-hidden="true"></i></button>
+                  <span class="dn-acts">
+                    <button type="button" class="dn-act" (click)="openPreview(donor, $event)" aria-label="Quick look" title="Quick look"><i class="ri-eye-line" aria-hidden="true"></i></button>
+                    <button type="button" class="dn-act" (click)="openFollowUpPlanner(donor, $event)" aria-label="Plan a follow-up" title="Plan a follow-up"><i class="ri-calendar-schedule-line" aria-hidden="true"></i></button>
+                    <span class="dn-anchor">
+                      <button type="button" class="dn-act" (click)="toggleMoreMenu(donor.donorId, $event)" aria-label="More donor actions" [attr.aria-expanded]="openMoreMenuId() === donor.donorId" title="More"><i class="ri-more-2-fill" aria-hidden="true"></i></button>
+                      @if (openMoreMenuId() === donor.donorId) {
+                        <ng-container *ngTemplateOutlet="moreMenu; context: { $implicit: donor }"></ng-container>
+                      }
+                    </span>
+                  </span>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (!loading() && !error() && paginatedDonors().length) {
           <footer class="dn-pager">
-            <span class="dn-range" aria-live="polite"><b>{{ rangeStart() }}–{{ rangeEnd() }}</b> of {{ totalRecords() }} donors · {{ pageSize() }} per page</span>
+            <div class="dn-pager-l">
+              <span class="dn-range" aria-live="polite"><b>{{ rangeStart() }}–{{ rangeEnd() }}</b> of <b>{{ totalRecords() }}</b></span>
+              <label class="dn-select dn-select--sm">
+                <span class="dn-select-cap">Per page</span>
+                <select [value]="pageSize()" (change)="setPageSize(+$any($event.target).value)" aria-label="Donors per page">
+                  @for (size of pageSizeOptions; track size) { <option [value]="size">{{ size }}</option> }
+                </select>
+              </label>
+            </div>
             <nav class="dn-pages" aria-label="Pagination">
-              <button type="button" class="dn-step" (click)="previousPage()" [disabled]="effectivePage() === 1" aria-label="Previous page"><i class="ri-arrow-left-line" aria-hidden="true"></i><span>Previous</span></button>
+              <button type="button" class="dn-step" (click)="previousPage()" [disabled]="effectivePage() === 1" aria-label="Previous page"><i class="ri-arrow-left-s-line" aria-hidden="true"></i><span>Previous</span></button>
               @for (p of pageList(); track $index) {
                 @if (p === 0) { <span class="dn-gap" aria-hidden="true">…</span> }
                 @else {
                   <button type="button" class="dn-pg" [class.is-on]="p === effectivePage()" [attr.aria-current]="p === effectivePage() ? 'page' : null" (click)="goToPage(p)">{{ p }}</button>
                 }
               }
-              <button type="button" class="dn-step" (click)="nextPage()" [disabled]="effectivePage() === totalPages()" aria-label="Next page"><span>Next</span><i class="ri-arrow-right-line" aria-hidden="true"></i></button>
+              <button type="button" class="dn-step" (click)="nextPage()" [disabled]="effectivePage() === totalPages()" aria-label="Next page"><span>Next</span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
             </nav>
           </footer>
+        }
+
+        @if (selectedCount()) {
+          <div class="dn-bulk" role="status">
+            <span class="dn-bulk-n"><b>{{ selectedCount() }}</b> {{ selectedCount() === 1 ? 'donor' : 'donors' }} selected</span>
+            <span class="dn-bulk-acts">
+              <button type="button" class="dn-bulk-b" (click)="exportData('excel')"><i class="ri-file-excel-2-line" aria-hidden="true"></i><span>Excel</span></button>
+              <button type="button" class="dn-bulk-b" (click)="exportData('csv')"><i class="ri-file-text-line" aria-hidden="true"></i><span>CSV</span></button>
+              <button type="button" class="dn-bulk-b" (click)="exportData('pdf')"><i class="ri-printer-line" aria-hidden="true"></i><span>Print</span></button>
+              <button type="button" class="dn-bulk-b dn-bulk-b--mute" (click)="clearSelection()" aria-label="Clear selection" title="Clear selection"><i class="ri-close-line" aria-hidden="true"></i></button>
+            </span>
+          </div>
         }
       </section>
       </div>
     </div>
   </div>
 
+  <!-- Row / card overflow menu (one template for both layouts) -->
+  <ng-template #moreMenu let-donor>
+    <div class="dn-menu dn-menu--row" role="menu" (click)="$event.stopPropagation()">
+      <span class="dn-menu-cap">{{ donor.name }}</span>
+      <button type="button" role="menuitem" class="dn-menu-item" (click)="openDonor360(donor, $event)"><i class="ri-user-3-line" aria-hidden="true"></i><span>Open Donor 360</span></button>
+      <button type="button" role="menuitem" class="dn-menu-item" (click)="openDonations(donor, $event)"><i class="ri-hand-coin-line" aria-hidden="true"></i><span>Donations</span></button>
+      <button type="button" role="menuitem" class="dn-menu-item" (click)="openCommunicationTimeline(donor, $event)"><i class="ri-chat-history-line" aria-hidden="true"></i><span>Communication timeline</span></button>
+      <button type="button" role="menuitem" class="dn-menu-item" (click)="openConsentCentre(donor, $event)"><i class="ri-shield-keyhole-line" aria-hidden="true"></i><span>Consent centre</span></button>
+      <button type="button" role="menuitem" class="dn-menu-item" (click)="openIdentityVerification(donor, $event)"><i class="ri-fingerprint-line" aria-hidden="true"></i><span>Identity verification</span></button>
+      <span class="dn-menu-rule" aria-hidden="true"></span>
+      <button type="button" role="menuitem" class="dn-menu-item" (click)="exportDonorRecord(donor, $event)"><i class="ri-download-2-line" aria-hidden="true"></i><span>Export this donor</span></button>
+    </div>
+  </ng-template>
+
+  <!-- =============================== DONOR SHEET (quick look) =============================== -->
   @if (previewDonor(); as donor) {
     <div class="dl-drawer-backdrop" (click)="closePreview()">
-      <aside class="dl-drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Donor preview for ' + donor.name" (click)="$event.stopPropagation()">
+      <aside class="dl-drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Donor sheet for ' + donor.name" (click)="$event.stopPropagation()">
         <div class="dl-drawer__header">
-          <span class="dn-mono dn-mono--lg" [attr.data-eng]="donor.engagementTag" aria-hidden="true">{{ initials(donor.name) }}</span>
-          <div class="dn-dr-who">
+          <span class="dn-mono dn-mono--lg" [attr.data-status]="statusOf(donor)" aria-hidden="true">{{ initials(donor.name) }}</span>
+          <div class="dn-sheet-who">
             <p class="dl-drawer__name">{{ donor.name }}</p>
-            <p class="dl-drawer__id">{{ donor.reference || donor.donorId }} · {{ donor.engagementTag }}</p>
+            <p class="dl-drawer__id"><span class="dn-code">{{ donor.reference || donor.donorId }}</span><span class="dn-token" [attr.data-status]="statusOf(donor)">{{ statusOf(donor) }}</span></p>
           </div>
-          <button type="button" class="btn btn-outline-secondary btn-sm dn-dr-close" (click)="closePreview()" aria-label="Close preview" title="Close preview">
-            <i class="ri-close-line" aria-hidden="true"></i>
-          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm dn-sheet-close" (click)="closePreview()" aria-label="Close" title="Close"><i class="ri-close-line" aria-hidden="true"></i></button>
         </div>
 
-        <div class="dn-dr-body">
-          <div class="dn-dr-figs">
-            <div><span>Lifetime giving</span><b>{{ formatCurrency(donor.lifetimeGiving) }}</b></div>
-            <div><span>Last gift</span><b>{{ formatCurrency(donor.lastDonationAmount) }}</b><em>{{ formatDate(donor.lastDonationDate) }}</em></div>
+        <div class="dn-sheet">
+          <div class="dn-sheet-money">
+            <div>
+              <span class="dn-tile-cap">Lifetime received</span>
+              <span class="dn-sheet-v">{{ donor.lifetimeGiving > 0 ? formatMoney(donor.lifetimeGiving, donor.currency) : '—' }}</span>
+            </div>
+            <div>
+              <span class="dn-tile-cap">Last gift</span>
+              @if (donor.lastDonationAmount > 0) {
+                <span class="dn-sheet-v">{{ formatMoney(donor.lastDonationAmount, donor.currency) }}</span>
+                <span class="dn-date">{{ formatDate(donor.lastDonationDate) }} · {{ relativeDate(donor.lastDonationDate) }}</span>
+              } @else {
+                <span class="dn-sheet-v dn-none">None yet</span>
+              }
+            </div>
           </div>
-          <dl class="dl-drawer__list">
-            <div><dt>Owner</dt><dd>{{ donor.owner || 'Unassigned' }}</dd></div>
-            <div><dt>Campaign</dt><dd>{{ donor.campaign || '—' }}</dd></div>
-            <div><dt>Mobile</dt><dd class="dn-num">{{ donor.mobile || '—' }}</dd></div>
-            <div><dt>Email</dt><dd>{{ donor.email || '—' }}</dd></div>
-            <div><dt>Location</dt><dd>{{ donor.location || '—' }}</dd></div>
-            <div><dt>Consent</dt><dd><span class="dn-st" [attr.data-consent]="donor.consentStatus">{{ donor.consentStatus }}</span></dd></div>
-            <div><dt>Identity</dt><dd><span class="dn-st" [attr.data-idv]="donor.verificationStatus">{{ donor.verificationStatus }}</span></dd></div>
-            <div><dt>Next follow-up</dt><dd><span class="dn-st" [attr.data-fu]="donor.followUpStatus">{{ donor.followUpStatus === 'None' ? 'None planned' : donor.followUpStatus }}</span></dd></div>
-          </dl>
+
+          <section class="dn-sheet-sec">
+            <h3>Standing</h3>
+            <div class="dn-sheet-st" [attr.data-fu]="donor.followUpStatus || 'None'">
+              <i class="ri-calendar-event-line" aria-hidden="true"></i>
+              <div><b>{{ !donor.followUpStatus || donor.followUpStatus === 'None' ? 'No follow-up planned' : 'Follow-up ' + donor.followUpStatus.toLowerCase() }}</b><span>{{ followUpNote(donor) }}</span></div>
+              <button type="button" class="dn-link" (click)="openFollowUpPlanner(donor, $event)">Plan</button>
+            </div>
+            <div class="dn-sheet-st" [attr.data-idv]="verificationLabel(donor)">
+              <i class="ri-shield-user-line" aria-hidden="true"></i>
+              <div><b>Identity {{ verificationLabel(donor).toLowerCase() }}</b><span>{{ identityNote(donor) }}</span></div>
+              <button type="button" class="dn-link" (click)="openIdentityVerification(donor, $event)">{{ donor.verificationStatus === 'Verified' ? 'View' : 'Verify' }}</button>
+            </div>
+            <div class="dn-sheet-st" [attr.data-consent]="consentLabel(donor)" [class.is-review]="donor.consentReviewRequired">
+              <i class="ri-shield-keyhole-line" aria-hidden="true"></i>
+              <div><b>{{ donor.consentReviewRequired ? 'Consent to review' : 'Consent ' + consentLabel(donor).toLowerCase() }}</b><span>{{ consentNote(donor) }}</span></div>
+              <button type="button" class="dn-link" (click)="openConsentCentre(donor, $event)">{{ donor.consentReviewRequired ? 'Review' : 'Open' }}</button>
+            </div>
+          </section>
+
+          <section class="dn-sheet-sec">
+            <h3>Relationship &amp; contact</h3>
+            <dl class="dl-drawer__list">
+              <div><dt>Owner</dt><dd [class.dn-none]="!hasOwner(donor)">{{ hasOwner(donor) ? donor.owner : 'No owner yet' }}</dd></div>
+              <div><dt>Campaign</dt><dd [class.dn-none]="!donor.campaign">{{ donor.campaign || 'No campaign' }}</dd></div>
+              <div><dt>Mobile</dt><dd class="dn-num" [class.dn-none]="!donor.mobile">{{ donor.mobile || 'Not on file' }}</dd></div>
+              <div><dt>E-mail</dt><dd [class.dn-none]="!donor.email">{{ donor.email || 'Not on file' }}</dd></div>
+            </dl>
+            @if (donor.contactMasked) {
+              <p class="dn-sheet-note"><i class="ri-lock-2-line" aria-hidden="true"></i>Contact details are masked for your role.</p>
+            }
+          </section>
         </div>
 
         <div class="dl-drawer__actions">
           <button type="button" class="btn btn-primary btn-sm" (click)="openDonor360(donor)"><i class="ri-user-3-line" aria-hidden="true"></i><span>Open Donor 360</span></button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCommunicationTimeline(donor, $event)"><i class="ri-chat-3-line" aria-hidden="true"></i><span>Timeline</span></button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDonations(donor, $event)"><i class="ri-hand-coin-line" aria-hidden="true"></i><span>Donations</span></button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCommunicationTimeline(donor, $event)"><i class="ri-chat-history-line" aria-hidden="true"></i><span>Timeline</span></button>
           <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openFollowUpPlanner(donor, $event)"><i class="ri-calendar-schedule-line" aria-hidden="true"></i><span>Follow-up</span></button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openConsentCentre(donor)"><i class="ri-shield-user-line" aria-hidden="true"></i><span>Consent</span></button>
         </div>
       </aside>
     </div>

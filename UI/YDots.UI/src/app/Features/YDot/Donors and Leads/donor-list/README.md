@@ -1,33 +1,33 @@
-# Donor List - "Patron register"
+# Donor List - "Donor ledger"
 
 ## Layout
 
-1. **Page header** (shared `app-page-header`): Refresh, Export (Excel / CSV / Print). Export uses the selected donors when any are selected, otherwise every donor in view.
-2. **Giving statement**, one white sheet:
-   - lifetime giving summed over the donors in view (all filters, every page), with donor count and average;
-   - Total / New / Active / Follow-ups due figures between hairlines;
-   - the engagement mix as a thin proportion rule. Its legend filters the register by engagement.
-3. **Donor register**, one white sheet:
-   - title, live range and sort line, search;
-   - view tabs with counts: All donors / Follow-up due / Not verified / Consent review;
-   - period, sort field, sort direction, Filters (owner, campaign, region, verification, consent);
-   - a selection line when donors are ticked (export or clear the selection);
-   - column captions (click to sort) and donor rows: monogram ringed in the engagement colour, contact, campaign and owner, last gift, lifetime giving with a share-of-page bar, follow-up and ID standing, then actions;
-   - numbered pager (10 per page).
+1. **Page header** (shared `app-page-header`): Refresh, Export (Excel / CSV / Print). Export uses the selected donors when any are ticked, otherwise every donor in view.
+2. **Summary**: one white sheet, two bands.
+   - Four equal figures: Lifetime received, Donors on record, Gave in the last 90 days, Yet to give.
+   - A slim "Needs attention" row with five count + label cells: follow-ups overdue, follow-ups due today, identity not verified, consent to review, without an owner. Each cell filters the list.
+3. **Donors register**: one white sheet.
+   - Title, live range and sort line, Table / Cards switch.
+   - Status tabs (All, Active, Prospect, Restricted, Archived, Merged) with counts.
+   - Search, sort field and direction, Filters panel (owner, campaign, last-gift period, follow-up, identity, consent).
+   - Removable tokens for every applied filter.
+   - Table rows or donor cards, then a pager (12 / 24 / 48 per page, so the card grid fills its rows).
+   - A floating selection bar when donors are ticked.
+4. **Donor sheet** (quick look, eye action): giving figures, standing (follow-up, identity, consent, each with a note and a direct action), relationship and contact. The frame comes from the Donors "Aurora" design in `styles/ydot-dialogs.css`, which is generated; position and contents live here.
 
-Clicking a row opens Donor 360. The eye action opens the quick-look drawer. Its frame comes from the Donors "Aurora" design in `styles/ydot-dialogs.css`, which is generated. Ticking a checkbox only selects the donor.
+Clicking a row or card opens Donor 360. All navigation destinations and query parameters are unchanged.
 
 ## Data
 
-Donors come from `WorkflowStateService.donors()` (`DON /api/v1/donors`). Refresh calls `workflow.refresh()`. Loading and error states follow the service's `isLoading` and `loadError`. The old `/assets/data/donors.json` fetch was removed. That file no longer exists, so the screen always showed "Unable to load donors".
+Rows come from `WorkflowStateService.donors()`, which maps `DON /api/v1/donors` (`DonorListItem`). The service used to blank contact, campaign, gifts, lifetime giving, follow-up, identity and consent, so every donor showed ₹0 and dashes. It now carries them through, plus `status`, `currency` and `contactMasked`. Masked contact shows a lock and is never unmasked in the browser.
 
 ## Styling rules
 
-- No shadows and no dark or colour-filled blocks. Colour appears only in rules, rings, underlines, glyphs and type.
+- No shadows and no colour-filled blocks. Colour lives on rules, rings, outlines, underlines, glyphs and type.
 - Every length is `calc(Npx * var(--s))` so it follows `--ui-scale`.
 - Type declarations carry `!important` because `styles.css` forces sizes globally.
 - Class names avoid the `-card / -badge / -pill / -chip / -tag / icon` traps in `ydot-premium.css`.
-- Responsive layout uses container queries on `.dn-page`:
-  - below 1240px the contact column folds into the donor cell;
-  - below 1020px the statement stacks;
-  - below 960px rows become stacked blocks.
+- Container queries on `.dn-page` handle responsiveness:
+  - 1320px: contact folds under the name, and "Needs attention" sits under its caption;
+  - 1000px: rows stack and the summary goes 2 × 2;
+  - 600px: single column.

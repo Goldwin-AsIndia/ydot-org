@@ -89,10 +89,10 @@
 @media (min-width: 992px) {
   :host-context([data-sidebar='icon']) .pe-app-sidebar {
     /* The flyout is not indented by level: nested panels open to the side instead. */
-    --pe-menu-indent-l2: 14px;
-    --pe-menu-indent-l3: 14px;
+    --pe-menu-indent-l2: calc(14px * var(--ui-scale, 1));
+    --pe-menu-indent-l3: calc(14px * var(--ui-scale, 1));
     --sb-fly-line: color-mix(in srgb, var(--lx-gold, #c1a466) 34%, #e4e0d6);
-    --sb-fly-gap: 10px;
+    --sb-fly-gap: calc(10px * var(--ui-scale, 1));
   }
 
   /* Only the item under the pointer shows a flyout (see THE BUG above). */
@@ -110,10 +110,10 @@
     width: max-content;
     min-width: 15.5rem;
     max-width: 21rem;
-    padding: 10px;
+    padding: calc(10px * var(--ui-scale, 1));
     margin-inline-start: var(--sb-fly-gap);
     border: 1px solid var(--sb-fly-line);
-    border-radius: 16px;
+    border-radius: calc(16px * var(--ui-scale, 1));
     background: #fff !important;
     box-shadow: none !important;
   }
@@ -131,8 +131,8 @@
 
   /* No vertical guide line: it belongs to the expanded tree. */
   :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-slide-item.pe-has-sub .pe-slide-menu::before {
-    inset-inline-start: calc(-1 * (var(--sb-fly-gap) + 13px));
-    width: calc(var(--sb-fly-gap) + 13px);
+    inset-inline-start: calc(-1 * (var(--sb-fly-gap) + calc(13px * var(--ui-scale, 1))));
+    width: calc(var(--sb-fly-gap) + calc(13px * var(--ui-scale, 1)));
   }
 
   :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu::after,
@@ -142,16 +142,16 @@
 
   /* First level: rises to the row it belongs to, and eases in. */
   :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu > .pe-slide.pe-has-sub > .pe-slide-menu {
-    margin-top: -52px;
+    margin-top: calc(-52px * var(--ui-scale, 1));
     animation: sb-flyout-in 0.18s var(--lx-ease, ease) both;
   }
 
   /* Nested: opens to the side of its parent row, aligned with the row (panel padding above it). */
   :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-slide-item.pe-has-sub .pe-slide-menu {
-    margin-top: -11px;
+    margin-top: calc(-11px * var(--ui-scale, 1));
     /* Clear the parent panel's own padding and border (10px + 1px) so the gap matches the first level's. */
-    margin-inline-start: calc(var(--sb-fly-gap) + 11px);
-    transform: translateX(-6px);
+    margin-inline-start: calc(var(--sb-fly-gap) + calc(11px * var(--ui-scale, 1)));
+    transform: translateX(calc(-6px * var(--ui-scale, 1)));
     transition: opacity 0.16s ease, visibility 0.16s ease, transform 0.16s var(--lx-ease, ease);
   }
 
@@ -162,8 +162,8 @@
   /* ---- The title: the group's name, over a fine gold rule ---- */
   :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu > .pe-nav-content1 {
     display: block;
-    margin: 0 4px 8px;
-    padding: 4px 10px 12px;
+    margin: 0 calc(4px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1));
+    padding: calc(4px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
     border-bottom: 1px solid var(--sb-fly-line);
     list-style: none;
   }
@@ -174,7 +174,7 @@
     background: none !important;
     color: var(--theme-deep, #1f2d2a) !important;
     font-family: var(--font-heading, var(--font-ui, sans-serif)) !important;
-    font-size: 15px !important;
+    font-size: calc(15px * var(--ui-scale, 1)) !important;
     font-weight: 600 !important;
     letter-spacing: 0.01em;
     pointer-events: none;
@@ -185,13 +185,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    min-height: 42px;
-    padding: 9px 14px;
-    border-radius: 11px !important;
+    gap: calc(16px * var(--ui-scale, 1));
+    min-height: calc(42px * var(--ui-scale, 1));
+    padding: calc(9px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+    border-radius: calc(11px * var(--ui-scale, 1)) !important;
     background: transparent !important;
     color: var(--theme-ink, #1f2d2a) !important;
-    font-size: 13.5px !important;
+    font-size: calc(13.5px * var(--ui-scale, 1)) !important;
     font-weight: 500 !important;
     line-height: 1.3;
     white-space: nowrap;
@@ -222,7 +222,7 @@
   :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-nav-arrow {
     margin-inline-start: auto;
     color: var(--lx-gold-deep, #6f571f) !important;
-    font-size: 16px !important;
+    font-size: calc(16px * var(--ui-scale, 1)) !important;
     transform: none !important;
   }
 
@@ -242,7 +242,7 @@
 @keyframes sb-flyout-in {
   from {
     opacity: 0;
-    transform: translateX(-6px);
+    transform: translateX(calc(-6px * var(--ui-scale, 1)));
   }
   to {
     opacity: 1;
@@ -256,19 +256,19 @@
   display: none;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: calc(36px * var(--ui-scale, 1));
+  height: calc(36px * var(--ui-scale, 1));
   margin-inline-start: auto;
   padding: 0;
   border: 1px solid var(--theme-border, #e3e8e5);
-  border-radius: 10px;
+  border-radius: calc(10px * var(--ui-scale, 1));
   background: #fff;
   color: var(--theme-ink, #1f2d2a);
   cursor: pointer;
 }
 
 .sidebar-close i {
-  font-size: 20px;
+  font-size: calc(20px * var(--ui-scale, 1));
   line-height: 1;
 }
 
@@ -341,20 +341,20 @@
 .pe-app-sidebar {
   /* One scale, named once. The step between levels is deliberately larger than the eye needs to
      notice (20px) because the sidebar is scanned quickly and at a glance, not read. */
-  --pe-menu-indent-l2: 44px;
-  --pe-menu-indent-l3: 64px;
+  --pe-menu-indent-l2: calc(44px * var(--ui-scale, 1));
+  --pe-menu-indent-l3: calc(64px * var(--ui-scale, 1));
 
   /* The guide line and the active marker travel with the text they belong to; leaving them at
      the theme's 18/19px would leave a child sub-menu's rail sitting under its parent's. */
-  --pe-menu-rail-l2: 22px;
-  --pe-menu-rail-l3: 42px;
+  --pe-menu-rail-l2: calc(22px * var(--ui-scale, 1));
+  --pe-menu-rail-l3: calc(42px * var(--ui-scale, 1));
 }
 
 /* ---- Level 2: a child of a top-level group ---- */
 .pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu > li > .pe-nav-link,
 .pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu > li > a {
   padding-inline-start: var(--pe-menu-indent-l2);
-  padding-inline-end: 12px;
+  padding-inline-end: calc(12px * var(--ui-scale, 1));
 }
 
 .pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu::after {
@@ -425,9 +425,9 @@
      ladder on a full-width overlay, which is the opposite of what this block is for. */
   [data-sidebar] .pe-app-sidebar,
   .pe-app-sidebar {
-    --pe-menu-indent-l2: 40px;
-    --pe-menu-indent-l3: 58px;
-    --pe-menu-rail-l2: 20px;
-    --pe-menu-rail-l3: 38px;
+    --pe-menu-indent-l2: calc(40px * var(--ui-scale, 1));
+    --pe-menu-indent-l3: calc(58px * var(--ui-scale, 1));
+    --pe-menu-rail-l2: calc(20px * var(--ui-scale, 1));
+    --pe-menu-rail-l3: calc(38px * var(--ui-scale, 1));
   }
 }

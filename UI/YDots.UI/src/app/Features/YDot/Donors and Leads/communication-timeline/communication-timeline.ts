@@ -1,12 +1,14 @@
 import { CommonModule } from '@angular/common';
 import {
   Component,
+  ElementRef,
   EventEmitter,
   Output,
   computed,
   effect,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -135,6 +137,7 @@ export class CommunicationTimelineComponent {
   readonly editingId = signal<string | null>(null);
   readonly selectedCommunication = signal<CommunicationRecord | null>(null);
   readonly formErrors = signal<string[]>([]);
+  private readonly entrySheet = viewChild<ElementRef<HTMLElement>>('entrySheet');
 
   readonly currentTemperature = signal<Temperature>('Warm');
   readonly newTemperature = signal<Temperature>('Warm');
@@ -238,6 +241,22 @@ export class CommunicationTimelineComponent {
     effect(() => {
       const lastPage = this.totalPages();
       if (this.currentPage() > lastPage) this.currentPage.set(lastPage);
+    });
+    // The log screen replaces the timeline inside the app shell: start it at the top, take focus, and
+    // pin its bar just under the app's fixed top bar (whose height changes with the UI scale).
+    // The shell's content column is a scroll container (overflow auto) that never scrolls, which would
+    // stop the bar sticking; while logging it clips instead, and gets its own overflow back on close.
+    effect((onCleanup) => {
+      const sheet = this.entrySheet()?.nativeElement;
+      if (!sheet) return;
+      const header = document.querySelector('.app-header') as HTMLElement | null;
+      sheet.style.setProperty('--lb-top', `${header?.offsetHeight ?? 0}px`);
+      const column = sheet.closest('.content-page') as HTMLElement | null;
+      const overflow = column?.style.overflow ?? '';
+      if (column) column.style.overflow = 'clip';
+      onCleanup(() => { if (column) column.style.overflow = overflow; });
+      window.scrollTo({ top: 0 });
+      sheet.focus({ preventScroll: true });
     });
     this.load();
   }
@@ -458,8 +477,96 @@ export class CommunicationTimelineComponent {
   readonly entryRecap = computed(() => {
     const value = this.form();
     const when = value.date ? this.toDisplayDate(value.date) : 'no date';
-    return `${value.direction} ${this.channelLabel(value.type).toLowerCase()} · ${value.outcome} · ${when}${value.time ? ' at ' + value.time : ''}`;
+    return `${value.direction} ${this.channelNoun(value.type)} · ${value.outcome} · ${when}${value.time ? ' at ' + value.time : ''}`;
   });
+
+  /** The log screen's outcome picker, read as four kinds of result rather than one long row. */
+  readonly outcomeGroups: { label: string; hint: string; items: Outcome[] }[] = [
+    { label: 'Reached', hint: 'Contact was made', items: ['Connected', 'Meeting Scheduled'] },
+    { label: 'Warm signals', hint: 'Moving towards a gift', items: ['Interested', 'Donation Discussion', 'Meeting Completed'] },
+    { label: 'Awaiting', hint: 'Needs another touch', items: ['No Answer', 'Requested Callback', 'Requested Information'] },
+    { label: 'Closed', hint: 'Stop or correct', items: ['Not Interested', 'Wrong Contact'] },
+  ];
+
+  /** The last few entries, shown beside the log screen so the person writing sees what came before. */
+  readonly recentEntries = computed(() => this.records().filter((record) => record.id !== this.editingId()).slice(0, 5));
+
+  /** How many entries each channel already has, printed under the channel tiles. */
+  readonly channelCounts = computed(() => {
+    const counts: Partial<Record<CommunicationType, number>> = {};
+    for (const record of this.records()) counts[record.type] = (counts[record.type] ?? 0) + 1;
+    return counts;
+  });
+
+  /** The three things the save needs, ticked off live on the log screen. */
+  readonly entryChecks = computed(() => {
+    const value = this.form();
+    const summary = value.summary.trim().length;
+    const future = !!value.date && value.date > this.getTodayIso();
+    return [
+      { label: 'Date', detail: !value.date ? 'Pick the day it happened' : future ? 'Cannot be in the future' : this.toDisplayDate(value.date), ok: !!value.date && !future },
+      { label: 'Time', detail: value.time || 'Add the time, or use now', ok: !!value.time },
+      { label: 'Summary', detail: summary >= 10 ? `${summary} characters` : `${summary} of 10 characters minimum`, ok: summary >= 10 },
+    ];
+  });
+  readonly entryReady = computed(() => this.entryChecks().every((check) => check.ok));
+
+  /** "Add time and summary" — the missing requirements as one short phrase for the log screen's bar. */
+  readonly entryMissing = computed(() => {
+    const missing = this.entryChecks().filter((check) => !check.ok).map((check) => check.label.toLowerCase());
+    if (!missing.length) return '';
+    const list = missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}` : missing[0];
+    return `Add ${list}`;
+  });
+
+  /** The date block of the preview, in the journal's own day / month / weekday form. */
+  readonly entryDay = computed(() => {
+    const value = this.form().date;
+    const parsed = value ? this.parseDisplayDate(this.toDisplayDate(value)) : null;
+    if (!parsed) return { day: '—', month: 'No date', weekday: '' };
+    return {
+      day: String(parsed.getDate()).padStart(2, '0'),
+      month: `${this.monthNames[parsed.getMonth()]} ${parsed.getFullYear()}`,
+      weekday: this.relativeDay(parsed) || parsed.toLocaleDateString('en-GB', { weekday: 'long' }),
+    };
+  });
+
+  /** The last seven days as picker leaves on the log screen, today last. */
+  readonly entryDayStrip = computed(() => {
+    const today = this.today();
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (6 - index));
+      return {
+        iso: this.formatIso(date),
+        day: String(date.getDate()).padStart(2, '0'),
+        weekday: index === 6 ? 'Today' : date.toLocaleDateString('en-GB', { weekday: 'short' }),
+        month: this.monthNames[date.getMonth()],
+      };
+    });
+  });
+
+  /** True when the chosen date is older than the day strip, so the "Earlier" field carries it. */
+  readonly entryDateEarlier = computed(() => {
+    const value = this.form().date;
+    return !!value && !this.entryDayStrip().some((day) => day.iso === value);
+  });
+
+  /** How far the entry is towards saveable, 0-100, drawn as the log screen's progress rule. */
+  readonly entryProgress = computed(() => {
+    const checks = this.entryChecks();
+    return Math.round((checks.filter((check) => check.ok).length / checks.length) * 100);
+  });
+
+  /** Sentence openers offered under the summary. */
+  readonly summaryStarters = ['They said ', 'They asked for ', 'We agreed ', 'Next step: '];
+
+  /** Adds an opener on its own line at the end of the summary. */
+  addStarter(text: string): void {
+    const current = this.form().summary;
+    const joiner = current && !current.endsWith('\n') ? '\n' : '';
+    this.updateForm('summary', `${current}${joiner}${text}`.slice(0, 2000));
+  }
 
   readonly totalCommunications = computed(() => this.records().length);
 
@@ -986,11 +1093,29 @@ export class CommunicationTimelineComponent {
     return type === 'Internal Note' ? 'Internal note' : type;
   }
 
+  /** The channel as it reads mid-sentence ("Outgoing call", "Incoming WhatsApp"). */
+  channelNoun(type: CommunicationType): string {
+    return type === 'SMS' || type === 'WhatsApp' ? type : this.channelLabel(type).toLowerCase();
+  }
+
   /** Fills the date and time with this moment. */
   setNow(): void {
     const now = new Date();
     this.updateForm('date', this.getTodayIso());
     this.updateForm('time', `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+  }
+
+  /** Sets the date to today or an earlier day (the log screen's quick picks). */
+  setDaysAgo(days: number): void {
+    const date = this.today();
+    date.setDate(date.getDate() - days);
+    this.updateForm('date', this.formatIso(date));
+  }
+
+  isDaysAgo(days: number): boolean {
+    const date = this.today();
+    date.setDate(date.getDate() - days);
+    return this.form().date === this.formatIso(date);
   }
 
   private relativeDay(date: Date): string {

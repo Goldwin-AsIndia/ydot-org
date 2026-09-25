@@ -573,4 +573,195 @@ export class FollowUpPlannerComponent {
     this.confirmConfig.set(null);
     this.activeActionId.set('');
   }
+
+  // ===========================================================================================
+  // NEW FOLLOW-UP - choosing who the follow-up is for.
+  //
+  // "New follow-up" on the queue opens this screen with no lead or donor, and there used to be
+  // nothing to do here except open one of the already-scheduled rows. The planner cannot plan a
+  // contact without a person, so this start page asks for one: it searches the existing lead and
+  // donor lookups (the same ones Lead Capture and Donor 360 use) and hands the choice to the form.
+  // ===========================================================================================
+
+  protected readonly pickerKind = signal<'lead' | 'donor'>('lead');
+  protected readonly pickerQuery = signal('');
+  protected readonly pickerLoading = signal(false);
+  protected readonly pickerError = signal('');
+  protected readonly pickerResults = signal<
+    readonly { id: string; reference: string; name: string; status: string }[]
+  >([]);
+  private pickerTimer: ReturnType<typeof setTimeout> | undefined;
+  private pickerRequest = 0;
+  private pickerPrimed = false;
+
+  /** Runs once the planner knows it has no record, so the start page opens with suggestions. */
+  private readonly primePicker = effect(() => {
+    if (this.uiState() !== 'loading' && !this.hasRecord() && !this.pickerPrimed) {
+      this.pickerPrimed = true;
+      queueMicrotask(() => this.searchPeople());
+    }
+  });
+
+  protected setPickerKind(kind: 'lead' | 'donor'): void {
+    if (this.pickerKind() === kind) return;
+    this.pickerKind.set(kind);
+    this.searchPeople();
+  }
+
+  protected onPickerQuery(value: string): void {
+    this.pickerQuery.set(value);
+    clearTimeout(this.pickerTimer);
+    this.pickerTimer = setTimeout(() => this.searchPeople(), 280);
+  }
+
+  protected searchPeople(): void {
+    const request = ++this.pickerRequest;
+    const query = this.pickerQuery().trim() || undefined;
+    this.pickerLoading.set(true);
+    this.pickerError.set('');
+    const done = (rows: { id: string; reference: string; name: string; status: string }[]) => {
+      if (request !== this.pickerRequest) return;
+      this.pickerResults.set(rows);
+      this.pickerLoading.set(false);
+    };
+    const fail = (error: unknown) => {
+      if (request !== this.pickerRequest) return;
+      this.pickerResults.set([]);
+      this.pickerError.set(apiErrorMessage(error));
+      this.pickerLoading.set(false);
+    };
+    if (this.pickerKind() === 'lead') {
+      this.api.searchLeads(query, 12).subscribe({
+        next: (rows) => done(rows.map((r) => ({ id: r.id, reference: r.leadReference, name: r.displayName, status: r.status }))),
+        error: fail,
+      });
+    } else {
+      this.api.lookupDonors(query, 12).subscribe({
+        next: (rows) => done(rows.map((r) => ({ id: r.id, reference: '', name: r.displayName, status: r.status }))),
+        error: fail,
+      });
+    }
+  }
+
+  /** Hands the chosen person to the planner form, and keeps the address bar in step with it. */
+  protected choosePerson(person: { id: string }): void {
+    const isLead = this.pickerKind() === 'lead';
+    this.followUpId.set(null);
+    this.existing.set(null);
+    this.leadId.set(isLead ? person.id : null);
+    this.donorId.set(isLead ? null : person.id);
+    this.purpose.set('');
+    this.expectedOutcome.set('');
+    this.scheduledDate.set('');
+    this.scheduledTime.set('');
+    this.validationMessage.set(null);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { leadId: this.leadId(), donorId: this.donorId(), mode: 'create' },
+      replaceUrl: true,
+    });
+    this.load();
+  }
+
+  protected initialsOf(name: string | null | undefined): string {
+    return (name || '?')
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part.charAt(0))
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  }
+
+  // ===========================================================================================
+  // PLANNER presentation - the live appointment slip beside the form
+  // ===========================================================================================
+
+  protected readonly channelGlyph: Record<string, string> = {
+    Call: 'ri-phone-line',
+    Phone: 'ri-phone-line',
+    Email: 'ri-mail-line',
+    'E-mail': 'ri-mail-line',
+    SMS: 'ri-message-2-line',
+    WhatsApp: 'ri-whatsapp-line',
+    Meeting: 'ri-team-line',
+    Visit: 'ri-map-pin-line',
+    Event: 'ri-calendar-event-line',
+    Letter: 'ri-mail-open-line',
+  };
+
+  protected glyphFor(channel: string): string {
+    return this.channelGlyph[channel] ?? 'ri-chat-3-line';
+  }
+
+  protected readonly ownerLabel = computed(
+    () =>
+      this.ownerOptions().find((o) => o.value === this.owner())?.label ||
+      this.existing()?.relationshipOwnerName ||
+      '',
+  );
+
+  protected readonly slip = computed(() => {
+    const date = this.scheduledDate();
+    if (!date) return null;
+    const [y, m, d] = date.split('-').map(Number);
+    const when = new Date(y, (m || 1) - 1, d || 1);
+    if (Number.isNaN(when.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Math.round((when.getTime() - today.getTime()) / 86400000);
+    const distance =
+      days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days === -1 ? 'Yesterday' : days > 0 ? `In ${days} days` : `${-days} days ago`;
+    return {
+      day: String(d).padStart(2, '0'),
+      month: when.toLocaleDateString('en-GB', { month: 'long' }),
+      weekday: when.toLocaleDateString('en-GB', { weekday: 'long' }),
+      year: y,
+      distance,
+      past: days < 0,
+    };
+  });
+
+  protected readonly slipTime = computed(() => {
+    const time = this.scheduledTime();
+    if (!time) return '';
+    const [h, min] = time.split(':').map(Number);
+    const suffix = h >= 12 ? 'pm' : 'am';
+    return `${((h + 11) % 12) + 1}:${String(min).padStart(2, '0')} ${suffix}`;
+  });
+
+  protected readonly dateShortcuts = [
+    { label: 'Tomorrow', days: 1 },
+    { label: 'In 3 days', days: 3 },
+    { label: 'Next week', days: 7 },
+    { label: 'In 2 weeks', days: 14 },
+  ];
+  protected readonly timeShortcuts = ['09:30', '11:00', '14:00', '16:30'];
+
+  protected dateIn(days: number): string {
+    const when = new Date();
+    when.setDate(when.getDate() + days);
+    return this.toDateInput(when);
+  }
+
+  protected readonly todayIso = this.toDateInput(new Date());
+
+  /** Consent, as three plain states: checking, blocked with the server's words, or clear. */
+  protected readonly consentState = computed<'checking' | 'blocked' | 'clear'>(() => {
+    const warning = this.consentWarning();
+    if (warning === 'Checking channel consent…') return 'checking';
+    return warning ? 'blocked' : 'clear';
+  });
+
+  protected readonly readiness = computed(() => {
+    const checks = [
+      !!this.owner(),
+      !!this.followUpType(),
+      !!this.scheduledDate() && !!this.scheduledTime(),
+      !!this.priority(),
+      !!this.purpose().trim(),
+      this.consentState() === 'clear',
+    ];
+    return { done: checks.filter(Boolean).length, total: checks.length };
+  });
 }

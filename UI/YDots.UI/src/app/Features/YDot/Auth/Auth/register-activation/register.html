@@ -12,7 +12,7 @@
          =================================================================================== -->
     <div class="px-6 pt-8 pb-4 text-center">
       <a routerLink="/auth/sign-in" class="d-inline-flex align-items-center gap-2 mb-6 text-decoration-none">
-        <img alt="YDot" src="assets/images/Outline ydot logo 2.svg" style="width: 44px;">
+        <img alt="YDot" src="assets/images/Outline ydot logo 2.svg" style="width: calc(44px * var(--ui-scale, 1));">
         <span class="h5 mb-0 fw-semibold text-body">YDot</span>
       </a>
 
@@ -189,7 +189,7 @@
               <span class="text-muted">Strength</span>
               <span class="fw-semibold">{{ strengthLabel() }}</span>
             </div>
-            <div class="progress" style="height: 6px;">
+            <div class="progress" style="height: calc(6px * var(--ui-scale, 1));">
               <div class="progress-bar" [class]="strengthClass()" [style.width.%]="strengthPercent()"></div>
             </div>
           </div>
@@ -505,30 +505,20 @@
 <!-- =====================================================================================
      "Cancel and edit" dialog
      ===================================================================================== -->
-@if (showCancelDialog()) {
-  <div class="modal-backdrop-custom d-flex align-items-center justify-content-center px-4">
-    <div class="bg-white rounded-4 shadow p-5 cancel-dialog w-100">
-      <h6 class="mb-2">What needs to change?</h6>
-      <p class="text-muted small mb-3">
-        Tell your administrator what is wrong. Your invitation link stays valid, so you can come
-        back to this page and finish once the record has been corrected.
-      </p>
-
-      <textarea
-        class="form-control mb-3"
-        rows="4"
-        placeholder="For example: my role should be Finance Officer, not Volunteer."
-        [(ngModel)]="cancelReason"
-        name="cancelReason"></textarea>
-
-      <div class="d-flex gap-2">
-        <button type="button" class="btn btn-outline-secondary flex-grow-1" (click)="closeCancelDialog()">
-          Keep going
-        </button>
-        <button type="button" class="btn btn-primary flex-grow-1" [disabled]="!canCancelActivation() || submitting()" (click)="confirmCancel()">
-          {{ submitting() ? 'Sending…' : 'Send and exit' }}
-        </button>
-      </div>
-    </div>
+<app-popup [open]="showCancelDialog()" kicker="Invitation" title="What needs to change?"
+           lead="Tell your administrator what is wrong. Your invitation link stays valid, so you can come back to this page and finish once the record has been corrected."
+           icon="ri-edit-2-line" (closed)="closeCancelDialog()">
+  <div class="yp-field">
+    <label class="yp-label" for="reg-cancel-reason">What is wrong</label>
+    <textarea id="reg-cancel-reason" rows="4"
+              placeholder="For example: my role should be Finance Officer, not Volunteer."
+              [(ngModel)]="cancelReason"
+              name="cancelReason"></textarea>
   </div>
-}
+  <ng-container popupActions>
+    <button type="button" class="yp-btn" (click)="closeCancelDialog()">Keep going</button>
+    <button type="button" class="yp-btn yp-btn--primary" [disabled]="!canCancelActivation() || submitting()" (click)="confirmCancel()">
+      {{ submitting() ? 'Sending…' : 'Send and exit' }}
+    </button>
+  </ng-container>
+</app-popup>

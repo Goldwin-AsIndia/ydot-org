@@ -999,6 +999,37 @@ export class FollowUpExecutionComponent implements OnInit {
     this.loadData();
   }
 
+  // ---- Call report presentation --------------------------------------------
+  readonly channelGlyph: Record<string, string> = {
+    Call: "ri-phone-line",
+    Email: "ri-mail-line",
+    SMS: "ri-message-2-line",
+    WhatsApp: "ri-whatsapp-line",
+    Meeting: "ri-team-line",
+    Event: "ri-calendar-event-line",
+    "Follow-Up": "ri-repeat-line",
+  };
+
+  glyphFor(channel: string | null | undefined): string {
+    return (channel && this.channelGlyph[channel]) || "ri-chat-3-line";
+  }
+
+  initials(name: string | null | undefined): string {
+    return (name || "?")
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part.charAt(0))
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+  }
+
+  /** Picks a value on a reactive control from an outlined option button. */
+  pick(control: { setValue(value: never): void; markAsDirty(): void }, value: unknown): void {
+    control.setValue(value as never);
+    control.markAsDirty();
+  }
+
   /** Loads (or reloads) the execution snapshot. Also used by the "Reload" empty-state action. */
   retryLoad(): void {
     this.loadData();

@@ -1,0 +1,32 @@
+@if (open) {
+  <div class="yp-backdrop" [class.yp-backdrop--drawer]="mode === 'drawer'" (click)="onBackdrop()"></div>
+  <div class="yp-frame" [class.yp-frame--drawer]="mode === 'drawer'">
+    <div class="yp-modal" [attr.role]="role" aria-modal="true" [attr.aria-labelledby]="title ? titleId : null"
+         [class]="'yp-modal yp-modal--' + size + ' yp-modal--' + tone + (mode === 'drawer' ? ' yp-modal--drawer' : '')">
+      <header class="yp-head" [class.yp-head--plain]="!showIcon">
+        @if (showIcon) {
+          <span class="yp-tile" [class.yp-tile--glyph]="icon" aria-hidden="true">
+            @if (icon) { <i [class]="icon"></i> }
+          </span>
+        }
+        <div class="yp-head-text">
+          @if (kicker) { <p class="yp-kicker">{{ kicker }}</p> }
+          @if (title) { <h2 class="yp-title" [id]="titleId">{{ title }}</h2> }
+          @if (lead) { <p class="yp-lead">{{ lead }}</p> }
+          <ng-content select="[popupHead]"></ng-content>
+        </div>
+        @if (showClose) {
+          <button type="button" class="yp-x" (click)="close()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        }
+      </header>
+      <div class="yp-body">
+        <ng-content></ng-content>
+      </div>
+      <footer class="yp-actions">
+        <ng-content select="[popupActions]"></ng-content>
+      </footer>
+    </div>
+  </div>
+}

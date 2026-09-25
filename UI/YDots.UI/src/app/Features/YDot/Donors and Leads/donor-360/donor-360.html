@@ -3,15 +3,15 @@
     <div class="container-fluid px-4 py-3">
       <app-page-header screen="donor-360" title="Donor 360" subtitle="A complete view of the donor’s profile, donations, follow-ups, documents and activity history.">
       </app-page-header>
-      @if (successPanel(); as success) { <div class="notice" role="status"><span aria-hidden="true">✓</span><div><strong>{{ success.title }}</strong><p>{{ success.reference }} · {{ success.effectiveTime }}</p></div><button type="button" class="btn btn-outline-secondary btn-sm" title="Dismiss notification" (click)="dismissSuccess()">✕</button></div> }
-      @if (dependencyNotice()) { <div class="notice" role="alert">Changes could not be saved. Please try again.<button type="button" class="btn btn-outline-secondary btn-sm" title="Dismiss notification" (click)="dismissSuccess()">✕</button></div> }
+      @if (successPanel(); as success) { <div class="dx-notice" role="status"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg><div><strong>{{ success.title }}</strong><p>{{ success.reference }} · {{ success.effectiveTime }}@if (success.nextAction) { · {{ success.nextAction }} }</p></div><button type="button" class="dx-shut" title="Dismiss notification" aria-label="Dismiss notification" (click)="dismissSuccess()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div> }
+      @if (dependencyNotice()) { <div class="dx-notice dx-notice-bad" role="alert"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg><div><strong>Changes could not be saved.</strong><p>Please try again in a moment.</p></div><button type="button" class="dx-shut" title="Dismiss notification" aria-label="Dismiss notification" (click)="dismissSuccess()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div> }
       @switch (effectiveState()) {
-        @case ('loading') { <section class="state-panel" aria-busy="true" role="status"><h2>Loading donor profile…</h2><div class="skeleton"></div></section> }
-        @case ('no-access') { <section class="state-panel" role="alert"><h2>Access unavailable</h2><p>You do not have permission to view this donor.</p></section> }
-        @case ('empty') { <section class="state-panel"><h2>No donor selected</h2><p>Open a donor from the Donor List to view their profile.</p></section> }
-        @case ('dependency-failure') { <section class="state-panel" role="alert"><h2>Unable to load this donor</h2><p>Please retry when the service is available.</p><button type="button" class="btn btn-outline-secondary btn-sm" (click)="refreshData()">↻ Retry</button></section> }
+        @case ('loading') { <section class="dx-state" aria-busy="true" role="status"><span class="dx-state-ring" aria-hidden="true"></span><h2>Loading donor profile…</h2><p>Gathering giving, follow-ups, documents and history.</p></section> }
+        @case ('no-access') { <section class="dx-state" role="alert"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><h2>Access unavailable</h2><p>You do not have permission to view this donor.</p></section> }
+        @case ('empty') { <section class="dx-state"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><h2>No donor selected</h2><p>Open a donor from the Donor List to view their profile.</p></section> }
+        @case ('dependency-failure') { <section class="dx-state" role="alert"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg><h2>Unable to load this donor</h2><p>Please retry when the service is available.</p><button type="button" class="dx-outline" (click)="refreshData()">Retry</button></section> }
         @default {
-          @if (effectiveState() === 'conflict') { <div class="notice" role="alert">This record has changed.<button type="button" class="btn btn-outline-secondary btn-sm" (click)="reviewConflict()">↻ Review latest version</button></div> }
+          @if (effectiveState() === 'conflict') { <div class="dx-notice dx-notice-warn" role="alert"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></svg><div><strong>This record has changed.</strong><p>Someone saved a newer version while you were viewing it.</p></div><button type="button" class="dx-outline" (click)="reviewConflict()">Review latest version</button></div> }
           <section class="d360-head" aria-label="Donor summary">
             <div class="d360-head-body">
               <div class="d360-monogram" aria-hidden="true"><span>{{ initials() }}</span></div>
@@ -38,251 +38,259 @@
             </div>
             <nav class="d360-tabs" aria-label="Donor sections">@for (tab of tabs; track tab.id) { <button type="button" class="d360-tab" [attr.aria-current]="activeTab() === tab.id ? 'page' : null" (click)="selectTab(tab.id)">{{ tab.label }}@if (tabCount(tab.id); as n) { <span class="d360-tab-count">{{ n }}</span> }</button> }</nav>
           </section>
-          <section class="related-section">
+          <div class="dx">
             @if (activeTab() === 'overview') {
-              <section class="kpi-cards" aria-label="Donor statistics">
-                <article class="kpi-card"><span class="metric-icon" aria-hidden="true">♡</span><div><p>Total Donations</p><strong class="number">{{ totalDonationsCount() }}</strong><p>Received transactions</p></div></article>
-                <article class="kpi-card amber"><span class="metric-icon" aria-hidden="true">▱</span><div><p>Total Amount</p><strong class="number">{{ formatINR(lifetimeGiving()) }}</strong><p>Received donations</p></div></article>
-                <article class="kpi-card"><span class="metric-icon" aria-hidden="true">▣</span><div><p>Upcoming Follow-ups</p><strong class="number">{{ upcoming().length }}</strong><p>Open scheduled follow-ups</p></div></article>
-                <article class="kpi-card rose"><span class="metric-icon" aria-hidden="true">▤</span><div><p>Total Documents</p><strong class="number">{{ documents().length }}</strong><p>Documents on file</p></div></article>
+              <!-- OVERVIEW: giving statement, then profile · recent activity · coming up -->
+              <section class="dx-statement" aria-label="Giving statement">
+                <div class="dx-lead">
+                  <p class="dx-cap">Lifetime received</p>
+                  <p class="dx-sum">{{ formatINR(lifetimeGiving()) }}</p>
+                  <p class="dx-note">{{ totalDonationsCount() }} received {{ totalDonationsCount() === 1 ? 'transaction' : 'transactions' }}@if (donationTotals()[0]?.asOf) { · as of {{ donationTotals()[0].asOf }} }</p>
+                </div>
+                <dl class="dx-figs">
+                  <div>
+                    <dt>Pledged</dt>
+                    <dd class="dx-fig">{{ formatINR(pledgedAmount()) }}</dd>
+                    <dd class="dx-fig-sub">@if (pledgedAmount()) { <span class="dx-meter" aria-hidden="true"><i [style.width.%]="progressPercent() > 100 ? 100 : progressPercent()"></i></span>{{ progressPercent() }}% received } @else { No pledges yet }</dd>
+                  </div>
+                  <div><dt>Promises pending</dt><dd class="dx-fig">{{ pendingPromisesCount() }}</dd><dd class="dx-fig-sub">{{ fulfilledPromisesCount() }} fulfilled</dd></div>
+                  <div><dt>Open follow-ups</dt><dd class="dx-fig">{{ upcoming().length }}</dd><dd class="dx-fig-sub" [class.dx-bad]="overdueFollowUpsCount()">{{ overdueFollowUpsCount() }} overdue</dd></div>
+                  <div><dt>Documents</dt><dd class="dx-fig">{{ documents().length }}</dd><dd class="dx-fig-sub">{{ latestDocument() ? 'Latest ' + latestDocument()!.uploadedOn : 'None on file' }}</dd></div>
+                </dl>
+                @if (stageMix().length) {
+                  <div class="dx-mix">
+                    <div class="dx-mix-rule" aria-hidden="true">@for (s of stageMix(); track s.stage) { <i class="dx-s{{ s.tone }}" [style.flex-grow]="s.amount"></i> }</div>
+                    <ul class="dx-mix-key" aria-label="Money on record by stage">
+                      @for (s of stageMix(); track s.stage) { <li class="dx-s{{ s.tone }}"><i aria-hidden="true"></i>{{ s.stage }}<b>{{ formatINR(s.amount) }}</b><span>{{ s.share }}%</span></li> }
+                    </ul>
+                  </div>
+                }
               </section>
-              <div class="overview-grid">
-                <section class="panel"><header><h2><span aria-hidden="true">♙</span> Donor Information</h2></header><dl class="information">
-                  <div><dt>Full Name</dt><dd>{{ hasPermission('don.contact.view') ? donor().fullName : maskedFullName() }}</dd></div>
-                  <div><dt>Donor ID</dt><dd class="number">{{ donor().reference }}</dd></div>
-                  <div><dt>Email</dt><dd>{{ hasPermission('don.contact.view') ? (donor().email || '—') : maskedEmail() }}</dd></div>
-                  <div><dt>Phone</dt><dd class="number">{{ hasPermission('don.contact.view') ? (donor().phone || '—') : maskedPhone() }}</dd></div>
-                  <div><dt>Owner</dt><dd>{{ donor().owner }}</dd></div>
-                  <div><dt>Status</dt><dd><span class="badge-pill badge-{{ badgeClass(donor().lifecycleState) }}">● {{ donor().lifecycleState }}</span></dd></div>
-                </dl><div class="utility-actions"><button type="button" class="btn btn-outline-secondary btn-sm" title="View consent and preferences" (click)="openConsentPreferences()">◉ Consent</button><button type="button" class="btn btn-outline-secondary btn-sm" title="View identity verification" (click)="openIdentityVerification()">▣ Identity</button><button type="button" class="btn btn-outline-secondary btn-sm" title="Edit donor profile" [disabled]="!canCorrect()" (click)="openAction('correct')">✎ Edit</button><button type="button" class="btn btn-outline-secondary btn-sm" title="Refresh donor data" (click)="refreshData()">↻</button>@if (canDeleteDraft()) { <button type="button" class="btn btn-outline-secondary btn-sm" title="Delete unused draft" (click)="openAction('delete-draft')">⌫ Delete draft</button> }</div></section>
-                <section class="panel"><header><h2><span aria-hidden="true">◷</span> Recent Activity</h2><button type="button" class="btn btn-outline-secondary btn-sm" (click)="selectTab('activity')">View All</button></header><ol class="activity-preview">@for (a of activity().slice(0,5); track a.id) { <li><span class="small-icon" aria-hidden="true">◷</span><div><strong>{{ a.action }}</strong><p>{{ a.actor }} · {{ a.timestamp }}</p></div></li> } @empty { <li class="empty-row">No activity recorded.</li> }</ol></section>
-                <div class="summary-stack"><section class="panel"><header><h2><span aria-hidden="true">▣</span> Next Follow-up</h2><button type="button" class="btn btn-outline-secondary btn-sm" (click)="selectTab('follow-ups')">View All</button></header>@if (upcoming()[0]; as f) { <div class="highlight"><div class="date-tile number">{{ f.dueAtUtc ? (f.dueAtUtc | date:'dd') : '—' }}<small>{{ f.dueAtUtc | date:'MMM yyyy' }}</small></div><div><strong>{{ f.nextAction || f.followUpReference }}</strong><p>{{ f.dueAtUtc | date:'shortTime' }} · {{ f.relationshipOwnerName || 'Unassigned' }}</p></div></div> } @else { <p class="empty-row">No upcoming follow-ups.</p> }</section>
-                <section class="panel"><header><h2><span aria-hidden="true">▱</span> Donation Summary</h2><button type="button" class="btn btn-outline-secondary btn-sm" (click)="selectTab('donations')">View All</button></header><div class="highlight amber"><div><strong class="number">{{ formatINR(lifetimeGiving()) }}</strong><p>{{ totalDonationsCount() }} received transactions · {{ pendingPromisesCount() }} pending promises</p></div></div></section>
-                <section class="panel"><header><h2><span aria-hidden="true">▤</span> Latest Document</h2><button type="button" class="btn btn-outline-secondary btn-sm" (click)="selectTab('documents')">View All</button></header>@if (latestDocument(); as d) { <div class="highlight blue"><span class="small-icon" aria-hidden="true">▤</span><div><strong>{{ d.name }}</strong><p>Added on {{ d.uploadedOn }}</p></div></div> } @else { <p class="empty-row">No documents uploaded.</p> }</section></div>
-              </div>
-            } @else { <div class="list-toolbar"><h2>{{ activeTab() === 'activity' ? 'Activity History' : activeTab() === 'follow-ups' ? 'Follow-ups' : activeTab() === 'documents' ? 'Documents' : activeTab() === 'donations' ? 'Donations' : 'Related records' }}</h2><input type="search" aria-label="Search related records" placeholder="Search records…" [ngModel]="searchTerm()" (ngModelChange)="setSearchTerm($event)" /></div> }
-            
-            @if (activeTab() === 'donations') {
-              <div class="tab-panel">
-                <h3 class="subsection-title">Donation totals by stage</h3><div class="stage-pills">@for (stage of donationTotals(); track stage.stage) { <div class="stage-pill"><span class="badge-pill badge-{{ badgeClass(stage.stage) }}">{{ stage.stage }}</span><strong class="number">{{ formatINR(stage.amount) }}</strong><span class="stage-asof">As of {{ stage.asOf }}</span></div> }</div><h3 class="subsection-title">Campaign history</h3>@if (campaignHistory().length) {
-                  <div class="table-scroll">
-                    <table class="data-table">
-                      <thead>
-                        <tr><th>ID</th><th>Campaign</th><th>Role</th><th>Date</th><th class="text-end">Status</th></tr>
-                      </thead>
-                      <tbody>
-                        @for (item of paged('campaigns', campaignHistory()); track item.id) {
-                          @if (matchesSearch(item.id, item.name, item.status)) {
-                            <tr>
-                              <td class="mono cell-id">{{ item.id }}</td>
-                              <td>{{ item.name }}</td>
-                              <td class="cell-muted">{{ item.role }}</td>
-                              
-                              <td class="cell-muted">{{ item.date }}</td>
-                              <td class="text-end"><span class="badge-pill badge-{{ badgeClass(item.status) }} badge-sm">{{ item.status }}</span></td>
-                            </tr>
-                          }
-                        }
-                      </tbody>
-                    </table>
-<ng-container *ngTemplateOutlet="pagination; context: { key: 'campaigns', rows: campaignHistory() }" />
-                  </div>
-                } @else {
-                  <p class="empty-row">No donations available.</p>
-                }
 
-                <h3 class="subsection-title">Promises</h3>
-                @if (promises().length) {
-                  <ul class="simple-list">
-                    @for (p of paged('promises', promises()); track p.id) {
-                      <li>
-                        <span class="mono cell-id">{{ p.id }}</span>
-                        <span class="mono">{{ formatINR(p.amount) }}</span>
-                        <span class="cell-muted">Due {{ p.dueDate }}</span>
-                        <span class="badge-pill badge-{{ badgeClass(p.status) }} badge-sm">{{ p.status }}</span>
-                      </li>
+              <div class="dx-spread">
+                <section class="dx-sheet dx-profile" aria-labelledby="dx-profile-h">
+                  <header class="dx-sheet-top"><h3 id="dx-profile-h" class="dx-h">Profile</h3><button type="button" class="dx-lnk" [disabled]="!canCorrect()" (click)="openAction('correct')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z"/></svg>Edit</button></header>
+                  <dl class="dx-dl">
+                    <div><dt>Full name</dt><dd>{{ hasPermission('don.contact.view') ? donor().fullName : maskedFullName() }}</dd></div>
+                    <div><dt>Donor ID</dt><dd class="dx-mono">{{ donor().reference }}</dd></div>
+                    <div><dt>Email</dt><dd>{{ hasPermission('don.contact.view') ? (donor().email || '—') : maskedEmail() }}</dd></div>
+                    <div><dt>Phone</dt><dd class="dx-mono">{{ hasPermission('don.contact.view') ? (donor().phone || '—') : maskedPhone() }}</dd></div>
+                    @if (language()) { <div><dt>Language</dt><dd>{{ language() }}</dd></div> }
+                    <div><dt>Consent</dt><dd class="dx-tone dx-t-{{ badgeClass(donor().consentStatus) }}"><i aria-hidden="true"></i>{{ donor().consentStatus }}</dd></div>
+                    <div><dt>Contact</dt><dd [class.dx-bad]="donor().doNotContact">{{ donor().doNotContact ? 'Do not contact' : donor().consentChannels }}</dd></div>
+                  </dl>
+                  <footer class="dx-sheet-foot">
+                    <button type="button" class="dx-lnk" (click)="openConsentPreferences()">Consent</button>
+                    <button type="button" class="dx-lnk" (click)="openIdentityVerification()">Identity</button>
+                    <button type="button" class="dx-lnk" (click)="refreshData()">Refresh</button>
+                    @if (canDeleteDraft()) { <button type="button" class="dx-lnk dx-lnk-bad" (click)="openAction('delete-draft')">Delete draft</button> }
+                  </footer>
+                </section>
+
+                <section class="dx-sheet" aria-labelledby="dx-recent-h">
+                  <header class="dx-sheet-top"><h3 id="dx-recent-h" class="dx-h">Recent activity</h3><button type="button" class="dx-lnk" (click)="selectTab('activity')">View all</button></header>
+                  @if (activity().length) {
+                    <ol class="dx-trail">
+                      @for (a of activity().slice(0, 5); track a.id) {
+                        <li><span class="dx-trail-dot" aria-hidden="true"></span><div><p class="dx-trail-what">{{ a.action }}</p><p class="dx-trail-meta">{{ a.actor }} · {{ a.timestamp }}</p></div></li>
+                      }
+                    </ol>
+                  } @else { <p class="dx-blank">No activity recorded yet.</p> }
+                </section>
+
+                <section class="dx-sheet dx-ahead" aria-labelledby="dx-ahead-h">
+                  <header class="dx-sheet-top"><h3 id="dx-ahead-h" class="dx-h">Coming up</h3><button type="button" class="dx-lnk" [disabled]="!canFollowUp()" (click)="openFollowUpPlanner()">Schedule</button></header>
+                  <div class="dx-ahead-row">
+                    @if (upcoming()[0]; as f) {
+                      <div class="dx-leaf" aria-hidden="true"><b>{{ f.dueAtUtc ? (f.dueAtUtc | date:'dd') : '—' }}</b><span>{{ f.dueAtUtc ? (f.dueAtUtc | date:'MMM yy') : '' }}</span></div>
+                      <div class="dx-ahead-text"><p class="dx-cap">Next follow-up</p><p class="dx-ahead-what">{{ f.nextAction || f.followUpReference }}</p><p class="dx-ahead-meta">{{ f.dueAtUtc ? (f.dueAtUtc | date:'shortTime') : 'No time' }} · {{ f.relationshipOwnerName || 'Unassigned' }}</p><button type="button" class="dx-lnk" (click)="executeFollowUp(f.id)">Execute</button></div>
+                    } @else {
+                      <div class="dx-leaf dx-leaf-off" aria-hidden="true"><b>—</b></div>
+                      <div class="dx-ahead-text"><p class="dx-cap">Next follow-up</p><p class="dx-ahead-meta">Nothing scheduled.</p></div>
                     }
-                  </ul>
-<ng-container *ngTemplateOutlet="pagination; context: { key: 'promises', rows: promises() }" />
-                } @else {
-                  <p class="empty-row">No promises recorded.</p>
-                }
-              </div>
-            }
-
-            
-            @if (activeTab() === 'communications') {
-              <div class="tab-panel">
-                <div class="tab-panel-actions">
-                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCommunicationHistory()">View full communication history</button>
-                </div>
-
-                @if (conversations().length) {
-                  <div class="table-scroll">
-                    <table class="data-table">
-                      <thead><tr><th>ID</th><th>Channel</th><th>Summary</th><th>Date</th><th class="text-end">Owner</th></tr></thead>
-                      <tbody>
-                        @for (c of paged('communications', conversations()); track c.id) {
-                          @if (matchesSearch(c.id, c.channel, c.summary, c.owner)) {
-                            <tr>
-                              <td class="mono cell-id">{{ c.id }}</td>
-                              <td>{{ c.channel }}</td>
-                              <td class="cell-muted">{{ c.summary }}</td>
-                              <td class="cell-muted">{{ c.date }}</td>
-                              <td class="text-end">{{ c.owner }}</td>
-                            </tr>
-                          }
-                        }
-                      </tbody>
-                    </table>
-<ng-container *ngTemplateOutlet="pagination; context: { key: 'communications', rows: conversations() }" />
                   </div>
-                } @else {
-                  <p class="empty-row">No communication history available.</p>
-                }
+                  <div class="dx-ahead-row">
+                    @if (nextPromise(); as p) {
+                      <div class="dx-leaf dx-leaf-gold" aria-hidden="true"><b>{{ dayOf(p.dueDate) }}</b><span>{{ monthOf(p.dueDate) }}</span></div>
+                      <div class="dx-ahead-text"><p class="dx-cap">Promise due</p><p class="dx-ahead-what dx-mono">{{ formatINR(p.amount) }}</p><p class="dx-ahead-meta"><span class="dx-mono">{{ p.id }}</span> · {{ p.dueDate ? 'Due ' + p.dueDate : 'No due date' }}</p></div>
+                    } @else {
+                      <div class="dx-leaf dx-leaf-off" aria-hidden="true"><b>—</b></div>
+                      <div class="dx-ahead-text"><p class="dx-cap">Promise due</p><p class="dx-ahead-meta">No pending promises.</p><button type="button" class="dx-lnk" [disabled]="!canCreateIntent()" (click)="openAction('create-intent')">Record a pledge</button></div>
+                    }
+                  </div>
+                  <div class="dx-ahead-row">
+                    <div class="dx-doc" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></div>
+                    <div class="dx-ahead-text"><p class="dx-cap">Latest document</p>
+                      @if (latestDocument(); as d) { <p class="dx-ahead-what">{{ d.name }}</p><p class="dx-ahead-meta">{{ d.classification }} · added {{ d.uploadedOn }}</p> } @else { <p class="dx-ahead-meta">No documents uploaded.</p> }
+                    </div>
+                  </div>
+                </section>
               </div>
-            }
+            } @else {
+              <!-- EVERY OTHER TAB: one sheet, one bar, its own body -->
+              <section class="dx-sheet dx-tab" [attr.aria-label]="tabHeading()">
+                <header class="dx-bar">
+                  <div class="dx-bar-title"><h3 class="dx-h dx-h-lg">{{ tabHeading() }}</h3><p class="dx-bar-meta">{{ tabMeta() }}</p></div>
+                  <div class="dx-bar-tools">
+                    @if (activeTab() !== 'consent' && activeTab() !== 'identity-verification') {
+                      <label class="dx-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" aria-label="Search related records" placeholder="Search records…" [ngModel]="searchTerm()" (ngModelChange)="setSearchTerm($event)" /></label>
+                    }
+                    @switch (activeTab()) {
+                      @case ('donations') { <button type="button" class="dx-outline" [disabled]="!canCreateIntent()" (click)="openAction('create-intent')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Record pledge</button> }
+                      @case ('follow-ups') { <button type="button" class="dx-outline" [disabled]="!canFollowUp()" (click)="openFollowUpPlanner()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Schedule</button> }
+                      @case ('communications') { <button type="button" class="dx-outline" (click)="openCommunicationHistory()">Full timeline</button> }
+                    }
+                  </div>
+                </header>
 
-            
-            @if (activeTab() === 'follow-ups') {
-              <div class="tab-panel">
-                <div class="tab-panel-actions">
-                  <button type="button" class="btn btn-primary btn-sm" [disabled]="!canFollowUp()" (click)="openFollowUpPlanner()">＋ Add</button>
-                </div>
-
-                @if (followUps().length) {
-                  <ul class="simple-list">
-                    @for (f of paged('follow-ups', followUps()); track f.id) {
-                      @if (matchesSearch(f.id, f.title, f.owner, f.status)) {
-                        <li>
-                          <span class="mono cell-id">{{ f.id }}</span>
-                          <span>{{ f.title }}</span>
-                          <span class="cell-muted">Due {{ f.due }}</span>
-                          <span class="badge-pill badge-{{ badgeClass(f.status) }} badge-sm">{{ f.status }}</span>
-                          @if (f.status !== 'Completed' && f.status !== 'Cancelled') {
-                            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="executeFollowUp(f.id)">Execute Follow-Up</button>
+                @if (activeTab() === 'donations') {
+                  <div class="dx-stages">
+                    @for (stage of donationTotals(); track stage.stage; let i = $index) {
+                      <div class="dx-stage dx-s{{ i % 5 }}"><p class="dx-cap">{{ stage.stage }}</p><p class="dx-stage-sum">{{ formatINR(stage.amount) }}</p><p class="dx-stage-asof">As of {{ stage.asOf || '—' }}</p></div>
+                    } @empty { <p class="dx-blank">No giving recorded for this donor yet.</p> }
+                  </div>
+                  <div class="dx-split">
+                    <div class="dx-col">
+                      <h4 class="dx-sub">Campaign history<span class="dx-count">{{ campaignHistory().length }}</span></h4>
+                      @if (campaignHistory().length) {
+                        <div class="dx-scroll">
+                          <table class="dx-table">
+                            <thead><tr><th>Campaign</th><th>Came via</th><th>Converted</th><th class="dx-end">Status</th></tr></thead>
+                            <tbody>
+                              @for (item of paged('campaigns', campaignHistory()); track item.id) {
+                                <tr><td><span class="dx-cell-main">{{ item.name }}</span><span class="dx-cell-ref">{{ item.id }}</span></td><td class="dx-mono dx-muted">{{ item.role }}</td><td class="dx-muted">{{ item.date || '—' }}</td><td class="dx-end"><span class="dx-tone dx-t-{{ item.status ? 'green' : 'gray' }}"><i aria-hidden="true"></i>{{ item.status || 'Open' }}</span></td></tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                        <ng-container *ngTemplateOutlet="pagination; context: { key: 'campaigns', rows: campaignHistory() }" />
+                      } @else { <p class="dx-blank">No campaigns linked to this donor.</p> }
+                    </div>
+                    <div class="dx-col dx-col-rule">
+                      <h4 class="dx-sub">Promises<span class="dx-count">{{ promises().length }}</span></h4>
+                      @if (promises().length) {
+                        <ul class="dx-promises">
+                          @for (p of paged('promises', promises()); track p.id) {
+                            <li><div><p class="dx-promise-sum">{{ formatINR(p.amount) }}</p><p class="dx-cell-ref">{{ p.id }}</p></div><div class="dx-promise-side"><span class="dx-tone dx-t-{{ badgeClass(p.status) }}"><i aria-hidden="true"></i>{{ p.status }}</span><span class="dx-muted">{{ p.dueDate ? 'Due ' + p.dueDate : 'No due date' }}</span></div></li>
                           }
+                        </ul>
+                        <ng-container *ngTemplateOutlet="pagination; context: { key: 'promises', rows: promises() }" />
+                      } @else { <p class="dx-blank">No promises recorded.</p> }
+                    </div>
+                  </div>
+                }
+
+                @if (activeTab() === 'communications') {
+                  @if (conversations().length) {
+                    <ol class="dx-convos">
+                      @for (c of paged('communications', conversations()); track c.id) {
+                        <li><span class="dx-ring" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></span><div class="dx-convo-main"><p class="dx-convo-top"><b>{{ c.channel }}</b><span class="dx-mono dx-muted">{{ c.id }}</span></p><p class="dx-convo-text">{{ c.summary }}</p></div><div class="dx-convo-side"><span>{{ c.date }}</span><span class="dx-muted">{{ c.owner || '—' }}</span></div></li>
+                      }
+                    </ol>
+                    <ng-container *ngTemplateOutlet="pagination; context: { key: 'communications', rows: conversations() }" />
+                  } @else { <p class="dx-blank">No communication history available.</p> }
+                }
+
+                @if (activeTab() === 'follow-ups') {
+                  @if (followUps().length) {
+                    <ol class="dx-agenda">
+                      @for (f of paged('follow-ups', followUps()); track f.id) {
+                        <li [class.is-done]="f.status === 'Completed' || f.status === 'Cancelled'">
+                          <div class="dx-leaf" [class.dx-leaf-bad]="f.status === 'Overdue'" aria-hidden="true"><b>{{ dayOf(f.due) }}</b><span>{{ monthOf(f.due) }}</span></div>
+                          <div class="dx-agenda-main"><p class="dx-agenda-what">{{ f.title }}</p><p class="dx-agenda-meta">{{ f.owner || 'Unassigned' }}@if (f.priority) { · {{ f.priority }} priority }</p></div>
+                          <span class="dx-tone dx-t-{{ badgeClass(f.status) }}"><i aria-hidden="true"></i>{{ f.status }}</span>
+                          @if (f.status !== 'Completed' && f.status !== 'Cancelled') { <button type="button" class="dx-outline dx-outline-sm" (click)="executeFollowUp(f.id)">Execute</button> } @else { <span class="dx-agenda-done">Closed</span> }
                         </li>
                       }
-                    }
-                  </ul>
-<ng-container *ngTemplateOutlet="pagination; context: { key: 'follow-ups', rows: followUps() }" />
-                } @else {
-                  <p class="empty-row">No follow-ups scheduled.</p>
+                    </ol>
+                    <ng-container *ngTemplateOutlet="pagination; context: { key: 'follow-ups', rows: followUps() }" />
+                  } @else { <p class="dx-blank">No follow-ups scheduled.</p> }
                 }
-              </div>
-            }
 
-            
-            @if (activeTab() === 'documents') {
-              <div class="tab-panel">
-                @if (documents().length) {
-                  <div class="table-scroll">
-                    <table class="data-table">
-                      <thead><tr><th>ID</th><th>File</th><th>Type</th><th>Uploaded</th><th class="text-end">Classification</th></tr></thead>
-                      <tbody>
-                        @for (d of paged('documents', documents()); track d.id) {
-                          @if (matchesSearch(d.id, d.name, d.type)) {
-                            <tr>
-                              <td class="mono cell-id">{{ d.id }}</td>
-                              <td>{{ d.name }}</td>
-                              <td class="cell-muted">{{ d.type }}</td>
-                              <td class="cell-muted">{{ d.uploadedOn }}</td>
-                              <td class="text-end"><span class="badge-pill badge-gray badge-sm">{{ d.classification }}</span></td>
-                            </tr>
+                @if (activeTab() === 'documents') {
+                  <div class="dx-split dx-split-wide">
+                    <div class="dx-col">
+                      @if (documents().length) {
+                        <ul class="dx-files">
+                          @for (d of paged('documents', documents()); track d.id) {
+                            <li><span class="dx-doc" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><div class="dx-file-main"><p class="dx-file-name">{{ d.name }}</p><p class="dx-cell-ref">{{ d.id }}</p></div><span class="dx-file-kind">{{ d.classification }}</span><span class="dx-muted dx-file-date">{{ d.uploadedOn }}</span></li>
                           }
-                        }
-                      </tbody>
-                    </table>
-<ng-container *ngTemplateOutlet="pagination; context: { key: 'documents', rows: documents() }" />
+                        </ul>
+                        <ng-container *ngTemplateOutlet="pagination; context: { key: 'documents', rows: documents() }" />
+                      } @else { <p class="dx-blank">No documents uploaded.</p> }
+                    </div>
+                    <div class="dx-col dx-col-rule">
+                      <h4 class="dx-sub">Possible duplicates<span class="dx-count">{{ duplicateLinks().length }}</span></h4>
+                      @if (duplicateLinks().length) {
+                        <ul class="dx-dupes">
+                          @for (dup of paged('duplicates', duplicateLinks()); track dup.id) {
+                            <li><p class="dx-dupe-why">{{ dup.matchReason }}</p><p class="dx-dupe-meta"><span class="dx-mono">{{ dup.reference }}</span><span class="dx-sim dx-sim-{{ dup.similarity.toLowerCase() }}" [attr.aria-label]="dup.similarity + ' confidence'"><i></i><i></i><i></i>{{ dup.similarity }}</span></p></li>
+                          }
+                        </ul>
+                        <ng-container *ngTemplateOutlet="pagination; context: { key: 'duplicates', rows: duplicateLinks() }" />
+                      } @else { <p class="dx-blank">No duplicate matches found.</p> }
+                    </div>
                   </div>
-                } @else {
-                  <p class="empty-row">No documents uploaded.</p>
                 }
 
-                <h3 class="subsection-title">Duplicate links</h3>
-                @if (duplicateLinks().length) {
-                  <ul class="simple-list">
-                    @for (dup of paged('duplicates', duplicateLinks()); track dup.id) {
-                      <li>
-                        <span class="cell-muted">{{ dup.matchReason }}</span>
-                        <span class="badge-pill badge-{{ badgeClass(dup.similarity) }} badge-sm">{{ dup.similarity }}</span>
-                      </li>
-                    }
-                  </ul>
-<ng-container *ngTemplateOutlet="pagination; context: { key: 'duplicates', rows: duplicateLinks() }" />
-                } @else {
-                  <p class="empty-row">No duplicate matches found.</p>
+                @if (activeTab() === 'consent') {
+                  <div class="dx-consent">
+                    <div class="dx-consent-lead">
+                      <p class="dx-cap">Overall consent</p>
+                      <p class="dx-consent-state dx-t-{{ badgeClass(donor().consentStatus) }}">{{ donor().consentStatus }}</p>
+                      <dl class="dx-dl dx-dl-tight">
+                        <div><dt>Do not contact</dt><dd [class.dx-bad]="donor().doNotContact">{{ donor().doNotContact ? 'Yes' : 'No' }}</dd></div>
+                        <div><dt>Last recorded</dt><dd>{{ donor().consentUpdated || '—' }}</dd></div>
+                        @if (consentNotice()) { <div><dt>Notice version</dt><dd class="dx-mono">{{ consentNotice() }}</dd></div> }
+                      </dl>
+                      <button type="button" class="dx-outline" (click)="openConsentPreferences()">Manage consent &amp; preferences</button>
+                    </div>
+                    <div class="dx-col-rule">
+                      <h4 class="dx-sub">By channel</h4>
+                      @if (channelConsents().length) {
+                        <ul class="dx-channels">
+                          @for (ch of channelConsents(); track ch.channel) {
+                            <li><span class="dx-channel-name">{{ ch.channel }}</span><span class="dx-tone dx-t-{{ badgeClass(ch.state) }}"><i aria-hidden="true"></i>{{ ch.state }}</span><span class="dx-muted">{{ ch.since ? 'Since ' + ch.since : '—' }}</span><span class="dx-muted">{{ ch.recognition ? 'Public thanks: yes' : 'Public thanks: no' }}</span></li>
+                          }
+                        </ul>
+                      } @else { <p class="dx-blank">{{ donor().consentChannels }}</p> }
+                    </div>
+                  </div>
                 }
-              </div>
-            }
 
-            
-            @if (activeTab() === 'consent') {
-              <div class="tab-panel">
-                <div class="snapshot-card">
-                  <div class="snapshot-row">
-                    <span>Consent status</span>
-                    <span class="badge-pill badge-{{ badgeClass(donor().consentStatus) }} badge-sm">{{ donor().consentStatus }}</span>
+                @if (activeTab() === 'identity-verification') {
+                  <div class="dx-consent">
+                    <div class="dx-consent-lead">
+                      <p class="dx-cap">Donor</p>
+                      <p class="dx-consent-state">{{ donor().fullName }}</p>
+                      <dl class="dx-dl dx-dl-tight">
+                        <div><dt>Donor ID</dt><dd class="dx-mono">{{ donor().reference }}</dd></div>
+                        <div><dt>Standing</dt><dd>{{ donor().lifecycleState || '—' }}</dd></div>
+                      </dl>
+                    </div>
+                    <div class="dx-col-rule dx-verify">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
+                      <p>Identity checks, uploaded proofs and verification decisions are kept on their own screen.</p>
+                      <button type="button" class="dx-outline" (click)="openIdentityVerification()">Open identity verification</button>
+                    </div>
                   </div>
-                  <div class="snapshot-row">
-                    <span>Permitted channels</span>
-                    <span class="snapshot-value snapshot-value-plain">{{ donor().consentChannels }}</span>
-                  </div>
-                  <div class="snapshot-row">
-                    <span>Do not contact</span>
-                    <span class="snapshot-value snapshot-value-plain">{{ donor().doNotContact ? 'Yes' : 'No' }}</span>
-                  </div>
-                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openConsentPreferences()">
-                    Manage consent &amp; preferences
-                  </button>
-                </div>
-              </div>
-            }
+                }
 
-            
-            @if (activeTab() === 'identity-verification') {
-              <div class="tab-panel">
-                <div class="snapshot-card">
-                  <div class="snapshot-row">
-                    <span>Donor</span>
-                    <span class="snapshot-value snapshot-value-plain">{{ donor().fullName }}</span>
-                  </div>
-                  <div class="snapshot-row">
-                    <span>Donor ID</span>
-                    <span class="snapshot-value snapshot-value-plain mono">{{ donor().reference }}</span>
-                  </div>
-                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openIdentityVerification()">
-                    Open identity verification
-                  </button>
-                </div>
-              </div>
-            }
-
-            
-            @if (activeTab() === 'activity') {
-              <div class="tab-panel">
-                @if (activity().length) {
-                  <ol class="timeline">
-                    @for (a of paged('activity', activity()); track a.id) {
-                      @if (matchesSearch(a.actor, a.action)) {
-                        <li class="timeline-item">
-                          <span class="timeline-dot" aria-hidden="true"></span>
-                          <div class="timeline-body">
-                            <p class="timeline-action">{{ a.action }}</p>
-                            <p class="timeline-meta">{{ a.actor }} <span class="sep">·</span> {{ a.timestamp }}</p>
-                          </div>
-                        </li>
+                @if (activeTab() === 'activity') {
+                  @if (activity().length) {
+                    @let rows = paged('activity', activity());
+                    <ol class="dx-chronicle">
+                      @for (a of rows; track a.id; let i = $index) {
+                        @if (i === 0 || monthOf(a.timestamp) !== monthOf(rows[i - 1].timestamp)) { <li class="dx-month"><span>{{ monthOf(a.timestamp) }}</span></li> }
+                        <li class="dx-event"><span class="dx-event-day dx-mono">{{ dayOf(a.timestamp) }}</span><span class="dx-event-dot" aria-hidden="true"></span><div><p class="dx-event-what">{{ a.action }}</p><p class="dx-event-meta">{{ a.actor }}</p></div></li>
                       }
-                    }
-                  </ol>
-<ng-container *ngTemplateOutlet="pagination; context: { key: 'activity', rows: activity() }" />
-                } @else {
-                  <p class="empty-row">No activity recorded.</p>
+                    </ol>
+                    <ng-container *ngTemplateOutlet="pagination; context: { key: 'activity', rows: activity() }" />
+                  } @else { <p class="dx-blank">No activity recorded.</p> }
                 }
-              </div>
+              </section>
             }
-          </section>
+          </div>
         }
       }
 
@@ -292,8 +300,7 @@
 
 
 
-
-<dialog #actionDialog class="action-dialog" [class.pn-dialog]="activeAction() === 'create-intent'" [attr.data-dg-own]="activeAction() === 'create-intent' ? '' : null" [attr.aria-labelledby]="dialogTitleId()" (cancel)="closeAction()">
+<dialog #actionDialog class="action-dialog" [class.pn-dialog]="activeAction() === 'create-intent'" [attr.aria-labelledby]="dialogTitleId()" (cancel)="closeAction()">
   @switch (activeAction()) {
 
     @case ('correct') {
@@ -465,4 +472,4 @@
     }
   }
 </dialog>
-<ng-template #pagination let-key="key" let-rows="rows"><div class="pagination-bar" aria-label="Pagination"><span aria-live="polite">{{ filtered(rows).length }} records · Page {{ pageNumber(key, rows) }} of {{ pageCount(rows) }} · 10 rows per page</span><button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="pageNumber(key, rows) === 1" (click)="movePage(key, rows, -1)" title="Previous page">‹ Previous</button><button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="pageNumber(key, rows) === pageCount(rows)" (click)="movePage(key, rows, 1)" title="Next page">Next ›</button></div>@if (filtered(rows).length === 0) { <p class="empty-row">No matching records.</p> }</ng-template>
+<ng-template #pagination let-key="key" let-rows="rows">@if (filtered(rows).length === 0) { <p class="dx-blank">No records match “{{ searchTerm() }}”.</p> } @else { <div class="dx-pager" aria-label="Pagination"><span aria-live="polite">Showing <b>{{ pageFrom(key, rows) }}–{{ pageTo(key, rows) }}</b> of <b>{{ filtered(rows).length }}</b></span>@if (pageCount(rows) > 1) { <span class="dx-pager-btns"><button type="button" class="dx-pg" [disabled]="pageNumber(key, rows) === 1" (click)="movePage(key, rows, -1)" title="Previous page" aria-label="Previous page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span class="dx-pg-n">{{ pageNumber(key, rows) }} / {{ pageCount(rows) }}</span><button type="button" class="dx-pg" [disabled]="pageNumber(key, rows) === pageCount(rows)" (click)="movePage(key, rows, 1)" title="Next page" aria-label="Next page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></span> }</div> }</ng-template>

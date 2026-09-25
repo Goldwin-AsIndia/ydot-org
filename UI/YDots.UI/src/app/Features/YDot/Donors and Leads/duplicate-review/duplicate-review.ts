@@ -716,6 +716,49 @@ export class DuplicateReviewComponent {
      this.evidenceOpen.update((v) => !v);
    }
  
+   /* ---------------- Collation desk presentation ---------------- */
+
+   /** Glyph and one-line meaning for each verdict, so the choice reads without a manual. */
+   readonly decisionMeta: Record<string, { glyph: string; hint: string }> = {
+     link: { glyph: 'ri-links-line', hint: 'Keep both records and note that they belong together.' },
+     merge: { glyph: 'ri-git-merge-line', hint: 'Fold one record into the other. It cannot be undone.' },
+     'keep-separate': { glyph: 'ri-git-branch-line', hint: 'They are different people; stop proposing the pair.' },
+     'request-review': { glyph: 'ri-question-answer-line', hint: 'Pass the pair to another steward for a second look.' },
+   };
+
+   readonly verdicts = this.decisionOptions.filter((d) => !!d.value);
+
+   confidenceLevel(level: Confidence): number {
+     return level === 'High' ? 3 : level === 'Medium' ? 2 : 1;
+   }
+
+   /** The docket's closing tally: how the filtered queue splits by confidence. */
+   readonly confidenceMix = computed(() => {
+     const rows = this.filteredQueue();
+     const total = Math.max(1, rows.length);
+     return (['High', 'Medium', 'Low'] as Confidence[]).map((level) => {
+       const count = rows.filter((p) => p.confidence === level).length;
+       return { level, count, share: Math.round((count / total) * 100) };
+     });
+   });
+
+   readonly openCount = computed(
+     () => this.queue().filter((p) => p.status === 'Pending' || p.status === 'In review' || p.status === 'Escalated').length,
+   );
+
+   readonly conflictCount = computed(() => this.compareRows().filter((r) => r.conflicting).length);
+   readonly agreeCount = computed(() => this.compareRows().filter((r) => !r.conflicting && !r.restricted).length);
+
+   initials(name: string): string {
+     return (name || '?')
+       .split(' ')
+       .filter(Boolean)
+       .map((part) => part.charAt(0))
+       .slice(0, 2)
+       .join('')
+       .toUpperCase();
+   }
+
    /* ---------------- Utility ---------------- */
  
    async copyValue(value: string) {
