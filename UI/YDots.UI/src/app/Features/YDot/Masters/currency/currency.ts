@@ -14,6 +14,7 @@ import {
   canPerform,
 } from '../../../../Shared/models/global-master.model';
 import { MasterService } from '../master.service';
+import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 /**
  * One currency, in the shape this screen's template binds to.
@@ -138,10 +139,9 @@ function blankCurrency(): Currency {
 @Component({
   selector: 'app-currency',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [PageHeader, CommonModule, FormsModule],
   templateUrl: './currency.html',
   styleUrls: ['../masters-ui.css', './currency.css'],
-  styleUrls: ['../../Administration/office-form/office-form.css', './currency.css'],
 })
 export class CurrencyComponent implements OnInit {
   private readonly masters = inject(MasterService);
