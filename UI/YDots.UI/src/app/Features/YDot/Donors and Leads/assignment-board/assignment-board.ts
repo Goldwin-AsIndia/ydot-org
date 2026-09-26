@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, computed, inject, signal } from "@angular/core";
+import { Component, computed, ElementRef, HostListener, inject, signal } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FormsModule } from "@angular/forms";
 import {
@@ -23,6 +23,22 @@ interface OwnerOption {
   readonly context: string;
   readonly initials: string;
 }
+
+export interface AbDdOption {
+  value: unknown;
+  label: string;
+  hint?: string;
+  initials?: string;
+}
+ 
+export interface AbDayCell {
+  iso: string; // YYYY-MM-DD
+  day: number;
+  inMonth: boolean;
+  disabled: boolean;
+  today: boolean;
+}
+ 
 
 /** One board row, in the shape the template binds to. */
 interface LeadRow {
@@ -156,6 +172,292 @@ export class AssignmentBoardComponent {
 
   protected readonly bulkRouteMaximumItems = signal(50);
 
+/* ========================== START – paste inside the component class ========================== */
+ 
+  // ---------------------------------------------------------------- custom dropdowns
+  private readonly abHost = inject<ElementRef<HTMLElement>>(ElementRef);
+ 
+  /** id of the dropdown that is open ('recordType', 'owner', 'f:<key>', 'newOwner', 'dtHour', 'dtMin') */
+  readonly dd = signal<string | null>(null);
+  readonly ddQuery = signal('');
+  readonly ddActive = signal(0);
+  readonly ddUp = signal(false);
+ 
+  readonly recordTypeOptions: AbDdOption[] = [
+    { value: 'leads', label: 'Leads' },
+    { value: 'donors', label: 'Donors' },
+  ];
+ 
+  readonly ownerFilterOptions = computed<AbDdOption[]>(() => [
+    { value: '', label: 'All owners' },
+    ...this.owners().map((o: any) => ({ value: o.userId, label: o.name })),
+  ]);
+ 
+  readonly newOwnerOptions = computed<AbDdOption[]>(() =>
+    this.filteredOwnerOptions().map((o: any) => ({
+      value: o.reference,
+      label: o.label,
+      hint: o.context,
+      initials: o.initials,
+    })),
+  );
+ 
+  /** Filter-panel options, cached per key so the template gets a stable array. */
+  private readonly filterOptCache = new Map<string, { src: readonly unknown[]; out: AbDdOption[] }>();
+  filterOptions(key: string): AbDdOption[] {
+    const src = this.optionsFor(key as any) as readonly unknown[];
+    const hit = this.filterOptCache.get(key);
+    if (hit && hit.src === src) return hit.out;
+    const out = src.map((o) => ({ value: o, label: String(o) }));
+    this.filterOptCache.set(key, { src, out });
+    return out;
+  }
+ 
+  ddSelected(opts: AbDdOption[], value: unknown): AbDdOption | null {
+    return opts.find((o) => o.value === value) ?? null;
+  }
+ 
+  ddFilter(opts: AbDdOption[]): AbDdOption[] {
+    const q = this.ddQuery().trim().toLowerCase();
+    return q ? opts.filter((o) => `${o.label} ${o.hint ?? ''}`.toLowerCase().includes(q)) : opts;
+  }
+ 
+  ddToggle(id: string, trigger: HTMLElement, opts: AbDdOption[], value: unknown): void {
+    this.dd() === id ? this.ddClose() : this.ddOpen(id, trigger, opts, value);
+  }
+ 
+  private ddOpen(id: string, trigger: HTMLElement, opts: AbDdOption[], value: unknown): void {
+    const r = trigger.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom;
+    this.ddUp.set(below < 300 && r.top > below);
+    this.ddQuery.set('');
+    this.ddActive.set(Math.max(opts.findIndex((o) => o.value === value), 0));
+    this.dd.set(id);
+    setTimeout(() => {
+      this.ddRoot()?.querySelector<HTMLInputElement>('.ab-dd-search input')?.focus();
+      this.ddScroll();
+    });
+  }
+ 
+  ddClose(focusTrigger = false): void {
+    const id = this.dd();
+    if (!id) return;
+    this.dd.set(null);
+    if (focusTrigger) {
+      setTimeout(() => this.abHost.nativeElement.querySelector<HTMLElement>(`[data-dd="${id}"]`)?.focus());
+    }
+  }
+ 
+  onDdQuery(q: string): void {
+    this.ddQuery.set(q);
+    this.ddActive.set(0);
+  }
+ 
+  /** Applies the picked value – one place that maps each dropdown to your existing handlers. */
+  ddCommit(id: string, value: unknown): void {
+    if (id === 'recordType') {
+      this.onRecordTypeChange(value as any);
+    } else if (id === 'owner') {
+      this.ownerFilter.set(value as any);
+      this.onFilterChanged();
+    } else if (id === 'newOwner') {
+      this.selectOwner(value as any);
+    } else if (id === 'dtHour') {
+      this.dtSet(undefined, value as string);
+    } else if (id === 'dtMin') {
+      this.dtSet(undefined, undefined, value as string);
+    } else if (id.startsWith('f:')) {
+      this.setFilterValue(id.slice(2) as any, value as any);
+    }
+    this.ddClose(true);
+  }
+ 
+  ddKey(e: KeyboardEvent, id: string, opts: AbDdOption[], value: unknown): void {
+    if (this.dd() !== id) {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key) && (e.target as HTMLElement).dataset['dd'] === id) {
+        e.preventDefault();
+        this.ddOpen(id, e.target as HTMLElement, opts, value);
+      }
+      return;
+    }
+    const list = this.ddFilter(opts);
+    const last = list.length - 1;
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        this.ddActive.set(Math.min(this.ddActive() + 1, last));
+        this.ddScroll();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        this.ddActive.set(Math.max(this.ddActive() - 1, 0));
+        this.ddScroll();
+        break;
+      case 'Home':
+        e.preventDefault();
+        this.ddActive.set(0);
+        this.ddScroll();
+        break;
+      case 'End':
+        e.preventDefault();
+        this.ddActive.set(Math.max(last, 0));
+        this.ddScroll();
+        break;
+      case 'Enter': {
+        e.preventDefault();
+        const opt = list[this.ddActive()];
+        if (opt) this.ddCommit(id, opt.value);
+        break;
+      }
+      case 'Escape':
+        e.preventDefault();
+        e.stopPropagation(); // keep the drawer / date panel open
+        this.ddClose(true);
+        break;
+      case 'Tab':
+        this.ddClose();
+        break;
+    }
+  }
+ 
+  private ddRoot(): HTMLElement | null {
+    return this.abHost.nativeElement.querySelector<HTMLElement>('.ab-dd.is-open');
+  }
+ 
+  private ddScroll(): void {
+    setTimeout(() => this.ddRoot()?.querySelector<HTMLElement>('.ab-dd-opt.is-active')?.scrollIntoView({ block: 'nearest' }));
+  }
+ 
+  // ---------------------------------------------------------------- date + time picker (effective time)
+  readonly dtOpen = signal(false);
+  readonly dtYear = signal(new Date().getFullYear());
+  readonly dtMonth = signal(new Date().getMonth()); // 0-11
+  readonly dtFocus = signal('');
+  readonly dtWeekdays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  readonly dtHours: AbDdOption[] = Array.from({ length: 24 }, (_, i) => ({ value: this.dtPad(i), label: this.dtPad(i) }));
+  readonly dtMinutes: AbDdOption[] = Array.from({ length: 12 }, (_, i) => ({ value: this.dtPad(i * 5), label: this.dtPad(i * 5) }));
+ 
+  private dtPad(n: number): string {
+    return String(n).padStart(2, '0');
+  }
+ 
+  private dtIso(d: Date): string {
+    return `${d.getFullYear()}-${this.dtPad(d.getMonth() + 1)}-${this.dtPad(d.getDate())}`;
+  }
+ 
+  private dtMinDate(): string | null {
+    const min = String(this.minEffectiveTime() ?? '');
+    return min.length >= 10 ? min.slice(0, 10) : null;
+  }
+ 
+  /** Current value split into parts – value format is the same as datetime-local: YYYY-MM-DDTHH:mm */
+  dtParts(): { date: string | null; h: string; m: string } {
+    const v = String(this.draft()?.effectiveTimeInput ?? '');
+    return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)
+      ? { date: v.slice(0, 10), h: v.slice(11, 13), m: v.slice(14, 16) }
+      : { date: null, h: '09', m: '00' };
+  }
+ 
+  dtDisplay(): string {
+    const p = this.dtParts();
+    if (!p.date) return '';
+    const [y, mo, d] = p.date.split('-').map(Number);
+    return new Date(y!, mo! - 1, d!, Number(p.h), Number(p.m)).toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  }
+ 
+  dtMonthLabel(): string {
+    return new Date(this.dtYear(), this.dtMonth(), 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  }
+ 
+  dtCells(): AbDayCell[] {
+    const y = this.dtYear();
+    const m = this.dtMonth();
+    const first = new Date(y, m, 1);
+    const today = this.dtIso(new Date());
+    const min = this.dtMinDate();
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(y, m, 1 - first.getDay() + i);
+      const iso = this.dtIso(d);
+      return { iso, day: d.getDate(), inMonth: d.getMonth() === m, disabled: !!min && iso < min, today: iso === today };
+    });
+  }
+ 
+  dtToggle(): void {
+    if (this.dtOpen()) {
+      this.dtOpen.set(false);
+      return;
+    }
+    const base = this.dtParts().date ?? this.dtMinDate() ?? this.dtIso(new Date());
+    this.dtShowMonthOf(base);
+    this.dtFocus.set(base);
+    this.dd.set(null);
+    this.dtOpen.set(true);
+  }
+ 
+  dtShift(delta: number): void {
+    const d = new Date(this.dtYear(), this.dtMonth() + delta, 1);
+    this.dtYear.set(d.getFullYear());
+    this.dtMonth.set(d.getMonth());
+  }
+ 
+  dtPick(c: AbDayCell): void {
+    if (c.disabled) return;
+    this.dtFocus.set(c.iso);
+    if (!c.inMonth) this.dtShowMonthOf(c.iso);
+    this.dtSet(c.iso);
+  }
+ 
+  dtToday(): void {
+    const t = this.dtIso(new Date());
+    this.dtShowMonthOf(t);
+    this.dtFocus.set(t);
+    const min = this.dtMinDate();
+    if (!min || t >= min) this.dtSet(t);
+  }
+ 
+  dtClear(): void {
+    this.onEffectiveTimeInput('');
+  }
+ 
+  private dtSet(date?: string, h?: string, m?: string): void {
+    const p = this.dtParts();
+    const d = date ?? p.date ?? this.dtMinDate() ?? this.dtIso(new Date());
+    this.onEffectiveTimeInput(`${d}T${h ?? p.h}:${m ?? p.m}`);
+  }
+ 
+  private dtShowMonthOf(iso: string): void {
+    const [y, m] = iso.split('-').map(Number);
+    this.dtYear.set(y!);
+    this.dtMonth.set(m! - 1);
+  }
+ 
+  dtGridKey(e: KeyboardEvent): void {
+    const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    if (!(e.key in step)) return;
+    e.preventDefault();
+    const [y, m, d] = (this.dtFocus() || this.dtIso(new Date())).split('-').map(Number);
+    const next = this.dtIso(new Date(y!, m! - 1, d! + step[e.key]!));
+    this.dtFocus.set(next);
+    this.dtShowMonthOf(next);
+    setTimeout(() => this.abHost.nativeElement.querySelector<HTMLButtonElement>(`.ab-dt-day[data-iso="${next}"]`)?.focus());
+  }
+ 
+  dtEsc(e: Event): void {
+    if (!this.dtOpen()) return;
+    e.stopPropagation(); // keep the drawer open
+    this.dtOpen.set(false);
+    this.abHost.nativeElement.querySelector<HTMLElement>('.ab-dt-trigger')?.focus();
+  }
+ 
+  // ---------------------------------------------------------------- close on outside click
+  @HostListener('document:pointerdown', ['$event'])
+  onAbOutsidePointer(e: PointerEvent): void {
+    const t = e.target as Element | null;
+    if (this.dd() && !t?.closest('.ab-dd.is-open')) this.dd.set(null);
+    if (this.dtOpen() && !t?.closest('.ab-dt')) this.dtOpen.set(false);
+  }
   // ===========================================================================================
   // Filter state - every change re-queries
   // ===========================================================================================

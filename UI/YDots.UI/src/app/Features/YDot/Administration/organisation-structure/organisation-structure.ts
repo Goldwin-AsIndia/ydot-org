@@ -1,26 +1,21 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Observable, Subject, takeUntil } from 'rxjs';
 import { IamAdminApiService } from '../../../../Service/iam-admin-api.service';
 import {
   OutcomeResponse,
   apiErrorMessage,
-  apiFieldErrors,
 } from '../../../../Shared/models/api-response.model';
 import {
   DepartmentResponse,
   OrganisationUnitResponse,
-  RecordStatus,
 } from '../../../../Shared/models/iam-contract.model';
 import { ApiEnumOption, enumLabel } from '../../../../Shared/models/enum-option.model';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 import { EnumOptionsService } from '../../../../Shared/services/enum-options.service';
-import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
-import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { DepartmentFormComponent } from '../department-form/department-form';
 
 type Mode = 'departments' | 'units';
 
@@ -47,27 +42,17 @@ type Mode = 'departments' | 'units';
 @Component({
   selector: 'app-organisation-structure',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [CommonModule, DepartmentFormComponent],
   templateUrl: './organisation-structure.html',
   styleUrl: './organisation-structure.css',
 })
 export class OrganisationStructureComponent implements OnInit, OnDestroy {
   private readonly api = inject(IamAdminApiService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly tokens = inject(AuthTokenService);
   private readonly toast = inject(ToastService);
   private readonly enums = inject(EnumOptionsService);
-
-  /** The Organisation's active people, for the department head and the office manager. */
-  protected readonly people = inject(PeopleDirectoryService);
-
-  /**
-   * Country, state and city from the master catalogue, for an office's address.
-   *
-   * All three were free-text boxes - and the state was not on the form at all - so an office's
-   * address could not be matched to the catalogue every other address uses.
-   */
-  protected readonly geo = createGeoCascade();
 
   /** The server's record statuses, values in API case. The Status select offers these. */
   readonly statusOptions = signal<ApiEnumOption[]>([]);
@@ -83,12 +68,6 @@ export class OrganisationStructureComponent implements OnInit, OnDestroy {
   readonly loadFailed = signal(false);
   readonly saving = signal(false);
   readonly errorMessage = signal('');
-  readonly fieldErrors = signal<Record<string, string>>({});
-
-  /** Which row is open in the editor: an id, 'new', or null for closed. */
-  readonly editing = signal<string | null>(null);
-
-  readonly form = signal(this.blankForm());
 
   readonly confirmingDelete = signal<string | null>(null);
 
@@ -117,15 +96,20 @@ export class OrganisationStructureComponent implements OnInit, OnDestroy {
       ? this.sortTree(this.departments(), (item) => item.parentDepartmentId)
       : this.sortTree(this.units(), (item) => item.parentUnitId));
 
-  /** Parent options for the editor, minus the row being edited and anything beneath it. */
-  readonly parentOptions = computed(() => {
-    const current = this.editing();
-
-    if (this.isDepartments()) {
-      return this.departments().filter((item) => item.id !== current);
-    }
-
-    return this.units().filter((item) => item.id !== current);
+  /** The figures in the header strip, read from the rows already loaded - no extra request. */
+  readonly summary = computed(() => {
+    const rows = this.rows();
+    const active = rows.filter((row) => row.status === 'active').length;
+    return {
+      total: rows.length,
+      active,
+      inactive: rows.length - active,
+      topLevel: rows.filter((row) => row.depth === 0).length,
+      people: rows.reduce((sum, row) => sum + this.memberCount(row), 0),
+      withoutHead: this.isDepartments()
+        ? rows.filter((row) => !(row as unknown as DepartmentResponse).headDisplayName).length
+        : 0,
+    };
   });
 
   // =========================================================================================
@@ -156,55 +140,6 @@ export class OrganisationStructureComponent implements OnInit, OnDestroy {
     return enumLabel(this.statusOptions(), status);
   }
 
-  private blankForm() {
-    return {
-      name: '',
-      code: '',
-      description: '',
-      parentId: '',
-      headUserId: '',
-      managerUserId: '',
-      unitType: '',
-      addressLine1: '',
-      addressLine2: '',
-      city: '',
-      state: '',
-      country: '',
-      postalCode: '',
-      contactEmail: '',
-      contactPhone: '',
-      timeZone: '',
-      status: 'active' as RecordStatus,
-      displayOrder: 0,
-      expectedVersion: 0,
-    };
-  }
-
-  // ---- The address cascade ------------------------------------------------------------------
-
-  protected onCountryChange(value: string): void {
-    // The state and city go with the country, so a saved address cannot name a state that is not
-    // in the country beside it.
-    this.form.update((f) => ({ ...f, country: value, state: '', city: '' }));
-    this.geo.selectCountry(value);
-  }
-
-  protected onStateChange(value: string): void {
-    this.form.update((f) => ({ ...f, state: value, city: '' }));
-    this.geo.selectState(value);
-  }
-
-  /** A stored zone the offered list does not contain, kept visible rather than blanked. */
-  protected readonly orphanTimeZone = computed(() => {
-    const value = this.form().timeZone;
-    return value && !this.geo.timeZones().some((zone) => zone.ianaKey === value) ? value : '';
-  });
-
-  /** A stored person who is no longer in the active directory, kept visible likewise. */
-  protected personMissing(reference: string): boolean {
-    return !!reference && !this.people.assignable().some((person) => person.reference === reference);
-  }
-
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
@@ -213,7 +148,6 @@ export class OrganisationStructureComponent implements OnInit, OnDestroy {
   load(): void {
     this.loading.set(true);
     this.loadFailed.set(false);
-    this.editing.set(null);
 
     const request: Observable<DepartmentResponse[] | OrganisationUnitResponse[]> =
       this.isDepartments() ? this.api.getDepartments() : this.api.getUnits();
@@ -237,182 +171,55 @@ export class OrganisationStructureComponent implements OnInit, OnDestroy {
   }
 
   // =========================================================================================
-  // The editor
+  // Adding and editing - a department in a pop-up over this list (DepartmentFormComponent),
+  // an office on a page of its own (OfficeFormComponent).
   // =========================================================================================
 
-  startAdding(): void {
-    this.editing.set('new');
-    this.errorMessage.set('');
-    this.fieldErrors.set({});
+  /** The row open in the read-only View pop-up, or null. */
+  readonly viewing = signal<(DepartmentResponse | OrganisationUnitResponse) | null>(null);
 
-    this.form.set({ ...this.blankForm(), displayOrder: this.rows().length * 10 });
-    this.geo.selectCountry(null);
+  @HostListener('document:keydown.escape')
+  protected closeView(): void {
+    this.viewing.set(null);
+  }
+
+  /** An office's address on one line for the View pop-up; empty parts are skipped. */
+  addressLine(row: DepartmentResponse | OrganisationUnitResponse): string {
+    const unit = row as OrganisationUnitResponse;
+    return [unit.addressLine1, unit.addressLine2, unit.city, unit.state, unit.postalCode, unit.country]
+      .filter((part) => !!part && `${part}`.trim())
+      .join(', ');
+  }
+
+  /** The department pop-up: undefined when closed, null when adding, an id when editing. */
+  readonly departmentDialog = signal<string | null | undefined>(undefined);
+
+  startAdding(): void {
+    if (this.isDepartments()) {
+      this.departmentDialog.set(null);
+    } else {
+      this.router.navigateByUrl('/app/administration/organisation/units/new');
+    }
   }
 
   startEditing(row: DepartmentResponse | OrganisationUnitResponse): void {
     if (!row.id) {
       return;
     }
-
-    this.editing.set(row.id);
-    this.errorMessage.set('');
-    this.fieldErrors.set({});
-
-    const asUnit = row as OrganisationUnitResponse;
-    const asDepartment = row as DepartmentResponse;
-
-    this.form.set({
-      name: row.name ?? '',
-      code: row.code ?? '',
-      description: row.description ?? '',
-      parentId: (this.isDepartments()
-        ? asDepartment.parentDepartmentId
-        : asUnit.parentUnitId) ?? '',
-      headUserId: asDepartment.headUserId ?? '',
-      managerUserId: asUnit.managerUserId ?? '',
-      unitType: asUnit.unitType ?? '',
-      addressLine1: asUnit.addressLine1 ?? '',
-      addressLine2: asUnit.addressLine2 ?? '',
-      city: asUnit.city ?? '',
-      state: asUnit.state ?? '',
-      country: asUnit.country ?? '',
-      postalCode: asUnit.postalCode ?? '',
-      contactEmail: asUnit.contactEmail ?? '',
-      contactPhone: asUnit.contactPhone ?? '',
-      timeZone: asUnit.timeZone ?? '',
-      status: row.status ?? 'active',
-      displayOrder: row.displayOrder ?? 0,
-      expectedVersion: row.version ?? 0,
-    });
-
-    // Rebuild the cascade from the stored names, so the state and city pickers open on what was
-    // saved rather than blank.
-    if (!this.isDepartments()) {
-      this.geo.restore(asUnit.country, asUnit.state, asUnit.city);
+    if (this.isDepartments()) {
+      this.departmentDialog.set(row.id);
+    } else {
+      this.router.navigate(['/app/administration/organisation/units', row.id, 'edit']);
     }
   }
 
-  cancelEditing(): void {
-    this.editing.set(null);
-    this.errorMessage.set('');
-    this.fieldErrors.set({});
+  closeDepartmentDialog(): void {
+    this.departmentDialog.set(undefined);
   }
 
-  update<K extends keyof ReturnType<typeof this.form>>(
-    key: K, value: ReturnType<typeof this.form>[K]): void {
-    this.form.update((current) => ({ ...current, [key]: value }));
-  }
-
-  readonly canSave = computed(() => {
-    const f = this.form();
-    return f.name.trim().length >= 2 && f.code.trim().length >= 2 && !this.saving();
-  });
-
-  save(): void {
-    if (!this.canSave()) {
-      return;
-    }
-
-    this.saving.set(true);
-    this.errorMessage.set('');
-    this.fieldErrors.set({});
-
-    const f = this.form();
-    const id = this.editing();
-    const isNew = id === 'new';
-
-    const request: Observable<DepartmentResponse | OrganisationUnitResponse> =
-      this.isDepartments() ? this.saveDepartment(isNew, id, f) : this.saveUnit(isNew, id, f);
-
-    request.pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.editing.set(null);
-        this.toast.show(
-          'Saved',
-          isNew ? `${f.name} has been added.` : `${f.name} has been updated.`,
-          'success');
-        this.load();
-      },
-      error: (error: unknown) => {
-        this.saving.set(false);
-        this.errorMessage.set(apiErrorMessage(error, 'That could not be saved.'));
-        this.fieldErrors.set(apiFieldErrors(error));
-      },
-    });
-  }
-
-  private saveDepartment(isNew: boolean, id: string | null, f: ReturnType<typeof this.form>) {
-    if (isNew) {
-      return this.api.createDepartment({
-        name: f.name.trim(),
-        code: f.code.trim().toUpperCase(),
-        description: f.description.trim() || null,
-        parentDepartmentId: f.parentId || null,
-        headUserId: f.headUserId || null,
-        displayOrder: f.displayOrder,
-      });
-    }
-
-    // AN UPDATE SENDS THE TRIMMED TEXT, EMPTY INCLUDED. The server reads null as "leave it
-    // alone", so sending null for a cleared box - which this used to do - kept the old value and
-    // the edit silently did nothing.
-    return this.api.updateDepartment(id!, {
-      expectedVersion: f.expectedVersion,
-      name: f.name.trim(),
-      code: f.code.trim().toUpperCase(),
-      description: f.description.trim(),
-      parentDepartmentId: f.parentId || null,
-      headUserId: f.headUserId || null,
-      status: f.status,
-      displayOrder: f.displayOrder,
-    });
-  }
-
-  private saveUnit(isNew: boolean, id: string | null, f: ReturnType<typeof this.form>) {
-    if (isNew) {
-      return this.api.createUnit({
-        name: f.name.trim(),
-        code: f.code.trim().toUpperCase(),
-        description: f.description.trim() || null,
-        parentUnitId: f.parentId || null,
-        unitType: f.unitType.trim() || null,
-        addressLine1: f.addressLine1.trim() || null,
-        addressLine2: f.addressLine2.trim() || null,
-        city: f.city.trim() || null,
-        state: f.state.trim() || null,
-        country: f.country.trim() || null,
-        postalCode: f.postalCode.trim() || null,
-        contactEmail: f.contactEmail.trim() || null,
-        contactPhone: f.contactPhone.trim() || null,
-        timeZone: f.timeZone.trim() || null,
-        managerUserId: f.managerUserId || null,
-        displayOrder: f.displayOrder,
-      });
-    }
-
-    // Empty strings, not null, for the same reason as the department above: null means "leave
-    // it alone" to the server, so a cleared address line could never actually be cleared.
-    return this.api.updateUnit(id!, {
-      expectedVersion: f.expectedVersion,
-      name: f.name.trim(),
-      code: f.code.trim().toUpperCase(),
-      description: f.description.trim(),
-      parentUnitId: f.parentId || null,
-      unitType: f.unitType.trim(),
-      addressLine1: f.addressLine1.trim(),
-      addressLine2: f.addressLine2.trim(),
-      city: f.city.trim(),
-      state: f.state.trim(),
-      country: f.country.trim(),
-      postalCode: f.postalCode.trim(),
-      contactEmail: f.contactEmail.trim(),
-      contactPhone: f.contactPhone.trim(),
-      timeZone: f.timeZone.trim(),
-      managerUserId: f.managerUserId || null,
-      status: f.status,
-      displayOrder: f.displayOrder,
-    });
+  onDepartmentSaved(): void {
+    this.departmentDialog.set(undefined);
+    this.load();
   }
 
   // =========================================================================================
@@ -511,6 +318,12 @@ export class OrganisationStructureComponent implements OnInit, OnDestroy {
 
   indent(depth: number): string {
     return `${depth * 1.5}rem`;
+  }
+
+  /** Up to two letters for the monogram beside a name: the first letter of the first two words. */
+  initials(name: string | null | undefined): string {
+    const words = (name ?? '').trim().split(/\s+/).filter(Boolean);
+    return words.slice(0, 2).map(word => word[0]).join('').toUpperCase() || '?';
   }
 
   statusClass(status: string | undefined): string {

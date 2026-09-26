@@ -29,7 +29,7 @@ import {
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './business-unit.html',
-  styleUrls: ['./business-unit.css'],
+  styleUrls: ['../../../../Shared/styles/page-hero.css', './business-unit.css'],
 })
 export class BusinessUnitComponent implements OnInit, OnDestroy {
   private readonly api = inject(OrganisationApiService);
