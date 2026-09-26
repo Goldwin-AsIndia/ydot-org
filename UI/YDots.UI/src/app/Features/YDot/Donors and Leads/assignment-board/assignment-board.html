@@ -3,785 +3,790 @@
     <div class="container-fluid px-4 py-3">
       <div class="ab-page" [attr.inert]="drawerOpen() ? '' : null">
 
-        <header class="assignment-page-head">
-          <div class="assignment-page-copy">
-            <div class="assignment-eyebrow">LEADS · OWNERSHIP</div>
-            <div class="assignment-title-row">
-              <h1>Assignment board</h1>
-            </div>
+        <!-- =============================== HEADER =============================== -->
+        <header class="ab-head">
+          <div>
+            <h1>Assignment board</h1>
             <p>Assign or reassign owners across your records.</p>
           </div>
-
-          <div class="assignment-page-actions">
-            <button type="button" class="assignment-top-btn assignment-export-btn" (click)="exportAssignmentBoard()" title="Export assignment board">
+          <div class="ab-head-actions">
+            <button type="button" class="ab-btn" (click)="exportAssignmentBoard()" title="Export assignment board">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 3v12"/>
-                <path d="m7 10 5 5 5-5"/>
-                <path d="M5 21h14"/>
+                <path d="M12 3v12" />
+                <path d="m7 10 5 5 5-5" />
+                <path d="M5 21h14" />
               </svg>
               <span>Export</span>
             </button>
           </div>
         </header>
 
-        <section class="design-stats sleek-stats" aria-label="Assignment summary">
-  <article class="sleek-stat sleek-stat-primary">
-    <div class="sleek-stat-head">
-      <span class="sleek-stat-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      </span>
-      <span class="sleek-stat-label">Total records</span>
-      <span class="sleek-stat-arrow" aria-hidden="true">↗</span>
-    </div>
-    <div class="sleek-stat-body">
-      <strong>{{ totalCount() }}</strong>
-      <span>In selected scope</span>
-    </div>
-  </article>
-
-  <article class="sleek-stat">
-    <div class="sleek-stat-head">
-      <span class="sleek-stat-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg>
-      </span>
-      <span class="sleek-stat-label">Unassigned</span>
-      <span class="sleek-stat-arrow" aria-hidden="true">↗</span>
-    </div>
-    <div class="sleek-stat-body">
-      <strong>{{ unassignedCount() }}</strong>
-      <span>On this page</span>
-    </div>
-  </article>
-
-  <article class="sleek-stat">
-    <div class="sleek-stat-head">
-      <span class="sleek-stat-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      </span>
-      <span class="sleek-stat-label">Assigned</span>
-      <span class="sleek-stat-arrow" aria-hidden="true">↗</span>
-    </div>
-    <div class="sleek-stat-body">
-      <strong>{{ assignedCount() }}</strong>
-      <span>On this page</span>
-    </div>
-  </article>
-
-  <article class="sleek-stat">
-    <div class="sleek-stat-head">
-      <span class="sleek-stat-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-      </span>
-      <span class="sleek-stat-label">Follow-up today</span>
-      <span class="sleek-stat-arrow" aria-hidden="true">↗</span>
-    </div>
-    <div class="sleek-stat-body">
-      <strong>{{ dueTodayCount() }}</strong>
-      <span>On this page</span>
-    </div>
-  </article>
-</section>
-
-        <section class="design-filter-card" aria-label="Record search and selection">
-          <form class="design-filter-bar" (ngSubmit)="onFilterChanged()">
-            <label class="design-field design-search-field">
-              <span>SEARCH</span>
-              <div class="design-search-box">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-                <input type="search" name="search" placeholder="Name, code, email or phone" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" />
+        <!-- =============================== SUMMARY =============================== -->
+        <section class="ab-summary" aria-label="Assignment summary" [attr.aria-busy]="uiState() === 'loading'">
+          <dl class="ab-figs">
+            <div class="ab-fig" data-tone="slate">
+              <span class="ab-fig-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M3 10h18M8 3v4M16 3v4" />
+                </svg>
+              </span>
+              <div class="ab-fig-body">
+                <dt>Total records</dt>
+                <dd><span class="ab-fig-v">{{ totalCount() }}</span><span class="ab-fig-s">In selected scope</span></dd>
               </div>
-            </label>
+            </div>
 
-            <label class="design-field">
-              <span>RECORD TYPE</span>
-              <select [ngModel]="recordType()" name="recordType" (ngModelChange)="onRecordTypeChange($event)">
-                <option value="leads">Leads</option>
-                <option value="donors">Donors</option>
-              </select>
-            </label>
+            <div class="ab-fig" data-tone="warn">
+              <span class="ab-fig-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20c0-4 3.5-6 8-6s8 2 8 6" />
+                </svg>
+              </span>
+              <div class="ab-fig-body">
+                <dt>Unassigned</dt>
+                <dd><span class="ab-fig-v">{{ unassignedCount() }}</span><span class="ab-fig-s">On this page</span></dd>
+              </div>
+            </div>
 
-            <label class="design-field">
-              <span>OWNERSHIP</span>
-              <select [ngModel]="savedFilter()" name="ownership" (ngModelChange)="savedFilter.set($event); onFilterChanged()">
-                @for (option of savedFilters(); track option) {
-                  <option [ngValue]="option">{{ option === 'All leads' ? 'All ownership' : option }}</option>
-                }
-              </select>
-            </label>
+            <div class="ab-fig" data-tone="ok">
+              <span class="ab-fig-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </span>
+              <div class="ab-fig-body">
+                <dt>Assigned</dt>
+                <dd><span class="ab-fig-v">{{ assignedCount() }}</span><span class="ab-fig-s">On this page</span></dd>
+              </div>
+            </div>
 
-            <label class="design-field">
-              <span>OWNER</span>
-              <div class="design-owner-filter">
-                @if (owners().length > 20) {
-                  <input type="search" placeholder="Search owners" aria-label="Search owner options" [ngModel]="dropdownSearch()['owner'] ?? ''" name="ownerSearch" (ngModelChange)="searchOptions('owner', $event)" />
-                }
-                <select [ngModel]="ownerFilter()" name="owner" (ngModelChange)="ownerFilter.set($event); onFilterChanged()">
-                  <option value="">All owners</option>
-                  @for (owner of visibleFilterOwners(); track owner.userId) {
-                    <option [value]="owner.userId">{{ owner.name }}</option>
-                  }
+            <div class="ab-fig" data-tone="danger">
+              <span class="ab-fig-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 3" />
+                </svg>
+              </span>
+              <div class="ab-fig-body">
+                <dt>Follow-up today</dt>
+                <dd><span class="ab-fig-v">{{ dueTodayCount() }}</span><span class="ab-fig-s">On this page</span></dd>
+              </div>
+            </div>
+          </dl>
+
+          <div class="ab-attn">
+            <span class="ab-attn-cap"><svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3Z" />
+              </svg>Quick filter</span>
+            <ul class="ab-attn-list" role="list">
+              <li>
+                <button type="button" class="ab-attn-row" data-tone="warn"
+                  [class.is-on]="savedFilter() === 'Unassigned only'" (click)="toggleSavedFilter('Unassigned only')">
+                  <span class="ab-attn-c">{{ unassignedCount() }}</span><span class="ab-attn-l">Unassigned
+                    records</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="ab-attn-row" data-tone="ok"
+                  [class.is-on]="savedFilter() === 'Assigned only'" (click)="toggleSavedFilter('Assigned only')">
+                  <span class="ab-attn-c">{{ assignedCount() }}</span><span class="ab-attn-l">Assigned records</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="ab-attn-row" data-tone="danger"
+                  [class.is-on]="slaFilter() === dueTodaySlaLabel()" [disabled]="!dueTodaySlaLabel()"
+                  (click)="toggleSlaQuick()">
+                  <span class="ab-attn-c">{{ dueTodayCount() }}</span><span class="ab-attn-l">Follow-ups due
+                    today</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- =============================== REGISTER =============================== -->
+        <section class="ab-register" [attr.aria-busy]="uiState() === 'loading'">
+          <header class="ab-reg-head">
+            <div class="ab-reg-title">
+              <h2>{{ recordType() === 'leads' ? 'Leads' : 'Donors' }}</h2>
+              <p>
+                @if (totalCount()) { Showing <b class="ab-num">{{ pagedStart() }}–{{ pagedEnd() }}</b> of <b
+                  class="ab-num">{{ totalCount() }}</b> }
+                @else { No records match }
+              </p>
+            </div>
+            <div class="ab-reg-actions">
+              <div class="ab-switch" role="group" aria-label="Record view">
+                <button type="button" class="ab-switch-b" [class.is-on]="viewMode() === 'cards'"
+                  [attr.aria-pressed]="viewMode() === 'cards'" title="Card view" (click)="viewMode.set('cards')">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                  <span>Cards</span>
+                </button>
+                <button type="button" class="ab-switch-b" [class.is-on]="viewMode() === 'table'"
+                  [attr.aria-pressed]="viewMode() === 'table'" title="Table view" (click)="viewMode.set('table')">
+                  <i class="ri-list-check-2" aria-hidden="true"></i>
+                  <span>Table</span>
+                </button>
+              </div>
+              @if (selectedLeadRefs().size) { <span class="ab-selcount">{{ selectedLeadRefs().size }} selected</span> }
+              @if (permissions()['bulkRoute']) {
+              <button type="button" class="ab-btn ab-btn--primary" (click)="startBulkAssignment()"
+                [disabled]="!selectedLeadRefs().size">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M19 8v6M22 11h-6" />
+                </svg>
+                <span>Bulk assign</span>
+              </button>
+              }
+            </div>
+          </header>
+
+          @if (savedFilters().length > 1) {
+          <nav class="ab-tabs" aria-label="Ownership">
+            @for (option of savedFilters(); track option) {
+            <button type="button" class="ab-tab-b" [class.is-on]="savedFilter() === option"
+              (click)="toggleSavedFilter(option); onFilterChanged()">
+              {{ option === 'All leads' ? 'All records' : option }}
+            </button>
+            }
+          </nav>
+          }
+
+          <form class="ab-toolbar" (ngSubmit)="onFilterChanged()">
+            <label class="ab-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input type="search" placeholder="Name, code, email or phone" [ngModel]="searchTerm()" name="search"
+                (ngModelChange)="searchTerm.set($event)" aria-label="Search records" />
+            </label>
+            <div class="ab-toolbar-r">
+              <div class="ab-select">
+                <select [ngModel]="recordType()" name="recordType" (ngModelChange)="onRecordTypeChange($event)"
+                  aria-label="Record type">
+                  <option value="leads">Leads</option>
+                  <option value="donors">Donors</option>
                 </select>
               </div>
-            </label>
-
-            <div class="design-filter-actions">
-              <button type="button" class="design-btn design-btn-ghost" title="More filters" (click)="toggleFilters()" [attr.aria-expanded]="filtersOpen()">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3Z"/></svg>
-                More filters
+              <div class="ab-select">
+                @if (owners().length > 20) {
+                <input type="search" class="ab-sr" placeholder="Search owners"
+                  [ngModel]="dropdownSearch()['owner'] ?? ''" name="ownerSearch"
+                  (ngModelChange)="searchOptions('owner', $event)" />
+                }
+                <select [ngModel]="ownerFilter()" name="owner"
+                  (ngModelChange)="ownerFilter.set($event); onFilterChanged()" aria-label="Owner">
+                  <option value="">All owners</option>
+                  @for (owner of visibleFilterOwners(); track owner.userId) { <option [value]="owner.userId">{{
+                    owner.name }}</option> }
+                </select>
+              </div>
+              <button type="button" class="ab-filter-btn" [class.is-on]="filtersOpen()" (click)="toggleFilters()"
+                [attr.aria-expanded]="filtersOpen()">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3Z" />
+                </svg>
+                <span>Filters</span>
               </button>
-              <button type="button" class="design-btn design-btn-ghost" title="Reset filters" (click)="clearFilters()">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
-                Reset
+              <button type="button" class="ab-link ab-link--mute" (click)="clearFilters()">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 12a9 9 0 1 0 3-6.7" />
+                  <path d="M3 4v5h5" />
+                </svg>Reset
               </button>
             </div>
           </form>
 
           @if (filtersOpen()) {
-            <div class="design-more-filters" id="ab-more-filters">
+          <div class="ab-filters" role="region" aria-label="More filters">
+            <div class="ab-filters-grid">
               @for (field of filterFields; track field.key) {
-                <label class="design-field">
-                  <span>{{ field.label }}</span>
-                  @if (optionsFor(field.key).length > 20) {
-                    <input type="search" [placeholder]="'Search ' + field.label.toLowerCase()" [attr.aria-label]="'Search ' + field.label + ' options'" [ngModel]="dropdownSearch()[field.key] ?? ''" [name]="'search-' + field.key" (ngModelChange)="searchOptions(field.key, $event)" />
-                  }
-                  <select [ngModel]="filterValue(field.key)" [name]="'filter-' + field.key" (ngModelChange)="setFilterValue(field.key, $event)">
-                    @for (option of visibleOptions(field.key); track option) {
-                      <option [ngValue]="option">{{ option }}</option>
-                    }
-                  </select>
-                </label>
+              <div class="ab-field">
+                <label [for]="'ab-filter-' + field.key">{{ field.label }}</label>
+                @if (optionsFor(field.key).length > 20) {
+                <input type="search" class="ab-field-search" [placeholder]="'Search ' + field.label.toLowerCase()"
+                  [ngModel]="dropdownSearch()[field.key] ?? ''" (ngModelChange)="searchOptions(field.key, $event)"
+                  name="search-{{field.key}}" />
+                }
+                <select [id]="'ab-filter-' + field.key" [ngModel]="filterValue(field.key)"
+                  (ngModelChange)="setFilterValue(field.key, $event)" name="filter-{{field.key}}">
+                  @for (option of visibleOptions(field.key); track option) { <option [ngValue]="option">{{ option }}
+                  </option> }
+                </select>
+              </div>
               }
             </div>
+            <div class="ab-filters-foot">
+              <button type="button" class="ab-link ab-link--mute" (click)="clearFilters()"><svg viewBox="0 0 24 24"
+                  aria-hidden="true">
+                  <path d="M3 12a9 9 0 1 0 3-6.7" />
+                  <path d="M3 4v5h5" />
+                </svg>Reset filters</button>
+              <button type="button" class="ab-btn ab-btn--ghost ab-btn--sm" (click)="toggleFilters()">Done</button>
+            </div>
+          </div>
           }
 
           @if (activeFilterSummary().length) {
-            <ul class="design-chips" aria-label="Active filters">
-              @for (chip of activeFilterSummary(); track chip.key) {
-                <li>
-                  {{ chip.label }}
-                  <button type="button" class="design-chip-close" [title]="'Remove ' + chip.label" [attr.aria-label]="'Remove ' + chip.label" (click)="removeFilterChip(chip.key)">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-                  </button>
-                </li>
-              }
-            </ul>
-          }
-        </section>
-
-        @if (dependencyFailure(); as dep) {
-          <div class="design-banner" role="alert">
-            <span>{{ dep.primary }} saved; {{ dep.dependent }} did not complete.</span>
-            <button type="button" class="design-btn design-btn-ghost design-btn-sm" (click)="dismissDependencyFailure()">Close</button>
+          <div class="ab-applied" aria-label="Applied filters">
+            <span class="ab-applied-cap">Showing</span>
+            @for (chip of activeFilterSummary(); track chip.key) {
+            <button type="button" class="ab-token" (click)="removeFilterChip(chip.key)"
+              [title]="'Remove ' + chip.label">
+              <span>{{ chip.label }}</span><svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m6 6 12 12M18 6 6 18" />
+              </svg>
+            </button>
+            }
+            <button type="button" class="ab-link ab-link--mute" (click)="clearFilters()">Clear all</button>
           </div>
-        }
+          }
 
-        @if (conflictRow(); as row) {
-          <div class="design-banner" role="alert">
+          @if (dependencyFailure(); as dep) {
+          <div class="ab-banner" role="alert">
+            <span>{{ dep.primary }} saved; {{ dep.dependent }} did not complete.</span>
+            <button type="button" class="ab-btn ab-btn--ghost ab-btn--sm"
+              (click)="dismissDependencyFailure()">Close</button>
+          </div>
+          }
+          @if (conflictRow(); as row) {
+          <div class="ab-banner" role="alert">
             <span>{{ row.leadReference }} changed after loading.</span>
             <div>
-              <button type="button" class="design-btn design-btn-ghost design-btn-sm" (click)="selectPreview(row); dismissConflict()">Review latest</button>
-              <button type="button" class="design-btn design-btn-ghost design-btn-sm" (click)="dismissConflict()">Cancel</button>
+              <button type="button" class="ab-btn ab-btn--ghost ab-btn--sm"
+                (click)="selectPreview(row); dismissConflict()">Review latest</button>
+              <button type="button" class="ab-btn ab-btn--ghost ab-btn--sm" (click)="dismissConflict()">Cancel</button>
             </div>
           </div>
-        }
-
-        <section class="design-section" aria-labelledby="design-records-title" [attr.aria-busy]="uiState() === 'loading'">
-          <div class="design-section-head">
-            <div class="design-section-title-row">
-              <span class="design-section-icon">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12h6M9 16h6M9 8h6"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg>
-              </span>
-              <div>
-                <h2 id="design-records-title">{{ recordType() === 'leads' ? 'Leads' : 'Donors' }}</h2>
-                <p>Manage ownership and plan the next follow-up.</p>
-              </div>
-            </div>
-
-            <div class="design-section-actions">
-              <div class="design-view-toggle" role="group" aria-label="Record view">
-                <button type="button" [class.active]="viewMode() === 'cards'" [attr.aria-pressed]="viewMode() === 'cards'" title="Card view" (click)="viewMode.set('cards')">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                </button>
-                <button type="button" [class.active]="viewMode() === 'table'" [attr.aria-pressed]="viewMode() === 'table'" title="List view" (click)="viewMode.set('table')">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
-                </button>
-              </div>
-
-              @if (selectionMode() && selectedLeadRefs().size) {
-                <span class="design-selection-count">{{ selectedLeadRefs().size }} selected</span>
-              }
-              @if (permissions()['bulkRoute']) {
-                <button type="button" class="design-btn design-btn-primary" (click)="selectionMode() && selectedLeadRefs().size ? startBulkAssignment() : toggleSelectionMode()">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
-                  {{ selectionMode() && selectedLeadRefs().size ? 'Continue assignment' : 'Bulk assign / reassign' }}
-                </button>
-              }
-              @if (selectionMode()) {
-                <button type="button" class="design-btn design-btn-ghost" (click)="exitSelectionMode()">Cancel</button>
-              }
-            </div>
-          </div>
-
-          @if (uiState() === 'loading') {
-            <div class="design-state"><strong>Loading assignment board…</strong><span>Fetching the latest ownership records.</span></div>
-          } @else if (uiState() === 'dependency-failure') {
-            <div class="design-state design-state-error"><strong>Assignment board unavailable</strong><span>{{ errorMessage() }}</span><button type="button" class="design-btn design-btn-ghost" (click)="refresh()">Retry</button></div>
-          } @else if (!paginatedRows().length) {
-            <div class="design-state"><strong>No records found</strong><span>Try changing the search or filter values.</span></div>
-          } @else if (viewMode() === 'cards') {
-            <ul class="design-record-grid">
-              @for (row of paginatedRows(); track row.leadId) {
-                <li class="design-record-card" [class.is-selected]="isRowSelected(row.leadReference)">
-                  <div class="design-record-top">
-                    <label class="design-check" [title]="selectionMode() ? 'Select record' : 'Select record'">
-                      <input type="checkbox" [checked]="isRowSelected(row.leadReference)" (change)="toggleRowSelection(row.leadReference)" [attr.aria-label]="'Select ' + leadName(row)" />
-                      <span></span>
-                    </label>
-                    <span class="design-badge" [class.breached]="row.slaState === 'Overdue' || row.slaState === 'Breached'" [class.ontrack]="row.slaState === 'On Track' || row.slaState === 'OnTrack'">
-                      {{ row.slaState === 'Overdue' ? 'Breached' : row.slaState === 'OnTrack' ? 'On track' : row.slaState }}
-                    </span>
-                  </div>
-
-                  <button type="button" class="design-record-heading" (click)="selectPreview(row)" [title]="'View ' + leadName(row)">
-                    <strong>{{ leadName(row) }}</strong>
-                  </button>
-
-                  <div class="design-meta-row">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>
-                    <span>{{ row.campaign }}</span>
-                  </div>
-                  <div class="design-meta-row">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-18 0M3 12h18M12 3a18 18 0 0 0 0 18"/></svg>
-                    <span>{{ row.language }} · {{ row.team }}</span>
-                  </div>
-
-                  <div class="design-owner-block" [class.unassigned]="!row.currentOwnerUserId">
-                    <span class="design-owner-icon">
-                      @if (row.currentOwnerUserId) {
-                        {{ getInitials(row.currentOwner) }}
-                      } @else {
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg>
-                      }
-                    </span>
-                    <div>
-                      <strong>{{ row.currentOwner }}</strong>
-                      <span>{{ row.currentOwnerUserId ? 'Owner' : 'No owner assigned' }}</span>
-                    </div>
-                  </div>
-
-                  <div class="design-record-actions">
-                    <button type="button" class="design-action-btn" title="View" (click)="selectPreview(row)">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                      View
-                    </button>
-                    @if (permissions()['assign'] || permissions()['reassign']) {
-                      <button type="button" class="design-action-btn primary" (click)="beginAssignment(primaryActionId(row), [row])">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
-                        {{ primaryActionLabel(row) }}
-                      </button>
-                    }
-                    <button type="button" class="design-icon-btn" title="Assignment history" (click)="openHistoryPanel(row)">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-                    </button>
-                    <button type="button" class="design-icon-btn" title="Schedule follow-up" (click)="scheduleFollowUp(row)">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2"/></svg>
-                    </button>
-                  </div>
-                </li>
-              }
-            </ul>
-          } @else {
-            <div class="design-list-header" aria-hidden="true">
-              <span></span><span>LEAD</span><span>CONTACT</span><span>OWNER</span><span>STATUS</span><span>ACTIONS</span>
-            </div>
-            <div class="design-record-list">
-              @for (row of paginatedRows(); track row.leadId) {
-                <article class="design-record-row" [class.is-selected]="isRowSelected(row.leadReference)">
-                  <label class="design-check">
-                    <input type="checkbox" [checked]="isRowSelected(row.leadReference)" (change)="toggleRowSelection(row.leadReference)" [attr.aria-label]="'Select ' + leadName(row)" />
-                    <span></span>
-                  </label>
-
-                  <button type="button" class="design-row-lead" (click)="selectPreview(row)">
-                    <strong>{{ leadName(row) }}</strong>
-                  </button>
-
-                  <div class="design-row-contact">
-                    <div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>{{ row.campaign }}</div>
-                    <div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-18 0M3 12h18M12 3a18 18 0 0 0 0 18"/></svg>{{ row.language }} · {{ row.team }}</div>
-                  </div>
-
-                  <div class="design-row-owner">
-                    <div class="design-owner-block" [class.unassigned]="!row.currentOwnerUserId">
-                      <span class="design-owner-icon">
-                        @if (row.currentOwnerUserId) { {{ getInitials(row.currentOwner) }} } @else {
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg>
-                        }
-                      </span>
-                      <div><strong>{{ row.currentOwner }}</strong><span>{{ row.currentOwnerUserId ? 'Owner' : 'No owner assigned' }}</span></div>
-                    </div>
-                  </div>
-
-                  <div class="design-row-status">
-                    <span class="design-badge" [class.breached]="row.slaState === 'Overdue' || row.slaState === 'Breached'" [class.ontrack]="row.slaState === 'On Track' || row.slaState === 'OnTrack'">
-                      {{ row.slaState === 'Overdue' ? 'Breached' : row.slaState === 'OnTrack' ? 'On track' : row.slaState }}
-                    </span>
-                  </div>
-
-                  <div class="design-row-actions">
-                    <button type="button" class="design-icon-btn" title="View" (click)="selectPreview(row)">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                    </button>
-                    @if (permissions()['assign'] || permissions()['reassign']) {
-                      <button type="button" class="design-action-btn primary" (click)="beginAssignment(primaryActionId(row), [row])">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
-                        {{ primaryActionLabel(row) }}
-                      </button>
-                    }
-                    <button type="button" class="design-icon-btn" title="Assignment history" (click)="openHistoryPanel(row)">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-                    </button>
-                    <button type="button" class="design-icon-btn" title="Schedule follow-up" (click)="scheduleFollowUp(row)">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2"/></svg>
-                    </button>
-                  </div>
-                </article>
-              }
-            </div>
           }
 
-          <footer class="design-list-foot">
-            <span>{{ pagedStart() }}–{{ pagedEnd() }} of {{ totalCount() }} records · {{ pageSize() }} per page</span>
-            <nav class="design-pagination" aria-label="Pagination">
-              <button type="button" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">‹</button>
+          <!-- ---------- states ---------- -->
+          @if (uiState() === 'loading') {
+          <div class="ab-state"><strong>Loading assignment board…</strong><span>Fetching the latest ownership
+              records.</span></div>
+          } @else if (uiState() === 'dependency-failure') {
+          <div class="ab-state"><strong>Assignment board unavailable</strong><span>{{ errorMessage() }}</span><button
+              type="button" class="ab-btn ab-btn--primary ab-btn--sm" (click)="refresh()">Retry</button></div>
+          } @else if (!paginatedRows().length) {
+
+          <!-- ---------- EMPTY STATE ---------- -->
+          <div class="ab-state">
+            <span class="ab-state-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </span>
+            <strong>No records found</strong>
+            <span>Nothing matches this search and these filters. Try widening them.</span>
+            <button type="button" class="ab-btn ab-btn--ghost ab-btn--sm" (click)="clearFilters()">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 3-6.7" />
+                <path d="M3 4v5h5" />
+              </svg>
+              <span>Clear search and filters</span>
+            </button>
+          </div>
+
+          } @else if (viewMode() === 'table') {
+
+          <!-- ---------- TABLE ---------- -->
+          <div class="ab-cols">
+            <label class="ab-check" title="Select every record on this page">
+              <input type="checkbox" [checked]="allOnPageSelected()" [indeterminate]="someOnPageSelected()"
+                (change)="toggleSelectAllOnPage()" aria-label="Select every record on this page" />
+            </label>
+            <span class="ab-col">Lead</span>
+            <span class="ab-col">Contact</span>
+            <span class="ab-col ab-col--owner">Owner</span>
+            <span class="ab-col">Status</span>
+            <span class="ab-col ab-sr">Actions</span>
+          </div>
+
+          <ul class="ab-rows" role="list" aria-label="Records">
+            @for (row of paginatedRows(); track row.leadId) {
+            <li class="ab-row" [class.is-selected]="isRowSelected(row.leadReference)">
+              <label class="ab-check" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="isRowSelected(row.leadReference)"
+                  (change)="toggleRowSelection(row.leadReference)" [attr.aria-label]="'Select ' + leadName(row)" />
+              </label>
+
+              <div class="ab-who">
+                <span class="ab-mono" aria-hidden="true">{{ getInitials(leadName(row)) }}</span>
+                <div class="ab-who-t">
+                  <button type="button" class="ab-name" (click)="selectPreview(row)"
+                    [title]="'View ' + leadName(row)"><strong>{{ leadName(row) }}</strong></button>
+                  <span class="ab-code">{{ row.leadReference }}</span>
+                </div>
+              </div>
+
+              <div class="ab-contact">
+                <span class="ab-contact-row"><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 21V8l9-5 9 5v13" />
+                    <path d="M9 21v-6h6v6" />
+                  </svg>{{ row.campaign }}</span>
+                <span class="ab-contact-row"><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 12a9 9 0 1 1-18 0M3 12h18M12 3a18 18 0 0 0 0 18" />
+                  </svg>{{ row.language }} · {{ row.team }}</span>
+              </div>
+
+              <div class="ab-owner ab-owner-col">
+                <span class="ab-owner-ring" [class.is-none]="!row.currentOwnerUserId">{{ row.currentOwnerUserId ?
+                  getInitials(row.currentOwner) : '—' }}</span>
+                <span class="ab-owner-t">
+                  <span class="ab-owner-n" [class.ab-none]="!row.currentOwnerUserId">{{ row.currentOwner || 'Unassigned'
+                    }}</span>
+                  <span class="ab-owner-s">{{ row.currentOwnerUserId ? 'Owner' : 'No owner assigned' }}</span>
+                </span>
+              </div>
+
+              <span class="ab-token--sla" [attr.data-tone]="slaTone(row.slaState)">{{ row.slaState }}</span>
+
+              <div class="ab-acts" (click)="$event.stopPropagation()">
+                <button type="button" class="ab-act" title="View" (click)="selectPreview(row)"><svg viewBox="0 0 24 24"
+                    aria-hidden="true">
+                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg></button>
+                @if (permissions()[primaryActionId(row)]) {
+                <button type="button" class="ab-act ab-act--primary" [title]="primaryActionLabel(row)"
+                  (click)="beginAssignment(primaryActionId(row), [row])">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M19 8v6M22 11h-6" />
+                  </svg>
+                </button>
+                }
+                <button type="button" class="ab-act" title="Assignment history" (click)="openHistoryPanel(row)"><svg
+                    viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 3" />
+                  </svg></button>
+                <button type="button" class="ab-act" title="Schedule follow-up" (click)="scheduleFollowUp(row)"><svg
+                    viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2" />
+                  </svg></button>
+              </div>
+            </li>
+            }
+          </ul>
+
+          } @else {
+
+          <!-- ---------- CARDS ---------- -->
+          <ul class="ab-tiles" role="list" aria-label="Records">
+            @for (row of paginatedRows(); track row.leadId) {
+            <li class="ab-tile" [class.is-selected]="isRowSelected(row.leadReference)">
+              <div class="ab-tile-head">
+                <label class="ab-check" (click)="$event.stopPropagation()">
+                  <input type="checkbox" [checked]="isRowSelected(row.leadReference)"
+                    (change)="toggleRowSelection(row.leadReference)" [attr.aria-label]="'Select ' + leadName(row)" />
+                </label>
+                <span class="ab-mono" aria-hidden="true">{{ getInitials(leadName(row)) }}</span>
+                <span class="ab-token--sla" [attr.data-tone]="slaTone(row.slaState)">{{ row.slaState }}</span>
+              </div>
+
+              <button type="button" class="ab-tile-name" (click)="selectPreview(row)"
+                [title]="'View ' + leadName(row)"><strong>{{ leadName(row) }}</strong></button>
+              <span class="ab-code" style="padding: 0 calc(18px * var(--s));">{{ row.leadReference }}</span>
+
+              <div class="ab-tile-meta">
+                <span class="ab-contact-row"><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 21V8l9-5 9 5v13" />
+                    <path d="M9 21v-6h6v6" />
+                  </svg>{{ row.campaign }}</span>
+                <span class="ab-contact-row"><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 12a9 9 0 1 1-18 0M3 12h18M12 3a18 18 0 0 0 0 18" />
+                  </svg>{{ row.language }} · {{ row.team }}</span>
+              </div>
+
+              <div class="ab-owner ab-tile-owner">
+                <span class="ab-owner-ring" [class.is-none]="!row.currentOwnerUserId">{{ row.currentOwnerUserId ?
+                  getInitials(row.currentOwner) : '—' }}</span>
+                <span class="ab-owner-t">
+                  <span class="ab-owner-n" [class.ab-none]="!row.currentOwnerUserId">{{ row.currentOwner || 'Unassigned'
+                    }}</span>
+                  <span class="ab-owner-s">{{ row.currentOwnerUserId ? 'Owner' : 'No owner assigned' }}</span>
+                </span>
+              </div>
+
+              <div class="ab-tile-foot" (click)="$event.stopPropagation()">
+                <button type="button" class="ab-act" title="View" (click)="selectPreview(row)"><svg viewBox="0 0 24 24"
+                    aria-hidden="true">
+                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg></button>
+                @if (permissions()[primaryActionId(row)]) {
+                <button type="button" class="ab-act ab-act--primary"
+                  (click)="beginAssignment(primaryActionId(row), [row])">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M19 8v6M22 11h-6" />
+                  </svg>{{ primaryActionLabel(row) }}
+                </button>
+                }
+                <button type="button" class="ab-act" title="Assignment history" (click)="openHistoryPanel(row)"><svg
+                    viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 3" />
+                  </svg></button>
+                <button type="button" class="ab-act" title="Schedule follow-up" (click)="scheduleFollowUp(row)"><svg
+                    viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2" />
+                  </svg></button>
+              </div>
+            </li>
+            }
+          </ul>
+          }
+
+          @if (!(uiState() === 'loading') && paginatedRows().length) {
+          <footer class="ab-pager">
+            <span class="ab-range" aria-live="polite"><b>{{ pagedStart() }}–{{ pagedEnd() }}</b> of <b>{{ totalCount()
+                }}</b> · {{ pageSize() }} per page</span>
+            <nav class="ab-pages" aria-label="Pagination">
+              <button type="button" class="ab-step" [disabled]="currentPage() === 1"
+                (click)="goToPage(currentPage() - 1)" aria-label="Previous page">‹</button>
               @for (page of pageNumbers(); track page) {
-                <button type="button" [class.current]="page === currentPage()" (click)="goToPage(page)">{{ page }}</button>
+              <button type="button" class="ab-pg" [class.is-on]="page === currentPage()" (click)="goToPage(page)">{{
+                page }}</button>
               }
-              <button type="button" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">›</button>
+              <button type="button" class="ab-step" [disabled]="currentPage() === totalPages()"
+                (click)="goToPage(currentPage() + 1)" aria-label="Next page">›</button>
             </nav>
           </footer>
+          }
+
+          @if (selectedLeadRefs().size) {
+          <div class="ab-bulk" role="status">
+            <span class="ab-bulk-n"><b>{{ selectedLeadRefs().size }}</b> {{ selectedLeadRefs().size === 1 ? 'record' :
+              'records' }} selected</span>
+            <span class="ab-bulk-acts">
+              @if (permissions()['bulkRoute']) {
+              <button type="button" class="ab-bulk-b" (click)="startBulkAssignment()"><svg viewBox="0 0 24 24"
+                  aria-hidden="true">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M19 8v6M22 11h-6" />
+                </svg><span>Assign owner</span></button>
+              }
+              <button type="button" class="ab-bulk-b ab-bulk-b--mute" (click)="exitSelectionMode()"
+                aria-label="Clear selection" title="Clear selection"><svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m6 6 12 12M18 6 6 18" />
+                </svg></button>
+            </span>
+          </div>
+          }
         </section>
       </div>
     </div>
   </div>
-</main>
 
-@if (drawerOpen()) {
-  <div
-    class="ab-drawer-backdrop"
-    (click)="closeDrawer()"
-    aria-hidden="true"
-  ></div>
-  <aside
-    class="ab-drawer"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Assignment details"
-    tabindex="-1"
-    (keydown)="onOverlayKeydown($event)"
-    [attr.inert]="confirmConfig() ? '' : null"
-  >
+  <!-- =============================== DRAWER =============================== -->
+  @if (drawerOpen()) {
+  <div class="ab-drawer-backdrop" (click)="closeDrawer()" aria-hidden="true"></div>
+  <aside class="ab-drawer" role="dialog" aria-modal="true" aria-label="Assignment details" tabindex="-1"
+    (keydown)="onOverlayKeydown($event)" [attr.inert]="confirmConfig() ? '' : null">
 
-  <div class="ab-drawer-close-row">
-    <button type="button" class="ab-drawer-close-btn" title="Close" aria-label="Close" (click)="closeDrawer()">
-      <svg class="ab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-        <path d="m6 6 12 12M18 6 6 18" />
-      </svg>
-    </button>
-  </div>
-
-@if (draft(); as d) {
-  <header class="ab-drawer-head">
-    <div class="ab-drawer-head-content">
-      <span class="ab-section-icon">
-        <svg
-          class="ab-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M20 8v6M17 11h6" />
+    <div class="ab-drawer-close-row">
+      <button type="button" class="ab-drawer-close" title="Close" aria-label="Close" (click)="closeDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          aria-hidden="true">
+          <path d="m6 6 12 12M18 6 6 18" />
         </svg>
-      </span>
-
-      <div class="ab-drawer-title">
-        <h2>{{ draftTitle(d) }}</h2>
-
-        <p>
-          {{ d.mode === 'bulkRoute'
-            ? 'Update ownership for the selected records.'
-            : d.rows[0].leadPreview }}
-        </p>
-      </div>
+      </button>
     </div>
-  </header>
-}
 
     @if (draft(); as d) {
 
-    <section class="ab-detail-section ab-drawer-section">
-      <h3>Assignment details</h3>
-      <dl>
-        @if (d.mode === 'bulkRoute') {
-        <div>
-          <dt>Records selected</dt>
-          <dd class="ab-number">{{ d.rows.length }}</dd>
-        </div>
-        } @else {
-        <div>
-          <dt>Current owner</dt>
-          <dd>{{ d.rows[0].currentOwner }}</dd>
-        </div>
-        <div>
-          <dt>Campaign</dt>
-          <dd>{{ d.rows[0].campaign }}</dd>
-        </div>
-        <div>
-          <dt>Team / language</dt>
-          <dd>{{ d.rows[0].team }} · {{ d.rows[0].language }}</dd>
-        </div>
-        }
-      </dl>
-    </section>
-    <section class="ab-detail-section ab-drawer-section">
-      <h3>New owner <span class="ab-required">*</span></h3>
-      @if (selectedOwner(); as owner) {
-      <div class="ab-owner-strip ab-drawer-owner-card">
-        <span class="ab-avatar">{{ owner.initials }}</span>
-        <div>
-          <strong>{{ owner.label }}</strong><span>{{ owner.context }}</span>
-        </div>
-        <button
-          type="button"
-          class="btn btn-outline-secondary btn-sm"
-          title="Change owner"
-          (click)="toggleOwnerPicker()"
-          [attr.aria-expanded]="ownerPickerOpen()"
-        >
-          <svg
-            class="ab-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.7"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="m16 3 5 5M4 20l4-1L21 6a2 2 0 0 0-3-3L5 16l-1 4Z" /></svg
-          >Change
-        </button>
-      </div>
-      } @if (d.mode !== 'bulkRoute' && d.rows[0].suggestedOwnerUserId &&
-      d.rows[0].suggestedOwnerUserId !== d.newOwnerRef) {<button
-        type="button"
-        class="btn btn-outline-secondary btn-sm ab-suggestion"
-        title="Use suggested owner"
-        (click)="useSuggestedOwner()"
-      >
-        <svg
-          class="ab-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path
-            d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M20 8v6M17 11h6"
-          /></svg
-        >Use {{ d.rows[0].suggestedOwner }}
-      </button>
-      <p class="ab-hint">{{ d.rows[0].suggestionRationale }}</p>
-      } @if (ownerPickerOpen() || !selectedOwner()) {
-      <div class="ab-owner-picker">
-        <label for="ab-owner-search">Search eligible owners</label
-        ><input
-          id="ab-owner-search"
-          type="search"
-          placeholder="Name or team"
-          [ngModel]="ownerSearchTerm()"
-          (ngModelChange)="ownerSearchTerm.set($event)"
-        />
-        <ul class="ab-owner-list">
-          @for (owner of filteredOwnerOptions(); track owner.reference) {
-          <li>
-            <button
-              type="button"
-              class="ab-owner-option"
-              [attr.aria-pressed]="d.newOwnerRef === owner.reference"
-              [title]="'Select ' + owner.label"
-              (click)="selectOwner(owner.reference)"
-            >
-              <span class="ab-avatar">{{ owner.initials }}</span
-              ><span
-                ><strong>{{ owner.label }}</strong
-                ><small>{{ owner.context }}</small></span
-              >
-            </button>
-          </li>
-          } @empty {
-          <li class="ab-hint">
-            {{ hasCampaignOwners() ? 'No owners match your search.' : 'No
-            eligible owners are available.' }}
-          </li>
-          }
-        </ul>
-      </div>
-      }
-    </section>
-    @if (d.mode === 'bulkRoute') {
-    <section class="ab-detail-section ab-drawer-section">
-      <h3>Eligibility</h3>
-      <p>
-        <span class="ab-number">{{ eligibleRows().length }}</span> eligible ·
-        <span class="ab-number">{{ ineligibleRows().length }}</span> already
-        owned by the selected owner and will be skipped.
-      </p>
-    </section>
-    }
-    <section class="ab-detail-section ab-drawer-section">
-      <h3>Effective time</h3>
-      <div class="ab-radio-pills ab-schedule-options">
-        <label
-          ><input
-            type="radio"
-            name="ab-schedule"
-            [checked]="d.scheduleMode === 'immediate'"
-            (change)="setScheduleMode('immediate')"
-          />Immediately</label
-        ><label
-          ><input
-            type="radio"
-            name="ab-schedule"
-            [checked]="d.scheduleMode === 'scheduled'"
-            (change)="setScheduleMode('scheduled')"
-          />Schedule for later</label
-        >
-      </div>
-      @if (d.scheduleMode === 'scheduled') {<label for="ab-effective-time"
-        >Date and time</label
-      ><input
-        id="ab-effective-time"
-        type="datetime-local"
-        [min]="minEffectiveTime()"
-        [ngModel]="d.effectiveTimeInput"
-        (ngModelChange)="onEffectiveTimeInput($event)"
-        [attr.aria-invalid]="!!d.effectiveTimeError"
-        aria-describedby="ab-time-hint"
-      />@if (d.effectiveTimeError) {
-      <p class="ab-error" role="alert">{{ d.effectiveTimeError }}</p>
-      }}
-    </section>
-    <footer class="ab-drawer-actions">
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        title="Cancel assignment"
-        [disabled]="processing()"
-        (click)="closeDrawer()"
-      >
-        <svg
-          class="ab-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m6 6 12 12M18 6 6 18" /></svg
-        >Cancel</button
-      ><button
-        type="button"
-        class="btn btn-primary btn-sm"
-        title="Review and save assignment"
-        [disabled]="!canContinue()"
-        (click)="continueToConfirm()"
-      >
-        <svg
-          class="ab-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m5 12 4 4L19 6" /></svg
-        >Save
-      </button>
-    </footer>
-    } @else if (historyPanelRow(); as row) {
-    <header class="ab-drawer-head">
-      <span class="ab-section-icon"
-        ><svg
-          class="ab-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7M12 7v5l3 2" /></svg
-      ></span>
-      <div>
-        <h2>Assignment history</h2>
-        <p>{{ row.leadPreview }} · {{ row.leadReference }}</p>
+    <!-- ============================ ASSIGN / REASSIGN ============================ -->
+    <header class="ab-dh">
+      <span class="ab-dh-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M20 8v6M17 11h6" />
+        </svg></span>
+      <div class="ab-dh-t">
+        <h2>{{ draftTitle(d) }}</h2>
+        <p>{{ d.mode === 'bulkRoute' ? 'Update ownership for the selected records.' : d.rows[0].leadPreview }}</p>
       </div>
     </header>
-    @if (historyLoading()) {
-    <p role="status">Loading history…</p>
-    } @else if (historyError()) {
-    <p class="ab-error" role="alert">{{ historyError() }}</p>
-    <button
-      type="button"
-      class="btn btn-outline-secondary btn-sm"
-      title="Retry history"
-      (click)="openHistoryPanel(row)"
-    >
-      <svg
-        class="ab-icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.7"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7M12 7v5l3 2" /></svg
-      >Retry</button
-    >} @else {
-    <ol class="ab-history-list">
-      @for (entry of historyFor(row.leadReference); track $index) {
-      <li>
-        <h3>{{ entry.event }} to {{ entry.owner }}</h3>
-        <p class="ab-number">{{ entry.effectiveTime }}</p>
-        <p>{{ entry.reason }}</p>
-      </li>
-      } @empty {
-      <li>No assignment activity recorded.</li>
+
+    <!-- <ol class="ab-flow" aria-hidden="true">
+      <li class="is-done"><span>1</span>Details</li>
+      <li [class.is-active]="!selectedOwner()" [class.is-done]="!!selectedOwner()"><span>2</span>New owner</li>
+      <li [class.is-active]="!!selectedOwner()"><span>3</span>When</li>
+    </ol> -->
+
+    <div class="ab-sheet">
+      <section class="ab-sheet-sec">
+        <h3>Assignment details</h3>
+        <dl class="ab-dl">
+          @if (d.mode === 'bulkRoute') {
+          <div>
+            <dt>Records selected</dt>
+            <dd class="ab-num">{{ d.rows.length }}</dd>
+          </div>
+          } @else {
+          <div>
+            <dt>Current owner</dt>
+            <dd>{{ d.rows[0].currentOwner }}</dd>
+          </div>
+          <div>
+            <dt>Campaign</dt>
+            <dd>{{ d.rows[0].campaign }}</dd>
+          </div>
+          <div>
+            <dt>Team / language</dt>
+            <dd>{{ d.rows[0].team }} · {{ d.rows[0].language }}</dd>
+          </div>
+          }
+        </dl>
+      </section>
+
+      <section class="ab-sheet-sec">
+        <h3>New owner <span class="ab-required">*</span></h3>
+
+        @if (d.mode !== 'bulkRoute' && d.rows[0].suggestedOwnerUserId && d.rows[0].suggestedOwnerUserId !==
+        d.newOwnerRef) {
+        <button type="button" class="ab-suggest-card" (click)="useSuggestedOwner()">
+          <span class="ab-suggest-badge">Suggested</span>
+          <span class="ab-owner-avatar ab-owner-avatar--suggest">{{ getInitials(d.rows[0].suggestedOwner) }}</span>
+          <span class="ab-suggest-body">
+            <strong>{{ d.rows[0].suggestedOwner }}</strong>
+            <span>{{ d.rows[0].suggestionRationale }}</span>
+          </span>
+          <span class="ab-suggest-use">Use<svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m13 6 6 6-6 6" />
+            </svg></span>
+        </button>
+        }
+
+        @if (selectedOwner(); as owner) {
+        <div class="ab-owner-card">
+          <span class="ab-owner-avatar">{{ owner.initials }}</span>
+          <div><strong>{{ owner.label }}</strong><span>{{ owner.context }}</span></div>
+          <button type="button" class="ab-btn ab-btn--ghost ab-btn--sm" (click)="toggleOwnerPicker()"
+            [attr.aria-expanded]="ownerPickerOpen()">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m16 3 5 5M4 20l4-1L21 6a2 2 0 0 0-3-3L5 16l-1 4Z" />
+            </svg>Change
+          </button>
+        </div>
+        }
+
+        @if (ownerPickerOpen() || !selectedOwner()) {
+        <div class="ab-owner-picker">
+          <label for="ab-owner-search">Search eligible owners</label>
+          <input id="ab-owner-search" type="search" placeholder="Name or team" [ngModel]="ownerSearchTerm()"
+            (ngModelChange)="ownerSearchTerm.set($event)" />
+          <ul class="ab-owner-list" role="radiogroup" aria-label="Eligible owners">
+            @for (owner of filteredOwnerOptions(); track owner.reference) {
+            <li>
+              <button type="button" class="ab-owner-option" role="radio"
+                [attr.aria-checked]="d.newOwnerRef === owner.reference"
+                [class.is-selected]="d.newOwnerRef === owner.reference"
+                [title]="'Select ' + owner.label" (click)="selectOwner(owner.reference)">
+                <span class="ab-owner-radio" aria-hidden="true"></span>
+                <span class="ab-owner-avatar" style="width:calc(34px * var(--s));height:calc(34px * var(--s));">{{
+                  owner.initials }}</span>
+                <span class="ab-owner-option-t"><strong>{{ owner.label }}</strong><small>{{ owner.context }}</small></span>
+              </button>
+            </li>
+            } @empty {
+            <li class="ab-hint" style="padding: calc(14px * var(--s));">{{ hasCampaignOwners() ? 'No owners match your
+              search.' : 'No eligible owners are available.' }}</li>
+            }
+          </ul>
+        </div>
+        }
+      </section>
+
+      @if (d.mode === 'bulkRoute') {
+      <section class="ab-sheet-sec">
+        <h3>Eligibility</h3>
+        <div class="ab-eligibility">
+          <span class="ab-eligibility-n" data-tone="ok"><b class="ab-num">{{ eligibleRows().length }}</b>Eligible</span>
+          <span class="ab-eligibility-n" data-tone="slate"><b class="ab-num">{{ ineligibleRows().length }}</b>Already
+            owned · skipped</span>
+        </div>
+      </section>
       }
-    </ol>
-    }
+
+      <section class="ab-sheet-sec">
+        <h3>Effective time</h3>
+        <div class="ab-seg" role="radiogroup" aria-label="Effective time">
+          <label [class.is-on]="d.scheduleMode === 'immediate'"><input type="radio" name="ab-schedule"
+              [checked]="d.scheduleMode === 'immediate'" (change)="setScheduleMode('immediate')" />
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.5" />
+              <path d="M12 7.5v5l3 2" />
+            </svg>Immediately</label>
+          <label [class.is-on]="d.scheduleMode === 'scheduled'"><input type="radio" name="ab-schedule"
+              [checked]="d.scheduleMode === 'scheduled'" (change)="setScheduleMode('scheduled')" />
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2" />
+            </svg>Schedule for later</label>
+        </div>
+        @if (d.scheduleMode === 'scheduled') {
+        <label for="ab-effective-time">Date and time</label>
+        <input id="ab-effective-time" type="datetime-local" [min]="minEffectiveTime()" [ngModel]="d.effectiveTimeInput"
+          (ngModelChange)="onEffectiveTimeInput($event)" [attr.aria-invalid]="!!d.effectiveTimeError" />
+        @if (d.effectiveTimeError) { <p class="ab-error" role="alert">{{ d.effectiveTimeError }}</p> }
+        }
+      </section>
+    </div>
+
     <footer class="ab-drawer-actions">
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        title="Open full history"
-        (click)="viewFullHistory(row)"
-      >
-        <svg
-          class="ab-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7M12 7v5l3 2" /></svg
-        >Open full history
+      <button type="button" class="ab-btn ab-btn--ghost" [disabled]="processing()" (click)="closeDrawer()">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m6 6 12 12M18 6 6 18" />
+        </svg>Cancel
+      </button>
+      <button type="button" class="ab-btn ab-btn--primary" [disabled]="!canContinue()" (click)="continueToConfirm()">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m5 12 4 4L19 6" />
+        </svg>Save
       </button>
     </footer>
+
+    } @else if (historyPanelRow(); as row) {
+    <header class="ab-dh">
+      <span class="ab-dh-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7M12 7v5l3 2" />
+        </svg></span>
+      <div class="ab-dh-t">
+        <h2>Assignment history</h2>
+        <p>{{ row.leadPreview }}</p>
+      </div>
+    </header>
+    <div class="ab-sheet">
+      @if (historyLoading()) {
+      <p role="status" class="ab-hint">Loading history…</p>
+      } @else if (historyError()) {
+      <p class="ab-error" role="alert">{{ historyError() }}</p>
+      <button type="button" class="ab-btn ab-btn--ghost ab-btn--sm" (click)="openHistoryPanel(row)"><svg
+          viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7M12 7v5l3 2" />
+        </svg>Retry</button>
+      } @else {
+      <ol class="ab-history-list">
+        @for (entry of historyFor(row.leadReference); track $index) {
+        <li>
+          <h3>{{ entry.event }} to {{ entry.owner }}</h3>
+          <p class="ab-num">{{ entry.effectiveTime }}</p>
+          <p>{{ entry.reason }}</p>
+        </li>
+        } @empty {
+        <li>
+          <p class="ab-hint">No assignment activity recorded.</p>
+        </li>
+        }
+      </ol>
+      }
+    </div>
+    <footer class="ab-drawer-actions">
+      <button type="button" class="ab-btn ab-btn--ghost" (click)="viewFullHistory(row)"><svg viewBox="0 0 24 24"
+          aria-hidden="true">
+          <path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7M12 7v5l3 2" />
+        </svg>Open full history</button>
+    </footer>
+
     } @else if (lastResult(); as result) {
-    <header class="ab-drawer-head">
-      <span class="ab-section-icon"
-        ><svg
-          class="ab-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m5 12 4 4L19 6" /></svg
-      ></span>
-      <div>
+    <header class="ab-dh">
+      <span class="ab-dh-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m5 12 4 4L19 6" />
+        </svg></span>
+      <div class="ab-dh-t">
         <h2>{{ result.assignmentState }}</h2>
         <p>{{ result.leadPreview }}</p>
       </div>
     </header>
-    <dl class="ab-detail-section">
+    <dl class="ab-dl">
       <div>
         <dt>Owner</dt>
         <dd>{{ result.owner }}</dd>
       </div>
       <div>
         <dt>Effective time</dt>
-        <dd class="ab-number">{{ result.effectiveTime }}</dd>
+        <dd class="ab-num">{{ result.effectiveTime }}</dd>
       </div>
       <div>
         <dt>Next action</dt>
-        <dd class="ab-number">{{ result.nextAction }}</dd>
+        <dd class="ab-num">{{ result.nextAction }}</dd>
       </div>
     </dl>
+
     } @else if (bulkResult(); as result) {
-    <header class="ab-drawer-head">
-      <span class="ab-section-icon"
-        ><svg
-          class="ab-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m5 12 4 4L19 6" /></svg
-      ></span>
-      <div>
+    <header class="ab-dh">
+      <span class="ab-dh-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m5 12 4 4L19 6" />
+        </svg></span>
+      <div class="ab-dh-t">
         <h2>Bulk assignment complete</h2>
         <p>{{ result.success }} assigned · {{ result.ineligible }} skipped</p>
       </div>
     </header>
-    <p>Owner: {{ result.newOwner }}</p>
-    <ul class="ab-history-list">
-      @for (detail of result.details; track detail.leadReference) {
-      <li>
-        <h3>{{ detail.leadPreview }}</h3>
-        <p>
-          {{ detail.status === 'success' ? 'Assigned' : 'Skipped' }} · {{
-          detail.note }}
-        </p>
-      </li>
-      }
-    </ul>
-    } @else if (previewRow(); as row) {
-    <div class="ab-lead-preview-content">
-      <header class="ab-drawer-head ab-lead-preview-head">
-        <div class="ab-lead-avatar" aria-hidden="true">{{ getInitials(leadName(row)) }}</div>
-        <div class="ab-drawer-title">
-          <h2>{{ leadName(row) }}</h2>
-          <p>{{ row.campaign }}</p>
-          <div class="ab-lead-header-meta">
-            <span class="ab-lead-reference">{{ row.leadReference }}</span>
-            <span class="ab-lead-status" [class.is-overdue]="row.slaState === 'Overdue' || row.slaState === 'Breached'">
-              <span class="ab-lead-status-dot" aria-hidden="true"></span>
-              {{ row.status }}
-            </span>
-          </div>
-        </div>
-      </header>
+    <div class="ab-sheet">
+      <p class="ab-hint">Owner: {{ result.newOwner }}</p>
+      <ul class="ab-history-list">
+        @for (detail of result.details; track detail.leadReference) {
+        <li>
+          <h3>{{ detail.leadPreview }}</h3>
+          <p>{{ detail.status === 'success' ? 'Assigned' : 'Skipped' }} · {{ detail.note }}</p>
+        </li>
+        }
+      </ul>
+    </div>
 
-      <section class="ab-detail-section ab-drawer-section ab-lead-card">
+    } @else if (previewRow(); as row) {
+
+    <!-- ============================ LEAD DETAIL ============================ -->
+    <header class="ab-dh ab-dh--detail">
+      <span class="ab-mono ab-dh-avatar" aria-hidden="true">{{ getInitials(leadName(row)) }}</span>
+      <div class="ab-dh-t">
+        <div class="ab-dh-toprow">
+          <h2>{{ leadName(row) }}</h2>
+          <span class="ab-token--sla" [attr.data-tone]="slaTone(row.slaState)">{{ row.status }}</span>
+        </div>
+        <span class="ab-code">{{ row.leadReference }}</span>
+      </div>
+    </header>
+
+    <div class="ab-stat-strip">
+      <div class="ab-stat">
+        <span class="ab-stat-v ab-num">{{ row.openWorkCount }}</span>
+        <span class="ab-stat-l">Open items</span>
+      </div>
+      <div class="ab-stat">
+        <span class="ab-stat-v">{{ row.workloadBand }}</span>
+        <span class="ab-stat-l">Workload band</span>
+      </div>
+      <div class="ab-stat">
+        <span class="ab-stat-v" [attr.data-tone]="slaTone(row.slaState)">{{ row.slaState }}</span>
+        <span class="ab-stat-l">SLA state</span>
+      </div>
+    </div>
+
+    <div class="ab-sheet">
+      <section class="ab-sheet-sec">
         <h3>Record details</h3>
-        <dl class="ab-lead-details-grid">
+        <dl class="ab-dl">
           <div>
             <dt>Campaign</dt>
             <dd>{{ row.campaign }}</dd>
@@ -801,231 +806,142 @@
         </dl>
       </section>
 
-      <section class="ab-detail-section ab-drawer-section ab-lead-card ab-ownership-card">
+      <section class="ab-sheet-sec">
         <h3>Ownership</h3>
-        <div class="ab-owner-comparison">
-          <div class="ab-owner-person">
+        <div class="ab-handoff">
+          <div class="ab-handoff-side">
             <span class="ab-owner-avatar">{{ getInitials(row.currentOwner) }}</span>
-            <strong>{{ row.currentOwner || 'Unassigned' }}</strong>
-            <span>Current owner</span>
+            <div class="ab-handoff-info"><strong>{{ row.currentOwner || 'Unassigned' }}</strong><span>Current
+                owner</span></div>
           </div>
-
-          <div class="ab-owner-arrow" aria-hidden="true">✓</div>
-
-          <div class="ab-owner-person">
-            <span class="ab-owner-avatar">{{ getInitials(row.suggestedOwner || row.currentOwner) }}</span>
-            <strong>{{ row.suggestedOwner || row.currentOwner || '—' }}</strong>
-            <span>Suggested owner</span>
+          <span class="ab-owner-arrow"><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m13 6 6 6-6 6" />
+            </svg></span>
+          <div class="ab-handoff-side">
+            <span class="ab-owner-avatar ab-owner-avatar--suggest">{{ getInitials(row.suggestedOwner ||
+              row.currentOwner) }}</span>
+            <div class="ab-handoff-info"><strong>{{ row.suggestedOwner || row.currentOwner || '—'
+                }}</strong><span>Suggested owner</span></div>
           </div>
         </div>
-
         <p class="ab-owner-rationale">{{ row.suggestionRationale || 'Already assigned to the best-fit owner' }}</p>
-
-        <div class="ab-owner-metrics">
-          <div>
-            <strong>{{ row.openWorkCount }}</strong>
-            <span>Open work items</span>
-          </div>
-          <div>
-            <strong>{{ row.workloadBand }}</strong>
-            <span>Workload band</span>
-          </div>
-        </div>
       </section>
 
-      <section class="ab-detail-section ab-drawer-section ab-lead-card ab-follow-up-card">
+      <section class="ab-sheet-sec">
         <h3>Follow-up</h3>
-        <div class="ab-follow-up-content">
-          <span class="ab-follow-up-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/>
-            </svg>
-          </span>
-          <div>
-            <strong>{{ row.nextActionDue === '—' ? 'Not scheduled' : row.nextActionDue }}</strong>
-            <span>Asia/Kolkata (IST)</span>
-          </div>
-          <span class="ab-follow-up-status" [class.is-overdue]="row.slaState === 'Overdue' || row.slaState === 'Breached'">
-            {{ row.slaState === 'OnTrack' ? 'On track' : row.slaState }}
-          </span>
+        <div class="ab-followup-card">
+          <span class="ab-followup-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+            </svg></span>
+          <div class="ab-followup-body"><strong>{{ row.nextActionDue === '—' ? 'Not scheduled' : row.nextActionDue
+              }}</strong><span>{{ timezoneLabel }}</span></div>
+          <span class="ab-token--sla" [attr.data-tone]="slaTone(row.slaState)">{{ row.slaState }}</span>
         </div>
       </section>
-
-      <footer class="ab-drawer-actions ab-lead-preview-actions">
-        @if (permissions()['view']) {
-          <button type="button" class="btn btn-outline-secondary btn-sm ab-history-action" title="Inspect history" (click)="openHistoryPanel(row)">
-            <svg class="ab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7M12 7v5l3 2"/>
-            </svg>
-            History
-          </button>
-        }
-        @if (permissions()[primaryActionId(row)]) {
-          <button type="button" class="btn btn-primary btn-sm ab-reassign-action" [title]="primaryActionLabel(row)" (click)="handlePrimaryCta()">
-            <svg class="ab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M20 8v6M17 11h6"/>
-            </svg>
-            {{ primaryActionLabel(row) }}
-          </button>
-        }
-        <button type="button" class="btn btn-primary btn-sm ab-schedule-action" title="Schedule Follow-up Call" (click)="scheduleFollowUp(row)">
-          <svg class="ab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2M8 14h2M14 14h2M8 18h2"/>
-          </svg>
-          Schedule follow-up
-        </button>
-      </footer>
     </div>
+
+    <footer class="ab-drawer-actions">
+      @if (permissions()['view']) {
+      <button type="button" class="ab-btn ab-btn--ghost" title="Inspect history" (click)="openHistoryPanel(row)"
+        style="margin-right:auto;">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7M12 7v5l3 2" />
+        </svg>History
+      </button>
+      }
+      @if (permissions()[primaryActionId(row)]) {
+      <button type="button" class="ab-btn ab-btn--ghost" [title]="primaryActionLabel(row)" (click)="handlePrimaryCta()">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M20 8v6M17 11h6" />
+        </svg>{{ primaryActionLabel(row) }}
+      </button>
+      }
+      <button type="button" class="ab-btn ab-btn--primary" title="Schedule follow-up" (click)="scheduleFollowUp(row)">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2M8 14h2M14 14h2M8 18h2" />
+        </svg>Schedule follow-up
+      </button>
+    </footer>
     }
   </aside>
-}
+  }
 
-@if (confirmConfig(); as cfg) {
-  <div class="ab-modal-backdrop ab-confirm-backdrop" (click)="onCancel()" aria-hidden="true">
-    <section class="ab-modal ab-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="ab-confirm-title" tabindex="-1" (click)="$event.stopPropagation()" (keydown)="onOverlayKeydown($event)">
-
-      <!-- Header -->
-      <header class="ab-confirm-header">
-        <div class="ab-confirm-heading">
-
-          <span class="ab-confirm-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 7H4"/>
-              <path d="M14 3 10 7l4 4"/>
-              <path d="M4 17h16"/>
-              <path d="m10 13 4 4-4 4"/>
-            </svg>
-          </span>
-
-          <div class="ab-confirm-title-copy">
-            <h2 id="ab-confirm-title">{{ cfg.title }}</h2>
-            <p>{{ cfg.message }}</p>
-          </div>
-
+  <!-- =============================== CONFIRM DIALOG =============================== -->
+  @if (confirmConfig(); as cfg) {
+  <div class="ab-modal-backdrop" (click)="onCancel()" aria-hidden="true">
+    <section class="ab-modal" role="dialog" aria-modal="true" aria-labelledby="ab-confirm-title" tabindex="-1"
+      (click)="$event.stopPropagation()" (keydown)="onOverlayKeydown($event)">
+      <header class="ab-modal-head">
+        <span class="ab-modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 7H4" />
+            <path d="M14 3 10 7l4 4" />
+            <path d="M4 17h16" />
+            <path d="m10 13 4 4-4 4" />
+          </svg></span>
+        <div class="ab-modal-head-t">
+          <h2 id="ab-confirm-title">{{ cfg.title }}</h2>
+          <p>{{ cfg.message }}</p>
         </div>
-
-        <button type="button" class="ab-confirm-close" title="Close" aria-label="Close confirmation" [disabled]="processing()" (click)="onCancel()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-            <path d="M6 6l12 12"/>
-            <path d="M18 6 6 18"/>
+        <button type="button" class="ab-modal-close" title="Close" aria-label="Close confirmation"
+          [disabled]="processing()" (click)="onCancel()">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12" />
+            <path d="M18 6 6 18" />
           </svg>
         </button>
       </header>
 
       @if (cfg.beforeAfter && cfg.beforeAfter.length > 0) {
-        @let change = cfg.beforeAfter[0];
-
-        <!-- Ownership change -->
-        <section class="ab-confirm-change-card" aria-label="Ownership change">
-
-          <div class="ab-owner-transfer">
-
-            <!-- Current owner -->
-            <div class="ab-owner-person">
-
-              <span class="ab-confirm-avatar ab-confirm-avatar-current">
-                {{ getInitials(change.before) }}
-              </span>
-
-              <strong>{{ change.before }}</strong>
-
-              <span>Current owner</span>
-
-            </div>
-
-            <!-- Transfer arrow -->
-            <span class="ab-transfer-arrow" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 12h14"/>
-                <path d="m13 6 6 6-6 6"/>
-              </svg>
-            </span>
-
-            <!-- New owner -->
-            <div class="ab-owner-person">
-
-              <span class="ab-confirm-avatar ab-confirm-avatar-new">
-                {{ getInitials(change.after) }}
-              </span>
-
-              <strong>{{ change.after }}</strong>
-
-              <span>New owner</span>
-
-            </div>
-
-          </div>
-
-          <!-- Effective time -->
-          <div class="ab-effective-row">
-
-            <span class="ab-effective-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="8.5"/>
-                <path d="M12 7.5v5l3 2"/>
-              </svg>
-            </span>
-
-            <span>Effective</span>
-
-            <strong>Immediately</strong>
-
-          </div>
-
-        </section>
+      @let change = cfg.beforeAfter[0];
+      <section class="ab-modal-change" aria-label="Ownership change">
+        <div class="ab-owner-compare">
+          <div class="ab-owner-person"><span class="ab-owner-avatar">{{ getInitials(change.before) }}</span><strong>{{
+              change.before }}</strong><span>Current owner</span></div>
+          <span class="ab-owner-arrow"><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m13 6 6 6-6 6" />
+            </svg></span>
+          <div class="ab-owner-person"><span class="ab-owner-avatar">{{ getInitials(change.after) }}</span><strong>{{
+              change.after }}</strong><span>New owner</span></div>
+        </div>
+        <div class="ab-modal-effective">
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width:calc(14px * var(--s));height:calc(14px * var(--s));">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5v5l3 2" />
+          </svg>
+          <span>Effective</span><strong>Immediately</strong>
+        </div>
+      </section>
       }
 
-      <!-- Reason -->
-      <div class="ab-confirm-form">
-
-        <label class="ab-confirm-label" for="ab-reason">
-          Assignment reason
-          <span class="ab-required">*</span>
-        </label>
-
-        <textarea id="ab-reason" rows="4" maxlength="2000" [ngModel]="assignmentReason()" (ngModelChange)="assignmentReason.set($event)" [disabled]="processing()" aria-describedby="ab-reason-hint" placeholder="Explain the ownership change"></textarea>
-
-        <div class="ab-confirm-hint" id="ab-reason-hint">
-
+      <div class="ab-modal-form">
+        <label for="ab-reason">Assignment reason <span class="ab-required">*</span></label>
+        <textarea id="ab-reason" rows="4" maxlength="2000" [ngModel]="assignmentReason()"
+          (ngModelChange)="assignmentReason.set($event)" [disabled]="processing()"
+          placeholder="Explain the ownership change"></textarea>
+        <div class="ab-modal-hint">
           <span>Minimum 10 characters required</span>
-
-          <span class="ab-character-count">
-
-
-            <span>{{ assignmentReason().trim().length }}/2,000</span>
-
-          </span>
-
+          <span class="ab-num">{{ assignmentReason().trim().length }}/2,000</span>
         </div>
-
       </div>
 
-      <!-- Footer -->
-      <footer class="ab-confirm-actions">
-
-        <button type="button" class="ab-confirm-btn ab-confirm-btn-cancel" title="Cancel confirmation" [disabled]="processing()" (click)="onCancel()">
-
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-            <path d="M6 6l12 12"/>
-            <path d="M18 6 6 18"/>
-          </svg>
-
-          <span>Cancel</span>
-
+      <footer class="ab-modal-actions">
+        <button type="button" class="ab-btn ab-btn--ghost" [disabled]="processing()" (click)="onCancel()">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12" />
+            <path d="M18 6 6 18" />
+          </svg>Cancel
         </button>
-
-        <button type="button" class="ab-confirm-btn ab-confirm-btn-save" title="Save assignment" [disabled]="!reasonValid() || processing()" (click)="onConfirm(assignmentReason().trim())">
-
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="m5 12 4 4L19 6"/>
-          </svg>
-
-          <span>{{ processing() ? 'Saving…' : 'Save' }}</span>
-
+        <button type="button" class="ab-btn ab-btn--primary" [disabled]="!reasonValid() || processing()"
+          (click)="onConfirm(assignmentReason().trim())">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m5 12 4 4L19 6" />
+          </svg>{{ processing() ? 'Saving…' : 'Save' }}
         </button>
-
       </footer>
-
     </section>
   </div>
-}
+  }
+</main>

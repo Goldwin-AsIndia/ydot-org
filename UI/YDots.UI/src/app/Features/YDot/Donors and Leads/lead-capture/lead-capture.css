@@ -7,13 +7,13 @@
   overflow-x: clip; */
   --lc-bg: hsl(calc(var(--theme-hue) - 3) 12.5% 96.9%);
   --lc-surface: hsl(var(--theme-hue) 0% 100%);
-  --lc-field-bg: hsl(calc(var(--theme-hue) + 3) 23.8% 95.9%);
-  --lc-primary: hsl(calc(var(--theme-hue) + 7) 53.5% 30.4%);
+  --lc-field-bg: color-mix(in srgb, var(--theme-primary, #2c4a3d) 9%, #ffffff);
+  --lc-primary: var(--theme-primary, #2c4a3d);
   --lc-primary-dark: hsl(calc(var(--theme-hue) + 15) 67.3% 19.2%);
   --lc-primary-tint: hsl(calc(var(--theme-hue) - 3) 35.3% 93.3%);
   --lc-text: hsl(calc(var(--theme-hue) + 27) 30.3% 12.9%);
   --lc-text-muted: hsl(calc(var(--theme-hue) + 10) 12% 35%);
-  --lc-text-faint: hsl(calc(var(--theme-hue) + 10) 10% 45%);
+  --lc-text-faint: hsl(calc(var(--theme-primary) + 10) 10% 45%);
   --lc-border: hsl(calc(var(--theme-hue) - 7) 15.6% 91.2%);
   --lc-border-strong: hsl(calc(var(--theme-hue) - 1) 15.7% 83.7%);
   --lc-radius-sm: calc(8px * var(--ui-scale, 1));
@@ -43,7 +43,12 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .55; }
 button, input, select, textarea { max-width: 100%; }
 
-.lc-page { min-height: 100vh; padding: calc(24px * var(--ui-scale, 1)) calc(28px * var(--ui-scale, 1)) calc(88px * var(--ui-scale, 1)); background: var(--lc-bg); overflow-x: clip; }
+.lc-page {   
+  display: flex;
+  flex-direction: column;
+  gap: calc(20px * var(--s));
+  container-type: inline-size;
+}
 .lc-page-modern { container: lead-capture / inline-size; }
 
 /* Page title — deliberately kept visible in both modes. */
@@ -60,7 +65,14 @@ button, input, select, textarea { max-width: 100%; }
 /* Mode switch */
 .lc-mode-switch { display: inline-flex; align-items: center; gap: 2px; margin: calc(18px * var(--ui-scale, 1)) 0 calc(18px * var(--ui-scale, 1)); padding: calc(3px * var(--ui-scale, 1)); border: 1px solid var(--lc-border); border-radius: var(--lc-radius-md); background: var(--lc-field-bg); }
 .lc-mode-btn { display: inline-flex; align-items: center; justify-content: center; gap: calc(7px * var(--ui-scale, 1)); min-height: calc(34px * var(--ui-scale, 1)); padding: calc(7px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); border: 0; border-radius: calc(7px * var(--ui-scale, 1)); background: transparent; color: var(--lc-text-muted); font-size: calc(var(--fs-base) * .9); font-weight: 600; white-space: nowrap; transition: background .15s ease, color .15s ease, box-shadow .15s ease; }
-.lc-mode-btn svg { width: calc(15px * var(--ui-scale, 1)); height: calc(15px * var(--ui-scale, 1)); flex: none; }
+.lc-mode-btn svg { 
+    flex: none;
+    width: calc(20px * var(--ui-scale, 1));
+    height: calc(20px * var(--ui-scale, 1));
+    display: inline-grid;
+    place-items: center;
+    color: var(--theme-primary, #2c4a3d);
+ }
 .lc-mode-btn:hover { color: var(--lc-primary); }
 .lc-mode-btn.is-active { background: var(--lc-surface); color: var(--lc-primary); box-shadow: 0 1px calc(3px * var(--ui-scale, 1)) hsl(var(--theme-hue) 20% 20% / .08); }
 
@@ -96,9 +108,16 @@ button, input, select, textarea { max-width: 100%; }
 .lc-card-head > .lc-section-icon { grid-row: 1 / span 2; }
 .lc-card-title { margin: 0; color: var(--lc-text); font-family: var(--font-heading); font-size: calc(var(--fs-base) * .95); line-height: 1.25; font-weight: 700 !important; }
 .lc-card-subtitle { margin: 2px 0 0; color: var(--lc-text-faint); font-size: calc(var(--fs-base) * .82); line-height: 1.25; }
-.lc-section-icon { width: calc(32px * var(--ui-scale, 1)); height: calc(32px * var(--ui-scale, 1)); padding: calc(7px * var(--ui-scale, 1)); border-radius: calc(8px * var(--ui-scale, 1)); background: var(--lc-primary-tint); color: var(--lc-primary); flex: none; }
+.lc-section-icon { 
+    flex: none;
+    width: calc(34px * var(--ui-scale, 1));
+    height: calc(34px * var(--ui-scale, 1));
+    display: inline-grid;
+    place-items: center;
+    color: var(--theme-primary, #2c4a3d);
+ }
 .lc-section-icon-filled { display: grid; place-items: center; }
-.lc-section-icon-filled svg { width: calc(17px * var(--ui-scale, 1)); height: calc(17px * var(--ui-scale, 1)); }
+.lc-section-icon-filled svg { width: calc(34px * var(--ui-scale, 1)); height: calc(34px * var(--ui-scale, 1)); }
 
 .lc-grid { display: grid; gap: calc(17px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); min-width: 0; padding: calc(18px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) 0; }
 .lc-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -627,8 +646,6 @@ textarea.lc-input,
 }
 
 /* Remove the last source of page-level horizontal overflow. */
-.app-wrapper,
-.page-wrapper,
 .lc-page,
 .lc-page-modern,
 .lc-reference-header,
@@ -639,8 +656,7 @@ textarea.lc-input,
   min-width: 0;
 }
 
-.lc-page,
-.page-wrapper {
+.lc-page{
   overflow-x: clip;
 }
 
@@ -800,13 +816,23 @@ textarea.lc-input,
 .lc-field label { font-size: calc(var(--fs-base) * .8); font-weight: 600; }
 .lc-input-shell { position: relative; width: 100%; min-width: 0; }
 .lc-input-shell > .lc-input { width: 100%; }
-.lc-input-shell-icon > .lc-input { padding-left: calc(31px * var(--ui-scale, 1)); }
-.lc-input-icon { position: absolute; z-index: 1; left: calc(10px * var(--ui-scale, 1)); top: 50%; width: calc(14px * var(--ui-scale, 1)); height: calc(14px * var(--ui-scale, 1)); transform: translateY(-50%); color: var(--lc-text-faint); pointer-events: none; }
+.lc-input-shell-icon > .lc-input { padding-left: calc(48px * var(--ui-scale, 1)); }
+.lc-input-icon { position: absolute; z-index: 1; left: calc(10px * var(--ui-scale, 1)); top: 50%; width: calc(14px * var(--ui-scale, 1)); height: calc(14px * var(--ui-scale, 1)); transform: translateY(-50%); color: var(--lc-primary); pointer-events: none; }
 .lc-input-shell-phone { flex: 1 1 auto; min-width: 0; }
 .lc-input-shell-phone > .lc-input { padding-left: calc(31px * var(--ui-scale, 1)); }
 .lc-input-shell-phone .lc-input-icon { left: calc(10px * var(--ui-scale, 1)); }
 .lc-mobile-row .lc-input-shell { flex: 1 1 auto; min-width: 0; }
 .lc-mobile-row .lc-chip { flex: none; }
+
+.lc-input-shell-icon::after {
+  content: '';
+  position: absolute;
+  left: 40px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #d7e0de;
+}
 
 .lc-field-header .btn { min-height: calc(34px * var(--ui-scale, 1)); padding: calc(7px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1)); }
 
@@ -825,18 +851,17 @@ textarea.lc-input,
 }
 
 .lc-consent-card .lc-section-icon {
-  width: calc(32px * var(--ui-scale, 1));
-  height: calc(32px * var(--ui-scale, 1));
-  padding: calc(7px * var(--ui-scale, 1));
-  border-radius: calc(8px * var(--ui-scale, 1));
-  display: grid;
-  place-items: center;
-  align-self: center;
+    flex: none;
+    width: calc(34px * var(--ui-scale, 1));
+    height: calc(34px * var(--ui-scale, 1));
+    display: inline-grid;
+    place-items: center;
+    color: var(--theme-primary, #2c4a3d);
 }
 
 .lc-consent-card .lc-section-icon svg {
-  width: calc(17px * var(--ui-scale, 1));
-  height: calc(17px * var(--ui-scale, 1));
+  width: calc(34px * var(--ui-scale, 1));
+  height: calc(34px * var(--ui-scale, 1));
 }
 
 .lc-consent-panel {
@@ -1021,28 +1046,22 @@ textarea.lc-input,
 /* Every section icon uses the same compact, centered icon treatment. */
 .lc-card-head .lc-section-icon,
 .lc-section-icon.lc-section-icon-filled {
-  width: calc(32px * var(--ui-scale, 1)) !important;
-  height: calc(32px * var(--ui-scale, 1)) !important;
-  min-width: calc(32px * var(--ui-scale, 1)) !important;
-  max-width: calc(32px * var(--ui-scale, 1)) !important;
-  padding: calc(7px * var(--ui-scale, 1)) !important;
-  margin: 0 !important;
-  display: grid !important;
-  place-items: center !important;
-  align-self: center !important;
-  flex: 0 0 calc(32px * var(--ui-scale, 1)) !important;
-  border-radius: calc(9px * var(--ui-scale, 1)) !important;
-  background: var(--lc-primary-tint) !important;
-  color: var(--lc-primary) !important;
-  box-sizing: border-box !important;
+    flex: none;
+    width: calc(34px * var(--ui-scale, 1));
+    height: calc(34px * var(--ui-scale, 1));
+    display: inline-grid;
+    place-items: center;
+    color: var(--theme-primary, #2c4a3d);
 }
 
 .lc-card-head .lc-section-icon svg,
 .lc-section-icon.lc-section-icon-filled svg {
-  width: calc(17px * var(--ui-scale, 1)) !important;
-  height: calc(17px * var(--ui-scale, 1)) !important;
-  display: block !important;
-  margin: 0 !important;
+    flex: none;
+    width: calc(34px * var(--ui-scale, 1));
+    height: calc(34px * var(--ui-scale, 1));
+    display: inline-grid;
+    place-items: center;
+    color: var(--theme-primary, #2c4a3d);
 }
 
 .lc-card-head {
@@ -1216,4 +1235,18 @@ textarea.lc-input,
     grid-row: 2;
     justify-self: start;
   }
+}
+.lc-bulk-file-icon{
+  width:50px;
+}
+
+
+.lc-section-icon{
+    flex: none;
+    width: calc(34px * var(--ui-scale, 1));
+    height: calc(34px * var(--ui-scale, 1));
+    display: inline-grid;
+    place-items: center;
+    color: var(--theme-primary, #2c4a3d);
+    line-height: var(--line-height-base, 1.6) !important;
 }

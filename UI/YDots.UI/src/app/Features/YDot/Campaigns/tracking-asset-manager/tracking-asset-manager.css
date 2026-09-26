@@ -7,6 +7,7 @@
    Flat by design (no shadows), in line with the app-wide premium layer.
    ========================================================= */
 :host {
+  --s: var(--ui-scale, 1);
   --tam-ink: var(--theme-ink, #1c2a24);
   --tam-ink-2: color-mix(in srgb, var(--theme-ink, #1c2a24) 78%, #ffffff);
   --tam-muted: var(--theme-muted, #5d6b64);
@@ -39,13 +40,16 @@
 
 /* This header has no background, so it sits on the page and needs less air below it than a card would: the
    shared header's own margin is dropped and the flex gap is pulled in by 9px (17px gap -> 8px visible). */
-.tam-page > app-page-header { margin-bottom: calc(-9px * var(--ui-scale, 1)); }
+.tam-page > app-page-header { margin-bottom: calc(-1px * var(--ui-scale, 1)); }
 
 .tam-page {
   display: flex;
   flex-direction: column;
-  gap: var(--campaign-gap, calc(17px * var(--ui-scale, 1)));
-  min-width: 0;
+  gap: calc(19px * var(--s));
+  container-type: inline-size;
+  padding: 0;
+  min-height: calc(100dvh - calc(64px * var(--s)));
+  background: transparent;
 }
 
 .tam-visually-hidden {

@@ -3,6 +3,7 @@
    Self-contained styles using var(--pe-primary) for theme consistency.
    ========================================================= */
 :host {
+  --c: var(--ui-scale, 1);
   --cr-paper: #ffffff;
   --cr-card: #ffffff;
   --cr-surface: #ffffff;
@@ -49,11 +50,11 @@
 .cr-page {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  /* The side padding is the top bar's own 15px inset (styles.css .app-header margins), so the header,
-     the summary cards and the table start and end exactly where the top bar does. */
-  padding: calc(20px * var(--ui-scale, 1)) 15px calc(48px * var(--ui-scale, 1));
+  gap: calc(19px * var(--c));
+  container-type: inline-size;
+  padding: 0;
+  min-height: calc(100dvh - calc(64px * var(--c)));
+  background: transparent;
 }
 .cr-visually-hidden {
   position: absolute;

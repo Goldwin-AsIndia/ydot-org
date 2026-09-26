@@ -16,7 +16,6 @@ import {
   DonLookupItem,
   OwnerWorkload,
 } from "../../../../Shared/models/donor-contract.model";
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 interface OwnerOption {
   readonly reference: string;
@@ -95,35 +94,21 @@ interface AssignResult {
 /**
  * SCR-DON-006 - Assignment Board.
  *
- * THE DOCUMENT'S RULES, AND ALL OF THEM ARE THE SERVER'S NOW. "Unassigned lead - Preview, Inspect
- * History and Assign. Assigned lead - Preview, Inspect History and Reassign. Bulk Assign allows
- * multiple leads to be selected at the same time and assigned or reassigned to an owner selected
- * from the drop-down."
+ * Visual design matches the Donor List page ("ledger" system): flat white sheets, no shadows or
+ * filled colour blocks, tone colour carried only by text/rings/underlines, container-query
+ * responsiveness, and a single reusable drawer for lead preview / assignment / history / results.
  *
- * WHAT THIS REPLACES, AND WHY EACH PIECE MATTERED.
+ * "Unassigned lead - Preview, Inspect History and Assign. Assigned lead - Preview, Inspect History
+ * and Reassign. Bulk Assign allows multiple leads to be selected at the same time and assigned or
+ * reassigned to an owner selected from the drop-down."
  *
- *   - THE ROWS CAME FROM A JSON FILE merged with an in-memory `WorkflowStateService` array, so
- *     the board showed the same leads to every organisation and forgot every assignment on
- *     refresh. `onConfirm` ended in `window.setTimeout(..., 600)` with the comment "Simulated
- *     processing delay ... No backend call is invented here" - the assignment was never saved.
- *
- *   - THE OWNER LIST WAS DERIVED BY GUESSWORK. `matchesCampaignByStem` compared a lead's campaign
- *     name to a campaign record's name word by word, accepting a match when each word was a
- *     prefix of the other, so "Clean Water 2026" could resolve to "Clean Water Initiative" - or to
- *     the wrong campaign entirely. The board now uses the owners the API returns for the leads it
- *     returned, which needs no matching at all.
- *
- *   - THE HISTORY WAS A BROWSER FIELD. `sessionHistory` was a signal keyed by reference, so
- *     "Inspect History" showed only what this tab had done since it was opened - an audit trail
- *     that forgot everything on refresh and knew nothing anybody else had done.
- *
- * OWNERSHIP IS A CONTESTED WRITE, which is why every assign sends `expectedVersion`. Two
+ * Ownership is a contested write, which is why every assign sends `expectedVersion`. Two
  * fundraisers claiming the same lead within a second of each other is the ordinary case on a
  * board like this, and the second one is refused rather than silently overwriting the first.
  */
 @Component({
   selector: "app-assignment-board",
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: "./assignment-board.html",
   styleUrl: "./assignment-board.css",
 })
@@ -142,16 +127,6 @@ export class AssignmentBoardComponent {
   // Screen chrome and lookups, all from the API
   // ===========================================================================================
 
-  protected readonly screen = signal({
-    viewId: "SCR-DON-006",
-    title: "Assignment board",
-    route: "/app/fundraising/relationships/assignment-board",
-    purpose: "Assign or reassign owners across your records.",
-    scope: "",
-    lastRefresh: "",
-    timezone: "Asia/Kolkata (IST)",
-  });
-
   protected readonly filters = signal<{
     campaigns: readonly string[];
     teams: readonly string[];
@@ -169,11 +144,8 @@ export class AssignmentBoardComponent {
   protected readonly savedFilters = signal<readonly string[]>(["All leads"]);
 
   /**
-   * What the caller may do, as the server listed it.
-   *
-   * THE THREE-ROLE MODEL LIVES HERE AND NOWHERE ELSE ON THIS SCREEN. An APPROVER holds no
-   * `assign` code, so no Assign or Bulk Assign button is drawn for them; TENANT_ADMIN and
-   * INITIATOR both hold it. Nothing in this file names a role.
+   * What the caller may do, as the server listed it. An APPROVER holds no `assign` code, so no
+   * Assign or Bulk Assign control is drawn for them; TENANT_ADMIN and INITIATOR both hold it.
    */
   protected readonly permissions = signal<Record<string, boolean>>({
     view: false,
@@ -346,12 +318,6 @@ export class AssignmentBoardComponent {
       bulkRoute: permitted.includes("Bulk route"),
     });
 
-    this.screen.update((current) => ({
-      ...current,
-      scope: response.activeScope,
-      lastRefresh: this.nowLabel(),
-    }));
-
     this.uiState.set(this.rows().length === 0 ? "empty" : "ready");
 
     // Arriving from the Lead Queue's Assign action, or from its bulk selection.
@@ -361,7 +327,6 @@ export class AssignmentBoardComponent {
         (r) => wanted.has(r.leadId) || wanted.has(r.leadReference),
       );
       if (matches.length > 0) {
-        this.selectionMode.set(true);
         this.selectedLeadRefs.set(new Set(matches.map((m) => m.leadReference)));
       }
       this.pendingLeadIds = [];
@@ -395,8 +360,7 @@ export class AssignmentBoardComponent {
       team: row.teamCode ?? "—",
       language: row.preferredLanguage,
 
-      // THE OWNER'S BAND, NOT THE LEAD'S. Workload is a property of the person holding the work,
-      // which is exactly what makes it useful when deciding who to hand the next lead to.
+      // THE OWNER'S BAND, NOT THE LEAD'S. Workload is a property of the person holding the work.
       workloadBand: owner?.workloadBand ?? "—",
       slaState: row.slaState.replace(/([a-z])([A-Z])/g, "$1 $2"),
       currentOwner: row.currentOwnerName ?? "Unassigned",
@@ -415,14 +379,14 @@ export class AssignmentBoardComponent {
   // Derived view state
   // ===========================================================================================
 
-  protected readonly allRows = computed(() => this.rows());
-  protected readonly filteredRows = computed(() => this.rows());
-  protected readonly paginatedRows = computed(() => this.rows());
   protected readonly viewMode = signal<"cards" | "table">("cards");
 
   protected readonly totalCount = computed(() => this.totalCountFromServer());
   protected readonly unassignedCount = computed(
     () => this.rows().filter((r) => !r.currentOwnerUserId).length,
+  );
+  protected readonly assignedCount = computed(
+    () => this.rows().filter((r) => !!r.currentOwnerUserId).length,
   );
   protected readonly dueTodayCount = computed(
     () =>
@@ -430,12 +394,31 @@ export class AssignmentBoardComponent {
         (r) => r.slaState.toLowerCase().replace(/\s/g, "") === "duetoday",
       ).length,
   );
-  protected readonly overdueCount = computed(
-    () => this.rows().filter((r) => r.slaState === "Overdue").length,
-  );
+
+  /** The SLA filter option (as the API named it) that means "due today", if the server sent one. */
+  protected readonly dueTodaySlaLabel = computed<string | null>(() => {
+    const match = this.filters().slaStates.find(
+      (s) => s.toLowerCase().replace(/\s/g, "") === "duetoday",
+    );
+    return match ?? null;
+  });
+
+  protected toggleSavedFilter(value: string): void {
+    this.savedFilter.set(this.savedFilter() === value ? "All leads" : value);
+    this.onFilterChanged();
+  }
+
+  protected toggleSlaQuick(): void {
+    const label = this.dueTodaySlaLabel();
+    if (!label) return;
+    this.slaFilter.set(this.slaFilter() === label ? "All" : label);
+    this.onFilterChanged();
+  }
+
+  /** Only the rows this call returned - the board pages server-side. */
+  protected readonly paginatedRows = computed(() => this.rows());
 
   // ----- Pagination, server-side -----
-  protected readonly pageSizes = [10] as const;
   protected readonly pageSize = signal(10);
   protected readonly currentPage = signal(1);
 
@@ -472,12 +455,6 @@ export class AssignmentBoardComponent {
     }
     this.exitSelectionMode();
     this.currentPage.set(page);
-    this.load();
-  }
-
-  protected onPageSizeChange(_size: number): void {
-    this.pageSize.set(10);
-    this.currentPage.set(1);
     this.load();
   }
 
@@ -567,14 +544,6 @@ export class AssignmentBoardComponent {
     this.historyPanelRow.set(null);
   }
 
-  protected setUiState(state: UiState): void {
-    this.uiState.set(state);
-  }
-
-  protected dismissBanner(): void {
-    this.uiState.set(this.rows().length === 0 ? "empty" : "ready");
-  }
-
   // ===========================================================================================
   // Presentation helpers
   // ===========================================================================================
@@ -588,24 +557,11 @@ export class AssignmentBoardComponent {
       .toUpperCase();
   }
 
-  protected avatarTone(index: number): string {
-    return `avatar-tone-${index % 5}`;
-  }
-
-  protected slaClass(sla: string): string {
-    if (sla === "Overdue") return "ab-badge-danger";
-    if (sla === "Due today") return "ab-badge-warn";
-    return "ab-badge-good";
-  }
-
-  protected workloadClass(band: string): string {
-    if (band === "High") return "ab-badge-danger";
-    if (band === "Medium") return "ab-badge-warn";
-    return "ab-badge-good";
-  }
-
-  protected trackByLead(_index: number, row: LeadRow): string {
-    return row.leadReference;
+  /** Tone used for the SLA badge, the owner ring, and the follow-up glyph. */
+  protected slaTone(sla: string): "ok" | "warn" | "danger" {
+    if (sla === "Overdue" || sla === "Breached") return "danger";
+    if (sla.toLowerCase().replace(/\s/g, "") === "duetoday") return "warn";
+    return "ok";
   }
 
   /** The document: Assign for an unassigned lead, Reassign for an assigned one. */
@@ -615,8 +571,8 @@ export class AssignmentBoardComponent {
 
   protected primaryActionLabel(row: LeadRow): string {
     return this.primaryActionId(row) === "assign"
-      ? "Assign Owner"
-      : "Reassign Owner";
+      ? "Assign owner"
+      : "Reassign owner";
   }
 
   protected actionLabel(mode: AssignMode): string {
@@ -629,24 +585,9 @@ export class AssignmentBoardComponent {
   // Bulk selection
   // ===========================================================================================
 
-  protected readonly selectionMode = signal(false);
   protected readonly selectedLeadRefs = signal<Set<string>>(new Set());
 
-  protected toggleSelectionMode(): void {
-    if (!this.permissions()["bulkRoute"]) {
-      return;
-    }
-    this.selectionMode.update((v) => !v);
-    if (!this.selectionMode()) {
-      this.selectedLeadRefs.set(new Set());
-    } else {
-      this.draft.set(null);
-      this.historyPanelRow.set(null);
-    }
-  }
-
   protected exitSelectionMode(): void {
-    this.selectionMode.set(false);
     this.selectedLeadRefs.set(new Set());
   }
 
@@ -664,6 +605,31 @@ export class AssignmentBoardComponent {
     this.selectedLeadRefs.set(next);
   }
 
+  protected readonly allOnPageSelected = computed(() => {
+    const page = this.paginatedRows();
+    const selected = this.selectedLeadRefs();
+    return page.length > 0 && page.every((r) => selected.has(r.leadReference));
+  });
+
+  protected readonly someOnPageSelected = computed(() => {
+    const selected = this.selectedLeadRefs();
+    return (
+      !this.allOnPageSelected() &&
+      this.paginatedRows().some((r) => selected.has(r.leadReference))
+    );
+  });
+
+  protected toggleSelectAllOnPage(): void {
+    const page = this.paginatedRows();
+    const allSelected = this.allOnPageSelected();
+    const next = new Set(this.selectedLeadRefs());
+    for (const row of page) {
+      if (allSelected) next.delete(row.leadReference);
+      else next.add(row.leadReference);
+    }
+    this.selectedLeadRefs.set(next);
+  }
+
   protected readonly selectedRowsForBulk = computed(() =>
     this.rows().filter((r) => this.selectedLeadRefs().has(r.leadReference)),
   );
@@ -674,8 +640,7 @@ export class AssignmentBoardComponent {
       return;
     }
 
-    // THE SERVER'S CAP, SHOWN BEFORE THE ATTEMPT. Sending more than it accepts would fail the
-    // whole batch after the person had already chosen an owner and typed a reason.
+    // THE SERVER'S CAP, SHOWN BEFORE THE ATTEMPT.
     if (rows.length > this.bulkRouteMaximumItems()) {
       this.toast.show(
         "Too many leads selected",
@@ -703,14 +668,7 @@ export class AssignmentBoardComponent {
     this.toLocalDatetimeInput(new Date()),
   );
 
-  /**
-   * The owners a lead may be handed to.
-   *
-   * THE SERVER'S LIST, WITH THE WORKLOAD IT REPORTED. The old version tried to derive it by
-   * matching the lead's campaign name against campaign records word by word, and then looked the
-   * result up in a constant exported from the campaign register screen. Both steps could be wrong
-   * and neither was checked - a lead could be offered to somebody with no claim on its campaign.
-   */
+  /** The owners a lead may be handed to, with the workload the server reported for each. */
   protected readonly campaignScopedOwnerOptions = computed<
     readonly OwnerOption[]
   >(() =>
@@ -753,11 +711,9 @@ export class AssignmentBoardComponent {
   });
 
   /**
-   * Which of a bulk selection would actually move.
-   *
-   * A LEAD ALREADY OWNED BY THE CHOSEN PERSON IS SKIPPED, and named as skipped rather than
-   * quietly dropped - the document's bulk flow ends in a completion summary, and a summary that
-   * says "12 routed" when 3 were no-ops is not a summary.
+   * A lead already owned by the chosen person is skipped, and named as skipped rather than
+   * quietly dropped - the bulk flow ends in a completion summary, and a summary that says
+   * "12 routed" when 3 were no-ops is not a summary.
    */
   protected readonly eligibleRows = computed<LeadRow[]>(() => {
     const draft = this.draft();
@@ -920,6 +876,7 @@ export class AssignmentBoardComponent {
     this.selectedRow.set(draft.rows[0]);
     this.activeActionId.set(draft.mode);
     this.assignmentReason.set("");
+      this.closeDrawer();
     this.confirmConfig.set({
       title: `Confirm ${this.actionLabel(draft.mode)}`,
       message: isBulk
@@ -929,8 +886,7 @@ export class AssignmentBoardComponent {
       cancelLabel: "Cancel",
       tone: "primary",
 
-      // THE API REQUIRES 10 TO 2000 CHARACTERS. Matching the bounds here means the refusal is a
-      // sentence under the box rather than a 400 after the button.
+      // THE API REQUIRES 10 TO 2000 CHARACTERS.
       requireReason: true,
       reasonLabel: "Assignment reason",
       reasonMin: 10,
@@ -945,14 +901,14 @@ export class AssignmentBoardComponent {
     requestAnimationFrame(() =>
       document.querySelector<HTMLElement>(".ab-modal")?.focus(),
     );
+  
   }
 
   /**
-   * Commits the assignment.
-   *
-   * THE VERSION GOES WITH IT. Ownership is the most contested field on a lead - two fundraisers
-   * claiming the same one within a second of each other is ordinary on this board - so the second
-   * write is refused with a conflict rather than silently overwriting the first.
+   * Commits the assignment. The version goes with it: ownership is the most contested field on a
+   * lead - two fundraisers claiming the same one within a second of each other is ordinary on
+   * this board - so the second write is refused with a conflict rather than silently overwriting
+   * the first.
    */
   protected onConfirm(reason: string): void {
     if (reason.trim().length < 10 || reason.trim().length > 2000) return;
@@ -1018,8 +974,7 @@ export class AssignmentBoardComponent {
           "error",
         );
 
-        // A CONFLICT MEANS SOMEBODY ELSE GOT THERE FIRST, so the board is reloaded rather than
-        // left showing a version that no longer exists.
+        // A CONFLICT MEANS SOMEBODY ELSE GOT THERE FIRST.
         this.load();
       },
     });
@@ -1044,9 +999,6 @@ export class AssignmentBoardComponent {
       })
       .subscribe({
         next: (result) => {
-          // EACH LEAD REPORTED SEPARATELY, as the server reported it. A lead the server refused -
-          // already closed, outside the caller's scope - is named here rather than counted as
-          // routed, which is the difference between a summary and a guess.
           const byId = new Map(result.items.map((item) => [item.leadId, item]));
 
           const details: BulkResultDetail[] = [
@@ -1079,8 +1031,7 @@ export class AssignmentBoardComponent {
             details,
           });
           this.lastResult.set(null);
-          this.selectedLeadRefs.set(new Set());
-          this.selectionMode.set(false);
+          this.exitSelectionMode();
           this.finishCommit();
           this.toast.show(
             "Bulk assignment complete",
@@ -1124,12 +1075,6 @@ export class AssignmentBoardComponent {
     this.focusDrawer();
   }
 
-  protected closeResult(): void {
-    this.lastResult.set(null);
-    this.bulkResult.set(null);
-    this.uiState.set("ready");
-  }
-
   // ===========================================================================================
   // Inspect history - the document's own action
   // ===========================================================================================
@@ -1143,11 +1088,8 @@ export class AssignmentBoardComponent {
   }
 
   /**
-   * Opens the lead's ownership trail.
-   *
-   * IT IS THE SERVER'S TRAIL, NOT THIS TAB'S. The old version read a `sessionHistory` signal that
-   * only ever held what this browser had done since the page loaded - so a lead reassigned three
-   * times by three people showed an empty history to all of them.
+   * Opens the lead's ownership trail from the server - not a browser-side log, so a lead
+   * reassigned by three different people shows the same history to all of them.
    */
   protected openHistoryPanel(row: LeadRow): void {
     this.openDrawer();
@@ -1187,10 +1129,6 @@ export class AssignmentBoardComponent {
     };
   }
 
-  protected closeHistoryPanel(): void {
-    this.historyPanelRow.set(null);
-  }
-
   protected viewFullHistory(row: LeadRow): void {
     this.router.navigate(
       ["/app/fundraising/relationships/communication-timeline"],
@@ -1226,18 +1164,6 @@ export class AssignmentBoardComponent {
     })} · ${this.timezoneLabel}`;
   }
 
-  private formatDate(value: string | null): string {
-    if (!value) return "—";
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime())
-      ? "—"
-      : parsed.toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        });
-  }
-
   private formatDateTime(value: string | null): string {
     if (!value) return "—";
     const parsed = new Date(value);
@@ -1261,16 +1187,6 @@ export class AssignmentBoardComponent {
     return row.leadPreview.startsWith(row.leadReference)
       ? row.leadPreview.slice(row.leadReference.length).replace(/^[\s:·-]+/, "")
       : row.leadPreview;
-  }
-
-  private nowLabel(): string {
-    return new Date().toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   }
 
   // ===========================================================================================
@@ -1313,9 +1229,6 @@ export class AssignmentBoardComponent {
     const length = this.assignmentReason().trim().length;
     return length >= 10 && length <= 2000;
   });
-  protected readonly assignedCount = computed(
-    () => this.rows().filter((r) => !!r.currentOwnerUserId).length,
-  );
   protected readonly filterFields = [
     { key: "campaign", label: "Campaign" },
     { key: "team", label: "Team" },
@@ -1323,7 +1236,6 @@ export class AssignmentBoardComponent {
     { key: "workload", label: "Workload band" },
     { key: "sla", label: "SLA state" },
   ] as const;
-  private drawerTrigger: HTMLElement | null = null;
   private loadSequence = 0;
 
   protected refresh(): void {
@@ -1411,8 +1323,6 @@ export class AssignmentBoardComponent {
   }
 
   protected openDrawer(): void {
-    if (!this.drawerOpen())
-      this.drawerTrigger = document.activeElement as HTMLElement | null;
     this.drawerOpen.set(true);
     requestAnimationFrame(() =>
       document.querySelector<HTMLElement>(".ab-drawer")?.focus(),
@@ -1426,7 +1336,6 @@ export class AssignmentBoardComponent {
     this.historyPanelRow.set(null);
     this.lastResult.set(null);
     this.bulkResult.set(null);
-    this.drawerTrigger?.focus();
   }
 
   protected onOverlayKeydown(event: KeyboardEvent): void {
@@ -1464,90 +1373,90 @@ export class AssignmentBoardComponent {
   }
 
   protected exportAssignmentBoard(): void {
-  const rows = this.paginatedRows();
+    const rows = this.paginatedRows();
 
-  if (!rows.length) {
+    if (!rows.length) {
+      this.toast.show(
+        "Nothing to export",
+        "There are no assignment records available to export.",
+        "error",
+      );
+      return;
+    }
+
+    const headers = [
+      "Lead ID",
+      "Lead Name",
+      "Campaign",
+      "Team",
+      "Language",
+      "Workload",
+      "SLA Status",
+      "Current Owner",
+      "Suggested Owner",
+      "Open Work",
+      "Next Action Due",
+      "Status",
+    ];
+
+    const csvRows = rows.map((row) => [
+      row.leadReference,
+      this.leadPreviewWithoutReference(row),
+      row.campaign,
+      row.team,
+      row.language,
+      row.workloadBand,
+      row.slaState,
+      row.currentOwner || "Unassigned",
+      row.suggestedOwner || "",
+      row.openWorkCount,
+      row.nextActionDue,
+      row.status,
+    ]);
+
+    const escapeCsv = (value: unknown): string => {
+      const text = String(value ?? "");
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const csv = [
+      headers.map(escapeCsv).join(","),
+      ...csvRows.map((row) => row.map(escapeCsv).join(",")),
+    ].join("\r\n");
+
+    const blob = new Blob(["\uFEFF" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `assignment-board-${this.formatExportDate()}.csv`;
+    link.style.display = "none";
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+
     this.toast.show(
-      "Nothing to export",
-      "There are no assignment records available to export.",
-      "error",
+      "Export completed",
+      `${rows.length} assignment record(s) exported successfully.`,
+      "success",
     );
-    return;
   }
 
-  const headers = [
-    "Lead ID",
-    "Lead Name",
-    "Campaign",
-    "Team",
-    "Language",
-    "Workload",
-    "SLA Status",
-    "Current Owner",
-    "Suggested Owner",
-    "Open Work",
-    "Next Action Due",
-    "Status",
-  ];
+  private formatExportDate(): string {
+    const now = new Date();
 
-  const csvRows = rows.map((row) => [
-    row.leadReference,
-    this.leadPreviewWithoutReference(row),
-    row.campaign,
-    row.team,
-    row.language,
-    row.workloadBand,
-    row.slaState,
-    row.currentOwner || "Unassigned",
-    row.suggestedOwner || "",
-    row.openWorkCount,
-    row.nextActionDue,
-    row.status,
-  ]);
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
 
-  const escapeCsv = (value: unknown): string => {
-    const text = String(value ?? "");
-    return `"${text.replace(/"/g, '""')}"`;
-  };
-
-  const csv = [
-    headers.map(escapeCsv).join(","),
-    ...csvRows.map((row) => row.map(escapeCsv).join(",")),
-  ].join("\r\n");
-
-  const blob = new Blob(["\uFEFF" + csv], {
-    type: "text/csv;charset=utf-8;",
-  });
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = `assignment-board-${this.formatExportDate()}.csv`;
-  link.style.display = "none";
-
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  URL.revokeObjectURL(url);
-
-  this.toast.show(
-    "Export completed",
-    `${rows.length} assignment record(s) exported successfully.`,
-    "success",
-  );
-}
-
-private formatExportDate(): string {
-  const now = new Date();
-
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-
-  return `${year}${month}${day}-${hours}${minutes}`;
-}
+    return `${year}${month}${day}-${hours}${minutes}`;
+  }
 }

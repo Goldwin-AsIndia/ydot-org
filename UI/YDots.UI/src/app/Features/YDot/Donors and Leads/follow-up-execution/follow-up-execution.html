@@ -3,7 +3,7 @@
     <div class="container-fluid px-4 py-3 xr-page">
 
       @if (loading()) {
-        <app-page-header screen="follow-up-execution" title="Follow-up execution" subtitle="Record what happened and complete a scheduled follow-up." />
+        <app-page-header class="page-header" screen="follow-up-execution" title="Follow-up execution" subtitle="Record what happened and complete a scheduled follow-up." />
         <section class="xr-sheet xr-state" aria-live="polite" aria-busy="true">
           <span class="xr-ring-g" aria-hidden="true"><i class="ri-loader-4-line xr-spin"></i></span>
           <div><p class="xr-eyebrow">Call report</p><h2>Opening the follow-up…</h2></div>
@@ -11,7 +11,7 @@
       }
 
       @else if (loadError()) {
-        <app-page-header screen="follow-up-execution" title="Follow-up execution" subtitle="Record what happened and complete a scheduled follow-up." />
+        <app-page-header class="page-header" screen="follow-up-execution" title="Follow-up execution" subtitle="Record what happened and complete a scheduled follow-up." />
         <section class="xr-sheet xr-state is-error" role="alert">
           <span class="xr-ring-g" aria-hidden="true"><i class="ri-error-warning-line"></i></span>
           <div>
@@ -28,8 +28,8 @@
 
       @else if (snapshot(); as data) {
 
-        <app-page-header screen="follow-up-execution" title="Follow-up execution" subtitle="Record what happened and complete a scheduled follow-up for a lead or donor.">
-          <span meta class="ph-chip">{{ data.followUp.followUpId || followUpId() || 'Follow-up' }}</span>
+        <app-page-header class="page-header" screen="follow-up-execution" title="Follow-up execution" subtitle="Record what happened and complete a scheduled follow-up for a lead or donor.">
+          <!-- <span meta class="ph-chip">{{ data.followUp.followUpId || followUpId() || 'Follow-up' }}</span> -->
           <button actions type="button" class="ph-btn ph-btn--ghost" (click)="backToQueue()" [disabled]="saving()">
             <i class="ri-arrow-left-line" aria-hidden="true"></i> Back to queue
           </button>
