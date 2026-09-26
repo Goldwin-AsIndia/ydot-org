@@ -88,6 +88,106 @@
 .modal-xl { --pe-modal-width: calc(1140px * var(--ui-scale)); }
 .modal-sm { --pe-modal-width: calc(300px * var(--ui-scale)); }
 
+/* The sign-in card is the same kind of fixed template box: app.min.css pins .main-wrapper to 650 / 900 / 1000
+   design px and 600-670 px tall, while everything inside it - p-6, mb-10, mb-12, the headings, the fields - is
+   rem-based and therefore grows with --ui-scale. Past 1.25 the form needs more height than the box allows and
+   the card's own `overflow-hidden` cuts the Sign In button off: measured, its bottom sits 107 px below the card
+   edge at --ui-scale 1.45 (a 2560x1440 screen, or any normal screen zoomed out until the viewport passes 2304),
+   187 px at 1.6, and it keeps growing from there. Scaling the box with the same token puts the card back in
+   proportion at every step - decoration column, gap and form column come out exactly as the design draws them -
+   and the window's height caps it, so a wide-but-short window shrinks the card to fit the screen instead of
+   running off the bottom. Where that cap leaves the form less room than it needs, the form column scrolls
+   rather than being clipped: the button is never half a card below the fold.
+
+   `html` in front of the class on purpose: app.min.css carries .main-wrapper too, and this file is imported by
+   styles.css, whose position relative to app.min.css in <head> is not guaranteed - one element in the selector
+   makes these rules win whichever order the two files load in. */
+html .main-wrapper {
+  max-width: calc(650px * var(--ui-scale));
+  min-height: calc(600px * var(--ui-scale));
+}
+
+@media (min-width: 992px) {
+  html .main-wrapper {
+    max-width: calc(900px * var(--ui-scale));
+  }
+}
+
+@media (min-width: 1200px) {
+  html .main-wrapper {
+    max-width: calc(1000px * var(--ui-scale));
+    /* 670 / 657 design px, and never taller than the window allows between the wrapper's own py-10 (2 x 2.5rem). */
+    max-height: min(calc(670px * var(--ui-scale)), calc(100vh - 5rem));
+    /* min-height can never beat max-height: the same cap is repeated inside the min(). */
+    min-height: min(calc(657px * var(--ui-scale)), calc(100vh - 5rem));
+  }
+
+  /* Only the form column scrolls - the decoration column stays put - and no scrollbar appears unless the cap
+     above has actually left the form short of room. */
+  html .main-wrapper > .login-section {
+    overflow-x: clip;
+    overflow-y: auto;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Forgot password / e-mail verification / two-step verification opened with the form column ALREADY
+   scrolled, on screens with room to spare. It is the markup, not the card: the YDot logo is an ordinary
+   block ABOVE `<div class="d-flex flex-column justify-content-center h-100">`, and Bootstrap's `.h-100`
+   is `height: 100% !important` - 100% of the whole COLUMN's content box, logo and all. So the filler is
+   as tall as the space the logo has already used, and the pair is taller than the column by exactly the
+   logo's own height. Measured in Chrome against this markup and the real stylesheets, before this rule:
+   70 px of overflow at --ui-scale 1 (1440x900: clientH 668 / scrollH 738, the logo being 62 px plus its
+   `mt-lg-2`), 80 px at 1.15 (1920x1080) and 101 px at 1.45 (2560x1440); at 1024x768 it was 45 px. Above
+   1200 px that overflow is a scrollbar whose thumb sits at the top of its track before the visitor has
+   touched anything, so the logo looked cut off by the card's own corner. In the 992-1199 band the column
+   is not a scroll container yet, so those 45 px were simply clipped by the card's `overflow-hidden` and
+   could not be reached at all. Sign In carries the same card without the filler and measures 0 px,
+   which is the tell.
+
+   The filler is only ever meant to be "whatever is left of the column". Making the column a flex box
+   says exactly that: the filler's base size is still the 100% Bootstrap forces on it, but flex shrinking
+   then takes the logo's height back off it (its automatic minimum size stops it at its own content, so
+   it can never cut the form). A short form now fits - no scrollbar, logo intact, 0 px of overflow at
+   1024, 1366, 1440, 1600, 1920 and 2560 px wide - and a long one still overflows and still scrolls in
+   this column, because the filler simply refuses to shrink past its content: tripling the blocks on
+   that page measured 337 px of overflow and 337 px of available scroll both before and after, i.e. that
+   case is untouched.
+
+   `:has(> .h-100)` keeps the change to the pages that actually have the problem - forgot password,
+   e-mail verification and two-step verification are the only markup carrying the filler, so sign-in and
+   select-organisation keep plain block layout (sign-in re-measured identical either way). A browser
+   without `:has()` ignores these two rules and falls back to the scrollbar it had before, so nothing
+   regresses where they do not apply. */
+@media (min-width: 992px) {
+  html .main-wrapper > .login-section:has(> .h-100) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  html .main-wrapper > .login-section:has(> .h-100) > .h-100 {
+    flex: 1 1 auto;
+  }
+}
+
+/* The decoration column grows with the card, but the illustration does not: .img-fluid only caps it at 100% of
+   the column AND at its own 1086 x 1448 px, so past --ui-scale 2.4 - any CSS viewport wider than 3840px, which
+   is exactly what a zoomed-out browser window is - the picture stops growing while the panel keeps going, and
+   the grey rounded box shows beside it and under it (measured: 1207px of grey to the right and 1512px below at
+   --ui-scale 4.8). The panel is drawn as a full-bleed frame - it carries `overflow: hidden` plus the grey as a
+   fallback fill - so the picture is stretched over it and cropped, the same treatment app.min.css already gives
+   the hover-effect canvas in this very panel (`.decoration-section canvas`). `top` keeps the design's crop: the
+   illustration is anchored to the top and its lower edge is the part the design trims (verified pixel-identical
+   at 1280, 1920, 2560, 3200 and 3840 where the panel already fitted the picture). */
+html .main-wrapper .decoration-section img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  -o-object-fit: cover;
+  object-fit: cover;
+  object-position: top center;
+}
+
 
 /* =====================================================================================================
    Fit: nothing may push the page sideways.

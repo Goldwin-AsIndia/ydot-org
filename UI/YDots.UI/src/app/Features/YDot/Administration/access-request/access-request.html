@@ -275,7 +275,7 @@
         <button type="button" class="ar-x" (click)="closeNewRequest()" aria-label="Close"><i class="ri-close-line" aria-hidden="true"></i></button>
       </header>
 
-      <div class="ar-modal-body">
+      <div class="ar-modal-body" (scroll)="dpField.set(null)">
         <div class="ar-form">
 
           <!-- Request type -->
@@ -399,7 +399,7 @@
             <label class="ar-field-lbl" for="arScopeValue">Scope value</label>
             <div class="ar-ig">
               <i class="ri-map-pin-2-line ar-ig-ico" aria-hidden="true"></i>
-              <input id="arScopeValue" type="text" class="ar-ig-input" placeholder="e.g. Global - Donations"
+              <input id="arScopeValue" type="text" class="ar-ig-input" placeholder="e.g. Global - Donations" style="border: none !important;outline:none !important"
                      [ngModel]="newRequestForm().scopeValue" (ngModelChange)="newRequestForm.set({...newRequestForm(), scopeValue: $event})">
             </div>
           </div>
@@ -411,12 +411,14 @@
                 <div class="ar-field">
                   <label class="ar-field-lbl">{{ f.label }}</label>
                   <div class="ar-dp" [class.is-open]="dpField() === f.key" (click)="$event.stopPropagation()">
-                    <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="openDatePicker(f.key)" [attr.aria-expanded]="dpField() === f.key">
+                    <button #dpTrigger type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="openDatePicker(f.key); placeDatePicker(dpTrigger)" [attr.aria-expanded]="dpField() === f.key">
                       <i class="ri-calendar-line ar-dd-lead" aria-hidden="true"></i>
                       <span class="ar-dd-value" [class.is-placeholder]="!dateValue(f.key)">{{ displayDate(dateValue(f.key)) || 'Pick a date' }}</span>
                     </button>
                     @if (dpField() === f.key) {
-                      <div class="ar-dp-pop" role="dialog" [attr.aria-label]="f.label">
+                      <div class="ar-dp-pop" role="dialog" [attr.aria-label]="f.label"
+                           [style.top.px]="dpPos()?.top ?? 0" [style.left.px]="dpPos()?.left ?? 0"
+                           [style.visibility]="dpPos() ? 'visible' : 'hidden'">
                         <div class="ar-dp-head">
                           <button type="button" class="ar-dp-nav" (click)="dpShift(-1)" aria-label="Previous month"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
                           <span class="ar-dp-title">{{ dpTitle() }}</span>

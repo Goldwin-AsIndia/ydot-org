@@ -463,8 +463,16 @@
   </div>
   </div>
 
-  <!-- ============ SAVE BAR ============ -->
-  @if ((mode() === 'organisation' && hasConfigurationChanges()) || (mode() === 'roles' && selectedRoleId() && hasMappingChanges())) {
+  }
+</div>
+
+<!-- ============ SAVE BAR ============
+     Outside .mc-page on purpose, same as the side sheet: that wrapper is a size container, which
+     becomes the containing block for fixed / sticky children - the bar only surfaced at the very
+     end of the content. As a fixed dock it stays on screen while the page scrolls. -->
+@if (!loading() && !loadFailed() &&
+     ((mode() === 'organisation' && hasConfigurationChanges()) || (mode() === 'roles' && selectedRoleId() && hasMappingChanges()))) {
+  <div class="mc-save-dock">
     <div class="mc-save" role="status">
       <div class="mc-save-n">{{ pendingCount() }}</div>
       <div class="mc-save-text">
@@ -486,9 +494,8 @@
         </button>
       }
     </div>
-  }
-  }
-</div>
+  </div>
+}
 
 <!-- ============ EDIT / CREATE — SIDE SHEET ============
      Outside .mc-page on purpose: that wrapper is a size container, and container (layout)

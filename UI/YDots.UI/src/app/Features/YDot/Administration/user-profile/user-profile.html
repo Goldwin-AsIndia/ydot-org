@@ -428,99 +428,104 @@
   </div>
   </div>
 
-  <!-- ============ EDIT PROFILE ============ -->
-  @if (showEditModal()) {
-    <div class="up-backdrop" (click)="closeEditModal()">
-      <div class="up-modal up-modal--lg" role="dialog" aria-modal="true" aria-labelledby="upEditTitle" (click)="$event.stopPropagation()">
-        <header class="up-modal-head">
-          <div>
-            <h3 class="up-modal-title" id="upEditTitle">Edit profile</h3>
-            <div class="up-modal-sub">{{ data()?.displayName }}</div>
-          </div>
-          <button type="button" class="up-x" aria-label="Close" (click)="closeEditModal()"><i class="ri-close-line" aria-hidden="true"></i></button>
-        </header>
-
-        <div class="up-modal-body">
-          <div class="up-form">
-            <div class="up-field">
-              <label class="up-lbl" for="upName">Display name <em class="up-req">*</em></label>
-              <input id="upName" type="text" class="up-input" [ngModel]="editForm().displayName"
-                     (ngModelChange)="editForm.set({...editForm(), displayName: $event})">
-            </div>
-            <div class="up-field">
-              <label class="up-lbl" for="upDesig">Designation</label>
-              <input id="upDesig" type="text" class="up-input" [ngModel]="editForm().designation"
-                     (ngModelChange)="editForm.set({...editForm(), designation: $event})">
-            </div>
-            <div class="up-field up-field--full">
-              <label class="up-lbl" for="upMobile">Mobile number</label>
-              <div class="up-phone">
-                <input type="text" class="up-phone-code" placeholder="+91" aria-label="Country code"
-                       [ngModel]="editForm().mobileCountryCode"
-                       (ngModelChange)="editForm.set({...editForm(), mobileCountryCode: $event})">
-                <input id="upMobile" type="text" class="up-phone-num" placeholder="Mobile number"
-                       [ngModel]="editForm().mobileNumber"
-                       (ngModelChange)="editForm.set({...editForm(), mobileNumber: $event})">
-              </div>
-              <div class="up-help">The server validates the code and the number together.</div>
-            </div>
-            <div class="up-field up-field--full">
-              <label class="up-lbl" for="upEmail">Email</label>
-              <div class="up-locked">
-                <i class="ri-lock-line" aria-hidden="true"></i>
-                <input id="upEmail" type="email" [ngModel]="editForm().email" disabled>
-              </div>
-              <div class="up-help">
-                This is what the account signs in with, so it changes through
-                <button type="button" class="up-inline-link" (click)="viewLoginIdentifierChange()">Change sign-in identifier</button>,
-                which verifies the new address first.
-              </div>
-            </div>
-          </div>
-          <div class="up-note"><i class="ri-information-line" aria-hidden="true"></i> Department, manager and organisation unit are set from the organisation structure rather than here.</div>
-        </div>
-
-        <footer class="up-modal-foot">
-          <button type="button" class="up-btn up-btn--line" (click)="closeEditModal()">Cancel</button>
-          <button type="button" class="up-btn up-btn--primary" (click)="saveProfile()" [disabled]="submitting()">
-            @if (submitting()) { <i class="ri-loader-4-line up-spin" aria-hidden="true"></i> Saving… } @else { Save changes }
-          </button>
-        </footer>
-      </div>
-    </div>
-  }
-
-  <!-- ============ SUSPEND ============ -->
-  @if (showSuspendModal()) {
-    <div class="up-backdrop" (click)="closeSuspendModal()">
-      <div class="up-modal" role="dialog" aria-modal="true" aria-labelledby="upSuspendTitle" (click)="$event.stopPropagation()">
-        <header class="up-modal-head">
-          <div>
-            <h3 class="up-modal-title" id="upSuspendTitle">Suspend account</h3>
-            <div class="up-modal-sub">{{ data()?.displayName }}</div>
-          </div>
-          <button type="button" class="up-x" aria-label="Close" (click)="closeSuspendModal()"><i class="ri-close-line" aria-hidden="true"></i></button>
-        </header>
-        <div class="up-modal-body">
-          <div class="up-alert up-alert--warn">
-            <i class="ri-information-line" aria-hidden="true"></i>
-            <div>This revokes active sessions and prevents access until the account is restored.</div>
-          </div>
-          <div class="up-field">
-            <label class="up-lbl" for="upReason">Reason <em class="up-req">*</em></label>
-            <textarea id="upReason" class="up-input up-textarea" rows="3" placeholder="Why is this account being suspended?"
-                      [ngModel]="suspendReason()" (ngModelChange)="suspendReason.set($event)"></textarea>
-          </div>
-        </div>
-        <footer class="up-modal-foot">
-          <button type="button" class="up-btn up-btn--line" (click)="closeSuspendModal()">Cancel</button>
-          <button type="button" class="up-btn up-btn--warn" (click)="confirmSuspend()" [disabled]="!suspendReason().trim() || submitting()">
-            @if (submitting()) { <i class="ri-loader-4-line up-spin" aria-hidden="true"></i> Suspending… } @else { <i class="ri-pause-circle-line" aria-hidden="true"></i> Suspend }
-          </button>
-        </footer>
-      </div>
-    </div>
-  }
-
 </div>
 </main>
+
+<!-- ============ DIALOGS ============
+     Outside <main> on purpose. Inside .page-wrapper they were positioned against the page instead
+     of the screen - an ancestor with a transform (the page's enter animation) becomes the
+     containing block for position: fixed - so the dialog sat at the bottom-left and the backdrop
+     covered only part of the screen. Out here they are relative to the viewport again. -->
+<!-- ============ EDIT PROFILE ============ -->
+@if (showEditModal()) {
+  <div class="up-backdrop" (click)="closeEditModal()">
+    <div class="up-modal up-modal--lg" role="dialog" aria-modal="true" aria-labelledby="upEditTitle" (click)="$event.stopPropagation()">
+      <header class="up-modal-head">
+        <div>
+          <h3 class="up-modal-title" id="upEditTitle">Edit profile</h3>
+          <div class="up-modal-sub">{{ data()?.displayName }}</div>
+        </div>
+        <button type="button" class="up-x" aria-label="Close" (click)="closeEditModal()"><i class="ri-close-line" aria-hidden="true"></i></button>
+      </header>
+
+      <div class="up-modal-body">
+        <div class="up-form">
+          <div class="up-field">
+            <label class="up-lbl" for="upName">Display name <em class="up-req">*</em></label>
+            <input id="upName" type="text" class="up-input" [ngModel]="editForm().displayName"
+                   (ngModelChange)="editForm.set({...editForm(), displayName: $event})">
+          </div>
+          <div class="up-field">
+            <label class="up-lbl" for="upDesig">Designation</label>
+            <input id="upDesig" type="text" class="up-input" [ngModel]="editForm().designation"
+                   (ngModelChange)="editForm.set({...editForm(), designation: $event})">
+          </div>
+          <div class="up-field up-field--full">
+            <label class="up-lbl" for="upMobile">Mobile number</label>
+            <div class="up-phone">
+              <input type="text" class="up-phone-code" placeholder="+91" aria-label="Country code"
+                     [ngModel]="editForm().mobileCountryCode"
+                     (ngModelChange)="editForm.set({...editForm(), mobileCountryCode: $event})">
+              <input id="upMobile" type="text" class="up-phone-num" placeholder="Mobile number"
+                     [ngModel]="editForm().mobileNumber"
+                     (ngModelChange)="editForm.set({...editForm(), mobileNumber: $event})">
+            </div>
+            <div class="up-help">The server validates the code and the number together.</div>
+          </div>
+          <div class="up-field up-field--full">
+            <label class="up-lbl" for="upEmail">Email</label>
+            <div class="up-locked">
+              <i class="ri-lock-line" aria-hidden="true"></i>
+              <input id="upEmail" type="email" [ngModel]="editForm().email" disabled>
+            </div>
+            <div class="up-help">
+              This is what the account signs in with, so it changes through
+              <button type="button" class="up-inline-link" (click)="viewLoginIdentifierChange()">Change sign-in identifier</button>,
+              which verifies the new address first.
+            </div>
+          </div>
+        </div>
+        <div class="up-note"><i class="ri-information-line" aria-hidden="true"></i> Department, manager and organisation unit are set from the organisation structure rather than here.</div>
+      </div>
+
+      <footer class="up-modal-foot">
+        <button type="button" class="up-btn up-btn--line" (click)="closeEditModal()">Cancel</button>
+        <button type="button" class="up-btn up-btn--primary" (click)="saveProfile()" [disabled]="submitting()">
+          @if (submitting()) { <i class="ri-loader-4-line up-spin" aria-hidden="true"></i> Saving… } @else { Save changes }
+        </button>
+      </footer>
+    </div>
+  </div>
+}
+
+<!-- ============ SUSPEND ============ -->
+@if (showSuspendModal()) {
+  <div class="up-backdrop" (click)="closeSuspendModal()">
+    <div class="up-modal" role="dialog" aria-modal="true" aria-labelledby="upSuspendTitle" (click)="$event.stopPropagation()">
+      <header class="up-modal-head">
+        <div>
+          <h3 class="up-modal-title" id="upSuspendTitle">Suspend account</h3>
+          <div class="up-modal-sub">{{ data()?.displayName }}</div>
+        </div>
+        <button type="button" class="up-x" aria-label="Close" (click)="closeSuspendModal()"><i class="ri-close-line" aria-hidden="true"></i></button>
+      </header>
+      <div class="up-modal-body">
+        <div class="up-alert up-alert--warn">
+          <i class="ri-information-line" aria-hidden="true"></i>
+          <div>This revokes active sessions and prevents access until the account is restored.</div>
+        </div>
+        <div class="up-field">
+          <label class="up-lbl" for="upReason">Reason <em class="up-req">*</em></label>
+          <textarea id="upReason" class="up-input up-textarea" rows="3" placeholder="Why is this account being suspended?"
+                    [ngModel]="suspendReason()" (ngModelChange)="suspendReason.set($event)"></textarea>
+        </div>
+      </div>
+      <footer class="up-modal-foot">
+        <button type="button" class="up-btn up-btn--line" (click)="closeSuspendModal()">Cancel</button>
+        <button type="button" class="up-btn up-btn--warn" (click)="confirmSuspend()" [disabled]="!suspendReason().trim() || submitting()">
+          @if (submitting()) { <i class="ri-loader-4-line up-spin" aria-hidden="true"></i> Suspending… } @else { <i class="ri-pause-circle-line" aria-hidden="true"></i> Suspend }
+        </button>
+      </footer>
+    </div>
+  </div>
+}

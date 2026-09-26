@@ -398,9 +398,14 @@
    wobble down the left edge of the menu rather than as a list. */
 .pe-app-sidebar .pe-app-sidebar-menu .pe-main-menu > li > .pe-nav-link > .pe-nav-icon {
   flex: 0 0 auto;
-  inline-size: 1.25rem;
+  display: inline-grid;
+  place-items: center;
+  inline-size: calc(22px * var(--ui-scale, 1));
+  block-size: calc(22px * var(--ui-scale, 1));
+  margin: 0 !important;
+  font-size: calc(19px * var(--ui-scale, 1)) !important;
+  line-height: 1 !important;
   text-align: center;
-  line-height: 1;
 }
 
 /* NOTHING BELOW THE TOP LEVEL CARRIES AN ICON, and this enforces it rather than trusting the
@@ -429,5 +434,152 @@
     --pe-menu-indent-l3: calc(58px * var(--ui-scale, 1));
     --pe-menu-rail-l2: calc(20px * var(--ui-scale, 1));
     --pe-menu-rail-l3: calc(38px * var(--ui-scale, 1));
+  }
+}
+
+/* =============================================================================================
+   ROWS THAT HOLD TOGETHER AT ANY ZOOM
+   =============================================================================================
+
+   THE BUG. A top-level row took its height from the label's line box, and the icon sat on the
+   text baseline rather than in the middle. That was fine only while the label was showing:
+   - zoomed out, the rail folds to icons (the label is hidden), the row lost its height, and the
+     icons stacked on top of each other, half clipped, with the "active" bar floating free;
+   - expanded, every icon sat a few pixels below its label (Administration, Organisation…).
+   The row now owns its height and centres icon and label on one line, and the folded rail
+   centres the icon in its slot - so both modes look right at every zoom level. */
+.pe-app-sidebar .pe-app-sidebar-menu .pe-main-menu > li > .pe-nav-link {
+  display: flex !important;
+  align-items: center !important;
+  gap: calc(10px * var(--ui-scale, 1));
+  min-height: calc(42px * var(--ui-scale, 1));
+  line-height: 1.3;
+}
+
+.pe-app-sidebar .pe-app-sidebar-menu .pe-main-menu > li > .pe-nav-link > .pe-nav-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pe-app-sidebar .pe-app-sidebar-menu .pe-main-menu > li > .pe-nav-link > .pe-nav-arrow {
+  flex: none;
+  margin-inline-start: auto;
+  line-height: 1;
+}
+
+/* The second and third levels: the same one-line centring, so a long name wraps cleanly. */
+.pe-app-sidebar .pe-app-sidebar-menu .pe-slide-menu .pe-nav-link {
+  display: flex;
+  align-items: center;
+  min-height: calc(38px * var(--ui-scale, 1));
+  line-height: 1.3;
+}
+
+@media (min-width: 992px) {
+  /* Folded rail: one icon per row, centred, on a row tall enough to hold it. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu > li > .pe-nav-link {
+    justify-content: center;
+    gap: 0;
+    min-height: calc(46px * var(--ui-scale, 1));
+    padding-inline: 0 !important;
+  }
+
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu > li > .pe-nav-link > .pe-nav-content,
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu > li > .pe-nav-link > .pe-nav-arrow {
+    display: none !important;
+  }
+
+  /* "Working inside" is a heading for the expanded menu; in the rail it only pushed icons apart. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu > .pe-menu-title {
+    display: none;
+  }
+}
+
+/* =============================================================================================
+   THE BRAND: MARK AND NAME IN PROPORTION AT ANY ZOOM
+   =============================================================================================
+
+   THE BUG. The name ("YDot") scales with --ui-scale, but the mark inside <app-themed-logo> was
+   drawn at its own fixed pixel size (and its SVG shrank to its own viewBox), so zoomed out the
+   mark shrank to a speck beside a large name. Both now size from the same scale: the mark gets
+   a fixed square box and its SVG / image fills it. ::ng-deep because the SVG lives inside the
+   logo component's own template. */
+.pe-app-sidebar .pe-app-sidebar-logo .logo-main {
+  display: flex !important;
+  align-items: center;
+  gap: calc(10px * var(--ui-scale, 1)) !important;
+  width: auto !important;          /* the template's inline 200px width no longer squeezes it */
+  min-width: 0;
+  text-decoration: none;
+}
+
+.pe-app-sidebar .pe-app-sidebar-logo app-themed-logo {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  inline-size: calc(52px * var(--ui-scale, 1));
+  block-size: calc(52px * var(--ui-scale, 1));
+  overflow: visible;
+}
+
+/* The mark's artwork sits small inside its own viewBox, so scale the drawing up, not just the box.
+   Tune scale() if it reads too large or too small (1.3 - 1.8). */
+.pe-app-sidebar .pe-app-sidebar-logo ::ng-deep app-themed-logo :is(svg, img) {
+  display: block;
+  inline-size: 100% !important;
+  block-size: 100% !important;
+  max-inline-size: none !important;
+  max-block-size: none !important;
+  transform: scale(1.5);
+  transform-origin: center;
+}
+
+/* The component's own wrapper may carry the [size] as an inline width - let it follow the box. */
+.pe-app-sidebar .pe-app-sidebar-logo ::ng-deep app-themed-logo > * {
+  inline-size: 100% !important;
+  block-size: 100% !important;
+}
+/* The logo mark inside the sidebar shows in white. The mark is inside <app-themed-logo>'s own
+   template, so it needs ::ng-deep, and a space: the mark is a descendant of the sidebar,
+   not the sidebar itself. */
+.pe-app-sidebar ::ng-deep .themed-logo__mark {
+  background-color: #ffffff !important;   /* a mark drawn as a CSS mask takes its colour from here */
+  color: #ffffff !important;              /* an icon-font or currentColor mark */
+}
+
+/* If the mark is an inline SVG, its shapes are coloured by fill / stroke instead. */
+.pe-app-sidebar ::ng-deep .themed-logo__mark :is(path, circle, rect, polygon, g) {
+  fill: #ffffff !important;
+}
+.pe-app-sidebar .pe-app-sidebar-logo h3 {
+  margin: 0;
+  font-size: calc(26px * var(--ui-scale, 1)) !important;
+  line-height: 1 !important;
+  white-space: nowrap;
+}
+
+@media (min-width: 992px) {
+  /* Folded rail: the mark alone, centred, a little larger since it stands alone. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-app-sidebar-logo {
+    justify-content: center;
+    padding-inline: 0 !important;
+  }
+
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-app-sidebar-logo .logo-main {
+    justify-content: center;
+    gap: 0 !important;
+  }
+
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-app-sidebar-logo h3 {
+    display: none;
+  }
+
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-app-sidebar-logo app-themed-logo {
+    inline-size: calc(44px * var(--ui-scale, 1));
+    block-size: calc(44px * var(--ui-scale, 1));
   }
 }

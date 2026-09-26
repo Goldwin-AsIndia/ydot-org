@@ -542,7 +542,11 @@
 .up-btn--warn { background: #b7791f; border-color: #b7791f; color: #ffffff !important; }
 
 /* ---------------------------------------------------------------- dialog internals
-   The dialogs themselves follow the Administration dialog design (styles/ydot-dialogs.css). */
+   The dialogs themselves follow the Administration dialog design (styles/ydot-dialogs.css).
+   The placement below is a safety net: the backdrop always covers the whole screen and centres
+   the dialog, whatever the global stylesheet does. */
+.up-backdrop { position: fixed; inset: 0; z-index: 1060; display: grid; place-items: center; padding: calc(16px * var(--s)); }
+.up-backdrop > .up-modal { max-height: calc(100vh - 32px); margin: 0; }
 .up-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(16px * var(--s)); }
 .up-field { display: flex; flex-direction: column; gap: calc(6px * var(--s)); min-width: 0; }
 .up-field--full { grid-column: 1 / -1; }

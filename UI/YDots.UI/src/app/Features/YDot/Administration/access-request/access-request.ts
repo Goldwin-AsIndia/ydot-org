@@ -438,6 +438,45 @@ export class AccessRequestComponent {
     this.dpField.set(field);
   }
 
+  /**
+   * Where the open calendar sits, in its containing block's coordinates.
+   *
+   * The pop-up is position: fixed so the scrolling modal body cannot clip it. But a fixed
+   * element is only relative to the screen when no ancestor has a transform - the modal does
+   * (its pop-in animation, and possibly global styles), which made screen coordinates land in
+   * the wrong place. So the pop-up is first drawn hidden at 0,0, its real on-screen origin is
+   * measured, and the offset is corrected - right whatever the containing block turns out to be.
+   * Null while measuring; the template keeps it hidden until then.
+   */
+  readonly dpPos = signal<{ top: number; left: number } | null>(null);
+
+  /** Puts the calendar under its field (above it when there is no room), inside the modal. */
+  placeDatePicker(trigger: HTMLElement): void {
+    this.dpPos.set(null);
+
+    setTimeout(() => {
+      const pop = document.querySelector<HTMLElement>('.ar-dp-pop');
+      if (!pop) {
+        return;                                   // it was a click that closed the picker
+      }
+
+      const field = trigger.getBoundingClientRect();
+      const bounds = (trigger.closest('.ar-modal') as HTMLElement | null)?.getBoundingClientRect()
+        ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+      const origin = pop.getBoundingClientRect(); // drawn at top 0 / left 0 → where 0,0 really is
+      const gap = 6;
+      const pad = 8;
+
+      const below = field.bottom + gap;
+      const above = field.top - gap - origin.height;
+      const fitsBelow = below + origin.height <= bounds.bottom - pad;
+      const top = fitsBelow || above < bounds.top + pad ? below : above;
+      const left = Math.min(Math.max(field.left, bounds.left + pad), bounds.right - origin.width - pad);
+
+      this.dpPos.set({ top: top - origin.top, left: left - origin.left });
+    });
+  }
+
   readonly dpTitle = computed(() =>
     this.dpView().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }));
 
@@ -508,6 +547,12 @@ export class AccessRequestComponent {
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.openDd.set(null);
+    this.dpField.set(null);
+  }
+
+  /** A fixed pop-up would be left behind by a resize, so close it instead. */
+  @HostListener('window:resize')
+  onResize(): void {
     this.dpField.set(null);
   }
 

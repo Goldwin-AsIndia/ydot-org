@@ -386,14 +386,15 @@ code { font-family: var(--ar-font-n); }
    Custom date picker — no native date input
    ============================================================================================= */
 .ar-dates { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(16px * var(--ui-scale, 1)); }
+/* The pop-up is position: fixed and placed by placeDatePicker() in the TS, so the scrolling modal
+   body can no longer clip it. It stays inside the modal and opens upwards when there's no room below. */
 .ar-dp-pop {
-  position: absolute; z-index: 60; inset-inline-start: 0; top: calc(100% + calc(6px * var(--ui-scale, 1)));
+  position: fixed; z-index: 1070; top: 0; left: 0;
   width: calc(288px * var(--ui-scale, 1)); padding: calc(12px * var(--ui-scale, 1));
   background: #fff; border: 1px solid var(--ar-line); border-radius: calc(14px * var(--ui-scale, 1));
   box-shadow: 0 calc(18px * var(--ui-scale, 1)) calc(40px * var(--ui-scale, 1)) calc(-14px * var(--ui-scale, 1)) rgba(23, 33, 61, .3);
-  animation: ar-drop .14s ease-out;
+  animation: ar-fade .14s ease-out; /* opacity only: a transform would throw off the measurement */
 }
-.ar-dates .ar-field:last-child .ar-dp-pop { inset-inline-start: auto; inset-inline-end: 0; }
 .ar-dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: calc(8px * var(--ui-scale, 1)); }
 .ar-dp-title { font-family: var(--ar-font-h); font-size: calc(14px * var(--ui-scale, 1)) !important; font-weight: 700; color: var(--ar-ink); }
 .ar-dp-nav {
@@ -550,7 +551,6 @@ code { font-family: var(--ar-font-n); }
   .ar-form, .ar-dates { grid-template-columns: 1fr; }
   .ar-pager { flex-direction: column; align-items: stretch; }
   .ar-pages { justify-content: center; }
-  .ar-dates .ar-field:last-child .ar-dp-pop { inset-inline-start: 0; inset-inline-end: auto; }
 }
 @media (max-width: 479.98px) {
   .ar-stats { grid-template-columns: 1fr; }
