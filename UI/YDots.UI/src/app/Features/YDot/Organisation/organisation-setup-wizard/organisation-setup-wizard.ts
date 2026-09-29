@@ -176,6 +176,57 @@ export class OrganisationSetupWizardComponent implements OnDestroy {
   readonly canCreate = computed(
     () => this.organisationStepValid() && this.administratorStepValid() && !this.submitting());
 
+  // =========================================================================================
+  // Review-step labels
+  // =========================================================================================
+  // The form stores what the API takes — an IANA key, a currency code, a culture code — while the
+  // review step is read by people. Each label falls back to the stored value when the catalogue
+  // has not loaded, because "Asia/Kolkata" is a true answer where a blank is not.
+
+  /** The full host this organisation will live on, once the live check has answered. */
+  readonly reviewWebAddress = computed(() => {
+    const host = this.subdomainCheck()?.hostName;
+    if (host) return host;
+
+    const subdomain = this.form().subdomain.trim();
+    if (!subdomain) return '';
+    return this.rootDomain() ? `${subdomain}.${this.rootDomain()}` : subdomain;
+  });
+
+  /** "Chennai" rather than the bare "Asia/Kolkata" the select stores. */
+  readonly reviewTimeZone = computed(() => {
+    const value = this.form().timeZone;
+    if (!value) return '';
+    return this.geo.timeZones().find((zone) => zone.ianaKey === value)?.name ?? value;
+  });
+
+  /** "INR — Indian Rupee" rather than the bare code. */
+  readonly reviewCurrency = computed(() => {
+    const value = this.form().defaultCurrency;
+    if (!value) return '';
+    const currency = this.geo.currencies().find((row) => row.code === value);
+    return currency ? `${currency.code} — ${currency.name}` : value;
+  });
+
+  /** The catalogue's display label, matched back from the stored culture code. */
+  readonly reviewLanguage = computed(() => {
+    const value = this.form().defaultCulture;
+    if (!value) return '';
+    return this.geo.resolveLanguage(value)?.displayLabel ?? value;
+  });
+
+  /** "Optional" / "Required" from the same options the radio step offered. */
+  readonly reviewMfaLabel = computed(() =>
+    this.mfaOptions.find((option) => option.value === this.form().defaultMfaRequirement)?.label
+      ?? this.form().defaultMfaRequirement);
+
+  /** "+91 98xxx" on one line, or nothing when no number was given. */
+  readonly reviewPhone = computed(() => {
+    const phone = this.form().contactPhone.trim();
+    if (!phone) return '';
+    return `${this.form().contactPhoneCountryCode} ${phone}`;
+  });
+
   readonly stepNumber = computed(() => {
     switch (this.step()) {
       case 'organisation': return 1;

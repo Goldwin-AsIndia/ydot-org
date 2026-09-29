@@ -4,16 +4,19 @@
 
   <!-- Header: the same card as the Organisations page (without its icon) - a back link as the
        eyebrow, the title and what this does. The steps follow below it. -->
-  <section class="od-hero">
-    <div class="od-hero-top">
-      <div class="od-hero-id">
+  <section class="od-hero" style="background:none;">
+    <div class="od-hero-top" style="padding: calc(13px * var(--ui-scale, 1)) calc(4px * var(--ui-scale, 1));">
+      <div class="od-hero-id" style="display: flex;align-items: center;justify-content: space-between;    width: 100%;
+    flex-wrap: wrap;">
         <div class="od-hero-text">
-          <a class="od-eyebrow" routerLink="/app/administration/organisation/directory">
-            <i class="ri-arrow-left-s-line"></i> Organisations
-          </a>
+         
           <h1 class="od-title">Create an organisation</h1>
-          <p class="od-sub">This creates the organisation, reserves its web address, and invites its first administrator.</p>
+          <!-- <p class="od-sub">This creates the organisation, reserves its web address, and invites its first administrator.</p> -->
         </div>
+ <a class="od-eyebrow" routerLink="/app/administration/organisation/directory">
+           <button class="btn btn-outline-primary">       <i class="ri-arrow-left-s-line"></i>Back</button>
+
+          </a>
       </div>
     </div>
   </section>
@@ -199,7 +202,7 @@
       </div>
 
       <div class="org-step-actions">
-        <button type="button" class="btn btn-primary btn-sm"
+        <button type="button" class="btn btn-primary"
                 [disabled]="!organisationStepValid()" (click)="next()">
           Continue <i class="ri-arrow-right-line"></i>
         </button>
@@ -448,33 +451,94 @@
   <!-- ===================================================================== Step 4 -->
   @if (step() === 'review') {
     <section class="org-doc-section">
+      <!-- Every field the three steps collected, grouped the same way it was asked, so what was
+           entered where is obvious and anything wrong is one Back press from being fixed. -->
       <div class="wiz-field-card">
         <div class="wiz-field-card-head">
-          <span class="wiz-field-card-icon"><i class="ri-list-check-2"></i></span>
+          <span class="wiz-field-card-icon"><i class="ri-team-line"></i></span>
           <div>
-            <h4 class="wiz-field-card-title">Summary</h4>
-            <p class="wiz-field-card-sub">Everything below is created together, in one step.</p>
+            <h4 class="wiz-field-card-title">Organisation</h4>
+            <p class="wiz-field-card-sub">The details from the first step.</p>
           </div>
         </div>
 
         <div class="org-review-grid">
-          <div><span class="detail-label">Organisation</span>
+          <div><span class="detail-label">Name</span>
                <span class="detail-value">{{ form().name }}</span></div>
-          <div><span class="detail-label">Web address</span>
-               <span class="detail-value">{{ subdomainCheck()?.hostName || form().subdomain }}</span></div>
+          <div><span class="detail-label">Registered legal name</span>
+               <span class="detail-value">{{ form().legalName || '—' }}</span></div>
           <div><span class="detail-label">Type</span>
                <span class="detail-value">{{ form().organisationType || 'Not specified' }}</span></div>
-          <div><span class="detail-label">Administrator</span>
-               <span class="detail-value">
-                 {{ form().adminFirstName }} {{ form().adminLastName }}
-               </span></div>
-          <div><span class="detail-label">E-mail</span>
-               <span class="detail-value">{{ form().adminEmail }}</span></div>
+          <div><span class="detail-label">Reference code</span>
+               <span class="detail-value">{{ form().code || 'Auto-generated' }}</span></div>
+          <div><span class="detail-label">Web address</span>
+               <span class="detail-value">{{ reviewWebAddress() || '—' }}</span></div>
+          <div><span class="detail-label">Description</span>
+               <span class="detail-value">{{ form().description || '—' }}</span></div>
+        </div>
+      </div>
+
+      <div class="wiz-field-card">
+        <div class="wiz-field-card-head">
+          <span class="wiz-field-card-icon"><i class="ri-earth-line"></i></span>
+          <div>
+            <h4 class="wiz-field-card-title">Contact and regional defaults</h4>
+            <p class="wiz-field-card-sub">The details from the Contact step.</p>
+          </div>
+        </div>
+
+        <div class="org-review-grid">
+          <div><span class="detail-label">Contact telephone</span>
+               <span class="detail-value">{{ reviewPhone() || '—' }}</span></div>
+          <div><span class="detail-label">Maximum people</span>
+               <span class="detail-value">{{ form().maximumUsers ?? 'No limit' }}</span></div>
+          <div><span class="detail-label">Time zone</span>
+               <span class="detail-value">{{ reviewTimeZone() || '—' }}</span></div>
+          <div><span class="detail-label">Currency</span>
+               <span class="detail-value">{{ reviewCurrency() || '—' }}</span></div>
+          <div><span class="detail-label">Language</span>
+               <span class="detail-value">{{ reviewLanguage() || '—' }}</span></div>
           <div><span class="detail-label">Two-step verification</span>
+               <span class="detail-value">{{ reviewMfaLabel() }}</span></div>
+        </div>
+      </div>
+
+      <div class="wiz-field-card">
+        <div class="wiz-field-card-head">
+          <span class="wiz-field-card-icon"><i class="ri-user-line"></i></span>
+          <div>
+            <h4 class="wiz-field-card-title">First administrator</h4>
+            <p class="wiz-field-card-sub">The details from the Administrator step.</p>
+          </div>
+        </div>
+
+        <div class="org-review-grid">
+          <div><span class="detail-label">First name</span>
+               <span class="detail-value">{{ form().adminFirstName }}</span></div>
+          <div><span class="detail-label">Last name</span>
+               <span class="detail-value">{{ form().adminLastName }}</span></div>
+          <div><span class="detail-label">E-mail address</span>
+               <span class="detail-value">{{ form().adminEmail }}</span></div>
+          <div><span class="detail-label">Username</span>
                <span class="detail-value">
-                 {{ form().defaultMfaRequirement === 'required' ? 'Required' : 'Optional' }}
+                 {{ form().adminUsername || 'Auto-generated from the e-mail' }}
                </span></div>
-          <div><span class="detail-label">Invitation</span>
+        </div>
+      </div>
+
+      <div class="wiz-field-card">
+        <div class="wiz-field-card-head">
+          <span class="wiz-field-card-icon"><i class="ri-mail-send-line"></i></span>
+          <div>
+            <h4 class="wiz-field-card-title">Invitation</h4>
+            <p class="wiz-field-card-sub">What goes to the administrator, and when.</p>
+          </div>
+        </div>
+
+        <div class="org-review-grid">
+          <div><span class="detail-label">Message in the invitation</span>
+               <span class="detail-value">{{ form().invitationMessage || '—' }}</span></div>
+          <div><span class="detail-label">Send the invitation</span>
                <span class="detail-value">
                  {{ form().sendInvitation ? 'Sent immediately' : 'Held for later' }}
                </span></div>
