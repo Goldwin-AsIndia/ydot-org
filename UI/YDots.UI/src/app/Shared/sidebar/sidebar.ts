@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, computed, inject } from '@angular/core';
-import { RouterModule } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterModule } from '@angular/router';
+import { filter, map, Subject, takeUntil } from 'rxjs';
 import { LayoutService } from '../../Service/layout-service';
 import { ThemedLogo } from '../components/themed-logo/themed-logo';
 import { MenuNode } from '../models/auth.model';
@@ -94,6 +95,7 @@ export class SidebarComponent implements OnDestroy {
   readonly navigation = inject(NavigationService);
   private readonly tokens = inject(AuthTokenService);
   private readonly currentUser = inject(CurrentUserService);
+  private readonly router = inject(Router);
 
   private readonly destroy$ = new Subject<void>();
 
@@ -111,6 +113,27 @@ export class SidebarComponent implements OnDestroy {
   readonly menu = computed(() => this.overrideMenu(this.navigation.menu()));
   readonly loading = computed(() => this.navigation.loading());
   readonly failed = computed(() => this.navigation.failed());
+
+  /**
+   * The route the person is on right now, kept current as a signal.
+   *
+   * WHY THE SIDEBAR READS THE URL ITSELF. `routerLinkActive` marks only the one link it is
+   * declared on, which is enough for the row that opens the page but says nothing to the rows that
+   * page sits *under*. The menu showed exactly that: "User Directory" turned green while the two
+   * groups leading to it — "Access and Identity" and "Administration" — stayed their resting
+   * colour, so an open page left no visible trail back up the tree. The ancestors need the same
+   * answer the leaf gets, and deriving it once here is simpler than asking each level separately.
+   *
+   * `toSignal` tears its subscription down with the component, so no manual unsubscribe is needed
+   * even though the sidebar is recreated on sign-out.
+   */
+  private readonly currentUrl = toSignal(
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      map((event) => event.urlAfterRedirects),
+    ),
+    { initialValue: this.router.url },
+  );
 
   /** Absolute route of the campaign wizard's "Create Campaign" link, dropped from the sidebar. */
   private static readonly CREATE_CAMPAIGN_ROUTE_RE = /\/campaign-wizard$/;
@@ -214,6 +237,42 @@ export class SidebarComponent implements OnDestroy {
 
   children(node: MenuNode): MenuNode[] {
     return node.children ?? [];
+  }
+
+  /**
+   * Whether this node — or anything beneath it — is the page currently open.
+   *
+   * THE WHOLE LADDER ANSWERS TRUE, and that is the point: for an open "User Directory" the page
+   * itself, the group holding it ("Access and Identity") and the top-level group above that
+   * ("Administration") all report active, so the menu shows the trail rather than only its last
+   * step. A group with no route of its own still lights up because one of its children matches.
+   */
+  isNodeActive(node: MenuNode): boolean {
+    return this.nodeMatchesOpenPage(node) || this.children(node).some((child) => this.isNodeActive(child));
+  }
+
+  /**
+   * A node sits on the open page when its route IS the current path or is a PREFIX of it, so a
+   * detail screen such as `/user-directory/{id}/edit` keeps its list item lit.
+   *
+   * The separator is required on the prefix test, or `/user-directory` would also claim a sibling
+   * `/user-directory-archive`. Route comparison ignores the query string, fragment and any
+   * trailing slash: the menu stores a bare path, while the router reports `?created=…` and the
+   * like after a redirect, and the two must still agree.
+   */
+  private nodeMatchesOpenPage(node: MenuNode): boolean {
+    const route = SidebarComponent.routePath(node.route);
+    if (!route) {
+      return false;
+    }
+    const current = SidebarComponent.routePath(this.currentUrl());
+    return current === route || current.startsWith(route + '/');
+  }
+
+  /** A route stripped of its query string, fragment and trailing slash, for the test above. */
+  private static routePath(url: string | null | undefined): string {
+    const path = (url ?? '').split(/[?#]/)[0];
+    return path.length > 1 ? path.replace(/\/+$/, '') : path;
   }
 
   trackByCode(_index: number, node: MenuNode): string {
