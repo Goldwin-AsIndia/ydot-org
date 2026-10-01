@@ -679,7 +679,7 @@ export class FollowUpPlannerComponent {
 
   protected readonly channelGlyph: Record<string, string> = {
     Call: 'ri-phone-line',
-    Phone: 'ri-phone-line',
+    PhoneCall: 'ri-phone-line',
     Email: 'ri-mail-line',
     'E-mail': 'ri-mail-line',
     SMS: 'ri-message-2-line',
@@ -687,7 +687,7 @@ export class FollowUpPlannerComponent {
     Meeting: 'ri-team-line',
     Visit: 'ri-map-pin-line',
     Event: 'ri-calendar-event-line',
-    Letter: 'ri-mail-open-line',
+    Post: 'ri-mail-open-line',
   };
 
   protected glyphFor(channel: string): string {

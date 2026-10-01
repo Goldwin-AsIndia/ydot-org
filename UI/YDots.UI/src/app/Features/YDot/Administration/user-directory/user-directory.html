@@ -44,7 +44,9 @@
         @if (hasActiveFilters()) { <span class="ud-btn-dot" aria-label="Filters active"></span> }
       </button>
       @if (dataScopeSummary()) {
-        <span class="ud-scope" [title]="dataScopeSummary()"><i class="ri-eye-line" aria-hidden="true"></i><span class="ud-t">{{ dataScopeSummary() }}</span></span>
+        <!-- <span class="ud-scope" [title]="dataScopeSummary()"><i class="ri-eye-line" aria-hidden="true"></i><span class="ud-t">{{ dataScopeSummary() }}</span></span> -->
+      } @else if (!loading() && !loadFailed()) {
+        <span class="ud-scope"><span class="ud-t"><b>{{ totalCount() }}</b> {{ totalCount() === 1 ? 'account' : 'accounts' }}</span></span>
       }
     </div>
 

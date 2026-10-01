@@ -37,6 +37,7 @@
   flex-direction: column;
   gap: calc(14px * var(--s));
   min-width: 0;
+  /* room for the fixed save bar, so it never covers the last row */
   padding-bottom: calc(90px * var(--s));
 }
 .mc-t { font-size: inherit !important; font-weight: inherit !important; color: inherit; }
@@ -351,6 +352,34 @@
   pointer-events: none;
   user-select: none;
 }
+.mc-step-n--light { background: transparent; border: 1.5px solid var(--mc-gold); color: var(--mc-amber) !important; }
+.mc-banner-glyph {
+  display: grid;
+  place-items: center;
+  width: calc(56px * var(--s));
+  height: calc(56px * var(--s));
+  border-radius: calc(16px * var(--s));
+  outline: 1px solid var(--mc-line);
+  outline-offset: calc(4px * var(--s));
+  color: var(--mc-p);
+  font-size: calc(calc(26px * var(--s)) * var(--ui-text-scale, 1));
+}
+/* styles.css sizes the <i> itself, so the glyph needs its own size here */
+.mc-banner-glyph > i {
+  font-size: calc(calc(32px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+.mc-banner-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10px * var(--s));
+  font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: 700 !important;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mc-amber);
+}
+.mc-banner-kicker::after { content: ''; width: calc(36px * var(--s)); height: 1px; background: var(--mc-gold); }
 /* title and facts share one line; the facts drop below only when there is no room */
 .mc-banner-text { display: flex; flex-wrap: wrap; align-items: center; gap: calc(4px * var(--s)) calc(16px * var(--s)); min-width: 0; }
 .mc-banner-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: calc(10px * var(--s)); }
@@ -734,17 +763,29 @@
 .mc-pv-child { font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; padding: calc(5px * var(--s)) 0; color: var(--mc-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mc-preview-note { margin: 0 calc(4px * var(--s)); font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important; color: var(--mc-muted); line-height: 1.5 !important; }
 
-/* ---------------------------------------------------------------- save bar */
-.mc-save {
-  position: sticky;
+/* ---------------------------------------------------------------- save bar
+   A fixed dock outside .mc-page (see the template note). The dock spans the content area
+   (left edge = app sidebar width) and centres the pill inside it; the dock itself lets clicks
+   through, only the pill catches them. Sits under the edit sheet's scrim (1060).
+   Set --app-sidebar-w to your sidebar's width (or swap in the layout's own variable). */
+.mc-save-dock {
+  position: fixed;
+  left: var(--app-sidebar-w, 0px);
+  right: 0;
   bottom: calc(16px * var(--s));
-  z-index: 20;
+  z-index: 1040;
+  display: flex;
+  justify-content: center;
+  padding: 0 calc(16px * var(--s));
+  pointer-events: none;
+}
+.mc-save {
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: calc(14px * var(--s));
   width: fit-content;
   max-width: 100%;
-  margin: 0 auto;
   padding: calc(10px * var(--s)) calc(10px * var(--s)) calc(10px * var(--s)) calc(12px * var(--s));
   border-radius: calc(999px * var(--ui-scale, 1));
   border: 1px solid var(--mc-line);
@@ -758,6 +799,14 @@
 .mc-save-text { display: flex; flex-direction: column; min-width: 0; padding-right: calc(8px * var(--s)); }
 .mc-save-text b { font-size: calc(calc(14px * var(--s)) * var(--ui-text-scale, 1)) !important; font-weight: 700 !important; }
 .mc-save-text small { font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important; color: var(--mc-muted); }
+
+/* the app sidebar collapses / goes off-canvas on small screens - centre on the full width */
+@media (max-width: 991.98px) {
+  .mc-save-dock { left: 0; }
+}
+@media (max-width: 575.98px) {
+  .mc-save { border-radius: calc(20px * var(--s)); flex-wrap: wrap; }
+}
 
 /* ---------------------------------------------------------------- buttons */
 .mc-btn {
@@ -1004,6 +1053,17 @@
 .mcs-picker.is-muted { opacity: .65; }
 
 .mcs .dd-trigger { height: calc(44px * var(--s)); }
+/* inside the sheet the permission list opens IN FLOW, not floating: the sheet body scrolls
+   (overflow-y: auto) and the footer sits under it, so an absolute menu got clipped and hidden
+   behind the footer. In flow it pushes the fields below down and the body scrolls to it. */
+.mcs .dd-menu {
+  position: static;
+  width: 100%;
+  min-width: 0;
+  margin-top: calc(6px * var(--s));
+  animation: mc-reg-in .18s ease;
+}
+.mcs .dd-list { max-height: calc(260px * var(--s)); }
 .dd-lead { flex: none; color: var(--mc-muted); font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)); }
 
 /* footer */
@@ -1049,4 +1109,5 @@
   .mc-deck-tools { justify-content: stretch; }
   .mc-search, .dd--role { flex: 1 1 100%; width: 100%; }
   .mc-save { border-radius: calc(20px * var(--s)); flex-wrap: wrap; }
+  .mc-rule-steps { grid-template-columns: minmax(0, 1fr); }
 }

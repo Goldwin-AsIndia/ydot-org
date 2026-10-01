@@ -4,7 +4,7 @@
 
     @if (uiState() === 'loading') {
 
-      <app-page-header [showInfo]="false" screen="follow-up-planner" [title]="hasRecord() ? 'Follow-up planner' : 'New follow-up'"
+      <app-page-header class="page-header" [showInfo]="false" screen="follow-up-planner" [title]="hasRecord() ? 'Follow-up planner' : 'New follow-up'"
                        subtitle="Plan the next contact with a lead or donor on a channel they have agreed to." />
       <section class="fp-sheet fp-loading" role="status" aria-live="polite">
         <span class="fp-ring-g" aria-hidden="true"><i class="ri-loader-4-line fp-spin"></i></span>
@@ -13,7 +13,7 @@
 
     } @else if (uiState() === 'error') {
 
-      <app-page-header [showInfo]="false" screen="follow-up-planner" title="Follow-up planner"
+      <app-page-header class="page-header" [showInfo]="false" screen="follow-up-planner" title="Follow-up planner"
                        subtitle="Plan the next contact with a lead or donor on a channel they have agreed to." />
       <section class="fp-sheet fp-loading is-error" role="alert">
         <span class="fp-ring-g" aria-hidden="true"><i class="ri-error-warning-line"></i></span>
@@ -33,9 +33,9 @@
       <!-- =========================================================================================
            NEW FOLLOW-UP - choose the person first
            ========================================================================================= -->
-      <app-page-header [showInfo]="false" screen="follow-up-planner" title="New follow-up"
+      <app-page-header class="page-header" [showInfo]="false" screen="follow-up-planner" title="New follow-up"
                        subtitle="Choose who you are following up, then plan when and how you will reach them.">
-        <span meta class="ph-chip">Donors &amp; Leads</span>
+        <!-- <span meta class="ph-chip">Donors &amp; Leads</span> -->
         <button actions type="button" class="ph-btn ph-btn--ghost" (click)="cancelPlanner()">
           <i class="ri-arrow-left-line" aria-hidden="true"></i> Back to queue
         </button>
@@ -142,9 +142,9 @@
       <!-- =========================================================================================
            PLANNER
            ========================================================================================= -->
-      <app-page-header [showInfo]="false" screen="follow-up-planner" title="Follow-up planner"
+      <app-page-header class="page-header" [showInfo]="false" screen="follow-up-planner" title="Follow-up planner"
                        subtitle="Schedule the next contact on a channel the person has consented to.">
-        <span meta class="ph-chip">{{ existing()?.followUpReference || 'New follow-up' }}</span>
+        <!-- <span meta class="ph-chip">{{ existing()?.followUpReference || 'New follow-up' }}</span> -->
         <ng-container actions>
           @if (!existing()) {
             <button type="button" class="ph-btn ph-btn--ghost" (click)="leadId.set(null); donorId.set(null); followUpId.set(null)">

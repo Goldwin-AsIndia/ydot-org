@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -63,6 +63,15 @@ interface MatrixRow {
   otherCount: number;
 }
 
+/** A column in the checkbox matrix: one of the seven verbs, or "other" for codes with no verb. */
+type MatrixColumnKey = ActionKey | 'other';
+
+/** How a read-only checkbox is drawn. */
+type CheckState = 'checked' | 'mixed' | 'empty' | 'na';
+
+/** Which codes the matrix lists when a module is opened. */
+type CodeFilter = 'all' | 'granted' | 'sensitive';
+
 /**
  * IAM-USR-03 — Access preview.
  *
@@ -103,6 +112,9 @@ export class AccessPreviewComponent {
   readonly peoplePage = signal(1);
   readonly peoplePageSize = 10;
 
+  /** The person dropdown in the toolbar. */
+  readonly pickerOpen = signal(false);
+
   readonly filteredPeople = computed(() => {
     const term = this.personSearch().trim().toLowerCase();
     const all = this.people();
@@ -142,6 +154,12 @@ export class AccessPreviewComponent {
   readonly loadError = signal(false);
   readonly errorMessage = signal('');
 
+  /** Which codes an opened module lists: every code, only granted ones, or only sensitive ones. */
+  readonly codeFilter = signal<CodeFilter>('all');
+
+  /** Free-text search over code names and codes; while set, every matching module is open. */
+  readonly codeSearch = signal('');
+
   /** Which module panels are open. Everything starts closed: the totals are the headline. */
   readonly openModules = signal<Set<string>>(new Set());
 
@@ -153,6 +171,33 @@ export class AccessPreviewComponent {
 
   constructor() {
     this.loadPeople();
+  }
+
+  // =============================================================================================
+  // Picker dropdown
+  // =============================================================================================
+
+  togglePicker(): void {
+    this.pickerOpen.update((open) => !open);
+  }
+
+  pickPerson(id: string): void {
+    this.selectPerson(id);
+    this.pickerOpen.set(false);
+  }
+
+  @HostListener('document:click')
+  closePicker(): void {
+    this.pickerOpen.set(false);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.pickerOpen.set(false);
+  }
+
+  setCodeFilter(filter: CodeFilter): void {
+    this.codeFilter.set(filter);
   }
 
   // =============================================================================================
@@ -255,6 +300,16 @@ export class AccessPreviewComponent {
   readonly dataScopes = computed(() => this.access()?.dataScopes ?? []);
 
   readonly directClaims = computed(() => this.access()?.directClaims ?? []);
+
+  /** The primary role's name, for the summary band. */
+  readonly primaryRoleName = computed(() => {
+    const roles = this.roles();
+    const primary = roles.find((role) => role.isPrimary) ?? roles[0];
+    return primary ? (primary.roleName || primary.roleCode || '') : '';
+  });
+
+  /** Roles actually in force right now. */
+  readonly effectiveRoleCount = computed(() => this.roles().filter((role) => role.isEffective).length);
 
   /**
    * Whether this person's access comes from a flag rather than from grants.
@@ -362,6 +417,100 @@ export class AccessPreviewComponent {
     return `${where}: ${c.granted} of ${c.total} granted${c.state === 'sens' ? ' · includes sensitive' : ''}`;
   }
 
+  // ---- The checkbox matrix ---------------------------------------------------------------------
+
+  /** The seven verbs plus "Other", as the matrix columns. */
+  readonly matrixColumns: { key: MatrixColumnKey; label: string }[] = [
+    ...this.actionColumns,
+    { key: 'other', label: 'Other' },
+  ];
+
+  /** The column a single code sits in. */
+  actionKeyOf(permission: PermissionSummaryResponse): MatrixColumnKey {
+    return this.actionOf(permission) ?? 'other';
+  }
+
+  /** A module's cell for any column, "other" included. */
+  columnCell(row: MatrixRow, key: MatrixColumnKey): MatrixCell {
+    if (key !== 'other') {
+      return this.cell(row, key);
+    }
+
+    const others = row.permissions.filter((item) => this.actionOf(item) === null);
+    const granted = others.filter((item) => item.isGranted === true);
+    const state: CellState = others.length === 0 ? 'na'
+      : granted.length === 0 ? 'off'
+      : granted.some((item) => item.isSensitive === true) ? 'sens' : 'on';
+
+    return { state, granted: granted.length, total: others.length };
+  }
+
+  /** How a module-level checkbox draws: all granted, some granted, none granted, or no such code. */
+  checkOf(cell: MatrixCell): CheckState {
+    if (cell.state === 'na' || cell.total === 0) { return 'na'; }
+    if (cell.granted === 0) { return 'empty'; }
+    return cell.granted >= cell.total ? 'checked' : 'mixed';
+  }
+
+  columnTitle(row: MatrixRow, column: { key: MatrixColumnKey; label: string }): string {
+    const c = this.columnCell(row, column.key);
+    const where = `${this.moduleLabel(row.moduleCode)} · ${column.label}`;
+    if (c.state === 'na') { return `${where}: not applicable`; }
+    if (c.granted === 0) { return `${where}: none of ${c.total} granted`; }
+    return `${where}: ${c.granted} of ${c.total} granted${c.state === 'sens' ? ' · includes sensitive' : ''}`;
+  }
+
+  /** The codes an opened module lists, after the filter chips and the search box. */
+  rowCodes(row: MatrixRow): PermissionSummaryResponse[] {
+    const filter = this.codeFilter();
+    const term = this.codeSearch().trim().toLowerCase();
+
+    return row.permissions.filter((item) => {
+      if (filter === 'granted' && item.isGranted !== true) { return false; }
+      if (filter === 'sensitive' && item.isSensitive !== true) { return false; }
+      if (term && !`${item.name ?? ''} ${item.code ?? ''}`.toLowerCase().includes(term)) { return false; }
+      return true;
+    });
+  }
+
+  /**
+   * An opened module's codes, grouped under the action they belong to (View, Create, … Other),
+   * in column order. Empty groups are left out, so the checklist only shows what exists.
+   */
+  codeGroups(row: MatrixRow): { key: MatrixColumnKey; label: string; items: PermissionSummaryResponse[]; granted: number }[] {
+    const codes = this.rowCodes(row);
+
+    return this.matrixColumns
+      .map((column) => {
+        const items = codes.filter((item) => this.actionKeyOf(item) === column.key);
+        return { key: column.key, label: column.label, items, granted: items.filter((item) => item.isGranted === true).length };
+      })
+      .filter((group) => group.items.length > 0);
+  }
+
+  /** Modules to show: all of them, unless a filter or search leaves one with nothing to list. */
+  readonly visibleMatrix = computed(() => {
+    const narrowed = this.codeFilter() !== 'all' || this.codeSearch().trim() !== '';
+    return narrowed ? this.matrix().filter((row) => this.rowCodes(row).length > 0) : this.matrix();
+  });
+
+  /** A module is open when it was clicked open, or while a search is narrowing the list. */
+  isRowOpen(moduleCode: string): boolean {
+    return this.isModuleOpen(moduleCode) || this.codeSearch().trim() !== '';
+  }
+
+  /** Granted codes across every module, for the filter chip count. */
+  readonly grantedCodeCount = computed(() =>
+    this.matrix().reduce((sum, row) => sum + row.grantedCount, 0));
+
+  /** Sensitive codes (granted or not) across every module, for the filter chip count. */
+  readonly sensitiveCodeCount = computed(() =>
+    this.matrix().reduce((sum, row) => sum + row.permissions.filter((item) => item.isSensitive === true).length, 0));
+
+  /** Every code across every module, for the filter chip count. */
+  readonly allCodeCount = computed(() =>
+    this.matrix().reduce((sum, row) => sum + row.permissions.length, 0));
+
   private emptyRow(moduleCode: string): MatrixRow {
     const blank = (): MatrixCell => ({ state: 'na', granted: 0, total: 0 });
     return {
@@ -396,14 +545,14 @@ export class AccessPreviewComponent {
     return null;
   }
 
-  /** Share of the granted permissions that are sensitive, 0-100, for the ring in the header. */
+  /** Share of the granted permissions that are sensitive, 0-100, for the meter in the summary. */
   readonly sensitiveShare = computed(() => {
     const total = this.access()?.totalPermissionCount ?? 0;
     const sensitive = this.access()?.sensitivePermissionCount ?? 0;
     return total > 0 ? Math.round((sensitive / total) * 100) : 0;
   });
 
-  /** How much of a module's recorded codes this person holds, 0-100, for the bar under its name. */
+  /** How much of a module's recorded codes this person holds, 0-100, for the bar beside its name. */
   coverage(row: MatrixRow): number {
     return row.permissions.length > 0 ? Math.round((row.grantedCount / row.permissions.length) * 100) : 0;
   }
