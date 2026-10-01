@@ -1,6 +1,7 @@
 /* Shared design layers, imported here rather than listed in angular.json: `ng serve` does not re-read
    angular.json while it runs, but it does watch this file, so a change to these layers shows up without
    restarting the dev server. Order matters: card tokens, then the theme variables, then the premium layer. */
+@import "@phosphor-icons/web/duotone/style.css";
 @import "./styles/ydot-card.css";
 @import "./styles/page-hero.css";
 
@@ -5469,4 +5470,14 @@ button,
 .pill-soft,
 .tab-count-pill {
   border-radius: var(--btn-radius, 8px) !important;
+}
+/* YDot mark: the three-swoosh logo as an alpha mask, so it takes the theme colour (--theme-primary)
+   anywhere it is placed. Width is set inline; the mark is square. */
+.ydot-mark {
+  display: inline-block;
+  flex: none;
+  aspect-ratio: 1 / 1;
+  background-color: var(--theme-primary, #375c4c);
+  -webkit-mask: url(assets/images/ydot-mark-mask.png) center / contain no-repeat;
+  mask: url(assets/images/ydot-mark-mask.png) center / contain no-repeat;
 }

@@ -120,6 +120,7 @@ export class ThemeColorService {
       style.setProperty(name, value);
     }
     this.syncBrowserChrome(legacy['--primary']);
+    this.syncFavicon(legacy['--primary']);
   }
 
   /**
@@ -136,6 +137,32 @@ export class ThemeColorService {
       head.appendChild(meta);
     }
     meta.content = color;
+  }
+
+  /** Repaints the tab icon in the theme colour: the logo's alpha mask, filled with the primary. */
+  private syncFavicon(color: string): void {
+    const doc = this.document;
+    const img = new Image();
+    img.onload = () => {
+      const canvas = doc.createElement('canvas');
+      canvas.width = canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, 64, 64);
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 64, 64);
+      let link = doc.head.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (!link) {
+        link = doc.createElement('link');
+        link.rel = 'icon';
+        doc.head.appendChild(link);
+      }
+      link.type = 'image/png';
+      link.removeAttribute('sizes');
+      link.href = canvas.toDataURL('image/png');
+    };
+    img.src = 'assets/images/ydot-mark-mask.png';
   }
 
   private persist(hex: string): void {

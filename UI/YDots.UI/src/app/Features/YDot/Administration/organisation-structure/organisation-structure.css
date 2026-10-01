@@ -558,3 +558,180 @@
 .os-stat { text-align: center; }
 .os-stat dt, .os-stat dd { text-align: center; }
 
+
+/* =====================================================================================================
+   COMPACT HEADER (last, so it wins over the larger header rules above)
+   Title and purpose on the left, the add button on the right, then the figures as one slim row of
+   "number label" pairs, each led by a small status dot - the number first, so the row reads like a summary.
+   ===================================================================================================== */
+.os-hero { margin-bottom: 16px; border-radius: 16px; }
+.os-hero-top::after { top: 16px; bottom: 16px; }
+.os-hero-top { padding: 14px 24px 12px 26px; gap: 16px; }
+.os-hero-text { gap: 2px; }
+.os-hero-eyebrow { font-size: calc(10.5px * var(--ui-text-scale, 1)) !important; }
+.os-hero-title { font-size: calc(clamp(21px, 1.8vw, 25px) * var(--ui-text-scale, 1)); }
+.os-hero-sub { font-size: calc(13px * var(--ui-text-scale, 1)) !important; }
+.os-btn-add { height: 36px; padding: 0 16px; border-radius: 10px; font-size: calc(13px * var(--ui-text-scale, 1)) !important; }
+
+.os-hero .os-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
+  padding: 8px 14px;
+}
+.os-hero .os-stats .os-stat {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  align-items: baseline;
+  gap: 7px;
+  padding: 3px 16px;
+  border-top: 0;
+  border-left: 1px solid var(--os-line);
+  text-align: left;
+}
+.os-hero .os-stats .os-stat:first-child { border-left: 0; }
+.os-hero .os-stats .os-stat dt {
+  margin: 0;
+  text-align: left;
+  font-size: calc(12px * var(--ui-text-scale, 1)) !important;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--os-muted);
+}
+.os-hero .os-stats .os-stat dd {
+  text-align: left;
+  font-size: calc(16px * var(--ui-text-scale, 1)) !important;
+}
+.os-hero .os-stats .os-stat:hover { background: transparent; }
+.os-hero .os-stats .os-stat:hover dd { transform: none; }
+@media (max-width: 575px) {
+  .os-hero .os-stats .os-stat { padding-inline: 10px; }
+}
+
+
+/* =====================================================================================================
+   EDITORIAL HEADER (last, so it wins over every header rule above)
+   No card box: the title sits straight on the page in a large serif with a short ruled eyebrow, the add
+   button is a quiet outlined control that fills on hover, and the figures are a separate hairline panel
+   of large numerals, each topped by a short tone rule, label underneath.
+   ===================================================================================================== */
+.os-hero {
+  overflow: visible;
+  margin-bottom: calc(22px * var(--ui-scale, 1));
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.os-hero::before,
+.os-hero-top::after { display: none; }
+
+.os-hero-top {
+  align-items: flex-end;
+  gap: calc(24px * var(--ui-scale, 1));
+  padding: calc(6px * var(--ui-scale, 1)) calc(4px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
+}
+.os-hero-text { gap: calc(8px * var(--ui-scale, 1)); }
+.os-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(12px * var(--ui-scale, 1));
+  font-size: calc(11px * var(--ui-text-scale, 1)) !important;
+  letter-spacing: .22em;
+  color: var(--os-brand);
+}
+.os-hero-eyebrow::before {
+  content: '';
+  width: calc(32px * var(--ui-scale, 1));
+  height: 1px;
+  background: var(--os-brand);
+}
+.os-hero-title {
+  font-size: calc(clamp(34px, 3.1vw, 46px) * var(--ui-text-scale, 1));
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -.02em;
+}
+.os-hero-sub {
+  max-width: 56ch;
+  font-size: calc(14.5px * var(--ui-text-scale, 1)) !important;
+  color: var(--os-muted);
+}
+
+.os-btn-add {
+  height: calc(46px * var(--ui-scale, 1));
+  padding: 0 calc(22px * var(--ui-scale, 1)) 0 calc(18px * var(--ui-scale, 1));
+  gap: calc(10px * var(--ui-scale, 1));
+  border: 1px solid var(--os-brand);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--os-brand);
+  font-size: calc(13.5px * var(--ui-text-scale, 1)) !important;
+  letter-spacing: .02em;
+}
+.os-btn-add i { font-size: calc(18px * var(--ui-text-scale, 1)) !important; }
+.os-btn-add:hover {
+  background: var(--os-brand);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+.os-hero .os-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(150px * var(--ui-scale, 1)), 1fr));
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--os-line);
+  border-radius: calc(20px * var(--ui-scale, 1));
+  background: linear-gradient(180deg, #fff 0%, color-mix(in srgb, var(--os-brand) 3%, #fff) 100%);
+}
+.os-hero .os-stats .os-stat {
+  position: relative;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: calc(6px * var(--ui-scale, 1));
+  padding: calc(22px * var(--ui-scale, 1)) calc(26px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
+  border-left: 1px solid var(--os-line-2);
+  text-align: left;
+}
+.os-hero .os-stats .os-stat:first-child { border-left: 0; }
+/* the tone rule above each figure */
+.os-hero .os-stats .os-stat::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(26px * var(--ui-scale, 1));
+  width: calc(28px * var(--ui-scale, 1));
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--os-brand);
+  transition: width .3s ease;
+}
+.os-hero .os-stats .os-stat:hover::before { width: calc(56px * var(--ui-scale, 1)); }
+.os-hero .os-stats .os-stat:has(.is-good)::before { background: var(--os-good); }
+.os-hero .os-stats .os-stat:has(.is-warn)::before { background: #b26b0e; }
+.os-hero .os-stats .os-stat:has(.is-muted)::before { background: var(--os-line); }
+
+.os-hero .os-stats .os-stat dt {
+  text-align: left;
+  font-size: calc(11px * var(--ui-text-scale, 1)) !important;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--os-muted);
+}
+.os-hero .os-stats .os-stat dd {
+  text-align: left;
+  font-size: calc(34px * var(--ui-text-scale, 1)) !important;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -.02em;
+}
+@media (max-width: 575px) {
+  .os-hero-top { flex-direction: column; align-items: flex-start; }
+  .os-hero .os-stats .os-stat { padding-inline: calc(18px * var(--ui-scale, 1)); }
+  .os-hero .os-stats .os-stat::before { left: calc(18px * var(--ui-scale, 1)); }
+}

@@ -1001,3 +1001,88 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
 .og-fact { text-align: center; }
 .og-fact dt, .og-fact dd { text-align: center; }
 
+
+/* =====================================================================================================
+   COMPACT HEADER + SEGMENTED TABS (last, so these win over the larger header and tab rules above)
+   The identity card is one tight block: name + status + meta line on the left, the action on the right,
+   and the quick facts as a single slim row of "LABEL value" pairs. The tabs are a left-aligned segmented
+   control sized to its labels - no full-width bar, no raised tiles.
+   ===================================================================================================== */
+.og-hero-top {
+  padding: calc(14px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
+  gap: calc(16px * var(--ui-scale, 1));
+}
+.og-hero-text { gap: calc(3px * var(--ui-scale, 1)); }
+.og-hero-eyebrow { margin-bottom: 0; font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; }
+.og-hero-title-row { gap: calc(4px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1)); }
+.og-hero-title {
+  padding-bottom: 0;
+  font-size: calc(clamp(calc(22px * var(--ui-scale, 1)), 1.9vw, calc(27px * var(--ui-scale, 1))) * var(--ui-text-scale, 1)) !important;
+}
+.og-hero-title::after { display: none; }
+.og-status-mark { width: calc(28px * var(--ui-scale, 1)); height: calc(28px * var(--ui-scale, 1)); }
+.og-status-mark i { font-size: calc(calc(22px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; }
+.og-hero-meta { gap: calc(4px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); }
+.og-hero-meta span { font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; }
+.og-hero-actions .og-btn { height: calc(36px * var(--ui-scale, 1)); padding-inline: calc(14px * var(--ui-scale, 1)); }
+
+.og-hero .og-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(4px * var(--ui-scale, 1)) 0;
+  padding: calc(8px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+  background: color-mix(in srgb, var(--og-well) 80%, transparent);
+}
+.og-hero .og-facts .og-fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(8px * var(--ui-scale, 1));
+  padding: calc(3px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+  border-top: 0;
+  border-left: 1px solid var(--og-line);
+  text-align: left;
+}
+.og-hero .og-facts .og-fact:first-child { border-left: 0; }
+.og-hero .og-facts .og-fact dt {
+  margin: 0;
+  text-align: left;
+  font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+.og-hero .og-facts .og-fact dd {
+  text-align: left;
+  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+.og-hero .og-facts .og-fact:hover { background: transparent; }
+.og-hero .og-facts .og-fact:hover dd { transform: none; }
+
+.og-tabs.og-tabs-card {
+  display: inline-flex;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  gap: calc(2px * var(--ui-scale, 1));
+  padding: calc(3px * var(--ui-scale, 1));
+  border: 1px solid var(--og-line);
+  border-radius: calc(999px * var(--ui-scale, 1));
+  background: var(--og-well);
+}
+.og-tabs-card .og-tab {
+  gap: calc(7px * var(--ui-scale, 1));
+  padding: calc(7px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+  border: 0;
+  border-radius: calc(999px * var(--ui-scale, 1));
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+.og-tabs-card .og-tab i { font-size: calc(calc(15px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; }
+.og-tabs-card .og-tab.is-active {
+  border: 0;
+  padding-bottom: calc(7px * var(--ui-scale, 1));
+  background: var(--og-brand);
+  color: #fff !important;
+  box-shadow: 0 calc(3px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1)) calc(-5px * var(--ui-scale, 1)) var(--og-brand);
+}
+.og-tabs-card .og-tab.is-active i { color: #fff !important; }
+@media (max-width: 575px) {
+  .og-hero .og-facts .og-fact { padding-inline: calc(10px * var(--ui-scale, 1)); }
+}

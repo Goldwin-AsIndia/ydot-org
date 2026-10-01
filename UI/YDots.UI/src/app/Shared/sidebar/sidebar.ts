@@ -29,6 +29,59 @@ import { NavigationService } from '../services/navigation.service';
  * so the condition was false and the stale tree stayed. Loading is `NavigationService`'s job now,
  * keyed to the Organisation rather than to emptiness. This component renders what it is given.
  */
+const SidebarComponentIcons: Record<string, string> = {
+  'ri-dashboard-line': 'squares-four',
+  'ri-settings-3-line': 'gear-six',
+  'ri-home-4-line': 'house-line',
+  'ri-heart-line': 'hand-heart',
+  'ri-money-dollar-circle-line': 'wallet',
+  'ri-bank-card-line': 'credit-card',
+  'ri-database-2-line': 'stack',
+  'ri-building-4-line': 'buildings',
+  'ri-notification-3-line': 'bell-ringing',
+  'ri-book-2-line': 'books',
+  'ri-briefcase-line': 'briefcase',
+  'ri-calendar-line': 'calendar-dots',
+  'ri-checkbox-circle-line': 'check-circle',
+  'ri-checkbox-line': 'check-square',
+  'ri-clipboard-line': 'clipboard-text',
+  'ri-time-line': 'clock',
+  'ri-edit-line': 'pencil-simple-line',
+  'ri-eye-line': 'eye',
+  'ri-file-line': 'file',
+  'ri-file-text-line': 'file-text',
+  'ri-flag-line': 'flag',
+  'ri-git-branch-line': 'git-branch',
+  'ri-global-line': 'globe-hemisphere-west',
+  'ri-inbox-line': 'tray',
+  'ri-information-line': 'info',
+  'ri-key-2-line': 'key',
+  'ri-stack-line': 'stack',
+  'ri-layout-line': 'layout',
+  'ri-lifebuoy-line': 'lifebuoy',
+  'ri-list-check': 'list-checks',
+  'ri-lock-line': 'lock-key',
+  'ri-map-2-line': 'map-trifold',
+  'ri-map-pin-line': 'map-pin',
+  'ri-message-3-line': 'chat-circle-dots',
+  'ri-box-3-line': 'package',
+  'ri-add-circle-line': 'plus-circle',
+  'ri-refresh-line': 'arrows-clockwise',
+  'ri-search-line': 'magnifying-glass',
+  'ri-send-plane-line': 'paper-plane-tilt',
+  'ri-share-line': 'share-network',
+  'ri-shield-check-line': 'shield-check',
+  'ri-shuffle-line': 'shuffle',
+  'ri-equalizer-line': 'sliders-horizontal',
+  'ri-price-tag-3-line': 'tag',
+  'ri-line-chart-line': 'chart-line-up',
+  'ri-truck-line': 'truck',
+  'ri-user-line': 'user-circle',
+  'ri-user-add-line': 'user-plus',
+  'ri-group-line': 'users-three',
+  'ri-circle-line': 'circle-dashed',
+};
+
 @Component({
   selector: 'app-sidebar',
   standalone: true,
@@ -133,8 +186,15 @@ export class SidebarComponent implements OnDestroy {
     this.navigation.load().pipe(takeUntil(this.destroy$)).subscribe({ error: () => undefined });
   }
 
+  /**
+   * Menu icons are drawn with Phosphor duotone (two-tone, rounded) rather than the Remix line set.
+   * Resolved through the same neutral-name mapping first, so the stored icon names do not change;
+   * anything without a Phosphor counterpart keeps its Remix glyph.
+   */
   iconClass(node: MenuNode): string {
-    return this.navigation.iconClass(node.icon);
+    const remix = this.navigation.iconClass(node.icon);
+    const phosphor = SidebarComponentIcons[remix];
+    return phosphor ? `ph-duotone ph-${phosphor}` : remix;
   }
 
   collapseId(node: MenuNode): string {

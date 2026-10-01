@@ -85,6 +85,11 @@
     padding-inline: calc(14px * var(--ui-scale, 1)) calc(170px * var(--ui-scale, 1));
   }
 
+  [data-layout='horizontal'] .pe-app-sidebar,
+  [data-layout='horizontal'] app-sidebar {
+    overflow: visible !important;
+  }
+
   [data-layout='horizontal'] .pe-app-sidebar .pe-app-sidebar-logo {
     flex: none;
     height: var(--hz-nav-h);
@@ -189,8 +194,9 @@
     top: 100%;
     left: 0;
     min-width: calc(230px * var(--ui-scale, 1));
-    max-height: 70vh;
-    overflow-y: auto;
+    max-height: none;
+    /* No scroll box: overflow-y:auto turns overflow-x into auto too, which clipped every nested flyout. */
+    overflow: visible !important;
     margin: 0 !important;
     padding: calc(6px * var(--ui-scale, 1)) !important;
     list-style: none;
@@ -200,38 +206,114 @@
     box-shadow: 0 14px 34px -12px rgba(15, 23, 20, .25);
     height: auto !important;
     visibility: visible !important;
+    /* a persisted folded-rail setting adds an entrance slide and offsets to flyouts; neither applies here */
+    transform: none !important;
+    animation: none !important;
     transition: none;
   }
+  /* Hover opens a menu. Keyboard focus does too, but only :focus-visible - plain :focus-within stayed true
+     after a mouse click (the clicked link keeps focus), so the clicked menu stayed open on top of the next. */
   [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:hover > .pe-slide-menu,
-  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:focus-within > .pe-slide-menu,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:has(:focus-visible) > .pe-slide-menu,
   [data-layout='horizontal'] .pe-app-sidebar .pe-slide-item:hover > .pe-slide-menu,
-  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-item:focus-within > .pe-slide-menu {
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-item:has(:focus-visible) > .pe-slide-menu {
     display: block !important;
+  }
+  /* While the pointer is on one top-level item, no other one stays open. */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu:hover > .pe-slide:not(:hover) > .pe-slide-menu {
+    display: none !important;
   }
   /* Third level opens to the side of its parent row. */
   [data-layout='horizontal'] .pe-app-sidebar .pe-slide-item {
     position: relative;
   }
   [data-layout='horizontal'] .pe-app-sidebar .pe-slide-item > .pe-slide-menu {
+    top: calc(-7px * var(--ui-scale, 1));
+    left: calc(100% + 8px);
+  }
+  /* The gap between a drop-down and its flyout is bridged by an invisible strip, so the pointer can cross it
+     without the flyout closing. */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-item > .pe-slide-menu::before {
+    content: '' !important;
+    display: block !important;
+    position: absolute;
     top: 0;
-    left: 100%;
+    bottom: 0;
+    left: -10px;
+    right: auto;
+    width: 10px;
+    height: auto;
+    background: transparent !important;
+  }
+  /* Near the right edge, drop-downs and their flyouts open leftwards so they stay on screen. */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:nth-last-child(-n + 3) > .pe-slide-menu {
+    left: auto;
+    right: 0;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:nth-last-child(-n + 3) .pe-slide-item > .pe-slide-menu {
+    left: auto;
+    right: calc(100% + 8px);
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:nth-last-child(-n + 3) .pe-slide-item > .pe-slide-menu::before {
+    left: auto;
+    right: -10px;
   }
   /* The drop-down repeats its own group name as a heading row; on a bar that is just noise. */
   [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu > .pe-nav-content1 {
     display: none !important;
   }
+
+  /* Rows: the vertical menu's indent ladder and its left guide line / active marker are for the rail only.
+     Here every row is a plain, evenly padded line, with no icon and no line. */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu::before,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu::after,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link::before,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link::after {
+    content: none !important;
+    display: none !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu > li {
+    list-style: none;
+  }
   [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link {
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: space-between;
+    gap: calc(14px * var(--ui-scale, 1));
     width: 100%;
+    min-height: calc(36px * var(--ui-scale, 1));
     margin: 0;
+    padding: calc(8px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1)) !important;
+    border-radius: calc(8px * var(--ui-scale, 1));
     white-space: nowrap;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link:hover,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-slide-item:hover > .pe-nav-link {
+    background-color: color-mix(in srgb, var(--theme-primary, #2c4a3d) 9%, transparent) !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link.active {
+    background-color: color-mix(in srgb, var(--theme-primary, #2c4a3d) 14%, transparent) !important;
+    font-weight: 600;
   }
   [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link .pe-nav-arrow.arrow-right {
     display: inline-block !important;
-    margin: 0 0 0 auto !important;
+    flex: none;
+    margin: 0 !important;
     transform: none;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link .pe-nav-arrow.arrow-left {
+    display: none !important;
+  }
+
+  /* A crowded bar: tighter items rather than pushing the last ones under the header buttons. */
+  @media (max-width: 1399.98px) {
+    [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link {
+      padding: 0 calc(8px * var(--ui-scale, 1));
+      gap: calc(5px * var(--ui-scale, 1));
+    }
+    [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu {
+      gap: 0;
+    }
   }
 
   /* ---- The page: nothing is offset by a rail any more. ---- */
@@ -247,3 +329,29 @@
     margin-inline: 15px !important;
   }
 }
+
+/* Phosphor duotone draws each icon as two stacked glyphs (::before = faint layer, ::after = outline,
+   pulled back by margin-left:-1em). The menu's flex/line-height rules split them apart, so pin both
+   layers to one inline box. */
+.pe-nav-icon.ph-duotone {
+  display: inline-block !important;
+  position: relative;
+  width: 1em;
+  height: 1em;
+  line-height: 1 !important;
+  font-style: normal;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+.pe-nav-icon.ph-duotone::before,
+.pe-nav-icon.ph-duotone::after {
+  position: absolute !important;
+  inset: 0;
+  margin: 0 !important;
+  display: block !important;
+  line-height: 1 !important;
+  font-size: inherit !important;
+  font-family: "Phosphor-Duotone" !important;
+  color: inherit;
+}
+.pe-nav-icon.ph-duotone::before { opacity: .28; }
