@@ -11,6 +11,7 @@ import { UserProfileData, RoleAssignmentItem } from '../../../../Shared/models/u
 import { UserDetail } from '../../../../Shared/models/user-directory.model';
 import { MfaMethodType, UserSecurityResponse } from '../../../../Shared/models/iam-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { LayoutService } from '../../../../Service/layout-service';
 
 /** One enrolled factor, as the Security tab lists it. */
 interface MfaMethodView {
@@ -35,7 +36,7 @@ export class UserProfileComponent {
   private readonly api = inject(UserDirectoryApiService);
   private readonly securityApi = inject(SecurityApiService);
   private readonly tokens = inject(AuthTokenService);
-
+  private readonly layoutService = inject(LayoutService);
   data = signal<UserProfileData | null>(null);
 
   /**
@@ -303,7 +304,10 @@ export class UserProfileComponent {
       iconTone: 'tone-success',
     };
   });
-
+  openThemeSettings(): void {
+    this.layoutService.openThemePanel();
+    this.showMoreMenu.set(false);
+  }
   /**
    * When the password was last changed, and whether that is long enough ago to say so.
    *
