@@ -1,2 +1,195 @@
 /* Time Zone - the layout, table, details panel, form, dialogs and toasts all come from
    ../masters-ui.css, which every Masters screen shares. */
+/* Confirmation popups for every Masters screen (Country, State, City...).
+   Paste this at the end of masters-ui.css, or into the screen's own CSS file. */
+
+/* ---------- Confirmation popups (Activate / Deactivate / Delete) ----------
+   Centered card: coloured top strip, round icon, centred text, two equal buttons.
+   The tone (red / amber / primary) comes from is-danger / is-warning / is-success on .gm-confirm. */
+.gm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1060;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(15 23 42 / 0.5);
+  backdrop-filter: blur(4px);
+  animation: gm-cf-fade 0.15s ease-out;
+}
+
+.gm-confirm {
+  --tone: #dc2626;
+  --tone-dark: #b91c1c;
+  --tone-soft: #fef2f2;
+  position: relative;
+  width: min(400px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  text-align: center;
+  background: var(--surface, #fff);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgb(15 23 42 / 0.22);
+  animation: gm-cf-pop 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.gm-confirm.is-warning { --tone: #d97706; --tone-dark: #b45309; --tone-soft: #fffbeb; }
+.gm-confirm.is-success {
+  --tone: var(--primary, #16a34a);
+  --tone-dark: var(--primary, #15803d);
+  --tone-soft: color-mix(in srgb, var(--primary, #16a34a) 10%, #fff);
+}
+
+/* Coloured strip on top */
+.gm-confirm::before {
+  content: "";
+  display: block;
+  height: 5px;
+  background: var(--tone);
+}
+
+/* Close (X) */
+.gm-confirm-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.gm-confirm-close:hover { background: #f1f5f9; color: var(--text, #0f172a); }
+.gm-confirm-close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.gm-confirm-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 36px 28px 8px;
+}
+
+/* Round icon with a soft ring */
+.gm-confirm-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--tone);
+  background: var(--tone-soft);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--tone) 7%, transparent);
+}
+.gm-confirm-icon svg {
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gm-confirm-icon svg .fill { fill: currentColor; stroke: none; }
+
+.gm-confirm-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.gm-confirm-text h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text, #0f172a);
+}
+.gm-confirm-text p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-muted, #475569);
+}
+.gm-confirm-text p strong { color: var(--text, #0f172a); font-weight: 600; }
+
+/* Warning / blocked note */
+.gm-confirm-text .gm-confirm-note {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.gm-confirm-text .gm-confirm-note.is-danger {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px dashed #fca5a5;
+}
+.gm-confirm-text .gm-confirm-note.is-danger strong { color: #991b1b; }
+
+/* Buttons: equal width, no grey band */
+.gm-confirm-foot {
+  display: flex;
+  gap: 12px;
+  padding: 24px 28px 28px;
+}
+
+.gm-cbtn {
+  flex: 1;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, filter 0.15s, transform 0.1s;
+}
+.gm-cbtn:active { transform: translateY(1px); }
+.gm-cbtn.is-outline { background: #fff; border-color: var(--border, #d1d5db); color: var(--text, #0f172a); }
+.gm-cbtn.is-outline:hover { background: #f8fafc; border-color: #cbd5e1; }
+.gm-cbtn.is-success,
+.gm-cbtn.is-warning,
+.gm-cbtn.is-danger { background: var(--tone); color: #fff; }
+.gm-cbtn.is-warning:hover,
+.gm-cbtn.is-danger:hover { background: var(--tone-dark); }
+.gm-cbtn.is-success:hover { filter: brightness(0.92); }
+.gm-cbtn:focus-visible { outline: 2px solid var(--tone); outline-offset: 2px; }
+
+@media (max-width: 480px) {
+  .gm-confirm-body { padding: 32px 20px 4px; }
+  .gm-confirm-foot { flex-direction: column-reverse; padding: 20px; }
+}
+
+@keyframes gm-cf-fade { from { opacity: 0; } }
+@keyframes gm-cf-pop  { from { opacity: 0; transform: translateY(10px) scale(0.96); } }
+
+/* "Checking…" line while the delete / deactivate check runs */
+.gm-confirm-text .gm-confirm-checking {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.gm-confirm-spinner {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--tone) 25%, transparent);
+  border-top-color: var(--tone);
+  animation: gm-cf-spin 0.7s linear infinite;
+}
+@keyframes gm-cf-spin { to { transform: rotate(360deg); } }

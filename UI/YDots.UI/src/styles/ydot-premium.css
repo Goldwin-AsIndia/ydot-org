@@ -109,11 +109,9 @@
 }
 .pe-app-sidebar:not(.theme-bg-active) .pe-nav-link:hover .pe-nav-content,
 .pe-app-sidebar:not(.theme-bg-active) .pe-nav-link:hover .pe-nav-arrow { color: var(--theme-deep) !important; }
-/* Selected: a frosted glass pane over the sidebar's own tint, not a solid fill - blurred backdrop, a
-   translucent theme-tinted wash and a soft hairline edge, text in the theme's deep ink. */
-.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active,
-.pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link,
-.pe-app-sidebar:not(.theme-bg-active) .pe-slide-item.active > .pe-nav-link {
+/* The OPEN PAGE: a soft tinted pane over the sidebar's own wash - no ring, text in the theme's
+   deep ink - so the page reads as filled rather than boxed. */
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active {
   background:color-mix(in srgb, var(--theme-primary) 8%, white 18%) !important;
   -webkit-backdrop-filter: blur(14px) saturate(160%);
   backdrop-filter: blur(14px) saturate(160%);
@@ -122,19 +120,35 @@
   font-weight:500 !important;
   box-shadow: none !important;
 }
+/* The GROUP rows on the way to the open page. They carry a DIFFERENT mark from the page itself:
+   an OUTLINED pill - a solid theme-accent ring with the label in the same colour over a
+   near-white fill - so the whole trail back up the tree reads at a glance and is never confused
+   with the page it leads to. Applies at every level: the top-level group and any nested group. */
+.pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link,
+.pe-app-sidebar:not(.theme-bg-active) .pe-slide-item.active > .pe-nav-link {
+  background: color-mix(in srgb, var(--theme-primary) 6%, #ffffff) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1.5px solid var(--theme-primary) !important;
+  color: var(--theme-primary) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
 .pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active .pe-nav-content,
-.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active .pe-nav-arrow,
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active .pe-nav-arrow { color: var(--theme-deep) !important; }
 .pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link .pe-nav-content,
 .pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link .pe-nav-arrow,
 .pe-app-sidebar:not(.theme-bg-active) .pe-slide-item.active > .pe-nav-link .pe-nav-content,
-.pe-app-sidebar:not(.theme-bg-active) .pe-slide-item.active > .pe-nav-link .pe-nav-arrow { color: var(--theme-deep) !important; }
+.pe-app-sidebar:not(.theme-bg-active) .pe-slide-item.active > .pe-nav-link .pe-nav-arrow { color: var(--theme-primary) !important; }
 .pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active .pe-nav-icon,
-.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active .pe-nav-icon i,
+.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active .pe-nav-icon i {
+  color: var(--theme-deep) !important;
+}
 .pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link .pe-nav-icon,
 .pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link .pe-nav-icon i,
 .pe-app-sidebar:not(.theme-bg-active) .pe-slide-item.active > .pe-nav-link .pe-nav-icon,
 .pe-app-sidebar:not(.theme-bg-active) .pe-slide-item.active > .pe-nav-link .pe-nav-icon i {
-  color: var(--theme-deep) !important;
+  color: var(--theme-primary) !important;
 }
 .pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active::after,
 .pe-app-sidebar:not(.theme-bg-active) .pe-nav-link:hover::after {
