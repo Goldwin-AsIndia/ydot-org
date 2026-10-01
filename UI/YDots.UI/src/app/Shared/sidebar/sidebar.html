@@ -50,7 +50,7 @@
 
                     <!-- A group heading with children: collapses, does not navigate. -->
                     @if (isGroup(item)) {
-                        <li class="pe-slide pe-has-sub" routerLinkActive="active">
+                        <li class="pe-slide pe-has-sub" [class.active]="isNodeActive(item)">
                             <a [href]="'#' + collapseId(item)" class="pe-nav-link"
                                data-bs-toggle="collapse" aria-expanded="false"
                                [attr.aria-controls]="collapseId(item)"
@@ -85,7 +85,7 @@
                                          reached the third level as well and pinned it to the
                                          sidebar edge on top of its own parent. -->
                                     @if (isGroup(child)) {
-                                        <li class="pe-slide-item pe-has-sub">
+                                        <li class="pe-slide-item pe-has-sub" [class.active]="isNodeActive(child)">
                                             <a [href]="'#' + collapseId(child)" class="pe-nav-link"
                                                data-bs-toggle="collapse" aria-expanded="false"
                                                [attr.aria-controls]="collapseId(child)">
