@@ -1144,3 +1144,53 @@
   .mc-deck-tools { flex-wrap: wrap; }
   .mc-deck-tools .mc-search, .mc-deck-tools .dd--role { flex: 1 1 100%; width: 100%; }
 }
+
+
+/* COMPACT DECK (last, so it wins). Title + mode tabs share one line, the tools sit on the next, and the
+   four figures become a slim inline strip: the whole deck is roughly half its former height. */
+.mc-deck-row { gap: calc(8px * var(--s)) calc(14px * var(--s)); padding: calc(8px * var(--s)) calc(12px * var(--s)); }
+.mc-title { font-size: calc(calc(19px * var(--s)) * var(--ui-text-scale, 1)) !important; padding: 0 calc(14px * var(--s)) 0 calc(4px * var(--s)); }
+.mc-modes { padding: calc(3px * var(--s)); gap: calc(3px * var(--s)); border-radius: calc(999px * var(--ui-scale, 1)); }
+.mc-mode { gap: calc(8px * var(--s)); padding: calc(4px * var(--s)) calc(16px * var(--s)) calc(4px * var(--s)) calc(5px * var(--s)); border-radius: calc(999px * var(--ui-scale, 1)); }
+.mc-mode.is-active { outline-width: 1px; outline-offset: -1px; }
+.mc-mode-glyph { width: calc(28px * var(--s)); height: calc(28px * var(--s)); border-radius: 50%; font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)); }
+.mc-mode-name { font-size: calc(calc(14px * var(--s)) * var(--ui-text-scale, 1)) !important; white-space: nowrap; }
+.mc-mode-sub { display: none !important; }
+.mc-deck-tools { flex: 1 1 calc(520px * var(--s)); }
+.mc-deck-tools .dd--role .dd-trigger,
+.mc-deck-tools .mc-search,
+.mc-deck-tools .mc-btn { height: calc(38px * var(--s)); }
+.mc-deck-tools .dd--role { width: calc(240px * var(--s)); }
+.dd--role .dd-trigger { padding-left: calc(4px * var(--s)); }
+.dd--role .dd-av { width: calc(28px * var(--s)); height: calc(28px * var(--s)); }
+.mc-deck-tools .mc-btn { padding: 0 calc(16px * var(--s)); }
+
+.mc-stats { display: flex; flex-wrap: wrap; }
+.mc-stat { flex: 1 1 0; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: calc(8px * var(--s)); padding: calc(7px * var(--s)) calc(12px * var(--s)); text-align: left; }
+.mc-stat dt { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: calc(calc(11px * var(--s)) * var(--ui-text-scale, 1)) !important; letter-spacing: .06em; }
+.mc-stat dd { gap: calc(6px * var(--s)); flex: none; }
+.mc-stat-v { font-size: calc(calc(18px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+.mc-stat-v--text { font-size: calc(calc(15px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+.mc-stat-of { font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+@container mc (max-width: 760px) {
+  .mc-stat { flex: 1 1 50%; border-top: 1px solid var(--mc-line-soft); }
+  .mc-stat:nth-child(-n + 2) { border-top: 0; }
+  .mc-stat:nth-child(odd) { border-left: 0; }
+  .mc-stat:nth-child(3) { border-left: 0; }
+}
+@container mc (max-width: 560px) {
+  .mc-modes { width: 100%; }
+  .mc-mode { flex: 1; justify-content: center; }
+  .mc-stat { flex-basis: 100%; border-left: 0; }
+  .mc-stat:nth-child(2) { border-top: 1px solid var(--mc-line-soft); }
+}
+@container mc (min-width: 761px) and (max-width: 900px) {
+  .mc-stat:nth-child(3) { border-left: 1px solid var(--mc-line-soft); }
+  .mc-stat:nth-child(n + 3) { border-top: 0; }
+}
+/* the role list opens under its picker (left-aligned), never back over the sidebar */
+.mc-deck-tools .dd--role .dd-menu { left: 0; right: auto; }
+/* figures size to their content so no label is cut short */
+.mc-stat { flex: 1 1 auto; }
+.mc-stat dt { overflow: visible; text-overflow: clip; }
+@container mc (max-width: 900px) and (min-width: 761px) { .mc-stat { padding-inline: calc(8px * var(--s)); } }
