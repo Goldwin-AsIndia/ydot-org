@@ -5,6 +5,7 @@
    ========================================================================== */
 
 :host {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   --ink-900: hsl(calc(var(--theme-hue) - 7) 24.1% 11.4%);
   --ink-700: hsl(calc(var(--theme-hue) - 10) 13.1% 19.4%);
   --ink-500: #5c6b60;
@@ -72,7 +73,7 @@
 }
 .breadcrumb-current {
   color: var(--ink-700);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 
 /* ---------------------------------- Task header --------------------------------- */
@@ -95,10 +96,11 @@
   flex-wrap: wrap;
 }
 .task-title {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   font-family: var(--font-display);
   font-size: calc(calc(34px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   line-height: 1.1;
-  font-weight: 500;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
   margin: 0;
   letter-spacing: -0.4px;
   color: #000;
@@ -113,7 +115,7 @@
 }
 .task-meta strong {
   color: var(--ink-700);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .dot {
   color: var(--ink-300);
@@ -132,7 +134,7 @@
   padding: calc(4px * var(--ui-scale, 1)) calc(11px * var(--ui-scale, 1));
   border-radius: calc(999px * var(--ui-scale, 1));
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.01em;
 }
 .badge--draft { background: var(--surface-alt); color: var(--ink-500); border: 1px solid var(--border); }
@@ -149,7 +151,7 @@
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   padding: calc(9px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
@@ -223,7 +225,7 @@
 }
 .error-summary-title {
   margin: 0 0 calc(6px * var(--ui-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--red-600);
   font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
 }
@@ -266,8 +268,9 @@
   flex-wrap: wrap;
 }
 .corr {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   opacity: 0.8;
   font-family: var(--font-number);
   align-self: center;
@@ -326,7 +329,7 @@
 }
 .card-title {
   font-size: calc(var(--yc-heading-size) * var(--ui-text-scale, 1));
-  font-weight: var(--yc-heading-weight);
+  font-weight: clamp(100, calc(var(--yc-heading-weight) + var(--fw-bias, 0)), 900);
   margin: 0 0 calc(14px * var(--ui-scale, 1));
   color: var(--ink-900);
 }
@@ -365,7 +368,7 @@
 .field-label {
   display: block;
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--ink-700);
   margin-bottom: calc(6px * var(--ui-scale, 1));
   letter-spacing: 0.01em;
@@ -384,7 +387,7 @@
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   color: var(--red-600);
   margin: calc(6px * var(--ui-scale, 1)) 0 0;
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 
 .text-input,
@@ -443,7 +446,7 @@
   padding: calc(10px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
   font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   color: var(--ink-500);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .readonly-value--good {
   background: #f0f8f2;
@@ -457,14 +460,14 @@
   opacity: 0.7;
 }
 .tz {
-  font-weight: 400;
+  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900);
   color: var(--ink-400);
   font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
 }
 .conf {
   display: inline-block;
   font-size: calc(calc(10px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: #fff;
   background: var(--purple-600);
   padding: 2px calc(7px * var(--ui-scale, 1));
@@ -485,7 +488,7 @@
   padding: calc(8px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
   border-radius: calc(999px * var(--ui-scale, 1));
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .balance-pill--success {
   background: #dcefe1;
@@ -532,7 +535,7 @@
   border-bottom: none;
 }
 .kv dt {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--ink-500);
   min-width: calc(105px * var(--ui-scale, 1));
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
@@ -546,6 +549,7 @@
   word-break: break-word;
 }
 .kv .code {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   font-family: var(--font-number);
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   background: var(--surface-alt);
@@ -554,7 +558,7 @@
   border: 1px solid var(--border);
 }
 .kv .strong {
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--green-700);
 }
 
@@ -563,7 +567,7 @@
 .tag {
   display: inline-block;
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--green-700);
   background: var(--green-100);
   padding: 2px calc(10px * var(--ui-scale, 1));
@@ -586,7 +590,7 @@
   padding: calc(5px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
   border-radius: var(--radius-sm);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--ink-400);
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease;
@@ -615,7 +619,7 @@
   border-bottom: none;
 }
 .rel-primary {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
 }
 .rel-secondary {
@@ -657,7 +661,7 @@
 }
 .modal-title {
   font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   margin: 0 0 calc(8px * var(--ui-scale, 1));
   color: var(--ink-900);
 }

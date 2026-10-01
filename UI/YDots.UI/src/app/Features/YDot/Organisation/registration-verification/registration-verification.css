@@ -4,6 +4,7 @@
    surface so the whole app reads as one product, not two.
    ========================================================= */
 :host {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   --org-paper: #ffffff;
   --org-card: #ffffff;
   --org-ink: hsl(calc(var(--theme-hue) - 3) 16.7% 14.1%);
@@ -89,7 +90,7 @@
 }
 .org-breadcrumb .current {
   color: var(--org-ink);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 
 /* ---------- Header ---------- */
@@ -102,10 +103,11 @@
   flex-wrap: wrap;
 }
 .org-title {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   font-family: var(--font-body) !important;
   font-size: calc(calc(32px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   line-height: 1.15;
-  font-weight: 400;
+  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900);
   letter-spacing: -0.3px;
   margin: 0 0 calc(6px * var(--ui-scale, 1));
   color: #000;
@@ -155,7 +157,7 @@
   padding: calc(10px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
   border-radius: calc(12px * var(--ui-scale, 1));
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   border: 1px solid transparent;
   cursor: pointer;
   font-family: inherit;
@@ -348,7 +350,7 @@
 }
 .org-card-title {
   font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   margin: 0;
   color: var(--org-ink);
 }
@@ -359,7 +361,7 @@
 }
 .org-card-link {
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-blue);
   text-decoration: none;
 }
@@ -400,7 +402,7 @@
 .org-doc-heading {
   display: inline-block;
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--org-meadow);
@@ -439,7 +441,7 @@
 }
 .org-dl-row dt {
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-muted);
 }
 .org-dl-row dd {
@@ -449,11 +451,11 @@
 }
 .org-dl-row dd.is-good {
   color: var(--org-good);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .org-dl-row dd.is-warn {
   color: var(--org-warn);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 @media (max-width: 560px) {
   .org-dl-row {
@@ -522,16 +524,17 @@
 }
 .org-stat-label {
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--org-muted);
   margin: 0 0 calc(8px * var(--ui-scale, 1));
 }
 .org-stat-value {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   font-family: var(--font-body) !important;
   font-size: calc(calc(32px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 400;
+  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900);
   color: var(--org-ink);
   margin: 0;
   line-height: 1;
@@ -554,7 +557,7 @@
 /* ---------- Key/value read rows ---------- */
 .org-kv-label {
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.03em;
   color: var(--org-muted);
   text-transform: uppercase;
@@ -575,7 +578,7 @@
 }
 .org-field-label {
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.05em;
   color: var(--org-ink-2);
   text-transform: uppercase;
@@ -583,7 +586,7 @@
 .org-field-label .req {
   color: var(--org-error);
   text-transform: none;
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   margin-left: 2px;
 }
 .org-input,
@@ -633,7 +636,7 @@
 .org-field-error {
   color: var(--org-error);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .org-field-hint {
   color: var(--org-muted);
@@ -705,7 +708,7 @@
   padding: calc(4px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
   border-radius: calc(20px * var(--ui-scale, 1));
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   white-space: nowrap;
 }
 .org-badge-lg {
@@ -794,13 +797,13 @@
   align-items: center;
   gap: calc(8px * var(--ui-scale, 1));
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-ink);
   margin: 0 0 calc(3px * var(--ui-scale, 1));
 }
 .org-doc-req {
   font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.03em;
   text-transform: uppercase;
   padding: 2px calc(8px * var(--ui-scale, 1));
@@ -851,12 +854,12 @@
 }
 .org-compliance-label {
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--org-ink);
 }
 .org-compliance-status {
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-muted);
 }
 .org-compliance-tile.is-good .org-compliance-status {
@@ -887,7 +890,7 @@
   padding: calc(13px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
   text-align: left;
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -916,7 +919,7 @@
   text-align: right;
 }
 .org-name-link {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-meadow);
   text-decoration: none;
   cursor: pointer;
@@ -949,7 +952,7 @@
   border: none;
   padding: calc(12px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -1013,7 +1016,7 @@
 }
 .org-empty-title {
   font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   margin: 0 0 calc(8px * var(--ui-scale, 1));
   color: var(--org-ink);
 }
@@ -1065,7 +1068,7 @@
 }
 .org-modal-title {
   font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   margin: 0;
   display: flex;
   align-items: center;
@@ -1104,7 +1107,7 @@
   border-bottom: none;
 }
 .org-modal-kv dt {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-ink-2);
   min-width: calc(110px * var(--ui-scale, 1));
 }
@@ -1126,7 +1129,7 @@
   padding: calc(6px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
   border-radius: calc(10px * var(--ui-scale, 1));
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   border: 1px solid var(--org-border);
   background: #fff;
   color: var(--org-ink);
@@ -1246,7 +1249,7 @@
   background: var(--org-meadow-soft);
   color: var(--org-ink-2);
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   white-space: nowrap;
 }
 
@@ -1266,7 +1269,7 @@
   color: var(--org-meadow);
   font-family: inherit;
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   cursor: pointer;
 }
 
@@ -1278,7 +1281,7 @@
 /* ---------- Required marker and notes ---------- */
 .org-required {
   color: var(--org-error);
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   margin-left: 2px;
 }
 
@@ -1322,7 +1325,7 @@
 }
 
 .org-radio-label {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-ink);
 }
 
@@ -1415,7 +1418,7 @@
 
 .detail-label {
   font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--org-muted);
@@ -1423,7 +1426,7 @@
 
 .detail-value {
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-ink);
   overflow-wrap: anywhere;
 }
@@ -1462,6 +1465,7 @@
  * proportional font that truncated it would be worse than not showing it.
  */
 .org-code-block {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   display: block;
   padding: calc(13px * var(--ui-scale, 1)) calc(15px * var(--ui-scale, 1));
   margin: calc(12px * var(--ui-scale, 1)) 0 0;
@@ -1545,7 +1549,7 @@
 .org-doc-subheading {
   margin: 0;
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--org-ink-2);
@@ -1563,7 +1567,7 @@
   background: var(--org-meadow-soft);
   color: var(--org-meadow);
   font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
 }
 
 /*
@@ -1581,7 +1585,7 @@
   background: var(--org-warn-soft);
   color: var(--org-warn);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 
 /* ---------- The verification timeline ---------- */

@@ -76,15 +76,58 @@ describe('Theme Settings entry', () => {
     theme.detectChanges();
     expect(panel.classList).not.toContain('tc-panel--open');
     expect(link.getAttribute('aria-expanded')).toBe('false');
-    // jsdom resolves styles slowly against the full stylesheet, and opening the panel reads the palette from the page
   }, 30_000);
 
-  it('carries the colour palette section and every picker in one scrolling panel', () => {
+  it('carries every picker in one scrolling panel, without the copyable colour palette', () => {
     const theme = TestBed.createComponent(ThemeComponent);
     theme.detectChanges();
-    const text = (theme.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Color palette');
+    const root = theme.nativeElement as HTMLElement;
+    const text = root.textContent ?? '';
+    expect(text).not.toContain('Color palette');
+    expect(root.querySelector('.tc-palette-chip')).toBeNull();
     expect(text).toContain('Primary color');
-    expect((theme.nativeElement as HTMLElement).querySelector('app-theme-picker')).not.toBeNull();
+    expect(text).toContain('Text size');
+    expect(root.querySelector('app-theme-picker')).not.toBeNull();
+  });
+
+  it('switches the whole app to dark and back to light', () => {
+    const theme = TestBed.createComponent(ThemeComponent);
+    theme.detectChanges();
+    const html = document.documentElement;
+
+    theme.componentInstance.setThemeMode(true);
+    expect(html.getAttribute('data-ydot-mode')).toBe('dark');
+    // Bootstrap's partial dark variant stays off; the app's own layer does the work.
+    expect(html.getAttribute('data-bs-theme')).toBe('light');
+
+    theme.componentInstance.setThemeMode(false);
+    expect(html.hasAttribute('data-ydot-mode')).toBe(false);
+  });
+
+  it('writes the overall and per-role text size and weight variables', () => {
+    const theme = TestBed.createComponent(ThemeComponent);
+    theme.detectChanges();
+    const c = theme.componentInstance;
+    const style = document.documentElement.style;
+
+    c.setTextScale(1.16);
+    expect(style.getPropertyValue('--ts-global')).toBe('1.16');
+
+    c.stepSize('display', 2);
+    expect(style.getPropertyValue('--ts-title')).toBe('1.12');
+    expect(style.getPropertyValue('--ts-body')).toBe('1');
+
+    c.stepWeight('number', 1);
+    expect(style.getPropertyValue('--fwb-number')).toBe('100');
+    expect(style.getPropertyValue('--fwb-menu')).toBe('0');
+
+    c.setAllWeights(2);
+    expect(style.getPropertyValue('--fwb-title')).toBe('200');
+    expect(style.getPropertyValue('--fwb-menu')).toBe('200');
+
+    c.resetTypography();
+    expect(style.getPropertyValue('--ts-global')).toBe('1');
+    expect(style.getPropertyValue('--ts-title')).toBe('1');
+    expect(style.getPropertyValue('--fwb-title')).toBe('0');
   });
 });

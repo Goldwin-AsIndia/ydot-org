@@ -1,0 +1,90 @@
+/* =====================================================================================================
+   YDot dark mode - one switch for the whole application.
+
+   <html data-ydot-mode="dark"> is set by the Theme settings (Shared/theme) and by the blocking script in
+   index.html before first paint; removing it returns the light theme. Bootstrap's own data-bs-theme is
+   deliberately kept on "light" at all times: the template's dark variant repaints only part of the
+   screens, this layer repaints all of them.
+
+   HOW. The screens are authored light, with thousands of literal colours across ~120 stylesheets, so the
+   dark theme is produced where every pixel is already composed: the page is rendered light and the page
+   as a whole is inverted (lightness flipped, hue turned back so the brand colour stays itself), then
+   eased. Nothing is left behind - tables, dialogs, charts, third-party widgets, new screens all follow.
+
+       invert(1) hue-rotate(180deg)   white -> black, ink -> white, hues unchanged
+       contrast(.86)                  black lifts to a soft graphite (#121212) and white eases to ~#dcdcdc
+       saturate(.8)                   colour is muted: no vibrant tones in dark
+
+   Content that must keep its own colours (photos, avatars, video, canvases, QR codes) is rendered through
+   the exact inverse chain, so it comes out as authored. See --dk-fwd / --dk-inv.
+
+   Because the filter is applied to the composed page, a dark scrim that dims a light page would LIGHTEN the
+   dark one; scrims are therefore painted white-ish below, which the filter turns into a dimming veil.
+   ===================================================================================================== */
+html[data-ydot-mode="dark"] {
+  --dk-fwd: invert(1) hue-rotate(180deg) contrast(0.86) saturate(0.8);
+  /* the inverse of --dk-fwd, in reverse order (1/.8 = 1.25, 1/.86 = 1.1628) */
+  --dk-inv: saturate(1.25) contrast(1.1628) hue-rotate(180deg) invert(1);
+
+  /* The canvas behind the page, authored light like everything else. */
+  background-color: #f4f4f4;
+  filter: var(--dk-fwd);
+  /* Scrollbars, date pickers and other native controls draw light, and are inverted with the page. */
+  color-scheme: light;
+}
+
+/* ---- content that keeps its own colours ---- */
+html[data-ydot-mode="dark"] img,
+html[data-ydot-mode="dark"] video,
+html[data-ydot-mode="dark"] canvas,
+html[data-ydot-mode="dark"] picture,
+html[data-ydot-mode="dark"] iframe,
+html[data-ydot-mode="dark"] app-qr-code,
+html[data-ydot-mode="dark"] [style*="background-image"],
+html[data-ydot-mode="dark"] .tc-bg-tile:not(.tc-bg-tile--none),
+html[data-ydot-mode="dark"] .tc-avatar {
+  filter: var(--dk-inv);
+}
+
+/* ...but never twice: an image inside such a box is already restored by the box. */
+html[data-ydot-mode="dark"] [style*="background-image"] img,
+html[data-ydot-mode="dark"] [style*="background-image"] video,
+html[data-ydot-mode="dark"] [style*="background-image"] canvas,
+html[data-ydot-mode="dark"] app-qr-code canvas,
+html[data-ydot-mode="dark"] app-qr-code img,
+html[data-ydot-mode="dark"] iframe img {
+  filter: none;
+}
+
+/* ---- scrims: veil the dark page instead of washing it out ---- */
+html[data-ydot-mode="dark"] [class*="backdrop"]:not([class*="blur"]),
+html[data-ydot-mode="dark"] [class*="scrim"],
+html[data-ydot-mode="dark"] .modal-overlay,
+html[data-ydot-mode="dark"] .drawer-overlay,
+html[data-ydot-mode="dark"] .gm-overlay,
+html[data-ydot-mode="dark"] .rx-overlay,
+html[data-ydot-mode="dark"] .oc-overlay,
+html[data-ydot-mode="dark"] .ct-overlay,
+html[data-ydot-mode="dark"] .dir-overlay,
+html[data-ydot-mode="dark"] .panel-overlay,
+html[data-ydot-mode="dark"] .sec-modal-overlay,
+html[data-ydot-mode="dark"] .prc-modal-overlay,
+html[data-ydot-mode="dark"] dialog::backdrop {
+  background: rgba(255, 255, 255, 0.62) !important;
+}
+
+@media print {
+  html[data-ydot-mode="dark"] {
+    filter: none;
+    background-color: #fff;
+  }
+  html[data-ydot-mode="dark"] img,
+  html[data-ydot-mode="dark"] video,
+  html[data-ydot-mode="dark"] canvas,
+  html[data-ydot-mode="dark"] picture,
+  html[data-ydot-mode="dark"] iframe,
+  html[data-ydot-mode="dark"] app-qr-code,
+  html[data-ydot-mode="dark"] [style*="background-image"] {
+    filter: none;
+  }
+}

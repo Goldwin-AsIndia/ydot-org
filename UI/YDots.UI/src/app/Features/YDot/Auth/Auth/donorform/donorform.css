@@ -10,6 +10,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
 :host {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   /* ---- Surfaces ---- */
   --paper: #f4f6f4;
   --card-bg: #ffffff;
@@ -64,7 +65,7 @@
   border-radius: var(--radius-sm);
 }
 
-.req-star { color: #dd5c4d; font-weight: 700; }
+.req-star { color: #dd5c4d; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); }
 .muted { color: var(--muted); }
 
 /* ============ Page shell — full bleed: margin 0, padding 0 ============ */
@@ -94,9 +95,9 @@
 .df-topbar-logo svg { width: 100%; height: 100%; display: block; }
 
 .df-crumbs { display: flex; align-items: center; gap: calc(8px * var(--ui-scale, 1)); font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); min-width: 0; }
-.df-crumbs-root { color: var(--ink-soft); font-weight: 500; white-space: nowrap; }
+.df-crumbs-root { color: var(--ink-soft); font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900); white-space: nowrap; }
 .df-crumbs-sep { width: calc(15px * var(--ui-scale, 1)); height: calc(15px * var(--ui-scale, 1)); color: var(--muted); flex: none; }
-.df-crumbs-here { color: var(--df-primary); font-weight: 700; }
+.df-crumbs-here { color: var(--df-primary); font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); }
 
 .df-topbar-meta { display: flex; align-items: center; gap: calc(10px * var(--ui-scale, 1)); flex-wrap: wrap; }
 .df-meta-chip {
@@ -122,8 +123,8 @@
 }
 .df-meta-ic svg { width: calc(16px * var(--ui-scale, 1)); height: calc(16px * var(--ui-scale, 1)); }
 .df-meta-txt { display: flex; flex-direction: column; line-height: 1.3; }
-.df-meta-k { font-size: calc(calc(9.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: 700; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); }
-.df-meta-v { font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: 600; color: var(--ink); white-space: nowrap; }
+.df-meta-k { font-size: calc(calc(9.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); letter-spacing: .7px; text-transform: uppercase; color: var(--muted); }
+.df-meta-v { font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900); color: var(--ink); white-space: nowrap; }
 
 /* ============ 2. LAYOUT — side panel + form card ============ */
 .df-layout {
@@ -148,7 +149,7 @@
 }
 .df-side-eyebrow {
   font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 800;
+  font-weight: clamp(100, calc(800 + var(--fw-bias, 0)), 900);
   letter-spacing: 1.6px;
   text-transform: uppercase;
   color: var(--df-primary);
@@ -157,7 +158,7 @@
   margin: calc(14px * var(--ui-scale, 1)) 0;
   font-size: calc(calc(31px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   line-height: 1.14;
-  font-weight: 800;
+  font-weight: clamp(100, calc(800 + var(--fw-bias, 0)), 900);
   letter-spacing: -0.6px;
   color: var(--ink);
 }
@@ -200,7 +201,7 @@
 }
 .df-side-ic svg { width: calc(18px * var(--ui-scale, 1)); height: calc(18px * var(--ui-scale, 1)); }
 .df-side-pt { display: flex; flex-direction: column; gap: 2px; padding-top: 1px; }
-.df-side-pt strong { font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: 700; color: var(--ink); }
+.df-side-pt strong { font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); color: var(--ink); }
 .df-side-pt span { font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); line-height: 1.5; color: var(--ink-soft); }
 .df-side-art { margin-top: auto; padding: calc(24px * var(--ui-scale, 1)) 0 0; }
 .df-side-art svg { display: block; width: 100%; height: auto; }
@@ -240,7 +241,7 @@
 .df-form-title {
   margin: 0;
   font-size: calc(calc(19px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 800;
+  font-weight: clamp(100, calc(800 + var(--fw-bias, 0)), 900);
   letter-spacing: -0.3px;
   color: var(--ink);
   display: flex;
@@ -255,7 +256,7 @@
   border: 1px solid var(--df-primary-mid);
   color: var(--df-primary);
   font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   white-space: nowrap;
 }
 .df-form-sub { margin: calc(3px * var(--ui-scale, 1)) 0 0; font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); color: var(--muted); }
@@ -270,7 +271,7 @@
 .field { display: flex; flex-direction: column; gap: calc(7px * var(--ui-scale, 1)); min-width: 0; }
 /* Address spans both grid columns - street lines read better unbroken. */
 .field-span { grid-column: 1 / -1; }
-.field-label { font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: 600; color: var(--ink); }
+.field-label { font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900); color: var(--ink); }
 .field-hint { font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); color: var(--muted); }
 .field-error {
   display: flex;
@@ -278,7 +279,7 @@
   gap: calc(6px * var(--ui-scale, 1));
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   color: var(--error-strong);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .field-error::before {
   content: '';
@@ -390,7 +391,7 @@
   margin-right: calc(10px * var(--ui-scale, 1));
   border-right: 1px solid var(--border);
   font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--ink-soft);
 }
 .ig-input {
@@ -447,7 +448,7 @@
 
 .picker-trigger .chev-ic.static { color: var(--ink-soft); }
 .picker-value { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.picker-name { font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: 600; color: var(--ink); }
+.picker-name { font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900); color: var(--ink); }
 .picker-context { font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); color: var(--muted); }
 .picker-placeholder { color: var(--muted); font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); }
 .picker-pop {
@@ -514,7 +515,7 @@
 }
 .consent-lock svg { width: calc(18px * var(--ui-scale, 1)); height: calc(18px * var(--ui-scale, 1)); }
 .consent-body { display: flex; flex-direction: column; gap: calc(3px * var(--ui-scale, 1)); min-width: 0; flex: 1 1 auto; }
-.consent-label { font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); color: var(--ink); font-weight: 700; }
+.consent-label { font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); color: var(--ink); font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); }
 .consent-hint { font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); color: var(--muted); }
 .consent-row input {
   width: calc(19px * var(--ui-scale, 1));
@@ -559,7 +560,7 @@
   border: 1px solid transparent;
   font-family: inherit;
   font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.1px;
   cursor: pointer;
   white-space: nowrap;
@@ -614,7 +615,7 @@
 }
 .df-trust-ic svg { width: calc(19px * var(--ui-scale, 1)); height: calc(19px * var(--ui-scale, 1)); }
 .df-trust-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.df-trust-txt strong { font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: 700; color: var(--ink); }
+.df-trust-txt strong { font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); color: var(--ink); }
 .df-trust-txt span { font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); line-height: 1.5; color: var(--ink-soft); }
 
 /* ============ Responsive ============ */

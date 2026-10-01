@@ -51,38 +51,6 @@
         <app-theme-picker />
       </section>
 
-      <!-- 1b. Colour palette: every colour in play, read live from the page -->
-      <section class="tc-section">
-        <div class="tc-section-head">
-          <span class="tc-section-icon"><i class="bi bi-grid-3x3-gap"></i></span>
-          <div>
-            <h4>Color palette</h4>
-            <p>Every colour the workspace paints with, live. Click a swatch to copy its value.</p>
-          </div>
-        </div>
-
-        @for (group of paletteGroups(); track group.title) {
-          <h5 class="tc-subhead">{{ group.title }} <span class="tc-subhead-value">{{ group.note }}</span></h5>
-          <div class="tc-palette-grid">
-            @for (swatch of group.swatches; track swatch.variable) {
-              <button type="button" class="tc-palette-chip" (click)="copyColor(swatch)"
-                      [attr.title]="swatch.variable + ' - click to copy'"
-                      [attr.aria-label]="swatch.name + ' ' + swatch.value + ', copy'">
-                <span class="tc-palette-color" [class.tc-palette-color--over]="swatch.translucent"
-                      [style.backgroundColor]="swatch.translucent ? null : swatch.css"
-                      [style.backgroundImage]="swatch.translucent ? 'linear-gradient(' + swatch.css + ', ' + swatch.css + ')' : null"
-                      [style.color]="swatch.ink">Aa</span>
-                <span class="tc-palette-meta">
-                  <span class="tc-palette-name">{{ swatch.name }}</span>
-                  <span class="tc-palette-value">{{ swatch.value }}</span>
-                  <span class="tc-palette-var">{{ swatch.variable }}</span>
-                </span>
-              </button>
-            }
-          </div>
-        }
-      </section>
-
       <!-- 2. Secondary color -->
       <section class="tc-section" >
         <div class="tc-section-head">
@@ -119,7 +87,7 @@
           <span class="tc-section-icon"><i class="bi bi-circle-half"></i></span>
           <div>
             <h4>Appearance mode</h4>
-            <p>Switch the whole workspace between light and dark.</p>
+            <p>Light or a calm, low-glare dark for every screen. Dark keeps the colours muted and the text clear.</p>
           </div>
         </div>
         <div class="tc-mode-row">
@@ -219,36 +187,74 @@
         }
       </section>
 
-      <!-- 6. Font size & style -->
+      <!-- 6. Text size & weight -->
       <section class="tc-section" >
         <div class="tc-section-head">
           <span class="tc-section-icon"><i class="bi bi-type"></i></span>
           <div>
-            <h4>Font size &amp; style</h4>
-            <p>Base size, weight and line spacing for body text.</p>
+            <h4>Text size &amp; weight</h4>
+            <p>Set it for everything at once, then fine-tune titles, labels, body text, numbers and the menu.</p>
           </div>
         </div>
 
-        <h5 class="tc-subhead">Font size</h5>
+        <h5 class="tc-subhead">Overall size <span class="tc-subhead-value">{{ (selectedTextScale * 100).toFixed(0) }}%</span></h5>
         <div class="tc-size-row">
-          @for (size of fontSizes; track size) {
-            <button type="button" class="tc-size-tile" [class.tc-size-tile--active]="selectedFontSize === size.toString() + 'px'"
-                    (click)="setFontSize(size)">
-              <span class="tc-size-num">{{ size }}</span><span class="tc-size-unit">px</span>
+          @for (scale of textScales; track scale.value) {
+            <button type="button" class="tc-size-tile" [class.tc-size-tile--active]="selectedTextScale === scale.value"
+                    (click)="setTextScale(scale.value)">
+              <span class="tc-size-num">{{ (scale.value * 100).toFixed(0) }}</span><span class="tc-size-unit">%</span>
+              <span class="tc-size-name">{{ scale.label }}</span>
             </button>
           }
         </div>
 
-        <h5 class="tc-subhead">Font weight</h5>
+        <h5 class="tc-subhead">Overall weight</h5>
         <div class="tc-weight-row">
-          @for (w of fontWeights; track w.value) {
-            <button type="button" class="tc-weight-card" [class.tc-weight-card--active]="selectedFontWeight === w.value"
-                    (click)="setFontWeight(w.value)">
-              <span class="tc-weight-sample" [style.fontWeight]="w.value">Aa</span>
-              <span class="tc-weight-name">{{ w.label }}</span>
+          @for (preset of weightPresets; track preset.step) {
+            <button type="button" class="tc-weight-card" [class.tc-weight-card--active]="isAllWeights(preset.step)"
+                    (click)="setAllWeights(preset.step)">
+              <span class="tc-weight-sample" [style.--tc-preview-weight]="400 + preset.step * 100">Aa</span>
+              <span class="tc-weight-name">{{ preset.label }}</span>
             </button>
           }
         </div>
+
+        <h5 class="tc-subhead">Fine-tune by text type</h5>
+        <div class="tc-type-list">
+          @for (role of typeRoles; track role.key) {
+            <div class="tc-type">
+              <div class="tc-type-head">
+                <span class="tc-type-meta">
+                  <span class="tc-type-label">{{ role.label }}</span>
+                  <span class="tc-type-hint">{{ role.hint }}</span>
+                </span>
+              </div>
+              <div class="tc-type-preview" [style.fontFamily]="fontFor(role.key)"
+                   [style.--tc-preview-size]="previewSize(role) + 'px'" [style.--tc-preview-weight]="previewWeight(role)">{{ role.sample }}</div>
+              <div class="tc-type-controls">
+                <div class="tc-stepper" role="group" [attr.aria-label]="role.label + ' size'">
+                  <span class="tc-stepper-name">Size</span>
+                  <button type="button" class="tc-stepper-btn" [disabled]="sizeStep(role.key) <= sizeStepMin"
+                          (click)="stepSize(role.key, -1)" [attr.aria-label]="'Smaller ' + role.label"><i class="bi bi-dash-lg"></i></button>
+                  <span class="tc-stepper-value">{{ sizeLabel(role.key) }}</span>
+                  <button type="button" class="tc-stepper-btn" [disabled]="sizeStep(role.key) >= sizeStepMax"
+                          (click)="stepSize(role.key, 1)" [attr.aria-label]="'Larger ' + role.label"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <div class="tc-stepper" role="group" [attr.aria-label]="role.label + ' weight'">
+                  <span class="tc-stepper-name">Weight</span>
+                  <button type="button" class="tc-stepper-btn" [disabled]="weightStep(role.key) <= weightStepMin"
+                          (click)="stepWeight(role.key, -1)" [attr.aria-label]="'Lighter ' + role.label"><i class="bi bi-dash-lg"></i></button>
+                  <span class="tc-stepper-value">{{ weightLabel(role.key) }}</span>
+                  <button type="button" class="tc-stepper-btn" [disabled]="weightStep(role.key) >= weightStepMax"
+                          (click)="stepWeight(role.key, 1)" [attr.aria-label]="'Heavier ' + role.label"><i class="bi bi-plus-lg"></i></button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+        <button type="button" class="tc-link-btn" (click)="resetTypography()">
+          <i class="bi bi-arrow-counterclockwise"></i> Reset sizes and weights
+        </button>
 
         <h5 class="tc-subhead">
           Line height

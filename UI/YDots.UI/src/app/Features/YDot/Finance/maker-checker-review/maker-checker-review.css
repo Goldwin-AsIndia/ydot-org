@@ -4,6 +4,7 @@
    Layout — 2-column (main + sidebar), context strip stacked
    ========================================================= */
 :host {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   /* Core surfaces — derived from the application theme */
   --mc-paper: var(--pe-secondary-bg, #ffffff);
   --mc-card: var(--pe-card-bg, var(--pe-secondary-bg, #ffffff));
@@ -82,7 +83,7 @@ textarea:focus-visible {
   padding: calc(8px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
   border-radius: var(--pe-border-radius, calc(10px * var(--ui-scale, 1)));
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   border: 1px solid transparent;
   cursor: pointer;
   font-family: inherit;
@@ -196,10 +197,11 @@ textarea:focus-visible {
   margin-bottom: calc(4px * var(--ui-scale, 1));
 }
 .mc-title {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   font-family: var(--font-display);
   font-size: calc(calc(34px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   line-height: 1.1;
-  font-weight: 500;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
   letter-spacing: -0.4px;
   margin: 0;
   color: #000;
@@ -226,7 +228,7 @@ textarea:focus-visible {
 }
 .mc-meta-item strong {
   color: var(--mc-ink);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .mc-meta-ic {
   width: calc(15px * var(--ui-scale, 1));
@@ -243,7 +245,7 @@ textarea:focus-visible {
   border-radius: calc(20px * var(--ui-scale, 1));
   background: #315746;
   color: #315746;
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   letter-spacing: 0.02em;
   border: 1px solid #315746;
@@ -331,11 +333,12 @@ textarea:focus-visible {
 }
 .mc-banner-actions a {
   color: inherit;
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 .mc-corr {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   opacity: 0.7;
   font-family: var(--font-number);
@@ -399,7 +402,7 @@ textarea:focus-visible {
 }
 .mc-card-title {
   font-size: calc(var(--yc-heading-size) * var(--ui-text-scale, 1));
-  font-weight: var(--yc-heading-weight);
+  font-weight: clamp(100, calc(var(--yc-heading-weight) + var(--fw-bias, 0)), 900);
   letter-spacing: 0.04em;
   color: var(--mc-ink-2);
   margin: 0;
@@ -426,7 +429,7 @@ textarea:focus-visible {
   border-bottom: none;
 }
 .mc-kv dt {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--mc-ink-2);
   min-width: calc(120px * var(--ui-scale, 1));
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
@@ -445,13 +448,14 @@ textarea:focus-visible {
   gap: 0 calc(24px * var(--ui-scale, 1));
 }
 .mc-dd-strong {
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--mc-primary) !important;
 }
 .mc-dd-due {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .mc-dd-code {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   font-family: var(--font-number);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
   background: var(--mc-bg);
@@ -460,7 +464,7 @@ textarea:focus-visible {
   border: 1px solid var(--mc-border);
 }
 .mc-dd-next {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--mc-primary) !important;
 }
 
@@ -468,7 +472,7 @@ textarea:focus-visible {
 .mc-tag {
   display: inline-block;
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--mc-primary);
   background: var(--mc-primary-soft);
   border: 1px solid var(--mc-primary-border);
@@ -508,7 +512,7 @@ textarea:focus-visible {
 .mc-compare-label {
   display: block;
   font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.05em;
   color: var(--mc-muted);
   text-transform: uppercase;
@@ -517,7 +521,7 @@ textarea:focus-visible {
 .mc-compare-value {
   display: block;
   font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--mc-ink);
   line-height: 1.4;
 }
@@ -550,7 +554,7 @@ textarea:focus-visible {
   align-items: center;
   gap: calc(8px * var(--ui-scale, 1));
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.05em;
   color: var(--mc-primary);
   text-transform: uppercase;
@@ -561,7 +565,7 @@ textarea:focus-visible {
 }
 .mc-impact-value {
   font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--mc-primary);
 }
 
@@ -570,7 +574,7 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: calc(6px * var(--ui-scale, 1));
-  font-weight: 500;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
 }
 .mc-file-ic {
   width: calc(15px * var(--ui-scale, 1));
@@ -581,7 +585,7 @@ textarea:focus-visible {
 .mc-conf {
   display: inline-block;
   font-size: calc(calc(10px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--pe-white, #fff);
   background: var(--mc-ink-2);
   padding: 2px calc(8px * var(--ui-scale, 1));
@@ -662,7 +666,7 @@ textarea:focus-visible {
   padding: calc(6px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
   border-radius: var(--pe-border-radius-sm, calc(8px * var(--ui-scale, 1)));
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--mc-muted);
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease;
@@ -691,7 +695,7 @@ textarea:focus-visible {
   border-bottom: none;
 }
 .mc-rel-primary {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
 }
 .mc-rel-secondary {
@@ -763,7 +767,7 @@ textarea:focus-visible {
 }
 .mc-modal-title {
   font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   margin: 0;
   color: var(--mc-ink);
 }
@@ -794,7 +798,7 @@ textarea:focus-visible {
 .mc-field-label {
   display: block;
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--mc-ink-2);
   margin-bottom: calc(6px * var(--ui-scale, 1));
 }
@@ -824,7 +828,7 @@ textarea:focus-visible {
 }
 .mc-field-error {
   color: var(--mc-error);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .mc-textarea {
   min-height: calc(80px * var(--ui-scale, 1));
@@ -832,7 +836,7 @@ textarea:focus-visible {
   line-height: 1.5;
 }
 .mc-amount {
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--mc-primary);
 }
 

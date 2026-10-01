@@ -6,6 +6,7 @@
    Classes namespaced `sh-` to avoid the global theme's generic rules.
    ============================================================ */
 :host {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   --paper: #f6f5f1;
   --card: #ffffff;
   --ink: #1e241f;
@@ -66,7 +67,7 @@
   padding: calc(10px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
   border-radius: calc(10px * var(--ui-scale, 1));
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   border: 1px solid transparent;
   cursor: pointer;
   font-family: inherit;
@@ -97,7 +98,7 @@
   padding: 0;
   color: var(--green);
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   cursor: pointer;
   text-decoration: none;
 }
@@ -141,12 +142,13 @@
 }
 .sh-breadcrumbs [aria-current] {
   color: var(--ink);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .sh-title {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   font-family: var(--font-serif);
   font-size: calc(calc(38px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 400;
+  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900);
   margin: 0;
   letter-spacing: -0.4px;
   line-height: 1.05;
@@ -168,7 +170,7 @@
   color: var(--ink-soft);
 }
 .sh-ref {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--ink);
   background: hsl(calc(var(--theme-hue) - 57) 15.2% 93.5%);
   padding: calc(3px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
@@ -179,7 +181,7 @@
   color: #2f7350;
   padding: calc(3px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
   border-radius: calc(20px * var(--ui-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
 }
 .sh-meta-item {
@@ -207,7 +209,7 @@
 }
 .sh-role-name {
   font-size: calc(calc(14.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--ink);
 }
 .sh-role-caret {
@@ -282,7 +284,7 @@
 }
 .sh-field-label {
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--ink-soft);
 }
 .sh-control {
@@ -302,7 +304,7 @@
   margin: 0;
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   color: var(--red);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 
 .sh-scope-trigger {
@@ -320,7 +322,7 @@
   overflow: hidden;
 }
 .sh-scope-name {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   white-space: nowrap;
   overflow: hidden;
@@ -397,7 +399,7 @@
   padding: calc(5px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
   border-radius: calc(20px * var(--ui-scale, 1));
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 500;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
 }
 .sh-totals {
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
@@ -417,7 +419,7 @@
 }
 .sh-banner a {
   color: inherit;
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   margin-left: calc(6px * var(--ui-scale, 1));
 }
 .sh-banner-actions {
@@ -455,7 +457,7 @@
 }
 .sh-error-summary a {
   color: inherit;
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 
 /* Decision / review warning (4.7.1) */
@@ -487,14 +489,14 @@
 }
 .sh-card-title {
   font-size: calc(var(--yc-title-size) * var(--ui-text-scale, 1));
-  font-weight: var(--yc-title-weight);
+  font-weight: clamp(100, calc(var(--yc-title-weight) + var(--fw-bias, 0)), 900);
   margin: 0;
 }
 .sh-count-pill {
   background: hsl(calc(var(--theme-hue) - 57) 15.2% 93.5%);
   color: var(--ink-soft);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   padding: calc(3px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
   border-radius: calc(20px * var(--ui-scale, 1));
 }
@@ -590,12 +592,12 @@
 }
 .sh-stat-value {
   font-size: calc(var(--yc-value-size) * var(--ui-text-scale, 1));
-  font-weight: var(--yc-value-weight);
+  font-weight: clamp(100, calc(var(--yc-value-weight) + var(--fw-bias, 0)), 900);
   line-height: var(--yc-value-line);
 }
 .sh-stat-unit {
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 500;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
   color: var(--muted);
 }
 .sh-stat-sub {
@@ -627,14 +629,14 @@
   text-align: left;
 }
 .sh-menu-group-label {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
 }
 .sh-menu-group-count {
   background: hsl(calc(var(--theme-hue) - 57) 15.2% 93.5%);
   color: var(--ink-soft);
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   padding: 2px calc(9px * var(--ui-scale, 1));
   border-radius: calc(20px * var(--ui-scale, 1));
 }
@@ -667,7 +669,7 @@
 }
 .sh-tag {
   font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   padding: calc(3px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
   border-radius: calc(8px * var(--ui-scale, 1));
 }
@@ -699,7 +701,7 @@
 .sh-def dd {
   margin: 0;
   text-align: right;
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--ink);
 }
 
@@ -746,7 +748,7 @@
   border-bottom: none;
 }
 .sh-rel-primary {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
 }
 .sh-rel-secondary {
@@ -789,7 +791,7 @@
 }
 .sh-action-label {
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 500;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
   color: var(--ink);
   flex: 1;
 }
@@ -810,7 +812,7 @@
 }
 .sh-state-title {
   font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   margin: 0;
 }
 .sh-state-body {
@@ -861,8 +863,9 @@
   box-shadow: none;
 }
 .sh-modal-title {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   margin: 0 0 calc(8px * var(--ui-scale, 1));
   font-family: var(--font-serif);
 }

@@ -56,10 +56,11 @@
 .bu-glyph { flex: none; display: inline-grid; place-items: center; width: 34px; height: 34px; color: var(--bu-brand); }
 .bu-glyph i { font-size: calc(26px * var(--ui-text-scale, 1)) !important; line-height: 1; }
 .bu-card-title {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   margin: 0;
   font-family: var(--font-display);
   font-size: calc(17px * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   line-height: 1.25;
   color: var(--bu-ink);
 }
@@ -77,7 +78,7 @@
   background: var(--st-soft);
   color: var(--st);
   font-size: calc(12px * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   white-space: nowrap;
 }
 .bu-status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
@@ -96,28 +97,30 @@
 .bu-dl > div { min-width: 0; padding: 12px 0; border-top: 1px solid var(--bu-line-2); }
 .bu-dl > .bu-span-2 { grid-column: 1 / -1; }
 .bu-dl dt {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   margin: 0 0 3px;
   font-family: var(--font-heading);
   font-size: calc(11.5px * var(--ui-text-scale, 1)) !important;
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   letter-spacing: .04em;
   text-transform: uppercase;
   color: var(--bu-faint);
 }
-.bu-dl dd { margin: 0; font-size: calc(14.5px * var(--ui-text-scale, 1)) !important; font-weight: 500; color: var(--bu-ink); overflow-wrap: anywhere; }
-.bu-mono { font-family: var(--font-number) !important; letter-spacing: .01em; }
-.bu-about { font-weight: 400 !important; line-height: 1.6 !important; color: var(--bu-ink-2) !important; }
-.bu-note { display: block; margin-top: 4px; font-size: calc(12.5px * var(--ui-text-scale, 1)) !important; font-weight: 400; color: var(--bu-muted); }
+.bu-dl dd { margin: 0; font-size: calc(14.5px * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900); color: var(--bu-ink); overflow-wrap: anywhere; }
+.bu-mono { --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number); font-family: var(--font-number) !important; letter-spacing: .01em; }
+.bu-about { font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important; line-height: 1.6 !important; color: var(--bu-ink-2) !important; }
+.bu-note { display: block; margin-top: 4px; font-size: calc(12.5px * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900); color: var(--bu-muted); }
 
 /* ---- Organisations card ---- */
 .bu-capacity { display: flex; align-items: baseline; gap: 8px; }
-.bu-capacity-num { font-family: var(--font-number); font-size: calc(34px * var(--ui-text-scale, 1)) !important; font-weight: 700 !important; line-height: 1 !important; color: var(--bu-ink); }
+.bu-capacity-num { --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number); font-family: var(--font-number); font-size: calc(34px * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; line-height: 1 !important; color: var(--bu-ink); }
 .bu-capacity-of { font-size: calc(14px * var(--ui-text-scale, 1)) !important; color: var(--bu-faint); }
 .bu-meter { height: 8px; border-radius: 999px; background: var(--bu-line-2); overflow: hidden; }
 .bu-meter span { display: block; height: 100%; border-radius: inherit; background: var(--bu-good); transition: width .4s ease; }
 .bu-meter span.is-warn  { background: var(--bu-warn); }
 .bu-meter span.is-error { background: var(--bu-error); }
 .bu-btn {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
@@ -130,7 +133,7 @@
   color: var(--bu-ink-2) !important;
   font-family: var(--font-heading);
   font-size: calc(13px * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   text-decoration: none;
   transition: border-color .15s ease, color .15s ease;
 }
@@ -148,8 +151,8 @@
   border-top: 1px solid var(--bu-line-2);
 }
 .bu-rows > div:first-child { border-top: 0; padding-top: 0; }
-.bu-rows dt { margin: 0; font-size: calc(13.5px * var(--ui-text-scale, 1)) !important; font-weight: 500; color: var(--bu-muted); }
-.bu-rows dd { margin: 0; font-family: var(--font-number); font-size: calc(15px * var(--ui-text-scale, 1)) !important; font-weight: 700; color: var(--bu-ink); }
+.bu-rows dt { margin: 0; font-size: calc(13.5px * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900); color: var(--bu-muted); }
+.bu-rows dd { --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number); margin: 0; font-family: var(--font-number); font-size: calc(15px * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); color: var(--bu-ink); }
 .bu-rows dd.is-good  { color: var(--bu-good); }
 .bu-rows dd.is-warn  { color: var(--bu-warn); }
 .bu-rows dd.is-info  { color: var(--bu-info); }
