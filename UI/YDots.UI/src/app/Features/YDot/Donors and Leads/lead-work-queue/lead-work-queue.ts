@@ -1,5 +1,6 @@
 import { CommonModule, DOCUMENT } from '@angular/common';
 import {
+  afterNextRender,
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
@@ -22,7 +23,6 @@ import {
   LeadWorkQueueFilter,
   LeadWorkQueueResponse,
 } from '../../../../Shared/models/donor-contract.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 export type UiState = 'ready' | 'loading' | 'success' | 'error' | 'empty';
 
@@ -49,6 +49,7 @@ export interface LeadItem {
   readonly ownerUserId: string | null;
   readonly lastActivity: string;
   readonly nextFollowUp: string;
+  readonly nextDue: string | null;
   readonly healthScore: number;
   readonly lastContactOutcome: string;
   readonly language: string;
@@ -135,7 +136,7 @@ type SavedView = (typeof SAVED_VIEWS)[number];
   selector: 'app-lead-work-queue',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeader, CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './lead-work-queue.html',
   styleUrl: './lead-work-queue.css',
 })
@@ -145,15 +146,12 @@ export class LeadWorkQueueComponent {
   private readonly api = inject(DonorApiService);
 
   private readonly document = inject(DOCUMENT);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
   private readonly searchChanges = new Subject<void>();
   private loadSubscription?: Subscription;
   protected readonly previewDialog = viewChild<ElementRef<HTMLDialogElement>>('leadDialog');
   protected readonly optionSearch = signal<Partial<Record<string, string>>>({});
-  protected readonly primaryKpis = computed(() => this.kpis().filter((kpi) => kpi.id !== 'hot'));
-  protected readonly extraKpis = computed(() => this.kpis().filter((kpi) => kpi.id === 'hot'));
-  protected readonly primaryViews = computed(() => this.savedViews().slice(0, 3));
-  protected readonly extraViews = computed(() => this.savedViews().slice(3));
   protected readonly filterFields = computed(() => {
     const options = this.filterOptions();
     const choices = (values: readonly string[]) => values.map((value) => ({ value, label: value }));
@@ -191,6 +189,7 @@ export class LeadWorkQueueComponent {
 
   protected onSearchChange(value: string): void {
     this.searchTerm.set(value);
+    this.pageIndex.set(1);
     this.searchChanges.next();
   }
 
@@ -251,43 +250,6 @@ export class LeadWorkQueueComponent {
     }
   }
 
-  protected readonly icons: Record<string, string> = {
-    potential: 'm12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z',
-    add: 'M12 5v14M5 12h14',
-    close: 'm6 6 12 12M6 18 18 6',
-    search: 'M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',
-    filter: 'M3 4h18l-7 8v7l-4 2v-9Z',
-    refresh: 'M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 2M5 16a8 8 0 0 0 13 2',
-    export: 'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',
-    grid: 'M3 3h6v6H3ZM15 3h6v6h-6ZM3 15h6v6H3ZM15 15h6v6h-6Z',
-    user: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2Z',
-    users:
-      'M14 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M2 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2ZM18 4a4 4 0 0 1 0 7M21 21v-3a5 5 0 0 0-2-4',
-    assign: 'M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M2 21v-2a6 6 0 0 1 6-6h3M18 13v8m-4-4h8',
-    eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
-    chat: 'M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z',
-    list: 'M4 5h16M4 12h16M4 19h16',
-    file: 'M6 2h8l5 5v15H6ZM14 2v6h5M9 12h7M9 16h7',
-    copy: 'M9 9h12v12H9ZM5 15H3V3h12v2',
-    check: 'm5 12 4 4L19 6',
-    calendar: 'M4 5h16v16H4ZM16 3v4M8 3v4M4 11h16',
-    clock: 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0M12 6v6l4 2',
-    arrow: 'M5 12h14m-6-6 6 6-6 6',
-    alert: 'm12 3 10 18H2ZM12 9v5M12 17v1',
-  };
-
-  // Palette used to derive a consistent, distinct avatar colour per lead name.
-  private readonly avatarPalette: readonly string[] = [
-    '#2d6a4f',
-    '#3b82c4',
-    '#b45309',
-    '#6d28d9',
-    '#0f766e',
-    '#c53030',
-    '#0e7490',
-    '#4f46e5',
-  ];
-
   // ===========================================================================================
   // Screen chrome. Signals rather than constants, because the server supplies them.
   // ===========================================================================================
@@ -328,6 +290,11 @@ export class LeadWorkQueueComponent {
   protected readonly ownerFilter = signal<string>('');
   protected readonly showFilters = signal(false);
 
+  // Paging. The server pages the queue; these are the page asked for and its size.
+  protected readonly pageSizes = [12, 24, 48, 96] as const;
+  protected readonly pageIndex = signal(1);
+  protected readonly pageSize = signal(12);
+
   protected readonly leads = signal<readonly LeadItem[]>([]);
   protected readonly totalCount = signal(0);
   protected readonly selectedIds = signal<Set<string>>(new Set());
@@ -339,6 +306,20 @@ export class LeadWorkQueueComponent {
       .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.load());
     this.destroyRef.onDestroy(() => this.loadSubscription?.unsubscribe());
+
+    // THE SELECTION BAR IS STICKY, and sticky needs the window to be its scroller. The shell's
+    // `.content-page` carries `overflow-y: auto` without ever scrolling, which traps it; clip it
+    // while this screen is up and put it back on the way out.
+    let column: HTMLElement | null = null;
+    let overflow = '';
+    afterNextRender(() => {
+      column = this.host.nativeElement.closest('.content-page') as HTMLElement | null;
+      overflow = column?.style.overflow ?? '';
+      if (column) column.style.overflow = 'clip';
+    });
+    this.destroyRef.onDestroy(() => {
+      if (column) column.style.overflow = overflow;
+    });
     afterRenderEffect((onCleanup) => {
       const lead = this.selectedLead();
       const dialog = this.previewDialog()?.nativeElement;
@@ -393,8 +374,8 @@ export class LeadWorkQueueComponent {
   /** The saved view and the filter controls, translated into the API's query string. */
   private buildFilter(): LeadWorkQueueFilter {
     const filter: LeadWorkQueueFilter = {
-      page: 1,
-      pageSize: 100,
+      page: this.pageIndex(),
+      pageSize: this.pageSize(),
       search: this.searchTerm().trim() || undefined,
       status: this.stageFilter() || null,
       temperature: this.temperatureFilter() || null,
@@ -436,6 +417,13 @@ export class LeadWorkQueueComponent {
   }
 
   private applyResponse(response: LeadWorkQueueResponse): void {
+    // A page past the end (the set shrank since it was asked for): step back to the last page.
+    const lastPage = Math.max(1, Math.ceil(response.leads.totalCount / this.pageSize()));
+    if (response.leads.items.length === 0 && response.leads.totalCount > 0 && this.pageIndex() > lastPage) {
+      this.pageIndex.set(lastPage);
+      this.load();
+      return;
+    }
     this.leads.set(response.leads.items.map((row) => this.toRow(row)));
     this.totalCount.set(response.leads.totalCount);
     const visibleIds = new Set(this.filteredLeads().map((lead) => lead.id));
@@ -529,6 +517,7 @@ export class LeadWorkQueueComponent {
       ownerUserId: row.ownerUserId,
       lastActivity: row.lastContactOutcome,
       nextFollowUp: this.formatDate(row.nextActionDueUtc),
+      nextDue: row.nextActionDueUtc,
       healthScore: row.healthScore,
       lastContactOutcome: row.lastContactOutcome,
       language: row.preferredLanguage,
@@ -577,43 +566,41 @@ export class LeadWorkQueueComponent {
   // Derived view state
   // ===========================================================================================
 
-  protected readonly activeFilterChips = computed(() => {
-    const chips: { key: string; label: string }[] = [];
-    if (this.savedView() !== 'All Leads') {
-      chips.push({ key: 'view', label: `View: ${this.savedView()}` });
-    }
-    if (this.searchTerm().trim()) {
-      chips.push({ key: 'search', label: `Search: ${this.searchTerm().trim()}` });
-    }
-    if (this.stageFilter()) {
-      chips.push({
-        key: 'stage',
-        label: `Stage: ${this.filterOptions().stages.find((option) => option.value === this.stageFilter())?.label ?? this.stageFilter()}`,
-      });
-    }
+  /**
+   * The filter-panel choices, as removable tokens.
+   *
+   * THE VIEW, THE SEARCH AND THE STAGE ARE NOT HERE: each already shows where it was chosen (the
+   * underlined lane, the search box with its clear button, the outlined stage key), and a token
+   * that repeats them is noise.
+   */
+  protected readonly filterTokens = computed(() => {
+    const tokens: { key: string; label: string }[] = [];
+    const label = (options: readonly DonLookupItem[], value: string) =>
+      options.find((option) => option.value === value)?.label ?? value;
     if (this.temperatureFilter()) {
-      chips.push({
-        key: 'temperature',
-        label: `Temperature: ${this.filterOptions().temperatures.find((option) => option.value === this.temperatureFilter())?.label ?? this.temperatureFilter()}`,
-      });
+      tokens.push({ key: 'temperature', label: `Temperature: ${label(this.filterOptions().temperatures, this.temperatureFilter())}` });
     }
     if (this.potentialFilter()) {
-      chips.push({
-        key: 'potential',
-        label: `Potential: ${this.filterOptions().potentials.find((option) => option.value === this.potentialFilter())?.label ?? this.potentialFilter()}`,
-      });
+      tokens.push({ key: 'potential', label: `Potential: ${label(this.filterOptions().potentials, this.potentialFilter())}` });
     }
     if (this.sourceFilter()) {
-      chips.push({ key: 'source', label: `Source: ${this.sourceFilter()}` });
+      tokens.push({ key: 'source', label: `Source: ${this.sourceFilter()}` });
     }
     if (this.ownerFilter()) {
-      chips.push({
-        key: 'owner',
-        label: `Owner: ${this.ownerOptions().find((owner) => owner.value === this.ownerFilter())?.label ?? this.ownerFilter()}`,
-      });
+      tokens.push({ key: 'owner', label: `Owner: ${label(this.ownerOptions(), this.ownerFilter())}` });
     }
-    return chips;
+    return tokens;
   });
+
+  /** How many filter-panel fields are set (the stage counts; it lives in the panel too). */
+  protected readonly panelFilterCount = computed(
+    () => this.filterTokens().length + (this.stageFilter() ? 1 : 0),
+  );
+
+  /** Anything narrowing the queue at all - drives the one Reset link. */
+  protected readonly isFiltered = computed(
+    () => this.savedView() !== 'All Leads' || !!this.searchTerm().trim() || this.panelFilterCount() > 0,
+  );
 
   /**
    * The rows on screen.
@@ -638,7 +625,7 @@ export class LeadWorkQueueComponent {
   });
 
   // ===========================================================================================
-  // Prospect register presentation - counts beside each view, stage shares, next steps
+  // Triage desk presentation - lanes, stage shares, due dates, next steps
   // ===========================================================================================
 
   /** Which summary figure counts each saved view. "Recently Added" has no server count. */
@@ -651,36 +638,45 @@ export class LeadWorkQueueComponent {
     'Converted Leads': 'converted',
   };
 
-  protected viewCount(view: string): number | null {
-    const id = this.viewKpi[view];
-    const kpi = id ? this.kpis().find((k) => k.id === id) : undefined;
-    return kpi ? kpi.value : null;
-  }
+  private readonly laneMeta: Record<string, { label: string; glyph: string; hint: string }> = {
+    'All Leads': { label: 'All leads', glyph: 'ri-stack-line', hint: 'Every lead in scope' },
+    'Unassigned Leads': { label: 'Unassigned', glyph: 'ri-user-unfollow-line', hint: 'Waiting for an owner' },
+    'Assigned Leads': { label: 'Assigned', glyph: 'ri-user-follow-line', hint: 'With a fundraiser' },
+    'Hot Leads': { label: 'Hot', glyph: 'ri-fire-line', hint: 'Ready to talk' },
+    'High Donation Potential': { label: 'High potential', glyph: 'ri-vip-diamond-line', hint: 'Largest likely gifts' },
+    'Recently Added': { label: 'Recently added', glyph: 'ri-time-line', hint: 'Sorted by capture date' },
+    'Converted Leads': { label: 'Converted', glyph: 'ri-hand-heart-line', hint: 'Donation recorded' },
+  };
 
-  protected viewLabel(view: string): string {
-    const labels: Record<string, string> = {
-      'All Leads': 'All leads',
-      'High Donation Potential': 'High potential',
-      'Recently Added': 'Recently added',
-    };
-    return labels[view] ?? view.replace(' Leads', '');
-  }
-
-  /** The five figures beside the headline total, each one a shortcut to its saved view. */
-  protected readonly summaryFigures = computed(() => {
+  /**
+   * One lane per saved view, carrying the view's server count.
+   *
+   * THE LANES ARE BOTH THE SUMMARY AND THE TABS. The screen used to draw the same six counts
+   * twice - once as summary figures and again as tab counts - so they now live in one row.
+   * `value` is undefined before the first answer and null for a view the server does not count.
+   */
+  protected readonly lanes = computed(() => {
     const byId = new Map(this.kpis().map((k) => [k.id, k.value]));
-    return [
-      { view: 'Unassigned Leads', label: 'Unassigned', glyph: 'ri-user-unfollow-line', hint: 'Waiting for an owner', value: byId.get('unassigned') },
-      { view: 'Assigned Leads', label: 'Assigned', glyph: 'ri-user-follow-line', hint: 'With a fundraiser', value: byId.get('assigned') },
-      { view: 'Hot Leads', label: 'Hot', glyph: 'ri-fire-line', hint: 'Ready to talk', value: byId.get('hot') },
-      { view: 'High Donation Potential', label: 'High potential', glyph: 'ri-vip-diamond-line', hint: 'Largest likely gifts', value: byId.get('potential') },
-      { view: 'Converted Leads', label: 'Converted', glyph: 'ri-hand-heart-line', hint: 'Donation recorded', value: byId.get('converted') },
-    ];
+    return this.savedViews().map((view) => {
+      const meta = this.laneMeta[view] ?? { label: view, glyph: 'ri-list-check', hint: view };
+      const id = this.viewKpi[view];
+      return { view, ...meta, value: id ? byId.get(id) : null };
+    });
   });
 
-  protected readonly totalLeads = computed(() => this.kpis().find((k) => k.id === 'total')?.value ?? null);
+  /** The next contact relative to today, so an overdue lead reads as overdue at a glance. */
+  protected dueState(lead: LeadItem): { label: string; tone: 'none' | 'late' | 'today' | 'soon' | 'later' } {
+    if (!lead.nextDue) return { label: 'Not planned', tone: 'none' };
+    const due = new Date(lead.nextDue);
+    if (Number.isNaN(due.getTime())) return { label: 'Not planned', tone: 'none' };
+    const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    const days = Math.round((day(due) - day(new Date())) / 86_400_000);
+    if (days < 0) return { label: days === -1 ? 'Overdue by a day' : `Overdue by ${-days} days`, tone: 'late' };
+    if (days === 0) return { label: 'Due today', tone: 'today' };
+    if (days === 1) return { label: 'Tomorrow', tone: 'soon' };
+    return { label: `In ${days} days`, tone: days <= 7 ? 'soon' : 'later' };
+  }
 
-  protected readonly pipelineMax = computed(() => Math.max(1, ...this.pipeline().map((s) => s.count)));
   protected readonly pipelineTotal = computed(() => this.pipeline().reduce((sum, s) => sum + s.count, 0));
 
   protected stageShare(count: number): number {
@@ -708,33 +704,48 @@ export class LeadWorkQueueComponent {
     }
   }
 
+  // ===========================================================================================
+  // Paging
+  // ===========================================================================================
+
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize())));
+
+  /** First row number on this page - "Showing 13-24 of 248". */
+  protected readonly rangeStart = computed(() =>
+    this.totalCount() === 0 ? 0 : (this.pageIndex() - 1) * this.pageSize() + 1,
+  );
+
+  /** Last row number on this page (source narrows the page, so it counts the rows shown). */
+  protected readonly rangeEnd = computed(() =>
+    Math.min(this.totalCount(), this.rangeStart() + Math.max(0, this.filteredLeads().length - 1)),
+  );
+
+  /** Up to five page numbers around the current one; the pager adds first / last with a gap. */
+  protected readonly pageNumbers = computed(() => {
+    const total = this.totalPages();
+    const current = this.pageIndex();
+    const from = Math.max(1, Math.min(current - 2, total - 4));
+    const to = Math.min(total, from + 4);
+    return Array.from({ length: to - from + 1 }, (_, index) => from + index);
+  });
+
+  protected goToPage(page: number): void {
+    const next = Math.min(Math.max(1, page), this.totalPages());
+    if (next === this.pageIndex()) return;
+    this.pageIndex.set(next);
+    this.load();
+  }
+
+  protected setPageSize(size: number): void {
+    if (!size || size === this.pageSize()) return;
+    this.pageSize.set(size);
+    this.pageIndex.set(1);
+    this.load();
+  }
+
   protected clearSelection(): void {
     this.selectedIds.set(new Set());
   }
-
-  protected readonly statusPill = computed(() => {
-    switch (this.uiState()) {
-      case 'loading':
-        return { label: 'Loading', cls: 'lq-badge-muted' };
-      case 'error':
-        return { label: 'Unavailable', cls: 'lq-badge-danger' };
-      case 'success':
-        return { label: 'Updated', cls: 'lq-badge-good' };
-      default:
-        return { label: 'Live queue', cls: 'lq-badge-good' };
-    }
-  });
-
-  protected readonly healthSummary = computed(() => {
-    const leads = this.filteredLeads();
-    return {
-      cold: leads.filter((l) => l.temperature === 'Cold').length,
-      warm: leads.filter((l) => l.temperature === 'Warm').length,
-      hot: leads.filter((l) => l.temperature === 'Hot').length,
-      highPotential: leads.filter((l) => l.donationPotential === 'High').length,
-      converted: leads.filter((l) => l.converted).length,
-    };
-  });
 
   // ===========================================================================================
   // Filter controls. Each one reloads, because each one is a server filter.
@@ -742,6 +753,7 @@ export class LeadWorkQueueComponent {
 
   protected selectSavedView(view: string): void {
     this.savedView.set(view);
+    this.pageIndex.set(1);
     this.clearAdvancedFilters();
     this.load();
   }
@@ -753,6 +765,7 @@ export class LeadWorkQueueComponent {
     }
     this.stageFilter.set(stage.key);
     this.savedView.set('All Leads');
+    this.pageIndex.set(1);
     this.load();
   }
 
@@ -780,6 +793,7 @@ export class LeadWorkQueueComponent {
         this.ownerFilter.set('');
         break;
     }
+    this.pageIndex.set(1);
     this.load();
   }
 
@@ -794,6 +808,7 @@ export class LeadWorkQueueComponent {
 
   protected clearAllFilters(): void {
     this.savedView.set('All Leads');
+    this.pageIndex.set(1);
     this.searchTerm.set('');
     this.clearAdvancedFilters();
     this.load();
@@ -801,6 +816,7 @@ export class LeadWorkQueueComponent {
 
   protected applyFilters(): void {
     this.showFilters.set(false);
+    this.pageIndex.set(1);
     this.load();
   }
 
@@ -993,80 +1009,10 @@ export class LeadWorkQueueComponent {
     }
   }
 
-  protected stageClass(stage: string): string {
-    switch (stage) {
-      case 'New':
-        return 'lq-badge-blue';
-      case 'Assigned':
-        return 'lq-badge-warn';
-      case 'Nurture':
-        return 'lq-badge-plum';
-      case 'Contacted':
-        return 'lq-badge-warn';
-      case 'Engaged':
-        return 'lq-badge-good';
-      case 'Dormant':
-        return 'lq-badge-muted';
-      case 'Lost':
-        return 'lq-badge-danger';
-      case 'Converted':
-        return 'lq-badge-good';
-      default:
-        return 'lq-badge-muted';
-    }
-  }
-
-  protected temperatureClass(temp: string): string {
-    switch (temp) {
-      case 'Hot':
-        return 'lq-badge-danger';
-      case 'Warm':
-        return 'lq-badge-warn';
-      case 'Cold':
-        return 'lq-badge-muted';
-      default:
-        return 'lq-badge-muted';
-    }
-  }
-
-  protected potentialClass(pot: string): string {
-    switch (pot) {
-      case 'High':
-        return 'lq-badge-good';
-      case 'Medium':
-        return 'lq-badge-warn';
-      case 'Low':
-        return 'lq-badge-muted';
-      default:
-        return 'lq-badge-muted';
-    }
-  }
-
   protected healthClass(score: number): string {
     if (score >= 80) return 'lq-health-high';
     if (score >= 55) return 'lq-health-mid';
     return 'lq-health-low';
-  }
-
-  protected getInitials(name: string): string {
-    return name
-      .split(' ')
-      .map((p) => p.charAt(0))
-      .slice(0, 2)
-      .join('')
-      .toUpperCase();
-  }
-
-  /** Deterministic avatar colour per name, so a lead always looks the same in the grid. */
-  protected getAvatarColor(name: string): string {
-    if (!name) {
-      return this.avatarPalette[0];
-    }
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return this.avatarPalette[Math.abs(hash) % this.avatarPalette.length];
   }
 
   protected displayValue(value: string | null | undefined): string {

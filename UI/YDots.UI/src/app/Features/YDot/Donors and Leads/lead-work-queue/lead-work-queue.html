@@ -1,29 +1,6 @@
 <main class="app-wrapper">
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3" [attr.aria-busy]="uiState() === 'loading'">
-      <app-page-header [showInfo]="false" screen="lead-work-queue" [title]="screen().title" [subtitle]="screen().purpose">
-        <!-- <span meta class="ph-chip">Donors &amp; Leads</span> -->
-        <ng-container actions>
-          <button type="button" class="ph-btn ph-btn--ghost" title="Refresh leads" (click)="refresh()" [disabled]="uiState() === 'loading'">
-            <i class="ri-refresh-line" aria-hidden="true"></i> Refresh
-          </button>
-          @if (permissions().export) {
-            <button type="button" class="ph-btn ph-btn--ghost" title="Export displayed leads" (click)="exportLeads()" [disabled]="!hasResults() || uiState() === 'loading'">
-              <i class="ri-download-2-line" aria-hidden="true"></i> Export
-            </button>
-          }
-          @if (permissions().assign) {
-            <a class="ph-btn ph-btn--ghost" routerLink="/app/fundraising/relationships/assignment-board" title="Assignment board">
-              <i class="ri-layout-column-line" aria-hidden="true"></i> Assignment board
-            </a>
-          }
-          @if (permissions().create) {
-            <button type="button" class="ph-btn ph-btn--primary" title="Capture a new lead" (click)="createLead()">
-              <i class="ri-user-add-line" aria-hidden="true"></i> Capture lead
-            </button>
-          }
-        </ng-container>
-      </app-page-header>
 
       @if (uiState() === 'success') {
         <div class="pq-notice" role="status">
@@ -32,97 +9,54 @@
           <button type="button" class="pq-notice-x" title="Dismiss" aria-label="Dismiss notification" (click)="dismissBanner()"><i class="ri-close-line" aria-hidden="true"></i></button>
         </div>
       }
-      <div class="pq-page">
-      <!-- ================= SUMMARY: headline total | five view figures / stage meters ================= -->
-      <section class="pq-summary" aria-label="Lead summary">
-        <div class="pq-sum-top">
-          <button type="button" class="pq-lead-fig" [class.is-on]="savedView() === 'All Leads'" (click)="selectSavedView('All Leads')" title="Show all leads">
-            <span class="pq-eyebrow"><i class="ri-contacts-book-2-line" aria-hidden="true"></i>Leads in scope</span>
-            <span class="pq-lead-n">{{ totalLeads() === null ? '—' : (totalLeads() | number) }}</span>
-            <span class="pq-lead-meta">
-              @if (screen().scope) { {{ screen().scope }} }
-              @else { {{ uiState() === 'error' ? 'Summary unavailable' : uiState() === 'loading' ? 'Counting leads…' : 'Every lead you can see' }} }
-              @if (screen().lastRefresh) { <span class="pq-sep" aria-hidden="true"></span>Refreshed {{ screen().lastRefresh }} }
-            </span>
-          </button>
 
-          <div class="pq-figs">
-            @for (f of summaryFigures(); track f.view) {
-              <button type="button" class="pq-fig" [class.is-on]="savedView() === f.view" [attr.aria-pressed]="savedView() === f.view"
-                      [attr.data-view]="f.view" (click)="selectSavedView(f.view)" [title]="'Show ' + f.label.toLowerCase() + ' leads'">
-                <span class="pq-fig-l"><i [class]="f.glyph" aria-hidden="true"></i>{{ f.label }}</span>
-                <span class="pq-fig-n">{{ f.value === undefined ? '—' : (f.value | number) }}</span>
-                <span class="pq-fig-h">{{ f.hint }}</span>
+      <div class="pq-page">
+      <section class="pq-desk" aria-labelledby="pq-title">
+
+        <!-- ================= MASTHEAD: one line - title + refresh | search, filters, page actions ================= -->
+        <header class="pq-mast">
+          <div class="pq-mast-id">
+            <h1 id="pq-title" class="pq-title">{{ screen().title }}</h1>
+            <button type="button" class="pq-refresh" [class.is-spinning]="uiState() === 'loading'"
+                    [title]="screen().lastRefresh ? 'Refresh the queue (last refreshed ' + screen().lastRefresh + ')' : 'Refresh the queue'"
+                    aria-label="Refresh the queue" (click)="refresh()" [disabled]="uiState() === 'loading'"><i class="ri-refresh-line" aria-hidden="true"></i></button>
+          </div>
+
+          <div class="pq-mast-acts">
+            <form class="pq-find-bar" (ngSubmit)="refresh()" role="search" aria-label="Search leads">
+              <label class="pq-search">
+                <i class="ri-search-line" aria-hidden="true"></i>
+                <span class="visually-hidden">Search leads</span>
+                <input id="pq-search" name="search" type="search" placeholder="Search name, lead ID, phone, e-mail"
+                       [ngModel]="searchTerm()" (ngModelChange)="onSearchChange($event)" />
+                @if (searchTerm()) {
+                  <button type="button" class="pq-clear" aria-label="Clear search" title="Clear search" (click)="removeFilterChip('search')"><i class="ri-close-line" aria-hidden="true"></i></button>
+                }
+              </label>
+              <button type="button" class="pq-filter-btn" [class.is-on]="showFilters() || panelFilterCount() > 0" aria-controls="pq-filters" [attr.aria-expanded]="showFilters()" (click)="toggleFilters()">
+                <i class="ri-equalizer-line" aria-hidden="true"></i><span>Filters</span>
+                @if (panelFilterCount() > 0) { <span class="pq-filter-n">{{ panelFilterCount() }}</span> }
+                <i class="ri-arrow-down-s-line pq-caret" [class.is-open]="showFilters()" aria-hidden="true"></i>
+              </button>
+            </form>
+            <span class="pq-acts-rule" aria-hidden="true"></span>
+            @if (permissions().assign) {
+              <a class="pq-btn" routerLink="/app/fundraising/relationships/assignment-board" title="Open the assignment board">
+                <i class="ri-layout-column-line" aria-hidden="true"></i>Assignment board
+              </a>
+            }
+            @if (permissions().export) {
+              <button type="button" class="pq-btn" title="Export the leads shown" (click)="exportLeads()" [disabled]="!hasResults() || uiState() === 'loading'">
+                <i class="ri-download-2-line" aria-hidden="true"></i>Export
+              </button>
+            }
+            @if (permissions().create) {
+              <button type="button" class="pq-btn pq-btn--primary" title="Capture a new lead" (click)="createLead()">
+                <i class="ri-user-add-line" aria-hidden="true"></i>Capture lead
               </button>
             }
           </div>
-        </div>
-
-        @if (pipeline().length > 0) {
-          <div class="pq-stages" role="group" aria-label="Pipeline stages">
-            <div class="pq-stages-cap">
-              <span class="pq-cap">Pipeline</span>
-              <span class="pq-stages-hint">{{ pipelineTotal() | number }} leads across {{ pipeline().length }} stages · choose a stage to filter</span>
-            </div>
-            <div class="pq-stage-row" [style.--n]="pipeline().length">
-              @for (stage of pipeline(); track stage.key) {
-                <button type="button" class="pq-stage" [attr.data-stage]="stage.label"
-                        [class.is-on]="stageFilter() === stage.key" [attr.aria-pressed]="stageFilter() === stage.key"
-                        (click)="stageFilter() === stage.key ? removeFilterChip('stage') : selectPipelineStage(stage.key)"
-                        [title]="stageFilter() === stage.key ? 'Clear the stage filter' : 'Show ' + stage.label + ' leads'">
-                  <span class="pq-stage-meter" aria-hidden="true"><span [style.width.%]="(stage.count / pipelineMax()) * 100"></span></span>
-                  <span class="pq-stage-n">{{ stage.count | number }}</span>
-                  <span class="pq-stage-l"><span class="pq-dot" aria-hidden="true"></span>{{ stage.label }}<span class="pq-stage-p">{{ stageShare(stage.count) }}%</span></span>
-                </button>
-              }
-            </div>
-          </div>
-        }
-      </section>
-
-      <!-- ================= REGISTER ================= -->
-      <section class="pq-register" aria-labelledby="pq-reg-title">
-        <header class="pq-reg-head">
-          <div class="pq-reg-title">
-            <h2 id="pq-reg-title">Lead register</h2>
-            <p>
-              @if (uiState() === 'loading') { Loading leads… }
-              @else if (hasResults()) { Showing <b>{{ filteredLeads().length | number }}</b> of <b>{{ totalCount() | number }}</b> {{ totalCount() === 1 ? 'lead' : 'leads' }} · {{ viewLabel(savedView()) }} }
-              @else { No leads to show in this view }
-            </p>
-          </div>
-          @if (hasResults() && uiState() !== 'loading' && uiState() !== 'error') {
-            <label class="pq-selall">
-              <input type="checkbox" [checked]="allSelected()" [indeterminate]="selectionCount() > 0 && !allSelected()" (change)="toggleSelectAll()" aria-label="Select every lead shown" />
-              <span>Select all shown</span>
-            </label>
-          }
         </header>
-
-        <nav class="pq-tabs" role="tablist" aria-label="Saved views">
-          @for (view of savedViews(); track view) {
-            <button type="button" role="tab" class="pq-tab" [class.is-on]="savedView() === view" [attr.aria-selected]="savedView() === view" (click)="selectSavedView(view)">
-              <span>{{ viewLabel(view) }}</span>
-              @if (viewCount(view) !== null) { <span class="pq-tab-n">{{ viewCount(view) | number }}</span> }
-            </button>
-          }
-        </nav>
-
-        <form class="pq-toolbar" (ngSubmit)="refresh()" role="search" aria-label="Search leads">
-          <label class="pq-search">
-            <i class="ri-search-line" aria-hidden="true"></i>
-            <span class="visually-hidden">Search leads</span>
-            <input id="pq-search" name="search" type="search" placeholder="Search by lead ID, name, phone or e-mail"
-                   [ngModel]="searchTerm()" (ngModelChange)="onSearchChange($event)" />
-            @if (searchTerm()) {
-              <button type="button" class="pq-clear" aria-label="Clear search" title="Clear search" (click)="removeFilterChip('search')"><i class="ri-close-line" aria-hidden="true"></i></button>
-            }
-          </label>
-          <button type="button" class="pq-filter-btn" [class.is-on]="showFilters()" aria-controls="pq-filters" [attr.aria-expanded]="showFilters()" (click)="toggleFilters()">
-            <i class="ri-equalizer-line" aria-hidden="true"></i><span>Filters</span>
-            @if (activeFilterChips().length > 0) { <span class="pq-filter-n">{{ activeFilterChips().length }}</span> }
-          </button>
-        </form>
 
         @if (showFilters()) {
           <div class="pq-filters" id="pq-filters">
@@ -152,18 +86,65 @@
           </div>
         }
 
-        @if (activeFilterChips().length > 0) {
+        @if (filterTokens().length > 0) {
           <div class="pq-tokens" aria-label="Applied filters">
-            <span class="pq-cap">Applied</span>
-            @for (chip of activeFilterChips(); track chip.key) {
+            <span class="pq-cap">Filtered by</span>
+            @for (chip of filterTokens(); track chip.key) {
               <span class="pq-token">{{ chip.label }}
                 <button type="button" [title]="'Remove ' + chip.label" [attr.aria-label]="'Remove ' + chip.label" (click)="removeFilterChip(chip.key)"><i class="ri-close-line" aria-hidden="true"></i></button>
               </span>
             }
-            <button type="button" class="pq-link" (click)="clearAllFilters()">Reset all</button>
+            <button type="button" class="pq-link pq-link--mute" (click)="clearAllFilters()"><i class="ri-restart-line" aria-hidden="true"></i>Reset all</button>
           </div>
         }
 
+        <!-- ================= LANES: the saved views and their counts, in one place ================= -->
+        <nav class="pq-lanes" role="tablist" aria-label="Saved views">
+          @for (lane of lanes(); track lane.view) {
+            <button type="button" role="tab" class="pq-lane" [class.is-on]="savedView() === lane.view" [attr.aria-selected]="savedView() === lane.view"
+                    [attr.data-lane]="lane.view" (click)="selectSavedView(lane.view)" [title]="lane.hint">
+              <span class="pq-lane-g" aria-hidden="true"><i [class]="lane.glyph"></i></span>
+              <span class="pq-lane-t">
+                <span class="pq-lane-l">{{ lane.label }}</span>
+                @if (lane.value === null) {
+                  <span class="pq-lane-n pq-lane-n--word">Newest first</span>
+                } @else {
+                  <span class="pq-lane-n">{{ lane.value === undefined ? '—' : (lane.value | number) }}</span>
+                }
+                <span class="pq-lane-h">{{ lane.hint }}</span>
+              </span>
+            </button>
+          }
+        </nav>
+
+        <!-- ================= PIPELINE: one proportional rule + a stage legend that filters ================= -->
+        @if (pipeline().length > 0) {
+          <div class="pq-pipe" role="group" aria-label="Pipeline stages" [class.has-pick]="!!stageFilter()">
+            <span class="pq-cap pq-pipe-cap">Pipeline</span>
+            <div class="pq-pipe-body">
+              <div class="pq-pipe-rule" aria-hidden="true">
+                @for (stage of pipeline(); track stage.key) {
+                  @if (stage.count > 0) {
+                    <span [attr.data-stage]="stage.label" [class.is-on]="stageFilter() === stage.key" [style.flex-grow]="stage.count"></span>
+                  }
+                }
+              </div>
+              <div class="pq-pipe-keys">
+                @for (stage of pipeline(); track stage.key) {
+                  <button type="button" class="pq-key" [attr.data-stage]="stage.label"
+                          [class.is-on]="stageFilter() === stage.key" [attr.aria-pressed]="stageFilter() === stage.key"
+                          (click)="stageFilter() === stage.key ? removeFilterChip('stage') : selectPipelineStage(stage.key)"
+                          [title]="stageFilter() === stage.key ? 'Clear the stage filter' : 'Show ' + stage.label + ' leads (' + stageShare(stage.count) + '%)'">
+                    <span class="pq-dot" aria-hidden="true"></span>{{ stage.label }}<b class="pq-num">{{ stage.count | number }}</b>
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        }
+
+
+        <!-- ================= THE QUEUE ================= -->
         @if (uiState() === 'error') {
           <div class="pq-state is-error" role="alert">
             <span class="pq-state-g" aria-hidden="true"><i class="ri-error-warning-line"></i></span>
@@ -176,7 +157,7 @@
         } @else if (uiState() === 'loading') {
           <ul class="pq-list" aria-hidden="true">
             @for (n of [1, 2, 3, 4, 5, 6]; track n) {
-              <li class="pq-row pq-row--ghost"><span></span><span></span><span></span><span></span></li>
+              <li class="pq-row pq-row--ghost"><span></span><span></span><span></span><span></span><span></span></li>
             }
           </ul>
           <p class="visually-hidden" role="status">Loading leads…</p>
@@ -195,8 +176,11 @@
             </div>
           </div>
         } @else {
-          <div class="pq-cols" aria-hidden="true">
-            <span></span><span>Lead</span><span>Contact</span><span>Campaign</span><span>Owner</span><span>Stage</span><span>Signals</span><span>Next contact</span><span></span>
+          <div class="pq-cols" role="presentation">
+            <label class="pq-check" title="Select every lead shown">
+              <input type="checkbox" [checked]="allSelected()" [indeterminate]="selectionCount() > 0 && !allSelected()" (change)="toggleSelectAll()" aria-label="Select every lead shown" />
+            </label>
+            <span>Lead</span><span class="pq-c-contact">Contact</span><span class="pq-c-camp">Campaign</span><span class="pq-c-owner">Owner</span><span>Stage</span><span class="pq-c-sig">Signals</span><span class="pq-c-next">Next contact</span><span class="pq-c-acts">Action</span>
           </div>
           <ul class="pq-list" role="list" aria-label="Leads">
             @for (lead of filteredLeads(); track lead.id) {
@@ -206,11 +190,8 @@
                 </label>
 
                 <button type="button" class="pq-who" (click)="previewLead(lead)" [title]="'Open ' + lead.name">
-                  <span class="pq-mono" aria-hidden="true" [style.--av]="getAvatarColor(lead.name)">{{ getInitials(lead.name) }}</span>
-                  <span class="pq-who-t">
-                    <span class="pq-name">{{ lead.name }}</span>
-                    <span class="pq-ref">{{ lead.reference }}</span>
-                  </span>
+                  <span class="pq-name">{{ lead.name }}</span>
+                  <span class="pq-ref">{{ lead.reference }}</span>
                 </button>
 
                 <div class="pq-contact">
@@ -224,12 +205,7 @@
                 </div>
 
                 <div class="pq-owner" [class.is-none]="lead.owner === 'Unassigned'">
-                  @if (lead.owner !== 'Unassigned') {
-                    <span class="pq-owner-ring" aria-hidden="true">{{ getInitials(lead.owner) }}</span>
-                    <span class="pq-main">{{ lead.owner }}</span>
-                  } @else {
-                    <i class="ri-user-unfollow-line" aria-hidden="true"></i><span class="pq-main">Unassigned</span>
-                  }
+                  <span class="pq-main" [title]="lead.owner">{{ lead.owner }}</span>
                 </div>
 
                 <span class="pq-stagetext" [attr.data-stage]="lead.stage"><span class="pq-dot" aria-hidden="true"></span>{{ lead.stage }}</span>
@@ -242,26 +218,54 @@
                   </span>
                 </div>
 
-                <div class="pq-next">
-                  <span class="pq-num">{{ lead.nextFollowUp || '—' }}</span>
-                  <span class="pq-sub">Health {{ lead.healthScore }}</span>
+                <div class="pq-next" [attr.data-due]="dueState(lead).tone">
+                  <span class="pq-num">{{ lead.nextFollowUp || 'Not planned' }}</span>
+                  @if (lead.nextFollowUp) { <span class="pq-due">{{ dueState(lead).label }}</span> }
                 </div>
 
                 <div class="pq-acts">
-                  <button type="button" class="pq-act" title="Open lead" [attr.aria-label]="'Open ' + lead.name" (click)="previewLead(lead)"><i class="ri-eye-line" aria-hidden="true"></i></button>
-                  @if (lead.owner === 'Unassigned' && permissions().assign) {
-                    <button type="button" class="pq-act" title="Assign lead" [attr.aria-label]="'Assign ' + lead.name" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i></button>
-                  }
+                  <button type="button" class="pq-act" title="Open lead brief" [attr.aria-label]="'Open ' + lead.name" (click)="previewLead(lead)"><i class="ri-eye-line" aria-hidden="true"></i></button>
                   @if (permissions().communicate) {
                     <button type="button" class="pq-act" title="Communicate" [attr.aria-label]="'Communicate with ' + lead.name" (click)="onCommunicate(lead)"><i class="ri-chat-3-line" aria-hidden="true"></i></button>
+                  }
+                  @if (lead.owner === 'Unassigned' && permissions().assign) {
+                    <button type="button" class="pq-act pq-act--go" title="Assign lead" [attr.aria-label]="'Assign ' + lead.name" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i></button>
                   }
                 </div>
               </li>
             }
           </ul>
-          <footer class="pq-reg-foot">
-            <span>Showing <b>{{ filteredLeads().length | number }}</b> of <b>{{ totalCount() | number }}</b></span>
-            @if (filteredLeads().length !== totalCount()) { <span class="pq-reg-foot-hint">Refine the search or choose a view to narrow the register.</span> }
+        }
+
+        <!-- ================= PAGER ================= -->
+        @if (uiState() !== 'error' && totalCount() > 0) {
+          <footer class="pq-foot">
+            <span class="pq-foot-count" aria-live="polite">
+              @if (uiState() === 'loading') { Loading… }
+              @else { Showing <b class="pq-num">{{ rangeStart() | number }}–{{ rangeEnd() | number }}</b> of <b class="pq-num">{{ totalCount() | number }}</b> }
+            </span>
+            <label class="pq-size">
+              <span class="visually-hidden">Leads per page</span>
+              <select [ngModel]="pageSize()" (ngModelChange)="setPageSize(+$event)" [disabled]="uiState() === 'loading'">
+                @for (size of pageSizes; track size) { <option [ngValue]="size">{{ size }} per page</option> }
+              </select>
+              <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+            </label>
+            <nav class="pq-pager" aria-label="Pagination">
+              <button type="button" class="pq-page-btn" aria-label="Previous page" title="Previous page" [disabled]="pageIndex() === 1 || uiState() === 'loading'" (click)="goToPage(pageIndex() - 1)"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+              @if (pageNumbers()[0] > 1) {
+                <button type="button" class="pq-page-btn" (click)="goToPage(1)">1</button>
+                @if (pageNumbers()[0] > 2) { <span class="pq-page-gap" aria-hidden="true">…</span> }
+              }
+              @for (page of pageNumbers(); track page) {
+                <button type="button" class="pq-page-btn" [class.is-on]="page === pageIndex()" [attr.aria-current]="page === pageIndex() ? 'page' : null" (click)="goToPage(page)">{{ page }}</button>
+              }
+              @if (pageNumbers()[pageNumbers().length - 1] < totalPages()) {
+                @if (pageNumbers()[pageNumbers().length - 1] < totalPages() - 1) { <span class="pq-page-gap" aria-hidden="true">…</span> }
+                <button type="button" class="pq-page-btn" (click)="goToPage(totalPages())">{{ totalPages() }}</button>
+              }
+              <button type="button" class="pq-page-btn" aria-label="Next page" title="Next page" [disabled]="pageIndex() === totalPages() || uiState() === 'loading'" (click)="goToPage(pageIndex() + 1)"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+            </nav>
           </footer>
         }
 
@@ -285,7 +289,7 @@
   </div>
 </main>
 
-<!-- ================= LEAD BRIEF: bespoke drawer (opted out of the dialog generator) ================= -->
+<!-- ================= LEAD BRIEF drawer (frame from the shared pop-up design, styles/ydot-dialogs.css) ================= -->
 <dialog #leadDialog class="pq-drawer" aria-labelledby="pq-dr-title" aria-describedby="pq-dr-desc"
         (click)="onPreviewBackdrop($event)" (cancel)="closePreview()" (close)="closePreview()">
   @if (selectedLead(); as lead) {
@@ -295,7 +299,6 @@
         <button type="button" class="pq-dr-close" title="Close" aria-label="Close lead brief" autofocus (click)="closePreview()"><i class="ri-close-line" aria-hidden="true"></i></button>
       </div>
       <div class="pq-dr-id">
-        <span class="pq-mono pq-mono--lg" aria-hidden="true" [style.--av]="getAvatarColor(lead.name)">{{ getInitials(lead.name) }}</span>
         <div class="pq-dr-who">
           <h2 id="pq-dr-title">{{ lead.name }}</h2>
           <p id="pq-dr-desc" class="pq-dr-line">
@@ -383,13 +386,7 @@
         <dl class="pq-dl">
           <div><dt>Campaign</dt><dd>{{ displayValue(lead.campaign) }}</dd></div>
           <div><dt>Lead source</dt><dd>{{ displayValue(lead.source) }}</dd></div>
-          <div>
-            <dt>Owner</dt>
-            <dd [class.pq-none]="lead.owner === 'Unassigned'">
-              @if (lead.owner !== 'Unassigned') { <span class="pq-owner-ring" aria-hidden="true">{{ getInitials(lead.owner) }}</span> }
-              {{ displayValue(lead.owner) }}
-            </dd>
-          </div>
+          <div><dt>Owner</dt><dd [class.pq-none]="lead.owner === 'Unassigned'">{{ displayValue(lead.owner) }}</dd></div>
         </dl>
       </section>
 

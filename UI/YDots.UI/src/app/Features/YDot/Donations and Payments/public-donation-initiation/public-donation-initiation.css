@@ -64,7 +64,7 @@
 .pdi-donor-shell .pdi-page {
   max-width: calc(1280 * var(--u));
   margin-inline: auto;
-  padding-top: calc(40 * var(--u));
+  padding-top: calc(28 * var(--u));
 }
 
 /* The container the folio measures itself against. The dialog sits OUTSIDE it: a container
@@ -75,74 +75,80 @@
    2 · FOLIO
    ============================================================================ */
 
+/* Masthead across the top, then the two leaves. Both leaves stretch to the taller one and spread
+   their blocks over the height, so neither column ends in a hole. */
 .pf-folio {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.32fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.45fr);
+  grid-template-rows: auto 1fr;
   margin: 0;
   background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: calc(22 * var(--u));
+  border-radius: calc(20 * var(--u));
 }
 
-/* ---- LEFT LEAF ---- */
-.pf-pledge {
-  min-width: 0;
-  border-right: 1px solid var(--line);
+/* ---- MASTHEAD ---- */
+.pf-mast {
+  grid-column: 1 / -1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: calc(14 * var(--u)) calc(40 * var(--u));
+  padding: calc(20 * var(--u)) calc(30 * var(--u));
+  border-bottom: 1px solid var(--line);
 }
-.pf-pledge-inner {
-  padding: calc(40 * var(--u)) calc(40 * var(--u)) calc(36 * var(--u));
+.pf-mast::after {
+  content: '';
+  position: absolute;
+  left: calc(30 * var(--u));
+  bottom: -1px;
+  width: calc(44 * var(--u));
+  height: 2px;
+  background: var(--accent);
 }
-@media (min-height: 860px) {
-  .pf-pledge-inner {
-    position: sticky;
-    top: calc(76 * var(--u));
-  }
-  .pdi-donor-shell .pf-pledge-inner { top: calc(16 * var(--u)); }
-}
+.pf-mast-copy { display: grid; gap: calc(4 * var(--u)); min-width: 0; }
 
 .pf-kicker {
   display: inline-flex;
   align-items: center;
   gap: calc(7 * var(--u));
-  font-size: calc(calc(11.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(10.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   letter-spacing: .16em;
   text-transform: uppercase;
   color: var(--accent);
 }
-.pf-kicker i { font-size: calc(calc(15 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+.pf-kicker i { font-size: calc(calc(14 * var(--u)) * var(--ui-text-scale, 1)) !important; }
 
 .pf-title {
   --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
-  margin: calc(12 * var(--u)) 0 0;
+  margin: 0;
   font-family: var(--font-display) !important;
-  font-size: calc(calc(34 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(26 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
-  line-height: 1.14 !important;
+  line-height: 1.15 !important;
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-.pf-lede {
-  max-width: 46ch;
-  margin: calc(10 * var(--u)) 0 0;
-  font-size: calc(calc(14.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.6 !important;
-  color: var(--muted);
-}
-.pf-mast::after {
-  content: '';
-  display: block;
-  width: calc(44 * var(--u));
-  height: 2px;
-  margin-top: calc(24 * var(--u));
-  background: var(--accent);
+
+/* ---- LEFT LEAF ---- */
+.pf-pledge {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: calc(22 * var(--u));
+  padding: calc(24 * var(--u)) calc(30 * var(--u)) calc(26 * var(--u));
+  border-right: 1px solid var(--line);
 }
 
-.pf-block { display: block; margin-top: calc(28 * var(--u)); }
+.pf-block { display: block; margin: 0; }
 
 .pf-pledge .pf-label {
   display: block;
-  margin-bottom: calc(10 * var(--u));
+  margin-bottom: calc(8 * var(--u));
   font-size: calc(calc(11 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   letter-spacing: .14em;
@@ -164,15 +170,15 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: calc(14 * var(--u));
+  gap: calc(12 * var(--u));
   width: 100%;
-  padding: calc(14 * var(--u)) calc(16 * var(--u));
+  padding: calc(10 * var(--u)) calc(14 * var(--u));
   font: inherit;
   text-align: left;
   color: var(--ink);
   background: #ffffff;
   border: 1px solid var(--line-2);
-  border-radius: calc(16 * var(--u));
+  border-radius: calc(14 * var(--u));
   cursor: pointer;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
@@ -187,13 +193,13 @@
 .pf-cause-mark {
   display: grid;
   place-items: center;
-  width: calc(44 * var(--u));
-  height: calc(44 * var(--u));
+  width: calc(38 * var(--u));
+  height: calc(38 * var(--u));
   border: 1.5px solid var(--accent-line);
   border-radius: 50%;
   color: var(--accent);
 }
-.pf-cause-mark i { font-size: calc(calc(20 * var(--u)) * var(--ui-text-scale, 1)) !important; line-height: 1; }
+.pf-cause-mark i { font-size: calc(calc(18 * var(--u)) * var(--ui-text-scale, 1)) !important; line-height: 1; }
 
 .pf-cause-copy { display: grid; gap: calc(3 * var(--u)); min-width: 0; }
 .pf-cause-name {
@@ -201,7 +207,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  font-size: calc(calc(16 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(15 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   line-height: 1.35 !important;
   color: var(--ink);
@@ -332,7 +338,7 @@
 .pf-figure-num {
   --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   font-family: var(--font-display) !important;
-  font-size: calc(calc(46 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(40 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   line-height: 1.05 !important;
   letter-spacing: -0.015em;
@@ -341,26 +347,20 @@
 }
 .pf-figure.is-empty .pf-figure-num { color: var(--line-2); }
 
-.pf-note {
-  display: block;
-  margin-top: calc(8 * var(--u));
-  font-size: calc(calc(13 * var(--u)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.5 !important;
-  color: var(--muted);
+.pf-gift {
+  padding-bottom: calc(18 * var(--u));
+  border-bottom: 1px dashed var(--line-2);
 }
-
-.pf-currency {
+.pf-gift-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: calc(12 * var(--u));
-  margin-top: calc(18 * var(--u));
-  padding-top: calc(14 * var(--u));
-  border-top: 1px dashed var(--line-2);
+  gap: calc(10 * var(--u));
+  margin-bottom: calc(6 * var(--u));
 }
+.pf-gift-head .pf-label { flex: 1 1 auto; margin-bottom: 0 !important; }
 .pf-currency-label {
   flex: none;
-  font-size: calc(calc(13 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
   color: var(--muted);
 }
 
@@ -371,7 +371,7 @@
   justify-content: space-between;
   align-items: baseline;
   gap: calc(16 * var(--u));
-  padding: calc(10 * var(--u)) 0;
+  padding: calc(8 * var(--u)) 0;
   border-bottom: 1px solid var(--line);
 }
 .pf-lines > div:first-child { padding-top: 0; }
@@ -392,79 +392,67 @@
   color: var(--ink);
 }
 
-/* ---- what happens next ---- */
+/* ---- what happens next — three numbered steps on a hairline ---- */
 .pf-next { margin: 0; padding: 0; list-style: none; }
 .pf-next li {
   position: relative;
-  display: grid;
-  grid-template-columns: calc(28 * var(--u)) minmax(0, 1fr);
+  display: flex;
+  align-items: center;
   gap: calc(12 * var(--u));
-  padding-bottom: calc(16 * var(--u));
+  padding-bottom: calc(12 * var(--u));
 }
 .pf-next li:last-child { padding-bottom: 0; }
 .pf-next li:not(:last-child)::before {
   content: '';
   position: absolute;
-  left: calc(14 * var(--u));
-  top: calc(32 * var(--u));
-  bottom: calc(4 * var(--u));
+  left: calc(12 * var(--u));
+  top: calc(26 * var(--u));
+  bottom: calc(1 * var(--u));
   width: 1px;
   background: var(--line-2);
 }
 .pf-next-n {
+  flex: none;
   display: grid;
   place-items: center;
-  width: calc(28 * var(--u));
-  height: calc(28 * var(--u));
+  width: calc(24 * var(--u));
+  height: calc(24 * var(--u));
   border: 1.5px solid var(--line-2);
   border-radius: 50%;
-  font-size: calc(calc(12 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(11 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   line-height: 1 !important;
   color: var(--muted);
   background: #ffffff;
 }
 .pf-next li.is-done .pf-next-n { border-color: var(--accent); color: var(--accent); }
-.pf-next-copy { display: grid; gap: calc(2 * var(--u)); padding-top: calc(3 * var(--u)); }
 .pf-next-title {
   font-size: calc(calc(13.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
   color: var(--ink);
 }
-.pf-next-text {
-  font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.5 !important;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
 
-/* ---- RIGHT LEAF ---- */
-.pf-details {
-  min-width: 0;
-  padding: calc(34 * var(--u)) calc(44 * var(--u)) calc(40 * var(--u));
-}
-
-/* progress rail — three underlines that fill with the theme */
+/* ---- progress rail (in the masthead) — three underlines that fill with the theme ---- */
 .pf-rail {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: calc(20 * var(--u));
-  margin: 0 0 calc(30 * var(--u));
+  grid-template-columns: repeat(3, minmax(calc(130 * var(--u)), calc(170 * var(--u))));
+  gap: calc(18 * var(--u));
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 .pf-rail li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: calc(8 * var(--u));
-  row-gap: calc(2 * var(--u));
+  display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
+  gap: 0 calc(7 * var(--u));
+  min-width: 0;
 }
 .pf-rail-line {
-  grid-column: 1 / -1;
+  flex: 0 0 100%;
   display: block;
   height: 2px;
-  margin-bottom: calc(12 * var(--u));
+  margin-bottom: calc(9 * var(--u));
   background: var(--line);
 }
 .pf-rail-line > span {
@@ -474,21 +462,23 @@
   transition: width .35s ease;
 }
 .pf-rail-n {
-  font-size: calc(calc(11.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(11 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   color: var(--faint);
 }
 .pf-rail-name {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: calc(calc(14 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(13 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   color: var(--ink-2);
 }
 .pf-rail-state {
-  grid-column: 2;
-  font-size: calc(calc(12 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  flex: none;
+  font-size: calc(calc(11 * var(--u)) * var(--ui-text-scale, 1)) !important;
   color: var(--muted);
 }
 .pf-rail li.is-current .pf-rail-n,
@@ -496,47 +486,54 @@
 .pf-rail li.is-done .pf-rail-n,
 .pf-rail li.is-done .pf-rail-state { color: var(--accent); }
 
-/* chapters */
+/* ---- RIGHT LEAF — three chapters, hairline between them ---- */
+.pf-details {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 calc(30 * var(--u));
+}
+
 .pf-sec {
-  padding: calc(28 * var(--u)) 0 calc(30 * var(--u));
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: calc(20 * var(--u)) 0;
   border-top: 1px solid var(--line);
 }
-.pf-sec:last-child { padding-bottom: 0; }
+.pf-sec:first-child { border-top: 0; }
 
 .pf-sec-head {
-  display: grid;
-  grid-template-columns: calc(44 * var(--u)) minmax(0, 1fr);
-  align-items: start;
+  display: flex;
+  align-items: baseline;
+  gap: calc(10 * var(--u));
 }
 .pf-sec-n {
-  padding-top: calc(7 * var(--u));
-  font-size: calc(calc(13 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(12 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   color: var(--accent);
 }
-.pf-sec-copy { display: block; min-width: 0; }
 .pf-sec-title {
   --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   margin: 0;
   font-family: var(--font-display) !important;
-  font-size: calc(calc(22 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(18 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   line-height: 1.25 !important;
   color: var(--ink);
 }
-.pf-sec-desc {
-  margin: calc(4 * var(--u)) 0 0;
-  font-size: calc(calc(13.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
-  color: var(--muted);
-}
 
 .pf-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: calc(18 * var(--u)) calc(20 * var(--u));
-  margin-top: calc(22 * var(--u));
-  padding-left: calc(44 * var(--u));
+  gap: calc(14 * var(--u)) calc(16 * var(--u));
+  margin-top: calc(14 * var(--u));
 }
+/* About you: name, e-mail, mobile (and PAN for staff) share one row. */
+.pf-grid.is-about { grid-template-columns: repeat(auto-fit, minmax(calc(170 * var(--u)), 1fr)); }
+/* Address: the two lines split the first row; country, state, city and PIN take the second. */
+.pf-grid.is-address { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pf-grid.is-address > :nth-child(-n + 2) { grid-column: span 2; }
 
 /* ============================================================================
    3 · FIELDS
@@ -548,24 +545,17 @@
   display: flex;
   align-items: baseline;
   gap: calc(4 * var(--u));
-  margin-bottom: calc(8 * var(--u));
-  font-size: calc(calc(13 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  margin-bottom: calc(6 * var(--u));
+  font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   color: var(--ink-2);
 }
-.pf-opt {
-  margin-left: auto;
-  font-size: calc(calc(11.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important;
-  color: var(--faint);
-}
-
 .pf-control {
   display: flex;
   align-items: center;
   gap: calc(10 * var(--u));
   width: 100%;
-  min-height: calc(48 * var(--u));
+  min-height: calc(42 * var(--u));
   padding: 0 calc(14 * var(--u));
   background: #ffffff;
   border: 1px solid var(--line-2);
@@ -593,12 +583,12 @@
 .pf-input {
   flex: 1 1 auto;
   min-width: 0;
-  padding: calc(12 * var(--u)) 0;
+  padding: calc(9 * var(--u)) 0;
   border: 0;
   outline: none;
   background: transparent;
   font: inherit;
-  font-size: calc(calc(15 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(14.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important;
   color: var(--ink);
 }
@@ -623,16 +613,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: calc(calc(15 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(14.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
   color: var(--ink-2);
 }
 
-.pf-hint {
-  display: block;
-  margin-top: calc(7 * var(--u));
-  font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
-  color: var(--muted);
-}
 .pf-error {
   display: flex;
   align-items: flex-start;
@@ -656,10 +640,10 @@
   align-items: center;
   gap: calc(10 * var(--u));
   width: 100%;
-  min-height: calc(48 * var(--u));
+  min-height: calc(42 * var(--u));
   padding: 0 calc(14 * var(--u));
   font: inherit;
-  font-size: calc(calc(15 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(14.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important;
   text-align: left;
   color: var(--ink);
@@ -821,20 +805,26 @@
 
 .pf-confirm-body {
   display: grid;
-  gap: calc(16 * var(--u));
-  margin-top: calc(22 * var(--u));
-  padding-left: calc(44 * var(--u));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: calc(10 * var(--u)) calc(16 * var(--u));
+  margin-top: calc(14 * var(--u));
 }
-.pf-confirm-body > .pf-error { margin-top: calc(-8 * var(--u)); }
+/* Consent and Pay share one row; the error sits under the consent box, the trust line under both. */
+.pf-confirm-body > .pf-consent { grid-column: 1; grid-row: 1; }
+.pf-confirm-body > .pf-pay     { grid-column: 2; grid-row: 1; }
+.pf-confirm-body > .pf-error   { grid-column: 1; grid-row: 2; margin-top: 0; }
+.pf-confirm-body > .pf-trust   { grid-column: 1 / -1; }
 
 .pf-consent {
   display: flex;
-  align-items: flex-start;
-  gap: calc(14 * var(--u));
+  align-items: center;
+  gap: calc(12 * var(--u));
+  min-height: calc(50 * var(--u));
   margin: 0;
-  padding: calc(16 * var(--u)) calc(18 * var(--u));
+  padding: calc(10 * var(--u)) calc(16 * var(--u));
   border: 1px solid var(--line-2);
-  border-radius: calc(14 * var(--u));
+  border-radius: calc(12 * var(--u));
   cursor: pointer;
   transition: border-color .15s ease;
 }
@@ -849,7 +839,7 @@
   flex: none;
   width: calc(20 * var(--u));
   height: calc(20 * var(--u));
-  margin: calc(1 * var(--u)) 0 0;
+  margin: 0;
   background: #ffffff;
   border: 1.5px solid var(--line-2);
   border-radius: calc(6 * var(--u));
@@ -866,15 +856,10 @@
 }
 .pf-consent input[type='checkbox']:disabled { cursor: default; }
 
-.pf-consent-copy { display: grid; gap: calc(3 * var(--u)); min-width: 0; }
 .pf-consent-text {
-  font-size: calc(calc(14.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(14 * var(--u)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   color: var(--ink);
-}
-.pf-consent-meta {
-  font-size: calc(calc(12 * var(--u)) * var(--ui-text-scale, 1)) !important;
-  color: var(--muted);
 }
 
 .pf-pay {
@@ -882,13 +867,13 @@
   align-items: center;
   gap: calc(12 * var(--u));
   width: 100%;
-  height: calc(56 * var(--u));
-  padding: 0 calc(22 * var(--u));
+  min-height: calc(50 * var(--u));
+  padding: 0 calc(20 * var(--u));
   font: inherit;
   color: #ffffff;
   background: var(--accent);
   border: 0;
-  border-radius: calc(14 * var(--u));
+  border-radius: calc(12 * var(--u));
   cursor: pointer;
   transition: background-color .15s ease, transform .08s ease;
 }
@@ -912,8 +897,9 @@
 .pf-trust {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: calc(8 * var(--u)) calc(22 * var(--u));
-  margin: 0;
+  margin: calc(4 * var(--u)) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -1073,34 +1059,39 @@
    8 · RESPONSIVE — measured against the folio's own width (sidebar-aware)
    ============================================================================ */
 
-@container pf (max-width: 980px) {
-  .pf-folio { grid-template-columns: minmax(0, 1fr); }
-  .pf-pledge { border-right: 0; border-bottom: 1px solid var(--line); }
-  .pf-pledge-inner {
-    position: static;
+/* Narrow: the pledge leaf sits above the details as a 2 x 2 band (cause | gift, summary | steps). */
+@container pf (max-width: 1080px) {
+  .pf-folio { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .pf-pledge {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: calc(36 * var(--u));
-    padding: calc(34 * var(--u)) calc(36 * var(--u)) calc(32 * var(--u));
+    gap: calc(20 * var(--u)) calc(30 * var(--u));
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
-  .pf-mast { grid-column: 1 / -1; }
-  .pf-details { padding: calc(30 * var(--u)) calc(36 * var(--u)) calc(36 * var(--u)); }
 }
 
+@container pf (max-width: 760px) {
+  .pf-mast { padding: calc(18 * var(--u)) calc(20 * var(--u)); }
+  .pf-mast::after { left: calc(20 * var(--u)); }
+  .pf-rail { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(12 * var(--u)); }
+  .pf-pledge { padding: calc(20 * var(--u)); }
+  .pf-details { padding: 0 calc(20 * var(--u)); }
+  .pf-grid.is-address { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pf-confirm-body { grid-template-columns: minmax(0, 1fr); }
+  .pf-confirm-body > .pf-pay   { grid-column: 1; grid-row: auto; }
+  .pf-confirm-body > .pf-error { grid-row: 2; }
+}
 
-@container pf (max-width: 640px) {
-  .pf-pledge-inner { grid-template-columns: minmax(0, 1fr); padding: calc(26 * var(--u)) calc(20 * var(--u)); }
-  .pf-title { font-size: calc(calc(28 * var(--u)) * var(--ui-text-scale, 1)) !important; }
-  .pf-figure-num { font-size: calc(calc(38 * var(--u)) * var(--ui-text-scale, 1)) !important; }
-  .pf-details { padding: calc(24 * var(--u)) calc(20 * var(--u)) calc(28 * var(--u)); }
-  .pf-rail { gap: calc(12 * var(--u)); }
-  .pf-rail li { grid-template-columns: minmax(0, 1fr); }
+@container pf (max-width: 560px) {
+  .pf-pledge { grid-template-columns: minmax(0, 1fr); }
+  .pf-title { font-size: calc(calc(23 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pf-figure-num { font-size: calc(calc(34 * var(--u)) * var(--ui-text-scale, 1)) !important; }
   .pf-rail-n { display: none; }
-  .pf-rail-state { grid-column: 1; }
-  .pf-rail-name { font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important; white-space: normal; }
-  .pf-sec-head { grid-template-columns: calc(34 * var(--u)) minmax(0, 1fr); }
-  .pf-grid { grid-template-columns: minmax(0, 1fr); padding-left: 0; }
-  .pf-confirm-body { padding-left: 0; }
+  .pf-rail-name { font-size: calc(calc(12 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pf-grid.is-address { grid-template-columns: minmax(0, 1fr); }
+  .pf-grid.is-address > :nth-child(-n + 2) { grid-column: auto; }
+  .pf-trust { justify-content: flex-start; }
 }
 
 @media (max-width: 640px) {

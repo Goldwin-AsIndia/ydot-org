@@ -73,105 +73,101 @@
       </app-page-header>
 
       <div class="fq-page">
-        <!-- ============================== KPI TILES ============================== -->
-        <section class="fq-kpis" aria-label="Queue summary">
-          @for (k of kpiTiles(); track k.key) {
-            <button
-              type="button"
-              class="fq-kpi"
-              [attr.data-kind]="k.tone"
-              [class.is-active]="activeQuickFilter() === k.key"
-              [attr.aria-pressed]="activeQuickFilter() === k.key"
-              [title]="'Show ' + k.label.toLowerCase()"
-              (click)="setQuickFilter(k.key)"
-            >
-              <span class="fq-kpi-bubble">
-                <svg class="fq-i" aria-hidden="true"><use [attr.href]="'#fq-i-' + k.icon" /></svg>
-              </span>
-              <span class="fq-kpi-text">
-                <strong class="fq-kpi-value">{{ k.value }}</strong>
-                <span class="fq-kpi-label">{{ k.label }}</span>
-                <span class="fq-kpi-hint">{{ k.hint }}</span>
-              </span>
-            </button>
-          }
-        </section>
-
-        <!-- ============================== INSIGHTS ==============================
-             One pulse panel (health · SLA · age) beside today's agenda: two blocks, one row, no gaps. -->
-        <section class="fq-insights" aria-label="Queue insights">
+        <!-- ============================== OVERVIEW ==============================
+             One pulse sheet (five quick-filter figures over health · SLA · age) beside today's agenda. -->
+        <section class="fq-overview" aria-label="Queue overview">
           <div class="fq-panel fq-pulse">
-            <!-- Health -->
-            <div class="fq-seg-block">
-              <div class="fq-block-head">
-                <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-activity" /></svg>
-                <h3 class="fq-block-title">Queue health</h3>
-                <span class="fq-health" [attr.data-h]="queueHealth()">{{ queueHealth() }}</span>
-              </div>
-              <div class="fq-health-main">
-                <svg class="fq-ring" viewBox="0 0 100 100" role="img"
-                     [attr.aria-label]="'Completion rate ' + kpiCompletionRate() + ' percent'">
-                  <circle class="fq-ring-track" cx="50" cy="50" r="42" />
-                  <circle class="fq-ring-fill" cx="50" cy="50" r="42" [attr.stroke-dasharray]="ringDash(kpiCompletionRate())" />
-                  <text x="50" y="50" class="fq-ring-value">{{ kpiCompletionRate() }}%</text>
-                  <text x="50" y="65" class="fq-ring-label">complete</text>
-                </svg>
-                <div class="fq-block-lead">
-                  <strong class="fq-block-figure">{{ overduePercent() }}<small>%</small></strong>
-                  <span class="fq-block-caption">of open work is overdue</span>
+            <div class="fq-figs" role="group" aria-label="Quick filters">
+              @for (k of kpiTiles(); track k.key) {
+                <button
+                  type="button"
+                  class="fq-fig"
+                  [attr.data-kind]="k.tone"
+                  [class.is-active]="activeQuickFilter() === k.key"
+                  [attr.aria-pressed]="activeQuickFilter() === k.key"
+                  [title]="k.hint + ' - show ' + k.label.toLowerCase()"
+                  (click)="setQuickFilter(k.key)"
+                >
+                  <svg class="fq-i fq-fig-glyph" aria-hidden="true"><use [attr.href]="'#fq-i-' + k.icon" /></svg>
+                  <span class="fq-fig-value">{{ k.value }}</span>
+                  <span class="fq-fig-label">{{ k.label }}</span>
+                </button>
+              }
+            </div>
+
+            <div class="fq-pulse-row">
+              <!-- Health -->
+              <div class="fq-seg-block">
+                <div class="fq-block-head">
+                  <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-activity" /></svg>
+                  <h3 class="fq-block-title">Queue health</h3>
+                  <span class="fq-health" [attr.data-h]="queueHealth()">{{ queueHealth() }}</span>
                 </div>
-              </div>
-              <dl class="fq-minis">
-                <div><dt>Overdue</dt><dd>{{ kpiOverdue() }}</dd></div>
-                <div><dt>Escalated</dt><dd>{{ kpiEscalated() }}</dd></div>
-                <div><dt>Blocked</dt><dd>{{ kpiBlocked() }}</dd></div>
-              </dl>
-            </div>
-
-            <!-- SLA -->
-            <div class="fq-seg-block">
-              <div class="fq-block-head">
-                <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-target" /></svg>
-                <h3 class="fq-block-title">SLA monitor</h3>
-                <span class="fq-block-note">{{ slaTotal() }} open</span>
-              </div>
-              <div class="fq-block-lead">
-                <strong class="fq-block-figure">{{ percentOf(slaBreakdown().onTime, slaTotal()) }}<small>%</small></strong>
-                <span class="fq-block-caption">of open follow-ups are on time</span>
-              </div>
-              <div class="fq-stack" role="img"
-                   [attr.aria-label]="slaBreakdown().onTime + ' on time, ' + slaBreakdown().approaching + ' due within 24 hours, ' + slaBreakdown().breached + ' breached'">
-                @if (slaTotal() === 0) {
-                  <span class="fq-stack-seg is-none"></span>
-                } @else {
-                  <span class="fq-stack-seg is-ok" [style.flex-grow]="slaBreakdown().onTime"></span>
-                  <span class="fq-stack-seg is-warn" [style.flex-grow]="slaBreakdown().approaching"></span>
-                  <span class="fq-stack-seg is-danger" [style.flex-grow]="slaBreakdown().breached"></span>
-                }
-              </div>
-              <dl class="fq-minis">
-                <div><dt><i class="fq-dot is-ok" aria-hidden="true"></i>On time</dt><dd>{{ slaBreakdown().onTime }}</dd></div>
-                <div><dt><i class="fq-dot is-warn" aria-hidden="true"></i>Within 24h</dt><dd>{{ slaBreakdown().approaching }}</dd></div>
-                <div><dt><i class="fq-dot is-danger" aria-hidden="true"></i>Breached</dt><dd>{{ slaBreakdown().breached }}</dd></div>
-              </dl>
-            </div>
-
-            <!-- Age -->
-            <div class="fq-seg-block">
-              <div class="fq-block-head">
-                <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-hourglass" /></svg>
-                <h3 class="fq-block-title">Pending by age</h3>
-                <span class="fq-block-note">{{ agingTotal() }} pending</span>
-              </div>
-              <div class="fq-cols" role="img"
-                   [attr.aria-label]="'Pending follow-ups by days since due: ' + agingBuckets().b0 + ' up to 3 days, ' + agingBuckets().b1 + ' 4 to 7 days, ' + agingBuckets().b2 + ' 8 to 15 days, ' + agingBuckets().b3 + ' over 15 days'">
-                @for (col of agingColumns(); track col.label) {
-                  <div class="fq-col" [attr.data-c]="col.tone">
-                    <span class="fq-col-val">{{ col.value }}</span>
-                    <span class="fq-col-track"><span class="fq-col-fill" [style.height.%]="col.height"></span></span>
-                    <span class="fq-col-label">{{ col.label }}</span>
+                <div class="fq-health-main">
+                  <svg class="fq-ring" viewBox="0 0 100 100" role="img"
+                       [attr.aria-label]="'Completion rate ' + kpiCompletionRate() + ' percent'">
+                    <circle class="fq-ring-track" cx="50" cy="50" r="42" />
+                    <circle class="fq-ring-fill" cx="50" cy="50" r="42" [attr.stroke-dasharray]="ringDash(kpiCompletionRate())" />
+                    <text x="50" y="50" class="fq-ring-value">{{ kpiCompletionRate() }}%</text>
+                    <text x="50" y="68" class="fq-ring-label">done</text>
+                  </svg>
+                  <div class="fq-block-lead">
+                    <strong class="fq-block-figure">{{ overduePercent() }}<small>%</small></strong>
+                    <span class="fq-block-caption">of open work is overdue</span>
                   </div>
-                }
+                </div>
+                <dl class="fq-minis">
+                  <div><dt>Overdue</dt><dd>{{ kpiOverdue() }}</dd></div>
+                  <div><dt>Escalated</dt><dd>{{ kpiEscalated() }}</dd></div>
+                  <div><dt>Blocked</dt><dd>{{ kpiBlocked() }}</dd></div>
+                </dl>
+              </div>
+
+              <!-- SLA -->
+              <div class="fq-seg-block">
+                <div class="fq-block-head">
+                  <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-target" /></svg>
+                  <h3 class="fq-block-title">SLA monitor</h3>
+                  <span class="fq-block-note">{{ slaTotal() }} open</span>
+                </div>
+                <div class="fq-block-lead">
+                  <strong class="fq-block-figure">{{ percentOf(slaBreakdown().onTime, slaTotal()) }}<small>%</small></strong>
+                  <span class="fq-block-caption">on time</span>
+                </div>
+                <div class="fq-stack" role="img"
+                     [attr.aria-label]="slaBreakdown().onTime + ' on time, ' + slaBreakdown().approaching + ' due within 24 hours, ' + slaBreakdown().breached + ' breached'">
+                  @if (slaTotal() === 0) {
+                    <span class="fq-stack-seg is-none"></span>
+                  } @else {
+                    <span class="fq-stack-seg is-ok" [style.flex-grow]="slaBreakdown().onTime"></span>
+                    <span class="fq-stack-seg is-warn" [style.flex-grow]="slaBreakdown().approaching"></span>
+                    <span class="fq-stack-seg is-danger" [style.flex-grow]="slaBreakdown().breached"></span>
+                  }
+                </div>
+                <dl class="fq-minis">
+                  <div><dt><i class="fq-dot is-ok" aria-hidden="true"></i>On time</dt><dd>{{ slaBreakdown().onTime }}</dd></div>
+                  <div><dt><i class="fq-dot is-warn" aria-hidden="true"></i>Within 24h</dt><dd>{{ slaBreakdown().approaching }}</dd></div>
+                  <div><dt><i class="fq-dot is-danger" aria-hidden="true"></i>Breached</dt><dd>{{ slaBreakdown().breached }}</dd></div>
+                </dl>
+              </div>
+
+              <!-- Age -->
+              <div class="fq-seg-block">
+                <div class="fq-block-head">
+                  <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-hourglass" /></svg>
+                  <h3 class="fq-block-title">Pending by age</h3>
+                  <span class="fq-block-note">{{ agingTotal() }} pending</span>
+                </div>
+                <div class="fq-cols" role="img"
+                     [attr.aria-label]="'Pending follow-ups by days since due: ' + agingBuckets().b0 + ' up to 3 days, ' + agingBuckets().b1 + ' 4 to 7 days, ' + agingBuckets().b2 + ' 8 to 15 days, ' + agingBuckets().b3 + ' over 15 days'">
+                  @for (col of agingColumns(); track col.label) {
+                    <div class="fq-col" [attr.data-c]="col.tone">
+                      <span class="fq-col-val">{{ col.value }}</span>
+                      <span class="fq-col-track"><span class="fq-col-fill" [style.height.%]="col.height"></span></span>
+                      <span class="fq-col-label">{{ col.label }}</span>
+                    </div>
+                  }
+                </div>
               </div>
             </div>
           </div>
@@ -181,14 +177,12 @@
             <div class="fq-block-head">
               <svg class="fq-i fq-block-glyph" aria-hidden="true"><use href="#fq-i-sun" /></svg>
               <h3 id="fq-agenda-title" class="fq-block-title">Today's agenda</h3>
-              <span class="fq-counter">{{ agendaItems().length }}</span>
+              <span class="fq-agenda-date">{{ todayLabel }}</span>
             </div>
-            <p class="fq-agenda-date">{{ todayLabel }}</p>
             @if (agendaItems().length === 0 && agendaNext().length === 0) {
               <div class="fq-agenda-empty">
                 <svg class="fq-i" aria-hidden="true"><use href="#fq-i-calendar" /></svg>
-                <p class="fq-agenda-empty-title">A clear day</p>
-                <p class="fq-agenda-empty-text">Nothing is scheduled for today or the days ahead.</p>
+                <span class="fq-agenda-empty-text"><b class="fq-agenda-empty-title">A clear day.</b> Nothing is scheduled for today or the days ahead.</span>
                 <button type="button" class="fq-link" (click)="createFollowUp()">Plan a follow-up</button>
               </div>
             } @else {
@@ -228,21 +222,24 @@
                   }
                 </ol>
               }
-              <footer class="fq-agenda-foot">
-                <span class="fq-agenda-tally">
-                  <strong class="fq-num">{{ agendaLeft() }}</strong> to do today
-                  <span class="fq-sep" aria-hidden="true">&middot;</span>
-                  <strong class="fq-num">{{ agendaDone() }}</strong> done
-                </span>
+            }
+            <footer class="fq-agenda-foot">
+              <span class="fq-agenda-tally">
+                <strong class="fq-num">{{ agendaLeft() }}</strong> to do
+                <span class="fq-sep" aria-hidden="true">&middot;</span>
+                <strong class="fq-num">{{ agendaDone() }}</strong> done
+              </span>
+              @if (agendaItems().length > 0) {
                 <button type="button" class="fq-link" (click)="toggleStripDate(today)">
                   {{ agendaItems().length > agendaToday().length ? 'See all ' + agendaItems().length : 'Open in list' }}
                 </button>
-              </footer>
-            }
+              }
+            </footer>
           </section>
         </section>
 
-        <!-- ============================== QUEUE PANEL ============================== -->
+        <!-- ============================== QUEUE PANEL ==============================
+             One tool bar, one line of view tabs, one slim week ribbon - then the list / board / calendar. -->
         <section class="fq-panel fq-queue" aria-labelledby="fq-queue-title">
           @if (loading() && hasData()) {
             <div class="fq-progress" role="progressbar" aria-label="Updating the queue"></div>
@@ -250,18 +247,15 @@
 
           <header class="fq-qhead">
             <div class="fq-qtitle">
-              <p class="fq-eyebrow">Work queue</p>
-              <div class="fq-qtitle-row">
-                <h2 id="fq-queue-title" class="fq-panel-title">{{ queueTitle() }}</h2>
-                <span class="fq-counter is-lg">{{ filteredFollowUps().length }}</span>
-              </div>
-              <p class="fq-panel-sub">
-                {{ filteredFollowUps().length === 1 ? 'Follow-up' : 'Follow-ups' }} in view, {{ sortOrder() === 'oldest' ? 'earliest' : 'latest' }} first
+              <h2 id="fq-queue-title" class="fq-panel-title">{{ queueTitle() }}</h2>
+              <span class="fq-qcount">{{ filteredFollowUps().length }}</span>
+              <span class="fq-panel-sub">
+                {{ sortOrder() === 'oldest' ? 'Earliest' : 'Latest' }} first
                 @if (isNarrowed()) {
                   <span class="fq-sep" aria-hidden="true">&middot;</span>
                   <button type="button" class="fq-link" (click)="resetFilters()">Clear all</button>
                 }
-              </p>
+              </span>
             </div>
 
             <div class="fq-qtools">
@@ -287,7 +281,7 @@
               </label>
               <button
                 type="button"
-                class="fq-btn fq-btn--ghost fq-filter-btn"
+                class="fq-tool fq-filter-btn"
                 [class.is-on]="filtersOpen() || activeFilterCount() > 0"
                 [attr.aria-expanded]="filtersOpen()"
                 (click)="toggleFiltersPanel()"
@@ -316,64 +310,62 @@
             </div>
           </header>
 
-          <!-- Saved views: pills that carry their own size -->
+          <!-- Saved views: one line of underlined tabs, each with its count -->
           <nav class="fq-views" aria-label="Saved views">
             <button type="button" class="fq-view"
                     [class.is-active]="!activeSavedViewId() && !activeQuickFilter() && !selectedStripDate()"
+                    [attr.aria-pressed]="!activeSavedViewId() && !activeQuickFilter() && !selectedStripDate()"
                     (click)="showAll()">
               <span class="fq-view-label">All</span>
               <span class="fq-view-num">{{ viewCounts()['all'] }}</span>
             </button>
             @for (v of savedViews; track v.id) {
+              @if (v.groupStart) { <span class="fq-views-rule" aria-hidden="true"></span> }
               <button type="button" class="fq-view"
                       [class.is-active]="activeSavedViewId() === v.id"
                       [class.is-zero]="!viewCounts()[v.id]"
                       [attr.aria-pressed]="activeSavedViewId() === v.id"
+                      [title]="v.label"
                       (click)="applySavedView(v)">
-                <span class="fq-view-label">{{ v.label }}</span>
+                <span class="fq-view-label">{{ v.short ?? v.label }}</span>
                 <span class="fq-view-num">{{ viewCounts()[v.id] }}</span>
               </button>
             }
           </nav>
 
-          <!-- Date rail -->
-          <div class="fq-dates" role="group" aria-label="Jump to a date">
-            <div class="fq-dates-head">
-              <div class="fq-dates-title">
-                <span class="fq-dates-month">{{ stripMonthLabel() }}</span>
-                <span class="fq-dates-range">{{ stripRangeLabel() }}</span>
-              </div>
-              <div class="fq-dates-nav">
-                <button type="button" class="fq-mini-btn" (click)="jumpToToday()">Today</button>
-                <button type="button" class="fq-mini-btn is-icon" title="Previous week" aria-label="Previous week"
-                        (click)="shiftStripWeek(-1)">
-                  <svg class="fq-i" aria-hidden="true"><use href="#fq-i-chevron-left" /></svg>
-                </button>
-                <button type="button" class="fq-mini-btn is-icon" title="Next week" aria-label="Next week"
-                        (click)="shiftStripWeek(1)">
-                  <svg class="fq-i" aria-hidden="true"><use href="#fq-i-chevron-right" /></svg>
-                </button>
-              </div>
+          <!-- Week ribbon: the week on one slim line; a day filters the list -->
+          <div class="fq-week" role="group" aria-label="Jump to a date">
+            <div class="fq-week-nav">
+              <button type="button" class="fq-week-step" title="Previous week" aria-label="Previous week" (click)="shiftStripWeek(-1)">
+                <svg class="fq-i" aria-hidden="true"><use href="#fq-i-chevron-left" /></svg>
+              </button>
+              <span class="fq-week-title">
+                <span class="fq-week-month">{{ stripMonthLabel() }}</span>
+                <span class="fq-week-range">{{ stripRangeLabel() }}</span>
+              </span>
+              <button type="button" class="fq-week-step" title="Next week" aria-label="Next week" (click)="shiftStripWeek(1)">
+                <svg class="fq-i" aria-hidden="true"><use href="#fq-i-chevron-right" /></svg>
+              </button>
+              <button type="button" class="fq-link fq-week-today" (click)="jumpToToday()">Today</button>
             </div>
-            <div class="fq-dates-rail">
+            <div class="fq-week-days">
               @for (d of calendarStrip(); track trackByDay($index, d)) {
                 <button
                   type="button"
-                  class="fq-date"
+                  class="fq-day"
                   [class.is-today]="d.date === today"
                   [class.is-active]="selectedStripDate() === d.date"
                   [class.is-free]="d.count === 0"
                   [attr.aria-current]="d.date === today ? 'date' : null"
                   [attr.aria-pressed]="selectedStripDate() === d.date"
                   [attr.aria-label]="formatDate(d.date) + ', ' + d.count + ' follow-ups'"
+                  [title]="formatDate(d.date) + (d.count ? ' - ' + d.count + ' due' : ' - free')"
                   (click)="toggleStripDate(d.date)"
                 >
-                  <span class="fq-date-dow">{{ d.date === today ? 'Today' : d.label }}</span>
-                  <span class="fq-date-num">{{ d.dayNumber }}</span>
-                  <span class="fq-date-load" aria-hidden="true">
-                    <span class="fq-date-load-fill" [style.width.%]="d.count ? (d.count / stripMax()) * 100 : 0"></span>
-                  </span>
-                  <span class="fq-date-count">{{ d.count ? d.count + ' due' : 'Free' }}</span>
+                  <span class="fq-day-dow">{{ d.date === today ? 'Today' : d.label }}</span>
+                  <span class="fq-day-num">{{ d.dayNumber }}</span>
+                  <span class="fq-day-count">{{ d.count || '–' }}</span>
+                  <span class="fq-day-load" aria-hidden="true" [style.width.%]="d.count ? (d.count / stripMax()) * 100 : 0"></span>
                 </button>
               }
             </div>

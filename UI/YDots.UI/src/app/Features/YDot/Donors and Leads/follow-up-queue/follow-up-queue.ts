@@ -83,6 +83,10 @@ export interface FollowUp {
 export interface SavedView {
   id: string;
   label: string;
+  /** Tab text, when the full label is too long for one line of tabs. */
+  short?: string;
+  /** Draws a hairline before the tab, opening a new group (focus, channels). */
+  groupStart?: boolean;
 }
 
 export interface CalendarDay {
@@ -120,16 +124,16 @@ export interface KpiTile {
  */
 
 export const SAVED_VIEWS: SavedView[] = [
-  { id: "mine", label: "My Follow-Ups" },
-  { id: "today", label: "Today's Follow-Ups" },
+  { id: "mine", label: "My Follow-Ups", short: "Mine" },
+  { id: "today", label: "Today's Follow-Ups", short: "Today" },
   { id: "overdue", label: "Overdue" },
   { id: "upcoming", label: "Upcoming" },
-  { id: "high", label: "High Priority" },
-  { id: "attention", label: "Needs Attention" },
-  { id: "meetings", label: "Meetings" },
-  { id: "calls", label: "Calls" },
+  { id: "completedToday", label: "Completed Today", short: "Done today" },
+  { id: "high", label: "High Priority", short: "High priority", groupStart: true },
+  { id: "attention", label: "Needs Attention", short: "Needs attention" },
   { id: "escalated", label: "Escalated" },
-  { id: "completedToday", label: "Completed Today" },
+  { id: "meetings", label: "Meetings", groupStart: true },
+  { id: "calls", label: "Calls" },
 ];
 
 function initials(name: string): string {

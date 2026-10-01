@@ -1085,32 +1085,6 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     return detail.mfaRequirement === 'required' ? 'Enrolled — required' : 'Enrolled';
   }
 
-  initials(name: string | null | undefined): string {
-    return (name ?? '')
-      .split(' ')
-      .filter(Boolean)
-      .map((part) => part[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2) || '?';
-  }
-
-  /**
-   * Avatar colour per user — a hash of the whole name mapped to 10 light palettes
-   * (dir-av-0 … dir-av-9). Two people who share a first letter still get different colours,
-   * and the same person always gets the same one.
-   */
-  avatarClass(name: string | null | undefined): string {
-    const text = (name ?? '').trim().toLowerCase();
-    let hash = 0;
-
-    for (let i = 0; i < text.length; i++) {
-      hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
-    }
-
-    return `dir-av-${hash % 10}`;
-  }
-
   copy(text: string | null | undefined, field: string): void {
     if (!text) {
       return;

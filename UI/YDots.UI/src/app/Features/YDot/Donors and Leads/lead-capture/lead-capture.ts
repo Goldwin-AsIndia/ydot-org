@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { map, switchMap } from 'rxjs';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +20,6 @@ import {
   DonLookupItem,
   LeadCaptureResponse,
 } from '../../../../Shared/models/donor-contract.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 
 export interface MobileNumberEntry {
@@ -208,7 +207,7 @@ type LookupOption = string | { readonly label: string; readonly value?: string; 
  */
 @Component({
   selector: 'app-lead-capture',
-  imports: [PageHeader, CommonModule, FormsModule, LeadCaptureConfirmComponent],
+  imports: [CommonModule, FormsModule, LeadCaptureConfirmComponent],
   templateUrl: './lead-capture.html',
   styleUrl: './lead-capture.css',
 })
@@ -390,6 +389,13 @@ export class LeadCaptureComponent {
     'Event',
     'Met at the Chennai donor meet. Asked to be called after 6pm.',
   ];
+  /** The template's columns as the bulk screen lists them: which are required, and an example. */
+  protected readonly bulkColumns = this.BULK_TEMPLATE_HEADERS.map((name, index) => ({
+    name,
+    required: index < 3,
+    example: this.BULK_TEMPLATE_SAMPLE[index] ?? '',
+  }));
+
   private readonly MAX_EVIDENCE_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
   private readonly ALLOWED_EVIDENCE_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png'];
 
@@ -457,6 +463,20 @@ export class LeadCaptureComponent {
   protected readonly isSubmitted = signal(false);
 
   protected readonly isFormValid = computed(() => Object.keys(this.validate()).length === 0);
+
+  /** How many errors are on screen now, for the action bar after a failed submit. */
+  protected readonly shownErrorCount = computed(() => Object.keys(this.errors()).length);
+
+  protected readonly fullName = computed(() =>
+    [this.fields().firstName, this.fields().lastName].map((part) => part.trim()).filter(Boolean).join(' '),
+  );
+
+  /** Copies "First Last" into Display name — the usual answer, one click instead of retyping. */
+  protected fillDisplayName(): void {
+    const name = this.fullName();
+    if (!name) return;
+    this.updateField('displayName', name.slice(0, 150));
+  }
 
   /** Consent state recorded at the last save/submit — used to detect an in-flight correction. */
   protected readonly consentStateAtLastSave = signal('');
@@ -1351,7 +1371,29 @@ export class LeadCaptureComponent {
    */
   private readonly campaignIdByReference = new Map<string, string>();
 
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
   constructor() {
+    this.loadForm();
+
+    // THE ACTION BAR STICKS TO THE BOTTOM OF THE WINDOW. The shell's content column is a scroll
+    // container (overflow auto) that never scrolls - the window does - which stops
+    // `position: sticky` working inside it. It clips while this screen is open and gets its own
+    // value back on leave.
+    let column: HTMLElement | null = null;
+    let overflow = '';
+    afterNextRender(() => {
+      column = this.host.nativeElement.closest('.content-page') as HTMLElement | null;
+      overflow = column?.style.overflow ?? '';
+      if (column) column.style.overflow = 'clip';
+    });
+    inject(DestroyRef).onDestroy(() => {
+      if (column) column.style.overflow = overflow;
+    });
+  }
+
+  /** Retry after the form's options failed to load. */
+  protected reload(): void {
     this.loadForm();
   }
 
@@ -1565,12 +1607,58 @@ export class LeadCaptureComponent {
     URL.revokeObjectURL(url);
   }
 
+  /** True while a file is dragged over the drop well. */
+  protected readonly bulkDragOver = signal(false);
+
+  /** Where the import stands: 1 attach, 2 review, 3 done. */
+  protected readonly bulkStep = computed(() => {
+    const status = this.bulkUpload().status;
+    if (status === 'imported') return 3;
+    if (status === 'ready' || status === 'importing') return 2;
+    // The import call failed: the rows are still here to review and send again.
+    if (status === 'error' && this.parsedBulkRows().length > 0) return 2;
+    return 1;
+  });
+
+  protected onBulkDragOver(event: DragEvent): void {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    this.bulkDragOver.set(true);
+  }
+
+  protected onBulkDragLeave(event: DragEvent): void {
+    const well = event.currentTarget as HTMLElement;
+    if (!well.contains(event.relatedTarget as Node | null)) this.bulkDragOver.set(false);
+  }
+
+  /**
+   * A dropped file goes through the same checks as a chosen one.
+   *
+   * THE WELL USED TO PROMISE THIS AND NOT DO IT. It read "Drag a file here" with no drop handler,
+   * so a dropped spreadsheet was opened by the browser in place of the screen.
+   */
+  protected onBulkDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.bulkDragOver.set(false);
+    const file = event.dataTransfer?.files?.[0];
+    if (file && this.bulkUpload().status !== 'importing') this.stageBulkFile(file);
+  }
+
   protected onBulkFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files && input.files[0];
+    // Cleared at once, so choosing the same file again after removing it still fires `change`.
+    input.value = '';
     if (!file) {
       return;
     }
+    this.stageBulkFile(file);
+  }
+
+  private stageBulkFile(file: File): void {
+    this.parsedBulkRows.set([]);
+    this.bulkResults.set([]);
+    this.bulkPreviewFilter.set('all');
 
     const name = file.name.toLowerCase();
     const hasValidExtension = this.ALLOWED_BULK_EXTENSIONS.some((ext) => name.endsWith(ext));
@@ -1584,7 +1672,6 @@ export class LeadCaptureComponent {
         fileSizeLabel: sizeLabel,
         errorMessage: 'Only .csv and .xlsx files are supported.',
       });
-      input.value = '';
       return;
     }
 
@@ -1596,7 +1683,6 @@ export class LeadCaptureComponent {
         fileSizeLabel: sizeLabel,
         errorMessage: 'File exceeds the 10 MB size limit.',
       });
-      input.value = '';
       return;
     }
 
@@ -1826,6 +1912,21 @@ export class LeadCaptureComponent {
 
   /** What the server said about each row, for the result list and the error report. */
   protected readonly bulkResults = signal<readonly BulkLeadImportRowResult[]>([]);
+
+  /** How many rows the parser read from the attached file. */
+  protected readonly bulkRowCount = computed(() => this.parsedBulkRows().length);
+
+  /**
+   * Sends the same rows again after the import call itself failed.
+   *
+   * A FAILED CALL USED TO STRAND THE FILE. The status went to 'error', which import refuses, so
+   * the only way forward was removing the file and choosing it again.
+   */
+  protected retryBulkImport(): void {
+    if (this.parsedBulkRows().length === 0) return;
+    this.bulkUpload.update((state) => ({ ...state, status: 'ready', errorMessage: '' }));
+    this.importBulkUpload();
+  }
 
   /** Reference-style preview filter used by the bulk upload table. */
   protected readonly bulkPreviewFilter = signal<'all' | 'errors'>('all');

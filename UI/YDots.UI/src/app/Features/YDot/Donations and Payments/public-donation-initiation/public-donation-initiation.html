@@ -92,18 +92,40 @@
       <div class="pf-stage">
       <form class="pf-folio" (ngSubmit)="requestSubmit()" novalidate>
 
+        <!-- ================= MASTHEAD — title and the progress rail on one line ================= -->
+        <header class="pf-mast">
+          <div class="pf-mast-copy">
+            <span class="pf-kicker">
+              <i class="ri-hand-heart-line" aria-hidden="true"></i>
+              {{ isInternalView() ? 'Donations & payments' : 'Make a donation' }}
+            </span>
+            <h1 class="pf-title">{{ pageTitle() }}</h1>
+          </div>
+
+          <ol class="pf-rail" aria-label="Form progress">
+            <li [class.is-done]="donorComplete()" [class.is-current]="currentStep() === 1">
+              <span class="pf-rail-line" aria-hidden="true"><span [style.width.%]="donorPercent()"></span></span>
+              <span class="pf-rail-n pdi-mono">01</span>
+              <span class="pf-rail-name">Gift &amp; details</span>
+              <span class="pf-rail-state pdi-mono">{{ donorComplete() ? 'Done' : donorFilled() + '/' + donorTotal }}</span>
+            </li>
+            <li [class.is-done]="addressComplete()" [class.is-current]="currentStep() === 2">
+              <span class="pf-rail-line" aria-hidden="true"><span [style.width.%]="addressPercent()"></span></span>
+              <span class="pf-rail-n pdi-mono">02</span>
+              <span class="pf-rail-name">Address</span>
+              <span class="pf-rail-state pdi-mono">{{ addressComplete() ? 'Done' : addressFilled() + '/' + addressTotal }}</span>
+            </li>
+            <li [class.is-done]="consentChecked()" [class.is-current]="currentStep() === 3">
+              <span class="pf-rail-line" aria-hidden="true"><span [style.width.%]="consentChecked() ? 100 : 0"></span></span>
+              <span class="pf-rail-n pdi-mono">03</span>
+              <span class="pf-rail-name">Confirm &amp; pay</span>
+              <span class="pf-rail-state pdi-mono">{{ consentChecked() ? 'Done' : '0/1' }}</span>
+            </li>
+          </ol>
+        </header>
+
         <!-- ================= LEFT LEAF — the pledge: cause, amount, summary ================= -->
         <aside class="pf-pledge" aria-label="Your pledge">
-          <div class="pf-pledge-inner">
-
-            <header class="pf-mast">
-              <span class="pf-kicker">
-                <i class="ri-hand-heart-line" aria-hidden="true"></i>
-                {{ isInternalView() ? 'Donations & payments' : 'Make a donation' }}
-              </span>
-              <h1 class="pf-title">{{ pageTitle() }}</h1>
-              <p class="pf-lede">{{ pageSubtitle() }}</p>
-            </header>
 
             <!-- The cause. LOCKED BY THE LINK IS ALSO DISABLED. -->
             <div class="pf-block">
@@ -122,7 +144,6 @@
                       <span class="pf-cause-meta pdi-mono">{{ selectedCampaign()!.reference }} · {{ selectedCampaign()!.context }}</span>
                     } @else {
                       <span class="pf-cause-name is-empty">Choose a campaign or appeal</span>
-                      <span class="pf-cause-meta">Only appeals open for donations are listed</span>
                     }
                   </span>
                   @if (campaignLockedByLink()) {
@@ -168,31 +189,10 @@
 
             <!-- The gift. Always read-only: the campaign states it, or the reopened intent does. -->
             <div class="pf-block pf-gift" id="fld-campaignAmount">
-              <span class="pf-label">Your gift</span>
-              @if (amountFigure(); as fig) {
-                <span class="pf-figure">
-                  <span class="pf-figure-code pdi-mono">{{ fig.code }}</span>
-                  <span class="pf-figure-num">{{ fig.value }}</span>
-                </span>
-                <span class="pf-note">
-                  {{ formLocked() ? 'The amount this donation was started for.' : 'The amount set for this appeal — you pay exactly this.' }}
-                </span>
-              } @else {
-                <span class="pf-figure is-empty">
-                  <span class="pf-figure-num">—</span>
-                </span>
-                <span class="pf-note">{{ selectedCampaign() ? 'This appeal does not state an amount.' : 'Choose a cause to see the amount.' }}</span>
-              }
-              @if (campaignStatesNoAmount() && !formLocked()) {
-                <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>This appeal does not state an amount to give. Choose another one.</span>
-              }
-              @if (amountInvalid()) {
-                <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>This appeal's amount is outside the range this form can take. Contact the organisation.</span>
-              }
-
               <!-- Currency — disabled once the campaign states an amount. A <div>, not a <label>:
                    a label would forward clicks on the option list back to the trigger. -->
-              <div class="pf-currency">
+              <div class="pf-gift-head">
+                <span class="pf-label">Your gift</span>
                 <span class="pf-currency-label" id="lbl-currency">Paid in <span class="pf-req">*</span></span>
                 <div class="dd is-compact" [class.is-open]="openDropdown() === 'currency'">
                   <button type="button" id="fld-currency" class="dd-trigger"
@@ -212,6 +212,23 @@
                   }
                 </div>
               </div>
+
+              @if (amountFigure(); as fig) {
+                <span class="pf-figure">
+                  <span class="pf-figure-code pdi-mono">{{ fig.code }}</span>
+                  <span class="pf-figure-num">{{ fig.value }}</span>
+                </span>
+              } @else {
+                <span class="pf-figure is-empty">
+                  <span class="pf-figure-num">—</span>
+                </span>
+              }
+              @if (campaignStatesNoAmount() && !formLocked()) {
+                <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>This appeal does not state an amount to give. Choose another one.</span>
+              }
+              @if (amountInvalid()) {
+                <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>This appeal's amount is outside the range this form can take. Contact the organisation.</span>
+              }
               @if (!currency() && uiState() === 'validation') {
                 <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter Currency.</span>
               }
@@ -236,66 +253,32 @@
               <ol class="pf-next">
                 <li [class.is-done]="!!intentReference()">
                   <span class="pf-next-n" aria-hidden="true">{{ intentReference() ? '✓' : '1' }}</span>
-                  <span class="pf-next-copy">
-                    <span class="pf-next-title">We record your pledge</span>
-                    <span class="pf-next-text">A unique reference is created for this donation.</span>
-                  </span>
+                  <span class="pf-next-title">We record your pledge</span>
                 </li>
                 <li [class.is-done]="lifecycleState() === 'Awaiting payment'">
                   <span class="pf-next-n" aria-hidden="true">2</span>
-                  <span class="pf-next-copy">
-                    <span class="pf-next-title">You pay securely</span>
-                    <span class="pf-next-text">Card and bank details go to the payment provider, never this page.</span>
-                  </span>
+                  <span class="pf-next-title">You pay securely</span>
                 </li>
                 <li>
                   <span class="pf-next-n" aria-hidden="true">3</span>
-                  <span class="pf-next-copy">
-                    <span class="pf-next-title">Your receipt arrives</span>
-                    <span class="pf-next-text">E-mailed to {{ emailOrMobile() || 'you' }} once the payment is confirmed.</span>
-                  </span>
+                  <span class="pf-next-title">Your receipt arrives</span>
                 </li>
               </ol>
             </div>
 
-          </div>
         </aside>
 
         <!-- ================= RIGHT LEAF — the donor's details ================= -->
         <div class="pf-details">
 
-          <ol class="pf-rail" aria-label="Form progress">
-            <li [class.is-done]="donorComplete()" [class.is-current]="currentStep() === 1">
-              <span class="pf-rail-line" aria-hidden="true"><span [style.width.%]="donorPercent()"></span></span>
-              <span class="pf-rail-n pdi-mono">01</span>
-              <span class="pf-rail-name">Gift &amp; details</span>
-              <span class="pf-rail-state">{{ donorComplete() ? 'Complete' : donorFilled() + ' of ' + donorTotal }}</span>
-            </li>
-            <li [class.is-done]="addressComplete()" [class.is-current]="currentStep() === 2">
-              <span class="pf-rail-line" aria-hidden="true"><span [style.width.%]="addressPercent()"></span></span>
-              <span class="pf-rail-n pdi-mono">02</span>
-              <span class="pf-rail-name">Receipt address</span>
-              <span class="pf-rail-state">{{ addressComplete() ? 'Complete' : addressFilled() + ' of ' + addressTotal }}</span>
-            </li>
-            <li [class.is-done]="consentChecked()" [class.is-current]="currentStep() === 3">
-              <span class="pf-rail-line" aria-hidden="true"><span [style.width.%]="consentChecked() ? 100 : 0"></span></span>
-              <span class="pf-rail-n pdi-mono">03</span>
-              <span class="pf-rail-name">Confirm &amp; pay</span>
-              <span class="pf-rail-state">{{ consentChecked() ? 'Complete' : 'Pending' }}</span>
-            </li>
-          </ol>
-
           <!-- ======= 01 — About you ======= -->
           <section class="pf-sec" aria-labelledby="sec-donor">
             <header class="pf-sec-head">
               <span class="pf-sec-n pdi-mono" aria-hidden="true">01</span>
-              <span class="pf-sec-copy">
-                <h2 class="pf-sec-title" id="sec-donor">About you</h2>
-                <p class="pf-sec-desc">Who the donation and its receipt belong to.</p>
-              </span>
+              <h2 class="pf-sec-title" id="sec-donor">About you</h2>
             </header>
 
-            <div class="pf-grid">
+            <div class="pf-grid is-about">
               <!-- Full name — read-only, from the account -->
               <label class="pf-field">
                 <span class="pf-label">Full name <span class="pf-req">*</span></span>
@@ -305,7 +288,6 @@
                          [ngModel]="fullName()" (ngModelChange)="fullName.set($event)" name="fullName" />
                   <i class="ri-lock-line pf-lock" aria-hidden="true"></i>
                 </span>
-                <span class="pf-hint">From your account.</span>
               </label>
 
               <!-- Email — read-only, from the account; the receipt goes here -->
@@ -317,12 +299,11 @@
                          [ngModel]="emailOrMobile()" (ngModelChange)="emailOrMobile.set($event)" name="emailOrMobile" />
                   <i class="ri-lock-line pf-lock" aria-hidden="true"></i>
                 </span>
-                <span class="pf-hint">Your receipt is sent here.</span>
               </label>
 
               <!-- Mobile number — optional, validated only when given -->
               <label class="pf-field">
-                <span class="pf-label">Mobile number <span class="pf-opt">Optional</span></span>
+                <span class="pf-label">Mobile number</span>
                 <span class="pf-control" [class.has-error]="mobileInvalid() && uiState() === 'validation'">
                   <input id="fld-mobileNumber" type="tel" inputmode="tel" class="pf-input" maxlength="20"
                          autocomplete="off" placeholder="Enter mobile number"
@@ -338,7 +319,7 @@
               <!-- PAN — staff view only -->
               @if (isInternalView()) {
                 <label class="pf-field">
-                  <span class="pf-label">PAN or tax identifier <span class="pf-opt">Optional</span></span>
+                  <span class="pf-label">PAN or tax identifier</span>
                   @if (!formLocked()) {
                     <span class="pf-control" [class.has-error]="panInvalid()">
                       <input id="fld-panOrTaxId" type="text" inputmode="text" class="pf-input pdi-mono"
@@ -365,13 +346,10 @@
           <section class="pf-sec" aria-labelledby="sec-address">
             <header class="pf-sec-head">
               <span class="pf-sec-n pdi-mono" aria-hidden="true">02</span>
-              <span class="pf-sec-copy">
-                <h2 class="pf-sec-title" id="sec-address">Receipt address</h2>
-                <p class="pf-sec-desc">Printed on your receipt and used for any correspondence.</p>
-              </span>
+              <h2 class="pf-sec-title" id="sec-address">Receipt address</h2>
             </header>
 
-            <div class="pf-grid">
+            <div class="pf-grid is-address">
               <label class="pf-field">
                 <span class="pf-label">Address line 1 <span class="pf-req">*</span></span>
                 <span class="pf-control" [class.has-error]="!addressText().trim() && uiState() === 'validation'">
@@ -386,7 +364,7 @@
               </label>
 
               <label class="pf-field">
-                <span class="pf-label">Address line 2 <span class="pf-opt">Optional</span></span>
+                <span class="pf-label">Address line 2</span>
                 <span class="pf-control">
                   <input id="fld-addressLine2" type="text" class="pf-input" maxlength="160" autocomplete="off"
                          placeholder="Landmark, building" [disabled]="formLocked()"
@@ -485,22 +463,18 @@
           <section class="pf-sec pf-confirm" aria-labelledby="sec-confirm">
             <header class="pf-sec-head">
               <span class="pf-sec-n pdi-mono" aria-hidden="true">03</span>
-              <span class="pf-sec-copy">
-                <h2 class="pf-sec-title" id="sec-confirm">Confirm &amp; pay</h2>
-                <p class="pf-sec-desc">One acknowledgement, then you are taken to the secure checkout.</p>
-              </span>
+              <h2 class="pf-sec-title" id="sec-confirm">Confirm &amp; pay</h2>
             </header>
 
             <div class="pf-confirm-body">
               <label class="pf-consent" [class.is-checked]="consentChecked()" [class.is-disabled]="formLocked()"
-                     [class.has-error]="!consentChecked() && uiState() === 'validation'">
+                     [class.has-error]="!consentChecked() && uiState() === 'validation'"
+                     [title]="'Recorded against ' + consentPolicyVersion() + (consentEffectiveTime() ? ' · ' + consentEffectiveTime() : '')">
                 <input id="fld-consent" type="checkbox" [checked]="consentChecked()" [disabled]="formLocked()"
                        (change)="toggleConsent($any($event.target).checked)"
                        [attr.aria-invalid]="!consentChecked() && uiState() === 'validation'" />
-                <span class="pf-consent-copy">
-                  <span class="pf-consent-text">I acknowledge the Privacy Notice <span class="pf-req">*</span></span>
-                  <span class="pf-consent-meta">Recorded against {{ consentPolicyVersion() }}{{ consentEffectiveTime() ? ' · ' + consentEffectiveTime() : '' }}</span>
-                </span>
+                <span class="pf-consent-text">I acknowledge the Privacy Notice <span class="pf-req">*</span></span>
+
               </label>
               @if (!consentChecked() && uiState() === 'validation') {
                 <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter Consent acknowledgement.</span>

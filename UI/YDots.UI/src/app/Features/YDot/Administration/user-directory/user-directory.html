@@ -20,6 +20,26 @@
       </nav>
 
       <div class="ud-mast-acts">
+        @if (bulkSelectionCount() > 0) {
+          <div class="ud-bulk" role="status">
+            <button type="button" class="ud-btn ud-btn--primary ud-bulk-go" (click)="goToBulkActions()"
+                    [title]="selectedOffPage() > 0 ? selectedOffPage() + ' selected on other pages' : ''">
+              <i class="ri-stack-line" aria-hidden="true"></i><span class="ud-t">Bulk actions</span>
+              <span class="ud-bulk-n">{{ bulkSelectionCount() }}</span>
+            </button>
+            <button type="button" class="ud-bulk-x" title="Clear selection" aria-label="Clear selection" (click)="clearSelection()"><i class="ri-close-line"></i></button>
+          </div>
+        }
+        <div class="ud-search">
+          <i class="ri-search-line" aria-hidden="true"></i>
+          <input id="udSearch" type="search" placeholder="Search people"
+                 [value]="searchText" (input)="onSearchChange($any($event.target).value)"
+                 title="Search by name, e-mail, username or reference" aria-label="Search by name, e-mail, username or reference">
+        </div>
+        <button type="button" class="ud-btn" [class.is-on]="showAdvancedFilters()" (click)="toggleAdvancedFilters()" [attr.aria-expanded]="showAdvancedFilters()">
+          <i class="ri-equalizer-line" aria-hidden="true"></i><span class="ud-t">Filters</span>
+          @if (hasActiveFilters()) { <span class="ud-btn-dot" aria-label="Filters active"></span> }
+        </button>
         @if (canExport()) {
           <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="busy() || loading()" (click)="exportCsv()">
             <i class="ri-download-2-line" aria-hidden="true"></i><span class="ud-t">Export</span>
@@ -31,23 +51,6 @@
           </button>
         }
       </div>
-    </div>
-
-    <div class="ud-mast-tools">
-      <div class="ud-search">
-        <i class="ri-search-line" aria-hidden="true"></i>
-        <input id="udSearch" type="search" placeholder="Search by name, e-mail, username or reference"
-               [value]="searchText" (input)="onSearchChange($any($event.target).value)" aria-label="Search the directory">
-      </div>
-      <button type="button" class="ud-btn" [class.is-on]="showAdvancedFilters()" (click)="toggleAdvancedFilters()" [attr.aria-expanded]="showAdvancedFilters()">
-        <i class="ri-equalizer-line" aria-hidden="true"></i><span class="ud-t">Filters</span>
-        @if (hasActiveFilters()) { <span class="ud-btn-dot" aria-label="Filters active"></span> }
-      </button>
-      @if (dataScopeSummary()) {
-        <!-- <span class="ud-scope" [title]="dataScopeSummary()"><i class="ri-eye-line" aria-hidden="true"></i><span class="ud-t">{{ dataScopeSummary() }}</span></span> -->
-      } @else if (!loading() && !loadFailed()) {
-        <span class="ud-scope"><span class="ud-t"><b>{{ totalCount() }}</b> {{ totalCount() === 1 ? 'account' : 'accounts' }}</span></span>
-      }
     </div>
 
     @if (showAdvancedFilters()) {
@@ -85,17 +88,6 @@
         }
       </div>
     }
-
-    @if (bulkSelectionCount() > 0) {
-      <div class="ud-selection" role="status">
-        <span class="ud-selection-n">{{ bulkSelectionCount() }}</span>
-        <span class="ud-t">{{ bulkSelectionCount() === 1 ? 'account selected' : 'accounts selected' }}@if (selectedOffPage() > 0) { <span class="ud-selection-off"> · {{ selectedOffPage() }} on other pages</span> }</span>
-        <button type="button" class="ud-link" (click)="clearSelection()">Clear</button>
-        <button type="button" class=" ud-selection-go btn btn-primary btn-sm" (click)="goToBulkActions()">
-          <i class="ri-stack-line" aria-hidden="true"></i>&nbsp;&nbsp;<span class="ud-t">Bulk actions</span><i class="ri-arrow-right-line" aria-hidden="true"></i>
-        </button>
-      </div>
-    }
   </section>
 
   <!-- ============ WORKSPACE: the register of people, with the chosen person's dossier beside it ============ -->
@@ -107,7 +99,7 @@
           @for (n of skeletons; track n) {
             <div class="ud-row ud-row--ghost" aria-hidden="true">
               <span></span>
-              <span class="ud-who"><span class="ud-ghost ud-ghost--seal"></span><span class="ud-ghost-lines"><span class="ud-ghost ud-ghost--w60"></span><span class="ud-ghost ud-ghost--w40"></span></span></span>
+              <span class="ud-who"><span class="ud-ghost-lines"><span class="ud-ghost ud-ghost--w60"></span><span class="ud-ghost ud-ghost--w40"></span></span></span>
             </div>
           }
         </div>
@@ -163,7 +155,6 @@
               </label>
 
               <div class="ud-who">
-                <span class="ud-seal" aria-hidden="true">{{ initials(user.displayName) }}</span>
                 <span class="ud-who-text">
                   <button type="button" class="ud-name" (click)="focusUser(user)" [attr.aria-pressed]="focusedId() === user.id">{{ user.displayName }}</button>
                   <span class="ud-mail">{{ user.email }}</span>
@@ -227,7 +218,6 @@
     <aside class="ud-dossier" aria-label="Selected person" aria-live="polite">
       @if (focused(); as u) {
         <header class="ud-dos-head">
-          <span class="ud-seal ud-seal--lg" aria-hidden="true">{{ initials(u.displayName) }}</span>
           <div class="ud-dos-id">
             <h2 class="ud-dos-name">{{ u.displayName }}</h2>
             <span class="ud-dos-mail">{{ u.email }}</span>
@@ -349,7 +339,6 @@
 
         @if (detail(); as d) {
           <div class="dir-sheet-id">
-            <span class="dir-avatar dir-avatar-lg" [class]="avatarClass(d.displayName)">{{ initials(d.displayName) }}</span>
             <div class="min-w-0">
               <div class="dir-sheet-name text-truncate">{{ d.displayName }}</div>
               <div class="dir-sheet-mail text-truncate">{{ d.email }}</div>
@@ -468,7 +457,6 @@
         </div>
 
         <div class="dir-sheet-id dir-sheet-id-sm">
-          <span class="dir-avatar" [class]="avatarClass(selected()?.displayName)">{{ initials(selected()?.displayName) }}</span>
           <div class="min-w-0">
             <div class="dir-sheet-name text-truncate">{{ selected()?.displayName }}</div>
             <div class="dir-sheet-mail text-truncate">{{ selected()?.email }}</div>
@@ -655,7 +643,6 @@
     <div class="dir-dialog-body">
       <!-- Who this applies to -->
       <div class="dir-dialog-target">
-        <span class="dir-avatar" [class]="avatarClass(selected()?.displayName)">{{ initials(selected()?.displayName) }}</span>
         <div class="min-w-0">
           <div class="dir-dialog-target-name text-truncate">{{ selected()?.displayName }}</div>
           <div class="dir-email text-truncate">{{ selected()?.email }}</div>

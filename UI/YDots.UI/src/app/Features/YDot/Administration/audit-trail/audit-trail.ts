@@ -14,7 +14,8 @@ import { AuditSearchFilter, IamAdminApiService } from '../../../../Service/iam-a
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { AuditEventResponse } from '../../../../Shared/models/iam-contract.model';
 import { ApiEnumOption } from '../../../../Shared/models/enum-option.model';
-import { withoutGuids } from '../../../../Shared/models/identifier';
+import { supportReference, withoutGuids } from '../../../../Shared/models/identifier';
+import { ClickOutsideDirective } from '../../../../Shared/directives/click-outside';
 import { SupportReferencePipe } from '../../../../Shared/pipes/support-reference.pipe';
 import { ReadableIdPipe } from '../../../../Shared/pipes/readable-id.pipe';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
@@ -66,8 +67,72 @@ function humaniseKey(key: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+/**
+ * A machine word as words: `ViewedSensitiveContact` -> "Viewed sensitive contact". Only values made
+ * of three or more capitalised parts are touched, so names ("McDonald") and codes stay as written.
+ */
+function readableWord(value: string): string {
+  if (!/^(?:[A-Z][a-z]+){3,}$/.test(value)) {
+    return value;
+  }
+  const words = value.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 /** One cell of the Mon–Sun x time-of-day grid. */
 type HeatmapGrid = number[][];
+
+/** A line in the Record type / Outcome picker. */
+interface ComboOption {
+  value: string;
+  label: string;
+  context: string;
+  /** Replaces the initial in the round mark (used for the "All …" line). */
+  glyph?: string;
+  /** An outcome, so the mark can carry its colour. */
+  tone?: string;
+}
+
+interface DatePreset {
+  key: string;
+  label: string;
+}
+
+interface CalendarDay {
+  iso: string;
+  day: number;
+  inMonth: boolean;
+  isToday: boolean;
+  isStart: boolean;
+  isEnd: boolean;
+  inRange: boolean;
+  isPreviewEnd: boolean;
+  disabled: boolean;
+}
+
+/** One line of "What changed": a label, its value, and how deeply it is nested. */
+interface PayloadRow {
+  label: string;
+  value: string;
+  depth: number;
+  /** A heading line for a nested group (no value of its own). */
+  group: boolean;
+}
+
+/** A local calendar day as `yyyy-mm-dd`, the shape the date filters hold. */
+function toIso(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function parseIso(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
 
 /**
  * The audit trail.
@@ -92,7 +157,7 @@ type HeatmapGrid = number[][];
 @Component({
   selector: 'app-audit-trail',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule, SupportReferencePipe, ReadableIdPipe],
+  imports: [PageHeader, CommonModule, FormsModule, ClickOutsideDirective, SupportReferencePipe, ReadableIdPipe],
   templateUrl: './audit-trail.html',
   styleUrl: './audit-trail.css',
 })
@@ -163,6 +228,135 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
    * They were a literal three-item list.
    */
   readonly results = signal<ApiEnumOption[]>([]);
+
+  // ---- Record type / Outcome pickers ------------------------------------------------------------
+  // The same searchable list as the campaign wizard's Owner field: type to narrow, pick a line.
+
+  /** Which picker's list is open, if any. */
+  readonly openCombo = signal<'type' | 'result' | null>(null);
+  readonly comboQuery = signal('');
+  /** Keyboard highlight within the open list. */
+  readonly comboActive = signal(0);
+
+  /** Record types, each with how many of the events in view it accounts for. */
+  readonly typeOptions = computed<ComboOption[]>(() => {
+    const counts = new Map<string, number>();
+    for (const e of this.statsSource()) {
+      if (e.targetType) counts.set(e.targetType, (counts.get(e.targetType) ?? 0) + 1);
+    }
+    const inView = (n: number) => (n ? `${n} event${n === 1 ? '' : 's'} in view` : 'None in view');
+    return [
+      { value: '', label: 'All records', context: 'Every record type', glyph: 'ri-stack-line' },
+      ...this.targetTypes().map((t) => ({ value: t, label: t, context: inView(counts.get(t) ?? 0) })),
+    ];
+  });
+
+  readonly resultOptions = computed<ComboOption[]>(() => {
+    const notes: Record<string, string> = {
+      succeeded: 'Completed as requested',
+      denied: 'Refused by a permission check',
+      failed: 'Stopped by an error',
+    };
+    return [
+      { value: '', label: 'All outcomes', context: 'Succeeded, denied and failed', glyph: 'ri-stack-line' },
+      ...this.results().map((o) => ({
+        value: String(o.value),
+        label: o.label,
+        context: notes[String(o.value)] ?? 'Outcome',
+        tone: String(o.value),
+      })),
+    ];
+  });
+
+  /** The open picker's options, narrowed by what has been typed. */
+  readonly comboResults = computed<ComboOption[]>(() => {
+    const which = this.openCombo();
+    if (!which) return [];
+    const all = which === 'type' ? this.typeOptions() : this.resultOptions();
+    const q = this.comboQuery().trim().toLowerCase();
+    return q ? all.filter((o) => o.label.toLowerCase().includes(q)) : all;
+  });
+
+  readonly typeLabel = computed(
+    () => this.typeOptions().find((o) => o.value === this.targetType())?.label ?? this.targetType());
+  readonly resultLabel = computed(
+    () => this.resultOptions().find((o) => o.value === this.result())?.label ?? this.result());
+
+  // ---- Date range picker ------------------------------------------------------------------------
+
+  /** Which end of the range the calendar is choosing. */
+  readonly dateOpen = signal<'from' | 'to' | null>(null);
+  /** First day of the month on show. */
+  readonly viewMonth = signal(startOfMonth(new Date()));
+  readonly calendarMode = signal<'days' | 'months'>('days');
+  /** The day under the pointer while choosing the end, for the range preview. */
+  readonly hoverIso = signal('');
+
+  readonly weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  readonly monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  readonly datePresets: DatePreset[] = [
+    { key: 'today', label: 'Today' },
+    { key: 'yesterday', label: 'Yesterday' },
+    { key: '7d', label: 'Last 7 days' },
+    { key: '30d', label: 'Last 30 days' },
+    { key: 'month', label: 'This month' },
+    { key: 'lastMonth', label: 'Last month' },
+    { key: '90d', label: 'Last 90 days' },
+    { key: 'year', label: 'This year' },
+  ];
+
+  readonly monthTitle = computed(() =>
+    this.viewMonth().toLocaleDateString(undefined, { month: 'long' }));
+  readonly yearTitle = computed(() => this.viewMonth().getFullYear());
+
+  /** Six weeks, Monday first, with every state the grid paints. */
+  readonly calendarDays = computed<CalendarDay[]>(() => {
+    const first = this.viewMonth();
+    const today = toIso(new Date());
+    const from = this.fromDate();
+    const to = this.toDate();
+    const choosing = this.dateOpen();
+    // While choosing the end, the hovered day previews where the range would stop.
+    const end = to || (choosing === 'to' && from && this.hoverIso() >= from ? this.hoverIso() : '');
+
+    const start = new Date(first);
+    start.setDate(1 - ((first.getDay() + 6) % 7));
+
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const iso = toIso(d);
+      return {
+        iso,
+        day: d.getDate(),
+        inMonth: d.getMonth() === first.getMonth(),
+        isToday: iso === today,
+        isStart: iso === from,
+        isEnd: iso === to,
+        inRange: !!from && !!end && iso > from && iso < end,
+        isPreviewEnd: !to && iso === end && !!end,
+        disabled: iso > today || (choosing === 'to' && !!from && iso < from),
+      };
+    });
+  });
+
+  readonly canGoNextMonth = computed(() => {
+    const view = this.viewMonth();
+    const next = this.calendarMode() === 'months'
+      ? new Date(view.getFullYear() + 1, 0, 1)
+      : new Date(view.getFullYear(), view.getMonth() + 1, 1);
+    return next <= new Date();
+  });
+
+  /** "2 Oct 2026 – 9 Oct 2026" style span length, shown under the calendar. */
+  readonly rangeSpan = computed(() => {
+    const from = this.fromDate();
+    const to = this.toDate();
+    if (!from || !to) return '';
+    const days = Math.round((parseIso(to).getTime() - parseIso(from).getTime()) / 86_400_000) + 1;
+    return `${days} day${days === 1 ? '' : 's'}`;
+  });
 
   // ---- Recent Activity (visible slice + "load more") -------------------------------------------
 
@@ -409,7 +603,299 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
     this.result.set('');
     this.fromDate.set('');
     this.toDate.set('');
+    this.closeCombo();
+    this.closeDate();
     this.load();
+  }
+
+  // ---- Record type / Outcome pickers ------------------------------------------------------------
+
+  openComboFor(which: 'type' | 'result'): void {
+    if (this.openCombo() === which) return;
+    this.closeDate();
+    this.comboQuery.set('');
+    this.openCombo.set(which);
+    const current = which === 'type' ? this.targetType() : this.result();
+    this.comboActive.set(Math.max(0, this.comboResults().findIndex((o) => o.value === current)));
+  }
+
+  toggleCombo(which: 'type' | 'result'): void {
+    if (this.openCombo() === which) this.closeCombo();
+    else this.openComboFor(which);
+  }
+
+  closeCombo(): void {
+    this.openCombo.set(null);
+    this.comboQuery.set('');
+  }
+
+  onComboQuery(value: string): void {
+    this.comboQuery.set(value);
+    this.comboActive.set(0);
+  }
+
+  chooseCombo(option: ComboOption): void {
+    const which = this.openCombo();
+    if (which === 'type') this.targetType.set(option.value);
+    if (which === 'result') this.result.set(option.value);
+    this.closeCombo();
+    this.applyFilters();
+  }
+
+  clearCombo(which: 'type' | 'result'): void {
+    if (which === 'type') this.targetType.set('');
+    else this.result.set('');
+    this.closeCombo();
+    this.applyFilters();
+  }
+
+  onComboKey(event: KeyboardEvent, which: 'type' | 'result'): void {
+    const list = this.comboResults();
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        if (this.openCombo() !== which) { this.openComboFor(which); return; }
+        this.comboActive.update((i) => Math.min(list.length - 1, i + 1));
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        this.comboActive.update((i) => Math.max(0, i - 1));
+        break;
+      case 'Enter': {
+        event.preventDefault();
+        const option = list[this.comboActive()];
+        if (option) this.chooseCombo(option);
+        break;
+      }
+      case 'Escape':
+      case 'Tab':
+        this.closeCombo();
+        break;
+    }
+  }
+
+  // ---- Date range picker ------------------------------------------------------------------------
+
+  /** Opens the calendar on the start or end of the range, showing that day's month. */
+  openDate(which: 'from' | 'to'): void {
+    this.closeCombo();
+    if (this.dateOpen() !== which) {
+      const anchor = (which === 'from' ? this.fromDate() : this.toDate())
+        || (which === 'to' ? this.fromDate() : this.toDate());
+      this.viewMonth.set(startOfMonth(anchor ? parseIso(anchor) : new Date()));
+    }
+    this.calendarMode.set('days');
+    this.hoverIso.set('');
+    this.dateOpen.set(which);
+  }
+
+  closeDate(): void {
+    this.dateOpen.set(null);
+    this.hoverIso.set('');
+  }
+
+  shiftMonth(step: number): void {
+    const view = this.viewMonth();
+    let next = new Date(view.getFullYear(), view.getMonth() + step, 1);
+    if (this.calendarMode() === 'months') {
+      // A year forward lands on the latest month that has already begun.
+      next = new Date(view.getFullYear() + step, view.getMonth(), 1);
+      if (next > new Date()) next = startOfMonth(new Date());
+      if (next.getFullYear() === view.getFullYear()) return;
+    }
+    if (next > new Date()) return;
+    this.viewMonth.set(next);
+  }
+
+  toggleCalendarMode(): void {
+    this.calendarMode.update((m) => (m === 'days' ? 'months' : 'days'));
+  }
+
+  pickMonth(month: number): void {
+    this.viewMonth.set(new Date(this.viewMonth().getFullYear(), month, 1));
+    this.calendarMode.set('days');
+  }
+
+  isFutureMonth(month: number): boolean {
+    return new Date(this.viewMonth().getFullYear(), month, 1) > new Date();
+  }
+
+  isViewMonth(month: number): boolean {
+    return this.viewMonth().getMonth() === month;
+  }
+
+  /**
+   * Choosing the start moves straight on to the end, as a range picker should. A start after the
+   * current end drops the end rather than leaving a backwards range.
+   */
+  pickDay(day: CalendarDay): void {
+    if (day.disabled) return;
+
+    if (this.dateOpen() === 'from') {
+      this.fromDate.set(day.iso);
+      if (this.toDate() && this.toDate() < day.iso) this.toDate.set('');
+      this.applyFilters();
+      this.dateOpen.set('to');
+      this.hoverIso.set('');
+      if (!day.inMonth) this.viewMonth.set(startOfMonth(parseIso(day.iso)));
+      return;
+    }
+
+    this.toDate.set(day.iso);
+    this.applyFilters();
+    this.closeDate();
+  }
+
+  applyPreset(key: string): void {
+    const today = new Date();
+    const daysAgo = (n: number) => { const d = new Date(today); d.setDate(d.getDate() - n); return d; };
+    let from = today;
+    let to = today;
+
+    switch (key) {
+      case 'yesterday': from = to = daysAgo(1); break;
+      case '7d': from = daysAgo(6); break;
+      case '30d': from = daysAgo(29); break;
+      case '90d': from = daysAgo(89); break;
+      case 'month': from = startOfMonth(today); break;
+      case 'lastMonth':
+        from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        to = new Date(today.getFullYear(), today.getMonth(), 0);
+        break;
+      case 'year': from = new Date(today.getFullYear(), 0, 1); break;
+    }
+
+    this.fromDate.set(toIso(from));
+    this.toDate.set(toIso(to));
+    this.applyFilters();
+    this.closeDate();
+  }
+
+  /** Whether a preset describes the range already chosen, so it can be marked. */
+  isPresetActive(key: string): boolean {
+    if (!this.fromDate() || !this.toDate()) return false;
+    const before = [this.fromDate(), this.toDate()].join();
+    const today = new Date();
+    const daysAgo = (n: number) => { const d = new Date(today); d.setDate(d.getDate() - n); return toIso(d); };
+    const t = toIso(today);
+    const ranges: Record<string, string> = {
+      today: [t, t].join(),
+      yesterday: [daysAgo(1), daysAgo(1)].join(),
+      '7d': [daysAgo(6), t].join(),
+      '30d': [daysAgo(29), t].join(),
+      '90d': [daysAgo(89), t].join(),
+      month: [toIso(startOfMonth(today)), t].join(),
+      lastMonth: [toIso(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
+                  toIso(new Date(today.getFullYear(), today.getMonth(), 0))].join(),
+      year: [toIso(new Date(today.getFullYear(), 0, 1)), t].join(),
+    };
+    return ranges[key] === before;
+  }
+
+  clearDate(which: 'from' | 'to'): void {
+    if (which === 'from') this.fromDate.set('');
+    else this.toDate.set('');
+    this.applyFilters();
+  }
+
+  clearRange(): void {
+    this.fromDate.set('');
+    this.toDate.set('');
+    this.applyFilters();
+    this.dateOpen.set('from');
+  }
+
+  /** "2 Oct 2026" for a `yyyy-mm-dd` day. */
+  dateLabel(iso: string): string {
+    return iso
+      ? parseIso(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+      : '';
+  }
+
+  /** "Thursday" for a `yyyy-mm-dd` day. */
+  weekdayLabel(iso: string): string {
+    return iso ? parseIso(iso).toLocaleDateString(undefined, { weekday: 'long' }) : '';
+  }
+
+  dayAriaLabel(iso: string): string {
+    return parseIso(iso).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  // ---- Event detail -----------------------------------------------------------------------------
+
+  /** "Thu, 2 Oct 2026" for the detail panel. */
+  eventDateLong(occurredAtUtc: string | undefined): string {
+    return occurredAtUtc
+      ? new Date(occurredAtUtc).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+      : '—';
+  }
+
+  /** "14:32:05 GMT+5:30" - to the second, with the zone, because evidence needs both. */
+  eventTimeExact(occurredAtUtc: string | undefined): string {
+    return occurredAtUtc
+      ? new Date(occurredAtUtc).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' })
+      : '';
+  }
+
+  clientLabel(clientType: string | undefined): string {
+    switch (clientType) {
+      case 'web': return 'Web app';
+      case 'mobile': return 'Mobile app';
+      case 'desktop': return 'Desktop app';
+      case 'api': return 'API client';
+      default: return 'Unknown client';
+    }
+  }
+
+  clientIcon(clientType: string | undefined): string {
+    switch (clientType) {
+      case 'web': return 'ri-global-line';
+      case 'mobile': return 'ri-smartphone-line';
+      case 'desktop': return 'ri-computer-line';
+      case 'api': return 'ri-code-s-slash-line';
+      default: return 'ri-question-line';
+    }
+  }
+
+  /** "Chrome 154 on Windows" from a user-agent string; the raw string stays beneath it. */
+  browserSummary(userAgent: string | null | undefined): string {
+    const ua = userAgent || '';
+    const version = (re: RegExp) => ua.match(re)?.[1]?.split('.')[0] ?? '';
+
+    let browser = '';
+    if (/Edg\//.test(ua)) browser = `Edge ${version(/Edg\/([\d.]+)/)}`;
+    else if (/OPR\//.test(ua)) browser = `Opera ${version(/OPR\/([\d.]+)/)}`;
+    else if (/Firefox\//.test(ua)) browser = `Firefox ${version(/Firefox\/([\d.]+)/)}`;
+    else if (/Chrome\//.test(ua)) browser = `Chrome ${version(/Chrome\/([\d.]+)/)}`;
+    else if (/Safari\//.test(ua)) browser = `Safari ${version(/Version\/([\d.]+)/)}`;
+
+    let os = '';
+    if (/Windows NT/.test(ua)) os = 'Windows';
+    else if (/iPhone|iPad/.test(ua)) os = 'iOS';
+    else if (/Mac OS X/.test(ua)) os = 'macOS';
+    else if (/Android/.test(ua)) os = 'Android';
+    else if (/Linux/.test(ua)) os = 'Linux';
+
+    if (!browser && !os) return 'Unrecognised client';
+    return [browser.trim(), os].filter(Boolean).join(' on ');
+  }
+
+  browserIcon(userAgent: string | null | undefined): string {
+    const ua = userAgent || '';
+    if (/Edg\//.test(ua)) return 'ri-edge-line';
+    if (/Firefox\//.test(ua)) return 'ri-firefox-line';
+    if (/Chrome\//.test(ua)) return 'ri-chrome-line';
+    if (/Safari\//.test(ua)) return 'ri-safari-line';
+    return 'ri-window-line';
+  }
+
+  copySupportRef(correlationId: string | null | undefined): void {
+    const ref = supportReference(correlationId, '');
+    if (!ref) return;
+    navigator.clipboard?.writeText(ref).then(
+      () => this.toast.success('Copied', `Support reference ${ref} is on your clipboard.`),
+      () => this.toast.error('Copy failed', 'Select the reference and copy it instead.'),
+    );
   }
 
   /**
@@ -518,9 +1004,9 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
    * like an id is replaced as a last resort, because a GUID in this panel is exactly what the panel
    * exists to explain.
    */
-  formatPayload(payload: string | null | undefined): string {
+  payloadRows(payload: string | null | undefined): PayloadRow[] {
     if (!payload) {
-      return '';
+      return [];
     }
 
     let parsed: unknown;
@@ -528,44 +1014,44 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
     try {
       parsed = JSON.parse(payload);
     } catch {
-      return withoutGuids(payload, 'Record not available');
+      return [{ label: 'Detail', value: withoutGuids(payload, 'Record not available'), depth: 0, group: false }];
     }
 
-    const lines: string[] = [];
+    const rows: PayloadRow[] = [];
     const show = (value: unknown): string => {
       if (value === null || value === undefined || value === '') return '—';
       if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-      return withoutGuids(String(value), 'Record not available');
+      return readableWord(withoutGuids(String(value), 'Record not available'));
     };
     const isPlain = (value: unknown) => value === null || typeof value !== 'object';
 
-    const walk = (value: unknown, label: string, indent: string): void => {
+    const walk = (value: unknown, label: string, depth: number): void => {
       if (isPlain(value)) {
-        lines.push(`${indent}${label}: ${show(value)}`);
+        rows.push({ label, value: show(value), depth, group: false });
       } else if (Array.isArray(value)) {
         if (value.every(isPlain)) {
-          lines.push(`${indent}${label}: ${value.length ? value.map(show).join(', ') : 'None'}`);
+          rows.push({ label, value: value.length ? value.map(show).join(', ') : 'None', depth, group: false });
         } else {
-          lines.push(`${indent}${label}:`);
-          value.forEach((item, index) => walk(item, `${index + 1}`, indent + '  '));
+          rows.push({ label, value: '', depth, group: true });
+          value.forEach((item, index) => walk(item, `${index + 1}`, depth + 1));
         }
       } else {
-        lines.push(`${indent}${label}:`);
+        rows.push({ label, value: '', depth, group: true });
         for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-          walk(child, humaniseKey(key), indent + '  ');
+          walk(child, humaniseKey(key), depth + 1);
         }
       }
     };
 
     if (isPlain(parsed) || Array.isArray(parsed)) {
-      walk(parsed, 'Detail', '');
+      walk(parsed, 'Detail', 0);
     } else {
       for (const [key, child] of Object.entries(parsed as Record<string, unknown>)) {
-        walk(child, humaniseKey(key), '');
+        walk(child, humaniseKey(key), 0);
       }
     }
 
-    return lines.join('\n');
+    return rows;
   }
 
   /** A server sentence - an outcome reason - with any id in it replaced by words. */

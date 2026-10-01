@@ -1079,44 +1079,6 @@
   border-color: #d8dde4;
 }
 
-/* ---- Avatar — light pastel background + deep text, different per person ----------------- */
-
-.dir-avatar {
-  width: calc(45px * var(--ui-scale, 1));
-  height: calc(45px * var(--ui-scale, 1));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: hsl(calc(var(--theme-hue) - 1) 39% 30.2%);
-  color: #fff;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
-  /* padding: 10px; */
-  font-size: calc(calc(15px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  border: 2px solid #fff;
-  outline: 1px solid hsl(calc(var(--theme-hue) - 6) 25.5% 81.6%);
-  box-shadow: none;
-  flex-shrink: 0;
-}
-
-.dir-avatar-lg {
-  width: calc(64px * var(--ui-scale, 1));
-  height: calc(64px * var(--ui-scale, 1));
-  font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  border-width: calc(3px * var(--ui-scale, 1));
-}
-
-.dir-avatar.dir-av-0 { background: #e3f4ea; color: #1f6b45; }  /* mint    */
-.dir-avatar.dir-av-1 { background: #e4eefb; color: #2456a0; }  /* sky     */
-.dir-avatar.dir-av-2 { background: #efe9fc; color: #5b3fb0; }  /* lavender*/
-.dir-avatar.dir-av-3 { background: #fde8ee; color: #a3294f; }  /* rose    */
-.dir-avatar.dir-av-4 { background: #fdf2dc; color: #93600a; }  /* amber   */
-.dir-avatar.dir-av-5 { background: #dff4f3; color: #0f6e6a; }  /* teal    */
-.dir-avatar.dir-av-6 { background: #fdeadf; color: #b04a18; }  /* peach   */
-.dir-avatar.dir-av-7 { background: #e9edf3; color: #3e4c5e; }  /* slate   */
-.dir-avatar.dir-av-8 { background: #f9e7f6; color: #92307f; }  /* orchid  */
-.dir-avatar.dir-av-9 { background: #eef4dc; color: #56701a; }  /* olive   */
-
 /* ---- Table footer / pagination ------------------------------------------------------------ */
 
 .dir-table-foot {
@@ -1342,12 +1304,6 @@
   display: flex;
   align-items: center;
   gap: calc(14px * var(--ui-scale, 1));
-}
-
-.dir-sheet-id-sm .dir-avatar {
-  width: calc(44px * var(--ui-scale, 1));
-  height: calc(44px * var(--ui-scale, 1));
-  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
 }
 
 .dir-sheet-name {
@@ -1782,12 +1738,6 @@ textarea.dir-f-control {
   margin-bottom: calc(14px * var(--ui-scale, 1));
 }
 
-.dir-dialog-target .dir-avatar {
-  width: calc(36px * var(--ui-scale, 1));
-  height: calc(36px * var(--ui-scale, 1));
-  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-}
-
 .dir-dialog-target-name {
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
@@ -1977,11 +1927,11 @@ textarea.dir-f-control {
 
 /* =====================================================================================================
    USER DIRECTORY - "Register & dossier"
-   One white masthead: the title, the statuses as an underlined ledger of words and counts, and the two
-   actions on the top line; search and filters on the rule beneath (filters, and the bulk-selection strip,
-   fold out inside the same sheet). Below it the workspace splits in two: on the left a register of
-   people - one aligned line each (tick, outlined seal, name and e-mail, role, unit, status, last sign-in,
-   row tools) - and on the right the dossier of whoever is chosen: seal, name, status and two-step, then
+   One white masthead line: the title, the statuses as an underlined ledger of words and counts, then
+   (right) bulk actions when anyone is ticked, a compact search, filters and the two actions; the filters
+   fold out beneath inside the same sheet. Below it the workspace splits in two: on the left a register of
+   people - one aligned line each (tick, name and e-mail, role, unit, status, last sign-in,
+   row tools) - and on the right the dossier of whoever is chosen: name, status and two-step, then
    identity / organisation / access facts, roles and the actions that apply. Choosing a line opens that
    person beside the list, so nobody has to open a drawer to read a record. The chosen line is told by a
    short theme rule on its left edge, never a fill. Below 980px the dossier steps aside and each line
@@ -2137,9 +2087,10 @@ textarea.dir-f-control {
 .ud-ledger-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: -4px; }
 .ud-mast-acts { display: flex; align-items: center; gap: calc(8px * var(--s)); margin-left: auto; padding: calc(8px * var(--s)) 0; }
 
-.ud-mast-tools { display: flex; align-items: center; flex-wrap: wrap; gap: calc(10px * var(--s)); padding: calc(10px * var(--s)) calc(16px * var(--s)); }
+/* search sits in the masthead row, compact; it widens a little while it is being used */
 .ud-search {
-  flex: 1 1 calc(320px * var(--s));
+  flex: 0 1 calc(210px * var(--s));
+  width: calc(210px * var(--s));
   display: flex;
   align-items: center;
   gap: calc(8px * var(--s));
@@ -2148,9 +2099,9 @@ textarea.dir-f-control {
   border: 1px solid var(--ud-line);
   border-radius:8px;
   background: #ffffff;
-  transition: border-color .15s ease;
+  transition: border-color .15s ease, flex-basis .2s ease, width .2s ease;
 }
-.ud-search:focus-within { border-color: var(--primary); }
+.ud-search:focus-within { border-color: var(--primary); flex-basis: calc(260px * var(--s)); width: calc(260px * var(--s)); }
 .ud-search > i { color: var(--ud-faint); font-size: calc(calc(15px * var(--s)) * var(--ui-text-scale, 1)); }
 .ud-search input {
   flex: 1;
@@ -2161,19 +2112,8 @@ textarea.dir-f-control {
   color: var(--ud-ink);
   font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
 }
-.ud-scope {
-  display: inline-flex;
-  align-items: center;
-  gap: calc(6px * var(--s));
-  max-width: calc(320px * var(--s));
-  color: var(--ud-muted);
-  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.ud-scope > .ud-t { overflow: hidden; text-overflow: ellipsis; }
 
-/* filters and the selection strip fold out inside the masthead */
+/* filters fold out inside the masthead */
 .ud-filters { padding: calc(12px * var(--s)) calc(16px * var(--s)) calc(14px * var(--s)); border-top: 1px solid var(--ud-line-2); }
 .ud-filters-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(12px * var(--s)); }
 .ud-filters-foot { display: flex; align-items: center; flex-wrap: wrap; gap: calc(8px * var(--s)); margin-top: calc(12px * var(--s)); }
@@ -2198,20 +2138,35 @@ textarea.dir-f-control {
 }
 .ud-opt:hover, .ud-opt.is-on { border-color: var(--primary); color: var(--primary); }
 
-.ud-selection {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: calc(10px * var(--s));
-  padding: calc(8px * var(--s)) calc(16px * var(--s));
-  border-top: 1px solid var(--ud-line-2);
-  color: var(--ud-ink-2);
-  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+/* bulk actions: appears ahead of search as soon as someone is ticked */
+.ud-bulk { display: inline-flex; align-items: center; gap: calc(2px * var(--s)); }
+.ud-bulk-n {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  display: inline-grid;
+  place-items: center;
+  min-width: calc(20px * var(--s));
+  height: calc(20px * var(--s));
+  padding: 0 calc(6px * var(--s));
+  border-radius: calc(999px * var(--s));
+  background: color-mix(in srgb, #ffffff 22%, transparent);
+  font-family: var(--font-number);
+  font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
 }
-.ud-selection-n { font-family: var(--font-number); font-size: calc(calc(15px * var(--s)) * var(--ui-text-scale, 1)) !important; font-weight: 700 !important; color: var(--ud-accent); }
-.ud-selection-off { color: var(--ud-muted); font-weight: 500; }
-.ud-selection-go { margin-left: auto; }
+.ud-bulk-x {
+  display: inline-grid;
+  place-items: center;
+  width: calc(26px * var(--s));
+  height: calc(26px * var(--s));
+  padding: 0;
+  border: 0;
+  border-radius: calc(8px * var(--s));
+  background: transparent;
+  color: var(--ud-muted);
+  cursor: pointer;
+}
+.ud-bulk-x > i { font-size: calc(calc(15px * var(--s)) * var(--ui-text-scale, 1)); line-height: 1; }
+.ud-bulk-x:hover { color: var(--ud-ink); background: var(--ud-hover); }
 
 /* ---- workspace ---------------------------------------------------------------------------- */
 .ud-work { display: grid; grid-template-columns: minmax(0, 1fr) calc(340px * var(--s)); gap: calc(12px * var(--s)); align-items: start; }
@@ -2253,7 +2208,6 @@ textarea.dir-f-control {
 }
 .ud-row.is-focus::before { background: var(--primary); }
 .ud-row.is-focus .ud-name { color: var(--primary); }
-.ud-row.is-focus .ud-seal { border-color: var(--primary); color: var(--primary); }
 .ud-row--head {
   min-height: calc(38px * var(--s));
   border-top: 0;
@@ -2290,23 +2244,6 @@ textarea.dir-f-control {
 .ud-sort-arrow.is-desc { transform: rotate(180deg); }
 
 .ud-who { display: flex; align-items: center; gap: calc(10px * var(--s)); min-width: 0; }
-.ud-seal {
-  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: calc(32px * var(--s));
-  height: calc(32px * var(--s));
-  border: 1.5px solid var(--ud-ink-2);
-  border-radius: 50%;
-  background: #ffffff;
-  color: var(--ud-ink-2);
-  font-family: var(--font-display);
-  font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  letter-spacing: .02em;
-  transition: border-color .15s ease, color .15s ease;
-}
 .ud-who-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
 .ud-name {
   padding: 0;
@@ -2391,7 +2328,6 @@ textarea.dir-f-control {
   background-size: 200% 100%;
   animation: ud-shimmer 1.3s ease-in-out infinite;
 }
-.ud-ghost--seal { flex: none; width: calc(32px * var(--s)); height: calc(32px * var(--s)); border-radius: 50%; }
 .ud-row--ghost > .ud-who { grid-column: 2 / -1; }
 .ud-ghost-lines { flex: 1; display: flex; flex-direction: column; gap: calc(6px * var(--s)); }
 .ud-ghost--w60 { width: 40%; height: calc(11px * var(--s)); }
@@ -2452,15 +2388,6 @@ textarea.dir-f-control {
   gap: calc(14px * var(--s));
   padding: calc(16px * var(--s)) calc(18px * var(--s)) calc(14px * var(--s));
   border-bottom: 1px solid var(--ud-line-2);
-}
-.ud-seal--lg {
-  width: calc(50px * var(--s));
-  height: calc(50px * var(--s));
-  border-color: var(--primary);
-  color: var(--primary);
-  font-size: calc(calc(17px * var(--s)) * var(--ui-text-scale, 1)) !important;
-  outline: 1px solid color-mix(in srgb, var(--primary)  70%, #ffffff);
-  outline-offset: calc(3px * var(--s));
 }
 .ud-dos-id { display: flex; flex-direction: column; gap: calc(2px * var(--s)); min-width: 0; }
 .ud-dos-name {
@@ -2587,24 +2514,12 @@ textarea.dir-f-control {
 @container ud (max-width: 680px) {
   .ud-col-role, .ud-col-seen { display: none; }
   .ud-register { --ud-cols: calc(22px * var(--s)) minmax(0, 1fr) calc(100px * var(--s)) calc(94px * var(--s)); }
-  .ud-mast-acts { margin-left: 0; }
-  .ud-scope { display: none; }
+  .ud-mast-acts { margin-left: 0; flex-wrap: wrap; width: 100%; }
+  .ud-search, .ud-search:focus-within { flex: 1 1 calc(180px * var(--s)); width: auto; }
   .ud-pager { margin-left: 0; }
 }
 
-/* ---- view / edit sheet and confirmations: outlined monogram, display-face name (no pastel fills) ---- */
-.dir-sheet .dir-avatar,
-.dir-dialog .dir-avatar {
-  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
-  display: grid !important;
-  place-items: center;
-  border: 1.5px solid var(--dir-ink-900, #15181b) !important;
-  border-radius: 50% !important;
-  background: #ffffff !important;
-  color: var(--dir-ink-900, #15181b) !important;
-  font-family: var(--font-display);
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-}
+/* ---- view / edit sheet and confirmations: display-face name, no avatars, no pastel fills ---- */
 .dir-sheet .dir-sheet-name {
   --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   font-family: var(--font-display);

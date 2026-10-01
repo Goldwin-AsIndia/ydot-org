@@ -140,47 +140,212 @@
           </div>
         </div>
 
+        <!--
+          Record type and Outcome: the campaign wizard's Owner list - a search box that opens a
+          list of lines, each with a round initial mark, a name and one line of context.
+        -->
         <div class="at-field">
           <label class="at-field__label" for="audit-type">Record type</label>
-          <div class="at-control at-control--select">
-            <i class="ri-folder-2-line at-control__icon"></i>
-            <select id="audit-type" class="at-control__input"
-                    [ngModel]="targetType()"
-                    (ngModelChange)="targetType.set($event); applyFilters()">
-              <option value="">All records</option>
-              @for (type of targetTypes(); track type) {
-                <option [value]="type">{{ type }}</option>
-              }
-            </select>
-            <i class="ri-arrow-down-s-line at-control__caret"></i>
-          </div>
+          <ng-container *ngTemplateOutlet="combo; context: {
+            $implicit: 'type', id: 'audit-type', value: targetType(), label: typeLabel(),
+            glyph: 'ri-folder-2-line', all: 'All records', hint: 'Search record types…' }" />
         </div>
 
         <div class="at-field">
           <label class="at-field__label" for="audit-result">Outcome</label>
-          <div class="at-control at-control--select">
-            <i class="ri-pulse-line at-control__icon"></i>
-            <select id="audit-result" class="at-control__input"
-                    [ngModel]="result()" (ngModelChange)="result.set($event); applyFilters()">
-              <option value="">All outcomes</option>
-              @for (option of results(); track option.value) {
-                <option [value]="option.value">{{ option.label }}</option>
-              }
-            </select>
-            <i class="ri-arrow-down-s-line at-control__caret"></i>
-          </div>
+          <ng-container *ngTemplateOutlet="combo; context: {
+            $implicit: 'result', id: 'audit-result', value: result(), label: resultLabel(),
+            glyph: 'ri-pulse-line', all: 'All outcomes', hint: 'Search outcomes…' }" />
         </div>
 
-        <div class="at-field at-field--dates">
-          <span class="at-field__label" id="audit-dates-label">Date range</span>
-          <div class="at-control at-control--dates" role="group" aria-labelledby="audit-dates-label">
-            <i class="ri-calendar-line at-control__icon"></i>
-            <input type="date" class="at-control__input at-control__date" aria-label="From date"
-                   [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event); applyFilters()">
-            <span class="at-control__sep">→</span>
-            <input type="date" class="at-control__input at-control__date" aria-label="To date"
-                   [ngModel]="toDate()" (ngModelChange)="toDate.set($event); applyFilters()">
+        <ng-template #combo let-which let-id="id" let-value="value" let-label="label"
+                     let-glyph="glyph" let-all="all" let-hint="hint">
+          <div class="at-combo" appClickOutside (appClickOutside)="openCombo() === which && closeCombo()">
+            <div class="at-control at-control--combo" [class.is-open]="openCombo() === which"
+                 (click)="openComboFor(which); comboInput.focus()">
+              <i class="{{ glyph }} at-control__icon"></i>
+              <input #comboInput [id]="id" type="text" class="at-control__input" autocomplete="off"
+                     role="combobox" aria-autocomplete="list"
+                     [attr.aria-expanded]="openCombo() === which" [attr.aria-controls]="id + '-list'"
+                     [placeholder]="openCombo() === which ? (value ? label : hint) : all"
+                     [value]="openCombo() === which ? comboQuery() : (value ? label : '')"
+                     (input)="onComboQuery(comboInput.value)"
+                     (focus)="openComboFor(which)"
+                     (keydown)="onComboKey($event, which)">
+              @if (value) {
+                <button type="button" class="at-control__clear" [attr.aria-label]="'Clear ' + label"
+                        (click)="$event.stopPropagation(); clearCombo(which)">
+                  <i class="ri-close-line"></i>
+                </button>
+              }
+              <button type="button" class="at-control__caret" tabindex="-1" aria-hidden="true"
+                      (click)="$event.stopPropagation(); toggleCombo(which)">
+                <i class="ri-arrow-down-s-line"></i>
+              </button>
+            </div>
+
+            @if (openCombo() === which) {
+              <ul class="at-combo__list" [id]="id + '-list'" role="listbox">
+                @for (o of comboResults(); track o.value; let i = $index) {
+                  <li role="option" [attr.aria-selected]="o.value === value">
+                    <button type="button" class="at-combo__option"
+                            [class.is-active]="i === comboActive()" [class.is-selected]="o.value === value"
+                            (mouseenter)="comboActive.set(i)" (click)="chooseCombo(o)">
+                      <span class="at-combo__mark at-combo__mark--{{ o.tone || 'plain' }}" aria-hidden="true">
+                        @if (o.glyph) { <i class="{{ o.glyph }}"></i> } @else { {{ o.label.charAt(0) }} }
+                      </span>
+                      <span class="at-combo__body">
+                        <span class="at-combo__label">{{ o.label }}</span>
+                        <span class="at-combo__context">{{ o.context }}</span>
+                      </span>
+                      @if (o.value === value) {
+                        <i class="ri-check-line at-combo__tick" aria-hidden="true"></i>
+                      }
+                    </button>
+                  </li>
+                } @empty {
+                  <li class="at-combo__empty">Nothing matches “{{ comboQuery() }}”.</li>
+                }
+              </ul>
+            }
           </div>
+        </ng-template>
+
+        <!--
+          Date range: two halves, Start and End. A press anywhere in a half opens the calendar on
+          that end; choosing the start moves straight on to the end.
+        -->
+        <div class="at-field at-field--dates" appClickOutside (appClickOutside)="dateOpen() && closeDate()">
+          <span class="at-field__label" id="audit-dates-label">Date range</span>
+          <div class="at-range" role="group" aria-labelledby="audit-dates-label" [class.is-open]="dateOpen()">
+            <div class="at-range__end" [class.is-active]="dateOpen() === 'from'" [class.is-set]="fromDate()">
+              <button type="button" class="at-range__hit" aria-haspopup="dialog"
+                      [attr.aria-expanded]="dateOpen() === 'from'" (click)="openDate('from')">
+                <i class="ri-calendar-event-line at-range__glyph"></i>
+                <span class="at-range__value">{{ fromDate() ? dateLabel(fromDate()) : 'Start date' }}</span>
+              </button>
+              @if (fromDate()) {
+                <button type="button" class="at-control__clear" aria-label="Clear start date"
+                        (click)="clearDate('from')"><i class="ri-close-line"></i></button>
+              }
+            </div>
+
+            <span class="at-range__arrow" aria-hidden="true"><i class="ri-arrow-right-line"></i></span>
+
+            <div class="at-range__end" [class.is-active]="dateOpen() === 'to'" [class.is-set]="toDate()">
+              <button type="button" class="at-range__hit" aria-haspopup="dialog"
+                      [attr.aria-expanded]="dateOpen() === 'to'" (click)="openDate('to')">
+                <i class="ri-calendar-check-line at-range__glyph"></i>
+                <span class="at-range__value">{{ toDate() ? dateLabel(toDate()) : 'End date' }}</span>
+              </button>
+              @if (toDate()) {
+                <button type="button" class="at-control__clear" aria-label="Clear end date"
+                        (click)="clearDate('to')"><i class="ri-close-line"></i></button>
+              }
+            </div>
+          </div>
+
+          @if (dateOpen()) {
+            <div class="at-cal" role="dialog" aria-label="Choose a date range" (keydown.escape)="closeDate()">
+              <div class="at-cal__presets">
+                <span class="at-cal__kicker">Quick ranges</span>
+                @for (p of datePresets; track p.key) {
+                  <button type="button" class="at-cal__preset" [class.is-on]="isPresetActive(p.key)"
+                          (click)="applyPreset(p.key)">
+                    <span>{{ p.label }}</span>
+                    @if (isPresetActive(p.key)) { <i class="ri-check-line"></i> }
+                  </button>
+                }
+              </div>
+
+              <div class="at-cal__main">
+                <!-- Which end is being chosen: the active one carries the underline. -->
+                <div class="at-cal__ends">
+                  <button type="button" class="at-cal__endtab" [class.is-on]="dateOpen() === 'from'"
+                          (click)="openDate('from')">
+                    <span class="at-cal__endcap">Start</span>
+                    <span class="at-cal__endval" [class.is-empty]="!fromDate()">
+                      {{ fromDate() ? dateLabel(fromDate()) : 'Pick a day' }}
+                    </span>
+                  </button>
+                  <i class="ri-arrow-right-line at-cal__endarrow" aria-hidden="true"></i>
+                  <button type="button" class="at-cal__endtab" [class.is-on]="dateOpen() === 'to'"
+                          (click)="openDate('to')">
+                    <span class="at-cal__endcap">End</span>
+                    <span class="at-cal__endval" [class.is-empty]="!toDate()">
+                      {{ toDate() ? dateLabel(toDate()) : 'Pick a day' }}
+                    </span>
+                  </button>
+                </div>
+
+                <div class="at-cal__head">
+                  <button type="button" class="at-cal__nav" aria-label="Previous" (click)="shiftMonth(-1)">
+                    <i class="ri-arrow-left-s-line"></i>
+                  </button>
+                  <button type="button" class="at-cal__title" (click)="toggleCalendarMode()"
+                          [attr.aria-label]="calendarMode() === 'days' ? 'Choose month' : 'Back to days'">
+                    @if (calendarMode() === 'days') {
+                      <span class="at-cal__month">{{ monthTitle() }}</span>
+                    }
+                    <span class="at-cal__year">{{ yearTitle() }}</span>
+                    <i class="ri-arrow-down-s-line at-cal__titlecaret" [class.is-up]="calendarMode() === 'months'"></i>
+                  </button>
+                  <button type="button" class="at-cal__nav" aria-label="Next"
+                          [disabled]="!canGoNextMonth()" (click)="shiftMonth(1)">
+                    <i class="ri-arrow-right-s-line"></i>
+                  </button>
+                </div>
+
+                @if (calendarMode() === 'days') {
+                  <div class="at-cal__weekdays" aria-hidden="true">
+                    @for (w of weekdays; track w) { <span>{{ w }}</span> }
+                  </div>
+                  <div class="at-cal__grid" (mouseleave)="hoverIso.set('')">
+                    @for (d of calendarDays(); track d.iso) {
+                      <div class="at-cal__cell"
+                           [class.is-range]="d.inRange"
+                           [class.is-start]="d.isStart"
+                           [class.is-end]="d.isEnd || d.isPreviewEnd"
+                           [class.has-end]="!!toDate() || d.isPreviewEnd || d.inRange">
+                        <button type="button" class="at-cal__day"
+                                [class.is-out]="!d.inMonth"
+                                [class.is-today]="d.isToday"
+                                [class.is-picked]="d.isStart || d.isEnd"
+                                [class.is-preview]="d.isPreviewEnd"
+                                [disabled]="d.disabled"
+                                [attr.aria-label]="dayAriaLabel(d.iso)"
+                                [attr.aria-pressed]="d.isStart || d.isEnd"
+                                (mouseenter)="hoverIso.set(d.iso)"
+                                (click)="pickDay(d)">{{ d.day }}</button>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="at-cal__months">
+                    @for (m of monthNames; track m; let i = $index) {
+                      <button type="button" class="at-cal__monthcell" [class.is-on]="isViewMonth(i)"
+                              [disabled]="isFutureMonth(i)" (click)="pickMonth(i)">{{ m }}</button>
+                    }
+                  </div>
+                }
+
+                <div class="at-cal__foot">
+                  <span class="at-cal__span">
+                    @if (rangeSpan()) {
+                      <i class="ri-time-line"></i> {{ rangeSpan() }} selected
+                    } @else if (dateOpen() === 'from') {
+                      Choose the first day
+                    } @else {
+                      Choose the last day
+                    }
+                  </span>
+                  <button type="button" class="at-cal__btn" [disabled]="!fromDate() && !toDate()"
+                          (click)="clearRange()">Clear</button>
+                  <button type="button" class="at-cal__btn at-cal__btn--primary" (click)="closeDate()">Done</button>
+                </div>
+              </div>
+            </div>
+          }
         </div>
 
         <div class="at-field at-field--action">
@@ -258,7 +423,7 @@
                   </thead>
                   <tbody>
                     @for (event of visibleEvents(); track event.id) {
-                      <tr class="audit-table-row" (click)="toggleDetail(event.id)">
+                      <tr class="audit-table-row" [class.is-open]="expandedId() === event.id" (click)="toggleDetail(event.id)">
                         <td class="audit-table-icon-col">
                           <i class="{{ actionIcon(event.actionCode) }} text-{{ iconTint(event.actionCode, event.result) }} audit-table-icon"></i>
                         </td>
@@ -312,27 +477,68 @@
                       @if (expandedId() === event.id) {
                         <tr class="audit-table-detail-row">
                           <td colspan="7">
-                            <div class="row g-4 small">
-                              <div class="col-md-4">
-                                <div class="text-muted">Support reference</div>
-                                <code>{{ event.correlationId | supportRef }}</code>
-                              </div>
-                              <div class="col-md-4">
-                                <div class="text-muted">From</div>
-                                <div>{{ event.ipAddress || '—' }}</div>
-                                <div class="text-muted">{{ event.clientType }}</div>
-                              </div>
-                              <div class="col-md-4">
-                                <div class="text-muted">Request</div>
-                                <code>{{ requestPathLabel(event.requestPath) }}</code>
-                              </div>
-
-                              @if (event.userAgent) {
-                                <div class="col-12">
-                                  <div class="text-muted">Browser</div>
-                                  <code class="d-block text-break">{{ event.userAgent }}</code>
+                            <!--
+                              The event record: what happened and when (to the second), the four facts
+                              someone investigating would quote, then the change itself as a ledger.
+                            -->
+                            <article class="at-rec" [attr.aria-label]="'Detail for ' + (event.actionDisplay || event.actionCode)">
+                              <header class="at-rec__head">
+                                <div class="at-rec__heading">
+                                  <span class="at-rec__kicker">Event record</span>
+                                  <span class="at-rec__title">{{ event.actionDisplay || event.actionCode }}</span>
                                 </div>
-                              }
+                                <div class="at-rec__meta">
+                                  <span class="at-rec__outcome at-rec__outcome--{{ event.result || 'unknown' }}">
+                                    <span class="at-rec__dot"></span>{{ event.resultDisplay || event.result }}
+                                  </span>
+                                  <span class="at-rec__when">
+                                    <i class="ri-time-line"></i>
+                                    {{ eventDateLong(event.occurredAtUtc) }}
+                                    <span class="at-rec__sep">·</span>
+                                    <span class="at-rec__mono">{{ eventTimeExact(event.occurredAtUtc) }}</span>
+                                  </span>
+                                </div>
+                              </header>
+
+                              <div class="at-rec__facts">
+                                <div class="at-rec__fact">
+                                  <span class="at-rec__cap"><i class="ri-hashtag"></i>Support reference</span>
+                                  <span class="at-rec__val at-rec__mono at-rec__ref">
+                                    {{ event.correlationId | supportRef }}
+                                    @if (event.correlationId) {
+                                      <button type="button" class="at-rec__copy" title="Copy support reference"
+                                              (click)="$event.stopPropagation(); copySupportRef(event.correlationId)">
+                                        <i class="ri-file-copy-line"></i>
+                                      </button>
+                                    }
+                                  </span>
+                                  <span class="at-rec__sub">Quote this to support</span>
+                                </div>
+
+                                <div class="at-rec__fact">
+                                  <span class="at-rec__cap"><i class="ri-map-pin-line"></i>From</span>
+                                  <span class="at-rec__val at-rec__mono">{{ event.ipAddress || '—' }}</span>
+                                  <span class="at-rec__sub"><i class="{{ clientIcon(event.clientType) }}"></i>{{ clientLabel(event.clientType) }}</span>
+                                </div>
+
+                                <div class="at-rec__fact">
+                                  <span class="at-rec__cap"><i class="ri-route-line"></i>Request</span>
+                                  <span class="at-rec__val at-rec__mono at-rec__path" [title]="requestPathLabel(event.requestPath)">
+                                    {{ requestPathLabel(event.requestPath) }}
+                                  </span>
+                                  <span class="at-rec__sub">On {{ event.targetType || 'record' }}</span>
+                                </div>
+
+                                <div class="at-rec__fact">
+                                  <span class="at-rec__cap"><i class="ri-window-line"></i>Browser</span>
+                                  @if (event.userAgent) {
+                                    <span class="at-rec__val"><i class="{{ browserIcon(event.userAgent) }} at-rec__valglyph"></i>{{ browserSummary(event.userAgent) }}</span>
+                                    <span class="at-rec__sub at-rec__ua" [title]="event.userAgent">{{ event.userAgent }}</span>
+                                  } @else {
+                                    <span class="at-rec__val at-rec__val--empty">Not recorded</span>
+                                  }
+                                </div>
+                              </div>
 
                               <!--
                                 The payload is withheld from anybody without the sensitive-detail
@@ -340,19 +546,24 @@
                                 seeing the contents of the change is not.
                               -->
                               @if (event.metadata) {
-                                <div class="col-12">
-                                  <div class="text-muted">What changed</div>
-                                  <pre class="audit-payload mb-0">{{ formatPayload(event.metadata) }}</pre>
-                                </div>
+                                <section class="at-rec__changes">
+                                  <span class="at-rec__cap"><i class="ri-git-commit-line"></i>What changed</span>
+                                  <dl class="at-rec__ledger">
+                                    @for (row of payloadRows(event.metadata); track $index) {
+                                      <div class="at-rec__line" [class.is-group]="row.group" [style.--depth]="row.depth">
+                                        <dt>{{ row.label }}</dt>
+                                        @if (!row.group) { <dd>{{ row.value }}</dd> }
+                                      </div>
+                                    }
+                                  </dl>
+                                </section>
                               } @else if (event.isSensitive && !canSeeDetail()) {
-                                <div class="col-12">
-                                  <div class="alert alert-light border mb-0 small">
-                                    <i class="ri-lock-line me-1"></i>
-                                    The details of this change are not available to your account.
-                                  </div>
-                                </div>
+                                <section class="at-rec__changes at-rec__changes--locked">
+                                  <i class="ri-lock-line"></i>
+                                  <span>The details of this change are not available to your account.</span>
+                                </section>
                               }
-                            </div>
+                            </article>
                           </td>
                         </tr>
                       }
