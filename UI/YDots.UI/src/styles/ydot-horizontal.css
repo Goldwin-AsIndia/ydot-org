@@ -1,0 +1,249 @@
+/* =====================================================================================================
+   HORIZONTAL LAYOUT  (Theme settings > Layout > Horizontal  ->  <html data-layout="horizontal">)
+
+   The vertical layout is a fixed rail down the left with the page offset by its width. Horizontal turns
+   the same <aside id="sidebar"> into a navigation bar that sits directly under the top bar: the brand on
+   the left, the top-level menu items in a row, and each group's children in a drop-down opened on hover
+   (or keyboard focus). Nothing is offset sideways, so the page uses the full width.
+
+   The theme's own horizontal rules assume markup this app does not have (.horizontal-sidebar,
+   .pe-horizontal-menu) and hide .pe-app-sidebar outright, which is why choosing Horizontal made the
+   menu disappear. These rules replace them. Desktop only: below 992px the menu stays the slide-in drawer.
+   ===================================================================================================== */
+
+[data-layout='horizontal'] {
+  --hz-nav-h: var(--pe-app-header-height);
+}
+
+/* ---- Phone / tablet: the theme hid the sidebar for this layout; keep the drawer working. ---- */
+@media (max-width: 991.98px) {
+  [data-layout='horizontal'] .pe-app-sidebar {
+    display: block !important;
+  }
+  [data-layout='horizontal'] .app-header {
+    background-color: var(--pe-secondary-bg);
+  }
+}
+
+@media (min-width: 992px) {
+  /* The rail's fold button has nothing to fold here. */
+  [data-layout='horizontal'] .tb-menu {
+    display: none !important;
+  }
+
+  /* ---- Top bar: there is only ONE bar in this layout. The header keeps just its right-hand group
+          (fullscreen, notifications, avatar) and floats over the menu bar's right end; the rest of it,
+          including its own background and frame, is gone. ---- */
+  [data-layout='horizontal'] .app-header,
+  [data-layout='horizontal'] .app-header.tb {
+    left: auto !important;
+    right: 0;
+    top: 0;
+    width: auto !important;
+    height: var(--hz-nav-h);
+    margin: 0 !important;
+    padding: 0;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    z-index: 1007;
+  }
+  [data-layout='horizontal'] .tb__group:not(.tb__group--end) {
+    display: none;
+  }
+  [data-layout='horizontal'] .tb__inner {
+    padding-inline: 0 calc(14px * var(--ui-scale, 1));
+  }
+  /* Profile is the avatar alone: no name, role or arrow. */
+  [data-layout='horizontal'] .tb-profile__text,
+  [data-layout='horizontal'] .tb-profile__chev {
+    display: none !important;
+  }
+  [data-layout='horizontal'] .tb-profile {
+    padding: calc(2px * var(--ui-scale, 1));
+    gap: 0;
+  }
+
+  /* ---- The bar itself ---- */
+  [data-layout='horizontal'] .pe-app-sidebar {
+    display: flex !important;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    width: 100% !important;
+    height: var(--hz-nav-h);
+    z-index: 1004;
+    transform: none;
+    visibility: visible;
+    border-inline-end: 0 !important;
+    border-bottom: 1px solid var(--theme-border, var(--pe-border-color)) !important;
+    box-shadow: none !important;
+    /* leaves room for the three buttons the header floats over the right end */
+    padding-inline: calc(14px * var(--ui-scale, 1)) calc(170px * var(--ui-scale, 1));
+  }
+
+  [data-layout='horizontal'] .pe-app-sidebar .pe-app-sidebar-logo {
+    flex: none;
+    height: var(--hz-nav-h);
+    padding-inline: 0 !important;
+    margin-inline-end: calc(18px * var(--ui-scale, 1));
+    border-bottom: 0 !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-app-sidebar-logo .logo-main {
+    width: auto !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-app-sidebar-logo .sidebar-close,
+  [data-layout='horizontal'] .pe-app-sidebar #sidebarDefaultArrow {
+    display: none !important;
+  }
+
+  /* ---- The row of top-level items. SimpleBar clips its content, which would cut the drop-downs off. ---- */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-app-sidebar-menu {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-app-sidebar-menu :is(.simplebar-wrapper, .simplebar-mask, .simplebar-content-wrapper, .simplebar-offset) {
+    overflow: visible !important;
+    position: static !important;
+    height: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    inset: auto !important;
+    margin: 0 !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-app-sidebar-menu :is(.simplebar-track, .simplebar-placeholder) {
+    display: none !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-app-sidebar-menu :is(.simplebar-content, .simplebar-content > div) {
+    height: 100%;
+    padding: 0 !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-app-sidebar-menu .d-flex.flex-column {
+    flex-direction: row !important;
+    align-items: center !important;
+    height: 100%;
+  }
+
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu {
+    display: flex !important;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: calc(4px * var(--ui-scale, 1));
+    height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-menu-title {
+    display: none !important;
+  }
+
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide {
+    position: relative;
+    flex: none;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    margin: 0;
+  }
+
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(7px * var(--ui-scale, 1));
+    width: auto;
+    height: calc(36px * var(--ui-scale, 1));
+    margin: 0;
+    padding: 0 calc(12px * var(--ui-scale, 1));
+    white-space: nowrap;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link .pe-nav-content {
+    display: inline;
+    white-space: nowrap;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-nav-arrow.arrow-left {
+    display: none !important;
+  }
+  /* The group arrow points down on the bar, and right on a nested flyout. */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link .pe-nav-arrow.arrow-right {
+    display: inline-block !important;
+    margin: 0 !important;
+    transform: rotate(90deg);
+  }
+
+  /* ---- Drop-downs. Bootstrap's .collapse would toggle on click; here hover / focus opens them. ---- */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu.collapse,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu.collapse.show {
+    display: none !important;
+    position: absolute !important;
+    z-index: 1006;
+    top: 100%;
+    left: 0;
+    min-width: calc(230px * var(--ui-scale, 1));
+    max-height: 70vh;
+    overflow-y: auto;
+    margin: 0 !important;
+    padding: calc(6px * var(--ui-scale, 1)) !important;
+    list-style: none;
+    background: var(--pe-secondary-bg, #fff);
+    border: 1px solid var(--theme-border, var(--pe-border-color));
+    border-radius: var(--lx-radius, calc(10px * var(--ui-scale, 1)));
+    box-shadow: 0 14px 34px -12px rgba(15, 23, 20, .25);
+    height: auto !important;
+    visibility: visible !important;
+    transition: none;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:hover > .pe-slide-menu,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:focus-within > .pe-slide-menu,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-item:hover > .pe-slide-menu,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-item:focus-within > .pe-slide-menu {
+    display: block !important;
+  }
+  /* Third level opens to the side of its parent row. */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-item {
+    position: relative;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-item > .pe-slide-menu {
+    top: 0;
+    left: 100%;
+  }
+  /* The drop-down repeats its own group name as a heading row; on a bar that is just noise. */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu > .pe-nav-content1 {
+    display: none !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin: 0;
+    white-space: nowrap;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link .pe-nav-arrow.arrow-right {
+    display: inline-block !important;
+    margin: 0 0 0 auto !important;
+    transform: none;
+  }
+
+  /* ---- The page: nothing is offset by a rail any more. ---- */
+  /* The theme pads the page by 2.33 x the top bar for this layout (room for its own two-row header), which
+     left a tall empty band under the menu. The single bar is the same height as the normal top bar, so the
+     page keeps the usual offset. */
+  [data-layout='horizontal'] .app-wrapper {
+    margin-inline: 0 !important;
+    padding-top: var(--pe-app-header-height) !important;
+    padding-block-start: var(--pe-app-header-height) !important;
+  }
+  [data-layout='horizontal'] .footer {
+    margin-inline: 15px !important;
+  }
+}

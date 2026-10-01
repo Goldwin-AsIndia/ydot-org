@@ -188,9 +188,11 @@ interface ThemeSettings {
   buttonRadius: number;
   sidebarBg: string | null;
   profilePhoto: string | null;
+  fontsV?: number;
 }
 
 const STORAGE_KEY = 'app-theme-settings';
+const FONTS_VERSION = 3;
 
 const DEFAULT_SETTINGS: ThemeSettings = {
   primaryColor: '#315746',
@@ -200,7 +202,7 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   isDarkMode: false,
   layoutMode: 'box',
   menuFont: 'Outfit, sans-serif',
-  displayFont: "'Playfair Display', Georgia, serif",
+  displayFont: 'Outfit, sans-serif',
   headingFont: 'Outfit, sans-serif',
   numberFont: 'Outfit, sans-serif',
   otherFont: 'Outfit, sans-serif',
@@ -489,6 +491,30 @@ export class ThemeComponent implements OnInit, DoCheck {
       display: "'Space Grotesk', sans-serif", heading: "'Space Grotesk', sans-serif", other: 'Inter, sans-serif', number: "'JetBrains Mono', monospace", menu: 'Inter, sans-serif' },
     { name: 'Royal', note: 'Cinzel · Lato',
       display: 'Cinzel, Georgia, serif', heading: 'Lato, sans-serif', other: 'Lato, sans-serif', number: 'Lato, sans-serif', menu: 'Lato, sans-serif' },
+    { name: 'Maison', note: 'Cormorant · Outfit',
+      display: "'Cormorant Garamond', Georgia, serif", heading: 'Outfit, sans-serif', other: 'Outfit, sans-serif', number: 'Outfit, sans-serif', menu: 'Outfit, sans-serif' },
+    { name: 'Atelier', note: 'Playfair · Inter',
+      display: "'Playfair Display', Georgia, serif", heading: 'Inter, sans-serif', other: 'Inter, sans-serif', number: 'Inter, sans-serif', menu: 'Inter, sans-serif' },
+    { name: 'Boutique', note: 'Libre Baskerville · DM Sans',
+      display: "'Libre Baskerville', Georgia, serif", heading: "'DM Sans', sans-serif", other: "'DM Sans', sans-serif", number: "'DM Sans', sans-serif", menu: "'DM Sans', sans-serif" },
+    { name: 'Penthouse', note: 'Instrument Serif · Figtree',
+      display: "'Instrument Serif', Georgia, serif", heading: 'Figtree, sans-serif', other: 'Figtree, sans-serif', number: 'Figtree, sans-serif', menu: 'Figtree, sans-serif' },
+    { name: 'Chancery', note: 'EB Garamond · Lato',
+      display: "'EB Garamond', Georgia, serif", heading: 'Lato, sans-serif', other: 'Lato, sans-serif', number: 'Lato, sans-serif', menu: 'Lato, sans-serif' },
+    { name: 'Salon', note: 'Lora · Plus Jakarta',
+      display: 'Lora, Georgia, serif', heading: "'Plus Jakarta Sans', sans-serif", other: "'Plus Jakarta Sans', sans-serif", number: "'Plus Jakarta Sans', sans-serif", menu: "'Plus Jakarta Sans', sans-serif" },
+    { name: 'Broadsheet', note: 'Source Serif · Inter',
+      display: "'Source Serif 4', Georgia, serif", heading: 'Inter, sans-serif', other: 'Inter, sans-serif', number: "'IBM Plex Mono', monospace", menu: 'Inter, sans-serif' },
+    { name: 'Aurora', note: 'Urbanist · Urbanist',
+      display: 'Urbanist, sans-serif', heading: 'Urbanist, sans-serif', other: 'Urbanist, sans-serif', number: 'Urbanist, sans-serif', menu: 'Urbanist, sans-serif' },
+    { name: 'Lumen', note: 'Lexend · Manrope',
+      display: 'Lexend, sans-serif', heading: 'Manrope, sans-serif', other: 'Manrope, sans-serif', number: 'Manrope, sans-serif', menu: 'Manrope, sans-serif' },
+    { name: 'Nocturne', note: 'Fraunces · Outfit',
+      display: 'Fraunces, Georgia, serif', heading: 'Outfit, sans-serif', other: 'Outfit, sans-serif', number: 'Outfit, sans-serif', menu: 'Outfit, sans-serif' },
+    { name: 'Vellum', note: 'Bodoni · Raleway',
+      display: "'Bodoni Moda', Georgia, serif", heading: 'Raleway, sans-serif', other: 'Raleway, sans-serif', number: 'Raleway, sans-serif', menu: 'Raleway, sans-serif' },
+    { name: 'Monogram', note: 'Montserrat · Montserrat',
+      display: 'Montserrat, sans-serif', heading: 'Montserrat, sans-serif', other: 'Montserrat, sans-serif', number: 'Montserrat, sans-serif', menu: 'Montserrat, sans-serif' },
   ];
 
   /** Which role's font list is unfolded in the panel (one at a time). */
@@ -723,7 +749,7 @@ export class ThemeComponent implements OnInit, DoCheck {
     if (mode === 'horizontal') {
       this.layoutService.removeHorizontalAttributes();
     } else {
-      this.document.documentElement.removeAttribute('data-topbar-theme');
+      this.layoutService.restoreVerticalAttributes();
     }
     this.layoutService.updateSimpleBar(mode);
     this.autoPersist();
@@ -939,6 +965,9 @@ export class ThemeComponent implements OnInit, DoCheck {
       'data-layout',
       this.settings.layoutMode === 'fluid' ? 'horizontal' : 'vertical'
     );
+    if (this.settings.layoutMode === 'fluid') {
+      this.layoutService.removeHorizontalAttributes();
+    }
 
     if (this.settings.sidebarBg) {
       this.applySidebarBg(this.settings.sidebarBg);
@@ -985,7 +1014,13 @@ export class ThemeComponent implements OnInit, DoCheck {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        this.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+        const saved = JSON.parse(raw);
+        this.settings = { ...DEFAULT_SETTINGS, ...saved };
+        // One-time move to the Outfit type system: drop fonts saved by older builds, keep the menu font.
+        if (saved.fontsV !== FONTS_VERSION) {
+          const { displayFont, headingFont, numberFont, otherFont } = DEFAULT_SETTINGS;
+          Object.assign(this.settings, { displayFont, headingFont, numberFont, otherFont, fontsV: FONTS_VERSION });
+        }
       }
     } catch {
       this.settings = { ...DEFAULT_SETTINGS };

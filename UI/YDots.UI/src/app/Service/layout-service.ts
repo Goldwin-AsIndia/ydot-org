@@ -81,6 +81,11 @@ export class LayoutService {
       return;
     }
 
+    // The horizontal layout has no rail to fold.
+    if (this.htmlElement.getAttribute('data-layout') === 'horizontal') {
+      return;
+    }
+
     const next = this.htmlElement.getAttribute('data-sidebar') === 'icon' ? 'default' : 'icon';
     this.setAndSaveAttribute('data-sidebar', next);
     this.updateSimpleBar(this.htmlElement.getAttribute('data-layout') ?? 'vertical');
@@ -370,9 +375,25 @@ export class LayoutService {
     }
   }
 
+  /** Horizontal layout has no rail, so the rail's mode attribute goes (its saved value is kept in storage). */
   removeHorizontalAttributes(): void {
     this.htmlElement.removeAttribute('data-sidebar');
-    this.htmlElement.setAttribute('data-topbar-theme', 'dark');
+    this.htmlElement.removeAttribute('data-topbar-theme');
+  }
+
+  /** Leaving the horizontal layout: bring the rail's saved mode back so the sidebar and content offsets return. */
+  restoreVerticalAttributes(): void {
+    this.htmlElement.removeAttribute('data-topbar-theme');
+    if (this.htmlElement.getAttribute('data-sidebar') || !this.isDesktopState()) {
+      return;
+    }
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem('data-sidebar');
+    } catch {
+      // storage blocked: fall through to the default
+    }
+    this.htmlElement.setAttribute('data-sidebar', saved || 'default');
   }
 
   private handleRadioChange(event: Event): void {
@@ -387,7 +408,7 @@ export class LayoutService {
         if (value === 'horizontal') {
           this.removeHorizontalAttributes();
         } else {
-          this.htmlElement.removeAttribute('data-topbar-theme');
+          this.restoreVerticalAttributes();
         }
         this.updateSimpleBar(value);
         break;
