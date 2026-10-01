@@ -3,40 +3,37 @@
   <div class="container-fluid px-4 py-3">
   <div class="dir-page ud">
 
-  <app-page-header [showInfo]="false" screen="user-directory" title="User directory" subtitle="Search, review and manage every account in this organisation.">
-    <span meta class="ph-chip">Access and identity</span>
-    <ng-container actions>
-      @if (canExport()) {
-        <button type="button" class="ph-btn ph-btn--ghost" [disabled]="busy() || loading()" (click)="exportCsv()">
-          <i class="ri-download-2-line" aria-hidden="true"></i> Export
-        </button>
-      }
-      @if (canCreate()) {
-        <button type="button" class="ph-btn ph-btn--primary" (click)="createUser()">
-          <i class="ri-user-add-line" aria-hidden="true"></i> Invite user
-        </button>
-      }
-    </ng-container>
-  </app-page-header>
+  <!-- ============ MASTHEAD: title, status ledger, actions; search and filters on the rule below ============ -->
+  <section class="ud-mast" aria-label="User directory">
+    <div class="ud-mast-top">
+      <h1 class="ud-title">User directory</h1>
 
-  <!-- ============ STATUS INDEX — every status as a figure; the chosen one is underlined ============ -->
-  <nav class="ud-index" role="tablist" aria-label="Filter by status">
-    @for (tab of statusTabs; track tab.key) {
-      <button type="button" role="tab" class="ud-index-tab" [class.is-on]="activeTab() === tab.key"
-              [attr.aria-selected]="activeTab() === tab.key" (click)="selectTab(tab.key)">
-        <span class="ud-index-n">{{ shownCounts()[tab.key] }}</span>
-        <span class="ud-index-label">
-          @if (tab.key === 'all') { <i class="ri-team-line" aria-hidden="true"></i> }
-          @else { <span class="ud-dot" [attr.data-status]="tab.key" aria-hidden="true"></span> }
-          <span class="ud-t">{{ tab.label }}</span>
-        </span>
-      </button>
-    }
-  </nav>
+      <nav class="ud-ledger" role="tablist" aria-label="Filter by status">
+        @for (tab of statusTabs; track tab.key) {
+          <button type="button" role="tab" class="ud-ledger-tab" [class.is-on]="activeTab() === tab.key"
+                  [attr.aria-selected]="activeTab() === tab.key" (click)="selectTab(tab.key)">
+            @if (tab.key !== 'all') { <span class="ud-dot" [attr.data-status]="tab.key" aria-hidden="true"></span> }
+            <span class="ud-t">{{ tab.label }}</span>
+            <span class="ud-ledger-n">{{ shownCounts()[tab.key] }}</span>
+          </button>
+        }
+      </nav>
 
-  <!-- ============ TOOLS — search, filters, selection and layout in one bar ============ -->
-  <section class="ud-tools" aria-label="Directory controls">
-    <div class="ud-tools-bar">
+      <div class="ud-mast-acts">
+        @if (canExport()) {
+          <button type="button" class="ud-btn" [disabled]="busy() || loading()" (click)="exportCsv()">
+            <i class="ri-download-2-line" aria-hidden="true"></i><span class="ud-t">Export</span>
+          </button>
+        }
+        @if (canCreate()) {
+          <button type="button" class="ud-btn ud-btn--primary" (click)="createUser()">
+            <i class="ri-user-add-line" aria-hidden="true"></i><span class="ud-t">Invite user</span>
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="ud-mast-tools">
       <div class="ud-search">
         <i class="ri-search-line" aria-hidden="true"></i>
         <input id="udSearch" type="search" placeholder="Search by name, e-mail, username or reference"
@@ -46,21 +43,9 @@
         <i class="ri-equalizer-line" aria-hidden="true"></i><span class="ud-t">Filters</span>
         @if (hasActiveFilters()) { <span class="ud-btn-dot" aria-label="Filters active"></span> }
       </button>
-      @if (users().length > 0) {
-        <label class="ud-selectall">
-          <input type="checkbox" [checked]="allOnPageSelected()" [indeterminate]="someOnPageSelected()" (change)="toggleAllOnPage()" aria-label="Select everyone on this page">
-          <span class="ud-t">Select page</span>
-        </label>
-      }
       @if (dataScopeSummary()) {
         <span class="ud-scope" [title]="dataScopeSummary()"><i class="ri-eye-line" aria-hidden="true"></i><span class="ud-t">{{ dataScopeSummary() }}</span></span>
-      } @else if (!loading() && !loadFailed()) {
-        <span class="ud-scope"><span class="ud-t"><b>{{ totalCount() }}</b> {{ totalCount() === 1 ? 'account' : 'accounts' }}</span></span>
       }
-      <div class="ud-switch" role="group" aria-label="Layout">
-        <button type="button" class="ud-switch-btn" [class.is-on]="view() === 'grid'" (click)="view.set('grid')" title="Cards" aria-label="Show as cards"><i class="ri-layout-grid-line" aria-hidden="true"></i></button>
-        <button type="button" class="ud-switch-btn" [class.is-on]="view() === 'table'" (click)="view.set('table')" title="Table" aria-label="Show as table"><i class="ri-list-unordered" aria-hidden="true"></i></button>
-      </div>
     </div>
 
     @if (showAdvancedFilters()) {
@@ -92,7 +77,7 @@
               }
             }
             @if (hasActiveFilters()) {
-              <button type="button" class="ud-link ms-auto" (click)="clearFilters()"><i class="ri-close-line" aria-hidden="true"></i> Clear all filters</button>
+              <button type="button" class="ud-link" (click)="clearFilters()"><i class="ri-close-line" aria-hidden="true"></i> Clear all filters</button>
             }
           </div>
         }
@@ -103,211 +88,238 @@
       <div class="ud-selection" role="status">
         <span class="ud-selection-n">{{ bulkSelectionCount() }}</span>
         <span class="ud-t">{{ bulkSelectionCount() === 1 ? 'account selected' : 'accounts selected' }}@if (selectedOffPage() > 0) { <span class="ud-selection-off"> · {{ selectedOffPage() }} on other pages</span> }</span>
-        <button type="button" class="ud-selection-clear" (click)="clearSelection()">Clear</button>
-        <button type="button" class="ud-selection-go" (click)="goToBulkActions()">
+        <button type="button" class="ud-link" (click)="clearSelection()">Clear</button>
+        <button type="button" class="ud-btn ud-btn--primary ud-selection-go" (click)="goToBulkActions()">
           <i class="ri-stack-line" aria-hidden="true"></i><span class="ud-t">Bulk actions</span><i class="ri-arrow-right-line" aria-hidden="true"></i>
         </button>
       </div>
     }
   </section>
 
-  <!-- ============ RESULTS ============ -->
-  <section class="ud-results">
+  <!-- ============ WORKSPACE: the register of people, with the chosen person's dossier beside it ============ -->
+  <div class="ud-work">
 
-    @if (loading()) {
-      <div class="ud-grid" aria-busy="true" aria-label="Loading the directory">
-        @for (n of skeletons; track n) {
-          <div class="ud-person ud-person--ghost" aria-hidden="true">
-            <div class="ud-person-head">
-              <span class="ud-ghost ud-ghost--mark"></span>
-              <div class="ud-person-id"><span class="ud-ghost ud-ghost--w60"></span><span class="ud-ghost ud-ghost--w80"></span></div>
+    <section class="ud-register" aria-label="People">
+      @if (loading()) {
+        <div class="ud-rows" aria-busy="true" aria-label="Loading the directory">
+          @for (n of skeletons; track n) {
+            <div class="ud-row ud-row--ghost" aria-hidden="true">
+              <span></span>
+              <span class="ud-who"><span class="ud-ghost ud-ghost--seal"></span><span class="ud-ghost-lines"><span class="ud-ghost ud-ghost--w60"></span><span class="ud-ghost ud-ghost--w40"></span></span></span>
             </div>
-            <div class="ud-ghost ud-ghost--row"></div>
-            <div class="ud-ghost ud-ghost--block"></div>
-          </div>
-        }
-      </div>
-    }
-
-    @else if (loadFailed()) {
-      <div class="ud-state">
-        <span class="ud-state-glyph"><i class="ri-wifi-off-line" aria-hidden="true"></i></span>
-        <div class="ud-state-copy">
-          <p class="ud-state-title">The directory could not be loaded</p>
-          <p class="ud-state-text">{{ errorMessage() }}</p>
-        </div>
-        <div class="ud-state-actions">
-          <button type="button" class="ud-btn ud-btn--solid" (click)="retry()"><i class="ri-refresh-line" aria-hidden="true"></i><span class="ud-t">Try again</span></button>
-        </div>
-      </div>
-    }
-
-    @else if (users().length === 0) {
-      <div class="ud-state">
-        <span class="ud-state-glyph"><i class="ri-user-search-line" aria-hidden="true"></i></span>
-        <div class="ud-state-copy">
-          <p class="ud-state-title">No accounts match</p>
-          <p class="ud-state-text">{{ hasActiveFilters() ? 'Try widening or clearing the filters.' : 'No accounts have been created yet.' }}</p>
-        </div>
-        <div class="ud-state-actions">
-          @if (hasActiveFilters()) {
-            <button type="button" class="ud-btn" (click)="clearFilters()"><span class="ud-t">Clear filters</span></button>
           }
-          @if (canCreate()) {
-            <button type="button" class="ud-btn ud-btn--solid" (click)="createUser()"><i class="ri-user-add-line" aria-hidden="true"></i><span class="ud-t">Invite user</span></button>
-          }
-        </div>
-      </div>
-    }
-
-    @else {
-      @if (view() === 'grid') {
-        <!-- -------- Cards: monochrome, every row stretches so the grid never leaves a gap -------- -->
-        <div class="ud-grid">
-          @for (user of sortedUsers(); track user.id) {
-            <article class="ud-person" [class.is-selected]="isRowSelected(user)">
-              <div class="ud-person-head">
-                <span class="ud-monogram" aria-hidden="true">{{ initials(user.displayName) }}</span>
-                <div class="ud-person-id">
-                  <button type="button" class="ud-name" (click)="openView(user)">{{ user.displayName }}</button>
-                  <span class="ud-mail">{{ user.email }}</span>
-                </div>
-                <label class="ud-check">
-                  <input type="checkbox" [checked]="isRowSelected(user)" (change)="toggleRowSelection(user)" [attr.aria-label]="'Select ' + user.displayName">
-                </label>
-              </div>
-
-              <div class="ud-person-meta">
-                <span class="ud-status"><span class="ud-dot" [attr.data-status]="user.status"></span>{{ user.statusDisplay || user.status }}@if (user.isLockedOut) { <i class="ri-lock-line ud-lock" title="Locked out" aria-label="Locked out"></i> }</span>
-                <span class="ud-person-role" [title]="roleSummary(user)"><i class="ri-key-2-line" aria-hidden="true"></i><span class="ud-t">{{ roleSummary(user) }}</span></span>
-              </div>
-
-              <dl class="ud-facts">
-                <div><dt>Unit</dt><dd [title]="user.organisationUnitName || user.departmentName || ''">{{ user.organisationUnitName || user.departmentName || '—' }}</dd></div>
-                <div><dt>Two-step</dt><dd>{{ mfaLabel(user.mfaEnabled) }}</dd></div>
-                <div><dt>Last sign-in</dt><dd>{{ user.lastLoginAtUtc ? (user.lastLoginAtUtc | date: 'dd MMM yyyy') : 'Never' }}</dd></div>
-              </dl>
-
-              <div class="ud-person-foot">
-                <button type="button" class="ud-open" (click)="openProfile(user)"><span class="ud-t">Open profile</span><i class="ri-arrow-right-up-line" aria-hidden="true"></i></button>
-                <div class="ud-acts">
-                  <button type="button" class="ud-act" title="Quick view" aria-label="Quick view" (click)="openView(user)"><i class="ri-eye-line"></i></button>
-                  <button type="button" class="ud-act" title="Edit" aria-label="Edit" (click)="openEdit(user)"><i class="ri-pencil-line"></i></button>
-                  @if (canInvite(user)) {
-                    <button type="button" class="ud-act" title="Send invitation" aria-label="Send invitation" (click)="openInvite(user)"><i class="ri-mail-send-line"></i></button>
-                  }
-                  @if (canSuspend() && user.status === 'active') {
-                    <button type="button" class="ud-act" title="Suspend" aria-label="Suspend" (click)="openSuspend(user)"><i class="ri-forbid-2-line"></i></button>
-                  }
-                  @if (user.status === 'suspended') {
-                    <button type="button" class="ud-act" title="Reactivate" aria-label="Reactivate" (click)="openReactivate(user)"><i class="ri-play-circle-line"></i></button>
-                  }
-                  @if (user.status !== 'deactivated') {
-                    <button type="button" class="ud-act ud-act--danger" title="Delete" aria-label="Delete" (click)="openDelete(user)"><i class="ri-delete-bin-6-line"></i></button>
-                  }
-                </div>
-              </div>
-            </article>
-          }
-        </div>
-      } @else {
-        <!-- -------- Table -------- -->
-        <div class="ud-table-wrap">
-          <table class="ud-table">
-            <thead>
-              <tr>
-                <th class="ud-col-check"><span class="visually-hidden">Select</span></th>
-                <th>
-                  <button type="button" class="ud-sort" [class.is-on]="sortDirection() !== 'none'" (click)="toggleSort()">
-                    User <i class="ri-arrow-up-line ud-sort-arrow" [class.is-desc]="sortDirection() === 'desc'"></i>
-                  </button>
-                </th>
-                <th class="d-none d-lg-table-cell">Organisation</th>
-                <th class="d-none d-xl-table-cell">Role</th>
-                <th>Status</th>
-                <th class="d-none d-md-table-cell">Two-step</th>
-                <th class="d-none d-lg-table-cell">Last sign-in</th>
-                <th class="text-end">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (user of sortedUsers(); track user.id) {
-                <tr [class.is-selected]="isRowSelected(user)">
-                  <td class="ud-col-check">
-                    <input type="checkbox" [checked]="isRowSelected(user)" (change)="toggleRowSelection(user)" [attr.aria-label]="'Select ' + user.displayName">
-                  </td>
-                  <td>
-                    <div class="ud-who">
-                      <span class="ud-monogram ud-monogram--sm" aria-hidden="true">{{ initials(user.displayName) }}</span>
-                      <div class="ud-person-id">
-                        <button type="button" class="ud-name ud-name--row" (click)="openView(user)">{{ user.displayName }}</button>
-                        <span class="ud-mail">{{ user.email }}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="d-none d-lg-table-cell">
-                    <span class="ud-cell-main">{{ user.organisationUnitName || '—' }}</span>
-                    <span class="ud-cell-sub">{{ user.departmentName || user.accountCategory }}</span>
-                  </td>
-                  <td class="d-none d-xl-table-cell"><span class="ud-cell-main ud-cell-clip" [title]="roleSummary(user)">{{ roleSummary(user) }}</span></td>
-                  <td>
-                    <span class="ud-status"><span class="ud-dot" [attr.data-status]="user.status"></span>{{ user.statusDisplay || user.status }}</span>
-                    @if (user.isLockedOut) { <span class="ud-cell-sub"><i class="ri-lock-line"></i> Locked out</span> }
-                  </td>
-                  <td class="d-none d-md-table-cell"><span class="ud-cell-main" [class.is-dim]="!user.mfaEnabled">{{ mfaLabel(user.mfaEnabled) }}</span></td>
-                  <td class="d-none d-lg-table-cell"><span class="ud-cell-sub ud-num">{{ user.lastLoginAtUtc ? (user.lastLoginAtUtc | date: 'dd MMM yyyy, HH:mm') : 'Never' }}</span></td>
-                  <td class="text-end">
-                    <div class="ud-acts">
-                      <button type="button" class="ud-act" title="Quick view" aria-label="Quick view" (click)="openView(user)"><i class="ri-eye-line"></i></button>
-                      <button type="button" class="ud-act" title="Edit" aria-label="Edit" (click)="openEdit(user)"><i class="ri-pencil-line"></i></button>
-                      @if (canInvite(user)) { <button type="button" class="ud-act" title="Send invitation" aria-label="Send invitation" (click)="openInvite(user)"><i class="ri-mail-send-line"></i></button> }
-                      @if (canSuspend() && user.status === 'active') { <button type="button" class="ud-act" title="Suspend" aria-label="Suspend" (click)="openSuspend(user)"><i class="ri-forbid-2-line"></i></button> }
-                      @if (user.status === 'suspended') { <button type="button" class="ud-act" title="Reactivate" aria-label="Reactivate" (click)="openReactivate(user)"><i class="ri-play-circle-line"></i></button> }
-                      @if (user.status !== 'deactivated') { <button type="button" class="ud-act ud-act--danger" title="Delete" aria-label="Delete" (click)="openDelete(user)"><i class="ri-delete-bin-6-line"></i></button> }
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
         </div>
       }
 
-      <!-- Pager -->
-      <div class="ud-foot">
-        <span class="ud-foot-count">Showing <b>{{ rangeStart() }}–{{ rangeEnd() }}</b> of <b>{{ totalCount() }}</b></span>
+      @else if (loadFailed()) {
+        <div class="ud-state">
+          <i class="ri-wifi-off-line ud-state-glyph" aria-hidden="true"></i>
+          <p class="ud-state-title">The directory could not be loaded</p>
+          <p class="ud-state-text">{{ errorMessage() }}</p>
+          <button type="button" class="ud-btn ud-btn--primary" (click)="retry()"><i class="ri-refresh-line" aria-hidden="true"></i><span class="ud-t">Try again</span></button>
+        </div>
+      }
 
-        <div class="dir-dd dir-dd-sm dir-dd-up" [class.dir-dd-open]="openDropdown() === 'pageSize'" (click)="$event.stopPropagation()">
-          <button type="button" class="dir-dd-trigger" aria-haspopup="listbox"
-                  [attr.aria-expanded]="openDropdown() === 'pageSize'" (click)="toggleDropdown('pageSize')">
-            <span class="dir-dd-value">{{ pageSize() }} per page</span>
-            <i class="ri-arrow-down-s-line dir-dd-chev"></i>
+      @else if (users().length === 0) {
+        <div class="ud-state">
+          <i class="ri-user-search-line ud-state-glyph" aria-hidden="true"></i>
+          <p class="ud-state-title">No accounts match</p>
+          <p class="ud-state-text">{{ hasActiveFilters() ? 'Try widening or clearing the filters.' : 'No accounts have been created yet.' }}</p>
+          <div class="ud-state-acts">
+            @if (hasActiveFilters()) {
+              <button type="button" class="ud-btn" (click)="clearFilters()"><span class="ud-t">Clear filters</span></button>
+            }
+            @if (canCreate()) {
+              <button type="button" class="ud-btn ud-btn--primary" (click)="createUser()"><i class="ri-user-add-line" aria-hidden="true"></i><span class="ud-t">Invite user</span></button>
+            }
+          </div>
+        </div>
+      }
+
+      @else {
+        <!-- column captions -->
+        <div class="ud-row ud-row--head">
+          <label class="ud-check">
+            <input type="checkbox" [checked]="allOnPageSelected()" [indeterminate]="someOnPageSelected()" (change)="toggleAllOnPage()" aria-label="Select everyone on this page">
+          </label>
+          <button type="button" class="ud-sort" [class.is-on]="sortDirection() !== 'none'" (click)="toggleSort()">
+            Person <i class="ri-arrow-up-line ud-sort-arrow" [class.is-desc]="sortDirection() === 'desc'" aria-hidden="true"></i>
           </button>
-          @if (openDropdown() === 'pageSize') {
-            <div class="dir-dd-menu" role="listbox">
-              <div class="dir-dd-list">
-                @for (size of pageSizes; track size) {
-                  <button type="button" role="option" class="dir-dd-option" [class.dir-dd-option-on]="size === pageSize()"
-                          [attr.aria-selected]="size === pageSize()" (click)="pickPageSize(size)">
-                    <span>{{ size }} per page</span>
-                    @if (size === pageSize()) { <i class="ri-check-line"></i> }
-                  </button>
-                }
+          <span class="ud-col-role">Role</span>
+          <span class="ud-col-unit">Unit</span>
+          <span>Status</span>
+          <span class="ud-col-seen">Last sign-in</span>
+          <span class="visually-hidden">Actions</span>
+        </div>
+
+        <div class="ud-rows">
+          @for (user of sortedUsers(); track user.id) {
+            <div class="ud-row" [class.is-focus]="focusedId() === user.id" [class.is-selected]="isRowSelected(user)"
+                 (click)="focusUser(user)" (mouseenter)="prefetch(user)" (mouseleave)="cancelPrefetch()">
+              <label class="ud-check" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="isRowSelected(user)" (change)="toggleRowSelection(user)" [attr.aria-label]="'Select ' + user.displayName">
+              </label>
+
+              <div class="ud-who">
+                <span class="ud-seal" aria-hidden="true">{{ initials(user.displayName) }}</span>
+                <span class="ud-who-text">
+                  <button type="button" class="ud-name" (click)="focusUser(user)" [attr.aria-pressed]="focusedId() === user.id">{{ user.displayName }}</button>
+                  <span class="ud-mail">{{ user.email }}</span>
+                </span>
+              </div>
+
+              <span class="ud-col-role ud-cell" [title]="roleSummary(user)">{{ roleSummary(user) }}</span>
+              <span class="ud-col-unit ud-cell" [title]="user.organisationUnitName || user.departmentName || ''">{{ user.organisationUnitName || user.departmentName || '—' }}</span>
+              <span class="ud-status">
+                <span class="ud-dot" [attr.data-status]="user.status" aria-hidden="true"></span>{{ user.statusDisplay || user.status }}
+                @if (user.isLockedOut) { <i class="ri-lock-line ud-lock" title="Locked out" aria-label="Locked out"></i> }
+              </span>
+              <span class="ud-col-seen ud-cell ud-num">{{ user.lastLoginAtUtc ? (user.lastLoginAtUtc | date: 'dd MMM yyyy') : 'Never' }}</span>
+
+              <div class="ud-acts" (click)="$event.stopPropagation()">
+                <button type="button" class="ud-act ud-act--peek" title="Quick view" aria-label="Quick view" (click)="openView(user)"><i class="ri-eye-line"></i></button>
+                <button type="button" class="ud-act" title="Edit" aria-label="Edit" (click)="openEdit(user)"><i class="ri-pencil-line"></i></button>
+                <button type="button" class="ud-act" title="Open profile" aria-label="Open profile" (click)="openProfile(user)"><i class="ri-arrow-right-up-line"></i></button>
               </div>
             </div>
           }
         </div>
 
-        <nav class="ud-pager" aria-label="Pagination">
-          <button type="button" class="ud-page" aria-label="Previous page" [disabled]="pageIndex() === 1" (click)="goToPage(pageIndex() - 1)"><i class="ri-arrow-left-s-line"></i></button>
-          @for (page of pageNumbers(); track page) {
-            <button type="button" class="ud-page" [class.is-on]="page === pageIndex()" [attr.aria-current]="page === pageIndex() ? 'page' : null" (click)="goToPage(page)">{{ page }}</button>
-          }
-          <button type="button" class="ud-page" aria-label="Next page" [disabled]="pageIndex() === totalPages()" (click)="goToPage(pageIndex() + 1)"><i class="ri-arrow-right-s-line"></i></button>
-        </nav>
-      </div>
-    }
-  </section>
+        <!-- pager -->
+        <div class="ud-foot">
+          <span class="ud-foot-count">Showing <b>{{ rangeStart() }}–{{ rangeEnd() }}</b> of <b>{{ totalCount() }}</b></span>
+
+          <div class="dir-dd dir-dd-sm dir-dd-up" [class.dir-dd-open]="openDropdown() === 'pageSize'" (click)="$event.stopPropagation()">
+            <button type="button" class="dir-dd-trigger" aria-haspopup="listbox"
+                    [attr.aria-expanded]="openDropdown() === 'pageSize'" (click)="toggleDropdown('pageSize')">
+              <span class="dir-dd-value">{{ pageSize() }} per page</span>
+              <i class="ri-arrow-down-s-line dir-dd-chev"></i>
+            </button>
+            @if (openDropdown() === 'pageSize') {
+              <div class="dir-dd-menu" role="listbox">
+                <div class="dir-dd-list">
+                  @for (size of pageSizes; track size) {
+                    <button type="button" role="option" class="dir-dd-option" [class.dir-dd-option-on]="size === pageSize()"
+                            [attr.aria-selected]="size === pageSize()" (click)="pickPageSize(size)">
+                      <span>{{ size }} per page</span>
+                      @if (size === pageSize()) { <i class="ri-check-line"></i> }
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <nav class="ud-pager" aria-label="Pagination">
+            <button type="button" class="ud-page" aria-label="Previous page" [disabled]="pageIndex() === 1" (click)="goToPage(pageIndex() - 1)"><i class="ri-arrow-left-s-line"></i></button>
+            @for (page of pageNumbers(); track page) {
+              <button type="button" class="ud-page" [class.is-on]="page === pageIndex()" [attr.aria-current]="page === pageIndex() ? 'page' : null" (click)="goToPage(page)">{{ page }}</button>
+            }
+            <button type="button" class="ud-page" aria-label="Next page" [disabled]="pageIndex() === totalPages()" (click)="goToPage(pageIndex() + 1)"><i class="ri-arrow-right-s-line"></i></button>
+          </nav>
+        </div>
+      }
+    </section>
+
+    <!-- ============ DOSSIER: the chosen person, in full, without leaving the list ============ -->
+    <aside class="ud-dossier" aria-label="Selected person" aria-live="polite">
+      @if (focused(); as u) {
+        <header class="ud-dos-head">
+          <span class="ud-seal ud-seal--lg" aria-hidden="true">{{ initials(u.displayName) }}</span>
+          <div class="ud-dos-id">
+            <h2 class="ud-dos-name">{{ u.displayName }}</h2>
+            <span class="ud-dos-mail">{{ u.email }}</span>
+            <span class="ud-dos-flags">
+              <span class="ud-status"><span class="ud-dot" [attr.data-status]="u.status" aria-hidden="true"></span>{{ u.statusDisplay || u.status }}</span>
+              <span class="ud-dos-sep" aria-hidden="true"></span>
+              <span class="ud-dos-flag" [class.is-warn]="!u.mfaEnabled"><i class="ri-shield-keyhole-line" aria-hidden="true"></i>{{ mfaLabel(u.mfaEnabled) }}</span>
+              @if (u.isLockedOut) {
+                <span class="ud-dos-sep" aria-hidden="true"></span>
+                <span class="ud-dos-flag is-warn"><i class="ri-lock-line" aria-hidden="true"></i>Locked out</span>
+              }
+            </span>
+          </div>
+        </header>
+
+        @if (focusLoading() && !focusDetail()) {
+          <div class="ud-dos-body" aria-busy="true">
+            @for (n of skeletons; track n) { <span class="ud-ghost ud-ghost--line"></span> }
+          </div>
+        } @else if (focusDetail(); as d) {
+          <div class="ud-dos-body" [class.is-stale]="focusLoading()" [attr.aria-busy]="focusLoading() || null">
+            @if (d.isLockedOut) {
+              <p class="ud-dos-alert"><i class="ri-error-warning-line" aria-hidden="true"></i>{{ d.lockoutReason || 'Too many failed sign-in attempts.' }}@if (d.lockoutEndUtc) { Unlocks {{ d.lockoutEndUtc | date: 'medium' }}. }</p>
+            }
+
+            <h3 class="ud-dos-cap">Identity</h3>
+            <dl class="ud-dos-facts">
+              <div><dt>Reference</dt><dd class="ud-num">{{ d.code || '—' }}</dd></div>
+              <div><dt>Username</dt><dd>{{ d.username || '—' }}</dd></div>
+              <div><dt>Account type</dt><dd class="ud-cap">{{ d.accountCategory || '—' }}</dd></div>
+              <div><dt>Mobile</dt><dd>{{ d.mobileNumber ? d.mobileCountryCode + ' ' + d.mobileNumber : '—' }}</dd></div>
+            </dl>
+
+            <h3 class="ud-dos-cap">Organisation</h3>
+            <dl class="ud-dos-facts">
+              <div><dt>Unit</dt><dd>{{ d.organisationUnitName || '—' }}</dd></div>
+              <div><dt>Department</dt><dd>{{ d.departmentName || '—' }}</dd></div>
+              <div><dt>Designation</dt><dd>{{ d.designation || '—' }}</dd></div>
+              <div><dt>Manager</dt><dd>{{ d.managerName || '—' }}</dd></div>
+            </dl>
+
+            <h3 class="ud-dos-cap">Access</h3>
+            <dl class="ud-dos-facts">
+              <div><dt>Invitation</dt><dd>{{ invitationLabel(d) }}</dd></div>
+              <div><dt>Second factor</dt><dd>{{ mfaRequirementLabel(d) }}</dd></div>
+              <div><dt>Access window</dt><dd>{{ d.accessStartsAtUtc ? (d.accessStartsAtUtc | date: 'dd MMM yyyy') : '—' }} – {{ d.accessEndsAtUtc ? (d.accessEndsAtUtc | date: 'dd MMM yyyy') : 'open' }}</dd></div>
+              <div><dt>Last sign-in</dt><dd>{{ d.lastLoginAtUtc ? (d.lastLoginAtUtc | date: 'dd MMM yyyy, HH:mm') : 'Never' }}</dd></div>
+            </dl>
+
+            <h3 class="ud-dos-cap">Roles</h3>
+            @if ((d.roles ?? []).length > 0) {
+              <ul class="ud-dos-roles">
+                @for (role of d.roles ?? []; track role.id) {
+                  <li [class.is-off]="role.isEffective === false">
+                    <span class="ud-t">{{ role.roleName }}</span>
+                    @if (role.isPrimary) { <span class="ud-dos-mark">Primary</span> }
+                    @if (role.isEffective === false) { <span class="ud-dos-mark is-muted">Not in effect</span> }
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="ud-dos-empty">No roles assigned yet.</p>
+            }
+          </div>
+        } @else if (focusFailed()) {
+          <p class="ud-dos-empty ud-dos-body">The full record could not be loaded.</p>
+        }
+
+        <footer class="ud-dos-foot">
+          <button type="button" class="ud-btn ud-btn--primary" (click)="openProfile(u)"><span class="ud-t">Full profile</span><i class="ri-arrow-right-line" aria-hidden="true"></i></button>
+          <button type="button" class="ud-btn" (click)="openEdit(u)"><i class="ri-pencil-line" aria-hidden="true"></i><span class="ud-t">Edit</span></button>
+          <span class="ud-dos-more">
+            @if (canInvite(u)) {
+              <button type="button" class="ud-act" title="Send invitation" aria-label="Send invitation" (click)="openInvite(u)"><i class="ri-mail-send-line"></i></button>
+            }
+            @if (canSuspend() && u.status === 'active') {
+              <button type="button" class="ud-act" title="Suspend" aria-label="Suspend" (click)="openSuspend(u)"><i class="ri-forbid-2-line"></i></button>
+            }
+            @if (u.status === 'suspended') {
+              <button type="button" class="ud-act" title="Reactivate" aria-label="Reactivate" (click)="openReactivate(u)"><i class="ri-play-circle-line"></i></button>
+            }
+            @if (u.status !== 'deactivated') {
+              <button type="button" class="ud-act ud-act--danger" title="Delete" aria-label="Delete" (click)="openDelete(u)"><i class="ri-delete-bin-6-line"></i></button>
+            }
+          </span>
+        </footer>
+      } @else {
+        <div class="ud-dos-blank">
+          <i class="ri-contacts-book-2-line" aria-hidden="true"></i>
+          <span class="ud-t">{{ loading() ? 'Loading…' : 'Choose a person to see their record here.' }}</span>
+        </div>
+      }
+    </aside>
+  </div>
 
   </div><!-- /dir-page -->
   </div><!-- /container-fluid -->

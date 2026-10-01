@@ -8,14 +8,6 @@
 <div class="page-wrapper">
   <div class="container-fluid px-4 py-3">
 
-  <app-page-header [showInfo]="false" screen="create-user" title="Invite a new user"
-                   subtitle="Create the account and e-mail them a link to set their own password.">
-    <span meta class="ph-chip">Access and identity</span>
-    <button actions type="button" class="ph-btn ph-btn--ghost" (click)="goBack()">
-      <i class="ri-arrow-left-line" aria-hidden="true"></i> Back
-    </button>
-  </app-page-header>
-
   @if (loading()) {
     <div class="cu-state" role="status">
       <i class="ri-loader-4-line cu-spin" aria-hidden="true"></i>
@@ -134,19 +126,10 @@
               @default { Check before you send }
             }
           </h2>
-          <p class="cu-head-sub">
-            @switch (activeStep()) {
-              @case (0) { The e-mail address is where the invitation goes. }
-              @case (1) { This drives which records they can see once they sign in. }
-              @case (2) { The role decides their permissions; the scope decides how much data those permissions reach. }
-              @default { The invitation goes out as soon as you create the account. }
-            }
-          </p>
         </div>
-        <div class="cu-head-note">
-          <i class="ri-mail-send-line" aria-hidden="true"></i>
-          <span class="cu-t">Fields marked <span class="cu-req">*</span> are required. The invitation link lets them set their own password.</span>
-        </div>
+        <button type="button" class="cu-back" (click)="goBack()" title="Back to the user directory">
+          <i class="ri-arrow-left-line" aria-hidden="true"></i> Back to directory
+        </button>
       </header>
 
       @if (errorMessage()) {

@@ -2,8 +2,9 @@
 <!--
   THE TOP BAR
 
-  Left  = where you are: the menu button and the organisation you are working inside.
-  Right = who you are and what is at hand: fullscreen, notifications, then your account.
+  Left  = the menu button.
+  Right = what is at hand: fullscreen, notifications, then your account. The organisation switcher lives
+          inside the account menu (root users only), so the bar stays one slim row.
 
   `app-header` is kept because the theme positions the bar with it (fixed, offset by the sidebar's
   width); everything inside is `tb-*` and styled in topheader.css.
@@ -23,139 +24,6 @@
                 <i [class]="menuIcon()"></i>
             </button>
 
-            <!--
-              ORGANISATION SWITCHER.
-
-              Only a root user sees this, because only a root user has anything to switch
-              between. Choosing one asks the SERVER to re-issue the access token against that
-              organisation - there is no client-side flag that could be flipped instead, and
-              the person's own account is not changed by it. The "working inside" label is
-              there so nobody is ever in doubt whose data is on the screen.
-            -->
-            @if (canSwitchOrganisation()) {
-                <div class="dropdown tb-org-wrap">
-                    <button class="tb-org" type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                            (click)="onSwitcherOpened()" aria-label="Switch organisation">
-                        <span class="tb-org__badge" aria-hidden="true">
-                            @if (isActingInOrganisation() && organisationInitials()) {
-                                {{ organisationInitials() }}
-                            } @else {
-                                <i class="ri-building-4-line"></i>
-                            }
-                        </span>
-                        <span class="tb-org__text">
-                            <span class="tb-org__label">
-                                {{ isActingInOrganisation() ? 'Working inside' : 'Organisation' }}
-                            </span>
-                            <span class="tb-org__name">
-                                @if (isActingInOrganisation()) {
-                                    {{ currentOrganisation() }}
-                                } @else {
-                                    Choose an organisation
-                                }
-                            </span>
-                        </span>
-                        <i class="ri-expand-up-down-line tb-org__chev" aria-hidden="true"></i>
-                    </button>
-
-                    <div class="dropdown-menu header-dropdown-menu border p-0" style="min-width: calc(320px * var(--ui-scale, 1));">
-                        <div class="card mb-0 border-0">
-                            <div class="card-header pb-3">
-                                <h5 class="card-title mb-0">Organisations</h5>
-                                @if (isActingInOrganisation()) {
-                                    <small class="text-muted">
-                                        Working inside {{ currentOrganisation() }}
-                                    </small>
-                                }
-                            </div>
-
-                            <div class="card-body p-0" style="max-height: calc(320px * var(--ui-scale, 1)); overflow-y: auto;">
-                                @if (loadingOrganisations()) {
-                                    <p class="text-muted small px-4 py-3 mb-0">Loading…</p>
-                                } @else if (selectableOrganisations().length === 0) {
-                                    <p class="text-muted small px-4 py-3 mb-0">
-                                        No organisations are available to you yet.
-                                    </p>
-                                } @else {
-                                    <ul class="list-unstyled mb-0">
-                                        @for (option of selectableOrganisations(); track option.tenantId) {
-                                            <li>
-                                                <button type="button"
-                                                        class="dropdown-item d-flex align-items-start gap-2 py-3"
-                                                        [disabled]="switchingTo() !== null"
-                                                        (click)="switchTo(option)">
-                                                    <i class="ri-building-4-line mt-1"></i>
-                                                    <span class="flex-grow-1 text-start">
-                                                        <span class="d-block fw-semibold">{{ option.name }}</span>
-                                                        <small class="text-muted d-block">
-                                                            {{ option.subdomain }} · {{ option.status }}
-                                                        </small>
-                                                        @if (!isOperable(option)) {
-                                                            <small class="text-warning d-block">
-                                                                Still onboarding — you can review it, but not work in it.
-                                                            </small>
-                                                        }
-                                                    </span>
-                                                    @if (switchingTo() === option.tenantId) {
-                                                        <i class="ri-loader-4-line mt-1"></i>
-                                                    }
-                                                </button>
-                                            </li>
-                                        }
-                                    </ul>
-                                }
-                            </div>
-
-                            <!--
-                                The way back out, shown only while actually inside an
-                                Organisation. Entering one replaces the sidebar with that
-                                Organisation's menu, so the platform branch disappears and
-                                there was previously nothing anywhere that led back to it.
-                            -->
-                            @if (isActingInOrganisation()) {
-                                <div class="card-footer border-top">
-                                    <button type="button"
-                                            class="dropdown-item d-flex align-items-center gap-2 px-0 fw-medium small"
-                                            [disabled]="leaving()"
-                                            (click)="exitOrganisation()">
-                                        <i class="ri-logout-box-line"></i>
-                                        <span class="flex-grow-1 text-start">
-                                            Leave {{ currentOrganisation() }}
-                                            <small class="text-muted d-block">
-                                                Go back to platform level
-                                            </small>
-                                        </span>
-                                        @if (leaving()) {
-                                            <i class="ri-loader-4-line"></i>
-                                        }
-                                    </button>
-                                </div>
-                            }
-
-                            <!--
-                                Manage organisations is a PLATFORM screen. Reaching it from
-                                inside an Organisation used to leave the token — and therefore
-                                the sidebar — pointing at that Organisation while the page
-                                listed every Organisation on the platform. The route's guard
-                                steps back out on the way in; this says so before the click
-                                rather than after it.
-                            -->
-                            <div class="card-footer border-top">
-                                <button type="button"
-                                        class="dropdown-item px-0 fw-medium small"
-                                        (click)="manageOrganisations()">
-                                    <span class="d-block text-start">Manage organisations</span>
-                                    @if (isActingInOrganisation()) {
-                                        <small class="text-muted d-block text-start">
-                                            Leaves {{ currentOrganisation() }}
-                                        </small>
-                                    }
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
         </div>
 
         <div class="tb__group tb__group--end">
@@ -221,7 +89,7 @@
             -->
             <div class="dropdown pe-dropdown-mega">
                 <button class="tb-profile" type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                        aria-label="Account menu">
+                        aria-label="Account menu" (click)="onSwitcherOpened()">
                     <span class="tb-avatar" aria-hidden="true">{{ initials() }}</span>
                     <span class="tb-profile__text">
                         <span class="tb-profile__name">{{ username() }}</span>
@@ -237,6 +105,77 @@
                         </div>
                         <span class="tb-avatar tb-avatar--lg" aria-hidden="true">{{ initials() }}</span>
                     </div>
+
+                    <!--
+                      ORGANISATION SWITCHER (root users only - nobody else has anything to switch between).
+                      Choosing one asks the SERVER to re-issue the access token against that organisation;
+                      the person's own account is not changed. The row says which organisation's data is on
+                      screen; clicking it unfolds the list in place. stopPropagation keeps Bootstrap from
+                      closing the menu on that click.
+                    -->
+                    @if (canSwitchOrganisation()) {
+                        <div class="tb-orgs">
+                            <button type="button" class="tb-orgs__current" [attr.aria-expanded]="orgListOpen()"
+                                    (click)="toggleOrgList($event)">
+                                <span class="tb-org__badge" aria-hidden="true">
+                                    @if (isActingInOrganisation() && organisationInitials()) {
+                                        {{ organisationInitials() }}
+                                    } @else {
+                                        <i class="ri-building-4-line"></i>
+                                    }
+                                </span>
+                                <span class="tb-org__text">
+                                    <span class="tb-org__label">{{ isActingInOrganisation() ? 'Working inside' : 'Organisation' }}</span>
+                                    <span class="tb-org__name">{{ isActingInOrganisation() ? currentOrganisation() : 'Choose an organisation' }}</span>
+                                </span>
+                                <i [class]="orgListOpen() ? 'ri-arrow-up-s-line tb-org__chev' : 'ri-arrow-down-s-line tb-org__chev'" aria-hidden="true"></i>
+                            </button>
+
+                            @if (orgListOpen()) {
+                                <div class="tb-orgs__list">
+                                    @if (loadingOrganisations()) {
+                                        <p class="tb-orgs__note">Loading…</p>
+                                    } @else if (selectableOrganisations().length === 0) {
+                                        <p class="tb-orgs__note">No organisations are available to you yet.</p>
+                                    } @else {
+                                        <ul class="list-unstyled mb-0">
+                                            @for (option of selectableOrganisations(); track option.tenantId) {
+                                                <li>
+                                                    <button type="button" class="tb-orgs__item"
+                                                            [disabled]="switchingTo() !== null"
+                                                            (click)="switchTo(option)">
+                                                        <span class="tb-orgs__item-text">
+                                                            <span class="tb-orgs__item-name">{{ option.name }}</span>
+                                                            <span class="tb-orgs__item-meta">{{ option.subdomain }} · {{ option.status }}</span>
+                                                            @if (!isOperable(option)) {
+                                                                <span class="tb-orgs__item-warn">Still onboarding — review only.</span>
+                                                            }
+                                                        </span>
+                                                        @if (switchingTo() === option.tenantId) {
+                                                            <i class="ri-loader-4-line"></i>
+                                                        }
+                                                    </button>
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </div>
+                                <div class="tb-orgs__foot">
+                                    @if (isActingInOrganisation()) {
+                                        <button type="button" class="tb-orgs__link" [disabled]="leaving()" (click)="exitOrganisation()">
+                                            <i class="ri-logout-box-line" aria-hidden="true"></i>
+                                            <span>Leave {{ currentOrganisation() }}</span>
+                                            @if (leaving()) { <i class="ri-loader-4-line"></i> }
+                                        </button>
+                                    }
+                                    <button type="button" class="tb-orgs__link" (click)="manageOrganisations()">
+                                        <i class="ri-building-2-line" aria-hidden="true"></i>
+                                        <span>Manage organisations</span>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
                     <div>
                         <ul class="list-unstyled mb-0">
                             <li class="profile-item">

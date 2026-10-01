@@ -33,7 +33,6 @@
                   [class.is-danger]="['deactivated', 'withdrawn', 'expired', 'disabled', 'terminated'].includes(statusKey())"></span>
           </div>
           <div class="dx-who">
-            <span class="dx-kicker">{{ isSelf() ? 'My profile' : 'User profile & access' }}</span>
             <h1 class="dx-name">{{ data()?.displayName || 'User profile' }}</h1>
             @if (headerSummary()) { <p class="dx-summary">{{ headerSummary() }}</p> }
             <div class="dx-flags">
@@ -61,11 +60,8 @@
             </div>
           </div>
           <div class="dx-cover-actions">
-            <button type="button" class="up-btn up-btn--line" (click)="openThemeSettings()">
-              <i class="ri-settings-3-line" aria-hidden="true"></i> Settings
-            </button>
             <button type="button" class="up-btn up-btn--primary" (click)="openEditModal()">
-              <i class="ri-edit-line" aria-hidden="true"></i> Edit profile
+              <i class="ri-edit-line" aria-hidden="true"></i> Edit
             </button>
           </div>
         </div>
@@ -106,28 +102,25 @@
                   [attr.aria-selected]="activeTab()==='profile'" (click)="setTab('profile')">
             <span class="dx-seg-glyph"><i class="ri-user-3-line" aria-hidden="true"></i></span>
             <span class="dx-seg-text">
-              <span class="dx-seg-name">Overview</span>
+              <span class="dx-seg-name">Overview <span class="dx-seg-num">{{ recordCompleteness().pct }}%</span></span>
               <span class="dx-seg-cap">Record, posture &amp; roles</span>
             </span>
-            <span class="dx-seg-num">{{ recordCompleteness().pct }}%</span>
           </button>
           <button type="button" role="tab" class="dx-seg" [class.is-active]="activeTab()==='access'"
                   [attr.aria-selected]="activeTab()==='access'" (click)="setTab('access')">
             <span class="dx-seg-glyph"><i class="ri-key-2-line" aria-hidden="true"></i></span>
             <span class="dx-seg-text">
-              <span class="dx-seg-name">Access</span>
+              <span class="dx-seg-name">Access <span class="dx-seg-num">{{ accessCount() }}</span></span>
               <span class="dx-seg-cap">Window &amp; role assignments</span>
             </span>
-            <span class="dx-seg-num">{{ accessCount() }}</span>
           </button>
           <button type="button" role="tab" class="dx-seg" [class.is-active]="activeTab()==='security'"
                   [attr.aria-selected]="activeTab()==='security'" (click)="setTab('security')">
             <span class="dx-seg-glyph"><i class="ri-shield-check-line" aria-hidden="true"></i></span>
             <span class="dx-seg-text">
-              <span class="dx-seg-name">Security</span>
+              <span class="dx-seg-name">Security <span class="dx-seg-num">{{ postureScore().passed }}/{{ postureScore().total }}</span></span>
               <span class="dx-seg-cap">Factors, devices &amp; sign-ins</span>
             </span>
-            <span class="dx-seg-num">{{ postureScore().passed }}/{{ postureScore().total }}</span>
           </button>
         </nav>
 
@@ -265,7 +258,6 @@
           <section class="dx-roles-card">
             <header class="dx-roles-head">
               <div class="dx-head-text">
-                <span class="dx-eyebrow">Entitlements</span>
                 <h3 class="dx-h">Assigned roles <span class="dx-h-count">{{ roleAssignments().length }}</span></h3>
               </div>
               <div class="dx-tools">
@@ -292,6 +284,9 @@
                     </div>
                   }
                 </div>
+                @if (activeTab() === 'profile') {
+                  <button type="button" class="dx-link" (click)="setTab('access')"><span class="dx-t">Open access</span> <i class="ri-arrow-right-line" aria-hidden="true"></i></button>
+                }
               </div>
             </header>
 
@@ -319,12 +314,6 @@
                 </li>
               }
             </ul>
-            <footer class="dx-roles-foot">
-              <span class="dx-t">Showing <b>{{ visibleRoleAssignments().length }}</b> of {{ roleAssignments().length }} {{ roleAssignments().length === 1 ? 'role' : 'roles' }}</span>
-              @if (activeTab() === 'profile') {
-                <button type="button" class="dx-link" (click)="setTab('access')"><span class="dx-t">Open access</span> <i class="ri-arrow-right-line" aria-hidden="true"></i></button>
-              }
-            </footer>
           </section>
         }
 

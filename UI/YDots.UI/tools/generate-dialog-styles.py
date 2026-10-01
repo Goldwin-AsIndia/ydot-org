@@ -1187,5 +1187,7 @@ css.append(textwrap.indent(rule(NL.join([f"{FLAT_NOG}::before", within(FLAT, FLA
 css.append(textwrap.indent(rule(within(FLAT, FLAT_BAND), "padding-left: var(--dg-pad) !important;"), "  "))
 css.append("}\n")
 
-OUT.write_text("".join(css), encoding="utf-8")
+# Every font-size goes through --ui-text-scale, like the rest of the app (see font_text_scale.py).
+from font_text_scale import scale_font_sizes
+OUT.write_text(scale_font_sizes("".join(css)), encoding="utf-8")
 print(OUT, len("".join(css)))

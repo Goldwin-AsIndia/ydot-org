@@ -17,7 +17,6 @@ import {
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 import { NavigationService } from '../../../../Shared/services/navigation.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 /** The two jobs this screen does, over one tree. */
 type Mode = 'organisation' | 'roles';
@@ -83,7 +82,7 @@ interface Draft {
 @Component({
   selector: 'app-menu-configuration',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule, IconPickerComponent],
+  imports: [CommonModule, FormsModule, IconPickerComponent],
   templateUrl: './menu-configuration.html',
   styleUrl: './menu-configuration.css',
 })
@@ -250,9 +249,6 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   /** The top-level menu open in the workspace. Null falls back to the first visible one. */
   readonly activeSectionId = signal<string | null>(null);
-
-  /** Whether the "how visibility works" note is open. */
-  readonly showRule = signal(false);
 
   /** Top-level menus for the rail — already filtered by the search, ancestors kept. */
   readonly sections = computed<readonly Row[]>(() => this.rows().filter((row) => row.depth === 0));

@@ -6,7 +6,6 @@ import { Observable } from 'rxjs';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { UserDirectoryApiService } from '../../../../Service/user-directory-api.service';
 import { SecurityApiService } from '../../../../Service/security-api.service';
-import { LayoutService } from '../../../../Service/layout-service';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 import { UserProfileData, RoleAssignmentItem } from '../../../../Shared/models/user-profile.model';
 import { UserDetail } from '../../../../Shared/models/user-directory.model';
@@ -35,7 +34,6 @@ export class UserProfileComponent {
   private readonly toast = inject(ToastService);
   private readonly api = inject(UserDirectoryApiService);
   private readonly securityApi = inject(SecurityApiService);
-  private readonly layoutService = inject(LayoutService);
   private readonly tokens = inject(AuthTokenService);
 
   data = signal<UserProfileData | null>(null);
@@ -672,12 +670,6 @@ export class UserProfileComponent {
 
   goToDashboard(): void {
     this.router.navigate(['/app/dashboard']);
-  }
-
-  /** Opens the theme settings panel (offcanvas design) */
-  openThemeSettings(): void {
-    this.layoutService.openThemePanel();
-    this.showMoreMenu.set(false);
   }
 
   /**

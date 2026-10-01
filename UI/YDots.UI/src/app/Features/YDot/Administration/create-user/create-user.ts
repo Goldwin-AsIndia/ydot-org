@@ -14,7 +14,6 @@ import {
   ReferenceDataResponse,
 } from '../../../../Shared/models/iam-contract.model';
 import { forkJoin } from 'rxjs';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 /** One row of a custom dropdown, normalised from whichever source the list comes from. */
 interface CuDdOption {
@@ -45,7 +44,7 @@ interface CuDdOption {
 @Component({
   selector: 'app-create-user',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './create-user.html',
   styleUrl: './create-user.css',
 })

@@ -132,6 +132,15 @@ export class TopheaderComponent implements OnDestroy {
   /** True while the exit-to-platform call is in flight, so the item cannot be double-clicked. */
   readonly leaving = signal(false);
 
+  /** Whether the organisation list is unfolded inside the account menu. */
+  readonly orgListOpen = signal(false);
+
+  /** Unfolds / folds the organisation list without letting Bootstrap close the account menu. */
+  toggleOrgList(event: Event): void {
+    event.stopPropagation();
+    this.orgListOpen.update((open) => !open);
+  }
+
   readonly initials = computed(() => {
     const name = this.username();
 

@@ -2,7 +2,7 @@ import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { Observable, Subject, debounceTime, distinctUntilChanged, forkJoin, map, takeUntil } from 'rxjs';
+import { Observable, Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, shareReplay, takeUntil, tap } from 'rxjs';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { UserDirectoryApiService } from '../../../../Service/user-directory-api.service';
 import {
@@ -13,7 +13,6 @@ import {
 } from '../../../../Shared/models/user-directory.model';
 import { LookupItem } from '../../../../Shared/models/api-response.model';
 import { UserStatus } from '../../../../Shared/models/iam-contract.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 type DialogKind = 'none' | 'view' | 'edit' | 'suspend' | 'reactivate' | 'delete' | 'invite';
 
@@ -24,7 +23,7 @@ type DirectoryTab = 'all' | 'active' | 'invited' | 'suspended' | 'draft';
 @Component({
   selector: 'app-user-directory',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './user-directory.html',
   styleUrl: './user-directory.css',
 })
@@ -93,8 +92,26 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   /** The status filter that is open, so the matching stat card can light up. */
   readonly activeTab = signal<string>('all');
 
-  /** People as cards (the default) or as a compact table. */
-  readonly view = signal<'grid' | 'table'>('grid');
+  // ---- Dossier pane --------------------------------------------------------------------------
+  /**
+   * The person whose record is open in the pane beside the register. The first row is chosen after
+   * every load unless the chosen person is still on the page.
+   */
+  readonly focusedId = signal<string | null>(null);
+  readonly focusDetail = signal<UserDetail | null>(null);
+  readonly focusLoading = signal(false);
+  readonly focusFailed = signal(false);
+
+  /** Records already fetched this visit, by user id, so going back to somebody is instant. */
+  private readonly detailCache = new Map<string, UserDetail>();
+  private readonly inFlight = new Map<string, Observable<UserDetail>>();
+  private prefetchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** The list row of the focused person: status and lock-out read from here, so they follow actions at once. */
+  readonly focused = computed(() => {
+    const id = this.focusedId();
+    return id ? this.users().find((user) => user.id === id) ?? null : null;
+  });
 
   /** The status tabs above the results, with the icon each one shows. */
   readonly statusTabs: { key: DirectoryTab; label: string; icon: string }[] = [
@@ -306,6 +323,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     if (this.countRaf !== null) {
       cancelAnimationFrame(this.countRaf);
     }
+    this.cancelPrefetch();
   }
 
   // =========================================================================================
@@ -320,6 +338,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.data.set(response);
         this.loading.set(false);
+        this.keepFocus(response.users.items ?? []);
       },
       error: (error: Error) => {
         this.loading.set(false);
@@ -331,6 +350,117 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   retry(): void {
     this.load();
+  }
+
+  // =========================================================================================
+  // Dossier pane
+  // =========================================================================================
+
+  /** Opens a person's record in the pane beside the register. */
+  focusUser(user: UserListItem): void {
+    const id = user.id ?? '';
+    if (!id || id === this.focusedId()) {
+      return;
+    }
+
+    this.focusedId.set(id);
+
+    // Somebody already read (or fetched on hover) opens at once, with no round trip.
+    const cached = this.detailCache.get(id);
+    if (cached) {
+      this.focusDetail.set(cached);
+      this.focusLoading.set(false);
+      this.focusFailed.set(false);
+      return;
+    }
+
+    this.loadFocus(id);
+  }
+
+  /**
+   * Starts fetching a person's record as soon as the pointer rests on their line, so the click that
+   * usually follows finds it already there. A short delay keeps a sweep across the list from firing a
+   * request per line.
+   */
+  prefetch(user: UserListItem): void {
+    const id = user.id ?? '';
+    if (this.prefetchTimer !== null) {
+      clearTimeout(this.prefetchTimer);
+    }
+    if (!id || this.detailCache.has(id) || this.inFlight.has(id)) {
+      return;
+    }
+
+    this.prefetchTimer = setTimeout(() => {
+      this.prefetchTimer = null;
+      this.fetchDetail(id).subscribe({ error: () => undefined });
+    }, 120);
+  }
+
+  cancelPrefetch(): void {
+    if (this.prefetchTimer !== null) {
+      clearTimeout(this.prefetchTimer);
+      this.prefetchTimer = null;
+    }
+  }
+
+  /** One request per person at a time; the answer is kept for the next time they are opened. */
+  private fetchDetail(id: string): Observable<UserDetail> {
+    const pending = this.inFlight.get(id);
+    if (pending) {
+      return pending;
+    }
+
+    const request = this.api.getUser(id).pipe(
+      tap((detail) => this.detailCache.set(id, detail)),
+      finalize(() => this.inFlight.delete(id)),
+      shareReplay(1),
+      takeUntil(this.destroy$),
+    );
+    this.inFlight.set(id, request);
+    return request;
+  }
+
+  /** After a load: keep the open person when they are still on the page, otherwise open the first row. */
+  private keepFocus(rows: UserListItem[]): void {
+    if (rows.some((user) => user.id === this.focusedId())) {
+      return;
+    }
+
+    this.focusedId.set(null);
+    this.focusDetail.set(null);
+    if (rows[0]) {
+      this.focusUser(rows[0]);
+    }
+  }
+
+  /**
+   * Reads the focused person's record. The record already on screen STAYS while the next one loads
+   * (the template only dims it); swapping it for loading lines made the pane collapse and re-grow on
+   * every click, which read as a flicker.
+   */
+  private loadFocus(id: string): void {
+    this.focusLoading.set(true);
+    this.focusFailed.set(false);
+
+    this.fetchDetail(id).subscribe({
+      next: (detail) => {
+        // A quicker click may have moved on to somebody else while this was in flight.
+        if (this.focusedId() !== id) {
+          return;
+        }
+        this.focusDetail.set(detail);
+        this.focusLoading.set(false);
+      },
+      error: () => {
+        if (this.focusedId() !== id) {
+          return;
+        }
+        this.focusDetail.set(null);
+        this.focusLoading.set(false);
+        this.focusFailed.set(true);
+      },
+    });
   }
 
   // =========================================================================================
@@ -1007,6 +1137,13 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.toast.show('Done', message, 'success');
     this.load();
     this.loadStatusCounts();
+
+    // The open dossier may be the record just changed: forget what was kept and read it again.
+    this.detailCache.clear();
+    const focusedId = this.focusedId();
+    if (focusedId) {
+      this.loadFocus(focusedId);
+    }
   }
 
   private fail(error: Error): void {

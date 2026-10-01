@@ -3,19 +3,10 @@
 <div class="container-fluid px-4 py-3">
 <div class="mc-page" [attr.data-mode]="mode()">
 
-  <!-- ============ HEADER ============ -->
-  <app-page-header [showInfo]="false" screen="menu-configuration" title="Menu configuration"
-                   subtitle="Build the navigation, decide what this organisation uses, and choose what each role sees.">
-    @if (canManageStructure()) {
-      <button actions type="button" class="ph-btn ph-btn--primary" (click)="openCreator(null)">
-        <i class="ri-add-line" aria-hidden="true"></i> Add menu
-      </button>
-    }
-  </app-page-header>
-
   <!-- ============ DECK: what you are configuring, for whom, and the headline figures ============ -->
   <section class="mc-deck" aria-label="What to configure">
     <div class="mc-deck-row">
+      <h1 class="mc-title">Menu configuration</h1>
       <div class="mc-modes" role="tablist" aria-label="What to configure">
         <button type="button" role="tab" class="mc-mode" [class.is-active]="mode() === 'organisation'"
                 [attr.aria-selected]="mode() === 'organisation'" (click)="setMode('organisation')">
@@ -83,10 +74,11 @@
           }
         </div>
 
-        <button type="button" class="mc-help-btn" [class.is-on]="showRule()" [attr.aria-expanded]="showRule()"
-                (click)="showRule.set(!showRule())">
-          <i class="ri-question-line" aria-hidden="true"></i><span class="mc-t">How it works</span>
-        </button>
+        @if (canManageStructure()) {
+          <button type="button" class="mc-btn mc-btn--primary mc-btn--sm" (click)="openCreator(null)">
+            <i class="ri-add-line" aria-hidden="true"></i> Add menu
+          </button>
+        }
       </div>
     </div>
 
@@ -116,17 +108,6 @@
       }
     </dl>
 
-    @if (showRule()) {
-      <div class="mc-rule" role="note">
-        <ol class="mc-rule-steps">
-          <li><span class="mc-rule-n">1</span><span class="mc-t">The product ships the item</span></li>
-          <li><span class="mc-rule-n">2</span><span class="mc-t">This organisation switches it on</span></li>
-          <li><span class="mc-rule-n">3</span><span class="mc-t">The role is given it</span></li>
-          <li><span class="mc-rule-n">4</span><span class="mc-t">The person holds its permission</span></li>
-        </ol>
-        <p class="mc-rule-note">A person only sees an item when all four are true. Hiding tidies the navigation — it never grants or removes access.</p>
-      </div>
-    }
   </section>
 
   @if (errorMessage()) {
@@ -202,12 +183,7 @@
         <!-- The menu itself -->
         <header class="mc-banner" [class.is-off]="mode() === 'organisation' ? !isEnabled(sec.id) : !isMapped(sec.id)">
           <span class="mc-banner-mark" aria-hidden="true">{{ sectionIndex().toString().padStart(2, '0') }}</span>
-          <span class="mc-step-n mc-step-n--light">2</span>
-          <span class="mc-banner-glyph" aria-hidden="true">
-            @if (iconClassFor(sec.node)) { <i [class]="iconClassFor(sec.node)"></i> } @else { <i class="ri-layout-grid-line"></i> }
-          </span>
           <div class="mc-banner-text">
-            <span class="mc-banner-kicker">Menu {{ sectionIndex() }} of {{ sections().length }}</span>
             <div class="mc-banner-title-row">
               <h2 class="mc-banner-title">{{ pendingName(sec.node) }}</h2>
               @if (sec.node.isOrganisationOwned) { <span class="mc-mark mc-mark--own">Yours</span> }
@@ -431,10 +407,6 @@
 
     <!-- Live sidebar preview -->
     <aside class="mc-preview" aria-label="Sidebar preview">
-      <div class="mc-preview-head">
-        <span class="mc-preview-title">Live preview</span>
-        <span class="mc-preview-who">{{ mode() === 'roles' ? selectedRoleName() : 'Everyone here' }}</span>
-      </div>
       <div class="mc-phone">
         <div class="mc-phone-brand"><span class="mc-phone-dot" aria-hidden="true"></span><span class="mc-t">YDot</span></div>
         @for (row of sections(); track row.id) {

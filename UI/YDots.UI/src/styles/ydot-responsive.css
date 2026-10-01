@@ -2,7 +2,7 @@
    YDot Responsive - one scale, one set of breakpoints, for every screen.
 
    HOW THE APP SCALES. Almost all text in the app is sized by ONE token: styles.css forces every span / div /
-   td / p / label / button ... to `font-size: var(--fs-base)`, and --fs-base is the customiser font size times
+   td / p / label / button ... to `font-size: calc(var(--fs-base)`, and --fs-base is the customiser font size times * var(--ui-text-scale, 1))
    --ui-scale (below). So changing --ui-scale resizes the type on every screen at once. The page header, KPI
    tiles, card padding, icon glyphs, the top bar and the root font size (the template sidebar, dropdowns,
    forms and headings are rem-based) all read the same --ui-scale, so a large monitor gets larger everything
@@ -24,9 +24,13 @@
 :root {
   --ui-scale: 1;
   --fs-base: calc(var(--font-size-base, 12px) * var(--ui-scale));
+  /* Type-only multiplier: every font-size in the app's CSS is `calc(V * var(--ui-text-scale, 1))`
+     (tools/font_text_scale.py), so this shrinks or grows text without touching spacing. 0.86 = two steps
+     down on the customiser's size ladder (14px -> 12px). */
+  --ui-text-scale: 0.86;
 
   /* Shell */
-  --pe-app-header-height: calc(74px * var(--ui-scale));
+  --pe-app-header-height: calc(58px * var(--ui-scale));
 
   /* Card template tokens (ydot-card.css) and the KPI tile height (ydot-premium.css) */
   --lx-kpi-h: calc(128px * var(--ui-scale));
@@ -75,11 +79,11 @@
 @media (min-width: 7680px) and (min-height: 2400px) and (max-height: 3599.98px) { :root { --ui-scale: 3.2; } }
 
 /* The template sidebar, dropdowns, form controls and headings are rem-based: scaling the root scales them.
-   It is written on :root, not html, because Bootstrap sets `:root { font-size: var(--pe-root-font-size) }` and a
+   It is written on :root, not html, because Bootstrap sets `:root { font-size: calc(var(--pe-root-font-size) * var(--ui-text-scale, 1)) }` and a
    type selector would lose to it. On the root element 1rem is the browser default, so a user who has raised
    their browser font size keeps that preference. */
 :root {
-  font-size: calc(1rem * var(--ui-scale));
+  font-size: calc(calc(1rem * var(--ui-scale)) * var(--ui-text-scale, 1));
 }
 
 /* Modals: the template px widths follow the scale too. */
@@ -92,6 +96,12 @@
 /* =====================================================================================================
    Fit: nothing may push the page sideways.
    ===================================================================================================== */
+
+/* Less empty space above the page title: the stock `py-3` (1rem) top padding on every screen's container
+   is halved. Bootstrap's spacing utilities are !important, hence this one too. */
+.page-wrapper > .container-fluid.py-3 {
+  padding-top: calc(12px * var(--ui-scale)) !important;
+}
 
 .content-page {
   min-width: 0;
