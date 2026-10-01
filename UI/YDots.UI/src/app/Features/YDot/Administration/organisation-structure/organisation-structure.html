@@ -10,13 +10,13 @@
           <div class="os-hero-text">
             <span class="os-hero-eyebrow">Organisation structure</span>
             <h1 class="os-hero-title">{{ title() }}</h1>
-            <p class="os-hero-sub">{{ subtitle() }}</p>
+            <!-- <p class="os-hero-sub">{{ subtitle() }}</p> -->
           </div>
         </div>
         @if (canManage()) {
-          <button type="button" class="os-btn-add" (click)="startAdding()">
+          <button type="button" class="btn btn-primary btn-sm" (click)="startAdding()">
             <i class="ri-add-line"></i>
-            Add {{ isDepartments() ? 'a department' : 'an office' }}
+            Add
           </button>
         }
       </div>
@@ -169,26 +169,26 @@
                   <td class="os-td-actions">
                     @if (confirmingDelete() === row.id) {
                       <div class="os-confirm">
-                        <span>Remove it?</span>
-                        <button type="button" class="os-btn os-btn-danger"
+                        <!-- <span>Remove it?</span> -->
+                        <button type="button" class="btn btn-danger btn-sm"
                                 [disabled]="saving()" (click)="delete(row)">
                           Yes, remove
                         </button>
-                        <button type="button" class="os-btn os-btn-plain" (click)="cancelDelete()">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDelete()">
                           No
                         </button>
                       </div>
                     } @else {
                       <div class="os-actions">
-                        <button type="button" class="os-act os-act-view" title="View" aria-label="View"
+                        <button type="button" class="btn View" title="View" aria-label="View"
                                 (click)="viewing.set(row)">
                           <i class="ri-eye-line"></i>
                         </button>
 
                         @if (canManage()) {
-                          <button type="button" class="os-act os-act-edit" title="Edit" aria-label="Edit"
+                          <button type="button" class="btn Edit" title="Edit" aria-label="Edit"
                                   (click)="startEditing(row)">
-                            <i class="ri-pencil-line"></i>
+                            <i class="ri-edit-line"></i>
                           </button>
 
                           <!--
@@ -196,7 +196,7 @@
                             Saying so on the button is better than letting somebody press it and
                             reading the refusal afterwards.
                           -->
-                          <button type="button" class="os-act os-act-remove" aria-label="Remove"
+                          <button type="button" class="btn Delete" aria-label="Remove"
                                   [disabled]="!canRemove(row)"
                                   [title]="canRemove(row)
                                     ? 'Remove'
@@ -308,10 +308,10 @@
               <p class="os-view-desc" [class.is-none]="!row.description">{{ row.description || 'No description has been added.' }}</p>
 
               <footer class="os-view-foot">
-                <button type="button" class="os-btn os-btn-plain" (click)="viewing.set(null)">Close</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="viewing.set(null)">Close</button>
                 @if (canManage()) {
-                  <button type="button" class="os-btn os-btn-primary" (click)="viewing.set(null); startEditing(row)">
-                    <i class="ri-pencil-line"></i> Edit
+                  <button type="button" class="btn btn-primary btn-sm" (click)="viewing.set(null); startEditing(row)">
+                  Edit
                   </button>
                 }
               </footer>

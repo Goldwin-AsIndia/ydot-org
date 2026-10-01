@@ -34,7 +34,7 @@
                 @if (selectedRoleId()) { {{ selectedRoleName() | slice:0:1 }} } @else { <i class="ri-shield-user-line" aria-hidden="true"></i> }
               </span>
               <span class="dd-val">
-                <span class="dd-val-sub">Viewing as</span>
+                <!-- <span class="dd-val-sub">Viewing as</span> -->
                 <span class="dd-val-main" [class.is-empty]="!selectedRoleId()">{{ selectedRoleName() || 'Choose a role' }}</span>
               </span>
               <i class="ri-arrow-down-s-line dd-chev" aria-hidden="true"></i>
@@ -212,7 +212,7 @@
                 </label>
               }
               <div class="mc-actions">
-                <button type="button" class="mc-act" (click)="openEditor(sec.node)"><i class="ri-pencil-line" aria-hidden="true"></i><span class="mc-t">Edit</span></button>
+                <button type="button" class="mc-act Edit" (click)="openEditor(sec.node)"><i class="ri-edit-line" aria-hidden="true"></i><span class="mc-t">Edit</span></button>
                 @if (canManageStructure() && childLevel(sec.node.level)) {
                   <button type="button" class="mc-act" (click)="openCreator(sec.node)"><i class="ri-add-line" aria-hidden="true"></i><span class="mc-t">Add submenu</span></button>
                 }
@@ -276,13 +276,13 @@
                 <div class="mc-lane-side">
                   @if (mode() === 'organisation') {
                     <div class="mc-actions mc-actions--quiet">
-                      <button type="button" class="mc-ib" (click)="openEditor(sub.node)" title="Edit" aria-label="Edit"><i class="ri-pencil-line" aria-hidden="true"></i></button>
-                      <button type="button" class="mc-ib" (click)="move(sub.id, -1)" [disabled]="!canConfigure()" title="Move up" aria-label="Move up"><i class="ri-arrow-up-s-line" aria-hidden="true"></i></button>
-                      <button type="button" class="mc-ib" (click)="move(sub.id, 1)" [disabled]="!canConfigure()" title="Move down" aria-label="Move down"><i class="ri-arrow-down-s-line" aria-hidden="true"></i></button>
+                      <button type="button" class="mc-ib Edit" (click)="openEditor(sub.node)" title="Edit" aria-label="Edit"><i class="ri-edit-line" aria-hidden="true" style="font-size: 17px !important;"></i></button>
+                      <button type="button" class="mc-ib" (click)="move(sub.id, -1)" [disabled]="!canConfigure()" title="Move up" aria-label="Move up"><i class="ri-arrow-up-s-line" aria-hidden="true"  style="font-size: 17px !important;"></i></button>
+                      <button type="button" class="mc-ib" (click)="move(sub.id, 1)" [disabled]="!canConfigure()" title="Move down" aria-label="Move down"><i class="ri-arrow-down-s-line" aria-hidden="true" style="font-size: 17px !important;"></i></button>
                       @if (canManageStructure() && childLevel(sub.node.level)) {
                         <button type="button" class="mc-ib" (click)="openCreator(sub.node)"
                                 [title]="'Add a ' + levelLabel(childLevel(sub.node.level)) + ' under ' + pendingName(sub.node)" aria-label="Add child item">
-                          <i class="ri-add-line" aria-hidden="true"></i>
+                          <i class="ri-add-line" aria-hidden="true"  style="font-size: 17px !important;"></i>
                         </button>
                       }
                       @if (canManageStructure() && sub.node.isOrganisationOwned) {

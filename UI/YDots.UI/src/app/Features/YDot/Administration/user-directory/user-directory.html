@@ -36,20 +36,20 @@
                  [value]="searchText" (input)="onSearchChange($any($event.target).value)"
                  title="Search by name, e-mail, username or reference" aria-label="Search by name, e-mail, username or reference">
         </div>
-        <button type="button" class="ud-btn" [class.is-on]="showAdvancedFilters()" (click)="toggleAdvancedFilters()" [attr.aria-expanded]="showAdvancedFilters()">
-          <i class="ri-equalizer-line" aria-hidden="true"></i><span class="ud-t">Filters</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" [class.is-on]="showAdvancedFilters()" (click)="toggleAdvancedFilters()" [attr.aria-expanded]="showAdvancedFilters()">
+          <i class="ri-equalizer-line" aria-hidden="true"></i>&nbsp;<span class="ud-t">Filters</span>
           @if (hasActiveFilters()) { <span class="ud-btn-dot" aria-label="Filters active"></span> }
         </button>
-        @if (canExport()) {
+        <!-- @if (canExport()) { -->
           <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="busy() || loading()" (click)="exportCsv()">
-            <i class="ri-download-2-line" aria-hidden="true"></i><span class="ud-t">Export</span>
+            <i class="ri-download-2-line" aria-hidden="true"></i><span class="ud-t">&nbsp;Export</span>
           </button>
-        }
-        @if (canCreate()) {
+        <!-- } -->
+        <!-- @if (canCreate()) { -->
           <button type="button" class="btn btn-primary btn-sm" (click)="createUser()">
-            <i class="ri-user-add-line" aria-hidden="true"></i><span class="ud-t">Invite user</span>
+            <i class="ri-user-add-line" aria-hidden="true"></i><span class="ud-t">&nbsp;Create</span>
           </button>
-        }
+        <!-- } -->
       </div>
     </div>
 
@@ -143,7 +143,7 @@
           <span class="ud-col-unit">Unit</span>
           <span>Status</span>
           <span class="ud-col-seen">Last sign-in</span>
-          <span class="visually-hidden">Actions</span>
+          <span >Actions</span>
         </div>
 
         <div class="ud-rows">
@@ -164,15 +164,14 @@
               <span class="ud-col-role ud-cell" [title]="roleSummary(user)">{{ roleSummary(user) }}</span>
               <span class="ud-col-unit ud-cell" [title]="user.organisationUnitName || user.departmentName || ''">{{ user.organisationUnitName || user.departmentName || '—' }}</span>
               <span class="ud-status">
-                <span class="ud-dot" [attr.data-status]="user.status" aria-hidden="true"></span>{{ user.statusDisplay || user.status }}
+              {{ user.statusDisplay || user.status }}
                 @if (user.isLockedOut) { <i class="ri-lock-line ud-lock" title="Locked out" aria-label="Locked out"></i> }
               </span>
               <span class="ud-col-seen ud-cell ud-num">{{ user.lastLoginAtUtc ? (user.lastLoginAtUtc | date: 'dd MMM yyyy') : 'Never' }}</span>
 
               <div class="ud-acts" (click)="$event.stopPropagation()">
-                <button type="button" class="ud-act ud-act--peek" title="Quick view" aria-label="Quick view" (click)="openView(user)"><i class="ri-eye-line"></i></button>
-                <button type="button" class="ud-act" title="Edit" aria-label="Edit" (click)="openEdit(user)"><i class="ri-pencil-line"></i></button>
-                <button type="button" class="ud-act" title="Open profile" aria-label="Open profile" (click)="openProfile(user)"><i class="ri-arrow-right-up-line"></i></button>
+                <button type="button" class="ud-act View" title="Open profile" aria-label="Open profile" (click)="openProfile(user)"><i class="ri-eye-line"></i></button>
+                <button type="button" class="ud-act Edit" title="Edit" aria-label="Edit" (click)="openEdit(user)" ><i class="ri-edit-2-line"></i></button>
               </div>
             </div>
           }
@@ -183,11 +182,11 @@
           <span class="ud-foot-count">Showing <b>{{ rangeStart() }}–{{ rangeEnd() }}</b> of <b>{{ totalCount() }}</b></span>
 
           <div class="dir-dd dir-dd-sm dir-dd-up" [class.dir-dd-open]="openDropdown() === 'pageSize'" (click)="$event.stopPropagation()">
-            <button type="button" class="dir-dd-trigger" aria-haspopup="listbox"
+            <!-- <button type="button" class="dir-dd-trigger" aria-haspopup="listbox"
                     [attr.aria-expanded]="openDropdown() === 'pageSize'" (click)="toggleDropdown('pageSize')">
               <span class="dir-dd-value">{{ pageSize() }} per page</span>
               <i class="ri-arrow-down-s-line dir-dd-chev"></i>
-            </button>
+            </button> -->
             @if (openDropdown() === 'pageSize') {
               <div class="dir-dd-menu" role="listbox">
                 <div class="dir-dd-list">
@@ -222,8 +221,8 @@
             <h2 class="ud-dos-name">{{ u.displayName }}</h2>
             <span class="ud-dos-mail">{{ u.email }}</span>
             <span class="ud-dos-flags">
-              <span class="ud-status"><span class="ud-dot" [attr.data-status]="u.status" aria-hidden="true"></span>{{ u.statusDisplay || u.status }}</span>
-              <span class="ud-dos-sep" aria-hidden="true"></span>
+              <!-- <span class="ud-status"><span class="ud-dot" [attr.data-status]="u.status" aria-hidden="true"></span>{{ u.statusDisplay || u.status }}</span> -->
+              <!-- <span class="ud-dos-sep" aria-hidden="true"></span> -->
               <span class="ud-dos-flag" [class.is-warn]="!u.mfaEnabled"><i class="ri-shield-keyhole-line" aria-hidden="true"></i>{{ mfaLabel(u.mfaEnabled) }}</span>
               @if (u.isLockedOut) {
                 <span class="ud-dos-sep" aria-hidden="true"></span>
@@ -291,16 +290,16 @@
           <button type="button" class="btn btn-outline-secondary btn-sm " (click)="openEdit(u)"><i class="ri-pencil-line" aria-hidden="true"></i>&nbsp;&nbsp;<span class="ud-t">Edit</span></button>
           <span class="ud-dos-more">
             @if (canInvite(u)) {
-              <button type="button" class="ud-act" title="Send invitation" aria-label="Send invitation" (click)="openInvite(u)"><i class="ri-mail-send-line"></i></button>
+              <button type="button" class="ud-act MailSend" title="Send invitation" aria-label="Send invitation" (click)="openInvite(u)"><i class="ri-mail-send-line"></i></button>
             }
             @if (canSuspend() && u.status === 'active') {
-              <button type="button" class="ud-act" title="Suspend" aria-label="Suspend" (click)="openSuspend(u)"><i class="ri-forbid-2-line"></i></button>
+              <button type="button" class="ud-act Suspend" title="Suspend" aria-label="Suspend" (click)="openSuspend(u)"><i class="ri-forbid-2-line"></i></button>
             }
             @if (u.status === 'suspended') {
-              <button type="button" class="ud-act" title="Reactivate" aria-label="Reactivate" (click)="openReactivate(u)"><i class="ri-play-circle-line"></i></button>
+              <button type="button" class="ud-act Reactivate" title="Reactivate" aria-label="Reactivate" (click)="openReactivate(u)"><i class="ri-play-circle-line"></i></button>
             }
             @if (u.status !== 'deactivated') {
-              <button type="button" class="ud-act ud-act--danger" title="Delete" aria-label="Delete" (click)="openDelete(u)"><i class="ri-delete-bin-6-line"></i></button>
+              <button type="button" class="ud-act Delete" title="Delete" aria-label="Delete" (click)="openDelete(u)"><i class="ri-delete-bin-6-line"></i></button>
             }
           </span>
         </footer>

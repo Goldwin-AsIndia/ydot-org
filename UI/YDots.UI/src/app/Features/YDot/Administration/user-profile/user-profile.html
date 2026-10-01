@@ -430,62 +430,82 @@
      covered only part of the screen. Out here they are relative to the viewport again. -->
 <!-- ============ EDIT PROFILE ============ -->
 @if (showEditModal()) {
-  <div class="up-backdrop" (click)="closeEditModal()">
-    <div class="up-modal up-modal--lg" role="dialog" aria-modal="true" aria-labelledby="upEditTitle" (click)="$event.stopPropagation()">
-      <header class="up-modal-head">
-        <div>
-          <h3 class="up-modal-title" id="upEditTitle">Edit profile</h3>
-          <div class="up-modal-sub">{{ data()?.displayName }}</div>
-        </div>
-        <button type="button" class="up-x" aria-label="Close" (click)="closeEditModal()"><i class="ri-close-line" aria-hidden="true"></i></button>
-      </header>
+  <!-- Own class names (epx-*), not up-modal / up-backdrop: the shared dialog stylesheet styles
+       those and every <header>/<input> inside them, which added an extra icon, widened the
+       popup and drew a second box around each field. -->
+  <div class="epx-backdrop" (click)="closeEditModal()">
+    <div class="epx" role="dialog" aria-modal="true" aria-labelledby="epxTitle" (click)="$event.stopPropagation()">
 
-      <div class="up-modal-body">
-        <div class="up-form">
-          <div class="up-field">
-            <label class="up-lbl" for="upName">Display name <em class="up-req">*</em></label>
-            <input id="upName" type="text" class="up-input" [ngModel]="editForm().displayName"
+      <div class="epx-head">
+        <span class="epx-av" aria-hidden="true">{{ initials() }}</span>
+        <div class="epx-who">
+          <div class="epx-title" id="epxTitle">Edit profile</div>
+          <div class="epx-sub">{{ data()?.displayName }}@if (data()?.reference) { · {{ data()?.reference }} }</div>
+        </div>
+        <button type="button" class="epx-x" aria-label="Close" (click)="closeEditModal()">
+          <i class="ri-close-line" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="epx-body">
+        <div class="epx-field">
+          <label class="epx-lbl" for="epxName">Display name <span class="epx-req">*</span></label>
+          <div class="epx-ctl">
+            <i class="ri-user-3-line" aria-hidden="true"></i>
+            <input id="epxName" class="epx-in" type="text" placeholder="Full name" autocomplete="name"
+                   [ngModel]="editForm().displayName"
                    (ngModelChange)="editForm.set({...editForm(), displayName: $event})">
           </div>
-          <div class="up-field">
-            <label class="up-lbl" for="upDesig">Designation</label>
-            <input id="upDesig" type="text" class="up-input" [ngModel]="editForm().designation"
+        </div>
+
+        <div class="epx-field">
+          <label class="epx-lbl" for="epxDesig">Designation</label>
+          <div class="epx-ctl">
+            <i class="ri-briefcase-4-line" aria-hidden="true"></i>
+            <input id="epxDesig" class="epx-in" type="text" placeholder="e.g. Programme lead"
+                   [ngModel]="editForm().designation"
                    (ngModelChange)="editForm.set({...editForm(), designation: $event})">
           </div>
-          <div class="up-field up-field--full">
-            <label class="up-lbl" for="upMobile">Mobile number</label>
-            <div class="up-phone">
-              <input type="text" class="up-phone-code" placeholder="+91" aria-label="Country code"
-                     [ngModel]="editForm().mobileCountryCode"
-                     (ngModelChange)="editForm.set({...editForm(), mobileCountryCode: $event})">
-              <input id="upMobile" type="text" class="up-phone-num" placeholder="Mobile number"
+        </div>
+
+        <div class="epx-field">
+          <label class="epx-lbl" for="epxMobile">Mobile number</label>
+          <div class="epx-phone">
+            <input class="epx-in epx-in--code" type="text" placeholder="+91" aria-label="Country code" maxlength="5"
+                   [ngModel]="editForm().mobileCountryCode"
+                   (ngModelChange)="editForm.set({...editForm(), mobileCountryCode: $event})">
+            <div class="epx-ctl epx-ctl--grow">
+              <i class="ri-smartphone-line" aria-hidden="true"></i>
+              <input id="epxMobile" class="epx-in" type="tel" inputmode="tel" placeholder="98765 43210"
                      [ngModel]="editForm().mobileNumber"
                      (ngModelChange)="editForm.set({...editForm(), mobileNumber: $event})">
             </div>
-            <div class="up-help">The server validates the code and the number together.</div>
-          </div>
-          <div class="up-field up-field--full">
-            <label class="up-lbl" for="upEmail">Email</label>
-            <div class="up-locked">
-              <i class="ri-lock-line" aria-hidden="true"></i>
-              <input id="upEmail" type="email" [ngModel]="editForm().email" disabled>
-            </div>
-            <div class="up-help">
-              This is what the account signs in with, so it changes through
-              <button type="button" class="up-inline-link" (click)="viewLoginIdentifierChange()">Change sign-in identifier</button>,
-              which verifies the new address first.
-            </div>
           </div>
         </div>
-        <div class="up-note"><i class="ri-information-line" aria-hidden="true"></i> Department, manager and organisation unit are set from the organisation structure rather than here.</div>
+
+        <div class="epx-field">
+          <span class="epx-lbl">Sign-in email</span>
+          <div class="epx-locked">
+            <i class="ri-lock-line" aria-hidden="true"></i>
+            <span class="epx-locked__v">{{ editForm().email || '—' }}</span>
+            <button type="button" class="epx-link" (click)="viewLoginIdentifierChange()">Change</button>
+          </div>
+          <span class="epx-help">Changed separately, after the new address is verified.</span>
+        </div>
+
+        <div class="epx-note">
+          <i class="ri-information-line" aria-hidden="true"></i>
+          <span>Department, manager and unit come from the organisation structure.</span>
+        </div>
       </div>
 
-      <footer class="up-modal-foot">
-        <button type="button" class="up-btn up-btn--line" (click)="closeEditModal()">Cancel</button>
-        <button type="button" class="up-btn up-btn--primary" (click)="saveProfile()" [disabled]="submitting()">
-          @if (submitting()) { <i class="ri-loader-4-line up-spin" aria-hidden="true"></i> Saving… } @else { Save changes }
+      <div class="epx-foot">
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeEditModal()">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="saveProfile()" [disabled]="submitting()">
+          @if (submitting()) { <i class="ri-loader-4-line up-spin" aria-hidden="true"></i> Saving… }
+          @else { Save changes }
         </button>
-      </footer>
+      </div>
     </div>
   </div>
 }

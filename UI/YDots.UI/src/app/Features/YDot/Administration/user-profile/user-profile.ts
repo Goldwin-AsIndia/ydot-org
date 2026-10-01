@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
@@ -662,6 +662,21 @@ export class UserProfileComponent {
   toggleMoreMenu(): void { this.showMoreMenu.set(!this.showMoreMenu()); }
 
   toggleSortMenu(): void { this.showSortMenu.set(!this.showSortMenu()); }
+
+  /** A click anywhere outside the Sort control closes its menu. */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.showSortMenu()) return;
+    const target = event.target as Element | null;
+    if (target?.closest('.dx-dd')) return;
+    this.showSortMenu.set(false);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.showSortMenu()) this.showSortMenu.set(false);
+  }
+
   setSort(field: 'role' | 'scope' | 'term'): void {
     if (this.sortField() === field) {
       this.sortAsc.set(!this.sortAsc());

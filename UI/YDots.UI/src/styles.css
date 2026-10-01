@@ -262,6 +262,80 @@
   border-color: rgba(var(--pe-white-rgb, 255, 255, 255), 0.08) !important;
 }
 
+/* =========================================================
+   Sidebar — the active row is marked by its TEXT COLOUR ALONE
+   =========================================================
+
+   THE CHANGE. An open page was drawn as a boxed pill: the page's own row got a tinted fill, a blur
+   and a hairline ring, and every group on the way down to it (Administration -> Access and
+   Identity) got a second flavour of the same treatment — a solid 1.5px border over a near-white
+   fill. On a menu that is nothing but text, three filled and outlined rows read as three buttons
+   stacked on one another, and the trail the menu is meant to trace disappears into the chrome.
+
+   WHAT ACTIVE MEANS NOW. Colour only. The page — and the groups above it — keep the row exactly as
+   it rests: no fill, no ring, and the same 1px transparent border the theme already draws on every
+   nav link, so nothing shifts by a pixel when a row gains or loses `active`. The label colour, set
+   by the layers above, is what marks it.
+
+   SCOPE. The expanded sidebar in every colour. Three variants are deliberately left alone, because
+   colour alone cannot carry the state there:
+     - the folded icon rail ([data-sidebar='icon']) shows no labels, so its selected item keeps the
+       filled pill;
+     - the image/background sidebar (.theme-bg-active) already has its text in white, so its active
+       row keeps the translucent highlight;
+     - the horizontal layout ([data-layout='horizontal']) is a different bar with its own design.
+
+   The selector carries `html` and three :not() guards so it out-specifies the premium layer's own
+   active rules (`.pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active`, 0-4-0) rather than
+   relying on sheet order. */
+html:not([data-sidebar='icon']):not([data-layout='horizontal'])
+  .pe-app-sidebar:not(.theme-bg-active) .pe-nav-link.active,
+html:not([data-sidebar='icon']):not([data-layout='horizontal'])
+  .pe-app-sidebar:not(.theme-bg-active) .pe-slide.active > .pe-nav-link,
+html:not([data-sidebar='icon']):not([data-layout='horizontal'])
+  .pe-app-sidebar:not(.theme-bg-active) .pe-slide-item.active > .pe-nav-link {
+  background: none !important;
+  background-color: transparent !important;
+  border: 1px solid transparent !important;   /* same box as a resting row */
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* ---- The trail is marked the same at every level ----
+   With the fill and the ring gone (above), the two things that still say "you are here" are the
+   label's colour and the little vertical tick. Both were only reaching the LAST step of the trail,
+   so a group disappeared the moment it stopped looking like a box:
+
+   THE TICK. The theme shows it from `.pe-nav-link.active::before` — the class sits on the LINK, which
+   only the leaf carries (`routerLinkActive`). A group carries `active` on its <li> (`isNodeActive`),
+   so its link never matched and its tick stayed at the theme's resting opacity of 0. Access and
+   Identity had the tick's colour but not the tick.
+
+   THE WEIGHT. The customiser's blanket rule
+   (`body, p, span, div, ... { font-weight: <base> !important }`, further up this file) pins every
+   <span> to the body weight, and it beats the row's own 600 because the row is a lower-specificity
+   match than `span`. The ONLY sidebar label inside a <span> is a top-level one (`.pe-nav-content`);
+   a nested group's label is bare text and inherits its row's 600. So an active top-level row — say
+   Administration — was tinted but left at body weight, while the rows under it came out bold, and
+   the trail read as if only the lower half were active. Match the nested rows: 600. */
+
+/* The tick, wherever a group on the trail lives (level 2 and any deeper nested group). */
+html:not([data-sidebar='icon']):not([data-layout='horizontal'])
+  .pe-app-sidebar:not(.theme-bg-active) .pe-slide-menu .pe-slide-item.active > .pe-nav-link::before,
+html:not([data-sidebar='icon']):not([data-layout='horizontal'])
+  .pe-app-sidebar:not(.theme-bg-active) .pe-slide-menu .pe-slide.active > .pe-nav-link::before {
+  opacity: 0.9 !important;
+}
+
+/* The label weight on the top-level row, so it reads as strongly as the rows below it. */
+html:not([data-sidebar='icon']):not([data-layout='horizontal'])
+  .pe-app-sidebar:not(.theme-bg-active) .pe-main-menu > .pe-slide.active > .pe-nav-link > .pe-nav-content,
+html:not([data-sidebar='icon']):not([data-layout='horizontal'])
+  .pe-app-sidebar:not(.theme-bg-active) .pe-main-menu > .pe-slide.active > .pe-nav-link > .pe-nav-arrow {
+  font-weight: 600 !important;
+}
+
 .app-header{
           margin-left: 15px;
         margin-right: 15px;
@@ -5489,3 +5563,21 @@ button,
   -webkit-mask: url(assets/images/ydot-mark-mask.png) center / contain no-repeat;
   mask: url(assets/images/ydot-mark-mask.png) center / contain no-repeat;
 }
+
+
+
+.Edit:hover {  color:#5f0011 !important;
+  background:transparent !important;}
+
+  .View:hover {  color:var(--primary) !important;
+  background:transparent !important; }
+
+    .MailSend:hover {  color:#05007b !important;
+  background:transparent !important; }
+
+      .Delete:hover {  color: #b3261e !important;
+  background:transparent !important; }
+     .Suspend:hover {  color: #0085a6 !important;
+  background:transparent !important; }
+     .Reactivate:hover {  color: #86009e !important;
+  background:transparent !important; }

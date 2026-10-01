@@ -9,8 +9,6 @@ RUN npm ci
 
 COPY . .
 
-# "production" swaps in environment.prod.ts, whose apiBaseUrl is the relative
-# /api/v1 that nginx proxies to the IAM API.
 ARG BUILD_CONFIGURATION=production
 RUN npm run build -- --configuration $BUILD_CONFIGURATION
 
@@ -19,7 +17,6 @@ FROM nginx:1.27-alpine AS runtime
 
 RUN rm -rf /usr/share/nginx/html/*
 
-# @angular/build:application emits the browser bundle under dist/<project>/browser
 COPY --from=build /app/dist/YDot/browser /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
@@ -28,4 +25,4 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -q --spider http://127.0.0.1/ || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["nginx", "-g", "daemon off."]

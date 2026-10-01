@@ -602,7 +602,7 @@
               <p class="cu-rv-just-text">{{ form().businessJustification || '—' }}</p>
             </div>
             <div class="cu-rv-welcome">
-              <label class="cu-label" for="cuWelcome">Welcome message (optional)</label>
+              <!-- <label class="cu-label" for="cuWelcome">Welcome message (optional)</label> -->
               <div class="cu-field cu-field--area">
                 <i class="ri-message-2-line cu-field-icon" aria-hidden="true"></i>
                 <textarea id="cuWelcome" class="form-control" rows="3"
@@ -623,31 +623,28 @@
 
       <!-- Docked action bar -->
       <footer class="cu-footer">
-        @if (activeStep() === 0) {
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()">
-            <i class="ri-close-line" aria-hidden="true"></i> Cancel
-          </button>
-        } @else {
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="previousStep()">
-            <i class="ri-arrow-left-line" aria-hidden="true"></i> Back
-          </button>
-        }
+       
         <div class="cu-footer-pips" aria-hidden="true">
           @for (s of steps; track s; let i = $index) {
             <span class="cu-pip" [class.on]="i <= activeStep()"></span>
           }
         </div>
+         @if (activeStep() !== 0) {
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="previousStep()">
+            <i class="ri-arrow-left-line" aria-hidden="true"></i> Previous
+          </button>
+        } 
         @if (activeStep() < steps.length - 1) {
           <button type="button" class="btn btn-primary btn-sm" (click)="nextStep()">
             Continue to {{ steps[activeStep() + 1] }} <i class="ri-arrow-right-line" aria-hidden="true"></i>
           </button>
         } @else {
           <div class="cu-footer-final">
-            <button type="button" class="cu-btn cu-btn--line" [disabled]="submitting()" (click)="createWithoutInvite()">
-              Create without sending
+            <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="submitting()" (click)="createWithoutInvite()">
+            <i class="ri-save-3-line" aria-hidden="true"></i>  Create without sending
             </button>
-            <button type="button" class="cu-btn cu-btn--primary" [disabled]="!canSubmit()" (click)="createAndInvite()">
-              {{ submitting() ? 'Creating…' : 'Create and send invitation' }} <i class="ri-mail-send-line" aria-hidden="true"></i>
+            <button type="button" class="btn btn-primary btn-sm" [disabled]="!canSubmit()" (click)="createAndInvite()">
+           <i class="ri-mail-send-line" aria-hidden="true"></i>    {{ submitting() ? 'Creating…' : 'Create and send invitation' }}
             </button>
           </div>
         }

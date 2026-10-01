@@ -5,7 +5,6 @@
     <!-- ======================= Header ======================= -->
     <app-page-header [showInfo]="false" screen="role-catalogue" title="Roles &amp; Permissions"
                      subtitle="Maintain controlled business roles and the permission bundles they grant.">
-      <!-- <span meta class="ph-chip">Access and identity</span> -->
       <button actions class="btn btn-primary btn-sm" type="button" (click)="createDraftRole()">
         <i class="ri-add-line" aria-hidden="true"></i>&nbsp;
         <span>Create</span>
@@ -92,7 +91,7 @@
             </div>
 
             <input type="checkbox" id="filterPanelToggle" class="rx-hidden-toggle" hidden>
-            <label for="filterPanelToggle" class="btn btn-outline-secondary">
+            <label for="filterPanelToggle" class="btn btn-outline-secondary btn-sm">
               <i class="ri-filter-3-line" aria-hidden="true"></i> Filters
               @if (filterType() || filterFunction()) { <span class="rx-filter-dot" aria-label="Filters active"></span> }
             </label>
@@ -161,8 +160,6 @@
             <button class="rx-link" type="button" (click)="clearFilters()">Clear filters</button>
           </div>
         } @else {
-          <p class="rx-hintline"><i class="ri-cursor-line" aria-hidden="true"></i>Click a role to see what it can do.</p>
-
           <table class="rx-table">
             <thead>
               <tr>
@@ -238,7 +235,7 @@
                               </button>
                             }
                             @if (selectedItem(); as item) {
-                              <button type="button" class="rx-btn rx-btn--line" (click)="openCompareModal(item)">
+                              <button type="button" class="btn btn-outline-primary btn-sm" (click)="openCompareModal(item)">
                                 <i class="ri-arrow-left-right-line" aria-hidden="true"></i> Compare
                               </button>
                               @if (item.canDelete) {
@@ -490,7 +487,7 @@
      CREATE DRAFT ROLE — offcanvas
      ===================================================================== -->
 @if (showCreateModal()) {
-  <div class="rx-overlay"  (click)="closeCreateModal()"></div>
+  <div class="rx-overlay" (click)="closeCreateModal()"></div>
   <aside class="rx-oc" role="dialog" aria-modal="true" aria-labelledby="createRoleTitle" (click)="closeDd()" style="border-radius: 0 !important;">
 
     <header class="rx-oc__head">
@@ -743,6 +740,8 @@
 
 <!-- =====================================================================
      COMPARE ROLES — popup
+     The "Compare with" menu FLOATS (position: fixed, placed by toggleDd from the trigger's
+     screen position), so the dialog body never clips it and the card never grows.
      ===================================================================== -->
 @if (showCompareModal() && actionRole(); as role) {
   <div class="rx-modal-wrap" (click)="closeCompareModal()">
@@ -770,27 +769,38 @@
           <div class="rx-vs__card">
             <span class="rx-vs__label">Compare with</span>
             <div class="rx-dd" [class.rx-dd--open]="openDd() === 'compare'" (click)="$event.stopPropagation()">
-              <button type="button" class="rx-dd__trigger rx-dd__trigger--field" (click)="toggleDd('compare')">
+              <button type="button" class="rx-dd__trigger rx-dd__trigger--field"
+                      aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'compare'"
+                      (click)="toggleDd('compare', $event)">
                 @if (compareRoleId()) {
                   <span class="rx-dd__av" [ngStyle]="avatarStyle(compareRoleLabel())">{{ compareRoleLabel() | slice:0:1 }}</span>
                 }
                 <span class="rx-dd__value" [class.rx-dd__ph]="!compareRoleId()">{{ compareRoleLabel() || 'Choose a role' }}</span>
                 <i class="ri-arrow-down-s-line rx-dd__chev" aria-hidden="true"></i>
               </button>
-              @if (openDd() === 'compare') {
-                <div class="rx-dd__menu">
+
+              @if (openDd() === 'compare' && ddMenuPos(); as pos) {
+                <div class="rx-dd__menu rx-dd__menu--float" role="listbox" rxPortal
+                     (click)="$event.stopPropagation()"
+                     [style.top.px]="pos.top"
+                     [style.bottom.px]="pos.bottom"
+                     [style.left.px]="pos.left"
+                     [style.width.px]="pos.width">
                   <div class="rx-dd__search"><i class="ri-search-line" aria-hidden="true"></i>
                     <input type="text" placeholder="Search roles…" [value]="ddQuery()" (input)="ddQuery.set($any($event.target).value)"></div>
                   <div class="rx-dd__list">
                     @for (c of compareCandidates(); track c.id) {
                       @if (ddMatch(c.name + ' ' + c.code)) {
-                        <button type="button" class="rx-dd__opt" [class.rx-dd__opt--on]="compareRoleId() === c.id"
-                                (click)="compareRoleId.set(c.id); compareResult.set(null); closeDd()">
+                        <button type="button" class="rx-dd__opt" role="option" [class.rx-dd__opt--on]="compareRoleId() === c.id"
+                                [attr.aria-selected]="compareRoleId() === c.id"
+                                (click)="pickCompareRole(c.id)">
                           <span class="rx-dd__av" [ngStyle]="avatarStyle(c.name)">{{ c.name | slice:0:1 }}</span>
                           <span class="rx-dd__two"><span>{{ c.name }}</span><small>{{ c.code }}</small></span>
                           @if (compareRoleId() === c.id) { <i class="ri-check-line" aria-hidden="true"></i> }
                         </button>
                       }
+                    } @empty {
+                      <div class="rx-dd__empty">No other role to compare with.</div>
                     }
                   </div>
                 </div>
@@ -827,7 +837,6 @@
         <button class="rx-btn rx-btn--ghost" type="button" (click)="closeCompareModal()">Close</button>
         <button class="rx-btn rx-btn--primary" type="button" (click)="runCompare()" [disabled]="!compareRoleId() || comparing()">
           @if (comparing()) { <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> }
-          @else { <i class="ri-arrow-left-right-line" aria-hidden="true"></i> }
           Compare
         </button>
       </div>
