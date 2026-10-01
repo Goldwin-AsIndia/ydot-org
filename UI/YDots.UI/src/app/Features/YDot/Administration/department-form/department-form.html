@@ -2,13 +2,14 @@
 <div class="df-backdrop" (click)="cancel()"></div>
 
 <section class="df-dialog" role="dialog" aria-modal="true" aria-labelledby="df-title">
-  <header class="df-head">
+  <header class="df-head" style="display: flex;    align-items: center !important;
+    justify-content: flex-start;">
     <div>
       <h2 id="df-title" class="df-title">{{ isNew() ? 'Add a department' : 'Edit department' }}</h2>
-      <p class="df-sub">
+      <!-- <p class="df-sub">
         @if (isNew()) { What people do - a function such as Fundraising or Finance. }
         @else { Changes apply as soon as they are saved. }
-      </p>
+      </p> -->
     </div>
     <button type="button" class="df-close" aria-label="Close" title="Close" (click)="cancel()">
       <i class="ri-close-line"></i>
@@ -82,16 +83,16 @@
         </div>
 
         @if (!isNew()) {
-          <div class="of-field">
+          <div class="of-field  ">
             <label for="df-status">Status</label>
             <app-picker inputId="df-status" [options]="statusPickerOptions()" [value]="form().status"
                         [searchable]="false"
                         (valueChange)="update('status', $any($event))" />
           </div>
-          <p class="df-note df-span-2">Inactive hides a department from the pickers but keeps its history.</p>
+          <!-- <p class="df-note df-span-2">Inactive hides a department from the pickers but keeps its history.</p> -->
         }
 
-        <div class="of-field df-span-3">
+        <div class="of-field df-span-2">
           <label for="df-description" class="df-label-row">
             Description <span class="df-count">{{ form().description.length }} / 500</span>
           </label>
@@ -106,8 +107,8 @@
   <footer class="df-foot">
     <button type="button" class="of-btn of-btn-ghost" (click)="cancel()">Cancel</button>
     <button type="button" class="of-btn of-btn-primary" [disabled]="saving() || loading() || notFound()" (click)="save()">
-      @if (saving()) { <i class="ri-loader-4-line of-spin"></i> Saving… }
-      @else { <i class="ri-check-line"></i> {{ isNew() ? 'Add department' : 'Save changes' }} }
+      @if (saving()) { Saving… }
+      @else {  {{ isNew() ? 'Add' : 'Save' }} }
     </button>
   </footer>
 </section>
