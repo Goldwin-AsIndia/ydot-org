@@ -1,8 +1,8 @@
-import { Component, DOCUMENT, DoCheck, effect, inject, OnInit, Renderer2, signal } from '@angular/core';
+import { Component, DOCUMENT, effect, inject, OnInit, Renderer2, signal } from '@angular/core';
 import { LayoutService } from '../../Service/layout-service';
 import { ThemePicker } from '../components/theme-picker/theme-picker';
 import { ThemeColorService } from './theme-color.service';
-import { contrastOn, legacyPrimaryVars } from './theme-palette';
+import { legacyPrimaryVars } from './theme-palette';
 
 interface FontOption {
   name: string;
@@ -26,146 +26,23 @@ interface FontPairing {
   menu: string;
 }
 
-interface WeightOption {
+/** One number per type role (a size step or a weight step). */
+type RoleLevels = Record<FontRole, number>;
+
+interface RoleControl {
+  key: FontRole;
   label: string;
-  value: string;
+  hint: string;
+  sample: string;
+  /** The size (px) and weight the role is designed at: what the live preview in the panel starts from. */
+  size: number;
+  weight: number;
 }
 
 interface RailSection {
   key: string;
   icon: string;
   label: string;
-}
-
-interface PaletteSwatch {
-  name: string;
-  variable: string;
-  /** What the colour looks like on the page, resolved from the live custom property. */
-  css: string;
-  /** Text shown and copied: #RRGGBB, or #RRGGBB plus its opacity for translucent tokens. */
-  value: string;
-  /** Text colour that stays readable on the swatch. */
-  ink: string;
-  translucent: boolean;
-}
-
-interface PaletteGroup {
-  title: string;
-  note: string;
-  swatches: PaletteSwatch[];
-}
-
-/** [label, custom property] pairs, grouped for the palette section of the panel. */
-const PALETTE_SPEC: { title: string; note: string; tokens: [string, string][] }[] = [
-  {
-    title: 'Brand',
-    note: 'follows your pick',
-    tokens: [
-      ['Primary', '--theme-primary'],
-      ['Primary dark', '--theme-primary-dark'],
-      ['Primary light', '--theme-primary-light'],
-      ['Deep', '--theme-deep'],
-      ['Deep 2', '--theme-deep-2'],
-      ['On primary', '--theme-on-primary'],
-    ],
-  },
-  {
-    title: 'Text, lines & surfaces',
-    note: 'follows your pick',
-    tokens: [
-      ['Ink', '--theme-ink'],
-      ['Muted', '--theme-muted'],
-      ['Border', '--theme-border'],
-      ['Surface tint', '--theme-surface-tint'],
-      ['Ring', '--theme-ring'],
-    ],
-  },
-  {
-    title: 'Page header',
-    note: 'follows your pick, light or dark',
-    tokens: [
-      ['Header dark stop', '--theme-header-dark'],
-      ['Header', '--theme-header'],
-      ['Header light stop', '--theme-header-light'],
-      ['Header text', '--theme-header-ink'],
-    ],
-  },
-  {
-    title: 'Accent',
-    note: 'derived from your pick',
-    tokens: [
-      ['Accent', '--theme-accent'],
-      ['Accent light', '--theme-accent-light'],
-      ['Accent dark', '--theme-accent-dark'],
-      ['Accent ink', '--theme-accent-ink'],
-    ],
-  },
-  {
-    title: 'Tones',
-    note: 'icons and washes',
-    tokens: [
-      ['Tone 1', '--theme-tone-1'],
-      ['Tone 2', '--theme-tone-2'],
-      ['Tone 3', '--theme-tone-3'],
-      ['Tone 4', '--theme-tone-4'],
-      ['Tone 5', '--theme-tone-5'],
-      ['Tone 6', '--theme-tone-6'],
-    ],
-  },
-  {
-    title: 'Gold',
-    note: 'fixed: buttons, selected items',
-    tokens: [
-      ['Gold', '--lx-gold'],
-      ['Gold light', '--lx-gold-light'],
-      ['Gold dark', '--lx-gold-dark'],
-      ['Gold text', '--lx-gold-deep'],
-      ['Gold ink', '--lx-gold-ink'],
-    ],
-  },
-  {
-    title: 'Customiser colours',
-    note: 'set further down',
-    tokens: [
-      ['Bootstrap primary', '--primary'],
-      ['Secondary', '--secondary'],
-      ['Icon', '--icon-color'],
-      ['Heading', '--heading-color'],
-    ],
-  },
-  {
-    title: 'Status',
-    note: 'fixed: never follows the theme',
-    tokens: [
-      ['Success', '--success'],
-      ['Warning', '--warning'],
-      ['Danger', '--danger'],
-      ['Info', '--info'],
-    ],
-  },
-];
-
-/** Quiet time before the palette swatches are re-read after a colour change. */
-const PALETTE_READ_DELAY_MS = 150;
-
-/** "rgb(49, 87, 70)", "rgba(255, 255, 255, 0.16)" or "color(srgb 0.19 0.34 0.27 / 0.5)" -> channels, or null. */
-function parseCssColor(input: string): { r: number; g: number; b: number; a: number } | null {
-  const alpha = (raw: string | undefined) =>
-    raw === undefined ? 1 : raw.endsWith('%') ? parseFloat(raw) / 100 : parseFloat(raw);
-  const legacy = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/.exec(input.trim());
-  if (legacy) {
-    return { r: Math.round(+legacy[1]), g: Math.round(+legacy[2]), b: Math.round(+legacy[3]), a: alpha(legacy[4]) };
-  }
-  const srgb = /^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+%?))?\s*\)$/.exec(input.trim());
-  if (srgb) {
-    return {
-      r: Math.round(+srgb[1] * 255),
-      g: Math.round(+srgb[2] * 255),
-      b: Math.round(+srgb[3] * 255),
-      a: alpha(srgb[4]),
-    };
-  }
-  return null;
 }
 
 interface ThemeSettings {
@@ -180,8 +57,11 @@ interface ThemeSettings {
   headingFont: string;
   numberFont: string;
   otherFont: string;
-  fontSize: string;
-  fontWeight: string;
+  /** Overall text size multiplier (1 = as designed). */
+  textScale: number;
+  /** Per-role size steps (SIZE_STEP each) and weight steps (WEIGHT_STEP each) on top of the overall setting. */
+  sizeSteps: RoleLevels;
+  weightSteps: RoleLevels;
   lineHeight: number;
   shadowStrength: number;
   borderRadius: number;
@@ -193,6 +73,20 @@ interface ThemeSettings {
 
 const STORAGE_KEY = 'app-theme-settings';
 const FONTS_VERSION = 3;
+
+/** One size step is 6% of the designed size; -4 is 76%, +6 is 136%. */
+const SIZE_STEP = 0.06;
+const SIZE_STEP_MIN = -4;
+const SIZE_STEP_MAX = 6;
+/** One weight step is one CSS weight (100); the result is held to 100-900 where the rules are written. */
+const WEIGHT_STEP = 100;
+const WEIGHT_STEP_MIN = -2;
+const WEIGHT_STEP_MAX = 3;
+
+const NO_STEPS: RoleLevels = { display: 0, heading: 0, other: 0, number: 0, menu: 0 };
+
+/** Custom property suffix per role: --ts-<suffix> (size) and --fwb-<suffix> (weight step), see styles/ydot-typography.css. */
+const ROLE_VAR: Record<FontRole, string> = { display: 'title', heading: 'heading', other: 'body', number: 'number', menu: 'menu' };
 
 const DEFAULT_SETTINGS: ThemeSettings = {
   primaryColor: '#315746',
@@ -206,8 +100,9 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   headingFont: 'Outfit, sans-serif',
   numberFont: 'Outfit, sans-serif',
   otherFont: 'Outfit, sans-serif',
-  fontSize: '14px',
-  fontWeight: '400',
+  textScale: 1,
+  sizeSteps: NO_STEPS,
+  weightSteps: NO_STEPS,
   lineHeight: 1.6,
   shadowStrength: 15,
   borderRadius: 8,
@@ -223,7 +118,7 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   templateUrl: './theme.html',
   styleUrl: './theme.css',
 })
-export class ThemeComponent implements OnInit, DoCheck {
+export class ThemeComponent implements OnInit {
   private layoutService = inject(LayoutService);
   private renderer = inject(Renderer2);
   private document = inject(DOCUMENT);
@@ -236,103 +131,7 @@ export class ThemeComponent implements OnInit, DoCheck {
     effect(() => {
       const color = this.themeColorService.themeColor();
       if (color !== this.settings.primaryColor) this.applyPrimaryColor(color);
-      // ThemeColorService has already written the --theme-* variables, so the live values are current here.
-      this.refreshPalette();
     });
-  }
-
-  // ═══════════ Colour palette ═══════════
-
-  /** Every colour the theme currently paints with, read back from the page so it can never drift from it. */
-  readonly paletteGroups = signal<PaletteGroup[]>([]);
-
-  /** Set whenever a colour changes; cleared once the swatches have been re-read from the page. */
-  private paletteStale = true;
-
-  /**
-   * Marks the swatches out of date. They are re-read from the page while the panel is open (a change made in
-   * the panel updates them at once) and otherwise the next time it opens, so nothing is measured for a panel
-   * nobody is looking at.
-   */
-  refreshPalette(): void {
-    this.paletteStale = true;
-    if (!this.isOpen) return;
-    // A colour being dragged changes many times a second; the swatches are only worth re-reading once it settles.
-    if (this.paletteTimer !== null) clearTimeout(this.paletteTimer);
-    this.paletteTimer = setTimeout(() => {
-      this.paletteTimer = null;
-      if (this.isOpen && this.paletteStale) this.readPalette();
-    }, PALETTE_READ_DELAY_MS);
-  }
-
-  private paletteTimer: ReturnType<typeof setTimeout> | null = null;
-
-  /** LayoutService opens the panel from the sidebar, so this component finds out on the next check. */
-  ngDoCheck(): void {
-    // No read while a debounced one is pending (that is the drag case); opening the panel has no timer, so it reads.
-    if (this.isOpen && this.paletteStale && this.paletteTimer === null) this.readPalette();
-  }
-
-  /**
-   * Resolves every token through the real CSS engine so the swatch can never drift from what the page paints.
-   * All probes are attached first and read afterwards, so the browser resolves style once for the whole batch
-   * instead of once per token (which was ~2.5x the cost of restyling a small page, on every read).
-   */
-  private readPalette(): void {
-    this.paletteStale = false;
-    const live = getComputedStyle(this.document.documentElement);
-    const box = this.document.createElement('div');
-    box.style.display = 'none';
-    const probes: { spec: (typeof PALETTE_SPEC)[number]; name: string; variable: string; el: HTMLElement }[] = [];
-    for (const spec of PALETTE_SPEC) {
-      for (const [name, variable] of spec.tokens) {
-        if (!live.getPropertyValue(variable).trim()) continue; // not defined on this page: nothing to show
-        const el = this.document.createElement('span');
-        el.style.color = `var(${variable})`;
-        box.appendChild(el);
-        probes.push({ spec, name, variable, el });
-      }
-    }
-    this.document.body.appendChild(box);
-    try {
-      const bySpec = new Map<(typeof PALETTE_SPEC)[number], PaletteSwatch[]>();
-      for (const { spec, name, variable, el } of probes) {
-        const rgb = parseCssColor(getComputedStyle(el).color);
-        if (!rgb) continue;
-        const hex = '#' + [rgb.r, rgb.g, rgb.b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
-        const translucent = rgb.a < 1;
-        const list = bySpec.get(spec) ?? [];
-        list.push({
-          name,
-          variable,
-          css: translucent ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${rgb.a})` : hex,
-          value: translucent ? `${hex} · ${Math.round(rgb.a * 100)}%` : hex,
-          // a translucent swatch is drawn over the deep tone, so its label is judged against that
-          ink: translucent ? '#ffffff' : contrastOn(hex),
-          translucent,
-        });
-        bySpec.set(spec, list);
-      }
-      const groups: PaletteGroup[] = [];
-      for (const spec of PALETTE_SPEC) {
-        const swatches = bySpec.get(spec);
-        if (swatches?.length) groups.push({ title: spec.title, note: spec.note, swatches });
-      }
-      this.paletteGroups.set(groups);
-    } finally {
-      box.remove();
-    }
-  }
-
-  copyColor(swatch: PaletteSwatch): void {
-    const text = swatch.value.split(' ')[0];
-    const clipboard = this.document.defaultView?.navigator.clipboard;
-    const fallback = () => this.showToast('error', `${swatch.name} is ${text}.`);
-    if (!clipboard) {
-      fallback();
-      return;
-    }
-    clipboard.writeText(text).then(() => this.showToast('success', `${swatch.name} ${text} copied.`), fallback);
   }
 
   // ── Panel open / active rail section come from the shared LayoutService ──
@@ -398,8 +197,7 @@ export class ThemeComponent implements OnInit, DoCheck {
   get selectedHeadingFont() { return this.settings.headingFont; }
   get selectedNumberFont()  { return this.settings.numberFont; }
   get selectedOtherFont()   { return this.settings.otherFont; }
-  get selectedFontSize()    { return this.settings.fontSize; }
-  get selectedFontWeight()  { return this.settings.fontWeight; }
+  get selectedTextScale()   { return this.settings.textScale; }
   get selectedLineHeight()  { return this.settings.lineHeight; }
   get shadowLevel()         { return this.settings.shadowStrength; }
   get borderRadiusLevel()   { return this.settings.borderRadius; }
@@ -432,6 +230,16 @@ export class ThemeComponent implements OnInit, DoCheck {
     { name: 'Space Grotesk',     value: "'Space Grotesk', sans-serif",          group: 'Sans', premium: true },
     { name: 'Syne',              value: 'Syne, sans-serif',                     group: 'Sans', premium: true },
     { name: 'IBM Plex Sans',     value: "'IBM Plex Sans', sans-serif",          group: 'Sans' },
+    { name: 'Onest',             value: 'Onest, sans-serif',                    group: 'Sans', premium: true },
+    { name: 'Hanken Grotesk',    value: "'Hanken Grotesk', sans-serif",         group: 'Sans', premium: true },
+    { name: 'Instrument Sans',   value: "'Instrument Sans', sans-serif",        group: 'Sans', premium: true },
+    { name: 'Albert Sans',       value: "'Albert Sans', sans-serif",            group: 'Sans', premium: true },
+    { name: 'Red Hat Display',   value: "'Red Hat Display', sans-serif",        group: 'Sans', premium: true },
+    { name: 'Bricolage',         value: "'Bricolage Grotesque', sans-serif",    group: 'Sans', premium: true },
+    { name: 'Be Vietnam Pro',    value: "'Be Vietnam Pro', sans-serif",         group: 'Sans', premium: true },
+    { name: 'Geist',             value: 'Geist, sans-serif',                    group: 'Sans', premium: true },
+    { name: 'Work Sans',         value: "'Work Sans', sans-serif",              group: 'Sans', premium: true },
+    { name: 'Public Sans',       value: "'Public Sans', sans-serif",            group: 'Sans', premium: true },
     { name: 'Poppins',           value: 'Poppins, sans-serif',                  group: 'Sans' },
     { name: 'Montserrat',        value: 'Montserrat, sans-serif',               group: 'Sans' },
     { name: 'Roboto',            value: 'Roboto, sans-serif',                   group: 'Sans' },
@@ -449,6 +257,12 @@ export class ThemeComponent implements OnInit, DoCheck {
     { name: 'Cinzel',            value: 'Cinzel, Georgia, serif',               group: 'Serif', premium: true },
     { name: 'EB Garamond',       value: "'EB Garamond', Georgia, serif",        group: 'Serif', premium: true },
     { name: 'Libre Baskerville', value: "'Libre Baskerville', Georgia, serif",  group: 'Serif', premium: true },
+    { name: 'Newsreader',        value: 'Newsreader, Georgia, serif',           group: 'Serif', premium: true },
+    { name: 'Spectral',          value: 'Spectral, Georgia, serif',             group: 'Serif', premium: true },
+    { name: 'Literata',          value: 'Literata, Georgia, serif',             group: 'Serif', premium: true },
+    { name: 'Crimson Pro',       value: "'Crimson Pro', Georgia, serif",        group: 'Serif', premium: true },
+    { name: 'Noto Serif Display', value: "'Noto Serif Display', Georgia, serif", group: 'Serif', premium: true },
+    { name: 'Bitter',            value: 'Bitter, Georgia, serif',               group: 'Serif', premium: true },
     { name: 'Lora',              value: 'Lora, Georgia, serif',                 group: 'Serif' },
     { name: 'Source Serif',      value: "'Source Serif 4', Georgia, serif",     group: 'Serif' },
     { name: 'Georgia',           value: 'Georgia, serif',                       group: 'Serif' },
@@ -456,6 +270,8 @@ export class ThemeComponent implements OnInit, DoCheck {
     { name: 'IBM Plex Mono',     value: "'IBM Plex Mono', monospace",           group: 'Mono' },
     { name: 'JetBrains Mono',    value: "'JetBrains Mono', monospace",          group: 'Mono', premium: true },
     { name: 'Space Mono',        value: "'Space Mono', monospace",              group: 'Mono', premium: true },
+    { name: 'Geist Mono',        value: "'Geist Mono', monospace",              group: 'Mono', premium: true },
+    { name: 'DM Mono',           value: "'DM Mono', monospace",                 group: 'Mono', premium: true },
     { name: 'Courier',           value: 'Courier New, monospace',               group: 'Mono' },
   ];
 
@@ -515,6 +331,42 @@ export class ThemeComponent implements OnInit, DoCheck {
       display: "'Bodoni Moda', Georgia, serif", heading: 'Raleway, sans-serif', other: 'Raleway, sans-serif', number: 'Raleway, sans-serif', menu: 'Raleway, sans-serif' },
     { name: 'Monogram', note: 'Montserrat · Montserrat',
       display: 'Montserrat, sans-serif', heading: 'Montserrat, sans-serif', other: 'Montserrat, sans-serif', number: 'Montserrat, sans-serif', menu: 'Montserrat, sans-serif' },
+    { name: 'Obsidian', note: 'Newsreader · Geist',
+      display: 'Newsreader, Georgia, serif', heading: 'Geist, sans-serif', other: 'Geist, sans-serif', number: "'Geist Mono', monospace", menu: 'Geist, sans-serif' },
+    { name: 'Meridian', note: 'Bricolage · Hanken',
+      display: "'Bricolage Grotesque', sans-serif", heading: "'Hanken Grotesk', sans-serif", other: "'Hanken Grotesk', sans-serif", number: "'Hanken Grotesk', sans-serif", menu: "'Hanken Grotesk', sans-serif" },
+    { name: 'Quartz', note: 'Instrument Sans · Geist Mono',
+      display: "'Instrument Sans', sans-serif", heading: "'Instrument Sans', sans-serif", other: "'Instrument Sans', sans-serif", number: "'Geist Mono', monospace", menu: "'Instrument Sans', sans-serif" },
+    { name: 'Sterling', note: 'Noto Serif · Albert',
+      display: "'Noto Serif Display', Georgia, serif", heading: "'Albert Sans', sans-serif", other: "'Albert Sans', sans-serif", number: "'Albert Sans', sans-serif", menu: "'Albert Sans', sans-serif" },
+    { name: 'Velvet', note: 'Crimson Pro · Onest',
+      display: "'Crimson Pro', Georgia, serif", heading: 'Onest, sans-serif', other: 'Onest, sans-serif', number: 'Onest, sans-serif', menu: 'Onest, sans-serif' },
+    { name: 'Orchid', note: 'Literata · Be Vietnam',
+      display: 'Literata, Georgia, serif', heading: "'Be Vietnam Pro', sans-serif", other: "'Be Vietnam Pro', sans-serif", number: "'Be Vietnam Pro', sans-serif", menu: "'Be Vietnam Pro', sans-serif" },
+    { name: 'Ember', note: 'Red Hat Display · Public',
+      display: "'Red Hat Display', sans-serif", heading: "'Public Sans', sans-serif", other: "'Public Sans', sans-serif", number: "'Public Sans', sans-serif", menu: "'Public Sans', sans-serif" },
+    { name: 'Ivory', note: 'Spectral · Work Sans',
+      display: 'Spectral, Georgia, serif', heading: "'Work Sans', sans-serif", other: "'Work Sans', sans-serif", number: "'Work Sans', sans-serif", menu: "'Work Sans', sans-serif" },
+    { name: 'Slate', note: 'Geist · Geist Mono',
+      display: 'Geist, sans-serif', heading: 'Geist, sans-serif', other: 'Geist, sans-serif', number: "'Geist Mono', monospace", menu: 'Geist, sans-serif' },
+    { name: 'Sable', note: 'Bitter · Hanken',
+      display: 'Bitter, Georgia, serif', heading: "'Hanken Grotesk', sans-serif", other: "'Hanken Grotesk', sans-serif", number: "'Hanken Grotesk', sans-serif", menu: "'Hanken Grotesk', sans-serif" },
+    { name: 'Nordic', note: 'Onest · Onest',
+      display: 'Onest, sans-serif', heading: 'Onest, sans-serif', other: 'Onest, sans-serif', number: 'Onest, sans-serif', menu: 'Onest, sans-serif' },
+    { name: 'Opal', note: 'Albert Sans · DM Mono',
+      display: "'Albert Sans', sans-serif", heading: "'Albert Sans', sans-serif", other: "'Albert Sans', sans-serif", number: "'DM Mono', monospace", menu: "'Albert Sans', sans-serif" },
+    { name: 'Regent', note: 'Newsreader · Manrope',
+      display: 'Newsreader, Georgia, serif', heading: 'Manrope, sans-serif', other: 'Manrope, sans-serif', number: 'Manrope, sans-serif', menu: 'Manrope, sans-serif' },
+    { name: 'Parchment', note: 'Crimson Pro · Lato',
+      display: "'Crimson Pro', Georgia, serif", heading: 'Lato, sans-serif', other: 'Lato, sans-serif', number: 'Lato, sans-serif', menu: 'Lato, sans-serif' },
+    { name: 'Vanguard', note: 'Bricolage · Inter',
+      display: "'Bricolage Grotesque', sans-serif", heading: 'Inter, sans-serif', other: 'Inter, sans-serif', number: "'DM Mono', monospace", menu: 'Inter, sans-serif' },
+    { name: 'Cascade', note: 'Red Hat Display · DM Sans',
+      display: "'Red Hat Display', sans-serif", heading: "'DM Sans', sans-serif", other: "'DM Sans', sans-serif", number: "'DM Sans', sans-serif", menu: "'DM Sans', sans-serif" },
+    { name: 'Lyceum', note: 'Literata · Inter',
+      display: 'Literata, Georgia, serif', heading: 'Inter, sans-serif', other: 'Inter, sans-serif', number: 'Inter, sans-serif', menu: 'Inter, sans-serif' },
+    { name: 'Mercer', note: 'Noto Serif · Inter',
+      display: "'Noto Serif Display', Georgia, serif", heading: 'Inter, sans-serif', other: 'Inter, sans-serif', number: 'Inter, sans-serif', menu: 'Inter, sans-serif' },
   ];
 
   /** Which role's font list is unfolded in the panel (one at a time). */
@@ -550,15 +402,123 @@ export class ThemeComponent implements OnInit, DoCheck {
     this.setFont('menu', p.menu);
   }
 
-  readonly fontSizes = [12, 13, 14, 15, 16, 18];
+  // ═══════════ Text size & weight ═══════════
 
-  readonly fontWeights: WeightOption[] = [
-    { label: 'Light',   value: '300' },
-    { label: 'Regular', value: '400' },
-    { label: 'Medium',  value: '500' },
-    { label: 'Bold',    value: '600' },
-    { label: 'Bolder',  value: '700' },
+  /** Overall size: scales every piece of text in the app, spacing untouched. */
+  readonly textScales: { label: string; value: number }[] = [
+    { label: 'Compact', value: 0.88 },
+    { label: 'Small',   value: 0.94 },
+    { label: 'Default', value: 1 },
+    { label: 'Large',   value: 1.08 },
+    { label: 'Larger',  value: 1.16 },
+    { label: 'Largest', value: 1.28 },
   ];
+
+  /** Overall weight: moves every role the same number of steps. */
+  readonly weightPresets: { label: string; step: number }[] = [
+    { label: 'Lighter',     step: -1 },
+    { label: 'As designed', step: 0 },
+    { label: 'Heavier',     step: 1 },
+    { label: 'Bold',        step: 2 },
+    { label: 'Extra bold',  step: 3 },
+  ];
+
+  /** The places size and weight can be set separately, with the size and weight each one is designed at. */
+  readonly typeRoles: RoleControl[] = [
+    { key: 'display', label: 'Titles',            hint: 'Page, card and dialog titles',      sample: 'Hope Foundation',            size: 22, weight: 600 },
+    { key: 'heading', label: 'Headings & labels', hint: 'Sub-headings, field labels, pills', sample: 'Campaign overview',          size: 14, weight: 600 },
+    { key: 'other',   label: 'Body text',         hint: 'Paragraphs, tables, form fields',   sample: 'Every gift changes a life.', size: 13, weight: 400 },
+    { key: 'number',  label: 'Numbers',           hint: 'Amounts, counts, codes',            sample: '12,48,560',                  size: 24, weight: 600 },
+    { key: 'menu',    label: 'Menu',              hint: 'Sidebar navigation',                sample: 'Campaigns · Donors',         size: 13, weight: 500 },
+  ];
+
+  readonly sizeStepMin = SIZE_STEP_MIN;
+  readonly sizeStepMax = SIZE_STEP_MAX;
+  readonly weightStepMin = WEIGHT_STEP_MIN;
+  readonly weightStepMax = WEIGHT_STEP_MAX;
+
+  sizeStep(role: FontRole): number {
+    return this.settings.sizeSteps[role];
+  }
+
+  weightStep(role: FontRole): number {
+    return this.settings.weightSteps[role];
+  }
+
+  /** "Default", "+12%" or "-6%": the role's size against the overall setting. */
+  sizeLabel(role: FontRole): string {
+    const step = this.sizeStep(role);
+    if (step === 0) return 'Default';
+    const pct = Math.round(step * SIZE_STEP * 100);
+    return `${pct > 0 ? '+' : '-'}${Math.abs(pct)}%`;
+  }
+
+  /** "As designed", "Heavier +1" or "Lighter -2". */
+  weightLabel(role: FontRole): string {
+    const step = this.weightStep(role);
+    if (step === 0) return 'As designed';
+    return `${step > 0 ? 'Heavier +' : 'Lighter -'}${Math.abs(step)}`;
+  }
+
+  /** Size the panel previews for the role (px): designed size x overall x the role's own steps. */
+  previewSize(control: RoleControl): number {
+    return Math.round(control.size * this.settings.textScale * this.roleScale(control.key) * 10) / 10;
+  }
+
+  previewWeight(control: RoleControl): number {
+    return Math.min(900, Math.max(100, control.weight + this.weightStep(control.key) * WEIGHT_STEP));
+  }
+
+  private roleScale(role: FontRole): number {
+    return Math.round((1 + this.sizeStep(role) * SIZE_STEP) * 1000) / 1000;
+  }
+
+  setTextScale(value: number): void {
+    this.settings.textScale = value;
+    this.applyTypographyVars();
+  }
+
+  stepSize(role: FontRole, delta: number): void {
+    const next = Math.min(SIZE_STEP_MAX, Math.max(SIZE_STEP_MIN, this.sizeStep(role) + delta));
+    this.settings.sizeSteps = { ...this.settings.sizeSteps, [role]: next };
+    this.applyTypographyVars();
+  }
+
+  stepWeight(role: FontRole, delta: number): void {
+    const next = Math.min(WEIGHT_STEP_MAX, Math.max(WEIGHT_STEP_MIN, this.weightStep(role) + delta));
+    this.settings.weightSteps = { ...this.settings.weightSteps, [role]: next };
+    this.applyTypographyVars();
+  }
+
+  setAllWeights(step: number): void {
+    this.settings.weightSteps = { display: step, heading: step, other: step, number: step, menu: step };
+    this.applyTypographyVars();
+  }
+
+  isAllWeights(step: number): boolean {
+    return (Object.values(this.settings.weightSteps) as number[]).every(v => v === step);
+  }
+
+  /** Back to the designed sizes and weights; typefaces are left alone. */
+  resetTypography(): void {
+    this.settings.textScale = 1;
+    this.settings.sizeSteps = { ...NO_STEPS };
+    this.settings.weightSteps = { ...NO_STEPS };
+    this.applyTypographyVars();
+  }
+
+  /**
+   * Writes the size and weight variables every stylesheet reads (styles/ydot-typography.css): one overall
+   * multiplier, then a size multiplier and a weight step per role.
+   */
+  private applyTypographyVars(): void {
+    const s = this.settings;
+    this.setCssVar('--ts-global', String(s.textScale));
+    for (const role of Object.keys(ROLE_VAR) as FontRole[]) {
+      this.setCssVar(`--ts-${ROLE_VAR[role]}`, String(this.roleScale(role)));
+      this.setCssVar(`--fwb-${ROLE_VAR[role]}`, String(s.weightSteps[role] * WEIGHT_STEP));
+    }
+  }
 
   // ── Sidebar Backgrounds & Avatars ──
   readonly backgrounds: string[] = [
@@ -603,19 +563,17 @@ export class ThemeComponent implements OnInit, DoCheck {
     return /^#([0-9A-Fa-f]{6})$/.test(value);
   }
 
+  /**
+   * White is refused: it would vanish on the white page. That holds in dark mode too, because dark mode is the
+   * light page inverted as a whole (styles/ydot-dark.css), so a colour is always judged against the light page.
+   */
   private isColorAllowed(value: string): boolean {
-    if (!this.isValidHex(value)) return false;
-    const lower = value.toLowerCase();
-    if (!this.settings.isDarkMode && lower === '#ffffff') return false;
-    if (this.settings.isDarkMode && lower === '#000000') return false;
-    return true;
+    return this.isValidHex(value) && value.toLowerCase() !== '#ffffff';
   }
 
   private colorErrorMessage(color: string): string {
     if (!this.isValidHex(color)) return 'Invalid color format.';
-    return this.settings.isDarkMode
-      ? 'Black cannot be used in dark mode.'
-      : 'White cannot be used in light mode.';
+    return 'White cannot be used: it would disappear on the page.';
   }
 
   private setCssVar(name: string, value: string): void {
@@ -671,7 +629,6 @@ export class ThemeComponent implements OnInit, DoCheck {
     this.setCssVar('--pe-secondary-bg-subtle', `rgba(${this.hexToRgb(lower)}, 0.1)`);
     this.setCssVar('--pe-secondary-border-subtle', `rgba(${this.hexToRgb(lower)}, 0.5)`);
     this.setCssVar('--pe-secondary-color', lower);
-    this.refreshPalette();
   }
 
   get isCustomSecondary(): boolean {
@@ -697,7 +654,6 @@ export class ThemeComponent implements OnInit, DoCheck {
     }
     this.settings.iconColor = lower;
     this.setCssVar('--icon-color', lower);
-    this.refreshPalette();
   }
 
   get isCustomIcon(): boolean {
@@ -723,7 +679,6 @@ export class ThemeComponent implements OnInit, DoCheck {
     }
     this.settings.headingColor = lower;
     this.setCssVar('--heading-color', lower);
-    this.refreshPalette();
   }
 
   get isCustomHeading(): boolean {
@@ -735,10 +690,21 @@ export class ThemeComponent implements OnInit, DoCheck {
 
   setThemeMode(dark: boolean): void {
     this.settings.isDarkMode = dark;
-    const theme = dark ? 'dark' : 'light';
-    this.layoutService.setAndSaveAttribute('data-bs-theme', theme, false);
-    this.layoutService.setTheme(theme);
+    this.applyMode(dark);
     this.autoPersist();
+  }
+
+  /**
+   * Dark and light are one attribute on <html> (styles/ydot-dark.css repaints the whole app from it, and the
+   * blocking script in index.html sets it before first paint). Bootstrap's own data-bs-theme is held on
+   * "light" in both modes so its partial dark variant never competes with it.
+   */
+  private applyMode(dark: boolean): void {
+    const html = this.document.documentElement;
+    if (dark) html.setAttribute('data-ydot-mode', 'dark');
+    else html.removeAttribute('data-ydot-mode');
+    this.layoutService.setAndSaveAttribute('data-bs-theme', 'light', false);
+    this.layoutService.setTheme('light');
   }
 
   // ═══════════ Layout ═══════════
@@ -784,16 +750,6 @@ export class ThemeComponent implements OnInit, DoCheck {
     for (const v of ['--font-other', '--font-body', '--font-ui', '--pe-font-family', '--bs-body-font-family']) {
       this.setCssVar(v, s.otherFont);
     }
-  }
-
-  setFontSize(size: number): void {
-    this.settings.fontSize = `${size}px`;
-    this.setCssVar('--font-size-base', this.settings.fontSize);
-  }
-
-  setFontWeight(w: string): void {
-    this.settings.fontWeight = w;
-    this.setCssVar('--font-weight-base', w);
   }
 
   onLineHeightInput(event: Event): void {
@@ -949,18 +905,13 @@ export class ThemeComponent implements OnInit, DoCheck {
     this.setCssVar('--icon-color', this.settings.iconColor);
     this.setCssVar('--heading-color', this.settings.headingColor);
     this.applyFontVars();
-    this.setCssVar('--font-size-base', this.settings.fontSize);
-    this.setCssVar('--font-weight-base', this.settings.fontWeight);
+    this.applyTypographyVars();
     this.setCssVar('--line-height-base', this.settings.lineHeight.toString());
     this.setCssVar('--shadow-strength', (this.settings.shadowStrength / 100).toFixed(2));
     this.setCssVar('--radius', `${this.settings.borderRadius}px`);
     this.setCssVar('--btn-radius', `${this.settings.buttonRadius}px`);
 
-    this.layoutService.setAndSaveAttribute(
-      'data-bs-theme',
-      this.settings.isDarkMode ? 'dark' : 'light',
-      false
-    );
+    this.applyMode(this.settings.isDarkMode);
     this.layoutService.setAndSaveAttribute(
       'data-layout',
       this.settings.layoutMode === 'fluid' ? 'horizontal' : 'vertical'
@@ -1006,8 +957,17 @@ export class ThemeComponent implements OnInit, DoCheck {
     this.renderer.removeStyle(this.document.documentElement, '--pe-sidebar-bg-image');
     this.renderer.removeStyle(this.document.documentElement, '--pe-app-sidebar-bg');
     this.applySidebarBg(null);
-    this.refreshPalette();
     this.showToast('success', 'Theme reset to defaults.');
+  }
+
+  /** A saved per-role map, with anything missing or out of range put back to 0 / the nearest limit. */
+  private cleanSteps(saved: Partial<RoleLevels> | undefined, min: number, max: number): RoleLevels {
+    const out = { ...NO_STEPS };
+    for (const role of Object.keys(out) as FontRole[]) {
+      const v = Number(saved?.[role]);
+      out[role] = Number.isFinite(v) ? Math.min(max, Math.max(min, Math.round(v))) : 0;
+    }
+    return out;
   }
 
   private loadTheme(): void {
@@ -1016,6 +976,9 @@ export class ThemeComponent implements OnInit, DoCheck {
       if (raw) {
         const saved = JSON.parse(raw);
         this.settings = { ...DEFAULT_SETTINGS, ...saved };
+        this.settings.textScale = Number.isFinite(saved.textScale) ? saved.textScale : 1;
+        this.settings.sizeSteps = this.cleanSteps(saved.sizeSteps, SIZE_STEP_MIN, SIZE_STEP_MAX);
+        this.settings.weightSteps = this.cleanSteps(saved.weightSteps, WEIGHT_STEP_MIN, WEIGHT_STEP_MAX);
         // One-time move to the Outfit type system: drop fonts saved by older builds, keep the menu font.
         if (saved.fontsV !== FONTS_VERSION) {
           const { displayFont, headingFont, numberFont, otherFont } = DEFAULT_SETTINGS;
@@ -1028,6 +991,5 @@ export class ThemeComponent implements OnInit, DoCheck {
     // ThemeColorService owns the colour (it also reads the pre-existing customizer value on first run).
     this.settings.primaryColor = this.themeColorService.themeColor();
     this.applyAll();
-    this.refreshPalette();
   }
 }

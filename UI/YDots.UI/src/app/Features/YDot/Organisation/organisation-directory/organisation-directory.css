@@ -4,6 +4,7 @@
    surface so the whole app reads as one product, not two.
    ========================================================= */
 :host {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   --org-paper: #ffffff;
   --org-card: #ffffff;
   --org-ink: hsl(calc(var(--theme-hue) - 3) 16.7% 14.1%);
@@ -89,7 +90,7 @@
 }
 .org-breadcrumb .current {
   color: var(--org-ink);
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 
 /* The page header (.od-hero, its animated icon and counters) comes from Shared/styles/page-hero.css. */
@@ -104,7 +105,7 @@
   padding: calc(10px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
   border-radius: calc(12px * var(--ui-scale, 1));
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   border: 1px solid transparent;
   cursor: pointer;
   font-family: inherit;
@@ -305,7 +306,7 @@
 }
 .org-card-title {
   font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   margin: 0;
   color: var(--org-ink);
 }
@@ -316,7 +317,7 @@
 }
 .org-card-link {
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-blue);
   text-decoration: none;
 }
@@ -338,7 +339,7 @@
 .org-doc-heading {
   display: inline-block;
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--org-meadow);
@@ -384,7 +385,7 @@
 }
 .org-section-head-main h3 {
   font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   margin: 0 0 calc(3px * var(--ui-scale, 1));
   color: var(--org-ink);
 }
@@ -463,7 +464,7 @@
   background: #fff;
   color: #3c4854;
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
@@ -481,7 +482,7 @@
   background: none;
   color: #6b7682;
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -498,13 +499,14 @@
 .dl-table-wrap { overflow-x: auto; }
 .dl-table { width: 100%; border-collapse: collapse; }
 .dl-table th {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   padding: calc(13px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
   background: #f7f8f9 !important;
   border-bottom: 1px solid #e7e9ec;
   color: #6b7682 !important;
   font-family: var(--font-heading);
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   letter-spacing: .06em;
   text-transform: uppercase;
   text-align: left;
@@ -530,13 +532,14 @@
   text-align: left;
   color: #16202a;
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   cursor: pointer;
 }
 .dl-name-main:hover { color: var(--org-meadow); text-decoration: underline; }
-.dl-name-sub { font-family: var(--font-number); font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: #6b7682; }
+.dl-name-sub { --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number); font-family: var(--font-number); font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: #6b7682; }
 
 .dl-code {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   display: inline-block;
   padding: calc(3px * var(--ui-scale, 1)) calc(9px * var(--ui-scale, 1));
   border-radius: calc(7px * var(--ui-scale, 1));
@@ -545,7 +548,7 @@
   color: #3c4854;
   font-family: var(--font-number, ui-monospace, monospace);
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
 }
 .dl-person { display: inline-flex; align-items: center; gap: calc(8px * var(--ui-scale, 1)); min-width: 0; max-width: calc(260px * var(--ui-scale, 1)); }
 .dl-person-mono {
@@ -558,11 +561,11 @@
   background: #eff1f3;
   color: #3c4854;
   font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 700 !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
 }
-.dl-person-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.dl-person-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900); }
 .dl-none { color: #9aa3ad; font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-style: italic; }
-.dl-count { font-family: var(--font-number); font-weight: 600 !important; }
+.dl-count { --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number); font-family: var(--font-number); font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; }
 .dl-date { white-space: nowrap; color: #3c4854; }
 
 .dl-status-cell { display: inline-flex; align-items: center; gap: calc(8px * var(--ui-scale, 1)); }
@@ -586,7 +589,7 @@
   background: var(--org-warn-soft);
   color: var(--org-warn);
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   white-space: nowrap;
 }
 .dl-flag i { font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; }
@@ -639,7 +642,7 @@
   border: none;
   background: none;
   font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   font-family: inherit;
   color: var(--org-ink-2);
   cursor: pointer;
@@ -716,9 +719,10 @@
    !important. Without matching it here the number silently renders at
    regular weight no matter what is set below. */
 .org-org-card-num {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   font-family: var(--font-body);
   font-size: calc(calc(40px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 800 !important;
+  font-weight: clamp(100, calc(800 + var(--fw-bias, 0)), 900) !important;
   color: var(--org-border);
   line-height: 1;
   display: inline-block;
@@ -743,7 +747,7 @@
 }
 .org-org-card-name {
   font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--org-ink);
   margin: calc(14px * var(--ui-scale, 1)) 0 2px;
   position: relative;
@@ -800,7 +804,7 @@
 /* ---------- Key/value read rows ---------- */
 .org-kv-label {
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.03em;
   color: var(--org-muted);
   text-transform: uppercase;
@@ -821,7 +825,7 @@
 }
 .org-field-label {
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.05em;
   color: var(--org-ink-2);
   text-transform: uppercase;
@@ -829,7 +833,7 @@
 .org-field-label .req {
   color: var(--org-error);
   text-transform: none;
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   margin-left: 2px;
 }
 .org-input,
@@ -879,7 +883,7 @@
 .org-field-error {
   color: var(--org-error);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
 }
 .org-field-hint {
   color: var(--org-muted);
@@ -957,7 +961,7 @@
   padding: calc(4px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
   border-radius: calc(20px * var(--ui-scale, 1));
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   white-space: nowrap;
 }
 .org-badge-lg {
@@ -1040,7 +1044,7 @@
   padding: calc(13px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
   text-align: left;
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1069,7 +1073,7 @@
   text-align: right;
 }
 .org-name-link {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-meadow);
   text-decoration: none;
   cursor: pointer;
@@ -1102,7 +1106,7 @@
   border: none;
   padding: calc(12px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -1166,7 +1170,7 @@
 }
 .org-empty-title {
   font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   margin: 0 0 calc(8px * var(--ui-scale, 1));
   color: var(--org-ink);
 }
@@ -1218,7 +1222,7 @@
 }
 .org-modal-title {
   font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   margin: 0;
   display: flex;
   align-items: center;
@@ -1257,7 +1261,7 @@
   border-bottom: none;
 }
 .org-modal-kv dt {
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--org-ink-2);
   min-width: calc(110px * var(--ui-scale, 1));
 }
@@ -1279,7 +1283,7 @@
   padding: calc(6px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
   border-radius: calc(10px * var(--ui-scale, 1));
   font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   border: 1px solid var(--org-border);
   background: #fff;
   color: var(--org-ink);

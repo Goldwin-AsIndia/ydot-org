@@ -1189,5 +1189,7 @@ css.append("}\n")
 
 # Every font-size goes through --ui-text-scale, like the rest of the app (see font_text_scale.py).
 from font_text_scale import scale_font_sizes
-OUT.write_text(scale_font_sizes("".join(css)), encoding="utf-8")
+# ...and every role/weight through the Theme settings variables (see font_role_vars.py).
+from font_role_vars import apply_font_roles
+OUT.write_text(apply_font_roles(scale_font_sizes("".join(css))), encoding="utf-8")
 print(OUT, len("".join(css)))

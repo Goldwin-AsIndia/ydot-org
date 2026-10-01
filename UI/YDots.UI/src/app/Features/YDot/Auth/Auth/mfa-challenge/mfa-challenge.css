@@ -32,7 +32,7 @@
   width: calc(52px * var(--ui-scale, 1));
   height: calc(60px * var(--ui-scale, 1));
   font-size: calc(calc(24px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   padding: 0;
   border-radius: calc(10px * var(--ui-scale, 1));
   border: 1.5px solid #d5d8de;
@@ -72,6 +72,7 @@
 /* ---- Recovery code ---------------------------------------------------------------------- */
 
 .recovery-input {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   /* Monospace so the grouped code lines up with the printed copy the person is reading from,
      and letter-spacing so O and 0 are easier to tell apart. */
   font-family: var(--font-number);

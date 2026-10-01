@@ -8,6 +8,8 @@
 @import "./styles/ydot-theme.css";
 @import "./styles/ydot-premium.css";
 @import "./styles/ydot-responsive.css";
+@import "./styles/ydot-typography.css";
+@import "./styles/ydot-dark.css";
 @import "./styles/ydot-statcards.css";
 @import "./styles/ydot-overlays.css";
 @import "./styles/ydot-dialogs.css";
@@ -80,6 +82,7 @@
 }
 
 :root{
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   --lc-font-display: var(--font-display);
   --lc-font-body: var(--font-body);
 
@@ -348,6 +351,7 @@ color: var(--icon-color) !important;
 
 /* ── Body font — the whole app inherits it; form controls and buttons follow. ── */
 html body {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   font-family: var(--font-body);
 }
 button, input, select, textarea, optgroup, .btn, .form-control, .form-select {
@@ -367,6 +371,7 @@ button, input, select, textarea, optgroup, .btn, .form-control, .form-select {
 .horizontal-sidebar .pe-nav-content,
 .horizontal-sidebar .pe-menu-title,
 .horizontal-sidebar .pe-nav-arrow {
+  --ui-text-scale: var(--rs-menu); --fw-bias: var(--fwb-menu);
   font-family: var(--font-menu, var(--font-ui, 'Inter', sans-serif)) !important;
 }
 
@@ -378,6 +383,7 @@ h1, h2, h3,
 .modal-title,
 .tc-header-title h2,
 .notif-title {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   font-family: var(--font-display, var(--font-heading, var(--font-ui, 'Inter', sans-serif))) !important;
 }
 
@@ -455,6 +461,7 @@ h4, h5, h6,
 .tc-mode-card i,
 .tc-layout-card i,
 .tc-layout-card span {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   font-family: var(--font-heading, var(--font-ui, 'Inter', sans-serif)) !important;
 }
 
@@ -532,6 +539,7 @@ kbd,
 .fcr-mono,
 .sbd-mono,
 .rc-mono {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   font-family: var(--font-number, var(--font-mono, 'IBM Plex Mono', monospace)) !important;
 }
 
@@ -5338,7 +5346,7 @@ button,
 .tc-toast,
 .tc-layout-card,
 .tc-mode-card {
-  font-weight: var(--font-weight-base, 400) !important;
+  font-weight: clamp(100, calc(var(--font-weight-base, 400) + var(--fw-bias, 0)), 900) !important;
 }
 
 /* ── Line height ── */

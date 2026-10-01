@@ -1,0 +1,69 @@
+/* =====================================================================================================
+   YDot typography - the Theme settings' size and weight controls, per type role.
+
+   The panel (Shared/theme) writes these on <html>:
+       --ts-global             overall text size multiplier            (1 = as designed)
+       --ts-<role>             that role's size multiplier             (title, heading, body, number, menu)
+       --fwb-<role>            that role's weight step, in CSS weight units (-200 ... +300, 0 = as designed)
+   Everything below is derived from them, so nothing here needs to change when a control moves.
+
+   HOW IT REACHES EVERY SCREEN (tools/font_role_vars.py wires the stylesheets):
+     - every font-size in the app is calc(V * var(--ui-text-scale, 1)); a rule that sets a role's typeface
+       (font-family: var(--font-display) ...) also sets --ui-text-scale to that role's final scale, so the
+       title / heading / body / number / menu text is sized by its own role;
+     - every font-weight N is clamp(100, calc(N + var(--fw-bias, 0)), 900); the same rules set --fw-bias to
+       that role's step. At the defaults (1 and 0) nothing moves.
+   Both are inherited custom properties, so whatever sits inside a title follows the title.
+   ===================================================================================================== */
+:root {
+  /* The app's built-in text reduction (two steps down the old size ladder). */
+  --ts-base: 0.86;
+
+  --ts-global: 1;
+  --ts-title: 1;
+  --ts-heading: 1;
+  --ts-body: 1;
+  --ts-number: 1;
+  --ts-menu: 1;
+
+  --fwb-title: 0;
+  --fwb-heading: 0;
+  --fwb-body: 0;
+  --fwb-number: 0;
+  --fwb-menu: 0;
+
+  --rs-title: calc(var(--ts-base) * var(--ts-global) * var(--ts-title));
+  --rs-heading: calc(var(--ts-base) * var(--ts-global) * var(--ts-heading));
+  --rs-body: calc(var(--ts-base) * var(--ts-global) * var(--ts-body));
+  --rs-number: calc(var(--ts-base) * var(--ts-global) * var(--ts-number));
+  --rs-menu: calc(var(--ts-base) * var(--ts-global) * var(--ts-menu));
+
+  /* Anything with no role of its own is body text. */
+  --fw-bias: var(--fwb-body);
+}
+
+/* Template headings (Bootstrap, rem-based) are titles; their size follows the title role through the weight
+   and the em-based children, and their weight through the step. */
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+  --ui-text-scale: var(--rs-title);
+  --fw-bias: var(--fwb-title);
+}
+
+/* The sidebar is menu text unless a rule inside it names another role. */
+.pe-app-sidebar {
+  --ui-text-scale: var(--rs-menu);
+  --fw-bias: var(--fwb-menu);
+}
+
+/* Template headings and Bootstrap's weight utilities are vendor rules (assets/ is never rewritten), so the weight
+   step is applied to them here, from the weight they ship with (h1-h6: 600). */
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+}
+.fw-light    { font-weight: clamp(100, calc(300 + var(--fw-bias, 0)), 900) !important; }
+.fw-normal   { font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important; }
+.fw-medium   { font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important; }
+.fw-semibold { font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; }
+.fw-bold     { font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; }

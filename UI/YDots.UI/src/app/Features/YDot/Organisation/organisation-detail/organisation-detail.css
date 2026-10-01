@@ -16,6 +16,7 @@
    on purpose: the premium layer strips backgrounds from those (ydot-premium.css section 4c).
    ================================================================================================= */
 :host {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   --og-ink: #16202a;
   --og-ink-2: #3c4854;
   --og-muted: #6b7682;
@@ -63,6 +64,7 @@
 
 /* ------------------------------------------------------------------ Buttons */
 .og-btn {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -73,7 +75,7 @@
   border-radius: calc(11px * var(--ui-scale, 1));
   font-family: var(--font-heading);
   font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   line-height: 1 !important;
   white-space: nowrap;
   text-decoration: none;
@@ -148,20 +150,22 @@
 
 .og-hero-text { min-width: 0; display: flex; flex-direction: column; gap: calc(8px * var(--ui-scale, 1)); }
 .og-hero-eyebrow {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   margin-bottom: calc(-4px * var(--ui-scale, 1));
   font-family: var(--font-heading);
   font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 700 !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
   letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--og-brand);
 }
 .og-hero-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: calc(10px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); }
 .og-hero-title {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   margin: 0;
   font-family: var(--font-display);
   font-size: calc(clamp(calc(28px * var(--ui-scale, 1)), 2.5vw, calc(38px * var(--ui-scale, 1))) * var(--ui-text-scale, 1)) !important;
-  font-weight: 800 !important;
+  font-weight: clamp(100, calc(800 + var(--fw-bias, 0)), 900) !important;
   line-height: 1.1;
   color: var(--og-ink);
   letter-spacing: -.015em;
@@ -184,6 +188,7 @@
 
 /* Status: dot + word on a soft tint (fixed semantic colours, never the theme). */
 .og-status {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   --st: var(--og-info);
   --st-soft: var(--og-info-soft);
   display: inline-flex;
@@ -195,7 +200,7 @@
   color: var(--st);
   font-family: var(--font-heading);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   line-height: 1.4 !important;
   white-space: nowrap;
   text-transform: capitalize;
@@ -229,6 +234,7 @@
 .og-status-mark.is-error { --st: var(--og-error); --st-soft: var(--og-error-soft); }
 .og-status-mark.is-muted { --st: var(--og-mutedc); --st-soft: var(--og-muted-soft); }
 .og-status-mark::after {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   content: attr(data-tip);
   position: absolute;
   left: calc(100% + calc(8px * var(--ui-scale, 1)));
@@ -240,7 +246,7 @@
   color: #fff;
   font-family: var(--font-heading);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   line-height: 1.3;
   white-space: nowrap;
   text-transform: capitalize;
@@ -268,25 +274,27 @@
 .og-fact:first-child { border-left: 0; }
 .og-facts.og-facts-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .og-fact dt {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   margin: 0 0 calc(4px * var(--ui-scale, 1));
   font-family: var(--font-heading);
   font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--og-faint);
 }
 .og-fact dd {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   margin: 0;
   font-family: var(--font-number);
   font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--og-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.og-fact dd small { color: var(--og-faint); font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: 500 !important; }
+.og-fact dd small { color: var(--og-faint); font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important; }
 
 /* Header motion: title block in turn, then the actions, the facts left to right, and the tabs. */
 .og-hero-text > * { animation: og-rise .5s cubic-bezier(.2, .7, .2, 1) both; }
@@ -334,6 +342,7 @@
 }
 .og-tabs::-webkit-scrollbar { display: none; }
 .og-tab {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -344,7 +353,7 @@
   color: var(--og-muted);
   font-family: var(--font-heading);
   font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 500 !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
   white-space: nowrap;
   cursor: pointer;
   transition: color .15s ease;
@@ -363,7 +372,7 @@
   transition: transform .2s ease;
 }
 .og-tab:hover { color: var(--og-ink); }
-.og-tab.is-active { color: var(--og-brand); font-weight: 600 !important; }
+.og-tab.is-active { color: var(--og-brand); font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; }
 .og-tab.is-active::after { transform: scaleX(1); }
 .og-tab:focus-visible { outline: 2px solid var(--og-brand); outline-offset: -2px; border-radius: calc(8px * var(--ui-scale, 1)); }
 .og-tab-count {
@@ -376,7 +385,7 @@
   background: var(--og-brand-soft);
   color: var(--og-brand);
   font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 700 !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
 }
 .og-tab-warn { color: var(--og-warn) !important; }
 
@@ -411,8 +420,8 @@
 .og-todo-glyph i { font-size: calc(calc(19px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; line-height: 1; }
 .og-todo-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(8px * var(--ui-scale, 1)); }
 .og-todo-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: calc(4px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1)); }
-.og-alert .og-todo-head strong { margin: 0; font-family: var(--font-heading); font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: #6b4007; }
-.og-todo-count { font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: 600 !important; color: var(--og-warn); }
+.og-alert .og-todo-head strong { --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading); margin: 0; font-family: var(--font-heading); font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: #6b4007; }
+.og-todo-count { font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--og-warn); }
 .og-outstanding { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: calc(6px * var(--ui-scale, 1)); }
 .og-outstanding li {
   padding: calc(3px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
@@ -421,7 +430,7 @@
   border: 1px solid #f0d7ab;
   color: #7a4a08;
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 500;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
   line-height: 1.5 !important;
 }
 .og-btn-warn { flex: none; background: var(--og-warn); border-color: var(--og-warn); color: #fff !important; }
@@ -454,16 +463,17 @@
 .og-glyph.is-warn { color: var(--og-warn); }
 .og-glyph.is-good { color: var(--og-good); }
 .og-card-title {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   margin: 0;
   font-family: var(--font-display);
   font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   line-height: 1.25;
   color: var(--og-ink);
 }
 .og-card-sub { margin: 2px 0 0; font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: var(--og-muted); line-height: 1.4 !important; }
 .og-muted { color: var(--og-faint) !important; }
-.og-mono { font-family: var(--font-number) !important; letter-spacing: .01em; }
+.og-mono { --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number); font-family: var(--font-number) !important; letter-spacing: .01em; }
 .og-link { color: var(--og-brand); text-decoration: none; word-break: break-all; }
 .og-link:hover { text-decoration: underline; }
 .og-lead { margin: 0; font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: var(--og-ink-2); line-height: 1.55 !important; }
@@ -502,10 +512,11 @@
   border-top: 1px solid var(--og-line-2);
 }
 .og-dl dt {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   margin: 0 0 calc(3px * var(--ui-scale, 1));
   font-family: var(--font-heading);
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   letter-spacing: .04em;
   text-transform: uppercase;
   color: var(--og-faint);
@@ -513,22 +524,23 @@
 .og-dl dd {
   margin: 0;
   font-size: calc(calc(14.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 500;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
   color: var(--og-ink);
   overflow-wrap: anywhere;
 }
 
 .og-address { display: flex; flex-direction: column; padding-top: calc(6px * var(--ui-scale, 1)); }
 .og-address-label {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   padding-bottom: calc(8px * var(--ui-scale, 1));
   font-family: var(--font-heading);
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 700 !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
   letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--og-ink-2);
 }
-.og-address-line2 { display: block; font-weight: 500 !important; color: var(--og-ink-2); }
+.og-address-line2 { display: block; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important; color: var(--og-ink-2); }
 .og-address-none { margin: 0; padding: calc(10px * var(--ui-scale, 1)) 0; border-top: 1px solid var(--og-line-2); font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; }
 
 .og-about { margin: 0; font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; line-height: 1.6 !important; color: var(--og-ink-2); }
@@ -546,10 +558,11 @@
 }
 .og-form-section:first-of-type { border-top: 0; }
 .og-form-aside h3 {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   margin: 0 0 calc(4px * var(--ui-scale, 1));
   font-family: var(--font-display);
   font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--og-ink);
 }
 .og-form-aside p { margin: 0; font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; line-height: 1.5 !important; color: var(--og-muted); }
@@ -560,12 +573,14 @@
 .og-span-2 { grid-column: 1 / -1; }
 .og-field { display: flex; flex-direction: column; gap: calc(6px * var(--ui-scale, 1)); min-width: 0; }
 .og-label {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   font-family: var(--font-heading);
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   color: var(--og-ink-2);
 }
 .og-input {
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   width: 100%;
   min-height: calc(42px * var(--ui-scale, 1));
   padding: calc(9px * var(--ui-scale, 1)) calc(13px * var(--ui-scale, 1));
@@ -639,10 +654,11 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
   z-index: 1;
 }
 .og-set-aside h4 {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   margin: 0 0 calc(4px * var(--ui-scale, 1));
   font-family: var(--font-heading);
   font-size: calc(calc(15px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--og-ink);
 }
 .og-set-aside p { margin: 0; font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; line-height: 1.5 !important; color: var(--og-muted); }
@@ -677,12 +693,12 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
 .og-choice.is-on .og-choice-glyph { background: #fff; color: var(--og-brand); }
 .og-choice-glyph i { font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; }
 .og-choice-text { display: flex; flex-direction: column; gap: calc(3px * var(--ui-scale, 1)); min-width: 0; padding-right: calc(22px * var(--ui-scale, 1)); }
-.og-choice-title { font-family: var(--font-heading); font-size: calc(calc(14.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: 700 !important; color: var(--og-ink); }
+.og-choice-title { --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading); font-family: var(--font-heading); font-size: calc(calc(14.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; color: var(--og-ink); }
 .og-choice-title em {
   margin-left: calc(6px * var(--ui-scale, 1));
   font-style: normal;
   font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: 700;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   letter-spacing: .05em;
   text-transform: uppercase;
   color: var(--og-good);
@@ -714,9 +730,10 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
   transition: border-color .15s ease;
 }
 .og-num:focus-within { border-color: var(--og-brand); }
-.og-num-label { font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: 600 !important; color: var(--og-ink-2); }
+.og-num-label { font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--og-ink-2); }
 .og-num-box { display: flex; align-items: baseline; gap: calc(6px * var(--ui-scale, 1)); }
 .og-num-box input {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   width: 4.2ch;
   min-width: 2ch;
   field-sizing: content;
@@ -726,14 +743,14 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
   color: var(--og-ink);
   font-family: var(--font-number);
   font-size: calc(calc(26px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 700 !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
   line-height: 1.1 !important;
   -moz-appearance: textfield;
 }
 .og-num-box input::-webkit-outer-spin-button,
 .og-num-box input::-webkit-inner-spin-button { opacity: .5; }
 .og-num-box input:focus { outline: none; }
-.og-num-unit { flex: none; font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: 600 !important; color: var(--og-faint); }
+.og-num-unit { flex: none; font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--og-faint); }
 .og-num-hint { font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: var(--og-faint); }
 .og-settings > .og-actionbar { margin: 0; }
 
@@ -741,13 +758,14 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
 .og-table-wrap { overflow-x: auto; border: 1px solid var(--og-line-2); border-radius: var(--og-radius-sm); }
 .og-table { width: 100%; border-collapse: collapse; }
 .og-table th {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
   padding: calc(11px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
   background: var(--og-well) !important;
   border-bottom: 1px solid var(--og-line);
   color: var(--og-muted) !important;
   font-family: var(--font-heading);
   font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   letter-spacing: .05em;
   text-transform: uppercase;
   text-align: left;
@@ -762,9 +780,9 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
 }
 .og-table tbody tr:last-child td { border-bottom: 0; }
 .og-table tbody tr:hover td { background: #fafbfb; }
-.og-cell-main { display: block; font-weight: 600; }
+.og-cell-main { display: block; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900); }
 .og-cell-sub { display: block; font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: var(--og-muted); }
-.og-host { display: inline-flex; align-items: center; gap: calc(7px * var(--ui-scale, 1)); font-family: var(--font-number); font-weight: 600; }
+.og-host { --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number); display: inline-flex; align-items: center; gap: calc(7px * var(--ui-scale, 1)); font-family: var(--font-number); font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900); }
 .og-host i { color: var(--og-faint); }
 
 .og-blank {
@@ -816,9 +834,9 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
   background: var(--og-well);
 }
 .og-timeline-head { display: flex; justify-content: space-between; align-items: baseline; gap: calc(6px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); flex-wrap: wrap; }
-.og-timeline-title { font-family: var(--font-heading); font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: 700 !important; color: var(--og-ink); text-transform: capitalize; }
-.og-timeline-title small { margin-left: calc(6px * var(--ui-scale, 1)); font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: 500 !important; color: var(--og-muted); text-transform: none; }
-.og-timeline-when { font-family: var(--font-number); font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: var(--og-muted); }
+.og-timeline-title { --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading); font-family: var(--font-heading); font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; color: var(--og-ink); text-transform: capitalize; }
+.og-timeline-title small { margin-left: calc(6px * var(--ui-scale, 1)); font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important; color: var(--og-muted); text-transform: none; }
+.og-timeline-when { --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number); font-family: var(--font-number); font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: var(--og-muted); }
 .og-timeline-note { margin: calc(6px * var(--ui-scale, 1)) 0 0; font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; line-height: 1.5 !important; color: var(--og-ink-2); }
 
 /* ------------------------------------------------------------------ Loading / failed */
@@ -834,7 +852,7 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
 }
 .og-empty-glyph.is-error { background: var(--og-error-soft); color: var(--og-error); }
 .og-empty-glyph i { font-size: calc(calc(26px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; }
-.og-empty-title { margin: 0; font-family: var(--font-display); font-size: calc(calc(19px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: 700; }
+.og-empty-title { --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title); margin: 0; font-family: var(--font-display); font-size: calc(calc(19px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); }
 .og-empty-body { margin: 0; font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: var(--og-muted); }
 
 /* ------------------------------------------------------------------ Responsive */
@@ -925,7 +943,7 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
 .og-check-mark { flex: none; display: inline-grid; place-items: center; width: calc(24px * var(--ui-scale, 1)); height: calc(24px * var(--ui-scale, 1)); color: var(--ck); }
 .og-check-mark i { font-size: calc(calc(22px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; line-height: 1; }
 .og-check-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.og-check-text strong { font-family: var(--font-heading); font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: 600 !important; color: var(--og-ink); }
+.og-check-text strong { --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading); font-family: var(--font-heading); font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--og-ink); }
 .og-check-text span { font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; line-height: 1.45 !important; color: var(--og-muted); overflow-wrap: anywhere; }
 .og-check-action {
   flex: none;
@@ -936,7 +954,7 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
   background: #fff;
   color: var(--og-ink-2);
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   cursor: pointer;
 }
 .og-check-action:hover { border-color: var(--og-brand); color: var(--og-brand); }
@@ -955,7 +973,7 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
 .og-review-state.is-good { background: var(--og-good-soft); color: var(--og-good); }
 .og-review-state.is-warn { background: var(--og-warn-soft); color: #7a4a08; }
 .og-review-state.is-info { background: var(--og-info-soft); color: #23488c; }
-.og-optional { margin-left: calc(4px * var(--ui-scale, 1)); font-weight: 500 !important; color: var(--og-faint); }
+.og-optional { margin-left: calc(4px * var(--ui-scale, 1)); font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important; color: var(--og-faint); }
 .og-review-send .og-count { align-self: flex-end; }
 .og-review-btn { width: 100%; margin-top: auto; }
 
@@ -964,6 +982,7 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
 .og-table-list td { padding: calc(14px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)); }
 .og-table-list .is-center { text-align: center !important; }
 .og-host-tag {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   display: inline-flex;
   align-items: center;
   gap: calc(6px * var(--ui-scale, 1));
@@ -974,7 +993,7 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
   color: var(--og-ink-2);
   font-family: var(--font-number);
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
 }
 .og-host-tag i { font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; color: var(--og-faint); }
 .og-kind {
@@ -985,7 +1004,7 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
   border: 1px solid var(--og-line);
   color: var(--og-ink-2);
   font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: 600 !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   text-transform: capitalize;
 }
 .og-cell-mark { display: inline-grid; place-items: center; width: calc(28px * var(--ui-scale, 1)); height: calc(28px * var(--ui-scale, 1)); color: var(--og-faint); cursor: default; }
@@ -1085,4 +1104,132 @@ textarea.og-input { resize: vertical; line-height: 1.5 !important; }
 .og-tabs-card .og-tab.is-active i { color: #fff !important; }
 @media (max-width: 575px) {
   .og-hero .og-facts .og-fact { padding-inline: calc(10px * var(--ui-scale, 1)); }
+}
+
+
+/* =====================================================================================================
+   TABS IN THE HEADER (last, so it wins over every tab rule above)
+   The tabs no longer float in a pill of their own under the card: they are the foot of the identity
+   header, a hairline-ruled row of plain labels where the active one is marked by a brand underline
+   that sits on the rule. No fills, no raised tile.
+   ===================================================================================================== */
+.og-hero .og-tabs.og-tabs-card {
+  display: flex;
+  align-self: stretch;
+  width: auto;
+  gap: calc(6px * var(--ui-scale, 1));
+  margin: 0;
+  padding: 0 calc(18px * var(--ui-scale, 1));
+  border: 0;
+  border-top: 1px solid var(--og-line);
+  border-radius: 0;
+  background: #fff;
+}
+.og-hero .og-tabs-card .og-tab {
+  position: relative;
+  gap: calc(8px * var(--ui-scale, 1));
+  padding: calc(15px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--og-muted) !important;
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .01em;
+  transition: color .2s ease;
+}
+.og-hero .og-tabs-card .og-tab i {
+  font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: var(--og-faint) !important;
+  transition: color .2s ease;
+}
+.og-hero .og-tabs-card .og-tab::after {
+  display: block;
+  content: '';
+  position: absolute;
+  left: calc(16px * var(--ui-scale, 1));
+  right: calc(16px * var(--ui-scale, 1));
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--og-brand);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .3s cubic-bezier(.2, .7, .2, 1);
+}
+.og-hero .og-tabs-card .og-tab:hover:not(.is-active) { background: transparent; color: var(--og-ink) !important; }
+.og-hero .og-tabs-card .og-tab:hover:not(.is-active)::after { transform: scaleX(.35); background: var(--og-faint); }
+.og-hero .og-tabs-card .og-tab.is-active {
+  padding-bottom: calc(14px * var(--ui-scale, 1));
+  background: transparent;
+  color: var(--og-brand) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+.og-hero .og-tabs-card .og-tab.is-active i { color: var(--og-brand) !important; }
+.og-hero .og-tabs-card .og-tab.is-active::after { transform: scaleX(1); }
+.og-hero .og-tabs-card .og-tab:focus-visible { outline: 2px solid var(--og-brand); outline-offset: -2px; border-radius: calc(8px * var(--ui-scale, 1)); }
+
+/* Tighten the space between the header card and the content under it so they read as one screen:
+   the page's flex gap is pulled in to 8px on that one seam. */
+.og-hero { margin-bottom: calc(-1 * var(--og-gap) + calc(8px * var(--ui-scale, 1))); }
+
+
+/* =====================================================================================================
+   TWO-ROW HEADER (last, so it wins over every header rule above)
+   Row 1: the name, status and meta line on one line, the action at the right.
+   Row 2: the tabs on the left and the small facts on the right, in the same band.
+   The eyebrow and the Documents / Web addresses facts are dropped (the tabs already carry those counts),
+   which takes the header from four stacked bands to two.
+   ===================================================================================================== */
+.og-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.og-hero-top { grid-column: 1 / -1; padding: calc(14px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1)); align-items: center; }
+.og-hero-eyebrow { display: none; }
+.og-hero-text { flex-direction: row; flex-wrap: wrap; align-items: center; gap: calc(4px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)); }
+.og-hero-title { font-size: calc(clamp(calc(20px * var(--ui-scale, 1)), 1.7vw, calc(24px * var(--ui-scale, 1))) * var(--ui-text-scale, 1)) !important; }
+.og-hero-meta { padding-left: calc(22px * var(--ui-scale, 1)); border-left: 1px solid var(--og-line); }
+
+.og-hero .og-tabs.og-tabs-card { grid-column: 1; grid-row: 2; padding-inline: calc(14px * var(--ui-scale, 1)); min-width: 0; }
+.og-hero .og-tabs-card .og-tab { padding-block: calc(11px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1)); }
+.og-hero .og-tabs-card .og-tab.is-active { padding-bottom: calc(10px * var(--ui-scale, 1)); }
+
+.og-hero .og-facts {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: stretch;
+  flex-wrap: nowrap;
+  padding: 0 calc(14px * var(--ui-scale, 1));
+  border-top: 1px solid var(--og-line);
+  background: #fff;
+}
+.og-hero .og-facts .og-fact:nth-child(n+3):not(:last-child) { display: none; }
+.og-hero .og-facts .og-fact { white-space: nowrap; }
+
+@media (max-width: 1399px) {
+  .og-hero { grid-template-columns: minmax(0, 1fr); }
+  .og-hero .og-facts { display: flex; grid-column: 1; grid-row: 3; padding-block: calc(6px * var(--ui-scale, 1)); }
+  .og-hero-meta { padding-left: 0; border-left: 0; }
+}
+
+/* No tabs on this page (settings): the whole header is ONE band - name, status and meta on the left, the
+   three facts on the right - instead of a second row with nothing but facts in it. */
+.og-hero:not(:has(.og-tabs)) .og-hero-top { grid-column: 1; grid-row: 1; padding-block: calc(12px * var(--ui-scale, 1)); }
+.og-hero:not(:has(.og-tabs)) .og-facts {
+  grid-column: 2;
+  grid-row: 1;
+  border-top: 0;
+  padding-inline: calc(12px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
+}
+.og-hero:not(:has(.og-tabs)) .og-facts .og-fact:nth-child(n+3):not(:last-child) { display: none; }
+@media (max-width: 1399px) {
+  .og-hero:not(:has(.og-tabs)) { grid-template-columns: minmax(0, 1fr) auto; }
+  .og-hero:not(:has(.og-tabs)) .og-facts { grid-row: 1; padding-block: 0; }
+}
+@media (max-width: 991px) {
+  .og-hero:not(:has(.og-tabs)) { grid-template-columns: minmax(0, 1fr); }
+  .og-hero:not(:has(.og-tabs)) .og-facts { grid-column: 1; grid-row: 2; border-top: 1px solid var(--og-line); padding-block: calc(6px * var(--ui-scale, 1)); }
 }

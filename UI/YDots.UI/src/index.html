@@ -42,6 +42,35 @@
     })();
   </script>
 
+  <!-- Dark mode and text size/weight from the Theme settings, applied BEFORE first paint (blocking on purpose)
+       so a dark or resized workspace never flashes light/default, login pages included. Mirrors
+       ThemeComponent (Shared/theme): data-ydot-mode on <html> drives styles/ydot-dark.css, and the --ts-* /
+       --fwb-* variables drive styles/ydot-typography.css. Bootstrap's own data-bs-theme is held on "light":
+       dark is this app's own layer, and layout-setup.js below would otherwise restore a stale "dark". -->
+  <script>
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem('app-theme-settings') || 'null') || {};
+        var html = document.documentElement;
+        if (saved.isDarkMode === true) { html.setAttribute('data-ydot-mode', 'dark'); }
+        localStorage.setItem('data-bs-theme', 'light');
+        var step = function (map, min, max, unit, role) {
+          var v = Math.round(Number(map && map[role]));
+          return isFinite(v) ? Math.min(max, Math.max(min, v)) * unit : 0;
+        };
+        var roles = { display: 'title', heading: 'heading', other: 'body', number: 'number', menu: 'menu' };
+        var scale = Number(saved.textScale);
+        if (isFinite(scale) && scale > 0) { html.style.setProperty('--ts-global', String(scale)); }
+        for (var role in roles) {
+          var size = 1 + step(saved.sizeSteps, -4, 6, 0.06, role);
+          var weight = step(saved.weightSteps, -2, 3, 100, role);
+          html.style.setProperty('--ts-' + roles[role], String(Math.round(size * 1000) / 1000));
+          html.style.setProperty('--fwb-' + roles[role], String(weight));
+        }
+      } catch (e) { /* storage blocked or malformed: the light, designed-size defaults apply */ }
+    })();
+  </script>
+
    <!-- layout setup -->
     <script src="assets/js/layout-setup.js"></script>
 
