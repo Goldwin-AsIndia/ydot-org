@@ -735,3 +735,95 @@
   .os-hero .os-stats .os-stat { padding-inline: calc(18px * var(--ui-scale, 1)); }
   .os-hero .os-stats .os-stat::before { left: calc(18px * var(--ui-scale, 1)); }
 }
+
+
+/* =====================================================================================================
+   ONE-BAND HEADER (last, so it wins over every header rule above)
+   A single slim card, one row: the title and its purpose on the left, the figures as compact
+   "number label" pairs in the middle, the add button on the right. No eyebrow, no second row, no
+   empty space - roughly a third of the earlier height.
+   ===================================================================================================== */
+.os-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: calc(24px * var(--ui-scale, 1));
+  margin-bottom: calc(14px * var(--ui-scale, 1));
+  padding: calc(12px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1));
+  background: #fff;
+  border: 1px solid var(--os-line);
+  border-radius: calc(16px * var(--ui-scale, 1));
+  overflow: hidden;
+}
+.os-hero-top { display: contents; }
+.os-hero-id { grid-column: 1; grid-row: 1; }
+.os-hero-eyebrow { display: none; }
+.os-hero-text { gap: calc(1px * var(--ui-scale, 1)); }
+.os-hero-title {
+  font-size: calc(clamp(20px, 1.7vw, 24px) * var(--ui-text-scale, 1));
+  line-height: 1.15;
+  letter-spacing: -.01em;
+}
+.os-hero-sub {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(12.5px * var(--ui-text-scale, 1)) !important;
+}
+.os-hero .os-btn-add {
+  grid-column: 3;
+  grid-row: 1;
+  height: calc(38px * var(--ui-scale, 1));
+  padding: 0 calc(18px * var(--ui-scale, 1)) 0 calc(14px * var(--ui-scale, 1));
+  font-size: calc(13px * var(--ui-text-scale, 1)) !important;
+}
+
+.os-hero .os-stats {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.os-hero .os-stats .os-stat {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: baseline;
+  gap: calc(7px * var(--ui-scale, 1));
+  padding: calc(4px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  border-left: 1px solid var(--os-line);
+  white-space: nowrap;
+}
+.os-hero .os-stats .os-stat:first-child { border-left: 0; }
+.os-hero .os-stats .os-stat::before { display: none; }
+.os-hero .os-stats .os-stat dt {
+  font-size: calc(12px * var(--ui-text-scale, 1)) !important;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.os-hero .os-stats .os-stat dd {
+  font-size: calc(18px * var(--ui-text-scale, 1)) !important;
+  font-weight: 600;
+}
+
+@media (max-width: 1399px) {
+  .os-hero { grid-template-columns: minmax(0, 1fr) auto; row-gap: calc(8px * var(--ui-scale, 1)); }
+  .os-hero .os-btn-add { grid-column: 2; }
+  .os-hero .os-stats {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-wrap: wrap;
+    padding-top: calc(8px * var(--ui-scale, 1));
+    border-top: 1px solid var(--os-line-2);
+  }
+  .os-hero .os-stats .os-stat:first-child { padding-left: 0; }
+}
+@media (max-width: 575px) {
+  .os-hero-sub { white-space: normal; }
+}
