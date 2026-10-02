@@ -190,6 +190,24 @@ export class CityComponent implements OnInit {
     return enumLabel(this.statusOptions(), status);
   }
 
+  /** "State, Country" for the form's preview line, from whatever is chosen so far. */
+  formPlace(): string {
+    const { countryId, stateProvinceId } = this.form.getRawValue();
+    const state = this.filteredStates().find((s) => String(s.id) === String(stateProvinceId));
+    const country = this.countries().find((c) => String(c.id) === String(countryId));
+    return [state?.stateProvinceName, country?.countryName].filter(Boolean).join(', ');
+  }
+
+  /** "11.0168° N, 76.9558° E" for the form's preview line, or '' until both are typed. */
+  formCoordinates(): string {
+    const { latitude, longitude } = this.form.getRawValue();
+    if (latitude === null || latitude === '' || longitude === null || longitude === '') return '';
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+    return `${Math.abs(lat)}° ${lat < 0 ? 'S' : 'N'}, ${Math.abs(lng)}° ${lng < 0 ? 'W' : 'E'}`;
+  }
+
   /**
    * Every state the catalogue knows, for the list filter when no country is chosen.
    *

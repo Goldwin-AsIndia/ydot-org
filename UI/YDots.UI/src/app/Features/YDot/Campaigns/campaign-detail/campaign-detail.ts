@@ -21,7 +21,6 @@ import { CampaignApiService } from '../../../../Service/campaign-api.service';
 import { PaymentApiService } from '../../../../Service/payment-api.service';
 import { MoneyResponse } from '../../../../Shared/models/payment.model';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 /** One named lifecycle transition offered from a given state. */
 interface LifecycleTransition {
@@ -119,7 +118,7 @@ interface CalEvent {
 
 @Component({
   selector: 'app-campaign-detail',
-  imports: [PageHeader, CommonModule, FormsModule, PauseResumeCloseCampaignComponent],
+  imports: [CommonModule, FormsModule, PauseResumeCloseCampaignComponent],
   templateUrl: './campaign-detail.html',
   styleUrl: './campaign-detail.css',
 })

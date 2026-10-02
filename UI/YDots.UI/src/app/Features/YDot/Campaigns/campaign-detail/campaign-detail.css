@@ -1340,11 +1340,6 @@ color-mix(in srgb, var(--primary) 22%, white);
   --fk-font-heading: var(--font-display);
   --fk-font-body: var(--font-body);
 }
-.cd-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--campaign-gap, calc(17px * var(--ui-scale, 1)));
-}
 .fk-kpi {
   --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
   position: relative;
@@ -1569,17 +1564,6 @@ color-mix(in srgb, var(--primary) 22%, white);
 .fk-kpi-assets {
   background: #fff;
   gap: calc(14px * var(--ui-scale, 1));
-}
-
-@media (max-width: 1280px) {
-  .cd-kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 640px) {
-  .cd-kpi-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* ---------- Rows and panels ---------- */
@@ -3143,69 +3127,6 @@ color-mix(in srgb, var(--primary) 22%, white);
 }
 
 
-/* =====================================================================================================
-   KPI strip - one tile height.
-   Every KPI tile in the application is --lx-kpi-h tall (styles/ydot-premium.css, section 4a). These four carry
-   a headline, a delta badge and a footer, so at that height the badge moves to the corner and the small print
-   goes, rather than the tile growing. Four equal columns span the full width of the page.
-   ===================================================================================================== */
-.cd-kpi-grid > .fk-kpi {
-  justify-content: center;
-  gap: calc(4px * var(--ui-scale, 1));
-  padding: calc(14px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
-}
-
-.cd-kpi-grid > .fk-kpi .fk-badge {
-  position: absolute;
-  top: calc(14px * var(--ui-scale, 1));
-  right: calc(16px * var(--ui-scale, 1));
-  z-index: 1;
-}
-
-.cd-kpi-grid .fk-kpi-caption {
-  display: none;
-}
-
-/* The headline figures are <p>s, and the customiser forces every <p> to the base font size (styles.css,
-   "Font size"), which left them smaller than the Assets figure (a <strong>). One size for all four. */
-.cd-kpi-grid .fk-kpi-value,
-.cd-kpi-grid .fk-kpi-value-white {
-  font-size: calc(calc(30px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.1 !important;
-}
-
-/* Fixed-height tile: nothing inside may shrink away, so the line-heights are kept tight enough for
-   eyebrow + figure + footer to fit --lx-kpi-h. */
-.cd-kpi-grid .fk-kpi-eyebrow {
-  flex: none;
-  line-height: 1.2;
-}
-.cd-kpi-grid .fk-kpi-foot-col {
-  gap: 0;
-}
-.cd-kpi-grid .fk-kpi-foot-col span,
-.cd-kpi-grid .fk-kpi-foot-col strong {
-  line-height: 1.2;
-}
-.cd-kpi-grid .fk-badge {
-  padding: 2px calc(8px * var(--ui-scale, 1));
-  line-height: 1.2;
-}
-
-/* The badge sits in the corner, so the eyebrow stops short of it rather than running underneath. */
-.cd-kpi-grid > .fk-kpi > .fk-kpi-eyebrow,
-.cd-kpi-grid .fk-kpi-donors-head .fk-kpi-eyebrow {
-  padding-right: calc(52px * var(--ui-scale, 1));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cd-kpi-grid .fk-kpi-foot {
-  padding-top: calc(6px * var(--ui-scale, 1));
-}
-
-
 /* =========================================================
    Recent Activity - timeline (time | dashed rail + channel icon | tinted card).
    Each row's colour comes from its kind (data-kind, see activityKind() in the .ts): email blue,
@@ -3351,116 +3272,229 @@ color-mix(in srgb, var(--primary) 22%, white);
   .ra-row:hover .ra-bubble { transform: none; }
 }
 
-/* =========================================================
-   KPI strip - stat cards in the app-wide anatomy (same as the tracking-asset / list screens):
-   icon (no disc) | label + delta chip / figure / one context line. White, hairline, no blobs.
-   ========================================================= */
-.cd-kpi-grid > .fk-kpi.cd-stat {
-  position: relative;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: calc(18px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
-  background: #fff;
-  border: 1px solid #e6e8eb;
-  border-radius: var(--yc-radius, calc(20px * var(--ui-scale, 1)));
-  color: #1c232b;
-}
-/* Icon pinned to the top-left corner and the delta chip to the top-right, so the label, figure and
-   context line can sit in the true centre of the card rather than in the space left of the icon. */
-.cd-stat-ic {
-  position: absolute;
-  top: calc(16px * var(--ui-scale, 1));
-  left: calc(16px * var(--ui-scale, 1));
-  width: calc(34px * var(--ui-scale, 1));
-  height: calc(34px * var(--ui-scale, 1));
-  display: inline-grid;
-  place-items: center;
-  background: transparent !important;
-  color: var(--theme-primary, #07565b);
-}
-.cd-stat-ic svg { width: calc(24px * var(--ui-scale, 1)); height: calc(24px * var(--ui-scale, 1)); }
-.cd-stat-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: calc(3px * var(--ui-scale, 1));
-  padding: 0 calc(52px * var(--ui-scale, 1));
-}
-.cd-stat-top {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  max-width: 100%;
-}
-.cd-stat-label {
-  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
-  font-family: var(--font-heading);
-  font-size: calc(var(--yc-eyebrow-size, calc(10px * var(--ui-scale, 1))) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  letter-spacing: var(--yc-eyebrow-tracking, 0.8px);
-  text-transform: uppercase;
-  color: #3d4652;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.cd-stat-chip {
-  position: absolute;
-  top: calc(16px * var(--ui-scale, 1));
-  right: calc(16px * var(--ui-scale, 1));
-  padding: 2px calc(8px * var(--ui-scale, 1));
-  border-radius: calc(999px * var(--ui-scale, 1));
-  font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  line-height: 1.4 !important;
-  white-space: nowrap;
-}
-.cd-stat-chip.is-up   { background: #e8f6ee; color: #1a8a50; }
-.cd-stat-chip.is-down { background: #fdf0e6; color: #c05a14; }
-.cd-stat-value {
-  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
-  max-width: 100%;
-  font-family: var(--font-number);
-  font-size: calc(calc(28px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  line-height: 1.15 !important;
-  color: #141a21;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.cd-stat-sub {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  font-size: calc(var(--yc-caption-size, calc(11px * var(--ui-scale, 1))) * var(--ui-text-scale, 1)) !important;
-  color: #6b7480;
-  white-space: nowrap;
-}
-.cd-stat-sub span { font-size: inherit !important; }
-.cd-stat-sub strong { color: #1c232b; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); margin-left: 2px; }
-.cd-stat-link {
-  border: 0;
-  padding: 0;
-  background: none;
-  color: var(--theme-primary, #07565b);
-  font-size: inherit !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.cd-stat-link:hover { text-decoration: underline; }
-
-
 /* The two inline icon images carry width/height attributes (14 / 12). CSS sizes them instead so they grow with
    --ui-scale on large monitors like every other glyph. */
 .fk-cal-month-pill > img { width: calc(14px * var(--ui-scale, 1)); height: calc(14px * var(--ui-scale, 1)); }
 .fk-table-search > img { width: calc(12px * var(--ui-scale, 1)); height: calc(12px * var(--ui-scale, 1)); }
+
+
+/* =========================================================
+   CAMPAIGN FOLIO - the page head (replaces the page header + four stat cards)
+   One white sheet. Bar: kicker (Campaign | mono reference | status dot + word) over the campaign as a
+   display title, lifecycle actions on the right. Band: "Raised to date" (figure, of target, a progress
+   rule, % and the campaign window) beside four figures between hairlines (label, mono figure, change +
+   context on one line). No icon tiles, no corner chips, no fills; colour lives in the status dot, the
+   progress rule, the change arrows and the primary action.
+   The component's `*` rule sets 13px / 700 / letter-spacing on everything, so every text role here
+   carries its own size, weight and spacing.
+   ========================================================= */
+.cd-folio {
+  container: cdf / inline-size;
+  margin-bottom: var(--campaign-gap, calc(17px * var(--ui-scale, 1)));
+  background: #ffffff;
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radius);
+}
+.cd-fol-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: calc(12px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
+  padding: calc(14px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
+}
+.cd-fol-id { min-width: 0; }
+.cd-fol-kicker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 0 0 calc(5px * var(--ui-scale, 1));
+}
+.cd-fol-kicker > span {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--fk-teal) !important;
+  white-space: nowrap;
+}
+.cd-fol-kicker > span + span::before {
+  content: '';
+  width: 1px;
+  height: calc(11px * var(--ui-scale, 1));
+  margin: 0 calc(10px * var(--ui-scale, 1));
+  background: var(--cd-border-2);
+}
+.cd-fol-ref {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  font-family: var(--cd-font-number) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .04em !important;
+  color: var(--cd-ink-2) !important;
+}
+.cd-fol-state { --dot: var(--cd-muted); color: var(--cd-ink-2) !important; }
+.cd-fol-state::after {
+  content: '';
+  order: -1;
+  width: calc(7px * var(--ui-scale, 1));
+  height: calc(7px * var(--ui-scale, 1));
+  border-radius: 50%;
+  background: var(--dot);
+}
+.cd-fol-state::before { order: -2; }
+.cd-fol-state:is([data-state='Active'], [data-state='Approved'], [data-state='Scheduled']) { --dot: var(--cd-good); color: var(--cd-good) !important; }
+.cd-fol-state:is([data-state='Draft'], [data-state='Submitted'], [data-state='Paused'], [data-state='Closing']) { --dot: var(--cd-warn); color: var(--cd-warn) !important; }
+.cd-fol-state:is([data-state='Cancelled']) { --dot: var(--cd-error); color: var(--cd-error) !important; }
+.cd-fol-title {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
+  margin: 0;
+  font-family: var(--font-display) !important;
+  font-size: calc(calc(22px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--cd-ink) !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Actions: one 36u height; solid = primary, the rest outlined on white */
+.cd-fol-acts { display: flex; align-items: center; flex-wrap: wrap; gap: calc(8px * var(--ui-scale, 1)); margin-left: auto; }
+.cd-act {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(7px * var(--ui-scale, 1));
+  height: calc(36px * var(--ui-scale, 1));
+  padding: 0 calc(14px * var(--ui-scale, 1));
+  border: 1px solid var(--cd-border-2);
+  border-radius: var(--cd-btn-radius);
+  background: #ffffff;
+  color: var(--cd-ink) !important;
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background-color .15s ease;
+}
+.cd-act svg { width: calc(16px * var(--ui-scale, 1)) !important; height: calc(16px * var(--ui-scale, 1)) !important; flex: none; }
+.cd-act:hover { border-color: var(--fk-teal); color: var(--fk-teal) !important; }
+.cd-act:focus-visible { outline: 2px solid var(--fk-teal); outline-offset: 2px; }
+.cd-act--solid { border-color: var(--fk-teal); background: var(--fk-teal); color: #ffffff !important; }
+.cd-act--solid:hover { border-color: var(--theme-primary-dark, var(--fk-teal)); background: var(--theme-primary-dark, var(--fk-teal)); color: #ffffff !important; }
+.cd-act--danger { color: var(--cd-error) !important; border-color: color-mix(in srgb, var(--cd-error) 35%, var(--cd-border-2)); }
+.cd-act--danger:hover { border-color: var(--cd-error); color: var(--cd-error) !important; }
+
+/* Band */
+.cd-fol-band {
+  display: grid;
+  grid-template-columns: minmax(calc(260px * var(--ui-scale, 1)), 1.15fr) minmax(0, 3fr);
+  border-top: 1px solid var(--cd-border);
+}
+.cd-fol-label {
+  display: block;
+  margin: 0;
+  font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .1em !important;
+  text-transform: uppercase;
+  color: var(--cd-muted) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-fol-raise {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  min-width: 0;
+  padding: calc(14px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) calc(15px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
+}
+.cd-fol-raise-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: calc(4px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1)); }
+.cd-fol-big {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  font-family: var(--cd-font-number) !important;
+  font-size: calc(calc(25px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--cd-ink) !important;
+  font-variant-numeric: tabular-nums;
+}
+.cd-fol-of { font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important; letter-spacing: 0 !important; color: var(--cd-ink-2) !important; white-space: nowrap; }
+.cd-fol-track { position: relative; height: calc(5px * var(--ui-scale, 1)); margin-top: calc(2px * var(--ui-scale, 1)); border-radius: calc(999px * var(--ui-scale, 1)); background: var(--cd-border); overflow: hidden; }
+.cd-fol-track > i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--fk-teal); transition: width .5s ease; }
+.cd-fol-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: 0 !important;
+  color: var(--cd-muted) !important;
+}
+.cd-fol-note strong { margin-right: calc(4px * var(--ui-scale, 1)); font-size: inherit !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; letter-spacing: 0 !important; color: var(--fk-teal) !important; }
+.cd-fol-dot { width: calc(3px * var(--ui-scale, 1)); height: calc(3px * var(--ui-scale, 1)); margin: 0 calc(8px * var(--ui-scale, 1)); border-radius: 50%; background: var(--cd-border-2); }
+
+.cd-fol-figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; border-left: 1px solid var(--cd-border); }
+.cd-fol-fig {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  min-width: 0;
+  padding: calc(14px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) calc(15px * var(--ui-scale, 1));
+}
+.cd-fol-fig + .cd-fol-fig { border-left: 1px solid var(--cd-border); }
+.cd-fol-num {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  margin: 0;
+  font-family: var(--cd-font-number) !important;
+  font-size: calc(calc(22px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--cd-ink) !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-fol-sub {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  min-width: 0;
+  margin: 0;
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: 0 !important;
+  color: var(--cd-muted) !important;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.cd-fol-sub strong { font-size: inherit !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; letter-spacing: 0 !important; color: var(--cd-ink-2) !important; }
+.cd-fol-delta { font-size: inherit !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; letter-spacing: 0 !important; }
+.cd-fol-delta.is-up { color: var(--cd-good) !important; }
+.cd-fol-delta.is-down { color: var(--cd-error) !important; }
+
+@container cdf (max-width: 1080px) {
+  .cd-fol-band { grid-template-columns: minmax(0, 1fr); }
+  .cd-fol-figs { border-left: 0; border-top: 1px solid var(--cd-border); }
+}
+@container cdf (max-width: 640px) {
+  .cd-fol-bar { padding: calc(14px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); }
+  .cd-fol-acts { margin-left: 0; }
+  .cd-fol-title { white-space: normal; }
+  .cd-fol-raise { padding: calc(14px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); }
+  .cd-fol-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cd-fol-fig { padding: calc(12px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); }
+  .cd-fol-fig:nth-child(3) { border-left: 0; }
+  .cd-fol-fig:nth-child(n + 3) { border-top: 1px solid var(--cd-border); }
+}

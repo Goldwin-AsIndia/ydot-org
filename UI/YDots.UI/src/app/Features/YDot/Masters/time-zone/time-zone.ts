@@ -186,6 +186,29 @@ export class TimeZoneComponent implements OnInit {
       : 'Create a new time zone and configure its settings.';
   }
 
+  /* ---------------- Form preview ---------------- */
+
+  /** True once the offset field holds a whole number of minutes. */
+  get hasFormOffset(): boolean {
+    const m = this.formModel.standardUtcOffsetMinutes as number | string | null | undefined;
+    return m !== null && m !== undefined && m !== '' && Number.isFinite(Number(m));
+  }
+
+  /** The offset as people write it: 330 -> "UTC+05:30". */
+  get formOffsetLabel(): string {
+    const m = Math.trunc(Number(this.formModel.standardUtcOffsetMinutes));
+    const abs = Math.abs(m);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `UTC${m < 0 ? '−' : '+'}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
+  }
+
+  /** The time it is right now at that offset (standard time), for the form's preview line. */
+  get formClock(): string {
+    const now = new Date();
+    const at = new Date(now.getTime() + (now.getTimezoneOffset() + Number(this.formModel.standardUtcOffsetMinutes)) * 60000);
+    return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+  }
+
   /* ---------------- Derived / computed ---------------- */
 
   get totalPages(): number {

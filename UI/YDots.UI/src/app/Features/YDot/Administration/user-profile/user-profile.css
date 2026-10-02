@@ -1733,8 +1733,9 @@
   display: grid;
   place-items: center;
   padding: calc(16px * var(--s));
-  background: rgba(17, 24, 22, .45);
-  backdrop-filter: blur(3px);
+  background: var(--ov-scrim, rgba(17, 24, 22, .45));
+  -webkit-backdrop-filter: blur(calc(6px * var(--s))) saturate(115%);
+  backdrop-filter: blur(calc(6px * var(--s))) saturate(115%);
   animation: epx-fade .18s ease;
 }
 
@@ -1742,15 +1743,15 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(calc(460px * var(--s)), calc(100vw - 32px)) !important;
-  max-width: min(calc(460px * var(--s)), calc(100vw - 32px)) !important;
+  width: min(calc(440px * var(--s)), calc(100vw - 32px)) !important;
+  max-width: min(calc(440px * var(--s)), calc(100vw - 32px)) !important;
   max-height: calc(100vh - 32px);
   margin: 0 !important;
   padding: 0 !important;
   border: 1px solid var(--dx-line);
-  border-radius: calc(16px * var(--s)) !important;
+  border-radius: var(--ov-radius, calc(16px * var(--s))) !important;
   background: #ffffff !important;
-  box-shadow: 0 calc(24px * var(--s)) calc(60px * var(--s)) calc(-18px * var(--s)) rgba(16, 24, 40, .45);
+  box-shadow: none;
   overflow: hidden;
   animation: epx-in .22s cubic-bezier(.16, 1, .3, 1);
 }
@@ -1769,10 +1770,11 @@
 .epx .epx-head {
   display: flex;
   align-items: center;
-  gap: calc(12px * var(--s));
-  padding: calc(16px * var(--s)) calc(16px * var(--s)) calc(14px * var(--s)) calc(20px * var(--s));
-  border-bottom: 1px solid var(--dx-line-soft);
-  background: #ffffff;
+  gap: calc(10px * var(--s));
+  padding: calc(12px * var(--s)) calc(14px * var(--s)) calc(11px * var(--s)) calc(20px * var(--s));
+  border-bottom: 1px solid var(--ov-line, var(--dx-line-soft));
+  /* The shared pop-up header band: tint with a soft theme glow. */
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--dx-p) 9%, transparent) 0%, transparent 60%), var(--ov-band, #f6f8f7);
 }
 
 .epx .epx-head::before,
@@ -1787,13 +1789,13 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: calc(40px * var(--s));
-  height: calc(40px * var(--s));
-  border-radius: calc(11px * var(--s));
-  background: linear-gradient(150deg, var(--dx-p), var(--dx-deep));
+  width: calc(32px * var(--s));
+  height: calc(32px * var(--s));
+  border-radius: calc(9px * var(--s));
+  background: linear-gradient(145deg, var(--dx-p), color-mix(in srgb, var(--dx-p) 68%, #000000));
   color: #ffffff;
   font-family: var(--font-display);
-  font-size: calc(calc(14px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
   line-height: 1 !important;
 }
@@ -1807,7 +1809,7 @@
   --ui-text-scale: var(--rs-title);
   --fw-bias: var(--fwb-title);
   font-family: var(--font-display);
-  font-size: calc(calc(16.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
   line-height: 1.25 !important;
   color: var(--dx-ink);
@@ -1826,20 +1828,21 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: calc(32px * var(--s));
-  height: calc(32px * var(--s));
+  width: calc(28px * var(--s));
+  height: calc(28px * var(--s));
   padding: 0;
-  border: 0;
-  border-radius: 50%;
+  border: 1px solid transparent;
+  border-radius: calc(8px * var(--s));
   background: transparent;
   color: var(--dx-muted);
-  font-size: calc(calc(19px * var(--s)) * var(--ui-text-scale, 1));
+  font-size: calc(calc(17px * var(--s)) * var(--ui-text-scale, 1)) !important;
   cursor: pointer;
   transition: background-color .15s, color .15s;
 }
 
 .epx .epx-x:hover {
-  background: var(--dx-tint);
+  border-color: var(--ov-line, var(--dx-line));
+  background: #ffffff;
   color: var(--dx-ink);
 }
 
@@ -1847,8 +1850,8 @@
 .epx .epx-body {
   display: flex;
   flex-direction: column;
-  gap: calc(14px * var(--s));
-  padding: calc(18px * var(--s)) calc(20px * var(--s)) calc(18px * var(--s));
+  gap: calc(12px * var(--s));
+  padding: calc(14px * var(--s)) calc(20px * var(--s)) calc(16px * var(--s));
   overflow-y: auto;
 }
 
@@ -1895,12 +1898,12 @@
   appearance: none;
   display: block;
   width: 100% !important;
-  height: calc(40px * var(--s)) !important;
+  height: calc(36px * var(--s)) !important;
   min-height: 0 !important;
   margin: 0 !important;
-  padding: 0 calc(12px * var(--s)) 0 calc(36px * var(--s)) !important;
+  padding: 0 calc(12px * var(--s)) 0 calc(34px * var(--s)) !important;
   border: 1px solid var(--dx-line) !important;
-  border-radius: calc(10px * var(--s)) !important;
+  border-radius: calc(9px * var(--s)) !important;
   outline: 0 !important;
   box-shadow: none !important;
   background: #ffffff !important;
@@ -1948,10 +1951,10 @@
   display: flex;
   align-items: center;
   gap: calc(8px * var(--s));
-  height: calc(40px * var(--s));
+  height: calc(36px * var(--s));
   padding: 0 calc(12px * var(--s));
   border: 1px dashed var(--dx-line);
-  border-radius: calc(10px * var(--s));
+  border-radius: calc(9px * var(--s));
   background: var(--dx-tint);
 }
 
@@ -1996,9 +1999,10 @@
   display: flex;
   align-items: flex-start;
   gap: calc(8px * var(--s));
-  padding: calc(10px * var(--s)) calc(12px * var(--s));
-  border-radius: calc(10px * var(--s));
-  background: var(--dx-tint);
+  padding: calc(8px * var(--s)) calc(10px * var(--s));
+  border: 1px solid var(--dx-line-soft);
+  border-radius: calc(9px * var(--s));
+  background: #ffffff;
   font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important;
   line-height: 1.45 !important;
   color: var(--dx-ink-2);
@@ -2019,9 +2023,25 @@
   display: flex;
   justify-content: flex-end;
   gap: calc(8px * var(--s));
-  padding: calc(12px * var(--s)) calc(20px * var(--s));
-  border-top: 1px solid var(--dx-line-soft);
-  background: #ffffff;
+  align-items: center;
+  padding: calc(10px * var(--s)) calc(20px * var(--s));
+  border-top: 1px solid var(--ov-line, var(--dx-line-soft));
+  background: var(--ov-foot, #f9faf9);
+}
+
+/* The two actions: the same height, radius and padding as every other pop-up's buttons. */
+.epx .epx-foot > .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(6px * var(--s));
+  min-height: calc(34px * var(--s));
+  padding: 0 calc(14px * var(--s));
+  border-radius: calc(9px * var(--s));
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {

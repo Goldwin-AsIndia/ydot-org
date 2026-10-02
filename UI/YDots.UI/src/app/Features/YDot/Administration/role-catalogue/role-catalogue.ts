@@ -17,7 +17,6 @@ import {
   RolePermission,
   RoleSearchFilter,
 } from '../../../../Shared/models/role-catalogue-api.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 /** One permission, as the detail panel lists it. */
 interface RolePermissionView {
@@ -153,7 +152,7 @@ export class RxPortalDirective implements OnInit, OnDestroy {
 @Component({
   selector: 'app-role-catalogue',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule, RouterModule, RxPortalDirective],
+  imports: [CommonModule, FormsModule, RouterModule, RxPortalDirective],
   templateUrl: './role-catalogue.html',
   styleUrl: './role-catalogue.css',
 })
@@ -641,6 +640,7 @@ export class RoleCatalogueComponent {
       privileged: roles.filter((r) => r.isPrivileged).length,
       system: roles.filter((r) => r.isSystemRole).length,
       holders: roles.reduce((sum, r) => sum + (r.memberCount ?? 0), 0),
+      staffed: roles.filter((r) => (r.memberCount ?? 0) > 0).length,
       permissions: roles.reduce((sum, r) => sum + (r.permissionCount ?? 0), 0),
       shares: { active: share('active'), draft: share('draft'), retired: share('retired'), other: share('default') },
     };

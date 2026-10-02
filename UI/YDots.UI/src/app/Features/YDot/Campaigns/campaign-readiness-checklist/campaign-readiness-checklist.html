@@ -39,23 +39,59 @@
 
   <!-- ============================ MAIN (ready + recoverable banners) ============================ -->
   @else {
-  <!-- ===== Header: the campaign is the headline; reference, state, owner and freshness in one row ===== -->
-  <header class="crc-hero">
-    <div class="crc-hero-text">
-      <p class="crc-hero-eyebrow">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+  <!-- ===== Docket: the campaign and its verdict in ONE sheet =====
+       Left: kicker, the campaign as the headline, one meta line (reference, state, owner, freshness).
+       Middle: the tally - passed / failed / pending / total as mono figures between hairlines, with
+       one proportion rule under them. Right: Launch actions. Replaces the header card + four tall
+       KPI cards. No avatar; the owner carries a bare person glyph. -->
+  <header class="crc-docket">
+    <div class="crc-docket-id">
+      <p class="crc-docket-kicker">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
         {{ pageTitle }}
       </p>
-      <h1 class="crc-hero-title">{{ campaignName() }}</h1>
-      <ul class="crc-hero-meta">
-        <li class="crc-hero-ref">{{ campaignRef }}</li>
-        <li class="crc-hero-state" [attr.data-state]="lifecycleState()">{{ lifecycleState() }}</li>
+      <h1 class="crc-docket-title">{{ campaignName() }}</h1>
+      <ul class="crc-docket-meta">
+        <li class="crc-docket-ref">{{ campaignRef }}</li>
+        <li class="crc-docket-state" [attr.data-state]="lifecycleState()">{{ lifecycleState() }}</li>
         <li>
-          <span class="crc-hero-avatar" aria-hidden="true">{{ ownerName(ownerReference()).charAt(0) }}</span>
+          <svg class="crc-docket-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg>
           {{ ownerName(ownerReference()) }}
         </li>
-        <li class="crc-hero-muted">Updated {{ lastRefresh() }}</li>
+        <li class="crc-docket-muted">Updated {{ lastRefresh() }}</li>
       </ul>
+    </div>
+
+    <div class="crc-tally" role="group" aria-label="Readiness totals">
+      <dl class="crc-tally-row">
+        <div class="crc-tally-cell" data-k="pass">
+          <dt><span class="crc-dot crc-dot-pass" aria-hidden="true"></span>Passed</dt>
+          <dd class="crc-tally-fig">{{ getPassCount() }}</dd>
+          <dd class="crc-tally-sub">Signed off</dd>
+        </div>
+        <div class="crc-tally-cell" data-k="fail">
+          <dt><span class="crc-dot crc-dot-fail" aria-hidden="true"></span>Failed</dt>
+          <dd class="crc-tally-fig">{{ getFailCount() }}</dd>
+          <dd class="crc-tally-sub">Needs rework</dd>
+        </div>
+        <div class="crc-tally-cell" data-k="pending">
+          <dt><span class="crc-dot crc-dot-pending" aria-hidden="true"></span>Pending</dt>
+          <dd class="crc-tally-fig">{{ getPendingCount() }}</dd>
+          <dd class="crc-tally-sub">Awaiting verdict</dd>
+        </div>
+        <div class="crc-tally-cell" data-k="total">
+          <dt>Total checks</dt>
+          <dd class="crc-tally-fig">{{ getTotalCount() }}</dd>
+          <dd class="crc-tally-sub" [class.is-alert]="blockers().length > 0">{{ blockers().length }} open {{ blockers().length === 1 ? 'blocker' : 'blockers' }}</dd>
+        </div>
+      </dl>
+      <div class="crc-tally-rule" aria-hidden="true">
+        @if (getTotalCount() > 0) {
+          @if (getPassCount() > 0) { <i class="pass" [style.width.%]="(getPassCount() / getTotalCount()) * 100"></i> }
+          @if (getFailCount() > 0) { <i class="fail" [style.width.%]="(getFailCount() / getTotalCount()) * 100"></i> }
+          @if (getPendingCount() > 0) { <i class="pending" [style.width.%]="(getPendingCount() / getTotalCount()) * 100"></i> }
+        }
+      </div>
     </div>
 
     <div class="crc-hero-actions crc-overflow">
@@ -143,42 +179,6 @@
       </div>
     </section>
   }
-
-  <!-- ===== KPI strip ===== -->
-  <section class="crc-summary" aria-label="Readiness totals">
-    <div class="crc-summary-card crc-summary-pass">
-      <span class="crc-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16 10"/></svg></span>
-      <div class="crc-summary-body">
-        <span class="crc-summary-label">Passed</span>
-        <span class="crc-summary-value">{{ getPassCount() }}</span>
-        <span class="crc-summary-sub">Signed off</span>
-      </div>
-    </div>
-    <div class="crc-summary-card crc-summary-fail">
-      <span class="crc-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg></span>
-      <div class="crc-summary-body">
-        <span class="crc-summary-label">Failed</span>
-        <span class="crc-summary-value">{{ getFailCount() }}</span>
-        <span class="crc-summary-sub">Needs rework</span>
-      </div>
-    </div>
-    <div class="crc-summary-card crc-summary-pending">
-      <span class="crc-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-      <div class="crc-summary-body">
-        <span class="crc-summary-label">Pending</span>
-        <span class="crc-summary-value">{{ getPendingCount() }}</span>
-        <span class="crc-summary-sub">Awaiting a verdict</span>
-      </div>
-    </div>
-    <div class="crc-summary-card crc-summary-total">
-      <span class="crc-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>
-      <div class="crc-summary-body">
-        <span class="crc-summary-label">Total checks</span>
-        <span class="crc-summary-value">{{ getTotalCount() }}</span>
-        <span class="crc-summary-sub">{{ blockers().length }} open {{ blockers().length === 1 ? 'blocker' : 'blockers' }}</span>
-      </div>
-    </div>
-  </section>
 
   <!-- ===== Body: checks list + launch readiness rail ===== -->
   <div class="crc-layout">

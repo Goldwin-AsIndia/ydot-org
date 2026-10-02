@@ -274,7 +274,7 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
               </button>
               <div class="gm-confirm-body">
-                <span class="gm-confirm-icon" aria-hidden="true">
+                <span class="gm-confirm-tile" aria-hidden="true">
                   <svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="16.5" cy="12" r="3"></circle></svg>
                 </span>
                 <div class="gm-confirm-text">
@@ -297,7 +297,7 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
               </button>
               <div class="gm-confirm-body">
-                <span class="gm-confirm-icon" aria-hidden="true">
+                <span class="gm-confirm-tile" aria-hidden="true">
                   <svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="7.5" cy="12" r="3"></circle></svg>
                 </span>
                 <div class="gm-confirm-text">
@@ -328,7 +328,7 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
               </button>
               <div class="gm-confirm-body">
-                <span class="gm-confirm-icon" aria-hidden="true">
+                <span class="gm-confirm-tile" aria-hidden="true">
                   <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"></path></svg>
                 </span>
                 <div class="gm-confirm-text">
@@ -355,245 +355,241 @@
       }
 
       <!-- ======================================================= FORM VIEW -->
+      <!-- "Entry sheet" (../masters-ui.css, mf-*): masthead with a live preview of the record, two ruled
+           columns of label | field rows, outlined choices, one action bar. -->
       @if (view === 'form') {
         <div class="gm-page">
-          <app-page-header [showInfo]="false" screen="currency" [title]="pageTitle" [subtitle]="pageSubTitle">
-            <span meta class="ph-chip">Currency Master</span>
-            <button actions type="button" class="ph-btn ph-btn--ghost" (click)="backToList()">
-              <svg class="gm-ph-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"></path></svg>
-              <span>Back to Currency List</span>
-            </button>
-          </app-page-header>
+          <form class="mf" #currencyForm="ngForm" (ngSubmit)="save(currencyForm)" novalidate>
+            <header class="mf-head">
+              <div class="mf-title">
+                <span class="mf-kicker">Masters · Currency</span>
+                <h1>{{ isEdit ? 'Edit currency' : 'New currency' }}</h1>
+              </div>
 
-          <form class="gm-form" #currencyForm="ngForm" (ngSubmit)="save(currencyForm)" novalidate>
-            <!-- 01 Identity -->
-            <section class="gm-fsec">
-              <div class="gm-fsec-meta">
-                <div class="gm-fsec-head">
-                  <span class="gm-fsec-num">01</span>
-                  <div>
-                    <h3>Currency Identity</h3>
-                    <p>The ISO code, name and type that identify this currency.</p>
+              <div class="mf-spec" aria-label="Preview of this currency">
+                <span class="mf-spec-cap">Preview</span>
+                <span class="mf-spec-mark" [class.is-symbol]="!!formCurrency.symbol" [class.mf-up]="!formCurrency.symbol" [class.is-empty]="!formCurrency.symbol && !formCurrency.currencyCode" aria-hidden="true">{{ formCurrency.symbol || formCurrency.currencyCode || '¤' }}</span>
+                <span class="mf-spec-id">
+                  <strong [class.is-empty]="!formCurrency.currencyName">{{ formCurrency.currencyName || 'Currency name' }}</strong>
+                  <small><span class="mf-up">{{ formCurrency.currencyCode || 'Code' }}</span>{{ formCurrency.currencyType ? ' · ' + typeLabel(formCurrency.currencyType) : '' }}</small>
+                </span>
+                <dl class="mf-spec-facts">
+                  <div><dt>Shown as</dt><dd>{{ sampleAmount }}</dd></div>
+                  <div class="is-extra"><dt>Minor unit</dt><dd [class.is-empty]="!formCurrency.minorUnitName">{{ formCurrency.minorUnitName || '—' }}</dd></div>
+                  <div><dt>Status</dt><dd><span class="mf-dot" [class.is-active]="formCurrency.isActive" [class.is-draft]="!formCurrency.isActive && !isEdit" [class.is-inactive]="!formCurrency.isActive && isEdit"></span>{{ formCurrency.isActive ? 'Active' : (isEdit ? 'Inactive' : 'Draft') }}</dd></div>
+                </dl>
+              </div>
+
+              <button type="button" class="gm-btn sm gm-btn-outline mf-back" (click)="backToList()">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"></path></svg>
+                Currency list
+              </button>
+            </header>
+
+            <div class="mf-body">
+              <div class="mf-col">
+                <!-- 01 Identity -->
+                <section class="mf-sec" aria-labelledby="mf-sec-1">
+                  <h2 class="mf-sec-title" id="mf-sec-1"><span class="mf-num">01</span>Identity</h2>
+
+                  <div class="mf-row">
+                    <label class="mf-lab" for="currencyCode"><span>Currency code <span class="mf-req" aria-hidden="true">*</span></span><small class="mf-note">ISO 4217 · 3 letters</small></label>
+                    <div class="mf-ctl">
+                      <input
+                        id="currencyCode"
+                        type="text"
+                        name="currencyCode"
+                        class="mf-in is-code is-short"
+                        [class.is-invalid]="submitted && (codeField.invalid || duplicateCodeError)"
+                        [(ngModel)]="formCurrency.currencyCode"
+                        (input)="onCurrencyCodeInput()"
+                        #codeField="ngModel"
+                        required
+                        minlength="3"
+                        maxlength="3"
+                        pattern="[A-Za-z]{3}"
+                        [disabled]="isEdit"
+                        [attr.title]="isEdit ? 'The code cannot be changed once saved' : null"
+                        placeholder="INR">
+                      @if (submitted && codeField.invalid) {
+                        <span class="mf-err">Enter a valid 3-letter currency code.</span>
+                      } @else if (duplicateCodeError) {
+                        <span class="mf-err">Currency code already exists.</span>
+                      }
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div class="gm-fields">
-                <div class="gm-field">
-                  <label class="gm-label" for="currencyCode">Currency Code (ISO) <span class="gm-req">*</span></label>
-                  <input
-                    id="currencyCode"
-                    type="text"
-                    name="currencyCode"
-                    class="gm-input uppercase mono"
-                    [class.is-invalid]="submitted && (codeField.invalid || duplicateCodeError)"
-                    [(ngModel)]="formCurrency.currencyCode"
-                    (input)="onCurrencyCodeInput()"
-                    #codeField="ngModel"
-                    required
-                    minlength="3"
-                    maxlength="3"
-                    pattern="[A-Za-z]{3}"
-                    [disabled]="isEdit"
-                    placeholder="e.g., INR, USD">
-                  @if (submitted && codeField.invalid) {
-                    <span class="gm-error">Enter a valid 3-letter currency code.</span>
-                  } @else if (duplicateCodeError) {
-                    <span class="gm-error">Currency code already exists.</span>
-                  } @else {
-                    <small class="gm-hint">Exactly 3 letters (ISO 4217)</small>
-                  }
-                </div>
-
-                <div class="gm-field">
-                  <label class="gm-label" for="currencyName">Currency Name <span class="gm-req">*</span></label>
-                  <input
-                    id="currencyName"
-                    type="text"
-                    name="currencyName"
-                    class="gm-input"
-                    [class.is-invalid]="submitted && nameField.invalid"
-                    [(ngModel)]="formCurrency.currencyName"
-                    (input)="onCurrencyNameInput()"
-                    #nameField="ngModel"
-                    required
-                    maxlength="100"
-                    placeholder="e.g., Indian Rupee, US Dollar">
-                  @if (submitted && nameField.invalid) {
-                    <span class="gm-error">Currency name is required.</span>
-                  }
-                </div>
-
-                <div class="gm-field">
-                  <label class="gm-label" for="numericCode">ISO Numeric Code</label>
-                  <input id="numericCode" type="number" name="numericCode" class="gm-input mono" [(ngModel)]="formCurrency.numericCode" min="0" max="999" placeholder="e.g., 356">
-                  <small class="gm-hint">0-999</small>
-                </div>
-
-                <div class="gm-field">
-                  <label class="gm-label" for="currencyType">Currency Type <span class="gm-req">*</span></label>
-                  <select id="currencyType" name="currencyType" class="gm-input" [class.is-invalid]="submitted && typeField.invalid" [(ngModel)]="formCurrency.currencyType" #typeField="ngModel" required>
-                    <option value="">Select currency type</option>
-                    @for (type of currencyTypes; track type.value) {
-                      <option [value]="type.value">{{ type.label }}</option>
-                    }
-                  </select>
-                  @if (submitted && typeField.invalid) {
-                    <span class="gm-error">Currency type is required.</span>
-                  }
-                </div>
-              </div>
-            </section>
-
-            <!-- 02 Symbol & formatting -->
-            <section class="gm-fsec">
-              <div class="gm-fsec-meta">
-                <div class="gm-fsec-head">
-                  <span class="gm-fsec-num">02</span>
-                  <div>
-                    <h3>Symbol &amp; Formatting</h3>
-                    <p>How amounts in this currency are displayed in screens and reports.</p>
+                  <div class="mf-row">
+                    <label class="mf-lab" for="currencyName"><span>Currency name <span class="mf-req" aria-hidden="true">*</span></span></label>
+                    <div class="mf-ctl">
+                      <input
+                        id="currencyName"
+                        type="text"
+                        name="currencyName"
+                        class="mf-in"
+                        [class.is-invalid]="submitted && nameField.invalid"
+                        [(ngModel)]="formCurrency.currencyName"
+                        (input)="onCurrencyNameInput()"
+                        #nameField="ngModel"
+                        required
+                        maxlength="100"
+                        placeholder="Indian Rupee">
+                      @if (submitted && nameField.invalid) {
+                        <span class="mf-err">Currency name is required.</span>
+                      }
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div class="gm-fields cols-3">
-                <div class="gm-field">
-                  <label class="gm-label" for="symbol">Currency Symbol</label>
-                  <input id="symbol" type="text" name="symbol" class="gm-input" [(ngModel)]="formCurrency.symbol" maxlength="10" placeholder="e.g., ₹, $, €">
-                  <small class="gm-hint">Used in displays and reports</small>
-                </div>
-
-                <div class="gm-field">
-                  <label class="gm-label" for="symbolPosition">Symbol Position <span class="gm-req">*</span></label>
-                  <select id="symbolPosition" name="symbolPosition" class="gm-input" [class.is-invalid]="submitted && posField.invalid" [(ngModel)]="formCurrency.symbolPosition" #posField="ngModel" required>
-                    <option value="">Select symbol position</option>
-                    @for (pos of symbolPositions; track pos.value) {
-                      <option [value]="pos.value">{{ pos.label }}</option>
-                    }
-                  </select>
-                  @if (submitted && posField.invalid) {
-                    <span class="gm-error">Symbol position is required.</span>
-                  } @else {
-                    <small class="gm-hint">Prefix: ₹100 / Suffix: 100₹</small>
-                  }
-                </div>
-
-                <div class="gm-field">
-                  <label class="gm-label" for="displayFormat">Display Format</label>
-                  <input id="displayFormat" type="text" name="displayFormat" class="gm-input mono" [(ngModel)]="formCurrency.displayFormat" maxlength="50" placeholder="e.g., ₹ {amount}">
-                  <small class="gm-hint">Custom format for UI/reports</small>
-                </div>
-              </div>
-            </section>
-
-            <!-- 03 Decimal / rounding -->
-            <section class="gm-fsec">
-              <div class="gm-fsec-meta">
-                <div class="gm-fsec-head">
-                  <span class="gm-fsec-num">03</span>
-                  <div>
-                    <h3>Decimal / Rounding Behaviour</h3>
-                    <p>Precision, minor unit and cash-rounding rules.</p>
+                  <div class="mf-row">
+                    <label class="mf-lab" for="numericCode"><span>Numeric code</span><small class="mf-note">ISO 4217 · 0–999</small></label>
+                    <div class="mf-ctl">
+                      <input id="numericCode" type="number" name="numericCode" class="mf-in is-num is-short" [(ngModel)]="formCurrency.numericCode" min="0" max="999" placeholder="356">
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div class="gm-fields">
-                <div class="gm-field">
-                  <label class="gm-label" for="decimalPlaces">Decimal Places <span class="gm-req">*</span></label>
-                  <select id="decimalPlaces" name="decimalPlaces" class="gm-input" [class.is-invalid]="submitted && decField.invalid" [(ngModel)]="formCurrency.decimalPlaces" #decField="ngModel" required>
-                    <option [ngValue]="null">Select decimal places</option>
-                    @for (opt of decimalPlacesOptions; track opt.value) {
-                      <option [ngValue]="opt.value">{{ opt.label }}</option>
-                    }
-                  </select>
-                  @if (submitted && decField.invalid) {
-                    <span class="gm-error">Decimal places is required.</span>
-                  }
-                </div>
-
-                <div class="gm-field">
-                  <label class="gm-label" for="minorUnitName">Minor Unit Name</label>
-                  <input id="minorUnitName" type="text" name="minorUnitName" class="gm-input" [(ngModel)]="formCurrency.minorUnitName" maxlength="50" placeholder="e.g., Paise, Cent">
-                </div>
-
-                <div class="gm-field">
-                  <label class="gm-label" for="roundingMode">Rounding Mode <span class="gm-req">*</span></label>
-                  <select id="roundingMode" name="roundingMode" class="gm-input" [class.is-invalid]="submitted && roundField.invalid" [(ngModel)]="formCurrency.roundingMode" #roundField="ngModel" required>
-                    <option value="">Select rounding mode</option>
-                    @for (mode of roundingModes; track mode.value) {
-                      <option [value]="mode.value">{{ mode.label }}</option>
-                    }
-                  </select>
-                  @if (submitted && roundField.invalid) {
-                    <span class="gm-error">Rounding mode is required.</span>
-                  }
-                </div>
-
-                <div class="gm-field">
-                  <label class="gm-label" for="roundingStep">Rounding Step</label>
-                  <select id="roundingStep" name="roundingStep" class="gm-input" [ngModel]="roundingStepString" (ngModelChange)="roundingStepString = $event">
-                    <option value="">Select rounding step</option>
-                    @for (step of roundingSteps; track step) {
-                      <option [value]="step">{{ step }}</option>
-                    }
-                  </select>
-                  <small class="gm-hint">For cash rounding</small>
-                </div>
-              </div>
-            </section>
-
-            <!-- 04 Status & notes -->
-            <section class="gm-fsec">
-              <div class="gm-fsec-meta">
-                <div class="gm-fsec-head">
-                  <span class="gm-fsec-num">04</span>
-                  <div>
-                    <h3>Status &amp; Notes</h3>
-                    <p>Availability and internal notes.</p>
+                  <div class="mf-row">
+                    <label class="mf-lab" for="currencyType"><span>Currency type <span class="mf-req" aria-hidden="true">*</span></span></label>
+                    <div class="mf-ctl">
+                      <select id="currencyType" name="currencyType" class="mf-in" [class.is-invalid]="submitted && typeField.invalid" [(ngModel)]="formCurrency.currencyType" #typeField="ngModel" required>
+                        <option value="">Select currency type</option>
+                        @for (type of currencyTypes; track type.value) {
+                          <option [value]="type.value">{{ type.label }}</option>
+                        }
+                      </select>
+                      @if (submitted && typeField.invalid) {
+                        <span class="mf-err">Currency type is required.</span>
+                      }
+                    </div>
                   </div>
-                </div>
+                </section>
+
+                <!-- 02 Symbol & format -->
+                <section class="mf-sec" aria-labelledby="mf-sec-2">
+                  <h2 class="mf-sec-title" id="mf-sec-2"><span class="mf-num">02</span>Symbol &amp; format</h2>
+
+                  <div class="mf-row">
+                    <label class="mf-lab" for="symbol"><span>Symbol</span></label>
+                    <div class="mf-ctl">
+                      <input id="symbol" type="text" name="symbol" class="mf-in is-short" [(ngModel)]="formCurrency.symbol" maxlength="10" placeholder="₹">
+                    </div>
+                  </div>
+
+                  <div class="mf-row">
+                    <span class="mf-lab" id="lab-symbolPosition"><span>Symbol position <span class="mf-req" aria-hidden="true">*</span></span></span>
+                    <div class="mf-ctl">
+                      <div class="mf-seg" role="radiogroup" aria-labelledby="lab-symbolPosition" [class.is-invalid]="submitted && !formCurrency.symbolPosition">
+                        @for (pos of symbolPositions; track pos.value) {
+                          <label class="mf-opt"><input type="radio" name="symbolPosition" [value]="pos.value" [(ngModel)]="formCurrency.symbolPosition" required>{{ pos.label }}</label>
+                        }
+                      </div>
+                      @if (submitted && !formCurrency.symbolPosition) {
+                        <span class="mf-err">Symbol position is required.</span>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="mf-row">
+                    <label class="mf-lab" for="displayFormat"><span>Display format</span><small class="mf-note">Use {{ '{' }}amount{{ '}' }}</small></label>
+                    <div class="mf-ctl">
+                      <input id="displayFormat" type="text" name="displayFormat" class="mf-in is-num" [(ngModel)]="formCurrency.displayFormat" maxlength="50" placeholder="₹ {amount}">
+                    </div>
+                  </div>
+                </section>
               </div>
 
-              <div class="gm-fields cols-3">
-                <div class="gm-field">
-                  <!-- An update carries no status; Activate and Deactivate are separate, separately
-                       permissioned actions on the list. A new currency switched off is created as a Draft. -->
-                  <span class="gm-label">Status</span>
-                  <label class="gm-toggle">
-                    <input type="checkbox" name="isActive" [(ngModel)]="formCurrency.isActive" [disabled]="isEdit">
-                    <span class="gm-switch" aria-hidden="true"></span>
-                    <span>{{ formCurrency.isActive ? 'Active' : (isEdit ? 'Inactive' : 'Draft') }}</span>
-                  </label>
-                  @if (isEdit) {
-                    <small class="gm-hint">Use Activate or Deactivate on the list to change it</small>
-                  }
-                </div>
+              <div class="mf-col">
+                <!-- 03 Decimals & rounding -->
+                <section class="mf-sec" aria-labelledby="mf-sec-3">
+                  <h2 class="mf-sec-title" id="mf-sec-3"><span class="mf-num">03</span>Decimals &amp; rounding</h2>
 
-                <div class="gm-field span-2">
-                  <label class="gm-label" for="notes">Internal Notes</label>
-                  <textarea id="notes" name="notes" class="gm-input" [(ngModel)]="formCurrency.notes" rows="3" placeholder="Additional notes..."></textarea>
-                </div>
-              </div>
-            </section>
+                  <div class="mf-row">
+                    <span class="mf-lab" id="lab-decimalPlaces"><span>Decimal places <span class="mf-req" aria-hidden="true">*</span></span><small class="mf-note">2 for most; 0 for JPY</small></span>
+                    <div class="mf-ctl">
+                      <div class="mf-seg" role="radiogroup" aria-labelledby="lab-decimalPlaces" [class.is-invalid]="submitted && formCurrency.decimalPlaces == null">
+                        @for (opt of decimalPlacesOptions; track opt.value) {
+                          <label class="mf-opt is-mono"><input type="radio" name="decimalPlaces" [value]="opt.value" [(ngModel)]="formCurrency.decimalPlaces" required>{{ opt.value }}</label>
+                        }
+                      </div>
+                      @if (submitted && formCurrency.decimalPlaces == null) {
+                        <span class="mf-err">Decimal places is required.</span>
+                      }
+                    </div>
+                  </div>
 
-            <div class="gm-form-bar">
-              <span class="gm-form-bar-note">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg>
-                Fields marked <span class="gm-req">*</span> are required
-              </span>
-              <div class="gm-form-bar-actions">
-                <button type="button" class="gm-btn gm-btn-outline" (click)="backToList()">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
-                  Cancel
-                </button>
-                <button type="submit" class="gm-btn gm-btn-primary">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11Z"></path><path d="M17 21v-8H7v8M7 3v5h8"></path></svg>
-                  {{ isEdit ? 'Update Currency' : 'Save Currency' }}
-                </button>
+                  <div class="mf-row">
+                    <label class="mf-lab" for="minorUnitName"><span>Minor unit</span></label>
+                    <div class="mf-ctl">
+                      <input id="minorUnitName" type="text" name="minorUnitName" class="mf-in" [(ngModel)]="formCurrency.minorUnitName" maxlength="50" placeholder="Paise">
+                    </div>
+                  </div>
+
+                  <div class="mf-row">
+                    <label class="mf-lab" for="roundingMode"><span>Rounding mode <span class="mf-req" aria-hidden="true">*</span></span></label>
+                    <div class="mf-ctl">
+                      <select id="roundingMode" name="roundingMode" class="mf-in" [class.is-invalid]="submitted && roundField.invalid" [(ngModel)]="formCurrency.roundingMode" #roundField="ngModel" required>
+                        <option value="">Select rounding mode</option>
+                        @for (mode of roundingModes; track mode.value) {
+                          <option [value]="mode.value">{{ mode.label }}</option>
+                        }
+                      </select>
+                      @if (submitted && roundField.invalid) {
+                        <span class="mf-err">Rounding mode is required.</span>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="mf-row">
+                    <span class="mf-lab" id="lab-roundingStep"><span>Rounding step</span><small class="mf-note">For cash rounding</small></span>
+                    <div class="mf-ctl">
+                      <div class="mf-seg" role="radiogroup" aria-labelledby="lab-roundingStep">
+                        <label class="mf-opt"><input type="radio" name="roundingStep" value="" [ngModel]="roundingStepString" (ngModelChange)="roundingStepString = $event">None</label>
+                        @for (step of roundingSteps; track step) {
+                          <label class="mf-opt is-mono"><input type="radio" name="roundingStep" [value]="step" [ngModel]="roundingStepString" (ngModelChange)="roundingStepString = $event">{{ step }}</label>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- 04 Status & notes -->
+                <section class="mf-sec" aria-labelledby="mf-sec-4">
+                  <h2 class="mf-sec-title" id="mf-sec-4"><span class="mf-num">04</span>Status &amp; notes</h2>
+
+                  <div class="mf-row">
+                    <!-- An update carries no status; Activate and Deactivate are separate, separately
+                         permissioned actions on the list. A new currency switched off is created as a Draft. -->
+                    <span class="mf-lab" id="lab-isActive"><span>Status</span></span>
+                    <div class="mf-ctl">
+                      <div class="mf-seg" role="radiogroup" aria-labelledby="lab-isActive">
+                        <label class="mf-opt"><input type="radio" name="isActive" [value]="true" [(ngModel)]="formCurrency.isActive" [disabled]="isEdit">Active</label>
+                        <label class="mf-opt"><input type="radio" name="isActive" [value]="false" [(ngModel)]="formCurrency.isActive" [disabled]="isEdit">{{ isEdit ? 'Inactive' : 'Draft' }}</label>
+                      </div>
+                      @if (isEdit) {
+                        <span class="mf-hint">Change it with Activate / Deactivate on the list</span>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="mf-row">
+                    <label class="mf-lab" for="notes"><span>Notes</span><small class="mf-note">Internal only</small></label>
+                    <div class="mf-ctl">
+                      <textarea id="notes" name="notes" class="mf-in" [(ngModel)]="formCurrency.notes" rows="3" placeholder="Anything the team should know about this currency"></textarea>
+                    </div>
+                  </div>
+                </section>
               </div>
             </div>
+
+            <footer class="mf-foot">
+              <span class="mf-foot-note"><span class="mf-req" aria-hidden="true">*</span> Required</span>
+              <div class="mf-foot-actions">
+                <button type="button" class="gm-btn gm-btn-outline" (click)="backToList()">Cancel</button>
+                <button type="submit" class="gm-btn gm-btn-primary">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+                  {{ isEdit ? 'Update currency' : 'Save currency' }}
+                </button>
+              </div>
+            </footer>
           </form>
         </div>
       }

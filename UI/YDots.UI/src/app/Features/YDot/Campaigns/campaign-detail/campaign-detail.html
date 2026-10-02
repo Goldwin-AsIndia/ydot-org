@@ -1,11 +1,26 @@
 <main class="app-wrapper">
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3">
-      <!-- ============ TASK HEADER ============ -->
-      <app-page-header [showInfo]="false" screen="campaign-detail" [title]="campaignName()" subtitle="View complete campaign information and details.">
-        <ng-container actions>
+      <!-- ============ CAMPAIGN FOLIO ============
+           ONE white sheet replacing the page header + four stat cards.
+             bar   kicker (Campaign | reference | status dot + word), the campaign as a display title |
+                   the lifecycle actions
+             band  "Raised to date" (figure, of target, a progress rule, % and the campaign window) beside
+                   four figures between hairlines - label, mono figure, one line with the change and its
+                   context. No icon tiles, no corner chips, no blank card space. -->
+      <section class="cd-folio" aria-labelledby="cd-folio-title">
+        <div class="cd-fol-bar">
+          <div class="cd-fol-id">
+            <p class="cd-fol-kicker">
+              <span>Campaign</span>
+              <span class="cd-fol-ref">{{ reference }}</span>
+              <span class="cd-fol-state" [attr.data-state]="status()">{{ status() }}</span>
+            </p>
+            <h1 id="cd-folio-title" class="cd-fol-title">{{ campaignName() }}</h1>
+          </div>
+          <div class="cd-fol-acts">
           @if (operateAllowed()) {
-          <button type="button" class="ph-btn ph-btn--primary" (click)="runPrimaryLifecycle()"
+          <button type="button" class="cd-act cd-act--solid" (click)="runPrimaryLifecycle()"
             [attr.aria-label]="primaryActionLabel() + ' — operate according to lifecycle'">
             <svg class="cd-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -18,8 +33,7 @@
           }
           <!-- Manage lifecycle — opens Pause / Resume / Close as a right-edge off-canvas panel -->
           @if (lifecycleAllowed()) {
-          <button type="button" class="ph-btn" [class.ph-btn--primary]="!operateAllowed()"
-            [class.ph-btn--ghost]="operateAllowed()" (click)="openLifecycle()"
+          <button type="button" class="cd-act" [class.cd-act--solid]="!operateAllowed()" (click)="openLifecycle()"
             aria-label="Manage lifecycle — pause, resume and close campaign">
             <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -31,7 +45,7 @@
           </button>
           }
           @if (exportAllowed()) {
-          <button type="button" class="ph-btn ph-btn--ghost" (click)="exportThisCampaign()"
+          <button type="button" class="cd-act" (click)="exportThisCampaign()"
             aria-label="Export this campaign">
             <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -44,7 +58,7 @@
           }
           <!-- Edit — opens the Campaign Wizard pre-filled with this record; Draft or Active campaigns -->
           @if (canEdit()) {
-          <button type="button" class="ph-btn ph-btn--ghost" (click)="openEdit()"
+          <button type="button" class="cd-act" (click)="openEdit()"
             aria-label="Edit campaign in the wizard">
             <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -56,7 +70,7 @@
           }
           <!-- Delete draft — permanent removal of an unused draft; offered next to Submit for Draft campaigns only -->
           @if (canDeleteDraft()) {
-          <button type="button" class="ph-btn ph-btn--danger" (click)="openDeleteDraft()"
+          <button type="button" class="cd-act cd-act--danger" (click)="openDeleteDraft()"
             aria-label="Delete draft campaign">
             <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -68,8 +82,50 @@
             Delete draft
           </button>
           }
-        </ng-container>
-      </app-page-header>
+          </div>
+        </div>
+
+        @if (uiState() !== 'loading' && uiState() !== 'no-access') {
+        <div class="cd-fol-band">
+          <div class="cd-fol-raise">
+            <span class="cd-fol-label">Raised to date</span>
+            <div class="cd-fol-raise-row">
+              <span class="cd-fol-big">{{ rupeeINR(reconciledAmount()) }}</span>
+              <span class="cd-fol-of">of {{ fundraisingTargetLabel() }}</span>
+            </div>
+            <div class="cd-fol-track" role="img" [attr.aria-label]="progressPercent() + '% of the fundraising target raised'">
+              <i [style.width.%]="progressPercent() > 100 ? 100 : progressPercent()"></i>
+            </div>
+            <span class="cd-fol-note"><strong>{{ progressPercent() }}%</strong> of target<span class="cd-fol-dot" aria-hidden="true"></span>{{ formatDate(launchDate()) }} – {{ formatDate(endDate()) }}</span>
+          </div>
+
+          <!-- Figures unchanged: revenue and assets are live, donors and WhatsApp sends are the mock's
+               placeholders until those modules feed this screen. -->
+          <dl class="cd-fol-figs">
+            <div class="cd-fol-fig">
+              <dt class="cd-fol-label">Monthly revenue</dt>
+              <dd class="cd-fol-num">{{ kpiRevenue() }}</dd>
+              <dd class="cd-fol-sub"><span class="cd-fol-delta is-up">↑ 12%</span>vs last month</dd>
+            </div>
+            <div class="cd-fol-fig">
+              <dt class="cd-fol-label">Total donors</dt>
+              <dd class="cd-fol-num">{{ donorMixTotalLabel }}</dd>
+              <dd class="cd-fol-sub"><span class="cd-fol-delta is-up">↑ 18%</span><strong>{{ donorsMonthlyLabel }}</strong> monthly</dd>
+            </div>
+            <div class="cd-fol-fig">
+              <dt class="cd-fol-label">WhatsApp sends</dt>
+              <dd class="cd-fol-num">3,000</dd>
+              <dd class="cd-fol-sub"><span class="cd-fol-delta is-down">↓ 6%</span><strong>3.0K</strong> monthly</dd>
+            </div>
+            <div class="cd-fol-fig">
+              <dt class="cd-fol-label">Tracking assets</dt>
+              <dd class="cd-fol-num">{{ assetsCountLabel() ?? '342' }}</dd>
+              <dd class="cd-fol-sub"><span class="cd-fol-delta is-down">↓ 25%</span><strong>{{ assetsCountLabel() ?? '342' }}</strong> this month</dd>
+            </div>
+          </dl>
+        </div>
+        }
+      </section>
 
       <!-- ============ NON-READY UI STATES ============ -->
       @switch (uiState()) {
@@ -172,65 +228,6 @@
             Real figures where the API carries them; the mock's placeholder figures stand
             in where no module feeds the screen yet. -->
           <section class="cd-dash">
-            <!-- Four stat cards in the same anatomy as every other screen's top cards (icon | label + delta,
-                 figure, one line of context), white, no blobs. Figures unchanged: revenue and assets are live,
-                 donors and WhatsApp sends are the mock's placeholders until those modules feed this screen. -->
-            <div class="cd-kpi-grid">
-              <article class="fk-kpi cd-stat">
-                <span class="cd-stat-ic" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><path d="M16 14.5h2"/><path d="M7 3.5h10"/></svg>
-                </span>
-                <div class="cd-stat-body">
-                  <div class="cd-stat-top">
-                    <span class="cd-stat-label">Monthly Revenue</span>
-                    <span class="cd-stat-chip is-up">↑ 12%</span>
-                  </div>
-                  <span class="cd-stat-value">{{ kpiRevenue() }}</span>
-                </div>
-              </article>
-
-              <article class="fk-kpi cd-stat">
-                <span class="cd-stat-ic" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                </span>
-                <div class="cd-stat-body">
-                  <div class="cd-stat-top">
-                    <span class="cd-stat-label">Total Donors</span>
-                    <span class="cd-stat-chip is-up">↑ 18%</span>
-                  </div>
-                  <span class="cd-stat-value">{{ donorMixTotalLabel }}</span>
-                  <span class="cd-stat-sub"><span>Monthly donors <strong>{{ donorsMonthlyLabel }}</strong></span></span>
-                </div>
-              </article>
-
-              <article class="fk-kpi cd-stat">
-                <span class="cd-stat-ic" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3.2 3.1Z"/><path d="M8.5 10.5h7M8.5 13.5h4.5"/></svg>
-                </span>
-                <div class="cd-stat-body">
-                  <div class="cd-stat-top">
-                    <span class="cd-stat-label">WhatsApp Sends</span>
-                    <span class="cd-stat-chip is-down">↓ 6%</span>
-                  </div>
-                  <span class="cd-stat-value">3,000</span>
-                  <span class="cd-stat-sub"><span>Monthly sends <strong>3.0K</strong></span></span>
-                </div>
-              </article>
-
-              <article class="fk-kpi cd-stat">
-                <span class="cd-stat-ic" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>
-                </span>
-                <div class="cd-stat-body">
-                  <div class="cd-stat-top">
-                    <span class="cd-stat-label">Total Assets</span>
-                    <span class="cd-stat-chip is-down">↓ 25%</span>
-                  </div>
-                  <span class="cd-stat-value">{{ assetsCountLabel() ?? '342' }}</span>
-                  <span class="cd-stat-sub"><span>Monthly assets <strong>{{ assetsCountLabel() ?? '342' }}</strong></span></span>
-                </div>
-              </article>
-            </div>
             <div class="cd-row-2col">
 
               <!-- Campaign Calendar — the campaign's real dates first (launch, close), the

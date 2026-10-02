@@ -311,7 +311,7 @@
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
                 </button>
                 <div class="gm-confirm-body">
-                  <span class="gm-confirm-icon" aria-hidden="true">
+                  <span class="gm-confirm-tile" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="16.5" cy="12" r="3"></circle></svg>
                   </span>
                   <div class="gm-confirm-text">
@@ -334,7 +334,7 @@
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
                 </button>
                 <div class="gm-confirm-body">
-                  <span class="gm-confirm-icon" aria-hidden="true">
+                  <span class="gm-confirm-tile" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="7.5" cy="12" r="3"></circle></svg>
                   </span>
                   <div class="gm-confirm-text">
@@ -365,7 +365,7 @@
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
                 </button>
                 <div class="gm-confirm-body">
-                  <span class="gm-confirm-icon" aria-hidden="true">
+                  <span class="gm-confirm-tile" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"></path></svg>
                   </span>
                   <div class="gm-confirm-text">
@@ -392,201 +392,203 @@
         }
 
         <!-- ======================================================= FORM VIEW -->
+        <!-- "Entry sheet" (../masters-ui.css, mf-*): masthead with a live preview of the record, two ruled
+             columns of label | field rows, outlined choices, one action bar. -->
         @if (mode() === 'form') {
           <div class="gm-page">
-            <app-page-header [showInfo]="false" screen="city" [title]="pageTitle()" [subtitle]="pageSubTitle()">
-              <button actions type="button" class="ph-btn ph-btn--ghost" (click)="goToList()">
-              <svg class="gm-ph-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"></path></svg>
-              <span>Back to City List</span>
-            </button>
-            </app-page-header>
-
-            <form class="gm-form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+            <form class="mf" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
               @if (isLoading()) {
-                <div class="gm-progress" role="progressbar" aria-label="Loading city"></div>
+                <div class="mf-busy" role="progressbar" aria-label="Loading city"></div>
               }
 
-              <!-- 01 Identity -->
-              <section class="gm-fsec">
-                <div class="gm-fsec-meta">
-                  <div class="gm-fsec-head">
-                    <span class="gm-fsec-num">01</span>
-                    <div>
-                      <h3>City Identity</h3>
-                      <p>The code and names used in addresses, reports and dropdowns.</p>
+              <header class="mf-head">
+                <div class="mf-title">
+                  <span class="mf-kicker">Masters · City</span>
+                  <h1>{{ isEdit() ? 'Edit city' : 'New city' }}</h1>
+                </div>
+
+                <div class="mf-spec" aria-label="Preview of this city">
+                  <span class="mf-spec-cap">Preview</span>
+                  <span class="mf-spec-mark mf-up" [class.is-empty]="!form.value.cityCode" aria-hidden="true">{{ form.value.cityCode || '—' }}</span>
+                  <span class="mf-spec-id">
+                    <strong [class.is-empty]="!form.value.cityName">{{ form.value.cityName || 'City name' }}</strong>
+                    <small>{{ formPlace() || 'State, country' }}</small>
+                  </span>
+                  <dl class="mf-spec-facts">
+                    <div class="is-extra"><dt>Coordinates</dt><dd [class.is-empty]="!formCoordinates()">{{ formCoordinates() || '—' }}</dd></div>
+                    <div><dt>Metro</dt><dd>{{ form.value.isMetro ? 'Yes' : 'No' }}</dd></div>
+                    <div><dt>Status</dt><dd [class.is-empty]="!form.getRawValue().status"><span class="mf-dot" [class.is-active]="form.getRawValue().status === 'active'" [class.is-draft]="form.getRawValue().status === 'draft'" [class.is-inactive]="form.getRawValue().status === 'inactive'"></span>{{ statusLabel(form.getRawValue().status) || '—' }}</dd></div>
+                  </dl>
+                </div>
+
+                <button type="button" class="gm-btn sm gm-btn-outline mf-back" (click)="goToList()">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"></path></svg>
+                  City list
+                </button>
+              </header>
+
+              <div class="mf-body">
+                <div class="mf-col">
+                  <!-- 01 Identity -->
+                  <section class="mf-sec" aria-labelledby="mf-sec-1">
+                    <h2 class="mf-sec-title" id="mf-sec-1"><span class="mf-num">01</span>Identity</h2>
+
+                    <div class="mf-row">
+                      <label class="mf-lab" for="cityCode"><span>City code <span class="mf-req" aria-hidden="true">*</span></span></label>
+                      <div class="mf-ctl">
+                        <input id="cityCode" type="text" class="mf-in is-code is-short" [class.is-invalid]="getValidationClass('cityCode') === 'is-invalid'" formControlName="cityCode" placeholder="CBE" maxlength="15">
+                        @if (form.get('cityCode')?.invalid && (form.get('cityCode')?.dirty || form.get('cityCode')?.touched)) {
+                          <span class="mf-err">City code is required</span>
+                        }
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <div class="gm-fields cols-3">
-                  <div class="gm-field">
-                    <label class="gm-label" for="cityCode">City Code <span class="gm-req">*</span></label>
-                    <input id="cityCode" type="text" class="gm-input uppercase mono" [class.is-invalid]="getValidationClass('cityCode') === 'is-invalid'" formControlName="cityCode" placeholder="e.g., CBE, CHN, BLR" maxlength="15">
-                    @if (form.get('cityCode')?.invalid && (form.get('cityCode')?.dirty || form.get('cityCode')?.touched)) {
-                      <span class="gm-error">City Code is required</span>
-                    } @else {
-                      <small class="gm-hint">Short, report-friendly identifier</small>
-                    }
-                  </div>
-
-                  <div class="gm-field">
-                    <label class="gm-label" for="cityName">City Name <span class="gm-req">*</span></label>
-                    <input id="cityName" type="text" class="gm-input" [class.is-invalid]="getValidationClass('cityName') === 'is-invalid'" formControlName="cityName" (input)="onCityNameInput($event)" placeholder="e.g., Coimbatore, Chennai" maxlength="150">
-                    @if (form.get('cityName')?.invalid && (form.get('cityName')?.dirty || form.get('cityName')?.touched)) {
-                      <span class="gm-error">City Name is required</span>
-                    }
-                  </div>
-
-                  <div class="gm-field">
-                    <label class="gm-label" for="displayName">Display Name</label>
-                    <input id="displayName" type="text" class="gm-input" formControlName="displayName" placeholder="e.g., Coimbatore (CBE)" maxlength="200">
-                    <small class="gm-hint">For dropdown display</small>
-                  </div>
-                </div>
-              </section>
-
-              <!-- 02 Location -->
-              <section class="gm-fsec">
-                <div class="gm-fsec-meta">
-                  <div class="gm-fsec-head">
-                    <span class="gm-fsec-num">02</span>
-                    <div>
-                      <h3>Location Hierarchy</h3>
-                      <p>The country and state this city belongs to.</p>
+                    <div class="mf-row">
+                      <label class="mf-lab" for="cityName"><span>City name <span class="mf-req" aria-hidden="true">*</span></span></label>
+                      <div class="mf-ctl">
+                        <input id="cityName" type="text" class="mf-in" [class.is-invalid]="getValidationClass('cityName') === 'is-invalid'" formControlName="cityName" (input)="onCityNameInput($event)" placeholder="Coimbatore" maxlength="150">
+                        @if (form.get('cityName')?.invalid && (form.get('cityName')?.dirty || form.get('cityName')?.touched)) {
+                          <span class="mf-err">City name is required</span>
+                        }
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <div class="gm-fields">
-                  <div class="gm-field">
-                    <label class="gm-label" for="countryId">Country <span class="gm-req">*</span></label>
-                    <select id="countryId" class="gm-input" [class.is-invalid]="countryError()" formControlName="countryId" (change)="onCountryChange()">
-                      <option value="">Select country</option>
-                      @for (c of countries(); track c.id) {
-                        <option [value]="c.id">{{ c.countryName }} ({{ c.countryCode }})</option>
-                      }
-                    </select>
-                    @if (countryError()) {
-                      <span class="gm-error">{{ countryError() }}</span>
-                    }
-                  </div>
-
-                  <div class="gm-field">
-                    <label class="gm-label" for="stateProvinceId">State / Province <span class="gm-req">*</span></label>
-                    <select id="stateProvinceId" class="gm-input" [class.is-invalid]="stateError()" formControlName="stateProvinceId" (change)="onStateChange()">
-                      <option value="">Select state / province</option>
-                      @for (s of filteredStates(); track s.id) {
-                        <option [value]="s.id">{{ s.stateProvinceName }} ({{ s.stateProvinceCode }})</option>
-                      }
-                    </select>
-                    @if (stateError()) {
-                      <span class="gm-error">{{ stateError() }}</span>
-                    } @else {
-                      <small class="gm-hint">Filtered by selected country</small>
-                    }
-                  </div>
-                </div>
-              </section>
-
-              <!-- 03 Postal & operational -->
-              <section class="gm-fsec">
-                <div class="gm-fsec-meta">
-                  <div class="gm-fsec-head">
-                    <span class="gm-fsec-num">03</span>
-                    <div>
-                      <h3>Postal &amp; Operational Hints</h3>
-                      <p>City-level postal validation, coordinates and metro classification.</p>
+                    <div class="mf-row">
+                      <label class="mf-lab" for="displayName"><span>Display name</span><small class="mf-note">Shown in dropdowns</small></label>
+                      <div class="mf-ctl">
+                        <input id="displayName" type="text" class="mf-in" formControlName="displayName" placeholder="Coimbatore (CBE)" maxlength="200">
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </section>
 
-                <div class="gm-fields">
-                  <div class="gm-field">
-                    <label class="gm-label" for="postalPattern">Postal Code Pattern</label>
-                    <input id="postalPattern" type="text" class="gm-input mono" formControlName="defaultPostalCodePattern" placeholder="e.g., 600001" maxlength="100">
-                    <small class="gm-hint">City-level override for validation</small>
-                  </div>
+                  <!-- 02 Location -->
+                  <section class="mf-sec" aria-labelledby="mf-sec-2">
+                    <h2 class="mf-sec-title" id="mf-sec-2"><span class="mf-num">02</span>Location</h2>
 
-                  <div class="gm-field">
-                    <span class="gm-label">Metro City</span>
-                    <label class="gm-toggle" for="isMetro">
-                      <input type="checkbox" id="isMetro" formControlName="isMetro">
-                      <span class="gm-switch" aria-hidden="true"></span>
-                      <span>Metro City</span>
-                    </label>
-                    <small class="gm-hint">For analytics</small>
-                  </div>
-
-                  <div class="gm-field">
-                    <label class="gm-label" for="latitude">Latitude</label>
-                    <input id="latitude" type="number" class="gm-input mono" [class.is-invalid]="getValidationClass('latitude') === 'is-invalid'" formControlName="latitude" placeholder="e.g., 11.0168" step="any">
-                    @if (form.get('latitude')?.invalid && (form.get('latitude')?.dirty || form.get('latitude')?.touched)) {
-                      <span class="gm-error">Latitude must be between -90 and 90</span>
-                    }
-                  </div>
-
-                  <div class="gm-field">
-                    <label class="gm-label" for="longitude">Longitude</label>
-                    <input id="longitude" type="number" class="gm-input mono" [class.is-invalid]="getValidationClass('longitude') === 'is-invalid'" formControlName="longitude" placeholder="e.g., 76.9558" step="any">
-                    @if (form.get('longitude')?.invalid && (form.get('longitude')?.dirty || form.get('longitude')?.touched)) {
-                      <span class="gm-error">Longitude must be between -180 and 180</span>
-                    }
-                  </div>
-                </div>
-              </section>
-
-              <!-- 04 Status -->
-              <section class="gm-fsec">
-                <div class="gm-fsec-meta">
-                  <div class="gm-fsec-head">
-                    <span class="gm-fsec-num">04</span>
-                    <div>
-                      <h3>Status &amp; Governance</h3>
-                      <p>Availability and internal notes.</p>
+                    <div class="mf-row">
+                      <label class="mf-lab" for="countryId"><span>Country <span class="mf-req" aria-hidden="true">*</span></span></label>
+                      <div class="mf-ctl">
+                        <select id="countryId" class="mf-in" [class.is-invalid]="countryError()" formControlName="countryId" (change)="onCountryChange()">
+                          <option value="">Select country</option>
+                          @for (c of countries(); track c.id) {
+                            <option [value]="c.id">{{ c.countryName }} ({{ c.countryCode }})</option>
+                          }
+                        </select>
+                        @if (countryError()) {
+                          <span class="mf-err">{{ countryError() }}</span>
+                        }
+                      </div>
                     </div>
-                  </div>
+
+                    <div class="mf-row">
+                      <label class="mf-lab" for="stateProvinceId"><span>State / province <span class="mf-req" aria-hidden="true">*</span></span><small class="mf-note">Of the chosen country</small></label>
+                      <div class="mf-ctl">
+                        <select id="stateProvinceId" class="mf-in" [class.is-invalid]="stateError()" formControlName="stateProvinceId" (change)="onStateChange()">
+                          <option value="">Select state / province</option>
+                          @for (s of filteredStates(); track s.id) {
+                            <option [value]="s.id">{{ s.stateProvinceName }} ({{ s.stateProvinceCode }})</option>
+                          }
+                        </select>
+                        @if (stateError()) {
+                          <span class="mf-err">{{ stateError() }}</span>
+                        }
+                      </div>
+                    </div>
+                  </section>
+
+                  <!-- 03 Status -->
+                  <section class="mf-sec" aria-labelledby="mf-sec-3">
+                    <h2 class="mf-sec-title" id="mf-sec-3"><span class="mf-num">03</span>Status</h2>
+
+                    <div class="mf-row">
+                      <span class="mf-lab" id="lab-status"><span>Status <span class="mf-req" aria-hidden="true">*</span></span></span>
+                      <div class="mf-ctl">
+                        <div class="mf-seg" role="radiogroup" aria-labelledby="lab-status" [class.is-invalid]="statusError()">
+                          @for (s of statusOptions(); track s.value) {
+                            <label class="mf-opt"><input type="radio" formControlName="status" [value]="s.value" (change)="onStatusChange()">{{ s.label }}</label>
+                          }
+                        </div>
+                        @if (statusError()) {
+                          <span class="mf-err">{{ statusError() }}</span>
+                        } @else if (isEdit()) {
+                          <span class="mf-hint">Change it with Activate / Deactivate on the list</span>
+                        }
+                      </div>
+                    </div>
+                  </section>
                 </div>
 
-                <div class="gm-fields cols-3">
-                  <div class="gm-field">
-                    <label class="gm-label" for="status">Status <span class="gm-req">*</span></label>
-                    <select id="status" class="gm-input" [class.is-invalid]="statusError()" formControlName="status" (change)="onStatusChange()">
-                      <option value="">Select status</option>
-                      @for (s of statusOptions(); track s.value) {
-                        <option [value]="s.value">{{ s.label }}</option>
-                      }
-                    </select>
-                    @if (statusError()) {
-                      <span class="gm-error">{{ statusError() }}</span>
-                    } @else if (isEdit()) {
-                      <small class="gm-hint">Use Activate or Deactivate on the list to change it</small>
-                    }
-                  </div>
+                <div class="mf-col">
+                  <!-- 04 Postal & geography -->
+                  <section class="mf-sec" aria-labelledby="mf-sec-4">
+                    <h2 class="mf-sec-title" id="mf-sec-4"><span class="mf-num">04</span>Postal &amp; geography</h2>
 
-                  <div class="gm-field span-2">
-                    <label class="gm-label" for="notes">Notes</label>
-                    <textarea id="notes" class="gm-input" formControlName="notes" rows="3" placeholder="Additional notes..."></textarea>
-                  </div>
+                    <div class="mf-row">
+                      <label class="mf-lab" for="postalPattern"><span>Postal code pattern</span><small class="mf-note">Overrides the state's</small></label>
+                      <div class="mf-ctl">
+                        <input id="postalPattern" type="text" class="mf-in is-num" formControlName="defaultPostalCodePattern" placeholder="^641[0-9]{3}$" maxlength="100">
+                      </div>
+                    </div>
+
+                    <div class="mf-row">
+                      <label class="mf-lab" for="latitude"><span>Latitude</span><small class="mf-note">−90 to 90</small></label>
+                      <div class="mf-ctl">
+                        <input id="latitude" type="number" class="mf-in is-num is-short" [class.is-invalid]="getValidationClass('latitude') === 'is-invalid'" formControlName="latitude" placeholder="11.0168" step="any">
+                        @if (form.get('latitude')?.invalid && (form.get('latitude')?.dirty || form.get('latitude')?.touched)) {
+                          <span class="mf-err">Latitude must be between -90 and 90</span>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="mf-row">
+                      <label class="mf-lab" for="longitude"><span>Longitude</span><small class="mf-note">−180 to 180</small></label>
+                      <div class="mf-ctl">
+                        <input id="longitude" type="number" class="mf-in is-num is-short" [class.is-invalid]="getValidationClass('longitude') === 'is-invalid'" formControlName="longitude" placeholder="76.9558" step="any">
+                        @if (form.get('longitude')?.invalid && (form.get('longitude')?.dirty || form.get('longitude')?.touched)) {
+                          <span class="mf-err">Longitude must be between -180 and 180</span>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="mf-row">
+                      <span class="mf-lab" id="lab-metro"><span>Metro city</span><small class="mf-note">Used in analytics</small></span>
+                      <div class="mf-ctl">
+                        <div class="mf-seg" role="radiogroup" aria-labelledby="lab-metro">
+                          <label class="mf-opt"><input type="radio" formControlName="isMetro" [value]="true">Metro</label>
+                          <label class="mf-opt"><input type="radio" formControlName="isMetro" [value]="false">Not metro</label>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <!-- 05 Notes -->
+                  <section class="mf-sec" aria-labelledby="mf-sec-5">
+                    <h2 class="mf-sec-title" id="mf-sec-5"><span class="mf-num">05</span>Notes</h2>
+
+                    <div class="mf-row">
+                      <label class="mf-lab" for="notes"><span>Notes</span><small class="mf-note">Internal only</small></label>
+                      <div class="mf-ctl">
+                        <textarea id="notes" class="mf-in" formControlName="notes" rows="3" placeholder="Anything the team should know about this city"></textarea>
+                      </div>
+                    </div>
+                  </section>
                 </div>
-              </section>
+              </div>
 
-              <div class="gm-form-bar">
-                <span class="gm-form-bar-note">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg>
-                  Fields marked <span class="gm-req">*</span> are required
-                </span>
-                <div class="gm-form-bar-actions">
+              <footer class="mf-foot">
+                <span class="mf-foot-note"><span class="mf-req" aria-hidden="true">*</span> Required</span>
+                <div class="mf-foot-actions">
                   <button type="button" class="gm-btn gm-btn-ghost" [disabled]="isSubmitting()" (click)="resetForm()">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"></path></svg>
                     Reset
                   </button>
                   <button type="button" class="gm-btn gm-btn-outline" [disabled]="isSubmitting()" (click)="cancel()">Cancel</button>
                   <button type="submit" class="gm-btn gm-btn-primary" [disabled]="isSubmitting()">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11Z"></path><path d="M17 21v-8H7v8M7 3v5h8"></path></svg>
-                    {{ isSubmitting() ? 'Saving...' : (isEdit() ? 'Update City' : 'Save City') }}
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+                    {{ isSubmitting() ? 'Saving…' : (isEdit() ? 'Update city' : 'Save city') }}
                   </button>
                 </div>
-              </div>
+              </footer>
             </form>
           </div>
         }

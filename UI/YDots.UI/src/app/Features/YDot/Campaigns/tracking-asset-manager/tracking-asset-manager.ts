@@ -3,7 +3,6 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 import { ClickOutsideDirective } from '../../../../Shared/directives/click-outside';
 import { UiState, HistoryRow } from '../../../../Shared/models/campaign.model';
 import { AssetStatus, ApprovalState, TrackingAssetPermissions, CampaignOption, TrackingAsset, PlaceCustomField } from '../../../../Shared/models/tracking-asset.model';
@@ -23,7 +22,7 @@ interface CatalogueOption {
 
 @Component({
   selector: 'app-tracking-asset-manager',
-  imports: [CommonModule, FormsModule, ClickOutsideDirective, PageHeader],
+  imports: [CommonModule, FormsModule, ClickOutsideDirective],
   templateUrl: './tracking-asset-manager.html',
   styleUrl: './tracking-asset-manager.css',
 })
@@ -1335,6 +1334,15 @@ export class TrackingAssetManagerComponent {
     { label: 'Attribution', done: !!(this.gSource().trim() && this.gMedium().trim() && this.gAssetStatus()) },
     { label: 'Active window', done: !!(this.gActiveFrom() && this.gActiveTo()) && !this.gRangeInvalid() },
   ]);
+  /** Opens the browser's date picker when the date field itself is clicked, not only its calendar icon. */
+  protected openDatePicker(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    try {
+      input.showPicker?.();
+    } catch {
+      // showPicker refuses outside a direct user gesture or on a disabled field; the field still works.
+    }
+  }
   /** The list of invalid fields for the error summary. */
   protected readonly errorSummary = computed(() => {
     if (!this.generateSubmitted()) return [] as { key: string; label: string }[];

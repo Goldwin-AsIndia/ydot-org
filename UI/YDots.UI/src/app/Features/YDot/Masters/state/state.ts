@@ -843,6 +843,18 @@ export class StateComponent implements OnInit {
     );
   }
 
+  /** The chosen country's name, for the form's preview line. */
+  get formCountryName(): string {
+    return this.countries.find((c) => c.id === this.stateProvince.countryId)?.countryName ?? '';
+  }
+
+  /** The chosen jurisdiction as a person reads it, for the form's preview line. */
+  get formJurisdictionLabel(): string {
+    return this.isOtherJurisdiction && this.stateProvince.otherJurisdictionType?.trim()
+      ? this.stateProvince.otherJurisdictionType.trim()
+      : enumLabel(this.jurisdictionOptions, this.stateProvince.jurisdictionType);
+  }
+
   get formCountries(): CountryModel[] {
     return this.countries.filter((c) => c.isActive);
   }

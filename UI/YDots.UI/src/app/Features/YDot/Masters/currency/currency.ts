@@ -570,6 +570,23 @@ export class CurrencyComponent implements OnInit {
     return this.isEdit ? 'Update currency details' : 'Create new currency';
   }
 
+  /**
+   * A sample amount as this currency would print it, for the form's preview line: the display
+   * format when it has an {amount} slot, otherwise the symbol before or after the figure.
+   */
+  get sampleAmount(): string {
+    const f = this.formCurrency;
+    const places = f.decimalPlaces ?? 2;
+    const figure = (12345.678).toLocaleString('en-US', {
+      minimumFractionDigits: places,
+      maximumFractionDigits: places,
+    });
+    if (f.displayFormat?.includes('{amount}')) return f.displayFormat.replace('{amount}', figure);
+    const mark = f.symbol?.trim() || f.currencyCode?.trim().toUpperCase() || '';
+    if (!mark) return figure;
+    return f.symbolPosition === 'suffix' ? `${figure} ${mark}` : `${mark} ${figure}`;
+  }
+
   get roundingStepString(): string {
     return this.formCurrency.roundingStep != null ? this.formCurrency.roundingStep.toFixed(2) : '';
   }

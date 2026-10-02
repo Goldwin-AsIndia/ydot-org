@@ -116,6 +116,16 @@
   white-space: nowrap;
   cursor: pointer;
 }
+/* Outlined button on the overview deck and the create page: the global outline rule is switched off
+   app-wide, so it is drawn here - white, a hairline border, the accent on hover. (Pop-ups keep the
+   shared dialog buttons.) */
+:is(.tam-deck, .tam-make) .tam-btn-outline {
+  background: #ffffff;
+  border-color: var(--tam-field-line);
+  color: var(--tam-ink);
+}
+:is(.tam-deck, .tam-make) .tam-btn-outline:hover:not(:disabled) { border-color: var(--tam-accent); color: var(--tam-accent-deep); }
+:is(.tam-deck, .tam-make) .tam-btn-outline:focus-visible { outline: 2px solid var(--tam-accent); outline-offset: 2px; }
 .tam-btn-sm {
   min-height: calc(34px * var(--ui-scale, 1));
   padding: 0 calc(14px * var(--ui-scale, 1));
@@ -129,55 +139,146 @@
 
 
 /* =========================================================
-   1. KPI STRIP - tile size, figure size and glyph colour come from the global stat-card layer
+   1. OVERVIEW - "instrument deck"
+   One white sheet: a slim title bar (kicker + display title | Filters, Create asset) over four
+   instruments on one ruled line. Each instrument: bare glyph, small-caps label, mono figure and a
+   one-line reading beside it; a share shows as a hairline meter along the foot of its cell.
+   No filled tiles, no icon boxes; colour lives in the glyph and the meter.
    ========================================================= */
-.tam-metrics {
+.tam-deck {
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid var(--tam-line-soft);
+  border-radius: var(--tam-radius);
+}
+.tam-deck-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(12px * var(--s)) calc(20px * var(--s));
+  flex-wrap: wrap;
+  padding: calc(12px * var(--s)) calc(20px * var(--s)) calc(12px * var(--s)) calc(22px * var(--s));
+  border-bottom: 1px solid var(--tam-line-soft);
+}
+.tam-deck-name { display: flex; align-items: baseline; gap: calc(12px * var(--s)); min-width: 0; }
+.tam-deck-kicker {
+  position: relative;
+  padding-right: calc(12px * var(--s));
+  font-size: calc(calc(11px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--tam-accent) !important;
+  white-space: nowrap;
+}
+.tam-deck-kicker::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 1px;
+  height: calc(14px * var(--s));
+  transform: translateY(-50%);
+  background: var(--tam-line);
+}
+.tam-deck-h {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
+  margin: 0;
+  font-family: var(--font-display) !important;
+  font-size: calc(calc(21px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.01em;
+  color: var(--tam-ink);
+  white-space: nowrap;
+}
+.tam-deck-acts { display: flex; align-items: center; gap: calc(8px * var(--s)); margin-left: auto; }
+.tam-deck-btn { min-height: calc(36px * var(--s)); padding: 0 calc(14px * var(--s)); border-radius: calc(10px * var(--s)); font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+.tam-deck-btn.is-on { border-color: var(--tam-accent) !important; color: var(--tam-accent-deep) !important; }
+
+.tam-gauges {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
 }
-/* Icon on the left, set a little in from the edge; the label, figure and caption are centred on the
-   card itself. The body reserves the icon's width + gap on its right too, so its centre is the card's. */
-.tam-metric {
-  display: flex;
-  align-items: center;
-  gap: calc(16px * var(--ui-scale, 1));
-  padding: calc(20px * var(--ui-scale, 1)) calc(30px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) calc(34px * var(--ui-scale, 1));
+.tam-gauge {
+  --ink: var(--tam-accent);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: baseline;
+  column-gap: calc(12px * var(--s));
+  row-gap: calc(2px * var(--s));
   min-width: 0;
+  padding: calc(13px * var(--s)) calc(20px * var(--s)) calc(14px * var(--s)) calc(22px * var(--s));
 }
-.tam-metric-ic { display: inline-flex; flex: none; }
-.tam-metric-ic svg { width: calc(26px * var(--ui-scale, 1)); height: calc(26px * var(--ui-scale, 1)); }
-.tam-metric-body {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(4px * var(--ui-scale, 1));
-  min-width: 0;
-  padding-right: calc(46px * var(--ui-scale, 1));
-  text-align: center;
+.tam-gauge + .tam-gauge { border-left: 1px solid var(--tam-line-soft); }
+.tam-gauge[data-ink='good'] { --ink: var(--tam-good); }
+.tam-gauge[data-ink='info'] { --ink: var(--tam-info); }
+.tam-gauge[data-ink='warn'] { --ink: var(--tam-warn); }
+.tam-gauge-glyph {
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: calc(22px * var(--s)) !important;
+  height: calc(22px * var(--s)) !important;
+  color: var(--ink);
 }
-.tam-metric-label {
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.821) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
-  letter-spacing: .08em;
+.tam-gauge-label {
+  grid-column: 2 / span 2;
+  margin: 0;
+  font-size: calc(calc(11px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--tam-muted);
+  color: var(--tam-muted) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.tam-metric-value {
-  color: var(--tam-ink);
+.tam-gauge-fig {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  grid-column: 2;
+  margin: 0;
+  font-family: var(--font-number, ui-monospace, monospace) !important;
+  font-size: calc(calc(24px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.02em;
+  color: var(--tam-ink) !important;
+  font-variant-numeric: tabular-nums;
 }
-.tam-metric-sub {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: calc(6px * var(--ui-scale, 1));
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.893) * var(--ui-text-scale, 1)) !important;
-  color: var(--tam-muted);
+.tam-gauge-read {
+  grid-column: 3;
+  min-width: 0;
+  margin: 0;
+  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  color: var(--tam-muted) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.tam-metric-chip {
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
-  color: var(--tam-good);
+.tam-gauge-plus { margin-left: calc(4px * var(--s)); font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; color: var(--tam-good) !important; font-size: inherit !important; }
+/* The share meter: a hairline track along the foot of the cell, the filled part in the cell's ink. */
+.tam-gauge-meter {
+  position: absolute;
+  left: calc(22px * var(--s));
+  right: calc(20px * var(--s));
+  bottom: 0;
+  height: 2px;
+  background: var(--tam-line-soft);
+}
+.tam-gauge-meter > i { display: block; height: 100%; background: var(--ink); transition: width .4s var(--tam-ease); }
+
+@container (max-width: 1100px) {
+  .tam-gauges { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tam-gauge:nth-child(3) { border-left: 0; }
+  .tam-gauge:nth-child(n + 3) { border-top: 1px solid var(--tam-line-soft); }
+}
+@container (max-width: 560px) {
+  .tam-gauges { grid-template-columns: minmax(0, 1fr); }
+  .tam-gauge + .tam-gauge { border-left: 0; border-top: 1px solid var(--tam-line-soft); }
+  .tam-deck-h { white-space: normal; }
 }
 
 
@@ -1405,422 +1506,371 @@
 }
 
 /* =========================================================
-   CREATE ASSET - full screen
-   One 12-column grid of cards: Campaign & type beside the live preview, Destination beside Active
-   window, Attribution across the full width. The preview never sets its row's height (it takes
-   Campaign & type's); Destination and Active window each end in a panel that grows, so the pair ends
-   level; every card re-flows its own fields to its width (container queries). Flat colours throughout.
+   CREATE ASSET - "asset docket"
+   ONE white sheet. Head: outlined back button | kicker + display title | the four sections as a
+   numbered track (tick when complete). Body: the form - parts split by hairlines, never boxed:
+   01 across, 02 | 03 side by side (each ends in a read-back line that stretches, so the pair ends
+   level), 04 across - beside a proof column (live preview stage + the asset as it will be recorded,
+   as ledger lines). Foot: a ruled action line. No tinted card heads, no icon tiles, no filled
+   selections: selected = outline; colour lives in glyphs, numerals and the primary button.
    ========================================================= */
-.tam-create {
+.tam-make {
   display: flex;
   flex-direction: column;
-  gap: var(--campaign-gap, calc(17px * var(--ui-scale, 1)));
   min-width: 0;
+  background: #ffffff;
+  border: 1px solid var(--tam-line-soft);
+  border-radius: var(--tam-radius);
   animation: tam-create-in .32s var(--tam-ease) both;
 }
 @keyframes tam-create-in {
-  from { opacity: 0; transform: translateY(calc(8px * var(--ui-scale, 1))); }
+  from { opacity: 0; transform: translateY(calc(8px * var(--s))); }
   to   { opacity: 1; transform: none; }
 }
-.tam-create > .tam-error-summary { margin-bottom: 0; }
 
-.tam-create-grid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: var(--campaign-gap, calc(17px * var(--ui-scale, 1)));
-  align-items: stretch;
-}
-.tam-area-type    { grid-column: 1 / 9;  grid-row: 1; }
-.tam-area-preview { grid-column: 9 / 13; grid-row: 1; }
-.tam-area-dest    { grid-column: 1 / 8;  grid-row: 2; }
-.tam-area-window  { grid-column: 8 / 13; grid-row: 2; }
-.tam-area-attr    { grid-column: 1 / 13; grid-row: 3; }
-/* On-ground: the places list needs the full width, so Active window moves below it */
-.tam-create-grid.is-onground .tam-area-dest   { grid-column: 1 / 13; }
-.tam-create-grid.is-onground .tam-area-window { grid-column: 1 / 13; grid-row: 3; }
-.tam-create-grid.is-onground .tam-area-attr   { grid-row: 4; }
-
-/* ---------- Section card ---------- */
-.tam-create-card {
-  container: tamcard / inline-size;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  padding: 0 calc(26px * var(--ui-scale, 1)) calc(26px * var(--ui-scale, 1));
-  border: 1px solid var(--tam-line-soft);
-  border-radius: var(--tam-radius);
-  background: #ffffff;
-  scroll-margin-top: calc(16px * var(--ui-scale, 1));
-  transition: border-color .2s ease;
-}
-.tam-create-card:focus-within {
-  border-color: color-mix(in srgb, var(--tam-accent) 35%, var(--tam-line));
-}
-.tam-create-card > .tam-sec-grid { flex: 1 1 auto; align-content: start; }
-.tam-card-head {
+/* ---------- head ---------- */
+.tam-make-top {
   display: flex;
   align-items: center;
-  gap: calc(14px * var(--ui-scale, 1));
-  margin: 0 calc(-26px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1));
-  padding: calc(18px * var(--ui-scale, 1)) calc(26px * var(--ui-scale, 1));
+  gap: calc(14px * var(--s)) calc(18px * var(--s));
+  flex-wrap: wrap;
+  padding: calc(12px * var(--s)) calc(20px * var(--s)) calc(12px * var(--s)) calc(16px * var(--s));
   border-bottom: 1px solid var(--tam-line-soft);
-  border-radius: var(--tam-radius) var(--tam-radius) 0 0;
-  background: var(--tam-tint-2);
 }
-.tam-card-ic {
+.tam-make-back {
   flex: none;
   display: inline-grid;
   place-items: center;
-  width: calc(42px * var(--ui-scale, 1));
-  height: calc(42px * var(--ui-scale, 1));
-  border-radius: calc(13px * var(--ui-scale, 1));
-  background: var(--tam-accent);
-  /* The global icon rule (ydot-premium.css) strips the tile behind every *-ic, so a white glyph
-     vanished on the pale card head. The glyph carries the accent colour itself. */
-  color: var(--tam-accent);
+  width: calc(36px * var(--s));
+  height: calc(36px * var(--s));
+  padding: 0;
+  border: 1px solid var(--tam-field-line);
+  border-radius: calc(10px * var(--s));
+  background: #ffffff;
+  color: var(--tam-ink-2);
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease;
 }
-.tam-card-ic svg { width: calc(21px * var(--ui-scale, 1)); height: calc(21px * var(--ui-scale, 1)); }
-.tam-card-titles { flex: 1 1 auto; min-width: 0; }
-.tam-card-step {
-  margin: 0 0 2px;
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.75) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
+.tam-make-back:hover { border-color: var(--tam-accent); color: var(--tam-accent-deep); }
+.tam-make-back:focus-visible { outline: 2px solid var(--tam-accent); outline-offset: 2px; }
+.tam-make-back svg { width: calc(17px * var(--s)) !important; height: calc(17px * var(--s)) !important; }
+.tam-make-name { display: flex; flex-direction: column; gap: calc(3px * var(--s)); min-width: 0; }
+.tam-make-kicker {
+  font-size: calc(calc(11px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
   letter-spacing: .12em;
   text-transform: uppercase;
-  color: var(--tam-accent);
+  color: var(--tam-accent) !important;
+  white-space: nowrap;
 }
-.tam-card-title {
+.tam-make-slash { margin: 0 calc(7px * var(--s)); color: var(--tam-faint) !important; font-size: inherit !important; }
+.tam-make-h {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   margin: 0;
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 1.143) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
-  line-height: 1.25;
+  font-family: var(--font-display) !important;
+  font-size: calc(calc(21px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.1 !important;
   letter-spacing: -0.01em;
   color: var(--tam-ink);
+  white-space: nowrap;
 }
-.tam-card-lead {
-  margin: calc(3px * var(--ui-scale, 1)) 0 0;
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.857) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.5;
-  color: var(--tam-muted);
-}
-.tam-card-head .tam-sec-tz { align-self: center; }
-.tam-card-done {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: calc(6px * var(--ui-scale, 1));
-  padding: calc(5px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1)) calc(5px * var(--ui-scale, 1)) calc(9px * var(--ui-scale, 1));
-  border-radius: calc(999px * var(--ui-scale, 1));
-  background: var(--tam-good-soft);
-  color: var(--tam-good);
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.786) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
-  animation: tam-pop .3s cubic-bezier(.34, 1.56, .64, 1) both;
-}
-.tam-card-done svg { width: calc(13px * var(--ui-scale, 1)); height: calc(13px * var(--ui-scale, 1)); }
-@keyframes tam-pop {
-  from { opacity: 0; transform: scale(.8); }
-  to   { opacity: 1; transform: none; }
-}
+.tam-make-errors { margin: calc(14px * var(--s)) calc(20px * var(--s)) 0 !important; }
 
-/* Fields re-flow to the card's own width. Wide card: the spans as written. Mid: quarters and thirds
-   become halves, and a field marked tam-fill-mid takes the whole row so no half row is left empty.
-   Narrow: one field per row. */
+/* ---------- body: 01 / 02|03 beside the preview, 04 across ----------
+   The preview never sets the height of its rows (contain: size): it is exactly as tall as 01-03. */
+.tam-make-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(calc(280px * var(--s)), calc(330px * var(--s)));
+  min-width: 0;
+}
+.tam-make-form > #tam-step-1 { grid-column: 1; grid-row: 1; }
+.tam-make-form > .tam-part-pair { grid-column: 1; grid-row: 2; border-top: 1px solid var(--tam-line-soft); }
+.tam-make-form > .tam-make-proof { grid-column: 2; grid-row: 1 / span 2; contain: size; }
+.tam-make-form > .tam-part--attr { grid-column: 1 / -1; grid-row: 3; border-top: 1px solid var(--tam-line-soft); }
+.tam-part {
+  min-width: 0;
+  padding: calc(18px * var(--s)) calc(22px * var(--s));
+  scroll-margin-top: calc(90px * var(--s));
+}
+.tam-part-pair { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); }
+.tam-part-pair > .tam-part { display: flex; flex-direction: column; }
+.tam-part-pair > .tam-part + .tam-part { border-left: 1px solid var(--tam-line-soft); }
+.tam-part-pair .tam-sec-grid { flex: 1 1 auto; grid-template-rows: auto 1fr; }
+.tam-make-body.is-onground .tam-part-pair { grid-template-columns: minmax(0, 1fr); }
+.tam-make-body.is-onground .tam-part-pair > .tam-part + .tam-part { border-left: 0; border-top: 1px solid var(--tam-line-soft); }
+.tam-make-body.is-onground .tam-part--window .tam-sec-grid { grid-template-rows: none; }
+.tam-make-body.is-onground .tam-part--window .tam-sec-grid > .tam-c6 { grid-column: span 3; }
+.tam-make-body.is-onground .tam-part--window .tam-sec-grid > .tam-window { grid-column: 7 / -1; grid-row: 1; }
+
 .tam-sec-grid > .tam-c4 { grid-column: span 4; }
 .tam-sec-grid > .tam-c8 { grid-column: span 8; }
-@container tamcard (max-width: 680px) {
-  .tam-sec-grid > :is(.tam-c3, .tam-c4) { grid-column: span 6; }
-  .tam-sec-grid > :is(.tam-c6, .tam-c8, .tam-fill-mid) { grid-column: span 12; }
-}
-@container tamcard (max-width: 380px) {
-  .tam-sec-grid > .tam-field { grid-column: span 12; }
-}
+.tam-input[type="date"] { cursor: pointer; }
+/* Controls: one 38u height, quiet labels */
+.tam-make .tam-sec-grid { gap: calc(12px * var(--s)) calc(14px * var(--s)); }
+.tam-make .tam-sec-grid > .tam-field { gap: calc(5px * var(--s)); }
+.tam-make .tam-input,
+.tam-make .tam-combo-btn { height: calc(38px * var(--s)); border-radius: calc(10px * var(--s)); }
+.tam-make .tam-field-label { font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
 
-/* ---------- Asset type tiles ---------- */
-.tam-type-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: calc(12px * var(--ui-scale, 1));
-}
-@container tamcard (max-width: 640px) {
-  .tam-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@container tamcard (max-width: 340px) {
-  .tam-type-grid { grid-template-columns: minmax(0, 1fr); }
-}
+/* ---------- asset type: outlined one-line tiles ---------- */
+.tam-type-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(10px * var(--s)); }
 .tam-tile {
   position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: calc(4px * var(--ui-scale, 1));
+  align-items: center;
+  gap: calc(11px * var(--s));
   min-width: 0;
-  padding: calc(14px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) calc(13px * var(--ui-scale, 1));
-  border: 1.5px solid var(--tam-field-line);
-  border-radius: calc(16px * var(--ui-scale, 1));
+  padding: calc(10px * var(--s)) calc(30px * var(--s)) calc(10px * var(--s)) calc(12px * var(--s));
+  border: 1px solid var(--tam-field-line);
+  border-radius: calc(12px * var(--s));
   background: #ffffff;
   color: var(--tam-ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
-.tam-tile:hover {
-  border-color: color-mix(in srgb, var(--tam-accent) 45%, #cfd6d2);
-  transform: translateY(-2px);
-}
+.tam-tile:hover { border-color: color-mix(in srgb, var(--tam-accent) 45%, #cfd6d2); }
 .tam-tile:focus-visible { outline: 2px solid var(--tam-accent); outline-offset: 2px; }
-.tam-type-ic {
-  display: inline-grid;
-  place-items: center;
-  width: calc(36px * var(--ui-scale, 1));
-  height: calc(36px * var(--ui-scale, 1));
-  margin-bottom: calc(6px * var(--ui-scale, 1));
-  border-radius: calc(11px * var(--ui-scale, 1));
-  background: var(--tam-tint);
-  color: var(--tam-accent);
-  transition: background-color .18s ease, color .18s ease;
-}
-.tam-type-ic svg { width: calc(19px * var(--ui-scale, 1)); height: calc(19px * var(--ui-scale, 1)); }
-.tam-type-name { font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.929) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); }
+.tam-tile-glyph { flex: none; width: calc(22px * var(--s)) !important; height: calc(22px * var(--s)) !important; color: var(--tam-accent); }
+.tam-tile-text { display: flex; flex-direction: column; gap: calc(1px * var(--s)); min-width: 0; }
+.tam-type-name { font-size: calc(calc(13.5px * var(--s)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; line-height: 1.25 !important; color: var(--tam-ink) !important; }
 .tam-type-desc {
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.786) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.45;
-  color: var(--tam-muted);
+  font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.35 !important;
+  color: var(--tam-muted) !important;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 .tam-type-check {
   position: absolute;
-  top: calc(12px * var(--ui-scale, 1));
-  right: calc(12px * var(--ui-scale, 1));
+  top: calc(8px * var(--s));
+  right: calc(8px * var(--s));
   display: inline-grid;
   place-items: center;
-  width: calc(22px * var(--ui-scale, 1));
-  height: calc(22px * var(--ui-scale, 1));
-  border-radius: 50%;
-  background: var(--tam-accent);
-  color: #ffffff;
+  width: calc(16px * var(--s));
+  height: calc(16px * var(--s));
+  color: var(--tam-accent);
   opacity: 0;
   transform: scale(.6);
   transition: opacity .18s ease, transform .22s cubic-bezier(.34, 1.56, .64, 1);
 }
-.tam-type-check svg { width: calc(12px * var(--ui-scale, 1)); height: calc(12px * var(--ui-scale, 1)); }
-.tam-tile.is-selected {
-  border-color: var(--tam-accent);
-  background: var(--tam-tint-2);
-}
-.tam-tile.is-selected .tam-type-ic { color: var(--tam-accent); }
+.tam-type-check svg { width: calc(14px * var(--s)) !important; height: calc(14px * var(--s)) !important; }
+.tam-tile.is-selected { border-color: var(--tam-accent); box-shadow: inset 0 0 0 1px var(--tam-accent); }
 .tam-tile.is-selected .tam-type-check { opacity: 1; transform: none; }
 .tam-field-invalid .tam-tile { border-color: color-mix(in srgb, var(--tam-danger) 45%, #f0d4d2); }
 
-/* ---------- Asset status: segmented control ---------- */
-.tam-seg {
-  display: flex;
-  flex-wrap: wrap;
-  gap: calc(4px * var(--ui-scale, 1));
-  padding: calc(4px * var(--ui-scale, 1));
-  border: 1px solid var(--tam-line);
-  border-radius: calc(14px * var(--ui-scale, 1));
-  background: var(--tam-tint-2);
-}
+/* ---------- asset status: outlined segments ---------- */
+.tam-seg { display: flex; flex-wrap: wrap; gap: calc(6px * var(--s)); }
 .tam-seg-btn {
   flex: 1 1 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: calc(8px * var(--ui-scale, 1));
-  min-width: calc(92px * var(--ui-scale, 1));
-  height: calc(38px * var(--ui-scale, 1));
-  padding: 0 calc(12px * var(--ui-scale, 1));
-  border: 1px solid transparent;
-  border-radius: calc(10px * var(--ui-scale, 1));
-  background: transparent;
+  gap: calc(8px * var(--s));
+  min-width: calc(96px * var(--s));
+  height: calc(36px * var(--s));
+  padding: 0 calc(12px * var(--s));
+  border: 1px solid var(--tam-field-line);
+  border-radius: calc(10px * var(--s));
+  background: #ffffff;
   color: var(--tam-ink-2);
   font: inherit;
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.893) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   cursor: pointer;
-  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+  transition: border-color .15s ease, color .15s ease;
 }
-.tam-seg-btn:hover { background: #ffffff; }
+.tam-seg-btn:hover { border-color: color-mix(in srgb, var(--tam-accent) 45%, #cfd6d2); }
 .tam-seg-btn:focus-visible { outline: 2px solid var(--tam-accent); outline-offset: 1px; }
-.tam-seg-btn.is-selected {
-  background: #ffffff;
-  border-color: color-mix(in srgb, var(--tam-accent) 40%, var(--tam-line));
-  color: var(--tam-accent-deep);
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
-}
-.tam-seg-dot { width: calc(8px * var(--ui-scale, 1)); height: calc(8px * var(--ui-scale, 1)); border-radius: 50%; background: var(--tam-closed); }
+.tam-seg-btn.is-selected { border-color: var(--tam-accent); box-shadow: inset 0 0 0 1px var(--tam-accent); color: var(--tam-accent-deep); font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; }
+.tam-seg-dot { flex: none; width: calc(8px * var(--s)); height: calc(8px * var(--s)); border-radius: 50%; background: var(--tam-closed); }
 .tam-seg-dot[data-status='Submitted'] { background: var(--tam-info); }
 .tam-seg-dot[data-status='Approved'] { background: var(--tam-accent); }
 .tam-seg-dot[data-status='Active'] { background: #3fb36f; }
 .tam-seg-dot[data-status='Inactive'] { background: #b8bfbb; }
 
-/* ---------- Active window: duration panel (fills whatever height the row gives the card) ---------- */
-.tam-sec-grid > .tam-window { grid-column: 1 / -1; }
-.tam-window {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: calc(10px * var(--ui-scale, 1));
-  min-height: calc(118px * var(--ui-scale, 1));
-  padding: calc(16px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
-  border: 1px solid var(--tam-line);
-  border-radius: calc(14px * var(--ui-scale, 1));
-  background: var(--tam-tint-2);
+/* ---------- read-back lines (destination, active window) ----------
+   A dashed outline on white that grows into the rest of its part, so 02 and 03 end level. */
+.tam-destinfo,
+.tam-sec-grid > .tam-window {
+  grid-column: 1 / -1;
+  min-height: calc(64px * var(--s));
+  padding: calc(10px * var(--s)) calc(14px * var(--s));
+  border: 1px dashed var(--tam-field-line);
+  border-radius: calc(12px * var(--s));
+  background: #ffffff;
 }
-.tam-window-top { display: flex; align-items: baseline; justify-content: space-between; gap: calc(10px * var(--ui-scale, 1)); flex-wrap: wrap; }
-.tam-window-days { font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.929) * var(--ui-text-scale, 1)) !important; color: var(--tam-muted); }
+.tam-destinfo { flex-direction: row !important; align-items: center; gap: calc(12px * var(--s)) !important; }
+.tam-readout-glyph { flex: none; width: calc(22px * var(--s)) !important; height: calc(22px * var(--s)) !important; color: var(--tam-accent); }
+.tam-readout-glyph.is-idle { color: var(--tam-faint); }
+.tam-readout-glyph.is-bad { color: var(--tam-danger); }
+.tam-destinfo-msg { margin: 0; font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; line-height: 1.45 !important; color: var(--tam-muted) !important; }
+.tam-destinfo-msg.is-bad { color: var(--tam-danger) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; }
+.tam-destinfo-text { flex: 1 1 auto; display: flex; flex-direction: column; gap: calc(2px * var(--s)); min-width: 0; }
+.tam-destinfo-text strong { font-size: calc(calc(13.5px * var(--s)) * var(--ui-text-scale, 1)) !important; color: var(--tam-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tam-destinfo-text span { font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important; color: var(--tam-muted) !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tam-destinfo-badges { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: calc(3px * var(--s)); }
+.tam-destinfo-badges span {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  color: var(--tam-ink-2) !important;
+  white-space: nowrap;
+}
+.tam-destinfo-badges span::before { content: ''; width: calc(6px * var(--s)); height: calc(6px * var(--s)); border-radius: 50%; background: currentColor; opacity: .7; }
+.tam-destinfo-badges .is-ok { color: var(--tam-good) !important; }
+.tam-destinfo-badges .is-warn { color: var(--tam-warn) !important; }
+
+.tam-sec-grid > .tam-window { display: flex; flex-direction: column; justify-content: center; gap: calc(7px * var(--s)); }
+.tam-window-top { display: flex; align-items: baseline; justify-content: space-between; gap: calc(10px * var(--s)); flex-wrap: wrap; }
+.tam-window-days { font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; color: var(--tam-muted) !important; }
 .tam-window-days strong {
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 1.857) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(800 + var(--fw-bias, 0)), 900);
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  margin-right: calc(3px * var(--s));
+  font-family: var(--font-number, ui-monospace, monospace) !important;
+  font-size: calc(calc(19px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   letter-spacing: -0.02em;
   color: var(--tam-ink);
-  font-variant-numeric: tabular-nums;
 }
-.tam-window-state {
-  padding: calc(3px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
-  border-radius: calc(999px * var(--ui-scale, 1));
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.786) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
-  background: var(--tam-tint);
-  color: var(--tam-accent-deep);
-}
-.tam-window-state[data-phase='live'] { background: var(--tam-good-soft); color: var(--tam-good); }
-.tam-window-state[data-phase='ended'] { background: #eef0ef; color: var(--tam-closed); }
-.tam-window-bar {
-  position: relative;
-  height: calc(8px * var(--ui-scale, 1));
-  border-radius: calc(999px * var(--ui-scale, 1));
-  background: color-mix(in srgb, var(--tam-accent) 14%, #ffffff);
-}
+.tam-window-state { font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; color: var(--tam-accent-deep) !important; }
+.tam-window-state[data-phase='live'] { color: var(--tam-good) !important; }
+.tam-window-state[data-phase='ended'] { color: var(--tam-closed) !important; }
+.tam-window-bar { position: relative; height: calc(4px * var(--s)); border-radius: calc(999px * var(--s)); background: var(--tam-line-soft); }
 .tam-window-fill { display: block; height: 100%; border-radius: inherit; background: var(--tam-accent); }
 .tam-window-today {
   position: absolute;
   top: 50%;
-  width: calc(14px * var(--ui-scale, 1));
-  height: calc(14px * var(--ui-scale, 1));
-  margin: calc(-7px * var(--ui-scale, 1)) 0 0 calc(-7px * var(--ui-scale, 1));
-  border: calc(3px * var(--ui-scale, 1)) solid #ffffff;
+  width: calc(10px * var(--s));
+  height: calc(10px * var(--s));
+  margin: calc(-5px * var(--s)) 0 0 calc(-5px * var(--s));
+  border: 2px solid #ffffff;
   border-radius: 50%;
   background: var(--tam-accent);
 }
-.tam-window-ends {
-  display: flex;
-  justify-content: space-between;
-  gap: calc(10px * var(--ui-scale, 1));
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.821) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
-  color: var(--tam-ink-2);
-}
-.tam-window-range {
-  margin: 0;
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.786) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.45;
-  color: var(--tam-muted);
-}
-.tam-window-empty-ic { align-self: center; color: var(--tam-faint); }
-.tam-window-empty-ic svg { width: calc(30px * var(--ui-scale, 1)); height: calc(30px * var(--ui-scale, 1)); }
-.tam-window-empty {
-  margin: 0;
-  text-align: center;
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.857) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.5;
-  color: var(--tam-muted);
-}
+.tam-window-ends { display: flex; justify-content: space-between; gap: calc(10px * var(--s)); font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--tam-ink-2) !important; }
+.tam-window-range { margin: 0; font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important; line-height: 1.4 !important; color: var(--tam-muted) !important; }
+.tam-window:not(:has(.tam-window-top)) { flex-direction: row !important; align-items: center; justify-content: flex-start !important; gap: calc(12px * var(--s)) !important; }
+.tam-window-empty-ic { flex: none; display: inline-flex; color: var(--tam-faint); }
+.tam-window-empty-ic svg { width: calc(22px * var(--s)) !important; height: calc(22px * var(--s)) !important; }
+.tam-window-empty { margin: 0; font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; line-height: 1.45 !important; color: var(--tam-muted) !important; }
 
-/* Active window. Wide card: From and To stacked on the left, the duration panel beside them
-   spanning both rows. Mid: From | To, the panel underneath growing into whatever height the row
-   gives the card. Narrow: one per row. */
-.tam-area-window .tam-sec-grid > .tam-field:not(.tam-window) { grid-column: 1 / 6; }
-.tam-area-window .tam-sec-grid > .tam-window { grid-column: 6 / 13; grid-row: 1 / span 2; }
-@container tamcard (max-width: 680px) {
-  .tam-area-window .tam-sec-grid { grid-template-rows: auto 1fr; }
-  .tam-area-window .tam-sec-grid > .tam-field:not(.tam-window) { grid-column: span 6; }
-  .tam-area-window .tam-sec-grid > .tam-window { grid-column: 1 / -1; grid-row: auto; }
-}
-@container tamcard (max-width: 380px) {
-  .tam-area-window .tam-sec-grid { grid-template-rows: none; }
-  .tam-area-window .tam-sec-grid > .tam-field:not(.tam-window) { grid-column: 1 / -1; }
-}
+/* ---------- on-ground places: white, ruled (no tinted boxes) ---------- */
+.tam-make .tam-places { gap: calc(10px * var(--s)); }
+.tam-make .tam-place { gap: calc(10px * var(--s)); padding: calc(12px * var(--s)) calc(14px * var(--s)); background: #ffffff; border-radius: calc(12px * var(--s)); }
+.tam-make .tam-add-place { margin-top: calc(10px * var(--s)); }
 
-/* Destination: the URL, then what was typed, read back - growing into the rest of the card so it
-   ends level with Active window beside it. */
-.tam-area-dest .tam-sec-grid:has(> .tam-destinfo) { grid-template-rows: auto 1fr; }
-.tam-destinfo {
+/* ---------- proof column ---------- */
+.tam-make-proof {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: calc(12px * var(--ui-scale, 1));
-  min-height: calc(118px * var(--ui-scale, 1));
-  padding: calc(16px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
-  border: 1px solid var(--tam-line);
-  border-radius: calc(14px * var(--ui-scale, 1));
-  background: var(--tam-tint-2);
-  text-align: center;
+  gap: calc(12px * var(--s));
+  min-width: 0;
+  padding: calc(16px * var(--s)) calc(18px * var(--s)) calc(18px * var(--s));
+  border-left: 1px solid var(--tam-line-soft);
 }
-.tam-destinfo.is-filled { align-items: stretch; text-align: left; }
-.tam-destinfo-ic {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: calc(40px * var(--ui-scale, 1));
-  height: calc(40px * var(--ui-scale, 1));
-  border-radius: calc(12px * var(--ui-scale, 1));
-  background: #ffffff;
-  border: 1px solid var(--tam-line);
-  color: var(--tam-accent);
-}
-.tam-destinfo-ic svg { width: calc(20px * var(--ui-scale, 1)); height: calc(20px * var(--ui-scale, 1)); }
-.tam-destinfo-msg {
-  margin: 0;
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.857) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.5;
-  color: var(--tam-muted);
-}
-.tam-destinfo-msg.is-bad { color: var(--tam-danger); font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900); }
-.tam-destinfo-row { display: flex; align-items: center; gap: calc(14px * var(--ui-scale, 1)); min-width: 0; }
-.tam-destinfo-text { display: flex; flex-direction: column; gap: calc(3px * var(--ui-scale, 1)); min-width: 0; }
-.tam-destinfo-text strong {
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.929) * var(--ui-text-scale, 1)) !important;
-  color: var(--tam-ink);
+.tam-proof-top { display: flex; align-items: center; justify-content: space-between; gap: calc(10px * var(--s)); }
+.tam-proof-kind {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: var(--font-display) !important;
+  font-size: calc(calc(15px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--tam-ink) !important;
 }
-.tam-destinfo-text span {
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.821) * var(--ui-text-scale, 1)) !important;
-  color: var(--tam-muted);
-  overflow-wrap: anywhere;
-}
-.tam-destinfo-badges { display: flex; flex-wrap: wrap; gap: calc(6px * var(--ui-scale, 1)); }
-.tam-destinfo-badges span {
-  padding: calc(3px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
-  border-radius: calc(999px * var(--ui-scale, 1));
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.75) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
-  background: #ffffff;
-  border: 1px solid var(--tam-line);
-  color: var(--tam-ink-2);
-}
-.tam-destinfo-badges .is-ok { background: var(--tam-good-soft); border-color: transparent; color: var(--tam-good); }
-.tam-destinfo-badges .is-warn { background: var(--tam-warn-soft); border-color: transparent; color: var(--tam-warn); }
-
-/* ---------- Live preview ----------
-   `contain: size` keeps the preview out of its row's height calculation, so the row is exactly as
-   tall as Campaign & type and the preview stretches to it; the stage centres its content in that
-   space and scrolls if a long places list needs more. */
-.tam-pv {
-  contain: size;
+.tam-proof-stage {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--tam-line-soft);
-  border-radius: var(--tam-radius);
+  justify-content: center;
+  min-height: 0;
+  overflow-y: auto;
+  padding: calc(14px * var(--s));
+  border: 1px dashed var(--tam-field-line);
+  border-radius: calc(14px * var(--s));
   background: #ffffff;
 }
-.tam-pv-head { flex: none; padding: calc(18px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1)); }
+
+/* In the narrow preview column the scan-to-give card stands upright: the code over its caption. */
+.tam-make-proof .tam-pv-poster { flex-direction: column; align-items: center; gap: calc(10px * var(--s)); padding: calc(16px * var(--s)); text-align: center; }
+.tam-make-proof .tam-pv-qr { width: calc(150px * var(--s)); height: calc(150px * var(--s)); }
+.tam-make-proof .tam-pv-poster-text { align-items: center; }
+
+/* ---------- foot ---------- */
+.tam-make-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: calc(10px * var(--s));
+  padding: calc(11px * var(--s)) calc(18px * var(--s)) calc(11px * var(--s)) calc(22px * var(--s));
+  border-top: 1px solid var(--tam-line-soft);
+  border-radius: 0 0 var(--tam-radius) var(--tam-radius);
+  background: #ffffff;
+}
+.tam-create-foot-note {
+  margin: 0 auto 0 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  color: var(--tam-muted) !important;
+}
+.tam-create-foot-note strong { color: var(--tam-ink); }
+.tam-make-foot .tam-btn { min-width: calc(116px * var(--s)); min-height: calc(38px * var(--s)); font-size: calc(calc(13.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+
+/* ---------- folds, by the page's own width ---------- */
+@container (max-width: 940px) {
+  .tam-make-form { grid-template-columns: minmax(0, 1fr); }
+  .tam-make-form > .tam-make-proof {
+    grid-column: 1; grid-row: 3; contain: none;
+    border-left: 0; border-top: 1px solid var(--tam-line-soft);
+  }
+  .tam-make-form > .tam-part--attr { grid-row: 4; }
+  .tam-proof-stage { flex: none; min-height: 0; }
+}
+@container (max-width: 1060px) {
+  .tam-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 940px) {
+  .tam-type-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@container (max-width: 760px) {
+  .tam-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 820px) {
+  .tam-part-pair { grid-template-columns: minmax(0, 1fr); }
+  .tam-part-pair > .tam-part + .tam-part { border-left: 0; border-top: 1px solid var(--tam-line-soft); }
+  .tam-make-body.is-onground .tam-part--window .tam-sec-grid > .tam-c6 { grid-column: span 6; }
+  .tam-make-body.is-onground .tam-part--window .tam-sec-grid > .tam-window { grid-column: 1 / -1; grid-row: auto; }
+  .tam-sec-grid > :is(.tam-c3, .tam-c4) { grid-column: span 6; }
+  .tam-sec-grid > :is(.tam-c8) { grid-column: span 12; }
+}
+@container (max-width: 520px) {
+  .tam-type-grid { grid-template-columns: minmax(0, 1fr); }
+  .tam-sec-grid > .tam-field { grid-column: span 12 !important; }
+  .tam-make-h { white-space: normal; }
+  .tam-make-foot { flex-wrap: wrap; }
+  .tam-create-foot-note { flex-basis: 100%; }
+  .tam-make-foot .tam-btn { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tam-make { animation: none; }
+}
+
+/* ---------- Live preview: the per-type designs inside the proof stage ---------- */
 .tam-pv-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -1844,33 +1894,6 @@
 @keyframes tam-pulse {
   from { opacity: .6; transform: scale(.5); }
   to   { opacity: 0; transform: scale(1.4); }
-}
-.tam-pv-title {
-  margin: calc(6px * var(--ui-scale, 1)) 0 2px;
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 1.143) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
-  letter-spacing: -0.01em;
-  color: var(--tam-ink);
-}
-.tam-pv-sub {
-  margin: 0;
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.821) * var(--ui-text-scale, 1)) !important;
-  color: var(--tam-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tam-pv-stage {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 0;
-  margin: 0 calc(12px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
-  padding: calc(14px * var(--ui-scale, 1));
-  overflow-y: auto;
-  border-radius: calc(16px * var(--ui-scale, 1));
-  background: var(--tam-tint);
 }
 .tam-pv-label {
   font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.75) * var(--ui-text-scale, 1)) !important;
@@ -2038,7 +2061,7 @@
 }
 
 /* On-ground: the places, each with its own QR / link */
-.tam-pv[data-kind='onground'] .tam-pv-stage { justify-content: flex-start; }
+.tam-make-proof[data-kind='onground'] .tam-proof-stage { justify-content: flex-start; }
 .tam-pv-places { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(8px * var(--ui-scale, 1)); }
 .tam-pv-place {
   display: grid;
@@ -2055,58 +2078,6 @@
 .tam-pv-place-name { font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.857) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900); color: var(--tam-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tam-pv-place-state { font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.714) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); color: var(--tam-warn); white-space: nowrap; }
 .tam-pv-place-state.is-ready { color: var(--tam-good); }
-
-/* ---------- Action bar pinned to the bottom of the viewport ---------- */
-.tam-create-foot {
-  position: sticky;
-  bottom: calc(12px * var(--ui-scale, 1));
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: calc(10px * var(--ui-scale, 1));
-  padding: calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1));
-  border: 1px solid var(--tam-line);
-  border-radius: var(--tam-radius);
-  background: color-mix(in srgb, #ffffff 92%, transparent);
-  backdrop-filter: blur(calc(12px * var(--ui-scale, 1)));
-  -webkit-backdrop-filter: blur(calc(12px * var(--ui-scale, 1)));
-}
-.tam-create-foot-note {
-  margin: 0 auto 0 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.893) * var(--ui-text-scale, 1)) !important;
-  color: var(--tam-muted);
-}
-.tam-create-foot-note strong { color: var(--tam-ink); }
-.tam-create-foot .tam-btn { min-width: calc(120px * var(--ui-scale, 1)); }
-
-/* ---------- Smaller screens: the grid folds ---------- */
-@media (max-width: 1100px) {
-  .tam-create-grid > :is(.tam-area-type, .tam-area-preview, .tam-area-dest, .tam-area-window, .tam-area-attr) {
-    grid-column: 1 / 13;
-    grid-row: auto;
-  }
-  .tam-create-grid .tam-area-preview { order: 2; contain: none; }
-  .tam-create-grid .tam-area-dest { order: 3; }
-  .tam-create-grid .tam-area-window { order: 4; }
-  .tam-create-grid .tam-area-attr { order: 5; }
-}
-@media (max-width: 640px) {
-  .tam-create-card { padding: 0 calc(16px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)); }
-  .tam-card-head { margin: 0 calc(-16px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)); padding: calc(16px * var(--ui-scale, 1)); }
-  .tam-create-foot { flex-wrap: wrap; }
-  .tam-create-foot-note { flex-basis: 100%; }
-  .tam-create-foot .tam-btn { flex: 1 1 auto; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tam-create, .tam-card-done { animation: none; }
-  .tam-pv-pulse::after { animation: none; }
-  .tam-tile:hover { transform: none; }
-}
 
 /* Places (on-ground events) */
 .tam-places { display: flex; flex-direction: column; gap: calc(14px * var(--ui-scale, 1)); }
@@ -2214,7 +2185,6 @@
   .tam-field-range { grid-column: span 2; }
 }
 @media (max-width: 1100px) {
-  .tam-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tam-panel-tools { width: 100%; margin-left: 0; }
   .tam-search { flex: 1 1 calc(260px * var(--ui-scale, 1)); width: auto; }
 }
@@ -2280,7 +2250,6 @@
   .tam-modal-backdrop { padding: calc(12px * var(--ui-scale, 1)); }
 }
 @media (max-width: 575.98px) {
-  .tam-metrics { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .tam-filter-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {

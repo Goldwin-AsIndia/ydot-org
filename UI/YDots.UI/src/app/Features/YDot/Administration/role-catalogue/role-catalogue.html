@@ -2,14 +2,61 @@
 <div class="page-wrapper">
   <div class="container-fluid px-4 py-3 rx-page">
 
-    <!-- ======================= Header ======================= -->
-    <app-page-header [showInfo]="false" screen="role-catalogue" title="Roles &amp; Permissions"
-                     subtitle="Maintain controlled business roles and the permission bundles they grant.">
-      <button actions class="btn btn-primary btn-sm" type="button" (click)="createDraftRole()">
-        <i class="ri-add-line" aria-hidden="true"></i>&nbsp;
-        <span>Create</span>
+    <!-- ======================= Masthead: "catalogue line" =======================
+         ONE white sheet, one row: the title (with roles / permissions granted under it) | how the
+         catalogue is made up - a status composition rule with its key | privileged roles as a share |
+         system roles | people assigned | Create. Replaces the page header + the six-box summary. -->
+    <section class="rx-head" aria-labelledby="rx-head-title">
+      <div class="rx-head__id">
+        <h1 id="rx-head-title" class="rx-head__title">Roles &amp; Permissions</h1>
+        @if (!loading() && !loadFailed()) {
+          <p class="rx-head__line">
+            <span class="rx-head__n">{{ catalogueFigures().total }}</span> {{ catalogueFigures().total === 1 ? 'role' : 'roles' }}
+            <span class="rx-head__sep" aria-hidden="true"></span>
+            <span class="rx-head__n">{{ catalogueFigures().permissions }}</span> permissions granted
+          </p>
+        }
+      </div>
+
+      @if (!loading() && !loadFailed()) {
+        <div class="rx-head__mix" role="group" aria-label="Roles by status">
+          <span class="rx-head__label">Status mix</span>
+          <div class="rx-head__bar" aria-hidden="true">
+            @if (catalogueFigures().active) { <i class="is-active" [style.flex-grow]="catalogueFigures().active"></i> }
+            @if (catalogueFigures().draft) { <i class="is-draft" [style.flex-grow]="catalogueFigures().draft"></i> }
+            @if (catalogueFigures().retired) { <i class="is-retired" [style.flex-grow]="catalogueFigures().retired"></i> }
+          </div>
+          <ul class="rx-head__key">
+            <li><span class="rx-dot rx-dot--active" aria-hidden="true"></span>In use <b>{{ catalogueFigures().active }}</b></li>
+            <li><span class="rx-dot rx-dot--draft" aria-hidden="true"></span>Drafts <b>{{ catalogueFigures().draft }}</b></li>
+            <li><span class="rx-dot rx-dot--retired" aria-hidden="true"></span>Retired <b>{{ catalogueFigures().retired }}</b></li>
+          </ul>
+        </div>
+
+        <dl class="rx-head__facts">
+          <div class="rx-head__fact">
+            <dt class="rx-head__label"><i class="ri-shield-keyhole-line" aria-hidden="true"></i>Privileged</dt>
+            <dd class="rx-head__fig">{{ catalogueFigures().privileged }}<small>/ {{ catalogueFigures().total }}</small></dd>
+            <dd class="rx-head__meter" aria-hidden="true"><i [style.width.%]="catalogueFigures().total ? (catalogueFigures().privileged / catalogueFigures().total) * 100 : 0"></i></dd>
+          </div>
+          <div class="rx-head__fact">
+            <dt class="rx-head__label"><i class="ri-lock-2-line" aria-hidden="true"></i>System roles</dt>
+            <dd class="rx-head__fig">{{ catalogueFigures().system }}</dd>
+            <dd class="rx-head__sub">Built in</dd>
+          </div>
+          <div class="rx-head__fact">
+            <dt class="rx-head__label"><i class="ri-team-line" aria-hidden="true"></i>People assigned</dt>
+            <dd class="rx-head__fig">{{ catalogueFigures().holders }}</dd>
+            <dd class="rx-head__sub">Across {{ catalogueFigures().staffed }} {{ catalogueFigures().staffed === 1 ? 'role' : 'roles' }}</dd>
+          </div>
+        </dl>
+      }
+
+      <button class="rx-btn rx-btn--primary rx-head__create" type="button" (click)="createDraftRole()">
+        <i class="ri-add-line" aria-hidden="true"></i>
+        <span>Create role</span>
       </button>
-    </app-page-header>
+    </section>
 
     <!-- ======================= Loading ======================= -->
     @if (loading()) {
@@ -32,34 +79,6 @@
     }
 
     @if (!loading() && !loadFailed()) {
-
-      <!-- ======================= Summary ======================= -->
-      <dl class="rx-summary" aria-label="Summary">
-        <div class="rx-stat">
-          <dt>Total roles</dt>
-          <dd>{{ catalogueFigures().total }}</dd>
-        </div>
-        <div class="rx-stat">
-          <dt><span class="rx-dot rx-dot--active" aria-hidden="true"></span>In use</dt>
-          <dd>{{ catalogueFigures().active }}</dd>
-        </div>
-        <div class="rx-stat">
-          <dt><span class="rx-dot rx-dot--draft" aria-hidden="true"></span>Drafts</dt>
-          <dd>{{ catalogueFigures().draft }}</dd>
-        </div>
-        <div class="rx-stat">
-          <dt><span class="rx-dot rx-dot--retired" aria-hidden="true"></span>Retired</dt>
-          <dd>{{ catalogueFigures().retired }}</dd>
-        </div>
-        <div class="rx-stat">
-          <dt>Privileged roles</dt>
-          <dd>{{ catalogueFigures().privileged }}</dd>
-        </div>
-        <div class="rx-stat">
-          <dt>People assigned</dt>
-          <dd>{{ catalogueFigures().holders }}</dd>
-        </div>
-      </dl>
 
       <!-- ======================= Roles table ======================= -->
       <section class="rx-sheet" aria-label="Roles">

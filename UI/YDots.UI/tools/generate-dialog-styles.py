@@ -255,15 +255,15 @@ css.append("""/* ===============================================================
   --dg-warn: #a8660d;
   --dg-line: color-mix(in srgb, var(--theme-primary, #375c4c) 13%, #e4e8e6);
   --dg-line-soft: color-mix(in srgb, var(--theme-primary, #375c4c) 7%, #eef0ef);
-  --dg-w-sm: min(calc(460px * var(--dg-s)), calc(100vw - 32px));
-  --dg-w-md: min(calc(580px * var(--dg-s)), calc(100vw - 32px));
-  --dg-w-lg: min(calc(860px * var(--dg-s)), calc(100vw - 32px));
+  --dg-w-sm: min(calc(420px * var(--dg-s)), calc(100vw - 32px));
+  --dg-w-md: min(calc(520px * var(--dg-s)), calc(100vw - 32px));
+  --dg-w-lg: min(calc(780px * var(--dg-s)), calc(100vw - 32px));
 }
 
 /* Base values: every module overrides most of them in section 10. */
 """ + PREFIX.strip() + """ {
-  --dg-pad: calc(26px * var(--dg-s));
-  --dg-radius: calc(20px * var(--dg-s));
+  --dg-pad: calc(18px * var(--dg-s));
+  --dg-radius: calc(16px * var(--dg-s));
   --dg-surface: #ffffff;
   --dg-border: 1px solid var(--dg-line);
   --dg-border-top: var(--dg-border);
@@ -275,12 +275,12 @@ css.append("""/* ===============================================================
   --dg-band-muted: var(--dg-muted);
   --dg-band-rule: 1px solid var(--dg-line);
   --dg-band-align: left;
-  --dg-band-pt: calc(22px * var(--dg-s));
-  --dg-band-pb: calc(18px * var(--dg-s));
+  --dg-band-pt: calc(16px * var(--dg-s));
+  --dg-band-pb: calc(12px * var(--dg-s));
   --dg-glyph: var(--dg-accent);
   --dg-eyebrow: var(--dg-accent);
   --dg-title-font: var(--font-display, inherit);
-  --dg-title-size: calc(21px * var(--dg-s));
+  --dg-title-size: calc(17px * var(--dg-s));
   --dg-title-weight: 700;
   --dg-title-case: none;
   --dg-title-track: -0.01em;
@@ -288,23 +288,23 @@ css.append("""/* ===============================================================
   --dg-close-bg: #ffffff;
   --dg-close-border: 1px solid var(--dg-line);
   --dg-close-ink: var(--dg-muted);
-  --dg-close-radius: calc(11px * var(--dg-s));
+  --dg-close-radius: calc(9px * var(--dg-s));
   --dg-body-bg: transparent;
-  --dg-gap: calc(20px * var(--dg-s));
+  --dg-gap: calc(14px * var(--dg-s));
   --dg-sheet-bg: #ffffff;
   --dg-quiet-bg: #f6f7f6;
   --dg-sheet-border: 1px solid var(--dg-line);
-  --dg-sheet-radius: calc(14px * var(--dg-s));
+  --dg-sheet-radius: calc(11px * var(--dg-s));
   --dg-row-rule: 1px solid var(--dg-line-soft);
   --dg-value-font: inherit;
-  --dg-field-radius: calc(12px * var(--dg-s));
+  --dg-field-radius: calc(9px * var(--dg-s));
   --dg-field-bg: #ffffff;
   --dg-field-line: color-mix(in srgb, var(--dg-accent) 20%, #d9dfdc);
   --dg-foot-bg: #ffffff;
   --dg-foot-rule: 1px solid var(--dg-line);
   --dg-foot-justify: flex-end;
-  --dg-btn-h: calc(42px * var(--dg-s));
-  --dg-btn-radius: calc(12px * var(--dg-s));
+  --dg-btn-h: calc(36px * var(--dg-s));
+  --dg-btn-radius: calc(9px * var(--dg-s));
   --dg-btn-size: calc(14px * var(--dg-s));
   --dg-btn-case: none;
   --dg-btn-track: 0;
@@ -315,7 +315,7 @@ css.append("""/* ===============================================================
   --dg-secondary-bg: #ffffff;
   --dg-secondary-border: var(--dg-line);
   --dg-secondary-ink: var(--dg-ink);
-  --dg-drawer-w: min(calc(540px * var(--dg-s)), 100vw);
+  --dg-drawer-w: min(calc(480px * var(--dg-s)), 100vw);
   --dg-drawer-inset: 0px;
   --dg-drawer-radius: var(--dg-radius) 0 0 var(--dg-radius);
 }
@@ -449,10 +449,10 @@ css.append(rule(within(HEADS, f" > {HEAD}"), """
     flex: none;
     display: flex;
     align-items: center;
-    gap: calc(14px * var(--dg-s));
+    gap: calc(10px * var(--dg-s));
     margin: 0 !important;
     min-height: 0 !important;
-    padding: var(--dg-band-pt) calc(var(--dg-pad) + calc(46px * var(--dg-s))) var(--dg-band-pb) var(--dg-pad) !important;
+    padding: var(--dg-band-pt) calc(var(--dg-pad) + calc(36px * var(--dg-s))) var(--dg-band-pb) var(--dg-pad) !important;
     border: 0 !important;
     border-bottom: var(--dg-band-rule) !important;
     border-radius: 0 !important;
@@ -467,7 +467,7 @@ css.append(rule(within(STRUCT, f" > {HEAD}:has(+ :is({LEAD}, p))"), """
     """))
 css.append(rule(within(STRUCT, f" > {HEAD} + :is({LEAD}, p)"), """
     margin: 0 0 var(--dg-gap) !important;
-    padding: calc(8px * var(--dg-s)) calc(var(--dg-pad) + calc(46px * var(--dg-s))) var(--dg-band-pb) var(--dg-pad) !important;
+    padding: calc(6px * var(--dg-s)) calc(var(--dg-pad) + calc(36px * var(--dg-s))) var(--dg-band-pb) var(--dg-pad) !important;
     border-bottom: var(--dg-band-rule) !important;
     background: var(--dg-band-bg) !important;
     font-size: calc(14px * var(--dg-s)) !important;
@@ -486,7 +486,7 @@ css.append(comment("... except, in a dialog without a head wrapper, the band par
 css.append(rule(within(FLAT, FLAT_BAND), """
     margin: 0 !important;
     padding-left: var(--dg-pad) !important;
-    padding-right: calc(var(--dg-pad) + calc(40px * var(--dg-s))) !important;
+    padding-right: calc(var(--dg-pad) + calc(32px * var(--dg-s))) !important;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
@@ -501,8 +501,8 @@ css.append(rule(within(FLAT, FLAT_BAND_LAST), """
     """))
 css.append(rule(within(FLAT, f" > {TITLE}:first-child + :is({LEAD}, p)| > :is({GLYPH}, {CLOSE}):first-child + {TITLE}"
                              f"| > :is({GLYPH}, {CLOSE}):first-child + {TITLE} + :is({LEAD}, p)"),
-                "padding-top: calc(6px * var(--dg-s)) !important;"))
-css.append(rule(within(FLAT, f" > {GLYPH}:first-child + {TITLE}"), "padding-top: calc(12px * var(--dg-s)) !important;"))
+                "padding-top: calc(5px * var(--dg-s)) !important;"))
+css.append(rule(within(FLAT, f" > {GLYPH}:first-child + {TITLE}"), "padding-top: calc(9px * var(--dg-s)) !important;"))
 css.append(comment("A dialog that is only a header and buttons: the header runs straight into the footer."))
 css.append(rule(within(ANY, f" > :is({HEAD}, {TITLE}, {LEAD}, p):has(+ {FOOT})"), "margin-bottom: 0 !important;"))
 
@@ -518,7 +518,7 @@ css.append(rule(within(HEADS, f" > {HEAD} {TITLE}:not({HEAD} :is(section, dl, ul
     color: var(--dg-band-ink) !important;
     text-align: var(--dg-band-align) !important;
     """))
-css.append(rule(within(HEADS, f" > {HEAD} :is({LEAD}, {TITLE} + p)"), "margin: calc(6px * var(--dg-s)) 0 0 !important;"))
+css.append(rule(within(HEADS, f" > {HEAD} :is({LEAD}, {TITLE} + p)"), "margin: calc(5px * var(--dg-s)) 0 0 !important;"))
 css.append(rule(within(HEADS, f" > {HEAD} :is({LEAD}, {TITLE} + p)") + NL + within(FLAT, FLAT_LEAD), """
     font-size: calc(14px * var(--dg-s)) !important;
     font-weight: 400 !important;
@@ -528,7 +528,7 @@ css.append(rule(within(HEADS, f" > {HEAD} :is({LEAD}, {TITLE} + p)") + NL + with
     text-align: var(--dg-band-align) !important;
     """))
 css.append(rule(within(HEADS, f" > {HEAD} :is([class*=\"eyebrow\"], [class*=\"kicker\"], [class*=\"-step\"])"), """
-    margin: 0 0 calc(6px * var(--dg-s)) !important;
+    margin: 0 0 calc(5px * var(--dg-s)) !important;
     font-size: calc(11px * var(--dg-s)) !important;
     font-weight: 700 !important;
     letter-spacing: .12em !important;
@@ -540,11 +540,11 @@ css.append(rule(within(HEADS, f" > {HEAD} > {GLYPH}:not(button):not({CLOSE})"), 
     flex: none;
     display: grid !important;
     place-items: center;
-    width: calc(40px * var(--dg-s)) !important;
-    height: calc(40px * var(--dg-s)) !important;
+    width: calc(32px * var(--dg-s)) !important;
+    height: calc(32px * var(--dg-s)) !important;
     margin: 0 !important;
     color: var(--dg-glyph) !important;
-    font-size: calc(24px * var(--dg-s)) !important;
+    font-size: calc(20px * var(--dg-s)) !important;
     """))
 css.append(rule(within(FLAT, f" > {GLYPH}:first-child"), """
     display: flex !important;
@@ -552,11 +552,11 @@ css.append(rule(within(FLAT, f" > {GLYPH}:first-child"), """
     width: auto !important;
     height: auto !important;
     color: var(--dg-glyph) !important;
-    font-size: calc(26px * var(--dg-s)) !important;
+    font-size: calc(20px * var(--dg-s)) !important;
     """))
 css.append(rule(within(HEADS, f" > {HEAD} > {GLYPH}:not(button):not({CLOSE}) svg") + NL + within(FLAT, f" > {GLYPH}:first-child svg"), """
-    width: calc(28px * var(--dg-s)) !important;
-    height: calc(28px * var(--dg-s)) !important;
+    width: calc(22px * var(--dg-s)) !important;
+    height: calc(22px * var(--dg-s)) !important;
     """))
 css.append(rule(within(HEADS, f" > {HEAD} > {GLYPH}:is([class*=\"danger\"], [class*=\"error\"])") + NL +
                 within(FLAT, f" > {GLYPH}:first-child:is([class*=\"danger\"], [class*=\"error\"])"),
@@ -569,13 +569,14 @@ CLOSE_SEL = (within(HEADS, f" > {HEAD} {CLOSE}:is(button, a)| > {CLOSE}:is(butto
              + NL + within(FLAT, f" > {CLOSE}:is(button, a)"))
 css.append(rule(CLOSE_SEL, """
     position: absolute !important;
-    top: calc(18px * var(--dg-s)) !important;
-    right: calc(18px * var(--dg-s)) !important;
+    /* Centred on the icon tile / first title line: the tile starts at the band top and is 4px taller. */
+    top: calc(var(--dg-band-pt) + calc(2px * var(--dg-s))) !important;
+    right: calc(14px * var(--dg-s)) !important;
     left: auto !important;
     z-index: 5;
-    width: calc(36px * var(--dg-s)) !important;
+    width: calc(28px * var(--dg-s)) !important;
     min-width: 0 !important;
-    height: calc(36px * var(--dg-s)) !important;
+    height: calc(28px * var(--dg-s)) !important;
     min-height: 0 !important;
     display: inline-grid !important;
     place-items: center !important;
@@ -615,7 +616,7 @@ css.append(rule(within(_W, " > [class*=\"close-row\"]"), """
 css.append(section("4. BODY - gutters, rhythm and type"))
 css.append(rule(within(HEADS, f" > {BODY}"), """
     margin: 0 !important;
-    padding: calc(22px * var(--dg-s)) var(--dg-pad) !important;
+    padding: calc(16px * var(--dg-s)) var(--dg-pad) !important;
     border: 0 !important;
     background: var(--dg-body-bg) !important;
     color: var(--dg-ink);
@@ -634,8 +635,8 @@ css.append(rule(within(HEADS, f" > {BODY} :is(section, [class*=\"-section\"], [c
                               f"| > :is(section, [class*=\"-section\"]) > :is(h3, h4, h5):first-child"), """
     display: flex !important;
     align-items: center;
-    gap: calc(10px * var(--dg-s));
-    margin: 0 0 calc(12px * var(--dg-s)) !important;
+    gap: calc(7px * var(--dg-s));
+    margin: 0 0 calc(9px * var(--dg-s)) !important;
     font-family: var(--font-heading, inherit) !important;
     font-size: calc(11.5px * var(--dg-s)) !important;
     font-weight: 700 !important;
@@ -654,7 +655,7 @@ css.append(rule(NL.join([
     """))
 css.append(comment("No box inside a box: a titled section in a body is spaced and headed, not framed and filled."))
 css.append(rule(within(HEADS, f" > {BODY} section:has(> :is(h3, h4, h5, h6, [class*=\"-title\"]):first-child)"), """
-    margin: 0 0 calc(22px * var(--dg-s)) !important;
+    margin: 0 0 calc(16px * var(--dg-s)) !important;
     padding: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
@@ -667,7 +668,7 @@ css.append(comment("A header made of stacked rows (a bar, then an identity block
 css.append(rule(within(HEADS, " > .dir-sheet-hero"), """
     flex-direction: column !important;
     align-items: stretch !important;
-    gap: calc(12px * var(--dg-s)) !important;
+    gap: calc(9px * var(--dg-s)) !important;
     """))
 css.append(comment("Drawers whose sections are direct children (no body wrapper) sit on the same gutters."))
 css.append(rule(within(_W, f" > :not({HEAD}):not({BODY}):not({FOOT}):not([class*=\"close-row\"]):not(dl)"), """
@@ -687,7 +688,7 @@ css.append(section("5. SUMMARY SHEET - record facts (<dl> of dt / dd rows): labe
 css.append(rule(within(BOTH, DL_ROWS), """
     display: block !important;
     margin-top: 0 !important;
-    margin-bottom: calc(20px * var(--dg-s)) !important;
+    margin-bottom: calc(14px * var(--dg-s)) !important;
     padding: 2px 0 !important;
     border: var(--dg-sheet-border) !important;
     border-radius: var(--dg-sheet-radius) !important;
@@ -698,9 +699,9 @@ css.append(rule(within(BOTH, DL_ROWS + " > div"), """
     display: grid !important;
     grid-template-columns: minmax(calc(120px * var(--dg-s)), 38%) minmax(0, 1fr) !important;
     align-items: baseline;
-    gap: calc(4px * var(--dg-s)) calc(18px * var(--dg-s)) !important;
+    gap: calc(4px * var(--dg-s)) calc(12px * var(--dg-s)) !important;
     margin: 0 !important;
-    padding: calc(11px * var(--dg-s)) calc(18px * var(--dg-s)) !important;
+    padding: calc(8px * var(--dg-s)) calc(12px * var(--dg-s)) !important;
     border: 0 !important;
     border-top: var(--dg-row-rule) !important;
     background: transparent !important;
@@ -711,14 +712,14 @@ css.append(rule(within(BOTH, DL_FLAT), """
     grid-template-columns: minmax(calc(120px * var(--dg-s)), 38%) minmax(0, 1fr) !important;
     gap: 0 !important;
     margin-top: 0 !important;
-    margin-bottom: calc(20px * var(--dg-s)) !important;
-    padding: calc(4px * var(--dg-s)) calc(18px * var(--dg-s)) !important;
+    margin-bottom: calc(14px * var(--dg-s)) !important;
+    padding: calc(4px * var(--dg-s)) calc(12px * var(--dg-s)) !important;
     border: var(--dg-sheet-border) !important;
     border-radius: var(--dg-sheet-radius) !important;
     background: var(--dg-sheet-bg) !important;
     """))
 css.append(rule(within(BOTH, DL_FLAT + " > :is(dt, dd)"), """
-    padding: calc(9px * var(--dg-s)) 0 !important;
+    padding: calc(7px * var(--dg-s)) 0 !important;
     border-top: var(--dg-row-rule);
     """))
 css.append(rule(within(BOTH, DL_FLAT + " > :is(dt, dd):nth-child(-n + 2)"), "border-top: 0;"))
@@ -751,7 +752,7 @@ css.append(rule(within(BOTH, " :is(label:not(:has(input[type=\"checkbox\"], inpu
     text-transform: none !important;
     """))
 css.append(rule(within(BOTH, CTRL), """
-    min-height: calc(42px * var(--dg-s));
+    min-height: calc(36px * var(--dg-s));
     border: 1px solid var(--dg-field-line) !important;
     border-radius: var(--dg-field-radius) !important;
     background-color: var(--dg-field-bg) !important;
@@ -761,8 +762,8 @@ css.append(rule(within(BOTH, CTRL), """
     transition: border-color .15s ease, outline-color .15s ease, background-color .15s ease;
     """))
 css.append(rule(within(BOTH, " textarea"), """
-    min-height: calc(96px * var(--dg-s));
-    padding: calc(11px * var(--dg-s)) calc(14px * var(--dg-s)) !important;
+    min-height: calc(76px * var(--dg-s));
+    padding: calc(8px * var(--dg-s)) calc(10px * var(--dg-s)) !important;
     line-height: 1.55 !important;
     resize: vertical;
     """))
@@ -789,10 +790,10 @@ css.append(rule(within(ANY, f" > {FOOT}:not({HEAD} *)"), """
     flex-wrap: wrap;
     align-items: center;
     justify-content: var(--dg-foot-justify) !important;
-    gap: calc(10px * var(--dg-s)) !important;
+    gap: calc(8px * var(--dg-s)) !important;
     width: auto !important;
-    margin: calc(20px * var(--dg-s)) 0 0 !important;
-    padding: calc(14px * var(--dg-s)) var(--dg-pad) !important;
+    margin: calc(14px * var(--dg-s)) 0 0 !important;
+    padding: calc(10px * var(--dg-s)) var(--dg-pad) !important;
     border: 0 !important;
     border-top: var(--dg-foot-rule) !important;
     border-radius: 0 !important;
@@ -806,7 +807,7 @@ css.append(rule(within(ANY, f" > {FOOT} > div:has(button)"), """
     display: flex !important;
     flex-wrap: wrap;
     align-items: center;
-    gap: calc(10px * var(--dg-s)) !important;
+    gap: calc(8px * var(--dg-s)) !important;
     margin: 0 !important;
     """))
 css.append(rule(within(ANY, f" > {FOOT} > div:has(button):first-child:not(:only-child)"), "margin-right: auto !important;"))
@@ -817,11 +818,11 @@ css.append(rule(within(ANY, BTN), """
     height: auto !important;
     width: auto;
     margin: 0 !important;
-    padding: 0 calc(20px * var(--dg-s)) !important;
+    padding: 0 calc(14px * var(--dg-s)) !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: calc(8px * var(--dg-s)) !important;
+    gap: calc(6px * var(--dg-s)) !important;
     border-radius: var(--dg-btn-radius) !important;
     font-size: var(--dg-btn-size) !important;
     font-weight: 600 !important;
@@ -923,7 +924,7 @@ css.append(rule(f"{PREFIX}dialog:is(.lq-drawer, .pq-drawer)[open]", "inset: var(
 # ---------------------------------------------------------------- 9. small screens
 css.append(section("9. SMALL SCREENS AND REDUCED MOTION"))
 css.append("@media (max-width: 575.98px) {\n")
-css.append(textwrap.indent(rule(PREFIX.strip(), "--dg-pad: calc(20px * var(--dg-s)) !important;\n--dg-drawer-inset: 0px !important;"), "  "))
+css.append(textwrap.indent(rule(PREFIX.strip(), "--dg-pad: calc(14px * var(--dg-s)) !important;\n--dg-drawer-inset: 0px !important;"), "  "))
 css.append(textwrap.indent(rule(_W, "border-radius: 0 !important;"), "  "))
 css.append(textwrap.indent(rule(within(BOTH, DL_ROWS + " > div"), "grid-template-columns: minmax(0, 1fr) !important;"), "  "))
 css.append(textwrap.indent(rule(within(ANY, BTN), "flex: 1 1 auto;"), "  "))
@@ -937,8 +938,8 @@ css.append(section("10. ONE SHARED DESIGN - the Campaigns > Tracking asset manag
 
 S = PREFIX.strip()
 css.append(rule(S, """
-    --dg-pad: calc(28px * var(--dg-s));
-    --dg-radius: calc(22px * var(--dg-s));
+    --dg-pad: calc(20px * var(--dg-s));
+    --dg-radius: calc(16px * var(--dg-s));
     --dg-border: 1px solid var(--dg-line);
     --dg-border-top: var(--dg-border);
     --dg-scrim: color-mix(in srgb, var(--dg-deep) 52%, transparent);
@@ -947,12 +948,12 @@ css.append(rule(S, """
     --dg-band: color-mix(in srgb, var(--theme-surface-tint, #eef1ef) 55%, #ffffff);
     --dg-band-bg: var(--dg-band);
     --dg-band-rule: 1px solid var(--dg-line);
-    --dg-band-pt: calc(18px * var(--dg-s));
-    --dg-band-pb: calc(16px * var(--dg-s));
+    --dg-band-pt: calc(12px * var(--dg-s));
+    --dg-band-pb: calc(11px * var(--dg-s));
     --dg-glyph: var(--dg-accent);
     --dg-eyebrow: var(--dg-accent);
     --dg-title-font: var(--font-display, inherit);
-    --dg-title-size: calc(var(--fs-base, calc(14px * var(--dg-s))) * 1.357);
+    --dg-title-size: calc(var(--fs-base, calc(14px * var(--dg-s))) * 1.143);
     --dg-title-weight: 700;
     --dg-title-case: none;
     --dg-title-track: -0.01em;
@@ -960,20 +961,20 @@ css.append(rule(S, """
     --dg-close-bg: transparent;
     --dg-close-border: 1px solid transparent;
     --dg-close-ink: var(--dg-muted);
-    --dg-close-radius: calc(10px * var(--dg-s));
+    --dg-close-radius: calc(8px * var(--dg-s));
     --dg-body-bg: #ffffff;
-    --dg-gap: calc(20px * var(--dg-s));
+    --dg-gap: calc(14px * var(--dg-s));
     --dg-sheet-bg: color-mix(in srgb, var(--theme-surface-tint, #eef1ef) 22%, #ffffff);
     --dg-sheet-border: 1px solid var(--dg-line);
-    --dg-sheet-radius: calc(14px * var(--dg-s));
+    --dg-sheet-radius: calc(11px * var(--dg-s));
     --dg-row-rule: 1px solid var(--dg-line-soft);
-    --dg-field-radius: calc(12px * var(--dg-s));
+    --dg-field-radius: calc(9px * var(--dg-s));
     --dg-field-line: color-mix(in srgb, var(--dg-accent) 18%, #dde2df);
     --dg-foot-bg: color-mix(in srgb, var(--theme-surface-tint, #eef1ef) 30%, #ffffff);
     --dg-foot-rule: 1px solid var(--dg-line);
     --dg-foot-justify: flex-end;
-    --dg-btn-h: calc(40px * var(--dg-s));
-    --dg-btn-radius: calc(11px * var(--dg-s));
+    --dg-btn-h: calc(34px * var(--dg-s));
+    --dg-btn-radius: calc(9px * var(--dg-s));
     --dg-btn-size: calc(var(--fs-base, calc(14px * var(--dg-s))) * 0.964);
     --dg-btn-case: none;
     --dg-btn-track: 0;
@@ -981,10 +982,10 @@ css.append(rule(S, """
     --dg-secondary-bg: #ffffff;
     --dg-secondary-border: var(--dg-line);
     --dg-secondary-ink: var(--dg-ink);
-    --dg-drawer-w: min(calc(560px * var(--dg-s)), 100vw);
+    --dg-drawer-w: min(calc(480px * var(--dg-s)), 100vw);
     --dg-drawer-inset: 0px;
     --dg-drawer-radius: var(--dg-radius) 0 0 var(--dg-radius);
-    --dg-tile: calc(42px * var(--dg-s));
+    --dg-tile: calc(32px * var(--dg-s));
     --dg-tile-fill: linear-gradient(145deg, var(--dg-accent), color-mix(in srgb, var(--dg-accent) 68%, #000000));
     --dg-tile-danger: linear-gradient(145deg, var(--dg-danger), color-mix(in srgb, var(--dg-danger) 70%, #000000));
     """))
@@ -1015,35 +1016,42 @@ css.append(comment("Dialog headers are a two-column grid: the icon tile, then ki
 css.append(rule(within(STRUCT, f" > {HEAD}"), """
     display: grid !important;
     grid-template-columns: minmax(0, 1fr);
-    column-gap: calc(14px * var(--dg-s)) !important;
+    column-gap: calc(10px * var(--dg-s)) !important;
     row-gap: 0 !important;
     align-items: center !important;
     """))
-css.append(rule(within(STRUCT, TILE_PSEUDO) + NL + within(STRUCT, TILE_GLYPH), "grid-template-columns: var(--dg-tile) minmax(0, 1fr);"))
+css.append(comment("The tile sits out of the grid flow, level with the band's top padding, and the header is at least as "
+                   "tall as it: the text block (title alone, or kicker / title / lead) is centred against the tile, so a "
+                   "one-line title lines up with the tile and the close button instead of riding above them."))
+css.append(rule(within(STRUCT, TILE_PSEUDO) + NL + within(STRUCT, TILE_GLYPH), """
+    grid-template-columns: var(--dg-tile) minmax(0, 1fr);
+    align-content: center !important;
+    min-height: calc(var(--dg-tile) + var(--dg-band-pt) + var(--dg-band-pb)) !important;
+    """))
 css.append(rule(within(STRUCT, TILE_PSEUDO + f" > :not({CLOSE})") + NL + within(STRUCT, TILE_GLYPH + f" > :not({CLOSE}):not(:first-child)"),
                 "grid-column: 2;\nmin-width: 0;"))
 css.append(comment("A header without its own icon gets the tile drawn in CSS: a document-check glyph, or a warning "
                    "triangle on a red tile for destructive dialogs. An icon set inline in front of the title gives way to it."))
 css.append(rule(within(STRUCT, TILE_PSEUDO + "::before"), f"""
     content: '';
-    grid-column: 1;
-    grid-row: 1 / span 6;
-    align-self: start;
+    position: absolute;
+    top: var(--dg-band-pt);
+    left: var(--dg-pad);
     width: var(--dg-tile);
     height: var(--dg-tile);
-    border-radius: calc(12px * var(--dg-s));
-    background: {DOC_ICON} center / calc(22px * var(--dg-s)) calc(22px * var(--dg-s)) no-repeat, var(--dg-tile-fill);
+    border-radius: calc(9px * var(--dg-s));
+    background: {DOC_ICON} center / calc(16px * var(--dg-s)) calc(16px * var(--dg-s)) no-repeat, var(--dg-tile-fill);
     """))
 css.append(rule(NL.join([f"{STRUCT}{DANGER_D}{TILE_PSEUDO}::before", within(STRUCT, TILE_PSEUDO + DANGER_HEAD + "::before")]),
-                f"background: {WARN_ICON} center / calc(22px * var(--dg-s)) calc(22px * var(--dg-s)) no-repeat, var(--dg-tile-danger);"))
+                f"background: {WARN_ICON} center / calc(16px * var(--dg-s)) calc(16px * var(--dg-s)) no-repeat, var(--dg-tile-danger);"))
 css.append(rule(within(STRUCT, TILE_PSEUDO + f" {TITLE} > :is(i, svg):first-child"), "display: none !important;"))
 css.append(comment("A header's own glyph (first in the header, or first in its leading wrapper) becomes the tile: white "
                    "glyph on the theme gradient (red for danger / error, amber for warnings)."))
 TILE_EL = within(STRUCT, HG_DIRECT) + NL + within(STRUCT, HG_NESTED)
 css.append(rule(within(STRUCT, HG_DIRECT), """
-    grid-column: 1;
-    grid-row: 1 / span 6;
-    align-self: start;
+    position: absolute !important;
+    top: var(--dg-band-pt) !important;
+    left: var(--dg-pad) !important;
     """))
 css.append(rule(TILE_EL, """
     flex: none;
@@ -1055,22 +1063,22 @@ css.append(rule(TILE_EL, """
     margin: 0 !important;
     padding: 0 !important;
     border: 0 !important;
-    border-radius: calc(12px * var(--dg-s)) !important;
+    border-radius: calc(9px * var(--dg-s)) !important;
     background: var(--dg-tile-fill) !important;
     box-shadow: none !important;
     color: #ffffff !important;
-    font-size: calc(21px * var(--dg-s)) !important;
+    font-size: calc(16px * var(--dg-s)) !important;
     line-height: 1 !important;
     """))
 css.append(rule(within(STRUCT, f" > {HEAD} > {TITLE}:has(> {HG}:first-child)"), """
     display: flex !important;
     align-items: center !important;
-    gap: calc(14px * var(--dg-s)) !important;
+    gap: calc(10px * var(--dg-s)) !important;
     """))
 css.append(rule(within(STRUCT, HG_DIRECT + " :is(svg, i)") + NL + within(STRUCT, HG_NESTED + " :is(svg, i)"), """
-    width: calc(22px * var(--dg-s)) !important;
-    height: calc(22px * var(--dg-s)) !important;
-    font-size: calc(21px * var(--dg-s)) !important;
+    width: calc(16px * var(--dg-s)) !important;
+    height: calc(16px * var(--dg-s)) !important;
+    font-size: calc(16px * var(--dg-s)) !important;
     color: #ffffff !important;
     """))
 css.append(rule(within(STRUCT, HG_DIRECT + ":is([class*=\"danger\"], [class*=\"error\"])") + NL
@@ -1088,7 +1096,7 @@ css.append(comment("Dialogs without a head wrapper (title and lead sit loose in 
 FLAT_G = f" > {GLYPH}:first-child:not(button):not({CLOSE}):not(#dg-g)"
 FLAT_NOG = f"{FLAT}:not(:has({FLAT_G}))"
 css.append(rule(f":where({FLAT})", "position: relative;"))
-css.append(rule(within(FLAT, FLAT_BAND), "padding-left: calc(var(--dg-pad) + var(--dg-tile) + calc(14px * var(--dg-s))) !important;"))
+css.append(rule(within(FLAT, FLAT_BAND), "padding-left: calc(var(--dg-pad) + var(--dg-tile) + calc(10px * var(--dg-s))) !important;"))
 css.append(rule(within(FLAT, f" > {GLYPH}:first-child + {TITLE}:not(#dg-t)"), "padding-top: var(--dg-band-pt) !important;"))
 css.append(rule(within(FLAT, f"{FLAT_G}| > {CLOSE}:first-child + {GLYPH}:not(button):not(#dg-g)"), """
     position: absolute !important;
@@ -1102,14 +1110,14 @@ css.append(rule(within(FLAT, f"{FLAT_G}| > {CLOSE}:first-child + {GLYPH}:not(but
     margin: 0 !important;
     padding: 0 !important;
     border: 0 !important;
-    border-radius: calc(12px * var(--dg-s)) !important;
+    border-radius: calc(9px * var(--dg-s)) !important;
     background: var(--dg-tile-fill) !important;
     color: #ffffff !important;
-    font-size: calc(21px * var(--dg-s)) !important;
+    font-size: calc(16px * var(--dg-s)) !important;
     """))
 css.append(rule(within(FLAT, f"{FLAT_G} svg| > {CLOSE}:first-child + {GLYPH}:not(button):not(#dg-g) svg"), """
-    width: calc(22px * var(--dg-s)) !important;
-    height: calc(22px * var(--dg-s)) !important;
+    width: calc(16px * var(--dg-s)) !important;
+    height: calc(16px * var(--dg-s)) !important;
     color: #ffffff !important;
     """))
 css.append(rule(NL.join([within(FLAT, f"{FLAT_G}:is([class*=\"danger\"], [class*=\"error\"])"), f"{FLAT}{DANGER_D}{FLAT_G}"]),
@@ -1122,12 +1130,12 @@ css.append(rule(f"{FLAT_NOG}::before", f"""
     z-index: 2;
     width: var(--dg-tile);
     height: var(--dg-tile);
-    border-radius: calc(12px * var(--dg-s));
-    background: {DOC_ICON} center / calc(22px * var(--dg-s)) calc(22px * var(--dg-s)) no-repeat, var(--dg-tile-fill);
+    border-radius: calc(9px * var(--dg-s));
+    background: {DOC_ICON} center / calc(16px * var(--dg-s)) calc(16px * var(--dg-s)) no-repeat, var(--dg-tile-fill);
     pointer-events: none;
     """))
 css.append(rule(NL.join([f"{FLAT_NOG}{DANGER_D}::before", f"{FLAT_NOG}:has(> {TITLE}[class*=\"danger\"])::before"]),
-                f"background: {WARN_ICON} center / calc(22px * var(--dg-s)) calc(22px * var(--dg-s)) no-repeat, var(--dg-tile-danger);"))
+                f"background: {WARN_ICON} center / calc(16px * var(--dg-s)) calc(16px * var(--dg-s)) no-repeat, var(--dg-tile-danger);"))
 css.append(rule(NL.join([f"{FLAT}{DANGER_D} > {TITLE}:first-child", f"{FLAT}{DANGER_D} > :is({GLYPH}, {CLOSE}):first-child + {TITLE}"]),
                 "color: var(--dg-danger) !important;"))
 
@@ -1145,8 +1153,8 @@ css.append(rule(within(HEADS, f" > {HEAD} :is({LEAD}, {TITLE} + p)"), """
     """))
 css.append(comment("Close button: a quiet square in the band's top-right corner; white with a hairline on hover."))
 css.append(rule(CLOSE_SEL, """
-    width: calc(34px * var(--dg-s)) !important;
-    height: calc(34px * var(--dg-s)) !important;
+    width: calc(28px * var(--dg-s)) !important;
+    height: calc(28px * var(--dg-s)) !important;
     """))
 css.append(rule(within(ANY, f" {CLOSE}:is(button, a):hover"), """
     rotate: none;
@@ -1173,8 +1181,8 @@ css.append(rule(NL.join(f"{r} > {BODY}::-webkit-scrollbar-thumb" for r in [WITHB
     """))
 
 css.append(comment("Footer: tinted, pinned, compact; the destructive action wears the danger tile's red gradient."))
-css.append(rule(within(ANY, f" > {FOOT}:not({HEAD} *)"), "padding: calc(12px * var(--dg-s)) var(--dg-pad) !important;"))
-css.append(rule(within(ANY, BTN), "padding: 0 calc(18px * var(--dg-s)) !important;"))
+css.append(rule(within(ANY, f" > {FOOT}:not({HEAD} *)"), "padding: calc(9px * var(--dg-s)) var(--dg-pad) !important;"))
+css.append(rule(within(ANY, BTN), "padding: 0 calc(14px * var(--dg-s)) !important;"))
 css.append(rule(within(ANY, DANGER_BTN), """
     border: 1px solid color-mix(in srgb, var(--dg-danger) 70%, #000000) !important;
     background: var(--dg-tile-danger) !important;
@@ -1183,7 +1191,7 @@ css.append(rule(within(ANY, DANGER_BTN + ":hover:not(:disabled)"),
                 "background: linear-gradient(145deg, color-mix(in srgb, var(--dg-danger) 88%, #000000), color-mix(in srgb, var(--dg-danger) 60%, #000000)) !important;"))
 
 css.append("@media (max-width: 575.98px) {\n")
-css.append(textwrap.indent(rule(within(STRUCT, f" > {HEAD}"), "grid-template-columns: minmax(0, 1fr) !important;"), "  "))
+css.append(textwrap.indent(rule(within(STRUCT, f" > {HEAD}"), "grid-template-columns: minmax(0, 1fr) !important;\nmin-height: 0 !important;"), "  "))
 css.append(textwrap.indent(rule(NL.join([within(STRUCT, TILE_PSEUDO + "::before"), TILE_EL]), "display: none !important;"), "  "))
 css.append(textwrap.indent(rule(within(STRUCT, f" > {HEAD} > *"), "grid-column: 1 !important;"), "  "))
 css.append(textwrap.indent(rule(NL.join([f"{FLAT_NOG}::before", within(FLAT, FLAT_G)]), "display: none !important;"), "  "))
