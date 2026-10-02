@@ -48,7 +48,7 @@
 
         <div class="og-hero-actions">
           @if (!isOwnOrganisation()) {
-            <button type="button" class="og-btn og-btn-ghost" (click)="goBack()">
+            <button type="button" class="btn btn-outline-secondary" (click)="goBack()">
               <i class="ri-arrow-left-line"></i> All organisations
             </button>
             @if (can('Approve') || can('StartReview')) {
@@ -198,7 +198,9 @@
               <span class="og-form-kicker"><i class="ri-edit-2-line"></i> Editing</span>
               <h3>Organisation profile</h3>
             </div>
-            @if (isProfileRestricted()) {
+         
+            <div class="og-form-btns">
+               @if (isProfileRestricted()) {
               <!-- WHAT IS STILL YOURS TO CHANGE, once the platform has approved the Organisation. The identity
                    fields are what the reviewer checked the registration certificate against; the server drops
                    them from a save after approval, so they are drawn locked. -->
@@ -207,11 +209,6 @@
                 <span>Approved: registered details are locked. Contact e-mail, telephone and address can still change.</span>
               </p>
             }
-            <div class="og-form-btns">
-              <button type="button" class="og-btn og-btn-ghost" (click)="cancelEditing()">Cancel</button>
-              <button type="button" class="og-btn og-btn-primary" [disabled]="saving()" (click)="saveProfile()">
-                @if (saving()) { <i class="ri-loader-4-line og-spin"></i> Saving… } @else { <i class="ri-save-line"></i> Save }
-              </button>
             </div>
           </header>
 
@@ -412,8 +409,8 @@
           <div class="og-actionbar">
             <span class="og-actionbar-note"><i class="ri-information-line"></i> Changes are saved to this organisation only.</span>
             <div class="og-actionbar-btns">
-              <button type="button" class="og-btn og-btn-ghost" (click)="cancelEditing()">Cancel</button>
-              <button type="button" class="og-btn og-btn-primary" [disabled]="saving()" (click)="saveProfile()">
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEditing()"><i class="ri-close-line"></i> Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="saveProfile()">
                 @if (saving()) { <i class="ri-loader-4-line og-spin"></i> Saving… } @else { <i class="ri-save-line"></i> Save }
               </button>
             </div>
@@ -596,7 +593,7 @@
                       placeholder="Anything the reviewer should know."></textarea>
           </div>
 
-          <button type="button" class="og-btn og-btn-primary og-review-btn" [disabled]="!canSubmit() || submitting()" (click)="submitForApproval()">
+          <button type="button" class="btn btn-primary btn-sm" [disabled]="!canSubmit() || submitting()" (click)="submitForApproval()">
             @if (submitting()) { <i class="ri-loader-4-line og-spin"></i> Sending… } @else { <i class="ri-send-plane-line"></i> Send for approval }
           </button>
         </div>
@@ -743,7 +740,7 @@
 
         <div class="og-actionbar">
           <span class="og-actionbar-note"><i class="ri-information-line"></i> Applies to everyone the next time they sign in.</span>
-          <button type="button" class="og-btn og-btn-primary" [disabled]="saving()" (click)="saveSettings()">
+          <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="saveSettings()">
             @if (saving()) { <i class="ri-loader-4-line og-spin"></i> Saving… } @else { <i class="ri-save-line"></i> Save }
           </button>
         </div>

@@ -467,7 +467,7 @@ button:focus-visible,
 .cr-main {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  /* flex: 1; */
   min-height: 0;
   margin-bottom: calc(20px * var(--ui-scale, 1));
   background: var(--yc-bg);
@@ -641,8 +641,8 @@ button:focus-visible,
      from its rows — 1 campaign, 3 campaigns or 15 all leave it the same height, reaching the bottom
      of the screen. The rows scroll inside it. `min-height` is the floor (sticky header + 5 rows) so
      a short window keeps at least five rows in view and the page itself scrolls instead. */
-  flex: 1 1 0px;
-  min-height: calc(calc(42px * var(--ui-scale, 1)) + (5 * 84px));
+  /* flex: 1 1 0px; */
+  /* min-height: calc(calc(42px * var(--ui-scale, 1)) + (5 * 84px)); */
   overflow-x: auto;
   overflow-y: auto;
   border: 1px solid #e8e9f3;
@@ -1184,7 +1184,7 @@ button:focus-visible,
   position: fixed;
   inset: 0;
   z-index: 1100;
-  background: hsl(calc(var(--theme-hue) - 18) 14.3% 11% / 0.5);
+  background:rgba(128, 128, 128, 0.153);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1448,3 +1448,696 @@ width: calc(24px * var(--ui-scale, 1));
 
 /* The shared header sets the gap below it (--ph-gap-below); take back the .cr-page column gap so it is not added on top. */
 .cr-page > app-page-header { margin-bottom: calc(var(--ph-gap-below) - calc(19px * var(--c))); }
+
+/* =========================================================
+   Selected row — clearly "active" (2026-10-02)
+   Clicking a row selects it for Compare. The old tint (1% of the theme colour) was too faint to
+   see, so a selected row now gets:
+     - a soft theme-colour wash across the row,
+     - a 3px theme-colour bar on its leading edge (one bar, not a line down every column),
+     - a small filled check badge in front of the campaign name,
+     - the name in the theme colour, bold.
+   Uses var(--primary) (falls back to the page's own --cr-meadow), mixed with white so it stays light.
+   ========================================================= */
+.cr-table tbody tr.cr-row-selectable {
+  --cr-sel: var(--primary, var(--cr-meadow));
+}
+.cr-table tbody tr.cr-row-selectable td {
+  transition: background-color .15s ease, box-shadow .15s ease;
+}
+
+.cr-table tbody tr.cr-row-selected td {
+  background: color-mix(in srgb, var(--cr-sel) 7%, white);
+  border-bottom-color: color-mix(in srgb, var(--cr-sel) 16%, white);
+}
+.cr-table tbody tr.cr-row-selected:hover td {
+  background: color-mix(in srgb, var(--cr-sel) 11%, white);
+}
+
+/* leading accent bar, drawn inside the first cell so the table's own borders stay untouched */
+.cr-table tbody tr.cr-row-selected td:first-child {
+  box-shadow: inset calc(3px * var(--ui-scale, 1)) 0 0 var(--cr-sel);
+}
+
+/* check badge before the name (pseudo-element, so no template change) */
+.cr-table tbody tr.cr-row-selectable .cr-name-wrap::before {
+  content: '';
+  flex: none;
+  width: 0;
+  height: calc(16px * var(--ui-scale, 1));
+  margin-right: calc(-6px * var(--ui-scale, 1));   /* cancels the wrap's gap while hidden */
+  border-radius: 50%;
+  background:
+    var(--cr-sel)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 12.5 4 4 8-9'/%3E%3C/svg%3E")
+    center / 72% no-repeat;
+  opacity: 0;
+  transform: scale(.4);
+  transition: width .15s ease, margin .15s ease, opacity .15s ease, transform .18s cubic-bezier(.2, .9, .3, 1.4);
+}
+.cr-table tbody tr.cr-row-selected .cr-name-wrap::before {
+  width: calc(16px * var(--ui-scale, 1));
+  margin-right: 0;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cr-table tbody tr.cr-row-selected .cr-name-link {
+  color: var(--cr-sel);
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
+}
+
+/* keyboard users get the same cue as hover */
+.cr-table tbody tr.cr-row-selectable:focus-visible td {
+  background: color-mix(in srgb, var(--cr-sel) 5%, white);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-table tbody tr.cr-row-selectable td,
+  .cr-table tbody tr.cr-row-selectable .cr-name-wrap::before {
+    transition: none;
+  }
+}
+
+/* phone layout (rows become cards): outline the whole selected card instead of a left bar */
+@media (max-width: 680px) {
+  .cr-table tbody tr.cr-row-selected {
+    border-color: var(--cr-sel);
+    box-shadow: inset calc(3px * var(--ui-scale, 1)) 0 0 var(--cr-sel);
+  }
+  .cr-table tbody tr.cr-row-selected td:first-child {
+    box-shadow: none;
+  }
+}
+
+/* =========================================================
+   Campaign register — tidy pass (2026-10-02)
+   One consistent rhythm for the whole panel: compact panel head, filters in their own light
+   well with every control the same 40px height, the active-filter / saved-view line on one row,
+   a clean table header (one case, one size), status pills with a dot, a proper empty-owner
+   avatar, an icon-button row menu and a quieter pager. Theme colour = var(--primary).
+   ========================================================= */
+:host {
+  --cr-accent: var(--primary, var(--cr-meadow));
+  --cr-accent-soft: color-mix(in srgb, var(--cr-accent) 8%, white);
+  --cr-line: #eceae4;
+  --cr-ctl-h: calc(40px * var(--ui-scale, 1));
+}
+
+/* ---- panel ---- */
+.cr-main {
+  padding: calc(16px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1)) calc(6px * var(--ui-scale, 1));
+}
+.cr-panel-head {
+  margin-bottom: calc(12px * var(--ui-scale, 1));
+}
+.cr-panel-badge {
+  width: calc(34px * var(--ui-scale, 1));
+  height: calc(34px * var(--ui-scale, 1));
+  border-radius: calc(9px * var(--ui-scale, 1));
+  background: var(--cr-accent-soft);
+  color: var(--cr-accent);
+}
+.cr-panel-badge svg {
+  width: calc(19px * var(--ui-scale, 1));
+  height: calc(19px * var(--ui-scale, 1));
+}
+.cr-panel-title {
+  font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
+}
+
+/* ---- filters: their own light well inside the panel ---- */
+.cr-filters-card {
+  background: #fafaf8;
+  border: 1px solid var(--cr-line);
+  border-radius: calc(12px * var(--ui-scale, 1));
+  padding: calc(14px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
+  margin-bottom: calc(14px * var(--ui-scale, 1));
+}
+.cr-filter-grid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr) auto;
+  gap: calc(12px * var(--ui-scale, 1));
+}
+.cr-field {
+  gap: calc(6px * var(--ui-scale, 1));
+  min-width: 0;
+}
+.cr-field-label {
+  font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+  letter-spacing: .04em;
+  color: var(--cr-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cr-tz {
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* every control the same height and radius */
+.cr-input,
+.cr-select {
+  height: var(--cr-ctl-h);
+  padding-top: 0;
+  padding-bottom: 0;
+  border-color: #e3e1da;
+  border-radius: calc(9px * var(--ui-scale, 1));
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+}
+.cr-textarea {
+  height: auto;
+  padding-top: calc(9px * var(--ui-scale, 1));
+  padding-bottom: calc(9px * var(--ui-scale, 1));
+}
+.cr-input:hover,
+.cr-select:hover {
+  border-color: #d3d0c6;
+}
+.cr-input:focus,
+.cr-select:focus {
+  border-color: var(--cr-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cr-accent) 14%, transparent);
+}
+.cr-range {
+  gap: calc(6px * var(--ui-scale, 1));
+}
+.cr-range .cr-input-wrap {
+  flex: 1;
+  min-width: 0;
+}
+.cr-range .cr-input {
+  padding-inline: calc(10px * var(--ui-scale, 1));
+}
+/* the More Filters button sits on the same baseline as the inputs, same height */
+.cr-field-more > .cr-field-label {
+  display: none;
+}
+.cr-field-more {
+  align-self: end;
+}
+.cr-more-btn {
+  height: var(--cr-ctl-h);
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  white-space: nowrap;
+  border-radius: calc(9px * var(--ui-scale, 1));
+}
+
+/* active filters (left) + saved view (right) on ONE line */
+.cr-active-row {
+  flex-wrap: nowrap;
+  gap: calc(16px * var(--ui-scale, 1));
+  margin-top: calc(12px * var(--ui-scale, 1));
+  padding-top: calc(10px * var(--ui-scale, 1));
+  border-top: 1px dashed var(--cr-line);
+}
+.cr-active-left {
+  flex: 1 1 auto;
+}
+.cr-active-right {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+.cr-active-label,
+.cr-saved-label {
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+  color: var(--cr-muted);
+  white-space: nowrap;
+}
+.cr-saved-select {
+  flex: 0 0 calc(200px * var(--ui-scale, 1));
+}
+.cr-saved-select .cr-select {
+  height: calc(34px * var(--ui-scale, 1));
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+}
+.cr-chip {
+  background: var(--cr-accent-soft);
+  color: var(--cr-accent);
+  border-radius: calc(20px * var(--ui-scale, 1));
+  padding: calc(3px * var(--ui-scale, 1)) calc(6px * var(--ui-scale, 1)) calc(3px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
+}
+.cr-chip-x {
+  color: var(--cr-accent);
+}
+.cr-link {
+  color: var(--cr-accent);
+}
+.cr-link:hover {
+  background: var(--cr-accent-soft);
+}
+
+/* ---- table ---- */
+.cr-table-scroll {
+  border: 1px solid var(--cr-line);
+  border-radius: calc(10px * var(--ui-scale, 1));
+}
+/* one header style for every column, including Actions (the theme was upper-casing that one) */
+.cr-table thead th,
+.cr-table thead th.cr-col-actions {
+  background: #f8f8f6;
+  color: #6b7670;
+  padding: calc(11px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .02em;
+  text-transform: none !important;
+  border-bottom: 1px solid var(--cr-line);
+}
+.cr-th-btn {
+  gap: calc(6px * var(--ui-scale, 1));
+}
+.cr-sort-ic {
+  font-size: calc(calc(10px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  color: #a4aca6;
+}
+th[aria-sort='ascending'] .cr-sort-ic,
+th[aria-sort='descending'] .cr-sort-ic {
+  color: var(--cr-accent);
+}
+th[aria-sort='ascending'] .cr-th-btn,
+th[aria-sort='descending'] .cr-th-btn {
+  color: var(--cr-ink);
+}
+.cr-table tbody td {
+  padding: calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+  border-bottom-color: #f0eee9;
+  vertical-align: middle;
+}
+.cr-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.cr-table tbody tr:hover td {
+  background: #fafaf8;
+}
+
+/* campaign cell: name, code, one-line purpose */
+.cr-cell-name {
+  vertical-align: middle;
+  max-width: calc(420px * var(--ui-scale, 1));
+}
+.cr-name-link {
+  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  color: var(--cr-ink);
+}
+.cr-name-link:hover {
+  color: var(--cr-accent);
+}
+.cr-code {
+  margin-top: 1px;
+  font-family: var(--font-number, inherit);
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  letter-spacing: .02em;
+}
+.cr-purpose {
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  color: var(--cr-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* status: one pill shape with a dot; colour picked from the status word itself */
+.cr-badge {
+  --b: #6f7a73;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  padding: calc(3px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
+  border-radius: calc(20px * var(--ui-scale, 1));
+  background: color-mix(in srgb, var(--b) 11%, white);
+  color: color-mix(in srgb, var(--b) 88%, #000);
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+  white-space: nowrap;
+}
+.cr-badge::before {
+  content: '';
+  width: calc(6px * var(--ui-scale, 1));
+  height: calc(6px * var(--ui-scale, 1));
+  border-radius: 50%;
+  background: var(--b);
+  flex: none;
+}
+.cr-badge[data-status='draft']     { --b: #7d8580; }
+.cr-badge[data-status='submitted'] { --b: #4f6f9f; }
+.cr-badge[data-status='approved']  { --b: #2f7d4f; }
+.cr-badge[data-status='scheduled'] { --b: #73609c; }
+.cr-badge[data-status='active']    { --b: #2f7d4f; }
+.cr-badge[data-status='paused']    { --b: #b5822f; }
+.cr-badge[data-status='closing']   { --b: #437a87; }
+.cr-badge[data-status='closed']    { --b: #6b7280; }
+.cr-badge[data-status='cancelled'] { --b: #b5483d; }
+
+/* progress */
+.cr-progress {
+  gap: calc(10px * var(--ui-scale, 1));
+  min-width: calc(150px * var(--ui-scale, 1));
+}
+.cr-progress-val {
+  min-width: calc(36px * var(--ui-scale, 1));
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  color: var(--cr-ink-2);
+}
+.cr-progress-track {
+  height: calc(6px * var(--ui-scale, 1));
+  background: #efede7;
+}
+.cr-progress-fill {
+  background: var(--cr-accent);
+}
+.cr-progress-fill.cr-progress-hold {
+  background: var(--cr-warn);   /* paused campaigns keep their amber bar */
+}
+
+/* owner: unassigned shows a dashed empty avatar with a person glyph, never a blank white disc */
+.cr-avatar {
+  background: #8a948e;
+}
+.cr-avatar.cr-avatar-empty {
+  background: #f4f4f1;
+  color: #a4aca6;
+  outline: 1.5px dashed #cfd3cc;
+  outline-offset: -1.5px;
+}
+.cr-avatar.cr-avatar-empty svg {
+  width: 60%;
+  height: 60%;
+}
+.cr-owner-name {
+  color: var(--cr-ink-2);
+}
+
+/* dates */
+.cr-date-main {
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  color: var(--cr-ink);
+}
+.cr-date-sub {
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+}
+
+/* row menu trigger: a square icon button */
+.cr-row-action {
+  width: calc(32px * var(--ui-scale, 1));
+  height: calc(32px * var(--ui-scale, 1));
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+  border: 1px solid transparent;
+  font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.cr-row-action:hover,
+.cr-row-action[aria-expanded='true'] {
+  background: #fff;
+  border-color: var(--cr-line);
+  color: var(--cr-accent);
+}
+.cr-menu {
+  border-color: var(--cr-line);
+  border-radius: calc(10px * var(--ui-scale, 1));
+  padding: calc(4px * var(--ui-scale, 1));
+}
+.cr-menu-item {
+  padding: calc(8px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
+  border-radius: calc(7px * var(--ui-scale, 1));
+}
+.cr-menu-item:hover {
+  background: var(--cr-accent-soft);
+}
+
+/* footer + pager */
+.cr-table-footer {
+  padding: calc(10px * var(--ui-scale, 1)) calc(2px * var(--ui-scale, 1));
+}
+.cr-showing {
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+}
+.cr-page-btn {
+  min-width: calc(30px * var(--ui-scale, 1));
+  height: calc(30px * var(--ui-scale, 1));
+  border-color: var(--cr-line);
+  border-radius: calc(8px * var(--ui-scale, 1));
+  color: var(--cr-ink-2);
+}
+.cr-page-btn:hover:not(:disabled) {
+  background: var(--cr-accent-soft);
+  border-color: color-mix(in srgb, var(--cr-accent) 35%, white);
+  color: var(--cr-accent);
+}
+.cr-page-btn.is-current {
+  background: var(--cr-accent);
+  border-color: var(--cr-accent);
+  color: #fff;
+}
+
+/* selected row keeps its accent from the block above, now in the same --cr-accent */
+.cr-table tbody tr.cr-row-selectable {
+  --cr-sel: var(--cr-accent);
+}
+
+/* ---- responsive ---- */
+@media (max-width: 1080px) {
+  .cr-filter-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .cr-active-row {
+    flex-wrap: wrap;
+  }
+  .cr-active-right {
+    margin-left: 0;
+  }
+}
+@media (max-width: 680px) {
+  .cr-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cr-active-right {
+    flex-wrap: wrap;
+  }
+  .cr-cell-name {
+    max-width: none;
+  }
+}
+
+/* =========================================================
+   Filters — "search bar" redesign (2026-10-02)
+   All filters live in ONE rounded bar, split into segments by thin dividers (Search | Status |
+   Owner | Campaign date), each with its small label sitting inside above the value. Controls are
+   borderless inside the bar; the segment you are in lights up with a soft theme tint. More Filters
+   is a compact button at the bar's right end. The active-filter / saved-view line sits under the bar.
+   ========================================================= */
+.cr-filters-card {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin-bottom: calc(14px * var(--ui-scale, 1));
+}
+
+.cr-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: 0;
+  align-items: stretch;
+  background: #fff;
+  border: 1px solid #e3e1da;
+  border-radius: calc(14px * var(--ui-scale, 1));
+  overflow: hidden;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.cr-filter-grid:focus-within {
+  border-color: color-mix(in srgb, var(--cr-accent) 45%, #e3e1da);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cr-accent) 10%, transparent);
+}
+
+/* one segment */
+.cr-filter-grid > .cr-field {
+  position: relative;
+  gap: calc(2px * var(--ui-scale, 1));
+  padding: calc(9px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1));
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+.cr-filter-grid > .cr-field + .cr-field::before {     /* divider between segments */
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 1px;
+  background: #ebe9e3;
+}
+.cr-filter-grid > .cr-field:hover {
+  background: #fafaf8;
+}
+.cr-filter-grid > .cr-field:focus-within {
+  background: var(--cr-accent-soft);
+}
+.cr-filter-grid > .cr-field:focus-within::before,
+.cr-filter-grid > .cr-field:focus-within + .cr-field::before,
+.cr-filter-grid > .cr-field:hover::before,
+.cr-filter-grid > .cr-field:hover + .cr-field::before {
+  opacity: 0;                                          /* the lit segment has no divider cutting into it */
+}
+
+.cr-filter-grid .cr-field-label {
+  font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
+  letter-spacing: .06em;
+  color: var(--cr-ink-2);
+}
+.cr-filter-grid > .cr-field:focus-within .cr-field-label {
+  color: var(--cr-accent);
+}
+
+/* controls: borderless inside the bar */
+.cr-filter-grid .cr-input,
+.cr-filter-grid .cr-select {
+  height: calc(24px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  color: var(--cr-ink);
+}
+.cr-filter-grid .cr-input:focus,
+.cr-filter-grid .cr-select:focus {
+  box-shadow: none;
+}
+.cr-filter-grid .cr-input::placeholder {
+  color: #9aa39d;
+}
+.cr-filter-grid .cr-select {
+  padding-right: calc(22px * var(--ui-scale, 1));
+}
+.cr-filter-grid .cr-chev {
+  right: 0;
+  width: calc(15px * var(--ui-scale, 1));
+  height: calc(15px * var(--ui-scale, 1));
+}
+.cr-filter-grid .cr-field:focus-within .cr-chev {
+  color: var(--cr-accent);
+}
+
+/* search: icon sits at the start of the value line */
+.cr-filter-grid .cr-field-search .cr-input {
+  padding-left: calc(24px * var(--ui-scale, 1));
+}
+.cr-filter-grid .cr-input-ic {
+  left: 0;
+  width: calc(16px * var(--ui-scale, 1));
+  height: calc(16px * var(--ui-scale, 1));
+}
+.cr-filter-grid .cr-field-search:focus-within .cr-input-ic {
+  color: var(--cr-accent);
+}
+
+/* date range: two borderless dates with a small arrow between */
+.cr-filter-grid .cr-range {
+  gap: calc(8px * var(--ui-scale, 1));
+}
+.cr-filter-grid .cr-range .cr-input {
+  padding: 0;
+}
+.cr-filter-grid .cr-range-sep {
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  color: #a4aca6;
+}
+.cr-filter-grid .cr-tz {
+  margin-left: calc(4px * var(--ui-scale, 1));
+  font-size: calc(calc(10px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
+}
+
+/* More Filters: a compact button at the bar's end, vertically centred */
+.cr-filter-grid > .cr-field-more {
+  justify-content: center;
+  padding: 0 calc(10px * var(--ui-scale, 1));
+  cursor: default;
+  background: transparent !important;
+}
+.cr-filter-grid > .cr-field-more::before {
+  display: none;
+}
+.cr-filter-grid .cr-more-btn {
+  height: calc(36px * var(--ui-scale, 1));
+  padding: 0 calc(14px * var(--ui-scale, 1));
+  border-radius: calc(10px * var(--ui-scale, 1));
+  border: 1px solid color-mix(in srgb, var(--cr-accent) 30%, #e3e1da) !important;
+  background: var(--cr-accent-soft) !important;
+  color: var(--cr-accent) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+}
+.cr-filter-grid .cr-more-btn:hover,
+.cr-filter-grid .cr-more-btn[aria-expanded='true'] {
+  background: var(--cr-accent) !important;
+  border-color: var(--cr-accent) !important;
+  color: #fff !important;
+}
+.cr-filter-grid .cr-more-btn .cr-count {
+  background: #fff;
+  color: var(--cr-accent);
+}
+
+/* the line under the bar: active chips left, saved view right */
+.cr-active-row {
+  margin-top: calc(10px * var(--ui-scale, 1));
+  padding: 0 calc(4px * var(--ui-scale, 1));
+  border-top: 0;
+}
+.cr-saved-select .cr-select {
+  height: calc(32px * var(--ui-scale, 1));
+  border-radius: calc(8px * var(--ui-scale, 1));
+  background: #fff;
+}
+
+/* the "More filters" (data scope) panel opened from the button */
+.cr-filters-card > div[appclickoutside],
+.cr-filters-card > div:not(.cr-filter-grid):not(.cr-active-row) {
+  margin-top: calc(10px * var(--ui-scale, 1));
+  padding: calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+  border: 1px solid var(--cr-line);
+  border-radius: calc(12px * var(--ui-scale, 1));
+  background: #fafaf8;
+}
+
+/* narrower screens: the bar breaks into a 2-column card, then a single column */
+@media (max-width: 1080px) {
+  .cr-filter-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .cr-filter-grid > .cr-field::before {
+    display: none;
+  }
+  .cr-filter-grid > .cr-field {
+    border-bottom: 1px solid #f0eee9;
+  }
+  .cr-filter-grid > .cr-field:nth-child(odd):not(.cr-field-more) {
+    border-right: 1px solid #f0eee9;
+  }
+  .cr-filter-grid > .cr-field-more {
+    grid-column: 1 / -1;
+    padding: calc(8px * var(--ui-scale, 1));
+    border-bottom: 0;
+  }
+  .cr-filter-grid .cr-more-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+@media (max-width: 680px) {
+  .cr-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cr-filter-grid > .cr-field:nth-child(odd):not(.cr-field-more) {
+    border-right: 0;
+  }
+}

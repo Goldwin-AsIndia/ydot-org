@@ -463,18 +463,38 @@
 
 /* Status mix: proportion rule (flex-grow = count) over a one-line key */
 .rx-head__mix { display: flex; flex-direction: column; gap: calc(7 * var(--u)); min-width: 0; }
+/* Striped bar: each status keeps its own colour, with light diagonal stripes over it that drift
+   slowly. The stripes stop moving for people who ask for reduced motion. */
 .rx-head__bar {
   display: flex;
   gap: 2px;
   height: calc(6 * var(--u));
   border-radius: calc(999 * var(--u));
-  background: var(--rx-line);
+  background: color-mix(in srgb, var(--rx-line) 70%, #f4f4f4);
   overflow: hidden;
 }
-.rx-head__bar > i { display: block; flex: 1 1 0; min-width: calc(4 * var(--u)); }
-.rx-head__bar > .is-active { background: var(--rx-green); }
-.rx-head__bar > .is-draft { background: var(--rx-amber); }
-.rx-head__bar > .is-retired { background: var(--rx-faint); }
+.rx-head__bar > i {
+  display: block;
+  flex: 1 1 0;
+  min-width: calc(4 * var(--u));
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, #ffffff 24%, transparent) 0 calc(5 * var(--u)),
+    transparent calc(5 * var(--u)) calc(10 * var(--u))
+  );
+  background-size: calc(14.14 * var(--u)) 100%;
+  animation: rx-stripes 3s linear infinite;
+  transition: flex-grow .6s cubic-bezier(.2, .8, .2, 1);
+}
+@keyframes rx-stripes {
+  to { background-position: calc(14.14 * var(--u)) 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rx-head__bar > i { animation: none; }
+}
+.rx-head__bar > .is-active { background-color: var(--rx-green); }
+.rx-head__bar > .is-draft { background-color: var(--rx-amber); }
+.rx-head__bar > .is-retired { background-color: var(--rx-faint); }
 .rx-head__key { display: flex; flex-wrap: wrap; gap: calc(4 * var(--u)) calc(12 * var(--u)); margin: 0; padding: 0; list-style: none; }
 .rx-head__key li {
   display: inline-flex;
@@ -613,7 +633,7 @@
   align-items: center;
   gap: calc(8 * var(--u));
   width: calc(300 * var(--u));
-  height: calc(34 * var(--u));
+    height: calc(29 * var(--u));
   padding: 3px calc(12 * var(--u));
   border: 1px solid var(--rx-line-2);
   border-radius: calc(8 * var(--u));
@@ -730,7 +750,7 @@
   height: calc(32 * var(--u));
   padding: 0 calc(14 * var(--u));
   border: 1px solid var(--rx-line-2);
-  border-radius: calc(999px * var(--ui-scale, 1));
+  border-radius: 8px;
   background: #fff;
   color: var(--rx-ink-2);
   font-size: calc(calc(13 * var(--u)) * var(--ui-text-scale, 1)) !important;
@@ -922,7 +942,7 @@
   white-space: nowrap;
 }
 
-.rx-status--active {
+/* .rx-status--active {
   color: var(--rx-green) !important;
 }
 
@@ -936,7 +956,7 @@
 
 .rx-status--default {
   color: var(--rx-blue) !important;
-}
+} */
 
 /* ======================= 3 · Open row ======================= */
 .rx-open>td {
@@ -1186,13 +1206,58 @@
   color: var(--rx-ink) !important;
 }
 
+/* The tick / cross is a button: clicking it flips the permission (allowed <-> blocked) until the
+   change is saved or discarded. A changed row gets a soft highlight and a "Changed" mark. */
 .rx-plist__mark {
-  font-size: calc(calc(17 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(26 * var(--u));
+  height: calc(26 * var(--u));
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: calc(7 * var(--u));
+  background: transparent;
   color: var(--rx-p);
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.rx-plist__mark i {
+  font-size: calc(calc(17 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.rx-plist__mark:hover:not(:disabled) {
+  border-color: var(--rx-line-2);
+  background: #ffffff;
+}
+
+.rx-plist__mark:focus-visible {
+  outline: none;
+  border-color: var(--rx-p);
+  box-shadow: 0 0 0 calc(3 * var(--u)) color-mix(in srgb, var(--rx-p) 14%, transparent);
+}
+
+.rx-plist__mark:disabled {
+  cursor: default;
 }
 
 .rx-plist li.is-denied .rx-plist__mark {
   color: var(--rx-red);
+}
+
+.rx-plist li.is-changed {
+  margin: 0 calc(-8 * var(--u));
+  padding-left: calc(8 * var(--u));
+  padding-right: calc(8 * var(--u));
+  border-radius: calc(8 * var(--u));
+  background: color-mix(in srgb, var(--rx-amber) 8%, #ffffff);
+}
+
+.rx-note--edit {
+  border-color: color-mix(in srgb, var(--rx-p) 35%, white);
+  color: var(--rx-p) !important;
 }
 
 .rx-plist__name {

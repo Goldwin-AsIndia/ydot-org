@@ -3,7 +3,7 @@
        <div class="container-fluid px-4 py-3">
     <div class="cr-page" [attr.data-ui-state]="uiState()">
       <!-- ============ TASK HEADER ============ -->
-      <app-page-header [showInfo]="false" screen="campaign-register" title="Campaign Overview"
+      <app-page-header [showInfo]="false" screen="campaign-register" title="Campaign Overview" style="padding-top: 0;"
                        subtitle="Track campaign performance, donations, donor activity, and impact at a glance.">
         <ng-container actions>
             <button #crFiltersToggle type="button" class="btn btn-outline-secondary btn-sm"
@@ -413,7 +413,7 @@
 
                 <!-- Status (catalogue value) -->
                 <td data-label="Status">
-                  <span class="cr-badge" [class]="statusClass(r.status)">{{ r.status }}</span>
+                  <span class="cr-badge" [class]="statusClass(r.status)" [attr.data-status]="(r.status || '').toLowerCase()">{{ r.status }}</span>
                 </td>
 
                 <!-- Progress percentage (read-only, server-derived) -->
@@ -441,7 +441,11 @@
                         <img class="cr-avatar cr-avatar-img" [src]="o.avatarUrl" [alt]="o.name"
                           (error)="onAvatarError(o.reference)" />
                         } @else {
-                        <span class="cr-avatar" [attr.data-tone]="o.tone">{{ o.initials }}</span>
+                        <span class="cr-avatar" [attr.data-tone]="o.tone" [class.cr-avatar-empty]="!o.initials">
+                          @if (o.initials) { {{ o.initials }} } @else {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 19.5c1.2-3.3 3.7-5 6.5-5s5.3 1.7 6.5 5"/></svg>
+                          }
+                        </span>
                         }
                       </button>
                       }
@@ -519,7 +523,7 @@
 
         <!-- Footer: scope total + pagination -->
         <div class="cr-table-footer">
-          <span class="cr-showing">Showing {{ pageStart() }}-{{ pageEnd() }} of {{ recordCount() }} records</span>
+          <span class="cr-showing">Showing {{ pageStart() }}-{{ pageEnd() }} of {{ recordCount() }}</span>
           <nav class="cr-pagination" aria-label="Pagination">
             <button type="button" class="cr-page-btn" aria-label="Previous page" [disabled]="currentPage() === 1"
               (click)="goToPage(currentPage() - 1)">
@@ -572,7 +576,7 @@
                   <td>Status</td>
                   @for (r of compareRecords(); track r.code) {
                   <td>
-                    <span class="cr-badge" [class]="statusClass(r.status)">{{ r.status }}</span>
+                    <span class="cr-badge" [class]="statusClass(r.status)" [attr.data-status]="(r.status || '').toLowerCase()">{{ r.status }}</span>
                   </td>
                   }
                 </tr>

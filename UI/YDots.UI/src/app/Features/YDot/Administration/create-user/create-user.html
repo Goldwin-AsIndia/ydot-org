@@ -1,12 +1,23 @@
 <!--
-  IAM-USR-01 — Invite or create a user. "Enrolment sheet": one full-width sheet with a deep-ink stepper
-  band across the top, the step's fields in labelled groups (group name on the left, fields on the right)
-  and an action bar docked to the sheet's foot. Every dropdown is filled from the server (roles and units
-  are identifiers, not words) through the custom #cuDd dropdown at the end.
+  IAM-USR-01 — Invite or create a user. "Enrolment sheet": a page heading (title + Back) above one
+  full-width sheet with a stepper band across the top, the step's fields in labelled groups (group name
+  on the left, fields on the right) and an action bar docked to the sheet's foot. Every dropdown is
+  filled from the server (roles and units are identifiers, not words) through the custom #cuDd dropdown
+  at the end.
 -->
 <main class="app-wrapper">
 <div class="page-wrapper">
   <div class="container-fluid px-4 py-3">
+
+  <!-- ============ PAGE HEADING ============ -->
+  <header class="cu-page-head">
+    <h1 class="cu-page-title">Invite User</h1>
+    <!-- <span class="cu-page-divider" aria-hidden="true"></span> -->
+    <!-- <p class="cu-page-sub">Create an account and send an invitation to set a password</p> -->
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()" title="Back to the user directory">
+      <i class="ri-arrow-left-line" aria-hidden="true"></i> Back
+    </button>
+  </header>
 
   @if (loading()) {
     <div class="cu-state" role="status">
@@ -40,8 +51,8 @@
           <div><dt>Data scope</dt><dd>{{ dataScopeName() || '—' }}</dd></div>
         </dl>
         <div class="cu-done-actions">
-          <button type="button" class="cu-btn cu-btn--onink" (click)="createAnother()"><i class="ri-user-add-line" aria-hidden="true"></i> Create another user</button>
-          <button type="button" class="cu-btn cu-btn--gold" (click)="goBack()">Go to the directory <i class="ri-arrow-right-line" aria-hidden="true"></i></button>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="createAnother()"><i class="ri-user-add-line" aria-hidden="true"></i> Create another user</button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="goBack()">Go to the directory <i class="ri-arrow-right-line" aria-hidden="true"></i></button>
         </div>
       </div>
 
@@ -114,7 +125,7 @@
         <div class="cu-band-track" aria-hidden="true"><span [style.width.%]="progressPct()"></span></div>
       </nav>
 
-      <!-- Step heading -->
+      <!-- Step heading (Back now lives in the page heading above the sheet) -->
       <header class="cu-head">
         <div class="cu-head-text">
           <span class="cu-head-kicker">Step {{ activeStep() + 1 }} of {{ steps.length }} · {{ steps[activeStep()] }}</span>
@@ -127,9 +138,6 @@
             }
           </h2>
         </div>
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()" title="Back to the user directory">
-          <i class="ri-arrow-left-line" aria-hidden="true"></i> Back
-        </button>
       </header>
 
       @if (errorMessage()) {
@@ -154,7 +162,7 @@
         @if (activeStep() === 0) {
           <div class="cu-group">
             <div class="cu-group-aside">
-              <i class="ri-briefcase-line cu-group-glyph" aria-hidden="true"></i>
+              <!-- <i class="ri-briefcase-line cu-group-glyph" aria-hidden="true"></i> -->
               <div><h3 class="cu-group-title">Account &amp; name</h3><p class="cu-group-desc">How the person appears across the directory.</p></div>
             </div>
             <div class="cu-grid">
@@ -237,7 +245,7 @@
 
           <div class="cu-group">
             <div class="cu-group-aside">
-              <i class="ri-login-circle-line cu-group-glyph" aria-hidden="true"></i>
+              <!-- <i class="ri-login-circle-line cu-group-glyph" aria-hidden="true"></i> -->
               <div><h3 class="cu-group-title">Sign-in</h3><p class="cu-group-desc">The invitation is sent to this address; the username must be unique.</p></div>
             </div>
             <div class="cu-grid">
@@ -293,7 +301,7 @@
 
           <div class="cu-group">
             <div class="cu-group-aside">
-              <i class="ri-contacts-book-line cu-group-glyph" aria-hidden="true"></i>
+              <!-- <i class="ri-contacts-book-line cu-group-glyph" aria-hidden="true"></i> -->
               <div><h3 class="cu-group-title">Contact &amp; reference</h3><p class="cu-group-desc">Which of these are required depends on the account type.</p></div>
             </div>
             <div class="cu-grid">
@@ -623,17 +631,17 @@
 
       <!-- Docked action bar -->
       <footer class="cu-footer">
-       
+
         <div class="cu-footer-pips" aria-hidden="true">
           @for (s of steps; track s; let i = $index) {
             <span class="cu-pip" [class.on]="i <= activeStep()"></span>
           }
         </div>
-         @if (activeStep() !== 0) {
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="previousStep()">
+        @if (activeStep() !== 0) {
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="previousStep()">
             <i class="ri-arrow-left-line" aria-hidden="true"></i> Previous
           </button>
-        } 
+        }
         @if (activeStep() < steps.length - 1) {
           <button type="button" class="btn btn-primary btn-sm" (click)="nextStep()">
             Continue to {{ steps[activeStep() + 1] }} <i class="ri-arrow-right-line" aria-hidden="true"></i>
@@ -641,10 +649,10 @@
         } @else {
           <div class="cu-footer-final">
             <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="submitting()" (click)="createWithoutInvite()">
-            <i class="ri-save-3-line" aria-hidden="true"></i>  Create without sending
+              <i class="ri-save-3-line" aria-hidden="true"></i> Create without sending
             </button>
             <button type="button" class="btn btn-primary btn-sm" [disabled]="!canSubmit()" (click)="createAndInvite()">
-           <i class="ri-mail-send-line" aria-hidden="true"></i>    {{ submitting() ? 'Creating…' : 'Create and send invitation' }}
+              <i class="ri-mail-send-line" aria-hidden="true"></i> {{ submitting() ? 'Creating…' : 'Create and send invitation' }}
             </button>
           </div>
         }

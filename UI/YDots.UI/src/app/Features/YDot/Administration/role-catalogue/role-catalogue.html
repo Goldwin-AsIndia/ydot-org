@@ -52,9 +52,9 @@
         </dl>
       }
 
-      <button class="rx-btn rx-btn--primary rx-head__create" type="button" (click)="createDraftRole()">
+      <button class="btn btn-primary btn-sm " type="button" (click)="createDraftRole()" style="padding-left: 9px;margin-left: 0;padding-right: 9px;">
         <i class="ri-add-line" aria-hidden="true"></i>
-        <span>Create role</span>
+        <span>Create</span>
       </button>
     </section>
 
@@ -244,21 +244,21 @@
                           </div>
                           <div class="rx-detail__actions">
                             @if (d.canActivate) {
-                              <button class="rx-btn rx-btn--primary" type="button" [disabled]="submitting()" (click)="submitRole(d)">
+                              <button class="btn btn-primary btn-sm" type="button" [disabled]="submitting()" (click)="submitRole(d)">
                                 <i class="ri-check-double-line" aria-hidden="true"></i> Put into use
                               </button>
                             }
                             @if (d.canRetire) {
-                              <button class="rx-btn rx-btn--line" type="button" [disabled]="submitting()" (click)="retireRole(d)">
+                              <button class="btn btn-secondary btn-sm" type="button" [disabled]="submitting()" (click)="retireRole(d)">
                                 <i class="ri-archive-line" aria-hidden="true"></i> Retire
                               </button>
                             }
                             @if (selectedItem(); as item) {
-                              <button type="button" class="btn btn-outline-primary btn-sm" (click)="openCompareModal(item)">
+                              <button type="button" class="btn btn-primary btn-sm" (click)="openCompareModal(item)">
                                 <i class="ri-arrow-left-right-line" aria-hidden="true"></i> Compare
                               </button>
                               @if (item.canDelete) {
-                                <button type="button" class="rx-btn rx-btn--line rx-btn--danger-line" (click)="openDeleteRoleModal(item)">
+                                <button type="button" class="btn btn-danger btn-sm" (click)="openDeleteRoleModal(item)">
                                   <i class="ri-delete-bin-6-line" aria-hidden="true"></i> Delete
                                 </button>
                               }
@@ -744,12 +744,11 @@
     </div>
 
     <footer class="rx-oc__foot">
-      <span class="rx-oc__note"><i class="ri-information-line" aria-hidden="true"></i>Saved as a draft. Nothing is live until it is put into use.</span>
+      <!-- <span class="rx-oc__note"><i class="ri-information-line" aria-hidden="true"></i>Saved as a draft. Nothing is live until it is put into use.</span> -->
       <div class="rx-oc__btns">
-        <button class="rx-btn rx-btn--ghost" type="button" (click)="closeCreateModal()">Cancel</button>
-        <button class="rx-btn rx-btn--primary" type="button" (click)="confirmCreateRole()" [disabled]="submitting()">
-          @if (submitting()) { <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> }
-          @else { <i class="ri-save-3-line" aria-hidden="true"></i> }
+        <button class="btn btn-outline-secondary " type="button" (click)="closeCreateModal()">Cancel</button>
+        <button class="btn btn-primary" type="button" (click)="confirmCreateRole()" [disabled]="submitting()">
+   
           Create draft
         </button>
       </div>
@@ -765,7 +764,7 @@
 @if (showCompareModal() && actionRole(); as role) {
   <div class="rx-modal-wrap" (click)="closeCompareModal()">
     <div class="rx-modal rx-modal--wide" role="dialog" aria-modal="true" aria-labelledby="compareModalTitle" (click)="$event.stopPropagation(); closeDd()">
-      <button type="button" class="rx-x rx-modal__x" aria-label="Close" (click)="closeCompareModal()"><i class="ri-close-line" aria-hidden="true"></i></button>
+      <!-- <button type="button" class="rx-x rx-modal__x" aria-label="Close" (click)="closeCompareModal()"><i class="ri-close-line" aria-hidden="true"></i></button> -->
 
       <div class="rx-modal__top">
         <span class="rx-ring"><i class="ri-arrow-left-right-line" aria-hidden="true"></i></span>
@@ -853,8 +852,8 @@
       </div>
 
       <div class="rx-modal__foot">
-        <button class="rx-btn rx-btn--ghost" type="button" (click)="closeCompareModal()">Close</button>
-        <button class="rx-btn rx-btn--primary" type="button" (click)="runCompare()" [disabled]="!compareRoleId() || comparing()">
+        <button class="btn btn-outline-secondary " type="button" (click)="closeCompareModal()">Close</button>
+        <button class="btn btn-primary" type="button" (click)="runCompare()" [disabled]="!compareRoleId() || comparing()">
           @if (comparing()) { <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> }
           Compare
         </button>

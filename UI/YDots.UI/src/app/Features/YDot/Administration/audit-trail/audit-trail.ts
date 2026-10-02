@@ -468,6 +468,43 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
     return bucketTotals[bestIndex] > 0 ? this.timeRanges[bestIndex] : null;
   });
 
+  // ---- Outcome donut colours --------------------------------------------------------------------
+
+  /**
+   * The donut's two outcomes - the same data the chart has always shown - each with the shade it
+   * is drawn in: Succeeded in the theme's primary colour, Failed in a pale tint of it.
+   */
+  readonly outcomeBreakdown = computed(() => {
+    const [okColor, failColor] = this.primaryShades(2);
+    return [
+      { label: 'Succeeded', count: this.succeededCount(), pct: this.succeededPct(), color: okColor },
+      { label: 'Failed', count: this.failedCount(), pct: this.failedPct(), color: failColor },
+    ];
+  });
+
+  /** The theme's --primary as a hex colour (ApexCharts cannot read CSS variables). */
+  private primaryHex(): string {
+    const css = getComputedStyle(document.documentElement);
+    const raw = (css.getPropertyValue('--primary') || css.getPropertyValue('--theme-primary')).trim();
+    if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+    if (/^#[0-9a-f]{3}$/i.test(raw)) return '#' + raw.slice(1).split('').map((c) => c + c).join('');
+    const rgb = raw.match(/\d+/g);
+    if (raw.startsWith('rgb') && rgb && rgb.length >= 3) {
+      return '#' + rgb.slice(0, 3).map((n) => Number(n).toString(16).padStart(2, '0')).join('');
+    }
+    return '#07565b';
+  }
+
+  /** `count` shades of the primary colour, from full strength to a pale tint. */
+  private primaryShades(count: number): string[] {
+    const hex = this.primaryHex();
+    const base = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    return Array.from({ length: Math.max(1, count) }, (_, i) => {
+      const white = count <= 1 ? 0 : (i / (count - 1)) * 0.7; // 0 = primary, 0.7 = palest
+      return '#' + base.map((c) => Math.round(c + (255 - c) * white).toString(16).padStart(2, '0')).join('');
+    });
+  }
+
   // ---- Outcome donut (ApexCharts, loaded globally via a <script> tag like the dashboard) -------
 
   private chart: any = null;
@@ -480,9 +517,7 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
     // created. `afterRenderEffect` is specifically the reactive primitive that is guaranteed to
     // run after rendering, so the container is always there by the time this runs.
     afterRenderEffect(() => {
-      const succeeded = this.succeededCount();
-      const failed = this.failedCount();
-      this.updateChart(succeeded, failed);
+      this.updateChart(this.outcomeBreakdown());
     });
   }
 
@@ -968,30 +1003,27 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * The row icon's colour: each action category gets its own colour when it succeeded (a
-   * fingerprint is green, a gear is blue, a lock is amber, and so on — the icon says what kind
-   * of thing happened), but the moment something didn't go cleanly, the outcome takes over and
-   * every icon turns red (failed) or amber (denied) regardless of category — the icon then says
-   * something went wrong before it says what kind of thing it was.
+   * The timeline icon's colour.
+   *
+   * ONE COLOUR PER ICON. Every icon `actionIcon` can return has its own colour, so the same icon
+   * is always the same colour and two different icons never share one. The outcome still wins
+   * when something did not go cleanly: a failure is red and a denial amber, whatever the icon.
    */
-  iconTint(actionCode: string | null | undefined, result: string | undefined): string {
-    if (result === 'failed') return 'danger';
-    if (result === 'denied') return 'warning';
-    return this.actionTint(actionCode);
-  }
+  private static readonly ICON_COLORS: Record<string, string> = {
+    'ri-lock-2-line': '#a8693f',      // password   - muted orange
+    'ri-settings-3-line': '#5d6296',  // token      - muted indigo
+    'ri-fingerprint-line': '#4b7a5c', // sign-in    - muted green
+    'ri-shield-user-line': '#73609c', // role       - muted violet
+    'ri-download-2-line': '#437a87',  // export     - muted cyan
+    'ri-delete-bin-line': '#9a5068',  // delete     - muted rose
+    'ri-user-add-line': '#4f6f9f',    // user       - muted blue
+    'ri-history-line': '#457a72',     // anything else - muted teal
+  };
 
-  /** The per-category colour `iconTint` falls back to once an event has succeeded. */
-  private actionTint(actionCode: string | null | undefined): string {
-    const code = (actionCode || '').toLowerCase();
-
-    if (code.includes('password')) return 'warning';
-    if (code.includes('token')) return 'info';
-    if (code.includes('reauthenticat') || code.includes('login') || code.includes('auth')) return 'success';
-    if (code.includes('role')) return 'primary';
-    if (code.includes('export')) return 'primary';
-    if (code.includes('delete') || code.includes('remove')) return 'danger';
-    if (code.includes('user')) return 'info';
-    return 'secondary';
+  iconColor(actionCode: string | null | undefined, result: string | undefined): string {
+    if (result === 'failed') return '#a3524a';
+    if (result === 'denied') return '#a07a3c';
+    return AuditTrailComponent.ICON_COLORS[this.actionIcon(actionCode)] ?? '#457a72';
   }
 
   /**
@@ -1123,9 +1155,13 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
   /** Creates the donut the first time its container is found in the DOM, then just updates its
    *  series after that. See the note on the `afterRenderEffect` call in the constructor for why
    *  this can't be a plain `effect()`. */
-  private updateChart(succeeded: number, failed: number): void {
+  private updateChart(types: { label: string; count: number; color: string }[]): void {
+    const series = types.map((t) => t.count);
+    const labels = types.map((t) => t.label);
+    const colors = types.map((t) => t.color);
+
     if (this.chart) {
-      this.chart.updateSeries([succeeded, failed]);
+      this.chart.updateOptions({ series, labels, colors });
       return;
     }
 
@@ -1137,14 +1173,16 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
 
     const options = {
       chart: { type: 'donut', height: 190, sparkline: { enabled: false } },
-      series: [succeeded, failed],
-      labels: ['Succeeded', 'Failed'],
-      colors: ['#37c37e', '#f55b5b'],
-      stroke: { width: 0 },
+      series,
+      labels,
+      colors,
+      // White gaps between the segments.
+      stroke: { width: 3, colors: ['#ffffff'] },
       dataLabels: { enabled: false },
       legend: { show: false },
+      states: { hover: { filter: { type: 'darken', value: 0.9 } } },
       tooltip: { y: { formatter: (value: number) => `${value} event${value === 1 ? '' : 's'}` } },
-      plotOptions: { pie: { donut: { size: '72%', labels: { show: false } } } },
+      plotOptions: { pie: { expandOnClick: false, donut: { size: '68%', labels: { show: false } } } },
     };
 
     this.chart = new ApexCharts(el, options);
