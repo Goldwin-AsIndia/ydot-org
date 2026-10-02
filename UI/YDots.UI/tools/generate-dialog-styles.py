@@ -426,9 +426,12 @@ css.append(rule(within(WITHBODY, f" > {BODY}"), """
     """))
 
 css.append(comment("A native <dialog> whose parts sit inside a <form> (Donor 360): the form is the sheet, the dialog only "
-                   "holds it."))
+                   "holds it. It shrinks to the form (not `auto`: a fixed, inset-0 dialog would stretch to the "
+                   "viewport and pin the sheet to the left) so the native `margin: auto` centres it."))
 css.append(rule(f"{PREFIX}dialog.action-dialog[open]", """
-    width: auto !important;
+    width: fit-content !important;
+    height: fit-content !important;
+    margin: auto !important;
     max-width: none !important;
     max-height: none !important;
     padding: 0 !important;

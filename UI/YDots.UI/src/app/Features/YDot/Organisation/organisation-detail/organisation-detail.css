@@ -332,8 +332,8 @@
   --st-soft: var(--og-muted-soft);
 }
 
-/* Header status: an icon in the status colour; its word appears in a small tooltip to the right on
-   hover or keyboard focus. To the right, not above, because the header clips anything above its top. */
+/* Header status: an icon in the status colour; its word appears in a tooltip ABOVE it on hover or
+   keyboard focus (positioned in the PROFILE TABS block at the end of this file). */
 .og-status-mark {
   --st: var(--og-info);
   --st-soft: var(--og-info-soft);
@@ -893,209 +893,526 @@
   letter-spacing: .01em;
 }
 
-.og-link {
-  color: var(--og-brand);
-  text-decoration: none;
-  word-break: break-all; 
-     font-size: calc(calc(14.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+/* ------------------------------------------------------------------ 3a. Profile (view): "Particulars"
+   One white sheet instead of two tall cards (2026-10-02, user: "this section is very big"). Three columns split
+   by hairlines; each field is ONE ledger line - label, dotted leader, value on the right - so eight fields take
+   the height two stacked label/value blocks used to. Column heads: bare glyph + display title over a hairline
+   with a short theme rule. Address reads as a postal block, About sits under it (3 lines, then "Read more").
+   The sheet is its own size container (nothing fixed lives inside it): 3 columns -> 2 + address|about row
+   (<= 1080px) -> 1 column (<= 620px). */
+.og-sheet {
+  container: og-sheet / inline-size;
+  background: var(--og-card);
+  border: 1px solid var(--og-line);
+  border-radius: var(--og-radius);
+  animation: og-rise .5s .08s cubic-bezier(.2, .7, .2, 1) both;
 }
 
-.og-link:hover {
-  text-decoration: underline;
-}
-
-.og-lead {
-  margin: 0;
-  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  color: var(--og-ink-2);
-  line-height: 1.55 !important;
-}
-
-/* Review & submit: full width like every other tab; the explanation sits beside the note field on wide screens. */
-.og-narrow {
-  max-width: none;
-}
-
-.og-review-body {
+.og-sheet-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-  gap: calc(28px * var(--ui-scale, 1));
-  align-items: start;
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, 1fr) minmax(0, .92fr);
+  padding: calc(20px * var(--ui-scale, 1)) 0 calc(18px * var(--ui-scale, 1));
 }
 
-/* ------------------------------------------------------------------ 3a. Profile (view) */
-/* Rows of equal-height cards: grid stretches every card in a row to the tallest one. */
-.og-profile {
+.og-sheet-col {
+  min-width: 0;
+  padding: 0 calc(26px * var(--ui-scale, 1));
+}
+
+.og-sheet-col + .og-sheet-col {
+  border-left: 1px solid var(--og-line-2);
+}
+
+.og-sheet-col-last {
   display: flex;
   flex-direction: column;
-  gap: var(--og-gap);
+  gap: calc(18px * var(--ui-scale, 1));
 }
 
-.og-row {
-  display: grid;
-  gap: var(--og-gap);
-  align-items: stretch;
-}
-
-.og-row-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.og-row>.og-card {
-  height: 100%;
-}
-
-/* The last block of a card takes up the spare height, so the address sits flush with the card's foot
-   instead of leaving a gap under it. */
-.og-row>.og-card> :last-child {
-  flex: 1;
-}
-
-/* label-over-value pairs, two per row, hairline between rows */
-.og-dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 calc(28px * var(--ui-scale, 1));
-  align-content: start;
-  margin: 0;
-}
-
-.og-dl>.og-span-2 {
-  grid-column: 1 / -1;
-}
-
-.og-dl-1 {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.og-dl>div {
+.og-sheet-part {
   min-width: 0;
-  padding: calc(12px * var(--ui-scale, 1)) 0;
-  border-top: 1px solid var(--og-line-2);
 }
 
-.og-dl dt {
-  --ui-text-scale: var(--rs-heading);
-  --fw-bias: var(--fwb-heading);
-  margin: 0 0 calc(3px * var(--ui-scale, 1));
-  font-family: var(--font-heading);
-  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: var(--og-faint);
+.og-col-head {
+  --ui-text-scale: var(--rs-title);
+  --fw-bias: var(--fwb-title);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--ui-scale, 1));
+  margin: 0 0 calc(4px * var(--ui-scale, 1));
+  padding-bottom: calc(10px * var(--ui-scale, 1));
+  border-bottom: 1px solid var(--og-line-2);
+  font-family: var(--font-display);
+  font-size: calc(calc(15.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.2 !important;
+  letter-spacing: -.005em;
+  color: var(--og-ink);
 }
 
-.og-dl dd {
+.og-col-head::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: calc(26px * var(--ui-scale, 1));
+  height: 2px;
+  border-radius: 2px;
+  background: var(--og-brand);
+}
+
+.og-col-head i {
+  font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+  color: var(--og-brand);
+}
+
+/* label .... value */
+.og-ledger {
+  display: flex;
+  flex-direction: column;
   margin: 0;
-  font-size: calc(calc(14.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
+}
+
+.og-ledger > div {
+  display: flex;
+  align-items: baseline;
+  gap: calc(10px * var(--ui-scale, 1));
+  min-width: 0;
+  padding: calc(7px * var(--ui-scale, 1)) 0;
+}
+
+.og-ledger dt {
+  display: flex;
+  align-items: baseline;
+  gap: calc(10px * var(--ui-scale, 1));
+  flex: 1 1 auto;
+  margin: 0;
+  white-space: nowrap;
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-muted);
+}
+
+.og-ledger dt::after {
+  content: '';
+  flex: 1;
+  min-width: calc(14px * var(--ui-scale, 1));
+  border-bottom: 1px dotted color-mix(in srgb, var(--og-faint) 70%, transparent);
+  transform: translateY(-.3em);
+}
+
+.og-ledger dd {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: calc(6px * var(--ui-scale, 1));
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 66%;
+  margin: 0;
+  text-align: right;
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.4 !important;
   color: var(--og-ink);
   overflow-wrap: anywhere;
 }
 
-.og-address {
+.og-ledger dd.og-mono {
+  letter-spacing: .03em;
+}
+
+.og-ledger dd.og-muted {
+  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important;
+}
+
+.og-ledger-link {
+  color: var(--og-brand);
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.og-ledger-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Copy for identifiers: hidden until the line is hovered (always shown on touch screens). It sits over the
+   end of the dotted leader, on a white ground, so it takes no room and the line height never changes. */
+.og-ledger dd:has(> .og-copy) {
+  position: relative;
+}
+
+.og-copy {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + calc(4px * var(--ui-scale, 1)));
+  transform: translateY(-50%);
+  display: inline-grid;
+  place-items: center;
+  width: calc(22px * var(--ui-scale, 1));
+  height: calc(22px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  border-radius: calc(6px * var(--ui-scale, 1));
+  background: var(--og-card);
+  color: var(--og-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s ease, color .15s ease;
+}
+
+.og-copy i {
+  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.og-ledger > div:hover .og-copy,
+.og-copy:focus-visible,
+.og-copy.is-done {
+  opacity: 1;
+}
+
+.og-copy:hover {
+  color: var(--og-brand);
+}
+
+.og-copy:focus-visible {
+  outline: 2px solid var(--og-brand);
+  outline-offset: 1px;
+}
+
+.og-copy.is-done {
+  color: var(--og-good);
+}
+
+@media (hover: none) {
+  .og-copy {
+    opacity: 1;
+  }
+}
+
+/* Registered address as a postal block */
+.og-postal {
   display: flex;
   flex-direction: column;
-  padding-top: calc(6px * var(--ui-scale, 1));
+  gap: calc(2px * var(--ui-scale, 1));
+  margin: calc(10px * var(--ui-scale, 1)) 0 0;
+  font-style: normal;
 }
 
-.og-address-label {
+.og-postal > span {
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.5 !important;
+  color: var(--og-ink-2);
+}
+
+.og-postal > .og-postal-street {
+  --ui-text-scale: var(--rs-title);
+  --fw-bias: var(--fwb-title);
+  font-family: var(--font-display);
+  font-size: calc(calc(15px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-ink);
+}
+
+.og-postal-pin {
+  --ui-text-scale: var(--rs-number);
+  --fw-bias: var(--fwb-number);
+  margin-left: calc(8px * var(--ui-scale, 1));
+  font-family: var(--font-number) !important;
+  font-size: inherit !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .05em;
+  color: var(--og-ink);
+}
+
+.og-postal > .og-postal-country {
   --ui-text-scale: var(--rs-heading);
   --fw-bias: var(--fwb-heading);
-  padding-bottom: calc(8px * var(--ui-scale, 1));
+  margin-top: calc(4px * var(--ui-scale, 1));
   font-family: var(--font-heading);
-  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  letter-spacing: .06em;
+  letter-spacing: .14em;
   text-transform: uppercase;
-  color: var(--og-ink-2);
+  color: var(--og-brand);
 }
 
-.og-address-line2 {
-  display: block;
-  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
-  color: var(--og-ink-2);
-}
-
-.og-address-none {
-  margin: 0;
-  padding: calc(10px * var(--ui-scale, 1)) 0;
-  border-top: 1px solid var(--og-line-2);
+.og-about-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  margin: calc(10px * var(--ui-scale, 1)) 0 0;
   font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-}
-
-.og-about {
-  margin: 0;
-  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
   line-height: 1.6 !important;
   color: var(--og-ink-2);
+  white-space: pre-line;
+}
+
+.og-about-text.is-open {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: none;
+}
+
+.og-about-more {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(2px * var(--ui-scale, 1));
+  margin-top: calc(4px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--og-brand);
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  cursor: pointer;
+}
+
+.og-about-more i {
+  font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.og-about-more:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.og-sheet-none {
+  margin: calc(10px * var(--ui-scale, 1)) 0 0;
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-style: italic;
+  color: var(--og-faint);
+}
+
+@container og-sheet (max-width: 1080px) {
+  .og-sheet-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: calc(18px * var(--ui-scale, 1));
+  }
+
+  .og-sheet-col-last {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    margin: 0 calc(26px * var(--ui-scale, 1));
+    padding: calc(16px * var(--ui-scale, 1)) 0 0;
+    border-top: 1px solid var(--og-line-2);
+  }
+
+  .og-sheet-col + .og-sheet-col-last {
+    border-left: 0;
+  }
+
+  .og-sheet-col-last > .og-sheet-part {
+    padding-right: calc(26px * var(--ui-scale, 1));
+  }
+
+  .og-sheet-col-last > .og-sheet-part + .og-sheet-part {
+    padding: 0 0 0 calc(26px * var(--ui-scale, 1));
+    border-left: 1px solid var(--og-line-2);
+  }
+}
+
+@container og-sheet (max-width: 620px) {
+  .og-sheet-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .og-sheet-col {
+    padding: 0 calc(18px * var(--ui-scale, 1));
+  }
+
+  .og-sheet-col + .og-sheet-col {
+    border-left: 0;
+  }
+
+  .og-sheet-col-last {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: calc(18px * var(--ui-scale, 1));
+    margin: 0 calc(18px * var(--ui-scale, 1));
+  }
+
+  .og-sheet-col-last > .og-sheet-part,
+  .og-sheet-col-last > .og-sheet-part + .og-sheet-part {
+    padding: 0;
+    border-left: 0;
+  }
 }
 
 
-/* ------------------------------------------------------------------ 3b. Profile (edit) + shared fields */
-.og-form {
+/* ------------------------------------------------------------------ 3b. Profile (edit) + shared fields
+   "Particulars, in hand" (2026-10-02): one sheet - a head line (kicker + title, lock note, Cancel / Save),
+   then four sections on a 2-column grid split by hairlines: Registration (wide, 4 fields across),
+   Contact | Regional, Address (wide). Section heads reuse .og-col-head from the view. Inputs are 40u,
+   outlined; locked ones are dashed. The sheet is its own size container (`ogf`). */
+.og-card.og-form {
+  container: ogf / inline-size;
   gap: 0;
   padding: 0;
 }
 
-.og-form>.og-note {
-  margin: calc(20px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1)) 0;
+.og-form-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(10px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  padding: calc(14px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1));
+  border-bottom: 1px solid var(--og-line-2);
 }
 
-.og-form-section {
-  display: grid;
-  grid-template-columns: minmax(calc(200px * var(--ui-scale, 1)), calc(260px * var(--ui-scale, 1))) minmax(0, 1fr);
-  gap: calc(28px * var(--ui-scale, 1));
-  padding: calc(24px * var(--ui-scale, 1));
-  border-top: 1px solid var(--og-line-2);
+.og-form-title {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2px * var(--ui-scale, 1));
 }
 
-.og-form-section:first-of-type {
-  border-top: 0;
+.og-form-kicker {
+  --ui-text-scale: var(--rs-heading);
+  --fw-bias: var(--fwb-heading);
+  display: inline-flex;
+  align-items: center;
+  gap: calc(5px * var(--ui-scale, 1));
+  font-family: var(--font-heading);
+  font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--og-brand);
 }
 
-.og-form-aside h3 {
+.og-form-kicker i {
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.og-form-title h3 {
   --ui-text-scale: var(--rs-title);
   --fw-bias: var(--fwb-title);
-  margin: 0 0 calc(4px * var(--ui-scale, 1));
+  margin: 0;
   font-family: var(--font-display);
-  font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
+  font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.2 !important;
   color: var(--og-ink);
 }
 
-.og-form-aside p {
+.og-form-btns {
+  display: flex;
+  gap: calc(8px * var(--ui-scale, 1));
+  margin-left: auto;
+}
+
+.og-form-btns .og-btn,
+.og-form > .og-actionbar .og-btn {
+  height: calc(36px * var(--ui-scale, 1));
+}
+
+/* The approval lock: a dashed outline line, never a tinted box. */
+.og-note {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8px * var(--ui-scale, 1));
   margin: 0;
+  padding: calc(6px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
+  border: 1px dashed #cfd4d9;
+  border-radius: calc(10px * var(--ui-scale, 1));
+  background: none;
+  color: var(--og-ink-2);
+  cursor: help;
+}
+
+.og-note i {
+  font-size: calc(calc(15px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+  color: var(--og-warn);
+}
+
+.og-note span {
   font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.5 !important;
-  color: var(--og-muted);
+  line-height: 1.4 !important;
+}
+
+.og-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.og-fsec {
+  min-width: 0;
+  padding: calc(18px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
+  border-top: 1px solid var(--og-line-2);
+}
+
+.og-fsec:first-child {
+  border-top: 0;
+}
+
+.og-fsec-wide {
+  grid-column: 1 / -1;
+}
+
+.og-fsec:not(.og-fsec-wide) + .og-fsec:not(.og-fsec-wide) {
+  border-left: 1px solid var(--og-line-2);
+}
+
+.og-fsec > .og-col-head {
+  margin-bottom: calc(14px * var(--ui-scale, 1));
+}
+
+.og-col-lock {
+  --ui-text-scale: var(--rs-heading);
+  --fw-bias: var(--fwb-heading);
+  display: inline-flex;
+  align-items: center;
+  gap: calc(4px * var(--ui-scale, 1));
+  margin-left: auto;
+  font-family: var(--font-heading);
+  font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--og-faint);
+}
+
+.og-col-head .og-col-lock i {
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: var(--og-faint);
 }
 
 .og-fieldset {
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
-  min-width: 0;
-}
-
-.og-fieldset:disabled .og-input {
-  background: var(--og-well);
-  color: var(--og-muted);
 }
 
 .og-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: calc(16px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
+  gap: calc(14px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
 }
 
-.og-fields-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.og-fields-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.og-span-all,
 .og-span-2 {
   grid-column: 1 / -1;
+}
+
+.og-span-half {
+  grid-column: span 2;
 }
 
 .og-field {
@@ -1108,25 +1425,51 @@
 .og-label {
   --ui-text-scale: var(--rs-heading);
   --fw-bias: var(--fwb-heading);
+  display: flex;
+  align-items: baseline;
+  gap: calc(4px * var(--ui-scale, 1));
   font-family: var(--font-heading);
-  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   color: var(--og-ink-2);
+}
+
+.og-optional {
+  margin-left: calc(2px * var(--ui-scale, 1));
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-faint);
+}
+
+.og-label-aside {
+  --ui-text-scale: var(--rs-number);
+  --fw-bias: var(--fwb-number);
+  margin-left: auto;
+  font-family: var(--font-number);
+  font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-faint);
 }
 
 .og-input {
   --ui-text-scale: var(--rs-body);
   --fw-bias: var(--fwb-body);
   width: 100%;
-  min-height: calc(42px * var(--ui-scale, 1));
-  padding: calc(9px * var(--ui-scale, 1)) calc(13px * var(--ui-scale, 1));
+  min-height: calc(40px * var(--ui-scale, 1));
+  padding: calc(8px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
   border: 1px solid #dde1e5;
   border-radius: calc(10px * var(--ui-scale, 1));
   background: #fff;
   color: var(--og-ink);
   font-family: var(--font-body);
-  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
   transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.og-input.og-mono {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  font-family: var(--font-number) !important;
+  letter-spacing: .03em;
 }
 
 textarea.og-input {
@@ -1141,23 +1484,31 @@ textarea.og-input {
 .og-input:focus {
   outline: none;
   border-color: var(--og-brand);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--og-brand) 18%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--og-brand) 16%, transparent);
 }
 
-.og-input:disabled {
-  background: var(--og-well);
+.og-input.is-invalid {
+  border-color: var(--og-error);
+}
+
+.og-input:disabled,
+.og-fieldset:disabled .og-input {
+  border-style: dashed;
+  border-color: #d3d8dd;
+  background: #fff;
   color: var(--og-muted);
   cursor: not-allowed;
 }
 
 .og-phone {
   display: grid;
-  grid-template-columns: calc(96px * var(--ui-scale, 1)) minmax(0, 1fr);
+  grid-template-columns: calc(92px * var(--ui-scale, 1)) minmax(0, 1fr);
   gap: calc(8px * var(--ui-scale, 1));
 }
 
 .og-hint {
-  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.4 !important;
   color: var(--og-muted);
 }
 
@@ -1165,26 +1516,44 @@ textarea.og-input {
   color: var(--og-error);
 }
 
-.og-note {
-  display: flex;
-  align-items: flex-start;
-  gap: calc(10px * var(--ui-scale, 1));
-  margin: 0;
-  padding: calc(12px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
-  border-radius: var(--og-radius-sm);
-  background: var(--og-info-soft);
-  border: 1px solid #cfdef8;
-  color: #23488c;
+.og-form > .og-actionbar {
+  padding: calc(12px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1));
+  background: #fff;
 }
 
-.og-note i {
-  font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.3;
+@container ogf (max-width: 1100px) {
+  .og-fields-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.og-note span {
-  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.55 !important;
+@container ogf (max-width: 760px) {
+  .og-form-grid,
+  .og-fields,
+  .og-fields-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .og-fsec {
+    grid-column: auto;
+    padding-inline: calc(16px * var(--ui-scale, 1));
+  }
+
+  .og-fsec:not(.og-fsec-wide) + .og-fsec:not(.og-fsec-wide) {
+    border-left: 0;
+  }
+
+  .og-span-half {
+    grid-column: auto;
+  }
+
+  .og-form-btns {
+    width: 100%;
+  }
+
+  .og-form-btns .og-btn {
+    flex: 1;
+  }
 }
 
 /* action bar at the foot of a form card */
@@ -1309,24 +1678,21 @@ textarea.og-input {
   outline-offset: 2px;
 }
 
+/* Glyph only - no box or fill behind the icon. */
 .og-choice-glyph {
   flex: none;
-  width: calc(36px * var(--ui-scale, 1));
-  height: calc(36px * var(--ui-scale, 1));
-  display: inline-grid;
-  place-items: center;
-  border-radius: calc(10px * var(--ui-scale, 1));
-  background: var(--og-well);
+  display: inline-flex;
+  align-items: center;
   color: var(--og-ink-2);
 }
 
 .og-choice.is-on .og-choice-glyph {
-  background: #fff;
   color: var(--og-brand);
 }
 
 .og-choice-glyph i {
-  font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
 }
 
 .og-choice-text {
@@ -1377,275 +1743,194 @@ textarea.og-input {
   border: calc(5px * var(--ui-scale, 1)) solid var(--og-brand);
 }
 
-/* auto-fit: a group with two boxes (Passwords) fills the row instead of leaving an empty third column. */
+/* Numeric settings: compact rows (label left, stepper right) that wrap and stretch, so a group
+   with two rows (Passwords) or three (Sign-in protection) fills its line with no empty column. */
 .og-num-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(calc(220px * var(--ui-scale, 1)), 1fr));
-  gap: calc(14px * var(--ui-scale, 1));
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(12px * var(--ui-scale, 1));
 }
 
 .og-num {
-  display: flex;
-  flex-direction: column;
-  gap: calc(8px * var(--ui-scale, 1));
-  padding: calc(14px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  position: relative;
+  flex: 1 1 calc(280px * var(--ui-scale, 1));
+  min-width: 0;
+  container-type: inline-size;
+  padding: calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
   border: 1px solid var(--og-line);
   border-radius: calc(14px * var(--ui-scale, 1));
   background: #fff;
-  cursor: text;
-  transition: border-color .15s ease;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+
+.og-num:hover {
+  border-color: var(--og-brand-line);
 }
 
 .og-num:focus-within {
   border-color: var(--og-brand);
+  background: color-mix(in srgb, var(--og-brand) 3%, #ffffff);
+}
+
+.og-num-row {
+  display: flex;
+  align-items: center;
+  gap: calc(12px * var(--ui-scale, 1));
+}
+
+/* Glyph only - no box or fill behind the icon. */
+.og-num-glyph {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--og-brand);
+}
+
+.og-num-glyph i {
+  font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.og-num-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(2px * var(--ui-scale, 1));
 }
 
 .og-num-label {
-  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  margin: 0;
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
-  color: var(--og-ink-2);
+  line-height: 1.35 !important;
+  color: var(--og-ink);
+  cursor: pointer;
 }
 
-.og-num-box {
+.og-num-hint {
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.4 !important;
+  color: var(--og-faint);
+}
+
+/* The stepper: [-] value unit [+] in one bordered field, so it reads as something to change. */
+.og-stepper {
+  flex: none;
+  display: inline-flex;
+  align-items: stretch;
+  height: calc(40px * var(--ui-scale, 1));
+  border: 1px solid #d5dadf;
+  border-radius: calc(11px * var(--ui-scale, 1));
+  background: #fff;
+  overflow: hidden;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.og-stepper:focus-within {
+  border-color: var(--og-brand);
+  box-shadow: 0 0 0 3px var(--og-brand-soft);
+}
+
+.og-step {
+  flex: none;
+  width: calc(34px * var(--ui-scale, 1));
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: var(--og-well);
+  color: var(--og-ink-2);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+
+.og-step i {
+  font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.og-step:hover:not(:disabled) {
+  background: var(--og-brand-soft);
+  color: var(--og-brand);
+}
+
+.og-step:focus-visible {
+  outline: 2px solid var(--og-brand);
+  outline-offset: -2px;
+}
+
+.og-step:disabled {
+  color: #c4cad0;
+  cursor: not-allowed;
+}
+
+.og-step-field {
+  flex: 1 1 auto;
+  min-width: calc(76px * var(--ui-scale, 1));
   display: flex;
   align-items: baseline;
-  gap: calc(6px * var(--ui-scale, 1));
+  justify-content: center;
+  gap: calc(4px * var(--ui-scale, 1));
+  padding: 0 calc(8px * var(--ui-scale, 1));
+  border-left: 1px solid var(--og-line);
+  border-right: 1px solid var(--og-line);
+  align-self: stretch;
+  align-content: center;
+  flex-wrap: wrap;
+  cursor: text;
 }
 
-.og-num-box input {
+.og-step-field input {
   --ui-text-scale: var(--rs-number);
   --fw-bias: var(--fwb-number);
-  width: 4.2ch;
-  min-width: 2ch;
+  width: 3ch;
+  min-width: 1ch;
   field-sizing: content;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--og-ink);
+  text-align: center;
   font-family: var(--font-number);
-  font-size: calc(calc(26px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  line-height: 1.1 !important;
+  line-height: 1.2 !important;
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
-.og-num-box input::-webkit-outer-spin-button,
-.og-num-box input::-webkit-inner-spin-button {
-  opacity: .5;
+/* The stepper buttons replace the browser's spinner. */
+.og-step-field input::-webkit-outer-spin-button,
+.og-step-field input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-.og-num-box input:focus {
+.og-step-field input:focus {
   outline: none;
 }
 
 .og-num-unit {
   flex: none;
-  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
-  color: var(--og-faint);
+  color: var(--og-muted);
 }
 
-.og-num-hint {
-  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  color: var(--og-faint);
+/* A narrow tile puts the stepper on its own full-width line under the label. */
+@container (max-width: 300px) {
+  .og-num-row {
+    flex-wrap: wrap;
+  }
+
+  .og-stepper {
+    width: 100%;
+  }
 }
 
 .og-settings>.og-actionbar {
   margin: 0;
-}
-
-/* ------------------------------------------------------------------ Tables (documents, web addresses) */
-.og-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--og-line-2);
-  border-radius: var(--og-radius-sm);
-}
-
-.og-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.og-table th {
-  --ui-text-scale: var(--rs-heading);
-  --fw-bias: var(--fwb-heading);
-  padding: calc(11px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
-  background: var(--og-well) !important;
-  border-bottom: 1px solid var(--og-line);
-  color: var(--og-muted) !important;
-  font-family: var(--font-heading);
-  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.og-table td {
-  padding: calc(13px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
-  border-bottom: 1px solid var(--og-line-2);
-  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  color: var(--og-ink);
-  vertical-align: middle;
-}
-
-.og-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.og-table tbody tr:hover td {
-  background: #fafbfb;
-}
-
-.og-cell-main {
-  display: block;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
-}
-
-.og-cell-sub {
-  display: block;
-  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  color: var(--og-muted);
-}
-
-.og-host {
-  --ui-text-scale: var(--rs-number);
-  --fw-bias: var(--fwb-number);
-  display: inline-flex;
-  align-items: center;
-  gap: calc(7px * var(--ui-scale, 1));
-  font-family: var(--font-number);
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
-}
-
-.og-host i {
-  color: var(--og-faint);
-}
-
-.og-blank {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(8px * var(--ui-scale, 1));
-  padding: calc(28px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
-  border: 1px dashed var(--og-line);
-  border-radius: var(--og-radius-sm);
-  color: var(--og-faint);
-}
-
-.og-blank i {
-  font-size: calc(calc(26px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-}
-
-.og-blank span {
-  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-}
-
-/* ------------------------------------------------------------------ History */
-.og-timeline {
-  list-style: none;
-  margin: 0;
-  padding: 0 0 0 calc(4px * var(--ui-scale, 1));
-  position: relative;
-}
-
-.og-timeline::before {
-  content: '';
-  position: absolute;
-  left: calc(9px * var(--ui-scale, 1));
-  top: calc(8px * var(--ui-scale, 1));
-  bottom: calc(8px * var(--ui-scale, 1));
-  border-left: 2px dashed var(--og-line);
-}
-
-.og-timeline-item {
-  position: relative;
-  display: flex;
-  gap: calc(16px * var(--ui-scale, 1));
-  padding: 0 0 calc(18px * var(--ui-scale, 1));
-}
-
-.og-timeline-item:last-child {
-  padding-bottom: 0;
-}
-
-.og-timeline-dot {
-  position: relative;
-  z-index: 1;
-  flex: none;
-  width: calc(12px * var(--ui-scale, 1));
-  height: calc(12px * var(--ui-scale, 1));
-  margin-top: calc(5px * var(--ui-scale, 1));
-  border-radius: 50%;
-  background: var(--og-info);
-  outline: calc(4px * var(--ui-scale, 1)) solid #fff;
-}
-
-.og-timeline-dot.is-good {
-  background: var(--og-good);
-}
-
-.og-timeline-dot.is-warn {
-  background: var(--og-warn);
-}
-
-.og-timeline-dot.is-error {
-  background: var(--og-error);
-}
-
-.og-timeline-dot.is-muted {
-  background: var(--og-faint);
-}
-
-.og-timeline-body {
-  flex: 1;
-  min-width: 0;
-  padding: calc(12px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
-  border: 1px solid var(--og-line-2);
-  border-radius: var(--og-radius-sm);
-  background: var(--og-well);
-}
-
-.og-timeline-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: calc(6px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
-  flex-wrap: wrap;
-}
-
-.og-timeline-title {
-  --ui-text-scale: var(--rs-heading);
-  --fw-bias: var(--fwb-heading);
-  font-family: var(--font-heading);
-  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  color: var(--og-ink);
-  text-transform: capitalize;
-}
-
-.og-timeline-title small {
-  margin-left: calc(6px * var(--ui-scale, 1));
-  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
-  color: var(--og-muted);
-  text-transform: none;
-}
-
-.og-timeline-when {
-  --ui-text-scale: var(--rs-number);
-  --fw-bias: var(--fwb-number);
-  font-family: var(--font-number);
-  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  color: var(--og-muted);
-}
-
-.og-timeline-note {
-  margin: calc(6px * var(--ui-scale, 1)) 0 0;
-  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.5 !important;
-  color: var(--og-ink-2);
 }
 
 /* ------------------------------------------------------------------ Loading / failed */
@@ -1703,27 +1988,13 @@ textarea.og-input {
   .og-facts:not(.og-facts-3) .og-fact:nth-child(n + 4) {
     border-top: 1px solid var(--og-line-2);
   }
-
-  .og-num-grid {
-    grid-template-columns: repeat(auto-fit, minmax(calc(180px * var(--ui-scale, 1)), 1fr));
-  }
 }
 
 @media (max-width: 991px) {
 
-  .og-form-section,
-  .og-set-group,
-  .og-review-body {
+  .og-set-group {
     grid-template-columns: minmax(0, 1fr);
     gap: calc(14px * var(--ui-scale, 1));
-  }
-
-  .og-fields-3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .og-row-2 {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .og-todo {
@@ -1792,15 +2063,10 @@ textarea.og-input {
     width: 100%;
   }
 
-  .og-dl,
-  .og-fields,
-  .og-fields-3,
-  .og-choice-grid,
-  .og-num-grid {
+  .og-choice-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .og-form-section,
   .og-set-group {
     padding: calc(18px * var(--ui-scale, 1));
   }
@@ -1833,7 +2099,8 @@ textarea.og-input {
   .og-hero-text>*,
   .og-hero-actions .og-btn,
   .og-fact,
-  .og-tabs {
+  .og-tabs,
+  .og-sheet {
     animation: none;
   }
 
@@ -1882,235 +2149,6 @@ textarea.og-input {
   outline: 2px solid var(--og-brand);
   outline-offset: 1px;
   border-radius: calc(10px * var(--ui-scale, 1));
-}
-
-/* ---- Review & submit: readiness checklist beside the send panel ---- */
-.og-review {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: var(--og-gap);
-  align-items: stretch;
-}
-
-.og-checklist {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.og-checklist li {
-  --ck: var(--og-faint);
-  display: flex;
-  align-items: flex-start;
-  gap: calc(12px * var(--ui-scale, 1));
-  padding: calc(14px * var(--ui-scale, 1)) 0;
-  border-top: 1px solid var(--og-line-2);
-}
-
-.og-checklist li:first-child {
-  border-top: 0;
-  padding-top: calc(4px * var(--ui-scale, 1));
-}
-
-.og-checklist li.is-done {
-  --ck: var(--og-good);
-}
-
-.og-checklist li.is-todo {
-  --ck: var(--og-warn);
-}
-
-.og-checklist li.is-note {
-  --ck: var(--og-warn);
-}
-
-.og-checklist li.is-info {
-  --ck: var(--og-info);
-}
-
-.og-check-mark {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: calc(24px * var(--ui-scale, 1));
-  height: calc(24px * var(--ui-scale, 1));
-  color: var(--ck);
-}
-
-.og-check-mark i {
-  font-size: calc(calc(22px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1;
-}
-
-.og-check-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.og-check-text strong {
-  --ui-text-scale: var(--rs-heading);
-  --fw-bias: var(--fwb-heading);
-  font-family: var(--font-heading);
-  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
-  color: var(--og-ink);
-}
-
-.og-check-text span {
-  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.45 !important;
-  color: var(--og-muted);
-  overflow-wrap: anywhere;
-}
-
-.og-check-action {
-  flex: none;
-  height: calc(30px * var(--ui-scale, 1));
-  padding: 0 calc(12px * var(--ui-scale, 1));
-  border: 1px solid var(--og-line);
-  border-radius: calc(9px * var(--ui-scale, 1));
-  background: #fff;
-  color: var(--og-ink-2);
-  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
-  cursor: pointer;
-}
-
-.og-check-action:hover {
-  border-color: var(--og-brand);
-  color: var(--og-brand);
-}
-
-.og-review-send {
-  gap: calc(16px * var(--ui-scale, 1));
-}
-
-.og-review-state {
-  display: flex;
-  align-items: flex-start;
-  gap: calc(10px * var(--ui-scale, 1));
-  padding: calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
-  border-radius: var(--og-radius-sm);
-  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-}
-
-.og-review-state i {
-  font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.2;
-}
-
-.og-review-state span {
-  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.45 !important;
-}
-
-.og-review-state.is-good {
-  background: var(--og-good-soft);
-  color: var(--og-good);
-}
-
-.og-review-state.is-warn {
-  background: var(--og-warn-soft);
-  color: #7a4a08;
-}
-
-.og-review-state.is-info {
-  background: var(--og-info-soft);
-  color: #23488c;
-}
-
-.og-optional {
-  margin-left: calc(4px * var(--ui-scale, 1));
-  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
-  color: var(--og-faint);
-}
-
-.og-review-send .og-count {
-  align-self: flex-end;
-}
-
-.og-review-btn {
-  width: 100%;
-  margin-top: auto;
-}
-
-/* ---- Tables (web addresses, earlier uploads), styled like the Departments list ---- */
-.og-table-list th {
-  padding: calc(13px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
-}
-
-.og-table-list td {
-  padding: calc(14px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
-}
-
-.og-table-list .is-center {
-  text-align: center !important;
-}
-
-.og-host-tag {
-  --ui-text-scale: var(--rs-number);
-  --fw-bias: var(--fwb-number);
-  display: inline-flex;
-  align-items: center;
-  gap: calc(6px * var(--ui-scale, 1));
-  padding: calc(3px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
-  border-radius: calc(7px * var(--ui-scale, 1));
-  background: var(--og-well);
-  border: 1px solid var(--og-line);
-  color: var(--og-ink-2);
-  font-family: var(--font-number);
-  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
-}
-
-.og-host-tag i {
-  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  color: var(--og-faint);
-}
-
-.og-kind {
-  display: inline-block;
-  padding: calc(3px * var(--ui-scale, 1)) calc(9px * var(--ui-scale, 1));
-  border-radius: calc(7px * var(--ui-scale, 1));
-  background: var(--og-well);
-  border: 1px solid var(--og-line);
-  color: var(--og-ink-2);
-  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
-  text-transform: capitalize;
-}
-
-.og-cell-mark {
-  display: inline-grid;
-  place-items: center;
-  width: calc(28px * var(--ui-scale, 1));
-  height: calc(28px * var(--ui-scale, 1));
-  color: var(--og-faint);
-  cursor: default;
-}
-
-.og-cell-mark i {
-  font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1;
-}
-
-.og-cell-mark.is-good {
-  color: var(--og-good);
-}
-
-.og-cell-mark.is-warn {
-  color: var(--og-warn);
-}
-
-@media (max-width: 991px) {
-  .og-review {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* The header figures are centred in their cells: label and value. */
@@ -2488,4 +2526,746 @@ textarea.og-input {
     border-top: 1px solid var(--og-line);
     padding-block: calc(6px * var(--ui-scale, 1));
   }
+}
+
+/* =====================================================================================================
+   PROFILE TABS (2026-10-02, last so they win): Documents, Review & submit ("Dispatch"), Web addresses
+   ("Address register"), History ("Chronicle"), earlier uploads. Same language as the Particulars sheet:
+   white sheets, .og-col-head heads with an outlined count, ruled lines, colour only in dots, rings, rules
+   and type. No description lines; the status tooltip sits ABOVE its icon.
+   ===================================================================================================== */
+.og-col-count {
+  --ui-text-scale: var(--rs-number);
+  --fw-bias: var(--fwb-number);
+  display: inline-flex;
+  align-items: center;
+  height: calc(20px * var(--ui-scale, 1));
+  padding: 0 calc(8px * var(--ui-scale, 1));
+  border: 1px solid var(--og-line);
+  border-radius: calc(20px * var(--ui-scale, 1));
+  font-family: var(--font-number);
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: 0;
+  color: var(--og-muted);
+}
+
+.og-dot {
+  flex: none;
+  width: calc(7px * var(--ui-scale, 1));
+  height: calc(7px * var(--ui-scale, 1));
+  border-radius: 50%;
+  background: var(--st, var(--og-faint));
+  box-shadow: 0 0 0 calc(3px * var(--ui-scale, 1)) color-mix(in srgb, var(--st, var(--og-faint)) 16%, transparent);
+}
+
+.og-state {
+  --ui-text-scale: var(--rs-heading);
+  --fw-bias: var(--fwb-heading);
+  --st: var(--og-info);
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8px * var(--ui-scale, 1));
+  font-family: var(--font-heading);
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  text-transform: capitalize;
+  white-space: nowrap;
+  color: var(--st);
+}
+
+.og-state.is-good, .og-dispatch-state.is-good, .og-chron-item.is-good { --st: var(--og-good); }
+.og-state.is-warn, .og-dispatch-state.is-warn, .og-chron-item.is-warn { --st: var(--og-warn); }
+.og-state.is-error, .og-chron-item.is-error { --st: var(--og-error); }
+.og-state.is-muted, .og-chron-item.is-muted { --st: var(--og-faint); }
+.og-state.is-info, .og-dispatch-state.is-info, .og-chron-item.is-info { --st: var(--og-info); }
+
+.og-blank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(10px * var(--ui-scale, 1));
+  margin-top: calc(12px * var(--ui-scale, 1));
+  padding: calc(18px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  border: 1px dashed #cfd4d9;
+  border-radius: var(--og-radius-sm);
+  color: var(--og-faint);
+}
+
+.og-blank i {
+  font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+
+.og-blank span {
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: var(--og-muted);
+}
+
+/* ---- Documents: a plain sheet around the submissions component (it draws its own head) ---- */
+.og-card.og-docs {
+  padding: calc(18px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
+  gap: 0;
+}
+
+/* ---- Register sheets: web addresses, earlier uploads, history ---- */
+.og-card.og-register {
+  container: ogr / inline-size;
+  gap: 0;
+  padding: calc(18px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+}
+
+.og-register-rows {
+  --cols: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr);
+}
+
+.og-register-hosts {
+  --cols: minmax(0, 2.2fr) minmax(0, .9fr) minmax(0, .9fr) minmax(0, 1.4fr);
+}
+
+.og-register-docs {
+  --cols: minmax(0, 2.4fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.og-register-cap,
+.og-register-row {
+  display: grid;
+  grid-template-columns: var(--cols);
+  align-items: center;
+  gap: calc(16px * var(--ui-scale, 1));
+}
+
+.og-register-cap {
+  padding: calc(10px * var(--ui-scale, 1)) 0 calc(8px * var(--ui-scale, 1));
+  border-bottom: 1px solid var(--og-line-2);
+}
+
+.og-register-cap span {
+  --ui-text-scale: var(--rs-heading);
+  --fw-bias: var(--fwb-heading);
+  font-family: var(--font-heading);
+  font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--og-faint);
+}
+
+.og-register-row {
+  min-height: calc(50px * var(--ui-scale, 1));
+  padding: calc(9px * var(--ui-scale, 1)) 0;
+  border-bottom: 1px solid var(--og-line-2);
+}
+
+.og-register-row:last-child {
+  border-bottom: 0;
+}
+
+.og-register-row > span {
+  min-width: 0;
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: var(--og-ink);
+}
+
+.og-register-main {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--ui-scale, 1));
+}
+
+.og-register-main > i {
+  flex: none;
+  font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+  color: var(--og-brand);
+}
+
+.og-register-main > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.og-register-main strong {
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-ink);
+}
+
+.og-register-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: var(--og-muted);
+}
+
+.og-host-link {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-ink);
+  text-decoration: none;
+}
+
+.og-host-link:hover {
+  color: var(--og-brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.og-copy.og-copy-inline {
+  position: static;
+  flex: none;
+  transform: none;
+}
+
+.og-register-row:hover .og-copy-inline {
+  opacity: 1;
+}
+
+.og-register-row > .og-register-kind {
+  text-transform: capitalize;
+  color: var(--og-ink-2);
+}
+
+.og-primary {
+  --ui-text-scale: var(--rs-heading);
+  --fw-bias: var(--fwb-heading);
+  display: inline-flex;
+  align-items: center;
+  gap: calc(5px * var(--ui-scale, 1));
+  font-family: var(--font-heading);
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-ink);
+}
+
+.og-primary i {
+  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: #c4932b;
+}
+
+@container ogr (max-width: 700px) {
+  .og-register-cap {
+    display: none;
+  }
+
+  .og-register-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: calc(6px * var(--ui-scale, 1));
+  }
+
+  .og-register-row > .og-register-main {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The head's info glyph: its sentence shows in the same tooltip as the status mark. */
+.og-col-info {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  color: var(--og-faint);
+  cursor: help;
+  outline: none;
+}
+
+.og-col-head .og-col-info i {
+  font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: inherit;
+}
+
+.og-col-info:hover,
+.og-col-info:focus-visible {
+  color: var(--og-brand);
+}
+
+/* ---- Review & submit: "Dispatch" ---- */
+.og-card.og-dispatch {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 0;
+  padding: calc(18px * var(--ui-scale, 1)) 0 calc(20px * var(--ui-scale, 1));
+}
+
+.og-dispatch-col {
+  min-width: 0;
+  padding: 0 calc(24px * var(--ui-scale, 1));
+}
+
+.og-dispatch-col + .og-dispatch-col {
+  border-left: 1px solid var(--og-line-2);
+}
+
+.og-dispatch-send {
+  display: flex;
+  flex-direction: column;
+  gap: calc(14px * var(--ui-scale, 1));
+}
+
+.og-dispatch-send > .og-col-head {
+  margin-bottom: 0;
+}
+
+.og-ready {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: og-ready;
+}
+
+.og-ready li {
+  --ck: var(--og-faint);
+  display: grid;
+  grid-template-columns: calc(22px * var(--ui-scale, 1)) calc(30px * var(--ui-scale, 1)) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: calc(12px * var(--ui-scale, 1));
+  padding: calc(11px * var(--ui-scale, 1)) 0;
+  border-bottom: 1px solid var(--og-line-2);
+  counter-increment: og-ready;
+}
+
+.og-ready li:last-child {
+  border-bottom: 0;
+}
+
+.og-ready li::before {
+  --ui-text-scale: var(--rs-number);
+  --fw-bias: var(--fwb-number);
+  content: counter(og-ready, decimal-leading-zero);
+  font-family: var(--font-number);
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-faint);
+}
+
+.og-ready li.is-done { --ck: var(--og-good); }
+.og-ready li.is-todo { --ck: var(--og-warn); }
+.og-ready li.is-info { --ck: var(--og-info); }
+
+.og-ready-mark {
+  display: inline-grid;
+  place-items: center;
+  width: calc(30px * var(--ui-scale, 1));
+  height: calc(30px * var(--ui-scale, 1));
+  color: var(--ck);
+}
+
+.og-ready-mark i {
+  font-size: calc(calc(22px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.og-ready-text {
+  display: flex;
+  flex-direction: column;
+  gap: calc(1px * var(--ui-scale, 1));
+  min-width: 0;
+}
+
+.og-ready-text strong {
+  --ui-text-scale: var(--rs-heading);
+  --fw-bias: var(--fwb-heading);
+  font-family: var(--font-heading);
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-ink);
+}
+
+.og-ready-text span {
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.45 !important;
+  color: var(--og-muted);
+  overflow-wrap: anywhere;
+}
+
+.og-ready li.is-todo .og-ready-text span {
+  color: var(--og-warn);
+}
+
+.og-ready-btn {
+  --ui-text-scale: var(--rs-heading);
+  --fw-bias: var(--fwb-heading);
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  height: calc(32px * var(--ui-scale, 1));
+  padding: 0 calc(12px * var(--ui-scale, 1));
+  border: 1px solid var(--og-line);
+  border-radius: calc(9px * var(--ui-scale, 1));
+  background: #fff;
+  color: var(--og-ink-2);
+  font-family: var(--font-heading);
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease;
+}
+
+.og-ready-btn i {
+  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+
+.og-ready-btn:hover {
+  border-color: var(--og-brand);
+  color: var(--og-brand);
+}
+
+.og-dispatch-state {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--ui-scale, 1));
+  margin: 0;
+  padding: calc(11px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+  border: 1px solid color-mix(in srgb, var(--st) 30%, #fff);
+  border-left: 3px solid var(--st);
+  border-radius: calc(10px * var(--ui-scale, 1));
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.4 !important;
+  color: var(--st);
+}
+
+/* Ruled writing paper for the reviewer note */
+.og-input.og-ruled {
+  padding-top: calc(8px * var(--ui-scale, 1));
+  line-height: 1.7 !important;
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.7em - 1px), var(--og-line-2) calc(1.7em - 1px), var(--og-line-2) 1.7em);
+  background-position: 0 calc(8px * var(--ui-scale, 1));
+  background-attachment: local;
+}
+
+.og-input.og-ruled:disabled {
+  background-image: none;
+}
+
+.og-review-btn {
+  width: 100%;
+  height: calc(42px * var(--ui-scale, 1));
+  margin-top: auto;
+}
+
+@media (max-width: 991px) {
+  .og-card.og-dispatch {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: calc(18px * var(--ui-scale, 1));
+  }
+
+  .og-dispatch-col + .og-dispatch-col {
+    padding-top: calc(16px * var(--ui-scale, 1));
+    border-top: 1px solid var(--og-line-2);
+    border-left: 0;
+  }
+}
+
+/* ---- History: "Chronicle" ---- */
+.og-chron {
+  margin: calc(4px * var(--ui-scale, 1)) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.og-chron-item {
+  --st: var(--og-info);
+  display: grid;
+  grid-template-columns: calc(112px * var(--ui-scale, 1)) calc(26px * var(--ui-scale, 1)) minmax(0, 1fr);
+  column-gap: calc(12px * var(--ui-scale, 1));
+}
+
+.og-chron-when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(1px * var(--ui-scale, 1));
+  padding: calc(12px * var(--ui-scale, 1)) 0;
+  text-align: right;
+}
+
+.og-chron-day {
+  --ui-text-scale: var(--rs-title);
+  --fw-bias: var(--fwb-title);
+  font-family: var(--font-display);
+  font-size: calc(calc(14.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-ink);
+}
+
+.og-chron-time {
+  --ui-text-scale: var(--rs-number);
+  --fw-bias: var(--fwb-number);
+  font-family: var(--font-number);
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: var(--og-muted);
+}
+
+.og-chron-node {
+  position: relative;
+}
+
+.og-chron-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1px solid var(--og-line);
+}
+
+.og-chron-item:first-child .og-chron-node::before {
+  top: calc(20px * var(--ui-scale, 1));
+}
+
+.og-chron-item:last-child .og-chron-node::before {
+  bottom: calc(100% - calc(20px * var(--ui-scale, 1)));
+}
+
+.og-chron-item:only-child .og-chron-node::before {
+  display: none;
+}
+
+.og-chron-node::after {
+  content: '';
+  position: absolute;
+  top: calc(14px * var(--ui-scale, 1));
+  left: 50%;
+  width: calc(12px * var(--ui-scale, 1));
+  height: calc(12px * var(--ui-scale, 1));
+  margin-left: calc(-6px * var(--ui-scale, 1));
+  border: 2px solid var(--st);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 calc(3px * var(--ui-scale, 1)) #fff;
+}
+
+.og-chron-body {
+  min-width: 0;
+  padding: calc(11px * var(--ui-scale, 1)) 0 calc(12px * var(--ui-scale, 1));
+  border-bottom: 1px solid var(--og-line-2);
+}
+
+.og-chron-item:last-child .og-chron-body {
+  border-bottom: 0;
+}
+
+.og-chron-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: calc(4px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+}
+
+.og-chron-title {
+  --ui-text-scale: var(--rs-heading);
+  --fw-bias: var(--fwb-heading);
+  font-family: var(--font-heading);
+  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  text-transform: capitalize;
+  color: var(--st);
+}
+
+.og-chron-from,
+.og-chron-actor {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(4px * var(--ui-scale, 1));
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: var(--og-muted);
+}
+
+.og-chron-from i,
+.og-chron-actor i {
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: var(--og-faint);
+}
+
+.og-chron-note {
+  margin: calc(6px * var(--ui-scale, 1)) 0 0;
+  padding-left: calc(12px * var(--ui-scale, 1));
+  border-left: 2px solid var(--og-gold);
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-style: italic;
+  line-height: 1.5 !important;
+  color: var(--og-ink-2);
+}
+
+@media (max-width: 575px) {
+  .og-chron-item {
+    grid-template-columns: calc(80px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) minmax(0, 1fr);
+    column-gap: calc(8px * var(--ui-scale, 1));
+  }
+}
+
+/* ---- Status tooltip: ABOVE the icon (2026-10-02). A white bubble with a hairline border, a caret and
+   the word in the status colour behind a dot. The header no longer clips with overflow: hidden (that is
+   what forced the tip to the right); clip-path keeps its rounded foot but leaves room above. ---- */
+.og-hero {
+  overflow: visible;
+  clip-path: inset(calc(-64px * var(--ui-scale, 1)) 0 0 0 round 0 0 var(--og-radius) var(--og-radius));
+}
+
+.og-hero::before {
+  inset: 0;
+  width: auto;
+  height: auto;
+  border-radius: inherit;
+  background: radial-gradient(calc(380px * var(--ui-scale, 1)) calc(240px * var(--ui-scale, 1)) at calc(100% - calc(110px * var(--ui-scale, 1))) 0, color-mix(in srgb, var(--og-brand) 10%, transparent), transparent 72%);
+  animation: none;
+}
+
+/* The bubble: white, outlined in the status colour (so it reads clearly where it crosses the header's
+   top edge), word in the status colour, and a caret that continues the outline down to the icon. The icon
+   itself no longer gets a tinted disc on hover. */
+.og-status-mark:hover,
+.og-status-mark:focus-visible {
+  background: none;
+  outline: none;
+}
+
+.og-status-mark,
+.og-col-info {
+  --tip-line: color-mix(in srgb, var(--st, var(--og-ink-2)) 45%, #fff);
+}
+
+.og-col-info {
+  --tip-line: #cfd4d9;
+}
+
+.og-status-mark::after,
+.og-col-info::after {
+  --ui-text-scale: var(--rs-heading);
+  --fw-bias: var(--fwb-heading);
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  top: auto;
+  bottom: calc(100% + calc(10px * var(--ui-scale, 1)));
+  z-index: 30;
+  box-sizing: border-box;
+  padding: calc(5px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
+  border: 1px solid var(--tip-line);
+  border-radius: calc(8px * var(--ui-scale, 1));
+  background: #fff;
+  color: var(--st, var(--og-ink-2));
+  font-family: var(--font-heading);
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.35 !important;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  text-transform: capitalize;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, calc(4px * var(--ui-scale, 1)));
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+.og-col-info::after {
+  width: max-content;
+  max-width: calc(300px * var(--ui-scale, 1));
+  white-space: normal;
+  text-transform: none;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  color: var(--og-ink-2);
+}
+
+/* Caret: a square turned 45deg, centred ON the bubble's bottom edge, painted above the bubble so its two
+   outlined sides join the bubble's outline into one shape. */
+.og-status-mark::before,
+.og-col-info::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + calc(10px * var(--ui-scale, 1)) - calc(4.5px * var(--ui-scale, 1)));
+  z-index: 31;
+  box-sizing: border-box;
+  width: calc(9px * var(--ui-scale, 1));
+  height: calc(9px * var(--ui-scale, 1));
+  border-right: 1px solid var(--tip-line);
+  border-bottom: 1px solid var(--tip-line);
+  background: #fff;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, calc(4px * var(--ui-scale, 1))) rotate(45deg);
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+.og-status-mark:hover::after,
+.og-status-mark:focus-visible::after,
+.og-col-info:hover::after,
+.og-col-info:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.og-status-mark:hover::before,
+.og-status-mark:focus-visible::before,
+.og-col-info:hover::before,
+.og-col-info:focus-visible::before {
+  opacity: 1;
+  transform: translate(-50%, 0) rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .og-status-mark::after,
+  .og-status-mark::before,
+  .og-col-info::after,
+  .og-col-info::before {
+    transition: none;
+  }
+}
+
+/* ---- Notices (2026-10-02): outlined white lines with a coloured left rule, never a tinted band ---- */
+.og-alert.is-warn,
+.og-alert.is-error {
+  --st: var(--og-warn);
+  padding: calc(12px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  border: 1px solid color-mix(in srgb, var(--st) 28%, #fff);
+  border-left: 3px solid var(--st);
+  background: #fff;
+  color: var(--og-ink-2);
+}
+
+.og-alert.is-error {
+  --st: var(--og-error);
+}
+
+.og-alert > i {
+  color: var(--st);
+}
+
+.og-alert strong {
+  color: color-mix(in srgb, var(--st) 80%, #000);
+}
+
+.og-todo-glyph {
+  width: auto;
+  height: auto;
+  border: 0;
+  background: none;
+}
+
+.og-alert .og-todo-head strong {
+  color: var(--og-ink);
+}
+
+.og-outstanding li {
+  border: 1px dashed color-mix(in srgb, var(--og-warn) 45%, #fff);
+  background: #fff;
+  color: color-mix(in srgb, var(--og-warn) 80%, #000);
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+
+.og-btn-warn {
+  height: calc(36px * var(--ui-scale, 1));
+  background: #fff;
+  border-color: color-mix(in srgb, var(--og-warn) 55%, #fff);
+  color: var(--og-warn) !important;
+}
+
+.og-btn-warn:hover:not(:disabled) {
+  background: #fff;
+  border-color: var(--og-warn);
 }

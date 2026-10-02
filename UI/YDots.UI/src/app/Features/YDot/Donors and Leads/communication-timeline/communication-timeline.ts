@@ -250,7 +250,7 @@ export class CommunicationTimelineComponent {
       const sheet = this.entrySheet()?.nativeElement;
       if (!sheet) return;
       const header = document.querySelector('.app-header') as HTMLElement | null;
-      sheet.style.setProperty('--lb-top', `${header?.offsetHeight ?? 0}px`);
+      sheet.style.setProperty('--le-top', `${header?.offsetHeight ?? 0}px`);
       const column = sheet.closest('.content-page') as HTMLElement | null;
       const overflow = column?.style.overflow ?? '';
       if (column) column.style.overflow = 'clip';

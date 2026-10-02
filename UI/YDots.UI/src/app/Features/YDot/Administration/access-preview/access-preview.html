@@ -13,11 +13,6 @@
           <div class="apv-picker" [class.is-open]="pickerOpen()" (click)="$event.stopPropagation()">
             <button type="button" class="apv-picker-trigger" aria-haspopup="listbox" [attr.aria-expanded]="pickerOpen()"
                     [disabled]="peopleLoading() || peopleError()" (click)="togglePicker()">
-              <span class="apv-av" [class.is-empty]="!selectedPerson()" aria-hidden="true">
-                @if (peopleLoading()) { <i class="ri-loader-4-line apv-spin"></i> }
-                @else if (selectedPerson()) { {{ initials(selectedPerson()?.displayName) }} }
-                @else { <i class="ri-user-search-line"></i> }
-              </span>
               <span class="apv-picker-val">
                 <span class="apv-picker-sub">Viewing access for</span>
                 <span class="apv-picker-main" [class.is-empty]="!selectedPerson()">
@@ -41,7 +36,6 @@
                   @for (person of pagedPeople(); track person.id) {
                     <button type="button" class="apv-opt" role="option" [class.is-on]="person.id === selectedPersonId()"
                             [attr.aria-selected]="person.id === selectedPersonId()" (click)="pickPerson(person.id)">
-                      <span class="apv-av apv-av--sm" aria-hidden="true">{{ initials(person.displayName) }}</span>
                       <span class="apv-opt-text">
                         <span class="apv-opt-name">{{ person.displayName }}</span>
                         <span class="apv-opt-sub">{{ firstRole(person) }}@if (person.orgUnit) { · {{ person.orgUnit }} }</span>
@@ -125,22 +119,8 @@
             <!-- ================= PERMISSION CHECKLIST ================= -->
             <section class="apv-panel apv-matrix-panel" aria-label="Permission checklist">
               <header class="apv-panel-head">
-                <div>
-                  <h3 class="apv-h">Permission checklist</h3>
-                  <p class="apv-h-sub">A tick means this person holds it. Open a module to see every permission on its own line.</p>
-                </div>
+                <h3 class="apv-h">Permission checklist</h3>
                 @if (matrix().length > 0) {
-                  <div class="apv-links">
-                    <button type="button" class="apv-link" (click)="expandAllRows()"><i class="ri-expand-up-down-line" aria-hidden="true"></i><span class="apv-t">Open all</span></button>
-                    <button type="button" class="apv-link" (click)="collapseAll()"><i class="ri-contract-up-down-line" aria-hidden="true"></i><span class="apv-t">Close all</span></button>
-                  </div>
-                }
-              </header>
-
-              @if (matrix().length === 0) {
-                <div class="apv-panel-empty">No permissions are recorded for this person.</div>
-              } @else {
-                <div class="apv-tools">
                   <div class="apv-chips" role="group" aria-label="Which permissions to list">
                     <button type="button" class="apv-chip" [class.is-on]="codeFilter() === 'all'" [attr.aria-pressed]="codeFilter() === 'all'" (click)="setCodeFilter('all')">
                       <span class="apv-t">All</span><span class="apv-chip-n">{{ allCodeCount() }}</span>
@@ -162,8 +142,16 @@
                       <button type="button" class="apv-search-clear" aria-label="Clear search" (click)="codeSearch.set('')"><i class="ri-close-line" aria-hidden="true"></i></button>
                     }
                   </label>
-                </div>
+                  <div class="apv-links">
+                    <button type="button" class="apv-link" (click)="expandAllRows()"><i class="ri-expand-up-down-line" aria-hidden="true"></i><span class="apv-t">Open all</span></button>
+                    <button type="button" class="apv-link" (click)="collapseAll()"><i class="ri-contract-up-down-line" aria-hidden="true"></i><span class="apv-t">Close all</span></button>
+                  </div>
+                }
+              </header>
 
+              @if (matrix().length === 0) {
+                <div class="apv-panel-empty">No permissions are recorded for this person.</div>
+              } @else {
                 <div class="apv-matrix-wrap">
                   <table class="apv-matrix">
                     <caption class="visually-hidden">Permissions by module and action; a tick means granted</caption>
@@ -184,7 +172,7 @@
                             <button type="button" class="apv-mx-toggle" [attr.aria-expanded]="open" (click)="toggleModule(row.moduleCode)"
                                     [title]="(open ? 'Hide' : 'Show') + ' the permissions in ' + moduleLabel(row.moduleCode)">
                               <i class="ri-arrow-right-s-line apv-mx-chev" aria-hidden="true"></i>
-                              <span class="apv-mx-glyph" aria-hidden="true"><i [class]="moduleIcon(row.moduleCode)"></i></span>
+                              <i class="apv-mx-glyph" [class]="moduleIcon(row.moduleCode)" aria-hidden="true"></i>
                               <span class="apv-mx-text">
                                 <span class="apv-mx-title">{{ moduleLabel(row.moduleCode) }}</span>
                                 <span class="apv-mx-sub">

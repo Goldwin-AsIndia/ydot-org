@@ -701,7 +701,7 @@
     minmax(calc(108px * var(--s)), 0.8fr)
     minmax(calc(118px * var(--s)), 0.85fr)
     minmax(calc(160px * var(--s)), 1fr)
-    calc(140px * var(--s));
+    calc(144px * var(--s));
   align-items: center;
   column-gap: calc(16px * var(--s));
   padding: 0 var(--dn-pad);
@@ -728,7 +728,9 @@
 }
 button.dn-col { cursor: pointer; }
 button.dn-col:hover { color: var(--dn-ink); }
-.dn-col--num { justify-content: flex-end; }
+.dn-col--num,
+.dn-col--act { justify-content: flex-end; }
+.dn-col--act { padding-right: calc(8px * var(--s)); }
 button.dn-col::after {
   content: '';
   width: calc(6px * var(--s));
@@ -891,22 +893,7 @@ button.dn-col[data-sort='asc']::after { opacity: 1; transform: rotate(225deg) tr
 .dn-gift > .dn-none,
 .dn-life > .dn-none { font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important; }
 .dn-camp-n { color: var(--dn-ink-2); font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important; }
-.dn-owner { display: inline-flex; align-items: center; gap: calc(8px * var(--s)); min-width: 0; }
-.dn-owner-ring {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: calc(22px * var(--s));
-  height: calc(22px * var(--s));
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--dn-accent) 45%, #ffffff);
-  color: var(--dn-accent-deep);
-  font-size: calc(calc(9px * var(--s)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  line-height: 1 !important;
-  letter-spacing: 0.02em;
-}
-.dn-owner-ring.is-none { border-style: dashed; border-color: var(--dn-faint); }
+.dn-owner { display: inline-flex; align-items: center; min-width: 0; }
 .dn-owner-n { font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
 
 .dn-gift,
@@ -1002,22 +989,27 @@ button.dn-col[data-sort='asc']::after { opacity: 1; transform: rotate(225deg) tr
   place-items: center;
   width: calc(34px * var(--s));
   height: calc(34px * var(--s));
-  border: 1px solid transparent;
-  border-radius: calc(10px * var(--s));
+  padding: 0;
+  border: 0;
   background: none;
   color: var(--dn-faint);
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease;
 }
-.dn-act i { font-size: calc(calc(17px * var(--s)) * var(--ui-text-scale, 1)); }
+/* styles.css forces a small font-size on every <i>, so the glyph size needs !important */
+.dn-act i { font-size: calc(calc(21px * var(--s)) * var(--ui-text-scale, 1)) !important; line-height: 1 !important; }
 .dn-row:hover .dn-act,
 .dn-tile:hover .dn-act { color: var(--dn-muted); }
+/* hover / open: colour only, no box behind the glyph */
 .dn-act:hover,
+.dn-act:focus,
 .dn-act[aria-expanded='true'] {
-  border-color: var(--dn-line);
-  background: #ffffff;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
   color: var(--dn-accent) !important;
 }
+.dn-act:focus-visible { outline: 2px solid var(--dn-accent); outline-offset: calc(-2px * var(--s)); border-radius: calc(8px * var(--s)); }
 .dn-menu--row { min-width: calc(250px * var(--s)); }
 
 /* ---------- cards ---------- */
@@ -1140,13 +1132,11 @@ button.dn-col[data-sort='asc']::after { opacity: 1; transform: rotate(225deg) tr
   animation: dn-shimmer 1.3s ease-in-out infinite;
 }
 .dn-skel--fig { width: calc(90px * var(--s)); height: calc(28px * var(--s)); }
-.dn-skel--mono { width: calc(44px * var(--s)); height: calc(44px * var(--s)); border-radius: 50%; }
 .dn-row--skel { cursor: default; }
 .dn-row--skel:hover { background: none; }
-.dn-row--skel .dn-skel--mono { grid-column: 2; }
-.dn-row--skel .dn-skel:nth-child(2) { grid-column: 2; margin-left: calc(58px * var(--s)); width: 55%; }
-.dn-row--skel .dn-skel:nth-child(3) { grid-column: 4 / 6; width: 75%; }
-.dn-row--skel .dn-skel:nth-child(4) { grid-column: 6 / 8; width: 60%; }
+.dn-row--skel .dn-skel:nth-child(1) { grid-column: 2; width: 55%; }
+.dn-row--skel .dn-skel:nth-child(2) { grid-column: 4 / 6; width: 75%; }
+.dn-row--skel .dn-skel:nth-child(3) { grid-column: 6 / 8; width: 60%; }
 .dn-row--skel > .dn-skel { grid-row: 1; }
 @keyframes dn-shimmer { to { background-position: -200% 0; } }
 
@@ -1468,7 +1458,7 @@ button.dn-col[data-sort='asc']::after { opacity: 1; transform: rotate(225deg) tr
       minmax(calc(110px * var(--s)), 0.8fr)
       minmax(calc(120px * var(--s)), 0.85fr)
       minmax(calc(160px * var(--s)), 1fr)
-      calc(104px * var(--s));
+      calc(108px * var(--s));
     column-gap: calc(18px * var(--s));
   }
   .dn-col--contact,

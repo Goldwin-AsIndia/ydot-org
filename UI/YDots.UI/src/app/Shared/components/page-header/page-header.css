@@ -1,10 +1,17 @@
+/* More air above the title, a tight gap below it, on every screen. The top space is padding, not margin, so
+   it never collapses into a parent without padding. --ph-gap-below is the whole visible gap to the next
+   section: the global `app-page-header + *` rule (styles/ydot-theme.css) clears that section's own top
+   margin, and screens whose wrapper is a flex/grid column with a `gap` subtract the gap from this margin. */
 :host {
+  --ph-gap-below: calc(12px * var(--ui-scale, 1));
   display: block;
-  margin-bottom: calc(8px * var(--ui-scale, 1));
+  padding-top: calc(12px * var(--ui-scale, 1));
+  margin-bottom: var(--ph-gap-below);
 }
 
 /* The card variant is a Campaigns header: it leaves the same gap below it as every other card there. */
 :host(.ph-host--card) {
+  padding-top: 0;
   margin-bottom: var(--campaign-gap, calc(17px * var(--ui-scale, 1)));
 }
 

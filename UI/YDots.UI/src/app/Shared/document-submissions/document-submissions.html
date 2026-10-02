@@ -19,19 +19,21 @@
   }
 
   <!-- ------------------------------------------------------------------ Header -->
+  <!-- One line: glyph + title, the counts as a quiet meta line beside it, the action on the right. The old
+       description sentence now lives in the title's tooltip. -->
   <header class="ds-head">
-    <div>
-      <h3 class="ds-title">
-        {{ isReview() ? 'Certificates and documents' : 'Document submissions' }}
-      </h3>
-      <p class="ds-sub">
-        @if (isReview()) {
-          Grouped as the organisation submitted them. Open each file before deciding.
-        } @else {
-          Group a certificate with its supporting files, then send the set for review together.
-        }
-      </p>
-    </div>
+    <h3 class="ds-title" [title]="isReview()
+          ? 'Grouped as the organisation submitted them. Open each file before deciding.'
+          : 'Group a certificate with its supporting files, then send the set for review together.'">
+      <i class="ri-attachment-2"></i>
+      {{ isReview() ? 'Certificates and documents' : 'Document submissions' }}
+    </h3>
+    @if (!loading() && submissions().length) {
+      <span class="ds-head-meta">
+        {{ submissions().length }} {{ submissions().length === 1 ? 'set' : 'sets' }}
+        @if (pendingCount()) { <span class="ds-head-pending">· {{ pendingCount() }} awaiting review</span> }
+      </span>
+    }
 
     @if (!isReview() && canStartNew()) {
       <button type="button" class="ds-btn is-primary"
@@ -66,7 +68,7 @@
         <label class="ds-label" for="ds-notes">
           Anything the reviewer should know <span class="ds-optional">optional</span>
         </label>
-        <textarea id="ds-notes" class="ds-input" rows="2" [ngModel]="newNotes()"
+        <textarea id="ds-notes" class="ds-input" rows="1" [ngModel]="newNotes()"
                   (ngModelChange)="newNotes.set($event)"
                   placeholder="The amendment page is the second file."></textarea>
       </div>
@@ -100,13 +102,13 @@
 
   <!-- ------------------------------------------------------------- Submissions -->
   @for (submission of submissions(); track trackById($index, submission)) {
-    <article class="ds-card">
+    <article class="ds-entry">
 
       <!-- Header: what it is, and where it has got to -->
       <header class="ds-card-head">
         <div class="ds-card-ident">
-          <span class="ds-badge" [class]="statusClass(submission.status)">
-            {{ submission.statusDisplay }}
+          <span class="ds-state" [class]="statusClass(submission.status)">
+            <span class="ds-dot"></span>{{ submission.statusDisplay }}
           </span>
           <h4 class="ds-card-title">{{ submission.title || submission.documentTypeDisplay }}</h4>
           @if (submission.title) {
@@ -209,14 +211,12 @@
             </div>
           } @else {
             <i class="ri-upload-cloud-2-line ds-drop-icon"></i>
-            <p class="ds-drop-main">
-              Drag files here, or
-              <label class="ds-drop-link">
-                browse
-                <input type="file" multiple hidden [accept]="acceptAttribute()"
-                       (change)="onFilePicked($event, submission)">
-              </label>
-            </p>
+            <p class="ds-drop-main">Drag files here, or</p>
+            <label class="ds-drop-link">
+              <i class="ri-folder-open-line"></i> Browse files
+              <input type="file" multiple hidden [accept]="acceptAttribute()"
+                     (change)="onFilePicked($event, submission)">
+            </label>
             @if (acceptSummary()) {
               <p class="ds-drop-limits">{{ acceptSummary() }}</p>
             }

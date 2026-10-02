@@ -20,6 +20,22 @@ import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
 
 type Tab = 'profile' | 'documents' | 'review' | 'settings' | 'domains' | 'timeline';
 
+type SecurityNumberKey =
+  | 'maximumFailedAccessAttempts' | 'lockoutDurationMinutes' | 'sessionIdleTimeoutMinutes'
+  | 'passwordMinimumLength' | 'passwordExpiryDays';
+
+interface SecurityNumberField {
+  key: SecurityNumberKey;
+  id: string;
+  icon: string;
+  label: string;
+  hint: string;
+  unit: string;
+  min: number;
+  max: number;
+  step: number;
+}
+
 /**
  * One Organisation: its profile, its documents, its settings, its history.
  *
@@ -75,6 +91,11 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
   readonly tab = signal<Tab>('profile');
   readonly editing = signal(false);
 
+  /** Profile view: the identifier just copied (shows a tick), and whether a long "About" is opened out. */
+  readonly copied = signal<string | null>(null);
+  readonly aboutOpen = signal(false);
+  private copiedTimer?: ReturnType<typeof setTimeout>;
+
   // ---- Profile form -------------------------------------------------------------------------
   readonly form = signal({
     name: '',
@@ -111,6 +132,23 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     passwordExpiryDays: 0,
     sessionIdleTimeoutMinutes: 30,
   });
+
+  /** The numeric security settings, drawn as stepper rows - one list per settings group. */
+  readonly signInLimits: SecurityNumberField[] = [
+    { key: 'maximumFailedAccessAttempts', id: 's-attempts', icon: 'ri-shield-keyhole-line',
+      label: 'Failed sign-ins before lockout', hint: 'Between 3 and 10', unit: 'tries', min: 3, max: 10, step: 1 },
+    { key: 'lockoutDurationMinutes', id: 's-lockout', icon: 'ri-lock-2-line',
+      label: 'Lockout duration', hint: 'Between 5 and 120', unit: 'min', min: 5, max: 120, step: 5 },
+    { key: 'sessionIdleTimeoutMinutes', id: 's-idle', icon: 'ri-timer-line',
+      label: 'Idle sign-out', hint: 'Between 5 and 480', unit: 'min', min: 5, max: 480, step: 5 },
+  ];
+
+  readonly passwordRules: SecurityNumberField[] = [
+    { key: 'passwordMinimumLength', id: 's-password', icon: 'ri-text-spacing',
+      label: 'Minimum password length', hint: 'Between 8 and 128', unit: 'chars', min: 8, max: 128, step: 1 },
+    { key: 'passwordExpiryDays', id: 's-expiry', icon: 'ri-calendar-schedule-line',
+      label: 'Password expires after', hint: '0 means passwords never expire', unit: 'days', min: 0, max: 365, step: 15 },
+  ];
 
   readonly submitNotes = signal('');
 
@@ -519,6 +557,16 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     this.settingsForm.update((current) => ({ ...current, [key]: value }));
   }
 
+  settingValue(field: SecurityNumberField): number {
+    return this.settingsForm()[field.key];
+  }
+
+  /** Nudges a numeric security setting by its step, kept inside its allowed range. */
+  stepSetting(field: SecurityNumberField, direction: 1 | -1): void {
+    const next = (Number(this.settingsForm()[field.key]) || 0) + direction * field.step;
+    this.updateSetting(field.key, Math.min(field.max, Math.max(field.min, next)));
+  }
+
   startEditing(): void {
     this.editing.set(true);
     this.errorMessage.set('');
@@ -739,6 +787,21 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     void this.router.navigate(['/app/administration/organisation/directory']);
+  }
+
+  /** A status key as words for running text: 'underReview' -> 'under review'. */
+  statusWord(status: string | null | undefined): string {
+    return (status ?? '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  }
+
+  /** Copies a registration identifier; the row shows a tick for a moment under the same key. */
+  copyValue(key: string, value: string | null | undefined): void {
+    if (!value || !navigator.clipboard) return;
+    void navigator.clipboard.writeText(value).then(() => {
+      this.copied.set(key);
+      clearTimeout(this.copiedTimer);
+      this.copiedTimer = setTimeout(() => this.copied.set(null), 1600);
+    });
   }
 
   /** A date-only input needs yyyy-MM-dd; the API sends a full instant. */

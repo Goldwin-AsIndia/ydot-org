@@ -11,7 +11,6 @@ import {
   DonLookupItem,
   FollowUp as ApiFollowUp,
 } from '../../../../Shared/models/donor-contract.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 type PlannerUiState = 'ready' | 'loading' | 'success' | 'error' | 'empty';
 
@@ -21,7 +20,7 @@ type PlannerUiState = 'ready' | 'loading' | 'success' | 'error' | 'empty';
  */
 @Component({
   selector: 'app-follow-up-planner',
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './follow-up-planner.html',
   styleUrl: './follow-up-planner.css',
   host: { class: 'd-block' },
@@ -663,18 +662,8 @@ export class FollowUpPlannerComponent {
     this.load();
   }
 
-  protected initialsOf(name: string | null | undefined): string {
-    return (name || '?')
-      .split(' ')
-      .filter(Boolean)
-      .map((part) => part.charAt(0))
-      .slice(0, 2)
-      .join('')
-      .toUpperCase();
-  }
-
   // ===========================================================================================
-  // PLANNER presentation - the live appointment slip beside the form
+  // PLANNER presentation - the live appointment ticket beside the form
   // ===========================================================================================
 
   protected readonly channelGlyph: Record<string, string> = {
@@ -732,9 +721,9 @@ export class FollowUpPlannerComponent {
 
   protected readonly dateShortcuts = [
     { label: 'Tomorrow', days: 1 },
-    { label: 'In 3 days', days: 3 },
-    { label: 'Next week', days: 7 },
-    { label: 'In 2 weeks', days: 14 },
+    { label: '3 days', days: 3 },
+    { label: '1 week', days: 7 },
+    { label: '2 weeks', days: 14 },
   ];
   protected readonly timeShortcuts = ['09:30', '11:00', '14:00', '16:30'];
 
@@ -753,15 +742,4 @@ export class FollowUpPlannerComponent {
     return warning ? 'blocked' : 'clear';
   });
 
-  protected readonly readiness = computed(() => {
-    const checks = [
-      !!this.owner(),
-      !!this.followUpType(),
-      !!this.scheduledDate() && !!this.scheduledTime(),
-      !!this.priority(),
-      !!this.purpose().trim(),
-      this.consentState() === 'clear',
-    ];
-    return { done: checks.filter(Boolean).length, total: checks.length };
-  });
 }

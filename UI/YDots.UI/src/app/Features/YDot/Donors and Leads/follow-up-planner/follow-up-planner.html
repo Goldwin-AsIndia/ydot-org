@@ -2,29 +2,27 @@
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3 fp-page">
 
-    @if (uiState() === 'loading') {
+    @if (uiState() === 'loading' || uiState() === 'error') {
 
-      <app-page-header class="page-header" [showInfo]="false" screen="follow-up-planner" [title]="hasRecord() ? 'Follow-up planner' : 'New follow-up'"
-                       subtitle="Plan the next contact with a lead or donor on a channel they have agreed to." />
-      <section class="fp-sheet fp-loading" role="status" aria-live="polite">
-        <span class="fp-ring-g" aria-hidden="true"><i class="ri-loader-4-line fp-spin"></i></span>
-        <div><p class="fp-eyebrow">Planner</p><h2>Opening the planner…</h2></div>
-      </section>
-
-    } @else if (uiState() === 'error') {
-
-      <app-page-header class="page-header" [showInfo]="false" screen="follow-up-planner" title="Follow-up planner"
-                       subtitle="Plan the next contact with a lead or donor on a channel they have agreed to." />
-      <section class="fp-sheet fp-loading is-error" role="alert">
-        <span class="fp-ring-g" aria-hidden="true"><i class="ri-error-warning-line"></i></span>
-        <div>
-          <p class="fp-eyebrow">Planner unavailable</p>
-          <h2>The planner or this follow-up could not be loaded</h2>
-          <p class="fp-muted">Check the connection and try again, or return to the queue.</p>
-        </div>
-        <div class="fp-row-acts">
-          <button type="button" class="fp-btn" (click)="cancelPlanner()">Back to queue</button>
-          <button type="button" class="fp-btn fp-btn--primary" (click)="load()"><i class="ri-refresh-line" aria-hidden="true"></i>Try again</button>
+      <!-- =========================================================================================
+           LOADING / ERROR
+           ========================================================================================= -->
+      <section class="fp-sheet" [attr.role]="uiState() === 'error' ? 'alert' : 'status'" aria-live="polite">
+        <header class="fp-mast">
+          <h1 class="fp-title">Follow-up planner</h1>
+          <div class="fp-mast-acts">
+            <button type="button" class="fp-btn" (click)="cancelPlanner()"><i class="ri-arrow-left-line" aria-hidden="true"></i>Back to queue</button>
+          </div>
+        </header>
+        <div class="fp-state" [class.is-error]="uiState() === 'error'">
+          @if (uiState() === 'loading') {
+            <i class="ri-loader-4-line fp-spin" aria-hidden="true"></i>
+            <h2>Opening the planner…</h2>
+          } @else {
+            <i class="ri-error-warning-line" aria-hidden="true"></i>
+            <h2>The planner or this follow-up could not be loaded</h2>
+            <button type="button" class="fp-btn fp-btn--primary" (click)="load()"><i class="ri-refresh-line" aria-hidden="true"></i>Try again</button>
+          }
         </div>
       </section>
 
@@ -33,153 +31,128 @@
       <!-- =========================================================================================
            NEW FOLLOW-UP - choose the person first
            ========================================================================================= -->
-      <app-page-header class="page-header" [showInfo]="false" screen="follow-up-planner" title="New follow-up"
-                       subtitle="Choose who you are following up, then plan when and how you will reach them.">
-        <!-- <span meta class="ph-chip">Donors &amp; Leads</span> -->
-        <button actions type="button" class="ph-btn ph-btn--ghost" (click)="cancelPlanner()">
-          <i class="ri-arrow-left-line" aria-hidden="true"></i> Back to queue
-        </button>
-      </app-page-header>
+      <section class="fp-sheet fp-start" aria-labelledby="fp-start-title">
+        <header class="fp-mast">
+          <h1 class="fp-title" id="fp-start-title">New follow-up</h1>
+          <div class="fp-mast-acts">
+            <button type="button" class="fp-btn" (click)="cancelPlanner()"><i class="ri-arrow-left-line" aria-hidden="true"></i>Back to queue</button>
+          </div>
+        </header>
 
-      <ol class="fp-steps" aria-label="Steps">
-        <li class="is-now"><span class="fp-step-no">01</span><span class="fp-step-t"><b>Choose a person</b><small>A lead or a donor on record</small></span></li>
-        <li><span class="fp-step-no">02</span><span class="fp-step-t"><b>Plan the contact</b><small>Owner, channel, date and purpose</small></span></li>
-        <li><span class="fp-step-no">03</span><span class="fp-step-t"><b>Confirm &amp; schedule</b><small>It joins the owner's follow-up queue</small></span></li>
-      </ol>
-
-      <div class="fp-start">
-        <section class="fp-sheet fp-finder" aria-labelledby="fp-finder-title">
-          <header class="fp-sheet-head">
-            <div>
-              <p class="fp-eyebrow"><i class="ri-user-search-line" aria-hidden="true"></i>Step one</p>
-              <h2 id="fp-finder-title">Who is this follow-up for?</h2>
+        <div class="fp-start-body">
+          <!-- who -->
+          <div class="fp-pane" aria-labelledby="fp-finder-title">
+            <div class="fp-pane-bar">
+              <h2 class="fp-pane-title" id="fp-finder-title">Who is it for?</h2>
+              <div class="fp-kind" role="tablist" aria-label="Record type">
+                <button type="button" role="tab" class="fp-kind-b" [class.is-on]="pickerKind() === 'lead'" [attr.aria-selected]="pickerKind() === 'lead'" (click)="setPickerKind('lead')"><i class="ri-user-star-line" aria-hidden="true"></i>Leads</button>
+                <button type="button" role="tab" class="fp-kind-b" [class.is-on]="pickerKind() === 'donor'" [attr.aria-selected]="pickerKind() === 'donor'" (click)="setPickerKind('donor')"><i class="ri-hand-heart-line" aria-hidden="true"></i>Donors</button>
+              </div>
+              <label class="fp-search">
+                <i class="ri-search-line" aria-hidden="true"></i>
+                <span class="visually-hidden">Search {{ pickerKind() === 'lead' ? 'leads' : 'donors' }}</span>
+                <input type="search" [placeholder]="pickerKind() === 'lead' ? 'Name or reference' : 'Donor name'"
+                       [ngModel]="pickerQuery()" (ngModelChange)="onPickerQuery($event)" />
+                @if (pickerLoading()) { <i class="ri-loader-4-line fp-spin" aria-hidden="true"></i> }
+              </label>
             </div>
-            <div class="fp-kind" role="tablist" aria-label="Record type">
-              <button type="button" role="tab" class="fp-kind-b" [class.is-on]="pickerKind() === 'lead'" [attr.aria-selected]="pickerKind() === 'lead'" (click)="setPickerKind('lead')"><i class="ri-user-star-line" aria-hidden="true"></i>Leads</button>
-              <button type="button" role="tab" class="fp-kind-b" [class.is-on]="pickerKind() === 'donor'" [attr.aria-selected]="pickerKind() === 'donor'" (click)="setPickerKind('donor')"><i class="ri-hand-heart-line" aria-hidden="true"></i>Donors</button>
+
+            @if (pickerError()) {
+              <div class="fp-empty is-error"><i class="ri-error-warning-line" aria-hidden="true"></i><span>{{ pickerError() }}</span><button type="button" class="fp-btn fp-btn--sm" (click)="searchPeople()">Retry</button></div>
+            } @else if (!pickerLoading() && pickerResults().length === 0) {
+              <div class="fp-empty"><i class="ri-user-search-line" aria-hidden="true"></i><span>{{ pickerQuery().trim() ? 'Nobody matches that search.' : 'Start typing a name to find someone.' }}</span></div>
+            } @else {
+              <ul class="fp-list" [attr.aria-busy]="pickerLoading()">
+                @for (person of pickerResults(); track person.id) {
+                  <li>
+                    <button type="button" class="fp-line" (click)="choosePerson(person)">
+                      <i class="fp-line-glyph" [class]="pickerKind() === 'lead' ? 'ri-user-star-line' : 'ri-hand-heart-line'" aria-hidden="true"></i>
+                      <span class="fp-line-name">{{ person.name }}</span>
+                      <span class="fp-line-ref fp-num">{{ person.reference || '—' }}</span>
+                      <span class="fp-line-state"><span class="fp-dot" aria-hidden="true"></span>{{ person.status }}</span>
+                      <span class="fp-btn fp-btn--sm fp-line-go">Plan<i class="ri-arrow-right-line" aria-hidden="true"></i></span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+
+          <!-- already booked -->
+          <div class="fp-pane fp-pane--booked" aria-labelledby="fp-booked-title">
+            <div class="fp-pane-bar">
+              <h2 class="fp-pane-title" id="fp-booked-title">Already scheduled</h2>
+              <span class="fp-booked-count fp-num">{{ rows().length }}</span>
             </div>
-          </header>
 
-          <label class="fp-search">
-            <i class="ri-search-line" aria-hidden="true"></i>
-            <span class="visually-hidden">Search {{ pickerKind() === 'lead' ? 'leads' : 'donors' }}</span>
-            <input type="search" [placeholder]="pickerKind() === 'lead' ? 'Search leads by name or reference' : 'Search donors by name'"
-                   [ngModel]="pickerQuery()" (ngModelChange)="onPickerQuery($event)" />
-            @if (pickerLoading()) { <i class="ri-loader-4-line fp-spin" aria-hidden="true"></i> }
-          </label>
-
-          @if (pickerError()) {
-            <div class="fp-inline-state is-error"><i class="ri-error-warning-line" aria-hidden="true"></i><span>{{ pickerError() }}</span><button type="button" class="fp-link" (click)="searchPeople()">Retry</button></div>
-          } @else if (!pickerLoading() && pickerResults().length === 0) {
-            <div class="fp-inline-state"><i class="ri-user-search-line" aria-hidden="true"></i><span>{{ pickerQuery().trim() ? 'Nobody matches that search.' : 'Start typing a name to find someone.' }}</span></div>
-          } @else {
-            <ul class="fp-people" [attr.aria-busy]="pickerLoading()">
-              @for (person of pickerResults(); track person.id) {
-                <li>
-                  <button type="button" class="fp-person" (click)="choosePerson(person)">
-                    <span class="fp-mono" aria-hidden="true">{{ initialsOf(person.name) }}</span>
-                    <span class="fp-person-t">
-                      <span class="fp-person-name">{{ person.name }}</span>
-                      <span class="fp-person-sub">
-                        @if (person.reference) { <span class="fp-num">{{ person.reference }}</span> }
-                        <span class="fp-status"><span class="fp-dot" aria-hidden="true"></span>{{ person.status }}</span>
+            @if (rows().length === 0) {
+              <div class="fp-empty"><i class="ri-calendar-line" aria-hidden="true"></i><span>Nothing is scheduled yet.</span></div>
+            } @else {
+              <ul class="fp-list">
+                @for (row of rows(); track row.id) {
+                  <li>
+                    <button type="button" class="fp-line fp-line--booked" (click)="selectRecord(row)" [title]="'Open ' + row.followUpReference">
+                      <span class="fp-leaf" aria-hidden="true">
+                        <b>{{ row.dueAtUtc ? (row.dueAtUtc | date: 'dd') : '—' }}</b>
+                        <small>{{ row.dueAtUtc ? (row.dueAtUtc | date: 'MMM') : 'TBC' }}</small>
                       </span>
-                    </span>
-                    <span class="fp-person-go">Plan<i class="ri-arrow-right-line" aria-hidden="true"></i></span>
-                  </button>
-                </li>
-              }
-            </ul>
-          }
-        </section>
-
-        <section class="fp-sheet fp-booked" aria-labelledby="fp-booked-title">
-          <header class="fp-sheet-head">
-            <div>
-              <p class="fp-eyebrow"><i class="ri-calendar-check-line" aria-hidden="true"></i>Or continue one</p>
-              <h2 id="fp-booked-title">Already on the calendar</h2>
-            </div>
-            <span class="fp-muted">{{ rows().length }} shown</span>
-          </header>
-
-          @if (rows().length === 0) {
-            <div class="fp-inline-state"><i class="ri-calendar-line" aria-hidden="true"></i><span>Nothing is scheduled yet. Choose a person to plan the first follow-up.</span></div>
-          } @else {
-            <ul class="fp-booked-list">
-              @for (row of rows(); track row.id) {
-                <li>
-                  <button type="button" class="fp-booked-row" (click)="selectRecord(row)" [title]="'Open ' + row.followUpReference">
-                    <span class="fp-leaf" aria-hidden="true">
-                      <b>{{ row.dueAtUtc ? (row.dueAtUtc | date: 'dd') : '—' }}</b>
-                      <small>{{ row.dueAtUtc ? (row.dueAtUtc | date: 'MMM') : 'No date' }}</small>
-                    </span>
-                    <span class="fp-person-t">
-                      <span class="fp-person-name">{{ row.donorDisplayName || row.leadReference || row.donorReference || 'Unnamed record' }}</span>
-                      <span class="fp-person-sub">
-                        <span><i [class]="glyphFor(row.permittedChannel)" aria-hidden="true"></i>{{ row.permittedChannel }}</span>
-                        @if (row.dueAtUtc) { <span class="fp-num">{{ row.dueAtUtc | date: 'EEE, HH:mm' }}</span> }
-                        <span class="fp-status" [attr.data-priority]="row.priority"><span class="fp-dot" aria-hidden="true"></span>{{ row.priority }}</span>
+                      <span class="fp-line-main">
+                        <span class="fp-line-name">{{ row.donorDisplayName || row.leadReference || row.donorReference || 'Unnamed record' }}</span>
+                        <span class="fp-line-meta">
+                          <span><i [class]="glyphFor(row.permittedChannel)" aria-hidden="true"></i>{{ row.permittedChannel }}</span>
+                          @if (row.dueAtUtc) { <span class="fp-num">{{ row.dueAtUtc | date: 'EEE, HH:mm' }}</span> }
+                        </span>
                       </span>
-                    </span>
-                    <i class="ri-arrow-right-up-line fp-booked-go" aria-hidden="true"></i>
-                  </button>
-                </li>
-              }
-            </ul>
-          }
-          @if (totalPages() > 1) {
-            <footer class="fp-pager">
-              <span class="fp-muted">Page {{ page() }} of {{ totalPages() }}</span>
-              <button type="button" class="fp-round" [disabled]="page() <= 1" (click)="changePage(-1)" aria-label="Previous page"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
-              <button type="button" class="fp-round" [disabled]="page() >= totalPages()" (click)="changePage(1)" aria-label="Next page"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-            </footer>
-          }
-        </section>
-      </div>
+                      <span class="fp-line-state" [attr.data-priority]="row.priority"><span class="fp-dot" aria-hidden="true"></span>{{ row.priority }}</span>
+                      <i class="ri-arrow-right-up-line fp-line-open" aria-hidden="true"></i>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+            @if (totalPages() > 1) {
+              <footer class="fp-pager">
+                <span class="fp-num">Page {{ page() }} of {{ totalPages() }}</span>
+                <button type="button" class="fp-btn fp-btn--sq" [disabled]="page() <= 1" (click)="changePage(-1)" aria-label="Previous page"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+                <button type="button" class="fp-btn fp-btn--sq" [disabled]="page() >= totalPages()" (click)="changePage(1)" aria-label="Next page"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+              </footer>
+            }
+          </div>
+        </div>
+      </section>
 
     } @else {
 
       <!-- =========================================================================================
            PLANNER
            ========================================================================================= -->
-      <app-page-header class="page-header" [showInfo]="false" screen="follow-up-planner" title="Follow-up planner"
-                       subtitle="Schedule the next contact on a channel the person has consented to.">
-        <!-- <span meta class="ph-chip">{{ existing()?.followUpReference || 'New follow-up' }}</span> -->
-        <ng-container actions>
-          @if (!existing()) {
-            <button type="button" class="ph-btn ph-btn--ghost" (click)="leadId.set(null); donorId.set(null); followUpId.set(null)">
-              <i class="ri-user-shared-line" aria-hidden="true"></i> Change person
-            </button>
-          }
-          <button type="button" class="ph-btn ph-btn--ghost" (click)="cancelPlanner()">
-            <i class="ri-arrow-left-line" aria-hidden="true"></i> Back to queue
-          </button>
-        </ng-container>
-      </app-page-header>
-
-      <!-- person strip -->
-      <section class="fp-sheet fp-person-strip" aria-label="Person">
-        <span class="fp-mono fp-mono--lg" aria-hidden="true">{{ initialsOf(record().name) }}</span>
-        <div class="fp-who">
-          <p class="fp-eyebrow">{{ resolvedLeadId() ? 'Lead' : 'Donor' }}<span class="fp-sep" aria-hidden="true"></span><span class="fp-num">{{ recordReference() }}</span></p>
-          <h2>{{ record().name }}</h2>
-          <p class="fp-contact">
-            <span><i class="ri-mail-line" aria-hidden="true"></i>{{ record().email }}</span>
-            <span><i class="ri-phone-line" aria-hidden="true"></i><span class="fp-num">{{ record().phone }}</span></span>
-          </p>
-        </div>
-        <dl class="fp-strip-facts">
-          <div><dt>Relationship owner</dt><dd>{{ record().owner }}</dd></div>
-          <div><dt>Status</dt><dd><span class="fp-status" [attr.data-state]="existing()?.status || 'Draft'"><span class="fp-dot" aria-hidden="true"></span>{{ existing()?.status || 'Draft' }}</span></dd></div>
-          <div>
-            <dt>Ready to schedule</dt>
-            <dd>
-              <span class="fp-ready" aria-hidden="true">
-                @for (n of [1, 2, 3, 4, 5, 6]; track n) { <span [class.is-on]="n <= readiness().done"></span> }
-              </span>
-              <span class="fp-num">{{ readiness().done }}/{{ readiness().total }}</span>
-            </dd>
+      <section class="fp-sheet fp-head" aria-labelledby="fp-title">
+        <header class="fp-mast">
+          <h1 class="fp-title" id="fp-title">Follow-up planner</h1>
+          <span class="fp-rule" aria-hidden="true"></span>
+          <div class="fp-who">
+            <h2>{{ record().name }}</h2>
+            <span class="fp-kicker">{{ resolvedLeadId() ? 'Lead' : 'Donor' }} <span class="fp-num">{{ existing()?.followUpReference ? existing()!.followUpReference + ' · ' : '' }}{{ recordReference() }}</span></span>
           </div>
+          <div class="fp-mast-acts">
+            @if (!existing()) {
+              <button type="button" class="fp-btn" (click)="leadId.set(null); donorId.set(null); followUpId.set(null)">
+                <i class="ri-user-shared-line" aria-hidden="true"></i>Change person
+              </button>
+            }
+            <button type="button" class="fp-btn" (click)="cancelPlanner()">
+              <i class="ri-arrow-left-line" aria-hidden="true"></i>Back to queue
+            </button>
+          </div>
+        </header>
+
+        <dl class="fp-facts">
+          <div><dt><i class="ri-mail-line" aria-hidden="true"></i><span class="visually-hidden">E-mail</span></dt><dd [title]="record().email">{{ record().email }}</dd></div>
+          <div><dt><i class="ri-phone-line" aria-hidden="true"></i><span class="visually-hidden">Phone</span></dt><dd class="fp-num">{{ record().phone }}</dd></div>
+          <div><dt><i class="ri-user-follow-line" aria-hidden="true"></i>Owner</dt><dd>{{ record().owner }}</dd></div>
+          <div><dt><i class="ri-translate-2" aria-hidden="true"></i>Language</dt><dd>{{ preferredLanguage() || 'Not recorded' }}</dd></div>
+          <div><dt><i class="ri-time-line" aria-hidden="true"></i>Best time</dt><dd>{{ existing()?.preferredContactTimeUtc || 'Not recorded' }}</dd></div>
+          <div class="fp-facts-state" [attr.data-state]="existing()?.status || 'Draft'"><dt><i class="ri-flag-2-line" aria-hidden="true"></i>Status</dt><dd><span class="fp-dot" aria-hidden="true"></span>{{ existing()?.status || 'Draft' }}</dd></div>
         </dl>
       </section>
 
@@ -188,25 +161,27 @@
         <section class="fp-sheet fp-form" aria-labelledby="fp-form-title">
           <h2 id="fp-form-title" class="visually-hidden">Follow-up details</h2>
 
-          <div class="fp-sec">
-            <div class="fp-sec-head"><span class="fp-no">01</span><h3>Who follows up</h3><p>The owner sees it in their queue.</p></div>
-            <div class="fp-grid-2">
+          <div class="fp-row">
+            <div class="fp-gutter"><span class="fp-no">01</span><h3>Ownership</h3></div>
+            <div class="fp-ctl fp-ctl--2">
               <div class="fp-field">
-                <label for="owner" class="fp-label">Assigned user <span class="fp-req">*</span></label>
-                @if (ownerOptions().length > 20) {
-                  <input type="search" class="fp-input fp-input--find" placeholder="Find a user" aria-label="Search assigned user"
-                         [ngModel]="searches()['owner'] || ''" (ngModelChange)="searchOptions('owner', $event)" />
-                }
+                <div class="fp-label-row">
+                  <label for="owner" class="fp-label">Assigned user <span class="fp-req">*</span></label>
+                  @if (ownerOptions().length > 20) {
+                    <input type="search" class="fp-find" placeholder="Find a user" aria-label="Search assigned user"
+                           [ngModel]="searches()['owner'] || ''" (ngModelChange)="searchOptions('owner', $event)" />
+                  }
+                </div>
                 <select id="owner" class="fp-input fp-select" [disabled]="!!existing()" required [ngModel]="owner()" (ngModelChange)="owner.set($event)">
                   <option value="" disabled>Select assigned user</option>
                   @for (option of options('owner', ownerOptions()); track option.value) { <option [value]="option.value">{{ option.label }}</option> }
                 </select>
               </div>
               <div class="fp-field">
-                <span class="fp-label" id="fp-priority-l">Priority <span class="fp-req">*</span></span>
-                <div class="fp-options" role="radiogroup" aria-labelledby="fp-priority-l">
+                <div class="fp-label-row"><span class="fp-label" id="fp-priority-l">Priority <span class="fp-req">*</span></span></div>
+                <div class="fp-seg" role="radiogroup" aria-labelledby="fp-priority-l">
                   @for (option of priorityOptions(); track option.value) {
-                    <button type="button" role="radio" class="fp-opt" [attr.data-priority]="option.value" [class.is-on]="priority() === option.value"
+                    <button type="button" role="radio" class="fp-seg-b" [attr.data-priority]="option.value" [class.is-on]="priority() === option.value"
                             [attr.aria-checked]="priority() === option.value" (click)="priority.set(option.value)">
                       <span class="fp-dot" aria-hidden="true"></span>{{ option.label }}
                     </button>
@@ -216,79 +191,81 @@
             </div>
           </div>
 
-          <div class="fp-sec">
-            <div class="fp-sec-head"><span class="fp-no">02</span><h3>How</h3><p>Only channels the person agreed to can be scheduled.</p></div>
-            <div class="fp-channels" role="radiogroup" aria-label="Follow-up type">
-              @for (option of channelOptions(); track option.value) {
-                <button type="button" role="radio" class="fp-channel" [class.is-on]="followUpType() === option.value" [disabled]="!!existing()"
-                        [attr.aria-checked]="followUpType() === option.value" (click)="followUpType.set(option.value); checkConsent()">
-                  <i [class]="glyphFor(option.value)" aria-hidden="true"></i>
-                  <span>{{ option.label }}</span>
-                </button>
-              }
+          <div class="fp-row">
+            <div class="fp-gutter"><span class="fp-no">02</span><h3>Channel</h3></div>
+            <div class="fp-ctl">
+              <div class="fp-channels" role="radiogroup" aria-label="Follow-up type">
+                @for (option of channelOptions(); track option.value) {
+                  <button type="button" role="radio" class="fp-channel" [class.is-on]="followUpType() === option.value" [disabled]="!!existing()"
+                          [attr.aria-checked]="followUpType() === option.value" (click)="followUpType.set(option.value); checkConsent()">
+                    <i [class]="glyphFor(option.value)" aria-hidden="true"></i>
+                    <span>{{ option.label }}</span>
+                  </button>
+                }
+              </div>
+              <p class="fp-consent" [attr.data-consent]="consentState()">
+                <i [class]="consentState() === 'clear' ? 'ri-shield-check-line' : consentState() === 'checking' ? 'ri-loader-4-line fp-spin' : 'ri-shield-cross-line'" aria-hidden="true"></i>
+                <span>
+                  @switch (consentState()) {
+                    @case ('checking') { Checking consent for {{ followUpType() || 'this channel' }}… }
+                    @case ('blocked') { {{ consentWarning() }} }
+                    @default { Consent for {{ followUpType() || 'this channel' }} is clear. It is checked again before any contact. }
+                  }
+                </span>
+              </p>
             </div>
           </div>
 
-          <div class="fp-sec">
-            <div class="fp-sec-head"><span class="fp-no">03</span><h3>When</h3><p>{{ slip()?.distance || 'Pick a day and a time.' }}</p></div>
-            <div class="fp-grid-2">
+          <div class="fp-row">
+            <div class="fp-gutter"><span class="fp-no">03</span><h3>Schedule</h3></div>
+            <div class="fp-ctl fp-ctl--2">
               <div class="fp-field">
-                <label for="date" class="fp-label">Scheduled date <span class="fp-req">*</span></label>
+                <div class="fp-label-row">
+                  <label for="date" class="fp-label">Date <span class="fp-req">*</span></label>
+                  <span class="fp-picks">
+                    @for (d of dateShortcuts; track d.days) {
+                      <button type="button" class="fp-pick" [class.is-on]="scheduledDate() === dateIn(d.days)" (click)="scheduledDate.set(dateIn(d.days))">{{ d.label }}</button>
+                    }
+                  </span>
+                </div>
                 <input id="date" type="date" class="fp-input fp-num" required [min]="existing() ? null : todayIso" [ngModel]="scheduledDate()" (ngModelChange)="scheduledDate.set($event)" />
-                <div class="fp-quick">
-                  @for (d of dateShortcuts; track d.days) {
-                    <button type="button" class="fp-quick-b" [class.is-on]="scheduledDate() === dateIn(d.days)" (click)="scheduledDate.set(dateIn(d.days))">{{ d.label }}</button>
-                  }
-                </div>
               </div>
               <div class="fp-field">
-                <label for="time" class="fp-label">Scheduled time <span class="fp-req">*</span></label>
-                <input id="time" type="time" class="fp-input fp-num" required [ngModel]="scheduledTime()" (ngModelChange)="scheduledTime.set($event)" />
-                <div class="fp-quick">
-                  @for (t of timeShortcuts; track t) {
-                    <button type="button" class="fp-quick-b fp-num" [class.is-on]="scheduledTime() === t" (click)="scheduledTime.set(t)">{{ t }}</button>
-                  }
+                <div class="fp-label-row">
+                  <label for="time" class="fp-label">Time <span class="fp-req">*</span></label>
+                  <span class="fp-picks">
+                    @for (t of timeShortcuts; track t) {
+                      <button type="button" class="fp-pick fp-num" [class.is-on]="scheduledTime() === t" (click)="scheduledTime.set(t)">{{ t }}</button>
+                    }
+                  </span>
                 </div>
+                <input id="time" type="time" class="fp-input fp-num" required [ngModel]="scheduledTime()" (ngModelChange)="scheduledTime.set($event)" />
               </div>
             </div>
           </div>
 
-          <div class="fp-sec">
-            <div class="fp-sec-head"><span class="fp-no">04</span><h3>Why</h3><p>What the conversation is for, and what a good outcome looks like.</p></div>
-            <div class="fp-grid-2">
+          <div class="fp-row">
+            <div class="fp-gutter"><span class="fp-no">04</span><h3>Brief</h3></div>
+            <div class="fp-ctl fp-ctl--2">
               <div class="fp-field">
-                <label for="purpose" class="fp-label">Purpose <span class="fp-req">*</span></label>
-                <textarea id="purpose" class="fp-input fp-textarea" rows="4" maxlength="500" [readOnly]="!!existing()"
+                <div class="fp-label-row">
+                  <label for="purpose" class="fp-label">Purpose <span class="fp-req">*</span></label>
+                  <span class="fp-count fp-num">{{ purpose().length }}/500</span>
+                </div>
+                <textarea id="purpose" class="fp-input fp-textarea" rows="3" maxlength="500" [readOnly]="!!existing()"
                           placeholder="e.g. Thank them for the last gift and share the school progress report"
                           [ngModel]="purpose()" (ngModelChange)="purpose.set($event)"></textarea>
-                <span class="fp-count fp-num">{{ purpose().length }}/500</span>
               </div>
               <div class="fp-field">
-                <label for="outcome" class="fp-label">Expected outcome</label>
-                <textarea id="outcome" class="fp-input fp-textarea" rows="4" maxlength="500" [readOnly]="!!existing()"
+                <div class="fp-label-row">
+                  <label for="outcome" class="fp-label">Expected outcome</label>
+                  <span class="fp-count fp-num">{{ expectedOutcome().length }}/500</span>
+                </div>
+                <textarea id="outcome" class="fp-input fp-textarea" rows="3" maxlength="500" [readOnly]="!!existing()"
                           placeholder="e.g. Agree a date for a site visit"
                           [ngModel]="expectedOutcome()" (ngModelChange)="expectedOutcome.set($event)"></textarea>
-                <span class="fp-count fp-num">{{ expectedOutcome().length }}/500</span>
               </div>
             </div>
-          </div>
-
-          <div class="fp-sec">
-            <div class="fp-sec-head"><span class="fp-no">05</span><h3>Preferences &amp; consent</h3><p>Taken from the person's record; they cannot be edited here.</p></div>
-            <dl class="fp-prefs">
-              <div><dt><i class="ri-translate-2" aria-hidden="true"></i>Preferred language</dt><dd>{{ preferredLanguage() || 'Not recorded' }}</dd></div>
-              <div><dt><i class="ri-time-line" aria-hidden="true"></i>Preferred contact time</dt><dd>{{ existing()?.preferredContactTimeUtc || 'Not recorded' }}</dd></div>
-              <div class="fp-consent" [attr.data-consent]="consentState()">
-                <dt><i [class]="consentState() === 'clear' ? 'ri-shield-check-line' : consentState() === 'checking' ? 'ri-loader-4-line fp-spin' : 'ri-shield-cross-line'" aria-hidden="true"></i>Consent for {{ followUpType() || 'this channel' }}</dt>
-                <dd>
-                  @switch (consentState()) {
-                    @case ('checking') { Checking channel consent… }
-                    @case ('blocked') { {{ consentWarning() }} }
-                    @default { No restriction recorded for this channel. It is checked again before any contact. }
-                  }
-                </dd>
-              </div>
-            </dl>
           </div>
 
           @if (validationMessage()) {
@@ -296,58 +273,52 @@
           }
         </section>
 
-        <!-- ---------------- appointment slip ---------------- -->
-        <aside class="fp-sheet fp-slip" aria-label="Appointment preview">
-          <p class="fp-eyebrow"><i class="ri-bookmark-3-line" aria-hidden="true"></i>Appointment slip</p>
-
-          @if (slip(); as s) {
-            <div class="fp-slip-date" [class.is-past]="s.past">
-              <span class="fp-slip-day">{{ s.day }}</span>
-              <span class="fp-slip-mo">
+        <!-- ---------------- ticket ---------------- -->
+        <aside class="fp-sheet fp-ticket" aria-label="Appointment preview">
+          <div class="fp-stub" [class.is-past]="slip()?.past" [class.is-empty]="!slip()">
+            @if (slip(); as s) {
+              <span class="fp-stub-day">{{ s.day }}</span>
+              <span class="fp-stub-when">
                 <b>{{ s.month }} {{ s.year }}</b>
-                <small>{{ s.weekday }}@if (slipTime()) { · {{ slipTime() }} }</small>
+                <span>{{ s.weekday }}@if (slipTime()) { · <span class="fp-num">{{ slipTime() }}</span> }</span>
                 <em>{{ s.distance }}</em>
               </span>
-            </div>
-          } @else {
-            <div class="fp-slip-date is-empty">
-              <span class="fp-slip-day">—</span>
-              <span class="fp-slip-mo"><b>No date yet</b><small>Choose when in step 03</small></span>
-            </div>
-          }
-
-          <dl class="fp-slip-rows">
-            <div><dt>For</dt><dd>{{ record().name }}</dd></div>
-            <div><dt>Channel</dt><dd><i [class]="glyphFor(followUpType())" aria-hidden="true"></i>{{ followUpType() || '—' }}</dd></div>
-            <div><dt>With</dt><dd>{{ ownerLabel() || 'Not assigned' }}</dd></div>
-            <div><dt>Priority</dt><dd><span class="fp-status" [attr.data-priority]="priority()"><span class="fp-dot" aria-hidden="true"></span>{{ priority() || '—' }}</span></dd></div>
-          </dl>
-
-          <blockquote class="fp-slip-quote" [class.is-empty]="!purpose().trim()">{{ purpose().trim() || 'The purpose you write in step 04 appears here.' }}</blockquote>
-
-          <p class="fp-slip-consent" [attr.data-consent]="consentState()">
-            <i [class]="consentState() === 'clear' ? 'ri-shield-check-line' : consentState() === 'checking' ? 'ri-loader-4-line fp-spin' : 'ri-shield-cross-line'" aria-hidden="true"></i>
-            {{ consentState() === 'clear' ? 'Channel consent clear' : consentState() === 'checking' ? 'Checking consent…' : 'Channel blocked by consent' }}
-          </p>
-
-          <div class="fp-slip-acts">
-            @if (!existing()) {
-              <button type="button" class="fp-btn fp-btn--primary fp-btn--wide" [disabled]="saving() || !permissions()['scheduleFollowUp']" (click)="openAction('scheduleFollowUp')">
-                <i class="ri-calendar-check-line" aria-hidden="true"></i>Schedule follow-up
-              </button>
-              @if (!permissions()['scheduleFollowUp']) { <p class="fp-muted fp-center">Your role cannot schedule follow-ups.</p> }
             } @else {
-              <button type="button" class="fp-btn fp-btn--primary fp-btn--wide" [disabled]="saving() || !permissions()['reschedule']" (click)="openAction('reschedule')">
-                <i class="ri-calendar-schedule-line" aria-hidden="true"></i>Reschedule
-              </button>
-              <button type="button" class="fp-btn fp-btn--danger fp-btn--wide" [disabled]="saving() || !permissions()['cancelTask']" (click)="openAction('cancelTask')">
-                <i class="ri-close-circle-line" aria-hidden="true"></i>Cancel follow-up
-              </button>
+              <span class="fp-stub-day">—</span>
+              <span class="fp-stub-when"><b>No date yet</b><span>Pick a date and time</span></span>
             }
-            <button type="button" class="fp-link fp-link--mute" (click)="cancelPlanner()">Discard and return to the queue</button>
           </div>
 
-          <p class="fp-slip-note"><i class="ri-information-line" aria-hidden="true"></i>Planning only — nothing is sent now. Consent is checked again before any contact is made.</p>
+          <div class="fp-ticket-body">
+            <dl class="fp-ticket-rows">
+              <div><dt>For</dt><dd>{{ record().name }}</dd></div>
+              <div><dt>Channel</dt><dd><i [class]="glyphFor(followUpType())" aria-hidden="true"></i>{{ followUpType() || '—' }}</dd></div>
+              <div><dt>With</dt><dd>{{ ownerLabel() || 'Not assigned' }}</dd></div>
+              <div><dt>Priority</dt><dd class="fp-pr" [attr.data-priority]="priority()"><span class="fp-dot" aria-hidden="true"></span>{{ priority() || '—' }}</dd></div>
+            </dl>
+
+            <blockquote class="fp-quote" [class.is-empty]="!purpose().trim()">{{ purpose().trim() || 'The purpose appears here.' }}</blockquote>
+
+            <div class="fp-ticket-acts">
+              @if (!existing()) {
+                <button type="button" class="fp-btn fp-btn--primary fp-btn--wide" title="Planning only - nothing is sent now"
+                        [disabled]="saving() || !permissions()['scheduleFollowUp']" (click)="openAction('scheduleFollowUp')">
+                  <i class="ri-calendar-check-line" aria-hidden="true"></i>Schedule follow-up
+                </button>
+                @if (!permissions()['scheduleFollowUp']) { <p class="fp-muted">Your role cannot schedule follow-ups.</p> }
+              } @else {
+                <button type="button" class="fp-btn fp-btn--primary fp-btn--wide" [disabled]="saving() || !permissions()['reschedule']" (click)="openAction('reschedule')">
+                  <i class="ri-calendar-schedule-line" aria-hidden="true"></i>Reschedule
+                </button>
+                <button type="button" class="fp-btn fp-btn--danger fp-btn--wide" [disabled]="saving() || !permissions()['cancelTask']" (click)="openAction('cancelTask')">
+                  <i class="ri-close-circle-line" aria-hidden="true"></i>Cancel follow-up
+                </button>
+              }
+              <button type="button" class="fp-btn fp-btn--wide fp-btn--quiet" (click)="cancelPlanner()">
+                <i class="ri-arrow-go-back-line" aria-hidden="true"></i>Discard
+              </button>
+            </div>
+          </div>
         </aside>
       </div>
     }
@@ -356,7 +327,7 @@
   </div>
 
   <!-- =============================================================================================
-       CONFIRMATION - bespoke, opted out of the dialog generator
+       CONFIRMATION - frame from the shared pop-up design (styles/ydot-dialogs.css)
        ============================================================================================= -->
   @if (confirmConfig(); as config) {
     <dialog #confirmation class="fp-dialog" [attr.data-tone]="config.tone" aria-labelledby="fp-confirm-title" (cancel)="$event.preventDefault(); onCancel()">

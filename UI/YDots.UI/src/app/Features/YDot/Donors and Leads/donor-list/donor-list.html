@@ -234,7 +234,7 @@
         @if (loading()) {
           <div class="dn-rows" aria-hidden="true">
             @for (row of [1,2,3,4,5,6]; track row) {
-              <div class="dn-row dn-row--skel"><span class="dn-skel dn-skel--mono"></span><span class="dn-skel"></span><span class="dn-skel"></span><span class="dn-skel"></span></div>
+              <div class="dn-row dn-row--skel"><span class="dn-skel"></span><span class="dn-skel"></span><span class="dn-skel"></span></div>
             }
           </div>
         } @else if (error()) {
@@ -266,7 +266,7 @@
             <button type="button" class="dn-col dn-col--num" [attr.data-sort]="sortIndicator('lastDonationDate')" (click)="toggleSort('lastDonationDate')">Last gift</button>
             <button type="button" class="dn-col dn-col--num" [attr.data-sort]="sortIndicator('lifetimeGiving')" (click)="toggleSort('lifetimeGiving')">Lifetime</button>
             <span class="dn-col">Standing</span>
-            <span class="dn-col dn-sr">Actions</span>
+            <span class="dn-col dn-col--act">Action</span>
           </div>
 
           <ul class="dn-rows" role="list" aria-label="Donors">
@@ -277,7 +277,6 @@
                 </label>
 
                 <div class="dn-who">
-                  <span class="dn-mono" [attr.data-status]="statusOf(donor)" aria-hidden="true">{{ initials(donor.name) }}</span>
                   <div class="dn-who-t">
                     <button type="button" class="dn-name" (click)="openDonor360(donor, $event)" title="Open Donor 360"><span>{{ donor.name }}</span></button>
                     <span class="dn-who-meta">
@@ -300,7 +299,6 @@
                 <div class="dn-camp">
                   <span class="dn-camp-n" [class.dn-none]="!donor.campaign" [title]="donor.campaign || ''">{{ donor.campaign || 'No campaign' }}</span>
                   <span class="dn-owner">
-                    <span class="dn-owner-ring" [class.is-none]="!hasOwner(donor)" aria-hidden="true">{{ hasOwner(donor) ? (donor.ownerInitials || initials(donor.owner)) : '' }}</span>
                     <span class="dn-owner-n" [class.dn-none]="!hasOwner(donor)">{{ hasOwner(donor) ? donor.owner : 'No owner' }}</span>
                   </span>
                 </div>

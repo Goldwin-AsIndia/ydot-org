@@ -1,0 +1,40 @@
+/* ==============================================================================================
+   Detail drawer and small dialogs — frame, scrim and layering come from the shared dialog layer
+   (styles/ydot-dialogs.css, Donors module); only their positions and inner content are set here.
+   ============================================================================================== */
+.ct-overlay { position: fixed; inset: 0; }
+.ct-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(calc(480px * var(--u)), 100vw); display: flex; flex-direction: column; background: #fff; }
+.ct-drawer-header { display: flex; align-items: center; justify-content: space-between; gap: calc(12px * var(--u)); }
+.ct-drawer-body { flex: 1; min-height: 0; overflow-y: auto; }
+.ct-drawer-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: calc(8px * var(--u)); }
+.ct-detail-when { display: flex; align-items: center; gap: calc(14px * var(--u)); padding-bottom: calc(16px * var(--u)); border-bottom: 1px solid var(--line); }
+.ct-detail-glyph { display: grid; place-items: center; width: calc(42px * var(--u)); height: calc(42px * var(--u)); border-radius: 50%; border: 1px solid var(--line); color: var(--ch); flex: none; }
+.ct-detail-glyph svg { width: calc(18px * var(--u)) !important; height: calc(18px * var(--u)) !important; }
+.ct-detail-when > span:last-child { display: grid; gap: calc(3px * var(--u)); font-size: calc(calc(15px * var(--u)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--ink); }
+.ct-detail-when small { --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number); font-family: var(--font-number) !important; font-size: calc(calc(12.5px * var(--u)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important; color: var(--muted); }
+.ct-detail-row { display: flex; align-items: baseline; justify-content: space-between; gap: calc(12px * var(--u)); padding: calc(11px * var(--u)) 0; border-bottom: 1px solid var(--line-soft); }
+.ct-detail-row > span { color: var(--muted); font-size: calc(calc(13px * var(--u)) * var(--ui-text-scale, 1)) !important; }
+.ct-detail-row > strong { text-align: right; color: var(--ink); font-size: calc(calc(13.5px * var(--u)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; overflow-wrap: anywhere; }
+.ct-detail-block { padding: calc(14px * var(--u)) 0; border-bottom: 1px solid var(--line-soft); }
+.ct-detail-block > span { display: block; margin-bottom: calc(6px * var(--u)); font-size: calc(calc(11px * var(--u)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); }
+.ct-detail-block p { color: var(--ink-2); font-size: calc(calc(14px * var(--u)) * var(--ui-text-scale, 1)) !important; line-height: 1.6 !important; overflow-wrap: anywhere; }
+.ct-detail-note p { padding-left: calc(12px * var(--u)); border-left: 2px solid var(--gold); font-style: italic; }
+
+.ct-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(calc(440px * var(--u)), calc(100vw - calc(32px * var(--ui-scale, 1)))); max-height: calc(100dvh - calc(48px * var(--ui-scale, 1))); overflow-y: auto; background: #fff; }
+.ct-modal-sm { width: min(calc(400px * var(--u)), calc(100vw - calc(32px * var(--ui-scale, 1)))); }
+.ct-modal-copy { color: var(--muted); font-size: calc(calc(13.5px * var(--u)) * var(--ui-text-scale, 1)) !important; line-height: 1.5 !important; }
+.ct-modal-copy b { color: var(--ink); font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; }
+.ct-field { display: grid; gap: calc(6px * var(--u)); margin-top: calc(14px * var(--u)); }
+.ct-field-label { font-size: calc(calc(12.5px * var(--u)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--ink-2); }
+.ct-field-label em { color: var(--bad); font-style: normal; }
+.ct-select, .ct-textarea { width: 100%; padding: calc(9px * var(--u)) calc(11px * var(--u)); border: 1px solid var(--line); border-radius: calc(9px * var(--u)); background: #fff; color: var(--ink); font-size: calc(calc(13.5px * var(--u)) * var(--ui-text-scale, 1)) !important; }
+.ct-textarea { resize: vertical; }
+.ct-modal-footer { display: flex; justify-content: flex-end; gap: calc(8px * var(--u)); margin-top: calc(18px * var(--u)); }
+.ct-export-options { display: grid; grid-template-columns: 1fr 1fr; gap: calc(12px * var(--u)); margin-top: calc(14px * var(--u)); }
+.ct-export {
+  display: grid; gap: calc(3px * var(--u)); padding: calc(16px * var(--u)); text-align: left; border: 1px solid var(--line); border-radius: calc(12px * var(--u)); background: #fff; cursor: pointer;
+}
+.ct-export:hover { border-color: var(--theme); outline: 1px solid var(--theme); }
+.ct-export b { font-size: calc(calc(14px * var(--u)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--theme); }
+.ct-export small { font-size: calc(calc(12px * var(--u)) * var(--ui-text-scale, 1)) !important; color: var(--muted); }
+

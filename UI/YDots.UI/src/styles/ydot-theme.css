@@ -81,6 +81,15 @@ html.theme-live *::after {
 }
 
 /* ---------------------------------------------------------
+   Page-header spacing. The gap under <app-page-header> is its own margin (--ph-gap-below, page-header.css),
+   so whatever section a screen puts directly after it drops its own top margin. Card-variant headers keep
+   their Campaigns spacing.
+   --------------------------------------------------------- */
+app-page-header:not(.ph-host--card) + * {
+  margin-top: 0 !important;
+}
+
+/* ---------------------------------------------------------
    Page-header actions and chips.
    <app-page-header> projects these into its coloured panel, where component-scoped CSS cannot reach,
    so they live here. Ghost = secondary action, a pane of frosted glass. Primary = the one CTA: flat gold on a deep header, a deep tone of the pick on a light one (--ph-cta*).

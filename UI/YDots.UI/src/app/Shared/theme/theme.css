@@ -713,8 +713,8 @@
 .tc-type-preview {
   /* The global type rules force size and weight on every div/span with !important, so the sample is driven by
      custom properties here rather than by inline font-size / font-weight. */
-  font-size: var(--tc-preview-size, 14px) !important;
-  font-weight: var(--tc-preview-weight, 400) !important;
+  font-size: calc(var(--tc-preview-size, 14px) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(var(--tc-preview-weight, 400) + var(--fw-bias, 0)), 900) !important;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -837,7 +837,7 @@
 }
 
 .tc-weight-sample {
-  font-weight: var(--tc-preview-weight, 400) !important;
+  font-weight: clamp(100, calc(var(--tc-preview-weight, 400) + var(--fw-bias, 0)), 900) !important;
   font-size: calc(calc(0.95 * var(--tc-rem)) * var(--ui-text-scale, 1));
   color: var(--tc-text);
 }
@@ -1156,5 +1156,5 @@
 
 /* Bootstrap buttons size themselves in root rems. */
 .tc-panel .btn {
-  font-size: calc(0.875 * var(--tc-rem)) !important;
+  font-size: calc(calc(0.875 * var(--tc-rem)) * var(--ui-text-scale, 1)) !important;
 }

@@ -483,6 +483,8 @@ export class AssignmentBoardComponent {
 
   protected readonly rows = signal<readonly LeadRow[]>([]);
   protected readonly owners = signal<readonly OwnerWorkload[]>([]);
+  /** The rail's roster: the full owner list, kept while an owner filter narrows the response. */
+  protected readonly rosterOwners = signal<readonly OwnerWorkload[]>([]);
   protected readonly totalCountFromServer = signal(0);
 
   protected readonly confirmConfig = signal<ConfirmDialogConfig | null>(null);
@@ -594,6 +596,9 @@ export class AssignmentBoardComponent {
     );
     this.totalCountFromServer.set(response.rows.totalCount);
     this.owners.set(response.owners);
+    if (!this.ownerFilter() || response.owners.length >= this.rosterOwners().length) {
+      this.rosterOwners.set(response.owners);
+    }
     this.bulkRouteMaximumItems.set(response.bulkRouteMaximumItems);
 
     this.campaignLookup = response.campaignOptions;
@@ -681,7 +686,7 @@ export class AssignmentBoardComponent {
   // Derived view state
   // ===========================================================================================
 
-  protected readonly viewMode = signal<"cards" | "table">("cards");
+  protected readonly viewMode = signal<"cards" | "table">("table");
 
   protected readonly totalCount = computed(() => this.totalCountFromServer());
   protected readonly unassignedCount = computed(
@@ -707,6 +712,65 @@ export class AssignmentBoardComponent {
 
   protected toggleSavedFilter(value: string): void {
     this.savedFilter.set(this.savedFilter() === value ? "All leads" : value);
+    this.onFilterChanged();
+  }
+
+  protected setSavedView(value: string): void {
+    if (this.savedFilter() === value) return;
+    this.savedFilter.set(value);
+    this.onFilterChanged();
+  }
+
+  /** Filters set from the panel (owner + the five lookups), for the count on the Filters button. */
+  protected readonly panelFilterCount = computed(
+    () =>
+      (this.ownerFilter() ? 1 : 0) +
+      this.filterFields.filter((f) => this.filterValue(f.key) !== "All").length,
+  );
+
+  // ----- Owner workload rail -----
+  protected readonly rosterLimit = 8;
+  protected readonly rosterAll = signal(false);
+
+  /** Owners, lightest open workload first, so the obvious next owner sits on top. */
+  protected readonly ownerRoster = computed(() => {
+    const sorted = [...this.rosterOwners()].sort(
+      (a, b) => a.openWorkCount - b.openWorkCount || a.name.localeCompare(b.name),
+    );
+    const picked = sorted.find((o) => o.userId === this.ownerFilter());
+    const shown = this.rosterAll() ? sorted : sorted.slice(0, this.rosterLimit);
+    return picked && !shown.includes(picked) ? [...shown, picked] : shown;
+  });
+
+  private readonly ownerLoadMax = computed(() =>
+    Math.max(1, ...this.rosterOwners().map((o) => o.openWorkCount)),
+  );
+
+  /** Blank ruled lines that pad a short page to a full page, so filtering never shrinks the board. */
+  protected readonly fillerRows = computed(() => {
+    const n = this.rows().length;
+    return n > 0 ? Array.from({ length: Math.max(0, this.pageSize() - n) }, (_, i) => i) : [];
+  });
+
+  protected readonly ownerTotals = computed(() => {
+    const owners = this.rosterOwners();
+    const open = owners.reduce((sum, o) => sum + o.openWorkCount, 0);
+    return { open, avg: owners.length ? Math.round(open / owners.length) : 0 };
+  });
+
+  protected ownerLoad(count: number): number {
+    return Math.round((count / this.ownerLoadMax()) * 100);
+  }
+
+  protected bandTone(band: string): "ok" | "warn" | "danger" {
+    const b = (band ?? "").toLowerCase();
+    if (/over|critical|full|max/.test(b)) return "danger";
+    if (/high|heavy|busy/.test(b)) return "warn";
+    return "ok";
+  }
+
+  protected pickOwner(userId: string): void {
+    this.ownerFilter.set(this.ownerFilter() === userId ? "" : userId);
     this.onFilterChanged();
   }
 

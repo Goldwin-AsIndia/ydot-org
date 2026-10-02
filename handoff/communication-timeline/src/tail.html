@@ -1,0 +1,134 @@
+
+<!-- One glyph per channel, used by the journal nodes and the drawer's channel picker -->
+<ng-template #glyph let-type>
+  @switch (type) {
+    @case ('Call') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z"/></svg> }
+    @case ('Email') { <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg> }
+    @case ('SMS') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg> }
+    @case ('WhatsApp') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.8 7L4 20l1.1-4A8 8 0 1 1 20 12z"/><path d="M9 9.5c.5 2.3 2.2 4 4.5 4.5l1-1.2 1.8.7"/></svg> }
+    @case ('Meeting') { <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M2.5 19a5.5 5.5 0 0 1 11 0M14 14.5a4.5 4.5 0 0 1 7.5 3.5"/></svg> }
+    @case ('Visit') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10M10 20v-5h4v5"/></svg> }
+    @case ('Event') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.4 5 5.6.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.6-.8z"/></svg> }
+    @default { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M13 7l3 3"/></svg> }
+  }
+</ng-template>
+
+<!-- COMMUNICATION DETAIL DRAWER -->
+@if (isDetailDrawerOpen() && selectedCommunication(); as record) {
+  <div class="ct-overlay" (click)="closeDetails()"></div>
+  <aside class="ct-drawer" role="dialog" aria-modal="true" aria-label="Communication details">
+    <div class="ct-drawer-header">
+      <h2>{{ timelineTitle(record) }}</h2>
+      <button type="button" class="btn btn-outline-secondary btn-sm ct-drawer-close" (click)="closeDetails()" aria-label="Close" title="Close">&times;</button>
+    </div>
+
+    <div class="ct-drawer-body">
+      <p class="ct-detail-when cj-ch-{{ channelKey(record.type) }}"><span class="ct-detail-glyph"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: record.type }" /></span><span>{{ channelLabel(record.type) }} · {{ record.direction }}<small>{{ record.date }} at {{ record.time }}@if (record.createdBy) { · by {{ record.createdBy }} }</small></span></p>
+      <div class="ct-detail-row"><span>Outcome</span><strong class="cj-out {{ outcomeClass(record.outcome) }}"><i aria-hidden="true"></i>{{ record.outcome }}</strong></div>
+      <div class="ct-detail-row"><span>Engagement level</span><strong>{{ record.engagement }}</strong></div>
+      @if (record.quality) {
+        <div class="ct-detail-row"><span>Communication quality</span><strong>{{ record.quality }}</strong></div>
+      }
+      <div class="ct-detail-row"><span>Important</span><strong>{{ record.important ? 'Yes' : 'No' }}</strong></div>
+      <div class="ct-detail-block">
+        <span>Summary</span>
+        <p>{{ record.summary }}</p>
+      </div>
+      @if (record.notes) {
+        <div class="ct-detail-block ct-detail-note">
+          <span>Internal notes</span>
+          <p>{{ record.notes }}</p>
+        </div>
+      }
+      @if (record.attachment) {
+        <div class="ct-detail-row"><span>Attachment</span><strong>{{ record.attachment }}</strong></div>
+      }
+      @if (record.followUpDate) {
+        <div class="ct-detail-row">
+          <span>Related follow-up</span>
+          <strong>{{ record.followUpStatus }} &middot; {{ record.followUpDate }}</strong>
+        </div>
+      }
+    </div>
+
+    <div class="ct-drawer-footer">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openTemperatureModal()">Update temperature</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDonationPotentialModal()">Update potential</button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="editCommunication(record)" title="Edit communication">Edit entry</button>
+    </div>
+  </aside>
+}
+
+<!-- UPDATE TEMPERATURE MODAL -->
+@if (isTemperatureModalOpen()) {
+  <div class="ct-overlay" aria-hidden="true"></div>
+  <div class="ct-modal" role="dialog" aria-modal="true" aria-label="Update temperature">
+    <h2 class="ct-modal-title">Update temperature</h2>
+    <p class="ct-modal-copy">Currently <b>{{ currentTemperature() }}</b>. The reason is kept on the audit trail.</p>
+
+    <label class="ct-field">
+      <span class="ct-field-label">New temperature <em>*</em></span>
+      <select class="ct-select theme-widget-control" [ngModel]="newTemperature()" (ngModelChange)="newTemperature.set($event)">
+        @for (temperature of temperatures; track temperature) {
+          <option [value]="temperature">{{ temperature }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="ct-field">
+      <span class="ct-field-label">Reason <em>*</em></span>
+      <textarea class="ct-textarea theme-widget-control" rows="3" [ngModel]="temperatureReason()" (ngModelChange)="temperatureReason.set($event)"></textarea>
+    </label>
+
+    <div class="ct-modal-footer">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeTemperatureModal()">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" [disabled]="!temperatureReason().trim()" (click)="saveTemperature()">Save</button>
+    </div>
+  </div>
+}
+
+<!-- UPDATE DONATION POTENTIAL MODAL -->
+@if (isDonationPotentialModalOpen()) {
+  <div class="ct-overlay" aria-hidden="true"></div>
+  <div class="ct-modal" role="dialog" aria-modal="true" aria-label="Update donation potential">
+    <h2 class="ct-modal-title">Update donation potential</h2>
+    <p class="ct-modal-copy">Currently <b>{{ donationPotential() }}</b>. The reason is kept on the audit trail.</p>
+
+    <label class="ct-field">
+      <span class="ct-field-label">New donation potential <em>*</em></span>
+      <select class="ct-select theme-widget-control" [ngModel]="newDonationPotential()" (ngModelChange)="newDonationPotential.set($event)">
+        @for (potential of donationPotentials; track potential) {
+          <option [value]="potential">{{ potential }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="ct-field">
+      <span class="ct-field-label">Reason <em>*</em></span>
+      <textarea class="ct-textarea theme-widget-control" rows="3" [ngModel]="donationPotentialReason()" (ngModelChange)="donationPotentialReason.set($event)"></textarea>
+    </label>
+
+    <div class="ct-modal-footer">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeDonationPotentialModal()">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" [disabled]="!donationPotentialReason().trim()" (click)="saveDonationPotential()">Save</button>
+    </div>
+  </div>
+}
+
+<!-- EXPORT MODAL -->
+@if (isExportModalOpen()) {
+  <div class="ct-overlay" aria-hidden="true"></div>
+  <div class="ct-modal ct-modal-sm" role="dialog" aria-modal="true" aria-label="Export timeline">
+    <h2 class="ct-modal-title">Export timeline</h2>
+    <p class="ct-modal-copy">Exports the {{ filteredRecords().length }} entries that match the current filters.</p>
+
+    <div class="ct-export-options">
+      <button type="button" class="ct-export" (click)="exportAsExcel()"><b>Spreadsheet</b><small>CSV, opens in Excel</small></button>
+      <button type="button" class="ct-export" (click)="exportAsPdf()"><b>PDF</b><small>Print-ready copy</small></button>
+    </div>
+
+    <div class="ct-modal-footer">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeExportModal()">Close</button>
+    </div>
+  </div>
+}

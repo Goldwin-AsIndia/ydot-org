@@ -561,14 +561,6 @@ export class AccessPreviewComponent {
     this.openModules.set(new Set(this.matrix().map((row) => row.moduleCode)));
   }
 
-  initials(name?: string | null): string {
-    const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) { return '?'; }
-    const first = parts[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1] ?? '' : '';
-    return (first.charAt(0) + last.charAt(0)).toUpperCase();
-  }
-
   /** First role in the summary, for the one-line subtitle under a name. */
   firstRole(person: PersonOption): string {
     return person.roleSummary.split(',')[0]?.trim() || 'No role';

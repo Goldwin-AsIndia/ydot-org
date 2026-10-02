@@ -13,12 +13,11 @@ import {
 } from '../../../../Shared/models/donors-leads.model';
 import { effect, ElementRef, ViewChild } from '@angular/core';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 
 @Component({
   selector: 'app-donor-360',
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './donor-360.html',
   styleUrl: './donor-360.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,8 +30,6 @@ export class Donor360Component {
     readonly filteredOwners = computed(() => this.ownerOptions().filter(p => p.reference === this.correctOwner() || (p.name + ' ' + (p.context ?? '')).toLowerCase().includes(this.ownerSearch().toLowerCase())));
     readonly upcoming = computed(() => (this.response()?.followUps ?? []).filter(f => !['Completed','Cancelled'].includes(f.status)).slice().sort((a,b) => (a.dueAtUtc ? Date.parse(a.dueAtUtc) : Infinity) - (b.dueAtUtc ? Date.parse(b.dueAtUtc) : Infinity)));
     readonly latestDocument = computed(() => this.documents().slice().sort((a,b) => Date.parse(b.uploadedOn)-Date.parse(a.uploadedOn))[0]);
-    readonly initials = computed(() => this.donor().fullName.trim().split(/\s+/).map(n => n[0]).slice(0,2).join(''));
-    readonly ownerInitials = computed(() => this.donor().owner.trim().split(/\s+/).map(n => n[0]).slice(0,2).join('').toUpperCase());
     tabCount(id: TabId): number {
       switch (id) {
         case 'donations': return this.totalDonationsCount();
@@ -47,7 +44,48 @@ export class Donor360Component {
     pageNumber(key: string, rows: readonly object[]): number { return Math.min(this.pages()[key] ?? 1, this.pageCount(rows)); }
     paged<T extends object>(key: string, rows: readonly T[]): T[] { const start=(this.pageNumber(key,rows)-1)*this.pageSize; return this.filtered(rows).slice(start,start+this.pageSize); }
     movePage(key: string, rows: readonly object[], delta: number): void { this.pages.update(p => ({...p,[key]:Math.max(1,Math.min(this.pageCount(rows),this.pageNumber(key,rows)+delta))})); }
-    selectTab(tab: TabId): void { this.activeTab.set(tab); this.searchTerm.set(''); this.pages.set({}); }
+    selectTab(tab: TabId): void { this.activeTab.set(tab); this.searchTerm.set(''); this.pages.set({}); this.followUpView.set('all'); }
+
+    /** Follow-ups tab: which slice of the agenda is shown (All / Open / Overdue / Closed). */
+    readonly followUpView = signal<FollowUpView>('all');
+    readonly followUpViews: { id: FollowUpView; label: string }[] = [
+      { id: 'all', label: 'All' }, { id: 'open', label: 'Open' }, { id: 'overdue', label: 'Overdue' }, { id: 'closed', label: 'Closed' },
+    ];
+    readonly followUpRows = computed(() => {
+      const view = this.followUpView();
+      return this.followUps().filter((f) => view === 'all' || this.followUpBucket(f.status) === view);
+    });
+    followUpViewCount(view: FollowUpView): number {
+      return view === 'all' ? this.followUps().length : this.followUps().filter((f) => this.followUpBucket(f.status) === view).length;
+    }
+    setFollowUpView(view: FollowUpView): void { this.followUpView.set(view); this.pages.update((p) => ({ ...p, 'follow-ups': 1 })); }
+    private followUpBucket(status: string): FollowUpView {
+      if (status === 'Overdue') return 'overdue';
+      return status === 'Completed' || status === 'Cancelled' ? 'closed' : 'open';
+    }
+
+    /** Every stage with its share of all money on record, for the donations ledger. */
+    readonly stageLedger = computed(() => {
+      const stages = this.donationTotals();
+      const total = stages.reduce((sum, stage) => sum + stage.amount, 0);
+      return { total, rows: stages.map((stage, index) => ({ ...stage, tone: index % 5, share: total ? Math.round((stage.amount / total) * 100) : 0 })) };
+    });
+
+    /** "24 Sep 2026" → "Thu", for agenda and chronicle rows. */
+    weekdayOf(date: string): string {
+      const parsed = date ? new Date(date) : null;
+      return parsed && !Number.isNaN(parsed.getTime()) ? parsed.toLocaleDateString('en-GB', { weekday: 'short' }) : '';
+    }
+
+    /** A file-type glyph from the document's name. */
+    docIcon(name: string): string {
+      const ext = (name.split('.').pop() ?? '').toLowerCase();
+      if (ext === 'pdf') return 'ri-file-pdf-2-line';
+      if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'].includes(ext)) return 'ri-image-line';
+      if (['doc', 'docx'].includes(ext)) return 'ri-file-word-line';
+      if (['xls', 'xlsx', 'csv'].includes(ext)) return 'ri-file-excel-line';
+      return 'ri-file-text-line';
+    }
 
     private readonly router = inject(Router);
     private readonly route = inject(ActivatedRoute);
@@ -1052,7 +1090,9 @@ export class Donor360Component {
     | 'dependency-failure'
     | 'no-access';
   
-  type TabId = 'overview' | 'donations' | 'communications' | 'follow-ups' | 'documents' | 'activity' | 'consent' | 'identity-verification';
+  type FollowUpView = 'all' | 'open' | 'overdue' | 'closed';
+
+  type TabId ='overview' | 'donations' | 'communications' | 'follow-ups' | 'documents' | 'activity' | 'consent' | 'identity-verification';
   
   interface SuccessPanel {
     title: string;
