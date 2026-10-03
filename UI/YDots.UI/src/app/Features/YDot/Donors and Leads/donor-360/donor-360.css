@@ -404,3 +404,270 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   .pn-dialog .pn-end{flex-direction:column;align-items:stretch}
   .pn-dialog .pn-buttons>*{flex:1 1 auto}
 }
+
+/* =====================================================================================================
+   PLEDGE POPUP — fix pass (2026-10-03)
+   The shared dialog stylesheet was winning over the pledge styles above: the popup stretched to
+   ~1600px, the amount field got a boxed input with the "0" jammed against its edge (plus a second
+   underline), the summary line slid under the footer. Every rule here is scoped
+   dialog.action-dialog.pn-dialog[open] so it out-ranks the shared rules; the body now scrolls
+   between a fixed header and footer. Accent follows var(--primary).
+   ===================================================================================================== */
+dialog.action-dialog.pn-dialog[open] {
+  --pn-accent: var(--primary, var(--green));
+  --pn-accent-soft: color-mix(in srgb, var(--pn-accent) 8%, #fff);
+  --pn-pad: calc(28px * var(--s));
+  width: min(calc(860px * var(--s)), calc(100vw - calc(32px * var(--s)))) !important;
+  max-width: min(calc(860px * var(--s)), calc(100vw - calc(32px * var(--s)))) !important;
+  max-height: calc(100dvh - calc(32px * var(--s))) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: calc(16px * var(--s)) !important;
+  overflow: hidden !important;
+}
+
+/* layout: fixed header / scrolling middle / fixed footer */
+dialog.action-dialog.pn-dialog[open] > form.pn {
+  display: flex !important;
+  flex-direction: column;
+  width: 100% !important;
+  max-height: calc(100dvh - calc(32px * var(--s)));
+  margin: 0 !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-top {
+  flex: none;
+  margin: 0 !important;
+  padding: calc(22px * var(--s)) var(--pn-pad) calc(18px * var(--s)) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-top::after {
+  left: var(--pn-pad);
+  background: var(--pn-accent);
+}
+dialog.action-dialog.pn-dialog[open] .pn-heading {
+  font-size: calc(calc(22px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  margin: calc(4px * var(--s)) 0 calc(2px * var(--s)) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-kicker {
+  color: var(--pn-accent) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: calc(6px * var(--s)) 0 calc(20px * var(--s));
+}
+dialog.action-dialog.pn-dialog[open] .pn-sum,
+dialog.action-dialog.pn-dialog[open] .pn-when,
+dialog.action-dialog.pn-dialog[open] .pn-notes {
+  margin: 0 var(--pn-pad) !important;
+  padding: calc(18px * var(--s)) 0 0 !important;
+}
+
+/* section labels: one style */
+dialog.action-dialog.pn-dialog[open] .pn-row {
+  min-height: calc(30px * var(--s));
+  margin: 0 0 calc(8px * var(--s)) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-label {
+  font-size: calc(calc(11px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .1em !important;
+  text-transform: uppercase !important;
+  color: var(--pn-muted) !important;
+}
+
+/* currency picker: small, right of the label */
+dialog.action-dialog.pn-dialog[open] .pn-cur select {
+  width: auto !important;
+  min-width: calc(76px * var(--s));
+  height: calc(30px * var(--s)) !important;
+  padding: 0 calc(26px * var(--s)) 0 calc(10px * var(--s)) !important;
+  border: 1px solid var(--pn-rule) !important;
+  border-radius: calc(8px * var(--s)) !important;
+  box-shadow: none !important;
+  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+/* the amount: ONE underline, borderless big figure, symbol and digits on one baseline */
+dialog.action-dialog.pn-dialog[open] .pn-figure {
+  display: flex !important;
+  align-items: center !important;
+  gap: calc(10px * var(--s));
+  padding: 0 0 calc(4px * var(--s)) !important;
+  border: 0 !important;
+  border-bottom: 2px solid var(--pn-rule) !important;
+  border-radius: 0 !important;
+  background: none !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-figure:focus-within {
+  border-bottom-color: var(--pn-accent) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-figure.pn-invalid {
+  border-bottom-color: var(--pn-red) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-symbol {
+  font-size: calc(calc(30px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  color: var(--pn-accent) !important;
+  opacity: .85;
+}
+dialog.action-dialog.pn-dialog[open] .pn-figure input,
+dialog.action-dialog.pn-dialog[open] .pn-figure input:focus,
+dialog.action-dialog.pn-dialog[open] .pn-figure input:hover {
+  flex: 1 1 auto;
+  width: 100% !important;
+  min-width: 0;
+  height: calc(52px * var(--s)) !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: calc(calc(40px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-words {
+  margin-top: calc(8px * var(--s)) !important;
+  font-size: calc(calc(14px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+/* quick amounts: compact chips */
+dialog.action-dialog.pn-dialog[open] .pn-presets {
+  gap: calc(8px * var(--s));
+  margin-top: calc(14px * var(--s)) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-preset {
+  height: calc(34px * var(--s)) !important;
+  min-width: 0 !important;
+  border: 1px solid var(--pn-rule) !important;
+  border-radius: calc(999px * var(--s)) !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-preset:hover {
+  border-color: color-mix(in srgb, var(--pn-accent) 40%, var(--pn-rule)) !important;
+  background: var(--pn-accent-soft) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-preset[aria-pressed="true"] {
+  border-color: var(--pn-accent) !important;
+  outline: 0 !important;
+  background: var(--pn-accent-soft) !important;
+  color: var(--pn-accent) !important;
+}
+
+/* expected by: tabs left, date right, same line */
+dialog.action-dialog.pn-dialog[open] .pn-when-row {
+  flex-wrap: nowrap;
+}
+dialog.action-dialog.pn-dialog[open] .pn-when-opt[aria-pressed="true"] {
+  color: var(--pn-accent) !important;
+  border-bottom-color: var(--pn-accent) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-date {
+  flex: none;
+  width: calc(170px * var(--s)) !important;
+  height: calc(36px * var(--s)) !important;
+  padding: 0 calc(10px * var(--s)) !important;
+  border: 1px solid var(--pn-rule) !important;
+  border-radius: calc(9px * var(--s)) !important;
+  box-shadow: none !important;
+}
+
+/* notes */
+dialog.action-dialog.pn-dialog[open] .pn-notes textarea {
+  min-height: calc(76px * var(--s)) !important;
+  padding: calc(10px * var(--s)) calc(12px * var(--s)) !important;
+  border: 1px solid var(--pn-rule) !important;
+  border-radius: calc(10px * var(--s)) !important;
+  box-shadow: none !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-date:focus-visible,
+dialog.action-dialog.pn-dialog[open] .pn-notes textarea:focus,
+dialog.action-dialog.pn-dialog[open] .pn-cur select:focus-visible {
+  border-color: var(--pn-accent) !important;
+  outline: 3px solid color-mix(in srgb, var(--pn-accent) 14%, transparent) !important;
+  outline-offset: 0;
+}
+
+/* the read-back sentence: a soft quote box, fully inside the scroll area */
+dialog.action-dialog.pn-dialog[open] .pn-statement {
+  margin: calc(18px * var(--s)) var(--pn-pad) 0 !important;
+  padding: calc(12px * var(--s)) calc(14px * var(--s)) calc(12px * var(--s)) calc(40px * var(--s)) !important;
+  border: 0 !important;
+  border-left: 3px solid var(--pn-accent) !important;
+  border-radius: calc(10px * var(--s)) !important;
+  background: var(--pn-accent-soft) !important;
+  font-size: calc(calc(14.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-quote {
+  left: calc(13px * var(--s));
+  top: calc(8px * var(--s));
+  font-size: calc(calc(30px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  color: var(--pn-accent) !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-statement strong {
+  color: var(--pn-accent) !important;
+}
+
+/* footer: fixed under the scroll area */
+dialog.action-dialog.pn-dialog[open] .pn-end {
+  flex: none;
+  position: static !important;
+  margin: 0 !important;
+  padding: calc(14px * var(--s)) var(--pn-pad) !important;
+  border-top: 1px solid var(--pn-rule) !important;
+  background: #fff !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-note svg {
+  stroke: var(--pn-accent);
+}
+dialog.action-dialog.pn-dialog[open] .pn-buttons .btn {
+  height: calc(36px * var(--s));
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8px * var(--s));
+}
+dialog.action-dialog.pn-dialog[open] .pn-submit-sum {
+  padding-left: calc(8px * var(--s));
+  border-left: 1px solid rgb(255 255 255 / .4);
+}
+
+@media (max-width: 560px) {
+  dialog.action-dialog.pn-dialog[open] {
+    --pn-pad: calc(18px * var(--s));
+  }
+  dialog.action-dialog.pn-dialog[open] .pn-when-row {
+    flex-wrap: wrap;
+  }
+  dialog.action-dialog.pn-dialog[open] .pn-date {
+    width: 100% !important;
+  }
+  dialog.action-dialog.pn-dialog[open] .pn-figure input {
+    font-size: calc(calc(32px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  }
+}
+
+/* Safety net: nothing inside the pledge form may be wider than the popup. */
+dialog.action-dialog.pn-dialog[open] form.pn *,
+dialog.action-dialog.pn-dialog[open] form.pn *::before,
+dialog.action-dialog.pn-dialog[open] form.pn *::after {
+  box-sizing: border-box;
+}
+dialog.action-dialog.pn-dialog[open] form.pn > *,
+dialog.action-dialog.pn-dialog[open] .pn-scroll > *,
+dialog.action-dialog.pn-dialog[open] .pn-row,
+dialog.action-dialog.pn-dialog[open] .pn-figure,
+dialog.action-dialog.pn-dialog[open] .pn-presets,
+dialog.action-dialog.pn-dialog[open] .pn-when-row,
+dialog.action-dialog.pn-dialog[open] .pn-when-opts {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+dialog.action-dialog.pn-dialog[open] .pn-scroll > section,
+dialog.action-dialog.pn-dialog[open] .pn-scroll > .pn-statement {
+  width: auto !important;
+}

@@ -1171,6 +1171,7 @@
   display: flex;
   align-items: center;
   gap: calc(8px * var(--s));
+  flex-wrap: wrap;
 }
 .fq-daterange .fq-input { flex: 1 1 0; min-width: 0; }
 .fq-daterange-sep {
@@ -2395,4 +2396,23 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
     transition: none !important;
   }
   .fq-bcard:hover { transform: none; }
+}
+
+
+/* ---- Row action menu must never be clipped (2026-10-03) ----
+   The shared table sheet turns the table's wrapper into a scroll box (overflow auto), which cut the
+   "More actions" menu off below the last row and added a scrollbar. The queue, its content and the
+   table wrapper all let the menu spill out instead (also set inline in the template, since the shared
+   sheet uses !important). The open menu sits above the rows and the pager. */
+.fq-queue,
+.fq-content,
+.fq-table-wrap {
+  overflow: visible !important;
+  max-height: none !important;
+}
+.fq-row-actions:has(.fq-menu) {
+  z-index: 40;
+}
+.fq-menu {
+  z-index: 50;
 }

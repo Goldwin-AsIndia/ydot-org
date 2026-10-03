@@ -1439,7 +1439,7 @@
               <nav class="step-nav" aria-label="Step navigation">
                 @if (!isFirstStep()) {
                     <button type="button" class="btn btn-outline-secondary btn-sm" (click)="previousStep()">
-                    <span aria-hidden="true">←</span> Previous
+                    <span aria-hidden="true"><i class="ri-arrow-left-line"></i></span> Previous
                   </button>
                 } @else {
                   <span></span>
@@ -1450,12 +1450,12 @@
                   @if (isLastStep() && permissions().saveDraft) {
                     <button
                       type="button"
-                      class="btn btn-sm"
+                      class="btn btn-primary btn-sm"
                       [class.btn-outline-secondary]="!liveEditStatus()"
                       [class.btn-primary]="!!liveEditStatus()"
                       (click)="saveDraft()"
                       [disabled]="!saveDraftAllowed()"
-                    >
+                    ><i class="ri-save-line"></i>
                       {{ liveEditStatus() ? 'Save Changes' : 'Save Draft' }}
                     </button>
                   }
@@ -1464,7 +1464,7 @@
                       class="btn btn-outline-secondary btn-sm"
                     (click)="discard()"
                   >
-                    Discard
+                    <i class="ri-close-line"></i> Discard
                   </button>
                   @if (isLastStep() && permissions().submit && !liveEditStatus()) {
                     <button
@@ -1473,7 +1473,7 @@
                       (click)="requestSubmit()"
                       [disabled]="!submitAllowed()"
                     >
-                      Submit <span aria-hidden="true">→</span>
+                      <i class="ri-send-plane-line"></i> Submit 
                     </button>
                   } @else if (!isLastStep()) {
                     <button type="button" class="btn btn-primary btn-sm" (click)="nextStep()">
@@ -1505,9 +1505,9 @@
               (click)="$event.stopPropagation()"
             >
               <header class="ov-head">
-              <button type="button" class="cw-modal-x" (click)="cancelSubmit()" aria-label="Close">
+              <!-- <button type="button" class="cw-modal-x" (click)="cancelSubmit()" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-          </button>
+          </button> -->
           <h3 class="cw-modal-title" id="submit-title">Submit campaign configuration</h3>
               <p class="cw-modal-lead">
                 Review the configuration before submit. This executes idempotently and will show the
@@ -1532,10 +1532,10 @@
               </div>
               <div class="cw-modal-actions">
                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelSubmit()">
-                  <span aria-hidden="true">✕</span> Cancel
+            Cancel
                 </button>
                 <button type="button" class="btn btn-primary btn-sm" (click)="confirmSubmit()">
-                  <span aria-hidden="true">✓</span> Confirm submit
+                Confirm
                 </button>
               </div>
             </div>

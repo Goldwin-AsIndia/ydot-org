@@ -16,20 +16,19 @@
         <h1 id="tam-deck-title" class="tam-deck-h">{{ pageTitle }}</h1>
       </div>
       <div class="tam-deck-acts">
-        <button #tamFiltersToggle type="button" class="tam-btn tam-btn-outline tam-deck-btn" (click)="toggleFiltersVisible()"
+        <button #tamFiltersToggle type="button" class="btn btn-outline-secondary btn-sm" (click)="toggleFiltersVisible()"
                 [class.is-on]="filtersVisible()" [attr.aria-expanded]="filtersVisible()" aria-controls="tam-filterbar">
-          <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
-          {{ filtersVisible() ? 'Hide filters' : 'Filters' }}
+ <i class="ri ri-filter-line"></i>          {{ filtersVisible() ? 'Hide filters' : 'Filters' }}
           @if (activeFilterSummary().length) { <span class="tam-count">{{ activeFilterSummary().length }}</span> }
         </button>
         <!-- HIDDEN WITHOUT THE CREATE PERMISSION rather than shown greyed out: an Approver
              creates nothing, so the button would never come alive for them. -->
         @if (permissions().generate) {
-          <button type="button" class="tam-btn tam-btn-primary tam-deck-btn" (click)="openGenerate()"
+          <button type="button" class="btn btn-primary btn-sm" (click)="openGenerate()"
                   [disabled]="!generateAllowed()"
                   [attr.title]="generateAllowed() ? null : generateDisabledReason()">
-            <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-            Create asset
+         <i class="ri ri-add-line"></i>
+            Create
           </button>
         }
       </div>
@@ -198,8 +197,8 @@
             @else { {{ interpretedRange() }} }
           </p>
           <div class="tam-filterbar-actions">
-            <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm" (click)="clearFilters()">Reset</button>
-            <button type="button" class="tam-btn tam-btn-primary tam-btn-sm" (click)="applyFilter()" [disabled]="!filterAllowed()">Apply filters</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearFilters()"><i class="ri ri-refresh-line"></i>Reset</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="applyFilter()" [disabled]="!filterAllowed()"><i class="ri ri-filter-line"></i>Apply</button>
           </div>
         </div>
       </div>
@@ -1080,16 +1079,16 @@
         }
         <div class="tam-detail-actions">
           @if (canEverEdit()) {
-            <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="requestEdit(a)" [disabled]="!editAllowed(a)" [title]="editAllowed(a) ? '' : editDisabledReason(a)">Edit</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestEdit(a)" [disabled]="!editAllowed(a)" [title]="editAllowed(a) ? '' : editDisabledReason(a)">Edit</button>
           }
           @if (canEverActivate()) {
-            <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="requestActivate(a)" [disabled]="!activateAllowed(a)" [title]="activateAllowed(a) ? '' : activateDisabledReason(a)">Activate</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestActivate(a)" [disabled]="!activateAllowed(a)" [title]="activateAllowed(a) ? '' : activateDisabledReason(a)">Activate</button>
           }
           @if (canEverApprove()) {
-            <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="requestApprove(a)" [disabled]="!approveAllowed(a)" [title]="approveAllowed(a) ? '' : approveDisabledReason(a)">Approve</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestApprove(a)" [disabled]="!approveAllowed(a)" [title]="approveAllowed(a) ? '' : approveDisabledReason(a)">Approve</button>
           }
           @if (canEverSubmit()) {
-            <button type="button" class="tam-btn tam-btn-primary tam-btn-sm" (click)="requestSubmit(a)" [disabled]="!submitAllowed(a)" [title]="submitAllowed(a) ? '' : submitDisabledReason(a)">Submit for approval</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="requestSubmit(a)" [disabled]="!submitAllowed(a)" [title]="submitAllowed(a) ? '' : submitDisabledReason(a)">Submit for approval</button>
           }
         </div>
         <!-- Take-down verbs sit apart from the workflow, as quiet red links. -->
@@ -1134,8 +1133,8 @@
         </dl>
         </div>
         <div class="tam-modal-actions">
-          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelSubmit()">Cancel</button>
-          <button type="button" class="tam-btn tam-btn-primary" (click)="confirmSubmit()">Submit for approval</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelSubmit()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="confirmSubmit()">Submit for approval</button>
         </div>
       </div>
     </div>
@@ -1175,8 +1174,8 @@
         </div>
         </div>
         <div class="tam-modal-actions">
-          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelApprove()">Cancel</button>
-          <button type="button" class="tam-btn tam-btn-primary" (click)="confirmApprove()" [disabled]="!approveReasonValid()">Confirm approval</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelApprove()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="confirmApprove()" [disabled]="!approveReasonValid()">Confirm approval</button>
         </div>
       </div>
     </div>
@@ -1205,8 +1204,8 @@
         </dl>
         </div>
         <div class="tam-modal-actions">
-          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelActivate()">Cancel</button>
-          <button type="button" class="tam-btn tam-btn-primary" (click)="confirmActivate()">Activate asset</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelActivate()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="confirmActivate()">Activate asset</button>
         </div>
       </div>
     </div>
@@ -1246,8 +1245,8 @@
         </div>
         </div>
         <div class="tam-modal-actions">
-          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelRequestDisable()">Cancel</button>
-          <button type="button" class="tam-btn tam-btn-primary" (click)="confirmRequestDisable()" [disabled]="!requestDisableReasonValid()">Send request</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelRequestDisable()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="confirmRequestDisable()" [disabled]="!requestDisableReasonValid()">Send request</button>
         </div>
       </div>
     </div>
@@ -1285,8 +1284,8 @@
         </div>
         </div>
         <div class="tam-modal-actions">
-          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelDisable()">Cancel</button>
-          <button type="button" class="tam-btn tam-btn-danger" (click)="confirmDisable()" [disabled]="!disableReasonValid()">Disable asset</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDisable()">Cancel</button>
+          <button type="button" class="btn btn-danger btn-sm" (click)="confirmDisable()" [disabled]="!disableReasonValid()">Disable asset</button>
         </div>
       </div>
     </div>
@@ -1367,8 +1366,8 @@
         </div>
 
         <div class="tam-modal-actions">
-          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelEdit()">Cancel</button>
-          <button type="button" class="tam-btn tam-btn-primary" (click)="confirmEdit()">Save changes</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEdit()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="confirmEdit()">Save changes</button>
         </div>
       </div>
     </div>
@@ -1406,8 +1405,8 @@
         </div>
         </div>
         <div class="tam-modal-actions">
-          <button type="button" class="tam-btn tam-btn-outline" (click)="cancelDelete()">Cancel</button>
-          <button type="button" class="tam-btn tam-btn-danger" (click)="confirmDeleteDraft()" [disabled]="!deleteReasonValid()">Delete draft</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDelete()">Cancel</button>
+          <button type="button" class="btn btn-danger btn-sm" (click)="confirmDeleteDraft()" [disabled]="!deleteReasonValid()">Delete draft</button>
         </div>
       </div>
     </div>

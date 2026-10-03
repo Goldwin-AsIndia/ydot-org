@@ -2,15 +2,15 @@
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3">
 
-      <app-page-header [showInfo]="false" screen="donor-list" title="Donor List" subtitle="Everyone who has given: what they gave, who looks after them and what needs doing next.">
+      <app-page-header [showInfo]="false" screen="donor-list" title="Donor List" subtitle="Everyone who has given: what they gave, who looks after them and what needs doing next." style="padding-top: 0;">
         <!-- <span meta class="ph-chip">Updated {{ formatDateTime(lastRefreshed()) }}</span> -->
         <ng-container actions>
-          <button type="button" class="ph-btn ph-btn--ghost" (click)="refresh()" [disabled]="refreshing()" aria-label="Refresh donor list" title="Refresh donor list">
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refresh()" [disabled]="refreshing()" aria-label="Refresh donor list" title="Refresh donor list">
             <i class="ri-refresh-line" [class.dn-spin]="refreshing()" aria-hidden="true"></i>
             <span>Refresh</span>
           </button>
           <div class="dn-anchor" (click)="$event.stopPropagation()">
-            <button type="button" class="ph-btn ph-btn--primary" (click)="toggleExportMenu()" aria-haspopup="menu" [attr.aria-expanded]="exportMenuOpen()">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="toggleExportMenu()" aria-haspopup="menu" [attr.aria-expanded]="exportMenuOpen()">
               <i class="ri-download-2-line" aria-hidden="true"></i>
               <span>Export{{ selectedCount() ? ' ' + selectedCount() + ' selected' : '' }}</span>
             </button>
@@ -94,11 +94,11 @@
         <header class="dn-reg-head">
           <div class="dn-reg-title">
             <h2>Donors</h2>
-            <p>
+            <!-- <p>
               @if (totalRecords()) { Showing <b>{{ rangeStart() }}–{{ rangeEnd() }}</b> of <b>{{ totalRecords() }}</b> }
               @else { No donors match }
               <span class="dn-sep" aria-hidden="true"></span>sorted by {{ sortLabel() }}
-            </p>
+            </p> -->
           </div>
           <div class="dn-switch" role="group" aria-label="Layout">
             <button type="button" class="dn-switch-b" [class.is-on]="viewMode() === 'table'" [attr.aria-pressed]="viewMode() === 'table'" (click)="setView('table')"><i class="ri-list-check-2" aria-hidden="true"></i><span>Table</span></button>
@@ -129,9 +129,9 @@
             }
           </label>
           <div class="dn-toolbar-r">
-            <label class="dn-select">
+            <label class="btn btn-outline-secondary btn-sm " title="Sort donors by this column">
               <span class="dn-select-cap">Sort</span>
-              <select [value]="sortColumn()" (change)="setSortColumn($any($event.target).value)" aria-label="Sort by">
+              <select [value]="sortColumn()" class="bghide" (change)="setSortColumn($any($event.target).value)" aria-label="Sort by">
                 <option value="lastDonationDate">Last gift</option>
                 <option value="lifetimeGiving">Lifetime giving</option>
                 <option value="name">Donor name</option>
@@ -139,10 +139,10 @@
                 <option value="owner">Owner</option>
               </select>
             </label>
-            <button type="button" class="dn-square" (click)="toggleSort(sortColumn())" [title]="sortDirection() === 'asc' ? 'Ascending, click to reverse' : 'Descending, click to reverse'" aria-label="Reverse sort direction">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="toggleSort(sortColumn())" [title]="sortDirection() === 'asc' ? 'Ascending, click to reverse' : 'Descending, click to reverse'" aria-label="Reverse sort direction">
               <i [class]="sortDirection() === 'asc' ? 'ri-sort-asc' : 'ri-sort-desc'" aria-hidden="true"></i>
             </button>
-            <button type="button" class="dn-filter-btn" [class.is-on]="filterPanelOpen()" (click)="toggleFilterPanel()" [attr.aria-expanded]="filterPanelOpen()" aria-controls="dn-filters">
+            <button type="button" class="btn btn-outline-secondary btn-sm" [class.is-on]="filterPanelOpen()" (click)="toggleFilterPanel()" [attr.aria-expanded]="filterPanelOpen()" aria-controls="dn-filters">
               <i class="ri-equalizer-2-line" aria-hidden="true"></i><span>Filters</span>
               @if (panelFilterCount()) { <span class="dn-count-dot">{{ panelFilterCount() }}</span> }
             </button>
@@ -242,7 +242,7 @@
             <span class="dn-empty-glyph is-bad"><i class="ri-cloud-off-line" aria-hidden="true"></i></span>
             <p class="dn-empty-t">Donors could not be loaded</p>
             <p class="dn-empty-s">{{ error() }}</p>
-            <button type="button" class="ph-btn ph-btn--primary" (click)="refresh()"><i class="ri-refresh-line" aria-hidden="true"></i><span>Try again</span></button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="refresh()"><i class="ri-refresh-line" aria-hidden="true"></i><span>Try again</span></button>
           </div>
         } @else if (paginatedDonors().length === 0) {
           <div class="dn-empty">
@@ -250,7 +250,7 @@
             <p class="dn-empty-t">{{ donors().length ? 'No donors match' : 'No donors yet' }}</p>
             <p class="dn-empty-s">{{ donors().length ? 'Nothing matches this search and these filters. Try widening them.' : 'Donors appear here once the first gift is received or a lead is converted.' }}</p>
             @if (donors().length) {
-              <button type="button" class="ph-btn ph-btn--ghost" (click)="clearAll()"><i class="ri-filter-off-line" aria-hidden="true"></i><span>Clear search and filters</span></button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearAll()"><i class="ri-filter-off-line" aria-hidden="true"></i><span>Clear search and filters</span></button>
             }
           </div>
         } @else if (viewMode() === 'table') {
@@ -427,22 +427,22 @@
           <footer class="dn-pager">
             <div class="dn-pager-l">
               <span class="dn-range" aria-live="polite"><b>{{ rangeStart() }}–{{ rangeEnd() }}</b> of <b>{{ totalRecords() }}</b></span>
-              <label class="dn-select dn-select--sm">
+              <!-- <label class="dn-select dn-select--sm">
                 <span class="dn-select-cap">Per page</span>
                 <select [value]="pageSize()" (change)="setPageSize(+$any($event.target).value)" aria-label="Donors per page">
                   @for (size of pageSizeOptions; track size) { <option [value]="size">{{ size }}</option> }
                 </select>
-              </label>
+              </label> -->
             </div>
             <nav class="dn-pages" aria-label="Pagination">
-              <button type="button" class="dn-step" (click)="previousPage()" [disabled]="effectivePage() === 1" aria-label="Previous page"><i class="ri-arrow-left-s-line" aria-hidden="true"></i><span>Previous</span></button>
+              <button type="button" class="dn-step" (click)="previousPage()" [disabled]="effectivePage() === 1" aria-label="Previous page"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
               @for (p of pageList(); track $index) {
                 @if (p === 0) { <span class="dn-gap" aria-hidden="true">…</span> }
                 @else {
                   <button type="button" class="dn-pg" [class.is-on]="p === effectivePage()" [attr.aria-current]="p === effectivePage() ? 'page' : null" (click)="goToPage(p)">{{ p }}</button>
                 }
               }
-              <button type="button" class="dn-step" (click)="nextPage()" [disabled]="effectivePage() === totalPages()" aria-label="Next page"><span>Next</span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+              <button type="button" class="dn-step" (click)="nextPage()" [disabled]="effectivePage() === totalPages()" aria-label="Next page"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
             </nav>
           </footer>
         }

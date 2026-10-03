@@ -23,16 +23,16 @@
         </div>
         <div class="cr-acts">
           @if (permissions().view) {
-            <button type="button" class="cr-b" (click)="openCompare()" [disabled]="!compareAllowed()"
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCompare()" [disabled]="!compareAllowed()"
                     [attr.title]="selectedCount() < 2 ? 'Tick at least two campaigns to compare' : null">
               Compare @if (selectedCount() > 0) { <span class="cr-b__n">{{ selectedCount() }}</span> }
             </button>
           }
           @if (permissions().export) {
-            <button type="button" class="cr-b" (click)="openExportDialog()" [disabled]="!exportAllowed()">Export</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openExportDialog()" [disabled]="!exportAllowed()">Export</button>
           }
           @if (permissions().create) {
-            <button type="button" class="cr-b cr-b--primary" (click)="openCreate()" [disabled]="!createAllowed()">New campaign</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="openCreate()" [disabled]="!createAllowed()">New campaign</button>
           }
         </div>
       </header>
@@ -178,7 +178,7 @@
                     <td class="cr-c-act">
                       <span class="cr-row-acts">
                         <span class="cr-menu-wrap">
-                          <button #crRowBtn type="button" class="cr-b cr-b--xs" (click)="toggleRowMenu(r.code, crRowBtn)"
+                          <button #crRowBtn type="button" class="btn btn-outline-secondary btn-sm" (click)="toggleRowMenu(r.code, crRowBtn)"
                                   [attr.aria-expanded]="openRowMenu() === r.code" aria-haspopup="menu">More</button>
                           @if (openRowMenu() === r.code) {
                             <div class="cr-menu" role="menu" aria-label="Campaign actions" [class.cr-menu-up]="rowMenuUp()"
@@ -227,9 +227,9 @@
         <div class="cr-modal cr-modal-wide" role="dialog" aria-modal="true" aria-labelledby="cr-compare-title"
           (click)="$event.stopPropagation()">
           <header class="ov-head">
-          <button type="button" class="cr-modal-x" (click)="closeCompare()" aria-label="Close">
+          <!-- <button type="button" class="cr-modal-x" (click)="closeCompare()" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-          </button>
+          </button> -->
           <h2 id="cr-compare-title" class="cr-modal-title">Compare campaigns</h2>
           <p class="cr-modal-lead">
             Comparing {{ compareRecords().length }} selected campaigns from the current scope.
@@ -292,7 +292,7 @@
           </div>
           </div>
           <div class="cr-modal-actions">
-            <button type="button" class="cr-btn cr-btn-primary" (click)="closeCompare()">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeCompare()">
               Close
             </button>
           </div>
@@ -403,9 +403,9 @@
         <div class="cr-modal" role="dialog" aria-modal="true" aria-labelledby="cr-export-title"
           (click)="$event.stopPropagation()">
           <header class="ov-head">
-          <button type="button" class="cr-modal-x" (click)="cancelExport()" aria-label="Close">
+          <!-- <button type="button" class="cr-modal-x" (click)="cancelExport()" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-          </button>
+          </button> -->
           <h2 id="cr-export-title" class="cr-modal-title">Confirm Export</h2>
           <p class="cr-modal-lead">
             Confirm classification, purpose, scope, count, expiry and audit reference before the
@@ -564,10 +564,10 @@
           </dl>
           </div>
           <div class="cr-modal-actions">
-            <button type="button" class="cr-btn cr-btn-outline" (click)="cancelApprove()">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelApprove()">
               Cancel
             </button>
-            <button type="button" class="cr-btn cr-btn-primary" (click)="confirmApprove()">
+            <button type="button" class="btn btn-primary btn-sm" (click)="confirmApprove()">
               Approve
             </button>
           </div>
