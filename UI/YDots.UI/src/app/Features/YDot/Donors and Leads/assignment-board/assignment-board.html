@@ -75,7 +75,7 @@
                 @if (selectedLeadRefs().size) {
                 <div class="ab-sel" role="status">
                   @if (permissions()['bulkRoute']) {
-                  <button type="button" class="ab-btn ab-btn--primary" (click)="startBulkAssignment()"
+                  <button type="button" class="btn btn-primary btn-sm" (click)="startBulkAssignment()"
                     title="Choose one owner for the selected records">
                     <i class="ri-user-shared-line" aria-hidden="true"></i>
                     <span>Assign <b class="ab-num">{{ selectedLeadRefs().size }}</b> selected</span>
@@ -94,7 +94,7 @@
                     <input type="search" name="search" placeholder="Name, code, e-mail or phone"
                       [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" aria-label="Search records" />
                   </label>
-                  <button type="button" class="ab-btn" [class.is-on]="filtersOpen() || panelFilterCount() > 0"
+                  <button type="button" class="btn btn-outline-secondary btn-sm" [class.is-on]="filtersOpen() || panelFilterCount() > 0"
                     (click)="toggleFilters()" [attr.aria-expanded]="filtersOpen()" aria-controls="ab-filters">
                     <i class="ri-equalizer-line" aria-hidden="true"></i><span>Filters</span>
                     @if (panelFilterCount() > 0) { <span class="ab-count ab-num">{{ panelFilterCount() }}</span> }
@@ -112,7 +112,7 @@
                     (click)="viewMode.set('cards')"><i class="ri-layout-grid-line" aria-hidden="true"></i></button>
                 </div>
 
-                <button type="button" class="ab-btn" (click)="exportAssignmentBoard()" title="Export assignment board">
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportAssignmentBoard()" title="Export assignment board">
                   <i class="ri-download-2-line" aria-hidden="true"></i><span>Export</span>
                 </button>
               </div>
@@ -266,19 +266,18 @@
 
                     <div class="ab-acts">
                       @if (permissions()[primaryActionId(row)]) {
-                      <button type="button" class="ab-btn ab-btn--row" [class.is-assign]="!row.currentOwnerUserId"
+                      <button type="button" class="ab-btn ab-btn--row User" [class.is-assign]="!row.currentOwnerUserId"
                         [title]="primaryActionLabel(row)" (click)="beginAssignment(primaryActionId(row), [row])">
                         <i [class]="row.currentOwnerUserId ? 'ri-user-shared-line' : 'ri-user-add-line'" aria-hidden="true"></i>
-                        <span>{{ row.currentOwnerUserId ? 'Reassign' : 'Assign' }}</span>
+                        <!-- <span>{{ row.currentOwnerUserId ? 'Reassign' : 'Assign' }}</span> -->
                       </button>
                       }
-                      <button type="button" class="ab-tool" title="Assignment history" aria-label="Assignment history" (click)="openHistoryPanel(row)"><i class="ri-history-line" aria-hidden="true"></i></button>
-                      <button type="button" class="ab-tool" title="Schedule follow-up" aria-label="Schedule follow-up" (click)="scheduleFollowUp(row)"><i class="ri-calendar-schedule-line" aria-hidden="true"></i></button>
+                      <button type="button" class="ab-tool Clock" title="Assignment history" aria-label="Assignment history" (click)="openHistoryPanel(row)"><i class="ri-history-line" aria-hidden="true"></i></button>
+                      <button type="button" class="ab-tool Calender" title="Schedule follow-up" aria-label="Schedule follow-up" (click)="scheduleFollowUp(row)"><i class="ri-calendar-schedule-line" aria-hidden="true"></i></button>
                     </div>
                   </li>
                   }
-                  <!-- ruled blank lines keep a short page (e.g. one owner's records) the size of a full one -->
-                  @for (f of fillerRows(); track f) { <li class="ab-row ab-row--filler" aria-hidden="true"></li> }
+                  <!-- No blank filler lines: the list is exactly as long as its records, and the pager follows right after. -->
                 </ul>
 
                 } @else {
@@ -311,14 +310,14 @@
                     </dl>
                     <div class="ab-tile-foot">
                       @if (permissions()[primaryActionId(row)]) {
-                      <button type="button" class="ab-btn ab-btn--row" [class.is-assign]="!row.currentOwnerUserId"
+                      <button type="button" class="ab-btn ab-btn--row User" [class.is-assign]="!row.currentOwnerUserId"
                         (click)="beginAssignment(primaryActionId(row), [row])">
                         <i [class]="row.currentOwnerUserId ? 'ri-user-shared-line' : 'ri-user-add-line'" aria-hidden="true"></i>
-                        <span>{{ row.currentOwnerUserId ? 'Reassign' : 'Assign' }}</span>
+                        <!-- <span>{{ row.currentOwnerUserId ? 'Reassign' : 'Assign' }}</span> -->
                       </button>
                       }
-                      <button type="button" class="ab-tool" title="Assignment history" aria-label="Assignment history" (click)="openHistoryPanel(row)"><i class="ri-history-line" aria-hidden="true"></i></button>
-                      <button type="button" class="ab-tool" title="Schedule follow-up" aria-label="Schedule follow-up" (click)="scheduleFollowUp(row)"><i class="ri-calendar-schedule-line" aria-hidden="true"></i></button>
+                      <button type="button" class="ab-tool Clock" title="Assignment history" aria-label="Assignment history" (click)="openHistoryPanel(row)"><i class="ri-history-line" aria-hidden="true"></i></button>
+                      <button type="button" class="ab-tool Calender" title="Schedule follow-up" aria-label="Schedule follow-up" (click)="scheduleFollowUp(row)"><i class="ri-calendar-schedule-line" aria-hidden="true"></i></button>
                     </div>
                   </li>
                   }
@@ -347,7 +346,7 @@
               <aside class="ab-rail" aria-labelledby="ab-rail-title">
                 <header class="ab-rail-head">
                   <h2 id="ab-rail-title">Owners</h2>
-                  <span class="ab-rail-meta">Open work · lightest first</span>
+                  <!-- <span class="ab-rail-meta">Open work · lightest first</span> -->
                 </header>
                 <ul class="ab-roster" role="list">
                   @for (o of ownerRoster(); track o.userId) {
@@ -507,8 +506,8 @@
       </div>
 
       <footer class="ab-dw-foot">
-        <button type="button" class="ab-btn ab-btn--ghost" [disabled]="processing()" (click)="closeDrawer()">Cancel</button>
-        <button type="button" class="ab-btn ab-btn--primary" [disabled]="!canContinue()" (click)="continueToConfirm()">Continue</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="processing()" (click)="closeDrawer()">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" [disabled]="!canContinue()" (click)="continueToConfirm()">Continue</button>
       </footer>
 
       } @else if (historyPanelRow(); as row) {
@@ -545,7 +544,7 @@
       </div>
 
       <footer class="ab-dw-foot">
-        <button type="button" class="ab-btn ab-btn--ghost" (click)="viewFullHistory(row)">Open full history</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="viewFullHistory(row)">Open full history</button>
       </footer>
 
       } @else if (lastResult(); as result) {
@@ -591,7 +590,7 @@
         </section>
       </div>
       <footer class="ab-dw-foot">
-        <button type="button" class="ab-btn ab-btn--primary" (click)="closeDrawer()">Done</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="closeDrawer()">Done</button>
       </footer>
 
       } @else if (previewRow(); as row) {
@@ -642,12 +641,12 @@
 
       <footer class="ab-dw-foot">
         @if (permissions()['view']) {
-        <button type="button" class="ab-btn ab-btn--ghost ab-dw-foot-l" (click)="openHistoryPanel(row)">History</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openHistoryPanel(row)">History</button>
         }
         @if (permissions()[primaryActionId(row)]) {
-        <button type="button" class="ab-btn ab-btn--ghost" (click)="handlePrimaryCta()">{{ primaryActionLabel(row) }}</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="handlePrimaryCta()">{{ primaryActionLabel(row) }}</button>
         }
-        <button type="button" class="ab-btn ab-btn--primary" (click)="scheduleFollowUp(row)">Schedule follow-up</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="scheduleFollowUp(row)">Schedule follow-up</button>
       </footer>
       }
     </aside>
@@ -693,8 +692,8 @@
         </div>
 
         <footer class="ab-modal-foot">
-          <button type="button" class="ab-btn ab-btn--ghost" [disabled]="processing()" (click)="onCancel()">Cancel</button>
-          <button type="button" class="ab-btn ab-btn--primary" [disabled]="!reasonValid() || processing()"
+          <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="processing()" (click)="onCancel()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" [disabled]="!reasonValid() || processing()"
             (click)="onConfirm(assignmentReason().trim())">
             @if (processing()) { <span class="ab-spin" aria-hidden="true">◌</span> Saving… } @else { Confirm change }
           </button>

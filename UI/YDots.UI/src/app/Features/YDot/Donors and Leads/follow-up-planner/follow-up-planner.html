@@ -35,10 +35,10 @@
         <header class="fp-mast">
           <h1 class="fp-title" id="fp-start-title">New follow-up</h1>
           <div class="fp-mast-acts">
-            <button type="button" class="fp-btn" (click)="cancelPlanner()"><i class="ri-arrow-left-line" aria-hidden="true"></i>Back to queue</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelPlanner()"><i class="ri-arrow-left-line" aria-hidden="true"></i>Back to queue</button>
           </div>
         </header>
-
+ 
         <div class="fp-start-body">
           <!-- who -->
           <div class="fp-pane" aria-labelledby="fp-finder-title">
@@ -70,7 +70,7 @@
                       <span class="fp-line-name">{{ person.name }}</span>
                       <span class="fp-line-ref fp-num">{{ person.reference || '—' }}</span>
                       <span class="fp-line-state"><span class="fp-dot" aria-hidden="true"></span>{{ person.status }}</span>
-                      <span class="fp-btn fp-btn--sm fp-line-go">Plan<i class="ri-arrow-right-line" aria-hidden="true"></i></span>
+                      <span class="btn btn-outline-primary btn-sm">Plan &nbsp;<i class="ri-arrow-right-line" aria-hidden="true"></i></span>
                     </button>
                   </li>
                 }
@@ -136,11 +136,11 @@
           </div>
           <div class="fp-mast-acts">
             @if (!existing()) {
-              <button type="button" class="fp-btn" (click)="leadId.set(null); donorId.set(null); followUpId.set(null)">
+              <button type="button" class="btn btn-primary btn-sm" (click)="leadId.set(null); donorId.set(null); followUpId.set(null)">
                 <i class="ri-user-shared-line" aria-hidden="true"></i>Change person
               </button>
             }
-            <button type="button" class="fp-btn" (click)="cancelPlanner()">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelPlanner()">
               <i class="ri-arrow-left-line" aria-hidden="true"></i>Back to queue
             </button>
           </div>
@@ -301,20 +301,20 @@
 
             <div class="fp-ticket-acts">
               @if (!existing()) {
-                <button type="button" class="fp-btn fp-btn--primary fp-btn--wide" title="Planning only - nothing is sent now"
+                <button type="button" class="btn btn-primary btn-sm" title="Planning only - nothing is sent now"
                         [disabled]="saving() || !permissions()['scheduleFollowUp']" (click)="openAction('scheduleFollowUp')">
                   <i class="ri-calendar-check-line" aria-hidden="true"></i>Schedule follow-up
                 </button>
                 @if (!permissions()['scheduleFollowUp']) { <p class="fp-muted">Your role cannot schedule follow-ups.</p> }
               } @else {
-                <button type="button" class="fp-btn fp-btn--primary fp-btn--wide" [disabled]="saving() || !permissions()['reschedule']" (click)="openAction('reschedule')">
+                <button type="button" class="btn btn-primary btn-sm" [disabled]="saving() || !permissions()['reschedule']" (click)="openAction('reschedule')">
                   <i class="ri-calendar-schedule-line" aria-hidden="true"></i>Reschedule
                 </button>
-                <button type="button" class="fp-btn fp-btn--danger fp-btn--wide" [disabled]="saving() || !permissions()['cancelTask']" (click)="openAction('cancelTask')">
+                <button type="button" class="btn btn-danger btn-sm" [disabled]="saving() || !permissions()['cancelTask']" (click)="openAction('cancelTask')">
                   <i class="ri-close-circle-line" aria-hidden="true"></i>Cancel follow-up
                 </button>
               }
-              <button type="button" class="fp-btn fp-btn--wide fp-btn--quiet" (click)="cancelPlanner()">
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelPlanner()">
                 <i class="ri-arrow-go-back-line" aria-hidden="true"></i>Discard
               </button>
             </div>

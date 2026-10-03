@@ -13,36 +13,82 @@
               @if (relationship().stage) { <span class="tl-stage">{{ relationship().stage }}</span> }
             </div>
             <p class="tl-reach">
-              <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z"/></svg><span class="tl-mono">{{ relationship().mobile || 'No mobile' }}</span></span>
-              <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg><span>{{ relationship().email || 'No email' }}</span></span>
-              @if (relationship().language) { <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h9M8.5 3v2M6 5c0 4 3 7 6 8M11 5c0 3-3 7-7 8"/><path d="m13 21 4-9 4 9M14.5 18h5"/></svg><span>{{ relationship().language }}</span></span> }
-              <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span>Owner <b>{{ relationship().owner }}</b></span></span>
+              <span><svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z" />
+                </svg><span class="tl-mono">{{ relationship().mobile || 'No mobile' }}</span></span>
+              <span><svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <path d="M3.5 7l8.5 6 8.5-6" />
+                </svg><span>{{ relationship().email || 'No email' }}</span></span>
+              @if (relationship().language) { <span><svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 5h9M8.5 3v2M6 5c0 4 3 7 6 8M11 5c0 3-3 7-7 8" />
+                  <path d="m13 21 4-9 4 9M14.5 18h5" />
+                </svg><span>{{ relationship().language }}</span></span> }
+              <span><svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="8" r="3.5" />
+                  <path d="M5 20a7 7 0 0 1 14 0" />
+                </svg><span>Owner <b>{{ relationship().owner }}</b></span></span>
             </p>
           </div>
           <div class="tl-acts">
-            <button class="tl-btn" type="button" (click)="handleOpenMyLeads()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>{{ donorId() ? 'Donor 360' : 'My leads' }}</button>
-            <button class="tl-btn" type="button" (click)="openExportModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 11l4 4 4-4M4 20h16"/></svg>Export</button>
-            <button class="tl-primary" type="button" (click)="openEntryDrawer('Call')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Log communication</button>
+            <button class="btn btn-outline-primary btn-sm" type="button" (click)="handleOpenMyLeads()"><svg viewBox="0 0 24 24"
+                aria-hidden="true">
+                <path d="M15 6l-6 6 6 6" />
+              </svg>{{ donorId() ? 'Donor 360' : 'My leads' }}</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" (click)="openExportModal()"><svg viewBox="0 0 24 24"
+                aria-hidden="true">
+                <path d="M12 3v12M8 11l4 4 4-4M4 20h16" />
+              </svg>Export</button>
+            <button class="btn btn-primary btn-sm" type="button" (click)="openEntryDrawer('Call')"><svg viewBox="0 0 24 24"
+                aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>Log communication</button>
           </div>
         </header>
 
         <dl class="tl-strip" aria-label="Relationship figures">
-          <div class="tl-fig"><dt>Logged</dt><dd><b class="tl-mono">{{ totalCommunications() }}</b><small>{{ totalCommunications() === 1 ? 'entry' : 'entries' }}</small></dd></div>
-          <div class="tl-fig cj-ch-call"><dt><i aria-hidden="true"></i>Calls</dt><dd><b class="tl-mono">{{ callsCount() }}</b><small>{{ callLastDateDisplay() }}</small></dd></div>
-          <div class="tl-fig cj-ch-email"><dt><i aria-hidden="true"></i>Emails</dt><dd><b class="tl-mono">{{ emailsCount() }}</b><small>{{ emailsCount() ? 'Sent and received' : 'None logged' }}</small></dd></div>
-          <div class="tl-fig cj-ch-meeting"><dt><i aria-hidden="true"></i>Meetings</dt><dd><b class="tl-mono">{{ meetingsCount() }}</b><small>{{ meetingsCount() ? 'Held or planned' : 'None logged' }}</small></dd></div>
-          <div class="tl-fig"><dt>Last contact</dt><dd><b class="tl-word">{{ lastContactDisplay() }}</b><small>{{ lastContactMeta() }}</small></dd></div>
-          <div class="tl-fig tl-health {{ relationshipHealthClass(relationshipHealthStatus()) }}" [attr.title]="relationshipHealthReason()">
+          <div class="tl-fig">
+            <dt>Logged</dt>
+            <dd><b class="tl-mono">{{ totalCommunications() }}</b><small>{{ totalCommunications() === 1 ? 'entry' :
+                'entries' }}</small></dd>
+          </div>
+          <div class="tl-fig cj-ch-call">
+            <dt><i aria-hidden="true"></i>Calls</dt>
+            <dd><b class="tl-mono">{{ callsCount() }}</b><small>{{ callLastDateDisplay() }}</small></dd>
+          </div>
+          <div class="tl-fig cj-ch-email">
+            <dt><i aria-hidden="true"></i>Emails</dt>
+            <dd><b class="tl-mono">{{ emailsCount() }}</b><small>{{ emailsCount() ? 'Sent and received' : 'None logged'
+                }}</small></dd>
+          </div>
+          <div class="tl-fig cj-ch-meeting">
+            <dt><i aria-hidden="true"></i>Meetings</dt>
+            <dd><b class="tl-mono">{{ meetingsCount() }}</b><small>{{ meetingsCount() ? 'Held or planned' : 'None
+                logged' }}</small></dd>
+          </div>
+          <div class="tl-fig">
+            <dt>Last contact</dt>
+            <dd><b class="tl-word">{{ lastContactDisplay() }}</b><small>{{ lastContactMeta() }}</small></dd>
+          </div>
+          <div class="tl-fig tl-health {{ relationshipHealthClass(relationshipHealthStatus()) }}"
+            [attr.title]="relationshipHealthReason()">
             <dt>Health</dt>
-            <dd><b class="tl-mono">{{ leadHealthScore() }}</b><small><span class="tl-health-word">{{ relationshipHealthStatus() }}</span></small></dd>
+            <dd><b class="tl-mono">{{ leadHealthScore() }}</b><small><span class="tl-health-word">{{
+                  relationshipHealthStatus() }}</span></small></dd>
             <dd class="tl-meter" aria-hidden="true"><i [style.width.%]="leadHealthScore()"></i></dd>
           </div>
           <div class="tl-fig tl-cad">
-            <dt>Last 8 weeks<span class="tl-cad-n"><b class="tl-mono">{{ cadenceActiveDays() }}</b> active days</span></dt>
+            <dt>Last 8 weeks<span class="tl-cad-n"><b class="tl-mono">{{ cadenceActiveDays() }}</b> active days</span>
+            </dt>
             <dd>
-              <ol class="tl-ticks" [attr.aria-label]="cadenceActiveDays() + ' days with contact in the last eight weeks'">
+              <ol class="tl-ticks"
+                [attr.aria-label]="cadenceActiveDays() + ' days with contact in the last eight weeks'">
                 @for (day of cadence(); track day.label) {
-                  <li [class]="day.lead ? 'cj-ch-' + channelKey(day.lead) : ''" [class.is-on]="day.count > 0" [class.is-week]="day.monday" [class.is-today]="day.today" [attr.data-n]="day.count > 2 ? 3 : day.count" [attr.title]="day.label + (day.count ? ' · ' + day.count + ' logged' : '')"></li>
+                <li [class]="day.lead ? 'cj-ch-' + channelKey(day.lead) : ''" [class.is-on]="day.count > 0"
+                  [class.is-week]="day.monday" [class.is-today]="day.today"
+                  [attr.data-n]="day.count > 2 ? 3 : day.count"
+                  [attr.title]="day.label + (day.count ? ' · ' + day.count + ' logged' : '')"></li>
                 }
               </ol>
             </dd>
@@ -50,7 +96,10 @@
         </dl>
 
         @if (loadError()) {
-          <p class="tl-alert" role="alert"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>{{ loadError() }}</p>
+        <p class="tl-alert" role="alert"><svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7.5v5.5M12 16.5h.01" />
+          </svg>{{ loadError() }}</p>
         }
 
         <div class="tl-body">
@@ -59,99 +108,167 @@
             <div class="tl-bar">
               <nav class="tl-lanes" role="tablist" aria-label="Filter by channel">
                 @for (lane of lanes(); track lane.id) {
-                  <button type="button" role="tab" class="tl-lane" [attr.aria-selected]="activeTab() === lane.id" (click)="setTab(lane.id)">{{ lane.label }}<span class="tl-lane-n tl-mono">{{ lane.count }}</span></button>
+                <button type="button" role="tab" class="tl-lane" [attr.aria-selected]="activeTab() === lane.id"
+                  (click)="setTab(lane.id)">{{ lane.label }}<span class="tl-lane-n tl-mono">{{ lane.count
+                    }}</span></button>
                 }
               </nav>
               <div class="tl-tools">
                 <label class="tl-search">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                  <input type="search" aria-label="Search communications" placeholder="Search entries…" [ngModel]="searchQuery()" (ngModelChange)="setSearchQuery($event)" />
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                  <input type="search" aria-label="Search communications" placeholder="Search entries…"
+                    [ngModel]="searchQuery()" (ngModelChange)="setSearchQuery($event)" />
                 </label>
-                <button class="tl-btn" type="button" [class.is-on]="isFilterOpen() || activeFilterCount() > 0" [attr.aria-expanded]="isFilterOpen()" (click)="toggleFilterPanel()">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filters
+                <button class="tl-btn" type="button" [class.is-on]="isFilterOpen() || activeFilterCount() > 0"
+                  [attr.aria-expanded]="isFilterOpen()" (click)="toggleFilterPanel()">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 6h16M7 12h10M10 18h4" />
+                  </svg>Filters
                   @if (activeFilterCount()) { <span class="tl-count tl-mono">{{ activeFilterCount() }}</span> }
                 </button>
               </div>
             </div>
 
             @if (isFilterOpen()) {
-              <div class="tl-filters" aria-label="Timeline filters">
-                <label class="tl-f"><span>Type</span><select [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event); currentPage.set(1)"><option value="All">All types</option>@for (type of communicationTypes; track type) {<option [value]="type">{{ channelLabel(type) }}</option>}</select></label>
-                <label class="tl-f"><span>Outcome</span><select [ngModel]="outcomeFilter()" (ngModelChange)="outcomeFilter.set($event); currentPage.set(1)"><option value="All">All outcomes</option>@for (outcome of outcomes; track outcome) {<option [value]="outcome">{{ outcome }}</option>}</select></label>
-                <label class="tl-f"><span>Direction</span><select [ngModel]="directionFilter()" (ngModelChange)="directionFilter.set($event); currentPage.set(1)"><option value="All">Both</option><option value="Incoming">Incoming</option><option value="Outgoing">Outgoing</option></select></label>
-                <label class="tl-f"><span>From</span><input type="date" [ngModel]="dateFromFilter()" (ngModelChange)="dateFromFilter.set($event || ''); currentPage.set(1)" /></label>
-                <label class="tl-f"><span>To</span><input type="date" [ngModel]="dateToFilter()" (ngModelChange)="dateToFilter.set($event || ''); currentPage.set(1)" /></label>
-                <label class="tl-toggle"><input type="checkbox" [ngModel]="importantOnly()" (ngModelChange)="importantOnly.set($event); currentPage.set(1)" /><span class="tl-switch" aria-hidden="true"></span>Important only</label>
-                <span class="tl-f-end">
-                  <button class="tl-btn" type="button" (click)="resetFilters()">Reset</button>
-                  <button class="tl-btn" type="button" (click)="isFilterOpen.set(false)">Done</button>
-                </span>
-              </div>
+            <div class="tl-filters" aria-label="Timeline filters">
+              <label class="tl-f"><span>Type</span><select [ngModel]="typeFilter()"
+                  (ngModelChange)="typeFilter.set($event); currentPage.set(1)">
+                  <option value="All">All types</option>@for (type of communicationTypes; track type) {<option
+                    [value]="type">{{ channelLabel(type) }}</option>}
+                </select></label>
+              <label class="tl-f"><span>Outcome</span><select [ngModel]="outcomeFilter()"
+                  (ngModelChange)="outcomeFilter.set($event); currentPage.set(1)">
+                  <option value="All">All outcomes</option>@for (outcome of outcomes; track outcome) {<option
+                    [value]="outcome">{{ outcome }}</option>}
+                </select></label>
+              <label class="tl-f"><span>Direction</span><select [ngModel]="directionFilter()"
+                  (ngModelChange)="directionFilter.set($event); currentPage.set(1)">
+                  <option value="All">Both</option>
+                  <option value="Incoming">Incoming</option>
+                  <option value="Outgoing">Outgoing</option>
+                </select></label>
+              <label class="tl-f"><span>From</span><input type="date" [ngModel]="dateFromFilter()"
+                  (ngModelChange)="dateFromFilter.set($event || ''); currentPage.set(1)" /></label>
+              <label class="tl-f"><span>To</span><input type="date" [ngModel]="dateToFilter()"
+                  (ngModelChange)="dateToFilter.set($event || ''); currentPage.set(1)" /></label>
+              <label class="tl-toggle"><input type="checkbox" [ngModel]="importantOnly()"
+                  (ngModelChange)="importantOnly.set($event); currentPage.set(1)" /><span class="tl-switch"
+                  aria-hidden="true"></span>Important only</label>
+              <span class="tl-f-end">
+                <button class="tl-btn" type="button" (click)="resetFilters()">Reset</button>
+                <button class="tl-btn" type="button" (click)="isFilterOpen.set(false)">Done</button>
+              </span>
+            </div>
             }
 
             <div class="tl-days">
               @if (loading() && !records().length) {
-                <p class="tl-quiet">Loading the timeline…</p>
+              <p class="tl-quiet">Loading the timeline…</p>
               } @else if (filteredRecords().length === 0) {
-                <div class="tl-empty">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4.3A2.5 2.5 0 0 1 4 13.5z"/><path d="M8 8h8M8 11h5"/></svg>
-                  <b>{{ records().length ? 'Nothing matches these filters' : 'No conversations yet' }}</b>
-                  <span class="tl-empty-acts">
-                    @if (records().length) { <button class="tl-btn" type="button" (click)="resetFilters(); setTab('All')">Clear filters</button> }
-                    <button class="tl-primary" type="button" (click)="openEntryDrawer('Call')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Log communication</button>
-                  </span>
-                </div>
+              <div class="tl-empty">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4.3A2.5 2.5 0 0 1 4 13.5z" />
+                  <path d="M8 8h8M8 11h5" />
+                </svg>
+                <b>{{ records().length ? 'Nothing matches these filters' : 'No conversations yet' }}</b>
+                <span class="tl-empty-acts">
+                  @if (records().length) { <button class="tl-btn" type="button"
+                    (click)="resetFilters(); setTab('All')">Clear filters</button> }
+                  <button class="btn btn-primary btn-sm" type="button" (click)="openEntryDrawer('Call')">
+                    <i class="ri ri-add-line"></i>Log communication</button>
+                </span>
+              </div>
               } @else {
-                @for (group of dayGroups(); track group.key) {
-                  <section class="tl-day" [attr.aria-label]="group.key">
-                    <p class="tl-date"><b class="tl-mono">{{ group.day }}</b><span>{{ group.month }}</span><small>{{ group.relative || group.weekday }}</small></p>
-                    <ol class="tl-entries">
-                      @for (record of group.items; track record.id) {
-                        <li class="tl-entry cj-ch-{{ channelKey(record.type) }}" [class.is-flag]="record.important">
-                          <span class="tl-glyph"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: record.type }" /></span>
-                          <div class="tl-entry-main">
-                            <p class="tl-entry-top">
-                              <b class="tl-entry-title">{{ timelineTitle(record) }}</b>
-                              @if (record.important) { <svg class="tl-star" viewBox="0 0 24 24" aria-label="Important"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg> }
-                              <span class="tl-meta">
-                                <span class="tl-dir">@if (record.direction === 'Incoming') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 7 7 17M7 9v8h8"/></svg> } @else { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg> }{{ record.direction }}</span>
-                                @if (record.outcome) { <span class="cj-out {{ outcomeClass(record.outcome) }}"><i aria-hidden="true"></i>{{ record.outcome }}</span> }
-                                @if (record.createdBy) { <span class="tl-by">by {{ record.createdBy }}</span> }
-                              </span>
-                              <span class="tl-time tl-mono">{{ record.time }}</span>
-                            </p>
-                            <p class="tl-sum">{{ record.summary }}</p>
-                            @if (record.notes) { <p class="tl-note"><span>Note</span>{{ record.notes }}</p> }
-                            @if (record.attachment) { <p class="tl-file"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/></svg>{{ record.attachment }}</p> }
-                          </div>
-                          <span class="tl-row-acts">
-                            <button type="button" class="tl-ib" title="View details" aria-label="View details" (click)="openDetails(record)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-                            <button type="button" class="tl-ib" title="Edit entry" aria-label="Edit entry" (click)="editCommunication(record)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M13 7l3 3"/></svg></button>
-                            <button type="button" class="tl-ib tl-ib-star" [attr.aria-pressed]="record.important" [attr.title]="record.important ? 'Unmark important' : 'Mark important'" [attr.aria-label]="record.important ? 'Unmark important' : 'Mark important'" (click)="toggleImportant(record)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></button>
-                          </span>
-                        </li>
-                      }
-                    </ol>
-                  </section>
-                }
+              @for (group of dayGroups(); track group.key) {
+              <section class="tl-day" [attr.aria-label]="group.key">
+                <p class="tl-date"><b class="tl-mono">{{ group.day }}</b><span>{{ group.month }}</span><small>{{
+                    group.relative || group.weekday }}</small></p>
+                <ol class="tl-entries">
+                  @for (record of group.items; track record.id) {
+                  <li class="tl-entry cj-ch-{{ channelKey(record.type) }}" [class.is-flag]="record.important">
+                    <span class="tl-glyph"><ng-container
+                        *ngTemplateOutlet="glyph; context: { $implicit: record.type }" /></span>
+                    <div class="tl-entry-main">
+                      <p class="tl-entry-top">
+                        <b class="tl-entry-title">{{ timelineTitle(record) }}</b>
+                        @if (record.important) { <svg class="tl-star" viewBox="0 0 24 24" aria-label="Important">
+                          <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />
+                        </svg> }
+                        <span class="tl-meta">
+                          <span class="tl-dir">@if (record.direction === 'Incoming') { <svg viewBox="0 0 24 24"
+                              aria-hidden="true">
+                              <path d="M17 7 7 17M7 9v8h8" />
+                            </svg> } @else { <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M7 17 17 7M9 7h8v8" />
+                            </svg> }{{ record.direction }}</span>
+                          @if (record.outcome) { <span class="cj-out {{ outcomeClass(record.outcome) }}"><i
+                              aria-hidden="true"></i>{{ record.outcome }}</span> }
+                          @if (record.createdBy) { <span class="tl-by">by {{ record.createdBy }}</span> }
+                        </span>
+                        <span class="tl-time tl-mono">{{ record.time }}</span>
+                      </p>
+                      <p class="tl-sum">{{ record.summary }}</p>
+                      @if (record.notes) { <p class="tl-note"><span>Note</span>{{ record.notes }}</p> }
+                      @if (record.attachment) { <p class="tl-file"><svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7" />
+                        </svg>{{ record.attachment }}</p> }
+                    </div>
+                    <span class="tl-row-acts">
+                      <button type="button" class="tl-ib" title="View details" aria-label="View details"
+                        (click)="openDetails(record)"><svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg></button>
+                      <button type="button" class="tl-ib" title="Edit entry" aria-label="Edit entry"
+                        (click)="editCommunication(record)"><svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z" />
+                          <path d="M13 7l3 3" />
+                        </svg></button>
+                      <button type="button" class="tl-ib tl-ib-star" [attr.aria-pressed]="record.important"
+                        [attr.title]="record.important ? 'Unmark important' : 'Mark important'"
+                        [attr.aria-label]="record.important ? 'Unmark important' : 'Mark important'"
+                        (click)="toggleImportant(record)"><svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />
+                        </svg></button>
+                    </span>
+                  </li>
+                  }
+                </ol>
+              </section>
+              }
               }
             </div>
 
             @if (filteredRecords().length) {
-              <footer class="tl-foot">
-                <span>Showing <b class="tl-mono">{{ firstVisibleRecord() }}–{{ lastVisibleRecord() }}</b> of <b class="tl-mono">{{ filteredRecords().length }}</b> · newest first</span>
-                @if (totalPages() > 1) {
-                  <nav class="tl-pager" aria-label="Timeline pagination">
-                    <button type="button" class="tl-pg" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)" aria-label="Previous page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-                    @for (page of pageNumbers(); track page) {
-                      <button type="button" class="tl-pg tl-mono" [attr.aria-current]="page === currentPage() ? 'page' : null" (click)="goToPage(page)">{{ page }}</button>
-                    }
-                    <button type="button" class="tl-pg" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)" aria-label="Next page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-                  </nav>
-                } @else {
-                  <span class="tl-end">End of record</span>
+            <footer class="tl-foot">
+              <span>Showing <b class="tl-mono">{{ firstVisibleRecord() }}–{{ lastVisibleRecord() }}</b> of <b
+                  class="tl-mono">{{ filteredRecords().length }}</b> · newest first</span>
+              @if (totalPages() > 1) {
+              <nav class="tl-pager" aria-label="Timeline pagination">
+                <button type="button" class="tl-pg" [disabled]="currentPage() === 1"
+                  (click)="goToPage(currentPage() - 1)" aria-label="Previous page"><svg viewBox="0 0 24 24"
+                    aria-hidden="true">
+                    <path d="M15 6l-6 6 6 6" />
+                  </svg></button>
+                @for (page of pageNumbers(); track page) {
+                <button type="button" class="tl-pg tl-mono" [attr.aria-current]="page === currentPage() ? 'page' : null"
+                  (click)="goToPage(page)">{{ page }}</button>
                 }
-              </footer>
+                <button type="button" class="tl-pg" [disabled]="currentPage() === totalPages()"
+                  (click)="goToPage(currentPage() + 1)" aria-label="Next page"><svg viewBox="0 0 24 24"
+                    aria-hidden="true">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg></button>
+              </nav>
+              } @else {
+              <span class="tl-end">End of record</span>
+              }
+            </footer>
             }
           </section>
 
@@ -161,7 +278,11 @@
               <p class="tl-cap">Next best step</p>
               <b class="tl-next-what">{{ suggestedAction().label }}</b>
               <span class="tl-next-why">{{ suggestedAction().detail }}</span>
-              <button class="tl-btn tl-btn-full" type="button" (click)="openFollowUpPlanner()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Schedule a follow-up</button>
+              <button class="tl-btn tl-btn-full" type="button" (click)="openFollowUpPlanner()"><svg viewBox="0 0 24 24"
+                  aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M3 10h18M8 3v4M16 3v4" />
+                </svg>Schedule a follow-up</button>
             </section>
 
             <section class="tl-part">
@@ -169,37 +290,75 @@
               <div class="tl-std">
                 <span class="tl-std-l">Temperature</span>
                 <ol class="tl-scale tl-scale-temp" [attr.aria-label]="'Temperature ' + currentTemperature()">
-                  @for (t of temperatures; track t) { <li class="cj-t-{{ t.toLowerCase() }}" [attr.aria-current]="t === currentTemperature() ? 'true' : null">{{ t }}</li> }
+                  @for (t of temperatures; track t) { <li class="cj-t-{{ t.toLowerCase() }}"
+                    [attr.aria-current]="t === currentTemperature() ? 'true' : null">{{ t }}</li> }
                 </ol>
-                <button class="tl-ib" type="button" title="Update temperature" aria-label="Update temperature" (click)="openTemperatureModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M13 7l3 3"/></svg></button>
+                <button class="tl-ib" type="button" title="Update temperature" aria-label="Update temperature"
+                  (click)="openTemperatureModal()"><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z" />
+                    <path d="M13 7l3 3" />
+                  </svg></button>
               </div>
               <div class="tl-std">
                 <span class="tl-std-l">Potential</span>
                 <ol class="tl-scale" [attr.aria-label]="'Donation potential ' + donationPotential()">
-                  @for (p of donationPotentials; track p) { <li [attr.aria-current]="p === donationPotential() ? 'true' : null">{{ p }}</li> }
+                  @for (p of donationPotentials; track p) { <li
+                    [attr.aria-current]="p === donationPotential() ? 'true' : null">{{ p }}</li> }
                 </ol>
-                <button class="tl-ib" type="button" title="Update donation potential" aria-label="Update donation potential" (click)="openDonationPotentialModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M13 7l3 3"/></svg></button>
+                <button class="tl-ib" type="button" title="Update donation potential"
+                  aria-label="Update donation potential" (click)="openDonationPotentialModal()"><svg viewBox="0 0 24 24"
+                    aria-hidden="true">
+                    <path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z" />
+                    <path d="M13 7l3 3" />
+                  </svg></button>
               </div>
             </section>
 
             <section class="tl-part">
               <p class="tl-cap">Record</p>
               <dl class="tl-ledger">
-                <div><dt>Reference</dt><dd class="tl-mono">{{ relationship().reference || '—' }}</dd></div>
-                <div><dt>Stage</dt><dd>{{ relationship().stage || '—' }}</dd></div>
-                <div><dt>Source</dt><dd>{{ relationship().source || 'Not recorded' }}</dd></div>
-                @if (relationship().campaign) { <div><dt>Campaign</dt><dd>{{ relationship().campaign }}</dd></div> }
-                <div><dt>Last entry</dt><dd class="tl-mono">{{ lastUpdatedDisplay() }}</dd></div>
+                <div>
+                  <dt>Reference</dt>
+                  <dd class="tl-mono">{{ relationship().reference || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Stage</dt>
+                  <dd>{{ relationship().stage || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Source</dt>
+                  <dd>{{ relationship().source || 'Not recorded' }}</dd>
+                </div>
+                @if (relationship().campaign) { <div>
+                  <dt>Campaign</dt>
+                  <dd>{{ relationship().campaign }}</dd>
+                </div> }
+                <div>
+                  <dt>Last entry</dt>
+                  <dd class="tl-mono">{{ lastUpdatedDisplay() }}</dd>
+                </div>
               </dl>
             </section>
 
             <section class="tl-part">
               <p class="tl-cap">Activity</p>
               <dl class="tl-ledger">
-                <div><dt>Contact rhythm</dt><dd>{{ communicationTrend() }}</dd></div>
-                <div><dt>Engagement</dt><dd class="tl-trend tl-trend-{{ engagementTrend().toLowerCase() }}">{{ engagementTrend() }}</dd></div>
-                <div><dt>Interested replies</dt><dd class="tl-mono">{{ interestedCount() }}</dd></div>
-                <div><dt>Follow-ups done</dt><dd class="tl-mono">{{ followUpCompletionRate() }}%</dd></div>
+                <div>
+                  <dt>Contact rhythm</dt>
+                  <dd>{{ communicationTrend() }}</dd>
+                </div>
+                <div>
+                  <dt>Engagement</dt>
+                  <dd class="tl-trend tl-trend-{{ engagementTrend().toLowerCase() }}">{{ engagementTrend() }}</dd>
+                </div>
+                <div>
+                  <dt>Interested replies</dt>
+                  <dd class="tl-mono">{{ interestedCount() }}</dd>
+                </div>
+                <div>
+                  <dt>Follow-ups done</dt>
+                  <dd class="tl-mono">{{ followUpCompletionRate() }}%</dd>
+                </div>
               </dl>
               <span class="tl-meter" aria-hidden="true"><i [style.width.%]="followUpCompletionRate()"></i></span>
             </section>
@@ -211,196 +370,286 @@
            A slim sticky bar with three save checks and a progress rule, then one sheet: the entry form in
            ruled bands beside a context rail (who, how it will read, recent entries). -->
       @if (isEntryDrawerOpen()) {
-        <div class="le" #entrySheet role="region" aria-labelledby="leTitle" tabindex="-1" (keydown.escape)="closeEntryDrawer()">
-          <header class="le-bar">
-            <button class="tl-btn le-back" type="button" (click)="closeEntryDrawer()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Timeline</button>
-            <div class="le-title">
-              <h1 id="leTitle">{{ editingId() ? 'Edit communication' : 'Log communication' }}</h1>
-              <span class="le-for">{{ relationship().name || 'This record' }}<i aria-hidden="true"></i><span class="tl-mono">{{ relationship().reference || '—' }}</span></span>
-            </div>
-            <ol class="le-checks" aria-label="Before saving">
-              @for (check of entryChecks(); track check.label) {
-                <li [class.is-ok]="check.ok" [attr.title]="check.detail"><span class="le-tick" aria-hidden="true">@if (check.ok) {<svg viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg>}</span>{{ check.label }}</li>
-              }
-            </ol>
-            <span class="le-bar-end">
-              <button class="tl-btn le-cancel" type="button" (click)="closeEntryDrawer()">Cancel</button>
-              <button class="tl-primary" type="button" (click)="saveCommunication()">{{ editingId() ? 'Save changes' : 'Save entry' }}</button>
-            </span>
-            <span class="le-progress" aria-hidden="true"><i [style.width.%]="entryProgress()"></i></span>
-          </header>
-
-          <div class="le-body">
-            <form class="le-form" (submit)="$event.preventDefault(); saveCommunication()" (keydown.control.enter)="saveCommunication()" (keydown.meta.enter)="saveCommunication()" novalidate>
-              @if (formErrors().length) {
-                <div class="le-alert" role="alert">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>
-                  <ul>@for (error of formErrors(); track error) {<li>{{ error }}</li>}</ul>
-                </div>
-              }
-
-              <!-- channel -->
-              <div class="le-band">
-                <div class="le-field">
-                  <span class="le-label">Channel<small>{{ channelCounts()[form().type] || 0 }} logged before</small></span>
-                  <div class="le-channels" role="radiogroup" aria-label="Communication type">
-                    @for (type of communicationTypes; track type) {
-                      <button type="button" role="radio" class="le-ch cj-ch-{{ channelKey(type) }}" [attr.aria-checked]="form().type === type" (click)="updateForm('type', type)">
-                        <span class="le-ch-g"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: type }" /></span>{{ type === 'Internal Note' ? 'Note' : type }}
-                      </button>
-                    }
-                  </div>
-                </div>
-              </div>
-
-              <!-- when + direction -->
-              <div class="le-band le-band-when">
-                <div class="le-field">
-                  <span class="le-label">Day</span>
-                  <div class="le-days" role="radiogroup" aria-label="Date">
-                    @for (day of entryDayStrip(); track day.iso) {
-                      <button type="button" role="radio" class="le-day" [attr.aria-checked]="form().date === day.iso" (click)="updateForm('date', day.iso)"><small>{{ day.weekday }}</small><b class="tl-mono">{{ day.day }}</b></button>
-                    }
-                    <label class="le-day le-day-earlier" [class.is-on]="entryDateEarlier()">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-                      <small class="tl-mono">{{ entryDateEarlier() ? entryDay().day + ' ' + entryDay().month.slice(0, 3) : 'Earlier' }}</small>
-                      <input type="date" name="date" aria-label="Pick an earlier date" (click)="$any($event.target).showPicker?.()" [ngModel]="form().date" [attr.max]="getTodayIso()" (ngModelChange)="updateForm('date', $event)" />
-                    </label>
-                  </div>
-                </div>
-                <div class="le-field">
-                  <span class="le-label">Time<button type="button" class="le-link" (click)="setNow()">Use now</button></span>
-                  <input class="le-input tl-mono" type="time" name="time" aria-label="Time" [ngModel]="form().time" (ngModelChange)="updateForm('time', $event)" />
-                </div>
-                <div class="le-field">
-                  <span class="le-label">Direction</span>
-                  <span class="le-seg" role="radiogroup" aria-label="Direction">
-                    <button type="button" role="radio" [attr.aria-checked]="form().direction === 'Outgoing'" (click)="updateForm('direction', 'Outgoing')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>Outgoing</button>
-                    <button type="button" role="radio" [attr.aria-checked]="form().direction === 'Incoming'" (click)="updateForm('direction', 'Incoming')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 7 7 17M7 9v8h8"/></svg>Incoming</button>
-                  </span>
-                </div>
-              </div>
-
-              <!-- outcome -->
-              <div class="le-band">
-                <div class="le-field">
-                  <span class="le-label">Outcome</span>
-                  <div class="le-outcomes" role="radiogroup" aria-label="Outcome">
-                    @for (group of outcomeGroups; track group.label) {
-                      <div class="le-kind" [attr.title]="group.hint">
-                        <span class="le-kind-l">{{ group.label }}</span>
-                        @for (outcome of group.items; track outcome) {
-                          <button type="button" role="radio" class="le-out {{ outcomeClass(outcome) }}" [attr.aria-checked]="form().outcome === outcome" (click)="updateForm('outcome', outcome)"><i aria-hidden="true"></i>{{ outcome }}</button>
-                        }
-                      </div>
-                    }
-                  </div>
-                </div>
-              </div>
-
-              <!-- assessment -->
-              <div class="le-band le-band-pair">
-                <div class="le-field">
-                  <span class="le-label">Engagement</span>
-                  <span class="le-seg" role="radiogroup" aria-label="Engagement level">
-                    @for (level of engagementLevels; track level; let i = $index) {
-                      <button type="button" role="radio" [attr.aria-checked]="form().engagement === level" (click)="updateForm('engagement', level)"><span class="le-bars" aria-hidden="true">@for (bar of engagementLevels; track bar; let b = $index) {<i [class.on]="b <= i"></i>}</span>{{ level }}</button>
-                    }
-                  </span>
-                </div>
-                <div class="le-field">
-                  <span class="le-label">Quality of the conversation</span>
-                  <span class="le-seg" role="radiogroup" aria-label="Communication quality">
-                    @for (quality of qualities; track quality; let i = $index) {
-                      <button type="button" role="radio" [attr.aria-checked]="form().quality === quality" (click)="updateForm('quality', quality)"><span class="le-bars" aria-hidden="true">@for (bar of qualities; track bar; let b = $index) {<i [class.on]="b <= i"></i>}</span>{{ quality }}</button>
-                    }
-                  </span>
-                </div>
-              </div>
-
-              <!-- writing -->
-              <div class="le-band le-band-pair le-band-write">
-                <div class="le-field">
-                  <span class="le-label"><label for="leSummary">Summary <em>*</em></label>
-                    <span class="le-starters" role="group" aria-label="Sentence openers">
-                      @for (starter of summaryStarters; track starter) {
-                        <button type="button" (click)="addStarter(starter); summaryBox.focus()">{{ starter.trim() }}…</button>
-                      }
-                    </span>
-                    <span class="le-n tl-mono" [class.is-ok]="form().summary.trim().length >= 10">{{ form().summary.length }}/2000</span>
-                  </span>
-                  <textarea #summaryBox id="leSummary" class="le-input" name="summary" rows="5" maxlength="2000" placeholder="What happened, what they said or asked for, and what happens next." [ngModel]="form().summary" (ngModelChange)="updateForm('summary', $event)"></textarea>
-                </div>
-                <div class="le-field le-field-note">
-                  <span class="le-label"><label for="leNotes"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Internal note</label><small>Team only</small><span class="le-n tl-mono">{{ form().notes.length }}/3000</span></span>
-                  <textarea id="leNotes" class="le-input" name="notes" rows="5" maxlength="3000" placeholder="Preferences, sensitivities, who else is involved…" [ngModel]="form().notes" (ngModelChange)="updateForm('notes', $event)"></textarea>
-                </div>
-              </div>
-
-              <footer class="le-foot">
-                <label class="le-slip" for="communicationAttachment" [class.is-on]="!!form().attachmentName">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/></svg>
-                  <b>{{ form().attachmentName || 'Attach a file' }}</b><small>{{ form().attachmentName ? 'Replace' : 'PDF, DOCX, PNG, JPG · 10 MB' }}</small>
-                </label>
-                <input id="communicationAttachment" type="file" hidden accept=".pdf,.docx,.png,.jpg,.jpeg" (change)="onAttachmentSelected($event)" />
-                <label class="le-slip le-flag" [class.is-on]="form().important">
-                  <input type="checkbox" name="important" [ngModel]="form().important" (ngModelChange)="updateForm('important', $event)" />
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
-                  <b>{{ form().important ? 'Marked important' : 'Mark as important' }}</b>
-                </label>
-                <span class="le-keys" aria-hidden="true"><kbd>Ctrl</kbd><kbd>Enter</kbd> save<i></i><kbd>Esc</kbd> close</span>
-              </footer>
-            </form>
-
-            <aside class="le-side" aria-label="Context">
-              <section class="le-part">
-                <p class="tl-cap">{{ donorId() ? 'Donor' : 'Lead' }}@if (relationship().stage) { · {{ relationship().stage }} }</p>
-                <b class="le-name">{{ relationship().name || 'This record' }}</b>
-                <p class="le-reach">
-                  <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z"/></svg><span class="tl-mono">{{ relationship().mobile || 'No mobile' }}</span></span>
-                  <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg><span>{{ relationship().email || 'No email' }}</span></span>
-                </p>
-                <dl class="tl-ledger">
-                  <div class="tl-health {{ relationshipHealthClass(relationshipHealthStatus()) }}"><dt>Health</dt><dd><span class="tl-mono">{{ leadHealthScore() }}</span> · <span class="tl-health-word">{{ relationshipHealthStatus() }}</span></dd></div>
-                  <div><dt>Last contact</dt><dd>{{ lastContactDisplay() }}</dd></div>
-                  <div><dt>Temperature</dt><dd>{{ currentTemperature() }}</dd></div>
-                  <div><dt>Potential</dt><dd>{{ donationPotential() }}</dd></div>
-                </dl>
-              </section>
-
-              <section class="le-part">
-                <p class="tl-cap">How it will read</p>
-                <div class="le-proof cj-ch-{{ channelKey(form().type) }}">
-                  <span class="le-proof-date"><b class="tl-mono">{{ entryDay().day }}</b><small>{{ entryDay().month.slice(0, 3) }}</small></span>
-                  <span class="tl-glyph"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: form().type }" /></span>
-                  <div class="le-proof-text">
-                    <p class="le-proof-top"><b>{{ form().direction }} {{ channelNoun(form().type) }}</b>@if (form().important) {<svg class="tl-star" viewBox="0 0 24 24" aria-label="Important"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>}@if (form().time) {<span class="tl-mono">{{ form().time }}</span>}</p>
-                    <p class="le-proof-meta"><span class="cj-out {{ outcomeClass(form().outcome) }}"><i aria-hidden="true"></i>{{ form().outcome }}</span><span>{{ form().engagement }} engagement</span></p>
-                    <p class="le-proof-sum" [class.is-empty]="!form().summary.trim()">{{ form().summary.trim() || 'Your summary will appear here as you write.' }}</p>
-                  </div>
-                </div>
-              </section>
-
-              <section class="le-part">
-                <p class="tl-cap">Recent entries<span class="tl-mono">{{ totalCommunications() }}</span></p>
-                <ol class="le-thread">
-                  @for (record of recentEntries().slice(0, 3); track record.id) {
-                    <li class="cj-ch-{{ channelKey(record.type) }}">
-                      <span class="tl-glyph"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: record.type }" /></span>
-                      <div>
-                        <p class="le-thread-top"><b>{{ channelLabel(record.type) }}</b><span class="cj-out {{ outcomeClass(record.outcome) }}"><i aria-hidden="true"></i>{{ record.outcome }}</span><span class="tl-mono">{{ record.date }}</span></p>
-                        <p class="le-thread-sum">{{ record.summary }}</p>
-                      </div>
-                    </li>
-                  } @empty {
-                    <li class="le-thread-first">No earlier conversations. This entry opens the timeline.</li>
-                  }
-                </ol>
-                <p class="le-next"><span>Suggested next</span><b>{{ suggestedAction().label }}</b></p>
-              </section>
-            </aside>
+      <div class="le" #entrySheet role="region" aria-labelledby="leTitle" tabindex="-1"
+        (keydown.escape)="closeEntryDrawer()">
+        <header class="le-bar">
+          <button class="tl-btn le-back" type="button" (click)="closeEntryDrawer()"><svg viewBox="0 0 24 24"
+              aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>Timeline</button>
+          <div class="le-title">
+            <h1 id="leTitle">{{ editingId() ? 'Edit communication' : 'Log communication' }}</h1>
+            <span class="le-for">{{ relationship().name || 'This record' }}<i aria-hidden="true"></i><span
+                class="tl-mono">{{ relationship().reference || '—' }}</span></span>
           </div>
+          <ol class="le-checks" aria-label="Before saving">
+            @for (check of entryChecks(); track check.label) {
+            <li [class.is-ok]="check.ok" [attr.title]="check.detail"><span class="le-tick" aria-hidden="true">@if
+                (check.ok) {<svg viewBox="0 0 24 24">
+                  <path d="m6 12.5 4 4 8-9" />
+                </svg>}</span>{{ check.label }}</li>
+            }
+          </ol>
+          <span class="le-bar-end">
+            <button class="tl-btn le-cancel" type="button" (click)="closeEntryDrawer()">Cancel</button>
+            <button class="tl-primary" type="button" (click)="saveCommunication()">{{ editingId() ? 'Save changes' :
+              'Save entry' }}</button>
+          </span>
+          <span class="le-progress" aria-hidden="true"><i [style.width.%]="entryProgress()"></i></span>
+        </header>
+
+        <div class="le-body">
+          <form class="le-form" (submit)="$event.preventDefault(); saveCommunication()"
+            (keydown.control.enter)="saveCommunication()" (keydown.meta.enter)="saveCommunication()" novalidate>
+            @if (formErrors().length) {
+            <div class="le-alert" role="alert">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.5v5.5M12 16.5h.01" />
+              </svg>
+              <ul>@for (error of formErrors(); track error) {<li>{{ error }}</li>}</ul>
+            </div>
+            }
+
+            <!-- channel -->
+            <div class="le-band">
+              <div class="le-field">
+                <span class="le-label">Channel<small>{{ channelCounts()[form().type] || 0 }} logged
+                    before</small></span>
+                <div class="le-channels" role="radiogroup" aria-label="Communication type">
+                  @for (type of communicationTypes; track type) {
+                  <button type="button" role="radio" class="le-ch cj-ch-{{ channelKey(type) }}"
+                    [attr.aria-checked]="form().type === type" (click)="updateForm('type', type)">
+                    <span class="le-ch-g"><ng-container
+                        *ngTemplateOutlet="glyph; context: { $implicit: type }" /></span>{{ type === 'Internal Note' ?
+                    'Note' : type }}
+                  </button>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <!-- when + direction -->
+            <div class="le-band le-band-when">
+              <div class="le-field">
+                <span class="le-label">Day</span>
+                <div class="le-days" role="radiogroup" aria-label="Date">
+                  @for (day of entryDayStrip(); track day.iso) {
+                  <button type="button" role="radio" class="le-day" [attr.aria-checked]="form().date === day.iso"
+                    (click)="updateForm('date', day.iso)"><small>{{ day.weekday }}</small><b class="tl-mono">{{ day.day
+                      }}</b></button>
+                  }
+                  <label class="le-day le-day-earlier" [class.is-on]="entryDateEarlier()">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="3" y="5" width="18" height="16" rx="2" />
+                      <path d="M3 10h18M8 3v4M16 3v4" />
+                    </svg>
+                    <small class="tl-mono">{{ entryDateEarlier() ? entryDay().day + ' ' + entryDay().month.slice(0, 3) :
+                      'Earlier' }}</small>
+                    <input type="date" name="date" aria-label="Pick an earlier date"
+                      (click)="$any($event.target).showPicker?.()" [ngModel]="form().date" [attr.max]="getTodayIso()"
+                      (ngModelChange)="updateForm('date', $event)" />
+                  </label>
+                </div>
+              </div>
+              <div class="le-field">
+                <span class="le-label">Time<button type="button" class="le-link" (click)="setNow()">Use
+                    now</button></span>
+                <input class="le-input tl-mono" type="time" name="time" aria-label="Time" [ngModel]="form().time"
+                  (ngModelChange)="updateForm('time', $event)" />
+              </div>
+              <div class="le-field">
+                <span class="le-label">Direction</span>
+                <span class="le-seg" role="radiogroup" aria-label="Direction">
+                  <button type="button" role="radio" [attr.aria-checked]="form().direction === 'Outgoing'"
+                    (click)="updateForm('direction', 'Outgoing')"><svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M7 17 17 7M9 7h8v8" />
+                    </svg>Outgoing</button>
+                  <button type="button" role="radio" [attr.aria-checked]="form().direction === 'Incoming'"
+                    (click)="updateForm('direction', 'Incoming')"><svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M17 7 7 17M7 9v8h8" />
+                    </svg>Incoming</button>
+                </span>
+              </div>
+            </div>
+
+            <!-- outcome -->
+            <div class="le-band">
+              <div class="le-field">
+                <span class="le-label">Outcome</span>
+                <div class="le-outcomes" role="radiogroup" aria-label="Outcome">
+                  @for (group of outcomeGroups; track group.label) {
+                  <div class="le-kind" [attr.title]="group.hint">
+                    <span class="le-kind-l">{{ group.label }}</span>
+                    @for (outcome of group.items; track outcome) {
+                    <button type="button" role="radio" class="le-out {{ outcomeClass(outcome) }}"
+                      [attr.aria-checked]="form().outcome === outcome" (click)="updateForm('outcome', outcome)"><i
+                        aria-hidden="true"></i>{{ outcome }}</button>
+                    }
+                  </div>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <!-- assessment -->
+            <div class="le-band le-band-pair">
+              <div class="le-field">
+                <span class="le-label">Engagement</span>
+                <span class="le-seg" role="radiogroup" aria-label="Engagement level">
+                  @for (level of engagementLevels; track level; let i = $index) {
+                  <button type="button" role="radio" [attr.aria-checked]="form().engagement === level"
+                    (click)="updateForm('engagement', level)"><span class="le-bars" aria-hidden="true">@for (bar of
+                      engagementLevels; track bar; let b = $index) {<i [class.on]="b <= i"></i>}</span>{{ level
+                    }}</button>
+                  }
+                </span>
+              </div>
+              <div class="le-field">
+                <span class="le-label">Quality of the conversation</span>
+                <span class="le-seg" role="radiogroup" aria-label="Communication quality">
+                  @for (quality of qualities; track quality; let i = $index) {
+                  <button type="button" role="radio" [attr.aria-checked]="form().quality === quality"
+                    (click)="updateForm('quality', quality)"><span class="le-bars" aria-hidden="true">@for (bar of
+                      qualities; track bar; let b = $index) {<i [class.on]="b <= i"></i>}</span>{{ quality }}</button>
+                  }
+                </span>
+              </div>
+            </div>
+
+            <!-- writing -->
+            <div class="le-band le-band-pair le-band-write">
+              <div class="le-field">
+                <span class="le-label"><label for="leSummary">Summary <em>*</em></label>
+                  <span class="le-starters" role="group" aria-label="Sentence openers">
+                    @for (starter of summaryStarters; track starter) {
+                    <button type="button" (click)="addStarter(starter); summaryBox.focus()">{{ starter.trim()
+                      }}…</button>
+                    }
+                  </span>
+                  <span class="le-n tl-mono" [class.is-ok]="form().summary.trim().length >= 10">{{ form().summary.length
+                    }}/2000</span>
+                </span>
+                <textarea #summaryBox id="leSummary" class="le-input" name="summary" rows="5" maxlength="2000"
+                  placeholder="What happened, what they said or asked for, and what happens next."
+                  [ngModel]="form().summary" (ngModelChange)="updateForm('summary', $event)"></textarea>
+              </div>
+              <div class="le-field le-field-note">
+                <span class="le-label"><label for="leNotes"><svg viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="5" y="11" width="14" height="9" rx="2" />
+                      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                    </svg>Internal note</label><small>Team only</small><span class="le-n tl-mono">{{ form().notes.length
+                    }}/3000</span></span>
+                <textarea id="leNotes" class="le-input" name="notes" rows="5" maxlength="3000"
+                  placeholder="Preferences, sensitivities, who else is involved…" [ngModel]="form().notes"
+                  (ngModelChange)="updateForm('notes', $event)"></textarea>
+              </div>
+            </div>
+
+            <footer class="le-foot">
+              <label class="le-slip" for="communicationAttachment" [class.is-on]="!!form().attachmentName">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7" />
+                </svg>
+                <b>{{ form().attachmentName || 'Attach a file' }}</b><small>{{ form().attachmentName ? 'Replace' : 'PDF,
+                  DOCX, PNG, JPG · 10 MB' }}</small>
+              </label>
+              <input id="communicationAttachment" type="file" hidden accept=".pdf,.docx,.png,.jpg,.jpeg"
+                (change)="onAttachmentSelected($event)" />
+              <label class="le-slip le-flag" [class.is-on]="form().important">
+                <input type="checkbox" name="important" [ngModel]="form().important"
+                  (ngModelChange)="updateForm('important', $event)" />
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />
+                </svg>
+                <b>{{ form().important ? 'Marked important' : 'Mark as important' }}</b>
+              </label>
+              <span class="le-keys" aria-hidden="true"><kbd>Ctrl</kbd><kbd>Enter</kbd> save<i></i><kbd>Esc</kbd>
+                close</span>
+            </footer>
+          </form>
+
+          <aside class="le-side" aria-label="Context">
+            <section class="le-part">
+              <p class="tl-cap">{{ donorId() ? 'Donor' : 'Lead' }}@if (relationship().stage) { · {{ relationship().stage
+                }} }</p>
+              <b class="le-name">{{ relationship().name || 'This record' }}</b>
+              <p class="le-reach">
+                <span><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z" />
+                  </svg><span class="tl-mono">{{ relationship().mobile || 'No mobile' }}</span></span>
+                <span><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <path d="M3.5 7l8.5 6 8.5-6" />
+                  </svg><span>{{ relationship().email || 'No email' }}</span></span>
+              </p>
+              <dl class="tl-ledger">
+                <div class="tl-health {{ relationshipHealthClass(relationshipHealthStatus()) }}">
+                  <dt>Health</dt>
+                  <dd><span class="tl-mono">{{ leadHealthScore() }}</span> · <span class="tl-health-word">{{
+                      relationshipHealthStatus() }}</span></dd>
+                </div>
+                <div>
+                  <dt>Last contact</dt>
+                  <dd>{{ lastContactDisplay() }}</dd>
+                </div>
+                <div>
+                  <dt>Temperature</dt>
+                  <dd>{{ currentTemperature() }}</dd>
+                </div>
+                <div>
+                  <dt>Potential</dt>
+                  <dd>{{ donationPotential() }}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="le-part">
+              <p class="tl-cap">How it will read</p>
+              <div class="le-proof cj-ch-{{ channelKey(form().type) }}">
+                <span class="le-proof-date"><b class="tl-mono">{{ entryDay().day }}</b><small>{{
+                    entryDay().month.slice(0, 3) }}</small></span>
+                <span class="tl-glyph"><ng-container
+                    *ngTemplateOutlet="glyph; context: { $implicit: form().type }" /></span>
+                <div class="le-proof-text">
+                  <p class="le-proof-top"><b>{{ form().direction }} {{ channelNoun(form().type) }}</b>@if
+                    (form().important) {<svg class="tl-star" viewBox="0 0 24 24" aria-label="Important">
+                      <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />
+                    </svg>}@if (form().time) {<span class="tl-mono">{{ form().time }}</span>}</p>
+                  <p class="le-proof-meta"><span class="cj-out {{ outcomeClass(form().outcome) }}"><i
+                        aria-hidden="true"></i>{{ form().outcome }}</span><span>{{ form().engagement }}
+                      engagement</span></p>
+                  <p class="le-proof-sum" [class.is-empty]="!form().summary.trim()">{{ form().summary.trim() || 'Your
+                    summary will appear here as you write.' }}</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="le-part">
+              <p class="tl-cap">Recent entries<span class="tl-mono">{{ totalCommunications() }}</span></p>
+              <ol class="le-thread">
+                @for (record of recentEntries().slice(0, 3); track record.id) {
+                <li class="cj-ch-{{ channelKey(record.type) }}">
+                  <span class="tl-glyph"><ng-container
+                      *ngTemplateOutlet="glyph; context: { $implicit: record.type }" /></span>
+                  <div>
+                    <p class="le-thread-top"><b>{{ channelLabel(record.type) }}</b><span
+                        class="cj-out {{ outcomeClass(record.outcome) }}"><i aria-hidden="true"></i>{{ record.outcome
+                        }}</span><span class="tl-mono">{{ record.date }}</span></p>
+                    <p class="le-thread-sum">{{ record.summary }}</p>
+                  </div>
+                </li>
+                } @empty {
+                <li class="le-thread-first">No earlier conversations. This entry opens the timeline.</li>
+                }
+              </ol>
+              <p class="le-next"><span>Suggested next</span><b>{{ suggestedAction().label }}</b></p>
+            </section>
+          </aside>
         </div>
+      </div>
       }
     </div>
   </div>
@@ -410,133 +659,172 @@
 <!-- One glyph per channel, used by the journal nodes and the drawer's channel picker -->
 <ng-template #glyph let-type>
   @switch (type) {
-    @case ('Call') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z"/></svg> }
-    @case ('Email') { <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg> }
-    @case ('SMS') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg> }
-    @case ('WhatsApp') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.8 7L4 20l1.1-4A8 8 0 1 1 20 12z"/><path d="M9 9.5c.5 2.3 2.2 4 4.5 4.5l1-1.2 1.8.7"/></svg> }
-    @case ('Meeting') { <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M2.5 19a5.5 5.5 0 0 1 11 0M14 14.5a4.5 4.5 0 0 1 7.5 3.5"/></svg> }
-    @case ('Visit') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10M10 20v-5h4v5"/></svg> }
-    @case ('Event') { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.4 5 5.6.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.6-.8z"/></svg> }
-    @default { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M13 7l3 3"/></svg> }
+  @case ('Call') { <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M5 4h3l2 5-2.2 1.4a12 12 0 0 0 5.8 5.8L15 14l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 3 6.2 2 2 0 0 1 5 4z" />
+  </svg> }
+  @case ('Email') { <svg viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M3.5 7l8.5 6 8.5-6" />
+  </svg> }
+  @case ('SMS') { <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4 5h16v11H9l-5 4z" />
+    <path d="M8 10h.01M12 10h.01M16 10h.01" />
+  </svg> }
+  @case ('WhatsApp') { <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M20 12a8 8 0 0 1-11.8 7L4 20l1.1-4A8 8 0 1 1 20 12z" />
+    <path d="M9 9.5c.5 2.3 2.2 4 4.5 4.5l1-1.2 1.8.7" />
+  </svg> }
+  @case ('Meeting') { <svg viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="8" cy="9" r="3" />
+    <circle cx="16.5" cy="9.5" r="2.5" />
+    <path d="M2.5 19a5.5 5.5 0 0 1 11 0M14 14.5a4.5 4.5 0 0 1 7.5 3.5" />
+  </svg> }
+  @case ('Visit') { <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M3 11 12 4l9 7" />
+    <path d="M5 10v10h14V10M10 20v-5h4v5" />
+  </svg> }
+  @case ('Event') { <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 3l2.4 5 5.6.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.6-.8z" />
+  </svg> }
+  @default { <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z" />
+    <path d="M13 7l3 3" />
+  </svg> }
   }
 </ng-template>
 
 <!-- COMMUNICATION DETAIL DRAWER -->
 @if (isDetailDrawerOpen() && selectedCommunication(); as record) {
-  <div class="ct-overlay" (click)="closeDetails()"></div>
-  <aside class="ct-drawer" role="dialog" aria-modal="true" aria-label="Communication details">
-    <div class="ct-drawer-header">
-      <h2>{{ timelineTitle(record) }}</h2>
-      <button type="button" class="btn btn-outline-secondary btn-sm ct-drawer-close" (click)="closeDetails()" aria-label="Close" title="Close">&times;</button>
-    </div>
+<div class="ct-overlay" (click)="closeDetails()"></div>
+<aside class="ct-drawer" role="dialog" aria-modal="true" aria-label="Communication details">
+  <div class="ct-drawer-header">
+    <h2>{{ timelineTitle(record) }}</h2>
+    <button type="button" class="btn btn-outline-secondary btn-sm ct-drawer-close" (click)="closeDetails()"
+      aria-label="Close" title="Close">&times;</button>
+  </div>
 
-    <div class="ct-drawer-body">
-      <p class="ct-detail-when cj-ch-{{ channelKey(record.type) }}"><span class="ct-detail-glyph"><ng-container *ngTemplateOutlet="glyph; context: { $implicit: record.type }" /></span><span>{{ channelLabel(record.type) }} · {{ record.direction }}<small>{{ record.date }} at {{ record.time }}@if (record.createdBy) { · by {{ record.createdBy }} }</small></span></p>
-      <div class="ct-detail-row"><span>Outcome</span><strong class="cj-out {{ outcomeClass(record.outcome) }}"><i aria-hidden="true"></i>{{ record.outcome }}</strong></div>
-      <div class="ct-detail-row"><span>Engagement level</span><strong>{{ record.engagement }}</strong></div>
-      @if (record.quality) {
-        <div class="ct-detail-row"><span>Communication quality</span><strong>{{ record.quality }}</strong></div>
-      }
-      <div class="ct-detail-row"><span>Important</span><strong>{{ record.important ? 'Yes' : 'No' }}</strong></div>
-      <div class="ct-detail-block">
-        <span>Summary</span>
-        <p>{{ record.summary }}</p>
-      </div>
-      @if (record.notes) {
-        <div class="ct-detail-block ct-detail-note">
-          <span>Internal notes</span>
-          <p>{{ record.notes }}</p>
-        </div>
-      }
-      @if (record.attachment) {
-        <div class="ct-detail-row"><span>Attachment</span><strong>{{ record.attachment }}</strong></div>
-      }
-      @if (record.followUpDate) {
-        <div class="ct-detail-row">
-          <span>Related follow-up</span>
-          <strong>{{ record.followUpStatus }} &middot; {{ record.followUpDate }}</strong>
-        </div>
-      }
+  <div class="ct-drawer-body">
+    <p class="ct-detail-when cj-ch-{{ channelKey(record.type) }}"><span class="ct-detail-glyph"><ng-container
+          *ngTemplateOutlet="glyph; context: { $implicit: record.type }" /></span><span>{{ channelLabel(record.type) }}
+        · {{ record.direction }}<small>{{ record.date }} at {{ record.time }}@if (record.createdBy) { · by {{
+          record.createdBy }} }</small></span></p>
+    <div class="ct-detail-row"><span>Outcome</span><strong class="cj-out {{ outcomeClass(record.outcome) }}"><i
+          aria-hidden="true"></i>{{ record.outcome }}</strong></div>
+    <div class="ct-detail-row"><span>Engagement level</span><strong>{{ record.engagement }}</strong></div>
+    @if (record.quality) {
+    <div class="ct-detail-row"><span>Communication quality</span><strong>{{ record.quality }}</strong></div>
+    }
+    <div class="ct-detail-row"><span>Important</span><strong>{{ record.important ? 'Yes' : 'No' }}</strong></div>
+    <div class="ct-detail-block">
+      <span>Summary</span>
+      <p>{{ record.summary }}</p>
     </div>
+    @if (record.notes) {
+    <div class="ct-detail-block ct-detail-note">
+      <span>Internal notes</span>
+      <p>{{ record.notes }}</p>
+    </div>
+    }
+    @if (record.attachment) {
+    <div class="ct-detail-row"><span>Attachment</span><strong>{{ record.attachment }}</strong></div>
+    }
+    @if (record.followUpDate) {
+    <div class="ct-detail-row">
+      <span>Related follow-up</span>
+      <strong>{{ record.followUpStatus }} &middot; {{ record.followUpDate }}</strong>
+    </div>
+    }
+  </div>
 
-    <div class="ct-drawer-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openTemperatureModal()">Update temperature</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDonationPotentialModal()">Update potential</button>
-      <button type="button" class="btn btn-primary btn-sm" (click)="editCommunication(record)" title="Edit communication">Edit entry</button>
-    </div>
-  </aside>
+  <div class="ct-drawer-footer">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openTemperatureModal()">Update
+      temperature</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDonationPotentialModal()">Update
+      potential</button>
+    <button type="button" class="btn btn-primary btn-sm" (click)="editCommunication(record)"
+      title="Edit communication">Edit entry</button>
+  </div>
+</aside>
 }
 
 <!-- UPDATE TEMPERATURE MODAL -->
 @if (isTemperatureModalOpen()) {
-  <div class="ct-overlay" aria-hidden="true"></div>
-  <div class="ct-modal" role="dialog" aria-modal="true" aria-label="Update temperature">
-    <h2 class="ct-modal-title">Update temperature</h2>
-    <p class="ct-modal-copy">Currently <b>{{ currentTemperature() }}</b>. The reason is kept on the audit trail.</p>
+<div class="ct-overlay" aria-hidden="true"></div>
+<div class="ct-modal" role="dialog" aria-modal="true" aria-label="Update temperature">
+  <h2 class="ct-modal-title">Update temperature</h2>
+  <p class="ct-modal-copy">Currently <b>{{ currentTemperature() }}</b>. The reason is kept on the audit trail.</p>
 
-    <label class="ct-field">
-      <span class="ct-field-label">New temperature <em>*</em></span>
-      <select class="ct-select theme-widget-control" [ngModel]="newTemperature()" (ngModelChange)="newTemperature.set($event)">
-        @for (temperature of temperatures; track temperature) {
-          <option [value]="temperature">{{ temperature }}</option>
-        }
-      </select>
-    </label>
+  <label class="ct-field">
+    <span class="ct-field-label">New temperature <em>*</em></span>
+    <select class="ct-select theme-widget-control" [ngModel]="newTemperature()"
+      (ngModelChange)="newTemperature.set($event)">
+      @for (temperature of temperatures; track temperature) {
+      <option [value]="temperature">{{ temperature }}</option>
+      }
+    </select>
+  </label>
 
-    <label class="ct-field">
-      <span class="ct-field-label">Reason <em>*</em></span>
-      <textarea class="ct-textarea theme-widget-control" rows="3" [ngModel]="temperatureReason()" (ngModelChange)="temperatureReason.set($event)"></textarea>
-    </label>
+  <label class="ct-field">
+    <span class="ct-field-label">Reason <em>*</em></span>
+    <textarea class="ct-textarea theme-widget-control" rows="3" [ngModel]="temperatureReason()"
+      (ngModelChange)="temperatureReason.set($event)"></textarea>
+  </label>
 
-    <div class="ct-modal-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeTemperatureModal()">Cancel</button>
-      <button type="button" class="btn btn-primary btn-sm" [disabled]="!temperatureReason().trim()" (click)="saveTemperature()">Save</button>
-    </div>
+  <div class="ct-modal-footer">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeTemperatureModal()">Cancel</button>
+    <button type="button" class="btn btn-primary btn-sm" [disabled]="!temperatureReason().trim()"
+      (click)="saveTemperature()">Save</button>
   </div>
+</div>
 }
 
 <!-- UPDATE DONATION POTENTIAL MODAL -->
 @if (isDonationPotentialModalOpen()) {
-  <div class="ct-overlay" aria-hidden="true"></div>
-  <div class="ct-modal" role="dialog" aria-modal="true" aria-label="Update donation potential">
-    <h2 class="ct-modal-title">Update donation potential</h2>
-    <p class="ct-modal-copy">Currently <b>{{ donationPotential() }}</b>. The reason is kept on the audit trail.</p>
+<div class="ct-overlay" aria-hidden="true"></div>
+<div class="ct-modal" role="dialog" aria-modal="true" aria-label="Update donation potential">
+  <h2 class="ct-modal-title">Update donation potential</h2>
+  <p class="ct-modal-copy">Currently <b>{{ donationPotential() }}</b>. The reason is kept on the audit trail.</p>
 
-    <label class="ct-field">
-      <span class="ct-field-label">New donation potential <em>*</em></span>
-      <select class="ct-select theme-widget-control" [ngModel]="newDonationPotential()" (ngModelChange)="newDonationPotential.set($event)">
-        @for (potential of donationPotentials; track potential) {
-          <option [value]="potential">{{ potential }}</option>
-        }
-      </select>
-    </label>
+  <label class="ct-field">
+    <span class="ct-field-label">New donation potential <em>*</em></span>
+    <select class="ct-select theme-widget-control" [ngModel]="newDonationPotential()"
+      (ngModelChange)="newDonationPotential.set($event)">
+      @for (potential of donationPotentials; track potential) {
+      <option [value]="potential">{{ potential }}</option>
+      }
+    </select>
+  </label>
 
-    <label class="ct-field">
-      <span class="ct-field-label">Reason <em>*</em></span>
-      <textarea class="ct-textarea theme-widget-control" rows="3" [ngModel]="donationPotentialReason()" (ngModelChange)="donationPotentialReason.set($event)"></textarea>
-    </label>
+  <label class="ct-field">
+    <span class="ct-field-label">Reason <em>*</em></span>
+    <textarea class="ct-textarea theme-widget-control" rows="3" [ngModel]="donationPotentialReason()"
+      (ngModelChange)="donationPotentialReason.set($event)"></textarea>
+  </label>
 
-    <div class="ct-modal-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeDonationPotentialModal()">Cancel</button>
-      <button type="button" class="btn btn-primary btn-sm" [disabled]="!donationPotentialReason().trim()" (click)="saveDonationPotential()">Save</button>
-    </div>
+  <div class="ct-modal-footer">
+    <button type="button" class="btn btn-outline-secondary btn-sm"
+      (click)="closeDonationPotentialModal()">Cancel</button>
+    <button type="button" class="btn btn-primary btn-sm" [disabled]="!donationPotentialReason().trim()"
+      (click)="saveDonationPotential()">Save</button>
   </div>
+</div>
 }
 
 <!-- EXPORT MODAL -->
 @if (isExportModalOpen()) {
-  <div class="ct-overlay" aria-hidden="true"></div>
-  <div class="ct-modal ct-modal-sm" role="dialog" aria-modal="true" aria-label="Export timeline">
-    <h2 class="ct-modal-title">Export timeline</h2>
-    <p class="ct-modal-copy">Exports the {{ filteredRecords().length }} entries that match the current filters.</p>
+<div class="ct-overlay" aria-hidden="true"></div>
+<div class="ct-modal ct-modal-sm" role="dialog" aria-modal="true" aria-label="Export timeline">
+  <h2 class="ct-modal-title">Export timeline</h2>
+  <p class="ct-modal-copy">Exports the {{ filteredRecords().length }} entries that match the current filters.</p>
 
-    <div class="ct-export-options">
-      <button type="button" class="ct-export" (click)="exportAsExcel()"><b>Spreadsheet</b><small>CSV, opens in Excel</small></button>
-      <button type="button" class="ct-export" (click)="exportAsPdf()"><b>PDF</b><small>Print-ready copy</small></button>
-    </div>
-
-    <div class="ct-modal-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeExportModal()">Close</button>
-    </div>
+  <div class="ct-export-options">
+    <button type="button" class="ct-export" (click)="exportAsExcel()"><b>Spreadsheet</b><small>CSV, opens in
+        Excel</small></button>
+    <button type="button" class="ct-export" (click)="exportAsPdf()"><b>PDF</b><small>Print-ready copy</small></button>
   </div>
+
+  <div class="ct-modal-footer">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeExportModal()">Close</button>
+  </div>
+</div>
 }

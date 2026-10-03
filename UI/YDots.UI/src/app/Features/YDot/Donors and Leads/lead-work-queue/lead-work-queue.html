@@ -33,25 +33,30 @@
                   <button type="button" class="pq-clear" aria-label="Clear search" title="Clear search" (click)="removeFilterChip('search')"><i class="ri-close-line" aria-hidden="true"></i></button>
                 }
               </label>
-              <button type="button" class="pq-filter-btn" [class.is-on]="showFilters() || panelFilterCount() > 0" aria-controls="pq-filters" [attr.aria-expanded]="showFilters()" (click)="toggleFilters()">
-                <i class="ri-equalizer-line" aria-hidden="true"></i><span>Filters</span>
+              <button type="button" class="btn btn-outline-secondary btn-sm" [class.is-on]="showFilters() || panelFilterCount() > 0" aria-controls="pq-filters" [attr.aria-expanded]="showFilters()" (click)="toggleFilters()">
+                <i class="ri-equalizer-line" aria-hidden="true"></i><span>&nbsp;Filters</span>
                 @if (panelFilterCount() > 0) { <span class="pq-filter-n">{{ panelFilterCount() }}</span> }
                 <i class="ri-arrow-down-s-line pq-caret" [class.is-open]="showFilters()" aria-hidden="true"></i>
               </button>
             </form>
             <span class="pq-acts-rule" aria-hidden="true"></span>
             @if (permissions().assign) {
-              <a class="pq-btn" routerLink="/app/fundraising/relationships/assignment-board" title="Open the assignment board">
-                <i class="ri-layout-column-line" aria-hidden="true"></i>Assignment board
+           
+               <a  routerLink="/app/fundraising/relationships/assignment-board" title="Open the assignment board">
+                  <button class="btn btn-outline-secondary btn-sm">
+                <i class="ri-layout-column-line" aria-hidden="true"></i>&nbsp;Assignment board
+
+                  </button>
               </a>
+           
             }
             @if (permissions().export) {
-              <button type="button" class="pq-btn" title="Export the leads shown" (click)="exportLeads()" [disabled]="!hasResults() || uiState() === 'loading'">
+              <button type="button" class="btn btn-outline-secondary btn-sm" title="Export the leads shown" (click)="exportLeads()" [disabled]="!hasResults() || uiState() === 'loading'">
                 <i class="ri-download-2-line" aria-hidden="true"></i>Export
               </button>
             }
             @if (permissions().create) {
-              <button type="button" class="pq-btn pq-btn--primary" title="Capture a new lead" (click)="createLead()">
+              <button type="button" class="btn btn-primary btn-sm" title="Capture a new lead" (click)="createLead()">
                 <i class="ri-user-add-line" aria-hidden="true"></i>Capture lead
               </button>
             }
@@ -217,13 +222,13 @@
               @if (uiState() === 'loading') { Loading… }
               @else { Showing <b class="pq-num">{{ rangeStart() | number }}–{{ rangeEnd() | number }}</b> of <b class="pq-num">{{ totalCount() | number }}</b> }
             </span>
-            <label class="pq-size">
+            <!-- <label class="pq-size">
               <span class="visually-hidden">Leads per page</span>
               <select [ngModel]="pageSize()" (ngModelChange)="setPageSize(+$event)" [disabled]="uiState() === 'loading'">
                 @for (size of pageSizes; track size) { <option [ngValue]="size">{{ size }} per page</option> }
               </select>
               <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
-            </label>
+            </label> -->
             <nav class="pq-pager" aria-label="Pagination">
               <button type="button" class="pq-page-btn" aria-label="Previous page" title="Previous page" [disabled]="pageIndex() === 1 || uiState() === 'loading'" (click)="goToPage(pageIndex() - 1)"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
               @if (pageNumbers()[0] > 1) {
@@ -249,10 +254,10 @@
             <span class="pq-selbar-gap"></span>
             <button type="button" class="pq-link pq-link--mute" (click)="clearSelection()">Clear</button>
             @if (permissions().export) {
-              <button type="button" class="pq-btn" (click)="bulkExport()"><i class="ri-download-2-line" aria-hidden="true"></i>Export selected</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="bulkExport()"><i class="ri-download-2-line" aria-hidden="true"></i>&nbsp;Export selected</button>
             }
             @if (permissions().assign) {
-              <button type="button" class="pq-btn pq-btn--primary" (click)="bulkAssign()"><i class="ri-user-shared-line" aria-hidden="true"></i>Assign selected</button>
+              <button type="button" class="btn btn-primary btn-sm" (click)="bulkAssign()"><i class="ri-user-shared-line" aria-hidden="true"></i>&nbsp;Assign selected</button>
             }
           </div>
         }
@@ -268,8 +273,8 @@
   @if (selectedLead(); as lead) {
     <header class="pq-dr-head">
       <div class="pq-dr-bar">
-        <span class="pq-eyebrow"><i class="ri-user-star-line" aria-hidden="true"></i>Lead brief</span>
-        <button type="button" class="pq-dr-close" title="Close" aria-label="Close lead brief" autofocus (click)="closePreview()"><i class="ri-close-line" aria-hidden="true"></i></button>
+        <!-- <span class="pq-eyebrow"><i class="ri-user-star-line" aria-hidden="true"></i>Lead brief</span> -->
+        <!-- <button type="button" class="pq-dr-close" title="Close" aria-label="Close lead brief" autofocus (click)="closePreview()"><i class="ri-close-line" aria-hidden="true"></i></button> -->
       </div>
       <div class="pq-dr-id">
         <div class="pq-dr-who">
@@ -377,13 +382,13 @@
     </div>
 
     <footer class="pq-dr-foot">
-      <button type="button" class="pq-link pq-link--mute" (click)="onTimeline(lead)"><i class="ri-history-line" aria-hidden="true"></i>Timeline</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onTimeline(lead)"><i class="ri-history-line" aria-hidden="true"></i>Timeline</button>
       <span class="pq-selbar-gap"></span>
       @if (permissions().schedule) {
-        <button type="button" class="pq-btn" (click)="onSchedule(lead)"><i class="ri-calendar-event-line" aria-hidden="true"></i>Schedule follow-up</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSchedule(lead)"><i class="ri-calendar-event-line" aria-hidden="true"></i>Schedule follow-up</button>
       }
       @if (permissions().communicate) {
-        <button type="button" class="pq-btn pq-btn--primary" (click)="onCommunicate(lead)"><i class="ri-chat-3-line" aria-hidden="true"></i>Communicate</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="onCommunicate(lead)"><i class="ri-chat-3-line" aria-hidden="true"></i>Communicate</button>
       }
     </footer>
   }

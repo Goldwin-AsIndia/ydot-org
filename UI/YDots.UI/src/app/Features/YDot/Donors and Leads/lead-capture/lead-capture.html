@@ -476,15 +476,15 @@
                 } @else if (isSubmitted()) {
                   <span class="is-good">Submitted as {{ savedLeadReference() }}</span>
                 } @else {
-                  Fields marked <b class="lcp-req">*</b> are required
+                  <!-- Fields marked <b class="lcp-req">*</b> are required -->
                 }
               </p>
               <div class="lcp-bar-acts">
-                <button type="button" class="lcp-quiet" (click)="startOver()" title="Clear the form and start again">Start over</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="startOver()" title="Clear the form and start again">  <i class="ri ri-refresh-line"></i> Start over</button>
                 @if (permissions()['submit']) {
-                  <button type="button" class="lcp-go" (click)="submitLead()" [disabled]="saving()">
+                  <button type="button" class="btn btn-primary btn-sm" (click)="submitLead()" [disabled]="saving()">
                     @if (saving()) { <i class="lcp-spin"></i> Submitting&hellip; } @else {
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg> Submit lead
+                    <i class="ri ri-check-line"></i> Submit lead
                     }
                   </button>
                 } @else if (uiState() !== 'loading') {
@@ -667,8 +667,8 @@
                 <span class="lcp-slip-state">CSV &middot; XLSX</span>
               </div>
               <p class="lcp-manifest-lead">One row per lead. Fill in either file from the template and keep the header row.</p>
-              <button type="button" class="lcp-outline" (click)="downloadBulkTemplate()">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M4 20h16"/></svg>Download template
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="downloadBulkTemplate()">
+                <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 25px;height: 25px;"><path d="M12 4v11m-5-5 5 5 5-5M4 20h16"/></svg>Download template
               </button>
 
               <div class="lcp-cols">
