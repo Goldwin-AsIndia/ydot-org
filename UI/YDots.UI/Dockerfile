@@ -4,7 +4,9 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 # Copy manifests first so the dependency layer stays cached across source edits.
+# vendor/ holds the xlsx tarball referenced as a file: dependency, so npm ci needs it too.
 COPY package.json package-lock.json ./
+COPY vendor ./vendor
 RUN npm ci
 
 COPY . .
