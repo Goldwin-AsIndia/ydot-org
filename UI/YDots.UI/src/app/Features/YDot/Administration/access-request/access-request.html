@@ -17,48 +17,91 @@
 
     <!-- ============ SUMMARY CARDS — icon left, text right; hover raises a slow shade ============ -->
     @if (!loading() && !loadError()) {
-      <section class="ar-stats" aria-label="Access request summary">
-        <article class="ar-stat ar-stat--total" tabindex="0">
-          <div class="ar-stat-ico"><i class="ri-file-list-3-line" aria-hidden="true"></i></div>
-          <div class="ar-stat-text">
-            <div class="ar-stat-k">Total Requests</div>
-            <div class="ar-stat-v">{{ requestSummary().total }}</div>
-            <div class="ar-stat-sub">Current results</div>
-          </div>
-        </article>
-        <article class="ar-stat ar-stat--approved" tabindex="0">
-          <div class="ar-stat-ico"><i class="ri-checkbox-circle-line" aria-hidden="true"></i></div>
-          <div class="ar-stat-text">
-            <div class="ar-stat-k">Approved</div>
-            <div class="ar-stat-v">{{ requestSummary().approved }}</div>
-            <div class="ar-stat-sub">Access granted</div>
-          </div>
-        </article>
-        <article class="ar-stat ar-stat--pending" tabindex="0">
-          <div class="ar-stat-ico"><i class="ri-time-line" aria-hidden="true"></i></div>
-          <div class="ar-stat-text">
-            <div class="ar-stat-k">Pending</div>
-            <div class="ar-stat-v">{{ requestSummary().pending }}</div>
-            <div class="ar-stat-sub">Awaiting action</div>
-          </div>
-        </article>
-        <article class="ar-stat ar-stat--users" tabindex="0">
-          <div class="ar-stat-ico"><i class="ri-team-line" aria-hidden="true"></i></div>
-          <div class="ar-stat-text">
-            <div class="ar-stat-k">Users Involved</div>
-            <div class="ar-stat-v">{{ requestSummary().users }}</div>
-            <div class="ar-stat-sub">Unique users</div>
-          </div>
-        </article>
-        <article class="ar-stat ar-stat--active" tabindex="0">
-          <div class="ar-stat-ico"><i class="ri-star-line" aria-hidden="true"></i></div>
-          <div class="ar-stat-text">
-            <div class="ar-stat-k">Most Active User</div>
-            <div class="ar-stat-v ar-stat-v--name" [title]="requestSummary().mostActiveUser">{{ requestSummary().mostActiveUser }}</div>
-            <div class="ar-stat-sub">{{ requestSummary().mostActiveCount }} requests</div>
-          </div>
-        </article>
-      </section>
+   <section class="ar-stats" aria-label="Access request summary">
+
+  <article class="ar-stat ar-stat--total" tabindex="0">
+    <div class="ar-stat-ico">
+      <!-- clipboard list -->
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color: #2f7d5b; display: block;" aria-hidden="true">
+        <rect width="8" height="4" x="8" y="2" rx="1"/>
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+        <path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/>
+      </svg>
+    </div>
+    <div class="ar-stat-text">
+      <div class="ar-stat-k">Total Requests</div>
+      <div class="ar-stat-v">{{ requestSummary().total }}</div>
+      <div class="ar-stat-sub">Current results</div>
+    </div>
+  </article>
+
+  <article class="ar-stat ar-stat--approved" tabindex="0">
+    <div class="ar-stat-ico">
+      <!-- shield check -->
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color: #1f8a4c; display: block;" aria-hidden="true">
+        <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+        <path d="m9 12 2 2 4-4"/>
+      </svg>
+    </div>
+    <div class="ar-stat-text">
+      <div class="ar-stat-k">Approved</div>
+      <div class="ar-stat-v">{{ requestSummary().approved }}</div>
+      <div class="ar-stat-sub">Access granted</div>
+    </div>
+  </article>
+
+  <article class="ar-stat ar-stat--pending" tabindex="0">
+    <div class="ar-stat-ico">
+      <!-- clock fading (partly drawn ring = still waiting) -->
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color: #d98a14; display: block;" aria-hidden="true">
+        <path d="M12 2a10 10 0 0 1 7.38 16.75"/>
+        <path d="M12 6v6l4 2"/>
+        <path d="M2.5 8.875a10 10 0 0 0-.5 3"/>
+        <path d="M2.83 16a10 10 0 0 0 2.43 3.4"/>
+        <path d="M4.636 5.235a10 10 0 0 1 .891-.857"/>
+        <path d="M8.644 21.42a10 10 0 0 0 7.631-.38"/>
+      </svg>
+    </div>
+    <div class="ar-stat-text">
+      <div class="ar-stat-k">Pending</div>
+      <div class="ar-stat-v">{{ requestSummary().pending }}</div>
+      <div class="ar-stat-sub">Awaiting action</div>
+    </div>
+  </article>
+
+  <article class="ar-stat ar-stat--users" tabindex="0">
+    <div class="ar-stat-ico">
+      <!-- users -->
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color: #3a5bc7; display: block;" aria-hidden="true">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    </div>
+    <div class="ar-stat-text">
+      <div class="ar-stat-k">Users Involved</div>
+      <div class="ar-stat-v">{{ requestSummary().users }}</div>
+      <div class="ar-stat-sub">Unique users</div>
+    </div>
+  </article>
+
+  <article class="ar-stat ar-stat--active" tabindex="0">
+    <div class="ar-stat-ico">
+      <!-- award -->
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color: #a8841f; display: block;" aria-hidden="true">
+        <circle cx="12" cy="8" r="6"/>
+        <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>
+      </svg>
+    </div>
+    <div class="ar-stat-text">
+      <div class="ar-stat-k">Most Active User</div>
+      <div class="ar-stat-v ar-stat-v--name" [title]="requestSummary().mostActiveUser">{{ requestSummary().mostActiveUser }}</div>
+      <div class="ar-stat-sub">{{ requestSummary().mostActiveCount }} requests</div>
+    </div>
+  </article>
+
+</section>
     }
 
     <!-- ============ LOADING / ERROR ============ -->
@@ -177,7 +220,7 @@
                            with the reason shown in their place. -->
                       <div class="ar-actions" aria-label="Request actions">
                         @if (req.approvalState === 'Draft') {
-                          <button type="button" class="ar-act ar-act--primary" (click)="submitRequest(req)" title="Submit request" aria-label="Submit request">
+                          <button type="button" class="ar-act ar-act--primary " (click)="submitRequest(req)" title="Submit request" aria-label="Submit request">
                             <i class="ri-send-plane-line" aria-hidden="true"></i>
                           </button>
                           <button type="button" class="ar-act ar-act--danger" (click)="openDeleteModal(req)" title="Delete draft" aria-label="Delete draft">
@@ -186,23 +229,23 @@
                         }
                         @if (req.approvalState === 'Submitted' || req.approvalState === 'PendingReview') {
                           @if (req.canDecide) {
-                            <button type="button" class="ar-act ar-act--ok" (click)="openApproveModal(req)" title="Approve request" aria-label="Approve request">
+                            <button type="button" class="ar-act ar-act--ok Approve" (click)="openApproveModal(req)" title="Approve request" aria-label="Approve request">
                               <i class="ri-check-line" aria-hidden="true"></i>
                             </button>
-                            <button type="button" class="ar-act ar-act--danger" (click)="openRejectModal(req)" title="Reject request" aria-label="Reject request">
+                            <button type="button" class="ar-act ar-act--danger Reject" (click)="openRejectModal(req)" title="Reject request" aria-label="Reject request">
                               <i class="ri-close-line" aria-hidden="true"></i>
                             </button>
-                            <button type="button" class="ar-act ar-act--warn" (click)="openReturnModal(req)" title="Return for correction" aria-label="Return for correction">
+                            <button type="button" class="ar-act ar-act--warn Return" (click)="openReturnModal(req)" title="Return for correction" aria-label="Return for correction">
                               <i class="ri-arrow-go-back-line" aria-hidden="true"></i>
                             </button>
                           } @else {
-                            <span class="ar-other" [title]="req.cannotDecideReason">
-                              <i class="ri-user-shared-line" aria-hidden="true"></i><span class="ar-t">Another approver</span>
+                            <span class="ar-other Shared" [title]="req.cannotDecideReason">
+                              <i class="ri-user-shared-line" aria-hidden="true"></i>
                             </span>
                           }
                         }
                         @if (req.approvalState === 'Submitted' || req.approvalState === 'PendingReview' || req.approvalState === 'Draft') {
-                          <button type="button" class="ar-act" (click)="openCancelModal(req)" title="Cancel request" aria-label="Cancel request">
+                          <button type="button" class="ar-act Cancel" (click)="openCancelModal(req)" title="Cancel request" aria-label="Cancel request">
                             <i class="ri-close-circle-line" aria-hidden="true"></i>
                           </button>
                         }
@@ -219,10 +262,10 @@
             <div class="ar-pager-left">
               <span class="ar-pager-info">Showing <b>{{ firstVisibleRow() }}–{{ lastVisibleRow() }}</b> of <b>{{ filteredRequests().length }}</b></span>
               <div class="ar-dd ar-dd--size" [class.is-open]="openDd() === 'pageSize'" (click)="$event.stopPropagation()">
-                <button type="button" class="ar-dd-trigger" (click)="toggleDd('pageSize')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'pageSize'">
+                <!-- <button type="button" class="ar-dd-trigger" (click)="toggleDd('pageSize')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'pageSize'">
                   <span class="ar-dd-value">{{ pageSize() }} / page</span>
                   <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
-                </button>
+                </button> -->
                 @if (openDd() === 'pageSize') {
                   <div class="ar-dd-menu ar-dd-menu--up" role="listbox" aria-label="Rows per page">
                     @for (size of pageSizeOptions; track size) {
@@ -453,10 +496,10 @@
       </div>
 
       <footer class="ar-modal-foot">
-        <button type="button" class="ar-btn ar-btn--line" (click)="closeNewRequest()">Cancel</button>
-        <button type="button" class="ar-btn ar-btn--primary" (click)="submitNewRequest()" [disabled]="submitting()">
-          @if (submitting()) { <i class="ri-loader-4-line ar-spin" aria-hidden="true"></i> } @else { <i class="ri-send-plane-line" aria-hidden="true"></i> }
-          Submit request
+        <button type="button" class="btn btn-outline-secondary" (click)="closeNewRequest()">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="submitNewRequest()" [disabled]="submitting()">
+
+          Submit
         </button>
       </footer>
     </div>
@@ -476,7 +519,7 @@
           <h2 class="ar-head-title" id="actTitle">{{ showReturnModal() ? 'Return access request' : showCancelModal() ? 'Cancel access request' : 'Delete unused draft' }}</h2>
           <div class="ar-head-sub"><code>{{ target.reference }}</code></div>
         </div>
-        <button type="button" class="ar-x" aria-label="Close" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()"><i class="ri-close-line" aria-hidden="true"></i></button>
+        <!-- <button type="button" class="ar-x" aria-label="Close" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()"><i class="ri-close-line" aria-hidden="true"></i></button> -->
       </header>
       <div class="ar-modal-body">
         <div class="ar-note">
@@ -503,13 +546,13 @@
         </div>
       </div>
       <footer class="ar-modal-foot">
-        <button type="button" class="ar-btn ar-btn--line" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">Keep it</button>
+        <button type="button" class="btn btn-outline-secondary" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">Keep it</button>
         @if (showReturnModal()) {
-          <button type="button" class="ar-btn ar-btn--warn" (click)="confirmReturn()" [disabled]="submitting()"><i class="ri-arrow-go-back-line" aria-hidden="true"></i> Confirm return</button>
+          <button type="button" class="btn btn-warning" (click)="confirmReturn()" [disabled]="submitting()"> Confirm return</button>
         } @else if (showCancelModal()) {
-          <button type="button" class="ar-btn ar-btn--primary" (click)="confirmCancel()" [disabled]="submitting()"><i class="ri-close-circle-line" aria-hidden="true"></i> Confirm cancellation</button>
+          <button type="button" class="btn btn-primary" (click)="confirmCancel()" [disabled]="submitting()"> Confirm cancellation</button>
         } @else {
-          <button type="button" class="ar-btn ar-btn--danger" (click)="confirmDelete()" [disabled]="submitting()"><i class="ri-delete-bin-line" aria-hidden="true"></i> Permanently delete</button>
+          <button type="button" class="btn btn-danger" (click)="confirmDelete()" [disabled]="submitting()"> Permanently delete</button>
         }
       </footer>
     </div>
@@ -526,7 +569,7 @@
           <h2 class="ar-head-title" id="decTitle">{{ showApproveModal() ? 'Approve access request' : 'Reject access request' }}</h2>
           <div class="ar-head-sub"><code>{{ target.reference }}</code></div>
         </div>
-        <button type="button" class="ar-x" aria-label="Close" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()"><i class="ri-close-line" aria-hidden="true"></i></button>
+        <!-- <button type="button" class="ar-x" aria-label="Close" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()"><i class="ri-close-line" aria-hidden="true"></i></button> -->
       </header>
       <div class="ar-modal-body">
         <div class="ar-note">
@@ -553,11 +596,11 @@
         </div>
       </div>
       <footer class="ar-modal-foot">
-        <button type="button" class="ar-btn ar-btn--line" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()">Cancel</button>
+        <button type="button" class="btn btn-outline-secondary" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()">Cancel</button>
         @if (showApproveModal()) {
-          <button type="button" class="ar-btn ar-btn--ok" (click)="confirmApprove()" [disabled]="submitting()"><i class="ri-check-line" aria-hidden="true"></i> Confirm approval</button>
+          <button type="button" class="btn btn-success" (click)="confirmApprove()" [disabled]="submitting()">Confirm approval</button>
         } @else {
-          <button type="button" class="ar-btn ar-btn--danger" (click)="confirmReject()" [disabled]="submitting()"><i class="ri-close-line" aria-hidden="true"></i> Confirm rejection</button>
+          <button type="button" class="btn btn-danger" (click)="confirmReject()" [disabled]="submitting()"> Confirm rejection</button>
         }
       </footer>
     </div>

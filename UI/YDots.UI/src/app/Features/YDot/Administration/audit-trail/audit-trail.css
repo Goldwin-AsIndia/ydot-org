@@ -139,21 +139,44 @@
   color: var(--at-muted);
 }
 
+/* Success / failure split: a slim rounded bar on a pale track. Each segment keeps its colour,
+   with light diagonal stripes over it that drift slowly; widths animate when the counts change.
+   The stripes stop moving for people who ask for reduced motion. */
 .at-ratio {
   display: flex;
-  gap: calc(3px * var(--ui-scale, 1));
-  height: calc(8px * var(--ui-scale, 1));
+  gap: 2px;
+  height: calc(6px * var(--ui-scale, 1));
   margin-top: auto;
   padding-top: 0;
   border-radius: calc(999px * var(--ui-scale, 1));
   overflow: hidden;
-  background: var(--at-line);
+  background: color-mix(in srgb, var(--at-line) 70%, #f4f4f4);
 }
 .at-hero .at-ratio { margin-top: 0; }
 
-.at-ratio__seg { display: block; flex-basis: 0; min-width: 0; }
-.at-ratio__seg--ok { background: var(--at-ok); }
-.at-ratio__seg--fail { background: var(--at-fail); }
+.at-ratio__seg {
+  display: block;
+  flex-basis: 0;
+  min-width: calc(4px * var(--ui-scale, 1));
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, #ffffff 24%, transparent) 0 calc(5px * var(--ui-scale, 1)),
+    transparent calc(5px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1))
+  );
+  background-size: calc(14.14px * var(--ui-scale, 1)) 100%;
+  animation: at-stripes 3s linear infinite;
+  transition: flex-grow .6s cubic-bezier(.2, .8, .2, 1);
+}
+.at-ratio__seg--ok { background-color: var(--at-ok); }
+.at-ratio__seg--fail { background-color: var(--at-fail); }
+
+@keyframes at-stripes {
+  to { background-position: calc(14.14px * var(--ui-scale, 1)) 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .at-ratio__seg { animation: none; }
+}
 
 .at-ratio__legend {
   display: flex;
@@ -302,16 +325,16 @@
 
 .at-control,
 .at-range {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: calc(9px * var(--ui-scale, 1));
-  height: calc(46px * var(--ui-scale, 1));
-  padding: 0 calc(8px * var(--ui-scale, 1)) 0 calc(13px * var(--ui-scale, 1));
-  background: #ffffff;
-  border: 1px solid var(--at-box-line);
-  border-radius: calc(12px * var(--ui-scale, 1));
-  transition: border-color 0.18s ease;
+     position: relative;
+    display: flex;
+    align-items: center;
+    gap: calc(9px * var(--ui-scale, 1));
+    height: calc(32px * var(--ui-scale, 1));
+    padding: 0 calc(8px * var(--ui-scale, 1)) 0 calc(13px * var(--ui-scale, 1));
+    background: #ffffff;
+    border: 1px solid var(--at-box-line);
+    border-radius: 8px;
+    transition: border-color 0.18s ease;
 }
 
 .at-control:hover,
@@ -984,7 +1007,7 @@
  * is independent of the header's own padding — it sits where the mountain-peak decoration ends
  * (matching `.audit-activity-deco`'s height), not wherever the padded box happens to end.
  */
-.audit-activity-header::after {
+/* .audit-activity-header::after {
   content: '';
   position: absolute;
   left: 0;
@@ -992,11 +1015,16 @@
   top: 82%;
   height: 1px;
   background: var(--bs-border-color, #e9ecef);
-}
+} */
 
 .audit-activity-title {
-  border-left: calc(3px * var(--ui-scale, 1)) solid var(--pe-success, #37c37e);
-  padding-left: 0.75rem;
+border-left: 3px solid;
+border-image: linear-gradient(
+  to bottom,
+  rgba(var(--pe-primary-rgb), 0.7),
+  rgba(var(--pe-primary-rgb), 0.4),
+  rgba(var(--pe-primary-rgb), 0.7)
+) 1;  padding-left: 0.75rem;
 }
 
 .audit-activity-deco {
@@ -1407,6 +1435,53 @@
 }
 
 .audit-legend-dot { font-size: calc(0.55rem * var(--ui-text-scale, 1)); }
+
+/* Donut legend: one line per activity type, a dot in the segment's own shade. */
+.audit-type-legend {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--ui-scale, 1));
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-type-legend li {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--ui-scale, 1));
+  min-width: 0;
+}
+
+.audit-legend-swatch {
+  width: calc(9px * var(--ui-scale, 1));
+  height: calc(9px * var(--ui-scale, 1));
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.audit-type-legend__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: calc(0.82rem * var(--ui-text-scale, 1)) !important;
+  color: var(--bs-body-color, #212529);
+}
+
+.audit-type-legend__value {
+  flex-shrink: 0;
+  font-size: calc(0.82rem * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-type-legend__value small {
+  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important;
+  color: var(--bs-secondary-color, #6c757d);
+}
 
 /* ---- Activity heatmap ---------------------------------------------------------------------- */
 .audit-heatmap-body {

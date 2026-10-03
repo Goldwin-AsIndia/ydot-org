@@ -8,7 +8,7 @@
                        ? 'Monitor and review every important action performed in ' + organisationName() + '.'
                        : 'Monitor and review every important action performed.'">
       @if (canExport()) {
-        <button actions type="button" class="ph-btn ph-btn--ghost" [disabled]="exporting()" (click)="export()">
+        <button actions type="button" class="btn btn-outline-secondary btn-sm" [disabled]="exporting()" (click)="export()">
           @if (exporting()) {
             <i class="ri-loader-4-line spin"></i> Preparing…
           } @else {
@@ -48,8 +48,11 @@
 
           <div class="at-ratio" role="img"
                [attr.aria-label]="succeededPct() + '% succeeded, ' + failedPct() + '% failed'">
-            @if (statsTotal() > 0) {
+            <!-- A segment is drawn only when it has events, so 0 failed shows no red sliver. -->
+            @if (succeededCount() > 0) {
               <span class="at-ratio__seg at-ratio__seg--ok" [style.flex-grow]="succeededCount()"></span>
+            }
+            @if (failedCount() > 0) {
               <span class="at-ratio__seg at-ratio__seg--fail" [style.flex-grow]="failedCount()"></span>
             }
           </div>
@@ -345,7 +348,7 @@
         </div>
 
         <div class="at-field at-field--action">
-          <button type="button" class="at-clear" [disabled]="!hasFilters()" (click)="clearFilters()"
+          <button type="button" class="btn btn-outline-secondary" [disabled]="!hasFilters()" (click)="clearFilters()"
                   title="Clear all filters">
             <i class="ri-refresh-line"></i>
             <span>Reset</span>
@@ -391,7 +394,7 @@
         <!-- Recent Activity -->
         <div class="col-xl-8">
           <div class="card audit-card-outline shadow-sm h-100">
-            <div class="card-header bg-transparent audit-activity-header">
+            <div class="card-header bg-transparent audit-activity-header" >
               <div class="audit-activity-title">
                 <h6 class="mb-0">Recent Activity</h6>
                 <small class="text-info">Showing {{ visibleEvents().length }} of {{ totalCount() }} events</small>
@@ -421,7 +424,11 @@
                     @for (event of visibleEvents(); track event.id) {
                       <tr class="audit-table-row" [class.is-open]="expandedId() === event.id" (click)="toggleDetail(event.id)">
                         <td class="audit-table-icon-col">
-                          <i class="{{ actionIcon(event.actionCode) }} text-{{ iconTint(event.actionCode, event.result) }} audit-table-icon"></i>
+                          <!-- Same icon = same colour, different icons = different colours. Failed = red, denied = amber.
+                               Inline !important: a theme rule forces one colour on every <i> with !important,
+                               and only an inline !important beats that. -->
+                          <i class="{{ actionIcon(event.actionCode) }} audit-table-icon"
+                             [attr.style]="'color: ' + iconColor(event.actionCode, event.result) + ' !important'"></i>
                         </td>
 
                         <td class="text-nowrap">
@@ -622,20 +629,16 @@
                     </div>
                   </div>
 
-                  <div class="flex-grow-1">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                      <span class="d-flex align-items-center gap-2 small">
-                        <i class="ri-circle-line text-success audit-legend-dot"></i> Succeeded
-                      </span>
-                      <span class="small fw-medium">{{ succeededCount() }} ({{ succeededPct() }}%)</span>
-                    </div>
-                    <div class="d-flex align-items-center justify-content-between">
-                      <span class="d-flex align-items-center gap-2 small">
-                        <i class="ri-circle-line text-danger audit-legend-dot"></i> Failed
-                      </span>
-                      <span class="small fw-medium">{{ failedCount() }} ({{ failedPct() }}%)</span>
-                    </div>
-                  </div>
+                  <!-- Succeeded / Failed, each in the same shade as its segment. -->
+                  <ul class="audit-type-legend flex-grow-1">
+                    @for (t of outcomeBreakdown(); track t.label) {
+                      <li>
+                        <span class="audit-legend-swatch" [attr.style]="'background: ' + t.color + ' !important'"></span>
+                        <span class="audit-type-legend__label">{{ t.label }}</span>
+                        <span class="audit-type-legend__value">{{ t.count }} <small>({{ t.pct }}%)</small></span>
+                      </li>
+                    }
+                  </ul>
                 </div>
 
                 @if (statsTotal() === 0) {
