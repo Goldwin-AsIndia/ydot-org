@@ -93,7 +93,7 @@
    overflow:visible;
 }
 .msec-hero-content{
-  width:calc(100% - calc(250px * var(--ui-scale, 1)));
+  width:100%;
   box-sizing:border-box;
 }
 .msec-hero{
@@ -348,9 +348,9 @@
    ========================================================================= */
 .msec-grid{
   display:grid;
-  grid-template-columns:minmax(0,1.3fr) minmax(0,.85fr) minmax(0,1.05fr);
+  grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr) minmax(0,1.1fr);
   gap:calc(20px * var(--ui-scale, 1));
-  align-items:start;
+  align-items:stretch;
   margin-bottom:calc(20px * var(--ui-scale, 1));
 }
 
@@ -623,7 +623,6 @@ font-size:calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !impor
     gap:calc(24px * var(--ui-scale, 1));
 
     padding:calc(18px * var(--ui-scale, 1)) calc(28px * var(--ui-scale, 1));
-    height:calc(120px * var(--ui-scale, 1));
 
     overflow:hidden;
     margin-bottom:calc(28px * var(--ui-scale, 1));
@@ -633,7 +632,7 @@ font-size:calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !impor
 .msec-tip-left{   display:flex;
     align-items:center;
     gap:calc(20px * var(--ui-scale, 1));
-    max-width:65%;
+    max-width:100%;
     position:relative;
     z-index:2;
   }
@@ -985,19 +984,19 @@ font-size:calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !impor
 /* ---------------------------------- Lower two-col layout -------------------- */
 .msec-lower-grid{
   display:grid;
-  grid-template-columns:1.6fr 1fr;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);
   gap:calc(20px * var(--ui-scale, 1));
-  align-items:start;
+  align-items:stretch;
 }
-.msec-lower-grid > .stack{ display:flex; flex-direction:column; gap:calc(20px * var(--ui-scale, 1)); }
+.msec-lower-grid > .stack{ display:contents; }
+.msec-lower-grid .msec-section-card{ height:100%; box-sizing:border-box; }
+.msec-lower-grid > .msec-lower-wide{ grid-column:3; grid-row:1 / span 2; height:auto; }
 
 /* ---------------------------------- Responsive ------------------------------ */
 @media (max-width:1300px){
   /* The 250px gutter reserved for the full-size shield is too wide once the card row itself
      has shrunk — "Enrol MFA" / "Change Password" start wrapping mid-word. Shrink the shield
      and its gutter, and stack the two top cards instead of squeezing them side by side. */
-  .msec-hero-content{ width:calc(100% - calc(150px * var(--ui-scale, 1))); }
-  .msec-hero__art{ width:calc(130px * var(--ui-scale, 1)); height:calc(130px * var(--ui-scale, 1)); }
   .msec-top-row{ grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width:1200px){
@@ -1005,7 +1004,6 @@ font-size:calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !impor
   .msec-grid > :nth-child(3){ grid-column:1 / -1; }
 }
 @media (max-width:991px){
-  .msec-hero-content{ width:100%; }
   .msec-hero{ flex-direction:column; align-items:flex-start; }
   .msec-hero__art{ display:none; }
   .msec-hero__subtitle{ white-space:normal; }
@@ -1041,4 +1039,51 @@ font-size:calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !impor
 /* Hide only the Security Level score badge */
 .msec-security-level .msec-panel__pill {
     display: none !important;
+}
+/* Security Tip lives inside Account Overview now */
+.msec-tip-in-panel{
+  margin-top:auto;
+  margin-bottom:calc(16px * var(--ui-scale, 1));
+  padding:calc(14px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  background:var(--sage-soft);
+}
+.msec-tip-in-panel .msec-tip-left{ max-width:100%; gap:calc(14px * var(--ui-scale, 1)); }
+.msec-tip-in-panel .msec-tip-icon{ width:calc(40px * var(--ui-scale, 1)); height:calc(40px * var(--ui-scale, 1)); flex:none; }
+.msec-tip-in-panel .msec-tip-text{ margin-bottom:calc(8px * var(--ui-scale, 1)); }
+.msec-tip-row{
+  margin-top:auto;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:calc(16px * var(--ui-scale, 1));
+}
+.msec-tip-row .msec-tip-in-panel{ flex:1; min-width:0; margin:0; }
+.msec-tip-row .msec-edit-btn{ margin-top:0; align-self:center; flex:none; }
+
+.msec-tip-row .msec-tip-in-panel{ flex:none; max-width:55%; padding:calc(8px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1)); }
+.msec-tip-in-panel .msec-tip-icon{ width:calc(28px * var(--ui-scale, 1)); height:calc(28px * var(--ui-scale, 1)); }
+.msec-tip-in-panel .msec-tip-icon i{ font-size:calc(18px * var(--ui-scale, 1)) !important; }
+.msec-tip-in-panel .msec-tip-left{ gap:calc(10px * var(--ui-scale, 1)); }
+.msec-tip-in-panel .msec-tip-title{ font-size:calc(.85rem * var(--ui-text-scale, 1)); margin-bottom:calc(2px * var(--ui-scale, 1)); }
+.msec-tip-in-panel .msec-tip-text{ font-size:calc(.74rem * var(--ui-text-scale, 1)); margin-bottom:calc(4px * var(--ui-scale, 1)); }
+.msec-tip-in-panel .msec-tip-action{ font-size:calc(.76rem * var(--ui-text-scale, 1)); }
+
+/* No green fills on icons, tip box or count numbers */
+.msec-icon-circle, .msec-gauge__icon, .msec-gauge-stat__icon, .msec-shortcut-icon,
+.msec-session-row__icon, .msec-mfa-card__icon, .msec-activity-feed__icon,
+.msec-tip-in-panel, .msec-shortcut-count, .msec-count-pill, .msec-panel__pill{
+  background:transparent !important;
+}
+.msec-tip-in-panel{ border-color:var(--border); }
+.msec-tip-row .msec-tip-in-panel{ flex:1; max-width:none; }
+.msec-gauge-stat__icon{ width:calc(52px * var(--ui-scale, 1)); height:calc(52px * var(--ui-scale, 1)); font-size:calc(2rem * var(--ui-text-scale, 1)) !important; }
+
+@media (max-width:1200px){
+  .msec-lower-grid{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  .msec-lower-grid > .msec-lower-wide{ grid-column:1 / -1; grid-row:auto; }
+}
+@media (max-width:991px){
+  .msec-lower-grid{ grid-template-columns:minmax(0,1fr); }
 }

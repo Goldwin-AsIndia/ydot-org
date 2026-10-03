@@ -117,33 +117,6 @@
           }
         </nav>
 
-        <!-- ================= PIPELINE: one proportional rule + a stage legend that filters ================= -->
-        @if (pipeline().length > 0) {
-          <div class="pq-pipe" role="group" aria-label="Pipeline stages" [class.has-pick]="!!stageFilter()">
-            <span class="pq-cap pq-pipe-cap">Pipeline</span>
-            <div class="pq-pipe-body">
-              <div class="pq-pipe-rule" aria-hidden="true">
-                @for (stage of pipeline(); track stage.key) {
-                  @if (stage.count > 0) {
-                    <span [attr.data-stage]="stage.label" [class.is-on]="stageFilter() === stage.key" [style.flex-grow]="stage.count"></span>
-                  }
-                }
-              </div>
-              <div class="pq-pipe-keys">
-                @for (stage of pipeline(); track stage.key) {
-                  <button type="button" class="pq-key" [attr.data-stage]="stage.label"
-                          [class.is-on]="stageFilter() === stage.key" [attr.aria-pressed]="stageFilter() === stage.key"
-                          (click)="stageFilter() === stage.key ? removeFilterChip('stage') : selectPipelineStage(stage.key)"
-                          [title]="stageFilter() === stage.key ? 'Clear the stage filter' : 'Show ' + stage.label + ' leads (' + stageShare(stage.count) + '%)'">
-                    <span class="pq-dot" aria-hidden="true"></span>{{ stage.label }}<b class="pq-num">{{ stage.count | number }}</b>
-                  </button>
-                }
-              </div>
-            </div>
-          </div>
-        }
-
-
         <!-- ================= THE QUEUE ================= -->
         @if (uiState() === 'error') {
           <div class="pq-state is-error" role="alert">

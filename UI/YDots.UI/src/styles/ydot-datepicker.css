@@ -1,0 +1,261 @@
+/* =========================================================================================
+   SHARED DATE PICKER ("ydp") - the calendar every <input type="date"> / "datetime-local" opens.
+   Driven by app/Shared/services/date-field-picker.service.ts; the look follows the Audit Trail
+   calendar: white panel, hairline frame, display-face month + mono year, ringed picked day, today
+   dot, outlined nav squares, month grid behind the title. Colour lives in rules, rings and type -
+   the only fill is the primary button.
+   ========================================================================================= */
+
+/* The whole field is the trigger: the browser's own glyph stays as a cue but no longer catches the
+   click, so a click on it lands on the field and opens this calendar. */
+input[type="date"],
+input[type="datetime-local"] { cursor: pointer; }
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator { pointer-events: none; }
+input[type="date"]:disabled,
+input[type="datetime-local"]:disabled { cursor: not-allowed; }
+
+.ydp {
+  --ydp-acc: var(--lx-gold, #1f4d3a);
+  --ydp-acc-ink: var(--lx-gold-ink, #ffffff);
+  --ydp-ink: var(--theme-ink, #152f32);
+  --ydp-muted: var(--theme-muted, #647579);
+  --ydp-faint: color-mix(in srgb, var(--ydp-ink) 34%, #ffffff);
+  --ydp-line: var(--lx-card-line, #e8eaec);
+  position: fixed;
+  inset: auto;
+  z-index: 1200;
+  box-sizing: border-box;
+  width: calc(300px * var(--ui-scale, 1));
+  margin: 0;
+  padding: calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
+  overflow: visible;
+  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--ydp-ink) 13%, #ffffff);
+  border-radius: calc(14px * var(--ui-scale, 1));
+  box-shadow: none;
+  color: var(--ydp-ink);
+  font-family: var(--font-body, inherit);
+  text-align: left;
+  animation: ydp-pop 0.16s ease both;
+}
+.ydp:popover-open { position: fixed; inset: auto; margin: 0; }
+
+@keyframes ydp-pop {
+  from { opacity: 0; transform: translateY(calc(-4px * var(--ui-scale, 1))); }
+  to { opacity: 1; transform: none; }
+}
+
+.ydp button { font-family: inherit; }
+
+/* ---- the chosen value, underlined in the theme colour */
+.ydp__value {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 calc(2px * var(--ui-scale, 1)) calc(9px * var(--ui-scale, 1));
+  margin-bottom: calc(10px * var(--ui-scale, 1));
+  border-bottom: 1px solid var(--ydp-line);
+  box-shadow: inset 0 -2px 0 var(--ydp-acc);
+}
+.ydp__cap {
+  font-size: calc(calc(10px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(800 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ydp-acc);
+}
+.ydp__val {
+  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.35 !important;
+  color: var(--ydp-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ydp__val.is-empty { color: var(--ydp-faint); font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important; }
+
+/* ---- month bar */
+.ydp__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--ui-scale, 1));
+  margin-bottom: calc(6px * var(--ui-scale, 1));
+}
+.ydp__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(30px * var(--ui-scale, 1));
+  height: calc(30px * var(--ui-scale, 1));
+  padding: 0;
+  border: 1px solid var(--ydp-line);
+  border-radius: calc(9px * var(--ui-scale, 1));
+  background: #ffffff;
+  color: var(--ydp-ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.ydp__nav i { font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; line-height: 1 !important; }
+.ydp__nav:hover:not(:disabled) { border-color: var(--ydp-acc); color: var(--ydp-acc); }
+.ydp__nav:disabled { opacity: 0.35; cursor: default; }
+
+.ydp__title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(6px * var(--ui-scale, 1));
+  padding: calc(3px * var(--ui-scale, 1)) calc(9px * var(--ui-scale, 1));
+  border: 0;
+  border-radius: calc(8px * var(--ui-scale, 1));
+  background: transparent;
+  cursor: pointer;
+}
+.ydp__title:hover { background: color-mix(in srgb, var(--ydp-acc) 7%, #ffffff); }
+.ydp__month {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
+  font-family: var(--font-display, Georgia, serif) !important;
+  font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.1 !important;
+  color: var(--ydp-ink);
+}
+.ydp__year {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  font-family: var(--font-number, inherit) !important;
+  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  color: var(--ydp-muted);
+}
+.ydp__caret {
+  align-self: center;
+  font-size: calc(calc(15px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+  color: var(--ydp-muted);
+  transition: transform 0.18s ease;
+}
+.ydp__caret.is-up { transform: rotate(180deg); }
+
+/* ---- day grid */
+.ydp__weekdays,
+.ydp__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.ydp__weekdays { padding-bottom: calc(2px * var(--ui-scale, 1)); }
+.ydp__weekdays span {
+  text-align: center;
+  font-size: calc(calc(10px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  line-height: 2 !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ydp-faint);
+}
+.ydp__grid { row-gap: 1px; justify-items: center; }
+
+.ydp__day {
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(33px * var(--ui-scale, 1));
+  height: calc(33px * var(--ui-scale, 1));
+  padding: 0;
+  border: 1.5px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  font-family: var(--font-number, inherit) !important;
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+  font-variant-numeric: tabular-nums;
+  color: var(--ydp-ink);
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+.ydp__day:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ydp-acc) 45%, #ffffff); }
+.ydp__day.is-out { color: var(--ydp-faint); }
+.ydp__day.is-today::after {
+  content: '';
+  position: absolute;
+  bottom: calc(4px * var(--ui-scale, 1));
+  left: 50%;
+  width: calc(4px * var(--ui-scale, 1));
+  height: calc(4px * var(--ui-scale, 1));
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: var(--ydp-acc);
+}
+.ydp__day.is-picked {
+  border-color: var(--ydp-acc);
+  color: var(--ydp-acc);
+  font-weight: clamp(100, calc(800 + var(--fw-bias, 0)), 900) !important;
+}
+.ydp__day:disabled { opacity: 0.28; cursor: default; }
+
+/* ---- month grid */
+.ydp__months {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(7px * var(--ui-scale, 1));
+  padding: calc(4px * var(--ui-scale, 1)) 0 calc(2px * var(--ui-scale, 1));
+}
+.ydp__monthcell {
+  height: calc(42px * var(--ui-scale, 1));
+  border: 1px solid var(--ydp-line);
+  border-radius: calc(9px * var(--ui-scale, 1));
+  background: #ffffff;
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--ydp-ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.ydp__monthcell:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ydp-acc) 55%, #ffffff); }
+.ydp__monthcell.is-on { border: 1.5px solid var(--ydp-acc); color: var(--ydp-acc); }
+.ydp__monthcell:disabled { opacity: 0.35; cursor: default; }
+
+/* ---- foot */
+.ydp__foot {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  margin-top: calc(8px * var(--ui-scale, 1));
+  padding-top: calc(10px * var(--ui-scale, 1));
+  border-top: 1px solid var(--ydp-line);
+}
+.ydp__btn {
+  height: calc(30px * var(--ui-scale, 1));
+  padding: 0 calc(12px * var(--ui-scale, 1));
+  border: 1px solid var(--ydp-line);
+  border-radius: calc(8px * var(--ui-scale, 1));
+  background: #ffffff;
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+  color: var(--ydp-ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+.ydp__btn:hover:not(:disabled) { border-color: var(--ydp-acc); color: var(--ydp-acc); }
+.ydp__btn:disabled { opacity: 0.4; cursor: default; }
+.ydp__btn--primary { margin-left: auto; border-color: var(--ydp-acc); background: var(--ydp-acc); color: var(--ydp-acc-ink); }
+.ydp__btn--primary:hover:not(:disabled) { background: var(--lx-gold-dark, #163826); color: var(--ydp-acc-ink); }
+.ydp__time {
+  min-width: 0;
+  flex: 1 1 auto;
+  height: calc(30px * var(--ui-scale, 1));
+  padding: 0 calc(8px * var(--ui-scale, 1));
+  border: 1px solid var(--ydp-line);
+  border-radius: calc(8px * var(--ui-scale, 1));
+  background: #ffffff;
+  font-family: var(--font-number, inherit) !important;
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color: var(--ydp-ink);
+}
+.ydp__time:focus { outline: none; border-color: var(--ydp-acc); }

@@ -10,7 +10,6 @@ import { CurrentUserService } from '../../../../Shared/services/current-user.ser
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { CampaignApiService } from '../../../../Service/campaign-api.service';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 /**
  * The sentinel that means "do not filter by owner".
@@ -39,7 +38,7 @@ export const ALL_OWNERS_REFERENCE = 'ALL';
 
 @Component({
   selector: 'app-campaign-register',
-  imports: [PageHeader, CommonModule, FormsModule, ClickOutsideDirective],
+  imports: [CommonModule, FormsModule, ClickOutsideDirective],
   templateUrl: './campaign-register.html',
   styleUrl: './campaign-register.css',
 })
@@ -326,6 +325,41 @@ export class CampaignRegisterComponent {
       return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
     });
   });
+
+  /**
+   * The status lanes across the portfolio band: every status that has a campaign (or is the one
+   * filtered on), with its count and share of the whole register. Clicking one filters by it.
+   */
+  protected readonly statusLanes = computed(() => {
+    const counts = new Map<CampaignStatus, number>();
+    for (const r of this.records()) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
+    const total = this.records().length || 1;
+    return this.statusCatalogue
+      .map((status) => ({ status, count: counts.get(status) ?? 0, share: ((counts.get(status) ?? 0) / total) * 100 }))
+      .filter((lane) => lane.count > 0 || lane.status === this.statusFilter());
+  });
+
+  /** Campaigns live right now (Active), and those waiting on a decision or a date. */
+  protected readonly liveCount = computed(() => this.records().filter((r) => r.status === 'Active').length);
+  protected readonly pipelineCount = computed(() =>
+    this.records().filter((r) => r.status === 'Submitted' || r.status === 'Approved' || r.status === 'Scheduled').length);
+
+  /** Mean server-derived progress across the register (0 when there is nothing to average). */
+  protected readonly averageProgress = computed(() => {
+    const rows = this.records();
+    if (!rows.length) return 0;
+    return Math.round(rows.reduce((sum, r) => sum + Math.min(100, Math.max(0, r.progress || 0)), 0) / rows.length);
+  });
+
+  protected pickStatus(status: CampaignStatus | ''): void {
+    this.statusFilter.set(this.statusFilter() === status ? '' : status);
+    this.currentPage.set(1);
+  }
+
+  /** Ink for a status dot / rule (read by the stylesheet through data-ink). */
+  protected statusInk(status: CampaignStatus): string {
+    return status.toLowerCase();
+  }
 
   /** Totals qualified by scope and last refresh. */
   protected readonly recordCount = computed(() => this.visibleRecords().length);

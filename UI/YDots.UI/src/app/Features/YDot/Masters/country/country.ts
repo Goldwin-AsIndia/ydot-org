@@ -305,6 +305,84 @@ export class Country implements OnInit {
     return String.fromCodePoint(...points);
   }
 
+  /**
+   * Lower-cased English country name -> ISO 3166-1 alpha-2, built once from the browser's own
+   * region names (Intl.DisplayNames) plus the common short forms people type.
+   */
+  private static nameIndex?: Map<string, string>;
+
+  private static countryNameIndex(): Map<string, string> {
+    if (Country.nameIndex) return Country.nameIndex;
+    const index = new Map<string, string>();
+    try {
+      const names = new Intl.DisplayNames(['en'], { type: 'region', fallback: 'none' } as Intl.DisplayNamesOptions);
+      for (let a = 65; a <= 90; a++) {
+        for (let b = 65; b <= 90; b++) {
+          const code = String.fromCharCode(a, b);
+          const name = names.of(code);
+          if (name && name !== code) index.set(Country.normaliseName(name), code);
+        }
+      }
+    } catch { /* no Intl region names: the aliases below still apply */ }
+    const aliases: Record<string, string> = {
+      'usa': 'US', 'us': 'US', 'america': 'US', 'united states of america': 'US',
+      'uk': 'GB', 'britain': 'GB', 'great britain': 'GB', 'england': 'GB',
+      'uae': 'AE', 'emirates': 'AE', 'russia': 'RU', 'russian federation': 'RU',
+      'south korea': 'KR', 'korea': 'KR', 'republic of korea': 'KR', 'north korea': 'KP',
+      'vietnam': 'VN', 'viet nam': 'VN', 'czech republic': 'CZ', 'ivory coast': 'CI',
+      'holland': 'NL', 'burma': 'MM', 'swaziland': 'SZ', 'macedonia': 'MK',
+      'turkey': 'TR', 'turkiye': 'TR', 'laos': 'LA', 'syria': 'SY', 'iran': 'IR',
+      'bolivia': 'BO', 'venezuela': 'VE', 'tanzania': 'TZ', 'moldova': 'MD',
+      'vatican': 'VA', 'vatican city': 'VA', 'palestine': 'PS', 'brunei': 'BN',
+      'cape verde': 'CV', 'east timor': 'TL', 'congo': 'CG', 'drc': 'CD',
+      'democratic republic of the congo': 'CD', 'republic of india': 'IN', 'bharat': 'IN',
+    };
+    for (const [name, code] of Object.entries(aliases)) {
+      if (!index.has(name)) index.set(name, code);
+    }
+    Country.nameIndex = index;
+    return index;
+  }
+
+  private static normaliseName(name: string): string {
+    return name
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .toLowerCase()
+      .replace(/&/g, 'and')
+      .replace(/[^a-z ]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * The ISO alpha-2 code whose flag the form preview shows: the country typed into the name
+   * field (exact, or the only country starting with what has been typed so far), falling back
+   * to the alpha-2 code field.
+   */
+  previewFlagCode(): string {
+    const typed = Country.normaliseName(this.country?.countryName || '');
+    if (typed) {
+      const index = Country.countryNameIndex();
+      const exact = index.get(typed);
+      if (exact) return exact.toLowerCase();
+      if (typed.length >= 3) {
+        let found = '';
+        for (const [name, code] of index) {
+          if (!name.startsWith(typed)) continue;
+          if (found && found !== code) { found = ''; break; }
+          found = code;
+        }
+        if (found) return found.toLowerCase();
+      }
+    }
+    const iso = (this.country?.iso2 || '').trim();
+    return /^[a-z]{2}$/i.test(iso) ? iso.toLowerCase() : '';
+  }
+
+  /** A flag file that failed to load (no artwork for that code) — the preview shows the blank frame. */
+  readonly missingFlags = new Set<string>();
+
   get pageTitle(): string {
     return this.isEdit() ? 'Edit Country' : 'Create Country';
   }

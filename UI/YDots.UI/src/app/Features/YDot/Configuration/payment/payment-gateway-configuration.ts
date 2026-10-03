@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { PaymentGatewayConfigApiService } from '../../../../Service/payment-gateway-config-api.service';
@@ -16,7 +16,8 @@ import {
 } from '../../../../Shared/models/payment-gateway-config.model';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { PopupComponent } from '../../../../Shared/components/popup/popup';
+import { ClickOutsideDirective } from '../../../../Shared/directives/click-outside';
 
 /**
  * The editable state of the form.
@@ -56,7 +57,7 @@ interface GatewayFormState {
   existing: PaymentGatewayConfiguration | null;
 }
 
-type ViewMode = 'list' | 'form';
+type ViewMode = 'list' | 'form' | 'detail';
 
 /**
  * Payment gateway configuration.
@@ -94,7 +95,7 @@ type ViewMode = 'list' | 'form';
 @Component({
   selector: 'app-payment-gateway-configuration',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [PopupComponent, CommonModule, FormsModule, ClickOutsideDirective],
   templateUrl: './payment-gateway-configuration.html',
   styleUrl: './payment-gateway-configuration.css',
 })
@@ -113,6 +114,12 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
   readonly saving = signal(false);
   readonly testing = signal<string | null>(null);
   readonly busyId = signal<string | null>(null);
+  /** The row whose "More" action menu is open (one at a time). */
+  readonly menuFor = signal<string | null>(null);
+
+  toggleMenu(id: string): void {
+    this.menuFor.set(this.menuFor() === id ? null : id);
+  }
 
   readonly catalogue = signal<PaymentGatewayCatalogue | null>(null);
   readonly configurations = signal<PaymentGatewayConfiguration[]>([]);
@@ -124,7 +131,7 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
   /** The most recent test result, shown inline against the row it belongs to. */
   readonly testResult = signal<PaymentGatewayTestResult | null>(null);
 
-  /** The row whose details drawer is open, if any. */
+  /** The row the detail screen shows, if any. */
   readonly selected = signal<PaymentGatewayConfiguration | null>(null);
 
   // ---- Filters ---------------------------------------------------------------------------------
@@ -269,10 +276,15 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
           this.totalCount.set(page.totalCount ?? 0);
           this.loading.set(false);
 
-          // A drawer left open on a row that is no longer on the page would show stale detail.
+          // THE DETAIL SCREEN FOLLOWS THE FRESH ROW, so a test or a status change shows on it at
+          // once. A row that has dropped off the page (a filter, a page change) keeps its last copy
+          // while its screen is open.
           const open = this.selected();
+          const fresh = open ? this.configurations().find((row) => row.id === open.id) : undefined;
 
-          if (open && !this.configurations().some((row) => row.id === open.id)) {
+          if (fresh) {
+            this.selected.set(fresh);
+          } else if (open && this.view() !== 'detail') {
             this.selected.set(null);
           }
         },
@@ -403,7 +415,18 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
     };
   }
 
+  /**
+   * The gateway whose detail screen opened the form, so Cancel and Save go back to it rather than
+   * dropping the operator on the list they never asked for.
+   */
+  private formOrigin: PaymentGatewayConfiguration | null = null;
+
+  private rememberOrigin(): void {
+    this.formOrigin = this.view() === 'detail' ? this.selected() : null;
+  }
+
   startCreate(): void {
+    this.formOrigin = null;
     this.fieldErrors.set({});
     this.testResult.set(null);
     this.selected.set(null);
@@ -421,6 +444,7 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
    * point of the exercise — the administrator is taking ownership of the keys, not copying them.
    */
   startCreateFrom(row: PaymentGatewayConfiguration): void {
+    this.rememberOrigin();
     this.fieldErrors.set({});
     this.testResult.set(null);
     this.selected.set(null);
@@ -448,6 +472,7 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
    * an operator can tell whether the key on screen is the one their provider dashboard shows.
    */
   startEdit(configuration: PaymentGatewayConfiguration): void {
+    this.rememberOrigin();
     this.fieldErrors.set({});
     this.testResult.set(null);
     this.selected.set(null);
@@ -481,8 +506,15 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
   }
 
   cancelForm(): void {
-    this.view.set('list');
     this.fieldErrors.set({});
+    const origin = this.formOrigin;
+    this.formOrigin = null;
+
+    if (origin) {
+      this.openDetails(origin);
+    } else {
+      this.view.set('list');
+    }
   }
 
   patch<K extends keyof GatewayFormState>(key: K, value: GatewayFormState[K]): void {
@@ -609,7 +641,16 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
               : `${saved.providerName} configuration saved. It is not active yet.`,
           );
 
-          this.view.set('list');
+          // An edit opened from the detail screen goes back to it, showing what was just saved.
+          const origin = this.formOrigin;
+          this.formOrigin = null;
+
+          if (origin && origin.id === saved.id) {
+            this.openDetails(saved);
+          } else {
+            this.view.set('list');
+          }
+
           this.load();
           this.loadAudit();
         },
@@ -764,6 +805,11 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
         next: () => {
           this.busyId.set(null);
           this.deleteTarget.set(null);
+
+          if (this.view() === 'detail') {
+            this.closeDetails();
+          }
+
           this.selected.set(null);
           this.toast.success('Deleted', 'The gateway configuration has been removed.');
           this.load();
@@ -789,18 +835,106 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
   }
 
   // =============================================================================================
-  // Details drawer
+  // Detail screen
   // =============================================================================================
 
+  /**
+   * Opens one gateway as its own screen.
+   *
+   * THE CHANGE LOG BELOW IT NARROWS TO THIS GATEWAY, so the screen reads as one record: what it
+   * is, where the money goes, and everything that has been done to it.
+   */
   openDetails(configuration: PaymentGatewayConfiguration): void {
+    this.menuFor.set(null);
+
+    if (this.testResult()?.configurationId !== configuration.id) {
+      this.testResult.set(null);
+    }
+
     this.selected.set(configuration);
+    this.view.set('detail');
+    this.showAuditFor(configuration);
+    this.scrollTop();
   }
 
   closeDetails(): void {
+    this.menuFor.set(null);
     this.selected.set(null);
+    this.view.set('list');
+
+    if (this.auditConfigurationId()) {
+      this.showAuditFor(null);
+    }
+
+    this.scrollTop();
   }
 
-  /** The label for a webhook event code, for the details drawer. */
+  /** Escape leaves the detail screen, as it closed the drawer it replaced. */
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.view() !== 'detail' || this.deleteTarget()) {
+      return;
+    }
+
+    if (this.menuFor()) {
+      this.menuFor.set(null);
+      return;
+    }
+
+    this.closeDetails();
+  }
+
+  private scrollTop(): void {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0 });
+    }
+  }
+
+  /** Copies a non-secret value (merchant ID, webhook address) for pasting into a dashboard. */
+  copy(value: string | null | undefined, what: string): void {
+    if (!value || typeof navigator === 'undefined' || !navigator.clipboard) {
+      return;
+    }
+
+    navigator.clipboard.writeText(value).then(
+      () => this.toast.success('Copied', `${what} copied to the clipboard.`),
+      () => this.toast.warning('Not copied', `The ${what.toLowerCase()} could not be copied.`),
+    );
+  }
+
+  /** Every event the provider can send, marked with whether the open gateway receives it. */
+  readonly detailEvents = computed(() => {
+    const subscribed = this.selected()?.subscribedEvents ?? [];
+    const known = this.catalogue()?.webhookEvents ?? [];
+    const listed = known.map((event) => ({
+      code: event.code, name: event.name, description: event.description, on: subscribed.includes(event.code),
+    }));
+    const extra = subscribed
+      .filter((code) => !known.some((event) => event.code === code))
+      .map((code) => ({ code, name: code, description: '', on: true }));
+
+    return [...listed, ...extra];
+  });
+
+  /** Every payment method the catalogue knows, marked with whether the open gateway offers it. */
+  readonly detailMethods = computed(() => {
+    const enabled = this.selected()?.enabledMethods ?? [];
+    const known = this.catalogue()?.paymentMethods ?? [];
+
+    // None ticked means whatever the merchant account allows, so every method reads as offered.
+    const all = enabled.length === 0;
+    const listed = known.map((method) => ({ code: method.code, name: method.name, on: all || enabled.includes(method.code) }));
+    const extra = enabled
+      .filter((code) => !known.some((method) => method.code === code))
+      .map((code) => ({ code, name: code, on: true }));
+
+    return [...listed, ...extra];
+  });
+
+  /** Only the payment methods the open gateway offers. */
+  readonly chosenMethods = computed(() => this.detailMethods().filter((method) => method.on));
+
+  /** The label for a webhook event code. */
   eventName(code: string): string {
     return this.catalogue()?.webhookEvents.find((event) => event.code === code)?.name ?? code;
   }

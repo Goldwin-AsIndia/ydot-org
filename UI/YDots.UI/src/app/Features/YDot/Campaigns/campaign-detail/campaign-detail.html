@@ -509,55 +509,58 @@
                 } @else if (activityError()) {
                 <p class="cd-state-note">{{ activityError() }}</p>
                 } @else if (recentActivity().length) {
-                <!-- Time | dashed rail with a channel icon | tinted card (title + campaign). The colour follows the
-                     channel / step (activityKind), not the theme. -->
-                <!-- Six rows show at once; anything beyond that scrolls inside this box instead of growing the card. -->
-                <div class="ra-scroll">
-                <ul class="ra-list">
-                  @for (item of recentActivity(); track $index) {
-                  <li class="ra-row" [attr.data-kind]="activityKind(item)">
-                    <span class="ra-when">
-                      <span class="ra-time">{{ activityWhen(item).time }}</span>
-                      @if (activityWhen(item).date) { <span class="ra-date">{{ activityWhen(item).date }}</span> }
-                    </span>
-                    <span class="ra-node" aria-hidden="true">
-                      @switch (activityKind(item)) {
-                        @case ('email') {
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
-                        }
-                        @case ('whatsapp') {
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3.2 3.1Z"/><path d="M9 9.5c.3 2.2 2.3 4.3 4.6 4.8l1.1-1.2 1.8.8c-.2 1.2-1.1 1.9-2.3 1.9-3.4 0-6.4-3-6.4-6.4 0-1.2.7-2.1 1.9-2.3l.8 1.8Z"/></svg>
-                        }
-                        @case ('instagram') {
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.2 6.8h.01"/></svg>
-                        }
-                        @case ('sms') {
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4Z"/><path d="M8 10h8"/></svg>
-                        }
-                        @case ('person') {
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-                        }
-                        @case ('approve') {
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
-                        }
-                        @case ('create') {
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg>
-                        }
-                        @case ('alert') {
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
-                        }
-                        @default {
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 5 5 5M4 20l3.5-.8L19 7.7a2 2 0 0 0-2.7-2.7L4.8 16.5 4 20Z"/></svg>
-                        }
+                <!-- "Activity chronicle": day captions, then time | ringed channel node on a hairline rail |
+                     title, detail (never truncated) | kind word. Channel colour lives only in the ring, the glyph
+                     and the kind word (data-kind, see activityKind() in the .ts) - no tinted cards. -->
+                <div class="rc">
+                  @for (day of activityDays(); track $index) {
+                  <section class="rc-day">
+                    @if (day.day) { <p class="rc-day__cap">{{ day.day }}</p> }
+                    <ol class="rc-list">
+                      @for (entry of day.items; track $index) {
+                      <li class="rc-row" [attr.data-kind]="entry.kind">
+                        <span class="rc-time">{{ entry.time }}</span>
+                        <span class="rc-node" aria-hidden="true">
+                            @switch (entry.kind) {
+                              @case ('email') {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                              }
+                              @case ('whatsapp') {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3.2 3.1Z"/><path d="M9 9.5c.3 2.2 2.3 4.3 4.6 4.8l1.1-1.2 1.8.8c-.2 1.2-1.1 1.9-2.3 1.9-3.4 0-6.4-3-6.4-6.4 0-1.2.7-2.1 1.9-2.3l.8 1.8Z"/></svg>
+                              }
+                              @case ('instagram') {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.2 6.8h.01"/></svg>
+                              }
+                              @case ('sms') {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4Z"/><path d="M8 10h8"/></svg>
+                              }
+                              @case ('person') {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                              }
+                              @case ('approve') {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+                              }
+                              @case ('create') {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg>
+                              }
+                              @case ('alert') {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+                              }
+                              @default {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 5 5 5M4 20l3.5-.8L19 7.7a2 2 0 0 0-2.7-2.7L4.8 16.5 4 20Z"/></svg>
+                              }
+                            }
+                        </span>
+                        <span class="rc-text">
+                          <span class="rc-title">{{ entry.item.title }}</span>
+                          @if (entry.item.detail) { <span class="rc-detail">{{ entry.item.detail }}</span> }
+                        </span>
+                        <span class="rc-kind">{{ activityKindLabel(entry.kind) }}</span>
+                      </li>
                       }
-                    </span>
-                    <span class="ra-bubble">
-                      <span class="ra-title">{{ item.title }}</span>
-                      @if (item.detail) { <span class="ra-detail">{{ item.detail }}</span> }
-                    </span>
-                  </li>
+                    </ol>
+                  </section>
                   }
-                </ul>
                 </div>
                 } @else {
                 <p class="cd-state-note">No activity recorded for this campaign yet.</p>

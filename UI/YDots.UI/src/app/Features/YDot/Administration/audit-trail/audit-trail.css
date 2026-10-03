@@ -63,17 +63,33 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 1.5rem 1.5rem 1.4rem;
+  padding: 0.85rem 1.25rem 0.8rem;
 }
 
 .at-metric { border-left: 1px solid var(--at-line); }
+
+/* Compact: label on top, figure and its caption sharing one baseline underneath. */
+.at-metric {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.6rem;
+}
+.at-metric > .at-eyebrow { flex: 0 0 100%; }
+.at-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 1rem;
+}
+.at-hero > .at-eyebrow { grid-column: 1 / -1; }
 
 /* Eyebrow: glyph + label on one line, shared by every cell so the rows line up across the panel. */
 .at-eyebrow {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.9rem;
+  margin-bottom: 0.4rem;
   min-width: 0;
 }
 
@@ -111,7 +127,7 @@
 .at-hero__value {
   --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   font-family: var(--font-number, inherit);
-  font-size: calc(2.75rem * var(--ui-text-scale, 1)) !important;
+  font-size: calc(1.9rem * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
   line-height: 1 !important;
   letter-spacing: -0.02em;
@@ -133,7 +149,7 @@
   overflow: hidden;
   background: var(--at-line);
 }
-.at-hero .at-ratio { margin-top: 1.25rem; }
+.at-hero .at-ratio { margin-top: 0; }
 
 .at-ratio__seg { display: block; flex-basis: 0; min-width: 0; }
 .at-ratio__seg--ok { background: var(--at-ok); }
@@ -168,7 +184,7 @@
 .at-metric__value {
   --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   font-family: var(--font-number, inherit);
-  font-size: calc(2rem * var(--ui-text-scale, 1)) !important;
+  font-size: calc(1.5rem * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
   line-height: 1.05 !important;
   letter-spacing: -0.01em;
@@ -181,8 +197,8 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-top: auto;
-  padding-top: 0.75rem;
+  margin-top: 0;
+  padding-top: 0;
   font-size: calc(0.78rem * var(--ui-text-scale, 1)) !important;
   color: var(--at-muted);
 }
@@ -208,8 +224,8 @@
 }
 
 .at-person__avatar {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
   flex-shrink: 0;
   border-radius: 50%;
   display: inline-flex;
@@ -239,14 +255,14 @@
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
-  padding: 0.85rem 1.5rem;
+  padding: 0.5rem 1.25rem;
   border-top: 1px solid var(--at-line);
 }
 .at-overview__foot .at-glyph { margin-top: 0.1rem; }
 
 .at-overview__note {
   font-size: calc(0.78rem * var(--ui-text-scale, 1)) !important;
-  line-height: 1.55 !important;
+  line-height: 1.4 !important;
   color: var(--at-muted);
 }
 

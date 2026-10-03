@@ -3144,132 +3144,115 @@ color-mix(in srgb, var(--primary) 22%, white);
 }
 .ra-period svg { width: calc(13px * var(--ui-scale, 1)); height: calc(13px * var(--ui-scale, 1)); }
 
-/* Six rows tall (row height x 6 + five gaps); more activity than that scrolls inside the card, so the
-   card - and the tracking card beside it, which stretches to match - never grows with the data. */
-.ra-scroll {
-  --ra-row-h: calc(54px * var(--ui-scale, 1));
-  --ra-row-gap: calc(10px * var(--ui-scale, 1));
-  max-height: calc(var(--ra-row-h) * 6 + var(--ra-row-gap) * 5);
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: calc(6px * var(--ui-scale, 1)); /* room for the scrollbar and the hover nudge */
-  scrollbar-width: thin;
-  overscroll-behavior: contain;
-}
-.ra-list {
-  --ra-when: calc(64px * var(--ui-scale, 1));
-  --ra-node: calc(30px * var(--ui-scale, 1));
-  --ra-gap: calc(12px * var(--ui-scale, 1));
-  position: relative;
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* "Activity chronicle" - day captions (mono caps + hairline), then rows: time | ringed channel node on a
+   hairline rail | title + detail (wrap, never truncated) | kind word. No tinted cards: the channel ink
+   (data-kind, categorical, so it does not follow the theme) lives in the node ring, its glyph and the
+   kind word. The list is capped at about five rows and scrolls inside the panel. */
+.rc { --rc-time: calc(62px * var(--ui-scale, 1)); --rc-node: calc(30px * var(--ui-scale, 1)); --rc-gap: calc(12px * var(--ui-scale, 1)); --rc-x: calc(var(--rc-time) + var(--rc-gap) + var(--rc-node) / 2 - 1px); --rc-cy: calc(7px * var(--ui-scale, 1) + var(--rc-node) / 2); display: flex; flex-direction: column; gap: 0; max-height: calc(310px * var(--ui-scale, 1)); overflow-y: auto; overscroll-behavior: contain; padding-right: calc(6px * var(--ui-scale, 1)); }
+.rc-day__cap {
   display: flex;
-  flex-direction: column;
-  gap: var(--ra-row-gap, calc(10px * var(--ui-scale, 1)));
+  align-items: center;
+  gap: calc(10px * var(--ui-scale, 1));
+  position: relative;
+  margin: 0;
+  padding: calc(10px * var(--ui-scale, 1)) 0 calc(4px * var(--ui-scale, 1)) calc(var(--rc-time) + var(--rc-gap) + var(--rc-node) + var(--rc-gap));
+  font-family: var(--font-number) !important;
+  font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; line-height: 1.3 !important;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #8a929c;
 }
-/* the dashed rail, running through the centre of the icon column */
-.ra-list::before {
+.rc-day__cap::after { content: ''; flex: 1 1 auto; height: 1px; background: #e7e9ec; }
+.rc-list { position: relative; margin: 0; padding: 0; list-style: none; }
+/* One dotted rail links every icon: each row (and each day caption) carries a segment, the first and last
+   row start/stop at their icon's centre. */
+.rc-row::before, .rc-day__cap::before {
   content: '';
   position: absolute;
-  top: calc(14px * var(--ui-scale, 1));
-  bottom: calc(14px * var(--ui-scale, 1));
-  left: calc(var(--ra-when) + var(--ra-gap) + var(--ra-node) / 2 - 1px);
-  border-left: 2px dashed #d6d9de;
-  pointer-events: none;
+  top: 0;
+  bottom: 0;
+  left: var(--rc-x);
+  border-left: 2px dotted #b9c0c8;
 }
-.ra-row {
-  --ra-ink: #3b6fd8;
-  --ra-tint: #edf3fe;
-  --ra-line: #d7e4fb;
+.rc-day:first-child .rc-day__cap::before { display: none; }
+.rc-day:first-child .rc-row:first-child::before { top: var(--rc-cy); }
+.rc-day:last-child .rc-row:last-child::before { bottom: auto; height: var(--rc-cy); }
+.rc-day:only-child .rc-row:only-child::before { display: none; }
+.rc-row {
+  --rc-ink: #3b6fd8;
   position: relative;
   display: grid;
-  grid-template-columns: var(--ra-when) var(--ra-node) minmax(0, 1fr);
-  column-gap: var(--ra-gap);
-  align-items: center;
+  grid-template-columns: var(--rc-time) var(--rc-node) minmax(0, 1fr) auto;
+  column-gap: var(--rc-gap);
+  align-items: start;
+  padding: calc(7px * var(--ui-scale, 1)) 0;
+  border-radius: calc(8px * var(--ui-scale, 1));
 }
-.ra-row[data-kind='whatsapp']  { --ra-ink: #1f9d57; --ra-tint: #ecf8f0; --ra-line: #cdebd8; }
-.ra-row[data-kind='instagram'] { --ra-ink: #d6336c; --ra-tint: #fdeef3; --ra-line: #f7d3df; }
-.ra-row[data-kind='sms']       { --ra-ink: #c7811a; --ra-tint: #fdf5e7; --ra-line: #f3e0bd; }
-.ra-row[data-kind='person']    { --ra-ink: #7c5cd6; --ra-tint: #f2eefd; --ra-line: #e0d7f8; }
-.ra-row[data-kind='approve']   { --ra-ink: #0f8a7e; --ra-tint: #e9f6f4; --ra-line: #c9e8e3; }
-.ra-row[data-kind='create']    { --ra-ink: #2b86c5; --ra-tint: #eaf4fb; --ra-line: #cfe4f3; }
-.ra-row[data-kind='edit']      { --ra-ink: #56657a; --ra-tint: #f1f3f6; --ra-line: #e0e4ea; }
-.ra-row[data-kind='alert']     { --ra-ink: #c2413a; --ra-tint: #fdeeed; --ra-line: #f5d2cf; }
+.rc-row[data-kind='whatsapp']  { --rc-ink: #1f9d57; }
+.rc-row[data-kind='instagram'] { --rc-ink: #d6336c; }
+.rc-row[data-kind='sms']       { --rc-ink: #c7811a; }
+.rc-row[data-kind='person']    { --rc-ink: #7c5cd6; }
+.rc-row[data-kind='approve']   { --rc-ink: #0f8a7e; }
+.rc-row[data-kind='create']    { --rc-ink: #2b86c5; }
+.rc-row[data-kind='edit']      { --rc-ink: #56657a; }
+.rc-row[data-kind='alert']     { --rc-ink: #c2413a; }
 
-.ra-when {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.2 !important;
-  text-align: right;
-}
-.ra-time {
+.rc-time {
   --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
-  font-family: var(--font-number);
-  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  padding-top: calc(5px * var(--ui-scale, 1));
+  font-family: var(--font-number) !important;
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; line-height: 1.2 !important;
   color: #3d4652;
+  text-align: right;
   white-space: nowrap;
 }
-.ra-date {
-  font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  color: #8a929c;
-  white-space: nowrap;
-}
-.ra-node {
+.rc-node {
   position: relative;
   z-index: 1;
-  width: var(--ra-node);
-  height: var(--ra-node);
   display: inline-grid;
   place-items: center;
-  border-radius: 50%;
-  background: #fff; /* only masks the dashed rail behind the icon */
-  color: var(--ra-ink);
+  width: var(--rc-node);
+  height: var(--rc-node);
+  border: 0;
+  background: #ffffff;
+  color: var(--rc-ink);
 }
-.ra-node svg { width: calc(19px * var(--ui-scale, 1)); height: calc(19px * var(--ui-scale, 1)); }
-.ra-bubble {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  min-width: 0;
-  box-sizing: border-box;
-  min-height: var(--ra-row-h, calc(54px * var(--ui-scale, 1)));
-  padding: calc(8px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
-  border: 1px solid var(--ra-line);
-  border-radius: calc(12px * var(--ui-scale, 1));
-  background: var(--ra-tint);
-  transition: transform .18s ease, border-color .18s ease;
-}
-.ra-row:hover .ra-bubble { transform: translateX(calc(3px * var(--ui-scale, 1))); border-color: var(--ra-ink); }
-.ra-title {
-  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
-  font-family: var(--font-display);
-  font-size: calc(calc(15px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  line-height: 1.25 !important;
+.rc-node svg { width: calc(20px * var(--ui-scale, 1)) !important; height: calc(20px * var(--ui-scale, 1)) !important; }
+.rc-text { display: flex; flex-direction: column; gap: calc(2px * var(--ui-scale, 1)); min-width: 0; padding-top: calc(2px * var(--ui-scale, 1)); }
+.rc-title {
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
+  font-family: var(--font-body) !important;
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; line-height: 1.3 !important;
   color: #1c232b;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+.rc-detail { font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; line-height: 1.4 !important; color: #6b7480; overflow-wrap: anywhere; }
+.rc-row[data-kind='alert'] .rc-detail { color: #a3362f; }
+.rc-kind {
+  padding-top: calc(5px * var(--ui-scale, 1));
+  font-size: calc(calc(10px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; line-height: 1.2 !important;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--rc-ink);
   white-space: nowrap;
 }
-.ra-detail {
-  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
-  line-height: 1.35 !important;
-  color: #6b7480;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.rc-more {
+  align-self: flex-start;
+  height: calc(28px * var(--ui-scale, 1));
+  margin-left: calc(var(--rc-time) + var(--rc-gap));
+  padding: 0 calc(11px * var(--ui-scale, 1));
+  border: 1px solid #e0e4e8;
+  border-radius: calc(7px * var(--ui-scale, 1));
+  background: #ffffff;
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; line-height: 1 !important;
+  color: #1c232b;
+  cursor: pointer;
 }
+.rc-more:hover { border-color: var(--lx-gold, #1f4d3a); color: var(--lx-gold, #1f4d3a); }
 @media (max-width: 480px) {
-  .ra-list { --ra-when: calc(52px * var(--ui-scale, 1)); --ra-gap: calc(8px * var(--ui-scale, 1)); }
-  .ra-title, .ra-detail { white-space: normal; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ra-bubble { transition: none; }
-  .ra-row:hover .ra-bubble { transform: none; }
+  .rc { --rc-time: calc(50px * var(--ui-scale, 1)); --rc-gap: calc(8px * var(--ui-scale, 1)); }
+  .rc-row { grid-template-columns: var(--rc-time) var(--rc-node) minmax(0, 1fr); }
+  .rc-kind { display: none; }
 }
 
 /* The two inline icon images carry width/height attributes (14 / 12). CSS sizes them instead so they grow with

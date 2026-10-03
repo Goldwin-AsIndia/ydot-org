@@ -35,7 +35,7 @@ import { HeaderScreenKey, headerWatermarks } from '../header-watermark/header-wa
   imports: [HeaderWatermark],
   // A static title="..." on <app-page-header> would also stay on the host as a DOM attribute and pop a
   // native tooltip over the whole panel; the value is only wanted as the input.
-  host: { '[attr.title]': 'null', '[class.ph-host--card]': "variant() === 'card'" },
+  host: { '[attr.title]': 'null', '[class.ph-host--card]': "variant() !== 'plain'" },
 })
 export class PageHeader {
   readonly title = input.required<string>();
@@ -58,8 +58,9 @@ export class PageHeader {
   /**
    * 'plain' (default) sits directly on the page. 'card' is the Campaign readiness checklist header: a white card
    * with an eyebrow line above the title. Opt-in, so no other module's header changes.
+   * 'gold' is the card with the gold uppercase eyebrow and serif title (Payment gateways look); used by Access and Organisation.
    */
-  readonly variant = input<'plain' | 'card'>('plain');
+  readonly variant = input<'plain' | 'card' | 'gold'>('plain');
 
   /** Small uppercase label above the title. Shown by the 'card' variant only. */
   readonly eyebrow = input<string | null | undefined>('');

@@ -1,1410 +1,803 @@
+<!--
+  Payment Gateways - "Payment control centre"
+  Cards on the standard page container (the page lines up with the top bar):
+    LIST   header card (kicker, title, scope | Refresh, Add gateway; key-custody line in its foot)
+           four stat cards (Taking donations, Configured here, From deployment, Need attention)
+           Gateways card: head (title, count, search, three filters) + aligned table + pager foot
+           Change log card: head (title, count, filters, Hide) + aligned table + pager foot
+    FORM   header card with Cancel / Test / Save, then section cards two to a row
+           (Gateway | Credentials, Webhook | Settlement and checkout, Status full width)
+    DETAIL "Gateway profile": header card (back | title | actions, four key facts, notices) then paired
+           cards; the change log below narrows to the open gateway.
+  Delete = shared pop-up. Styles: payment-gateway-configuration.css (pg-, detail pgd-).
+-->
 <main class="app-wrapper">
   <div class="page-wrapper">
-    <div class="container-fluid">
+    <div class="container-fluid px-4 py-3">
+      <div class="pg">
 
-      <!-- ============================== LIST ============================== -->
-      @if (view() === 'list') {
-        <section>
-
-          <app-page-header screen="payment-gateway-configuration" title="Payment Gateways"
-                           [subtitle]="'Where donations ' + (organisationName() && !isSuperAdmin() ? 'to ' + organisationName() + ' ' : '') + 'are collected, and with which merchant credentials.'">
-            <span meta class="ph-chip">Configuration</span>
-            <ng-container actions>
-              <button type="button" class="ph-btn ph-btn--ghost" title="Refresh"
-                      [disabled]="loading()" (click)="load()" aria-label="Refresh gateways">Refresh</button>
-              @if (canManage()) {
-                <button type="button" class="ph-btn ph-btn--primary" (click)="startCreate()">
-                  <span aria-hidden="true">+</span>
-                  Add Gateway
-                </button>
-              }
-            </ng-container>
-          </app-page-header>
-
-          <!-- Summary -->
-          <div class="summary-cards" aria-label="Gateway summary">
-            <article class="summary-card">
-              <span class="summary-icon summary-icon-success" aria-hidden="true">
-                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="1.8"
-                     stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.3 2.3 4.7-4.7"/>
-                </svg>
-              </span>
-              <div class="summary-copy">
-                <strong class="summary-value">{{ liveCount() }}</strong>
-                <span class="summary-label">Taking donations</span>
-              </div>
-            </article>
-
-            <article class="summary-card">
-              <span class="summary-icon summary-icon-primary" aria-hidden="true">
-                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="1.8"
-                     stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
-                </svg>
-              </span>
-              <div class="summary-copy">
-                <strong class="summary-value">{{ configuredCount() }}</strong>
-                <span class="summary-label">Configured here</span>
-              </div>
-            </article>
-
-            <article class="summary-card">
-              <span class="summary-icon summary-icon-muted" aria-hidden="true">
-                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="1.8"
-                     stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20 13V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7"/>
-                  <path d="M16 17h6"/><path d="M19 14v6"/>
-                </svg>
-              </span>
-              <div class="summary-copy">
-                <strong class="summary-value">{{ inheritedCount() }}</strong>
-                <span class="summary-label">From deployment</span>
-              </div>
-            </article>
-
-            <article class="summary-card" [class.summary-card-alert]="needsAttentionCount() > 0">
-              <span class="summary-icon summary-icon-warning" aria-hidden="true">
-                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="1.8"
-                     stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>
-                  <path d="M12 9v4"/><path d="M12 17h.01"/>
-                </svg>
-              </span>
-              <div class="summary-copy">
-                <strong class="summary-value">{{ needsAttentionCount() }}</strong>
-                <span class="summary-label">Need attention</span>
-              </div>
-            </article>
-          </div>
-
-          <!--
-            SAID PLAINLY AND ON THE PAGE, not buried in a tooltip. Somebody is about to type a
-            credential that can move an organisation's money, and they are entitled to know what
-            happens to it.
-          -->
-          <div class="notice notice-info">
-            <span class="notice-icon" aria-hidden="true">
-              <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="1.8"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5.5L12 2 4 5.5V12c0 6 8 10 8 10Z"/>
-                <circle cx="12" cy="11" r="2.2"/><path d="M12 13.2V16"/>
-              </svg>
-            </span>
-            <p>
-              Keys and secrets are encrypted before they are stored and are <strong>never shown
-              again</strong> &mdash; only the last few characters, so you can tell which key is in
-              place. A key can be replaced but not read back. Every change is recorded in the log
-              below with who made it and when.
-            </p>
-          </div>
-
-          <!-- Filters -->
-          <div class="filters-card">
-            <div class="search-wrapper">
-              <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-              </svg>
-              <input type="search" class="search-input"
-                     placeholder="Search by name or merchant ID..."
-                     [ngModel]="filterSearch()"
-                     (ngModelChange)="filterSearch.set($event)"
-                     (keyup.enter)="applyFilters()"
-                     aria-label="Search gateways"/>
-            </div>
-
-            <div class="filter-selects">
-              <label class="filter-field">
-                <span class="filter-label">Provider</span>
-                <select class="filter-select" [ngModel]="filterProvider()"
-                        (ngModelChange)="filterProvider.set($event); applyFilters()">
-                  <option value="">All providers</option>
-                  @for (provider of catalogue()?.providers ?? []; track provider.code) {
-                    <option [value]="provider.code">{{ provider.name }}</option>
-                  }
-                </select>
-              </label>
-
-              <label class="filter-field">
-                <span class="filter-label">Environment</span>
-                <select class="filter-select" [ngModel]="filterEnvironment()"
-                        (ngModelChange)="filterEnvironment.set($event); applyFilters()">
-                  <option value="">All</option>
-                  <option value="Production">Production</option>
-                  <option value="Sandbox">Sandbox</option>
-                </select>
-              </label>
-
-              <label class="filter-field">
-                <span class="filter-label">Status</span>
-                <select class="filter-select" [ngModel]="filterStatus()"
-                        (ngModelChange)="filterStatus.set($event); applyFilters()">
-                  <option value="">All</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </label>
-
-              @if (hasFilters()) {
-                <button type="button" class="btn-clear" (click)="clearFilters()">Clear</button>
-              }
-            </div>
-          </div>
-
-          <!-- Table + details -->
-          <div class="data-workspace">
-            @if (loading()) {
-              <div class="loading-overlay"><div class="spinner" aria-label="Loading"></div></div>
-            }
-
-            <section class="table-pane" aria-label="Gateway table">
-              <div class="table-pane-header">
-                <div>
-                  <span class="table-kicker">Merchant accounts</span>
-                  <h2>All gateways</h2>
-                </div>
-                <span class="result-count">
-                  {{ totalCount() }} result{{ totalCount() === 1 ? '' : 's' }}
+        <!-- ============================== LIST ============================== -->
+        @if (view() === 'list') {
+          <!-- Masthead sheet. Row 1: identity | key custody note | actions. Row 2: four ruled figures, each
+               with an ink rule on its foot. The note drops under row 1 when the sheet narrows. -->
+          <header class="pg-box pg-mast">
+            <div class="pg-mast__row">
+              <div class="pg-who">
+                <span class="pg-kicker">
+                  Configuration <i aria-hidden="true">·</i> Payments
+                  @if (organisationName() && !isSuperAdmin()) { <i aria-hidden="true">·</i> <b>{{ organisationName() }}</b> }
                 </span>
+                <h1 class="pg-title">Payment gateways</h1>
               </div>
 
-              <div class="table-responsive">
-                <table class="data-table1">
-                  <thead>
-                    <tr>
-                      @if (isSuperAdmin()) { <th class="col-org">Organisation</th> }
-                      <th class="col-provider">Gateway</th>
-                      <th class="hide-sm col-env">Environment</th>
-                      <th class="hide-md col-merchant">Merchant &amp; key</th>
-                      <th class="hide-lg col-webhook">Webhook</th>
-                      <th class="text-center col-status">Status</th>
-                      <th class="hide-lg col-test">Last test</th>
-                      <th class="text-end col-action">Actions</th>
-                    </tr>
-                  </thead>
+              <div class="pg-acts">
+                <button type="button" class="pg-btn pg-btn--glyph" [disabled]="loading()" (click)="load()" title="Refresh" aria-label="Refresh">
+                  <i class="ri-refresh-line" [class.is-spin]="loading()" aria-hidden="true"></i>
+                </button>
+                @if (canManage()) {
+                  <button type="button" class="pg-btn pg-btn--primary" (click)="startCreate()"><i class="ri-add-line" aria-hidden="true"></i>Add gateway</button>
+                }
+              </div>
+            </div>
 
-                  <tbody>
-                    @if (loadFailed()) {
-                      <tr>
-                        <td [attr.colspan]="isSuperAdmin() ? 8 : 7" class="empty-state">
-                          <div class="empty-content">
-                            <span class="empty-icon" aria-hidden="true">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
-                                   viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                   stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M17.5 19a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.3-1.6"/>
-                                <path d="M2 2l20 20"/>
-                              </svg>
-                            </span>
-                            <p>{{ errorMessage() }}</p>
-                            <button type="button" class="btn-outline" (click)="load()">
-                              Try again
-                            </button>
-                          </div>
+          </header>
+
+          <section class="pg-box" aria-labelledby="pg-gw-h">
+            <div class="pg-box__head">
+              <h2 class="pg-h" id="pg-gw-h">Gateways</h2>
+              <span class="pg-count">{{ totalCount() }}</span>
+              <div class="pg-tools">
+                <label class="pg-search">
+                  <span class="visually-hidden">Search gateways</span>
+                  <input type="search" placeholder="Search name or merchant ID"
+                         [ngModel]="filterSearch()" (ngModelChange)="filterSearch.set($event)"
+                         (keyup.enter)="applyFilters()" (search)="applyFilters()" />
+                </label>
+                <label class="pg-filter">
+                  <span>Provider</span>
+                  <select [ngModel]="filterProvider()" (ngModelChange)="filterProvider.set($event); applyFilters()">
+                    <option value="">All</option>
+                    @for (provider of catalogue()?.providers ?? []; track provider.code) {
+                      <option [value]="provider.code">{{ provider.name }}</option>
+                    }
+                  </select>
+                </label>
+                <label class="pg-filter">
+                  <span>Environment</span>
+                  <select [ngModel]="filterEnvironment()" (ngModelChange)="filterEnvironment.set($event); applyFilters()">
+                    <option value="">All</option>
+                    <option value="Production">Production</option>
+                    <option value="Sandbox">Sandbox</option>
+                  </select>
+                </label>
+                <label class="pg-filter">
+                  <span>Status</span>
+                  <select [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event); applyFilters()">
+                    <option value="">All</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </label>
+                @if (hasFilters()) {
+                  <button type="button" class="pg-btn pg-btn--sm" (click)="clearFilters()">Clear</button>
+                }
+              </div>
+            </div>
+
+            <div class="pg-tablewrap" [class.is-loading]="loading()">
+              <table class="pg-table pg-table--gw" [class.has-org]="isSuperAdmin()">
+                <thead>
+                  <tr>
+                    @if (isSuperAdmin()) { <th class="pg-c-org">Organisation</th> }
+                    <th class="pg-c-gw">Gateway</th>
+                    <th class="pg-c-env">Environment</th>
+                    <th class="pg-c-key">Merchant &amp; key</th>
+                    <th class="pg-c-hook">Webhook</th>
+                    <th class="pg-c-status">Status</th>
+                    <th class="pg-c-test">Last test</th>
+                    <th class="pg-c-act">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @if (loadFailed()) {
+                    <tr class="pg-msg"><td colspan="8">
+                      <div class="pg-empty"><p>{{ errorMessage() }}</p><button type="button" class="pg-btn pg-btn--sm" (click)="load()">Try again</button></div>
+                    </td></tr>
+                  } @else if (configurations().length === 0 && !loading()) {
+                    <tr class="pg-msg"><td colspan="8">
+                      <div class="pg-empty">
+                        <p><strong>No payment gateway found.</strong>
+                          @if (hasFilters()) { Try changing the search or filters. } @else { Until one is set up and made active, donations cannot be collected. }
+                        </p>
+                        @if (canManage() && !hasFilters()) {
+                          <button type="button" class="pg-btn pg-btn--sm pg-btn--primary" (click)="startCreate()">Add gateway</button>
+                        }
+                      </div>
+                    </td></tr>
+                  } @else {
+                    @for (row of configurations(); track trackById($index, row)) {
+                      <tr [class.is-selected]="selected()?.id === row.id" [class.is-superseded]="row.isSuperseded">
+                        @if (isSuperAdmin()) {
+                          <td class="pg-c-org">
+                            <span class="pg-two"><strong>{{ row.organisationName ?? '—' }}</strong>
+                              @if (row.organisationCode) { <small class="pg-mono">{{ row.organisationCode }}</small> }</span>
+                          </td>
+                        }
+                        <td class="pg-c-gw">
+                          <span class="pg-two">
+                            <button type="button" class="pg-name" (click)="openDetails(row)">{{ row.providerName }}</button>
+                            <small class="pg-flags">
+                              @if (row.displayName) { <span>{{ row.displayName }}</span> }
+                              @if (isInherited(row)) { <span data-ink="muted" title="Its keys live in this deployment's environment, not in this application.">Deployment</span> }
+                              @if (row.isSuperseded) { <span data-ink="muted" title="Your own configuration is active, so this one no longer decides where the money goes.">Superseded</span> }
+                              @if (!row.isAdapterAvailable) { <span data-ink="warn" title="Donations would fall back to the generic hosted-checkout flow.">No adapter yet</span> }
+                              @if (needsAttention(row)) { <span data-ink="bad" title="This gateway is active but would not complete a donation.">Needs attention</span> }
+                            </small>
+                          </span>
                         </td>
-                      </tr>
-                    } @else if (configurations().length === 0) {
-                      <tr>
-                        <td [attr.colspan]="isSuperAdmin() ? 8 : 7" class="empty-state">
-                          <div class="empty-content">
-                            <span class="empty-icon" aria-hidden="true">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
-                                   viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                   stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="2" y="5" width="20" height="14" rx="2.5"/>
-                                <path d="M2 10h20"/>
-                              </svg>
-                            </span>
-                            <p>No payment gateway found</p>
-                            <span>
-                              @if (hasFilters()) {
-                                Try changing your search or filters.
-                              } @else {
-                                Until one is set up and made active, donations cannot be collected.
-                              }
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    } @else {
-                      @for (row of configurations(); track trackById($index, row)) {
-                        <tr [class.is-selected]="selected()?.id === row.id"
-                            [class.is-superseded]="row.isSuperseded">
-
-                          @if (isSuperAdmin()) {
-                            <td>
-                              <div class="name-cell">
-                                <span class="name-primary">{{ row.organisationName ?? '—' }}</span>
-                                @if (row.organisationCode) {
-                                  <span class="name-secondary mono">{{ row.organisationCode }}</span>
-                                }
-                              </div>
-                            </td>
-                          }
-
-                          <td>
-                            <button type="button" class="provider-cell" (click)="openDetails(row)"
-                                    [attr.aria-label]="'View ' + row.providerName">
-                              <span class="provider-avatar" [attr.data-provider]="row.provider">
-                                {{ row.providerName.charAt(0) }}
-                              </span>
-                              <span class="provider-copy">
-                                <span class="provider-name">{{ row.providerName }}</span>
-                                <!--
-                                  ONLY WHEN IT SAYS SOMETHING THE CHIP BELOW DOES NOT. A row that
-                                  read "Razorpay / Set up by the deployment" and then carried a
-                                  "Deployment" chip underneath was saying the same thing twice in
-                                  the same cell.
-                                -->
-                                @if (row.displayName) {
-                                  <span class="provider-sub">{{ row.displayName }}</span>
-                                }
-                              </span>
-                            </button>
-
-                            <div class="row-flags">
-                              @if (isInherited(row)) {
-                                <!--
-                                  THE ROW THAT WAS MISSING BEFORE. Every organisation already had a
-                                  gateway, built from the deployment's keys; a list that showed only
-                                  rows entered here opened on "nothing configured" for an
-                                  organisation whose donations were working perfectly.
-                                -->
-                                <span class="flag flag-muted" title="Its keys live in this deployment's environment, not in this application.">
-                                  Deployment
-                                </span>
-                              }
-                              @if (row.isSuperseded) {
-                                <span class="flag flag-muted" title="Your own configuration is active, so this one no longer decides where the money goes.">
-                                  Superseded
-                                </span>
-                              }
-                              @if (!row.isAdapterAvailable) {
-                                <span class="flag flag-warning" title="Donations would fall back to the generic hosted-checkout flow.">
-                                  No adapter yet
-                                </span>
-                              }
-                              @if (needsAttention(row)) {
-                                <span class="flag flag-danger" title="This gateway is active but would not complete a donation.">
-                                  Needs attention
-                                </span>
-                              }
-                            </div>
-                          </td>
-
-                          <td class="hide-sm">
-                            <span class="env-pill"
-                                  [class.env-production]="row.environment === 'Production'"
-                                  [class.env-sandbox]="row.environment === 'Sandbox'">
-                              {{ row.environment }}
-                            </span>
-                          </td>
-
-                          <td class="hide-md">
-                            <div class="name-cell">
-                              <span class="name-primary">{{ row.merchantId || 'No merchant ID' }}</span>
-                              @if (isInherited(row)) {
-                                <span class="name-secondary mono">
-                                  Keys: {{ row.deploymentKeyReference ?? 'not deployed' }}
-                                </span>
-                              } @else if (row.hasApiKey) {
-                                <span class="name-secondary mono">{{ row.apiKeyHint }}</span>
-                              } @else {
-                                <span class="name-secondary is-danger">No key stored</span>
-                              }
-                              @if (!isInherited(row) && row.hasApiKey && !row.hasSecretKey) {
-                                <span class="name-secondary is-danger">No secret stored</span>
-                              }
-                            </div>
-                          </td>
-
-                          <td class="hide-lg">
-                            @if (row.webhookUrl) {
-                              <div class="name-cell">
-                                <span class="name-primary truncate" [title]="row.webhookUrl">
-                                  {{ row.webhookUrl }}
-                                </span>
-                                <span class="name-secondary">
-                                  {{ row.subscribedEvents.length }}
-                                  event{{ row.subscribedEvents.length === 1 ? '' : 's' }} &middot;
-                                  @if (row.hasWebhookSecret) { signed } @else { unsigned }
-                                </span>
-                              </div>
-                            } @else {
-                              <span class="muted-dash">Not set</span>
-                            }
-                          </td>
-
-                          <td class="text-center">
-                            <span class="status-pill"
-                                  [class.active]="row.isActive && !row.isSuperseded"
-                                  [class.inactive]="!row.isActive || row.isSuperseded">
-                              <span class="status-dot"></span>
-                              {{ row.isActive && !row.isSuperseded ? 'Active' : 'Inactive' }}
-                            </span>
-                          </td>
-
-                          <td class="hide-lg">
+                        <td class="pg-c-env"><span class="pg-env" [attr.data-env]="row.environment">{{ row.environment }}</span></td>
+                        <td class="pg-c-key">
+                          <span class="pg-two">
+                            <strong>{{ row.merchantId || 'No merchant ID' }}</strong>
                             @if (isInherited(row)) {
-                              <span class="muted-dash" title="Its credentials are not readable from this application.">
-                                Not testable here
-                              </span>
-                            } @else if (row.lastTestedAtUtc) {
-                              <div class="name-cell">
-                                <span class="name-primary"
-                                      [class.is-success]="row.lastTestSucceeded"
-                                      [class.is-danger]="!row.lastTestSucceeded">
-                                  {{ row.lastTestSucceeded ? 'Passed' : 'Failed' }}
-                                </span>
-                                <span class="name-secondary">
-                                  {{ row.lastTestedAtUtc | date: 'dd MMM, HH:mm' }}
-                                </span>
-                              </div>
+                              <small class="pg-mono">Keys: {{ row.deploymentKeyReference ?? 'not deployed' }}</small>
+                            } @else if (row.hasApiKey) {
+                              <small class="pg-mono">{{ row.apiKeyHint }}@if (!row.hasSecretKey) { <em> · no secret</em> }</small>
                             } @else {
-                              <span class="muted-dash">Never tested</span>
+                              <small><em>No key stored</em></small>
                             }
-                          </td>
-
-                          <td>
-                            <div class="action-buttons">
-                              <button type="button" class="action-btn" title="View details"
-                                      (click)="openDetails(row)" aria-label="View details">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"
-                                     viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/>
-                                  <circle cx="12" cy="12" r="2.5"/>
-                                </svg>
-                              </button>
-
-                              @if (isInherited(row)) {
-                                <!--
-                                  THE ONLY ACTION A DEPLOYMENT ROW OFFERS. Its credentials live in
-                                  the environment and this application cannot read, test or change
-                                  them - so the way to take one over is to configure your own,
-                                  which supersedes it.
-                                -->
-                                @if (canManage()) {
-                                  <button type="button" class="action-btn" title="Configure your own keys for this gateway"
-                                          (click)="startCreateFrom(row)" aria-label="Take over">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"
-                                         viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                      <path d="M12 5v14"/><path d="M5 12h14"/>
-                                    </svg>
-                                  </button>
-                                }
-                              } @else {
-                                @if (can(row, 'edit')) {
-                                  <button type="button" class="action-btn" title="Edit"
-                                          (click)="startEdit(row)" aria-label="Edit">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"
-                                         viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                      <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
-                                    </svg>
-                                  </button>
-                                }
-
-                                @if (can(row, 'test')) {
-                                  <button type="button" class="action-btn" title="Test these credentials"
-                                          [disabled]="testing() === row.id"
-                                          (click)="test(row)" aria-label="Test">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"
-                                         viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                      <path d="M3 12h4l3 8 4-16 3 8h4"/>
-                                    </svg>
-                                  </button>
-                                }
-
-                                @if (can(row, 'activate')) {
-                                  <button type="button" class="action-btn" title="Make active"
-                                          [disabled]="busyId() === row.id"
-                                          (click)="toggleActive(row)" aria-label="Activate">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"
-                                         viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                      <rect x="3" y="6.5" width="18" height="11" rx="5.5"/>
-                                      <circle cx="7.5" cy="12" r="3" fill="currentColor" stroke="none"/>
-                                    </svg>
-                                  </button>
-                                }
-
-                                @if (can(row, 'deactivate')) {
-                                  <button type="button" class="action-btn" title="Stand down"
-                                          [disabled]="busyId() === row.id"
-                                          (click)="toggleActive(row)" aria-label="Deactivate">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"
-                                         viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                      <rect x="3" y="6.5" width="18" height="11" rx="5.5"/>
-                                      <circle cx="16.5" cy="12" r="3" fill="currentColor" stroke="none"/>
-                                    </svg>
-                                  </button>
-                                }
-
-                                <button type="button" class="action-btn" title="History for this gateway"
-                                        (click)="showAuditFor(row)" aria-label="History">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"
-                                       viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                       stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/>
-                                    <path d="M12 8v4l3 2"/>
-                                  </svg>
-                                </button>
-
-                                @if (can(row, 'delete')) {
-                                  <button type="button" class="action-btn danger" title="Delete"
-                                          [disabled]="busyId() === row.id"
-                                          (click)="askToDelete(row)" aria-label="Delete">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"
-                                         viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                      <path d="M3 6h18"/><path d="M8 6V4h8v2"/>
-                                      <path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/>
-                                    </svg>
-                                  </button>
-                                }
-                              }
-                            </div>
-                          </td>
-                        </tr>
-
-                        <!--
-                          THE TEST RESULT SITS UNDER THE ROW IT BELONGS TO AND STAYS THERE. A toast
-                          that fades is fine for "saved"; a failure somebody has to act on is not.
-                        -->
-                        @if (testResult(); as result) {
-                          @if (result.configurationId === row.id) {
-                            <tr class="result-row">
-                              <td [attr.colspan]="isSuperAdmin() ? 8 : 7">
-                                <div class="notice"
-                                     [class.notice-success]="result.succeeded"
-                                     [class.notice-danger]="!result.succeeded">
-                                  <span class="notice-icon" aria-hidden="true">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"
-                                         viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                         stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-                                      @if (result.succeeded) {
-                                        <path d="m4 12.5 5 5L20 6.5"/>
-                                      } @else {
-                                        <circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 16h.01"/>
-                                      }
-                                    </svg>
-                                  </span>
-                                  <div>
-                                    <p>{{ result.message }}</p>
-                                    <span class="notice-meta">
-                                      @if (result.reference) {
-                                        Provider reference
-                                        <span class="mono">{{ result.reference }}</span> &middot;
-                                      }
-                                      {{ result.durationMilliseconds }} ms
-                                    </span>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
+                          </span>
+                        </td>
+                        <td class="pg-c-hook">
+                          @if (row.webhookUrl) {
+                            <span class="pg-two">
+                              <strong class="pg-mono pg-url" [title]="row.webhookUrl">{{ row.webhookUrl }}</strong>
+                              <small>{{ row.subscribedEvents.length }} event{{ row.subscribedEvents.length === 1 ? '' : 's' }} · {{ row.hasWebhookSecret ? 'signed' : 'unsigned' }}</small>
+                            </span>
+                          } @else {
+                            <span class="pg-faint">Not set</span>
                           }
+                        </td>
+                        <td class="pg-c-status">
+                          <span class="pg-state" [attr.data-ink]="row.isActive && !row.isSuperseded ? 'ok' : 'muted'">
+                            <span class="pg-dot"></span>{{ row.isActive && !row.isSuperseded ? 'Active' : 'Inactive' }}
+                          </span>
+                        </td>
+                        <td class="pg-c-test">
+                          @if (isInherited(row)) {
+                            <span class="pg-faint" title="Its credentials are not readable from this application.">Not testable here</span>
+                          } @else if (row.lastTestedAtUtc) {
+                            <span class="pg-two">
+                              <strong class="pg-state" [attr.data-ink]="row.lastTestSucceeded ? 'ok' : 'bad'"><span class="pg-dot"></span>{{ row.lastTestSucceeded ? 'Passed' : 'Failed' }}</strong>
+                              <small class="pg-mono">{{ row.lastTestedAtUtc | date: 'dd MMM, HH:mm' }}</small>
+                            </span>
+                          } @else {
+                            <span class="pg-faint">Never tested</span>
+                          }
+                        </td>
+                        <td class="pg-c-act">
+                          <span class="pg-row-acts">
+                            <button type="button" class="pg-btn pg-btn--xs" (click)="openDetails(row)">View</button>
+                            @if (isInherited(row)) {
+                              @if (canManage()) {
+                                <button type="button" class="pg-btn pg-btn--xs" title="Configure your own keys for this gateway" (click)="startCreateFrom(row)">Take over</button>
+                              }
+                            } @else {
+                              @if (can(row, 'edit')) {
+                                <button type="button" class="pg-btn pg-btn--xs" (click)="startEdit(row)">Edit</button>
+                              }
+                              <span class="pg-menu-wrap">
+                                <button #pgMore type="button" class="pg-btn pg-btn--xs" aria-haspopup="menu"
+                                        [attr.aria-expanded]="menuFor() === row.id" (click)="toggleMenu(row.id)">More</button>
+                                @if (menuFor() === row.id) {
+                                  <span class="pg-menu" role="menu" appClickOutside [clickOutsideExcept]="pgMore" (appClickOutside)="menuFor.set(null)">
+                                    @if (can(row, 'test')) {
+                                      <button type="button" role="menuitem" [disabled]="testing() === row.id" (click)="menuFor.set(null); test(row)">Test connection</button>
+                                    }
+                                    @if (can(row, 'activate')) {
+                                      <button type="button" role="menuitem" [disabled]="busyId() === row.id" (click)="menuFor.set(null); toggleActive(row)">Make active</button>
+                                    }
+                                    @if (can(row, 'deactivate')) {
+                                      <button type="button" role="menuitem" [disabled]="busyId() === row.id" (click)="menuFor.set(null); toggleActive(row)">Stand down</button>
+                                    }
+                                    <button type="button" role="menuitem" (click)="menuFor.set(null); showAuditFor(row)">View history</button>
+                                    @if (can(row, 'delete')) {
+                                      <button type="button" role="menuitem" class="is-bad" [disabled]="busyId() === row.id" (click)="menuFor.set(null); askToDelete(row)">Delete</button>
+                                    }
+                                  </span>
+                                }
+                              </span>
+                            }
+                          </span>
+                        </td>
+                      </tr>
+                      @if (testResult(); as result) {
+                        @if (result.configurationId === row.id) {
+                          <tr class="pg-msg">
+                            <td colspan="8">
+                              <p class="pg-note" [attr.data-ink]="result.succeeded ? 'ok' : 'bad'">
+                                <strong>{{ result.succeeded ? 'Connection works.' : 'Connection failed.' }}</strong>
+                                {{ result.message }}
+                                <span class="pg-mono pg-faint">@if (result.reference) { ref {{ result.reference }} · }{{ result.durationMilliseconds }} ms</span>
+                              </p>
+                            </td>
+                          </tr>
                         }
                       }
                     }
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="pagination-bar">
-                <div class="page-size-control">
-                  <span class="entries-label">Rows per page</span>
-                  <select class="page-size-select" [ngModel]="pageSize()"
-                          (ngModelChange)="onPageSizeChange(+$event)" aria-label="Rows per page">
-                    <option [value]="10">10</option>
-                    <option [value]="25">25</option>
-                    <option [value]="50">50</option>
-                  </select>
-                  <span class="entries-label">of {{ totalCount() }}</span>
-                </div>
-
-                <nav class="pagination-nav" aria-label="Gateway pagination">
-                  <button type="button" class="page-btn" [disabled]="page() === 1"
-                          (click)="goToPage(page() - 1)" aria-label="Previous page">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
-                         fill="none" stroke="currentColor" stroke-width="2"
-                         stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                  </button>
-                  @for (p of pageNumbers(); track p) {
-                    <button type="button" class="page-btn" [class.active]="page() === p"
-                            (click)="goToPage(p)">{{ p }}</button>
                   }
-                  <button type="button" class="page-btn" [disabled]="page() === totalPages()"
-                          (click)="goToPage(page() + 1)" aria-label="Next page">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
-                         fill="none" stroke="currentColor" stroke-width="2"
-                         stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                </tbody>
+              </table>
+            </div>
+
+            <footer class="pg-box__foot">
+              <label class="pg-size">
+                <span>Rows per page</span>
+                <select [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange(+$event)" aria-label="Rows per page">
+                  <option [value]="10">10</option>
+                  <option [value]="25">25</option>
+                  <option [value]="50">50</option>
+                </select>
+                <span>of <b>{{ totalCount() }}</b></span>
+              </label>
+              <nav class="pg-pages" aria-label="Gateway pages">
+                <button type="button" class="pg-page" [disabled]="page() === 1" (click)="goToPage(page() - 1)" aria-label="Previous page">‹</button>
+                @for (p of pageNumbers(); track p) {
+                  <button type="button" class="pg-page" [class.is-on]="page() === p" (click)="goToPage(p)">{{ p }}</button>
+                }
+                <button type="button" class="pg-page" [disabled]="page() === totalPages()" (click)="goToPage(page() + 1)" aria-label="Next page">›</button>
+              </nav>
+            </footer>
+          </section>
+        }
+
+        <!-- ============================== FORM ============================== -->
+        @if (view() === 'form') {
+          <header class="pg-box pg-hero">
+            <div class="pg-hero__row">
+              <div class="pg-who">
+                <span class="pg-kicker">Payment gateways <i aria-hidden="true">·</i> {{ form().id ? 'Edit' : 'New' }}</span>
+                <h1 class="pg-title">{{ form().id ? 'Edit gateway' : 'New gateway' }}</h1>
+                <p class="pg-sub">The credentials the provider issued for this organisation's merchant account</p>
+              </div>
+              <div class="pg-acts">
+                <button type="button" class="pg-btn" (click)="cancelForm()">Cancel</button>
+                @if (form().id && canTest()) {
+                  <button type="button" class="pg-btn" [disabled]="testing() !== null" (click)="test(form().existing!)">
+                    {{ testing() ? 'Testing…' : 'Test connection' }}
                   </button>
-                </nav>
+                }
+                <button type="button" class="pg-btn pg-btn--primary" [disabled]="saving()" (click)="save()">
+                  {{ saving() ? 'Saving…' : 'Save gateway' }}
+                </button>
+              </div>
+            </div>
+          </header>
+
+          @if (testResult(); as result) {
+            <p class="pg-box pg-note pg-note--card" [attr.data-ink]="result.succeeded ? 'ok' : 'bad'">
+              <strong>{{ result.succeeded ? 'Connection works.' : 'Connection failed.' }}</strong>
+              {{ result.message }}
+              @if (result.reference) { <span class="pg-mono pg-faint">ref {{ result.reference }}</span> }
+            </p>
+          }
+
+          <div class="pg-grid">
+            <!-- Gateway -->
+            <section class="pg-box" aria-labelledby="pg-p1">
+              <div class="pg-box__head"><span class="pg-step">1</span><h2 class="pg-h" id="pg-p1">Gateway</h2></div>
+              <div class="pg-box__body">
+                <div class="pg-fields">
+                  <label class="pg-field pg-span-2">
+                    <span class="pg-lab">Payment gateway <b>*</b>
+                      @if (selectedProvider()?.documentationUrl) {
+                        <a class="pg-hint-link" [href]="selectedProvider()!.documentationUrl" target="_blank" rel="noopener">Where to find these credentials</a>
+                      }
+                    </span>
+                    <select [class.is-invalid]="fieldErrors()['provider'] || fieldErrors()['Provider']"
+                            [ngModel]="form().provider" (ngModelChange)="patch('provider', $event)">
+                      <option value="">Select a gateway…</option>
+                      @for (provider of catalogue()?.providers ?? []; track provider.code) {
+                        <option [value]="provider.code">{{ provider.name }}{{ provider.hasAdapter ? '' : ' — no adapter yet' }}</option>
+                      }
+                    </select>
+                    @if (fieldErrors()['provider'] || fieldErrors()['Provider']; as message) { <span class="pg-err">{{ message }}</span> }
+                  </label>
+                  <div class="pg-field">
+                    <span class="pg-lab">Environment <small>{{ form().environment === 'Production' ? 'real money' : 'test only' }}</small></span>
+                    <div class="pg-seg" role="radiogroup" aria-label="Environment">
+                      <button type="button" role="radio" [attr.aria-checked]="form().environment === 'Sandbox'"
+                              [class.is-on]="form().environment === 'Sandbox'" (click)="patch('environment', 'Sandbox')">Sandbox</button>
+                      <button type="button" role="radio" data-env="Production" [attr.aria-checked]="form().environment === 'Production'"
+                              [class.is-on]="form().environment === 'Production'" (click)="patch('environment', 'Production')">Production</button>
+                    </div>
+                  </div>
+                  <label class="pg-field">
+                    <span class="pg-lab">Name for this configuration <small>optional</small></span>
+                    <input type="text" placeholder="e.g. Main Razorpay account"
+                           [ngModel]="form().displayName" (ngModelChange)="patch('displayName', $event)" />
+                  </label>
+                </div>
+                @if (selectedProvider(); as provider) {
+                  @if (!provider.hasAdapter) {
+                    <p class="pg-note" data-ink="warn">
+                      <strong>No adapter for {{ provider.name }} yet.</strong>
+                      The configuration is saved and honoured, but donations fall back to the generic hosted checkout.
+                    </p>
+                  }
+                }
               </div>
             </section>
 
-          </div>
-        </section>
-      }
-
-      <!-- ============================== FORM ============================== -->
-      @if (view() === 'form') {
-        <section>
-          <app-page-header screen="payment-gateway-configuration" [title]="form().id ? 'Edit gateway' : 'New gateway'" subtitle="Enter the credentials the provider issued for this organisation's merchant account.">
-            <span meta class="ph-chip">Payment Gateways</span>
-            <button actions type="button" class="ph-btn ph-btn--ghost" (click)="cancelForm()">Back</button>
-          </app-page-header>
-
-          <div class="form-card">
-
-            <!-- ---------- Gateway ---------- -->
-            <h6 class="section-heading">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/>
-              </svg>
-              Gateway
-            </h6>
-
-            <div class="form-grid">
-              <div class="form-field">
-                <label class="form-label" for="f-provider">
-                  Payment gateway <span class="required">*</span>
-                </label>
-                <select id="f-provider" class="form-control"
-                        [class.is-invalid]="fieldErrors()['provider'] || fieldErrors()['Provider']"
-                        [ngModel]="form().provider" (ngModelChange)="patch('provider', $event)">
-                  <option value="">Select a gateway...</option>
-                  @for (provider of catalogue()?.providers ?? []; track provider.code) {
-                    <option [value]="provider.code">
-                      {{ provider.name }}{{ provider.hasAdapter ? '' : ' — no adapter yet' }}
-                    </option>
-                  }
-                </select>
-                @if (fieldErrors()['provider'] || fieldErrors()['Provider']; as message) {
-                  <span class="validation-message">{{ message }}</span>
-                }
-                @if (selectedProvider(); as provider) {
-                  @if (provider.documentationUrl) {
-                    <small class="field-hint">
-                      <a [href]="provider.documentationUrl" target="_blank" rel="noopener">
-                        Where to find these credentials
-                      </a>
-                    </small>
-                  }
-                }
-              </div>
-
-              <div class="form-field">
-                <label class="form-label">Environment</label>
-                <div class="segmented">
-                  <button type="button" class="segment"
-                          [class.is-selected]="form().environment === 'Sandbox'"
-                          (click)="patch('environment', 'Sandbox')">
-                    Sandbox
-                  </button>
-                  <button type="button" class="segment segment-live"
-                          [class.is-selected]="form().environment === 'Production'"
-                          (click)="patch('environment', 'Production')">
-                    Production
-                  </button>
-                </div>
-                <small class="field-hint">
-                  @if (form().environment === 'Production') {
-                    Real money. Donations settle into this merchant account.
-                  } @else {
-                    Test only. No money moves.
-                  }
-                </small>
-              </div>
-
-              <div class="form-field">
-                <label class="form-label" for="f-display">Name for this configuration</label>
-                <input id="f-display" type="text" class="form-control"
-                       placeholder="e.g. Main Razorpay account"
-                       [ngModel]="form().displayName"
-                       (ngModelChange)="patch('displayName', $event)"/>
-                <small class="field-hint">Shown in the list. Optional.</small>
-              </div>
-            </div>
-
-            @if (selectedProvider(); as provider) {
-              @if (!provider.hasAdapter) {
-                <div class="notice notice-warning">
-                  <span class="notice-icon" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
-                         fill="none" stroke="currentColor" stroke-width="1.8"
-                         stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>
-                      <path d="M12 9v4"/><path d="M12 17h.01"/>
-                    </svg>
-                  </span>
-                  <p>
-                    This platform has no adapter for {{ provider.name }} yet. The configuration
-                    will be saved and honoured, but donations would fall back to the generic
-                    hosted-checkout flow rather than {{ provider.name }}'s own API.
-                  </p>
-                </div>
-              }
-            }
-
-            <!-- ---------- Credentials ---------- -->
-            <h6 class="section-heading">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.2-8.2"/>
-                <path d="m17 6 2 2"/><path d="m14 9 2 2"/>
-              </svg>
-              Credentials
-            </h6>
-
-            <div class="form-grid">
-              <div class="form-field">
-                <label class="form-label" for="f-merchant">
-                  {{ selectedProvider()?.merchantIdLabel ?? 'Merchant ID' }}
-                </label>
-                <input id="f-merchant" type="text" class="form-control"
-                       [class.is-invalid]="fieldErrors()['merchantId']"
-                       [ngModel]="form().merchantId"
-                       (ngModelChange)="patch('merchantId', $event)"/>
-                @if (fieldErrors()['merchantId']; as message) {
-                  <span class="validation-message">{{ message }}</span>
-                }
-              </div>
-
-              <div class="form-field">
-                <label class="form-label" for="f-key">
-                  {{ selectedProvider()?.apiKeyLabel ?? 'API key' }}
-                </label>
-                <input id="f-key" type="text" class="form-control mono"
-                       autocomplete="off" spellcheck="false"
-                       [class.is-invalid]="fieldErrors()['apiKey']"
-                       [disabled]="form().clearApiKey"
-                       [placeholder]="form().existing?.hasApiKey ? 'Leave blank to keep the stored key' : ''"
-                       [ngModel]="form().apiKey" (ngModelChange)="patch('apiKey', $event)"/>
-
-                @if (form().existing?.hasApiKey) {
-                  <small class="field-hint">
-                    Stored: <span class="mono">{{ form().existing?.apiKeyHint }}</span>
-                  </small>
-                  <label class="mini-check">
-                    <input type="checkbox" [ngModel]="form().clearApiKey"
-                           (ngModelChange)="patch('clearApiKey', $event)"/>
-                    Remove the stored key
+            <!-- Credentials -->
+            <section class="pg-box" aria-labelledby="pg-p2">
+              <div class="pg-box__head"><span class="pg-step">2</span><h2 class="pg-h" id="pg-p2">Credentials</h2></div>
+              <div class="pg-box__body">
+                <div class="pg-fields">
+                  <label class="pg-field pg-span-2">
+                    <span class="pg-lab">{{ selectedProvider()?.merchantIdLabel ?? 'Merchant ID' }}</span>
+                    <input type="text" [class.is-invalid]="fieldErrors()['merchantId']"
+                           [ngModel]="form().merchantId" (ngModelChange)="patch('merchantId', $event)" />
+                    @if (fieldErrors()['merchantId']; as message) { <span class="pg-err">{{ message }}</span> }
                   </label>
-                }
-                @if (fieldErrors()['apiKey']; as message) {
-                  <span class="validation-message">{{ message }}</span>
-                }
-              </div>
-
-              <div class="form-field">
-                <label class="form-label" for="f-secret">
-                  {{ selectedProvider()?.secretKeyLabel ?? 'Secret key' }}
-                </label>
-                <input id="f-secret" type="password" class="form-control mono"
-                       autocomplete="new-password" spellcheck="false"
-                       [class.is-invalid]="fieldErrors()['secretKey']"
-                       [disabled]="form().clearSecretKey"
-                       [placeholder]="form().existing?.hasSecretKey ? 'Leave blank to keep the stored secret' : ''"
-                       [ngModel]="form().secretKey" (ngModelChange)="patch('secretKey', $event)"/>
-
-                @if (form().existing?.hasSecretKey) {
-                  <small class="field-hint">A secret is stored.</small>
-                  <label class="mini-check">
-                    <input type="checkbox" [ngModel]="form().clearSecretKey"
-                           (ngModelChange)="patch('clearSecretKey', $event)"/>
-                    Remove the stored secret
-                  </label>
-                }
-                @if (fieldErrors()['secretKey']; as message) {
-                  <span class="validation-message">{{ message }}</span>
-                }
-              </div>
-            </div>
-
-            <!--
-              THE WARNING THIS FORM EXISTS TO SHOW. A live key in a sandbox row moves real money
-              whatever the row says, and the person who just pasted it has no reason to look
-              again. Advisory here; the server refuses the same thing on Test and on activation.
-            -->
-            @if (keyEnvironmentWarning(); as warning) {
-              <div class="notice notice-warning">
-                <span class="notice-icon" aria-hidden="true">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
-                       fill="none" stroke="currentColor" stroke-width="1.8"
-                       stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>
-                    <path d="M12 9v4"/><path d="M12 17h.01"/>
-                  </svg>
-                </span>
-                <p>{{ warning }}</p>
-              </div>
-            }
-
-            <!-- ---------- Webhook ---------- -->
-            <h6 class="section-heading">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/>
-                <path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/>
-                <path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/>
-              </svg>
-              Webhook
-            </h6>
-
-            <div class="form-grid">
-              <div class="form-field form-span-2">
-                <label class="form-label" for="f-webhook">Webhook URL</label>
-                <div class="input-with-action">
-                  <input id="f-webhook" type="url" class="form-control"
-                         [class.is-invalid]="fieldErrors()['webhookUrl']"
-                         placeholder="https://..."
-                         [ngModel]="form().webhookUrl"
-                         (ngModelChange)="patch('webhookUrl', $event)"/>
-                  @if (suggestedWebhookUrl()) {
-                    <button type="button" class="btn-inline" (click)="useSuggestedWebhookUrl()">
-                      Use ours
-                    </button>
-                  }
-                </div>
-                @if (suggestedWebhookUrl(); as suggested) {
-                  <small class="field-hint">
-                    Paste this into the provider's dashboard:
-                    <span class="mono">{{ suggested }}</span>
-                  </small>
-                }
-                @if (fieldErrors()['webhookUrl']; as message) {
-                  <span class="validation-message">{{ message }}</span>
-                }
-              </div>
-
-              <div class="form-field">
-                <label class="form-label" for="f-webhook-secret">Webhook secret token</label>
-                <input id="f-webhook-secret" type="password" class="form-control mono"
-                       autocomplete="new-password" spellcheck="false"
-                       [disabled]="form().clearWebhookSecret"
-                       [placeholder]="form().existing?.hasWebhookSecret ? 'Leave blank to keep the stored token' : ''"
-                       [ngModel]="form().webhookSecret"
-                       (ngModelChange)="patch('webhookSecret', $event)"/>
-                <small class="field-hint">
-                  Without it, a callback claiming a payment succeeded cannot be told from a forged
-                  one.
-                </small>
-                @if (form().existing?.hasWebhookSecret) {
-                  <label class="mini-check">
-                    <input type="checkbox" [ngModel]="form().clearWebhookSecret"
-                           (ngModelChange)="patch('clearWebhookSecret', $event)"/>
-                    Remove the stored token
-                  </label>
-                }
-              </div>
-            </div>
-
-            <div class="form-field form-block">
-              <label class="form-label">Events to receive</label>
-              <div class="option-grid">
-                @for (event of catalogue()?.webhookEvents ?? []; track event.code) {
-                  <label class="option-card"
-                         [class.is-selected]="form().subscribedEvents.includes(event.code)">
-                    <input type="checkbox"
-                           [checked]="form().subscribedEvents.includes(event.code)"
-                           (change)="toggleEvent(event.code, $any($event.target).checked)"/>
-                    <span>
-                      <strong>{{ event.name }}</strong>
-                      <small>{{ event.description }}</small>
-                    </span>
-                  </label>
-                }
-              </div>
-            </div>
-
-            <!-- ---------- Settlement ---------- -->
-            <h6 class="section-heading">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="9"/>
-                <path d="M12 7v10M9 9.5c0-1 1-1.5 3-1.5s3 .5 3 1.5-1 1.5-3 1.5-3 .5-3 1.5 1 1.5 3 1.5 3-.5 3-1.5"/>
-              </svg>
-              Settlement and checkout
-            </h6>
-
-            <div class="form-grid">
-              <div class="form-field">
-                <label class="form-label" for="f-currency">Settlement currency</label>
-                <select id="f-currency" class="form-control"
-                        [class.is-invalid]="fieldErrors()['settlementCurrencyCode']"
-                        [ngModel]="form().settlementCurrencyCode"
-                        (ngModelChange)="patch('settlementCurrencyCode', $event)">
-                      <option value="" disabled>Select Settlement Currency</option>
-                  @for (currency of currencies; track currency) {
-                    <option [value]="currency">{{ currency }}</option>
-                  }
-                </select>
-                <small class="field-hint">
-                  A campaign asking for a different currency cannot be paid out.
-                </small>
-              </div>
-
-              <div class="form-field">
-                <label class="form-label" for="f-validity">Payment link validity</label>
-                <input id="f-validity" type="number" class="form-control" min="15" max="1440"
-                       [class.is-invalid]="fieldErrors()['paymentLinkValidityMinutes']"
-                       [ngModel]="form().paymentLinkValidityMinutes"
-                       (ngModelChange)="patch('paymentLinkValidityMinutes', +$event)"/>
-                <small class="field-hint">Minutes. Between 15 and 1440.</small>
-                @if (fieldErrors()['paymentLinkValidityMinutes']; as message) {
-                  <span class="validation-message">{{ message }}</span>
-                }
-              </div>
-
-              <div class="form-field">
-                <label class="form-label" for="f-return">Return URL after payment</label>
-                <input id="f-return" type="url" class="form-control"
-                       [class.is-invalid]="fieldErrors()['returnUrl']"
-                       placeholder="Leave blank for the platform default"
-                       [ngModel]="form().returnUrl" (ngModelChange)="patch('returnUrl', $event)"/>
-              </div>
-            </div>
-
-            <div class="form-field form-block">
-              <label class="form-label">Payment methods</label>
-              <div class="chip-choices">
-                @for (method of catalogue()?.paymentMethods ?? []; track method.code) {
-                  <label class="chip-choice"
-                         [class.is-selected]="form().enabledMethods.includes(method.code)">
-                    <input type="checkbox"
-                           [checked]="form().enabledMethods.includes(method.code)"
-                           (change)="toggleMethod(method.code, $any($event.target).checked)"/>
-                    {{ method.name }}
-                  </label>
-                }
-              </div>
-              <small class="field-hint">
-                Leave all unticked to accept whatever the merchant account allows.
-              </small>
-            </div>
-
-            <!-- ---------- Status ---------- -->
-            <h6 class="section-heading">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="6.5" width="20" height="11" rx="5.5"/><circle cx="16" cy="12" r="3"/>
-              </svg>
-              Status
-            </h6>
-
-            <div class="form-grid">
-              <div class="form-field">
-                <label class="form-label">Take donations through this gateway</label>
-                <label class="switch">
-                  <input type="checkbox" [ngModel]="form().isActive"
-                         (ngModelChange)="patch('isActive', $event)"/>
-                  <span class="switch-track"><span class="switch-thumb"></span></span>
-                  <span class="switch-text">{{ form().isActive ? 'Active' : 'Inactive' }}</span>
-                </label>
-                <small class="field-hint">
-                  Making this active stands down any other active gateway in the same environment.
-                </small>
-              </div>
-
-              <div class="form-field">
-                <label class="form-label" for="f-reason">Reason for this change</label>
-                <input id="f-reason" type="text" class="form-control"
-                       placeholder="Recorded in the change log"
-                       [ngModel]="form().reason" (ngModelChange)="patch('reason', $event)"/>
-              </div>
-
-              <div class="form-field">
-                <label class="form-label" for="f-notes">Notes</label>
-                <textarea id="f-notes" class="form-control" rows="2"
-                          [ngModel]="form().notes"
-                          (ngModelChange)="patch('notes', $event)"></textarea>
-              </div>
-            </div>
-
-            @if (testResult(); as result) {
-              <div class="notice"
-                   [class.notice-success]="result.succeeded"
-                   [class.notice-danger]="!result.succeeded">
-                <span class="notice-icon" aria-hidden="true">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
-                       fill="none" stroke="currentColor" stroke-width="1.9"
-                       stroke-linecap="round" stroke-linejoin="round">
-                    @if (result.succeeded) {
-                      <path d="m4 12.5 5 5L20 6.5"/>
-                    } @else {
-                      <circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 16h.01"/>
+                  <div class="pg-field">
+                    <label class="pg-lab" for="pg-key">{{ selectedProvider()?.apiKeyLabel ?? 'API key' }}
+                      @if (form().existing?.hasApiKey) { <small class="pg-mono">stored {{ form().existing?.apiKeyHint }}</small> }
+                    </label>
+                    <input id="pg-key" type="text" class="pg-mono" autocomplete="off" spellcheck="false"
+                           [class.is-invalid]="fieldErrors()['apiKey']" [disabled]="form().clearApiKey"
+                           [placeholder]="form().existing?.hasApiKey ? 'Blank keeps the stored key' : ''"
+                           [ngModel]="form().apiKey" (ngModelChange)="patch('apiKey', $event)" />
+                    @if (form().existing?.hasApiKey) {
+                      <label class="pg-tick"><input type="checkbox" [ngModel]="form().clearApiKey" (ngModelChange)="patch('clearApiKey', $event)" /> Remove the stored key</label>
                     }
-                  </svg>
-                </span>
-                <div>
-                  <p>{{ result.message }}</p>
-                  @if (result.reference) {
-                    <span class="notice-meta">
-                      Provider reference <span class="mono">{{ result.reference }}</span>
-                    </span>
+                    @if (fieldErrors()['apiKey']; as message) { <span class="pg-err">{{ message }}</span> }
+                  </div>
+                  <div class="pg-field">
+                    <label class="pg-lab" for="pg-secret">{{ selectedProvider()?.secretKeyLabel ?? 'Secret key' }}
+                      @if (form().existing?.hasSecretKey) { <small>stored</small> }
+                    </label>
+                    <input id="pg-secret" type="password" class="pg-mono" autocomplete="new-password" spellcheck="false"
+                           [class.is-invalid]="fieldErrors()['secretKey']" [disabled]="form().clearSecretKey"
+                           [placeholder]="form().existing?.hasSecretKey ? 'Blank keeps the stored secret' : ''"
+                           [ngModel]="form().secretKey" (ngModelChange)="patch('secretKey', $event)" />
+                    @if (form().existing?.hasSecretKey) {
+                      <label class="pg-tick"><input type="checkbox" [ngModel]="form().clearSecretKey" (ngModelChange)="patch('clearSecretKey', $event)" /> Remove the stored secret</label>
+                    }
+                    @if (fieldErrors()['secretKey']; as message) { <span class="pg-err">{{ message }}</span> }
+                  </div>
+                </div>
+                @if (keyEnvironmentWarning(); as warning) {
+                  <p class="pg-note" data-ink="warn">{{ warning }}</p>
+                }
+              </div>
+            </section>
+
+            <!-- Webhook -->
+            <section class="pg-box pg-rows-2" aria-labelledby="pg-p3">
+              <div class="pg-box__head"><span class="pg-step">3</span><h2 class="pg-h" id="pg-p3">Webhook</h2></div>
+              <div class="pg-box__body">
+                <div class="pg-fields">
+                  <div class="pg-field pg-span-2">
+                    <label class="pg-lab" for="pg-hook">Webhook URL
+                      @if (suggestedWebhookUrl()) { <button type="button" class="pg-btn pg-btn--xs pg-lab__act" (click)="useSuggestedWebhookUrl()">Use ours</button> }
+                    </label>
+                    <input id="pg-hook" type="url" placeholder="https://…" [class.is-invalid]="fieldErrors()['webhookUrl']"
+                           [ngModel]="form().webhookUrl" (ngModelChange)="patch('webhookUrl', $event)" />
+                    @if (suggestedWebhookUrl(); as suggested) {
+                      <span class="pg-hint">Paste into the provider's dashboard: <span class="pg-mono">{{ suggested }}</span></span>
+                    }
+                    @if (fieldErrors()['webhookUrl']; as message) { <span class="pg-err">{{ message }}</span> }
+                  </div>
+                  <div class="pg-field pg-span-2">
+                    <label class="pg-lab" for="pg-hooksecret">Signing token</label>
+                    <input id="pg-hooksecret" type="password" class="pg-mono" autocomplete="new-password" spellcheck="false"
+                           [disabled]="form().clearWebhookSecret"
+                           [placeholder]="form().existing?.hasWebhookSecret ? 'Blank keeps the stored token' : 'Tells real callbacks from forged ones'"
+                           [ngModel]="form().webhookSecret" (ngModelChange)="patch('webhookSecret', $event)" />
+                    @if (form().existing?.hasWebhookSecret) {
+                      <label class="pg-tick"><input type="checkbox" [ngModel]="form().clearWebhookSecret" (ngModelChange)="patch('clearWebhookSecret', $event)" /> Remove the stored token</label>
+                    }
+                  </div>
+                  <div class="pg-field pg-span-2">
+                    <span class="pg-lab">Events to receive</span>
+                    <div class="pg-opts">
+                      @for (event of catalogue()?.webhookEvents ?? []; track event.code) {
+                        <label class="pg-opt" [class.is-on]="form().subscribedEvents.includes(event.code)" [title]="event.description">
+                          <input type="checkbox" [checked]="form().subscribedEvents.includes(event.code)"
+                                 (change)="toggleEvent(event.code, $any($event.target).checked)" />
+                          <span><strong>{{ event.name }}</strong><small>{{ event.description }}</small></span>
+                        </label>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Settlement and checkout -->
+            <section class="pg-box" aria-labelledby="pg-p4">
+              <div class="pg-box__head"><span class="pg-step">4</span><h2 class="pg-h" id="pg-p4">Settlement and checkout</h2></div>
+              <div class="pg-box__body">
+                <div class="pg-fields">
+                  <label class="pg-field">
+                    <span class="pg-lab">Settlement currency</span>
+                    <select [class.is-invalid]="fieldErrors()['settlementCurrencyCode']"
+                            [ngModel]="form().settlementCurrencyCode" (ngModelChange)="patch('settlementCurrencyCode', $event)">
+                      <option value="" disabled>Select currency</option>
+                      @for (currency of currencies; track currency) { <option [value]="currency">{{ currency }}</option> }
+                    </select>
+                  </label>
+                  <label class="pg-field">
+                    <span class="pg-lab">Link validity <small>15–1440 min</small></span>
+                    <input type="number" min="15" max="1440" [class.is-invalid]="fieldErrors()['paymentLinkValidityMinutes']"
+                           [ngModel]="form().paymentLinkValidityMinutes" (ngModelChange)="patch('paymentLinkValidityMinutes', +$event)" />
+                    @if (fieldErrors()['paymentLinkValidityMinutes']; as message) { <span class="pg-err">{{ message }}</span> }
+                  </label>
+                  <label class="pg-field pg-span-2">
+                    <span class="pg-lab">Return URL after payment</span>
+                    <input type="url" placeholder="Platform default" [class.is-invalid]="fieldErrors()['returnUrl']"
+                           [ngModel]="form().returnUrl" (ngModelChange)="patch('returnUrl', $event)" />
+                  </label>
+                  <div class="pg-field pg-span-2">
+                    <span class="pg-lab">Payment methods <small>none ticked = whatever the account allows</small></span>
+                    <div class="pg-opts pg-opts--flow">
+                      @for (method of catalogue()?.paymentMethods ?? []; track method.code) {
+                        <label class="pg-opt pg-opt--one" [class.is-on]="form().enabledMethods.includes(method.code)">
+                          <input type="checkbox" [checked]="form().enabledMethods.includes(method.code)"
+                                 (change)="toggleMethod(method.code, $any($event.target).checked)" />
+                          <span><strong>{{ method.name }}</strong></span>
+                        </label>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Status -->
+            <section class="pg-box pg-status" aria-labelledby="pg-p5">
+              <div class="pg-box__head"><span class="pg-step">5</span><h2 class="pg-h" id="pg-p5">Status</h2>
+                <button type="button" role="switch" class="pg-switch pg-switch--head" [class.is-on]="form().isActive"
+                        [attr.aria-checked]="form().isActive" aria-label="Take donations through this gateway"
+                        title="Take donations through this gateway"
+                        (click)="patch('isActive', !form().isActive)">
+                  <span class="pg-switch__txt">{{ form().isActive ? 'Active' : 'Inactive' }}</span>
+                  <span class="pg-switch__knob"></span>
+                </button>
+              </div>
+              <div class="pg-box__body">
+                <div class="pg-fields">
+                  <label class="pg-field">
+                    <span class="pg-lab">Reason for this change</span>
+                    <input type="text" placeholder="Recorded in the change log" [ngModel]="form().reason" (ngModelChange)="patch('reason', $event)" />
+                  </label>
+                  <label class="pg-field">
+                    <span class="pg-lab">Notes</span>
+                    <input type="text" [ngModel]="form().notes" (ngModelChange)="patch('notes', $event)" />
+                  </label>
+                </div>
+              </div>
+            </section>
+          </div>
+        }
+
+        <!-- ============================== DETAIL ============================== -->
+        <!-- "Gateway profile": a header card (back | kicker, title | actions; four key facts; notices in its foot),
+             then paired cards that end level: Merchant account | Credentials, Webhook & events | Checkout,
+             Connection test | Record. The change log card below narrows to this gateway. -->
+        @if (view() === 'detail') {
+          @if (selected(); as d) {
+            <header class="pg-box pgd-head">
+              <div class="pgd-head__row">
+                <button type="button" class="pg-btn pg-btn--glyph" (click)="closeDetails()" title="Back to gateways (Esc)" aria-label="Back to gateways">
+                  <i class="ri-arrow-left-line" aria-hidden="true"></i>
+                </button>
+
+                <div class="pg-who pgd-who">
+                  <span class="pg-kicker">
+                    Payment gateways <i aria-hidden="true">·</i> {{ isInherited(d) ? 'Deployment gateway' : 'Configured here' }}
+                  </span>
+                  <div class="pgd-titleline">
+                    <h1 class="pg-title">{{ d.providerName }}</h1>
+                    @if (d.displayName) { <span class="pgd-alias">{{ d.displayName }}</span> }
+                    @if (d.isSuperseded) { <span class="pgd-flag" data-ink="muted">Superseded</span> }
+                    @if (!d.isAdapterAvailable) { <span class="pgd-flag" data-ink="warn">No adapter yet</span> }
+                    @if (needsAttention(d)) { <span class="pgd-flag" data-ink="bad">Needs attention</span> }
+                  </div>
+                </div>
+
+                <div class="pg-acts">
+                  @if (isInherited(d)) {
+                    @if (canManage()) {
+                      <button type="button" class="pg-btn pg-btn--primary" (click)="startCreateFrom(d)">
+                        <i class="ri-key-2-line" aria-hidden="true"></i>Configure your own keys
+                      </button>
+                    }
+                  } @else {
+                    @if (can(d, 'activate') || can(d, 'deactivate') || can(d, 'delete')) {
+                      <span class="pg-menu-wrap">
+                        <button #pgdMore type="button" class="pg-btn" aria-haspopup="menu"
+                                [attr.aria-expanded]="menuFor() === d.id" (click)="toggleMenu(d.id)">
+                          More<i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+                        </button>
+                        @if (menuFor() === d.id) {
+                          <span class="pg-menu" role="menu" appClickOutside [clickOutsideExcept]="pgdMore" (appClickOutside)="menuFor.set(null)">
+                            @if (can(d, 'activate')) {
+                              <button type="button" role="menuitem" [disabled]="busyId() === d.id" (click)="menuFor.set(null); toggleActive(d)">Make active</button>
+                            }
+                            @if (can(d, 'deactivate')) {
+                              <button type="button" role="menuitem" [disabled]="busyId() === d.id" (click)="menuFor.set(null); toggleActive(d)">Stand down</button>
+                            }
+                            @if (can(d, 'delete')) {
+                              <button type="button" role="menuitem" class="is-bad" [disabled]="busyId() === d.id" (click)="menuFor.set(null); askToDelete(d)">Delete</button>
+                            }
+                          </span>
+                        }
+                      </span>
+                    }
+                    @if (can(d, 'edit')) {
+                      <button type="button" class="pg-btn pg-btn--primary" (click)="startEdit(d)">
+                        <i class="ri-pencil-line" aria-hidden="true"></i>Edit gateway
+                      </button>
+                    }
                   }
                 </div>
               </div>
-            }
 
-            <div class="form-actions">
-              <button type="button" class="btn-outline" (click)="cancelForm()">Cancel</button>
+              <dl class="pgd-facts">
+                <div class="pgd-fact" [attr.data-ink]="d.isActive && !d.isSuperseded ? 'ok' : 'muted'">
+                  <dt>Status</dt>
+                  <dd><span class="pg-dot"></span>{{ d.isActive && !d.isSuperseded ? 'Taking donations' : 'Inactive' }}</dd>
+                  <small>{{ d.isSuperseded ? 'Your own configuration replaced it' : d.isActive ? 'New donations go through it' : 'Not used for donations' }}</small>
+                </div>
+                <div class="pgd-fact" [attr.data-ink]="d.environment === 'Production' ? 'live' : 'muted'">
+                  <dt>Environment</dt>
+                  <dd>{{ d.environment }}</dd>
+                  <small>{{ d.environment === 'Production' ? 'Moves real money' : 'Test payments only' }}</small>
+                </div>
+                <div class="pgd-fact" data-ink="acc">
+                  <dt>Settlement</dt>
+                  <dd class="pg-mono">{{ d.settlementCurrencyCode || '—' }}</dd>
+                  <small>Paid out to the merchant account</small>
+                </div>
+              </dl>
 
-              <!--
-                TEST IS OFFERED ONLY ON A SAVED CONFIGURATION, and that is not a limitation to
-                apologise for: the test uses the STORED credentials, which is the only thing that
-                tells you whether a donation would work. Testing what is in the boxes would prove
-                the typing, not the configuration.
-              -->
-              @if (form().id && canTest()) {
-                <button type="button" class="btn-secondary" [disabled]="testing() !== null"
-                        (click)="test(form().existing!)">
-                  {{ testing() ? 'Testing...' : 'Test connection' }}
-                </button>
+              @if (testResult(); as result) {
+                @if (result.configurationId === d.id) {
+                  <p class="pgd-notice" [attr.data-ink]="result.succeeded ? 'ok' : 'bad'">
+                    <i [class]="result.succeeded ? 'ri-checkbox-circle-line' : 'ri-close-circle-line'" aria-hidden="true"></i>
+                    <span><strong>{{ result.succeeded ? 'Connection works.' : 'Connection failed.' }}</strong> {{ result.message }}
+                    <span class="pg-mono pg-faint">@if (result.reference) { ref {{ result.reference }} · }{{ result.durationMilliseconds }} ms</span></span>
+                  </p>
+                }
               }
+            </header>
 
-              <button type="button" class="btn-create" [disabled]="saving()" (click)="save()">
-                {{ saving() ? 'Saving...' : 'Save gateway' }}
-              </button>
-            </div>
-          </div>
-        </section>
-      }
-
-      <!-- ============================== CHANGE LOG ============================== -->
-      <section class="table-pane audit-pane">
-        <div class="table-pane-header">
-          <div>
-            <span class="table-kicker">Audit</span>
-            <h2>
-              Change log
-              @if (auditConfigurationId()) { <span class="flag flag-muted">One gateway</span> }
-            </h2>
-          </div>
-
-          <div class="audit-header-actions">
-            @if (auditConfigurationId()) {
-              <button type="button" class="btn-link" (click)="showAuditFor(null)">
-                Show all gateways
-              </button>
-            }
-            <button type="button" class="btn-outline sm"
-                    (click)="auditVisible.set(!auditVisible())">
-              {{ auditVisible() ? 'Hide' : 'Show' }}
-            </button>
-          </div>
-        </div>
-
-        @if (auditVisible()) {
-          <div class="audit-filters">
-            <label class="filter-field">
-              <span class="filter-label">Action</span>
-              <select class="filter-select" [ngModel]="auditAction()"
-                      (ngModelChange)="auditAction.set($event); applyAuditFilters()">
-                <option value="">All actions</option>
-                @for (action of auditActions; track action) {
-                  <option [value]="action">{{ action }}</option>
-                }
-              </select>
-            </label>
-
-            <label class="filter-field">
-              <span class="filter-label">From</span>
-              <input type="date" class="filter-select" [ngModel]="auditFrom()"
-                     (ngModelChange)="auditFrom.set($event); applyAuditFilters()"/>
-            </label>
-
-            <label class="filter-field">
-              <span class="filter-label">To</span>
-              <input type="date" class="filter-select" [ngModel]="auditTo()"
-                     (ngModelChange)="auditTo.set($event); applyAuditFilters()"/>
-            </label>
-
-            <button type="button" class="btn-clear" (click)="clearAuditFilters()">Clear</button>
-          </div>
-
-          <div class="table-responsive">
-            <table class="data-table1">
-              <thead>
-                <tr>
-                  <th class="col-when">When</th>
-                  <th class="col-who">User</th>
-                  <th class="col-action-name">Action</th>
-                  <th class="hide-sm col-field">Field</th>
-                  <th class="col-old">Old value</th>
-                  <th class="col-new">New value</th>
-                  <th class="hide-lg col-reason">Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                @if (auditLoading()) {
-                  <tr>
-                    <td colspan="7" class="empty-state">
-                      <div class="empty-content"><div class="spinner"></div></div>
-                    </td>
-                  </tr>
-                } @else if (auditEntries().length === 0) {
-                  <tr>
-                    <td colspan="7" class="empty-state">
-                      <div class="empty-content">
-                        <p>Nothing has been changed yet</p>
-                        <span>Every save, activation and test will appear here.</span>
+            <div class="pgd-cols">
+              <div class="pgd-col">
+                <!-- Merchant account -->
+                <section class="pg-box" aria-labelledby="pgd-acct">
+                  <div class="pg-box__head pgd-cardhead">
+                    <i class="ri-store-2-line" aria-hidden="true"></i><h2 class="pg-h" id="pgd-acct">Merchant account</h2>
+                  </div>
+                  <dl class="pgd-fields pgd-fields--2">
+                    <div><dt>Organisation</dt><dd>{{ d.organisationName || '—' }}@if (d.organisationCode) { <small class="pg-mono">{{ d.organisationCode }}</small> }</dd></div>
+                    <div><dt>Merchant ID</dt>
+                      <dd class="pgd-copyline">
+                        <span class="pg-mono" [title]="d.merchantId ?? ''">{{ d.merchantId || '—' }}</span>
+                        @if (d.merchantId) {
+                          <button type="button" class="pgd-copy" (click)="copy(d.merchantId, 'Merchant ID')" title="Copy merchant ID" aria-label="Copy merchant ID"><i class="ri-file-copy-line" aria-hidden="true"></i></button>
+                        }
+                      </dd>
+                    </div>
+                    @if (isInherited(d)) {
+                      <div><dt>Key section</dt><dd class="pg-mono">{{ d.deploymentKeyReference ?? 'Not deployed' }}</dd></div>
+                    } @else {
+                      <div><dt>API key</dt>
+                        <dd><span class="pg-state" [attr.data-ink]="d.hasApiKey ? 'ok' : 'bad'"><span class="pg-dot"></span>@if (d.hasApiKey) { <span class="pg-mono">{{ d.apiKeyHint }}</span> } @else { Not set }</span></dd>
                       </div>
-                    </td>
-                  </tr>
-                } @else {
-                  @for (entry of auditEntries(); track trackById($index, entry)) {
-                    <tr>
-                      <td class="nowrap">
-                        <div class="name-cell">
-                          <span class="name-primary">
-                            {{ entry.occurredAtUtc | date: 'dd MMM yyyy' }}
-                          </span>
-                          <span class="name-secondary">
-                            {{ entry.occurredAtUtc | date: 'HH:mm' }}
-                          </span>
-                        </div>
-                      </td>
+                    }
+                    <div><dt>Secret key</dt>
+                      <dd><span class="pg-state" [attr.data-ink]="isInherited(d) || d.hasSecretKey ? 'ok' : 'bad'"><span class="pg-dot"></span>{{ isInherited(d) || d.hasSecretKey ? 'Stored' : 'Not set' }}</span></dd>
+                    </div>
+                    <div><dt>Settlement currency</dt><dd class="pg-mono">{{ d.settlementCurrencyCode || '—' }}</dd></div>
+                    <div><dt>Link validity</dt><dd>{{ d.paymentLinkValidityMinutes }} minutes</dd></div>
+                  </dl>
+                </section>
 
-                      <td>
-                        <div class="name-cell">
-                          <span class="name-primary">{{ entry.actorDisplayName ?? 'System' }}</span>
-                          @if (isSuperAdmin() && entry.organisationName) {
-                            <span class="name-secondary">{{ entry.organisationName }}</span>
-                          }
-                        </div>
-                      </td>
+                <!-- Checkout -->
+                <section class="pg-box" aria-labelledby="pgd-checkout">
+                  <div class="pg-box__head pgd-cardhead">
+                    <i class="ri-secure-payment-line" aria-hidden="true"></i><h2 class="pg-h" id="pgd-checkout">Checkout</h2>
+                    <span class="pgd-meta">{{ d.enabledMethods.length === 0 ? 'Account default' : d.enabledMethods.length + ' methods chosen' }}</span>
+                  </div>
+                  <div class="pgd-body">
+                    <div class="pgd-field">
+                      <span class="pgd-sublab">Payment methods</span>
+                      <ul class="pgd-methods">
+                        @for (method of chosenMethods(); track method.code) {
+                          <li><i class="ri-check-line" aria-hidden="true"></i>{{ method.name }}</li>
+                        } @empty {
+                          <li><i class="ri-check-line" aria-hidden="true"></i>Whatever the account allows</li>
+                        }
+                      </ul>
+                    </div>
+                    <div class="pgd-field">
+                      <span class="pgd-sublab">Return URL</span>
+                      <span class="pgd-val" [class.pg-mono]="!!d.returnUrl" [title]="d.returnUrl ?? ''">{{ d.returnUrl || 'Platform default' }}</span>
+                    </div>
+                  </div>
+                </section>
 
-                      <td>
-                        <span class="tone-pill" [class]="auditTone(entry.action)">
-                          {{ entry.action }}
-                        </span>
-                        <div class="name-secondary">
-                          {{ entry.provider }} &middot; {{ entry.environment }}
-                        </div>
-                      </td>
+                <!-- Record -->
+                <section class="pg-box" aria-labelledby="pgd-rec">
+                  <div class="pg-box__head pgd-cardhead">
+                    <i class="ri-file-list-3-line" aria-hidden="true"></i><h2 class="pg-h" id="pgd-rec">Record</h2>
+                  </div>
+                  <dl class="pgd-fields pgd-fields--2">
+                    <div><dt>Created</dt><dd>{{ d.createdAtUtc | date: 'dd MMM yyyy' }}</dd></div>
+                    <div><dt>Last changed</dt><dd>{{ d.updatedAtUtc ? (d.updatedAtUtc | date: 'dd MMM yyyy, HH:mm') : '—' }}</dd></div>
+                  </dl>
+                </section>
+              </div>
 
-                      <td class="hide-sm">{{ entry.fieldLabel ?? '—' }}</td>
-                      <td class="value-cell muted">{{ entry.oldValue ?? '—' }}</td>
-                      <td class="value-cell">{{ entry.newValue ?? '—' }}</td>
-                      <td class="hide-lg value-cell muted">{{ entry.reason ?? '—' }}</td>
-                    </tr>
-                  }
-                }
-              </tbody>
-            </table>
-          </div>
+              <div class="pgd-col">
+                <!-- Webhook -->
+                <section class="pg-box" aria-labelledby="pgd-hook">
+                  <div class="pg-box__head pgd-cardhead">
+                    <i class="ri-webhook-line" aria-hidden="true"></i><h2 class="pg-h" id="pgd-hook">Webhook</h2>
+                    <span class="pgd-meta">{{ d.subscribedEvents.length }} of {{ detailEvents().length }} events</span>
+                  </div>
+                  <div class="pgd-body">
+                    <div class="pgd-field">
+                      <span class="pgd-sublab">Webhook URL</span>
+                      <div class="pgd-addr__line">
+                        @if (d.webhookUrl) {
+                          <span class="pg-mono" [title]="d.webhookUrl">{{ d.webhookUrl }}</span>
+                          <button type="button" class="pg-btn pg-btn--sm" (click)="copy(d.webhookUrl, 'Webhook URL')"><i class="ri-file-copy-line" aria-hidden="true"></i>Copy</button>
+                        } @else {
+                          <span class="pgd-none">Not set. The provider will not report payments back.</span>
+                        }
+                      </div>
+                    </div>
+                    <div class="pgd-field">
+                      <span class="pgd-sublab">Signing token</span>
+                      <span class="pg-state" [attr.data-ink]="d.hasWebhookSecret ? 'ok' : 'muted'"><span class="pg-dot"></span>{{ d.hasWebhookSecret ? 'Stored' : 'Not set' }}</span>
+                    </div>
+                    <div class="pgd-field">
+                      <span class="pgd-sublab">Events</span>
+                      <ul class="pgd-list">
+                        @for (event of detailEvents(); track event.code) {
+                          <li [class.is-off]="!event.on">
+                            <i [class]="event.on ? 'ri-checkbox-circle-line' : 'ri-subtract-line'" aria-hidden="true"></i>
+                            <span><strong>{{ event.name }}</strong>@if (event.description) { <small [title]="event.description">{{ event.description }}</small> }</span>
+                          </li>
+                        } @empty {
+                          <li class="is-off"><i class="ri-subtract-line" aria-hidden="true"></i><span><strong>No events received</strong></span></li>
+                        }
+                      </ul>
+                    </div>
+                  </div>
+                </section>
 
-          @if (auditTotalPages() > 1) {
-            <div class="pagination-bar">
-              <span class="entries-label">
-                {{ auditTotal() }} entries &middot; page {{ auditPage() }} of {{ auditTotalPages() }}
-              </span>
-              <nav class="pagination-nav" aria-label="Change log pagination">
-                <button type="button" class="page-btn" [disabled]="auditPage() === 1"
-                        (click)="goToAuditPage(auditPage() - 1)" aria-label="Previous page">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
-                       fill="none" stroke="currentColor" stroke-width="2"
-                       stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                </button>
-                <button type="button" class="page-btn"
-                        [disabled]="auditPage() === auditTotalPages()"
-                        (click)="goToAuditPage(auditPage() + 1)" aria-label="Next page">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
-                       fill="none" stroke="currentColor" stroke-width="2"
-                       stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                </button>
-              </nav>
+                <!-- Notes -->
+                <section class="pg-box" aria-labelledby="pgd-notes">
+                  <div class="pg-box__head pgd-cardhead">
+                    <i class="ri-sticky-note-line" aria-hidden="true"></i><h2 class="pg-h" id="pgd-notes">Notes</h2>
+                  </div>
+                  <p class="pgd-para">{{ d.notes || 'No notes.' }}</p>
+                </section>
+              </div>
             </div>
+
           }
         }
-      </section>
 
-      <!-- ============================== DETAILS DRAWER ==============================
-           OFF-CANVAS, NOT A COLUMN BESIDE THE TABLE. As an in-flow flex pane it competed
-           with the table for width: at anything under a very wide screen the two together
-           overflowed the page, which pushed the filter bar off the right edge and left the
-           drawer itself half off-screen. Fixed to the viewport, it cannot do that at any
-           width, and the table gets the full row back. -->
-      @if (selected(); as detail) {
-        <div class="drawer-backdrop" (click)="closeDetails()"></div>
-        <aside class="details-pane" aria-label="Gateway details">
-          <div class="details-header">
-            <div class="details-title-row">
-              <span class="provider-avatar lg" [attr.data-provider]="detail.provider">
-                {{ detail.providerName.charAt(0) }}
-              </span>
-              <div>
-                <span class="details-kicker">
-                  @if (isInherited(detail)) { Deployment gateway } @else { Gateway configuration }
-                </span>
-                <h2>{{ detail.providerName }}</h2>
-              </div>
-            </div>
-            <button type="button" class="details-close" (click)="closeDetails()"
-                    title="Close details" aria-label="Close details">
-              <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="1.9"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 6l12 12"/><path d="M18 6L6 18"/>
-              </svg>
-            </button>
-          </div>
-
-          <div class="details-hero">
-            <div>
-              <span class="env-pill"
-                    [class.env-production]="detail.environment === 'Production'"
-                    [class.env-sandbox]="detail.environment === 'Sandbox'">
-                {{ detail.environment }}
-              </span>
-              <span class="details-currency">{{ detail.settlementCurrencyCode }}</span>
-            </div>
-            <span class="status-pill"
-                  [class.active]="detail.isActive && !detail.isSuperseded"
-                  [class.inactive]="!detail.isActive || detail.isSuperseded">
-              <span class="status-dot"></span>
-              {{ detail.isActive && !detail.isSuperseded ? 'Active' : 'Inactive' }}
-            </span>
-          </div>
-
-          <div class="details-scroll">
-            @if (isInherited(detail)) {
-              <div class="notice notice-muted">
-                <span class="notice-icon" aria-hidden="true">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
-                       fill="none" stroke="currentColor" stroke-width="1.8"
-                       stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
-                  </svg>
-                </span>
-                <div>
-                  <p>
-                    This gateway was set up for the organisation by the deployment, and its
-                    keys live in the server's environment rather than in this application.
-                    It cannot be edited or tested here.
-                  </p>
-                  @if (canManage()) {
-                    <button type="button" class="btn-outline mt" (click)="startCreateFrom(detail)">
-                      Configure your own keys
-                    </button>
-                  }
-                </div>
-              </div>
-            }
-
-            <section class="detail-section">
-              <h3 class="section-title">Merchant account</h3>
-              <div class="detail-grid">
-                @if (detail.organisationName) {
-                  <div class="detail-item">
-                    <span class="detail-label">Organisation</span>
-                    <span class="detail-value">{{ detail.organisationName }}</span>
-                  </div>
-                }
-                <div class="detail-item">
-                  <span class="detail-label">Merchant ID</span>
-                  <span class="detail-value mono">{{ detail.merchantId || '—' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">
-                    @if (isInherited(detail)) { Key section } @else { API key }
-                  </span>
-                  <span class="detail-value mono">
-                    @if (isInherited(detail)) {
-                      {{ detail.deploymentKeyReference ?? '—' }}
-                    } @else {
-                      {{ detail.apiKeyHint ?? 'Not set' }}
-                    }
-                  </span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">Secret key</span>
-                  <span class="detail-value">
-                    {{ detail.hasSecretKey ? 'Stored' : 'Not set' }}
-                  </span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">Settlement currency</span>
-                  <span class="detail-value">{{ detail.settlementCurrencyCode }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">Link validity</span>
-                  <span class="detail-value">{{ detail.paymentLinkValidityMinutes }} minutes</span>
-                </div>
-              </div>
-            </section>
-
-            <section class="detail-section">
-              <h3 class="section-title">Webhook</h3>
-              <div class="detail-grid">
-                <div class="detail-item detail-span-2">
-                  <span class="detail-label">Webhook URL</span>
-                  <span class="detail-value mono break">{{ detail.webhookUrl || '—' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">Signing token</span>
-                  <span class="detail-value">
-                    {{ detail.hasWebhookSecret ? 'Stored' : 'Not set' }}
-                  </span>
-                </div>
-                <div class="detail-item detail-span-2">
-                  <span class="detail-label">Events</span>
-                  <span class="detail-value">
-                    @if (detail.subscribedEvents.length === 0) {
-                      —
-                    } @else {
-                      <span class="chip-row">
-                        @for (event of detail.subscribedEvents; track event) {
-                          <span class="chip">{{ eventName(event) }}</span>
-                        }
-                      </span>
-                    }
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            <section class="detail-section">
-              <h3 class="section-title">Checkout</h3>
-              <div class="detail-grid">
-                <div class="detail-item detail-span-2">
-                  <span class="detail-label">Return URL</span>
-                  <span class="detail-value mono break">{{ detail.returnUrl || 'Platform default' }}</span>
-                </div>
-                <div class="detail-item detail-span-2">
-                  <span class="detail-label">Payment methods</span>
-                  <span class="detail-value">
-                    @if (detail.enabledMethods.length === 0) {
-                      Whatever the merchant account allows
-                    } @else {
-                      <span class="chip-row">
-                        @for (method of detail.enabledMethods; track method) {
-                          <span class="chip">{{ methodName(method) }}</span>
-                        }
-                      </span>
-                    }
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            @if (!isInherited(detail)) {
-              <section class="detail-section">
-                <h3 class="section-title">Last test</h3>
-                @if (detail.lastTestedAtUtc) {
-                  <div class="detail-grid">
-                    <div class="detail-item">
-                      <span class="detail-label">Outcome</span>
-                      <span class="detail-value"
-                            [class.is-success]="detail.lastTestSucceeded"
-                            [class.is-danger]="!detail.lastTestSucceeded">
-                        {{ detail.lastTestSucceeded ? 'Passed' : 'Failed' }}
-                      </span>
-                    </div>
-                    <div class="detail-item">
-                      <span class="detail-label">When</span>
-                      <span class="detail-value">
-                        {{ detail.lastTestedAtUtc | date: 'dd MMM yyyy, HH:mm' }}
-                      </span>
-                    </div>
-                    <div class="detail-item detail-span-2">
-                      <span class="detail-label">Message</span>
-                      <span class="detail-value">{{ detail.lastTestMessage }}</span>
-                    </div>
-                  </div>
-                } @else {
-                  <p class="detail-empty">This gateway has never been tested.</p>
-                }
-              </section>
-            }
-
-            @if (detail.notes) {
-              <section class="detail-section">
-                <h3 class="section-title">Notes</h3>
-                <p class="detail-note">{{ detail.notes }}</p>
-              </section>
-            }
-
-            <section class="detail-section">
-              <h3 class="section-title">Record</h3>
-              <div class="detail-grid">
-                <div class="detail-item">
-                  <span class="detail-label">Created</span>
-                  <span class="detail-value">{{ detail.createdAtUtc | date: 'dd MMM yyyy' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">Last changed</span>
-                  <span class="detail-value">
-                    {{ detail.updatedAtUtc ? (detail.updatedAtUtc | date: 'dd MMM yyyy') : '—' }}
-                  </span>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          @if (!isInherited(detail)) {
-            <div class="details-footer">
-              <button type="button" class="btn-outline" (click)="showAuditFor(detail)">
-                View history
-              </button>
-              @if (can(detail, 'edit')) {
-                <button type="button" class="btn-create" (click)="startEdit(detail)">
-                  Edit gateway
-                </button>
+        <!-- ============================== CHANGE LOG ============================== -->
+        <section class="pg-box" aria-labelledby="pg-log-h">
+          <div class="pg-box__head">
+            <h2 class="pg-h" id="pg-log-h">Change log</h2>
+            <span class="pg-count">{{ auditTotal() }}</span>
+            @if (auditConfigurationId()) {
+              @if (view() === 'detail') {
+                <span class="pg-scope">This gateway</span>
+              } @else {
+                <span class="pg-scope">One gateway <button type="button" class="pg-btn pg-btn--xs" (click)="showAuditFor(null)">Show all</button></span>
               }
+            }
+            <div class="pg-tools">
+              @if (auditVisible()) {
+                <label class="pg-filter">
+                  <span>Action</span>
+                  <select [ngModel]="auditAction()" (ngModelChange)="auditAction.set($event); applyAuditFilters()">
+                    <option value="">All</option>
+                    @for (action of auditActions; track action) { <option [value]="action">{{ action }}</option> }
+                  </select>
+                </label>
+                <label class="pg-filter">
+                  <span>From</span>
+                  <input type="date" [ngModel]="auditFrom()" (ngModelChange)="auditFrom.set($event); applyAuditFilters()" />
+                </label>
+                <label class="pg-filter">
+                  <span>To</span>
+                  <input type="date" [ngModel]="auditTo()" (ngModelChange)="auditTo.set($event); applyAuditFilters()" />
+                </label>
+                <button type="button" class="pg-btn pg-btn--sm" (click)="clearAuditFilters()">Clear</button>
+              }
+              <button type="button" class="pg-btn pg-btn--sm" (click)="auditVisible.set(!auditVisible())">{{ auditVisible() ? 'Hide' : 'Show' }}</button>
             </div>
+          </div>
+
+          @if (auditVisible()) {
+            <div class="pg-tablewrap">
+              <table class="pg-table pg-table--log">
+                <thead>
+                  <tr>
+                    <th class="pg-c-when">When</th>
+                    <th class="pg-c-by">By</th>
+                    <th class="pg-c-action">Action</th>
+                    <th class="pg-c-field">Field</th>
+                    <th>Was</th>
+                    <th>Now</th>
+                    <th class="pg-c-reason">Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @if (auditLoading()) {
+                    <tr class="pg-msg"><td colspan="7"><div class="pg-empty"><p>Loading the change log…</p></div></td></tr>
+                  } @else if (auditEntries().length === 0) {
+                    <tr class="pg-msg"><td colspan="7"><div class="pg-empty"><p><strong>Nothing has been changed yet.</strong> Every save, activation and test appears here.</p></div></td></tr>
+                  } @else {
+                    @for (entry of auditEntries(); track trackById($index, entry)) {
+                      <tr>
+                        <td class="pg-c-when"><span class="pg-two"><strong class="pg-mono">{{ entry.occurredAtUtc | date: 'dd MMM yyyy' }}</strong><small class="pg-mono">{{ entry.occurredAtUtc | date: 'HH:mm' }}</small></span></td>
+                        <td class="pg-c-by"><span class="pg-two"><strong>{{ entry.actorDisplayName ?? 'System' }}</strong>
+                          @if (isSuperAdmin() && entry.organisationName) { <small>{{ entry.organisationName }}</small> }</span></td>
+                        <td class="pg-c-action"><span class="pg-two">
+                          <strong class="pg-state" [attr.data-ink]="auditTone(entry.action)"><span class="pg-dot"></span>{{ entry.action }}</strong>
+                          <small>{{ entry.provider }} · {{ entry.environment }}</small></span></td>
+                        <td class="pg-c-field">{{ entry.fieldLabel ?? '—' }}</td>
+                        <td class="pg-faint" [title]="entry.oldValue ?? ''">{{ entry.oldValue ?? '—' }}</td>
+                        <td [title]="entry.newValue ?? ''">{{ entry.newValue ?? '—' }}</td>
+                        <td class="pg-faint pg-c-reason" [title]="entry.reason ?? ''">{{ entry.reason ?? '—' }}</td>
+                      </tr>
+                    }
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            @if (auditTotalPages() > 1) {
+              <footer class="pg-box__foot">
+                <span class="pg-size"><span>{{ auditTotal() }} entries · page {{ auditPage() }} of {{ auditTotalPages() }}</span></span>
+                <nav class="pg-pages" aria-label="Change log pages">
+                  <button type="button" class="pg-page" [disabled]="auditPage() === 1" (click)="goToAuditPage(auditPage() - 1)" aria-label="Previous page">‹</button>
+                  <button type="button" class="pg-page" [disabled]="auditPage() === auditTotalPages()" (click)="goToAuditPage(auditPage() + 1)" aria-label="Next page">›</button>
+                </nav>
+              </footer>
+            }
           }
-        </aside>
-      }
+        </section>
 
-      <!-- ============================== DELETE ============================== -->
-      @if (deleteTarget(); as target) {
-        <div class="modal-backdrop" (click)="cancelDelete()"></div>
-        <div class="modal-dialog" role="dialog" aria-modal="true">
-          <div class="modal-head">
-            <h3>Delete {{ label(target) }}</h3>
-          </div>
-          <div class="modal-body">
-            <p class="modal-lead">
-              The configuration is removed. The change log is kept, including this deletion.
-            </p>
-            <label class="form-label" for="d-reason">
-              Why is it being removed? <span class="required">*</span>
-            </label>
-            <textarea id="d-reason" class="form-control" rows="3"
-                      [ngModel]="deleteReason()"
-                      (ngModelChange)="deleteReason.set($event)"></textarea>
-          </div>
-          <div class="modal-foot">
-            <button type="button" class="btn-outline" (click)="cancelDelete()">Cancel</button>
-            <button type="button" class="btn-danger"
-                    [disabled]="deleteReason().trim().length === 0 || busyId() === target.id"
-                    (click)="confirmDelete()">
-              Delete gateway
-            </button>
-          </div>
-        </div>
-      }
-
+      </div>
     </div>
   </div>
 </main>
+
+<!-- ============================== DELETE (shared pop-up) ============================== -->
+<app-popup [open]="!!deleteTarget()" tone="danger" size="sm" kicker="Payment gateways"
+           [title]="deleteTarget() ? 'Delete ' + label(deleteTarget()!) : ''"
+           lead="The configuration is removed. The change log is kept, including this deletion."
+           (closed)="cancelDelete()">
+  <label class="yp-field">
+    <span class="yp-label">Why is it being removed? *</span>
+    <textarea rows="3" [ngModel]="deleteReason()" (ngModelChange)="deleteReason.set($event)"></textarea>
+  </label>
+  <ng-container popupActions>
+    <button type="button" class="yp-btn" (click)="cancelDelete()">Cancel</button>
+    <button type="button" class="yp-btn yp-btn--danger"
+            [disabled]="deleteReason().trim().length === 0 || busyId() === deleteTarget()?.id"
+            (click)="confirmDelete()">Delete gateway</button>
+  </ng-container>
+</app-popup>

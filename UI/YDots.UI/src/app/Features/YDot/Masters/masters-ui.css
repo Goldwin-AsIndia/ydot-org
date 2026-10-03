@@ -1792,6 +1792,26 @@ td.gm-empty-cell {
   white-space: nowrap;
 }
 .mf-spec-mark.is-flag { font-size: calc(calc(28px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; letter-spacing: 0; }
+.mf-flag {
+  display: block;
+  width: calc(40px * var(--ui-scale, 1));
+  height: calc(30px * var(--ui-scale, 1));
+  object-fit: cover;
+  border-radius: calc(4px * var(--ui-scale, 1));
+  outline: 1px solid var(--gm-line-soft);
+  outline-offset: 0;
+}
+.mf-flag.is-blank { border: 1px dashed var(--gm-line); outline: 0; }
+/* List / side-panel flags: the bundled SVG artwork (emoji flags render as letters on Windows). */
+.gm-avatar.is-flag .gm-flag {
+  display: block;
+  width: calc(26px * var(--ui-scale, 1));
+  height: calc(19px * var(--ui-scale, 1));
+  object-fit: cover;
+  border-radius: calc(3px * var(--ui-scale, 1));
+  outline: 1px solid var(--gm-line-soft);
+}
+.gm-avatar.lg.is-flag .gm-flag { width: calc(38px * var(--ui-scale, 1)); height: calc(28px * var(--ui-scale, 1)); }
 .mf-spec-mark.is-symbol { font-size: calc(calc(24px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; letter-spacing: 0; }
 .mf-spec-mark.is-empty { color: var(--gm-faint); font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900); }
 .mf-spec-mark small {
@@ -1877,6 +1897,8 @@ td.gm-empty-cell {
 .mf-dot.is-inactive { background: var(--gm-bad); }
 
 .mf-back { flex: none; }
+/* State and City carry no preview: title left, back button right. */
+.mf-head:not(:has(.mf-spec)) { grid-template-columns: minmax(0, 1fr) auto; }
 .mf-up { text-transform: uppercase; }
 
 /* ---------------------------------------------------------------- body */

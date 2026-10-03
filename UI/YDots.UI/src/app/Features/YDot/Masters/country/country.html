@@ -109,7 +109,7 @@
                       <tr class="gm-row" [class.is-selected]="selectedCountry()?.id === c.id && showViewPanel()" (click)="viewCountry(c)">
                         <td>
                           <button type="button" class="gm-ident" (click)="viewCountry(c); $event.stopPropagation()" [attr.aria-label]="'View ' + c.countryName">
-                            <span class="gm-avatar is-flag" aria-hidden="true">{{ c.flagEmoji || flagEmoji(c.iso2) }}</span>
+                            <span class="gm-avatar is-flag" aria-hidden="true">@if (c.iso2 && !missingFlags.has(c.iso2.toLowerCase())) {<img class="gm-flag" [src]="'assets/images/flag/' + c.iso2.toLowerCase() + '.svg'" alt="" (error)="missingFlags.add(c.iso2.toLowerCase())">} @else { {{ c.flagEmoji || flagEmoji(c.iso2) }} }</span>
                             <span class="gm-ident-text">
                               <span class="gm-ident-name">{{ c.countryName }}</span>
                               <span class="gm-ident-sub">{{ c.officialName || c.phoneCountryCode || '—' }}</span>
@@ -221,7 +221,7 @@
               @if (selectedCountry(); as sc) {
                 <aside class="gm-aside" [attr.aria-label]="'Details for ' + sc.countryName">
                   <header class="gm-aside-head">
-                    <span class="gm-avatar lg is-flag" aria-hidden="true">{{ sc.flagEmoji || flagEmoji(sc.iso2) }}</span>
+                    <span class="gm-avatar lg is-flag" aria-hidden="true">@if (sc.iso2 && !missingFlags.has(sc.iso2.toLowerCase())) {<img class="gm-flag" [src]="'assets/images/flag/' + sc.iso2.toLowerCase() + '.svg'" alt="" (error)="missingFlags.add(sc.iso2.toLowerCase())">} @else { {{ sc.flagEmoji || flagEmoji(sc.iso2) }} }</span>
                     <div class="gm-aside-id">
                       <span class="gm-eyebrow">Country · {{ sc.countryCode }}</span>
                       <h3>{{ sc.countryName }}</h3>
@@ -339,7 +339,14 @@
 
               <div class="mf-spec" aria-label="Preview of this country">
                 <span class="mf-spec-cap">Preview</span>
-                <span class="mf-spec-mark is-flag" aria-hidden="true">{{ flagEmoji(country.iso2) }}</span>
+                <span class="mf-spec-mark is-flag" aria-hidden="true">
+                  @let fc = previewFlagCode();
+                  @if (fc && !missingFlags.has(fc)) {
+                    <img class="mf-flag" [src]="'assets/images/flag/' + fc + '.svg'" alt="" (error)="missingFlags.add(fc)">
+                  } @else {
+                    <span class="mf-flag is-blank"></span>
+                  }
+                </span>
                 <span class="mf-spec-id">
                   <strong [class.is-empty]="!country.countryName">{{ country.countryName || 'Country name' }}</strong>
                   <small>{{ country.officialName || (country.region ? regionLabel(country.region) : 'Official name') }}</small>

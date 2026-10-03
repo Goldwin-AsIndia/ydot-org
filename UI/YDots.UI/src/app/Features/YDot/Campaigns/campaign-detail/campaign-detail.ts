@@ -890,6 +890,43 @@ export class CampaignDetailComponent {
     return 'edit';
   }
 
+  /** How many entries the chronicle shows before "Show all"; the panel keeps its height without an inner scroll. */
+
+  /**
+   * Recent Activity grouped by day for the chronicle: a day caption, then that day's entries
+   * (time, channel node, title, detail, kind). The list scrolls inside the panel (about five rows tall).
+   */
+  protected readonly activityDays = computed(() => {
+    const items = this.recentActivity();
+    const days: { day: string; items: { item: ActivityItem; time: string; kind: ReturnType<CampaignDetailComponent['activityKind']> }[] }[] = [];
+    for (const item of items) {
+      const [datePart, timePart] = item.time.split(',').map((x) => x.trim());
+      const day = timePart ? datePart : '';
+      let group = days[days.length - 1];
+      if (!group || group.day !== day) {
+        group = { day, items: [] };
+        days.push(group);
+      }
+      group.items.push({ item, time: (timePart || item.time).toUpperCase(), kind: this.activityKind(item) });
+    }
+    return days;
+  });
+
+  /** The word under a chronicle entry's kind: the channel it went out on, or the kind of step. */
+  protected activityKindLabel(kind: string): string {
+    switch (kind) {
+      case 'email': return 'Email';
+      case 'whatsapp': return 'WhatsApp';
+      case 'instagram': return 'Instagram';
+      case 'sms': return 'SMS';
+      case 'person': return 'People';
+      case 'approve': return 'Approval';
+      case 'create': return 'Created';
+      case 'alert': return 'Refused';
+      default: return 'Change';
+    }
+  }
+
   /** "22 Sep 2026, 10:00 AM" -> { time: '10:00 AM', date: '22 Sep' } for the timeline's left column. */
   protected activityWhen(item: ActivityItem): { time: string; date: string } {
     const [datePart, timePart] = item.time.split(',').map(x => x.trim());

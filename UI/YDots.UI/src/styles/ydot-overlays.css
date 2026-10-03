@@ -882,3 +882,212 @@ app-budget-target-plan .modal-footer > .btn {
     padding-right: calc(var(--ov-pad) + calc(36px * var(--ui-scale, 1))) !important;
   }
 }
+
+
+/* =========================================================================================
+   12. ONE OFF-CANVAS DESIGN - every Campaigns drawer is the same sheet:
+         Tracking asset details (.tam-detail), Add / edit readiness check (.crcx-drawer),
+         the Pause / Resume / Close action panel (.action-panel, also inside Campaign detail's
+         Manage lifecycle drawer).
+       Shape: full-height white sheet from the right (560u, 16u left corners, hairline edge), a
+       tinted HEADER BAND with the soft glow and the 34u gradient tile of the dialogs (section 11),
+       accent kicker, display-face title, muted lead, a 30u outlined close square; a BODY that alone
+       scrolls; a tinted FOOTER with 34u buttons. Parts are matched by role, so the three screens
+       keep their own markup. Placed last; !important where the component stylesheets set the same
+       property with a more specific (emulated) selector.
+   ========================================================================================= */
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail, .crcx-drawer, .action-panel) {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 1101 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: min(calc(560px * var(--ui-scale, 1)), 100vw) !important;
+  height: auto !important;
+  max-width: 100vw !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+  border: 0 !important;
+  border-left: 1px solid var(--ov-line) !important;
+  border-radius: var(--ov-radius) 0 0 var(--ov-radius) !important;
+  box-shadow: none !important;
+  color: var(--ov-ink);
+  animation: ov-slide .3s var(--ov-ease) both !important;
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-backdrop, .crcx-backdrop, .panel-overlay) {
+  z-index: 1100 !important;
+  background: var(--ov-scrim) !important;
+  -webkit-backdrop-filter: blur(calc(6px * var(--ui-scale, 1))) saturate(115%);
+  backdrop-filter: blur(calc(6px * var(--ui-scale, 1))) saturate(115%);
+  animation: ov-fade .2s ease both;
+}
+
+/* ---- header band */
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-head, .crcx-head, .action-panel-header) {
+  position: relative !important;
+  flex: none !important;
+  display: grid !important;
+  grid-template-columns: calc(34px * var(--ui-scale, 1)) minmax(0, 1fr) !important;
+  column-gap: calc(12px * var(--ui-scale, 1)) !important;
+  align-items: center !important;
+  align-content: center !important;
+  min-height: calc(70px * var(--ui-scale, 1));
+  margin: 0 !important;
+  padding: calc(15px * var(--ui-scale, 1)) calc(58px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--ov-line) !important;
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--ov-accent) 9%, transparent) 0%, transparent 60%), var(--ov-band) !important;
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-head, .crcx-head, .action-panel-header)::before {
+  content: '';
+  grid-column: 1;
+  grid-row: 1 / span 6;
+  align-self: center;
+  width: calc(34px * var(--ui-scale, 1));
+  height: calc(34px * var(--ui-scale, 1));
+  border-radius: calc(10px * var(--ui-scale, 1));
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2.5'/%3E%3Cpath d='M14 4v16M17 9h1M17 12h1'/%3E%3C/svg%3E") center / calc(17px * var(--ui-scale, 1)) calc(17px * var(--ui-scale, 1)) no-repeat,
+              linear-gradient(145deg, var(--ov-accent), color-mix(in srgb, var(--ov-accent) 68%, #000));
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-head, .crcx-head, .action-panel-header) > :not(.tam-detail-close, .crcx-close, .btn) {
+  grid-column: 2;
+  min-width: 0;
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-kicker, .crcx-eyebrow) {
+  display: flex !important;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  margin: 0 0 calc(3px * var(--ui-scale, 1)) !important;
+  font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3 !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+  color: var(--ov-accent) !important;
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-kicker, .crcx-eyebrow) svg {
+  width: calc(14px * var(--ui-scale, 1)) !important;
+  height: calc(14px * var(--ui-scale, 1)) !important;
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-title, .crcx-title, .action-panel-header h6) {
+  --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
+  margin: 0 !important;
+  font-family: var(--font-display, Georgia, serif) !important;
+  font-size: calc(calc(19px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.005em !important;
+  color: var(--ov-ink) !important;
+  overflow-wrap: anywhere;
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-meta, .crcx-subtitle, .action-panel-header small) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(8px * var(--ui-scale, 1));
+  margin: calc(4px * var(--ui-scale, 1)) 0 0 !important;
+  font-family: var(--font-body) !important;
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.45 !important;
+  color: var(--ov-muted) !important;
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-close, .crcx-close, .action-panel-header > .btn) {
+  position: absolute !important;
+  top: calc(18px * var(--ui-scale, 1)) !important;
+  right: calc(16px * var(--ui-scale, 1)) !important;
+  display: inline-grid !important;
+  place-items: center;
+  width: calc(30px * var(--ui-scale, 1)) !important;
+  height: calc(30px * var(--ui-scale, 1)) !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--ov-line) !important;
+  border-radius: calc(9px * var(--ui-scale, 1)) !important;
+  background: #ffffff !important;
+  color: var(--ov-muted) !important;
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease;
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-close, .crcx-close, .action-panel-header > .btn):hover {
+  border-color: var(--ov-accent) !important;
+  color: var(--ov-ink) !important;
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-close, .crcx-close) svg {
+  width: calc(14px * var(--ui-scale, 1)) !important;
+  height: calc(14px * var(--ui-scale, 1)) !important;
+}
+
+/* ---- body: the only part that scrolls */
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-body, .crcx-body, .action-panel-body) {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  padding: calc(18px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ov-accent) 38%, #c9d1cd) transparent;
+  background: #ffffff !important;
+}
+app-pause-resume-close-campaign .action-panel > .banner {
+  flex: none;
+  margin: calc(12px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) 0 !important;
+}
+
+/* ---- footer */
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-foot, .crcx-foot, .action-panel > footer) {
+  flex: none !important;
+  margin: 0 !important;
+  padding: calc(11px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) !important;
+  border: 0 !important;
+  border-top: 1px solid var(--ov-line) !important;
+  background: var(--ov-foot) !important;
+}
+:is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+  :is(.tam-detail-foot, .crcx-foot, .action-panel > footer) :is(button, .btn):not(.tam-danger-link) {
+  min-height: calc(34px * var(--ui-scale, 1)) !important;
+  padding: 0 calc(14px * var(--ui-scale, 1)) !important;
+  border-radius: calc(9px * var(--ui-scale, 1)) !important;
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+
+@media (max-width: 575.98px) {
+  :is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+    :is(.tam-detail, .crcx-drawer, .action-panel) {
+    width: 100vw !important;
+    border-radius: 0 !important;
+  }
+  :is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+    :is(.tam-detail-head, .crcx-head, .action-panel-header) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding-left: calc(16px * var(--ui-scale, 1)) !important;
+  }
+  :is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+    :is(.tam-detail-head, .crcx-head, .action-panel-header)::before { display: none; }
+  :is(app-tracking-asset-manager, app-add-readiness-check, app-pause-resume-close-campaign)
+    :is(.tam-detail-head, .crcx-head, .action-panel-header) > * { grid-column: 1 !important; }
+}
+
+/* The header tile already marks the drawer; the kicker's own small glyph would repeat it. */
+app-tracking-asset-manager .tam-detail-kicker .tam-asset-glyph { display: none !important; }

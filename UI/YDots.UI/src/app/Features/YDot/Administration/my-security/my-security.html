@@ -16,9 +16,8 @@
          `.msec-hero` alongside the title. -->
 <div class="msec-hero-region">
 <div class="msec-hero-content">
-<app-page-header screen="my-security" title="My Security"
+<app-page-header variant="gold" eyebrow="Access &amp; identity · My security" screen="my-security" title="My Security"
                  subtitle="Manage password, MFA methods, trusted sessions and security activity">
-  <span meta class="ph-chip">P2 — Extension</span>
 </app-page-header>
 
         <!-- Loading -->
@@ -115,22 +114,6 @@
       }
 </div>
 
-      <div class="msec-hero__art" aria-hidden="true">
-<svg class="msec-hero__waves" viewBox="0 0 340 220" xmlns="http://www.w3.org/2000/svg">
-<g stroke="#CBD8C4" stroke-width="1.4" opacity=".6" fill="none">
-<path d="M0,70 C60,30 120,110 180,70 C230,40 280,80 340,50"/>
-<path d="M10,140 C70,110 130,170 190,130 C240,105 290,140 340,120"/>
-</g>
-<g fill="#8FAE7C">
-<circle cx="30" cy="45" r="3" opacity=".55"/>
-<circle cx="312" cy="76" r="2.6" opacity=".55"/>
-<circle cx="292" cy="162" r="3" opacity=".4"/>
-<circle cx="18" cy="182" r="2.2" opacity=".4"/>
-<circle cx="170" cy="18" r="2.2" opacity=".4"/>
-</g>
-</svg>
-<img src="assets/images/my-security/security-shield-3d.png" alt="" class="msec-hero__art-img">
-</div>
 </div>
 
     @if (!loading() && !loadError()) {
@@ -193,9 +176,23 @@
 </div>
 </div>
 </div>
+<div class="msec-tip-row">
 <button type="button" class="msec-edit-btn" (click)="editProfile()">
                 Edit Profile <i class="ri-edit-2-line"></i>
 </button>
+<div class="msec-tip-in-panel">
+<div class="msec-tip-left">
+<span class="msec-icon-circle msec-tip-icon"><i class="ri-lightbulb-flash-line"></i></span>
+<div>
+<h6 class="msec-tip-title">Security Tip</h6>
+<p class="msec-tip-text">Enable MFA to add an extra layer of security to your account.</p>
+<button type="button" class="msec-tip-action" (click)="enrolMfa()">
+                Enable Now <i class="ri-arrow-right-line"></i>
+</button>
+</div>
+</div>
+</div>
+</div>
 </div>
 </div>
 
@@ -315,24 +312,6 @@
 </button>
 </div>
 </div>
-</div>
-</div>
-
-      <!-- ========================== SECURITY TIP BANNER ========================== -->
-<div class="msec-card msec-tip-banner">
-<div class="msec-tip-left">
-<span class="msec-icon-circle msec-tip-icon"><i class="ri-lightbulb-flash-line"></i></span>
-<div>
-<h6 class="msec-tip-title">Security Tip</h6>
-<p class="msec-tip-text">Enable MFA to add an extra layer of security to your account.</p>
-<button type="button" class="msec-tip-action" (click)="enrolMfa()">
-                Enable Now <i class="ri-arrow-right-line"></i>
-</button>
-</div>
-</div>
-
-        <div class="msec-tip-art" aria-hidden="true">
-<img src="assets/images/my-security/security-devices-3d.png" alt="" class="msec-tip-art-img">
 </div>
 </div>
 
@@ -475,7 +454,7 @@
         </div>
 
         <!-- RIGHT: Recent activity -->
-<div class="msec-section-card msec-section-row-anim">
+<div class="msec-section-card msec-section-row-anim msec-lower-wide">
 <div class="msec-section-card__header">
 <h6>Recent Security Activity</h6>
 <span class="msec-count-pill">{{ (data()?.recentActivity ?? []).length }}</span>
