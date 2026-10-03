@@ -1,0 +1,22 @@
+@if (total() > 0) {
+  <nav class="wp" aria-label="Pages">
+    <p class="wp-range"><b>{{ from() }}–{{ to() }}</b> of {{ total().toLocaleString('en-IN') }} {{ noun() }}</p>
+    <div class="wp-nav">
+      <button type="button" class="wp-btn" [disabled]="page() === 1" (click)="go(page() - 1)" aria-label="Previous page">
+        <i class="ph-duotone ph-caret-left"></i>
+      </button>
+      @for (p of pages(); track $index) {
+        @if (p === 0) {
+          <span class="wp-gap">…</span>
+        } @else {
+          <button type="button" class="wp-btn wp-num" [class.is-on]="p === page()"
+                  [attr.aria-current]="p === page() ? 'page' : null" (click)="go(p)">{{ p }}</button>
+        }
+      }
+      <button type="button" class="wp-btn" [disabled]="page() === pageCount()" (click)="go(page() + 1)" aria-label="Next page">
+        <i class="ph-duotone ph-caret-right"></i>
+      </button>
+    </div>
+    <app-wa-select class="wp-size" compact up label="Rows" [options]="sizeOptions()" [value]="size().toString()" (valueChange)="resize($event)" />
+  </nav>
+}

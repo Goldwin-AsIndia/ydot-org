@@ -2,6 +2,7 @@ import { Component, HostListener, OnInit, computed, inject, signal } from '@angu
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
@@ -44,7 +45,7 @@ interface CuDdOption {
 @Component({
   selector: 'app-create-user',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [PageHeader, CommonModule, FormsModule],
   templateUrl: './create-user.html',
   styleUrl: './create-user.css',
 })

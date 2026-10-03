@@ -32,15 +32,16 @@
            one off-canvas shows at a time; restored when the action panel closes. -->
       <div class="prc-main" [class.prc-main-hidden]="activeAction()">
 
-      <!-- ===================== HEADER — centred summary ===================== -->
-      <div class="prc-record-head mb-3">
-        <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
+      <!-- ===================== HEADER — eyebrow, serif title, status, meta, raised figure ===================== -->
+      <div class="prc-record-head">
+        <p class="prc-eyebrow">Campaign lifecycle</p>
+        <div class="prc-title-row">
           <h5 class="record-title mb-0">Pause, resume and close campaign</h5>
           <span class="status-badge" [class]="statusClass(currentState())">{{ currentState() }}</span>
         </div>
-        <p class="text-muted small mb-2 prc-record-purpose">{{ c.purpose }}</p>
-        <div class="record-meta d-flex align-items-center justify-content-center gap-2 flex-wrap mb-1">
-          <span class="fw-semibold">{{ c.code }}</span>
+        <p class="prc-record-purpose">{{ c.purpose }}</p>
+        <div class="record-meta">
+          <span class="prc-meta-code">{{ c.code }}</span>
           <span class="dot">·</span>
           <span>{{ ownerName(c.ownerReference) }}</span>
           <span class="dot">·</span>
@@ -49,9 +50,12 @@
           <span>Last refreshed {{ lastRefreshed() }}</span>
         </div>
         <div class="prc-amount-block">
-          <div class="amount-figure">{{ formatCurrency(c.reconciledAmount) }}</div>
-          <div class="amount-sub">raised of {{ formatCurrency(c.targetAmount) }} ({{ c.progress }}%)</div>
-          <div class="progress-track mx-auto">
+          <div class="prc-amount-line">
+            <span class="amount-figure">{{ formatCurrency(c.reconciledAmount) }}</span>
+            <span class="amount-sub">raised of {{ formatCurrency(c.targetAmount) }}</span>
+            <span class="prc-amount-pct">{{ c.progress }}%</span>
+          </div>
+          <div class="progress-track">
             <div class="progress-fill" [style.width.%]="c.progress"></div>
           </div>
         </div>
@@ -109,38 +113,34 @@
       <div class="row g-3 mb-3">
         <!-- Lifecycle Actions -->
         <div class="col-12">
-          <h6 class="section-label mb-2">Lifecycle actions</h6>
-          <div class="row g-2">
+          <h6 class="section-label">Lifecycle actions</h6>
+          <div class="prc-action-list">
             @for (action of visibleActions(); track action.id) {
-              <div class="col-sm-6">
-                <div class="action-card-minimal" [class.action-card-disabled]="!actionIsEligible(action)">
-                  <div class="d-flex gap-2 mb-2">
-                    <span class="action-icon" [class.action-icon-safe]="action.placement === 'primary'"
-                          [class.action-icon-danger]="action.placement === 'danger'">
-                      @if (action.id === 'activate') { <i class="ri-rocket-2-line"></i> }
-                      @else if (action.id === 'pause') { <i class="ri-pause-circle-line"></i> }
-                      @else if (action.id === 'resume') { <i class="ri-play-circle-line"></i> }
-                      @else if (action.id === 'request_close') { <i class="ri-close-circle-line"></i> }
-                      @else if (action.id === 'approve_close') { <i class="ri-check-double-line"></i> }
-                      @else if (action.id === 'cancel_draft') { <i class="ri-delete-bin-line"></i> }
-                    </span>
-                    <div class="flex-grow-1 min-w-0">
-                      <div class="action-title">{{ action.label }}</div>
-                      <div class="action-desc">{{ action.description }}</div>
-                      @if (!actionIsEligible(action)) {
-                        <div class="action-ineligible mt-1">{{ ineligibleReason(action) }}</div>
-                      }
-                    </div>
-                  </div>
-                  <button class="btn action-btn w-100"
-                    [class.btn-primary]="action.placement === 'primary'"
-                    [class.btn-danger]="action.placement === 'danger'"
-                    [disabled]="!actionIsEligible(action)"
-                    type="button"
-                    (click)="openActionPanel(action)">
-                    {{ action.label }}
-                  </button>
+              <div class="action-card-minimal" [class.action-card-disabled]="!actionIsEligible(action)"
+                   [attr.data-action]="action.id">
+                <span class="action-icon">
+                  @if (action.id === 'activate') { <i class="ri-rocket-2-line"></i> }
+                  @else if (action.id === 'pause') { <i class="ri-pause-circle-line"></i> }
+                  @else if (action.id === 'resume') { <i class="ri-play-circle-line"></i> }
+                  @else if (action.id === 'request_close') { <i class="ri-close-circle-line"></i> }
+                  @else if (action.id === 'approve_close') { <i class="ri-check-double-line"></i> }
+                  @else if (action.id === 'cancel_draft') { <i class="ri-delete-bin-line"></i> }
+                </span>
+                <div class="prc-action-text">
+                  <div class="action-title">{{ action.label }}</div>
+                  <div class="action-desc">{{ action.description }}</div>
+                  @if (!actionIsEligible(action)) {
+                    <div class="action-ineligible">{{ ineligibleReason(action) }}</div>
+                  }
                 </div>
+                <button class="btn action-btn"
+                  [class.btn-primary]="action.placement === 'primary'"
+                  [class.btn-danger]="action.placement === 'danger'"
+                  [disabled]="!actionIsEligible(action)"
+                  type="button"
+                  (click)="openActionPanel(action)">
+                  {{ action.label }}
+                </button>
               </div>
             }
             @if (visibleActions().length === 0) {
@@ -181,7 +181,8 @@
         <div class="panel-overlay" (click)="closeActionPanel()"></div>
         <aside class="action-panel" role="dialog" aria-modal="true" [attr.aria-label]="action.label">
           <header class="action-panel-header">
-            <div>
+            <div class="action-panel-titles">
+              <p class="prc-eyebrow">Campaign lifecycle</p>
               <h6 class="mb-0">{{ action.label }}</h6>
               <small>{{ c.code }} · {{ c.name }}</small>
             </div>
@@ -198,7 +199,7 @@
             </div>
           }
           <div class="action-panel-body">
-            <p class="small text-muted mb-3">{{ action.description }}</p>
+            <p class="prc-panel-lead">{{ action.description }}</p>
             <div class="mb-3">
               <label class="form-label" for="field-effectiveDate">Effective time</label>
               <div class="d-flex gap-2">

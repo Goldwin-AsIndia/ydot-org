@@ -1,0 +1,648 @@
+<main class="app-wrapper">
+<div class="page-wrapper">
+<div class="container-fluid px-4 py-3">
+<section class="cn">
+
+  <!-- ================================================================ hero -->
+  <header class="cn-hero">
+    <div>
+      <p class="cn-eyebrow">WhatsApp verification</p>
+      <h1 class="cn-title">CheckNumber</h1>
+    </div>
+    <dl class="cn-stats">
+      <div class="cn-stat"><dt>Numbers verified</dt><dd class="cn-serif">{{ n(verified()) }}</dd></div>
+      <div class="cn-stat"><dt>On WhatsApp</dt><dd class="cn-serif">{{ n(store.pool().length) }}<small>ready in Wati</small></dd></div>
+      <div class="cn-stat"><dt>Jobs run</dt><dd class="cn-serif">{{ n(jobCounts().all) }}</dd></div>
+    </dl>
+  </header>
+
+  <div class="cn-nav">
+    <nav class="cn-tabs" aria-label="CheckNumber views">
+      <a routerLink="/app/whatsapp/check-number" class="cn-tab" [class.is-on]="view() === 'new'">
+        <i class="ph-duotone ph-upload-simple" aria-hidden="true"></i> New check
+      </a>
+      <a routerLink="/app/whatsapp/check-number/jobs" class="cn-tab" [class.is-on]="view() !== 'new'">
+        <i class="ph-duotone ph-stack" aria-hidden="true"></i> Jobs <span class="cn-count">{{ jobCounts().all }}</span>
+      </a>
+    </nav>
+    @if (view() === 'new') {
+      <ol class="cn-steps" aria-label="Progress">
+        <li class="cn-step" [class.is-done]="step() > 1" [class.is-now]="step() === 1">
+          <span class="cn-step-no cn-serif">01</span>
+          <span class="cn-step-text"><b>Upload</b><small>Add your list</small></span>
+          <i class="ph-duotone cn-step-state" [class.ph-check-circle]="step() > 1" [class.ph-arrow-right]="step() === 1" aria-hidden="true"></i>
+        </li>
+        <li class="cn-step" [class.is-done]="step() > 2" [class.is-now]="step() === 2">
+          <span class="cn-step-no cn-serif">02</span>
+          <span class="cn-step-text"><b>Review</b><small>Numbers found in the file</small></span>
+          <i class="ph-duotone cn-step-state" [class.ph-check-circle]="step() > 2" [class.ph-arrow-right]="step() === 2" aria-hidden="true"></i>
+        </li>
+        <li class="cn-step" [class.is-now]="step() === 3">
+          <span class="cn-step-no cn-serif">03</span>
+          <span class="cn-step-text"><b>Check</b><small>Live WhatsApp lookup</small></span>
+          <i class="ph-duotone cn-step-state" [class.ph-circle-notch]="step() === 3" [class.cn-spinning]="step() === 3" aria-hidden="true"></i>
+        </li>
+        <li class="cn-step">
+          <span class="cn-step-no cn-serif">04</span>
+          <span class="cn-step-text"><b>Report</b><small>Valid and invalid numbers</small></span>
+        </li>
+      </ol>
+    }
+    @if (view() === 'job') {
+      <a routerLink="/app/whatsapp/check-number/jobs" class="cn-crumb"><i class="ph-duotone ph-caret-left" aria-hidden="true"></i> All jobs</a>
+    }
+    @if (active(); as run) {
+      @if (view() !== 'new') {
+        <a routerLink="/app/whatsapp/check-number" class="cn-live-link">
+          <span class="cn-live-dot" aria-hidden="true"></span> Checking {{ run.fileName }} · {{ percent() }}%
+        </a>
+      }
+    }
+  </div>
+
+  <!-- ================================================================ NEW CHECK -->
+  @if (view() === 'new') {
+
+
+
+    <!-- ---------------------------------------------------- 1 · upload -->
+    @if (step() === 1) {
+      <div class="cn-upload">
+        <div class="cn-drop-col">
+          @if (reading(); as name) {
+            <div class="cn-drop cn-drop--reading" role="status" aria-live="polite">
+              <span class="cn-orb" aria-hidden="true"><i class="ph-duotone ph-file-magnifying-glass"></i></span>
+              <p class="cn-drop-title cn-serif">Reading {{ name }}</p>
+              <p class="cn-drop-hint">Extracting numbers, going through each sheet, looking for duplicates…</p>
+              <span class="cn-bar" aria-hidden="true"><span class="cn-bar-run"></span></span>
+            </div>
+          } @else {
+            <label class="cn-drop" [class.is-over]="dragging()"
+                   (dragover)="onDrag($event, true)" (dragenter)="onDrag($event, true)"
+                   (dragleave)="onDrag($event, false)" (drop)="onDrop($event)">
+              <input type="file" class="cn-file-input" accept=".txt,.csv,.xls,.xlsx" (change)="onPick($event)" />
+              <span class="cn-orb" aria-hidden="true"><i class="ph-duotone ph-upload-simple"></i></span>
+              <span class="cn-drop-title cn-serif">Drop your list here</span>
+              <span class="cn-drop-hint">or <u>browse your files</u> · one file at a time, up to {{ maxMb }} MB</span>
+              <span class="cn-formats" aria-label="Accepted file types">
+                <span>.txt</span><span>.csv</span><span>.xls</span><span>.xlsx</span>
+              </span>
+            </label>
+          }
+
+          @if (problem(); as message) {
+            <p class="cn-alert cn-alert--bad" role="alert">
+              <i class="ph-duotone ph-warning-circle" aria-hidden="true"></i>
+              <span><b>This file can’t be used.</b> {{ message }}</span>
+            </p>
+          }
+        </div>
+
+        <aside class="cn-flow" aria-label="What happens next">
+          <p class="cn-label">What happens next</p>
+          <ol class="cn-flow-list">
+            <li><span class="cn-flow-mark"><i class="ph-duotone ph-text-aa" aria-hidden="true"></i></span><div><b>Numbers are extracted</b><small>Names and other text are ignored. Every number gets a leading +, and Indian numbers become +91.</small></div></li>
+            <li><span class="cn-flow-mark"><i class="ph-duotone ph-files" aria-hidden="true"></i></span><div><b>Every sheet is counted</b><small>Excel files are read sheet by sheet, so you see the total for each.</small></div></li>
+            <li><span class="cn-flow-mark"><i class="ph-duotone ph-copy" aria-hidden="true"></i></span><div><b>Repeats are caught</b><small>Duplicates, and numbers you already checked, are recognised and never charged twice.</small></div></li>
+            <li><span class="cn-flow-mark"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i></span><div><b>Valid numbers go to Wati</b><small>Once the check finishes, everyone on WhatsApp is ready to message.</small></div></li>
+          </ol>
+          <table class="cn-eg">
+            <caption>How a number is rewritten</caption>
+            <tbody>
+              <tr><td>9876543210</td><td class="cn-num">+919876543210</td></tr>
+              <tr><td>098765 43210</td><td class="cn-num">+919876543210</td></tr>
+              <tr><td>Ravi 98765-43210</td><td class="cn-num">+919876543210</td></tr>
+              <tr><td>+44 7700 900123</td><td class="cn-num">+447700900123</td></tr>
+            </tbody>
+          </table>
+        </aside>
+      </div>
+    }
+
+    <!-- ---------------------------------------------------- 2 · review -->
+    @if (step() === 2 && draft(); as d) {
+      <div class="cn-review">
+        <!-- The one decision, as a bar above the file so nothing sits beside a shorter panel -->
+        <aside class="cn-sheet cn-summary" aria-label="Ready to check">
+          <div class="cn-summary-fig-wrap">
+            <p class="cn-label">Ready to check</p>
+            <p class="cn-summary-fig cn-serif">{{ n(toCheck()) }} <small>{{ toCheck() === 1 ? 'number' : 'numbers' }}</small></p>
+          </div>
+          <dl class="cn-summary-list">
+            <div><dt>From saved results</dt><dd class="cn-num">{{ n(recheck() ? 0 : d.alreadyChecked.length) }}</dd></div>
+            <div><dt>Duplicates skipped</dt><dd class="cn-num">{{ n(d.duplicates.length) }}</dd></div>
+            <div><dt>Invalid lines</dt><dd class="cn-num">{{ n(d.invalid.length) }}</dd></div>
+            <div><dt>Estimated cost</dt><dd class="cn-serif">{{ money(estimate()) }}</dd></div>
+          </dl>
+          <div class="cn-summary-act">
+            <button type="button" class="cn-btn cn-btn--primary" [disabled]="!canStart(d)" (click)="start()">
+              <i class="ph-duotone ph-lightning" aria-hidden="true"></i>
+              @if (toCheck() > 0) { Start check } @else { Build report }
+            </button>
+            <button type="button" class="cn-link" (click)="discard()">Cancel</button>
+          </div>
+          @if (!canStart(d)) {
+            <p class="cn-alert cn-alert--bad cn-summary-warn" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>No valid numbers were found. Check the “Invalid lines” tab, or upload another file.</span></p>
+          } @else {
+            <small class="cn-summary-fine">Numbers that can’t be verified are not charged.</small>
+          }
+        </aside>
+
+        <div class="cn-sheet cn-review-main">
+
+          <div class="cn-filebar">
+            <i class="ph-duotone {{ kindGlyph(d.kind) }} cn-filebar-glyph" aria-hidden="true"></i>
+            <div class="cn-filebar-text">
+              <p class="cn-filebar-name cn-serif">{{ d.fileName }}</p>
+              <p class="cn-filebar-meta">
+                {{ bytes(d.fileSize) }} · .{{ d.kind }} ·
+                <b>{{ d.sheets.length }}</b> {{ d.sheets.length === 1 ? 'sheet' : 'sheets' }} ·
+                <b>{{ n(d.totalRows) }}</b> rows read
+              </p>
+            </div>
+            <button type="button" class="cn-btn cn-btn--ghost" (click)="discard()">
+              <i class="ph-duotone ph-arrow-u-up-left" aria-hidden="true"></i> Change file
+            </button>
+          </div>
+
+          <div class="cn-figs" role="tablist" aria-label="What the file holds">
+            <button type="button" role="tab" class="cn-fig cn-fig--ok" [class.is-on]="reviewTab() === 'fresh'" [attr.aria-selected]="reviewTab() === 'fresh'" (click)="setReviewTab('fresh')">
+              <span class="cn-label">To check</span>
+              <span class="cn-fig-value cn-serif">{{ n(d.fresh.length) }}</span>
+              <small>new numbers</small>
+            </button>
+            <button type="button" role="tab" class="cn-fig cn-fig--info" [class.is-on]="reviewTab() === 'known'" [attr.aria-selected]="reviewTab() === 'known'" (click)="setReviewTab('known')">
+              <span class="cn-label">Already checked</span>
+              <span class="cn-fig-value cn-serif">{{ n(d.alreadyChecked.length) }}</span>
+              <small>saved result used</small>
+            </button>
+            <button type="button" role="tab" class="cn-fig cn-fig--warn" [class.is-on]="reviewTab() === 'duplicates'" [attr.aria-selected]="reviewTab() === 'duplicates'" (click)="setReviewTab('duplicates')">
+              <span class="cn-label">Duplicates</span>
+              <span class="cn-fig-value cn-serif">{{ n(d.duplicates.length) }}</span>
+              <small>repeated in this file</small>
+            </button>
+            <button type="button" role="tab" class="cn-fig cn-fig--bad" [class.is-on]="reviewTab() === 'invalid'" [attr.aria-selected]="reviewTab() === 'invalid'" (click)="setReviewTab('invalid')">
+              <span class="cn-label">Invalid lines</span>
+              <span class="cn-fig-value cn-serif">{{ n(d.invalid.length) }}</span>
+              <small>no usable number</small>
+            </button>
+          </div>
+
+          @if (d.alreadyChecked.length > 0) {
+            <div class="cn-inset">
+              <div class="cn-alert cn-alert--info" role="note">
+                <i class="ph-duotone ph-clock-counter-clockwise" aria-hidden="true"></i>
+                <div class="cn-alert-body">
+                  <p>
+                    <b>{{ n(d.alreadyChecked.length) }} of these numbers were checked before.</b>
+                    {{ n(knownYes()) }} {{ knownYes() === 1 ? 'is' : 'are' }} on WhatsApp (valid) and {{ n(knownNo()) }} {{ knownNo() === 1 ? 'is' : 'are' }} not (invalid).
+                    Their saved results go straight into the report — nothing is submitted or charged for them.
+                  </p>
+                  <label class="cn-check">
+                    <input type="checkbox" [checked]="recheck()" (change)="recheck.set($any($event.target).checked)" />
+                    <span>Check them again anyway</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          }
+
+          @if (d.sheets.length > 1 || d.kind === 'xlsx' || d.kind === 'xls') {
+            <div class="cn-block">
+              <h2 class="cn-h">Inside this file <span class="cn-h-note">{{ d.sheets.length }} {{ d.sheets.length === 1 ? 'sheet' : 'sheets' }}</span></h2>
+            </div>
+            <table class="cn-table cn-table--sheets">
+              <thead>
+                <tr>
+                  <th>Sheet</th><th class="r">Rows</th><th class="r">Numbers</th><th class="r">To check</th>
+                  <th class="r">Checked</th><th class="r">Duplicates</th><th class="r">Invalid</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (s of d.sheets; track s.name) {
+                  <tr>
+                    <td><i class="ph-duotone ph-table cn-cell-glyph" aria-hidden="true"></i>{{ s.name }}</td>
+                    <td class="r cn-num">{{ n(s.rows) }}</td>
+                    <td class="r cn-num">{{ n(s.found) }}</td>
+                    <td class="r cn-num cn-ok">{{ n(s.fresh) }}</td>
+                    <td class="r cn-num">{{ n(s.alreadyChecked) }}</td>
+                    <td class="r cn-num">{{ n(s.duplicates) }}</td>
+                    <td class="r cn-num" [class.cn-bad]="s.invalid > 0">{{ n(s.invalid) }}</td>
+                  </tr>
+                }
+              </tbody>
+              @if (d.sheets.length > 1) {
+                <tfoot>
+                  <tr>
+                    <td>All sheets</td>
+                    <td class="r cn-num">{{ n(d.totalRows) }}</td>
+                    <td class="r cn-num">{{ n(d.fresh.length + d.alreadyChecked.length + d.duplicates.length) }}</td>
+                    <td class="r cn-num cn-ok">{{ n(d.fresh.length) }}</td>
+                    <td class="r cn-num">{{ n(d.alreadyChecked.length) }}</td>
+                    <td class="r cn-num">{{ n(d.duplicates.length) }}</td>
+                    <td class="r cn-num">{{ n(d.invalid.length) }}</td>
+                  </tr>
+                </tfoot>
+              }
+            </table>
+          }
+
+          <div class="cn-block cn-block--list">
+            <h2 class="cn-h">
+              @switch (reviewTab()) {
+                @case ('fresh') { Numbers to check }
+                @case ('known') { Already checked }
+                @case ('duplicates') { Duplicate numbers }
+                @default { Invalid lines }
+              }
+              <span class="cn-h-note">{{ n(reviewRows().length) }}</span>
+            </h2>
+          </div>
+
+          @if (reviewRows().length === 0) {
+            <p class="cn-empty">
+              @switch (reviewTab()) {
+                @case ('fresh') { Every number in this file has been checked before. }
+                @case ('known') { None of these numbers have been checked before. }
+                @case ('duplicates') { No number is repeated in this file. }
+                @default { Every line held a usable number. }
+              }
+            </p>
+          } @else {
+            <table class="cn-table">
+              @if (reviewTab() === 'invalid') {
+                <thead><tr><th>Sheet</th><th class="r">Line</th><th>Value in file</th><th>Why it was left out</th></tr></thead>
+                <tbody>
+                  @for (row of $any(reviewSlice()); track $index) {
+                    <tr>
+                      <td>{{ row.sheet }}</td>
+                      <td class="r cn-num">{{ row.line }}</td>
+                      <td class="cn-num">{{ row.raw }}</td>
+                      <td class="cn-bad">{{ row.reason }}</td>
+                    </tr>
+                  }
+                </tbody>
+              } @else if (reviewTab() === 'known') {
+                <thead><tr><th>Number</th><th>Country</th><th>Saved result</th><th>Checked on</th><th>In Wati</th><th>Where in file</th></tr></thead>
+                <tbody>
+                  @for (row of $any(reviewSlice()); track row.number) {
+                    <tr>
+                      <td class="cn-num cn-strong">{{ row.number }}</td>
+                      <td>{{ row.country }}</td>
+                      <td>
+                        @if (row.result === 'yes') { <span class="cn-res cn-res--yes"><i class="ph-duotone ph-check-circle" aria-hidden="true"></i>Valid · on WhatsApp</span> }
+                        @else { <span class="cn-res cn-res--no"><i class="ph-duotone ph-x-circle" aria-hidden="true"></i>Invalid · not on WhatsApp</span> }
+                      </td>
+                      <td>{{ dt(row.checkedAt) }}</td>
+                      <td>{{ row.sharedToWati ? 'Shared' : '—' }}</td>
+                      <td>{{ row.sheet }} · line {{ row.line }}</td>
+                    </tr>
+                  }
+                </tbody>
+              } @else {
+                <thead><tr><th>Number</th><th>Country</th><th>Written in file as</th><th>Sheet</th><th class="r">Line</th></tr></thead>
+                <tbody>
+                  @for (row of $any(reviewSlice()); track $index) {
+                    <tr>
+                      <td class="cn-num cn-strong">{{ row.number }}</td>
+                      <td>{{ row.country }}</td>
+                      <td class="cn-num">{{ row.raw }}</td>
+                      <td>{{ row.sheet }}</td>
+                      <td class="r cn-num">{{ row.line }}</td>
+                    </tr>
+                  }
+                </tbody>
+              }
+            </table>
+            <app-wa-pager [total]="reviewRows().length" [page]="reviewPage()" [size]="reviewSize()"
+                          [noun]="reviewTab() === 'invalid' ? 'lines' : 'numbers'"
+                          (pageChange)="reviewPage.set($event)" (sizeChange)="reviewSize.set($event); reviewPage.set(1)" />
+          }
+        </div>
+
+      </div>
+    }
+
+    <!-- ---------------------------------------------------- 3 · live check -->
+    @if (step() === 3 && active(); as run) {
+      <div class="cn-sheet cn-live" role="status" aria-live="polite">
+
+        <div class="cn-live-main">
+          <div class="cn-radar">
+            <span class="cn-radar-wave cn-radar-wave--1" aria-hidden="true"></span>
+            <span class="cn-radar-wave cn-radar-wave--2" aria-hidden="true"></span>
+            <span class="cn-orbit" aria-hidden="true"><i></i></span>
+            <svg class="cn-ring" viewBox="0 0 128 128" aria-hidden="true">
+              <circle class="cn-ring-track" cx="64" cy="64" r="54" />
+              <circle class="cn-ring-fill" cx="64" cy="64" r="54" [attr.stroke-dasharray]="339.292" [attr.stroke-dashoffset]="ringOffset()" />
+            </svg>
+            <div class="cn-ring-text">
+              <span class="cn-ring-pct cn-serif">{{ percent() }}<small>%</small></span>
+              <span class="cn-ring-sub">{{ n(run.processed) }} of {{ n(run.submitted) }}</span>
+            </div>
+          </div>
+
+          <p class="cn-eyebrow"><span class="cn-live-dot" aria-hidden="true"></span> Checking WhatsApp</p>
+          <h2 class="cn-live-title cn-serif">{{ run.fileName }}</h2>
+
+          <div class="cn-scan" aria-hidden="true">
+            <span class="cn-scan-label">Verifying</span>
+            <span class="cn-scan-num cn-num">{{ scan().text }}</span>
+            <span class="cn-scan-res" [class.is-yes]="scan().result === 'yes'" [class.is-no]="scan().result === 'no'" [class.is-unk]="scan().result === 'unknown'">
+              @switch (scan().result) {
+                @case ('yes') { <i class="ph-duotone ph-check-circle"></i>On WhatsApp }
+                @case ('no') { <i class="ph-duotone ph-x-circle"></i>Not on WhatsApp }
+                @case ('unknown') { <i class="ph-duotone ph-question"></i>Unverified }
+                @default { <i class="ph-duotone ph-circle-notch cn-spinning"></i>Looking up… }
+              }
+            </span>
+            <span class="cn-scan-beam"></span>
+          </div>
+
+          <div class="cn-tally-row">
+            <div class="cn-t cn-t--yes"><span class="cn-label">Valid</span><b class="cn-serif">{{ n(live().yes) }}</b></div>
+            <div class="cn-t cn-t--no"><span class="cn-label">Invalid</span><b class="cn-serif">{{ n(live().no) }}</b></div>
+            <div class="cn-t cn-t--unk"><span class="cn-label">Unverified</span><b class="cn-serif">{{ n(run.unknown) }}</b></div>
+            <div class="cn-t"><span class="cn-label">Remaining</span><b class="cn-serif">{{ n(remaining()) }}</b></div>
+          </div>
+
+          <span class="cn-bar cn-bar--lg" aria-hidden="true"><span class="cn-bar-fill" [style.width.%]="percent()"></span></span>
+
+          <dl class="cn-meter">
+            <div><dt>Elapsed</dt><dd class="cn-num">{{ duration(elapsed()) }}</dd></div>
+            <div><dt>Speed</dt><dd class="cn-num">{{ n(speed()) }}<small>/s</small></dd></div>
+            <div><dt>Time left</dt><dd class="cn-num">{{ eta() > 0 ? '≈ ' + duration(eta()) : '—' }}</dd></div>
+            <div><dt>Cost so far</dt><dd class="cn-num">{{ money(run.actualCost) }}</dd></div>
+          </dl>
+
+          <div class="cn-live-foot">
+            <p class="cn-task">
+              Task ID <code class="cn-num">{{ run.taskId }}</code>
+              <button type="button" class="cn-mini" (click)="copyTask(run.taskId)" aria-label="Copy task ID">
+                <i class="ph-duotone" [class.ph-copy-simple]="!copied()" [class.ph-check]="copied()" aria-hidden="true"></i>
+                {{ copied() ? 'Copied' : 'Copy' }}
+              </button>
+            </p>
+            <button type="button" class="cn-btn cn-btn--danger-ghost" (click)="stop()">
+              <i class="ph-duotone ph-stop-circle" aria-hidden="true"></i> Stop check
+            </button>
+          </div>
+        </div>
+
+        <aside class="cn-feed-col" aria-label="Latest answers">
+          <p class="cn-label">Latest answers</p>
+          <ul class="cn-feed">
+            @for (item of store.feed(); track item.number) {
+              <li class="cn-feed-row">
+                <span class="cn-num">{{ item.number }}</span>
+                @switch (item.whatsapp) {
+                  @case ('yes') { <span class="cn-res cn-res--yes"><i class="ph-duotone ph-check-circle" aria-hidden="true"></i>Valid</span> }
+                  @case ('no') { <span class="cn-res cn-res--no"><i class="ph-duotone ph-x-circle" aria-hidden="true"></i>Invalid</span> }
+                  @default { <span class="cn-res cn-res--unk"><i class="ph-duotone ph-question" aria-hidden="true"></i>Unverified</span> }
+                }
+              </li>
+            } @empty {
+              <li class="cn-feed-empty">Waiting for the first answers…</li>
+            }
+          </ul>
+          <p class="cn-feed-note">Valid numbers reach Wati the moment the check finishes. You can leave this page — the check keeps running.</p>
+        </aside>
+      </div>
+    }
+  }
+
+  <!-- ================================================================ JOBS -->
+  @if (view() === 'jobs') {
+    <div class="cn-sheet">
+      <div class="cn-bar-tools">
+        <div class="cn-filters" role="tablist" aria-label="Filter jobs">
+          @for (f of [['all','All jobs'],['running','Running'],['completed','Completed'],['failed','Failed'],['cancelled','Cancelled']]; track f[0]) {
+            <button type="button" role="tab" class="cn-filter" [class.is-on]="jobFilter() === f[0]" (click)="jobFilter.set($any(f[0]))">
+              {{ f[1] }} <span class="cn-count">{{ jobCount(f[0]) }}</span>
+            </button>
+          }
+        </div>
+        <label class="cn-search">
+          <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" placeholder="Job, file or task ID" [value]="jobQuery()" (input)="jobQuery.set($any($event.target).value)" aria-label="Search jobs" />
+        </label>
+        <a routerLink="/app/whatsapp/check-number" class="cn-btn cn-btn--primary">
+          <i class="ph-duotone ph-upload-simple" aria-hidden="true"></i> New check
+        </a>
+      </div>
+
+      @if (jobRows().length === 0) {
+        <p class="cn-empty">No jobs match. Start a new check to see it here.</p>
+      } @else {
+        <table class="cn-table">
+          <thead>
+            <tr>
+              <th>Job</th><th>File</th><th>Status</th><th class="r">Numbers</th><th class="r">Valid</th><th class="r">Invalid</th>
+              <th class="r">Cost</th><th>Started ({{ zone }})</th><th class="w-go"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (j of jobSlice(); track j.id) {
+              <tr class="cn-row" tabindex="0" (click)="openJob(j)" (keydown.enter)="openJob(j)">
+                <td class="cn-num cn-strong">{{ j.id }}</td>
+                <td>
+                  <span class="cn-file-cell">
+                    <i class="ph-duotone {{ kindGlyph(j.kind) }}" aria-hidden="true"></i>
+                    <span><span class="cn-file-name">{{ j.fileName }}</span><small>{{ bytes(j.fileSize) }}{{ j.sheetCount > 1 ? ' · ' + j.sheetCount + ' sheets' : '' }}</small></span>
+                  </span>
+                </td>
+                <td>
+                  <span class="cn-st cn-st--{{ j.status }}">{{ statusLabel(j.status) }}</span>
+                  @if (j.status === 'running') { <small class="cn-st-note">{{ progressOf(j) }}%</small> }
+                </td>
+                <td class="r cn-num">{{ n(j.total) }}</td>
+                <td class="r cn-num cn-ok">{{ n(j.yes) }}</td>
+                <td class="r cn-num">{{ n(j.no) }}</td>
+                <td class="r cn-num">{{ money(j.actualCost) }}</td>
+                <td>{{ dt(j.createdAt) }}</td>
+                <td class="w-go"><i class="ph-duotone ph-caret-right" aria-hidden="true"></i></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <app-wa-pager [total]="jobRows().length" [page]="jobPage()" [size]="jobSize()" noun="jobs" [sizes]="[10, 25, 50]"
+                      (pageChange)="jobPage.set($event)" (sizeChange)="jobSize.set($event); jobPage.set(1)" />
+      }
+    </div>
+    <p class="cn-foot">
+      Starter jobs were added so this page is not empty.
+      <button type="button" class="cn-link" (click)="resetDemo()">Reset to starter data</button>
+    </p>
+  }
+
+  <!-- ================================================================ ONE JOB -->
+  @if (view() === 'job') {
+    @if (job(); as j) {
+
+      <!-- One sheet: header, outcome, facts, timeline and downloads -->
+      <section class="cn-sheet cn-job">
+        <header class="cn-jhead">
+          <i class="ph-duotone {{ kindGlyph(j.kind) }} cn-jhead-glyph" aria-hidden="true"></i>
+          <div class="cn-jhead-text">
+            <h2 class="cn-jhead-title cn-serif">{{ j.fileName }}</h2>
+            <p class="cn-jhead-meta">
+              <span class="cn-st cn-st--{{ j.status }}">{{ statusLabel(j.status) }}</span>
+              <span class="cn-num">{{ j.id }}</span>
+              <span>{{ dtFull(j.createdAt) }}</span>
+            </p>
+          </div>
+          <div class="cn-jhead-end">
+            @if (j.status === 'failed' || j.status === 'cancelled') {
+              <button type="button" class="cn-btn cn-btn--primary" (click)="resume(j)" [disabled]="!!store.activeJobId()">
+                <i class="ph-duotone ph-arrow-clockwise" aria-hidden="true"></i> {{ j.status === 'failed' ? 'Retry job' : 'Resume job' }}
+              </button>
+            }
+            @if (j.status === 'running') {
+              <a routerLink="/app/whatsapp/check-number" class="cn-btn cn-btn--primary"><i class="ph-duotone ph-pulse" aria-hidden="true"></i> Watch live</a>
+            }
+            @if (j.yes > 0) {
+              <a routerLink="/app/whatsapp/wati" class="cn-btn cn-btn--ghost"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Message in Wati</a>
+            }
+          </div>
+        </header>
+
+        @if (justFinished() && j.status === 'completed') {
+          <div class="cn-inset"><p class="cn-alert cn-alert--ok" role="status">
+            <i class="ph-duotone ph-seal-check" aria-hidden="true"></i>
+            <span><b>Check complete.</b> {{ n(j.yes) }} valid {{ j.yes === 1 ? 'number is' : 'numbers are' }} ready in Wati{{ j.unknown > 0 ? ', and ' + n(j.unknown) + ' could not be verified' : '' }}.</span>
+          </p></div>
+        }
+
+        <div class="cn-jsum">
+          <div class="cn-outcome">
+            <div class="cn-outcome-figs">
+              <div class="cn-t cn-t--yes"><b class="cn-serif">{{ n(j.yes) }}</b><span class="cn-res cn-res--yes"><i class="ph-duotone ph-check-circle" aria-hidden="true"></i>Valid</span></div>
+              <div class="cn-t cn-t--no"><b class="cn-serif">{{ n(j.no) }}</b><span class="cn-res cn-res--no"><i class="ph-duotone ph-x-circle" aria-hidden="true"></i>Invalid</span></div>
+              <div class="cn-t cn-t--unk"><b class="cn-serif">{{ n(j.unknown) }}</b><span class="cn-res cn-res--unk"><i class="ph-duotone ph-question" aria-hidden="true"></i>Unverified</span></div>
+            </div>
+            <span class="cn-stack" role="img" [attr.aria-label]="j.yes + ' valid, ' + j.no + ' invalid, ' + j.unknown + ' unverified'">
+              <span class="cn-stack-yes" [style.width.%]="split().yes"></span>
+              <span class="cn-stack-no" [style.width.%]="split().no"></span>
+              <span class="cn-stack-unk" [style.width.%]="split().unknown"></span>
+            </span>
+          </div>
+          <p class="cn-reason" [class.cn-reason--bad]="j.outcome === 'Failed'" [class.cn-reason--warn]="j.outcome === 'Cancelled'">
+            <b>{{ j.outcome === 'Success' ? 'Why it succeeded' : j.outcome === 'Failed' ? 'Why it failed' : j.outcome === 'Cancelled' ? 'Why it stopped' : 'Status' }}</b>
+            <span>{{ j.reason || '—' }}</span>
+            @if (j.errorCode) { <code class="cn-num">{{ j.errorCode }}</code> }
+          </p>
+        </div>
+
+        <dl class="cn-facts">
+          <div class="cn-fact"><dt>Job ID</dt><dd class="cn-num">{{ j.id }}</dd></div>
+          <div class="cn-fact"><dt>File</dt><dd>{{ j.fileName }}<small>{{ bytes(j.fileSize) }} · {{ j.sheetCount }} {{ j.sheetCount === 1 ? 'sheet' : 'sheets' }}</small></dd></div>
+          <div class="cn-fact"><dt>Status</dt><dd><span class="cn-st cn-st--{{ j.status }}">{{ statusLabel(j.status) }}</span><small>{{ j.finishedAt ? 'Finished ' + dt(j.finishedAt) : 'In progress' }}</small></dd></div>
+          <div class="cn-fact">
+            <dt>Task ID</dt>
+            <dd class="cn-task-row">
+              <code class="cn-num">{{ j.taskId }}</code>
+              <button type="button" class="cn-mini" (click)="copyTask(j.taskId)" aria-label="Copy task ID">
+                <i class="ph-duotone" [class.ph-copy-simple]="!copied()" [class.ph-check]="copied()" aria-hidden="true"></i>
+                {{ copied() ? 'Copied' : 'Copy' }}
+              </button>
+            </dd>
+          </div>
+          <div class="cn-fact">
+            <dt>Cost, estimated vs actual</dt>
+            <dd><span class="cn-num">{{ money(j.estimatedCost) }}</span><span class="cn-vs"> vs </span><span class="cn-num cn-strong">{{ money(j.actualCost) }}</span>
+              <small>{{ j.outcome === 'Failed' || (j.actualCost === 0 && j.status !== 'running') ? 'Nothing was charged' : j.estimatedCost > j.actualCost ? 'You saved ' + money(j.estimatedCost - j.actualCost) : 'As estimated' }}</small></dd>
+          </div>
+          <div class="cn-fact">
+            <dt>Result</dt>
+            <dd>
+              @if (j.outcome === 'Success') { <span class="cn-res cn-res--yes"><i class="ph-duotone ph-check-circle" aria-hidden="true"></i>Success</span> }
+              @else if (j.outcome === 'Failed') { <span class="cn-res cn-res--no"><i class="ph-duotone ph-x-circle" aria-hidden="true"></i>Failed</span> }
+              @else if (j.outcome === 'Cancelled') { <span class="cn-res cn-res--unk"><i class="ph-duotone ph-prohibit" aria-hidden="true"></i>Cancelled</span> }
+              @else { <span class="cn-res cn-res--unk"><i class="ph-duotone ph-hourglass-medium" aria-hidden="true"></i>Pending</span> }
+              <small>{{ n(j.processed) }} of {{ n(j.submitted) }} submitted</small>
+            </dd>
+          </div>
+        </dl>
+
+        <div class="cn-jfoot">
+          <ol class="cn-tlh" aria-label="Timeline">
+            @for (step of timeline(); track $index) {
+              <li class="cn-tlh-item cn-tl-item--{{ step.state }}">
+                <span class="cn-tl-dot" aria-hidden="true"></span>
+                <span class="cn-tl-text"><b>{{ step.label }}</b><small>{{ step.at ? dt(step.at) : 'Pending' }}</small></span>
+              </li>
+            }
+          </ol>
+          <ul class="cn-dlrow" aria-label="Downloads">
+            <li><button type="button" class="cn-mini" [disabled]="!j.original" (click)="download(j, 'original')"><i class="ph-duotone ph-file-arrow-down" aria-hidden="true"></i>Original file</button></li>
+            <li><button type="button" class="cn-mini" [disabled]="j.submittedNumbers.length === 0" (click)="download(j, 'submitted')"><i class="ph-duotone ph-list-numbers" aria-hidden="true"></i>Submitted numbers · {{ n(j.submittedNumbers.length) }}</button></li>
+            <li><button type="button" class="cn-mini" [disabled]="j.results.length === 0" (click)="download(j, 'results')"><i class="ph-duotone ph-file-csv" aria-hidden="true"></i>Results CSV · {{ n(j.results.length) }}</button></li>
+            <li><button type="button" class="cn-mini" (click)="download(j, 'raw')"><i class="ph-duotone ph-brackets-curly" aria-hidden="true"></i>CheckNumber.ai raw files</button></li>
+            <li><button type="button" class="cn-mini" [disabled]="j.invalidLines.length === 0" (click)="download(j, 'invalid')"><i class="ph-duotone ph-warning-diamond" aria-hidden="true"></i>Invalid lines · {{ n(j.invalidLines.length) }}</button></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Report: full width, so a thousand rows read comfortably -->
+      <section class="cn-sheet" aria-label="WhatsApp check report">
+        <div class="cn-pad cn-report-head">
+          <h2 class="cn-h">WhatsApp check report <span class="cn-h-note">{{ n(reportCounts().all) }} numbers</span></h2>
+        </div>
+        <div class="cn-bar-tools cn-bar-tools--top">
+          <div class="cn-filters" role="tablist" aria-label="Filter the report">
+            @for (f of [['all','All'],['valid','Valid'],['invalid','Invalid'],['unverified','Unverified'],['saved','Already checked']]; track f[0]) {
+              <button type="button" role="tab" class="cn-filter" [class.is-on]="reportTab() === f[0]" (click)="reportTab.set($any(f[0]))">
+                {{ f[1] }} <span class="cn-count">{{ n(reportCount(f[0])) }}</span>
+              </button>
+            }
+          </div>
+          <label class="cn-search">
+            <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" placeholder="Number, country or note" [value]="reportQuery()" (input)="reportQuery.set($any($event.target).value)" aria-label="Search the report" />
+          </label>
+        </div>
+
+        @if (reportRows().length === 0) {
+          <p class="cn-empty">
+            @if (j.results.length === 0) { No answers yet{{ j.status === 'failed' ? ' — the job failed before CheckNumber.ai returned anything.' : '.' }} }
+            @else { Nothing matches this filter. }
+          </p>
+        } @else {
+          <table class="cn-table">
+            <thead>
+              <tr><th>Number</th><th>Country</th><th>WhatsApp enabled</th><th>Result</th><th>Note</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              @for (r of reportSlice(); track r.number) {
+                <tr>
+                  <td class="cn-num cn-strong">{{ r.number }}</td>
+                  <td><span class="cn-iso">{{ r.iso }}</span>{{ r.country }}</td>
+                  <td>
+                    <span class="cn-res cn-res--{{ r.whatsapp }}">
+                      <i class="ph-duotone" [class.ph-check-circle]="r.whatsapp === 'yes'" [class.ph-x-circle]="r.whatsapp === 'no'" [class.ph-question]="r.whatsapp === 'unknown'" aria-hidden="true"></i>{{ enabledLabel[r.whatsapp] }}
+                    </span>
+                  </td>
+                  <td><span class="cn-tone cn-tone--{{ r.whatsapp }}">{{ rowResult(r) }}</span></td>
+                  <td class="cn-note">{{ r.note }}</td>
+                  <td>{{ r.status === 'saved' ? 'Saved result' : r.status === 'unverified' ? 'Unverified' : 'Checked' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <app-wa-pager [total]="reportRows().length" [page]="reportPage()" [size]="reportSize()"
+                        (pageChange)="reportPage.set($event)" (sizeChange)="reportSize.set($event); reportPage.set(1)" />
+        }
+      </section>
+    } @else {
+      <div class="cn-sheet cn-missing">
+        <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
+        <h2 class="cn-h">That job isn’t here</h2>
+        <p class="cn-empty">It may have been removed, or the link is wrong.</p>
+        <a routerLink="/app/whatsapp/check-number/jobs" class="cn-btn cn-btn--primary">Back to all jobs</a>
+      </div>
+    }
+  }
+</section>
+</div>
+</div>
+</main>
