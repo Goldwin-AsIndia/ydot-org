@@ -110,7 +110,7 @@ export class SidebarComponent implements OnDestroy {
    * appeared still will not, and a node that appears is still gated exactly as the server gated
    * it. See `overrideMenu` for the mechanics.
    */
-  readonly menu = computed(() => this.overrideMenu(this.navigation.menu()));
+  readonly menu = computed(() => this.withWhatsApp(this.overrideMenu(this.navigation.menu())));
   readonly loading = computed(() => this.navigation.loading());
   readonly failed = computed(() => this.navigation.failed());
 
@@ -141,6 +141,8 @@ export class SidebarComponent implements OnDestroy {
   private static readonly CAMPAIGN_REGISTER_ROUTE_RE = /\/campaign-register$/;
   /** Where the injected Tracking Asset Manager link points. */
   private static readonly TRACKING_ASSET_ROUTE = '/app/fundraising/campaigns/tracking-asset-manager';
+  private static readonly CHECK_NUMBER_ROUTE = '/app/whatsapp/check-number';
+  private static readonly WATI_ROUTE = '/app/whatsapp/wati';
 
   private isCreateCampaignNode(node: MenuNode): boolean {
     return !!node.route && SidebarComponent.CREATE_CAMPAIGN_ROUTE_RE.test(node.route);
@@ -194,6 +196,29 @@ export class SidebarComponent implements OnDestroy {
     }
 
     return { ...node, children };
+  }
+
+  /**
+   * Adds CheckNumber and Wati directly below Dashboard.
+   *
+   * CLIENT-SIDE ENTRIES, like the Tracking Asset Manager link above: these two screens run on in-browser data
+   * and have no server menu node yet, so they are placed here. When the menu catalogue gains them, the
+   * `already` check below stops this from adding a second copy.
+   */
+  private withWhatsApp(nodes: MenuNode[]): MenuNode[] {
+    if (nodes.length === 0 || nodes.some((n) => n.route === SidebarComponent.CHECK_NUMBER_ROUTE)) {
+      return nodes;
+    }
+    const entry = (code: string, name: string, route: string, icon: string): MenuNode => ({
+      id: code, code, name, route, icon, children: null, isGroupOnly: false, hasChildren: false, opensInNewTab: false,
+    });
+    const added = [
+      entry('client-check-number', 'CheckNumber', SidebarComponent.CHECK_NUMBER_ROUTE, 'ri-shield-check-line'),
+      entry('client-wati', 'Wati', SidebarComponent.WATI_ROUTE, 'ri-message-3-line'),
+    ];
+    const dashboard = nodes.findIndex((n) => !!n.route && /\/dashboard\/?$/.test(n.route));
+    const at = dashboard === -1 ? 0 : dashboard + 1;
+    return [...nodes.slice(0, at), ...added, ...nodes.slice(at)];
   }
 
   /** Shown in the sidebar footer so a root user always knows whose data they are looking at. */

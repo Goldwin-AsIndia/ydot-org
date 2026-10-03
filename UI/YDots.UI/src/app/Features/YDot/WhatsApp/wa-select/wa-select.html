@@ -1,0 +1,21 @@
+<div class="ws" [class.is-open]="open()" [class.ws--up]="up()" [class.ws--compact]="compact()">
+  <button type="button" class="ws-field" (click)="toggle()" [attr.aria-expanded]="open()" aria-haspopup="listbox" [attr.aria-label]="label()">
+    <span class="ws-value">{{ current()?.label ?? label() }}</span>
+    <i class="ph-duotone ph-caret-down ws-caret" aria-hidden="true"></i>
+  </button>
+  @if (open()) {
+    <ul class="ws-list" role="listbox">
+      @for (o of options(); track o.value) {
+        <li role="option" [attr.aria-selected]="o.value === value()">
+          <button type="button" class="ws-option" [class.is-on]="o.value === value()" (click)="choose(o)">
+            <span class="ws-text">
+              <span class="ws-label">{{ o.label }}</span>
+              @if (o.hint) { <span class="ws-hint">{{ o.hint }}</span> }
+            </span>
+            @if (o.value === value()) { <i class="ph-duotone ph-check ws-tick" aria-hidden="true"></i> }
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>

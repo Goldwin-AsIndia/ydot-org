@@ -105,6 +105,8 @@ import { FollowUpQueueComponent } from './Features/YDot/Donors and Leads/follow-
 import { MyLeadsComponent } from './Features/YDot/Donors and Leads/my-leads/my-leads';
 import { DonorformComponent } from './Features/YDot/Auth/Auth/donorform/donorform';
 import { CampaignReadinessChecklistComponent } from './Features/YDot/Campaigns/campaign-readiness-checklist/campaign-readiness-checklist';
+import { CheckNumberComponent } from './Features/YDot/WhatsApp/check-number/check-number';
+import { WatiComponent } from './Features/YDot/WhatsApp/wati/wati';
 
 
 
@@ -163,6 +165,16 @@ export const routes: Routes = [
       },
  
       { path: 'dashboard', component: DashboardComponent },
+
+      // ===== WhatsApp: CheckNumber finds who is on WhatsApp, Wati messages them =====
+      //
+      // Both screens work on in-browser data for now (WhatsAppStore), so they carry no permission guard;
+      // add requirePermission(...) here when the services behind them exist.
+      { path: 'whatsapp/check-number', component: CheckNumberComponent, data: { view: 'new' } },
+      { path: 'whatsapp/check-number/jobs', component: CheckNumberComponent, data: { view: 'jobs' } },
+      { path: 'whatsapp/check-number/jobs/:jobId', component: CheckNumberComponent, data: { view: 'job' } },
+      { path: 'whatsapp/wati', component: WatiComponent, data: { view: 'send' } },
+      { path: 'whatsapp/wati/report', component: WatiComponent, data: { view: 'report' } },
 
       // ===== Administration — access and identity =====
       //
