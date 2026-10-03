@@ -25,7 +25,6 @@ import { StandardRecordDetailComponent } from './Features/YDot/Workspace/standar
 import { LeadWorkQueueComponent } from './Features/YDot/Donors and Leads/lead-work-queue/lead-work-queue';
 import { LeadCaptureComponent } from './Features/YDot/Donors and Leads/lead-capture/lead-capture';
 import { Donor360Component } from './Features/YDot/Donors and Leads/donor-360/donor-360';
-import { DuplicateReviewComponent } from './Features/YDot/Donors and Leads/duplicate-review/duplicate-review';
 import { ConsentPreferenceCentreComponent } from './Features/YDot/Donors and Leads/consent-preference-centre/consent-preference-centre';
 import { AssignmentBoardComponent } from './Features/YDot/Donors and Leads/assignment-board/assignment-board';
 import { DonorIdentityVerificationComponent } from './Features/YDot/Donors and Leads/donor-identity-verification/donor-identity-verification';
@@ -274,20 +273,10 @@ export const routes: Routes = [
         pathMatch: 'full',
       },
 
-      // THE MENU ALSO CARRIES A DUPLICATE REVIEW ENTRY. The component exists and is complete; the
-      // route was commented out, so the entry led nowhere.
-      {
-        path: 'fundraising/relationships/duplicate-review',
-        component: DuplicateReviewComponent,
-        canActivate: [requirePermission('don.duplicate-review.view')],
-      },
-
-
       // ===== Donors and Leads pages =====
       // { path: 'fundraising/relationships/lead-work-queue', component: LeadWorkQueueComponent },
       // { path: 'fundraising/relationships/lead-capture', component: LeadCaptureComponent },
       // { path: 'fundraising/relationships/donor-360', component: Donor360Component },
-      // { path: 'fundraising/relationships/duplicate-review', component: DuplicateReviewComponent },
       // { path: 'fundraising/relationships/consent-and-preference-centre', component: ConsentPreferenceCentreComponent },
       // { path: 'fundraising/relationships/assignment-board', component: AssignmentBoardComponent },
       // { path: 'don/donor-identity-verification', component: DonorIdentityVerificationComponent },
@@ -305,7 +294,6 @@ export const routes: Routes = [
             { path: 'fundraising/relationships/lead-work-queue', component: LeadWorkQueueComponent, canActivate: [requirePermission('don.lead-work-queue.view')] },
             { path: 'fundraising/relationships/lead-capture', component: LeadCaptureComponent, canActivate: [requirePermission('don.lead-capture.view')] },
             { path: 'fundraising/relationships/donor-360', component: Donor360Component, canActivate: [requirePermission('don.donor-360.view')] },
-            // { path: 'fundraising/relationships/duplicate-review', component: DuplicateReviewComponent },
             { path: 'fundraising/relationships/consent-and-preference-centre', component: ConsentPreferenceCentreComponent, canActivate: [requirePermission('don.consent-and-preference-centre.view')] },
             { path: 'fundraising/relationships/assignment-board', component: AssignmentBoardComponent, canActivate: [requirePermission('don.assignment-board.view')] },
             // Canonical donor workflow routes plus compatibility aliases.
@@ -749,5 +737,5 @@ export const routes: Routes = [
   // Anything unrecognised goes to sign-in rather than a blank page.
   { path: '**', redirectTo: 'auth/sign-in' },
 ];
-routes.unshift({ path: 'pv-rd8', component: ApplayoutComponent, children: [{ path: 'lq', component: LeadWorkQueueComponent }, { path: 'dr', component: DuplicateReviewComponent }, { path: 'fp', component: FollowUpPlannerComponent }, { path: 'fx', component: FollowUpExecutionComponent }, { path: 'ud', component: UserDirectoryComponent }, { path: 'pr', component: PaymentEventQueueComponent }, { path: 'd3', component: Donor360Component }] });
+routes.unshift({ path: 'pv-rd8', component: ApplayoutComponent, children: [{ path: 'lq', component: LeadWorkQueueComponent }, { path: 'fp', component: FollowUpPlannerComponent }, { path: 'fx', component: FollowUpExecutionComponent }, { path: 'ud', component: UserDirectoryComponent }, { path: 'pr', component: PaymentEventQueueComponent }, { path: 'd3', component: Donor360Component }] });
 routes.unshift({ path: 'pv-lw', component: ApplayoutComponent, children: [{ path: 'ct', component: CommunicationTimelineComponent }] });

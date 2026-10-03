@@ -385,18 +385,10 @@ public static class MenuCatalogue
         // WHAT REMAINS IS THE SET YOU ARRIVE AT COLD: the two lead screens, the donor register,
         // and Duplicate Review.
         //
-        // DUPLICATE REVIEW STAYS, and it is the exception worth reading. Nothing links to it -
-        // Donor 360's "Duplicate links" row opens its own Documents tab, not this screen - so
-        // removing the row would leave a working screen with no way to reach it at all. It comes
-        // off the sidebar the moment something opens it, and not before.
-        //
-        // WITHDRAWN, NOT DELETED, like the campaign nodes above: the routes, screens, permissions
-        // and DON endpoints are untouched. The start-up reconciliation retires each definition and
-        // drops the row from every Organisation that already holds it, so this reaches databases
-        // that have already run rather than fresh ones only. Restoring one is restoring its line.
-
-        new("FR_DUPLICATE_REVIEW", "Duplicate Review", "FR_RELATIONSHIPS", MenuLevel.ChildSubMenu, "DON",
-            "/app/fundraising/relationships/duplicate-review", "copy", "don.duplicate-review.view", 80),
+        // DUPLICATE REVIEW IS WITHDRAWN as well, by request: the screen and its route were removed from the
+        // UI, so the sidebar entry went with it. Restoring it means restoring the screen and this line:
+        //   new("FR_DUPLICATE_REVIEW", "Duplicate Review", "FR_RELATIONSHIPS", MenuLevel.ChildSubMenu, "DON",
+        //       "/app/fundraising/relationships/duplicate-review", "copy", "don.duplicate-review.view", 80),
 
         // ============ Money ==============================================================================
         new(Money, "Money", null, MenuLevel.Menu, "FIN", null, "credit-card", null, 70),
