@@ -37,12 +37,12 @@
           <span class="cn-step-text"><b>Review</b><small>Numbers found in the file</small></span>
           <i class="ph-duotone cn-step-state" [class.ph-check-circle]="step() > 2" [class.ph-arrow-right]="step() === 2" aria-hidden="true"></i>
         </li>
-        <li class="cn-step" [class.is-now]="step() === 3">
+        <li class="cn-step" [class.is-done]="step() > 3" [class.is-now]="step() === 3">
           <span class="cn-step-no cn-serif">03</span>
           <span class="cn-step-text"><b>Check</b><small>Live WhatsApp lookup</small></span>
-          <i class="ph-duotone cn-step-state" [class.ph-circle-notch]="step() === 3" [class.cn-spinning]="step() === 3" aria-hidden="true"></i>
+          <i class="ph-duotone cn-step-state" [class.ph-check-circle]="step() > 3 || (step() === 3 && !running())" [class.ph-circle-notch]="step() === 3 && running()" [class.cn-spinning]="step() === 3 && running()" aria-hidden="true"></i>
         </li>
-        <li class="cn-step">
+        <li class="cn-step" [class.is-now]="step() === 4">
           <span class="cn-step-no cn-serif">04</span>
           <span class="cn-step-text"><b>Report</b><small>Valid and invalid numbers</small></span>
         </li>
@@ -75,6 +75,24 @@
               <p class="cn-drop-title cn-serif">Reading {{ name }}</p>
               <p class="cn-drop-hint">Extracting numbers, going through each sheet, looking for duplicates…</p>
               <span class="cn-bar" aria-hidden="true"><span class="cn-bar-run"></span></span>
+            </div>
+          } @else if (draft(); as d) {
+            <div class="cn-sheet cn-ready">
+              <div class="cn-filebar">
+                <i class="ph-duotone {{ kindGlyph(d.kind) }} cn-filebar-glyph" aria-hidden="true"></i>
+                <div class="cn-filebar-text">
+                  <p class="cn-filebar-name cn-serif">{{ d.fileName }}</p>
+                  <p class="cn-filebar-meta">{{ bytes(d.fileSize) }} · .{{ d.kind }} · file uploaded</p>
+                </div>
+              </div>
+              <div class="cn-ready-act">
+                <button type="button" class="cn-btn cn-btn--ghost" (click)="discard()">
+                  <i class="ph-duotone ph-arrow-u-up-left" aria-hidden="true"></i> Change file
+                </button>
+                <button type="button" class="cn-btn cn-btn--primary" (click)="next()">
+                  Next <i class="ph-duotone ph-arrow-right" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
           } @else {
             <label class="cn-drop" [class.is-over]="dragging()"
@@ -269,6 +287,7 @@
               }
             </p>
           } @else {
+            <div class="cn-scroll">
             <table class="cn-table">
               @if (reviewTab() === 'invalid') {
                 <thead><tr><th>Sheet</th><th class="r">Line</th><th>Value in file</th><th>Why it was left out</th></tr></thead>
@@ -314,6 +333,7 @@
                 </tbody>
               }
             </table>
+            </div>
             <app-wa-pager [total]="reviewRows().length" [page]="reviewPage()" [size]="reviewSize()"
                           [noun]="reviewTab() === 'invalid' ? 'lines' : 'numbers'"
                           (pageChange)="reviewPage.set($event)" (sizeChange)="reviewSize.set($event); reviewPage.set(1)" />
@@ -324,7 +344,7 @@
     }
 
     <!-- ---------------------------------------------------- 3 · live check -->
-    @if (step() === 3 && active(); as run) {
+    @if (step() === 3 && current(); as run) {
       <div class="cn-sheet cn-live" role="status" aria-live="polite">
 
         <div class="cn-live-main">
@@ -342,7 +362,7 @@
             </div>
           </div>
 
-          <p class="cn-eyebrow"><span class="cn-live-dot" aria-hidden="true"></span> Checking WhatsApp</p>
+          <p class="cn-eyebrow"><span class="cn-live-dot" aria-hidden="true"></span> {{ running() ? 'Checking WhatsApp' : run.status === 'completed' ? 'Check complete' : 'Check stopped' }}</p>
           <h2 class="cn-live-title cn-serif">{{ run.fileName }}</h2>
 
           <div class="cn-scan" aria-hidden="true">
@@ -383,9 +403,15 @@
                 {{ copied() ? 'Copied' : 'Copy' }}
               </button>
             </p>
-            <button type="button" class="cn-btn cn-btn--danger-ghost" (click)="stop()">
-              <i class="ph-duotone ph-stop-circle" aria-hidden="true"></i> Stop check
-            </button>
+            @if (running()) {
+              <button type="button" class="cn-btn cn-btn--danger-ghost" (click)="stop()">
+                <i class="ph-duotone ph-stop-circle" aria-hidden="true"></i> Stop check
+              </button>
+            } @else {
+              <button type="button" class="cn-btn cn-btn--primary" (click)="showReport()">
+                Next <i class="ph-duotone ph-arrow-right" aria-hidden="true"></i>
+              </button>
+            }
           </div>
         </div>
 
@@ -405,9 +431,33 @@
               <li class="cn-feed-empty">Waiting for the first answers…</li>
             }
           </ul>
-          <p class="cn-feed-note">Valid numbers reach Wati the moment the check finishes. You can leave this page — the check keeps running.</p>
+          <p class="cn-feed-note">{{ running() ? 'Valid numbers reach Wati the moment the check finishes. You can leave this page — the check keeps running.' : 'The check has ended. Press Next to open the report.' }}</p>
         </aside>
       </div>
+    }
+
+    <!-- ---------------------------------------------------- 4 · report -->
+    @if (step() === 4 && job(); as j) {
+      <section class="cn-sheet cn-final" aria-label="Check finished">
+        <div class="cn-final-top">
+          <div>
+            <p class="cn-eyebrow">{{ j.status === 'completed' ? 'Check complete' : 'Check stopped' }}</p>
+            <h2 class="cn-jhead-title cn-serif">{{ j.fileName }}</h2>
+            <p class="cn-jhead-meta"><span class="cn-num">{{ j.id }}</span><span>{{ n(j.processed + j.saved) }} of {{ n(j.total) }} numbers answered · {{ money(j.actualCost) }}</span></p>
+          </div>
+          <div class="cn-outcome-figs">
+            <div class="cn-t cn-t--yes"><b class="cn-serif">{{ n(j.yes) }}</b><span class="cn-res cn-res--yes"><i class="ph-duotone ph-check-circle" aria-hidden="true"></i>Valid</span></div>
+            <div class="cn-t cn-t--no"><b class="cn-serif">{{ n(j.no) }}</b><span class="cn-res cn-res--no"><i class="ph-duotone ph-x-circle" aria-hidden="true"></i>Invalid</span></div>
+            <div class="cn-t cn-t--unk"><b class="cn-serif">{{ n(j.unknown) }}</b><span class="cn-res cn-res--unk"><i class="ph-duotone ph-question" aria-hidden="true"></i>Unverified</span></div>
+          </div>
+        </div>
+        <div class="cn-ready-act">
+          <button type="button" class="cn-btn cn-btn--primary" (click)="done()">
+            <i class="ph-duotone ph-check" aria-hidden="true"></i> Done
+          </button>
+        </div>
+      </section>
+      <ng-container *ngTemplateOutlet="reportTpl; context: { $implicit: j }" />
     }
   }
 
@@ -434,6 +484,7 @@
       @if (jobRows().length === 0) {
         <p class="cn-empty">No jobs match. Start a new check to see it here.</p>
       } @else {
+        <div class="cn-scroll">
         <table class="cn-table">
           <thead>
             <tr>
@@ -465,6 +516,7 @@
             }
           </tbody>
         </table>
+        </div>
         <app-wa-pager [total]="jobRows().length" [page]="jobPage()" [size]="jobSize()" noun="jobs" [sizes]="[10, 25, 50]"
                       (pageChange)="jobPage.set($event)" (sizeChange)="jobSize.set($event); jobPage.set(1)" />
       }
@@ -583,7 +635,22 @@
         </div>
       </section>
 
-      <!-- Report: full width, so a thousand rows read comfortably -->
+      <ng-container *ngTemplateOutlet="reportTpl; context: { $implicit: j }" />
+    } @else {
+      <div class="cn-sheet cn-missing">
+        <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
+        <h2 class="cn-h">That job isn’t here</h2>
+        <p class="cn-empty">It may have been removed, or the link is wrong.</p>
+        <a routerLink="/app/whatsapp/check-number/jobs" class="cn-btn cn-btn--primary">Back to all jobs</a>
+      </div>
+    }
+  }
+</section>
+</div>
+</div>
+</main>
+
+<ng-template #reportTpl let-j>
       <section class="cn-sheet" aria-label="WhatsApp check report">
         <div class="cn-pad cn-report-head">
           <h2 class="cn-h">WhatsApp check report <span class="cn-h-note">{{ n(reportCounts().all) }} numbers</span></h2>
@@ -608,6 +675,7 @@
             @else { Nothing matches this filter. }
           </p>
         } @else {
+          <div class="cn-scroll">
           <table class="cn-table">
             <thead>
               <tr><th>Number</th><th>Country</th><th>WhatsApp enabled</th><th>Result</th><th>Note</th><th>Status</th></tr>
@@ -629,20 +697,10 @@
               }
             </tbody>
           </table>
+          </div>
           <app-wa-pager [total]="reportRows().length" [page]="reportPage()" [size]="reportSize()"
                         (pageChange)="reportPage.set($event)" (sizeChange)="reportSize.set($event); reportPage.set(1)" />
         }
       </section>
-    } @else {
-      <div class="cn-sheet cn-missing">
-        <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
-        <h2 class="cn-h">That job isn’t here</h2>
-        <p class="cn-empty">It may have been removed, or the link is wrong.</p>
-        <a routerLink="/app/whatsapp/check-number/jobs" class="cn-btn cn-btn--primary">Back to all jobs</a>
-      </div>
-    }
-  }
-</section>
-</div>
-</div>
-</main>
+</ng-template>
+

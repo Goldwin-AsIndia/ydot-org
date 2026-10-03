@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -24,7 +25,7 @@ const RESULT_LABEL: Record<WaResult, string> = { yes: 'Valid', no: 'Invalid', un
  */
 @Component({
   selector: 'app-check-number',
-  imports: [RouterLink, WaPagerComponent],
+  imports: [RouterLink, WaPagerComponent, NgTemplateOutlet],
   templateUrl: './check-number.html',
   styleUrls: ['../wa-shared.css', './check-number.css'],
 })
@@ -61,14 +62,21 @@ export class CheckNumberComponent {
   protected readonly verified = computed(() => Object.keys(this.store.registry()).length);
 
   protected readonly draft = this.store.draft;
-  protected readonly step = computed<1 | 2 | 3>(() => {
+  /** True once the person has pressed Next on the upload step; a file alone never moves the stepper on. */
+  protected readonly reviewing = signal(false);
+  /** The check that has just ended on this screen; it stays on step 3 until the person presses Next. */
+  protected readonly finishedId = signal<string | null>(null);
+  /** True once the person has pressed Next on the live step, which opens the report step. */
+  protected readonly reported = signal(false);
+  protected readonly step = computed<1 | 2 | 3 | 4>(() => {
     if (this.store.activeJob()) return 3;
-    return this.draft() ? 2 : 1;
+    if (this.finishedId()) return this.reported() ? 4 : 3;
+    return this.draft() && this.reviewing() ? 2 : 1;
   });
 
   protected readonly reviewTab = signal<ReviewTab>('fresh');
   protected readonly reviewPage = signal(1);
-  protected readonly reviewSize = signal(50);
+  protected readonly reviewSize = signal(25);
 
   protected readonly toCheck = computed(() => {
     const d = this.draft();
@@ -98,14 +106,17 @@ export class CheckNumberComponent {
 
   // ------------------------------------------------------------------ live check
   protected readonly active = this.store.activeJob;
+  /** The running job, or the one that just ended and is waiting for Next. */
+  protected readonly current = computed(() => this.store.activeJob() ?? this.store.job(this.finishedId()));
+  protected readonly running = computed(() => !!this.store.activeJob());
   protected readonly percent = computed(() => {
-    const job = this.active();
+    const job = this.current();
     return job && job.submitted > 0 ? Math.min(100, Math.floor((job.processed / job.submitted) * 100)) : 0;
   });
   protected readonly ringOffset = computed(() => 2 * Math.PI * 54 * (1 - this.percent() / 100));
   /** Answers received in this run, leaving out the saved results that were in the job from the start. */
   protected readonly live = computed(() => {
-    const job = this.active();
+    const job = this.current();
     if (!job) return { yes: 0, no: 0 };
     let savedYes = 0;
     let savedNo = 0;
@@ -116,12 +127,12 @@ export class CheckNumberComponent {
     return { yes: job.yes - savedYes, no: job.no - savedNo };
   });
   protected readonly remaining = computed(() => {
-    const job = this.active();
+    const job = this.current();
     return job ? Math.max(0, job.submitted - job.processed) : 0;
   });
   protected readonly elapsed = computed(() => Math.max(0, this.store.now() - this.store.runStartedAt()));
   protected readonly speed = computed(() => {
-    const job = this.active();
+    const job = this.current();
     const seconds = this.elapsed() / 1000;
     return job && seconds > 0.5 ? Math.round(job.processed / seconds) : 0;
   });
@@ -159,11 +170,11 @@ export class CheckNumberComponent {
   });
 
   // ------------------------------------------------------------------ job report
-  protected readonly job = computed(() => this.store.job(this.jobId()));
+  protected readonly job = computed(() => this.store.job(this.view() === 'new' ? this.finishedId() : this.jobId()));
   protected readonly reportTab = signal<ReportTab>('all');
   protected readonly reportQuery = signal('');
   protected readonly reportPage = signal(1);
-  protected readonly reportSize = signal(50);
+  protected readonly reportSize = signal(25);
   protected readonly copied = signal(false);
 
   protected readonly reportCounts = computed(() => {
@@ -257,13 +268,20 @@ export class CheckNumberComponent {
       const id = this.store.activeJobId();
       untracked(() => {
         if (this.watching && !id && this.view() === 'new') {
-          void this.router.navigate(['/app/whatsapp/check-number/jobs', this.watching], { queryParams: { done: 1 } });
+          this.finishedId.set(this.watching);
         }
         this.watching = id;
       });
     });
 
-    this.route.data.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((d) => this.view.set((d['view'] as View) ?? 'new'));
+    this.route.data.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((d) => {
+      const view = (d['view'] as View) ?? 'new';
+      this.view.set(view);
+      if (view !== 'new') {
+        this.finishedId.set(null);
+        this.reported.set(false);
+      }
+    });
   }
 
   private tickScan(): void {
@@ -316,7 +334,24 @@ export class CheckNumberComponent {
     }
   }
 
+  protected next(): void {
+    if (this.draft()) this.reviewing.set(true);
+  }
+
+  /** Step 3 -> 4: open the report of the check that just ended. */
+  protected showReport(): void {
+    if (this.finishedId()) this.reported.set(true);
+  }
+
+  /** Step 4 -> jobs list; a job's detail is opened from there. */
+  protected done(): void {
+    this.finishedId.set(null);
+    this.reported.set(false);
+    void this.router.navigate(['/app/whatsapp/check-number/jobs']);
+  }
+
   protected discard(): void {
+    this.reviewing.set(false);
     this.store.setDraft(null);
     this.problem.set(null);
     this.recheck.set(false);
@@ -329,10 +364,10 @@ export class CheckNumberComponent {
   protected start(): void {
     const d = this.draft();
     if (!d || !this.canStart(d)) return;
+    this.reviewing.set(false);
+    this.reported.set(false);
     const id = this.store.startJob(d, this.recheck());
-    if (!this.store.activeJobId()) {
-      void this.router.navigate(['/app/whatsapp/check-number/jobs', id], { queryParams: { done: 1 } });
-    }
+    this.finishedId.set(this.store.activeJobId() ? null : id);
   }
 
   protected stop(): void {

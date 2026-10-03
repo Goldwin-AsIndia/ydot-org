@@ -428,6 +428,28 @@
 .cn-row:hover .w-go { color: var(--gold-deep); }
 .cn-note { color: var(--muted); }
 
+/* ---------- long lists: a bounded window ----------
+   A list of 500 or 1,000 numbers is paged, and each page scrolls inside this box, so the page itself never grows
+   with the data. The head stays pinned, rows are compact, and the pager sits below the box, always in view. */
+.cn-scroll {
+  max-height: clamp(calc(300 * var(--u)), calc(100vh - 380px), calc(820 * var(--u)));
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.cn-scroll .cn-table thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #ffffff !important;
+  box-shadow: 0 1px 0 var(--line);
+}
+.cn-scroll .cn-table tbody > tr > td {
+  padding-top: calc(9 * var(--u)) !important;
+  padding-bottom: calc(9 * var(--u)) !important;
+}
+
 .cn-iso {
   --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
   display: inline-block;

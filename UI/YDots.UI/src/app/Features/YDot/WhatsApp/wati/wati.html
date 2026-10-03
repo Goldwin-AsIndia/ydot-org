@@ -162,6 +162,7 @@
           @if (pickRows().length === 0) {
             <p class="cn-empty">No number matches your search.</p>
           } @else {
+            <div class="cn-scroll">
             <table class="cn-table wt-pick">
               <thead>
                 <tr>
@@ -182,6 +183,7 @@
                 }
               </tbody>
             </table>
+            </div>
             <app-wa-pager [total]="pickRows().length" [page]="pickPage()" [size]="pickSize()" [sizes]="[10, 25, 50, 100]"
                           (pageChange)="pickPage.set($event)" (sizeChange)="pickSize.set($event); pickPage.set(1)" />
           }
@@ -252,7 +254,7 @@
           <p class="wt-empty-act"><a routerLink="/app/whatsapp/wati" class="cn-btn cn-btn--primary"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Send a message</a></p>
         }
       } @else {
-        <div class="wt-tablewrap">
+        <div class="wt-tablewrap cn-scroll">
           <table class="cn-table wt-report">
             <thead>
               <tr>

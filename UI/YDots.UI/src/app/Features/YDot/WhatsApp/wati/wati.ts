@@ -57,7 +57,7 @@ export class WatiComponent {
   protected readonly pickQuery = signal('');
   protected readonly pickSource = signal<string>('all');
   protected readonly pickPage = signal(1);
-  protected readonly pickSize = signal(10);
+  protected readonly pickSize = signal(25);
 
   protected readonly templateName = signal(this.store.templates[0].name);
   protected readonly values = signal<Record<string, string>>({ ...this.store.templates[0].defaults });
@@ -160,7 +160,7 @@ export class WatiComponent {
   protected readonly templateFilter = signal<string>('all');
   protected readonly reportQuery = signal('');
   protected readonly reportPage = signal(1);
-  protected readonly reportSize = signal(50);
+  protected readonly reportSize = signal(25);
   protected readonly detailId = signal<string | null>(null);
 
   /** Messages inside the broadcast and template filters, before the status filter: what the figures count. */
