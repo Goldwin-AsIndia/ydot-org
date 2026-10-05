@@ -140,7 +140,7 @@ export class DonorListComponent {
      ================================================================================= */
 
   protected readonly ownerOptions = computed(() => this.uniqueSorted(this.donors().map((d) => d.owner)));
-  protected readonly campaignOptions = computed(() => this.uniqueSorted(this.donors().map((d) => d.campaign)));
+  protected readonly campaignOptions = computed(() => this.uniqueSorted([...this.workflow.campaignNames(), ...this.donors().map((d) => d.campaign)]));
 
   /** Status composition over every record, in lifecycle order. */
   protected readonly statusMix = computed(() => {

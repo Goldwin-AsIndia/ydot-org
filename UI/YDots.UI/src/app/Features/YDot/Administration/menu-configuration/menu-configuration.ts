@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, takeUntil } from 'rxjs';
 import { IamAdminApiService } from '../../../../Service/iam-admin-api.service';
 import { IconPickerComponent } from '../../../../Shared/components/icon-picker/icon-picker';
-import { apiErrorCode, apiErrorMessage } from '../../../../Shared/models/api-response.model';
+import { apiErrorCode, apiErrorMessage, apiFieldErrors } from '../../../../Shared/models/api-response.model';
+import { appRouteError, codeError, lettersAndSpacesError } from '../../../../Shared/validation/field-rules';
 import {
   CreateMenuDefinitionRequest,
   MenuLevel,
@@ -972,6 +973,10 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (this.draft() && this.showDraftServerErrors(error)) {
+      return;
+    }
+
     this.errorMessage.set(apiErrorMessage(error, fallback));
   }
 
@@ -1021,6 +1026,9 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
     const override = this.overrides()[id];
 
+    this.draftTried.set(false);
+    this.draftTouched.set(new Set());
+    this.draftServerErrors.set({});
     this.draft.set({
       kind: 'edit',
       id,
@@ -1043,6 +1051,9 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.draftTried.set(false);
+    this.draftTouched.set(new Set());
+    this.draftServerErrors.set({});
     this.draft.set({
       kind: 'create',
       id: null,
@@ -1078,6 +1089,13 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
     if (current) {
       this.draft.set({ ...current, ...patch });
+
+      const errors = this.draftServerErrors();
+      if (Object.keys(patch).some((key) => errors[key])) {
+        const rest = { ...errors };
+        for (const key of Object.keys(patch)) delete rest[key];
+        this.draftServerErrors.set(rest);
+      }
     }
   }
 
@@ -1131,10 +1149,76 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
    * along. Presenting that as one Save is the point; making somebody understand which table they
    * are writing to is not.
    */
+  /** Set once Apply has been pressed, so the panel does not shout before anyone has tried. */
+  readonly draftTried = signal(false);
+
+  /** What is wrong with each field of the open item right now (null = fine). */
+  private draftRules(): Record<string, string | null> {
+    const d = this.draft();
+    if (!d) return {};
+    const creating = d.kind === 'create';
+    const order = d.order.trim();
+    return {
+      name: lettersAndSpacesError('Display name', d.name, { required: creating, max: 160 }),
+      code: creating ? codeError('Code', d.code, { allowHyphen: true, max: 50 }) : null,
+      // A platform item's route is locked, so only a route the person can actually edit is judged.
+      route: creating || this.draftIsOwned() ? appRouteError('Route', d.route) : null,
+      order: order && !/^\d{1,4}$/.test(order) ? 'Position must be a whole number from 0 to 9999.' : null,
+    };
+  }
+
+  /** The message under a field of the open item once Apply has been tried; null while it is fine. */
+  draftError(field: string): string | null {
+    return this.draftServerErrors()[field]
+      ?? (this.draftTried() || this.draftTouched().has(field) ? (this.draftRules()[field] ?? null) : null);
+  }
+
+  /** The API's complaints about the open item, keyed by field, shown under the field. */
+  readonly draftServerErrors = signal<Record<string, string>>({});
+
+  /** Fields left at least once; their messages show before Apply is pressed. */
+  readonly draftTouched = signal<ReadonlySet<string>>(new Set());
+
+  touchDraft(field: string): void {
+    if (!this.draftTouched().has(field)) {
+      this.draftTouched.update((current) => new Set(current).add(field));
+    }
+  }
+
+  private static readonly DRAFT_IDS: Record<string, string> = { name: 'ocName', code: 'ocCode', route: 'ocRoute', order: 'ocOrder' };
+
+  private focusDraftField(field: string): void {
+    const id = MenuConfigurationComponent.DRAFT_IDS[field];
+    if (id) setTimeout(() => (document.getElementById(id) as HTMLElement | null)?.focus());
+  }
+
+  /** Puts the server's per-field messages under the fields; true when there was one to show. */
+  private showDraftServerErrors(error: unknown): boolean {
+    const mapped: Record<string, string> = {};
+    for (const [field, message] of Object.entries(apiFieldErrors(error))) {
+      mapped[field.charAt(0).toLowerCase() + field.slice(1)] = message;
+    }
+    // The API's names for these fields differ slightly from the form's.
+    if (mapped['displayNameOverride']) mapped['name'] ??= mapped['displayNameOverride'];
+    if (mapped['displayOrder']) mapped['order'] ??= mapped['displayOrder'];
+    const known = Object.keys(mapped).filter((field) => field in MenuConfigurationComponent.DRAFT_IDS);
+    this.draftServerErrors.set(mapped);
+    if (known.length > 0) this.focusDraftField(known[0]);
+    return known.length > 0;
+  }
+
   applyEditor(): void {
     const draft = this.draft();
 
     if (!draft) {
+      return;
+    }
+
+    this.draftTried.set(true);
+    this.draftServerErrors.set({});
+    const failing = Object.entries(this.draftRules()).find(([, message]) => message !== null);
+    if (failing) {
+      this.focusDraftField(failing[0]);
       return;
     }
 
@@ -1271,7 +1355,9 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
         },
         error: (error: unknown) => {
           this.savingNode.set(false);
-          this.errorMessage.set(apiErrorMessage(error, 'That menu item could not be added.'));
+          if (!this.showDraftServerErrors(error)) {
+            this.errorMessage.set(apiErrorMessage(error, 'That menu item could not be added.'));
+          }
         },
       });
   }

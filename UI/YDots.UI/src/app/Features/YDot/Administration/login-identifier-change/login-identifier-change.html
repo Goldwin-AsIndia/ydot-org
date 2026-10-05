@@ -62,6 +62,7 @@
                                         id="newEmail"
                                         formControlName="newEmail"
                                         placeholder="Enter new email address"
+                                        maxlength="254"
                                         [class.is-valid]="emailValidated() && emailAvailable() === 'available'"
                                         [class.is-invalid]="emailValidated() && emailAvailable() === 'unavailable'">
                                     <button type="button" class="btn btn-outline-primary" (click)="validateNewIdentifier('email')" [disabled]="checking() || submitting()">
@@ -69,6 +70,9 @@
                                         <i class="uil uil-check-circle me-1"></i>Validate
                                     </button>
                                 </div>
+                                @if (identifierForm.controls.newEmail.errors && identifierForm.controls.newEmail.touched) {
+                                    <div class="invalid-feedback d-block">Enter a valid e-mail address (name@example.com), up to 254 characters.</div>
+                                }
                                 @if (emailValidated() && emailAvailable() === 'available') {
                                     <div class="valid-feedback d-block">Email is available for use.</div>
                                 }
@@ -103,7 +107,8 @@
                                         class="form-control"
                                         id="newUsername"
                                         formControlName="newUsername"
-                                        placeholder="Enter new username (3-80 chars, alphanumeric)"
+                                        placeholder="Enter new username (3-80 letters or numbers)"
+                                        maxlength="80"
                                         [class.is-valid]="usernameValidated() && usernameAvailable() === 'available'"
                                         [class.is-invalid]="usernameValidated() && usernameAvailable() === 'unavailable'">
                                     <button type="button" class="btn btn-outline-primary" (click)="validateNewIdentifier('username')" [disabled]="checking() || submitting()">
@@ -111,6 +116,13 @@
                                         <i class="uil uil-check-circle me-1"></i>Validate
                                     </button>
                                 </div>
+                                @if (identifierForm.controls.newUsername.errors && identifierForm.controls.newUsername.touched) {
+                                    <div class="invalid-feedback d-block">
+                                        @if (identifierForm.controls.newUsername.hasError('pattern')) { Username can contain only letters and numbers. }
+                                        @else if (identifierForm.controls.newUsername.hasError('minlength')) { Minimum 3 characters. }
+                                        @else { Maximum 80 characters. }
+                                    </div>
+                                }
                                 @if (usernameValidated() && usernameAvailable() === 'available') {
                                     <div class="valid-feedback d-block">Username is available for use.</div>
                                 }
@@ -147,7 +159,7 @@
                         </div>
 
                         <!-- Validation Errors -->
-                        @if (validationErrors().length > 0) {
+                        @if (attempted() && validationErrors().length > 0) {
                             <div class="alert alert-danger py-2 small">
                                 <ul class="mb-0 ps-3">
                                     @for (err of validationErrors(); track err) {

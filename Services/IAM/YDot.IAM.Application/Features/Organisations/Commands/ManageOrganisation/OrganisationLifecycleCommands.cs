@@ -143,7 +143,7 @@ public sealed class OrganisationLifecycleCommandHandler(
         var outstanding = OrganisationMappingConfig.OutstandingProfileFields(tenant);
 
         var message = verified
-            ? "Contact details and address saved."
+            ? "Contact details, address and regional settings saved."
             : outstanding.Count == 0
                 ? "Organisation profile saved. It is ready to submit."
                 : $"Organisation profile saved. {outstanding.Count} field(s) still needed before you can submit.";

@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, debounceTime, takeUntil } from 'rxjs';
 import { PaymentGatewayConfigApiService } from '../../../../Service/payment-gateway-config-api.service';
 import { apiErrorMessage, apiFieldErrors } from '../../../../Shared/models/api-response.model';
+import { httpsUrlError, identifierError, maxLengthError, rangeError, requiredError } from '../../../../Shared/validation/field-rules';
 import {
   PaymentGatewayAuditEntry,
   PaymentGatewayCatalogue,
@@ -224,6 +225,18 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
     this.loadCatalogue();
     this.load();
     this.loadAudit();
+
+    // Search filters while typing: wait for a short pause so each keystroke is not a request.
+    this.searchTyped$
+      .pipe(debounceTime(300), takeUntil(this.destroy$))
+      .subscribe(() => this.applyFilters());
+  }
+
+  private readonly searchTyped$ = new Subject<void>();
+
+  onSearchInput(value: string): void {
+    this.filterSearch.set(value);
+    this.searchTyped$.next();
   }
 
   ngOnDestroy(): void {
@@ -428,6 +441,8 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
   startCreate(): void {
     this.formOrigin = null;
     this.fieldErrors.set({});
+    this.formTried.set(false);
+    this.formTouched.set(new Set());
     this.testResult.set(null);
     this.selected.set(null);
     this.form.set(PaymentGatewayConfigurationComponent.emptyForm());
@@ -445,6 +460,8 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
    */
   startCreateFrom(row: PaymentGatewayConfiguration): void {
     this.rememberOrigin();
+    this.formTried.set(false);
+    this.formTouched.set(new Set());
     this.fieldErrors.set({});
     this.testResult.set(null);
     this.selected.set(null);
@@ -472,6 +489,8 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
    * an operator can tell whether the key on screen is the one their provider dashboard shows.
    */
   startEdit(configuration: PaymentGatewayConfiguration): void {
+    this.formTried.set(false);
+    this.formTouched.set(new Set());
     this.rememberOrigin();
     this.fieldErrors.set({});
     this.testResult.set(null);
@@ -519,6 +538,15 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
 
   patch<K extends keyof GatewayFormState>(key: K, value: GatewayFormState[K]): void {
     this.form.update((state) => ({ ...state, [key]: value }));
+
+    // Editing a field the server complained about clears that complaint.
+    const errors = this.fieldErrors();
+    const stale = Object.keys(errors).filter((name) => name.toLowerCase() === String(key).toLowerCase());
+    if (stale.length > 0) {
+      const rest = { ...errors };
+      for (const name of stale) delete rest[name];
+      this.fieldErrors.set(rest);
+    }
   }
 
   toggleEvent(code: string, checked: boolean): void {
@@ -607,21 +635,85 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
   }
 
   // =============================================================================================
+  // Validation
+  // =============================================================================================
+
+  /** Set once Save has been pressed; until then only fields already left show messages. */
+  readonly formTried = signal(false);
+  readonly formTouched = signal<ReadonlySet<string>>(new Set());
+
+  private static readonly FIELD_LABELS: Record<string, string> = {
+    provider: 'Payment gateway', displayName: 'Display name', merchantId: 'Merchant ID',
+    settlementCurrencyCode: 'Settlement currency', webhookUrl: 'Webhook URL', returnUrl: 'Return URL',
+    paymentLinkValidityMinutes: 'Link validity',
+  };
+
+  /** Element ids, in page order, to move focus to the first invalid field. */
+  private static readonly FIELD_IDS: Record<string, string> = {
+    provider: 'pg-provider', displayName: 'pg-name', merchantId: 'pg-merchant', webhookUrl: 'pg-hook',
+    settlementCurrencyCode: 'pg-currency', paymentLinkValidityMinutes: 'pg-validity', returnUrl: 'pg-return',
+  };
+
+  /**
+   * What is wrong with each field right now (null = fine). The limits are the API's: link validity
+   * 15-1440 minutes, URLs and credentials up to 500 characters, display name and merchant ID up to 150.
+   */
+  private formRules(): Record<string, string | null> {
+    const state = this.form();
+    const name = state.displayName.trim();
+    return {
+      provider: state.provider ? null : 'Choose a payment gateway.',
+      displayName: !name ? null
+        : !/\p{L}/u.test(name) ? 'Display name must contain letters.'
+        : !/^[\p{L}\p{N} ._-]+$/u.test(name) ? 'Display name can contain letters, digits, spaces, dot, hyphen and underscore only.'
+        : maxLengthError(name, 150),
+      merchantId: identifierError('Merchant ID', state.merchantId, { max: 150 }),
+      webhookUrl: httpsUrlError('Webhook URL', state.webhookUrl, { required: true, max: 500 }),
+      settlementCurrencyCode: requiredError('Settlement currency', state.settlementCurrencyCode),
+      paymentLinkValidityMinutes: rangeError('Link validity', state.paymentLinkValidityMinutes, 15, 1440),
+      returnUrl: httpsUrlError('Return URL', state.returnUrl, { max: 500 }),
+    };
+  }
+
+  /** The message under a field: the server's own, else this form's once the field was left or Save pressed. */
+  fieldError(field: string): string | null {
+    const errors = this.fieldErrors();
+    const server = errors[field] ?? errors[field.charAt(0).toUpperCase() + field.slice(1)];
+    if (server) return server;
+    return this.formTried() || this.formTouched().has(field) ? (this.formRules()[field] ?? null) : null;
+  }
+
+  /** Called when focus leaves any control on the page. */
+  onFieldLeft(id: string): void {
+    const field = Object.entries(PaymentGatewayConfigurationComponent.FIELD_IDS).find(([, value]) => value === id)?.[0];
+    if (field && !this.formTouched().has(field)) {
+      this.formTouched.update((current) => new Set(current).add(field));
+    }
+  }
+
+  private focusField(fields: string[]): void {
+    const ids = PaymentGatewayConfigurationComponent.FIELD_IDS;
+    const first = Object.keys(ids).find((field) => fields.includes(field));
+    if (first) setTimeout(() => (document.getElementById(ids[first]) as HTMLElement | null)?.focus());
+  }
+
+  // =============================================================================================
   // Saving
   // =============================================================================================
 
   save(): void {
     const state = this.form();
 
-    if (!state.provider) {
-      this.fieldErrors.set({ provider: 'Choose a payment gateway.' });
-      return;
-    }
+    // Every problem is found and shown at once, each under its own field, rather than one per
+    // press. Settlement currency is no longer defaulted to INR, so it is asked for here instead of
+    // being sent empty and bounced back by the server.
+    this.formTried.set(true);
+    const failing = Object.entries(this.formRules()).filter(([, message]) => message !== null).map(([field]) => field);
 
-    // No longer defaulted to INR, so it is asked for here rather than being sent empty and
-    // bounced back by the server.
-    if (!state.settlementCurrencyCode.trim()) {
-      this.fieldErrors.set({ settlementCurrencyCode: 'Choose a settlement currency.' });
+    if (failing.length > 0) {
+      this.fieldErrors.set({});
+      this.toast.error('Check the highlighted fields', `Please correct: ${failing.map((k) => PaymentGatewayConfigurationComponent.FIELD_LABELS[k] ?? k).join(', ')}.`);
+      this.focusField(failing);
       return;
     }
 
@@ -656,7 +748,12 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
         },
         error: (error: unknown) => {
           this.saving.set(false);
-          this.fieldErrors.set(apiFieldErrors(error));
+          const server: Record<string, string> = {};
+          for (const [field, message] of Object.entries(apiFieldErrors(error))) {
+            server[field.charAt(0).toLowerCase() + field.slice(1)] = message;
+          }
+          this.fieldErrors.set(server);
+          this.focusField(Object.keys(server));
           this.toast.error(
             'Not saved',
             apiErrorMessage(error, 'The gateway configuration could not be saved.'),

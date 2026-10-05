@@ -418,6 +418,19 @@ export class UserSecurityComponent {
    * label, which is how somebody ends up revoking twelve devices meaning to revoke one.
    */
   scrollToDevices(): void {
+    const devices = this.trustedDevices();
+
+    if (devices.length === 0) {
+      this.toast.show('No trusted devices', 'This person has no trusted device to remove.', 'info');
+      return;
+    }
+
+    if (devices.length === 1) {
+      this.confirmAction('removeTrustedDevice', devices[0]);
+      return;
+    }
+
+    this.toast.show('Pick a device', 'Choose the device to forget from the Trusted Devices list.', 'info');
     document.getElementById('trusted-devices')?.scrollIntoView({ behavior: 'smooth' });
   }
 

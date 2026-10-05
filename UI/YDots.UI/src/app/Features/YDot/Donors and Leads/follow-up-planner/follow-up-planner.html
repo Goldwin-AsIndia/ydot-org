@@ -172,10 +172,11 @@
                            [ngModel]="searches()['owner'] || ''" (ngModelChange)="searchOptions('owner', $event)" />
                   }
                 </div>
-                <select id="owner" class="fp-input fp-select" [disabled]="!!existing()" required [ngModel]="owner()" (ngModelChange)="owner.set($event)">
+                <select id="owner" [class.is-invalid]="fieldMissing('owner')" class="fp-input fp-select" [disabled]="!!existing()" required [ngModel]="owner()" (ngModelChange)="owner.set($event)">
                   <option value="" disabled>Select assigned user</option>
                   @for (option of options('owner', ownerOptions()); track option.value) { <option [value]="option.value">{{ option.label }}</option> }
                 </select>
+                @if (fieldMissing('owner')) { <p class="field-error">Select the assigned user.</p> }
               </div>
               <div class="fp-field">
                 <div class="fp-label-row"><span class="fp-label" id="fp-priority-l">Priority <span class="fp-req">*</span></span></div>
@@ -203,6 +204,7 @@
                   </button>
                 }
               </div>
+              @if (fieldMissing('followUpType')) { <p class="field-error">Choose how this follow-up will be made.</p> }
               <p class="fp-consent" [attr.data-consent]="consentState()">
                 <i [class]="consentState() === 'clear' ? 'ri-shield-check-line' : consentState() === 'checking' ? 'ri-loader-4-line fp-spin' : 'ri-shield-cross-line'" aria-hidden="true"></i>
                 <span>
@@ -228,7 +230,8 @@
                     }
                   </span>
                 </div>
-                <input id="date" type="date" class="fp-input fp-num" required [min]="existing() ? null : todayIso" [ngModel]="scheduledDate()" (ngModelChange)="scheduledDate.set($event)" />
+                <input id="date" [class.is-invalid]="fieldMissing('date')" type="date" class="fp-input fp-num" required [min]="existing() ? null : todayIso" [ngModel]="scheduledDate()" (ngModelChange)="scheduledDate.set($event)" />
+                @if (fieldMissing('date')) { <p class="field-error">Enter the follow-up date.</p> }
               </div>
               <div class="fp-field">
                 <div class="fp-label-row">
@@ -239,7 +242,8 @@
                     }
                   </span>
                 </div>
-                <input id="time" type="time" class="fp-input fp-num" required [ngModel]="scheduledTime()" (ngModelChange)="scheduledTime.set($event)" />
+                <input id="time" [class.is-invalid]="fieldMissing('time')" type="time" class="fp-input fp-num" required [ngModel]="scheduledTime()" (ngModelChange)="scheduledTime.set($event)" />
+                @if (fieldMissing('time')) { <p class="field-error">Enter the follow-up time.</p> }
               </div>
             </div>
           </div>
@@ -252,9 +256,10 @@
                   <label for="purpose" class="fp-label">Purpose <span class="fp-req">*</span></label>
                   <span class="fp-count fp-num">{{ purpose().length }}/500</span>
                 </div>
-                <textarea id="purpose" class="fp-input fp-textarea" rows="3" maxlength="500" [readOnly]="!!existing()"
+                <textarea id="purpose" [class.is-invalid]="fieldMissing('purpose')" class="fp-input fp-textarea" rows="3" maxlength="500" [readOnly]="!!existing()"
                           placeholder="e.g. Thank them for the last gift and share the school progress report"
                           [ngModel]="purpose()" (ngModelChange)="purpose.set($event)"></textarea>
+                @if (fieldMissing('purpose')) { <p class="field-error">Enter the purpose of this follow-up.</p> }
               </div>
               <div class="fp-field">
                 <div class="fp-label-row">

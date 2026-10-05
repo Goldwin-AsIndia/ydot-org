@@ -85,39 +85,44 @@
 
         <div class="field-row field-row--two">
           <div class="field">
-            <label class="field-label" for="originalTransaction">Original transaction</label>
+            <label class="field-label" for="originalTransaction">Original transaction <span class="ydot-req">*</span></label>
             <input
               id="originalTransaction"
               type="text"
               class="text-input"
+              [class.is-invalid]="!!fieldError('originalTransaction')"
               [ngModel]="originalTransaction()"
               (ngModelChange)="originalTransaction.set($event)"
             />
+            @if (fieldError('originalTransaction')) { <p class="field-error">{{ fieldError('originalTransaction') }}</p> }
           </div>
 
           <div class="field">
-            <label class="field-label" for="correctionType">Correction type</label>
-            <select id="correctionType" class="select-input" [ngModel]="correctionType()" (ngModelChange)="correctionType.set($event)">
+            <label class="field-label" for="correctionType">Correction type <span class="ydot-req">*</span></label>
+            <select id="correctionType" class="select-input" [class.is-invalid]="!!fieldError('correctionType')" [ngModel]="correctionType()" (ngModelChange)="correctionType.set($event)">
               <option value="">Select correction type</option>
               @for (t of correctionTypeOptions; track t) {
                 <option [value]="t">{{ t }}</option>
               }
             </select>
+            @if (fieldError('correctionType')) { <p class="field-error">{{ fieldError('correctionType') }}</p> }
           </div>
 
           <div class="field">
-            <label class="field-label" for="affectedAmount">Affected amount</label>
+            <label class="field-label" for="affectedAmount">Affected amount <span class="ydot-req">*</span></label>
             <input
               id="affectedAmount"
               type="number"
               class="text-input"
-              [class.input--error]="affectedAmount() !== null && !amountValid()"
+              [class.is-invalid]="(affectedAmount() !== null && !amountValid()) || !!fieldError('affectedAmount')" min="0" step="0.01"
               [ngModel]="affectedAmount()"
               (ngModelChange)="affectedAmount.set(toNumber($event))"
               placeholder="0.00"
             />
             @if (affectedAmount() !== null && !amountValid()) {
-              <p class="field-error">Review Affected amount. The value does not meet the stated format or range.</p>
+              <p class="field-error">Review Affected amount. Enter a number greater than 0 and up to 10,00,000.</p>
+            } @else if (fieldError('affectedAmount')) {
+              <p class="field-error">{{ fieldError('affectedAmount') }}</p>
             }
           </div>
 
@@ -127,8 +132,9 @@
           </div>
 
           <div class="field">
-            <label class="field-label" for="accountingDate">Accounting date <span class="tz">{{ operatingTimeZone }}</span></label>
-            <input id="accountingDate" type="date" class="text-input" [ngModel]="accountingDate()" (ngModelChange)="accountingDate.set($event)" />
+            <label class="field-label" for="accountingDate">Accounting date <span class="ydot-req">*</span> <span class="tz">{{ operatingTimeZone }}</span></label>
+            <input id="accountingDate" type="date" class="text-input" [class.is-invalid]="!!fieldError('accountingDate')" [ngModel]="accountingDate()" (ngModelChange)="accountingDate.set($event)" />
+            @if (fieldError('accountingDate')) { <p class="field-error">{{ fieldError('accountingDate') }}</p> }
           </div>
         </div>
       </section>
@@ -139,13 +145,14 @@
 
         <div class="field-row field-row--two">
           <div class="field">
-            <label class="field-label" for="reasonCategory">Reason category </label>
-            <select id="reasonCategory" class="select-input" [ngModel]="reasonCategory()" (ngModelChange)="reasonCategory.set($event)">
+            <label class="field-label" for="reasonCategory">Reason category <span class="ydot-req">*</span></label>
+            <select id="reasonCategory" class="select-input" [class.is-invalid]="!!fieldError('reasonCategory')" [ngModel]="reasonCategory()" (ngModelChange)="reasonCategory.set($event)">
               <option value="">Select reason category</option>
               @for (r of reasonCategoryOptions; track r) {
                 <option [value]="r">{{ r }}</option>
               }
             </select>
+            @if (fieldError('reasonCategory')) { <p class="field-error">{{ fieldError('reasonCategory') }}</p> }
           </div>
 
           <div class="field">
@@ -154,10 +161,11 @@
           </div>
 
           <div class="field field--span">
-            <label class="field-label" for="detailedReason">Detailed reason</label>
+            <label class="field-label" for="detailedReason">Detailed reason <span class="ydot-req">*</span></label>
             <textarea
               id="detailedReason"
               class="textarea"
+              [class.is-invalid]="(detailedReasonCount() > 0 && !detailedReasonValid()) || !!fieldError('detailedReason')"
               rows="3"
               [ngModel]="detailedReason()"
               (ngModelChange)="detailedReason.set($event)"

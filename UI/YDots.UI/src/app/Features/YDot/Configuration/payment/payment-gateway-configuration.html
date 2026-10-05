@@ -11,7 +11,7 @@
            cards; the change log below narrows to the open gateway.
   Delete = shared pop-up. Styles: payment-gateway-configuration.css (pg-, detail pgd-).
 -->
-<main class="app-wrapper">
+<main class="app-wrapper" (focusout)="onFieldLeft($any($event.target).id)">
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3">
       <div class="pg">
@@ -50,7 +50,7 @@
                 <label class="pg-search">
                   <span class="visually-hidden">Search gateways</span>
                   <input type="search" placeholder="Search name or merchant ID"
-                         [ngModel]="filterSearch()" (ngModelChange)="filterSearch.set($event)"
+                         [ngModel]="filterSearch()" (ngModelChange)="onSearchInput($event)"
                          (keyup.enter)="applyFilters()" (search)="applyFilters()" />
                 </label>
                 <label class="pg-filter">
@@ -294,14 +294,14 @@
                         <a class="pg-hint-link" [href]="selectedProvider()!.documentationUrl" target="_blank" rel="noopener">Where to find these credentials</a>
                       }
                     </span>
-                    <select [class.is-invalid]="fieldErrors()['provider'] || fieldErrors()['Provider']"
+                    <select id="pg-provider" [class.is-invalid]="fieldError('provider')"
                             [ngModel]="form().provider" (ngModelChange)="patch('provider', $event)">
                       <option value="">Select a gateway…</option>
                       @for (provider of catalogue()?.providers ?? []; track provider.code) {
                         <option [value]="provider.code">{{ provider.name }}{{ provider.hasAdapter ? '' : ' — no adapter yet' }}</option>
                       }
                     </select>
-                    @if (fieldErrors()['provider'] || fieldErrors()['Provider']; as message) { <span class="pg-err">{{ message }}</span> }
+                    @if (fieldError('provider'); as message) { <span class="pg-err">{{ message }}</span> }
                   </label>
                   <div class="pg-field">
                     <span class="pg-lab">Environment <small>{{ form().environment === 'Production' ? 'real money' : 'test only' }}</small></span>
@@ -314,8 +314,9 @@
                   </div>
                   <label class="pg-field">
                     <span class="pg-lab">Name for this configuration <small>optional</small></span>
-                    <input type="text" placeholder="e.g. Main Razorpay account"
+                    <input id="pg-name" type="text" maxlength="150" placeholder="e.g. Main Razorpay account" [class.is-invalid]="fieldError('displayName')"
                            [ngModel]="form().displayName" (ngModelChange)="patch('displayName', $event)" />
+                    @if (fieldError('displayName'); as message) { <span class="pg-err">{{ message }}</span> }
                   </label>
                 </div>
                 @if (selectedProvider(); as provider) {
@@ -336,9 +337,9 @@
                 <div class="pg-fields">
                   <label class="pg-field pg-span-2">
                     <span class="pg-lab">{{ selectedProvider()?.merchantIdLabel ?? 'Merchant ID' }}</span>
-                    <input type="text" [class.is-invalid]="fieldErrors()['merchantId']"
+                    <input id="pg-merchant" type="text" maxlength="150" autocomplete="off" [class.is-invalid]="fieldError('merchantId')"
                            [ngModel]="form().merchantId" (ngModelChange)="patch('merchantId', $event)" />
-                    @if (fieldErrors()['merchantId']; as message) { <span class="pg-err">{{ message }}</span> }
+                    @if (fieldError('merchantId'); as message) { <span class="pg-err">{{ message }}</span> }
                   </label>
                   <div class="pg-field">
                     <label class="pg-lab" for="pg-key">{{ selectedProvider()?.apiKeyLabel ?? 'API key' }}
@@ -379,15 +380,15 @@
               <div class="pg-box__body">
                 <div class="pg-fields">
                   <div class="pg-field pg-span-2">
-                    <label class="pg-lab" for="pg-hook">Webhook URL
+                    <label class="pg-lab" for="pg-hook">Webhook URL <b>*</b>
                       @if (suggestedWebhookUrl()) { <button type="button" class="pg-btn pg-btn--xs pg-lab__act" (click)="useSuggestedWebhookUrl()">Use ours</button> }
                     </label>
-                    <input id="pg-hook" type="url" placeholder="https://…" [class.is-invalid]="fieldErrors()['webhookUrl']"
+                    <input id="pg-hook" type="url" maxlength="500" placeholder="https://…" [class.is-invalid]="fieldError('webhookUrl')"
                            [ngModel]="form().webhookUrl" (ngModelChange)="patch('webhookUrl', $event)" />
                     @if (suggestedWebhookUrl(); as suggested) {
                       <span class="pg-hint">Paste into the provider's dashboard: <span class="pg-mono">{{ suggested }}</span></span>
                     }
-                    @if (fieldErrors()['webhookUrl']; as message) { <span class="pg-err">{{ message }}</span> }
+                    @if (fieldError('webhookUrl'); as message) { <span class="pg-err">{{ message }}</span> }
                   </div>
                   <div class="pg-field pg-span-2">
                     <label class="pg-lab" for="pg-hooksecret">Signing token</label>
@@ -421,23 +422,25 @@
               <div class="pg-box__body">
                 <div class="pg-fields">
                   <label class="pg-field">
-                    <span class="pg-lab">Settlement currency</span>
-                    <select [class.is-invalid]="fieldErrors()['settlementCurrencyCode']"
+                    <span class="pg-lab">Settlement currency <b>*</b></span>
+                    <select id="pg-currency" [class.is-invalid]="fieldError('settlementCurrencyCode')"
                             [ngModel]="form().settlementCurrencyCode" (ngModelChange)="patch('settlementCurrencyCode', $event)">
                       <option value="" disabled>Select currency</option>
                       @for (currency of currencies; track currency) { <option [value]="currency">{{ currency }}</option> }
                     </select>
+                    @if (fieldError('settlementCurrencyCode'); as message) { <span class="pg-err">{{ message }}</span> }
                   </label>
                   <label class="pg-field">
-                    <span class="pg-lab">Link validity <small>15–1440 min</small></span>
-                    <input type="number" min="15" max="1440" [class.is-invalid]="fieldErrors()['paymentLinkValidityMinutes']"
+                    <span class="pg-lab">Link validity <b>*</b> <small>15–1440 min</small></span>
+                    <input id="pg-validity" type="number" min="15" max="1440" step="1" [class.is-invalid]="fieldError('paymentLinkValidityMinutes')"
                            [ngModel]="form().paymentLinkValidityMinutes" (ngModelChange)="patch('paymentLinkValidityMinutes', +$event)" />
-                    @if (fieldErrors()['paymentLinkValidityMinutes']; as message) { <span class="pg-err">{{ message }}</span> }
+                    @if (fieldError('paymentLinkValidityMinutes'); as message) { <span class="pg-err">{{ message }}</span> }
                   </label>
                   <label class="pg-field pg-span-2">
                     <span class="pg-lab">Return URL after payment</span>
-                    <input type="url" placeholder="Platform default" [class.is-invalid]="fieldErrors()['returnUrl']"
+                    <input id="pg-return" type="url" maxlength="500" placeholder="Platform default" [class.is-invalid]="fieldError('returnUrl')"
                            [ngModel]="form().returnUrl" (ngModelChange)="patch('returnUrl', $event)" />
+                    @if (fieldError('returnUrl'); as message) { <span class="pg-err">{{ message }}</span> }
                   </label>
                   <div class="pg-field pg-span-2">
                     <span class="pg-lab">Payment methods <small>none ticked = whatever the account allows</small></span>

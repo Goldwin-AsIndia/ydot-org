@@ -244,7 +244,7 @@
                             </span>
                           }
                         }
-                        @if (req.approvalState === 'Submitted' || req.approvalState === 'PendingReview' || req.approvalState === 'Draft') {
+                        @if (req.canCancel && (req.approvalState === 'Submitted' || req.approvalState === 'PendingReview' || req.approvalState === 'Draft')) {
                           <button type="button" class="ar-act Cancel" (click)="openCancelModal(req)" title="Cancel request" aria-label="Cancel request">
                             <i class="ri-close-circle-line" aria-hidden="true"></i>
                           </button>
@@ -324,7 +324,7 @@
           <!-- Request type -->
           <div class="ar-field">
             <label class="ar-field-lbl">Request type <em class="ar-req">*</em></label>
-            <div class="ar-dd" [class.is-open]="openDd() === 'requestType'" (click)="$event.stopPropagation()">
+            <div class="ar-dd" [class.is-open]="openDd() === 'requestType'" [class.is-invalid]="!!newReqError('requestType')" (click)="$event.stopPropagation()">
               <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('requestType')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'requestType'">
                 <i class="ri-price-tag-3-line ar-dd-lead" aria-hidden="true"></i>
                 <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().requestType">{{ optionName(data()?.requestTypeOptions, newRequestForm().requestType) || 'Select request type' }}</span>
@@ -343,12 +343,13 @@
                 </div>
               }
             </div>
+            @if (newReqError('requestType')) { <div class="invalid-feedback d-block">{{ newReqError('requestType') }}</div> }
           </div>
 
           <!-- User (searchable) -->
           <div class="ar-field">
             <label class="ar-field-lbl">User <em class="ar-req">*</em></label>
-            <div class="ar-dd" [class.is-open]="openDd() === 'user'" (click)="$event.stopPropagation()">
+            <div class="ar-dd" [class.is-open]="openDd() === 'user'" [class.is-invalid]="!!newReqError('userId')" (click)="$event.stopPropagation()">
               <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('user')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'user'">
                 <i class="ri-user-line ar-dd-lead" aria-hidden="true"></i>
                 @if (selectedUser(); as u) {
@@ -378,12 +379,13 @@
                 </div>
               }
             </div>
+            @if (newReqError('userId')) { <div class="invalid-feedback d-block">{{ newReqError('userId') }}</div> }
           </div>
 
           <!-- Requested role (searchable) -->
           <div class="ar-field">
             <label class="ar-field-lbl">Requested role <em class="ar-req">*</em></label>
-            <div class="ar-dd" [class.is-open]="openDd() === 'role'" (click)="$event.stopPropagation()">
+            <div class="ar-dd" [class.is-open]="openDd() === 'role'" [class.is-invalid]="!!newReqError('requestedRole')" (click)="$event.stopPropagation()">
               <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('role')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'role'">
                 <i class="ri-shield-user-line ar-dd-lead" aria-hidden="true"></i>
                 <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().requestedRole">{{ optionName(data()?.roleOptions, newRequestForm().requestedRole) || 'Select role from catalogue' }}</span>
@@ -408,6 +410,7 @@
                 </div>
               }
             </div>
+            @if (newReqError('requestedRole')) { <div class="invalid-feedback d-block">{{ newReqError('requestedRole') }}</div> }
           </div>
 
           <!-- Scope type -->
@@ -439,12 +442,13 @@
 
           <!-- Scope value -->
           <div class="ar-field ar-field--full">
-            <label class="ar-field-lbl" for="arScopeValue">Scope value</label>
-            <div class="ar-ig">
+            <label class="ar-field-lbl" for="arScopeValue">Scope value @if (newRequestForm().scopeType) { <em class="ar-req">*</em> }</label>
+            <div class="ar-ig" [class.is-invalid]="!!newReqError('scopeValue')">
               <i class="ri-map-pin-2-line ar-ig-ico" aria-hidden="true"></i>
               <input id="arScopeValue" type="text" class="ar-ig-input" placeholder="e.g. Global - Donations" style="border: none !important;outline:none !important"
                      [ngModel]="newRequestForm().scopeValue" (ngModelChange)="newRequestForm.set({...newRequestForm(), scopeValue: $event})">
             </div>
+            @if (newReqError('scopeValue')) { <div class="invalid-feedback d-block">{{ newReqError('scopeValue') }}</div> }
           </div>
 
           <!-- Dates: custom picker -->
@@ -454,7 +458,7 @@
                 <div class="ar-field">
                   <label class="ar-field-lbl">{{ f.label }}</label>
                   <div class="ar-dp" [class.is-open]="dpField() === f.key" (click)="$event.stopPropagation()">
-                    <button #dpTrigger type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="openDatePicker(f.key); placeDatePicker(dpTrigger)" [attr.aria-expanded]="dpField() === f.key">
+                    <button #dpTrigger type="button" class="ar-dd-trigger ar-dd-trigger--field" [class.is-invalid]="f.key === 'effectiveTo' && !!newReqError('effectiveTo')" (click)="openDatePicker(f.key); placeDatePicker(dpTrigger)" [attr.aria-expanded]="dpField() === f.key">
                       <i class="ri-calendar-line ar-dd-lead" aria-hidden="true"></i>
                       <span class="ar-dd-value" [class.is-placeholder]="!dateValue(f.key)">{{ displayDate(dateValue(f.key)) || 'Pick a date' }}</span>
                     </button>
@@ -480,6 +484,7 @@
                       </div>
                     }
                   </div>
+                  @if (f.key === 'effectiveTo' && newReqError('effectiveTo')) { <div class="invalid-feedback d-block">{{ newReqError('effectiveTo') }}</div> }
                 </div>
               }
             </div>
@@ -488,8 +493,9 @@
           <!-- Justification -->
           <div class="ar-field ar-field--full">
             <label class="ar-field-lbl" for="arJust">Business justification <em class="ar-req">*</em></label>
-            <textarea id="arJust" class="ar-input ar-textarea" rows="3" maxlength="1000" placeholder="Why is this access needed? (10–1000 characters)"
+            <textarea id="arJust" class="ar-input ar-textarea" [class.is-invalid]="!!newReqError('businessJustification')" rows="3" maxlength="1000" placeholder="Why is this access needed? (10–1000 characters)"
                       [ngModel]="newRequestForm().businessJustification" (ngModelChange)="newRequestForm.set({...newRequestForm(), businessJustification: $event})"></textarea>
+            @if (newReqError('businessJustification')) { <div class="invalid-feedback d-block">{{ newReqError('businessJustification') }}</div> }
             <div class="ar-help"><span class="ar-t">Recorded with the request.</span><span class="ar-count">{{ newRequestForm().businessJustification.length }}/1000</span></div>
           </div>
         </div>

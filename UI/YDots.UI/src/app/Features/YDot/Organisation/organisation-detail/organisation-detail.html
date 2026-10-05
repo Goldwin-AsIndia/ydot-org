@@ -1,4 +1,4 @@
-<main class="app-wrapper">
+<main class="app-wrapper" (focusout)="onFieldLeft($any($event.target).id)">
 <div class="page-wrapper">
   <div class="container-fluid px-4 py-3">
   <div class="og-page">
@@ -206,7 +206,7 @@
                    them from a save after approval, so they are drawn locked. -->
               <p class="og-note" title="To correct a registered detail, contact the platform team - it has to be re-verified against your documents.">
                 <i class="ri-lock-line"></i>
-                <span>Approved: registered details are locked. Contact e-mail, telephone and address can still change.</span>
+                <span>Approved: registered details are locked. Contact details, address, website, time zone, currency and language can still change.</span>
               </p>
             }
             </div>
@@ -221,14 +221,16 @@
               <fieldset class="og-fieldset" [disabled]="isProfileRestricted()">
                 <div class="og-fields og-fields-4">
                   <div class="og-field">
-                    <label class="og-label" for="d-name">Name</label>
-                    <input id="d-name" type="text" class="og-input" maxlength="200"
+                    <label class="og-label" for="d-name">Name <span class="ydot-req">*</span></label>
+                    <input id="d-name" [class.is-invalid]="!!profileErr('name')" type="text" class="og-input" maxlength="200"
                            [ngModel]="form().name" (ngModelChange)="update('name', $event)">
+                    @if (profileErr('name')) { <span class="og-hint is-error">{{ profileErr('name') }}</span> }
                   </div>
                   <div class="og-field">
                     <label class="og-label" for="d-legal">Registered legal name</label>
-                    <input id="d-legal" type="text" class="og-input" maxlength="200"
+                    <input id="d-legal" type="text" class="og-input" maxlength="250" [class.is-invalid]="!!profileErr('legalName')"
                            [ngModel]="form().legalName" (ngModelChange)="update('legalName', $event)">
+                    @if (profileErr('legalName')) { <span class="og-hint is-error">{{ profileErr('legalName') }}</span> }
                   </div>
                   <div class="og-field">
                     <label class="og-label" for="d-type">Type</label>
@@ -287,14 +289,16 @@
               <div class="og-fields">
                 <div class="og-field">
                   <label class="og-label" for="d-contact-name">Contact person</label>
-                  <input id="d-contact-name" type="text" class="og-input" maxlength="200"
+                  <input id="d-contact-name" [class.is-invalid]="!!profileErr('contactPersonName')" data-input="name" type="text" class="og-input" maxlength="200"
                          [disabled]="!canEditField('contactPersonName')"
                          [ngModel]="form().contactPersonName" (ngModelChange)="update('contactPersonName', $event)">
+                    @if (profileErr('contactPersonName')) { <span class="og-hint is-error">{{ profileErr('contactPersonName') }}</span> }
                 </div>
                 <div class="og-field">
                   <label class="og-label" for="d-contact-email">Contact e-mail</label>
-                  <input id="d-contact-email" type="email" class="og-input" maxlength="256"
+                  <input id="d-contact-email" [class.is-invalid]="!!profileErr('contactEmail')" type="email" class="og-input" maxlength="320"
                          [ngModel]="form().contactEmail" (ngModelChange)="update('contactEmail', $event)">
+                    @if (profileErr('contactEmail')) { <span class="og-hint is-error">{{ profileErr('contactEmail') }}</span> }
                 </div>
                 <div class="og-field">
                   <label class="og-label" for="d-phone">Telephone</label>
@@ -303,15 +307,17 @@
                             [ngModel]="form().contactPhoneCountryCode" (ngModelChange)="update('contactPhoneCountryCode', $event)">
                       @for (code of countryCodes(); track code) { <option [value]="code">{{ code }}</option> }
                     </select>
-                    <input id="d-phone" type="tel" class="og-input"
+                    <input id="d-phone" type="tel" inputmode="numeric" maxlength="15" class="og-input" [class.is-invalid]="!!profileErr('contactPhone')"
                            [ngModel]="form().contactPhone" (ngModelChange)="update('contactPhone', $event)">
                   </div>
+                  @if (profileErr('contactPhone')) { <span class="og-hint is-error">{{ profileErr('contactPhone') }}</span> }
                 </div>
                 <div class="og-field">
                   <label class="og-label" for="d-website">Website</label>
-                  <input id="d-website" type="url" class="og-input" maxlength="256" placeholder="https://"
+                  <input id="d-website" [class.is-invalid]="!!profileErr('websiteUrl')" type="url" class="og-input" maxlength="256" placeholder="https://"
                          [disabled]="!canEditField('websiteUrl')"
                          [ngModel]="form().websiteUrl" (ngModelChange)="update('websiteUrl', $event)">
+                    @if (profileErr('websiteUrl')) { <span class="og-hint is-error">{{ profileErr('websiteUrl') }}</span> }
                 </div>
               </div>
             </div>
@@ -357,14 +363,16 @@
               <h4 class="og-col-head"><i class="ri-map-pin-line"></i>Registered address</h4>
               <div class="og-fields og-fields-4">
                 <div class="og-field og-span-half">
-                  <label class="og-label" for="d-addr1">Address line 1</label>
-                  <input id="d-addr1" type="text" class="og-input" maxlength="200"
+                  <label class="og-label" for="d-addr1">Address line 1 <span class="ydot-req">*</span></label>
+                  <input id="d-addr1" type="text" class="og-input" maxlength="250" [class.is-invalid]="!!profileErr('addressLine1')"
                          [ngModel]="form().addressLine1" (ngModelChange)="update('addressLine1', $event)">
+                  @if (profileErr('addressLine1')) { <span class="og-hint is-error">{{ profileErr('addressLine1') }}</span> }
                 </div>
                 <div class="og-field og-span-half">
                   <label class="og-label" for="d-addr2">Address line 2 <span class="og-optional">optional</span></label>
-                  <input id="d-addr2" type="text" class="og-input" maxlength="200"
+                  <input id="d-addr2" type="text" class="og-input" maxlength="250" [class.is-invalid]="!!profileErr('addressLine2')"
                          [ngModel]="form().addressLine2" (ngModelChange)="update('addressLine2', $event)">
+                  @if (profileErr('addressLine2')) { <span class="og-hint is-error">{{ profileErr('addressLine2') }}</span> }
                 </div>
                 <div class="og-field">
                   <label class="og-label" for="d-country">Country</label>
@@ -381,7 +389,7 @@
                       @for (st of geo.stateNames(); track st) { <option [value]="st">{{ st }}</option> }
                     </select>
                   } @else {
-                    <input id="d-state" type="text" class="og-input" maxlength="100"
+                    <input id="d-state" type="text" class="og-input" maxlength="120"
                            [ngModel]="form().state" (ngModelChange)="onStateChange($event)">
                   }
                 </div>
@@ -393,14 +401,15 @@
                       @for (ct of geo.cityNames(); track ct) { <option [value]="ct">{{ ct }}</option> }
                     </select>
                   } @else {
-                    <input id="d-city" type="text" class="og-input" maxlength="100"
+                    <input id="d-city" type="text" class="og-input" maxlength="120"
                            [ngModel]="form().city" (ngModelChange)="update('city', $event)">
                   }
                 </div>
                 <div class="og-field">
                   <label class="og-label" for="d-postal">Postal code</label>
-                  <input id="d-postal" type="text" class="og-input og-mono" maxlength="20"
+                  <input id="d-postal" [class.is-invalid]="!!profileErr('postalCode')" type="text" class="og-input og-mono" maxlength="20"
                          [ngModel]="form().postalCode" (ngModelChange)="update('postalCode', $event)">
+                    @if (profileErr('postalCode')) { <span class="og-hint is-error">{{ profileErr('postalCode') }}</span> }
                 </div>
               </div>
             </div>
@@ -715,26 +724,27 @@
             <div class="og-num-row">
               <span class="og-num-glyph" aria-hidden="true"><i [class]="f.icon"></i></span>
               <span class="og-num-text">
-                <label class="og-num-label" [for]="f.id">{{ f.label }}</label>
+                <label class="og-num-label" [for]="f.id">{{ f.label }} <span class="ydot-req">*</span></label>
                 <span class="og-num-hint">{{ f.hint }}</span>
               </span>
               <span class="og-stepper">
                 <button type="button" class="og-step" [attr.aria-label]="'Decrease ' + f.label"
-                        [disabled]="settingValue(f) <= f.min" (click)="stepSetting(f, -1)">
+                        [disabled]="(settingValue(f) ?? 0) <= f.min" (click)="stepSetting(f, -1)">
                   <i class="ri-subtract-line"></i>
                 </button>
                 <label class="og-step-field" [for]="f.id">
-                  <input [id]="f.id" type="number" inputmode="numeric" [min]="f.min" [max]="f.max"
+                  <input [id]="f.id" type="number" inputmode="numeric" step="1" [min]="f.min" [max]="f.max" [class.is-invalid]="!!settingError(f)"
                          [ngModel]="settingValue(f)"
-                         (ngModelChange)="updateSetting(f.key, +$event)">
+                         (ngModelChange)="updateSetting(f.key, $event === null || $event === '' ? null : +$event)">
                   <span class="og-num-unit">{{ f.unit }}</span>
                 </label>
                 <button type="button" class="og-step" [attr.aria-label]="'Increase ' + f.label"
-                        [disabled]="settingValue(f) >= f.max" (click)="stepSetting(f, 1)">
+                        [disabled]="(settingValue(f) ?? 0) >= f.max" (click)="stepSetting(f, 1)">
                   <i class="ri-add-line"></i>
                 </button>
               </span>
             </div>
+            @if (settingError(f); as message) { <span class="og-hint is-error">{{ message }}</span> }
           </div>
         </ng-template>
 

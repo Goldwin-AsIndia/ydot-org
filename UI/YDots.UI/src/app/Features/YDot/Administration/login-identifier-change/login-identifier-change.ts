@@ -6,6 +6,8 @@ import {
   signal,
 } from '@angular/core';
 import {
+  AbstractControl,
+  ValidationErrors,
   FormBuilder,
   FormsModule,
   ReactiveFormsModule,
@@ -103,6 +105,9 @@ export class LoginIdentifierChangeComponent {
   readonly checking = signal(false);
   validationErrors = signal<string[]>([]);
 
+  /** Set when Submit has been pressed, so the summary never shows on page load. */
+  readonly attempted = signal(false);
+
   // Validation states
   emailValidated = signal(false);
   emailAvailable = signal<'idle' | 'available' | 'unavailable'>('idle');
@@ -139,13 +144,16 @@ export class LoginIdentifierChangeComponent {
       [
         Validators.minLength(3),
         Validators.maxLength(80),
-        Validators.pattern(/^[a-zA-Z0-9_.-]+$/),
+        Validators.pattern(/^[a-zA-Z0-9]+$/),
       ],
     ],
     changeReason: [
       '',
       [
         Validators.required,
+        // Spaces alone count as empty.
+        (control: AbstractControl): ValidationErrors | null =>
+          typeof control.value === 'string' && control.value.length > 0 && control.value.trim() === '' ? { required: true } : null,
         Validators.minLength(10),
         Validators.maxLength(1000),
       ],
@@ -176,7 +184,7 @@ export class LoginIdentifierChangeComponent {
       if (emailErrors?.['maxlength']) errors.push('New login email cannot exceed 254 characters.');
       if (usernameErrors?.['minlength']) errors.push('New username must be at least 3 characters.');
       if (usernameErrors?.['maxlength']) errors.push('New username cannot exceed 80 characters.');
-      if (usernameErrors?.['pattern']) errors.push('Username can only contain letters, numbers, dots, hyphens and underscores.');
+      if (usernameErrors?.['pattern']) errors.push('Username can contain only letters and numbers.');
       if (reasonErrors?.['required']) errors.push('Change reason is required.');
       if (reasonErrors?.['minlength']) errors.push('Change reason must be at least 10 characters.');
       if (reasonErrors?.['maxlength']) errors.push('Change reason cannot exceed 1000 characters.');
@@ -316,6 +324,7 @@ export class LoginIdentifierChangeComponent {
   // =========================================================================================
 
   submitIdentifierChange(): void {
+    this.attempted.set(true);
     this.identifierForm.markAllAsTouched();
 
     if (this.identifierForm.invalid) {

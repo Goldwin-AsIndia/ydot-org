@@ -70,6 +70,53 @@ function donationSample() {
   return items;
 }
 
+const campaignSamples: Record<string, [string, string, string, number, string, string][]> = {
+  draft: [
+    ['CMP-021', 'Clean Water Wells', 'Water', 0, '2027-02-01', '2027-06-30'],
+    ['CMP-022', 'Winter Blanket Drive', 'Relief', 0, '2026-11-20', '2027-01-31'],
+    ['CMP-023', 'Digital Classrooms', 'Education', 0, '2027-01-10', '2027-05-31'],
+  ],
+  submitted: [
+    ['CMP-018', 'Cataract Surgery Camp', 'Health', 0, '2026-11-01', '2026-12-20'],
+    ['CMP-019', 'Skill Training Centre', 'Livelihood', 0, '2026-12-01', '2027-03-31'],
+  ],
+  approved: [['CMP-017', 'Flood Relief Fund', 'Relief', 0, '2026-10-25', '2026-12-31']],
+  scheduled: [
+    ['CMP-015', 'Diwali Food Packs', 'Relief', 0, '2026-10-28', '2026-11-12'],
+    ['CMP-016', 'School Kits Drive', 'Education', 0, '2026-11-05', '2027-01-15'],
+  ],
+  active: [
+    ['CMP-001', 'Blind-Stick Distribution Drive', 'Mobility', 72, '2026-04-01', '2026-12-31'],
+    ['CMP-004', 'Education Support Programme', 'Education', 35, '2026-07-01', '2027-03-31'],
+    ['CMP-007', 'Healthcare Aid', 'Health', 91, '2026-03-01', '2026-11-15'],
+    ['CMP-009', 'Women Livelihood Fund', 'Livelihood', 54, '2026-06-01', '2027-01-31'],
+    ['CMP-011', 'Rural Library Network', 'Education', 22, '2026-08-15', '2027-04-30'],
+    ['CMP-012', 'Elder Care Support', 'Health', 47, '2026-06-20', '2027-02-28'],
+  ],
+  paused: [['CMP-010', 'Orphanage Renovation', 'Infrastructure', 40, '2026-05-01', '2027-01-31']],
+  closing: [['CMP-006', 'Summer Nutrition Drive', 'Health', 98, '2026-04-01', '2026-10-31']],
+  closed: [
+    ['CMP-002', 'Monsoon Relief 2026', 'Relief', 100, '2026-06-01', '2026-09-15'],
+    ['CMP-003', 'Back-to-School Fund', 'Education', 100, '2026-05-01', '2026-08-31'],
+  ],
+  cancelled: [],
+};
+
+/** Campaign rows for one stage, in the shape searchCampaigns returns. */
+export function mockCampaignsForStage(stage: string) {
+  const items = (campaignSamples[stage] ?? []).map((c, i) => ({
+    id: `mock-c-${stage}-${i}`,
+    code: c[0],
+    name: c[1],
+    fundOrProgramme: c[2],
+    elapsedPercent: c[3],
+    targetAmount: 500_000 * (3 + ((i * 7 + stage.length * 3) % 11)),
+    startDate: c[4],
+    endDate: c[5],
+  }));
+  return { items, totalCount: items.length };
+}
+
 export function buildDashboardMock() {
   return {
     donations: {

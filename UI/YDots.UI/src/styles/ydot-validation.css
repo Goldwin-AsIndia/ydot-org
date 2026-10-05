@@ -1,0 +1,128 @@
+/*
+ * Validation look, shared by every form.
+ *
+ * A field that is not valid shows a red border (and a red ring when focused); the screen names the
+ * problem in an `.invalid-feedback` line under it. Several screens style their own inputs with
+ * `!important` borders, so the red has to be forced here or it is silently lost.
+ *
+ * What counts as invalid:
+ *   - `.is-invalid` set by the screen (signal / template forms, after a failed Next or Save)
+ *   - `.ng-invalid.ng-touched` on a field of an Angular form, or any invalid field once the form
+ *     has been submitted (`.ng-submitted`)
+ *   - `[aria-invalid="true"]`
+ *   - `.field-invalid` / `.is-invalid` on a wrapper around a custom control (dropdown trigger, picker)
+ */
+:root {
+  --ydot-invalid: #dc3545;
+  --ydot-invalid-ring: rgba(220, 53, 69, 0.16);
+}
+
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid,
+.form-control.is-invalid,
+.form-select.is-invalid,
+button.is-invalid,
+.ar-ig.is-invalid,
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"],
+input.ng-invalid.ng-touched,
+select.ng-invalid.ng-touched,
+textarea.ng-invalid.ng-touched,
+.ng-submitted input.ng-invalid,
+.ng-submitted select.ng-invalid,
+.ng-submitted textarea.ng-invalid,
+.field-invalid > input,
+.field-invalid > select,
+.field-invalid > textarea,
+.field-invalid > button,
+.field-invalid .form-control,
+.field-invalid .form-select,
+.is-invalid > button,
+.is-invalid > .form-control,
+.is-invalid > input,
+.is-invalid > select,
+.is-invalid > .dd-trigger,
+.is-invalid > .picker-trigger,
+.is-invalid > .select-trigger {
+  border-color: var(--ydot-invalid) !important;
+  background-image: none;
+}
+
+input.is-invalid:focus,
+select.is-invalid:focus,
+textarea.is-invalid:focus,
+.form-control.is-invalid:focus,
+.form-select.is-invalid:focus,
+input[aria-invalid="true"]:focus,
+input.ng-invalid.ng-touched:focus,
+select.ng-invalid.ng-touched:focus,
+textarea.ng-invalid.ng-touched:focus {
+  border-color: var(--ydot-invalid) !important;
+  box-shadow: 0 0 0 3px var(--ydot-invalid-ring) !important;
+}
+
+/* The message under an invalid field. */
+.invalid-feedback,
+.field-error {
+  color: var(--ydot-invalid);
+  font-size: calc(12px * var(--ui-text-scale, 1)) !important;
+  margin-top: 4px;
+}
+
+/* Required marker: <span class="ydot-req">*</span> after a label. */
+.ydot-req,
+.req-star {
+  color: var(--ydot-invalid) !important;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+/*
+ * Safety net: a field whose own error message is on screen is red, whatever the screen forgot to bind.
+ *
+ * Every screen shows a message under the field it is complaining about, in its own class
+ * (.field-error, .mf-err, .org-field-error ...). A message shown means the value beside it is not
+ * valid, so the control in the same block is outlined red. Screens that already bind `.is-invalid`
+ * are unaffected; screens that only print the message now get the outline too.
+ */
+:is(div, label, section, li, p, fieldset):has(> :is(
+    .field-error, .field__error, .invalid-feedback, .mf-err, .lcp-err, .org-field-error, .of-error,
+    .tam-field-error, .pf-error, .pg-err, .dpe-err, .div-field-error, .crc-field-error, .ae-field-error,
+    .sh-field-error, .pr-field-error, .ode-field-error, .cd-field-error, .rx-err, .og-hint.is-error, .yp-error:not(.mc-foot-note),
+    [class*="field-error"], [class*="field__error"]))
+  :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select, textarea) {
+  border-color: var(--ydot-invalid) !important;
+}
+
+/* Custom dropdown triggers sitting beside an error message. */
+:is(div, label, section, li, p, fieldset):has(> :is(
+    .field-error, .field__error, .invalid-feedback, .mf-err, .lcp-err, .org-field-error, .of-error,
+    .tam-field-error, .pf-error, .pg-err, .dpe-err, .div-field-error, .crc-field-error, .ae-field-error,
+    .sh-field-error, .pr-field-error, .ode-field-error, .cd-field-error, .rx-err))
+  > :is(app-picker, app-searchable-select, .cu-dd, .ar-dd, .rx-dd, .combo) :is(button, .picker-trigger, .select-trigger) {
+  border-color: var(--ydot-invalid) !important;
+}
+
+/* The control itself carries an error class (each screen names it differently). */
+input.has-error, select.has-error, textarea.has-error,
+input.input--error, select.input--error, textarea.input--error,
+input.field__input--error, select.field__input--error, textarea.field__input--error,
+input.is-error, select.is-error, textarea.is-error,
+input.invalid:not(.ng-invalid), select.invalid, textarea.invalid,
+input.error, select.error, textarea.error,
+.has-error > input, .has-error > select, .has-error > textarea, .has-error > .form-control {
+  border-color: var(--ydot-invalid) !important;
+}
+
+/* The control's wrapper carries the error class. */
+:is([class*="field-error"], [class*="field-invalid"], .dpe-invalid, .ci-invalid, .has-error):not(input):not(select):not(textarea):not(p):not(span)
+  :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
+  border-color: var(--ydot-invalid) !important;
+}
+
+/* Set by InputGuardService when a starred / minimum-length field is left empty or too short. */
+.ydot-invalid-touched {
+  border-color: var(--ydot-invalid) !important;
+}

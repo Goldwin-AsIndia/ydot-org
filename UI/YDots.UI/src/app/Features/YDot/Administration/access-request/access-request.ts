@@ -53,6 +53,9 @@ interface AccessRequestView {
    */
   canDecide: boolean;
 
+  /** True only for the person who raised the request - the server decides, the row obeys. */
+  canCancel: boolean;
+
   /** Why the decision buttons are absent, when they are. Empty when they are offered. */
   cannotDecideReason: string;
 }
@@ -600,6 +603,7 @@ export class AccessRequestComponent {
       // here would mean re-implementing the rule and eventually disagreeing with it.
       permittedActions: r.canDecide ? ['Approve', 'Reject', 'Return'] : ['View'],
       canDecide: r.canDecide === true,
+      canCancel: r.canCancel === true,
 
       // NAMED, NOT JUST WITHHELD. An approver who finds no Approve button and no explanation
       // has no idea whether the queue is broken, their permissions are wrong, or the rule is
@@ -643,7 +647,38 @@ export class AccessRequestComponent {
   }
 
   // ===== NEW REQUEST =====
+
+  /** Set once Submit has been pressed, so the dialog does not shout before anyone has tried. */
+  readonly newReqSubmitted = signal(false);
+
+  private static readonly NEW_REQ_LABELS: Record<string, string> = {
+    requestType: 'Request type', userId: 'User', requestedRole: 'Requested role', scopeValue: 'Scope value',
+    effectiveTo: 'Effective to', businessJustification: 'Business justification',
+  };
+
+  /** What is wrong with each field of the new-request dialog right now, or null. */
+  private newReqRuleErrors(): Record<string, string | null> {
+    const f = this.newRequestForm();
+    const just = f.businessJustification.trim();
+    return {
+      requestType: f.requestType ? null : 'Select a request type.',
+      userId: f.userId ? null : 'Select the user this request is for.',
+      requestedRole: f.requestedRole ? null : 'Select the role being requested.',
+      scopeValue: f.scopeType && !f.scopeValue.trim() ? 'Enter the scope value for the chosen scope type.' : null,
+      effectiveTo: f.effectiveFrom && f.effectiveTo && f.effectiveTo < f.effectiveFrom
+        ? 'Effective to cannot be before effective from.' : null,
+      businessJustification: !just ? 'Business justification is required.'
+        : just.length < 10 ? 'Business justification must be at least 10 characters.' : null,
+    };
+  }
+
+  /** The message to show under a new-request field, or null while it is fine (or untouched). */
+  newReqError(field: string): string | null {
+    return this.newReqSubmitted() ? (this.newReqRuleErrors()[field] ?? null) : null;
+  }
+
   openNewRequest(): void {
+    this.newReqSubmitted.set(false);
     this.userSearch.set('');
     this.roleSearch.set('');
     this.newRequestForm.set({
@@ -674,8 +709,11 @@ export class AccessRequestComponent {
 
   submitNewRequest(): void {
     const form = this.newRequestForm();
-    if (!form.requestType || !form.userId || !form.requestedRole || !form.businessJustification.trim()) {
-      this.toast.show('Validation Error', 'Request type, user, requested role and justification are required.', 'warning');
+    this.newReqSubmitted.set(true);
+    const failing = Object.entries(this.newReqRuleErrors()).filter(([, message]) => message !== null);
+    if (failing.length > 0) {
+      const names = failing.map(([field]) => AccessRequestComponent.NEW_REQ_LABELS[field] ?? field);
+      this.toast.show('Check the highlighted fields', `Please correct: ${names.join(', ')}.`, 'warning');
       return;
     }
 

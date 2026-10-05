@@ -16,6 +16,7 @@ import {
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 import { EnumOptionsService } from '../../../../Shared/services/enum-options.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
+import { emailError, maxLengthError, nameError, phoneWithCodeError, postalCodeError, requiredError } from '../../../../Shared/validation/field-rules';
 import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
 
 type Tab = 'profile' | 'documents' | 'review' | 'settings' | 'domains' | 'timeline';
@@ -124,14 +125,32 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
   });
 
   // ---- Settings form ------------------------------------------------------------------------
-  readonly settingsForm = signal({
-    defaultMfaRequirement: 'optional' as MfaRequirement,
+  /** A numeric setting is null while its box is empty, so "required" can be told apart from zero. */
+  readonly settingsForm = signal<{
+    defaultMfaRequirement: MfaRequirement;
+    maximumFailedAccessAttempts: number | null;
+    lockoutDurationMinutes: number | null;
+    passwordMinimumLength: number | null;
+    passwordExpiryDays: number | null;
+    sessionIdleTimeoutMinutes: number | null;
+  }>({
+    defaultMfaRequirement: 'optional',
     maximumFailedAccessAttempts: 5,
     lockoutDurationMinutes: 15,
     passwordMinimumLength: 10,
     passwordExpiryDays: 0,
     sessionIdleTimeoutMinutes: 30,
   });
+
+  /** Set once Save settings has been pressed; until then only boxes already left show messages. */
+  readonly settingsTried = signal(false);
+  readonly settingsTouched = signal<ReadonlySet<string>>(new Set());
+
+  touchSetting(key: string): void {
+    if (!this.settingsTouched().has(key)) {
+      this.settingsTouched.update((current) => new Set(current).add(key));
+    }
+  }
 
   /** The numeric security settings, drawn as stepper rows - one list per settings group. */
   readonly signInLimits: SecurityNumberField[] = [
@@ -145,7 +164,7 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
 
   readonly passwordRules: SecurityNumberField[] = [
     { key: 'passwordMinimumLength', id: 's-password', icon: 'ri-text-spacing',
-      label: 'Minimum password length', hint: 'Between 8 and 128', unit: 'chars', min: 8, max: 128, step: 1 },
+      label: 'Minimum password length', hint: 'Between 8 and 64', unit: 'chars', min: 8, max: 64, step: 1 },
     { key: 'passwordExpiryDays', id: 's-expiry', icon: 'ri-calendar-schedule-line',
       label: 'Password expires after', hint: '0 means passwords never expire', unit: 'days', min: 0, max: 365, step: 15 },
   ];
@@ -341,6 +360,73 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
    */
   private static readonly PanPattern = /^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/;
   private static readonly GstPattern = /^[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z][0-9A-Za-z][Zz][0-9A-Za-z]$/;
+
+  /** Set once Save has been pressed, so the form does not shout before anyone has tried. */
+  readonly profileTried = signal(false);
+
+  private static readonly PROFILE_LABELS: Record<string, string> = {
+    name: 'Name', legalName: 'Registered legal name', contactPersonName: 'Contact person', contactEmail: 'Contact e-mail',
+    contactPhone: 'Telephone', websiteUrl: 'Website', panNumber: 'PAN', gstNumber: 'GST', postalCode: 'Postal code',
+    addressLine1: 'Address line 1', addressLine2: 'Address line 2', city: 'City', state: 'State',
+  };
+
+  /** What is wrong with each profile field right now (null = fine). Nothing here is required except the name. */
+  private profileRuleErrors(): Record<string, string | null> {
+    const f = this.form();
+    const site = (f.websiteUrl ?? '').trim();
+    // Limits are the API's: name 200, legal name 250, contact person 200, address lines 250,
+    // city / state 120, e-mail 320, website 500.
+    return {
+      name: requiredError('Name', f.name)
+        ?? ((f.name ?? '').trim().length < 2 ? 'Name must be at least 2 characters.' : maxLengthError(f.name, 200)),
+      legalName: maxLengthError(f.legalName, 250),
+      contactPersonName: nameError('Contact person', f.contactPersonName, false, 200),
+      contactEmail: emailError('Contact e-mail', f.contactEmail, false) ?? maxLengthError(f.contactEmail, 320),
+      contactPhone: phoneWithCodeError('Telephone', f.contactPhoneCountryCode, f.contactPhone, { required: false }),
+      addressLine1: requiredError('Address line 1', f.addressLine1) ?? maxLengthError(f.addressLine1, 250),
+      addressLine2: maxLengthError(f.addressLine2, 250),
+      city: maxLengthError(f.city, 120),
+      state: maxLengthError(f.state, 120),
+      websiteUrl: site && !/^(https?:\/\/)?([A-Za-z0-9-]+\.)+[A-Za-z]{2,}(\/\S*)?$/.test(site)
+        ? 'Enter a valid website address (for example https://www.example.org).' : null,
+      panNumber: this.panValid() ? null : 'PAN must be five letters, four digits and a letter - e.g. ABCDE1234F.',
+      gstNumber: this.gstValid() ? null : 'GST must be fifteen characters - e.g. 22ABCDE1234F1Z5.',
+      postalCode: postalCodeError('Postal code', f.postalCode, f.country, false),
+    };
+  }
+
+  /** Fields left at least once; their messages show before Save is pressed. */
+  readonly profileTouched = signal<ReadonlySet<string>>(new Set());
+
+  private static readonly PROFILE_IDS: Record<string, string> = {
+    'd-name': 'name', 'd-legal': 'legalName', 'd-contact-name': 'contactPersonName', 'd-contact-email': 'contactEmail',
+    'd-phone': 'contactPhone', 'd-website': 'websiteUrl', 'd-pan': 'panNumber', 'd-gst': 'gstNumber',
+    'd-addr1': 'addressLine1', 'd-addr2': 'addressLine2', 'd-state': 'state', 'd-city': 'city', 'd-postal': 'postalCode',
+  };
+
+  /** Called when focus leaves any control on the page. */
+  onFieldLeft(id: string): void {
+    const profile = OrganisationDetailComponent.PROFILE_IDS[id];
+    if (profile && !this.profileTouched().has(profile)) {
+      this.profileTouched.update((current) => new Set(current).add(profile));
+    }
+    if (id.startsWith('s-')) {
+      const field = [...this.signInLimits, ...this.passwordRules].find((f) => f.id === id);
+      if (field) this.touchSetting(field.key);
+    }
+  }
+
+  private focusFirstProfileError(fields: string[]): void {
+    const entry = Object.entries(OrganisationDetailComponent.PROFILE_IDS).find(([, field]) => fields.includes(field));
+    if (entry) setTimeout(() => (document.getElementById(entry[0]) as HTMLElement | null)?.focus());
+  }
+
+  /** The message under a profile field: the server's own, else ours once Save has been pressed. */
+  profileErr(field: string): string | null {
+    const server = Object.entries(this.fieldErrors()).find(([key]) => key.toLowerCase() === field.toLowerCase());
+    if (server) return server[1];
+    return this.profileTried() || this.profileTouched().has(field) ? (this.profileRuleErrors()[field] ?? null) : null;
+  }
 
   readonly panValid = computed(() => {
     const value = this.form().panNumber.trim();
@@ -557,13 +643,33 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     this.settingsForm.update((current) => ({ ...current, [key]: value }));
   }
 
-  settingValue(field: SecurityNumberField): number {
+  settingValue(field: SecurityNumberField): number | null {
     return this.settingsForm()[field.key];
+  }
+
+  /** What is wrong with a numeric security setting right now (required, whole number, range); null when fine. */
+  private settingRuleError(field: SecurityNumberField): string | null {
+    const value = this.settingsForm()[field.key];
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return `${field.label} is required.`;
+    }
+    if (!Number.isInteger(value)) {
+      return `${field.label} must be a whole number (allowed range ${field.min}–${field.max}).`;
+    }
+    if (value < field.min || value > field.max) {
+      return `${field.label}: allowed range ${field.min}–${field.max}.`;
+    }
+    return null;
+  }
+
+  /** The message under a numeric setting: shown once the box was left or Save was pressed. */
+  settingError(field: SecurityNumberField): string | null {
+    return this.settingsTried() || this.settingsTouched().has(field.key) ? this.settingRuleError(field) : null;
   }
 
   /** Nudges a numeric security setting by its step, kept inside its allowed range. */
   stepSetting(field: SecurityNumberField, direction: 1 | -1): void {
-    const next = (Number(this.settingsForm()[field.key]) || 0) + direction * field.step;
+    const next = (this.settingsForm()[field.key] ?? 0) + direction * field.step;
     this.updateSetting(field.key, Math.min(field.max, Math.max(field.min, next)));
   }
 
@@ -623,6 +729,14 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     const organisation = this.organisation();
 
     if (!organisation || this.saving()) {
+      return;
+    }
+
+    this.profileTried.set(true);
+    const failing = Object.entries(this.profileRuleErrors()).filter(([, message]) => message !== null);
+    if (failing.length > 0) {
+      this.errorMessage.set(`Please correct: ${failing.map(([field]) => OrganisationDetailComponent.PROFILE_LABELS[field] ?? field).join(', ')}.`);
+      this.focusFirstProfileError(failing.map(([field]) => field));
       return;
     }
 
@@ -732,6 +846,14 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.settingsTried.set(true);
+    const failing = [...this.signInLimits, ...this.passwordRules].find((field) => this.settingRuleError(field) !== null);
+    if (failing) {
+      this.errorMessage.set('');
+      setTimeout(() => (document.getElementById(failing.id) as HTMLElement | null)?.focus());
+      return;
+    }
+
     this.saving.set(true);
     this.errorMessage.set('');
 
@@ -741,11 +863,11 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
       .updateMySettings({
         expectedVersion: organisation.version ?? 0,
         defaultMfaRequirement: s.defaultMfaRequirement,
-        maximumFailedAccessAttempts: s.maximumFailedAccessAttempts,
-        lockoutDurationMinutes: s.lockoutDurationMinutes,
-        passwordMinimumLength: s.passwordMinimumLength,
-        passwordExpiryDays: s.passwordExpiryDays,
-        sessionIdleTimeoutMinutes: s.sessionIdleTimeoutMinutes,
+        maximumFailedAccessAttempts: s.maximumFailedAccessAttempts ?? undefined,
+        lockoutDurationMinutes: s.lockoutDurationMinutes ?? undefined,
+        passwordMinimumLength: s.passwordMinimumLength ?? undefined,
+        passwordExpiryDays: s.passwordExpiryDays ?? undefined,
+        sessionIdleTimeoutMinutes: s.sessionIdleTimeoutMinutes ?? undefined,
       })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -843,5 +965,7 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     this.saving.set(false);
     this.errorMessage.set(apiErrorMessage(error, fallback));
     this.fieldErrors.set(apiFieldErrors(error));
+    const named = Object.keys(this.fieldErrors()).map((key) => key.charAt(0).toLowerCase() + key.slice(1));
+    if (named.length > 0) this.focusFirstProfileError(named);
   }
 }

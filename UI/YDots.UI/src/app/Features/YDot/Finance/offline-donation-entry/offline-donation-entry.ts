@@ -205,6 +205,35 @@ export class OfflineDonationEntryComponent {
       !!this.evidenceFile(),
   );
 
+  /** What each required field needs, so the banner's "review the highlighted fields" has fields to highlight. */
+  protected readonly requiredMessages: Record<string, string> = {
+    instrument: 'Select an instrument type.',
+    date: 'Enter the donation date.',
+    amount: 'Enter an amount greater than 0 and up to 10,00,000.',
+    currency: 'Select a currency.',
+    campaign: 'Select a campaign or fund.',
+    bank: 'Select the bank or collection account.',
+    evidence: 'Upload the evidence document.',
+  };
+
+  private requiredOk(key: string): boolean {
+    switch (key) {
+      case 'instrument': return !!this.instrumentType();
+      case 'date': return !!this.donationDate();
+      case 'amount': return this.amountValid();
+      case 'currency': return !!this.currency();
+      case 'campaign': return !!this.campaign();
+      case 'bank': return !!this.bankAccount();
+      case 'evidence': return !!this.evidenceFile();
+      default: return true;
+    }
+  }
+
+  /** The message under a required field once Save or Submit has been tried; null while it is fine. */
+  protected fieldError(key: string): string | null {
+    return this.uiState() === 'validation' && !this.requiredOk(key) ? this.requiredMessages[key] : null;
+  }
+
   // ================= UI states (4.3.4 / 4.3.7) =================
   protected readonly uiState = signal<FinanceUiState>('ready');
   protected setUiState(state: FinanceUiState): void {
@@ -294,6 +323,9 @@ export class OfflineDonationEntryComponent {
   /** Submit — execute idempotently (4.3.3). Routes into Reconciliation per the documented FIN workflow. */
   protected submit(): void {
     if (!this.submitAllowed()) {
+      if (!this.formComplete()) {
+        this.uiState.set('validation');
+      }
       this.toast.show('Submit unavailable', this.submitTitle(), 'warning');
       return;
     }

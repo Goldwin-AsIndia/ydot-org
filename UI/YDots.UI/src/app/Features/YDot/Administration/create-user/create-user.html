@@ -167,7 +167,10 @@
                 <label class="cu-label" for="cuCategory">Account type <span class="cu-req" aria-hidden="true">*</span></label>
                 <ng-container *ngTemplateOutlet="cuDd; context: {
                   key: 'accountCategory', id: 'cuCategory', icon: 'ri-briefcase-line',
-                  placeholder: 'Select account type', allowEmpty: false, invalid: false }"></ng-container>
+                  placeholder: 'Select account type', allowEmpty: false, invalid: isFieldInvalid('accountCategory') }"></ng-container>
+                @if (errorFor('accountCategory')) {
+                  <div class="invalid-feedback d-block">{{ errorFor('accountCategory') }}</div>
+                }
               </div>
 
               <div class="s3">
@@ -188,7 +191,7 @@
                          placeholder="Enter first name"
                          [value]="form().firstName"
                          (input)="update('firstName', $any($event.target).value)"
-                         (blur)="onNameChanged()">
+                         (blur)="onNameChanged(); touch('firstName')" maxlength="80">
                 </div>
                 @if (errorFor('firstName')) {
                   <div class="invalid-feedback d-block">{{ errorFor('firstName') }}</div>
@@ -203,7 +206,7 @@
                          placeholder="Enter last name"
                          [value]="form().lastName"
                          (input)="update('lastName', $any($event.target).value)"
-                         (blur)="onNameChanged()">
+                         (blur)="onNameChanged(); touch('lastName')" maxlength="80">
                 </div>
                 @if (errorFor('lastName')) {
                   <div class="invalid-feedback d-block">{{ errorFor('lastName') }}</div>
@@ -217,7 +220,7 @@
                   <input id="cuDisplay" class="form-control" [class.is-invalid]="isFieldInvalid('displayName')"
                          placeholder="Enter display name"
                          [value]="form().displayName"
-                         (input)="update('displayName', $any($event.target).value)">
+                         (input)="update('displayName', $any($event.target).value)" (blur)="touch('displayName')" data-input="name" maxlength="160">
                 </div>
                 @if (errorFor('displayName')) {
                   <div class="invalid-feedback d-block">{{ errorFor('displayName') }}</div>
@@ -230,7 +233,7 @@
                   <i class="ri-user-smile-line cu-field-icon" aria-hidden="true"></i>
                   <input id="cuPreferred" class="form-control" placeholder="Enter preferred name (optional)"
                          [value]="form().preferredName"
-                         (input)="update('preferredName', $any($event.target).value)"
+                         (input)="update('preferredName', $any($event.target).value)" (blur)="touch('preferredName')" maxlength="160"
                          [class.is-invalid]="isFieldInvalid('preferredName')">
                 </div>
                 @if (errorFor('preferredName')) {
@@ -254,7 +257,7 @@
                          placeholder="name@organisation.org"
                          [value]="form().email"
                          (input)="update('email', $any($event.target).value)"
-                         (blur)="onEmailChanged()">
+                         (blur)="onEmailChanged(); touch('email')" maxlength="320">
                 </div>
                 @if (errorFor('email')) {
                   <div class="invalid-feedback d-block">{{ errorFor('email') }}</div>
@@ -269,7 +272,7 @@
                          placeholder="Enter username"
                          [value]="form().username"
                          (input)="update('username', $any($event.target).value)"
-                         (blur)="checkIdentity()">
+                         (blur)="checkIdentity(); touch('username')" data-input="alnum" maxlength="64" autocomplete="off">
                 </div>
                 @if (errorFor('username')) {
                   <div class="invalid-feedback d-block">{{ errorFor('username') }}</div>
@@ -320,10 +323,10 @@
                 </label>
                 <div class="cu-field">
                   <i class="ri-smartphone-line cu-field-icon" aria-hidden="true"></i>
-                  <input id="cuMobile" type="tel" class="form-control" placeholder="Enter mobile number"
+                  <input id="cuMobile" type="tel" inputmode="numeric" maxlength="15" class="form-control" placeholder="Enter mobile number"
                          [class.is-invalid]="isFieldInvalid('mobileNumber')"
                          [value]="form().mobileNumber"
-                         (input)="update('mobileNumber', $any($event.target).value)">
+                         (input)="update('mobileNumber', $any($event.target).value)" (blur)="touch('mobileNumber')">
                 </div>
                 @if (errorFor('mobileNumber')) {
                   <div class="invalid-feedback d-block">{{ errorFor('mobileNumber') }}</div>
@@ -339,7 +342,7 @@
                   <input id="cuEmployee" class="form-control" placeholder="Enter employee or volunteer number"
                          [class.is-invalid]="isFieldInvalid('employeeNumber')"
                          [value]="form().employeeNumber"
-                         (input)="update('employeeNumber', $any($event.target).value)">
+                         (input)="update('employeeNumber', $any($event.target).value)" (blur)="touch('employeeNumber')" maxlength="40">
                 </div>
                 @if (errorFor('employeeNumber')) {
                   <div class="invalid-feedback d-block">{{ errorFor('employeeNumber') }}</div>
@@ -365,7 +368,7 @@
             </div>
             <div class="cu-grid">
               <div class="s4">
-                <label class="cu-label" for="cuEngagement">Engagement</label>
+                <label class="cu-label" for="cuEngagement">Engagement <span class="cu-req" aria-hidden="true">*</span></label>
                 <ng-container *ngTemplateOutlet="cuDd; context: {
                   key: 'engagementType', id: 'cuEngagement', icon: 'ri-briefcase-4-line',
                   placeholder: 'Select engagement', allowEmpty: false, invalid: isFieldInvalid('engagementType') }"></ng-container>
@@ -411,7 +414,7 @@
                   <i class="ri-medal-line cu-field-icon" aria-hidden="true"></i>
                   <input id="cuDesignation" class="form-control" placeholder="Enter designation"
                          [value]="form().designation"
-                         (input)="update('designation', $any($event.target).value)"
+                         (input)="update('designation', $any($event.target).value)" (blur)="touch('designation')" maxlength="120"
                          [class.is-invalid]="isFieldInvalid('designation')">
                 </div>
                 @if (errorFor('designation')) {
@@ -484,7 +487,7 @@
               </div>
 
               <div class="s6">
-                <label class="cu-label" for="cuScope">Data scope</label>
+                <label class="cu-label" for="cuScope">Data scope <span class="cu-req" aria-hidden="true">*</span></label>
                 <ng-container *ngTemplateOutlet="cuDd; context: {
                   key: 'dataScopeType', id: 'cuScope', icon: 'ri-database-2-line',
                   placeholder: 'Select data scope', allowEmpty: false, invalid: isFieldInvalid('dataScopeType') }"></ng-container>
@@ -521,7 +524,7 @@
               </div>
 
               <div class="s4">
-                <label class="cu-label" for="cuMfa">Two-step verification</label>
+                <label class="cu-label" for="cuMfa">Two-step verification <span class="cu-req" aria-hidden="true">*</span></label>
                 <ng-container *ngTemplateOutlet="cuDd; context: {
                   key: 'mfaRequirement', id: 'cuMfa', icon: 'ri-lock-password-line',
                   placeholder: 'Select', allowEmpty: false, invalid: isFieldInvalid('mfaRequirement') }"></ng-container>
@@ -549,7 +552,7 @@
                             [class.is-invalid]="isFieldInvalid('businessJustification')"
                             placeholder="Why does this person need this access? At least 10 characters."
                             [value]="form().businessJustification"
-                            (input)="update('businessJustification', $any($event.target).value)"></textarea>
+                            (input)="update('businessJustification', $any($event.target).value)" (blur)="touch('businessJustification')" maxlength="1000"></textarea>
                 </div>
                 @if (errorFor('businessJustification')) {
                   <div class="invalid-feedback d-block">{{ errorFor('businessJustification') }}</div>

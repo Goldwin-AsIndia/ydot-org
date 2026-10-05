@@ -399,6 +399,7 @@ export class MenuCatalogueComponent implements OnInit, OnDestroy {
     }
 
     this.editingVersion = 0;
+    this.touchedFields.set(new Set());
     this.form.set(form);
     this.formError.set('');
     this.editingId.set('');
@@ -407,6 +408,7 @@ export class MenuCatalogueComponent implements OnInit, OnDestroy {
   startEdit(node: MenuDefinitionResponse): void {
     this.editingVersion = node.version ?? 0;
 
+    this.touchedFields.set(new Set());
     this.form.set({
       code: node.code ?? '',
       name: node.name ?? '',
@@ -437,8 +439,34 @@ export class MenuCatalogueComponent implements OnInit, OnDestroy {
 
   readonly isCreating = computed(() => this.editingId() === '');
 
+  /** Fields the person has touched, so an empty required field is flagged only after they get to it. */
+  private readonly touchedFields = signal<ReadonlySet<string>>(new Set());
+
   patch<K extends keyof CatalogueForm>(key: K, value: CatalogueForm[K]): void {
     this.form.update((current) => ({ ...current, [key]: value }));
+    this.touchedFields.update((set) => new Set(set).add(key as string));
+  }
+
+  /** What is wrong with each field right now (null = fine). Save stays disabled while any is. */
+  private readonly fieldRules = computed<Record<string, string | null>>(() => {
+    const form = this.form();
+    const creating = this.isCreating();
+    const code = form.code.trim();
+    return {
+      name: form.name.trim() ? null : 'Give it a name.',
+      code: !creating ? null : !code ? 'Enter a code.'
+        : !/^[A-Z0-9_-]+$/.test(code) ? 'The code must be upper-case letters, digits, underscores or hyphens.' : null,
+      moduleCode: creating && !form.moduleCode.trim() ? 'Choose a module.' : null,
+      level: creating && !form.level ? 'Choose a level.' : null,
+      parentMenuId: !creating ? null
+        : form.level && form.level !== 'menu' && !form.parentMenuId ? 'A submenu or child submenu needs a parent.'
+        : form.level === 'menu' && form.parentMenuId ? 'A top-level menu cannot have a parent.' : null,
+    };
+  });
+
+  /** The message under a field, once the person has touched it; null while it is fine or untouched. */
+  fieldError(field: string): string | null {
+    return this.touchedFields().has(field) ? (this.fieldRules()[field] ?? null) : null;
   }
 
   /**

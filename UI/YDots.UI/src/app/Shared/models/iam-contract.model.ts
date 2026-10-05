@@ -197,6 +197,7 @@ export interface AccessRequestListItemResponse {
   decidedAtUtc?: string | null;
   decidedByName?: string | null;
   canDecide?: boolean;
+  canCancel?: boolean;
   version?: number;
 }
 

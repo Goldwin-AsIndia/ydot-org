@@ -488,28 +488,33 @@
               </div>
               <div class="dir-f-span-4">
                 <label class="dir-f-label" for="edFirst">First name <span class="dir-req">*</span></label>
-                <input id="edFirst" class="dir-f-control" [value]="editForm().firstName"
-                       (input)="updateEditField('firstName', $any($event.target).value)">
+                <input id="edFirst" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('firstName')" [value]="editForm().firstName"
+                       (input)="updateEditField('firstName', $any($event.target).value)" (blur)="touchEdit('firstName')" maxlength="80">
+                @if (editError('firstName')) { <div class="invalid-feedback d-block">{{ editError('firstName') }}</div> }
               </div>
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edMiddle">Middle name</label>
-                <input id="edMiddle" class="dir-f-control" [value]="editForm().middleName"
-                       (input)="updateEditField('middleName', $any($event.target).value)">
+                <input id="edMiddle" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('middleName')" [value]="editForm().middleName"
+                       (input)="updateEditField('middleName', $any($event.target).value)" (blur)="touchEdit('middleName')" maxlength="80">
+                @if (editError('middleName')) { <div class="invalid-feedback d-block">{{ editError('middleName') }}</div> }
               </div>
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edLast">Last name <span class="dir-req">*</span></label>
-                <input id="edLast" class="dir-f-control" [value]="editForm().lastName"
-                       (input)="updateEditField('lastName', $any($event.target).value)">
+                <input id="edLast" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('lastName')" [value]="editForm().lastName"
+                       (input)="updateEditField('lastName', $any($event.target).value)" (blur)="touchEdit('lastName')" maxlength="80">
+                @if (editError('lastName')) { <div class="invalid-feedback d-block">{{ editError('lastName') }}</div> }
               </div>
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edDisplay">Display name <span class="dir-req">*</span></label>
-                <input id="edDisplay" class="dir-f-control" [value]="editForm().displayName"
-                       (input)="updateEditField('displayName', $any($event.target).value)">
+                <input id="edDisplay" class="dir-f-control" [class.is-invalid]="!!editError('displayName')" [value]="editForm().displayName"
+                       (input)="updateEditField('displayName', $any($event.target).value)" (blur)="touchEdit('displayName')" data-input="name" maxlength="160">
+                @if (editError('displayName')) { <div class="invalid-feedback d-block">{{ editError('displayName') }}</div> }
               </div>
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edPreferred">Preferred name</label>
-                <input id="edPreferred" class="dir-f-control" [value]="editForm().preferredName"
-                       (input)="updateEditField('preferredName', $any($event.target).value)">
+                <input id="edPreferred" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('preferredName')" [value]="editForm().preferredName"
+                       (input)="updateEditField('preferredName', $any($event.target).value)" (blur)="touchEdit('preferredName')" maxlength="160">
+                @if (editError('preferredName')) { <div class="invalid-feedback d-block">{{ editError('preferredName') }}</div> }
               </div>
             </div>
           </section>
@@ -519,13 +524,15 @@
             <div class="dir-form-grid">
               <div class="dir-f-span-2">
                 <label class="dir-f-label" for="edCode">Country code</label>
-                <input id="edCode" class="dir-f-control" placeholder="+91" [value]="editForm().mobileCountryCode"
-                       (input)="updateEditField('mobileCountryCode', $any($event.target).value)">
+                <input id="edCode" class="dir-f-control" [class.is-invalid]="!!editError('mobileCountryCode')" data-input="dial" maxlength="5" placeholder="+91" [value]="editForm().mobileCountryCode"
+                       (input)="updateEditField('mobileCountryCode', $any($event.target).value)" (blur)="touchEdit('mobileCountryCode')">
+                @if (editError('mobileCountryCode')) { <div class="invalid-feedback d-block">{{ editError('mobileCountryCode') }}</div> }
               </div>
               <div class="dir-f-span-4">
                 <label class="dir-f-label" for="edMobile">Mobile</label>
-                <input id="edMobile" class="dir-f-control" [value]="editForm().mobileNumber"
-                       (input)="updateEditField('mobileNumber', $any($event.target).value)">
+                <input id="edMobile" class="dir-f-control" [class.is-invalid]="!!editError('mobileNumber')" type="tel" inputmode="numeric" maxlength="15" [value]="editForm().mobileNumber"
+                       (input)="updateEditField('mobileNumber', $any($event.target).value)" (blur)="touchEdit('mobileNumber')">
+                @if (editError('mobileNumber')) { <div class="invalid-feedback d-block">{{ editError('mobileNumber') }}</div> }
               </div>
             </div>
           </section>
@@ -535,13 +542,15 @@
             <div class="dir-form-grid">
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edEmployee">Employee number</label>
-                <input id="edEmployee" class="dir-f-control" [value]="editForm().employeeNumber"
-                       (input)="updateEditField('employeeNumber', $any($event.target).value)">
+                <input id="edEmployee" class="dir-f-control" [class.is-invalid]="!!editError('employeeNumber')" maxlength="40" [value]="editForm().employeeNumber"
+                       (input)="updateEditField('employeeNumber', $any($event.target).value)" (blur)="touchEdit('employeeNumber')">
+                @if (editError('employeeNumber')) { <div class="invalid-feedback d-block">{{ editError('employeeNumber') }}</div> }
               </div>
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edDesignation">Designation</label>
-                <input id="edDesignation" class="dir-f-control" [value]="editForm().designation"
-                       (input)="updateEditField('designation', $any($event.target).value)">
+                <input id="edDesignation" class="dir-f-control" [class.is-invalid]="!!editError('designation')" maxlength="120" [value]="editForm().designation"
+                       (input)="updateEditField('designation', $any($event.target).value)" (blur)="touchEdit('designation')">
+                @if (editError('designation')) { <div class="invalid-feedback d-block">{{ editError('designation') }}</div> }
               </div>
               <div class="dir-f-span-6">
                 <label class="dir-f-label" for="edLocation">Work location</label>
@@ -573,7 +582,9 @@
             <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-file-list-3-line"></i></span>Reason for this change <span class="dir-req">*</span></h6>
             <textarea id="edReason" class="dir-f-control" rows="3"
                       placeholder="For example: corrected the spelling of the surname at the user's request."
+                      [class.is-invalid]="!!editError('reason')" (ngModelChange)="onEditReasonChange()" (blur)="touchEdit('reason')" maxlength="500"
                       [(ngModel)]="reason" name="editReason"></textarea>
+            @if (editError('reason')) { <div class="invalid-feedback d-block">{{ editError('reason') }}</div> }
             <div class="dir-f-meta">
               <span>Recorded in the audit trail.</span>
               <span [class.dir-f-ok]="reason.trim().length >= 10">{{ reason.trim().length }} / 10 min</span>

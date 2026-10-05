@@ -782,6 +782,11 @@ export class SavedViewBuilderComponent {
   // Validation and confirmation content (4.8.6)
   // ===================================================================
 
+  /** True when the validation banner names this field, so the field itself turns red. */
+  protected hasError(field: string): boolean {
+    return this.validationErrors().some((e) => e.field === field);
+  }
+
   /** Validate the required Save-step fields; preserves entered values (4.8.4 / 4.8.6). */
   private validateForSave(): boolean {
     const errors: Array<{ field: string; message: string }> = [];

@@ -290,6 +290,8 @@ export class TemplateCatalogueComponent implements OnInit {
 
   fieldLabels: Record<string, string> = {
     name: 'Template name',
+    channel: 'Channel',
+    language: 'Language',
     subject: 'Subject or header',
     messageBody: 'Message body',
     purpose: 'Purpose',
@@ -400,6 +402,8 @@ export class TemplateCatalogueComponent implements OnInit {
     const errors: FieldErrors = {};
 
     if (!w.name.trim()) errors['name'] = 'Enter Template name.';
+    if (!w.channel) errors['channel'] = 'Select a Channel.';
+    if (!w.language) errors['language'] = 'Select a Language.';
     if (forSubmit && !w.subject.trim()) errors['subject'] = 'Enter Subject or header.';
     if (forSubmit && !w.messageBody.trim()) errors['messageBody'] = 'Enter Message body.';
 

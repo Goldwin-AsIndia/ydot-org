@@ -12,6 +12,7 @@ import { UserDetail } from '../../../../Shared/models/user-directory.model';
 import { MfaMethodType, UserSecurityResponse } from '../../../../Shared/models/iam-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 import { LayoutService } from '../../../../Service/layout-service';
+import { dialCodeError, employeeNumberError, minLengthError, nameError, phoneWithCodeError, textWithLettersError } from '../../../../Shared/validation/field-rules';
 
 /** One enrolled factor, as the Security tab lists it. */
 interface MfaMethodView {
@@ -147,6 +148,66 @@ export class UserProfileComponent {
 
   /** Why the change is being made - the API requires one, same as the directory's Edit. */
   editReason = signal('');
+
+  /** Set once Save has been pressed, so untouched fields are not shouted at before then. */
+  readonly editSubmitted = signal(false);
+
+  private static readonly EDIT_LABELS: Record<string, string> = {
+    firstName: 'First name', middleName: 'Middle name', lastName: 'Last name', displayName: 'Display name',
+    preferredName: 'Preferred name', mobileCountryCode: 'Country code', mobileNumber: 'Mobile number',
+    reason: 'Reason for this change',
+  };
+
+  /** What is wrong with each edit field right now (null = fine). */
+  private editRuleErrors(): Record<string, string | null> {
+    const f = this.editForm();
+    const code = (f.mobileCountryCode ?? '').trim();
+    const own = this.isSelf();
+    return {
+      // Somebody editing their own profile cannot change the name parts, so those are not checked.
+      firstName: own ? null : nameError('First name', f.firstName, true, 80),
+      middleName: own ? null : nameError('Middle name', f.middleName, false, 80),
+      lastName: own ? null : nameError('Last name', f.lastName, true, 80),
+      displayName: nameError('Display name', f.displayName, true, 160),
+      preferredName: nameError('Preferred name', f.preferredName, false, 160),
+      mobileCountryCode: dialCodeError('Country code', code)
+        ?? ((f.mobileNumber ?? '').trim() && !code ? 'Enter the country code for this number (for example +91).' : null),
+      mobileNumber: code && dialCodeError('Country code', code) ? null : phoneWithCodeError('Mobile number', code, f.mobileNumber),
+      employeeNumber: own ? null : employeeNumberError('Employee number', f.employeeNumber, false),
+      designation: textWithLettersError('Designation', f.designation, { required: false, max: 120 }),
+      reason: minLengthError('Reason for this change', this.editReason(), 10),
+    };
+  }
+
+  /** Fields left at least once; their messages show before Save is pressed. */
+  readonly editTouched = signal<ReadonlySet<string>>(new Set());
+
+  /** The API's complaints about a save, keyed by field, shown under the field. */
+  private readonly editServerErrors = signal<Record<string, string>>({});
+
+  touchEdit(field: string): void {
+    if (!this.editTouched().has(field)) {
+      this.editTouched.update((current) => new Set(current).add(field));
+    }
+  }
+
+  /** The message to show under an edit field, or null while it is fine (or untouched). */
+  editError(field: string): string | null {
+    const server = this.editServerErrors()[field];
+    if (server) return server;
+    return this.editSubmitted() || this.editTouched().has(field) ? (this.editRuleErrors()[field] ?? null) : null;
+  }
+
+  private static readonly EDIT_IDS: Record<string, string> = {
+    firstName: 'epx_firstName', middleName: 'epx_middleName', lastName: 'epx_lastName', displayName: 'epx_displayName',
+    preferredName: 'epx_preferredName', mobileNumber: 'epxMobile', employeeNumber: 'epx_employeeNumber',
+    designation: 'epx_designation', reason: 'epxReason',
+  };
+
+  private focusEditField(field: string): void {
+    const id = UserProfileComponent.EDIT_IDS[field];
+    if (id) setTimeout(() => (document.getElementById(id) as HTMLElement | null)?.focus());
+  }
 
   // Role assignments shown in the "Assigned roles" table.
   // Falls back to an empty list if the API doesn't provide structured data yet.
@@ -736,6 +797,9 @@ export class UserProfileComponent {
       timeZoneId: detail.timeZone ?? 'UTC',
     });
     this.editReason.set('');
+    this.editSubmitted.set(false);
+    this.editTouched.set(new Set());
+    this.editServerErrors.set({});
 
     this.showEditModal.set(true);
     this.showMoreMenu.set(false);
@@ -745,22 +809,15 @@ export class UserProfileComponent {
     const form = this.editForm();
     const detail = this.detail();
 
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.displayName.trim()) {
-      this.toast.show('Check the form', 'First name, last name and display name are all required.', 'warning');
+    this.editSubmitted.set(true);
+    const failing = Object.entries(this.editRuleErrors()).filter(([, message]) => message !== null);
+    if (failing.length > 0) {
+      const names = failing.map(([field]) => UserProfileComponent.EDIT_LABELS[field] ?? field);
+      this.toast.show('Check the highlighted fields', `Please correct: ${names.join(', ')}.`, 'warning');
+      this.focusEditField(failing[0][0]);
       return;
     }
-
-    if (this.editReason().trim().length < 10) {
-      this.toast.show('Check the form',
-        'Give a reason of at least 10 characters. It is recorded in the audit trail.', 'warning');
-      return;
-    }
-
-    if (form.mobileNumber.trim() && !form.mobileCountryCode.trim()) {
-      this.toast.show('Check the form',
-        'Give the country code as well - the server rejects a number without one.', 'warning');
-      return;
-    }
+    this.editServerErrors.set({});
 
     if (!detail?.id) {
       return;
@@ -820,7 +877,16 @@ export class UserProfileComponent {
       },
       error: (error: Error) => {
         this.submitting.set(false);
-        this.toast.show('Could not save the changes', error.message, 'error');
+        const details = (error as { validationErrors?: { field: string; message: string }[] }).validationErrors ?? [];
+        const mapped: Record<string, string> = {};
+        for (const d of details) {
+          mapped[d.field.charAt(0).toLowerCase() + d.field.slice(1)] = d.message;
+        }
+        this.editServerErrors.set(mapped);
+        this.editSubmitted.set(true);
+        if (details.length) this.focusEditField(Object.keys(mapped)[0]);
+        const named = details.map((d) => `${d.field.charAt(0).toUpperCase()}${d.field.slice(1).replace(/([A-Z])/g, ' $1').toLowerCase()}: ${d.message}`);
+        this.toast.show('Could not save the changes', named.length ? named.join(' ') : error.message, 'error');
       },
     });
   }

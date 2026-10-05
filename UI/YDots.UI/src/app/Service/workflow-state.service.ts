@@ -238,6 +238,13 @@ export class WorkflowStateService {
    */
   private readonly campaignIdsByName = new Map<string, string>();
 
+  /**
+   * Every campaign name from the lookup, for a filter dropdown. A reactive twin of
+   * `campaignIdsByName`: filtering by what the loaded donors happen to carry left the Donor
+   * List's Campaign filter with only "Every campaign" whenever the list rows had no campaign.
+   */
+  readonly campaignNames = signal<string[]>([]);
+
   /** The API id and concurrency stamp per follow-up reference, so a screen in codes can write. */
   private readonly followUpIdsByReference = new Map<string, string>();
   private readonly followUpVersionsByReference = new Map<string, number>();
@@ -349,8 +356,13 @@ export class WorkflowStateService {
         for (const campaign of campaigns) {
           this.campaignIdsByName.set(campaign.name, campaign.id);
         }
+
+        this.campaignNames.set(campaigns.map((campaign) => campaign.name).filter((name) => !!name));
       },
-      error: () => this.campaignIdsByName.clear(),
+      error: () => {
+        this.campaignIdsByName.clear();
+        this.campaignNames.set([]);
+      },
     });
 
     forkJoin([leads$, donors$, followUps$]).subscribe({

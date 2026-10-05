@@ -272,23 +272,25 @@
 
       <div class="form-grid">
         <div class="field">
-          <label class="field-label" for="field-channel">Channel</label>
-          <select id="field-channel" class="select" [(ngModel)]="working.channel" (ngModelChange)="checkDuplicate()" [disabled]="panelMode === 'view'">
+          <label class="field-label" for="field-channel">Channel <span class="req" aria-hidden="true">*</span></label>
+          <select id="field-channel" class="select" [class.input--error]="errors['channel']" [(ngModel)]="working.channel" (ngModelChange)="checkDuplicate()" [disabled]="panelMode === 'view'">
             <option value="">Select a channel…</option>
             <option *ngFor="let c of channelOptions" [value]="c">{{ c }}</option>
           </select>
+          <span class="field-error" *ngIf="errors['channel']">{{ errors['channel'] }}</span>
         </div>
 
         <div class="field">
-          <label class="field-label" for="field-language">Language</label>
-          <select id="field-language" class="select" [(ngModel)]="working.language" (ngModelChange)="checkDuplicate()" [disabled]="panelMode === 'view'">
+          <label class="field-label" for="field-language">Language <span class="req" aria-hidden="true">*</span></label>
+          <select id="field-language" class="select" [class.input--error]="errors['language']" [(ngModel)]="working.language" (ngModelChange)="checkDuplicate()" [disabled]="panelMode === 'view'">
             <option value="">Select a language…</option>
             <option *ngFor="let l of languageOptions" [value]="l">{{ l }}</option>
           </select>
+          <span class="field-error" *ngIf="errors['language']">{{ errors['language'] }}</span>
         </div>
 
         <div class="field field--full">
-          <label class="field-label" for="field-purpose">Purpose</label>
+          <label class="field-label" for="field-purpose">Purpose <span class="req" aria-hidden="true">*</span></label>
           <textarea
             id="field-purpose"
             class="textarea"

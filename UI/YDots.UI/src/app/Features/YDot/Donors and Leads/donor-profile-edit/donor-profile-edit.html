@@ -63,15 +63,17 @@
                     @if (isPerson()) {
                       <div class="dpe-field" [class.dpe-invalid]="submitted() && errors()['firstName']">
                         <label class="dpe-label" for="dpe-first">First name <span class="dpe-req">*</span></label>
-                        <input id="dpe-first" type="text" autocomplete="off" [ngModel]="firstName()"
+                        <input id="dpe-first" type="text" data-input="name" autocomplete="off" [ngModel]="firstName()"
                           (ngModelChange)="firstName.set($event)" name="firstName"
                           [attr.aria-invalid]="submitted() && errors()['firstName'] ? true : null" />
                         @if (submitted() && errors()['firstName']) { <p class="dpe-err">{{ errors()['firstName'] }}</p> }
                       </div>
-                      <div class="dpe-field">
+                      <div class="dpe-field" [class.dpe-invalid]="submitted() && errors()['lastName']">
                         <label class="dpe-label" for="dpe-last">Last name</label>
-                        <input id="dpe-last" type="text" autocomplete="off" [ngModel]="lastName()"
-                          (ngModelChange)="lastName.set($event)" name="lastName" />
+                        <input id="dpe-last" type="text" data-input="name" autocomplete="off" [ngModel]="lastName()"
+                          (ngModelChange)="lastName.set($event)" name="lastName"
+                          [attr.aria-invalid]="submitted() && errors()['lastName'] ? true : null" />
+                        @if (submitted() && errors()['lastName']) { <p class="dpe-err">{{ errors()['lastName'] }}</p> }
                       </div>
                     } @else {
                       <div class="dpe-field dpe-wide" [class.dpe-invalid]="submitted() && errors()['organisationName']">

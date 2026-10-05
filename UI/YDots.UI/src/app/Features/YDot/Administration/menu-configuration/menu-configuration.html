@@ -522,17 +522,19 @@
         <div class="mcs-grid">
           <div class="mcs-field">
             <label class="mcs-lbl" for="ocName">Display name @if (d.kind === 'create') { <em class="mcs-req">*</em> }</label>
-            <input id="ocName" type="text" class="mcs-input" maxlength="160"
+            <input id="ocName" type="text" class="mcs-input" maxlength="160" (blur)="touchDraft('name')" [class.is-invalid]="!!draftError('name')"
                    [placeholder]="draftIsOwned() ? 'e.g. Monthly reports' : (draftNode()?.catalogueName ?? 'Name')"
                    [ngModel]="d.name" (ngModelChange)="patchDraft({ name: $event })" />
             @if (d.kind === 'edit' && !draftIsOwned()) { <span class="mcs-help">Leave empty to keep the product's name.</span> }
+            @if (draftError('name')) { <span class="mcs-help invalid-feedback d-block">{{ draftError('name') }}</span> }
           </div>
           @if (d.kind === 'create') {
             <div class="mcs-field">
               <label class="mcs-lbl" for="ocCode">Code <em class="mcs-req">*</em></label>
-              <input id="ocCode" type="text" class="mcs-input mcs-input--mono" maxlength="80" placeholder="REPORTS_MONTHLY"
+              <input id="ocCode" type="text" data-input="free" class="mcs-input mcs-input--mono" maxlength="50" placeholder="REPORTS_MONTHLY" (blur)="touchDraft('code')" [class.is-invalid]="!!draftError('code')"
                      [ngModel]="d.code" (ngModelChange)="patchDraft({ code: $event })" />
               <span class="mcs-help">Permanent and unique.</span>
+              @if (draftError('code')) { <span class="mcs-help invalid-feedback d-block">{{ draftError('code') }}</span> }
             </div>
           }
         </div>
@@ -553,10 +555,11 @@
           <label class="mcs-lbl" for="ocRoute">Route</label>
           <div class="mcs-affix" [class.is-disabled]="!draftIsOwned()">
             <i class="ri-route-line" aria-hidden="true"></i>
-            <input id="ocRoute" type="text" class="mcs-input mcs-input--mono" maxlength="300" placeholder="/app/reports/monthly"
+            <input id="ocRoute" type="text" class="mcs-input mcs-input--mono" maxlength="300" (blur)="touchDraft('route')" placeholder="/app/reports/monthly" [class.is-invalid]="!!draftError('route')"
                    [ngModel]="d.route" (ngModelChange)="patchDraft({ route: $event })" [disabled]="!draftIsOwned()" />
           </div>
           <span class="mcs-help">Leave empty for a heading that only opens its children.</span>
+          @if (draftError('route')) { <span class="mcs-help invalid-feedback d-block">{{ draftError('route') }}</span> }
         </div>
 
         <div class="mcs-field">
@@ -615,11 +618,12 @@
             <label class="mcs-lbl" for="ocOrder">Position</label>
             <div class="mcs-stepper">
               <button type="button" aria-label="Move earlier" (click)="stepOrder(-10)"><i class="ri-subtract-line" aria-hidden="true"></i></button>
-              <input id="ocOrder" type="text" inputmode="numeric" placeholder="Auto"
+              <input id="ocOrder" type="text" inputmode="numeric" maxlength="4" placeholder="Auto" [class.is-invalid]="!!draftError('order')"
                      [ngModel]="d.order" (ngModelChange)="patchDraft({ order: asText($event) })" />
               <button type="button" aria-label="Move later" (click)="stepOrder(10)"><i class="ri-add-line" aria-hidden="true"></i></button>
             </div>
             <span class="mcs-help">Lower numbers come first.</span>
+            @if (draftError('order')) { <span class="mcs-help invalid-feedback d-block">{{ draftError('order') }}</span> }
           </div>
           @if (d.kind === 'edit' && d.id && !draftNode()?.isMandatory) {
             <div class="mcs-field">

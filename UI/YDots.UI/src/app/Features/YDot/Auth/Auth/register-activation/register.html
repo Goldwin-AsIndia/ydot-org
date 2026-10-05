@@ -168,12 +168,13 @@
         }
 
         <div class="mb-3">
-          <label class="form-label" for="newPassword">Password</label>
+          <label class="form-label" for="newPassword">Password <span class="ydot-req">*</span></label>
           <div class="position-relative">
             <input
               id="newPassword"
               [type]="showPassword() ? 'text' : 'password'"
               class="form-control pe-10"
+              [class.is-invalid]="!!passwordValue() && rulesMet() < 5"
               autocomplete="new-password"
               [value]="password"
               (input)="onPasswordInput($any($event.target).value)">
@@ -204,12 +205,13 @@
         </ul>
 
         <div class="mb-4">
-          <label class="form-label" for="confirmPassword">Confirm password</label>
+          <label class="form-label" for="confirmPassword">Confirm password <span class="ydot-req">*</span></label>
           <div class="position-relative">
             <input
               id="confirmPassword"
               [type]="showConfirm() ? 'text' : 'password'"
               class="form-control pe-10"
+              [class.is-invalid]="!!confirmValue() && !passwordsMatch()"
               autocomplete="new-password"
               [value]="confirmPassword"
               (input)="onConfirmInput($any($event.target).value)">
@@ -303,13 +305,13 @@
           <!-- Mobile number, when SMS is chosen -->
           @if (needsMobileNumber() && !setup()) {
             <div class="mb-4">
-              <label class="form-label" for="mobileNumber">Mobile number</label>
+              <label class="form-label" for="mobileNumber">Mobile number <span class="ydot-req">*</span></label>
               <div class="input-group">
                 <select class="form-select flex-grow-0" style="width: 6.5rem;" [(ngModel)]="mobileCountryCode" name="mobileCountryCode">
                     <option value="" disabled>Select Code</option>
                   @for (code of countryCodes(); track code) { <option [value]="code">{{ code }}</option> }
                 </select>
-                <input id="mobileNumber" type="tel" class="form-control" placeholder="98765 43210"
+                <input id="mobileNumber" type="tel" inputmode="numeric" maxlength="15" class="form-control" placeholder="98765 43210"
                        [(ngModel)]="mobileNumber" name="mobileNumber">
               </div>
             </div>

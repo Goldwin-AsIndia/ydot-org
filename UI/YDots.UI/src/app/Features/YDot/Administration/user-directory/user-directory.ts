@@ -13,6 +13,7 @@ import {
 } from '../../../../Shared/models/user-directory.model';
 import { LookupItem } from '../../../../Shared/models/api-response.model';
 import { UserStatus } from '../../../../Shared/models/iam-contract.model';
+import { dialCodeError, employeeNumberError, minLengthError, nameError, phoneWithCodeError, textWithLettersError } from '../../../../Shared/validation/field-rules';
 
 type DialogKind = 'none' | 'view' | 'edit' | 'suspend' | 'reactivate' | 'delete' | 'invite';
 
@@ -186,6 +187,64 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     preferredLanguage: 'en-GB',
     timeZoneId: 'UTC',
   });
+
+  /** Set once Save has been pressed, so untouched fields are not shouted at before then. */
+  readonly editSubmitted = signal(false);
+
+  /** Per-field complaints the API made about a save (its `errors` list), keyed by field name. */
+  private readonly editServerErrors = signal<Record<string, string>>({});
+
+  private static readonly EDIT_LABELS: Record<string, string> = {
+    firstName: 'First name', middleName: 'Middle name', lastName: 'Last name', displayName: 'Display name',
+    preferredName: 'Preferred name', mobileCountryCode: 'Country code', mobileNumber: 'Mobile',
+    employeeNumber: 'Employee number', designation: 'Designation', reason: 'Reason for this change',
+  };
+
+  /** What is wrong with each edit-profile field right now (ignores whether Save was pressed). */
+  private editRuleErrors(): Record<string, string | null> {
+    const f = this.editForm();
+    const code = f.mobileCountryCode.trim();
+    return {
+      firstName: nameError('First name', f.firstName, true, 80),
+      middleName: nameError('Middle name', f.middleName, false, 80),
+      lastName: nameError('Last name', f.lastName, true, 80),
+      displayName: nameError('Display name', f.displayName, true, 160),
+      preferredName: nameError('Preferred name', f.preferredName, false, 160),
+      mobileCountryCode: dialCodeError('Country code', code)
+        ?? (f.mobileNumber.trim() && !code ? 'Enter the country code for this number (for example +91).' : null),
+      mobileNumber: code && dialCodeError('Country code', code) ? null : phoneWithCodeError('Mobile', code, f.mobileNumber),
+      employeeNumber: employeeNumberError('Employee number', f.employeeNumber, false),
+      designation: textWithLettersError('Designation', f.designation, { required: false, max: 120 }),
+      reason: minLengthError('Reason for this change', this.reason, 10),
+    };
+  }
+
+  /** The message to show under an edit-profile field, or null while it is fine (or untouched). */
+  editError(field: string): string | null {
+    const server = this.editServerErrors()[field];
+    if (server) return server;
+    return this.editSubmitted() || this.editTouched().has(field) ? (this.editRuleErrors()[field] ?? null) : null;
+  }
+
+  private static readonly EDIT_IDS: Record<string, string> = {
+    firstName: 'edFirst', middleName: 'edMiddle', lastName: 'edLast', displayName: 'edDisplay',
+    preferredName: 'edPreferred', mobileCountryCode: 'edCode', mobileNumber: 'edMobile',
+    employeeNumber: 'edEmployee', designation: 'edDesignation', reason: 'edReason',
+  };
+
+  private focusEditField(field: string): void {
+    const id = UserDirectoryComponent.EDIT_IDS[field];
+    if (id) setTimeout(() => (document.getElementById(id) as HTMLElement | null)?.focus());
+  }
+
+  /** Fields left at least once; their messages show before Save is pressed. */
+  readonly editTouched = signal<ReadonlySet<string>>(new Set());
+
+  touchEdit(field: string): void {
+    if (!this.editTouched().has(field)) {
+      this.editTouched.update((current) => new Set(current).add(field));
+    }
+  }
 
   readonly copiedField = signal('');
 
@@ -767,6 +826,9 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.dialog.set('edit');
     this.errorMessage.set('');
     this.reason = '';
+    this.editSubmitted.set(false);
+    this.editTouched.set(new Set());
+    this.editServerErrors.set({});
 
     // The list row does not carry every editable field, so the full record is fetched.
     this.loadDetail((user.id ?? ''), (detail) => {
@@ -777,7 +839,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
         lastName: detail.lastName ?? '',
         displayName: detail.displayName ?? '',
         preferredName: '',
-        mobileCountryCode: detail.mobileCountryCode ?? '',
+        mobileCountryCode: detail.mobileCountryCode || '+91',
         mobileNumber: detail.mobileNumber ?? '',
         employeeNumber: detail.employeeNumber ?? '',
         designation: detail.designation ?? '',
@@ -856,18 +918,18 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.displayName.trim()) {
-      this.errorMessage.set('First name, last name and display name are all required.');
-      return;
-    }
-
-    if (this.reason.trim().length < 10) {
-      this.errorMessage.set('Give a reason of at least 10 characters. It is recorded in the audit trail.');
+    this.editSubmitted.set(true);
+    const failing = Object.entries(this.editRuleErrors()).filter(([, message]) => message !== null);
+    if (failing.length > 0) {
+      const names = failing.map(([field]) => UserDirectoryComponent.EDIT_LABELS[field] ?? field);
+      this.errorMessage.set(`Please correct: ${names.join(', ')}.`);
+      this.focusEditField(failing[0][0]);
       return;
     }
 
     this.busy.set(true);
     this.errorMessage.set('');
+    this.editServerErrors.set({});
 
     this.api
       .updateUser((detail.id ?? ''), {
@@ -891,7 +953,10 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
       })
       .subscribe({
         next: () => this.finish(`${form.displayName.trim()} was updated.`),
-        error: (error: Error) => this.fail(error),
+        error: (error: Error) => {
+          this.fail(error);
+          this.showServerFieldErrors(error);
+        },
       });
   }
 
@@ -1098,6 +1163,41 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   updateEditField(key: keyof ReturnType<typeof this.editForm>, value: string): void {
     this.editForm.update((current) => ({ ...current, [key]: value }));
+    this.clearEditServerError(key);
+  }
+
+  private clearEditServerError(key: string): void {
+    const errors = this.editServerErrors();
+    if (errors[key]) {
+      const { [key]: _removed, ...rest } = errors;
+      this.editServerErrors.set(rest);
+    }
+  }
+
+  /** Editing the reason box clears the API's complaint about it, like any other field. */
+  onEditReasonChange(): void {
+    this.clearEditServerError('reason');
+  }
+
+  /**
+   * "Some of the details are not valid" says nothing by itself. The API also sends which field and
+   * why; this puts each message under its field and names the fields in the banner.
+   */
+  private showServerFieldErrors(error: Error): void {
+    const details = (error as { validationErrors?: { field: string; message: string }[] }).validationErrors ?? [];
+    if (details.length === 0) return;
+
+    const mapped: Record<string, string> = {};
+    for (const detail of details) {
+      const key = detail.field.charAt(0).toLowerCase() + detail.field.slice(1);
+      mapped[key] = detail.message;
+    }
+    this.editServerErrors.set(mapped);
+    this.editSubmitted.set(true);
+
+    const names = Object.keys(mapped).map((field) => UserDirectoryComponent.EDIT_LABELS[field] ?? field);
+    this.errorMessage.set(`${error.message} Check: ${names.join(', ')}.`);
+    this.focusEditField(Object.keys(mapped)[0]);
   }
 
   // =========================================================================================

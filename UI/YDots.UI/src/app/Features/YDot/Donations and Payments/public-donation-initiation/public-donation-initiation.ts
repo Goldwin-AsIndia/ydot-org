@@ -346,14 +346,13 @@ export class PublicDonationInitiationComponent {
   protected readonly emailOrMobile = signal('');
 
   /**
-   * The donor's mobile number. OPTIONAL, and VALIDATED ONLY WHEN GIVEN - ten to fifteen digits
-   * after punctuation is stripped.
+   * The donor's mobile number. REQUIRED - ten to fifteen digits after punctuation is stripped.
    */
   protected readonly mobileNumber = signal('');
 
   protected readonly mobileInvalid = computed(() => {
     const digits = this.mobileNumber().replace(/\D+/g, '');
-    return digits.length > 0 && (digits.length < 10 || digits.length > 15);
+    return digits.length < 10 || digits.length > 15;
   });
 
   protected readonly emailValid = computed(() => {
@@ -778,7 +777,7 @@ export class PublicDonationInitiationComponent {
       errors.push({
         field: 'mobileNumber',
         label: 'Mobile No',
-        message: 'Review Mobile No. Enter 10 to 15 digits.',
+        message: this.mobileNumber().trim() ? 'Review Mobile No. Enter 10 to 15 digits.' : 'Enter Mobile No.',
       });
     }
     if (!this.emailOrMobile().trim()) {

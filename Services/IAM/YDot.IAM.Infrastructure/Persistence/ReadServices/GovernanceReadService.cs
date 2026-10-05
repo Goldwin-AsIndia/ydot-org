@@ -142,6 +142,10 @@ public sealed class GovernanceReadService(
                 CanDecide: row.Status == AccessRequestStatus.Submitted
                            && row.RequestedByUserId != currentUserId
                            && row.RequestedForUserId != currentUserId,
+                // Only the creator may cancel, and only while nothing has been decided.
+                CanCancel: row.RequestedByUserId == currentUserId
+                           && (row.Status == AccessRequestStatus.Draft
+                               || row.Status == AccessRequestStatus.Submitted),
                 row.Version))
             .ToList();
 

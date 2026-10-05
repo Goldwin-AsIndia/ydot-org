@@ -1,5 +1,6 @@
 using FluentValidation;
 using YDot.IAM.Application.Common.Constants;
+using YDot.IAM.Application.Common.Validation;
 using YDot.IAM.Application.Features.Configuration.PaymentGateways.DTOs;
 using YDot.IAM.Domain.Enums;
 
@@ -40,10 +41,12 @@ public sealed class UpsertPaymentGatewayConfigurationRequestValidator
             .WithMessage("Choose sandbox or production.");
 
         RuleFor(request => request.DisplayName)
-            .MaximumLength(150);
+            .MaximumLength(150)
+            .DisplayLabel();
 
         RuleFor(request => request.MerchantId)
-            .MaximumLength(150);
+            .MaximumLength(150)
+            .Identifier();
 
         RuleFor(request => request.ApiKey)
             .MaximumLength(MaximumCredentialLength);
@@ -58,10 +61,9 @@ public sealed class UpsertPaymentGatewayConfigurationRequestValidator
         // payment outcome over plain HTTP puts the donation record on the wire in clear, and a
         // relative URL is one the provider simply cannot call at all.
         RuleFor(request => request.WebhookUrl)
-            .Must(BeAnAbsoluteUrl)
-            .When(request => !string.IsNullOrWhiteSpace(request.WebhookUrl))
-            .WithMessage("Enter the full webhook address, starting with https://")
-            .MaximumLength(500);
+            .NotEmpty().WithMessage("Enter the webhook address, starting with https://")
+            .MaximumLength(500)
+            .HttpsUrl();
 
         RuleFor(request => request.WebhookUrl)
             .Must(url => url!.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -72,10 +74,8 @@ public sealed class UpsertPaymentGatewayConfigurationRequestValidator
                 + "travels in clear and can be read or altered in transit.");
 
         RuleFor(request => request.ReturnUrl)
-            .Must(BeAnAbsoluteUrl)
-            .When(request => !string.IsNullOrWhiteSpace(request.ReturnUrl))
-            .WithMessage("Enter the full return address, starting with https://")
-            .MaximumLength(500);
+            .MaximumLength(500)
+            .HttpsUrl();
 
         RuleFor(request => request.SettlementCurrencyCode)
             .NotEmpty()

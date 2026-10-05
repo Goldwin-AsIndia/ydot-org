@@ -11,6 +11,7 @@ import { EnumOptionsService } from '../../../../Shared/services/enum-options.ser
 import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
+import { codeError, emailError, maxLengthError, phoneError, postalCodeError, requiredError, textWithLettersError } from '../../../../Shared/validation/field-rules';
 
 /**
  * Add or edit one office (organisation unit) on a page of its own.
@@ -101,14 +102,65 @@ export class OfficeFormComponent implements OnInit, OnDestroy {
     return this.units().filter((unit) => !unit.id || !blocked.has(unit.id));
   });
 
-  readonly nameValid = computed(() => this.form().name.trim().length >= 2);
-  readonly codeValid = computed(() => this.form().code.trim().length >= 2);
-  readonly emailValid = computed(() => {
-    const email = this.form().contactEmail.trim();
-    return !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  /**
+   * What is wrong with each field right now (null = fine). Required for an office: its name, code,
+   * kind and the whole postal address - an office without an address cannot be found, mailed or
+   * placed on a map. Everything else (parent, manager, contacts, time zone) is optional.
+   */
+  readonly rules = computed<Record<string, string | null>>(() => {
+    const f = this.form();
+    // Limits are the API's column sizes: name 200, code 50, kind 80, e-mail 320, phone 30,
+    // address lines 250, city / state / country 120, postal code 20, description 1000.
+    return {
+      name: textWithLettersError('Name', f.name, { min: 2, max: 200 }),
+      code: codeError('Code', f.code, { allowHyphen: true, max: 50 }),
+      unitType: requiredError('Kind', f.unitType) ?? maxLengthError(f.unitType, 80),
+      description: maxLengthError(f.description, 1000),
+      contactEmail: emailError('Contact e-mail', f.contactEmail, false) ?? maxLengthError(f.contactEmail, 320),
+      contactPhone: phoneError('Contact phone', f.contactPhone, false),
+      addressLine1: requiredError('Address line 1', f.addressLine1) ?? maxLengthError(f.addressLine1, 250),
+      addressLine2: maxLengthError(f.addressLine2, 250),
+      country: requiredError('Country', f.country) ?? maxLengthError(f.country, 120),
+      state: requiredError('State or province', f.state) ?? maxLengthError(f.state, 120),
+      city: requiredError('City', f.city) ?? maxLengthError(f.city, 120),
+      postalCode: postalCodeError('Postal code', f.postalCode, f.country, true),
+    };
   });
+
+  private static readonly LABELS: Record<string, string> = {
+    name: 'Name', code: 'Code', unitType: 'Kind', description: 'Description', addressLine2: 'Address line 2', contactEmail: 'Contact e-mail', contactPhone: 'Contact phone',
+    addressLine1: 'Address line 1', country: 'Country', state: 'State or province', city: 'City', postalCode: 'Postal code',
+  };
+
+  /** The message under a field: the server's, else ours once Save has been pressed. */
+  err(field: string): string | null {
+    return this.fieldErrors()[field] ?? (this.attempted() || this.touched().has(field) ? (this.rules()[field] ?? null) : null);
+  }
+
+  /** Fields left at least once; their messages show before Save is pressed. */
+  readonly touched = signal<ReadonlySet<string>>(new Set());
+
+  private static readonly FIELD_IDS: Record<string, string> = {
+    'of-name': 'name', 'of-code': 'code', 'of-kind': 'unitType', 'of-description': 'description',
+    'of-email': 'contactEmail', 'of-phone': 'contactPhone', 'of-address1': 'addressLine1', 'of-address2': 'addressLine2',
+    'of-country': 'country', 'of-state': 'state', 'of-city': 'city', 'of-postal': 'postalCode',
+  };
+
+  /** Called when focus leaves any field of the form. */
+  onFieldLeft(id: string): void {
+    const field = OfficeFormComponent.FIELD_IDS[id];
+    if (field && !this.touched().has(field)) {
+      this.touched.update((current) => new Set(current).add(field));
+    }
+  }
+
+  private focusFirstInvalid(fields: string[]): void {
+    const entry = Object.entries(OfficeFormComponent.FIELD_IDS).find(([, field]) => fields.includes(field));
+    if (entry) setTimeout(() => (document.getElementById(entry[0]) as HTMLElement | null)?.focus());
+  }
+
   readonly canSave = computed(() =>
-    this.nameValid() && this.codeValid() && this.emailValid() && !this.saving() && !this.loading());
+    Object.values(this.rules()).every((message) => message === null) && !this.saving() && !this.loading());
 
   protected readonly orphanTimeZone = computed(() => {
     const value = this.form().timeZone;
@@ -189,10 +241,26 @@ export class OfficeFormComponent implements OnInit, OnDestroy {
 
   update<K extends keyof ReturnType<typeof this.form>>(key: K, value: ReturnType<typeof this.form>[K]): void {
     this.form.update((current) => ({ ...current, [key]: value }));
+    this.clearFieldError(key as string);
+  }
+
+  private clearFieldError(key: string): void {
+    const errors = this.fieldErrors();
+    if (errors[key]) {
+      const { [key]: _removed, ...rest } = errors;
+      this.fieldErrors.set(rest);
+    }
+  }
+
+  /** The failing field that comes first on the page. */
+  private static fieldOrder(fields: string[]): string {
+    const order = ['name', 'code', 'unitType', 'description', 'contactEmail', 'contactPhone', 'addressLine1', 'addressLine2', 'country', 'state', 'city', 'postalCode'];
+    return order.find((field) => fields.includes(field)) ?? fields[0];
   }
 
   protected onCountryChange(value: string): void {
     this.form.update((f) => ({ ...f, country: value, state: '', city: '' }));
+    this.clearFieldError('country');
     this.geo.selectCountry(value);
   }
 
@@ -211,7 +279,13 @@ export class OfficeFormComponent implements OnInit, OnDestroy {
 
   save(): void {
     this.attempted.set(true);
-    if (!this.canSave()) {
+    const failing = Object.entries(this.rules()).filter(([, message]) => message !== null);
+    if (failing.length > 0) {
+      this.errorMessage.set(`Please correct: ${failing.map(([field]) => OfficeFormComponent.LABELS[field] ?? field).join(', ')}.`);
+      this.focusFirstInvalid([OfficeFormComponent.fieldOrder(failing.map(([field]) => field))]);
+      return;
+    }
+    if (this.saving() || this.loading()) {
       return;
     }
 
@@ -271,8 +345,17 @@ export class OfficeFormComponent implements OnInit, OnDestroy {
       error: (error: unknown) => {
         this.saving.set(false);
         this.errorMessage.set(apiErrorMessage(error, 'That could not be saved.'));
-        this.fieldErrors.set(apiFieldErrors(error));
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const mapped: Record<string, string> = {};
+        for (const [field, message] of Object.entries(apiFieldErrors(error))) {
+          mapped[field.charAt(0).toLowerCase() + field.slice(1)] = message;
+        }
+        this.fieldErrors.set(mapped);
+        const failing = Object.keys(mapped);
+        if (failing.length > 0) {
+          this.focusFirstInvalid([OfficeFormComponent.fieldOrder(failing)]);
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       },
     });
   }

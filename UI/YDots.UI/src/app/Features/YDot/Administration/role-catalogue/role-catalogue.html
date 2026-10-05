@@ -253,6 +253,14 @@
                                 <i class="ri-archive-line" aria-hidden="true"></i> Retire
                               </button>
                             }
+                            @if (!d.isSystemRole) {
+                              <button class="btn btn-secondary btn-sm" type="button" [disabled]="submitting()" (click)="openEditRole(d)">
+                                <i class="ri-edit-line" aria-hidden="true"></i> Edit
+                              </button>
+                            }
+                            <button class="btn btn-secondary btn-sm" type="button" [disabled]="submitting()" (click)="cloneRole(d)">
+                              <i class="ri-file-copy-line" aria-hidden="true"></i> Clone
+                            </button>
                             @if (selectedItem(); as item) {
                               <button type="button" class="btn btn-primary btn-sm" (click)="openCompareModal(item)">
                                 <i class="ri-arrow-left-right-line" aria-hidden="true"></i> Compare
@@ -571,7 +579,7 @@
       <div class="rx-oc__preview">
         <span class="rx-oc__av" [ngStyle]="avatarStyle(createRoleForm().name || 'New')" aria-hidden="true">{{ initials(createRoleForm().name) }}</span>
         <div class="rx-oc__pv-text">
-          <div class="rx-oc__eyebrow" id="createRoleTitle">Create draft role</div>
+          <div class="rx-oc__eyebrow" id="createRoleTitle">{{ editingRoleId() ? 'Edit role' : 'Create draft role' }}</div>
           <div class="rx-oc__name" [class.rx-oc__name--empty]="!createRoleForm().name">{{ createRoleForm().name || 'Untitled role' }}</div>
           <div class="rx-oc__meta">
             <span class="rx-oc__code">{{ createRoleForm().code || 'ROLE_CODE' }}</span>
@@ -595,19 +603,23 @@
           <div class="rx-grid2">
             <div class="rx-field">
               <label class="rx-label" for="roleNameInput">Role name <span class="rx-req">*</span></label>
-              <input id="roleNameInput" type="text" class="rx-input" placeholder="e.g. Donation Manager"
+              <input id="roleNameInput" type="text" class="rx-input" maxlength="120" (blur)="touchRole('name')" placeholder="e.g. Donation Manager" [class.is-invalid]="!!roleErr('name')"
                      [ngModel]="createRoleForm().name" (ngModelChange)="createRoleForm.set({...createRoleForm(), name: $event})">
+              @if (roleErr('name')) { <div class="invalid-feedback d-block">{{ roleErr('name') }}</div> }
             </div>
             <div class="rx-field">
               <label class="rx-label" for="roleCodeInput">Role code <span class="rx-req">*</span></label>
-              <input id="roleCodeInput" type="text" class="rx-input rx-input--mono" placeholder="DON-MGR-001"
+              <input id="roleCodeInput" type="text" data-input="free" class="rx-input rx-input--mono" maxlength="50" placeholder="DON_MGR_001" (blur)="touchRole('code')" [class.is-invalid]="!!roleErr('code')"
+                     [disabled]="!!editingRoleId()" title="{{ editingRoleId() ? 'A role code cannot be changed once created.' : '' }}"
                      [ngModel]="createRoleForm().code" (ngModelChange)="createRoleForm.set({...createRoleForm(), code: $event})">
+              @if (roleErr('code')) { <div class="invalid-feedback d-block">{{ roleErr('code') }}</div> }
             </div>
           </div>
           <div class="rx-field">
-            <label class="rx-label" for="rolePurposeInput">Purpose</label>
-            <textarea id="rolePurposeInput" class="rx-input" rows="3" placeholder="Describe what this role is for…"
+            <label class="rx-label" for="rolePurposeInput">Purpose <span class="rx-req">*</span></label>
+            <textarea id="rolePurposeInput" class="rx-input" rows="3" maxlength="500" placeholder="Describe what this role is for (at least 10 characters)…" [class.is-invalid]="!!roleErr('description')" (blur)="touchRole('description')"
                       [ngModel]="createRoleForm().description" (ngModelChange)="createRoleForm.set({...createRoleForm(), description: $event})"></textarea>
+            @if (roleErr('description')) { <div class="invalid-feedback d-block">{{ roleErr('description') }}</div> }
           </div>
         </div>
       </section>
@@ -621,7 +633,7 @@
 
           <div class="rx-field">
             <span class="rx-label">Privilege level <span class="rx-req">*</span></span>
-            <div class="rx-choice">
+            <div class="rx-choice" [class.rx-choice--invalid]="!!roleErr('isPrivileged')">
               <button type="button" class="rx-choice__card" [class.rx-choice__card--on]="createRoleForm().isPrivileged === false"
                       (click)="createRoleForm.set({...createRoleForm(), isPrivileged: false})">
                 <i class="ri-shield-line" aria-hidden="true"></i>
@@ -633,11 +645,12 @@
                 <span><b>Privileged</b><small>Every assignment is reviewed</small></span>
               </button>
             </div>
+            @if (roleErr('isPrivileged')) { <div class="invalid-feedback d-block">{{ roleErr('isPrivileged') }}</div> }
           </div>
 
           <div class="rx-field">
             <span class="rx-label">Given to everybody <span class="rx-req">*</span></span>
-            <div class="rx-choice">
+            <div class="rx-choice" [class.rx-choice--invalid]="!!roleErr('isDefaultRole')">
               <button type="button" class="rx-choice__card" [class.rx-choice__card--on]="createRoleForm().isDefaultRole === false"
                       (click)="createRoleForm.set({...createRoleForm(), isDefaultRole: false})">
                 <i class="ri-user-line" aria-hidden="true"></i>
@@ -649,6 +662,7 @@
                 <span><b>Yes</b><small>Every new person gets it</small></span>
               </button>
             </div>
+            @if (roleErr('isDefaultRole')) { <div class="invalid-feedback d-block">{{ roleErr('isDefaultRole') }}</div> }
           </div>
 
           <div class="rx-grid2">
@@ -691,7 +705,8 @@
         </div>
       </section>
 
-      <!-- 3 · Permissions -->
+      <!-- 3 · Permissions (new roles only; an existing role's permissions and rules are edited in its detail) -->
+      @if (!editingRoleId()) {
       <section class="rx-step">
         <div class="rx-step__num">3</div>
         <div class="rx-step__main">
@@ -799,6 +814,7 @@
           </div>
         </div>
       </section>
+      }
     </div>
 
     <footer class="rx-oc__foot">
@@ -806,8 +822,7 @@
       <div class="rx-oc__btns">
         <button class="btn btn-outline-secondary " type="button" (click)="closeCreateModal()">Cancel</button>
         <button class="btn btn-primary" type="button" (click)="confirmCreateRole()" [disabled]="submitting()">
-   
-          Create draft
+          {{ editingRoleId() ? 'Save changes' : 'Create draft' }}
         </button>
       </div>
     </footer>

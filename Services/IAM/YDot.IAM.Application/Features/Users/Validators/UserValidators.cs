@@ -1,4 +1,5 @@
 using FluentValidation;
+using YDot.IAM.Application.Common.Validation;
 using YDot.IAM.Application.Features.Governance.DTOs;
 using YDot.IAM.Application.Features.Menus.DTOs;
 using YDot.IAM.Application.Features.Roles.DTOs;
@@ -16,16 +17,18 @@ public sealed class CreateUserRequestValidator : AbstractValidator<CreateUserReq
         RuleFor(request => request.FirstName)
             .NotEmpty().WithMessage("Enter a first name.")
             .MinimumLength(2).WithMessage("The first name is too short.")
-            .MaximumLength(80);
+            .MaximumLength(80)
+            .PersonName();
 
         RuleFor(request => request.LastName)
             .NotEmpty().WithMessage("Enter a last name.")
-            .MaximumLength(80);
+            .MaximumLength(80)
+            .PersonName();
 
-        RuleFor(request => request.MiddleName).MaximumLength(80);
-        RuleFor(request => request.DisplayName).MaximumLength(160);
-        RuleFor(request => request.EmployeeNumber).MaximumLength(40);
-        RuleFor(request => request.Designation).MaximumLength(120);
+        RuleFor(request => request.MiddleName).MaximumLength(80).PersonName();
+        RuleFor(request => request.DisplayName).MaximumLength(160).PersonName();
+        RuleFor(request => request.EmployeeNumber).MaximumLength(40).EmployeeNumber();
+        RuleFor(request => request.Designation).MaximumLength(120).ContainsLetter();
 
         RuleFor(request => request.Email)
             .NotEmpty().WithMessage("Enter an e-mail address.")
@@ -35,7 +38,8 @@ public sealed class CreateUserRequestValidator : AbstractValidator<CreateUserReq
         RuleFor(request => request.Username)
             .Must(value => UsernameValue.TryParse(value) is not null)
             .When(request => !string.IsNullOrWhiteSpace(request.Username))
-            .WithMessage("Use 3 to 64 letters, digits, dots, hyphens or underscores.");
+            .WithMessage("Use 3 to 64 letters or digits.")
+            .LettersAndDigits();
 
         RuleFor(request => request)
             .Must(request => MobileNumberValue.TryParse(
@@ -69,17 +73,17 @@ public sealed class UpdateUserRequestValidator : AbstractValidator<UpdateUserReq
             .GreaterThan(0).WithMessage("Reload the page and try again.");
 
         RuleFor(request => request.FirstName)
-            .MinimumLength(2).MaximumLength(80)
+            .MinimumLength(2).MaximumLength(80).PersonName()
             .When(request => !string.IsNullOrWhiteSpace(request.FirstName));
 
         RuleFor(request => request.LastName)
-            .MaximumLength(80)
+            .MaximumLength(80).PersonName()
             .When(request => !string.IsNullOrWhiteSpace(request.LastName));
 
-        RuleFor(request => request.MiddleName).MaximumLength(80);
-        RuleFor(request => request.DisplayName).MaximumLength(160);
-        RuleFor(request => request.EmployeeNumber).MaximumLength(40);
-        RuleFor(request => request.Designation).MaximumLength(120);
+        RuleFor(request => request.MiddleName).MaximumLength(80).PersonName();
+        RuleFor(request => request.DisplayName).MaximumLength(160).PersonName();
+        RuleFor(request => request.EmployeeNumber).MaximumLength(40).EmployeeNumber();
+        RuleFor(request => request.Designation).MaximumLength(120).ContainsLetter();
         RuleFor(request => request.PreferredCulture).MaximumLength(20);
         RuleFor(request => request.TimeZone).MaximumLength(80);
         RuleFor(request => request.AvatarUrl).MaximumLength(500);
@@ -200,7 +204,16 @@ public sealed class RequestLoginIdentifierChangeRequestValidator
         RuleFor(request => request.RequestedValue)
             .Must(value => UsernameValue.TryParse(value) is not null)
             .When(request => !request.IsEmailChange)
-            .WithMessage("Use 3 to 64 letters, digits, dots, hyphens or underscores.");
+            .WithMessage("Use 3 to 64 letters or digits.");
+
+        RuleFor(request => request.RequestedValue)
+            .LettersAndDigits()
+            .When(request => !request.IsEmailChange);
+
+        // A change needs its reason, same as every other edit of an account.
+        RuleFor(request => request.Reason)
+            .NotEmpty().WithMessage("Change reason is required.")
+            .MinimumLength(10).WithMessage("Change reason must be at least 10 characters.");
 
         RuleFor(request => request.Reason).MaximumLength(1000);
     }
@@ -247,15 +260,21 @@ public sealed class CreateRoleRequestValidator : AbstractValidator<CreateRoleReq
         RuleFor(request => request.Name)
             .NotEmpty().WithMessage("Enter a role name.")
             .MinimumLength(2)
-            .MaximumLength(120);
+            .MaximumLength(120)
+            .ContainsLetter();
 
-        RuleFor(request => request.Description).MaximumLength(500);
+        // The purpose is the whole point of the record, so a meaningful one is required.
+        RuleFor(request => request.Description)
+            .NotEmpty().WithMessage("Describe what this role is for.")
+            .MinimumLength(10).WithMessage("Purpose must be at least 10 characters.")
+            .MaximumLength(500);
+
         RuleFor(request => request.DisplayTag).MaximumLength(40);
 
         RuleFor(request => request.Code)
-            .Must(value => CodeValue.TryParse(value) is not null)
-            .When(request => !string.IsNullOrWhiteSpace(request.Code))
-            .WithMessage("Use upper-case letters, digits, underscores or hyphens.");
+            .MaximumLength(50)
+            .UpperCode()
+            .When(request => !string.IsNullOrWhiteSpace(request.Code));
 
         RuleFor(request => request.Priority)
             .InclusiveBetween(0, 999)
@@ -270,9 +289,12 @@ public sealed class UpdateRoleRequestValidator : AbstractValidator<UpdateRoleReq
         RuleFor(request => request.ExpectedVersion).GreaterThan(0);
 
         RuleFor(request => request.Name)
-            .MinimumLength(2).MaximumLength(120)
+            .MinimumLength(2).MaximumLength(120).ContainsLetter()
             .When(request => !string.IsNullOrWhiteSpace(request.Name));
 
+        RuleFor(request => request.Description)
+            .MinimumLength(10).WithMessage("Purpose must be at least 10 characters.")
+            .When(request => !string.IsNullOrWhiteSpace(request.Description));
         RuleFor(request => request.Description).MaximumLength(500);
         RuleFor(request => request.DisplayTag).MaximumLength(40);
 
@@ -327,18 +349,19 @@ public sealed class CreateMenuDefinitionRequestValidator : AbstractValidator<Cre
     {
         RuleFor(request => request.Code)
             .NotEmpty().WithMessage("Enter a menu code.")
-            .Must(value => CodeValue.TryParse(value) is not null)
-            .WithMessage("Use upper-case letters, digits, underscores or hyphens.");
+            .MaximumLength(50)
+            .UpperCode(allowHyphen: true);
 
         RuleFor(request => request.Name)
             .NotEmpty().WithMessage("Enter a menu label.")
-            .MaximumLength(160);
+            .MaximumLength(160)
+            .LettersAndSpaces();
 
         RuleFor(request => request.ModuleCode)
             .NotEmpty().WithMessage("Enter the owning module code.")
             .MaximumLength(20);
 
-        RuleFor(request => request.Route).MaximumLength(300);
+        RuleFor(request => request.Route).MaximumLength(300).AppRoute();
         RuleFor(request => request.Icon).MaximumLength(80);
         RuleFor(request => request.Description).MaximumLength(500);
 
@@ -355,6 +378,22 @@ public sealed class CreateMenuDefinitionRequestValidator : AbstractValidator<Cre
     }
 }
 
+public sealed class UpdateMenuDefinitionRequestValidator : AbstractValidator<UpdateMenuDefinitionRequest>
+{
+    public UpdateMenuDefinitionRequestValidator()
+    {
+        RuleFor(request => request.ExpectedVersion).GreaterThan(0);
+
+        RuleFor(request => request.Name)
+            .MaximumLength(160).LettersAndSpaces()
+            .When(request => !string.IsNullOrWhiteSpace(request.Name));
+
+        RuleFor(request => request.Route).MaximumLength(300).AppRoute();
+        RuleFor(request => request.Icon).MaximumLength(80);
+        RuleFor(request => request.Description).MaximumLength(500);
+    }
+}
+
 public sealed class ConfigureTenantMenuRequestValidator : AbstractValidator<ConfigureTenantMenuRequest>
 {
     public ConfigureTenantMenuRequestValidator()
@@ -364,7 +403,7 @@ public sealed class ConfigureTenantMenuRequestValidator : AbstractValidator<Conf
         RuleForEach(request => request.Items).ChildRules(item =>
         {
             item.RuleFor(node => node.MenuDefinitionId).NotEmpty();
-            item.RuleFor(node => node.DisplayNameOverride).MaximumLength(160);
+            item.RuleFor(node => node.DisplayNameOverride).MaximumLength(160).LettersAndSpaces();
             item.RuleFor(node => node.IconOverride).MaximumLength(80);
         });
     }

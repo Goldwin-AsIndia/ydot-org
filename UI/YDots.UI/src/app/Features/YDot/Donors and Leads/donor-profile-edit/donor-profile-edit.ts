@@ -76,6 +76,8 @@ export class DonorProfileEditComponent {
     const e: Record<string, string> = {};
     if (this.isPerson()) {
       if (!this.firstName().trim()) e['firstName'] = 'Enter First name.';
+      else if (!/^[\p{L}\p{M}][\p{L}\p{M} .'’-]*$/u.test(this.firstName().trim())) e['firstName'] = 'First name can contain letters only.';
+      if (this.lastName().trim() && !/^[\p{L}\p{M}][\p{L}\p{M} .'’-]*$/u.test(this.lastName().trim())) e['lastName'] = 'Last name can contain letters only.';
     } else if (!this.organisationName().trim()) {
       e['organisationName'] = 'Enter Organisation name.';
     }

@@ -122,8 +122,38 @@ export class FinancialCorrectionOrReversalComponent {
   });
 
   protected readonly formComplete = computed(
-    () => !!this.originalTransaction() && !!this.correctionType() && this.amountValid() && !!this.reasonCategory(),
+    () => !!this.originalTransaction().trim() && !!this.correctionType() && this.amountValid() && !!this.reasonCategory()
+      && this.detailedReasonValid() && !!this.accountingDate(),
   );
+
+  /** Set once Submit has been pressed, so required fields are flagged only after an attempt. */
+  protected readonly attempted = signal(false);
+
+  private static readonly REQUIRED_MESSAGES: Record<string, string> = {
+    originalTransaction: 'Enter the original transaction reference.',
+    correctionType: 'Select a correction type.',
+    affectedAmount: 'Enter an affected amount greater than 0 and up to 10,00,000.',
+    accountingDate: 'Enter the accounting date.',
+    reasonCategory: 'Select a reason category.',
+    detailedReason: 'Enter a detailed reason of at least 10 characters.',
+  };
+
+  private requiredOk(key: string): boolean {
+    switch (key) {
+      case 'originalTransaction': return !!this.originalTransaction().trim();
+      case 'correctionType': return !!this.correctionType();
+      case 'affectedAmount': return this.amountValid();
+      case 'accountingDate': return !!this.accountingDate();
+      case 'reasonCategory': return !!this.reasonCategory();
+      case 'detailedReason': return this.detailedReasonValid();
+      default: return true;
+    }
+  }
+
+  /** The message under a required field once Submit has been tried; null while it is fine. */
+  protected fieldError(key: string): string | null {
+    return this.attempted() && !this.requiredOk(key) ? FinancialCorrectionOrReversalComponent.REQUIRED_MESSAGES[key] : null;
+  }
 
   // ================= Actions, eligibility and result (4.8.3) =================
   private readonly inWorkflowState = () => this.workflowPermittedStates.includes(this.lifecycleState());
@@ -146,10 +176,12 @@ export class FinancialCorrectionOrReversalComponent {
   protected readonly submitTitle = computed(() => {
     if (this.submitAllowed()) return 'Submit';
     const missing: string[] = [];
-    if (!this.originalTransaction()) missing.push('Original transaction');
+    if (!this.originalTransaction().trim()) missing.push('Original transaction');
     if (!this.correctionType()) missing.push('Correction type');
     if (!this.amountValid()) missing.push('Affected amount');
     if (!this.reasonCategory()) missing.push('Reason category');
+    if (!this.detailedReasonValid()) missing.push('Detailed reason');
+    if (!this.accountingDate()) missing.push('Accounting date');
     return missing.length ? `Complete required fields to submit: ${missing.join(', ')}` : this.workflowBlockedReason();
   });
 
@@ -174,6 +206,7 @@ export class FinancialCorrectionOrReversalComponent {
   /** Submit — routes into Maker-Checker Review for independent approval (Master workflow). */
   protected submitCorrection(): void {
     if (!this.submitAllowed()) {
+      this.attempted.set(true);
       this.toast.show('Submit unavailable', this.submitTitle(), 'warning');
       return;
     }

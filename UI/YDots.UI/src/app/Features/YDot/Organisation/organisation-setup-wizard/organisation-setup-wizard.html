@@ -73,14 +73,12 @@
 
           <div class="org-field">
             <label class="org-field-label" for="org-name">Name <span class="org-required">*</span></label>
-            <input id="org-name" type="text" class="org-input" maxlength="200"
+            <input id="org-name" [class.is-invalid]="!!err('name')" type="text" class="org-input" maxlength="200"
                    [ngModel]="form().name"
                    (ngModelChange)="update('name', $event)"
                    (blur)="suggestSubdomain()"
                    placeholder="Hope Foundation">
-            @if (fieldErrors()['name']) {
-              <span class="org-field-error">{{ fieldErrors()['name'] }}</span>
-            }
+            @if (err('name')) { <span class="org-field-error">{{ err('name') }}</span> }
           </div>
 
           <div class="org-field">
@@ -139,7 +137,7 @@
           </label>
 
           <div class="org-input-group">
-            <input id="org-subdomain" type="text" class="org-input" maxlength="63"
+            <input id="org-subdomain" [class.is-invalid]="!!err('subdomain')" type="text" class="org-input" maxlength="63"
                    [ngModel]="form().subdomain"
                    (ngModelChange)="onSubdomainInput($event)"
                    placeholder="hope-foundation"
@@ -178,8 +176,8 @@
             </span>
           }
 
-          @if (fieldErrors()['subdomain']) {
-            <span class="org-field-error">{{ fieldErrors()['subdomain'] }}</span>
+          @if (err('subdomain')) {
+            <span class="org-field-error">{{ err('subdomain') }}</span>
           }
         </div>
       </div>
@@ -233,18 +231,20 @@
                   <option [value]="code">{{ code }}</option>
                 }
               </select>
-              <input id="org-phone" type="tel" class="org-input"
+              <input id="org-phone" type="tel" inputmode="numeric" maxlength="15" class="org-input" [class.is-invalid]="!!err('contactPhone')"
                      [ngModel]="form().contactPhone"
                      (ngModelChange)="update('contactPhone', $event)">
             </div>
+            @if (err('contactPhone')) { <span class="org-field-error">{{ err('contactPhone') }}</span> }
           </div>
 
           <div class="org-field">
             <label class="org-field-label" for="org-max-users">Maximum people</label>
-            <input id="org-max-users" type="number" class="org-input" min="1"
+            <input id="org-max-users" type="number" class="org-input" min="1" step="1" [class.is-invalid]="!!err('maximumUsers')"
                    [ngModel]="form().maximumUsers"
                    (ngModelChange)="update('maximumUsers', $event ? +$event : null)"
                    placeholder="No limit">
+            @if (err('maximumUsers')) { <span class="org-field-error">{{ err('maximumUsers') }}</span> }
           </div>
         </div>
       </div>
@@ -351,18 +351,20 @@
             <label class="org-field-label" for="admin-first">
               First name <span class="org-required">*</span>
             </label>
-            <input id="admin-first" type="text" class="org-input" maxlength="100"
+            <input id="admin-first" [class.is-invalid]="!!err('adminFirstName')" data-input="name" type="text" class="org-input" maxlength="100"
                    [ngModel]="form().adminFirstName"
                    (ngModelChange)="update('adminFirstName', $event)">
+            @if (err('adminFirstName')) { <span class="org-field-error">{{ err('adminFirstName') }}</span> }
           </div>
 
           <div class="org-field">
             <label class="org-field-label" for="admin-last">
               Last name <span class="org-required">*</span>
             </label>
-            <input id="admin-last" type="text" class="org-input" maxlength="100"
+            <input id="admin-last" [class.is-invalid]="!!err('adminLastName')" data-input="name" type="text" class="org-input" maxlength="100"
                    [ngModel]="form().adminLastName"
                    (ngModelChange)="update('adminLastName', $event)">
+            @if (err('adminLastName')) { <span class="org-field-error">{{ err('adminLastName') }}</span> }
           </div>
         </div>
 
@@ -379,7 +381,7 @@
             <label class="org-field-label" for="admin-email">
               E-mail address <span class="org-required">*</span>
             </label>
-            <input id="admin-email" type="email" class="org-input" maxlength="256"
+            <input id="admin-email" [class.is-invalid]="!!err('adminEmail')" type="email" class="org-input" maxlength="256"
                    [ngModel]="form().adminEmail"
                    (ngModelChange)="update('adminEmail', $event)"
                    autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -390,18 +392,19 @@
             <span class="org-field-hint">
               This address may already administer another organisation — that is allowed.
             </span>
-            @if (fieldErrors()['adminEmail']) {
-              <span class="org-field-error">{{ fieldErrors()['adminEmail'] }}</span>
+            @if (err('adminEmail')) {
+              <span class="org-field-error">{{ err('adminEmail') }}</span>
             }
           </div>
 
           <div class="org-field">
             <label class="org-field-label" for="admin-username">Username</label>
-            <input id="admin-username" type="text" class="org-input" maxlength="100"
+            <input id="admin-username" [class.is-invalid]="!!err('adminUsername')" type="text" class="org-input" maxlength="100"
                    [ngModel]="form().adminUsername"
                    (ngModelChange)="update('adminUsername', $event)"
                    placeholder="Derived from the e-mail if left blank"
                    autocapitalize="off" autocorrect="off" spellcheck="false">
+            @if (err('adminUsername')) { <span class="org-field-error">{{ err('adminUsername') }}</span> }
           </div>
         </div>
       </div>

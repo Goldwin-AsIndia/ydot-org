@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using YDot.IAM.Application.Common.Validation;
 using YDot.IAM.Application.Features.Organisations.DTOs;
 using YDot.IAM.Domain.ValueObjects;
 
@@ -120,6 +121,14 @@ public sealed class UpdateOrganisationProfileRequestValidator
         RuleFor(request => request.State).MaximumLength(120);
         RuleFor(request => request.Country).MaximumLength(120);
         RuleFor(request => request.PostalCode).MaximumLength(20);
+
+        RuleFor(request => request.PostalCode)
+            .Must((request, value) => FieldRules.IsValidPostalCode(value, request.Country))
+            .WithMessage(request => string.Equals(request.Country?.Trim(), "India", StringComparison.OrdinalIgnoreCase)
+                ? "The postal code must be exactly 6 digits for India."
+                : "The postal code can contain letters, digits, spaces and hyphens only (3 to 20 characters).");
+
+        RuleFor(request => request.ContactEmail).MaximumLength(320);
 
         RuleFor(request => request.ContactEmail)
             .Must(value => EmailValue.TryParse(value) is not null)

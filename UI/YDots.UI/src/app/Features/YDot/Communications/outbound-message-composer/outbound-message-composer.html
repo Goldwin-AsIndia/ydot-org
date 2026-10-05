@@ -130,7 +130,7 @@
           <div class="field-row field-row--two">
             <!-- Channel -->
             <div class="field combobox" [class.combobox--open]="channelMenuOpen">
-              <label class="field-label" for="channelSearch">Channel</label>
+              <label class="field-label" for="channelSearch">Channel <span class="req" aria-hidden="true">*</span></label>
               <div class="combobox-control" [class.input--error]="errors.channel">
                 <input
                   #fieldAnchor
@@ -165,7 +165,7 @@
 
             <!-- Language -->
             <div class="field combobox" [class.combobox--open]="languageMenuOpen">
-              <label class="field-label" for="languageSearch">Language</label>
+              <label class="field-label" for="languageSearch">Language <span class="req" aria-hidden="true">*</span></label>
               <div class="combobox-control" [class.input--error]="errors.language">
                 <input
                   #fieldAnchor
@@ -198,7 +198,7 @@
           <div class="field-row field-row--two">
             <!-- Approved template -->
             <div class="field combobox" [class.combobox--open]="templateMenuOpen">
-              <label class="field-label" for="templateSearch">Approved template</label>
+              <label class="field-label" for="templateSearch">Approved template <span class="req" aria-hidden="true">*</span></label>
               <div class="combobox-control" [class.input--error]="errors.template">
                 <input
                   #fieldAnchor
@@ -252,7 +252,7 @@
 
           <!-- Purpose -->
           <div class="field">
-            <label class="field-label" for="purpose">Purpose</label>
+            <label class="field-label" for="purpose">Purpose <span class="req" aria-hidden="true">*</span></label>
             <textarea
               #fieldAnchor
               data-field="purpose"
@@ -275,7 +275,7 @@
 
           <!-- Resolved placeholders -->
           <div class="field" *ngIf="placeholders.length">
-            <label class="field-label" #fieldAnchor data-field="placeholders" tabindex="-1">Resolved placeholders</label>
+            <label class="field-label" #fieldAnchor data-field="placeholders" tabindex="-1">Resolved placeholders <span class="req" aria-hidden="true">*</span></label>
             <div class="placeholder-grid">
               <div class="placeholder-item" *ngFor="let p of placeholders">
                 <label class="placeholder-label" [for]="'ph-' + p.key">{{ p.label }}</label>
@@ -371,7 +371,7 @@
           <h2 id="grp-schedule" class="card-title">Send time &amp; owner</h2>
 
           <div class="field">
-            <span class="field-label" id="sendTimeLabel">Send time</span>
+            <span class="field-label" id="sendTimeLabel">Send time @if (sendMode === 'schedule') {<span class="req" aria-hidden="true">*</span>}</span>
             <div class="segmented" role="radiogroup" aria-labelledby="sendTimeLabel">
               <button type="button" class="segmented-option" [class.segmented-option--active]="sendMode === 'now'" (click)="setSendMode('now')">Send now</button>
               <button type="button" class="segmented-option" [class.segmented-option--active]="sendMode === 'schedule'" (click)="setSendMode('schedule')">Schedule</button>
@@ -401,7 +401,7 @@
           </div>
 
           <div class="field combobox" [class.combobox--open]="ownerMenuOpen">
-            <label class="field-label" for="ownerSearch">Owner</label>
+            <label class="field-label" for="ownerSearch">Owner <span class="req" aria-hidden="true">*</span></label>
             <div class="combobox-control" [class.input--error]="errors.owner">
               <input
                 #fieldAnchor

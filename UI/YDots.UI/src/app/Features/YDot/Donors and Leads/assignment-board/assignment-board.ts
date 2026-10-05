@@ -1242,7 +1242,9 @@ export class AssignmentBoardComponent {
     this.selectedRow.set(draft.rows[0]);
     this.activeActionId.set(draft.mode);
     this.assignmentReason.set("");
-      this.closeDrawer();
+    // The drawer STAYS OPEN under the confirm dialog (it goes inert while that shows). Closing
+    // it here ran cancelDraft(), which cleared the draft, so Confirm found no owner to send and
+    // returned without a request - nobody could be assigned.
     this.confirmConfig.set({
       title: `Confirm ${this.actionLabel(draft.mode)}`,
       message: isBulk

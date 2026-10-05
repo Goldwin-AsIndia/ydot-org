@@ -68,7 +68,7 @@
             @if (hasStateOptions()) {
               <app-searchable-select [options]="geo.stateNames()" [value]="state()" (valueChange)="onStateChange($event)" placeholder="Search state..."></app-searchable-select>
             } @else {
-              <input class="org-input" [ngModel]="state()" (ngModelChange)="onStateChange($event)" placeholder="State / Province">
+              <input class="org-input" data-input="name" [ngModel]="state()" (ngModelChange)="onStateChange($event)" placeholder="State / Province">
             }
           </div>
           <div class="org-field">
@@ -76,12 +76,13 @@
             @if (availableCities().length) {
               <app-searchable-select [options]="availableCities()" [value]="city()" (valueChange)="city.set($event)" [disabled]="!state()" placeholder="Search city..." disabledPlaceholder="Select a state first"></app-searchable-select>
             } @else {
-              <input class="org-input" [ngModel]="city()" (ngModelChange)="city.set($event)" placeholder="City">
+              <input class="org-input" data-input="name" [ngModel]="city()" (ngModelChange)="city.set($event)" placeholder="City">
             }
           </div>
           <div class="org-field">
             <label class="org-field-label">PIN / Postal Code</label>
-            <input class="org-input" [ngModel]="pinCode()" (ngModelChange)="pinCode.set($event)">
+            <input class="org-input" maxlength="10" [class.is-invalid]="pinCodeError()" [ngModel]="pinCode()" (ngModelChange)="pinCode.set($event)">
+            @if (pinCodeError()) { <span class="org-field-error">{{ pinCodeError() }}</span> }
           </div>
         </div>
       </section>
@@ -96,16 +97,18 @@
           </div>
           <div class="org-field">
             <label class="org-field-label">Phone Number<span class="req">*</span></label>
-            <input class="org-input" [class.is-invalid]="phoneError()" [ngModel]="phone()" (ngModelChange)="phone.set($event)">
+            <input class="org-input" type="tel" data-input="phone" maxlength="20" [class.is-invalid]="phoneError()" [ngModel]="phone()" (ngModelChange)="phone.set($event)">
             @if (phoneError()) { <span class="org-field-error">{{ phoneError() }}</span> }
           </div>
           <div class="org-field">
             <label class="org-field-label">Alternate Phone Number</label>
-            <input class="org-input" [ngModel]="alternatePhone()" (ngModelChange)="alternatePhone.set($event)">
+            <input class="org-input" type="tel" data-input="phone" maxlength="20" [class.is-invalid]="alternatePhoneError()" [ngModel]="alternatePhone()" (ngModelChange)="alternatePhone.set($event)">
+            @if (alternatePhoneError()) { <span class="org-field-error">{{ alternatePhoneError() }}</span> }
           </div>
           <div class="org-field">
             <label class="org-field-label">Website</label>
-            <input class="org-input" [ngModel]="website()" (ngModelChange)="website.set($event)">
+            <input class="org-input" [class.is-invalid]="websiteError()" placeholder="www.example.org" [ngModel]="website()" (ngModelChange)="website.set($event)">
+            @if (websiteError()) { <span class="org-field-error">{{ websiteError() }}</span> }
           </div>
         </div>
       </section>
@@ -115,7 +118,7 @@
         <div class="org-grid org-grid-2">
           <div class="org-field">
             <label class="org-field-label">Owner Name<span class="req">*</span></label>
-            <input class="org-input" [class.is-invalid]="ownerNameError()" [ngModel]="ownerName()" (ngModelChange)="ownerName.set($event)">
+            <input class="org-input" data-input="name" maxlength="100" [class.is-invalid]="ownerNameError()" [ngModel]="ownerName()" (ngModelChange)="ownerName.set($event)">
             @if (ownerNameError()) { <span class="org-field-error">{{ ownerNameError() }}</span> }
           </div>
           <div class="org-field">
@@ -125,7 +128,7 @@
           </div>
           <div class="org-field">
             <label class="org-field-label">Owner Mobile Number<span class="req">*</span></label>
-            <input class="org-input" [class.is-invalid]="ownerMobileError()" [ngModel]="ownerMobile()" (ngModelChange)="ownerMobile.set($event)">
+            <input class="org-input" type="tel" inputmode="numeric" maxlength="15" [class.is-invalid]="ownerMobileError()" [ngModel]="ownerMobile()" (ngModelChange)="ownerMobile.set($event)">
             @if (ownerMobileError()) { <span class="org-field-error">{{ ownerMobileError() }}</span> }
           </div>
           <div class="org-field">
@@ -141,7 +144,8 @@
         <p class="org-doc-note">Only mark the certificates that actually apply &mdash; none are mandatory by default.</p>
         <div class="org-field org-field--narrow">
           <label class="org-field-label">PAN / Tax ID</label>
-          <input class="org-input" [ngModel]="panTaxId()" (ngModelChange)="panTaxId.set($event)">
+          <input class="org-input" data-input="alnum" maxlength="20" [class.is-invalid]="panError()" [ngModel]="panTaxId()" (ngModelChange)="panTaxId.set($event)">
+            @if (panError()) { <span class="org-field-error">{{ panError() }}</span> }
         </div>
         <div class="org-compliance-row-list">
           <label class="org-compliance-row" [class.is-active]="twelveAApplicable()">

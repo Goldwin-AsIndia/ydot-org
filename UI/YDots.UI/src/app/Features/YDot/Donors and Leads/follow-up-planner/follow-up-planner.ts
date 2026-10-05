@@ -97,6 +97,19 @@ export class FollowUpPlannerComponent {
   protected readonly expectedOutcome = signal('');
   protected readonly validationMessage = signal<string | null>(null);
 
+  /** True for a required field that is empty, once Save / Reschedule has been tried (the banner is up). */
+  protected fieldMissing(field: 'followUpType' | 'owner' | 'date' | 'time' | 'priority' | 'purpose'): boolean {
+    if (this.validationMessage() === null) return false;
+    switch (field) {
+      case 'followUpType': return !this.followUpType().trim();
+      case 'owner': return !this.owner().trim();
+      case 'date': return !this.scheduledDate();
+      case 'time': return !this.scheduledTime();
+      case 'priority': return !this.priority().trim();
+      case 'purpose': return !this.purpose().trim();
+    }
+  }
+
   /**
    * The consent warning for the chosen channel.
    *

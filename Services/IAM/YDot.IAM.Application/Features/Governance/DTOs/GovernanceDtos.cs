@@ -170,6 +170,9 @@ public sealed record AccessRequestListItemResponse(
     /// <summary>True when the current caller may decide this one, so the queue can highlight it.</summary>
     bool CanDecide,
 
+    /// <summary>True only for the person who raised the request, while it is still undecided.</summary>
+    bool CanCancel,
+
     long Version);
 
 /// <summary>A request with everything a decision needs.</summary>

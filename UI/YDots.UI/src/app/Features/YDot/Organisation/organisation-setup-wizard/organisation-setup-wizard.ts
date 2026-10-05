@@ -12,6 +12,12 @@ import {
 } from '../../../../Shared/models/iam-contract.model';
 import { EnumOptionsService } from '../../../../Shared/services/enum-options.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
+import { nameError } from '../../../../Shared/validation/field-rules';
+
+const WIZARD_LABELS: Record<string, string> = {
+  name: 'Name', subdomain: 'Web address', contactPhone: 'Contact telephone', maximumUsers: 'Maximum people',
+  adminFirstName: 'First name', adminLastName: 'Last name', adminEmail: 'E-mail address', adminUsername: 'Username',
+};
 import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
 
 type WizardStep = 'organisation' | 'address' | 'administrator' | 'review' | 'done';
@@ -156,12 +162,57 @@ export class OrganisationSetupWizardComponent implements OnDestroy {
 
   readonly subdomainAvailable = computed(() => this.subdomainCheck()?.isAvailable === true);
 
+  /** Set once Next has been pressed on a step, so fields are not flagged before anyone has tried. */
+  readonly attempted = signal(false);
+
+  private static readonly SUBDOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
+  /** What is wrong with each field right now (null = fine). */
+  private ruleErrors(): Record<string, string | null> {
+    const f = this.form();
+    const name = f.name.trim();
+    const sub = f.subdomain.trim().toLowerCase();
+    const phone = f.contactPhone.trim();
+    return {
+      name: !name ? 'Name is required.' : name.length < 2 ? 'Name must be at least 2 characters.' : null,
+      subdomain: !sub ? 'Web address is required.'
+        : sub.length < 3 ? 'Web address must be at least 3 characters.'
+        : !OrganisationSetupWizardComponent.SUBDOMAIN_RE.test(sub) ? 'Web address can use lower-case letters, numbers and hyphens only.'
+        : !this.subdomainAvailable() && !this.checkingSubdomain() ? 'Choose a web address that is available.' : null,
+      contactPhone: phone && !/^\d{7,15}$/.test(phone) ? 'Telephone must be 7 to 15 digits.' : null,
+      maximumUsers: f.maximumUsers !== null && (!Number.isInteger(f.maximumUsers) || f.maximumUsers < 1)
+        ? 'Maximum people must be a whole number of at least 1.' : null,
+      adminFirstName: nameError('First name', f.adminFirstName, true),
+      adminLastName: nameError('Last name', f.adminLastName, true),
+      adminEmail: !f.adminEmail.trim() ? 'E-mail address is required.'
+        : !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.adminEmail.trim()) ? 'Enter a valid e-mail address (name@example.org).' : null,
+      adminUsername: f.adminUsername.trim() && !/^[A-Za-z0-9][A-Za-z0-9._-]{2,}$/.test(f.adminUsername.trim())
+        ? 'Username must be at least 3 characters: letters, numbers, dot, dash and underscore only.' : null,
+    };
+  }
+
+  /** The message under a field: the server's, else ours once Next / Create has been pressed. */
+  err(field: string): string | null {
+    return this.fieldErrors()[field] ?? (this.attempted() ? (this.ruleErrors()[field] ?? null) : null);
+  }
+
+  private static readonly STEP_FIELDS: Record<string, string[]> = {
+    organisation: ['name', 'subdomain', 'contactPhone', 'maximumUsers'],
+    administrator: ['adminFirstName', 'adminLastName', 'adminEmail', 'adminUsername'],
+  };
+
+  private stepProblems(step: string): string[] {
+    const rules = this.ruleErrors();
+    return (OrganisationSetupWizardComponent.STEP_FIELDS[step] ?? []).filter((field) => rules[field] !== null);
+  }
+
   readonly organisationStepValid = computed(() => {
     const f = this.form();
     return f.name.trim().length >= 2
       && f.subdomain.trim().length >= 3
       && this.subdomainAvailable()
-      && !this.checkingSubdomain();
+      && !this.checkingSubdomain()
+      && this.stepProblems('organisation').length === 0;
   });
 
   readonly addressStepValid = computed(() => true);
@@ -170,7 +221,8 @@ export class OrganisationSetupWizardComponent implements OnDestroy {
     const f = this.form();
     return f.adminFirstName.trim().length > 0
       && f.adminLastName.trim().length > 0
-      && this.looksLikeEmail(f.adminEmail);
+      && this.looksLikeEmail(f.adminEmail)
+      && this.stepProblems('administrator').length === 0;
   });
 
   readonly canCreate = computed(
@@ -355,7 +407,11 @@ export class OrganisationSetupWizardComponent implements OnDestroy {
     switch (this.step()) {
       case 'organisation':
         if (this.organisationStepValid()) {
+          this.attempted.set(false);
           this.goTo('address');
+        } else {
+          this.attempted.set(true);
+          this.errorMessage.set(`Please correct: ${this.stepProblems('organisation').map((f) => WIZARD_LABELS[f]).join(', ')}.`);
         }
         return;
 
@@ -365,7 +421,11 @@ export class OrganisationSetupWizardComponent implements OnDestroy {
 
       case 'administrator':
         if (this.administratorStepValid()) {
+          this.attempted.set(false);
           this.goTo('review');
+        } else {
+          this.attempted.set(true);
+          this.errorMessage.set(`Please correct: ${this.stepProblems('administrator').map((f) => WIZARD_LABELS[f]).join(', ')}.`);
         }
         return;
 

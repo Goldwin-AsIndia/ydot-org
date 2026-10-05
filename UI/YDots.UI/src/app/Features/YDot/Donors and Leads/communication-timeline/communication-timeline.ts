@@ -1074,7 +1074,7 @@ export class CommunicationTimelineComponent {
   handleOpenMyLeads(): void {
     this.navigateToLeads.emit();
     if (this.donorId()) {
-      this.router.navigate(['/app/fundraising/relationships/donor-360'], { queryParams: { donorId: this.donorId(), tab: 'communications' } });
+      this.router.navigate(['/app/fundraising/relationships/donor-360'], { queryParams: { donorId: this.donorId(), tab: 'overview' } });
       return;
     }
     this.router.navigate(['/app/fundraising/relationships/my-leads'], { queryParams: { leadId: this.leadId() } });

@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ToastService } from '../../../../Shared/services/toast.service';
+import { codeError, textWithLettersError } from '../../../../Shared/validation/field-rules';
 import { RoleCatalogueApiService } from '../../../../Service/role-catalogue-api.service';
 import { PermissionMatrixResponse } from '../../../../Shared/models/iam-contract.model';
 import {
@@ -266,6 +267,39 @@ export class RoleCatalogueComponent {
 
   // ===== Create Role Modal =====
   showCreateModal = signal(false);
+  /** Set once Create has been pressed, so the form does not shout before anyone has tried. */
+  readonly roleSubmitted = signal(false);
+
+  /** What is wrong with each field of the create-role form right now (null = fine). */
+  private roleRuleErrors(): Record<string, string | null> {
+    const f = this.createRoleForm();
+    const name = f.name.trim();
+    const code = f.code.trim();
+    return {
+      name: textWithLettersError('Role name', name, { min: 2, max: 120 }),
+      code: codeError('Role code', code, { max: 50 }),
+      description: textWithLettersError('Purpose', f.description, { min: 10, max: 500 }),
+      isPrivileged: f.isPrivileged === null ? 'Choose a privilege level.' : null,
+      isDefaultRole: f.isDefaultRole === null ? 'Choose whether everybody gets this role.' : null,
+    };
+  }
+
+  /** The message under a create-role field, or null while it is fine (or untouched). */
+  roleErr(field: string): string | null {
+    return this.roleSubmitted() || this.roleTouched().has(field) ? (this.roleRuleErrors()[field] ?? null) : null;
+  }
+
+  /** Fields left at least once; their messages show before Create is pressed. */
+  readonly roleTouched = signal<ReadonlySet<string>>(new Set());
+
+  touchRole(field: string): void {
+    if (!this.roleTouched().has(field)) {
+      this.roleTouched.update((current) => new Set(current).add(field));
+    }
+  }
+
+  private static readonly ROLE_IDS: Record<string, string> = { name: 'roleNameInput', code: 'roleCodeInput', description: 'rolePurposeInput' };
+
   createRoleForm = signal({
     name: '',
     code: '',
@@ -844,6 +878,9 @@ export class RoleCatalogueComponent {
 
   // ===== CREATE ROLE =====
   openCreateModal(): void {
+    this.editingRoleId.set('');
+    this.roleSubmitted.set(false);
+    this.roleTouched.set(new Set());
     this.createRoleForm.set({
       name: '',
       code: '',
@@ -878,6 +915,72 @@ export class RoleCatalogueComponent {
   closeCreateModal(): void {
     this.closeDd();
     this.showCreateModal.set(false);
+    this.editingRoleId.set('');
+  }
+
+  /** The role the drawer is editing; empty while it is creating a new one. */
+  readonly editingRoleId = signal('');
+  private editingVersion = 0;
+
+  /** Opens the drawer on an existing role's name, purpose, classification and priority. */
+  openEditRole(role: RoleDetailView): void {
+    this.openCreateModal();
+    this.editingRoleId.set(role.id);
+    this.editingVersion = role.version;
+    this.createRoleForm.set({
+      name: role.name,
+      code: role.code,
+      description: role.purpose,
+      displayTag: role.owningFunction,
+      priority: role.priority,
+      isPrivileged: role.isPrivileged === true,
+      isDefaultRole: role.isDefaultRole,
+    });
+  }
+
+  /** Opens the drawer as a new draft that starts as a copy of this role. */
+  cloneRole(role: RoleDetailView): void {
+    this.openCreateModal();
+    this.createRoleForm.set({
+      name: `Copy of ${role.name}`,
+      code: `${role.code}-COPY`,
+      description: role.purpose,
+      displayTag: role.owningFunction,
+      priority: role.priority,
+      isPrivileged: role.isPrivileged === true,
+      isDefaultRole: false,
+    });
+    this.selectedPermissionCodes.set(role.permissionBundle.map((p) => p.code));
+    this.selectedDeniedCodes.set(role.excludedPermissions.map((p) => p.code));
+    this.selectedIncompatibleRoleIds.set(
+      role.incompatibleRoles.map((c) => c.conflictingRoleId).filter((id) => !!id));
+  }
+
+  private saveRoleEdits(id: string): void {
+    const form = this.createRoleForm();
+    this.submitting.set(true);
+
+    this.api.updateRole(id, {
+      expectedVersion: this.editingVersion,
+      name: form.name.trim(),
+      description: form.description.trim(),
+      displayTag: form.displayTag.trim(),
+      priority: form.priority,
+      isPrivileged: form.isPrivileged ?? false,
+      isDefaultRole: form.isDefaultRole ?? false,
+    }).subscribe({
+      next: () => {
+        this.submitting.set(false);
+        this.closeCreateModal();
+        this.toast.show('Role updated', `${form.name.trim()} has been saved.`, 'success');
+        this.refreshIfOpen(id);
+        this.reloadCatalogue();
+      },
+      error: (error: Error) => {
+        this.submitting.set(false);
+        this.toast.show('Could not save the role', error.message, 'error');
+      },
+    });
   }
 
   createDraftRole(): void {
@@ -983,13 +1086,21 @@ export class RoleCatalogueComponent {
   confirmCreateRole(): void {
     const form = this.createRoleForm();
 
-    if (!form.name.trim() || !form.code.trim()) {
-      this.toast.show('Check the form', 'A role needs a name and a code.', 'warning');
+    this.roleSubmitted.set(true);
+    const labels: Record<string, string> = {
+      name: 'Role name', code: 'Role code', description: 'Purpose', isPrivileged: 'Privilege level', isDefaultRole: 'Given to everybody',
+    };
+    const failing = Object.entries(this.roleRuleErrors()).filter(([, message]) => message !== null);
+    if (failing.length > 0) {
+      this.toast.show('Check the highlighted fields', `Please correct: ${failing.map(([field]) => labels[field]).join(', ')}.`, 'warning');
+      const firstId = RoleCatalogueComponent.ROLE_IDS[failing[0][0]];
+      if (firstId) setTimeout(() => (document.getElementById(firstId) as HTMLElement | null)?.focus());
       return;
     }
 
-    if (form.isPrivileged === null || form.isDefaultRole === null) {
-      this.toast.show('Check the form', 'Choose a privilege level and whether everybody gets this role.', 'warning');
+    const editingId = this.editingRoleId();
+    if (editingId) {
+      this.saveRoleEdits(editingId);
       return;
     }
 
@@ -1003,8 +1114,8 @@ export class RoleCatalogueComponent {
       displayTag: form.displayTag.trim() || null,
       status: 'draft',
       priority: form.priority,
-      isPrivileged: form.isPrivileged,
-      isDefaultRole: form.isDefaultRole,
+      isPrivileged: form.isPrivileged ?? false,
+      isDefaultRole: form.isDefaultRole ?? false,
       permissionCodes: this.selectedPermissionCodes(),
       visibleMenuIds: [],
     };

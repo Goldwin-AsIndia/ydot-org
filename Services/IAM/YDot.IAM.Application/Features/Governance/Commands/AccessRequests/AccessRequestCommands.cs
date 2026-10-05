@@ -493,8 +493,7 @@ public sealed class AccessRequestCommandHandler(
                 "A decided request cannot be withdrawn."));
         }
 
-        if (accessRequest.RequestedByUserId != currentUser.UserId
-            && !currentUser.HasPermission(PermissionCodes.AccessRequestsWithdraw))
+        if (accessRequest.RequestedByUserId != currentUser.UserId)
         {
             return Result.Failure<OutcomeResponse>(
                 Error.Forbidden("Only the person who raised a request can withdraw it."));

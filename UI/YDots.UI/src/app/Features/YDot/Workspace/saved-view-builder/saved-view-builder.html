@@ -425,9 +425,10 @@
             <h2 class="svb-step-heading">Name, share and finalise</h2>
 
             <div class="svb-field">
-              <label class="svb-label" for="svb-name">View name</label>
-              <input id="svb-name" type="text" class="svb-input" [ngModel]="viewName()" (ngModelChange)="viewName.set($event)"
+              <label class="svb-label" for="svb-name">View name <span class="ydot-req">*</span></label>
+              <input id="svb-name" type="text" class="svb-input" [class.is-invalid]="hasError('View name')" [ngModel]="viewName()" (ngModelChange)="viewName.set($event)"
                      placeholder="Enter a name for this view" maxlength="120" />
+              @if (hasError('View name')) { <p class="field-error">Enter a name for this view.</p> }
             </div>
 
             <div class="svb-field">
@@ -451,14 +452,15 @@
 
             @if (visibility() === 'Shared') {
               <div class="svb-field">
-                <label class="svb-label" for="svb-sharedrole">Shared role</label>
+                <label class="svb-label" for="svb-sharedrole">Shared role <span class="ydot-req">*</span></label>
                 <div class="svb-select-wrap">
-                  <select id="svb-sharedrole" class="svb-select" [ngModel]="sharedRole()" (ngModelChange)="sharedRole.set($event)">
+                  <select id="svb-sharedrole" class="svb-select" [class.is-invalid]="hasError('Shared role')" [ngModel]="sharedRole()" (ngModelChange)="sharedRole.set($event)">
                     <option value="">Select a role to share with…</option>
                     @for (r of sharedRoles; track r) { <option [value]="r">{{ r }}</option> }
                   </select>
                   <span class="svb-caret" aria-hidden="true">⌄</span>
                 </div>
+                @if (hasError('Shared role')) { <p class="field-error">Select the role to share this view with.</p> }
               </div>
             }
 

@@ -5,9 +5,12 @@
       <!-- ===== Command bar ===== -->
       <header class="dbd-bar">
         <div class="dbd-bar-id">
+          <span class="dbd-eyebrow"><i class="ri-calendar-event-line"></i>{{ now | date: 'EEEE, d MMMM y' }}</span>
           <h1 class="dbd-title">{{ greeting }}@if (firstName()) {, <em>{{ firstName() }}</em>}</h1>
-          <span class="dbd-sub">{{ organisation() || 'Overview' }}@if (role()) { · {{ role() }}}</span>
-          @if (mockOn) { <span class="dbd-sample">Sample data · for visual reference</span> }
+          <span class="dbd-chips">
+            <span class="dbd-chip"><i class="ri-building-2-line"></i>{{ organisation() || 'Overview' }}</span>
+            @if (role()) { <span class="dbd-chip dbd-chip--role"><i class="ri-shield-user-line"></i>{{ role() }}</span> }
+          </span>
         </div>
         <div class="dbd-bar-act">
           <span class="dbd-live" [class.is-busy]="loading()">
@@ -199,20 +202,44 @@
         <section class="dbd-tile dbd-s4" aria-label="Needs attention">
           <header class="dbd-head">
             <h2 class="dbd-h">Needs attention</h2>
-            @if (attention().length) { <span class="dbd-count">{{ attention().length }}</span> }
+            @if (attention().length) { <span class="dbd-count dbd-count--pill">{{ attention().length }} open</span> }
           </header>
           @if (attention().length) {
-            <ul class="dbd-fill dbd-todo">
-              @for (a of attention().slice(0, 6); track a.label) {
-                <li>
-                  <button type="button" (click)="go(a.route)">
-                    <i class="{{ a.glyph }}"></i>
-                    <span class="dbd-todo-text"><span class="dbd-todo-label">{{ a.label }}</span><span class="dbd-quiet">{{ a.hint }}</span></span>
-                    <span class="dbd-num">{{ a.count | number }}</span>
-                  </button>
-                </li>
+            <div class="dbd-tq">
+              <div class="dbd-tq-bar" role="img" [attr.aria-label]="attnRing().total + ' items across ' + attnRing().rows.length + ' queues'">
+                @for (r of attnRing().rows; track r.label; let i = $index) {
+                  <button type="button" class="dbd-tq-seg" [class.is-dim]="attnHover() !== null && attnHover() !== i" [style.flex-grow]="r.count" [style.--c]="r.colour" [style.--d]="i * 70 + 'ms'" [attr.title]="r.label + ': ' + r.count" (click)="go(r.route)" (mouseenter)="attnHover.set(i)" (mouseleave)="attnHover.set(null)"></button>
+                }
+              </div>
+              @if (attnRing().rows[0]; as top) {
+                <button type="button" class="dbd-tq-hero" [style.--c]="top.colour" (click)="go(top.route)">
+                  <span class="dbd-tq-glow" aria-hidden="true"></span>
+                  <span class="dbd-tq-ring" aria-hidden="true"><i class="{{ top.glyph }}"></i></span>
+                  <span class="dbd-tq-hmain">
+                    <span class="dbd-tq-eyebrow"><i class="dbd-pulse"></i>Start here</span>
+                    <strong>{{ top.label }}</strong>
+                    <span class="dbd-quiet">{{ top.hint }}</span>
+                  </span>
+                  <span class="dbd-tq-hnum"><b class="dbd-num">{{ top.count | number }}</b><em>Open <i class="ri-arrow-right-line"></i></em></span>
+                </button>
               }
-            </ul>
+              <ul class="dbd-tq-list">
+                @for (r of attnRing().rows.slice(1); track r.label; let i = $index) {
+                  <li [style.--d]="(i + 1) * 70 + 'ms'">
+                    <button type="button" class="dbd-tq-row" [class.is-dim]="attnHover() !== null && attnHover() !== i + 1" [style.--c]="r.colour" (click)="go(r.route)" (mouseenter)="attnHover.set(i + 1)" (mouseleave)="attnHover.set(null)">
+                      <span class="dbd-tq-ico"><i class="{{ r.glyph }}"></i></span>
+                      <span class="dbd-tq-txt">
+                        <strong>{{ r.label }}</strong>
+                        <span class="dbd-quiet">{{ r.hint }}</span>
+                        <span class="dbd-tq-meter"><i [style.width.%]="r.width"></i></span>
+                      </span>
+                      <b class="dbd-tq-n dbd-num">{{ r.count | number }}</b>
+                      <i class="ri-arrow-right-s-line dbd-tq-go"></i>
+                    </button>
+                  </li>
+                }
+              </ul>
+            </div>
             @if (attention().length > 6) { <p class="dbd-foot-note">+ {{ attention().length - 6 }} more</p> }
           } @else if (!loading()) {
             <div class="dbd-clear"><i class="ri-checkbox-circle-line"></i><strong>All clear</strong><span class="dbd-quiet">Nothing is waiting on you right now.</span>
@@ -223,22 +250,34 @@
         <section class="dbd-tile dbd-s4" aria-label="Activity">
           <header class="dbd-head">
             <h2 class="dbd-h">Recent activity</h2>
+            <span class="dbd-livechip"><i class="dbd-pulse"></i>Live</span>
           </header>
           @if (activity(); as events) {
             @if (events.length) {
-              <ol class="dbd-fill dbd-time">
-                @for (e of events.slice(0, 7); track e.id) {
-                  <li>
-                    <a routerLink="/app/administration/audit">
-                      <i class="dbd-node dbd-node--{{ auditTone(e.resultDisplay) }}"></i>
-                      <span class="dbd-time-main">
-                        <span><strong>{{ e.actorDisplayName || 'System' }}</strong> {{ e.actionDisplay || e.actionCode }}</span>
-                        <span class="dbd-quiet">{{ e.targetDisplayName || e.targetType }} · {{ e.occurredAtUtc | date: 'd MMM, h:mm a' }}</span>
-                      </span>
-                    </a>
-                  </li>
+              <div class="dbd-fill dbd-ac">
+                <div class="dbd-ac-stats">
+                  <span><b class="dbd-num">{{ activityStats().total }}</b>events</span>
+                  <span><b class="dbd-num">{{ activityStats().people }}</b>people</span>
+                  <span [class.is-bad]="activityStats().failed > 0"><b class="dbd-num">{{ activityStats().failed }}</b>failed</span>
+                </div>
+                @for (g of activityGroups(); track g.label) {
+                  <p class="dbd-act-day"><span>{{ g.label }}</span></p>
+                  <ol class="dbd-ac-list">
+                    @for (e of g.items; track e.id) {
+                      <li>
+                        <a routerLink="/app/administration/audit" class="dbd-ac-row dbd-ac-row--{{ actKind(e).key }}" [class.is-fail]="auditTone(e.resultDisplay) === 'bad'" [attr.title]="e.occurredAtUtc | date: 'd MMM y, h:mm a'">
+                          <span class="dbd-ac-ico"><i [class]="actIcon(e)"></i></span>
+                          <span class="dbd-ac-main">
+                            <span class="dbd-ac-line"><strong>{{ e.actorDisplayName || 'System' }}</strong> {{ e.actionDisplay || e.actionCode }}</span>
+                            <span class="dbd-ac-meta"><em class="dbd-ac-tag">{{ actKind(e).label }}</em><span>{{ e.targetDisplayName || e.targetType }}</span></span>
+                          </span>
+                          <span class="dbd-ac-time">{{ ago(e.occurredAtUtc) || (e.occurredAtUtc | date: 'h:mm a') }}</span>
+                        </a>
+                      </li>
+                    }
+                  </ol>
                 }
-              </ol>
+              </div>
             } @else {
               <div class="dbd-clear"><i class="ri-history-line"></i><strong>No activity yet</strong><span class="dbd-quiet">Sign-ins, approvals and changes appear here as they happen.</span>
                 <button type="button" class="dbd-btn" (click)="go('/app/administration/audit')">Open audit trail</button></div>
@@ -255,12 +294,15 @@
           </header>
           @if (nextFollowUps(); as list) {
             @if (list.length) {
-              <ul class="dbd-fill dbd-feed">
+              <ul class="dbd-fill dbd-fu">
                 @for (f of list.slice(0, 6); track f.id) {
                   <li>
-                    <a routerLink="/app/fundraising/relationships/follow-up-queue">
-                      <span class="dbd-feed-main"><strong>{{ f.donorDisplayName || f.leadReference || f.followUpReference }}</strong><span class="dbd-quiet">{{ f.nextAction || f.purpose || f.permittedChannel }}</span></span>
-                      <span class="dbd-feed-when" [class.is-late]="isLate(f.dueAtUtc)">{{ f.dueAtUtc ? (f.dueAtUtc | date: 'd MMM, h:mm a') : 'No date' }}</span>
+                    <a routerLink="/app/fundraising/relationships/follow-up-queue" class="dbd-fu-row" [class.is-late]="isLate(f.dueAtUtc)">
+                      <span class="dbd-fu-date">
+                        @if (f.dueAtUtc) { <b class="dbd-num">{{ f.dueAtUtc | date: 'd' }}</b><span>{{ f.dueAtUtc | date: 'MMM' }}</span> } @else { <i class="ri-calendar-line"></i> }
+                      </span>
+                      <span class="dbd-fu-main"><strong>{{ f.donorDisplayName || f.leadReference || f.followUpReference }}</strong><span class="dbd-quiet">{{ f.nextAction || f.purpose || f.permittedChannel }}</span></span>
+                      <span class="dbd-fu-due">{{ dueIn(f.dueAtUtc) }}</span>
                     </a>
                   </li>
                 }
@@ -281,39 +323,74 @@
           <a class="dbd-foot" routerLink="/app/fundraising/relationships/follow-up-queue">Open the follow-up queue <i class="ri-arrow-right-line"></i></a>
         </section>
 
-        <!-- ===== Campaigns | top campaigns | methods ===== -->
-        <section class="dbd-tile dbd-s6" aria-label="Campaigns">
+        <!-- ===== Campaigns | top campaigns | top supporters ===== -->
+        <section class="dbd-tile dbd-s5" aria-label="Campaigns">
           <header class="dbd-head">
-            <h2 class="dbd-h">Campaigns</h2>
+            <div>
+              <h2 class="dbd-h">Campaigns</h2>
+              @if (campaigns(); as c) {
+                <span class="dbd-cx-live"><i class="dbd-cx-beat"></i>{{ c.active }} live now<span class="dbd-cx-dim"> · {{ c.total }} in total</span></span>
+              }
+            </div>
+            @if (campaigns()) {
+              <a class="dbd-link" routerLink="/app/fundraising/campaigns/campaign-wizard"><i class="ri-add-line"></i> New campaign</a>
+            }
           </header>
           @if (campaigns(); as c) {
-            <ol class="dbd-track">
-              @for (s of journey(); track s.key) {
-                <li [class.is-now]="s.key === 'active' && s.count > 0" [class.is-zero]="s.count === 0">
-                  <a routerLink="/app/fundraising/campaigns/campaign-register"><span class="dbd-track-num">{{ s.count }}</span><i class="dbd-track-node"></i><span class="dbd-track-name">{{ s.label }}</span></a>
-                </li>
+            <div class="dbd-cx-pipe" role="tablist" aria-label="Campaign stage">
+              @for (s of journey(); track s.key; let i = $index) {
+                <button type="button" role="tab" class="dbd-cx-seg" [attr.data-stage]="s.key" [attr.aria-selected]="stage() === s.key" [class.is-on]="stage() === s.key" [class.is-zero]="s.count === 0" [style.flex-grow]="1 + s.count * 0.18" [style.--i]="i" (click)="pickStage(s.key)">
+                  <span class="dbd-cx-seg-bar"></span>
+                  <span class="dbd-cx-seg-n">{{ s.count }}</span>
+                  <span class="dbd-cx-seg-name">{{ s.label }}</span>
+                </button>
               }
-            </ol>
-            @if (c.cancelled > 0) { <p class="dbd-foot-note">{{ c.cancelled }} cancelled</p> }
-            @if (running(); as list) {
-              @if (list.length) {
-                <ul class="dbd-fill dbd-runs">
-                  @for (r of list; track r.id) {
-                    <li>
-                      <div class="dbd-run-name">
-                        <a [routerLink]="['/app/fundraising/campaigns/campaign-detail']" [queryParams]="{ ref: r.code }">{{ r.name }}</a>
-                        <span class="dbd-quiet">{{ r.code }} · {{ r.fundOrProgramme }}</span>
-                      </div>
-                      <div class="dbd-run-prog"><span class="dbd-prog"><i [style.width.%]="r.elapsedPercent ?? 0"></i></span><span class="dbd-num">{{ r.elapsedPercent ?? 0 }}%</span></div>
-                      <span class="dbd-quiet dbd-run-end">ends {{ r.endDate | date: 'd MMM yy' }}</span>
-                    </li>
+            </div>
+            <div class="dbd-stage-panel dbd-cx-panel" [attr.data-stage]="stage()">
+              @if (stageLoading()) {
+                <div class="dbd-clear"><i class="ri-loader-4-line"></i><span class="dbd-quiet">Loading campaigns…</span></div>
+              } @else if (stageRows(); as list) {
+                @if (list.length) {
+                  @let lead = list[0];
+                  @let lt = timing(lead);
+                  <a class="dbd-cx-lead" [routerLink]="['/app/fundraising/campaigns/campaign-detail']" [queryParams]="{ ref: lead.code }">
+                    <span class="dbd-cx-dial" [style.--p]="lead.elapsedPercent ?? 0">
+                      <svg viewBox="0 0 64 64" aria-hidden="true"><circle class="dbd-cx-dial-track" cx="32" cy="32" r="28"></circle><circle class="dbd-cx-dial-arc" cx="32" cy="32" r="28"></circle></svg>
+                      <b>{{ lead.elapsedPercent ? lead.elapsedPercent + '%' : '—' }}</b>
+                    </span>
+                    <span class="dbd-cx-lead-body">
+                      <span class="dbd-cx-kicker">{{ stageLabel() }} · {{ lead.fundOrProgramme }}</span>
+                      <strong class="dbd-cx-lead-name">{{ lead.name }}</strong>
+                      <span class="dbd-cx-meta">
+                        <span><i class="ri-hashtag"></i>{{ lead.code }}</span>
+                        @if (lead.targetAmount) { <span><i class="ri-focus-3-line"></i>{{ short(lead.targetAmount) }} goal</span> }
+                        <span [class.is-urgent]="lt.urgent"><i class="ri-time-line"></i>{{ lt.text }}</span>
+                      </span>
+                    </span>
+                    <i class="ri-arrow-right-up-line dbd-cx-go"></i>
+                  </a>
+                  @if (list.length > 1) {
+                    <ul class="dbd-cx-rows">
+                      @for (r of list.slice(1, 4); track r.id; let i = $index) {
+                        @let t = timing(r);
+                        <li [style.--i]="i">
+                          <a class="dbd-cx-row" [routerLink]="['/app/fundraising/campaigns/campaign-detail']" [queryParams]="{ ref: r.code }">
+                            <span class="dbd-cx-row-main"><strong>{{ r.name }}</strong><span class="dbd-quiet">{{ r.code }} · {{ r.fundOrProgramme }}</span></span>
+                            <span class="dbd-cx-track" [attr.aria-label]="(r.elapsedPercent ?? 0) + '% through'"><i [style.width.%]="r.elapsedPercent ?? 0"></i></span>
+                            <span class="dbd-cx-when" [class.is-urgent]="t.urgent">{{ t.text }}</span>
+                            <i class="ri-arrow-right-line dbd-cx-go"></i>
+                          </a>
+                        </li>
+                      }
+                    </ul>
                   }
-                </ul>
-              } @else {
-                <div class="dbd-clear"><i class="ri-megaphone-line"></i><strong>No campaign is collecting right now</strong><span class="dbd-quiet">Launch one, or resume a paused campaign, to start receiving gifts.</span>
-                  <button type="button" class="dbd-btn dbd-btn--main" (click)="go('/app/fundraising/campaigns/campaign-wizard')">Create a campaign</button></div>
+                  @if (stageTotal() > 4) { <p class="dbd-foot-note">Showing 4 of {{ stageTotal() }}</p> }
+                } @else {
+                  <div class="dbd-clear"><i class="ri-megaphone-line"></i><strong>No {{ stageLabel() | lowercase }} campaigns</strong><span class="dbd-quiet">Nothing is at this stage right now.</span></div>
+                }
               }
-            }
+            </div>
+            @if (c.cancelled > 0) { <p class="dbd-foot-note">{{ c.cancelled }} cancelled</p> }
           } @else if (campaignsUnavailable()) {
             <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Campaigns are not available to your role</strong></div>
           }
@@ -324,11 +401,22 @@
           <header class="dbd-head"><h2 class="dbd-h">Top campaigns</h2></header>
           @if (sample()) {
             @if (topCampaigns().length) {
-              <ul class="dbd-fill dbd-bars">
-                @for (m of topCampaigns(); track m.label) {
-                  <li><a routerLink="/app/fundraising/campaigns/campaign-register"><span class="dbd-bar-name">{{ m.label }}</span><span class="dbd-num">{{ short(m.amount) }}</span><span class="dbd-prog"><i [style.width.%]="m.share"></i></span></a></li>
+              <div class="dbd-lq">
+                @for (m of campBoard(); track m.label; let i = $index) {
+                  <a class="dbd-lq-tile" [class.is-lead]="i === 0" [class.is-dim]="cbHover() !== null && cbHover() !== i" routerLink="/app/fundraising/campaigns/campaign-register" [style.--c]="m.colour" [style.--lvl]="m.width + '%'" [attr.data-pct]="(m.share | number: '1.0-0') + '%'" [style.--d]="i * 90 + 'ms'" (mouseenter)="cbHover.set(i)" (mouseleave)="cbHover.set(null)" (focus)="cbHover.set(i)" (blur)="cbHover.set(null)">
+                    <span class="dbd-lq-fill" aria-hidden="true"></span>
+                    <span class="dbd-lq-top">
+                      <span class="dbd-lq-rank">@if (i === 0) {<i class="ri-trophy-fill"></i>} @else { {{ m.rank }} }</span>
+                      <em>{{ m.share | number: '1.0-0' }}%</em>
+                    </span>
+                    <span class="dbd-lq-bot">
+                      <b class="dbd-num">{{ short(m.amount) }}</b>
+                      <strong>{{ m.label }}</strong>
+                      <span class="dbd-quiet">{{ m.count }} {{ m.count === 1 ? 'gift' : 'gifts' }}</span>
+                    </span>
+                  </a>
                 }
-              </ul>
+              </div>
             } @else {
               <div class="dbd-clear"><i class="ri-trophy-line"></i><strong>No ranking yet</strong><span class="dbd-quiet">Campaigns appear here once gifts arrive.</span></div>
             }
@@ -336,48 +424,77 @@
                   <a class="dbd-foot" routerLink="/app/fundraising/campaigns/campaign-register">Compare in the register <i class="ri-arrow-right-line"></i></a>
         </section>
 
-        <section class="dbd-tile dbd-s3" aria-label="Payment methods">
-          <header class="dbd-head"><h2 class="dbd-h">Payment methods</h2><a class="dbd-link" routerLink="/app/donations/payment-event-queue">{{ trendDays }} days <i class="ri-arrow-right-line"></i></a></header>
+        <section class="dbd-tile dbd-s4" aria-label="Top supporters">
+          <header class="dbd-head">
+            <h2 class="dbd-h">Top supporters</h2>
+            <a class="dbd-link" routerLink="/app/fundraising/relationships/donor-list">{{ trendDays }} days <i class="ri-arrow-right-line"></i></a>
+          </header>
           @if (sample()) {
-            @if (methodArcs().length) {
-              <div class="dbd-donut dbd-donut--grow">
-                <svg viewBox="0 0 42 42" aria-hidden="true">
-                  <circle class="dbd-donut-track" cx="21" cy="21" r="15.9155" />
-                  @for (a of methodArcs(); track a.label) { <circle class="dbd-arc dbd-arc--{{ a.tone }}" cx="21" cy="21" r="15.9155" [attr.stroke-dasharray]="a.dash" [attr.stroke-dashoffset]="a.offset" /> }
-                </svg>
-              </div>
-              <ul class="dbd-key">
-                @for (a of methodArcs(); track a.label) {
-                  <li><a routerLink="/app/donations/payment-event-queue"><span class="dbd-dot dbd-dot--{{ a.tone }}"></span>{{ a.label }}<b class="dbd-num">{{ a.pct | number: '1.0-0' }}%</b></a></li>
+            @if (topDonors().length) {
+              <ol class="dbd-fill dbd-pod">
+                @for (d of topDonors(); track d.label) {
+                  <li>
+                    <a routerLink="/app/fundraising/relationships/donor-list" [class]="'dbd-pod-row dbd-pod-row--' + d.rank">
+                      <span class="dbd-pod-rank"><i [class]="d.rank === 1 ? 'ri-vip-crown-2-fill' : ''">{{ d.rank === 1 ? '' : d.rank }}</i></span>
+                      <span class="dbd-pod-main"><strong>{{ d.label }}</strong><span class="dbd-quiet">{{ d.count }} {{ d.count === 1 ? 'gift' : 'gifts' }}</span></span>
+                      <span class="dbd-num">{{ short(d.amount) }}</span>
+                      <span class="dbd-prog"><i [style.width.%]="d.width"></i></span>
+                    </a>
+                  </li>
                 }
-              </ul>
+              </ol>
+              @if (giftStats(); as g) {
+                <div class="dbd-sum">
+                  <a routerLink="/app/fundraising/relationships/donor-list"><b class="dbd-num">{{ short(g.average) }}</b><span>average gift</span></a>
+                  <a routerLink="/app/fundraising/relationships/donor-list"><b class="dbd-num">{{ short(g.largest) }}</b><span>largest gift</span><em class="dbd-up">{{ g.donors }} supporters</em></a>
+                </div>
+              }
             } @else {
-              <div class="dbd-clear"><i class="ri-bank-card-line"></i><strong>No payments yet</strong><span class="dbd-quiet">UPI, card and bank mix shows here.</span></div>
+              <div class="dbd-clear"><i class="ri-heart-3-line"></i><strong>No supporters yet</strong><span class="dbd-quiet">Your most generous donors appear here once gifts arrive.</span></div>
             }
           } @else if (!loading()) { <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Not available to your role</strong></div> }
+          <a class="dbd-foot" routerLink="/app/fundraising/relationships/donor-list">See all donors <i class="ri-arrow-right-line"></i></a>
         </section>
 
-        <!-- ===== Latest donations | cases | leads ===== -->
-        <section class="dbd-tile dbd-s6" aria-label="Latest donations">
+        <!-- ===== Latest donations | leads ===== -->
+        <section class="dbd-tile dbd-s5 dbd-ldtile" aria-label="Latest donations">
           <header class="dbd-head">
             <h2 class="dbd-h">Latest donations</h2>
+            <span class="dbd-livechip"><i class="dbd-pulse"></i>Live</span>
           </header>
           @if (recent(); as rows) {
             @if (rows.length) {
-              <div class="dbd-table dbd-fill" role="table">
-                <div class="dbd-tr dbd-th" role="row">
-                  <span role="columnheader">Donor</span><span role="columnheader">Campaign</span><span role="columnheader">Received</span><span role="columnheader">Status</span><span role="columnheader" class="dbd-r">Amount</span>
+              <div class="dbd-lf-top">
+                <div class="dbd-lf-total">
+                  <span class="dbd-lf-eyebrow"><i class="dbd-pulse"></i>Latest {{ ldStats().count }} gifts</span>
+                  <b class="dbd-num">{{ short(ldStats().total) }}</b>
+                  <span class="dbd-lf-chips">
+                    <em class="dbd-lf-chip dbd-lf-chip--ok"><i class="ri-checkbox-circle-fill"></i>{{ ldStats().settled }} settled</em>
+                    @if (ldStats().count - ldStats().settled > 0) { <em class="dbd-lf-chip"><i class="ri-time-line"></i>{{ ldStats().count - ldStats().settled }} in progress</em> }
+                  </span>
                 </div>
-                @for (r of rows; track r.id) {
-                  <a class="dbd-tr" role="row" routerLink="/app/donations/payment-event-queue">
-                    <span class="dbd-who" role="cell"><strong>{{ r.donorName }}</strong><span class="dbd-quiet">{{ r.donationReference }}</span></span>
-                    <span role="cell" class="dbd-cut">{{ r.campaignName || 'General giving' }}</span>
-                    <span role="cell" class="dbd-quiet">{{ r.donatedAtUtc | date: 'd MMM, h:mm a' }}</span>
-                    <span role="cell" class="dbd-state"><span class="dbd-dot dbd-dot--{{ statusTone(r.status) }}"></span>{{ r.statusDescription }}</span>
-                    <span role="cell" class="dbd-r dbd-num dbd-amt">{{ r.amount.display }}</span>
-                  </a>
-                }
+                <div class="dbd-lf-bars" aria-hidden="true">
+                  @for (r of rows; track r.id; let i = $index) {
+                    <span class="dbd-lf-col" [class.is-on]="ldHover() === i" [class.is-dim]="ldHover() !== null && ldHover() !== i" [style.--h]="((r.amount.amount / ldStats().peak) * 100) + '%'" [style.--d]="i * 60 + 'ms'" [attr.data-tone]="statusTone(r.status)" [attr.title]="r.donorName + ' · ' + r.amount.display" (mouseenter)="ldHover.set(i)" (mouseleave)="ldHover.set(null)"><i></i></span>
+                  }
+                </div>
               </div>
+              <ul class="dbd-lf-list">
+                @for (r of rows; track r.id; let i = $index) {
+                  <li class="dbd-lf-item" [class.is-new]="i === 0" [class.is-dim]="ldHover() !== null && ldHover() !== i" [style.--d]="i * 70 + 'ms'" [attr.data-tone]="statusTone(r.status)">
+                    <a class="dbd-lf-row" routerLink="/app/donations/payment-event-queue" (mouseenter)="ldHover.set(i)" (mouseleave)="ldHover.set(null)" (focus)="ldHover.set(i)" (blur)="ldHover.set(null)">
+                      <span class="dbd-lf-node"><i [class]="methodIcon(r.methodType)"></i></span>
+                      <span class="dbd-lf-who">
+                        <strong>{{ r.donorName }}@if (i === 0) {<em class="dbd-lf-new">Latest</em>}</strong>
+                        <span class="dbd-quiet">{{ r.donationReference }} · {{ r.donatedAtUtc | date: 'd MMM, h:mm a' }}</span>
+                      </span>
+                      <span class="dbd-lf-camp"><span>{{ r.campaignName || 'General giving' }}</span></span>
+                      <span class="dbd-lf-state"><i></i>{{ r.statusDescription }}</span>
+                      <span class="dbd-lf-amt"><b class="dbd-num">{{ r.amount.display }}</b><span class="dbd-lf-meter"><i [style.width.%]="(r.amount.amount / ldStats().peak) * 100"></i></span></span>
+                    </a>
+                  </li>
+                }
+              </ul>
             } @else {
               <div class="dbd-clear"><i class="ri-hand-coin-line"></i><strong>No donations in the last {{ trendDays }} days</strong><span class="dbd-quiet">Gifts from every channel are listed here, newest first.</span>
                 <button type="button" class="dbd-btn dbd-btn--main" (click)="go('/app/money/finance/offline-donation-entry')">Record a donation</button></div>
@@ -388,79 +505,55 @@
                   <a class="dbd-foot" routerLink="/app/donations/payment-event-queue">Open payments &amp; receipts <i class="ri-arrow-right-line"></i></a>
         </section>
 
-        <section class="dbd-tile dbd-s3" aria-label="Open cases">
-          <header class="dbd-head">
-            <h2 class="dbd-h">Refunds &amp; chargebacks</h2>
-          </header>
-          @if (cases(); as list) {
-            @if (list.length) {
-              <ul class="dbd-fill dbd-feed">
-                @for (c of list; track c.reference) {
-                  <li>
-                    <a routerLink="/app/money/finance/finance-workbench">
-                      <span class="dbd-feed-main"><strong>{{ c.donor }}</strong><span class="dbd-quiet">{{ c.kind }} · {{ c.state }}</span></span>
-                      <span class="dbd-feed-end"><span class="dbd-num">{{ c.amount }}</span>@if (c.due) { <span class="dbd-feed-when" [class.is-late]="c.urgent">{{ c.due }}</span> }</span>
-                    </a>
-                  </li>
-                }
-              </ul>
-            } @else {
-              <div class="dbd-clear"><i class="ri-checkbox-circle-line"></i><strong>No open cases</strong><span class="dbd-quiet">Refund and chargeback cases appear here until resolved.</span>
-                <button type="button" class="dbd-btn" (click)="go('/app/money/finance/finance-workbench')">Open finance</button></div>
-            }
-          } @else if (!loading()) {
-            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Cases are not available to your role</strong></div>
-          }
-                  @if (cases()) {
-            <div class="dbd-sum">
-              <a routerLink="/app/money/finance/finance-workbench"><b class="dbd-num">{{ openRefunds() ?? 0 }}</b><span>open refunds</span></a>
-              <a routerLink="/app/money/finance/finance-workbench"><b class="dbd-num">{{ openChargebacks() ?? 0 }}</b><span>open chargebacks</span>@if ((overdueChargebacks() ?? 0) > 0) { <em class="is-late">{{ overdueChargebacks() }} overdue</em> }</a>
-            </div>
-          }
-          <a class="dbd-foot" routerLink="/app/money/finance/finance-workbench">Open the finance workbench <i class="ri-arrow-right-line"></i></a>
-        </section>
 
-        <section class="dbd-tile dbd-s3" aria-label="Leads">
-          <header class="dbd-head">
-            <h2 class="dbd-h">Lead funnel</h2>
-            <a class="dbd-link" routerLink="/app/fundraising/relationships/lead-work-queue">Queue <i class="ri-arrow-right-line"></i></a>
-          </header>
-          @if (leadFunnel().length) {
-            <ul class="dbd-fill dbd-funnel">
-              @for (f of leadFunnel(); track f.label) {
-                <li><a routerLink="/app/fundraising/relationships/lead-work-queue"><span class="dbd-funnel-name">{{ f.label }}</span><b class="dbd-num">{{ f.count | number }}</b><span class="dbd-funnel-track"><span class="dbd-funnel-bar" [style.width.%]="f.width"></span></span></a></li>
-              }
-            </ul>
-            <a class="dbd-fine" [class.is-warn]="leads()!.unassignedLeads > 0" routerLink="/app/fundraising/relationships/assignment-board">{{ leads()!.unassignedLeads > 0 ? leads()!.unassignedLeads + ' without an owner — assign now' : 'Every lead has an owner' }}</a>
-          } @else if (!loading()) {
-            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Leads are not available to your role</strong></div>
-          }
-        </section>
 
         <!-- ===== Gift sources ===== -->
-        <section class="dbd-tile dbd-s12 dbd-sources" aria-label="Gift sources">
+        <section class="dbd-tile dbd-s3 dbd-sources" aria-label="Gift sources">
           <header class="dbd-head">
-            <div><h2 class="dbd-h">Gift sources</h2><span class="dbd-quiet">Which channels the money came through</span></div>
+            <h2 class="dbd-h">Gift sources</h2>
             <a class="dbd-link" routerLink="/app/fundraising/campaigns/tracking-asset-manager">Tracking links <i class="ri-arrow-right-line"></i></a>
           </header>
           @if (sources(); as s) {
-            @if (topChannels().length) {
-              <ul class="dbd-chan">
-                @for (ch of topChannels(); track ch.key) {
-                  <li><a routerLink="/app/fundraising/campaigns/tracking-asset-manager">
-                    <b class="dbd-num">{{ ch.sharePercentage | number: '1.0-0' }}%</b>
-                    <span class="dbd-prog"><i [style.width.%]="ch.sharePercentage"></i></span>
-                    <span class="dbd-chan-name">{{ ch.label }}</span>
-                    <span class="dbd-quiet">{{ ch.donationCount | number }} gifts</span>
-                  </a></li>
-                }
-                <li class="dbd-chan-rest"><a routerLink="/app/fundraising/campaigns/tracking-asset-manager">
-                  <b class="dbd-num">{{ 100 - s.attributionRate | number: '1.0-0' }}%</b>
-                  <span class="dbd-prog"><i [style.width.%]="100 - s.attributionRate"></i></span>
-                  <span class="dbd-chan-name">Not traced</span>
-                  <span class="dbd-quiet">add tracking links</span>
-                </a></li>
-              </ul>
+            @if (srcBoard(); as b) {
+              @if (b.arcs.length) {
+              <div class="dbd-sx">
+                <div class="dbd-sx-hero">
+                  <b class="dbd-num dbd-sx-big" [style.--t]="b.traced | number: '1.0-0'"></b>
+                  <span class="dbd-st-copy"><strong>Traced to a source</strong><span class="dbd-quiet"><strong>{{ b.arcs[0].label }}</strong> leads the way</span></span>
+                </div>
+                <div class="dbd-sx-bar" aria-hidden="true">
+                  @for (a of b.arcs; track a.key; let i = $index) {
+                    <span class="dbd-sx-seg" [class.is-dim]="srcHover() !== null && srcHover() !== i" [style.--c]="a.colour" [style.flex-grow]="a.share" [style.--e]="i * 90 + 'ms'"></span>
+                  }
+                  @if (b.untraced > 0.5) { <span class="dbd-sx-seg dbd-sx-seg--rest" [class.is-dim]="srcHover() !== null && srcHover() !== -1" [style.flex-grow]="b.untraced"></span> }
+                </div>
+                <ol class="dbd-sx-list">
+                  @for (a of b.arcs; track a.key; let i = $index) {
+                    <li [style.--e]="i * 80 + 'ms'">
+                      <a class="dbd-sx-row" routerLink="/app/fundraising/campaigns/tracking-asset-manager" [class.is-dim]="srcHover() !== null && srcHover() !== i" [style.--c]="a.colour" [style.--w]="a.share + '%'" (mouseenter)="srcHover.set(i)" (mouseleave)="srcHover.set(null)" (focus)="srcHover.set(i)" (blur)="srcHover.set(null)">
+                        <span class="dbd-sx-mark"><i [class]="a.icon"></i></span>
+                        <span class="dbd-sx-body"><strong>{{ a.label }}</strong><span class="dbd-quiet">{{ a.count | number }} gifts · {{ short(a.amount) }}</span></span>
+                        <b class="dbd-num dbd-sx-fig">{{ a.share | number: '1.0-0' }}<small>%</small></b>
+                        <span class="dbd-sx-meter"><i></i></span>
+                      </a>
+                    </li>
+                  }
+                  @if (b.untraced > 0.5) {
+                    <li [style.--e]="b.arcs.length * 80 + 'ms'">
+                      <a class="dbd-sx-row dbd-sx-row--rest" routerLink="/app/fundraising/campaigns/tracking-asset-manager" [class.is-dim]="srcHover() !== null && srcHover() !== -1" [style.--w]="b.untraced + '%'" (mouseenter)="srcHover.set(-1)" (mouseleave)="srcHover.set(null)" (focus)="srcHover.set(-1)" (blur)="srcHover.set(null)">
+                        <span class="dbd-sx-mark"><i class="ri-question-line"></i></span>
+                        <span class="dbd-sx-body"><strong>Not traced</strong><span class="dbd-quiet">{{ b.untracedGifts | number }} gifts · add links</span></span>
+                        <b class="dbd-num dbd-sx-fig">{{ b.untraced | number: '1.0-0' }}<small>%</small></b>
+                        <span class="dbd-sx-meter"><i></i></span>
+                      </a>
+                    </li>
+                  }
+                </ol>
+              </div>
+              } @else {
+                <div class="dbd-clear dbd-clear--row"><i class="ri-qr-code-line"></i><span><strong>No traced gifts yet</strong><span class="dbd-quiet">Create QR codes and tracking links so every gift shows where it came from.</span></span>
+                  <button type="button" class="dbd-btn" (click)="go('/app/fundraising/campaigns/tracking-asset-manager')">Create tracking links</button></div>
+              }
             } @else {
               <div class="dbd-clear dbd-clear--row"><i class="ri-qr-code-line"></i><span><strong>No traced gifts yet</strong><span class="dbd-quiet">Create QR codes and tracking links so every gift shows where it came from.</span></span>
                 <button type="button" class="dbd-btn" (click)="go('/app/fundraising/campaigns/tracking-asset-manager')">Create tracking links</button></div>
@@ -469,6 +562,41 @@
             <div class="dbd-clear dbd-clear--row"><i class="ri-lock-line"></i><strong>Attribution is not available to your role</strong></div>
           }
         </section>
+
+        <!-- ===== Lead funnel ===== -->
+        <section class="dbd-tile dbd-s4 dbd-leadtile" aria-label="Leads">
+          <header class="dbd-head">
+            <h2 class="dbd-h">Lead funnel</h2>
+            <a class="dbd-link" routerLink="/app/fundraising/relationships/lead-work-queue">Queue <i class="ri-arrow-right-line"></i></a>
+          </header>
+          @if (leadFunnel().length) {
+            <div class="dbd-st">
+              <div class="dbd-st-hero">
+                <div class="dbd-st-fig">
+                  <b class="dbd-num dbd-st-big">{{ conversion() | number: '1.0-1' }}<small>%</small></b>
+                </div>
+                <span class="dbd-st-copy"><strong>Lead conversion</strong><span class="dbd-quiet">{{ leadFunnel()[3].count | number }} of {{ leadFunnel()[0].count | number }} leads became donors</span></span>
+                <span class="dbd-fx-live"><span class="dot"></span>Live</span>
+              </div>
+              <ol class="dbd-st-rows">
+                @for (f of funnelSteps(); track f.label; let i = $index) {
+                  <li [style.--e]="i * 110 + 'ms'">
+                    <a routerLink="/app/fundraising/relationships/lead-work-queue" [class]="'dbd-st-row dbd-st-row--' + f.tone" [style.--w]="f.pct + '%'">
+                      <span class="dbd-st-name">{{ f.label }}</span>
+                      <span class="dbd-st-pct">{{ f.pct }}%</span>
+                      <b class="dbd-num dbd-st-count">{{ f.count | number }}</b>
+                      <span class="dbd-st-meter"><i></i></span>
+                    </a>
+                  </li>
+                }
+              </ol>
+              <a class="dbd-fx-alert" [class.is-ok]="leads()!.unassignedLeads === 0" routerLink="/app/fundraising/relationships/assignment-board"><span class="dot"></span><span>{{ leads()!.unassignedLeads > 0 ? leads()!.unassignedLeads + ' without an owner' : 'Every lead has an owner' }}</span><em>{{ leads()!.unassignedLeads > 0 ? 'Assign now' : 'Open board' }} <i class="ri-arrow-right-line"></i></em></a>
+            </div>
+          } @else if (!loading()) {
+            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Leads are not available to your role</strong></div>
+          }
+        </section>
+
 
       </div>
     </div>

@@ -17,6 +17,7 @@ import {
   ReferenceDataResponse,
 } from '../../../../Shared/models/iam-contract.model';
 import { forkJoin } from 'rxjs';
+import { emailError, employeeNumberError, minLengthError, nameError, phoneWithCodeError, requiredError, textWithLettersError, usernameError } from '../../../../Shared/validation/field-rules';
 
 /** One row of a custom dropdown, normalised from whichever source the list comes from. */
 interface CuDdOption {
@@ -195,7 +196,91 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
   /** The server's complaint about one field, if it made one. */
   errorFor(field: string): string | null {
-    return this.serverErrors()[field] ?? null;
+    return this.serverErrors()[field] ?? (this.submitted() || this.touched().has(field) ? this.localError(field) : null);
+  }
+
+  /** Fields the person has left at least once: their messages show without waiting for Continue. */
+  readonly touched = signal<ReadonlySet<string>>(new Set());
+
+  touch(field: string): void {
+    if (!this.touched().has(field)) {
+      this.touched.update((current) => new Set(current).add(field));
+    }
+  }
+
+  /** Element ids, to move focus to the first invalid field. */
+  private static readonly FIELD_ID: Record<string, string> = {
+    accountCategory: 'cuCategory', firstName: 'cuFirst', lastName: 'cuLast', displayName: 'cuDisplay',
+    preferredName: 'cuPreferred', email: 'cuEmail', username: 'cuUsername', mobileCountryCode: 'cuCode',
+    mobileNumber: 'cuMobile', employeeNumber: 'cuEmployee', designation: 'cuDesignation',
+    businessJustification: 'cuJustification',
+  };
+
+  private focusFirstInvalid(step: number): void {
+    const first = (CreateUserComponent.STEP_FIELDS[step] ?? []).find((field) => this.errorFor(field) !== null);
+    const id = first ? CreateUserComponent.FIELD_ID[first] : undefined;
+    if (id) {
+      setTimeout(() => (document.getElementById(id) as HTMLElement | null)?.focus());
+    }
+  }
+
+  /** Display names of the fields, for the "fix these" summary. */
+  private static readonly FIELD_LABEL: Record<string, string> = {
+    accountCategory: 'Account type', firstName: 'First name', lastName: 'Last name', displayName: 'Display name',
+    preferredName: 'Preferred name', email: 'Login e-mail', username: 'Username', mobileCountryCode: 'Country code',
+    mobileNumber: 'Mobile', employeeNumber: 'Employee or volunteer number', engagementType: 'Engagement',
+    primaryRoleId: 'Primary role', dataScopeType: 'Data scope', mfaRequirement: 'Two-step verification',
+    businessJustification: 'Business justification',
+  };
+
+  /** The fields each step checks, in screen order. */
+  private static readonly STEP_FIELDS: string[][] = [
+    ['accountCategory', 'firstName', 'lastName', 'displayName', 'preferredName', 'email', 'username',
+      'mobileCountryCode', 'mobileNumber', 'employeeNumber'],
+    ['engagementType', 'designation'],
+    ['primaryRoleId', 'dataScopeType', 'businessJustification'],
+    ['mfaRequirement'],
+  ];
+
+  /**
+   * What is wrong with a field by this screen's own rules, or null. Independent of whether the
+   * person has tried to continue yet: that decides only whether the message is SHOWN (errorFor).
+   */
+  private localError(field: string): string | null {
+    const f = this.form();
+
+    switch (field) {
+      case 'accountCategory': return requiredError('Account type', f.accountCategory);
+      case 'firstName': return nameError('First name', f.firstName, true, 80);
+      case 'lastName': return nameError('Last name', f.lastName, true, 80);
+      case 'displayName': return nameError('Display name', f.displayName, true, 160);
+      case 'preferredName': return nameError('Preferred name', f.preferredName, false, 160);
+      case 'email': return emailError('Login e-mail', f.email);
+      case 'username': return usernameError('Username', f.username);
+      case 'mobileCountryCode':
+        return f.mobileNumber.trim() && !f.mobileCountryCode ? 'Choose a country code for this number.' : null;
+      case 'mobileNumber':
+        return f.mobileNumber.trim() && !f.mobileCountryCode
+          ? null
+          : phoneWithCodeError('Mobile', f.mobileCountryCode, f.mobileNumber, { required: this.mobileRequired() });
+      case 'employeeNumber':
+        return employeeNumberError('Employee or volunteer number', f.employeeNumber, this.employeeNumberRequired());
+      case 'designation': return textWithLettersError('Designation', f.designation, { required: false, max: 120 });
+      case 'engagementType': return requiredError('Engagement', f.engagementType);
+      case 'primaryRoleId': return f.primaryRoleId ? null : 'Choose a primary role.';
+      case 'dataScopeType': return requiredError('Data scope', f.dataScopeType);
+      case 'mfaRequirement': return requiredError('Two-step verification', f.mfaRequirement);
+      case 'businessJustification':
+        return minLengthError('Business justification', f.businessJustification, 10);
+      default: return null;
+    }
+  }
+
+  /** Names of the fields on a step that fail, for the summary banner. */
+  private invalidLabels(step: number): string[] {
+    return (CreateUserComponent.STEP_FIELDS[step] ?? [])
+      .filter((field) => this.localError(field) !== null)
+      .map((field) => CreateUserComponent.FIELD_LABEL[field] ?? field);
   }
 
   /** Every server error, with the step each belongs to, for the summary banner. */
@@ -312,23 +397,9 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     this.conditionalFields().some((field) => field.toLowerCase().includes('mobile')),
   );
 
-  readonly identityComplete = computed(() => {
-    const f = this.form();
-
-    const core = Boolean(
-      f.accountCategory &&
-      f.firstName.trim() && f.lastName.trim() && f.displayName.trim() && f.email.trim() && f.username.trim(),
-    );
-
-    const conditional =
-      (!this.employeeNumberRequired() || Boolean(f.employeeNumber.trim())) &&
-      (!this.mobileRequired() || Boolean(f.mobileNumber.trim())) &&
-      // A mobile number without its country code is the exact payload the API rejects, and the
-      // code is no longer defaulted to +91 - so it has to be asked for once a number is typed.
-      (!f.mobileNumber.trim() || Boolean(f.mobileCountryCode));
-
-    return core && conditional;
-  });
+  readonly identityComplete = computed(() =>
+    CreateUserComponent.STEP_FIELDS[0].every((field) => this.localError(field) === null),
+  );
 
   /**
    * The Organisation step has nothing that must be answered.
@@ -344,17 +415,18 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
    * beside the empty list says where to create them, but nobody should be unable to invite their
    * first colleague for want of an org chart.
    */
-  readonly organisationComplete = computed(() => Boolean(this.form().engagementType));
+  readonly organisationComplete = computed(
+    () => this.localError('engagementType') === null && this.localError('designation') === null,
+  );
 
-  readonly accessComplete = computed(() => {
-    const f = this.form();
+  readonly accessComplete = computed(() =>
     // The API insists on a justification of at least ten characters: granting access without a
     // recorded reason is exactly what an access review later has no answer for.
-    return Boolean(f.primaryRoleId && f.dataScopeType && f.businessJustification.trim().length >= 10);
-  });
+    CreateUserComponent.STEP_FIELDS[2].every((field) => this.localError(field) === null),
+  );
 
   /** Security step: two-step verification is an enum the API requires, so it must be chosen. */
-  readonly securityComplete = computed(() => Boolean(this.form().mfaRequirement));
+  readonly securityComplete = computed(() => this.localError('mfaRequirement') === null);
 
   readonly canSubmit = computed(
     () =>
@@ -624,11 +696,43 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
     if (!this.isStepComplete(this.activeStep())) {
       this.submitted.set(true);
+      this.errorMessage.set(`Please correct: ${this.invalidLabels(this.activeStep()).join(', ')}.`);
+      this.focusFirstInvalid(this.activeStep());
+      return;
+    }
+
+    // The e-mail / username check is the server's word on "already in use": stay here until it is clean.
+    if (this.activeStep() === 0 && !this.identityPasses()) {
       return;
     }
 
     this.activeStep.update((step) => Math.min(step + 1, this.steps.length - 1));
     this.submitted.set(false);
+  }
+
+  /** False (with the message under the field) while the server says the e-mail or username is taken. */
+  private identityPasses(): boolean {
+    const check = this.identityCheck();
+
+    if (!check) {
+      return true;
+    }
+
+    if (check.checking) {
+      this.errorMessage.set('Still checking the e-mail and username. Try again in a moment.');
+      return false;
+    }
+
+    if (check.ok) {
+      return true;
+    }
+
+    const field = /user ?name/i.test(check.message) ? 'username' : 'email';
+    this.serverErrors.update((current) => ({ ...current, [field]: check.message || 'That value is not available.' }));
+    this.submitted.set(true);
+    this.errorMessage.set(check.message);
+    this.focusFirstInvalid(0);
+    return false;
   }
 
   previousStep(): void {
@@ -684,36 +788,10 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   }
 
   isFieldInvalid(field: string): boolean {
-    // A field the server rejected is invalid whatever the local rules think — its rules are the
-    // ones that actually decide whether the create succeeds.
-    if (this.errorFor(field)) {
-      return true;
-    }
-
-    if (!this.submitted()) {
-      return false;
-    }
-
-    const f = this.form();
-
-    switch (field) {
-      case 'firstName': return !f.firstName.trim();
-      case 'lastName': return !f.lastName.trim();
-      case 'displayName': return !f.displayName.trim();
-      case 'email': return !f.email.trim();
-      case 'username': return !f.username.trim();
-      case 'accountCategory': return !f.accountCategory;
-      case 'engagementType': return !f.engagementType;
-      case 'dataScopeType': return !f.dataScopeType;
-      case 'mfaRequirement': return !f.mfaRequirement;
-      case 'mobileCountryCode': return Boolean(f.mobileNumber.trim()) && !f.mobileCountryCode;
-      case 'primaryRoleId': return !f.primaryRoleId;
-      case 'businessJustification': return f.businessJustification.trim().length < 10;
-      // Only invalid when the chosen account category actually demands them.
-      case 'employeeNumber': return this.employeeNumberRequired() && !f.employeeNumber.trim();
-      case 'mobileNumber': return this.mobileRequired() && !f.mobileNumber.trim();
-      default: return false;
-    }
+    // A field the server rejected is invalid whatever the local rules think - its rules are the
+    // ones that actually decide whether the create succeeds. Otherwise it is this screen's rules,
+    // shown once the person has tried to continue.
+    return this.errorFor(field) !== null;
   }
 
   // =========================================================================================
@@ -734,7 +812,13 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     this.submitted.set(true);
 
     if (!this.canSubmit()) {
-      this.errorMessage.set('Some required details are still missing. Check each step above.');
+      const bad = [0, 1, 2, 3].flatMap((step) => this.invalidLabels(step));
+      this.errorMessage.set(`Please correct: ${bad.join(', ')}.`);
+      const stepWithError = [0, 1, 2, 3].find((step) => !this.isStepComplete(step));
+      if (stepWithError !== undefined) {
+        this.activeStep.set(stepWithError);
+        this.focusFirstInvalid(stepWithError);
+      }
       return;
     }
 

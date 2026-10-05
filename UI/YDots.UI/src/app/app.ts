@@ -4,6 +4,7 @@ import { LayoutService } from './Service/layout-service';
 import { Toast } from "./Shared/components/toast/toast";
 import { CommonModule } from '@angular/common';
 import { DateFieldPickerService } from './Shared/services/date-field-picker.service';
+import { InputGuardService } from './Shared/services/input-guard.service';
 
 @Component({
   selector: 'app-root',
@@ -17,6 +18,8 @@ export class App {
   constructor() {
     // Every date field in the app opens the shared calendar on a click anywhere in the field.
     inject(DateFieldPickerService).install();
+    // Number boxes refuse letters and name boxes refuse digits, app-wide.
+    inject(InputGuardService).install();
   }
 
  

@@ -40,21 +40,19 @@
       <div class="df-grid">
         <div class="of-field">
           <label for="df-code">Code <em>*</em></label>
-          <input id="df-code" type="text" class="of-input of-mono" maxlength="20" placeholder="e.g. FUN"
+          <input id="df-code" type="text" data-input="free" class="of-input of-mono" maxlength="50" placeholder="e.g. FUN" (blur)="touch('code')"
                  autocapitalize="characters" spellcheck="false"
-                 [class.is-invalid]="(attempted() && !codeValid()) || fieldErrors()['code']"
-                 [ngModel]="form().code" (ngModelChange)="update('code', $event.toUpperCase())">
-          @if (fieldErrors()['code']) { <span class="of-error">{{ fieldErrors()['code'] }}</span> }
-          @else if (attempted() && !codeValid()) { <span class="of-error">At least two characters.</span> }
+                 [class.is-invalid]="!!error('code')"
+                 [ngModel]="form().code" (ngModelChange)="update('code', $event)">
+          @if (error('code')) { <span class="of-error">{{ error('code') }}</span> }
         </div>
 
         <div class="of-field df-span-2">
           <label for="df-name">Name <em>*</em></label>
-          <input id="df-name" type="text" class="of-input" maxlength="200" placeholder="e.g. Fundraising"
-                 [class.is-invalid]="(attempted() && !nameValid()) || fieldErrors()['name']"
+          <input id="df-name" type="text" class="of-input" maxlength="200" placeholder="e.g. Fundraising" (blur)="touch('name')"
+                 [class.is-invalid]="!!error('name')"
                  [ngModel]="form().name" (ngModelChange)="update('name', $event)">
-          @if (fieldErrors()['name']) { <span class="of-error">{{ fieldErrors()['name'] }}</span> }
-          @else if (attempted() && !nameValid()) { <span class="of-error">Give the department a name of at least two characters.</span> }
+          @if (error('name')) { <span class="of-error">{{ error('name') }}</span> }
           @if (isNew()) {
             <div class="of-suggest df-suggest" role="group" aria-label="Common departments">
               @for (name of nameSuggestions; track name) {
@@ -82,6 +80,12 @@
           @if (people.loadError()) { <span class="of-error">{{ people.loadError() }}</span> }
         </div>
 
+        <div class="of-field">
+          <label for="df-order">Display order</label>
+          <input id="df-order" type="number" class="of-input" min="0"
+                 [ngModel]="form().displayOrder" (ngModelChange)="update('displayOrder', +$event)">
+        </div>
+
         @if (!isNew()) {
           <div class="of-field  ">
             <label for="df-status">Status</label>
@@ -94,11 +98,12 @@
 
         <div class="of-field df-span-2">
           <label for="df-description" class="df-label-row">
-            Description <span class="df-count">{{ form().description.length }} / 500</span>
+            Description <span class="df-count">{{ form().description.length }} / 1000</span>
           </label>
-          <textarea id="df-description" class="of-input" rows="2" maxlength="500"
+          <textarea id="df-description" class="of-input" rows="2" maxlength="1000" (blur)="touch('description')" [class.is-invalid]="!!error('description')"
                     placeholder="What this department is responsible for."
                     [ngModel]="form().description" (ngModelChange)="update('description', $event)"></textarea>
+          @if (error('description')) { <span class="of-error">{{ error('description') }}</span> }
         </div>
       </div>
     }

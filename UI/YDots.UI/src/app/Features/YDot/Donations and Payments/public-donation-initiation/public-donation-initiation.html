@@ -301,9 +301,9 @@
                 </span>
               </label>
 
-              <!-- Mobile number — optional, validated only when given -->
+              <!-- Mobile number — required -->
               <label class="pf-field">
-                <span class="pf-label">Mobile number</span>
+                <span class="pf-label">Mobile number <span class="pf-req">*</span></span>
                 <span class="pf-control" [class.has-error]="mobileInvalid() && uiState() === 'validation'">
                   <input id="fld-mobileNumber" type="tel" inputmode="tel" class="pf-input" maxlength="20"
                          autocomplete="off" placeholder="Enter mobile number"
@@ -311,8 +311,8 @@
                          [ngModel]="mobileNumber()" (ngModelChange)="mobileNumber.set($event)" name="mobileNumber"
                          [attr.aria-invalid]="mobileInvalid() && uiState() === 'validation'" />
                 </span>
-                @if (mobileInvalid()) {
-                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Review Mobile No. Enter 10 to 15 digits.</span>
+                @if (mobileInvalid() && (mobileNumber().trim() || uiState() === 'validation')) {
+                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>{{ mobileNumber().trim() ? 'Review Mobile No. Enter 10 to 15 digits.' : 'Enter Mobile No.' }}</span>
                 }
               </label>
 

@@ -17,7 +17,7 @@ import { AttributionSummary, CampaignListItem, CampaignStatistics } from '../../
 import { AuditEventResponse } from '../../../Shared/models/iam-contract.model';
 import { FollowUp, LeadQueueSummary } from '../../../Shared/models/donor-contract.model';
 // SAMPLE DATA - delete with dashboard.mock.ts (see the note at the top of that file).
-import { buildDashboardMock, DASHBOARD_MOCK_ENABLED } from './dashboard.mock';
+import { buildDashboardMock, DASHBOARD_MOCK_ENABLED, mockCampaignsForStage } from './dashboard.mock';
 
 interface JourneyStage {
   key: keyof CampaignStatistics;
@@ -132,6 +132,36 @@ export class DashboardComponent implements OnInit {
   readonly donorCount = signal<number | null>(null);
   readonly recent = signal<DonationListItem[] | null>(null);
   readonly running = signal<CampaignListItem[] | null>(null);
+  readonly stage =signal<keyof CampaignStatistics>('active');
+  readonly stageMenu = signal(false);
+  readonly stageCount = computed(() => this.journey().find((j) => j.key === this.stage())?.count ?? 0);
+  readonly stageRows = signal<CampaignListItem[] | null>(null);
+  readonly stageTotal = signal(0);
+  readonly stageLoading = signal(false);
+  readonly stageLabel = computed(() => this.journey().find((j) => j.key === this.stage())?.label ?? '');
+
+  /** Show a stage's campaigns inside the tile instead of leaving for the register. */
+  pickStage(key: keyof CampaignStatistics): void {
+    this.stage.set(key);
+    if (DASHBOARD_MOCK_ENABLED) {
+      const res = mockCampaignsForStage(key);
+      this.stageRows.set(res.items as unknown as CampaignListItem[]);
+      this.stageTotal.set(res.totalCount);
+      this.stageLoading.set(false);
+      return;
+    }
+    this.stageLoading.set(true);
+    this.campaignApi
+      .searchCampaigns({ page: 1, pageSize: 6, status: key as never })
+      .pipe(catchError(() => of(null)))
+      .subscribe((res) => {
+        if (this.stage() !== key) return;
+        this.stageRows.set(res?.items ?? []);
+        this.stageTotal.set(res?.totalCount ?? res?.items?.length ?? 0);
+        this.stageLoading.set(false);
+      });
+  }
+
   readonly leads = signal<LeadQueueSummary | null>(null);
   readonly receipts = signal<ReceiptRegisterSummary | null>(null);
   readonly sources = signal<AttributionSummary | null>(null);
@@ -217,7 +247,27 @@ export class DashboardComponent implements OnInit {
       .slice(0, limit);
   }
 
+  readonly topDonors = computed(() => {
+    const rows = this.mix((i) => i.donorName || 'Anonymous', 4);
+    const top = Math.max(...rows.map((r) => r.amount), 1);
+    return rows.map((r, i) => ({ ...r, rank: i + 1, width: (r.amount / top) * 100 }));
+  });
+  readonly giftStats = computed(() => {
+    const items = this.sampleCounted();
+    if (!items.length) return null;
+    const total = items.reduce((t, i) => t + i.amount.amount, 0);
+    const largest = Math.max(...items.map((i) => i.amount.amount));
+    const donors = new Set(items.map((i) => i.donorName || 'Anonymous')).size;
+    return { average: total / items.length, largest, donors };
+  });
   readonly topCampaigns = computed(() => this.mix((i) => i.campaignName || 'General giving', 5));
+  readonly cbHover = signal<number | null>(null);
+  readonly campBoard = computed(() => {
+    const rows = this.topCampaigns();
+    const top = Math.max(...rows.map((r) => r.amount), 1);
+    const colours = ['var(--c-ok)', '#3f9d8f', 'var(--c-wait)', '#6b7fd7', '#8a6fd1'];
+    return rows.map((r, i) => ({ ...r, rank: i + 1, width: (r.amount / top) * 100, colour: colours[i % colours.length] }));
+  });
   readonly methodMix = computed(() =>
     this.mix(
       (i) =>
@@ -250,6 +300,54 @@ export class DashboardComponent implements OnInit {
   readonly topChannels = computed(() =>
     [...(this.sources()?.byChannel ?? [])].sort((a, b) => b.amount - a.amount).slice(0, 4),
   );
+
+  /** Hovered channel on the Gift sources ring; the matching arc and row light up while the rest dim. */
+  readonly srcHover = signal<number | null>(null);
+
+  /** Channels as ring arcs: each carries its colour, glyph, and where its arc starts on the 100-unit circle. */
+  readonly srcBoard = computed(() => {
+    const s = this.sources();
+    const channels = this.topChannels();
+    if (!s) return null;
+    const colours = ['#1f7a5c', '#3f9d8f', '#4a97a0', '#6b7fd7'];
+    const icon = (l: string) =>
+      /whats/i.test(l) ? 'ri-whatsapp-line'
+      : /mail/i.test(l) ? 'ri-mail-send-line'
+      : /qr|poster|print/i.test(l) ? 'ri-qr-code-line'
+      : /web|site|link/i.test(l) ? 'ri-global-line'
+      : /sms|text/i.test(l) ? 'ri-message-2-line'
+      : /social|insta|face|twit/i.test(l) ? 'ri-share-circle-line'
+      : 'ri-radar-line';
+    const topAmount = Math.max(...channels.map((c) => c.amount), 1);
+    const gap = 0.9;
+    let cursor = 0;
+    const arcs = channels.map((c, i) => {
+      const span = Math.max(c.sharePercentage, 0);
+      const arc = { start: cursor, len: Math.max(span - gap, 0.4) };
+      cursor += span;
+      return {
+        key: c.key, label: c.label, share: c.sharePercentage, count: c.donationCount, amount: c.amount,
+        colour: colours[i % colours.length], icon: icon(c.label), rel: (c.amount / topAmount) * 100, size: Math.round(46 + Math.sqrt(Math.max(c.sharePercentage, 0)) * 8),
+        dash: `${arc.len} ${100 - arc.len}`, offset: 25 - arc.start, lead: i === 0,
+      };
+    });
+    const untraced = Math.max(100 - s.attributionRate, 0);
+    const other = Math.max(s.attributionRate - cursor, 0);
+    const rest = (start: number, span: number) => ({ dash: `${Math.max(span - gap, 0.4)} ${100 - Math.max(span - gap, 0.4)}`, offset: 25 - start });
+    return {
+      arcs,
+      traced: s.attributionRate,
+      untraced,
+      untracedArc: rest(cursor + other, untraced),
+      untracedSize: Math.round(46 + Math.sqrt(untraced) * 8),
+      /** Untraced share scaled against the leading channel, so its ring reads on the same scale as the others. */
+      untracedRel: Math.min(untraced / Math.max(channels[0]?.sharePercentage ?? 1, 1), 1) * 100,
+      other,
+      otherArc: rest(cursor, other),
+      untracedGifts: s.unattributedDonations,
+      tracedGifts: s.attributedDonations,
+    };
+  });
 
   readonly nothingYet = computed(
     () =>
@@ -546,6 +644,19 @@ export class DashboardComponent implements OnInit {
     ),
   );
 
+  readonly methodTotal = computed(() => this.methodArcs().reduce((t, a) => t + a.count, 0));
+  /** The slice under the pointer (or focused); drives the centre read-out and the tooltip. */
+  readonly hoverMethod = signal<Arc | null>(null);
+  readonly hoverPos = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  pointMethod(a: Arc | null, ev?: MouseEvent): void {
+    this.hoverMethod.set(a);
+    if (a && ev) {
+      const box = (ev.currentTarget as Element).closest('.dbd-donut')!.getBoundingClientRect();
+      this.hoverPos.set({ x: ev.clientX - box.left, y: ev.clientY - box.top });
+    }
+  }
+
   readonly receiptRate = computed(() => {
     const r = this.receipts();
     const t = r ? r.successful + r.failed : 0;
@@ -562,6 +673,69 @@ export class DashboardComponent implements OnInit {
       { label: 'Hot', count: l.hotLeads },
       { label: 'Converted', count: l.convertedLeads },
     ].map((r) => ({ ...r, width: Math.max((r.count / top) * 100, r.count > 0 ? 3 : 0) }));
+  });
+
+  /** Share of all leads that reached each step, for the tapered funnel. */
+  readonly funnelSteps = computed(() => {
+    const rows = this.leadFunnel();
+    const all = rows[0]?.count || 0;
+    return rows.map((r, i) => ({
+      ...r,
+      tone: ['brand', 'wait', 'warn', 'ok'][i] ?? 'ok',
+      pct: all > 0 ? Math.round((r.count / all) * 100) : 0,
+      span: Math.max(all > 0 ? (r.count / all) * 100 : 0, 64),
+    }));
+  });
+  /** Funnel silhouette: one curved band per step on a 100 x 400 canvas, each as wide as the share of leads that reached it. */
+  readonly funnelBands = computed(() => {
+    const steps = this.funnelSteps();
+    const half = (i: number) => Math.max(steps[Math.min(i, steps.length - 1)]?.pct ?? 0, 16) / 2;
+    return steps.map((s, i) => {
+      const y0 = i * 100;
+      const y1 = y0 + 98.5;
+      const ym = (y0 + y1) / 2;
+      const a = half(i);
+      const b = i === steps.length - 1 ? a * 0.82 : half(i + 1);
+      return {
+        tone: s.tone,
+        d: `M${50 - a} ${y0} C${50 - a} ${ym} ${50 - b} ${ym} ${50 - b} ${y1} L${50 + b} ${y1} C${50 + b} ${ym} ${50 + a} ${ym} ${50 + a} ${y0} Z`,
+      };
+    });
+  });
+
+  readonly conversion = computed(() => {
+    const f = this.leadFunnel();
+    const all = f[0]?.count || 0;
+    return all > 0 ? Math.round(((f[3]?.count ?? 0) / all) * 1000) / 10 : 0;
+  });
+
+  /** Needs-attention workload as a ring: one coloured arc per item, sized by its count. */
+  readonly attnHover = signal<number | null>(null);
+  readonly attnRing = computed(() => {
+    const items = this.attention().slice(0, 6);
+    const total = items.reduce((t, a) => t + a.count, 0);
+    const peak = Math.max(...items.map((a) => a.count), 1);
+    const colours = ['var(--c-bad)', '#e08a3c', 'var(--c-warn)', 'var(--c-wait)', '#6b7fd7', 'var(--c-ok)'];
+    let acc = 0;
+    return {
+      total,
+      rows: items.map((a, i) => {
+        const pct = total > 0 ? (a.count / total) * 100 : 0;
+        const dash = Math.max(pct - 1.6, 0.5);
+        const row = { ...a, pct, colour: colours[i % colours.length], dash: `${dash} ${100 - dash}`, offset: 25 - acc, width: (a.count / peak) * 100 };
+        acc += pct;
+        return row;
+      }),
+    };
+  });
+
+  readonly ldHover = signal<number | null>(null);
+  readonly ldStats = computed(() => {
+    const rows = this.recent() ?? [];
+    const total = rows.reduce((t, r) => t + r.amount.amount, 0);
+    const peak = Math.max(...rows.map((r) => r.amount.amount), 1);
+    const settled = rows.filter((r) => this.statusTone(r.status) === 'ok').length;
+    return { count: rows.length, total, peak, settled };
   });
 
   readonly stageMax = computed(() => Math.max(...this.journey().map((j) => j.count), 1));
@@ -674,6 +848,7 @@ export class DashboardComponent implements OnInit {
           : null,
       );
       this.running.set(result.running?.items ?? null);
+      this.pickStage(this.stage());
       this.leads.set(result.leads?.summary ?? null);
       this.receipts.set(result.receipts?.summary ?? null);
       this.sources.set(result.sources);
@@ -691,6 +866,23 @@ export class DashboardComponent implements OnInit {
     d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() - (this.trendDays - 1));
     return d;
+  }
+
+  /** When a campaign starts, ends or ended, worded for the stage the tile is showing. */
+  timing(r: { startDate: string; endDate: string }): { text: string; urgent: boolean } {
+    const days = (iso: string) => Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+    const stage = this.stage();
+    if (['draft', 'submitted', 'approved', 'scheduled'].includes(stage)) {
+      const d = days(r.startDate);
+      return { text: d > 0 ? `Starts in ${d}d` : 'Starts today', urgent: false };
+    }
+    if (stage === 'closed') {
+      return { text: `Ended ${new Date(r.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`, urgent: false };
+    }
+    const d = days(r.endDate);
+    if (d < 0) return { text: `${-d}d overdue`, urgent: true };
+    if (d === 0) return { text: 'Ends today', urgent: true };
+    return { text: `${d}d left`, urgent: d <= 14 };
   }
 
   /** Compact money for chart captions, in the sample's own currency. */
@@ -743,6 +935,83 @@ export class DashboardComponent implements OnInit {
 
   isLate(iso: string | null | undefined): boolean {
     return !!iso && new Date(iso).getTime() < Date.now();
+  }
+
+  /** The last events, bucketed by calendar day so the feed reads as a timeline. */
+  readonly activityGroups = computed(() => {
+    const events = (this.activity() ?? []).slice(0, 7);
+    const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const today = day(new Date());
+    const groups: { label: string; items: AuditEventResponse[] }[] = [];
+    for (const e of events) {
+      const d = new Date(e.occurredAtUtc ?? Date.now());
+      const diff = Math.round((today - day(d)) / 86400000);
+      const label = diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      const last = groups[groups.length - 1];
+      if (last && last.label === label) last.items.push(e);
+      else groups.push({ label, items: [e] });
+    }
+    return groups;
+  });
+
+  /** A glyph that says what kind of thing happened, picked from the action's wording. */
+  actIcon(e: AuditEventResponse): string {
+    const t = `${e.actionCode ?? ''} ${e.actionDisplay ?? ''}`.toLowerCase();
+    if (/sign|login|logout|auth/.test(t)) return 'ri-login-circle-line';
+    if (/approv/.test(t)) return 'ri-checkbox-circle-line';
+    if (/reject|den|fail/.test(t)) return 'ri-close-circle-line';
+    if (/user|role|permission|access/.test(t)) return 'ri-user-settings-line';
+    if (/donat|payment|gateway|refund|receipt/.test(t)) return 'ri-hand-coin-line';
+    if (/campaign/.test(t)) return 'ri-megaphone-line';
+    if (/lead|donor/.test(t)) return 'ri-user-heart-line';
+    if (/creat|add|record/.test(t)) return 'ri-add-circle-line';
+    return 'ri-flashlight-line';
+  }
+
+  /** Which family an event belongs to, for its colour and label. */
+  actKind(e: AuditEventResponse): { key: string; label: string } {
+    const t = `${e.actionCode ?? ''} ${e.actionDisplay ?? ''}`.toLowerCase();
+    if (/sign|login|logout|auth|password/.test(t)) return { key: 'sec', label: 'Security' };
+    if (/user|role|permission|access|approv/.test(t)) return { key: 'access', label: 'Access' };
+    if (/donat|payment|gateway|refund|receipt/.test(t)) return { key: 'money', label: 'Payments' };
+    if (/campaign/.test(t)) return { key: 'camp', label: 'Campaign' };
+    if (/lead|donor/.test(t)) return { key: 'lead', label: 'Relationships' };
+    return { key: 'gen', label: 'System' };
+  }
+
+  readonly activityStats = computed(() => {
+    const ev = (this.activity() ?? []).slice(0, 7);
+    const failed = ev.filter((e) => this.auditTone(e.resultDisplay) === 'bad').length;
+    const people = new Set(ev.map((e) => e.actorDisplayName || 'System')).size;
+    return { total: ev.length, failed, people };
+  });
+
+  ago(iso: string | undefined): string {
+    if (!iso) return '';
+    const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.round(m / 60);
+    return h < 24 ? `${h}h ago` : '';
+  }
+
+  methodIcon(type: string | null | undefined): string {
+    const t = (type ?? '').toLowerCase();
+    if (/upi/.test(t)) return 'ri-qr-code-line';
+    if (/card/.test(t)) return 'ri-bank-card-line';
+    if (/net|bank|transfer|neft|rtgs|imps/.test(t)) return 'ri-bank-line';
+    if (/cash/.test(t)) return 'ri-money-rupee-circle-line';
+    if (/cheque|check/.test(t)) return 'ri-file-list-3-line';
+    return 'ri-hand-coin-line';
+  }
+
+  /** "Overdue", "Today", "Tomorrow" or "In 3d" for a follow-up's due moment. */
+  dueIn(iso: string | null | undefined): string {
+    if (!iso) return 'No date';
+    const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const diff = Math.round((day(new Date(iso)) - day(new Date())) / 86400000);
+    if (diff < 0) return `Overdue ${-diff}d`;
+    return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : `In ${diff}d`;
   }
 
   auditTone(result: string | null | undefined): string {

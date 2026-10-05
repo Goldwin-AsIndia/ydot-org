@@ -373,14 +373,99 @@ export class MySecurityComponent {
   // Password
   // =========================================================================================
 
-  changePassword(): void {
-    if (!this.currentPassword() || !this.newPassword() || !this.confirmPassword()) {
-      this.toast.show('Check the form', 'Fill in all three password fields.', 'warning');
-      return;
-    }
+  /** The rules the server will apply (organisation minimum included); defaults match the platform floor. */
+  readonly passwordPolicy = signal({
+    minimumLength: 10, maximumLength: 128,
+    requireUppercase: true, requireLowercase: true, requireDigit: true, requireNonAlphanumeric: true,
+  });
 
-    if (this.newPassword() !== this.confirmPassword()) {
-      this.toast.show('Check the form', 'The two new passwords do not match.', 'warning');
+  /** Set once Change Password has been pressed; until then only fields already left show messages. */
+  readonly passwordTried = signal(false);
+  readonly passwordTouched = signal<ReadonlySet<string>>(new Set());
+  private readonly passwordServerErrors = signal<Record<string, string>>({});
+
+  touchPassword(field: string): void {
+    if (!this.passwordTouched().has(field)) {
+      this.passwordTouched.update((current) => new Set(current).add(field));
+    }
+  }
+
+  openChangePassword(): void {
+    this.currentPassword.set('');
+    this.newPassword.set('');
+    this.confirmPassword.set('');
+    this.passwordTried.set(false);
+    this.passwordTouched.set(new Set());
+    this.passwordServerErrors.set({});
+    this.showChangePassword.set(true);
+
+    this.api.getPasswordPolicy().subscribe({
+      next: (raw) => {
+        const read = (key: string, fallback: boolean): boolean =>
+          typeof raw[key] === 'boolean' ? (raw[key] as boolean) : fallback;
+        const current = this.passwordPolicy();
+        this.passwordPolicy.set({
+          minimumLength: typeof raw['minimumLength'] === 'number' ? (raw['minimumLength'] as number) : current.minimumLength,
+          maximumLength: typeof raw['maximumLength'] === 'number' ? (raw['maximumLength'] as number) : current.maximumLength,
+          requireUppercase: read('requireUppercase', current.requireUppercase),
+          requireLowercase: read('requireLowercase', current.requireLowercase),
+          requireDigit: read('requireDigit', current.requireDigit),
+          requireNonAlphanumeric: read('requireNonAlphanumeric', current.requireNonAlphanumeric),
+        });
+      },
+      // The server still enforces the rules; the form just states the platform defaults.
+      error: () => undefined,
+    });
+  }
+
+  /** The rules, as the lines shown under the new-password field. */
+  readonly passwordRules = computed(() => {
+    const p = this.passwordPolicy();
+    const rules = [`At least ${p.minimumLength} characters (at most ${p.maximumLength})`];
+    if (p.requireUppercase) rules.push('An upper-case letter');
+    if (p.requireLowercase) rules.push('A lower-case letter');
+    if (p.requireDigit) rules.push('A digit');
+    if (p.requireNonAlphanumeric) rules.push('A symbol, such as ! @ # $');
+    return rules;
+  });
+
+  private passwordRuleErrors(): Record<string, string | null> {
+    const p = this.passwordPolicy();
+    const current = this.currentPassword();
+    const next = this.newPassword();
+    const confirm = this.confirmPassword();
+
+    let newError: string | null = null;
+    if (!next) newError = 'New password is required.';
+    else if (next.length < p.minimumLength) newError = `Use at least ${p.minimumLength} characters.`;
+    else if (next.length > p.maximumLength) newError = `Maximum ${p.maximumLength} characters.`;
+    else if (p.requireUppercase && !/\p{Lu}/u.test(next)) newError = 'Add an upper-case letter.';
+    else if (p.requireLowercase && !/\p{Ll}/u.test(next)) newError = 'Add a lower-case letter.';
+    else if (p.requireDigit && !/\d/.test(next)) newError = 'Add a digit.';
+    else if (p.requireNonAlphanumeric && !/[^\p{L}\p{N}]/u.test(next)) newError = 'Add a symbol, such as ! @ # $.';
+    else if (current && next === current) newError = 'Your new password must be different from your current one.';
+
+    return {
+      currentPassword: current ? null : 'Enter your current password.',
+      newPassword: newError,
+      confirmPassword: !confirm ? 'Confirm your new password.' : confirm !== next ? 'The passwords do not match.' : null,
+    };
+  }
+
+  passwordError(field: string): string | null {
+    const server = this.passwordServerErrors()[field];
+    if (server) return server;
+    return this.passwordTried() || this.passwordTouched().has(field) ? (this.passwordRuleErrors()[field] ?? null) : null;
+  }
+
+  changePassword(): void {
+    this.passwordTried.set(true);
+    this.passwordServerErrors.set({});
+
+    const failing = Object.entries(this.passwordRuleErrors()).find(([, message]) => message !== null);
+    if (failing) {
+      const ids: Record<string, string> = { currentPassword: 'msecCurrentPwd', newPassword: 'msecNewPwd', confirmPassword: 'msecConfirmPwd' };
+      setTimeout(() => (document.getElementById(ids[failing[0]]) as HTMLElement | null)?.focus());
       return;
     }
 
@@ -407,7 +492,15 @@ export class MySecurityComponent {
       },
       error: (error: Error) => {
         this.busy.set(false);
-        this.toast.show('Could not change your password', error.message, 'error');
+        const details = (error as { validationErrors?: { field: string; message: string }[] }).validationErrors ?? [];
+        const mapped: Record<string, string> = {};
+        for (const d of details) {
+          mapped[d.field.charAt(0).toLowerCase() + d.field.slice(1)] = d.message;
+        }
+        this.passwordServerErrors.set(mapped);
+        if (Object.keys(mapped).length === 0) {
+          this.toast.show('Could not change your password', error.message, 'error');
+        }
       },
     });
   }

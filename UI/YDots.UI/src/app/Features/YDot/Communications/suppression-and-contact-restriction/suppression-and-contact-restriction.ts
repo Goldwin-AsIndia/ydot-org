@@ -330,6 +330,11 @@ export class SuppressionAndContactRestrictionComponent {
     this.form.evidenceName = '';
   }
 
+  /** True while the validation summary names this field, so the field itself turns red. */
+  hasErr(field: string): boolean {
+    return this.validationErrors.some((e) => e.field === field);
+  }
+
   focusField(fieldId: string) {
     const el = document.getElementById(fieldId);
     el?.focus();
@@ -346,6 +351,9 @@ export class SuppressionAndContactRestrictionComponent {
     }
     if (!this.form.effectiveFrom) {
       this.validationErrors.push({ field: 'effectiveFrom', message: 'Enter Effective from.' });
+    }
+    if (this.form.effectiveFrom && this.form.effectiveTo && this.form.effectiveTo < this.form.effectiveFrom) {
+      this.validationErrors.push({ field: 'effectiveTo', message: 'Effective to cannot be before Effective from.' });
     }
     if (!this.form.reason || this.form.reason.trim().length < 10) {
       this.validationErrors.push({

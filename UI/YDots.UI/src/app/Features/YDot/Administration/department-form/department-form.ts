@@ -10,6 +10,7 @@ import { EnumOptionsService } from '../../../../Shared/services/enum-options.ser
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { PickerComponent, PickerOption } from '../../../../Shared/components/picker/picker';
+import { codeError, maxLengthError, textWithLettersError } from '../../../../Shared/validation/field-rules';
 
 /**
  * Add or edit one department in a pop-up over the Departments list.
@@ -113,9 +114,36 @@ export class DepartmentFormComponent implements OnInit, OnDestroy {
   readonly statusPickerOptions = computed<PickerOption[]>(() =>
     this.statusOptions().map((option) => ({ value: option.value, label: option.label })));
 
-  readonly nameValid = computed(() => this.form().name.trim().length >= 2);
-  readonly codeValid = computed(() => this.form().code.trim().length >= 2);
-  readonly canSave = computed(() => this.nameValid() && this.codeValid() && !this.saving() && !this.loading());
+  // Limits are the API's: name 200, code 50, description 1000.
+  readonly nameMessage = computed(() => textWithLettersError('Name', this.form().name, { min: 2, max: 200 }));
+  readonly codeMessage = computed(() => codeError('Code', this.form().code, { max: 50 }));
+  readonly descriptionMessage = computed(() => maxLengthError(this.form().description, 1000));
+  readonly nameValid = computed(() => this.nameMessage() === null);
+  readonly codeValid = computed(() => this.codeMessage() === null);
+  readonly canSave = computed(() =>
+    this.nameValid() && this.codeValid() && this.descriptionMessage() === null && !this.saving() && !this.loading());
+
+  /** Fields left at least once; their messages show before Save is pressed. */
+  readonly touched = signal<ReadonlySet<string>>(new Set());
+
+  touch(field: string): void {
+    if (!this.touched().has(field)) {
+      this.touched.update((current) => new Set(current).add(field));
+    }
+  }
+
+  /** The message to show under a field: the server's, else this form's once the field was left or Save pressed. */
+  error(field: 'name' | 'code' | 'description'): string | null {
+    const server = this.fieldErrors()[field];
+    if (server) return server;
+    if (!this.attempted() && !this.touched().has(field)) return null;
+    return { name: this.nameMessage(), code: this.codeMessage(), description: this.descriptionMessage() }[field];
+  }
+
+  private focusFirstInvalid(): void {
+    const id = this.nameMessage() ? 'df-name' : this.codeMessage() ? 'df-code' : this.descriptionMessage() ? 'df-description' : null;
+    if (id) setTimeout(() => (document.getElementById(id) as HTMLElement | null)?.focus());
+  }
 
   // ---- Lifecycle ----------------------------------------------------------------------------
 
@@ -176,6 +204,11 @@ export class DepartmentFormComponent implements OnInit, OnDestroy {
 
   update<K extends keyof ReturnType<typeof this.form>>(key: K, value: ReturnType<typeof this.form>[K]): void {
     this.form.update((current) => ({ ...current, [key]: value }));
+
+    if (this.fieldErrors()[key as string]) {
+      const { [key as string]: _removed, ...rest } = this.fieldErrors();
+      this.fieldErrors.set(rest);
+    }
   }
 
   /** A suggested name fills the name, and the code too while the code is still empty. */
@@ -197,6 +230,7 @@ export class DepartmentFormComponent implements OnInit, OnDestroy {
   save(): void {
     this.attempted.set(true);
     if (!this.canSave()) {
+      this.focusFirstInvalid();
       return;
     }
 
@@ -236,7 +270,13 @@ export class DepartmentFormComponent implements OnInit, OnDestroy {
       error: (error: unknown) => {
         this.saving.set(false);
         this.errorMessage.set(apiErrorMessage(error, 'That could not be saved.'));
-        this.fieldErrors.set(apiFieldErrors(error));
+        const mapped: Record<string, string> = {};
+        for (const [field, message] of Object.entries(apiFieldErrors(error))) {
+          mapped[field.charAt(0).toLowerCase() + field.slice(1)] = message;
+        }
+        this.fieldErrors.set(mapped);
+        const first = ['name', 'code', 'description'].find((field) => mapped[field]);
+        if (first) setTimeout(() => (document.getElementById('df-' + first) as HTMLElement | null)?.focus());
       },
     });
   }

@@ -266,13 +266,15 @@
         <div class="mc-grid">
           <div class="yp-field mc-s6">
             <label class="yp-label" for="mc-name">Name <em>*</em></label>
-            <input id="mc-name" maxlength="120" [ngModel]="form().name" (ngModelChange)="patch('name', $event)">
+            <input id="mc-name" maxlength="120" [class.is-invalid]="!!fieldError('name')" [ngModel]="form().name" (ngModelChange)="patch('name', $event)">
+            @if (fieldError('name')) { <p class="yp-error">{{ fieldError('name') }}</p> }
           </div>
 
           <div class="yp-field mc-s6">
             <label class="yp-label" for="mc-code">Code <em>*</em></label>
-            <input id="mc-code" maxlength="60" placeholder="e.g. FR_DONOR_LIST"
-                   [disabled]="!isCreating()" [ngModel]="form().code" (ngModelChange)="patch('code', $event)">
+            <input id="mc-code" maxlength="60" data-input="code" placeholder="e.g. FR_DONOR_LIST" [class.is-invalid]="!!fieldError('code')"
+                   [disabled]="!isCreating()" [ngModel]="form().code" (ngModelChange)="patch('code', $event.toUpperCase())">
+            @if (fieldError('code')) { <p class="yp-error">{{ fieldError('code') }}</p> }
             <p class="yp-hint">
               {{ isCreating()
                  ? 'Upper case, digits, underscores or hyphens. Permanent once saved.'
@@ -290,31 +292,34 @@
         <h3 class="mc-part">Placement</h3>
         <div class="mc-grid">
           <div class="yp-field mc-s4">
-            <label class="yp-label" for="mc-level">Level</label>
-            <select id="mc-level" [disabled]="!isCreating()" [ngModel]="form().level" (ngModelChange)="patch('level', $event)">
+            <label class="yp-label" for="mc-level">Level @if (isCreating()) {<em>*</em>}</label>
+            <select id="mc-level" [class.is-invalid]="!!fieldError('level')" [disabled]="!isCreating()" [ngModel]="form().level" (ngModelChange)="patch('level', $event)">
               <option value="" disabled>Select Level</option>
               @for (option of levelOptions(); track option.value) {
                 <option [value]="option.value">{{ option.label }}</option>
               }
             </select>
+            @if (fieldError('level')) { <p class="yp-error">{{ fieldError('level') }}</p> }
             <p class="yp-hint">Three levels; a child submenu cannot have children.</p>
           </div>
 
           <div class="yp-field mc-s8">
             <label class="yp-label" for="mc-parent">Sits under</label>
-            <select id="mc-parent" [disabled]="!isCreating()" [ngModel]="form().parentMenuId" (ngModelChange)="patch('parentMenuId', $event)">
+            <select id="mc-parent" [class.is-invalid]="!!fieldError('parentMenuId')" [disabled]="!isCreating()" [ngModel]="form().parentMenuId" (ngModelChange)="patch('parentMenuId', $event)">
               <option value="">Select Parent Menu</option>
               @for (option of parentOptions(); track option.id) {
                 <option [value]="option.id">{{ option.label }}</option>
               }
             </select>
+            @if (fieldError('parentMenuId')) { <p class="yp-error">{{ fieldError('parentMenuId') }}</p> }
             <p class="yp-hint">Leave unselected for a top-level menu.</p>
           </div>
 
           <div class="yp-field mc-s4">
-            <label class="yp-label" for="mc-module">Module</label>
-            <input id="mc-module" list="mc-modules" maxlength="20" [disabled]="!isCreating()"
+            <label class="yp-label" for="mc-module">Module @if (isCreating()) {<em>*</em>}</label>
+            <input id="mc-module" list="mc-modules" maxlength="20" [class.is-invalid]="!!fieldError('moduleCode')" [disabled]="!isCreating()"
                    [ngModel]="form().moduleCode" (ngModelChange)="patch('moduleCode', $event)">
+            @if (fieldError('moduleCode')) { <p class="yp-error">{{ fieldError('moduleCode') }}</p> }
             <datalist id="mc-modules">
               @for (module of moduleCodes(); track module) { <option [value]="module"></option> }
             </datalist>

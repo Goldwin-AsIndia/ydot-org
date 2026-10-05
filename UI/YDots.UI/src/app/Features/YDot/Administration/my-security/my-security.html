@@ -101,7 +101,7 @@
 
           <span class="msec-info-divider"></span>
 
-          <button type="button" class="msec-action-section" (click)="showChangePassword.set(true)">
+          <button type="button" class="msec-action-section" (click)="openChangePassword()">
 <span class="msec-icon-circle msec-action-icon"><i class="ri-lock-password-line"></i></span>
 <div class="msec-action-body">
 <p class="msec-action-title">Change Password</p>
@@ -507,16 +507,22 @@
 </div>
 <div class="msec-modal__body">
 <div class="msec-form-field">
-<label>Current Password</label>
-<input type="password" class="msec-input" [ngModel]="currentPassword()" (ngModelChange)="currentPassword.set($event)">
+<label for="msecCurrentPwd">Current Password <span class="ydot-req">*</span></label>
+<input id="msecCurrentPwd" type="password" class="msec-input" autocomplete="current-password" [class.is-invalid]="!!passwordError('currentPassword')" [ngModel]="currentPassword()" (ngModelChange)="currentPassword.set($event)" (blur)="touchPassword('currentPassword')">
+@if (passwordError('currentPassword')) { <div class="invalid-feedback d-block">{{ passwordError('currentPassword') }}</div> }
 </div>
 <div class="msec-form-field">
-<label>New Password</label>
-<input type="password" class="msec-input" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)">
+<label for="msecNewPwd">New Password <span class="ydot-req">*</span></label>
+<input id="msecNewPwd" type="password" class="msec-input" autocomplete="new-password" [attr.maxlength]="passwordPolicy().maximumLength" [class.is-invalid]="!!passwordError('newPassword')" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" (blur)="touchPassword('newPassword')">
+@if (passwordError('newPassword')) { <div class="invalid-feedback d-block">{{ passwordError('newPassword') }}</div> }
+<ul class="small text-muted mb-0 ps-3 mt-1">
+@for (rule of passwordRules(); track rule) { <li>{{ rule }}</li> }
+</ul>
 </div>
 <div class="msec-form-field">
-<label>Confirm New Password</label>
-<input type="password" class="msec-input" [ngModel]="confirmPassword()" (ngModelChange)="confirmPassword.set($event)">
+<label for="msecConfirmPwd">Confirm New Password <span class="ydot-req">*</span></label>
+<input id="msecConfirmPwd" type="password" class="msec-input" autocomplete="new-password" [class.is-invalid]="!!passwordError('confirmPassword')" [ngModel]="confirmPassword()" (ngModelChange)="confirmPassword.set($event)" (blur)="touchPassword('confirmPassword')">
+@if (passwordError('confirmPassword')) { <div class="invalid-feedback d-block">{{ passwordError('confirmPassword') }}</div> }
 </div>
 </div>
 <div class="msec-modal__footer">

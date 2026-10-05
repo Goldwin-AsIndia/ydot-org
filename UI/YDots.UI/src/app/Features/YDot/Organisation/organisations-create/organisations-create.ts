@@ -120,16 +120,50 @@ export class OrganisationsCreateComponent {
     if (!this.emailPattern.test(this.email().trim())) return 'Enter a valid email address.';
     return '';
   });
-  protected readonly phoneError = computed(() => (this.touched() && !this.phone().trim() ? 'Phone number is required.' : ''));
+  /** A phone may carry a leading + and separators; what counts is 7 to 15 digits. */
+  private static phoneProblem(label: string, value: string, required: boolean): string {
+    const text = value.trim();
+    if (!text) return required ? `${label} is required.` : '';
+    const digits = text.replace(/\D/g, '');
+    if (!/^\+?[0-9 ()-]+$/.test(text) || digits.length < 7 || digits.length > 15) return `Enter a valid ${label.toLowerCase()} (7 to 15 digits).`;
+    return '';
+  }
 
-  protected readonly ownerNameError = computed(() => (this.touched() && !this.ownerName().trim() ? 'Owner name is required.' : ''));
+  protected readonly phoneError = computed(() => (this.touched() ? OrganisationsCreateComponent.phoneProblem('Phone number', this.phone(), true) : ''));
+  protected readonly alternatePhoneError = computed(() => (this.touched() ? OrganisationsCreateComponent.phoneProblem('Alternate phone number', this.alternatePhone(), false) : ''));
+  protected readonly websiteError = computed(() => {
+    const text = this.website().trim();
+    if (!this.touched() || !text) return '';
+    return /^(https?:\/\/)?([A-Za-z0-9-]+\.)+[A-Za-z]{2,}(\/\S*)?$/.test(text) ? '' : 'Enter a valid website address (for example www.example.org).';
+  });
+  protected readonly pinCodeError = computed(() => {
+    const text = this.pinCode().trim();
+    if (!this.touched() || !text) return '';
+    return /^[A-Za-z0-9][A-Za-z0-9 -]{2,9}$/.test(text) ? '' : 'Enter a valid PIN / postal code (3 to 10 letters or digits).';
+  });
+  protected readonly panError = computed(() => {
+    const text = this.panTaxId().trim();
+    if (!this.touched() || !text) return '';
+    return /^[A-Za-z0-9]{5,20}$/.test(text) ? '' : 'PAN / Tax ID can contain letters and numbers only (5 to 20 characters).';
+  });
+
+  protected readonly ownerNameError = computed(() => {
+    if (!this.touched()) return '';
+    if (!this.ownerName().trim()) return 'Owner name is required.';
+    return /^[\p{L}\p{M}][\p{L}\p{M} .'’-]*$/u.test(this.ownerName().trim()) ? '' : 'Owner name can contain letters only (no numbers or symbols).';
+  });
   protected readonly ownerEmailError = computed(() => {
     if (!this.touched()) return '';
     if (!this.ownerEmail().trim()) return 'Owner email / login ID is required.';
     if (!this.emailPattern.test(this.ownerEmail().trim())) return 'Enter a valid email address.';
     return '';
   });
-  protected readonly ownerMobileError = computed(() => (this.touched() && !this.ownerMobile().trim() ? 'Owner mobile number is required.' : ''));
+  protected readonly ownerMobileError = computed(() => {
+    if (!this.touched()) return '';
+    const text = this.ownerMobile().trim();
+    if (!text) return 'Owner mobile number is required.';
+    return /^\d{7,15}$/.test(text) ? '' : 'Owner mobile number must be 7 to 15 digits.';
+  });
 
   /** Address (line 1/2, country, state, city, PIN) is intentionally optional — Super Admin can create the record with just identity/contact/owner details and fill address in later. */
   protected readonly formValid = computed(
@@ -138,6 +172,10 @@ export class OrganisationsCreateComponent {
       !this.duplicateError() &&
       !this.emailError() &&
       !this.phoneError() &&
+      !this.alternatePhoneError() &&
+      !this.websiteError() &&
+      !this.pinCodeError() &&
+      !this.panError() &&
       !this.ownerNameError() &&
       !this.ownerEmailError() &&
       !this.ownerMobileError(),

@@ -209,7 +209,7 @@
         <div class="field-row">
           <div class="field">
             <label class="field-label" for="restrictionType">Restriction type <span class="req">*</span></label>
-            <select id="restrictionType" class="select" [(ngModel)]="form.restrictionType" name="restrictionType" required>
+            <select id="restrictionType" [class.is-invalid]="hasErr('restrictionType')" class="select" [(ngModel)]="form.restrictionType" name="restrictionType" required>
               <option value="">Select type…</option>
               <option value="Channel suppression">Channel suppression</option>
               <option value="Purpose block">Purpose block</option>
@@ -219,7 +219,7 @@
           </div>
           <div class="field">
             <label class="field-label" for="channel">Channel <span class="req">*</span></label>
-            <select id="channel" class="select" [(ngModel)]="form.channel" name="channel" required>
+            <select id="channel" [class.is-invalid]="hasErr('channel')" class="select" [(ngModel)]="form.channel" name="channel" required>
               <option value="">Select channel…</option>
               <option value="Email">Email</option>
               <option value="SMS">SMS</option>
@@ -233,7 +233,7 @@
 
         <div class="field">
           <label class="field-label" for="purpose">Purpose</label>
-          <textarea id="purpose" class="textarea" rows="2" [(ngModel)]="form.purpose" name="purpose"
+          <textarea id="purpose" [class.is-invalid]="hasErr('purpose')" class="textarea" rows="2" [(ngModel)]="form.purpose" name="purpose"
                     maxlength="2000" placeholder="Describe the communication purpose being restricted…"></textarea>
           <div class="char-count">{{ (form.purpose || '').length }} / 2,000</div>
         </div>
@@ -241,19 +241,19 @@
         <div class="field-row">
           <div class="field">
             <label class="field-label" for="effectiveFrom">Effective from <span class="req">*</span></label>
-            <input id="effectiveFrom" type="datetime-local" class="input" [(ngModel)]="form.effectiveFrom" name="effectiveFrom" required />
+            <input id="effectiveFrom" [class.is-invalid]="hasErr('effectiveFrom')" type="datetime-local" class="input" [(ngModel)]="form.effectiveFrom" name="effectiveFrom" required />
             <p class="field-hint">Operating time zone: Asia/Kolkata</p>
           </div>
           <div class="field">
             <label class="field-label" for="effectiveTo">Effective to</label>
-            <input id="effectiveTo" type="datetime-local" class="input" [(ngModel)]="form.effectiveTo" name="effectiveTo" />
+            <input id="effectiveTo" [class.is-invalid]="hasErr('effectiveTo')" type="datetime-local" class="input" [(ngModel)]="form.effectiveTo" name="effectiveTo" />
             <p class="field-hint">Leave blank for open-ended</p>
           </div>
         </div>
 
         <div class="field">
           <label class="field-label" for="reason">Reason <span class="req">*</span></label>
-          <textarea id="reason" class="textarea" rows="3" [(ngModel)]="form.reason" name="reason"
+          <textarea id="reason" [class.is-invalid]="hasErr('reason')" class="textarea" rows="3" [(ngModel)]="form.reason" name="reason"
                     maxlength="2000" required placeholder="Provide a clear, accountable reason (minimum 10 characters)…"></textarea>
           <div class="char-count">{{ (form.reason || '').length }} / 2,000</div>
           <p class="field-hint confidential">Confidential — visible only within record scope and purpose</p>

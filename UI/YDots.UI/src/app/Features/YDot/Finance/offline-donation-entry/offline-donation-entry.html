@@ -156,7 +156,7 @@
         <label class="ode-field">
           <span class="ode-field-label">Instrument type <span class="ode-req">*</span></span>
           <span class="ode-select-wrap">
-            <select class="ode-select" [ngModel]="instrumentType()" (ngModelChange)="instrumentType.set($event)" aria-label="Instrument type">
+            <select class="ode-select" [class.is-invalid]="!!fieldError('instrument')" [ngModel]="instrumentType()" (ngModelChange)="instrumentType.set($event)" aria-label="Instrument type">
               <option value="">Select instrument type</option>
               @for (i of instrumentCatalogue; track i) {
                 <option [value]="i">{{ i }}</option>
@@ -166,8 +166,8 @@
               <path d="m6 9 6 6 6-6" />
             </svg>
           </span>
-          @if (!instrumentType()) {
-            <span class="ode-field-hint">Enter Instrument type.</span>
+          @if (fieldError('instrument')) {
+            <span class="ode-field-hint ode-field-error">{{ fieldError('instrument') }}</span>
           }
         </label>
 
@@ -180,8 +180,9 @@
         <!-- Donation date (required) -->
         <label class="ode-field">
           <span class="ode-field-label">Donation date <span class="ode-req">*</span> <span class="ode-tz">{{ operatingTimeZone }}</span></span>
-          <input type="date" class="ode-input" [ngModel]="donationDate()" (ngModelChange)="donationDate.set($event)" aria-label="Donation date" />
+          <input type="date" class="ode-input" [class.is-invalid]="!!fieldError('date')" [ngModel]="donationDate()" (ngModelChange)="donationDate.set($event)" aria-label="Donation date" />
           <span class="ode-field-hint" role="status">Interpreted as {{ interpretedDate() }}</span>
+          @if (fieldError('date')) { <span class="ode-field-hint ode-field-error">{{ fieldError('date') }}</span> }
         </label>
 
         <!-- Amount (required) -->
@@ -190,6 +191,7 @@
           <input
             type="number"
             class="ode-input"
+            [class.is-invalid]="(amount() !== null && !amountValid()) || !!fieldError('amount')"
             [ngModel]="amount()"
             (ngModelChange)="amount.set(toNumber($event))"
             placeholder="0.00"
@@ -198,7 +200,9 @@
             aria-label="Amount"
           />
           @if (amount() !== null && !amountValid()) {
-            <span class="ode-field-hint ode-field-error">Review Amount. The value does not meet the stated format or range.</span>
+            <span class="ode-field-hint ode-field-error">Review Amount. Enter a number greater than 0 and up to 10,00,000.</span>
+          } @else if (fieldError('amount')) {
+            <span class="ode-field-hint ode-field-error">{{ fieldError('amount') }}</span>
           }
         </label>
 
@@ -206,7 +210,7 @@
         <label class="ode-field">
           <span class="ode-field-label">Currency <span class="ode-req">*</span></span>
           <span class="ode-select-wrap">
-            <select class="ode-select" [ngModel]="currency()" (ngModelChange)="currency.set($event)" aria-label="Currency">
+            <select class="ode-select" [class.is-invalid]="!!fieldError('currency')" [ngModel]="currency()" (ngModelChange)="currency.set($event)" aria-label="Currency">
               <option value="" disabled>Select Currency</option>
               @for (c of currencyCatalogue(); track c) {
                 <option [value]="c">{{ c }}</option>
@@ -216,6 +220,7 @@
               <path d="m6 9 6 6 6-6" />
             </svg>
           </span>
+          @if (fieldError('currency')) { <span class="ode-field-hint ode-field-error">{{ fieldError('currency') }}</span> }
         </label>
       </div>
     </div>
@@ -248,7 +253,7 @@
         <label class="ode-field">
           <span class="ode-field-label">Campaign or fund <span class="ode-req">*</span></span>
           <span class="ode-select-wrap">
-            <select class="ode-select" [ngModel]="campaign()" (ngModelChange)="campaign.set($event)" aria-label="Campaign or fund">
+            <select class="ode-select" [class.is-invalid]="!!fieldError('campaign')" [ngModel]="campaign()" (ngModelChange)="campaign.set($event)" aria-label="Campaign or fund">
               <option value="">Select campaign or fund</option>
               @for (c of campaignOptions; track c.reference) {
                 <option [value]="c.reference">{{ c.label }}</option>
@@ -258,8 +263,8 @@
               <path d="m6 9 6 6 6-6" />
             </svg>
           </span>
-          @if (!campaign()) {
-            <span class="ode-field-hint">Enter Campaign or fund.</span>
+          @if (fieldError('campaign')) {
+            <span class="ode-field-hint ode-field-error">{{ fieldError('campaign') }}</span>
           }
         </label>
 
@@ -267,7 +272,7 @@
         <label class="ode-field">
           <span class="ode-field-label">Bank or collection account <span class="ode-req">*</span></span>
           <span class="ode-select-wrap">
-            <select class="ode-select" [ngModel]="bankAccount()" (ngModelChange)="bankAccount.set($event)" aria-label="Bank or collection account">
+            <select class="ode-select" [class.is-invalid]="!!fieldError('bank')" [ngModel]="bankAccount()" (ngModelChange)="bankAccount.set($event)" aria-label="Bank or collection account">
               <option value="">Select bank or collection account</option>
               @for (b of bankAccountOptions; track b.reference) {
                 <option [value]="b.reference">{{ b.label }}</option>
@@ -277,8 +282,8 @@
               <path d="m6 9 6 6 6-6" />
             </svg>
           </span>
-          @if (!bankAccount()) {
-            <span class="ode-field-hint">Enter Bank or collection account.</span>
+          @if (fieldError('bank')) {
+            <span class="ode-field-hint ode-field-error">{{ fieldError('bank') }}</span>
           }
         </label>
 
@@ -301,7 +306,7 @@
         <!-- Evidence document (required, confidential) -->
         <div class="ode-field">
           <span class="ode-field-label">Evidence document <span class="ode-req">*</span> <span class="ode-conf">Confidential</span></span>
-          <label class="ode-upload">
+          <label class="ode-upload" [class.is-invalid]="!!fieldError('evidence')">
             <input
               type="file"
               class="ode-file-input"
@@ -320,8 +325,8 @@
           <span class="ode-field-hint" role="status">
             Upload status: {{ evidenceStatus().label }} — upload, scan, classification and link status shown separately before submit.
           </span>
-          @if (!evidenceFile()) {
-            <span class="ode-field-hint">Enter Evidence document.</span>
+          @if (fieldError('evidence')) {
+            <span class="ode-field-hint ode-field-error">{{ fieldError('evidence') }}</span>
           }
         </div>
 

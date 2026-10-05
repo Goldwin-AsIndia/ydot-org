@@ -69,14 +69,7 @@ public static class OrganisationMappingConfig
         tenant.OrganisationType = Coalesce(request.OrganisationType, tenant.OrganisationType);
         tenant.EstablishedOn = request.EstablishedOn ?? tenant.EstablishedOn;
         tenant.Description = Coalesce(request.Description, tenant.Description);
-        tenant.WebsiteUrl = Coalesce(request.WebsiteUrl, tenant.WebsiteUrl);
         tenant.LogoUrl = Coalesce(request.LogoUrl, tenant.LogoUrl);
-
-        tenant.ContactPersonName = Coalesce(request.ContactPersonName, tenant.ContactPersonName);
-
-        tenant.TimeZone = Coalesce(request.TimeZone, tenant.TimeZone)!;
-        tenant.DefaultCurrency = Coalesce(request.DefaultCurrency, tenant.DefaultCurrency)!.ToUpperInvariant();
-        tenant.DefaultCulture = Coalesce(request.DefaultCulture, tenant.DefaultCulture)!;
 
         request.ApplyContactAndAddress(tenant);
     }
@@ -92,14 +85,22 @@ public static class OrganisationMappingConfig
     /// showing nothing but "profile saved".
     ///
     /// An address and a telephone number genuinely do change while an Organisation is running,
-    /// and nothing downstream is verified against them, so they stay open. Correcting a name or
-    /// a registration number is a re-verification, not an edit, and has to go back through
-    /// review.
+    /// and nothing downstream is verified against them, so they stay open. So do the website,
+    /// the contact person and the regional defaults (time zone, currency, language): none of
+    /// them is on the registration certificate. Correcting a name or a registration number is a
+    /// re-verification, not an edit, and has to go back through review.
     /// </summary>
     public static void ApplyContactAndAddress(this UpdateOrganisationProfileRequest request, Tenant tenant)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(tenant);
+
+        tenant.WebsiteUrl = Coalesce(request.WebsiteUrl, tenant.WebsiteUrl);
+        tenant.ContactPersonName = Coalesce(request.ContactPersonName, tenant.ContactPersonName);
+
+        tenant.TimeZone = Coalesce(request.TimeZone, tenant.TimeZone)!;
+        tenant.DefaultCurrency = Coalesce(request.DefaultCurrency, tenant.DefaultCurrency)!.ToUpperInvariant();
+        tenant.DefaultCulture = Coalesce(request.DefaultCulture, tenant.DefaultCulture)!;
 
         tenant.ContactEmail = Coalesce(request.ContactEmail, tenant.ContactEmail)?.ToLowerInvariant();
         tenant.ContactPhoneCountryCode = Coalesce(request.ContactPhoneCountryCode, tenant.ContactPhoneCountryCode);
@@ -335,6 +336,11 @@ public static class OrganisationMappingConfig
     /// </summary>
     public static readonly IReadOnlyList<string> ContactAndAddressFields =
     [
+        nameof(UpdateOrganisationProfileRequest.WebsiteUrl),
+        nameof(UpdateOrganisationProfileRequest.ContactPersonName),
+        nameof(UpdateOrganisationProfileRequest.TimeZone),
+        nameof(UpdateOrganisationProfileRequest.DefaultCurrency),
+        nameof(UpdateOrganisationProfileRequest.DefaultCulture),
         nameof(UpdateOrganisationProfileRequest.ContactEmail),
         nameof(UpdateOrganisationProfileRequest.ContactPhoneCountryCode),
         nameof(UpdateOrganisationProfileRequest.ContactPhone),
@@ -358,13 +364,8 @@ public static class OrganisationMappingConfig
         nameof(UpdateOrganisationProfileRequest.OrganisationType),
         nameof(UpdateOrganisationProfileRequest.EstablishedOn),
         nameof(UpdateOrganisationProfileRequest.Description),
-        nameof(UpdateOrganisationProfileRequest.WebsiteUrl),
         nameof(UpdateOrganisationProfileRequest.LogoUrl),
-        nameof(UpdateOrganisationProfileRequest.ContactPersonName),
-        .. ContactAndAddressFields,
-        nameof(UpdateOrganisationProfileRequest.TimeZone),
-        nameof(UpdateOrganisationProfileRequest.DefaultCurrency),
-        nameof(UpdateOrganisationProfileRequest.DefaultCulture)
+        .. ContactAndAddressFields
     ];
 
     /// <summary>
