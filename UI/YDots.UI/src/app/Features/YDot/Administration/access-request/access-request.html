@@ -220,7 +220,7 @@
                            with the reason shown in their place. -->
                       <div class="ar-actions" aria-label="Request actions">
                         @if (req.approvalState === 'Draft') {
-                          <button type="button" class="ar-act ar-act--primary " (click)="submitRequest(req)" title="Submit request" aria-label="Submit request">
+                          <button type="button" class="ar-act ar-act--primary " (click)="submitRequest(req)" [disabled]="rowSubmittingId() === req.id" title="Submit request" aria-label="Submit request">
                             <i class="ri-send-plane-line" aria-hidden="true"></i>
                           </button>
                           <button type="button" class="ar-act ar-act--danger" (click)="openDeleteModal(req)" title="Delete draft" aria-label="Delete draft">
@@ -506,124 +506,84 @@
   </div>
 }
 
-<!-- ===== DECISION MODALS — one shell, a tone per action ===== -->
+<!-- ===== RETURN / CANCEL / DELETE — shared pop-up, one shell, a tone per action ===== -->
 @if ((showReturnModal() || showCancelModal() || showDeleteModal()) && actionTarget(); as target) {
-  <div class="ar-backdrop" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">
-    <div class="ar-modal" role="dialog" aria-modal="true" aria-labelledby="actTitle" (click)="$event.stopPropagation()"
-         [class.tone-warn]="showReturnModal()" [class.tone-muted]="showCancelModal()" [class.tone-danger]="showDeleteModal()">
-      <header class="ar-modal-head">
-        <div class="ar-head-ico">
-          <i [class]="showReturnModal() ? 'ri-arrow-go-back-line' : showCancelModal() ? 'ri-close-circle-line' : 'ri-delete-bin-line'" aria-hidden="true"></i>
-        </div>
-        <div class="ar-head-text">
-          <h2 class="ar-head-title" id="actTitle">{{ showReturnModal() ? 'Return access request' : showCancelModal() ? 'Cancel access request' : 'Delete unused draft' }}</h2>
-          <div class="ar-head-sub"><code>{{ target.reference }}</code></div>
-        </div>
-        <!-- <button type="button" class="ar-x" aria-label="Close" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()"><i class="ri-close-line" aria-hidden="true"></i></button> -->
-      </header>
-      <div class="ar-modal-body">
-        <div class="ar-note">
-          <i [class]="showDeleteModal() ? 'ri-alert-line' : 'ri-information-line'" aria-hidden="true"></i>
-          <span class="ar-t">
-            @if (showReturnModal()) { This returns the request to the requester for correction. The request history is preserved. }
-            @else if (showCancelModal()) { This will cancel the request. The history is retained permanently. }
-            @else { This permanently deletes the draft request. This action <b>cannot be undone</b>. }
-          </span>
-        </div>
-        <div class="ar-summary">
-          <span class="ar-avatar" aria-hidden="true">{{ initials(target.user) }}</span>
-          <div class="ar-summary-text">
-            <div class="ar-summary-name">{{ target.user }}</div>
-            <div class="ar-summary-sub"><i class="ri-arrow-right-line" aria-hidden="true"></i> {{ target.requestedRole }}</div>
-          </div>
-        </div>
-        <div class="ar-field">
-          <label class="ar-field-lbl" for="actReason">{{ showReturnModal() ? 'Return reason' : showCancelModal() ? 'Cancellation reason' : 'Deletion reason' }} <em class="ar-req">*</em></label>
-          <textarea id="actReason" class="ar-input ar-textarea" rows="3" maxlength="1000" placeholder="Enter reason (10–1000 characters)"
-                    [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)"></textarea>
-          <div class="ar-help"><span class="ar-t">Required — 10 to 1000 characters.</span><span class="ar-count">{{ decisionReason().length }}/1000</span></div>
-          @if (decisionError()) { <div class="ar-error"><i class="ri-error-warning-line" aria-hidden="true"></i> {{ decisionError() }}</div> }
-        </div>
-      </div>
-      <footer class="ar-modal-foot">
-        <button type="button" class="btn btn-outline-secondary" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">Keep it</button>
-        @if (showReturnModal()) {
-          <button type="button" class="btn btn-warning" (click)="confirmReturn()" [disabled]="submitting()"> Confirm return</button>
-        } @else if (showCancelModal()) {
-          <button type="button" class="btn btn-primary" (click)="confirmCancel()" [disabled]="submitting()"> Confirm cancellation</button>
-        } @else {
-          <button type="button" class="btn btn-danger" (click)="confirmDelete()" [disabled]="submitting()"> Permanently delete</button>
-        }
-      </footer>
-    </div>
-  </div>
+  <app-popup [open]="true" size="sm" [tone]="showDeleteModal() ? 'danger' : showReturnModal() ? 'warning' : 'default'"
+             [icon]="showReturnModal() ? 'ri-arrow-go-back-line' : showCancelModal() ? 'ri-close-circle-line' : 'ri-delete-bin-line'"
+             [kicker]="'Access request · ' + target.reference"
+             [title]="showReturnModal() ? 'Return access request' : showCancelModal() ? 'Cancel access request' : 'Delete unused draft'"
+             [lead]="showReturnModal() ? 'This returns the request to the requester for correction. The request history is preserved.'
+                   : showCancelModal() ? 'This will cancel the request. The history is retained permanently.'
+                   : 'This permanently deletes the draft request. This action cannot be undone.'"
+             (closed)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">
+    <dl class="yp-facts">
+      <div><dt>User</dt><dd>{{ target.user }}</dd></div>
+      <div><dt>Requested role</dt><dd>{{ target.requestedRole }}</dd></div>
+    </dl>
+    <label class="yp-field">
+      <span class="yp-label">{{ showReturnModal() ? 'Return reason' : showCancelModal() ? 'Cancellation reason' : 'Deletion reason' }} *</span>
+      <textarea rows="3" maxlength="1000" placeholder="Enter reason (10–1000 characters)"
+                [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)"></textarea>
+      <span class="yp-hint">Required — 10 to 1000 characters. {{ decisionReason().length }}/1000</span>
+    </label>
+    @if (decisionError()) { <p class="yp-error">{{ decisionError() }}</p> }
+    <ng-container popupActions>
+      <button type="button" class="yp-btn" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">Keep it</button>
+      @if (showReturnModal()) {
+        <button type="button" class="yp-btn yp-btn--primary" (click)="confirmReturn()" [disabled]="submitting()">Confirm return</button>
+      } @else if (showCancelModal()) {
+        <button type="button" class="yp-btn yp-btn--primary" (click)="confirmCancel()" [disabled]="submitting()">Confirm cancellation</button>
+      } @else {
+        <button type="button" class="yp-btn yp-btn--danger" (click)="confirmDelete()" [disabled]="submitting()">Permanently delete</button>
+      }
+    </ng-container>
+  </app-popup>
 }
 
+<!-- ===== APPROVE / REJECT — shared pop-up ===== -->
 @if ((showApproveModal() || showRejectModal()) && decisionTarget(); as target) {
-  <div class="ar-backdrop" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()">
-    <div class="ar-modal" role="dialog" aria-modal="true" aria-labelledby="decTitle" (click)="$event.stopPropagation()"
-         [class.tone-ok]="showApproveModal()" [class.tone-danger]="showRejectModal()">
-      <header class="ar-modal-head">
-        <div class="ar-head-ico"><i [class]="showApproveModal() ? 'ri-check-double-line' : 'ri-close-circle-line'" aria-hidden="true"></i></div>
-        <div class="ar-head-text">
-          <h2 class="ar-head-title" id="decTitle">{{ showApproveModal() ? 'Approve access request' : 'Reject access request' }}</h2>
-          <div class="ar-head-sub"><code>{{ target.reference }}</code></div>
-        </div>
-        <!-- <button type="button" class="ar-x" aria-label="Close" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()"><i class="ri-close-line" aria-hidden="true"></i></button> -->
-      </header>
-      <div class="ar-modal-body">
-        <div class="ar-note">
-          <i [class]="showApproveModal() ? 'ri-information-line' : 'ri-alert-line'" aria-hidden="true"></i>
-          <span class="ar-t">
-            @if (showApproveModal()) { This is a <b>primary decision</b>. The role and scope become active from the effective date. }
-            @else { Access will <b>not</b> be granted. The decision is recorded permanently. }
-          </span>
-        </div>
-        <div class="ar-summary">
-          <span class="ar-avatar" aria-hidden="true">{{ initials(target.user) }}</span>
-          <div class="ar-summary-text">
-            <div class="ar-summary-name">{{ target.user }}</div>
-            <div class="ar-summary-sub"><i class="ri-arrow-right-line" aria-hidden="true"></i> {{ target.requestedRole }}</div>
-          </div>
-          <span class="ar-type">{{ target.scopeType }} · {{ target.scopeValue }}</span>
-        </div>
-        <div class="ar-field">
-          <label class="ar-field-lbl" for="decReason">{{ showApproveModal() ? 'Decision reason' : 'Rejection reason' }} <em class="ar-req">*</em></label>
-          <textarea id="decReason" class="ar-input ar-textarea" rows="3" maxlength="1000" placeholder="Enter reason (10–1000 characters)"
-                    [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)"></textarea>
-          <div class="ar-help"><span class="ar-t">Required — recorded permanently.</span><span class="ar-count">{{ decisionReason().length }}/1000</span></div>
-          @if (decisionError()) { <div class="ar-error"><i class="ri-error-warning-line" aria-hidden="true"></i> {{ decisionError() }}</div> }
-        </div>
-      </div>
-      <footer class="ar-modal-foot">
-        <button type="button" class="btn btn-outline-secondary" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()">Cancel</button>
-        @if (showApproveModal()) {
-          <button type="button" class="btn btn-success" (click)="confirmApprove()" [disabled]="submitting()">Confirm approval</button>
-        } @else {
-          <button type="button" class="btn btn-danger" (click)="confirmReject()" [disabled]="submitting()"> Confirm rejection</button>
-        }
-      </footer>
-    </div>
-  </div>
+  <app-popup [open]="true" size="sm" [tone]="showApproveModal() ? 'success' : 'danger'"
+             [icon]="showApproveModal() ? 'ri-check-double-line' : 'ri-close-circle-line'"
+             [kicker]="'Access request · ' + target.reference"
+             [title]="showApproveModal() ? 'Approve access request' : 'Reject access request'"
+             [lead]="showApproveModal() ? 'This is a primary decision. The role and scope become active from the effective date.'
+                                        : 'Access will not be granted. The decision is recorded permanently.'"
+             (closed)="showApproveModal() ? closeApproveModal() : closeRejectModal()">
+    <dl class="yp-facts">
+      <div><dt>User</dt><dd>{{ target.user }}</dd></div>
+      <div><dt>Requested role</dt><dd>{{ target.requestedRole }}</dd></div>
+      <div><dt>Scope</dt><dd>{{ target.scopeType }} · {{ target.scopeValue }}</dd></div>
+    </dl>
+    <label class="yp-field">
+      <span class="yp-label">{{ showApproveModal() ? 'Decision reason' : 'Rejection reason' }} *</span>
+      <textarea rows="3" maxlength="1000" placeholder="Enter reason (10–1000 characters)"
+                [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)"></textarea>
+      <span class="yp-hint">Required — recorded permanently. {{ decisionReason().length }}/1000</span>
+    </label>
+    @if (decisionError()) { <p class="yp-error">{{ decisionError() }}</p> }
+    <ng-container popupActions>
+      <button type="button" class="yp-btn" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()">Cancel</button>
+      @if (showApproveModal()) {
+        <button type="button" class="yp-btn yp-btn--primary" (click)="confirmApprove()" [disabled]="submitting()">Confirm approval</button>
+      } @else {
+        <button type="button" class="yp-btn yp-btn--danger" (click)="confirmReject()" [disabled]="submitting()">Confirm rejection</button>
+      }
+    </ng-container>
+  </app-popup>
 }
 
 <!-- ===== DECISION RESULT (persistent confirmation) ===== -->
 @if (showDecisionResultModal() && decisionResult(); as result) {
-  <div class="ar-backdrop" (click)="closeDecisionResultModal()">
-    <div class="ar-modal ar-modal--result" role="dialog" aria-modal="true" aria-labelledby="resTitle" (click)="$event.stopPropagation()"
-         [class.tone-ok]="result.state === 'Approved' || result.state === 'Submitted' || result.state === 'Draft'"
-         [class.tone-danger]="result.state === 'Rejected' || result.state === 'Deleted'"
-         [class.tone-warn]="result.state === 'Returned'" [class.tone-muted]="result.state === 'Cancelled'">
-      <div class="ar-result-ico">
-        <i [class]="result.state === 'Rejected' || result.state === 'Deleted' || result.state === 'Cancelled' ? 'ri-close-line' : result.state === 'Returned' ? 'ri-arrow-go-back-line' : 'ri-check-line'" aria-hidden="true"></i>
-      </div>
-      <h2 class="ar-result-title" id="resTitle">{{ result.state }}</h2>
-      <div class="ar-result-ref"><code>{{ result.reference }}</code> · {{ result.effectiveTime }}</div>
-      <div class="ar-result-next">
-        <i class="ri-arrow-right-circle-line" aria-hidden="true"></i>
-        <span class="ar-t"><b>Next:</b> {{ result.nextAction }}</span>
-      </div>
-      <button type="button" class="ar-btn ar-btn--primary ar-btn--block" (click)="closeDecisionResultModal()">Done</button>
-    </div>
-  </div>
+  <app-popup [open]="true" size="sm"
+             [tone]="result.state === 'Rejected' || result.state === 'Deleted' ? 'danger' : result.state === 'Returned' || result.state === 'Cancelled' ? 'warning' : 'success'"
+             [icon]="result.state === 'Rejected' || result.state === 'Deleted' || result.state === 'Cancelled' ? 'ri-close-line' : result.state === 'Returned' ? 'ri-arrow-go-back-line' : 'ri-check-line'"
+             [kicker]="'Access request · ' + result.reference" [title]="result.state"
+             [lead]="result.effectiveTime" (closed)="closeDecisionResultModal()">
+    <dl class="yp-facts">
+      <div><dt>Next</dt><dd>{{ result.nextAction }}</dd></div>
+    </dl>
+    <ng-container popupActions>
+      <button type="button" class="yp-btn yp-btn--primary" (click)="closeDecisionResultModal()">Done</button>
+    </ng-container>
+  </app-popup>
 }

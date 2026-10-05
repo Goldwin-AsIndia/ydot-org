@@ -5,7 +5,19 @@ import { Subject, takeUntil } from 'rxjs';
 import { IamAdminApiService } from '../../../../Service/iam-admin-api.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { PermissionMatrixResponse } from '../../../../Shared/models/iam-contract.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+
+/** One permission with the place it lives. */
+interface PermissionEntry {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  action: string;
+  isSensitive: boolean;
+  moduleCode: string;
+  moduleName: string;
+  groupName: string;
+}
 
 /**
  * The permission catalogue: every code the product defines, and what each one lets somebody do.
@@ -18,14 +30,14 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
  * WHAT THE SCREEN IS ACTUALLY FOR
  * -------------------------------
  * Answering "what does this permission let somebody do" and "which permission do I need to grant
- * for X" — the two questions that come up whenever somebody is deciding what a role should hold.
- * Grouped by module and by group, because a flat list of a hundred and thirty codes cannot be
- * reasoned about.
+ * for X". It is a REGISTER: modules down the left, one ruled table of permissions on the right,
+ * filtered by action or sensitivity and paged, so a hundred and thirty codes are read a screenful
+ * at a time instead of scrolled through.
  */
 @Component({
   selector: 'app-permission-catalogue',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './permission-catalogue.html',
   styleUrl: './permission-catalogue.css',
 })
@@ -33,60 +45,143 @@ export class PermissionCatalogueComponent implements OnInit, OnDestroy {
   private readonly api = inject(IamAdminApiService);
   private readonly destroy$ = new Subject<void>();
 
+  readonly pageSizes = [10, 20, 50];
+
   readonly matrix = signal<PermissionMatrixResponse | null>(null);
   readonly loading = signal(true);
   readonly loadFailed = signal(false);
   readonly errorMessage = signal('');
 
   readonly search = signal('');
-  readonly expandedModules = signal<Set<string>>(new Set());
+  readonly moduleCode = signal('');
+  readonly actionFilter = signal('');
+  readonly sensitiveOnly = signal(false);
+  readonly page = signal(1);
+  readonly pageSize = signal(10);
+
+  /** The code just copied, so its row can say so for a moment. */
+  readonly copied = signal('');
+  private copiedTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly modules = computed(() => this.matrix()?.modules ?? []);
 
-  readonly totalPermissions = computed(() =>
-    this.modules().reduce(
-      (total, module) => total + (module.groups ?? []).reduce(
-        (groupTotal, group) => groupTotal + (group.permissions?.length ?? 0), 0), 0));
+  readonly entries = computed<PermissionEntry[]>(() =>
+    this.modules().flatMap((module) => (module.groups ?? []).flatMap((group) =>
+      (group.permissions ?? []).map((permission) => ({
+        id: permission.id ?? permission.code ?? '',
+        code: permission.code ?? '',
+        name: permission.name ?? '',
+        description: permission.description ?? '',
+        action: permission.action ?? '',
+        isSensitive: permission.isSensitive === true,
+        moduleCode: module.moduleCode ?? '',
+        moduleName: module.moduleName || module.moduleCode || '',
+        groupName: group.groupName || group.groupCode || '',
+      })))));
 
-  /**
-   * The modules, filtered by the search.
-   *
-   * The filter matches the code as well as the name, because half the time somebody arrives here
-   * holding a code from an error message rather than a description.
-   */
-  readonly filteredModules = computed(() => {
-    const term = this.search().trim().toLowerCase();
-
-    if (!term) {
-      return this.modules();
-    }
-
-    return this.modules()
-      .map((module) => ({
-        ...module,
-        groups: (module.groups ?? [])
-          .map((group) => ({
-            ...group,
-            permissions: (group.permissions ?? []).filter((permission) =>
-              (permission.code ?? '').toLowerCase().includes(term)
-              || (permission.name ?? '').toLowerCase().includes(term)
-              || (permission.description ?? '').toLowerCase().includes(term)),
-          }))
-          .filter((group) => (group.permissions?.length ?? 0) > 0),
-      }))
-      .filter((module) => (module.groups?.length ?? 0) > 0);
+  readonly totalPermissions = computed(() => this.entries().length);
+  readonly sensitiveTotal = computed(() => this.entries().filter((entry) => entry.isSensitive).length);
+  readonly sensitiveShare = computed(() => {
+    const total = this.totalPermissions();
+    return total ? Math.round((this.sensitiveTotal() / total) * 100) : 0;
   });
 
-  readonly matchCount = computed(() =>
-    this.filteredModules().reduce(
-      (total, module) => total + (module.groups ?? []).reduce(
-        (groupTotal, group) => groupTotal + (group.permissions?.length ?? 0), 0), 0));
+  /** The modules for the rail, with their sizes. */
+  readonly moduleList = computed(() => this.modules().map((module) => {
+    const mine = this.entries().filter((entry) => entry.moduleCode === module.moduleCode);
+
+    return {
+      code: module.moduleCode ?? '',
+      name: module.moduleName || module.moduleCode || '',
+      count: mine.length,
+      sensitive: mine.filter((entry) => entry.isSensitive).length,
+    };
+  }));
+
+  /** Actions in the order a reader weighs them: reading first, deleting and administering last. */
+  readonly actionKinds = computed(() => {
+    const order = ['view', 'export', 'create', 'edit', 'approve', 'reject', 'delete', 'administer'];
+    const counts = new Map<string, number>();
+    const code = this.moduleCode();
+
+    for (const entry of this.entries()) {
+      if (entry.action && (!code || entry.moduleCode === code)) {
+        counts.set(entry.action, (counts.get(entry.action) ?? 0) + 1);
+      }
+    }
+
+    const rank = (action: string): number => {
+      const index = order.indexOf(action);
+      return index === -1 ? order.length : index;
+    };
+
+    return [...counts.entries()]
+      .map(([action, count]) => ({ action, count }))
+      .sort((a, b) => rank(a.action) - rank(b.action) || a.action.localeCompare(b.action));
+  });
+
+  /** Search matches the code as well as the name: people arrive holding a code from an error. */
+  readonly filtered = computed(() => {
+    const term = this.search().trim().toLowerCase();
+    const code = this.moduleCode();
+    const action = this.actionFilter();
+    const sensitiveOnly = this.sensitiveOnly();
+
+    return this.entries().filter((entry) =>
+      (!code || entry.moduleCode === code)
+      && (!action || entry.action === action)
+      && (!sensitiveOnly || entry.isSensitive)
+      && (!term
+        || entry.code.toLowerCase().includes(term)
+        || entry.name.toLowerCase().includes(term)
+        || entry.description.toLowerCase().includes(term)));
+  });
+
+  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.filtered().length / this.pageSize())));
+  readonly safePage = computed(() => Math.min(this.page(), this.pageCount()));
+
+  readonly rows = computed(() => {
+    const start = (this.safePage() - 1) * this.pageSize();
+    return this.filtered().slice(start, start + this.pageSize());
+  });
+
+  readonly range = computed(() => {
+    const total = this.filtered().length;
+    const start = total === 0 ? 0 : (this.safePage() - 1) * this.pageSize() + 1;
+    return { from: start, to: Math.min(total, start + this.pageSize() - 1), total };
+  });
+
+  /** Page buttons: first, last and the neighbours of the current page, with gaps as null. */
+  readonly pageButtons = computed(() => {
+    const last = this.pageCount();
+    const current = this.safePage();
+    const shown = new Set([1, last, current - 1, current, current + 1].filter((n) => n >= 1 && n <= last));
+    const sorted = [...shown].sort((a, b) => a - b);
+    const out: (number | null)[] = [];
+
+    sorted.forEach((n, index) => {
+      if (index > 0 && n - sorted[index - 1] > 1) {
+        out.push(null);
+      }
+
+      out.push(n);
+    });
+
+    return out;
+  });
+
+  readonly filtering = computed(() =>
+    this.search().trim().length > 0 || this.moduleCode() !== '' || this.actionFilter() !== '' || this.sensitiveOnly());
 
   ngOnInit(): void {
     this.load();
   }
 
   ngOnDestroy(): void {
+    if (this.copiedTimer) {
+      clearTimeout(this.copiedTimer);
+    }
+
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -102,13 +197,6 @@ export class PermissionCatalogueComponent implements OnInit, OnDestroy {
         next: (matrix) => {
           this.matrix.set(matrix);
           this.loading.set(false);
-
-          // The first module opens by itself, so the screen is not a wall of collapsed headings
-          // with nothing to read.
-          const [first] = matrix.modules ?? [];
-          if (first?.moduleCode) {
-            this.expandedModules.set(new Set([first.moduleCode]));
-          }
         },
         error: (error: unknown) => {
           this.loading.set(false);
@@ -118,72 +206,65 @@ export class PermissionCatalogueComponent implements OnInit, OnDestroy {
       });
   }
 
-  isExpanded(moduleCode: string | null | undefined): boolean {
-    // Searching opens everything: hiding matches behind a collapsed heading defeats the search.
-    return this.search().trim().length > 0 || this.expandedModules().has(moduleCode ?? '');
-  }
+  // Every filter change returns to page one, so a narrower list never opens on an empty page.
+  setSearch(value: string): void { this.search.set(value); this.page.set(1); }
+  setModule(code: string): void { this.moduleCode.set(code); this.actionFilter.set(''); this.page.set(1); }
+  setAction(action: string): void { this.actionFilter.set(this.actionFilter() === action ? '' : action); this.page.set(1); }
+  toggleSensitive(): void { this.sensitiveOnly.update((value) => !value); this.page.set(1); }
+  setPageSize(size: number | string): void { this.pageSize.set(Number(size)); this.page.set(1); }
+  goTo(page: number): void { this.page.set(Math.min(Math.max(1, page), this.pageCount())); }
 
-  toggleModule(moduleCode: string | null | undefined): void {
-    if (!moduleCode) {
-      return;
-    }
-
-    this.expandedModules.update((current) => {
-      const next = new Set(current);
-
-      if (next.has(moduleCode)) {
-        next.delete(moduleCode);
-      } else {
-        next.add(moduleCode);
-      }
-
-      return next;
-    });
-  }
-
-  expandAll(): void {
-    this.expandedModules.set(
-      new Set(this.modules().map((module) => module.moduleCode ?? '').filter(Boolean)));
-  }
-
-  collapseAll(): void {
-    this.expandedModules.set(new Set());
+  clearFilters(): void {
+    this.search.set('');
+    this.moduleCode.set('');
+    this.actionFilter.set('');
+    this.sensitiveOnly.set(false);
+    this.page.set(1);
   }
 
   /**
-   * The colour for an action.
+   * The ink for an action.
    *
    * Reading is safe, writing changes things, and approving or deleting is where somebody should
-   * look twice. Colouring by that rather than one shade per verb is what makes the list scannable
-   * for "what can this role actually do to my data".
+   * look twice. Inking by that rather than one shade per verb is what makes the list scannable.
    */
-  actionClass(action: string | null | undefined): string {
+  actionInk(action: string | null | undefined): string {
     switch (action) {
       case 'view':
       case 'export':
-        return 'bg-info-subtle text-info';
+        return 'read';
 
       case 'create':
       case 'edit':
-        return 'bg-primary-subtle text-primary';
+        return 'write';
 
       case 'approve':
       case 'reject':
-        return 'bg-warning-subtle text-warning';
+        return 'review';
 
       case 'delete':
       case 'administer':
-        return 'bg-danger-subtle text-danger';
+        return 'risk';
 
       default:
-        return 'bg-secondary-subtle text-secondary';
+        return 'other';
     }
   }
 
   /** Copies a code, which is what most visits to this screen end in. */
   copyCode(code: string | null | undefined): void {
-    if (code) {
-      void navigator.clipboard.writeText(code);
+    if (!code) {
+      return;
     }
+
+    void navigator.clipboard.writeText(code);
+
+    this.copied.set(code);
+
+    if (this.copiedTimer) {
+      clearTimeout(this.copiedTimer);
+    }
+
+    this.copiedTimer = setTimeout(() => this.copied.set(''), 1600);
   }
 }

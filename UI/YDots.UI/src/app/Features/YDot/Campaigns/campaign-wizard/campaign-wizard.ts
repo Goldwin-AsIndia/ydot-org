@@ -629,6 +629,33 @@ export class CampaignWizardComponent {
    */
   protected readonly reminderTimeDisplay = computed(() => this.formatTime12(this.reminderTime()));
 
+  // 12-hour picker parts (hour 1-12, minute, AM/PM) over the stored 24-hour `HH:mm` value.
+  protected readonly hourOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  protected readonly minuteOptions = computed(() => {
+    const base = Array.from({ length: 12 }, (_, i) => i * 5);
+    const cur = this.reminderParts().minute;
+    // A saved campaign may carry a minute that is not on the 5-minute grid; keep it selectable.
+    return cur !== null && !base.includes(cur) ? [...base, cur].sort((a, b) => a - b) : base;
+  });
+  protected readonly reminderParts = computed(() => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(this.reminderTime() ?? '');
+    if (!m) return { hour: null as number | null, minute: null as number | null, pm: false };
+    const h = Number(m[1]);
+    return { hour: h % 12 === 0 ? 12 : h % 12, minute: Number(m[2]), pm: h >= 12 };
+  });
+
+  protected setReminderPart(part: 'hour' | 'minute' | 'meridiem', raw: string): void {
+    const cur = this.reminderParts();
+    let hour = cur.hour ?? 9;
+    let minute = cur.minute ?? 0;
+    let pm = cur.pm;
+    if (part === 'hour') hour = Number(raw);
+    else if (part === 'minute') minute = Number(raw);
+    else pm = raw === 'PM';
+    const h24 = (hour % 12) + (pm ? 12 : 0);
+    this.reminderTime.set(`${String(h24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
+  }
+
   protected formatTime12(value: string): string {
     const match = /^(\d{1,2}):(\d{2})/.exec(value ?? '');
 

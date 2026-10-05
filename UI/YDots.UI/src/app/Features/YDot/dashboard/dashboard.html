@@ -1,699 +1,476 @@
 <main class="app-wrapper">
-    <div class="container-fluid">
+  <div class="container-fluid">
+    <div class="dbd">
 
-        <!-- User Welcome Card -->
-        @if (!loadingUser()) {
-        <app-page-header screen="dashboard" [title]="'Welcome back, ' + (currentUser()?.displayName || currentUser()?.username || 'User')"
-                         [subtitle]="(currentUser()?.email || 'user@ydot.org') + ' · ' + (userRole() || 'Member')">
-            <button actions type="button" class="ph-btn ph-btn--ghost" (click)="signOut()">
-                <i class="ri-logout-box-line me-1"></i> Sign Out
-            </button>
-        </app-page-header>
-        }
-
-        <!-- Existing Dashboard Content -->
-        <div class="row row-cols-xxl-5 row-cols-xl-3 row-cols-md-2 row-cols-1 kpi-strip">
-                <div class="col">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="avatar-lg rounded-2 avatar-title bg-transparent shadow-sm shadow social-icon">
-                                        <i class="ri-hand-coin-line fs-3 themed-icon"></i>
-                                    </div>
-                                    <a href="#!" class="fw-medium text-body fs-16">Donations</a>
-                                </div>
-                            </div>
-                            <!-- EVERY FIGURE BELOW BELONGS TO THIS ORGANISATION, read from the
-                                 payments and donor services. They were literals - the same
-                                 48.72 lakh and 1,240 donors in every organisation on the
-                                 platform, shown to charities that had taken nothing at all. -->
-                            <div class="text-center mb-3">
-                                <h5 class="mb-1">{{ donationTotal() ?? (figuresLoading() ? '—' : 'Not available') }}</h5>
-                                <p class="text-muted mb-0">Net collection</p>
-                            </div>
-                            <div class="row text-center">
-                                <div class="col-6">
-                                    <div class="border-end">
-                                        <span class="text-muted">Donors</span>
-                                        <h6 class="mb-0 mt-1">{{ donorCount() ?? '—' }}</h6>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <span class="text-muted">Settled</span>
-                                    <h6 class="mb-0 mt-1">{{ settledShare() ?? '—' }}</h6>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="avatar-lg rounded-2 avatar-title bg-transparent shadow-sm shadow social-icon">
-                                        <i class="ri-megaphone-line fs-3 themed-icon"></i>
-                                    </div>
-                                    <a href="#!" class="fw-medium text-body fs-16">Campaigns</a>
-                                </div>
-                            </div>
-                            <div class="text-center mb-3">
-                                <h5 class="mb-1">{{ activeCampaigns() ?? '—' }}</h5>
-                                <p class="text-muted mb-0">Active campaigns</p>
-                            </div>
-                            <div class="row text-center">
-                                <div class="col-6">
-                                    <div class="border-end">
-                                        <span class="text-muted">Closed</span>
-                                        <h6 class="mb-0 mt-1">{{ closedCampaigns() ?? '—' }}</h6>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <span class="text-muted">All campaigns</span>
-                                    <h6 class="mb-0 mt-1">{{ campaignTotal() ?? '—' }}</h6>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="avatar-lg rounded-2 avatar-title bg-transparent shadow-sm shadow social-icon">
-                                        <i class="ri-group-line fs-3 themed-icon"></i>
-                                    </div>
-                                    <a href="#!" class="fw-medium text-body fs-16">Beneficiaries</a>
-                                </div>
-                            </div>
-                            <!-- NO SERVICE BEHIND THIS TILE YET. It read 24,582 eligible and
-                                 22,410 verified, identically in every organisation. A tile that
-                                 admits it has no figure is worth more than one that invents an
-                                 authoritative-looking number. -->
-                            <div class="text-center mb-3">
-                                <h5 class="mb-1 text-muted">—</h5>
-                                <p class="text-muted mb-0">Beneficiary reporting is not yet available</p>
-                            </div>
-                            <div class="row text-center">
-                                <div class="col-12">
-                                    <span class="text-muted small">No beneficiary service is connected to this platform.</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="avatar-lg rounded-2 avatar-title bg-transparent shadow-sm shadow social-icon">
-                                        <i class="ri-archive-drawer-line fs-3 themed-icon"></i>
-                                    </div>
-                                    <a href="#!" class="fw-medium text-body fs-16">Stock</a>
-                                </div>
-                            </div>
-                            <!-- NO SERVICE BEHIND THIS TILE YET, for the same reason as the one
-                                 beside it. -->
-                            <div class="text-center mb-3">
-                                <h5 class="mb-1 text-muted">—</h5>
-                                <p class="text-muted mb-0">Stock reporting is not yet available</p>
-                            </div>
-                            <div class="row text-center">
-                                <div class="col-6">
-                                    <div class="border-end">
-                                        <span class="text-muted">Warehouses</span>
-                                        <h6 class="mb-0 mt-1">6</h6>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <span class="text-muted">Allocated</span>
-                                    <h6 class="mb-0 mt-1">1,208</h6>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="avatar-lg rounded-2 avatar-title bg-transparent shadow-sm shadow social-icon">
-                                        <i class="ri-check-double-line fs-3 themed-icon"></i>
-                                    </div>
-                                    <a href="#!" class="fw-medium text-body fs-16">Distributions</a>
-                                </div>
-                                <span class="badge bg-success-subtle text-success">+ 6.7%</span>
-                            </div>
-                            <div class="text-center mb-3">
-                                <h5 class="mb-1">2,914</h5>
-                                <p class="text-muted mb-0">Acknowledged</p>
-                            </div>
-                            <div class="row text-center">
-                                <div class="col-6">
-                                    <div class="border-end">
-                                        <span class="text-muted">OTP Verified</span>
-                                        <h6 class="mb-0 mt-1">2,105</h6>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <span class="text-muted">Signed</span>
-                                    <h6 class="mb-0 mt-1">809</h6>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-xl-5 col-xxl-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title">Donations Growth</h5>
-                            <div class="dropdown">
-                                <button class="btn btn-outline-light dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    Sort by
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="#!">Today</a></li>
-                                    <li><a class="dropdown-item" href="#!">This Week</a></li>
-                                    <li><a class="dropdown-item" href="#!">This Month</a></li>
-                                    <li><a class="dropdown-item" href="#!">This Year</a></li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div id="instagramFollowerChart" class="w-100"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 col-xl-3">
-                    <div class="card card-h-100">
-                        <div class="card-body text-center">
-                            <div class="d-flex flex-column justify-content-between h-100">
-                                <div class="avatar-lg rounded-2 avatar-title bg-transparent shadow-sm shadow social-icon mx-auto mb-3">
-                                    <i class="ri-trophy-line fs-3 themed-icon"></i>
-                                </div>
-                                    <h6 class="mb-2 fs-17">Top Donor of the Month</h6>
-                                    <p class="text-muted mb-4">Rahul Verma donated ₹50,000 to the Education Support Program this month.</p>
-                                    <div class="d-flex align-items-center justify-content-center gap-2 mb-3">
-                                        <img src="assets/images/avatar/avatar-1.jpg" class="rounded-circle" width="40" height="40" alt="Rahul Verma">
-                                        <div class="text-start">
-                                            <h6 class="mb-0 fw-semibold fs-14">Rahul Verma</h6>
-                                            <small class="text-muted">Top Donor</small>
-                                        </div>
-                                    </div>
-                                    <button type="button" class="btn btn-primary">View Donor</button>
-                            
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 col-xl-4 col-xxl-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <span class="badge bg-success float-end">5.1%</span>
-                            <h6 class="fs-18 mb-5">Blind-Stick Campaign</h6>
-                            <p class="mb-8 text-muted">
-                                Our latest Blind-Stick Distribution Drive focuses on empowering visually impaired individuals across Maharashtra.
-                            </p>
-                            <div class="row text-center mb-6">
-                                <div class="col-6">
-                                    <div class="border-end border-opacity-50 ">
-                                        <h5 class="mb-1 fw-medium">1,208</h5>
-                                        <span class="text-muted">Sticks</span>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <h5 class="mb-1 fw-medium">92%</h5>
-                                    <span class="text-muted">Distributed</span>
-                                </div>
-                            </div>
-                            <div class="d-flex align-items-center flex-wrap gap-6">
-                                <div class="avatar-group">
-                                    <div class="avatar-item border-white d-none d-md-block">
-                                        <img class="img-fluid avatar-md" src="assets/images/avatar/avatar-1.jpg" alt="avatar image">
-                                    </div>
-                                    <div class="avatar-item border-white d-none d-md-block">
-                                        <img class="img-fluid avatar-md" src="assets/images/avatar/avatar-2.jpg" alt="avatar image">
-                                    </div>
-                                    <div class="avatar-item border-white d-none d-md-block">
-                                        <img class="img-fluid avatar-md" src="assets/images/avatar/avatar-3.jpg" alt="avatar image">
-                                    </div>
-                                    <div class="avatar-item border-white d-none d-md-block">
-                                        <img class="img-fluid avatar-md" src="assets/images/avatar/avatar-4.jpg" alt="avatar image">
-                                    </div>
-                                    <div class="avatar-item border-white d-none d-md-block">
-                                        <img class="img-fluid avatar-md" src="assets/images/avatar/avatar-5.jpg" alt="avatar image">
-                                    </div>
-                                    <div class="avatar-item border-white d-none d-md-block">
-                                        <img class="img-fluid avatar-md" src="assets/images/avatar/avatar-6.jpg" alt="avatar image">
-                                    </div>
-                                </div>
-                                <div>
-                                    <h6 class="mb-1 fw-medium">+ 1,208</h6>
-                                    <p class="mb-0 text-muted">Sticks Distributed</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div dir="ltr" class="swiper social-performance-carousel">
-                        <div class="swiper-wrapper">
-                            <div class="swiper-slide">
-                                <div class="card scial-card">
-                                    <div class="card-body">
-                                        <a href="#!" class="fw-medium text-body d-block">Top Campaign - Blind-Stick</a>
-                                        <p class="text-muted mb-0 text-truncate">"Empowering independence with every blind stick distributed!"</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="swiper-slide">
-                                <div class="card scial-card">
-                                    <div class="card-body">
-                                        <a href="#!" class="fw-medium text-body d-block">Top Story - Education Drive</a>
-                                        <p class="text-muted mb-0 text-truncate">"Behind the scenes of our new education support program."</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="swiper-slide">
-                                <div class="card scial-card">
-                                    <div class="card-body">
-                                        <a href="#!" class="fw-medium text-body d-block">Top Update - Healthcare Aid</a>
-                                        <p class="text-muted mb-0 text-truncate">"AI tools are transforming NGO outreach strategy."</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-5 col-xxl-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title">Recent Activities</h5>
-                            <a href="apps-social-activities" class="text-muted">See all<i class="uil uil-angle-right-b"></i></a>
-                        </div>
-                        <div class="card-body">
-                            <div class="px-5 mx-n5" data-simplebar style="max-height: calc(355px * var(--ui-scale, 1));">
-                                <div class="px-4 py-3 border border-dashed rounded-2 mb-3">
-                                     <div class="d-flex align-items-center gap-3 flex-wrap">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/avatar/avatar-5.jpg" class="rounded-circle" width="40" height="40" alt="Priya Nair">
-                                        </div>
-                                        <div class="order-3 order-md-2">
-                                            <a href="#!" class="mb-1 text-body fw-medium d-block">Priya Nair</a>
-                                            <p class="text-muted mb-0">Approved the Blind-Stick Distribution Drive</p>
-                                        </div>
-                                        <div class="text-end ms-auto float-end order-2 order-md-3">
-                                            <h6 class="mb-0 small">08:15 am</h6>
-                                            <small class="text-muted">2 mins ago</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="px-4 py-3 border border-dashed rounded-2 mb-3">
-                                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/avatar/avatar-1.jpg" class="rounded-circle" width="40" height="40" alt="Sophie Bennett">
-                                        </div>
-                                         <div class="order-3 order-md-2">
-                                            <a href="#!" class="mb-1 text-body fw-medium d-block">Sophie Bennett</a>
-                                            <p class="text-muted mb-0">Submitted a new beneficiary onboarding request</p>
-                                        </div>
-                                        <div class="text-end ms-auto float-end order-2 order-md-3">
-                                            <h6 class="mb-0 small">09:22 am</h6>
-                                            <small class="text-muted">10 mins ago</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="px-4 py-3 border border-dashed rounded-2 mb-3">
-                                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/avatar/avatar-2.jpg" class="rounded-circle" width="40" height="40" alt="Rahul Verma">
-                                        </div>
-                                        <div class="order-3 order-md-2">
-                                            <a href="#!" class="mb-1 text-body fw-medium d-block">Rahul Verma</a>
-                                            <p class="text-muted mb-0">Donated ₹50,000 to the Education Support Program</p>
-                                        </div>
-                                        <div class="text-end ms-auto float-end order-2 order-md-3">
-                                            <h6 class="mb-0 small">10:03 am</h6>
-                                            <small class="text-muted">18 mins ago</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="px-4 py-3 border border-dashed rounded-2 mb-3">
-                                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/avatar/avatar-4.jpg" class="rounded-circle" width="40" height="40" alt="Michael Brown">
-                                        </div>
-                                        <div class="order-3 order-md-2">
-                                            <a href="#!" class="mb-1 text-body fw-medium d-block">Michael Brown</a>
-                                            <p class="text-muted mb-0">Updated stock allocation for Maharashtra warehouse</p>
-                                        </div>
-                                        <div class="text-end ms-auto float-end order-2 order-md-3">
-                                            <h6 class="mb-0 small">10:45 am</h6>
-                                            <small class="text-muted">30 mins ago</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="px-4 py-3 border border-dashed rounded-2 mb-3">
-                                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/avatar/avatar-7.jpg" class="rounded-circle" width="40" height="40" alt="Ava Martinez">
-                                        </div>
-                                         <div class="order-3 order-md-2">
-                                            <a href="#!" class="mb-1 text-body fw-medium d-block">Ava Martinez</a>
-                                            <p class="text-muted mb-0">Confirmed distribution acknowledgement via OTP</p>
-                                        </div>
-                                        <div class="text-end ms-auto float-end order-2 order-md-3">
-                                            <h6 class="mb-0 small">11:10 am</h6>
-                                            <small class="text-muted">45 mins ago</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="px-4 py-3 border border-dashed rounded-2">
-                                     <div class="d-flex align-items-center gap-3 flex-wrap">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/avatar/avatar-6.jpg" class="rounded-circle" width="40" height="40" alt="Liam Carter">
-                                        </div>
-                                        <div class="order-3 order-md-2">
-                                            <a href="#!" class="mb-1 text-body fw-medium d-block">Liam Carter</a>
-                                            <p class="text-muted mb-0">Raised an exception for reconciliation mismatch</p>
-                                        </div>
-                                        <div class="text-end ms-auto float-end order-2 order-md-3">
-                                            <h6 class="mb-0 small">11:45 am</h6>
-                                            <small class="text-muted">1 hour ago</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-7 col-xxl-5">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-body p-0">
-                                    <div class="px-5 pt-5">
-                                        <div class="dropdown float-end">
-                                            <a href="#!" class="fs-16 text-body" data-bs-toggle="dropdown" title="More"><i class="ri-more-2-line"></i></a>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li><a class="dropdown-item" href="#">View Donation Analytics</a></li>
-                                                <li><a class="dropdown-item" href="#">Download Report</a></li>
-                                                <li><a class="dropdown-item" href="#">Compare to Last Month</a></li>
-                                                <li><a class="dropdown-item text-danger" href="#">Remove Widget</a></li>
-                                            </ul>
-                                        </div>
-                                        <h4 class="mb-2">₹48.72 L <small class="text-success fw-medium fs-14">+ 5.1%</small></h4>
-                                        <p class="mb-0 text-muted">Total Donations</p>
-                                    </div>
-                                    <div id="spark1"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-body p-0">
-                                    <div class="px-5 pt-5">
-                                        <div class="dropdown float-end">
-                                            <a href="#!" class="fs-16 text-body" data-bs-toggle="dropdown" title="More"><i class="ri-more-2-line"></i></a>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li><a class="dropdown-item" href="#">View Expense Details</a></li>
-                                                <li><a class="dropdown-item" href="#">Download Summary</a></li>
-                                                <li><a class="dropdown-item" href="#">Monthly Breakdown</a></li>
-                                                <li><a class="dropdown-item text-danger" href="#">Remove Widget</a></li>
-                                            </ul>
-                                        </div>
-                                        <h4 class="mb-2">₹18.35 L <small class="text-danger fw-medium fs-14">- 2.3%</small></h4>
-                                        <p class="mb-0 text-muted">Total Expenses</p>
-                                    </div>
-                                    <div id="spark2"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-body p-0">
-                                    <div class="px-5 pt-5">
-                                        <div class="dropdown float-end">
-                                            <a href="#!" class="fs-16 text-body" data-bs-toggle="dropdown" title="More"><i class="ri-more-2-line"></i></a>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li><a class="dropdown-item" href="#">Fund Summary</a></li>
-                                                <li><a class="dropdown-item" href="#">Download Report</a></li>
-                                                <li><a class="dropdown-item" href="#">Compare Q/Q</a></li>
-                                                <li><a class="dropdown-item text-danger" href="#">Remove Widget</a></li>
-                                            </ul>
-                                        </div>
-                                        <h4 class="mb-2">₹30.37 L <small class="text-success fw-medium fs-14">+ 8.7%</small></h4>
-                                        <p class="mb-0 text-muted">Net Funds</p>
-                                    </div>
-                                    <div id="spark3"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-body p-0">
-                                    <div class="px-5 pt-5">
-                                        <div class="dropdown float-end">
-                                            <a href="#!" class="fs-16 text-body" data-bs-toggle="dropdown" title="More"><i class="ri-more-2-line"></i></a>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li><a class="dropdown-item" href="#">View Monthly Trends</a></li>
-                                                <li><a class="dropdown-item" href="#">Export as PDF</a></li>
-                                                <li><a class="dropdown-item" href="#">Compare YTD</a></li>
-                                                <li><a class="dropdown-item text-danger" href="#">Remove Widget</a></li>
-                                            </ul>
-                                        </div>
-                                        <h4 class="mb-2">₹12.96 L <small class="text-success fw-medium fs-14">+ 4.2%</small></h4>
-                                        <p class="mb-0 text-muted">Monthly Collections</p>
-                                    </div>
-                                    <div id="spark4"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-4 col-xxl-3">
-                    <div class="card card-h-100">
-                        <div class="card-header">
-                            <h5 class="card-title">Campaign Traffic</h5>
-                            <div class="dropdown">
-                                <button class="btn btn-outline-light dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">Monthly</button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="#!">Weekly</a></li>
-                                    <li><a class="dropdown-item" href="#!">Monthly</a></li>
-                                    <li><a class="dropdown-item" href="#!">Yearly</a></li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div id="platformTraffic" class="highchart mb-8 mt-4"></div>
-                            <div class="d-flex align-items-center justify-content-center gap-5 flex-wrap">
-                                <a href="#!" class="rotate-hover text-body fs-16 fw-medium d-flex align-items-center gap-1">
-                                    <i class="ri-loader-3-line text-primary lh-1 fs-5"></i>Blind-Stick
-                                </a>
-                                <a href="#!" class="rotate-hover text-body fs-16 fw-medium d-flex align-items-center gap-1">
-                                    <i class="ri-loader-3-line text-secondary lh-1 fs-5"></i>Education
-                                </a>
-                                <a href="#!" class="rotate-hover text-body fs-16 fw-medium d-flex align-items-center gap-1">
-                                    <i class="ri-loader-3-line text-success lh-1 fs-5"></i>Healthcare
-                                </a>
-                                <a href="#!" class="rotate-hover text-body fs-16 fw-medium d-flex align-items-center gap-1">
-                                    <i class="ri-loader-3-line text-info lh-1 fs-5"></i>Women Emp.
-                                </a>
-                                <a href="#!" class="rotate-hover text-body fs-16 fw-medium d-flex align-items-center gap-1">
-                                    <i class="ri-loader-3-line text-warning lh-1 fs-5"></i>Livelihood
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-8 col-xxl-5">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title">Beneficiaries by State</h5>
-                            <div class="dropdown float-end">
-                                <a href="#!" class="fs-16 text-body" data-bs-toggle="dropdown" title="More">
-                                    <i class="ri-more-2-line"></i>
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="#">View Details</a></li>
-                                    <li><a class="dropdown-item" href="#">Export</a></li>
-                                    <li><a class="dropdown-item" href="#">Compare</a></li>
-                                    <li><a class="dropdown-item text-danger" href="#">Remove</a></li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div id="world-map" class="min-h-300px"></div>
-                            <div class="d-flex flex-wrap row-gap-6">
-                                <div class="d-flex align-items-center gap-2 country-item px-md-4">
-                                    <img src="assets/images/circle-flag/in.svg" alt="Maharashtra" class="img-fluid avatar-md">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <a href="#!" class="text-body fw-medium">Maharashtra</a>
-                                            <span class="text-muted">8.2k</span>
-                                        </div>
-                                        <div class="progress progress-xs" role="progressbar" aria-label="Maharashtra" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
-                                            <div class="progress-bar" style="width: 25%"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="d-flex align-items-center gap-2 country-item px-md-4">
-                                    <img src="assets/images/circle-flag/in.svg" alt="Tamil Nadu" class="img-fluid avatar-md">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <a href="#!" class="text-body fw-medium">Tamil Nadu</a>
-                                            <span class="text-muted">6.4k</span>
-                                        </div>
-                                        <div class="progress progress-xs" role="progressbar" aria-label="Tamil Nadu" aria-valuenow="35" aria-valuemin="0" aria-valuemax="100">
-                                            <div class="progress-bar" style="width: 35%"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="d-flex align-items-center gap-2 country-item px-md-4">
-                                    <img src="assets/images/circle-flag/in.svg" alt="Karnataka" class="img-fluid avatar-md">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <a href="#!" class="text-body fw-medium">Karnataka</a>
-                                            <span class="text-muted">5.8k</span>
-                                        </div>
-                                        <div class="progress progress-xs" role="progressbar" aria-label="Karnataka" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100">
-                                            <div class="progress-bar" style="width: 20%"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="d-flex align-items-center gap-2 country-item px-md-4">
-                                    <img src="assets/images/circle-flag/in.svg" alt="Kerala" class="img-fluid avatar-md">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <a href="#!" class="text-body fw-medium">Kerala</a>
-                                            <span class="text-muted">4.2k</span>
-                                        </div>
-                                        <div class="progress progress-xs" role="progressbar" aria-label="Kerala" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100">
-                                            <div class="progress-bar" style="width: 40%"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xxl-7">
-                    <div class="card card-h-100">
-                        <div class="card-header">
-                            <h5 class="card-title">Daily Donation Growth</h5>
-                            <div class="dropdown">
-                                <button class="btn btn-outline-light dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">Weekly</button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="#!">Weekly</a></li>
-                                    <li><a class="dropdown-item" href="#!">Monthly</a></li>
-                                    <li><a class="dropdown-item" href="#!">Yearly</a></li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover table-borderless text-nowrap align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Donation ID</th>
-                                            <th>Donor</th>
-                                            <th>Amount</th>
-                                            <th>Campaign</th>
-                                            <th>Growth %</th>
-                                            <th>Date</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td>#DON1023</td>
-                                            <td>
-                                                <a href="#!" class="text-body d-flex align-items-center gap-3">
-                                                    <img src="assets/images/avatar/avatar-1.jpg" alt="Rahul Verma" class="avatar avatar-md rounded-circle">
-                                                    <div>
-                                                        <h6 class="mb-0 fw-semibold">Rahul Verma</h6>
-                                                        <small class="text-muted">rahul.verma@gmail.com</small>
-                                                    </div>
-                                                </a>
-                                            </td>
-                                            <td>₹50,000</td>
-                                            <td>Education Support</td>
-                                            <td><span class="text-success">+1.8%</span></td>
-                                            <td>29 Jul 2026</td>
-                                        </tr>
-                                        <tr>
-                                            <td>#DON2045</td>
-                                            <td>
-                                                <a href="#!" class="text-body d-flex align-items-center gap-3">
-                                                    <img src="assets/images/avatar/avatar-2.jpg" alt="Anita Desai" class="avatar avatar-md rounded-circle">
-                                                    <div>
-                                                        <h6 class="mb-0 fw-semibold">Anita Desai</h6>
-                                                        <small class="text-muted">anita.desai@outlook.com</small>
-                                                    </div>
-                                                </a>
-                                            </td>
-                                            <td>₹35,000</td>
-                                            <td>Blind-Stick Drive</td>
-                                            <td><span class="text-success">+2.1%</span></td>
-                                            <td>29 Jul 2026</td>
-                                        </tr>
-                                        <tr>
-                                            <td>#DON4089</td>
-                                            <td>
-                                                <a href="#!" class="text-body d-flex align-items-center gap-3">
-                                                    <img src="assets/images/avatar/avatar-3.jpg" alt="Vikram Singh" class="avatar avatar-md rounded-circle">
-                                                    <div>
-                                                        <h6 class="mb-0 fw-semibold">Vikram Singh</h6>
-                                                        <small class="text-muted">vikram.singh@yahoo.com</small>
-                                                    </div>
-                                                </a>
-                                            </td>
-                                            <td>₹25,000</td>
-                                            <td>Healthcare Aid</td>
-                                            <td><span class="text-success">+1.6%</span></td>
-                                            <td>29 Jul 2026</td>
-                                        </tr>
-                                        <tr>
-                                            <td>#DON5090</td>
-                                            <td>
-                                                <a href="#!" class="text-body d-flex align-items-center gap-3">
-                                                    <img src="assets/images/avatar/avatar-4.jpg" alt="Meera Krishnan" class="avatar avatar-md rounded-circle">
-                                                    <div>
-                                                        <h6 class="mb-0 fw-semibold">Meera Krishnan</h6>
-                                                        <small class="text-muted">meera.krishnan@gmail.com</small>
-                                                    </div>
-                                                </a>
-                                            </td>
-                                            <td>₹20,000</td>
-                                            <td>Women Empowerment</td>
-                                            <td><span class="text-success">+2.5%</span></td>
-                                            <td>29 Jul 2026</td>
-                                        </tr>
-                                        <tr>
-                                            <td>#DON6122</td>
-                                            <td>
-                                                <a href="#!" class="text-body d-flex align-items-center gap-3">
-                                                    <img src="assets/images/avatar/avatar-5.jpg" alt="Arjun Patel" class="avatar avatar-md rounded-circle">
-                                                    <div>
-                                                        <h6 class="mb-0 fw-semibold">Arjun Patel</h6>
-                                                        <small class="text-muted">arjun.patel@outlook.com</small>
-                                                    </div>
-                                                </a>
-                                            </td>
-                                            <td>₹15,000</td>
-                                            <td>Livelihood Program</td>
-                                            <td><span class="text-success">+1.0%</span></td>
-                                            <td>29 Jul 2026</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <!-- ===== Command bar ===== -->
+      <header class="dbd-bar">
+        <div class="dbd-bar-id">
+          <h1 class="dbd-title">{{ greeting }}@if (firstName()) {, <em>{{ firstName() }}</em>}</h1>
+          <span class="dbd-sub">{{ organisation() || 'Overview' }}@if (role()) { · {{ role() }}}</span>
+          @if (mockOn) { <span class="dbd-sample">Sample data · for visual reference</span> }
         </div>
-    </main>
+        <div class="dbd-bar-act">
+          <span class="dbd-live" [class.is-busy]="loading()">
+            <i class="dbd-pulse"></i>
+            {{ loading() ? 'Updating' : 'Live' }}@if (updatedAt(); as t) { · {{ t | date: 'h:mm a' }}}
+            <button type="button" class="dbd-glyph" (click)="refresh()" title="Refresh" aria-label="Refresh"><i class="ri-refresh-line"></i></button>
+          </span>
+          <button type="button" class="dbd-btn" (click)="go('/app/fundraising/relationships/lead-capture')"><i class="ri-user-add-line"></i> Capture lead</button>
+          <button type="button" class="dbd-btn" (click)="go('/app/fundraising/campaigns/campaign-wizard')"><i class="ri-megaphone-line"></i> New campaign</button>
+          <button type="button" class="dbd-btn dbd-btn--main" (click)="go('/app/money/finance/offline-donation-entry')"><i class="ri-hand-coin-line"></i> Record donation</button>
+          <button type="button" class="dbd-glyph" (click)="signOut()" title="Sign out" aria-label="Sign out"><i class="ri-logout-box-r-line"></i></button>
+        </div>
+      </header>
+
+      <div class="dbd-bento">
+
+        <!-- ===== Status rail: four doorways into the work, each with a meter that always draws ===== -->
+        <section class="dbd-tile dbd-rail dbd-s12" aria-label="At a glance">
+
+          <a class="dbd-stat dbd-t-ok" routerLink="/app/donations/payment-event-queue">
+            <span class="dbd-stat-head"><i class="dbd-g ri-wallet-3-line"></i>Funds received</span>
+            <span class="dbd-stat-row">
+              <b class="dbd-stat-fig">{{ donations()?.netAmount?.display ?? '—' }}</b>
+              @if (sparkNet().line) {
+                <svg class="dbd-mini" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true"><path class="dbd-spark-area" [attr.d]="sparkNet().area" /><path class="dbd-spark-line" [attr.d]="sparkNet().line" /></svg>
+              }
+            </span>
+            <span class="dbd-stat-line">
+              @if (donations(); as d) {
+                {{ d.totalCount === 0 ? 'Nothing received yet' : 'after ' + d.totalRefunded.display + ' refunded' }}
+              } @else { Figures unavailable }
+            </span>
+            <span class="dbd-meter"><i [style.width.%]="settledShare() ?? 0"></i></span>
+            <span class="dbd-stat-foot"><span>{{ settledShare() !== null ? settledShare() + '% of gifts settled' : 'Waiting for the first gift' }}</span><i class="ri-arrow-right-up-line"></i></span>
+          </a>
+
+          <a class="dbd-stat dbd-t-wait" routerLink="/app/fundraising/relationships/donor-list">
+            <span class="dbd-stat-head"><i class="dbd-g ri-heart-3-line"></i>Gifts received</span>
+            <span class="dbd-stat-row">
+              <b class="dbd-stat-fig">{{ donations() ? (donations()!.totalCount | number) : '—' }}</b>
+              @if (sparkGifts().length) {
+                <span class="dbd-mini-bars" aria-hidden="true">@for (h of sparkGifts(); track $index) { <i [style.height.%]="h || 6"></i> }</span>
+              }
+            </span>
+            <span class="dbd-stat-line">{{ donorCount() === null ? 'Donor figures unavailable' : donorCount() === 0 ? 'No donors on record yet' : 'from ' + (donorCount()! | number) + (donorCount() === 1 ? ' donor' : ' donors') }}</span>
+            <span class="dbd-meter"><i [style.width.%]="receiptRate() ?? 0"></i></span>
+            <span class="dbd-stat-foot"><span>{{ receiptRate() !== null ? receiptRate() + '% receipted' : 'No receipts issued yet' }}</span><i class="ri-arrow-right-up-line"></i></span>
+          </a>
+
+          <a class="dbd-stat dbd-t-warn" routerLink="/app/fundraising/campaigns/campaign-register">
+            <span class="dbd-stat-head"><i class="dbd-g ri-megaphone-line"></i>Campaigns live</span>
+            <span class="dbd-stat-row">
+              <b class="dbd-stat-fig">{{ campaigns() ? campaigns()!.active : '—' }}</b>
+              @if (campaigns()) {
+                <span class="dbd-mini-bars dbd-mini-bars--stage" aria-hidden="true">@for (s of journey(); track s.key) { <i [class.is-now]="s.key === 'active'" [style.height.%]="s.count ? (s.count / stageMax()) * 100 : 6"></i> }</span>
+              }
+            </span>
+            <span class="dbd-stat-line">
+              @if (campaigns(); as c) {
+                {{ c.total === 0 ? 'No campaigns created yet' : c.active > 0 ? 'out of ' + c.total + ' in total' : 'none live · ' + c.total + ' in the pipeline' }}
+              } @else { Campaign figures unavailable }
+            </span>
+            <span class="dbd-meter"><i [style.width.%]="pct(campaigns()?.active, campaigns()?.total)"></i></span>
+            <span class="dbd-stat-foot"><span>{{ campaigns() ? campaigns()!.draft + ' draft · ' + campaigns()!.scheduled + ' scheduled' : 'Open the register' }}</span><i class="ri-arrow-right-up-line"></i></span>
+          </a>
+
+          <a class="dbd-stat dbd-t-brand" routerLink="/app/fundraising/relationships/lead-work-queue">
+            <span class="dbd-stat-head"><i class="dbd-g ri-user-heart-line"></i>Open leads</span>
+            <span class="dbd-stat-row">
+              <b class="dbd-stat-fig">{{ leads() ? (leads()!.totalLeads | number) : '—' }}</b>
+              @if (leads(); as l) {
+                <span class="dbd-split" aria-hidden="true"><i class="dbd-split-a" [style.flex-grow]="l.convertedLeads"></i><i class="dbd-split-b" [style.flex-grow]="l.assignedLeads - l.convertedLeads > 0 ? l.assignedLeads - l.convertedLeads : 0"></i><i class="dbd-split-c" [style.flex-grow]="l.unassignedLeads"></i></span>
+              }
+            </span>
+            <span class="dbd-stat-line">{{ leads() ? (leads()!.totalLeads === 0 ? 'No leads captured yet' : leads()!.hotLeads + ' ready to give · ' + leads()!.convertedLeads + ' won') : 'Lead figures unavailable' }}</span>
+            <span class="dbd-meter"><i [style.width.%]="pct(leads()?.assignedLeads, leads()?.totalLeads)"></i></span>
+            <span class="dbd-stat-foot"><span>{{ leads() && leads()!.totalLeads > 0 ? leads()!.assignedLeads + ' of ' + leads()!.totalLeads + ' have an owner' : 'Capture the first lead' }}</span><i class="ri-arrow-right-up-line"></i></span>
+          </a>
+        </section>
+
+        <!-- ===== Pulse strip: every counter opens its screen ===== -->
+        <section class="dbd-tile dbd-pulse-strip dbd-s12" aria-label="Pulse">
+          <a routerLink="/app/fundraising/relationships/donor-list"><i class="ri-heart-3-line"></i><span class="dbd-label">Donors</span><b class="dbd-num">{{ donorCount() !== null ? (donorCount()! | number) : '—' }}</b></a>
+          <a routerLink="/app/donations/payment-event-queue"><i class="ri-receipt-line"></i><span class="dbd-label">Receipts issued</span><b class="dbd-num">{{ receipts() ? (receipts()!.successful | number) : '—' }}</b></a>
+          <a routerLink="/app/administration/access/user-directory"><i class="ri-team-line"></i><span class="dbd-label">Active users</span><b class="dbd-num">{{ activeUsers() !== null ? (activeUsers()! | number) : '—' }}</b></a>
+          <a routerLink="/app/administration/access/user-directory"><i class="ri-mail-send-line"></i><span class="dbd-label">Invited</span><b class="dbd-num">{{ invitedUsers() !== null ? invitedUsers() : '—' }}</b></a>
+          <a routerLink="/app/administration/access/access-request-and-approval"><i class="ri-shield-user-line"></i><span class="dbd-label">Access requests</span><b class="dbd-num">{{ pendingAccess() !== null ? pendingAccess() : '—' }}</b></a>
+          <a routerLink="/app/money/finance/finance-workbench"><i class="ri-refund-2-line"></i><span class="dbd-label">Open refunds</span><b class="dbd-num">{{ openRefunds() !== null ? openRefunds() : '—' }}</b></a>
+          <a routerLink="/app/money/finance/finance-workbench"><i class="ri-alarm-warning-line"></i><span class="dbd-label">Open chargebacks</span><b class="dbd-num">{{ openChargebacks() !== null ? openChargebacks() : '—' }}</b></a>
+        </section>
+
+        <!-- ===== Giving curve ===== -->
+        <section class="dbd-tile dbd-s7 dbd-hero" aria-label="Giving over time">
+          <header class="dbd-head">
+            <div>
+              <h2 class="dbd-h">Giving</h2>
+              <span class="dbd-quiet">Last {{ trendDays }} days@if (sampleTruncated()) { · newest {{ sample()!.items.length }} of {{ sample()!.total | number }} gifts }</span>
+            </div>
+            @if (sample() && windowCount() > 0) {
+              <div class="dbd-hero-stats">
+                <span><b class="dbd-num">{{ short(windowTotal()) }}</b> collected</span>
+                <span><b class="dbd-num">{{ windowCount() | number }}</b> gifts</span>
+                <span><b class="dbd-num">{{ short(averageGift()) }}</b> average</span>
+              </div>
+            } @else {
+              <a class="dbd-link" routerLink="/app/donations/payment-event-queue">Payments <i class="ri-arrow-right-line"></i></a>
+            }
+          </header>
+          @if (chart(); as c) {
+            <div class="dbd-chartwrap" #chartWrap>
+              <svg class="dbd-area" [attr.viewBox]="'0 0 ' + c.W + ' ' + c.H" role="img" aria-label="Donations per day">
+                <defs>
+                  <linearGradient id="dbdFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" class="dbd-stop-a" /><stop offset="100%" class="dbd-stop-b" /></linearGradient>
+                </defs>
+                @for (g of c.grid; track $index) {
+                  <line class="dbd-gridline" [attr.x1]="c.L" [attr.x2]="c.W - c.R" [attr.y1]="g.y" [attr.y2]="g.y" />
+                  <text class="dbd-axis" [attr.x]="c.L - 8" [attr.y]="g.y + 3" text-anchor="end">{{ g.label }}</text>
+                }
+                <path class="dbd-area-fill" [attr.d]="c.area" fill="url(#dbdFill)" />
+                <path class="dbd-area-line" [attr.d]="c.line" />
+                @for (p of c.points; track $index) {
+                  <g class="dbd-pt" [class.is-today]="p.today" (click)="go('/app/donations/payment-event-queue')">
+                    <rect class="dbd-pt-hit" [attr.x]="p.x - 12" y="0" width="24" [attr.height]="c.H - c.B" />
+                    <circle [attr.cx]="p.x" [attr.cy]="p.y" r="4" />
+                    <text class="dbd-pt-tip" [attr.x]="p.x" [attr.y]="p.y - 10" text-anchor="middle">{{ p.value }}</text>
+                    <title>{{ p.label }}: {{ p.value }} from {{ p.count }} {{ p.count === 1 ? 'gift' : 'gifts' }}</title>
+                  </g>
+                  @if ($index % 2 === 0 || p.today) { <text class="dbd-axis" [attr.x]="p.x" [attr.y]="c.H - 8" text-anchor="middle">{{ p.label }}</text> }
+                }
+              </svg>
+              @if (windowCount() === 0) {
+                <div class="dbd-chart-empty">
+                  <i class="ri-line-chart-line"></i><strong>No gifts in the last {{ trendDays }} days</strong>
+                  <span class="dbd-quiet">The giving curve draws itself as donations are recorded.</span>
+                  <button type="button" class="dbd-btn dbd-btn--main" (click)="go('/app/money/finance/offline-donation-entry')">Record a donation</button>
+                </div>
+              }
+            </div>
+          } @else if (!loading()) {
+            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Giving is not available to your role</strong></div>
+          }
+        </section>
+
+        <!-- ===== Donation health: the donut grows to the tile, the three rings sit underneath ===== -->
+        <section class="dbd-tile dbd-s5" aria-label="Donation health">
+          <header class="dbd-head"><h2 class="dbd-h">Donation health</h2><a class="dbd-link" routerLink="/app/donations/payment-event-queue">Queue <i class="ri-arrow-right-line"></i></a></header>
+          @if (donations()) {
+            <div class="dbd-hl">
+              <div class="dbd-donut dbd-donut--grow">
+                <svg viewBox="0 0 42 42" aria-hidden="true">
+                  <circle class="dbd-donut-track" cx="21" cy="21" r="15.9155" />
+                  @for (a of lifecycleArcs(); track a.label) {
+                    <circle class="dbd-arc dbd-arc--{{ a.tone }} is-link" cx="21" cy="21" r="15.9155" [attr.stroke-dasharray]="a.dash" [attr.stroke-dashoffset]="a.offset" (click)="go(sliceRoute(a.tone))"><title>{{ a.label }}: {{ a.count }}</title></circle>
+                  }
+                </svg>
+                <div class="dbd-donut-mid">
+                  <b class="dbd-num">{{ settledShare() !== null ? settledShare() + '%' : '0%' }}</b>
+                  <span class="dbd-quiet">{{ lifecycleTotal() === 0 ? 'no gifts yet' : 'settled' }}</span>
+                </div>
+              </div>
+              <ul class="dbd-key dbd-key--grow">
+                @for (s of lifecycle(); track s.label) {
+                  <li [class.is-zero]="s.count === 0">
+                    <a [routerLink]="sliceRoute(s.tone)"><span class="dbd-dot dbd-dot--{{ s.tone }}"></span><span class="dbd-key-name">{{ s.label }}</span><b class="dbd-num">{{ s.count | number }}</b><span class="dbd-quiet dbd-key-pct">{{ lifecycleTotal() ? ((s.count / lifecycleTotal()) * 100 | number: '1.0-0') : 0 }}%</span></a>
+                  </li>
+                }
+              </ul>
+            </div>
+            <div class="dbd-rings3">
+              <a class="dbd-ring2" routerLink="/app/donations/payment-event-queue">
+                <span class="dbd-ring2-dial"><svg viewBox="0 0 42 42" aria-hidden="true"><circle class="dbd-donut-track" cx="21" cy="21" r="15.9155" /><circle class="dbd-arc dbd-arc--ok" cx="21" cy="21" r="15.9155" [attr.stroke-dasharray]="(settledShare() ?? 0) + ' ' + (100 - (settledShare() ?? 0))" stroke-dashoffset="25" stroke-linecap="round" /></svg><b class="dbd-num">{{ settledShare() !== null ? settledShare() + '%' : '0%' }}</b></span>
+                <span class="dbd-ring2-cap"><strong>Settled</strong><span class="dbd-quiet">money confirmed</span></span>
+              </a>
+              <a class="dbd-ring2" routerLink="/app/donations/payment-event-queue">
+                <span class="dbd-ring2-dial"><svg viewBox="0 0 42 42" aria-hidden="true"><circle class="dbd-donut-track" cx="21" cy="21" r="15.9155" /><circle class="dbd-arc dbd-arc--wait" cx="21" cy="21" r="15.9155" [attr.stroke-dasharray]="(receiptRate() ?? 0) + ' ' + (100 - (receiptRate() ?? 0))" stroke-dashoffset="25" stroke-linecap="round" /></svg><b class="dbd-num">{{ receiptRate() !== null ? receiptRate() + '%' : '0%' }}</b></span>
+                <span class="dbd-ring2-cap"><strong>Receipted</strong><span class="dbd-quiet">receipts issued</span></span>
+              </a>
+              <a class="dbd-ring2" routerLink="/app/fundraising/campaigns/tracking-asset-manager">
+                <span class="dbd-ring2-dial"><svg viewBox="0 0 42 42" aria-hidden="true"><circle class="dbd-donut-track" cx="21" cy="21" r="15.9155" /><circle class="dbd-arc dbd-arc--warn" cx="21" cy="21" r="15.9155" [attr.stroke-dasharray]="(sources()?.attributionRate ?? 0) + ' ' + (100 - (sources()?.attributionRate ?? 0))" stroke-dashoffset="25" stroke-linecap="round" /></svg><b class="dbd-num">{{ sources() ? (sources()!.attributionRate | number: '1.0-0') + '%' : '0%' }}</b></span>
+                <span class="dbd-ring2-cap"><strong>Traced</strong><span class="dbd-quiet">source known</span></span>
+              </a>
+            </div>
+          } @else if (!loading()) {
+            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Not available to your role</strong></div>
+          }
+        </section>
+
+        <!-- ===== Needs attention | activity | follow-ups ===== -->
+        <section class="dbd-tile dbd-s4" aria-label="Needs attention">
+          <header class="dbd-head">
+            <h2 class="dbd-h">Needs attention</h2>
+            @if (attention().length) { <span class="dbd-count">{{ attention().length }}</span> }
+          </header>
+          @if (attention().length) {
+            <ul class="dbd-fill dbd-todo">
+              @for (a of attention().slice(0, 6); track a.label) {
+                <li>
+                  <button type="button" (click)="go(a.route)">
+                    <i class="{{ a.glyph }}"></i>
+                    <span class="dbd-todo-text"><span class="dbd-todo-label">{{ a.label }}</span><span class="dbd-quiet">{{ a.hint }}</span></span>
+                    <span class="dbd-num">{{ a.count | number }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+            @if (attention().length > 6) { <p class="dbd-foot-note">+ {{ attention().length - 6 }} more</p> }
+          } @else if (!loading()) {
+            <div class="dbd-clear"><i class="ri-checkbox-circle-line"></i><strong>All clear</strong><span class="dbd-quiet">Nothing is waiting on you right now.</span>
+              <button type="button" class="dbd-btn" (click)="go('/app/fundraising/campaigns/campaign-register')">Review campaigns</button></div>
+          }
+        </section>
+
+        <section class="dbd-tile dbd-s4" aria-label="Activity">
+          <header class="dbd-head">
+            <h2 class="dbd-h">Recent activity</h2>
+          </header>
+          @if (activity(); as events) {
+            @if (events.length) {
+              <ol class="dbd-fill dbd-time">
+                @for (e of events.slice(0, 7); track e.id) {
+                  <li>
+                    <a routerLink="/app/administration/audit">
+                      <i class="dbd-node dbd-node--{{ auditTone(e.resultDisplay) }}"></i>
+                      <span class="dbd-time-main">
+                        <span><strong>{{ e.actorDisplayName || 'System' }}</strong> {{ e.actionDisplay || e.actionCode }}</span>
+                        <span class="dbd-quiet">{{ e.targetDisplayName || e.targetType }} · {{ e.occurredAtUtc | date: 'd MMM, h:mm a' }}</span>
+                      </span>
+                    </a>
+                  </li>
+                }
+              </ol>
+            } @else {
+              <div class="dbd-clear"><i class="ri-history-line"></i><strong>No activity yet</strong><span class="dbd-quiet">Sign-ins, approvals and changes appear here as they happen.</span>
+                <button type="button" class="dbd-btn" (click)="go('/app/administration/audit')">Open audit trail</button></div>
+            }
+          } @else if (!loading()) {
+            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>The activity log is not available to your role</strong></div>
+          }
+                  <a class="dbd-foot" routerLink="/app/administration/audit">Open the full audit trail <i class="ri-arrow-right-line"></i></a>
+        </section>
+
+        <section class="dbd-tile dbd-s4" aria-label="Follow-ups">
+          <header class="dbd-head">
+            <h2 class="dbd-h">Follow-ups</h2>
+          </header>
+          @if (nextFollowUps(); as list) {
+            @if (list.length) {
+              <ul class="dbd-fill dbd-feed">
+                @for (f of list.slice(0, 6); track f.id) {
+                  <li>
+                    <a routerLink="/app/fundraising/relationships/follow-up-queue">
+                      <span class="dbd-feed-main"><strong>{{ f.donorDisplayName || f.leadReference || f.followUpReference }}</strong><span class="dbd-quiet">{{ f.nextAction || f.purpose || f.permittedChannel }}</span></span>
+                      <span class="dbd-feed-when" [class.is-late]="isLate(f.dueAtUtc)">{{ f.dueAtUtc ? (f.dueAtUtc | date: 'd MMM, h:mm a') : 'No date' }}</span>
+                    </a>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <div class="dbd-clear"><i class="ri-phone-line"></i><strong>No follow-ups waiting</strong><span class="dbd-quiet">Plan the next call or message to a donor or lead.</span>
+                <button type="button" class="dbd-btn" (click)="go('/app/fundraising/relationships/follow-up-planner')">Plan a follow-up</button></div>
+            }
+          } @else if (!loading()) {
+            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Follow-ups are not available to your role</strong></div>
+          }
+                  @if (nextFollowUps(); as open) {
+            <div class="dbd-sum">
+              <a routerLink="/app/fundraising/relationships/follow-up-queue"><b class="dbd-num">{{ open.length }}</b><span>open follow-ups</span></a>
+              <a routerLink="/app/fundraising/relationships/follow-up-queue"><b class="dbd-num" [class.is-late]="followUpsOverdue() > 0">{{ followUpsOverdue() }}</b><span>overdue</span></a>
+            </div>
+          }
+          <a class="dbd-foot" routerLink="/app/fundraising/relationships/follow-up-queue">Open the follow-up queue <i class="ri-arrow-right-line"></i></a>
+        </section>
+
+        <!-- ===== Campaigns | top campaigns | methods ===== -->
+        <section class="dbd-tile dbd-s6" aria-label="Campaigns">
+          <header class="dbd-head">
+            <h2 class="dbd-h">Campaigns</h2>
+          </header>
+          @if (campaigns(); as c) {
+            <ol class="dbd-track">
+              @for (s of journey(); track s.key) {
+                <li [class.is-now]="s.key === 'active' && s.count > 0" [class.is-zero]="s.count === 0">
+                  <a routerLink="/app/fundraising/campaigns/campaign-register"><span class="dbd-track-num">{{ s.count }}</span><i class="dbd-track-node"></i><span class="dbd-track-name">{{ s.label }}</span></a>
+                </li>
+              }
+            </ol>
+            @if (c.cancelled > 0) { <p class="dbd-foot-note">{{ c.cancelled }} cancelled</p> }
+            @if (running(); as list) {
+              @if (list.length) {
+                <ul class="dbd-fill dbd-runs">
+                  @for (r of list; track r.id) {
+                    <li>
+                      <div class="dbd-run-name">
+                        <a [routerLink]="['/app/fundraising/campaigns/campaign-detail']" [queryParams]="{ ref: r.code }">{{ r.name }}</a>
+                        <span class="dbd-quiet">{{ r.code }} · {{ r.fundOrProgramme }}</span>
+                      </div>
+                      <div class="dbd-run-prog"><span class="dbd-prog"><i [style.width.%]="r.elapsedPercent ?? 0"></i></span><span class="dbd-num">{{ r.elapsedPercent ?? 0 }}%</span></div>
+                      <span class="dbd-quiet dbd-run-end">ends {{ r.endDate | date: 'd MMM yy' }}</span>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <div class="dbd-clear"><i class="ri-megaphone-line"></i><strong>No campaign is collecting right now</strong><span class="dbd-quiet">Launch one, or resume a paused campaign, to start receiving gifts.</span>
+                  <button type="button" class="dbd-btn dbd-btn--main" (click)="go('/app/fundraising/campaigns/campaign-wizard')">Create a campaign</button></div>
+              }
+            }
+          } @else if (campaignsUnavailable()) {
+            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Campaigns are not available to your role</strong></div>
+          }
+                  <a class="dbd-foot" routerLink="/app/fundraising/campaigns/campaign-register">Open the campaign register <i class="ri-arrow-right-line"></i></a>
+        </section>
+
+        <section class="dbd-tile dbd-s3" aria-label="Top campaigns">
+          <header class="dbd-head"><h2 class="dbd-h">Top campaigns</h2></header>
+          @if (sample()) {
+            @if (topCampaigns().length) {
+              <ul class="dbd-fill dbd-bars">
+                @for (m of topCampaigns(); track m.label) {
+                  <li><a routerLink="/app/fundraising/campaigns/campaign-register"><span class="dbd-bar-name">{{ m.label }}</span><span class="dbd-num">{{ short(m.amount) }}</span><span class="dbd-prog"><i [style.width.%]="m.share"></i></span></a></li>
+                }
+              </ul>
+            } @else {
+              <div class="dbd-clear"><i class="ri-trophy-line"></i><strong>No ranking yet</strong><span class="dbd-quiet">Campaigns appear here once gifts arrive.</span></div>
+            }
+          } @else if (!loading()) { <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Not available to your role</strong></div> }
+                  <a class="dbd-foot" routerLink="/app/fundraising/campaigns/campaign-register">Compare in the register <i class="ri-arrow-right-line"></i></a>
+        </section>
+
+        <section class="dbd-tile dbd-s3" aria-label="Payment methods">
+          <header class="dbd-head"><h2 class="dbd-h">Payment methods</h2><a class="dbd-link" routerLink="/app/donations/payment-event-queue">{{ trendDays }} days <i class="ri-arrow-right-line"></i></a></header>
+          @if (sample()) {
+            @if (methodArcs().length) {
+              <div class="dbd-donut dbd-donut--grow">
+                <svg viewBox="0 0 42 42" aria-hidden="true">
+                  <circle class="dbd-donut-track" cx="21" cy="21" r="15.9155" />
+                  @for (a of methodArcs(); track a.label) { <circle class="dbd-arc dbd-arc--{{ a.tone }}" cx="21" cy="21" r="15.9155" [attr.stroke-dasharray]="a.dash" [attr.stroke-dashoffset]="a.offset" /> }
+                </svg>
+              </div>
+              <ul class="dbd-key">
+                @for (a of methodArcs(); track a.label) {
+                  <li><a routerLink="/app/donations/payment-event-queue"><span class="dbd-dot dbd-dot--{{ a.tone }}"></span>{{ a.label }}<b class="dbd-num">{{ a.pct | number: '1.0-0' }}%</b></a></li>
+                }
+              </ul>
+            } @else {
+              <div class="dbd-clear"><i class="ri-bank-card-line"></i><strong>No payments yet</strong><span class="dbd-quiet">UPI, card and bank mix shows here.</span></div>
+            }
+          } @else if (!loading()) { <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Not available to your role</strong></div> }
+        </section>
+
+        <!-- ===== Latest donations | cases | leads ===== -->
+        <section class="dbd-tile dbd-s6" aria-label="Latest donations">
+          <header class="dbd-head">
+            <h2 class="dbd-h">Latest donations</h2>
+          </header>
+          @if (recent(); as rows) {
+            @if (rows.length) {
+              <div class="dbd-table dbd-fill" role="table">
+                <div class="dbd-tr dbd-th" role="row">
+                  <span role="columnheader">Donor</span><span role="columnheader">Campaign</span><span role="columnheader">Received</span><span role="columnheader">Status</span><span role="columnheader" class="dbd-r">Amount</span>
+                </div>
+                @for (r of rows; track r.id) {
+                  <a class="dbd-tr" role="row" routerLink="/app/donations/payment-event-queue">
+                    <span class="dbd-who" role="cell"><strong>{{ r.donorName }}</strong><span class="dbd-quiet">{{ r.donationReference }}</span></span>
+                    <span role="cell" class="dbd-cut">{{ r.campaignName || 'General giving' }}</span>
+                    <span role="cell" class="dbd-quiet">{{ r.donatedAtUtc | date: 'd MMM, h:mm a' }}</span>
+                    <span role="cell" class="dbd-state"><span class="dbd-dot dbd-dot--{{ statusTone(r.status) }}"></span>{{ r.statusDescription }}</span>
+                    <span role="cell" class="dbd-r dbd-num dbd-amt">{{ r.amount.display }}</span>
+                  </a>
+                }
+              </div>
+            } @else {
+              <div class="dbd-clear"><i class="ri-hand-coin-line"></i><strong>No donations in the last {{ trendDays }} days</strong><span class="dbd-quiet">Gifts from every channel are listed here, newest first.</span>
+                <button type="button" class="dbd-btn dbd-btn--main" (click)="go('/app/money/finance/offline-donation-entry')">Record a donation</button></div>
+            }
+          } @else if (!loading()) {
+            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Donations are not available to your role</strong></div>
+          }
+                  <a class="dbd-foot" routerLink="/app/donations/payment-event-queue">Open payments &amp; receipts <i class="ri-arrow-right-line"></i></a>
+        </section>
+
+        <section class="dbd-tile dbd-s3" aria-label="Open cases">
+          <header class="dbd-head">
+            <h2 class="dbd-h">Refunds &amp; chargebacks</h2>
+          </header>
+          @if (cases(); as list) {
+            @if (list.length) {
+              <ul class="dbd-fill dbd-feed">
+                @for (c of list; track c.reference) {
+                  <li>
+                    <a routerLink="/app/money/finance/finance-workbench">
+                      <span class="dbd-feed-main"><strong>{{ c.donor }}</strong><span class="dbd-quiet">{{ c.kind }} · {{ c.state }}</span></span>
+                      <span class="dbd-feed-end"><span class="dbd-num">{{ c.amount }}</span>@if (c.due) { <span class="dbd-feed-when" [class.is-late]="c.urgent">{{ c.due }}</span> }</span>
+                    </a>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <div class="dbd-clear"><i class="ri-checkbox-circle-line"></i><strong>No open cases</strong><span class="dbd-quiet">Refund and chargeback cases appear here until resolved.</span>
+                <button type="button" class="dbd-btn" (click)="go('/app/money/finance/finance-workbench')">Open finance</button></div>
+            }
+          } @else if (!loading()) {
+            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Cases are not available to your role</strong></div>
+          }
+                  @if (cases()) {
+            <div class="dbd-sum">
+              <a routerLink="/app/money/finance/finance-workbench"><b class="dbd-num">{{ openRefunds() ?? 0 }}</b><span>open refunds</span></a>
+              <a routerLink="/app/money/finance/finance-workbench"><b class="dbd-num">{{ openChargebacks() ?? 0 }}</b><span>open chargebacks</span>@if ((overdueChargebacks() ?? 0) > 0) { <em class="is-late">{{ overdueChargebacks() }} overdue</em> }</a>
+            </div>
+          }
+          <a class="dbd-foot" routerLink="/app/money/finance/finance-workbench">Open the finance workbench <i class="ri-arrow-right-line"></i></a>
+        </section>
+
+        <section class="dbd-tile dbd-s3" aria-label="Leads">
+          <header class="dbd-head">
+            <h2 class="dbd-h">Lead funnel</h2>
+            <a class="dbd-link" routerLink="/app/fundraising/relationships/lead-work-queue">Queue <i class="ri-arrow-right-line"></i></a>
+          </header>
+          @if (leadFunnel().length) {
+            <ul class="dbd-fill dbd-funnel">
+              @for (f of leadFunnel(); track f.label) {
+                <li><a routerLink="/app/fundraising/relationships/lead-work-queue"><span class="dbd-funnel-name">{{ f.label }}</span><b class="dbd-num">{{ f.count | number }}</b><span class="dbd-funnel-track"><span class="dbd-funnel-bar" [style.width.%]="f.width"></span></span></a></li>
+              }
+            </ul>
+            <a class="dbd-fine" [class.is-warn]="leads()!.unassignedLeads > 0" routerLink="/app/fundraising/relationships/assignment-board">{{ leads()!.unassignedLeads > 0 ? leads()!.unassignedLeads + ' without an owner — assign now' : 'Every lead has an owner' }}</a>
+          } @else if (!loading()) {
+            <div class="dbd-clear"><i class="ri-lock-line"></i><strong>Leads are not available to your role</strong></div>
+          }
+        </section>
+
+        <!-- ===== Gift sources ===== -->
+        <section class="dbd-tile dbd-s12 dbd-sources" aria-label="Gift sources">
+          <header class="dbd-head">
+            <div><h2 class="dbd-h">Gift sources</h2><span class="dbd-quiet">Which channels the money came through</span></div>
+            <a class="dbd-link" routerLink="/app/fundraising/campaigns/tracking-asset-manager">Tracking links <i class="ri-arrow-right-line"></i></a>
+          </header>
+          @if (sources(); as s) {
+            @if (topChannels().length) {
+              <ul class="dbd-chan">
+                @for (ch of topChannels(); track ch.key) {
+                  <li><a routerLink="/app/fundraising/campaigns/tracking-asset-manager">
+                    <b class="dbd-num">{{ ch.sharePercentage | number: '1.0-0' }}%</b>
+                    <span class="dbd-prog"><i [style.width.%]="ch.sharePercentage"></i></span>
+                    <span class="dbd-chan-name">{{ ch.label }}</span>
+                    <span class="dbd-quiet">{{ ch.donationCount | number }} gifts</span>
+                  </a></li>
+                }
+                <li class="dbd-chan-rest"><a routerLink="/app/fundraising/campaigns/tracking-asset-manager">
+                  <b class="dbd-num">{{ 100 - s.attributionRate | number: '1.0-0' }}%</b>
+                  <span class="dbd-prog"><i [style.width.%]="100 - s.attributionRate"></i></span>
+                  <span class="dbd-chan-name">Not traced</span>
+                  <span class="dbd-quiet">add tracking links</span>
+                </a></li>
+              </ul>
+            } @else {
+              <div class="dbd-clear dbd-clear--row"><i class="ri-qr-code-line"></i><span><strong>No traced gifts yet</strong><span class="dbd-quiet">Create QR codes and tracking links so every gift shows where it came from.</span></span>
+                <button type="button" class="dbd-btn" (click)="go('/app/fundraising/campaigns/tracking-asset-manager')">Create tracking links</button></div>
+            }
+          } @else if (!loading()) {
+            <div class="dbd-clear dbd-clear--row"><i class="ri-lock-line"></i><strong>Attribution is not available to your role</strong></div>
+          }
+        </section>
+
+      </div>
+    </div>
+  </div>
+</main>

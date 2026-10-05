@@ -2,6 +2,8 @@ import { Component, HostListener, OnInit, computed, inject, signal } from '@angu
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { PopupComponent } from '../../../../Shared/components/popup/popup';
+import { HasPendingChanges } from '../../../../Shared/guards/pending-changes.guard';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
@@ -45,11 +47,11 @@ interface CuDdOption {
 @Component({
   selector: 'app-create-user',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [PageHeader, CommonModule, FormsModule, PopupComponent],
   templateUrl: './create-user.html',
   styleUrl: './create-user.css',
 })
-export class CreateUserComponent implements OnInit {
+export class CreateUserComponent implements OnInit, HasPendingChanges {
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
   private readonly api = inject(UserAdminApiService);
@@ -153,6 +155,9 @@ export class CreateUserComponent implements OnInit {
     sendInvitationNow: true,
     welcomeMessage: '',
   });
+
+  /** The form as it first rendered, to tell whether anything has been typed since. */
+  private readonly pristine = JSON.stringify(this.form());
 
   /** Result of the live "is this taken?" check on e-mail and username. */
   readonly identityCheck = signal<{ checking: boolean; message: string; ok: boolean; suggestions: string[] } | null>(null);
@@ -636,12 +641,36 @@ export class CreateUserComponent implements OnInit {
    * has nothing to fill in, so it is not counted; a fully completed form reads 100%.
    */
   progressPct(): number {
-    const entrySteps = this.steps.length - 1;
-    let done = 0;
-    for (let i = 0; i < entrySteps; i++) {
-      if (this.isStepComplete(i)) done++;
-    }
-    return Math.round((done / entrySteps) * 100);
+    const checks = this.requiredChecks();
+    const done = checks.filter(Boolean).length;
+    return Math.round((done / checks.length) * 100);
+  }
+
+  /**
+   * One boolean per required answer, so the progress line moves with every field filled in
+   * rather than jumping a quarter at a time when a whole step happens to be complete.
+   */
+  private requiredChecks(): boolean[] {
+    const f = this.form();
+    const checks = [
+      Boolean(f.accountCategory),
+      Boolean(f.firstName.trim()),
+      Boolean(f.lastName.trim()),
+      Boolean(f.displayName.trim()),
+      Boolean(f.email.trim()),
+      Boolean(f.username.trim()),
+      Boolean(f.engagementType),
+      Boolean(f.primaryRoleId),
+      Boolean(f.dataScopeType),
+      f.businessJustification.trim().length >= 10,
+      Boolean(f.mfaRequirement),
+    ];
+
+    if (this.employeeNumberRequired()) { checks.push(Boolean(f.employeeNumber.trim())); }
+    if (this.mobileRequired()) { checks.push(Boolean(f.mobileNumber.trim())); }
+    if (f.mobileNumber.trim()) { checks.push(Boolean(f.mobileCountryCode)); }
+
+    return checks;
   }
 
   isStepComplete(index: number): boolean {
@@ -846,6 +875,42 @@ export class CreateUserComponent implements OnInit {
       businessJustification: '',
       welcomeMessage: '',
     }));
+  }
+
+  // ---- Leaving halfway --------------------------------------------------------------------------
+
+  readonly showLeaveDialog = signal(false);
+  private leaveDecision: ((leave: boolean) => void) | null = null;
+
+  /** Anything typed, and not yet turned into a user. */
+  hasUnsavedWork(): boolean {
+    return !this.createdUser() && JSON.stringify(this.form()) !== this.pristine;
+  }
+
+  /** Called by the route guard: asks before throwing away a half-filled form. */
+  canDeactivate(): boolean | Promise<boolean> {
+    if (!this.hasUnsavedWork()) {
+      return true;
+    }
+
+    return new Promise<boolean>((resolve) => {
+      this.leaveDecision = resolve;
+      this.showLeaveDialog.set(true);
+    });
+  }
+
+  resolveLeave(leave: boolean): void {
+    this.showLeaveDialog.set(false);
+    this.leaveDecision?.(leave);
+    this.leaveDecision = null;
+  }
+
+  /** Closing the tab or reloading gets the browser's own prompt. */
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.hasUnsavedWork()) {
+      event.preventDefault();
+    }
   }
 
   goBack(): void {

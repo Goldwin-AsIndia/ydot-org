@@ -734,6 +734,13 @@ export class RoleCatalogueComponent {
     });
   }
 
+  /** Re-reads the list quietly, so counts update without the page flashing its loader. */
+  private reloadCatalogue(): void {
+    this.api.getCatalogue({ page: 1, pageSize: 100 }).subscribe({
+      next: (res) => { this.data.set(res); this.applyFilters(); },
+    });
+  }
+
   retry(): void { this.loadData(); }
 
   applyFilters(): void {
@@ -1102,6 +1109,125 @@ export class RoleCatalogueComponent {
     this.showDetailModal.set(false);
     this.detailRole.set(null);
     this.resetConflictForm();
+    this.cancelPermEdit();
+  }
+
+  // ===== PICKING PERMISSIONS ON AN EXISTING ROLE =====
+
+  /** True while the Permissions tab shows checkboxes instead of the read-only matrix. */
+  readonly permEditing = signal(false);
+  readonly permSaving = signal(false);
+  /** The permission codes ticked in the editor - the draft, not yet saved. */
+  readonly permDraft = signal<string[]>([]);
+  readonly permReason = signal('');
+
+  /** Every permission, grouped by module, narrowed by the search box. */
+  readonly editableModules = computed(() => {
+    const q = this.permFilter().trim().toLowerCase();
+    const denied = new Set(this.detailView()?.excludedPermissions.map((p) => p.code) ?? []);
+
+    return (this.permissionMatrix()?.modules ?? [])
+      .map((module) => {
+        const items = (module.groups ?? [])
+          .flatMap((group) => group.permissions ?? [])
+          .map((permission) => ({
+            code: permission.code ?? '',
+            name: permission.name ?? permission.code ?? '',
+            isSensitive: permission.isSensitive === true,
+            denied: denied.has(permission.code ?? ''),
+          }))
+          .filter((p) => !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q));
+
+        return { key: module.moduleName ?? '', name: module.moduleName ?? 'Other', items };
+      })
+      .filter((module) => module.items.length > 0);
+  });
+
+  readonly permDirty = computed(() => {
+    const original = new Set(this.detailView()?.permissionBundle.map((p) => p.code) ?? []);
+    const draft = this.permDraft();
+    return draft.length !== original.size || draft.some((code) => !original.has(code));
+  });
+
+  /** Built-in roles are fixed; everything else can have its permissions changed. */
+  readonly canEditPermissions = computed(() => {
+    const d = this.detailView();
+    return !!d && !d.isSystemRole && !d.grantsAllPermissions;
+  });
+
+  startPermEdit(): void {
+    const d = this.detailView();
+    if (!d) return;
+
+    this.permDraft.set(d.permissionBundle.map((p) => p.code));
+    this.permReason.set('');
+    this.permEditing.set(true);
+
+    if (!this.permissionMatrix()) {
+      this.api.getPermissionMatrix().subscribe({
+        next: (matrix) => this.permissionMatrix.set(matrix),
+        error: (error: Error) => this.toast.show('Permissions unavailable', error.message, 'error'),
+      });
+    }
+  }
+
+  cancelPermEdit(): void {
+    this.permEditing.set(false);
+    this.permSaving.set(false);
+    this.permDraft.set([]);
+    this.permReason.set('');
+  }
+
+  isPermDrafted(code: string): boolean {
+    return this.permDraft().includes(code);
+  }
+
+  togglePermDraft(code: string): void {
+    const draft = this.permDraft();
+    this.permDraft.set(draft.includes(code) ? draft.filter((c) => c !== code) : [...draft, code]);
+  }
+
+  /** The module's tick state: every visible permission, some of them, or none. */
+  moduleDraftState(module: { items: { code: string; denied: boolean }[] }): 'all' | 'some' | 'none' {
+    const usable = module.items.filter((p) => !p.denied);
+    const ticked = usable.filter((p) => this.isPermDrafted(p.code)).length;
+    return usable.length > 0 && ticked === usable.length ? 'all' : ticked > 0 ? 'some' : 'none';
+  }
+
+  toggleModuleDraft(module: { items: { code: string; denied: boolean }[] }): void {
+    const codes = module.items.filter((p) => !p.denied).map((p) => p.code);
+    const draft = this.permDraft();
+
+    this.permDraft.set(
+      this.moduleDraftState(module) === 'all'
+        ? draft.filter((c) => !codes.includes(c))
+        : [...new Set([...draft, ...codes])]);
+  }
+
+  savePermissions(): void {
+    const d = this.detailView();
+    if (!d || !this.permDirty()) return;
+
+    this.permSaving.set(true);
+
+    this.api.assignPermissions(d.id, {
+      permissionCodes: this.permDraft(),
+      // Blocked permissions are not edited here; they go back exactly as they were.
+      deniedPermissionCodes: d.excludedPermissions.map((p) => p.code),
+      expectedVersion: d.version,
+      justification: this.permReason().trim() || null,
+    }).subscribe({
+      next: () => {
+        this.toast.show('Permissions saved', `${d.name} now has ${this.permDraft().length} permissions.`, 'success');
+        this.cancelPermEdit();
+        this.refreshOpenRole(d.id);
+        this.reloadCatalogue();
+      },
+      error: (error: Error) => {
+        this.permSaving.set(false);
+        this.toast.show('Not saved', error.message, 'error');
+      },
+    });
   }
 
   // ===== SEGREGATION-OF-DUTIES RULES ON AN EXISTING ROLE =====

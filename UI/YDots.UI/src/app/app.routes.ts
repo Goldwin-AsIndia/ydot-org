@@ -25,6 +25,7 @@ import { StandardRecordDetailComponent } from './Features/YDot/Workspace/standar
 import { LeadWorkQueueComponent } from './Features/YDot/Donors and Leads/lead-work-queue/lead-work-queue';
 import { LeadCaptureComponent } from './Features/YDot/Donors and Leads/lead-capture/lead-capture';
 import { Donor360Component } from './Features/YDot/Donors and Leads/donor-360/donor-360';
+import { DonorProfileEditComponent } from './Features/YDot/Donors and Leads/donor-profile-edit/donor-profile-edit';
 import { ConsentPreferenceCentreComponent } from './Features/YDot/Donors and Leads/consent-preference-centre/consent-preference-centre';
 import { AssignmentBoardComponent } from './Features/YDot/Donors and Leads/assignment-board/assignment-board';
 import { DonorIdentityVerificationComponent } from './Features/YDot/Donors and Leads/donor-identity-verification/donor-identity-verification';
@@ -67,6 +68,7 @@ import { ReauthenticateComponent } from './Features/YDot/Auth/Auth/reauthenticat
 import { TostepVerifyComponent } from './Features/YDot/Auth/Auth/tostep-verify/tostep-verify';
 import { DashboardComponent } from './Features/YDot/dashboard/dashboard';
 import { anonymousOnlyGuard, authGuard } from './Shared/guards/auth.guard';
+import { pendingChangesGuard } from './Shared/guards/pending-changes.guard';
 import {
   organisationContextGuard,
   platformScopeGuard,
@@ -193,7 +195,7 @@ export const routes: Routes = [
       { path: 'administration/users/:userReference/login-identifier-change', component: LoginIdentifierChangeComponent, canActivate: [requirePermission('iam.users.view')] },
       { path: 'administration/users/bulk-actions', component: BulkUserAdministrationComponent, canActivate: [requirePermission('iam.users.bulk-administer')] },
       { path: 'administration/access/user-directory', component: UserDirectoryComponent, canActivate: [requirePermission('iam.users.view')] },
-      { path: 'administration/access/create-user', component: CreateUserComponent, canActivate: [requirePermission('iam.users.create')] },
+      { path: 'administration/access/create-user', component: CreateUserComponent, canActivate: [requirePermission('iam.users.create')], canDeactivate: [pendingChangesGuard] },
       { path: 'administration/access/user-profile-and-access', component: UserProfileComponent },
       { path: 'administration/access/user-profile-and-access/:userReference', component: UserProfileComponent, canActivate: [requirePermission('iam.users.view')] },
       { path: 'administration/access/user-details/:userReference', component: UserDetailsComponent, canActivate: [requirePermission('iam.users.view')] },
@@ -306,6 +308,7 @@ export const routes: Routes = [
             { path: 'fundraising/relationships/lead-work-queue', component: LeadWorkQueueComponent, canActivate: [requirePermission('don.lead-work-queue.view')] },
             { path: 'fundraising/relationships/lead-capture', component: LeadCaptureComponent, canActivate: [requirePermission('don.lead-capture.view')] },
             { path: 'fundraising/relationships/donor-360', component: Donor360Component, canActivate: [requirePermission('don.donor-360.view')] },
+            { path: 'fundraising/relationships/donor-360/edit', component: DonorProfileEditComponent, canActivate: [requirePermission('don.donor-360.view')] },
             { path: 'fundraising/relationships/consent-and-preference-centre', component: ConsentPreferenceCentreComponent, canActivate: [requirePermission('don.consent-and-preference-centre.view')] },
             { path: 'fundraising/relationships/assignment-board', component: AssignmentBoardComponent, canActivate: [requirePermission('don.assignment-board.view')] },
             // Canonical donor workflow routes plus compatibility aliases.

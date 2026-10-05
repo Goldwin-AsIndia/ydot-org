@@ -1384,6 +1384,9 @@ export class TrackingAssetManagerComponent {
   }
   protected cancelGenerate(): void {
     this.generateDialogOpen.set(false);
+    // Leaving the form discards its validation state, so the list never inherits the banner.
+    this.generateSubmitted.set(false);
+    if (this.uiState() === 'validation') this.uiState.set('ready');
   }
   /** Build one asset record (shared by the single-destination and per-place on-ground paths). */
   private buildAsset(
@@ -1552,6 +1555,9 @@ export class TrackingAssetManagerComponent {
     this.submitDialogOpen.set(false);
     this.submitTarget.set(null);
     if (!target) return;
+    // Back to the Asset Manager list: close the detail off-canvas rather than letting it
+    // reappear on the same record when the dialog closes.
+    this.selectedRef.set('');
     // Waits for the real outcome — see `TrackingAssetStoreService.update`'s doc comment. A toast
     // fired the instant this call was MADE said "Submitted" even when the server refused it.
     this.store.update(

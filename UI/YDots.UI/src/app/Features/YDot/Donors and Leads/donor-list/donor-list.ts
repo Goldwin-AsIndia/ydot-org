@@ -516,9 +516,19 @@ export class DonorListComponent {
     this.openDonor360(donor);
   }
 
+  /** True when the open row menu should unfold upward because there is no room below its trigger. */
+  protected readonly moreMenuUp = signal(false);
+
   protected toggleMoreMenu(donorId: string, event: Event): void {
     event.stopPropagation();
     this.exportMenuOpen.set(false);
+    // The menu is ~270px tall; a row near the bottom of the viewport would push it off-screen.
+    const trigger = (event.currentTarget ?? event.target) as HTMLElement | null;
+    if (trigger?.getBoundingClientRect) {
+      const rect = trigger.getBoundingClientRect();
+      const room = window.innerHeight - rect.bottom;
+      this.moreMenuUp.set(room < 300 && rect.top > room);
+    }
     this.openMoreMenuId.set(this.openMoreMenuId() === donorId ? null : donorId);
   }
 

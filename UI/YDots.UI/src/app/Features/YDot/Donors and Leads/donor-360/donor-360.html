@@ -245,8 +245,6 @@
                   <span class="dz-date dz-date--off"><b>—</b></span>
                   <span class="dz-next-text"><span class="dz-cap">Promise due</span><span class="dz-next-meta">No
                       pending promises.</span></span>
-                  <button type="button" class="btn btn-outline-primary btn-sm" [disabled]="!canCreateIntent()"
-                    (click)="openAction('create-intent')">Record</button>
                   }
                 </li>
                 <li>
@@ -566,52 +564,9 @@
 </main>
 
 
-<dialog #actionDialog class="action-dialog" [class.pn-dialog]="activeAction() === 'create-intent'"
-  [attr.style]="activeAction() === 'create-intent' ? 'width:min(860px, calc(100vw - 32px)) !important; max-width:min(860px, calc(100vw - 32px)) !important; min-width:0 !important; padding:0 !important; overflow:hidden !important;' : null"
+<dialog #actionDialog class="action-dialog"
   [attr.aria-labelledby]="dialogTitleId()" (cancel)="closeAction()">
   @switch (activeAction()) {
-
-  @case ('correct') {
-  <form class="dialog-form" (ngSubmit)="submitCorrect()">
-    <header class="dialog-header">
-      <h2 id="correct-title"> Correct profile</h2>
-      <!-- <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Close dialog" (click)="closeAction()"
-        title="Close dialog">✕</button> -->
-    </header>
-    <div class="dialog-body">
-      <label class="field">
-        <span class="field-label">Reason for correction</span>
-        <textarea rows="3" [ngModel]="correctReason()" (ngModelChange)="correctReason.set($any($event))"
-          name="correctReason"></textarea>
-        @if (correctErrors()['reason']) { <span class="field-error">{{ correctErrors()['reason'] }}</span> }
-      </label>
-
-      <label class="field">
-        <span class="field-label">Relationship owner</span>
-        @if (ownerOptions().length > 20) { <input type="search" aria-label="Search relationship owners"
-          placeholder="Search owners…" [ngModel]="ownerSearch()" (ngModelChange)="ownerSearch.set($event)"
-          name="ownerSearch" /> }
-        <select [ngModel]="correctOwner()" (ngModelChange)="correctOwner.set($any($event))" name="correctOwner">
-          <option value="">Unassigned</option>
-          @if (correctOwner() && !hasSelectedOwner()) { <option [value]="correctOwner()">{{ donor().owner }}</option> }
-          @for (person of filteredOwners(); track person.reference) {
-          <option [value]="person.reference">
-            {{ person.name }}@if (person.context) { · {{ person.context }} }
-          </option>
-          }
-        </select>
-        @if (people.isLoading()) { <span class="field-hint">Loading colleagues…</span> }
-        @else if (people.loadError()) { <span class="field-error">{{ people.loadError() }}</span> }
-        @else if (ownerOptions().length === 0) { <span class="field-hint">No colleagues are available to own this
-          relationship.</span> }
-      </label>
-    </div>
-    <footer class="dialog-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeAction()"> Cancel</button>
-      <button type="submit" class="btn btn-primary btn-sm">Save correction</button>
-    </footer>
-  </form>
-  }
 
   @case ('follow-up') {
   <form class="dialog-form" (ngSubmit)="submitFollowUp()">
@@ -642,107 +597,81 @@
   }
 
   @case ('create-intent') {
-  <!-- Inline !important on the few boxes the shared dialog sheet keeps resizing: an inline style is the one
-       thing that out-ranks its rules, so the pledge form always fits its popup. -->
-  <form class="pn" (ngSubmit)="submitCreateIntent()" novalidate
-    style="width:100% !important; max-width:100% !important; min-width:0 !important; margin:0 !important;">
-    <header class="pn-top">
-      <div class="pn-who">
-        <p class="pn-kicker">New pledge<span class="pn-dot" aria-hidden="true"></span><span class="pn-ref">{{
-            donor().reference }}</span></p>
-        <h2 id="intent-title" class="pn-heading">Record a pledge</h2>
-        <p class="pn-for">From <strong>{{ pledgeDonorName() }}</strong>@if (donor().owner) { <span class="pn-dot"
-            aria-hidden="true"></span>Owner {{ donor().owner }} }</p>
-      </div>
-      <button type="button" class="pn-shut" aria-label="Close dialog" title="Close dialog" (click)="closeAction()"><svg
-          viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 6l12 12M18 6 6 18" />
-        </svg></button>
+  <form class="dialog-form ci" (ngSubmit)="submitCreateIntent()" novalidate>
+    <header class="dialog-header">
+      <h2 id="intent-title">Create donation intent</h2>
+      <p class="ci-lead">For <strong>{{ pledgeDonorName() }}</strong> · <span class="dz-mono">{{ donor().reference }}</span></p>
+      <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Close dialog" (click)="closeAction()"
+        title="Close dialog">✕</button>
     </header>
 
-    <!-- Scrolling middle: header and footer stay put, only this part scrolls on short screens,
-         so the summary line can never slide under the footer. -->
-    <div class="pn-scroll" style="max-width:100% !important; min-width:0 !important; overflow-x:hidden !important;">
-    <section class="pn-sum" aria-label="Pledge amount">
-      <div class="pn-row">
-        <label class="pn-label" for="pn-amount">Pledge amount</label>
-        <label class="pn-cur">
-          <span class="pn-cur-name">Currency</span>
+    <div class="dialog-body">
+      <!-- Amount -->
+      <div class="field" [class.ci-invalid]="intentErrors()['amount']">
+        <label class="field-label" for="ci-amount">Amount <span class="ci-req">*</span></label>
+        <div class="ci-amount">
           <select [ngModel]="intentCurrency()" (ngModelChange)="intentCurrency.set($any($event))" name="intentCurrency"
             aria-label="Currency">
             @for (c of intentCurrencyOptions(); track c) { <option [value]="c">{{ c }}</option> }
           </select>
-        </label>
+          <span class="ci-symbol" aria-hidden="true">{{ intentSymbol() }}</span>
+          <input id="ci-amount" type="text" inputmode="decimal" placeholder="0" autocomplete="off" name="intentAmount"
+            [value]="intentAmountText()" (input)="setIntentAmountText($any($event.target))" (focus)="focusIntentAmount()"
+            (blur)="intentAmountFocused.set(false)" [attr.aria-invalid]="intentErrors()['amount'] ? true : null"
+            [attr.aria-describedby]="intentErrors()['amount'] ? 'ci-amount-error' : 'ci-amount-words'" />
+        </div>
+        @if (intentErrors()['amount']) { <span id="ci-amount-error" class="field-error" role="alert">{{ intentErrors()['amount'] }}</span> }
+        @else { <span id="ci-amount-words" class="field-hint">{{ intentInWords() || 'The amount reads back here in words.' }}</span> }
+        @if (intentErrors()['currency']) { <span class="field-error" role="alert">{{ intentErrors()['currency'] }}</span> }
+        <div class="ci-chips" role="group" aria-label="Quick amounts">
+          @for (p of intentPresets; track p) {
+          <button type="button" class="ci-chip" [attr.aria-pressed]="intentAmount() === p"
+            (click)="intentAmount.set(p)">{{ formatIntentAmount(p) }}</button>
+          }
+        </div>
       </div>
-      <div class="pn-figure" [class.pn-invalid]="intentErrors()['amount']">
-        <span class="pn-symbol" aria-hidden="true">{{ intentSymbol() }}</span>
-        <input id="pn-amount" type="text"
-          style="width:100% !important; min-width:0 !important; max-width:100% !important; height:52px !important; padding:0 !important; margin:0 !important; border:0 !important; border-radius:0 !important; outline:0 !important; box-shadow:none !important; background:transparent !important;" inputmode="decimal" placeholder="0" autocomplete="off" name="intentAmount"
-          [value]="intentAmountText()" (input)="setIntentAmountText($any($event.target))" (focus)="focusIntentAmount()"
-          (blur)="intentAmountFocused.set(false)" [attr.aria-invalid]="intentErrors()['amount'] ? true : null"
-          [attr.aria-describedby]="intentErrors()['amount'] ? 'pn-amount-error' : 'pn-amount-words'" />
-      </div>
-      @if (intentErrors()['amount']) { <p id="pn-amount-error" class="pn-error" role="alert">{{ intentErrors()['amount']
-        }}</p> }
-      @else { <p id="pn-amount-words" class="pn-words" [class.pn-words-empty]="!intentInWords()">{{ intentInWords() ||
-        'The amount will read back here in words.' }}</p> }
-      @if (intentErrors()['currency']) { <p class="pn-error" role="alert">{{ intentErrors()['currency'] }}</p> }
-      <div class="pn-presets" role="group" aria-label="Quick amounts">
-        @for (p of intentPresets; track p) {
-        <button type="button" class="pn-preset" style="min-width:0 !important; width:auto !important; flex:1 1 0 !important;" [attr.aria-pressed]="intentAmount() === p"
-          (click)="intentAmount.set(p)">{{ formatIntentAmount(p) }}</button>
-        }
-      </div>
-    </section>
 
-    <section class="pn-when" aria-label="Expected by">
-      <div class="pn-row">
-        <label class="pn-label" for="pn-due">Expected by</label>
-        <span class="pn-aside">@if (intentDueDistance()) { {{ intentDueDistance() }} } @else { Optional }</span>
-      </div>
-      <div class="pn-when-row">
-        <div class="pn-when-opts" role="group" aria-label="Quick dates">
+      <!-- Expected by -->
+      <div class="field">
+        <div class="ci-row">
+          <label class="field-label" for="ci-due">Expected by</label>
+          <span class="field-hint">@if (intentDueDistance()) { {{ intentDueDistance() }} } @else { Optional }</span>
+        </div>
+        <div class="ci-chips" role="group" aria-label="Quick dates">
           @for (s of intentDueShortcuts; track s.id) {
-          <button type="button" class="pn-when-opt" [attr.aria-pressed]="intentDueDate() === dueFor(s.id)"
+          <button type="button" class="ci-chip" [attr.aria-pressed]="intentDueDate() === dueFor(s.id)"
             (click)="intentDueDate.set(dueFor(s.id))">{{ s.label }}</button>
           }
-          <button type="button" class="pn-when-opt" [attr.aria-pressed]="!intentDueDate()"
+          <button type="button" class="ci-chip" [attr.aria-pressed]="!intentDueDate()"
             (click)="intentDueDate.set('')">No date</button>
         </div>
-        <input id="pn-due" class="pn-date" type="date" style="width:170px !important; height:38px !important; min-width:0 !important; max-width:100% !important; flex:none !important;" [min]="todayIso" [ngModel]="intentDueDate()"
+        <input id="ci-due" type="date" [min]="todayIso" [ngModel]="intentDueDate()"
           (ngModelChange)="intentDueDate.set($any($event) || '')" name="intentDueDate" />
       </div>
-    </section>
 
-    <section class="pn-notes" aria-label="Notes">
-      <div class="pn-row">
-        <label class="pn-label" for="pn-notes">Notes</label>
-        <span class="pn-aside pn-count" [class.pn-count-ok]="intentNotes().trim().length >= 10">{{
-          intentNotes().trim().length }} / 10 min</span>
+      <!-- Notes -->
+      <div class="field" [class.ci-invalid]="intentErrors()['notes']">
+        <div class="ci-row">
+          <label class="field-label" for="ci-notes">Notes <span class="ci-req">*</span></label>
+          <span class="field-hint" [class.ci-ok]="intentNotes().trim().length >= 10">{{ intentNotes().trim().length }} / 10 min</span>
+        </div>
+        <textarea id="ci-notes" rows="3" placeholder="How the intent was made, any conditions, who was present…"
+          [ngModel]="intentNotes()" (ngModelChange)="intentNotes.set($any($event))" name="intentNotes"
+          [attr.aria-invalid]="intentErrors()['notes'] ? true : null"></textarea>
+        @if (intentErrors()['notes']) { <span class="field-error" role="alert">{{ intentErrors()['notes'] }}</span> }
       </div>
-      <textarea id="pn-notes" rows="3" style="width:100% !important; min-width:0 !important; max-width:100% !important; box-sizing:border-box !important;" placeholder="How the pledge was made, any conditions, who was present…"
-        [ngModel]="intentNotes()" (ngModelChange)="intentNotes.set($any($event))" name="intentNotes"
-        [attr.aria-invalid]="intentErrors()['notes'] ? true : null"></textarea>
-      @if (intentErrors()['notes']) { <p class="pn-error" role="alert">{{ intentErrors()['notes'] }}</p> }
-    </section>
 
-    <p class="pn-statement" aria-live="polite">
-      <span class="pn-quote" aria-hidden="true">&ldquo;</span>{{ pledgeDonorName() }} promises
-      @if (intentFormatted()) {<strong>{{ intentFormatted() }}</strong>} @else {an amount still to be entered}@if
-      (intentDueLabel()) {, expected by <strong>{{ intentDueLabel() }}</strong>} @else {, with no date set}.
-    </p>
-
+      <p class="ci-summary" aria-live="polite">
+        {{ pledgeDonorName() }} intends to give
+        @if (intentFormatted()) {<strong>{{ intentFormatted() }}</strong>} @else {<em>an amount still to be entered</em>}@if
+        (intentDueLabel()) {, expected by <strong>{{ intentDueLabel() }}</strong>} @else {, with no date set}.
+        This records a promise only — the donor pays through their own donation link.
+      </p>
     </div>
 
-    <footer class="pn-end">
-      <!-- <p class="pn-note"><svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 11v5M12 8h.01" />
-        </svg><span>A pledge only. The donor pays through their own donation link.</span></p> -->
-      <div class="pn-buttons">
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeAction()">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm">Record pledge</button>
-      </div>
+    <footer class="dialog-footer">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeAction()">Cancel</button>
+      <button type="submit" class="btn btn-primary btn-sm">Create donation intent</button>
     </footer>
   </form>
   }

@@ -888,21 +888,59 @@
                           <label class="field-label" for="f-reminder-time"
                             >Reminder time <span class="req" aria-hidden="true">*</span></label
                           >
-                          <input
+                          <!-- 12-hour picker: hour : minute + AM/PM segmented toggle.
+                               Stored value stays 24-hour HH:mm for the API. -->
+                          <div
+                            class="time-picker"
                             id="f-reminder-time"
-                            type="time"
-                            class="control control-inline"
-                            [ngModel]="reminderTime()"
-                            (ngModelChange)="reminderTime.set($event)"
-                            [attr.aria-invalid]="wasAttempted(1) && !reminderTimeValid() ? 'true' : null"
-                          />
+                            role="group"
+                            aria-label="Reminder time"
+                            [class.invalid]="wasAttempted(1) && !reminderTimeValid()"
+                          >
+                            <select
+                              class="time-select"
+                              aria-label="Hour"
+                              [ngModel]="reminderParts().hour"
+                              (ngModelChange)="setReminderPart('hour', $event)"
+                            >
+                              <option [ngValue]="null" disabled>HH</option>
+                              @for (h of hourOptions; track h) {
+                                <option [ngValue]="h">{{ h < 10 ? '0' + h : h }}</option>
+                              }
+                            </select>
+                            <span class="time-colon" aria-hidden="true">:</span>
+                            <select
+                              class="time-select"
+                              aria-label="Minute"
+                              [ngModel]="reminderParts().minute"
+                              (ngModelChange)="setReminderPart('minute', $event)"
+                            >
+                              <option [ngValue]="null" disabled>MM</option>
+                              @for (m of minuteOptions(); track m) {
+                                <option [ngValue]="m">{{ m < 10 ? '0' + m : m }}</option>
+                              }
+                            </select>
+                            <div class="meridiem-toggle" role="radiogroup" aria-label="AM or PM">
+                              <button
+                                type="button"
+                                role="radio"
+                                [class.on]="reminderTime() && !reminderParts().pm"
+                                [attr.aria-checked]="!!reminderTime() && !reminderParts().pm"
+                                (click)="setReminderPart('meridiem', 'AM')"
+                              >AM</button>
+                              <button
+                                type="button"
+                                role="radio"
+                                [class.on]="reminderTime() && reminderParts().pm"
+                                [attr.aria-checked]="!!reminderTime() && reminderParts().pm"
+                                (click)="setReminderPart('meridiem', 'PM')"
+                              >PM</button>
+                            </div>
+                          </div>
                           @if (wasAttempted(1) && !reminderTimeValid()) {
                             <p class="field-error">Enter Reminder time.</p>
                           } @else if (reminderTime()) {
-                            <!-- A native time input renders in the BROWSER's locale, so on a
-                                 24-hour machine there is no AM/PM anywhere on the field and
-                                 09:00 and 21:00 look alike at a glance. This states it. -->
-                            <p class="field-hint">{{ reminderTimeDisplay() }}</p>
+                            <p class="field-hint">Reminder at {{ reminderTimeDisplay() }}</p>
                           }
                         </div>
                       </div>
@@ -1292,138 +1330,102 @@
 
                 <!-- ===== STEP 4 — Review & Launch: a real recap of everything entered ===== -->
                 @else if (stepIndex() === 3) {
-                  <div class="review-region">
-                    <div class="review-groups-grid">
-                    <!-- Basic Information recap -->
-                    <div class="review-group">
-                      <h3 class="review-group-title">1. Basic Information</h3>
-                      <dl class="review-list compact">
-                        <div>
-                          <dt>Campaign name</dt>
-                          <dd>{{ campaignName().trim() || '—' }}</dd>
-                        </div>
-                        <div>
-                          <dt>Campaign code</dt>
-                          <dd class="mono">{{ campaignCode() || '—' }}</dd>
-                        </div>
-                        <div>
-                          <dt>Campaign amount</dt>
-                          <dd class="mono">{{ campaignAmountLabel() }}</dd>
-                        </div>
-                        <div>
-                          <dt>Purpose</dt>
-                          <dd>{{ purpose().trim() || '—' }}</dd>
-                        </div>
-                        <div>
-                          <dt>Fund or programme</dt>
-                          <dd>{{ fundProgramme().trim() || '—' }}</dd>
-                        </div>
-                        <div>
-                          <dt>Owner</dt>
-                          <dd>{{ ownersLabel() }}</dd>
-                        </div>
-                        <div>
-                          <dt>Start date</dt>
-                          <dd>{{ interpretDate(startDate()) }}</dd>
-                        </div>
-                        <div>
-                          <dt>End date</dt>
-                          <dd>{{ interpretDate(endDate()) }}</dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    <!-- Channels & Sources recap — SECOND, because it is step 2.
-                         The three recap groups were laid out 1, 3, 2: Publication & Notice sat
-                         between Basic Information and Channels & Sources, so the numbered
-                         headings on the review screen ran out of order against the steps the
-                         person had just walked through. -->
-                    <div class="review-group">
-                      <h3 class="review-group-title">2. Channels &amp; Sources</h3>
-                      <dl class="review-list compact">
-                        <div>
-                          <dt>Channels</dt>
-                          <dd>
-                            {{ selectedChannelLabels().length ? selectedChannelLabels().join(', ') : '—' }}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Country</dt>
-                          <dd>{{ selectedCountry() ? selectedCountryLabel() : '—' }}</dd>
-                        </div>
-                        <div>
-                          <dt>State</dt>
-                          <dd>{{ region() ? selectedRegionLabel() : '—' }}</dd>
-                        </div>
-                        <div>
-                          <dt>City</dt>
-                          <dd>{{ city() ? selectedCityLabel() : '—' }}</dd>
-                        </div>
-                        <div>
-                          <dt>Zip code</dt>
-                          <dd>{{ pincode() || '—' }}</dd>
-                        </div>
-                        <div>
-                          <dt>Lifecycle activation</dt>
-                          <dd>
-                            @if (activationMode() === 'auto') {
-                              Auto-activate on the start date
-                            } @else {
-                              Manual activate
-                            }
-                            · Reminder {{ reminderDaysBefore() }} day(s) before at
-                            {{ reminderTimeDisplay() }}
-                          </dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    <!-- Publication & Notice recap — READ MORE OPENS THE POPUP.
-                         The comment that used to sit here said "click to open a read/edit popup",
-                         and nothing in the markup did: both values were printed as plain
-                         interpolations, so a 2,000-character public description and a 20,000-
-                         character terms notice were dumped into a recap cell with no way to read
-                         them in full and no way to correct them without walking back to step 3.
-                         The popup itself already existed - `openFieldPreview` opens it, with a
-                         read view and an Edit toggle - and is what the Preview button on the
-                         Publication step uses. -->
-                    <div class="review-group">
-                      <h3 class="review-group-title">3. Publication &amp; Notice</h3>
-                      <dl class="review-list compact">
-                        <div>
-                          <dt>Public description</dt>
-                          <dd>
-                            <span class="review-clamp">{{ publicDescription().trim() || '—' }}</span>
-                            @if (hasFieldContent('description')) {
-                              <button type="button" class="link-btn review-readmore"
-                                      (click)="openFieldPreview('description')">Read more</button>
-                            }
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Terms and notice</dt>
-                          <dd>
-                            <span class="review-clamp">{{ termsNotice().trim() || '—' }}</span>
-                            @if (hasFieldContent('terms')) {
-                              <button type="button" class="link-btn review-readmore"
-                                      (click)="openFieldPreview('terms')">Read more</button>
-                            }
-                          </dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    </div>
-
-                    <!-- Ready confirmation only — the "missing information" list has been removed
-                         from Review & Launch per request. -->
-                    @if (requiredComplete()) {
-                      <div class="alert alert-success" role="status">
-                        <p class="alert-title">
-                          All required information captured. Ready to submit for activation.
+                  <div class="review-region lb">
+                    <!-- Review & launch: identity band, key figures, then four equal-height panels
+                         (two per row) so the screen is filled edge to edge. -->
+                    <header class="lb-top">
+                      <div class="lb-id">
+                        <h3 class="lb-name">{{ campaignName().trim() || 'Untitled campaign' }}</h3>
+                        <p class="lb-meta">
+                          <span class="lb-code mono">{{ campaignCode() || '—' }}</span>
+                          <span>{{ fundProgramme().trim() || 'No fund / programme' }}</span>
+                          <span>Owner · {{ ownersLabel() }}</span>
+                          <span class="lb-status" [class.is-ready]="requiredComplete()" role="status">
+                            <i [class]="requiredComplete() ? 'ri-checkbox-circle-fill' : 'ri-error-warning-fill'" aria-hidden="true"></i>
+                            {{ requiredComplete() ? 'Ready to submit' : 'Required details missing' }}
+                          </span>
                         </p>
                       </div>
-                    }
+                      <dl class="lb-figures">
+                        <div><dt>Target</dt><dd class="mono">{{ campaignAmountLabel() }}</dd></div>
+                        <div><dt>Starts</dt><dd>{{ interpretDate(startDate()) }}</dd></div>
+                        <div><dt>Ends</dt><dd>{{ interpretDate(endDate()) }}</dd></div>
+                        <div><dt>Activation</dt><dd>{{ activationMode() === 'auto' ? 'Automatic' : 'Manual' }}</dd></div>
+                      </dl>
+                    </header>
+
+                    <div class="lb-grid">
+                      <section class="lb-panel">
+                        <header class="lb-panel-head">
+                          <h4><span class="lb-num">1</span>Basic information</h4>
+                          <button type="button" class="link-btn" (click)="goToStep(0)">Edit</button>
+                        </header>
+                        <dl class="lb-list">
+                          <div><dt>Purpose</dt><dd>{{ purpose().trim() || '—' }}</dd></div>
+                          <div><dt>Fund / programme</dt><dd>{{ fundProgramme().trim() || '—' }}</dd></div>
+                          <div><dt>Owner</dt><dd>{{ ownersLabel() }}</dd></div>
+                          <div><dt>Campaign code</dt><dd class="mono">{{ campaignCode() || '—' }}</dd></div>
+                        </dl>
+                      </section>
+
+                      <section class="lb-panel">
+                        <header class="lb-panel-head">
+                          <h4><span class="lb-num">2</span>Channels &amp; location</h4>
+                          <button type="button" class="link-btn" (click)="goToStep(1)">Edit</button>
+                        </header>
+                        <dl class="lb-list">
+                          <div>
+                            <dt>Channels</dt>
+                            <dd class="lb-channels">
+                              @for (c of selectedChannelLabels(); track c) {
+                                <span class="lb-channel">{{ c }}</span>
+                              } @empty { — }
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Location</dt>
+                            <dd>
+                              {{ city() ? selectedCityLabel() : '—' }},
+                              {{ region() ? selectedRegionLabel() : '—' }},
+                              {{ selectedCountry() ? selectedCountryLabel() : '—' }}
+                            </dd>
+                          </div>
+                          <div><dt>Zip code</dt><dd class="mono">{{ pincode() || '—' }}</dd></div>
+                          <div>
+                            <dt>Reminder</dt>
+                            <dd>{{ reminderDaysBefore() }} day(s) before start, at {{ reminderTimeDisplay() }}</dd>
+                          </div>
+                        </dl>
+                      </section>
+
+                      <section class="lb-panel">
+                        <header class="lb-panel-head">
+                          <h4><span class="lb-num">3</span>Public description</h4>
+                          <button type="button" class="link-btn" (click)="goToStep(2)">Edit</button>
+                        </header>
+                        <div class="lb-prose">
+                          <p class="review-clamp">{{ publicDescription().trim() || '—' }}</p>
+                          @if (hasFieldContent('description')) {
+                            <button type="button" class="link-btn review-readmore"
+                                    (click)="openFieldPreview('description')">Read more</button>
+                          }
+                        </div>
+                      </section>
+
+                      <section class="lb-panel">
+                        <header class="lb-panel-head">
+                          <h4><span class="lb-num">4</span>Terms &amp; notice</h4>
+                          <button type="button" class="link-btn" (click)="goToStep(2)">Edit</button>
+                        </header>
+                        <div class="lb-prose">
+                          <p class="review-clamp">{{ termsNotice().trim() || '—' }}</p>
+                          @if (hasFieldContent('terms')) {
+                            <button type="button" class="link-btn review-readmore"
+                                    (click)="openFieldPreview('terms')">Read more</button>
+                          }
+                        </div>
+                      </section>
+                    </div>
 
                     <p class="review-note">
                       Check every detail above before you submit — Submit reviews and confirms this

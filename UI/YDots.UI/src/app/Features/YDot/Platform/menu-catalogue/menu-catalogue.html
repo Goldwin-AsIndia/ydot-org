@@ -1,444 +1,472 @@
 <main class="app-wrapper">
 <div class="page-wrapper">
-  <div class="container-fluid py-6">
+  <div class="container-fluid px-4 py-3 mc-page">
 
-    <app-page-header screen="menu-catalogue" title="Menu catalogue" subtitle="Every screen the product has, across every organisation.">
-      <ng-container actions>
-      @if (canManage()) {
-        <button type="button" class="ph-btn ph-btn--primary" (click)="startCreate()">
-          <i class="ri-add-line me-1"></i> Add menu item
-        </button>
-      }
-  </ng-container>
-    </app-page-header>
+    <section class="mc-sheet" aria-labelledby="mc-title">
 
-    <!--
-      Not decoration. Everything on this screen is global: a change here reaches every customer
-      at once, which is a different kind of act from the per-organisation screen and deserves to
-      be said before somebody edits rather than after.
-    -->
-    <div class="alert alert-warning d-flex align-items-start gap-2 mb-4">
-      <i class="ri-alert-line mt-1"></i>
-      <span class="small">
-        <strong>This is the product's own menu, shared by every organisation.</strong>
-        Adding, renaming or retiring an item here changes it for all of them. To turn something on
-        or off for one organisation, or to rename it just for them, use
-        <em>Administration → Menu and navigation</em> instead.
-      </span>
-    </div>
+      <!-- ======================= Masthead ======================= -->
+      <header class="mc-mast">
+        <div class="mc-mast__id">
+          <span class="mc-kicker">Platform &middot; Navigation</span>
+          <h1 id="mc-title" class="mc-title">Menu catalogue</h1>
+        </div>
 
-    <div class="row g-3 mb-4">
-      <div class="col-sm-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100">
-          <div class="card-body">
-            <p class="text-muted small mb-1">Items in the catalogue</p>
-            <h5 class="mb-0">{{ totalNodes() }}</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-sm-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100">
-          <div class="card-body">
-            <p class="text-muted small mb-1">Modules</p>
-            <h5 class="mb-0">{{ moduleCount() }}</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="card border-0 shadow-sm h-100">
-          <div class="card-body d-flex align-items-center gap-3">
-            <div class="flex-grow-1">
-              <label class="form-label small mb-1" for="mc-search">Search</label>
-              <input id="mc-search" type="search" class="form-control"
-                     placeholder="Name, code, route, permission or module"
-                     [ngModel]="search()" (ngModelChange)="search.set($event)">
-            </div>
-            <div class="form-check mt-4">
-              <input class="form-check-input" type="checkbox" id="mc-retired"
-                     [checked]="includeRetired()" (change)="toggleRetired()">
-              <label class="form-check-label small" for="mc-retired">Show retired</label>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+        @if (!loading() && !loadFailed()) {
+          <dl class="mc-figs">
+            <div class="mc-fig"><dt>Items</dt><dd><b>{{ totalNodes() }}</b></dd></div>
+            <div class="mc-fig"><dt>Modules</dt><dd><b>{{ moduleCount() }}</b></dd></div>
+            <div class="mc-fig"><dt>Live</dt><dd><b>{{ statusCounts().active }}</b><small>of {{ totalNodes() }}</small></dd></div>
+          </dl>
+        }
 
-    @if (loading()) {
-      <div class="card border-0 shadow-sm">
-        <div class="card-body text-center py-8">
-          <i class="ri-loader-4-line fs-2 text-muted"></i>
-          <p class="text-muted mt-3 mb-0">Loading…</p>
+        <div class="mc-tools">
+          <label class="mc-switch" for="mc-retired">
+            <input id="mc-retired" type="checkbox" [checked]="includeRetired()" (change)="toggleRetired()">
+            <span class="mc-switch__track" aria-hidden="true"></span>
+            <span class="mc-switch__text">Show retired</span>
+          </label>
+
+          @if (canManage()) {
+            <button type="button" class="mc-btn mc-btn--primary" (click)="startCreate()">
+              <i class="ri-add-line" aria-hidden="true"></i><span>Add menu item</span>
+            </button>
+          }
         </div>
-      </div>
-    } @else if (loadFailed()) {
-      <div class="card border-0 shadow-sm">
-        <div class="card-body text-center py-8">
-          <i class="ri-cloud-off-line fs-2 text-muted"></i>
-          <p class="text-muted mt-3">{{ errorMessage() }}</p>
-          <button type="button" class="btn btn-primary" (click)="load()">
-            <i class="ri-refresh-line me-1"></i> Try again
+      </header>
+
+      <!--
+        Not decoration. Everything on this screen is global: a change here reaches every customer
+        at once, which is a different kind of act from the per-organisation screen and deserves to
+        be said before somebody edits rather than after.
+      -->
+      <p class="mc-warning" role="note">
+        <i class="ri-alert-line" aria-hidden="true"></i>
+        <span>
+          <b>This is the product's own menu, shared by every organisation.</b>
+          Adding, renaming or retiring an item here changes it for all of them. To turn something on or off
+          for one organisation, or rename it just for them, use <em>Administration &rarr; Menu and navigation</em>.
+        </span>
+      </p>
+
+      @if (loading()) {
+        <div class="mc-state" role="status" aria-live="polite">
+          <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i>
+          <p class="mc-state__title">Loading the catalogue&hellip;</p>
+        </div>
+      } @else if (loadFailed()) {
+        <div class="mc-state" role="alert">
+          <i class="ri-cloud-off-line" aria-hidden="true"></i>
+          <p class="mc-state__title">{{ errorMessage() }}</p>
+          <button type="button" class="mc-btn mc-btn--primary" (click)="load()">
+            <i class="ri-refresh-line" aria-hidden="true"></i><span>Try again</span>
           </button>
         </div>
-      </div>
-    } @else {
-      <div class="card border-0 shadow-sm">
-        <div class="table-responsive">
-          <table class="table align-middle mb-0">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Level</th>
-                <th>Module</th>
-                <th>Route</th>
-                <th>Permission</th>
-                <th>Status</th>
-                @if (canManage()) { <th class="text-end">Actions</th> }
-              </tr>
-            </thead>
-            <tbody>
-              @for (node of filtered(); track node.id) {
-                <tr [class.opacity-50]="node.status === 'retired'">
-                  <td [style.padding-left]="'calc(0.75rem + ' + indent(node.depth) + ')'">
-                    <div class="d-flex align-items-center gap-2">
-                      <i [class]="iconClass(node.icon)"></i>
-                      <div>
-                        <span class="d-block">{{ node.name }}</span>
-                        <small class="text-muted"><code>{{ node.code }}</code></small>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="badge" [class]="levelClass(node.level)">{{ levelLabel(node.level) }}</span></td>
-                  <td><small class="text-muted">{{ node.moduleCode }}</small></td>
-                  <td>
-                    @if (node.route) { <code class="small">{{ node.route }}</code> }
-                    @else { <small class="text-muted">Heading</small> }
-                  </td>
-                  <td>
-                    @if (node.requiredPermissionCode) { <code class="small">{{ node.requiredPermissionCode }}</code> }
-                    @else { <small class="text-muted">—</small> }
-                  </td>
-                  <td>
-                    <span class="badge" [class]="statusClass(node.status)">{{ statusLabel(node.status) }}</span>
-                    @if (node.isMandatory) {
-                      <span class="badge bg-secondary-subtle text-secondary ms-1"
-                            title="Required: people must always be able to reach it">Required</span>
-                    }
-                    @if (node.isPlatformOnly) {
-                      <span class="badge bg-dark-subtle text-dark ms-1"
-                            title="Only ever visible to platform staff">Platform</span>
-                    }
-                  </td>
+      } @else {
 
-                  @if (canManage()) {
-                    <td class="text-end text-nowrap">
-                      <button type="button" class="btn btn-sm btn-link text-muted px-1"
-                              [attr.aria-label]="'Edit ' + node.name" title="Edit"
-                              (click)="startEdit(node)">
-                        <i class="ri-edit-line"></i>
+        <div class="mc-body">
+
+          <!-- ======================= Navigator: the menu as a tree ======================= -->
+          <nav class="mc-nav" aria-label="Menu items">
+            <div class="mc-nav__bar">
+              <label class="mc-search" for="mc-search">
+                <i class="ri-search-line" aria-hidden="true"></i>
+                <input id="mc-search" type="search" autocomplete="off" placeholder="Name, code, route or permission"
+                       [ngModel]="search()" (ngModelChange)="search.set($event)">
+              </label>
+              <button type="button" class="mc-tool" title="Open every heading" aria-label="Open every heading" (click)="expandTree()">
+                <i class="ri-expand-up-down-line" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="mc-tool" title="Close every heading" aria-label="Close every heading" (click)="collapseTree()">
+                <i class="ri-contract-up-down-line" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <ul class="mc-tree" role="tree">
+              @for (node of visible(); track node.id) {
+                <li role="treeitem" [attr.aria-selected]="selected()?.id === node.id" [attr.aria-level]="node.depth + 1"
+                    [attr.aria-expanded]="node.childCount > 0 ? isOpen(node) : null">
+                  <div class="mc-node" [class.is-on]="selected()?.id === node.id" [class.is-retired]="node.status === 'retired'"
+                       [class.is-top]="node.depth === 0" [style.padding-left.px]="searching() ? 0 : indentPx(node.depth)">
+
+                    @if (!searching() && node.childCount > 0) {
+                      <button type="button" class="mc-chev" [attr.aria-label]="(isOpen(node) ? 'Close ' : 'Open ') + node.name"
+                              (click)="toggleNode(node)">
+                        <i [class]="isOpen(node) ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" aria-hidden="true"></i>
                       </button>
+                    } @else {
+                      <span class="mc-chev-gap" aria-hidden="true"></span>
+                    }
 
-                      @if (canHaveChildren(node)) {
-                        <button type="button" class="btn btn-sm btn-link text-muted px-1"
-                                [attr.aria-label]="'Add an item beneath ' + node.name"
-                                title="Add an item beneath this one"
-                                (click)="startCreate(node)">
-                          <i class="ri-node-tree"></i>
-                        </button>
-                      }
-
-                      @if (node.status === 'retired') {
-                        <button type="button" class="btn btn-sm btn-link text-success px-1"
-                                [attr.aria-label]="'Restore ' + node.name" title="Bring it back"
-                                [disabled]="saving()" (click)="restore(node)">
-                          <i class="ri-arrow-go-back-line"></i>
-                        </button>
-                      } @else if (!node.isMandatory) {
-                        <button type="button" class="btn btn-sm btn-link text-warning px-1"
-                                [attr.aria-label]="'Retire ' + node.name"
-                                title="Hide it everywhere. Reversible."
-                                [disabled]="saving()" (click)="retire(node)">
-                          <i class="ri-archive-line"></i>
-                        </button>
-                      }
-
-                      @if (!node.isMandatory) {
-                        <button type="button" class="btn btn-sm btn-link text-danger px-1"
-                                [attr.aria-label]="'Delete ' + node.name"
-                                title="Remove it entirely. Only possible while nothing uses it."
-                                [disabled]="saving()" (click)="askDelete(node)">
-                          <i class="ri-delete-bin-line"></i>
-                        </button>
-                      }
-                    </td>
-                  }
-                </tr>
+                    <button type="button" class="mc-pick" (click)="select(node)">
+                      <i class="mc-glyph" [class]="iconClass(node.icon)" aria-hidden="true"></i>
+                      <span class="mc-pick__name">{{ node.name }}</span>
+                      @if (node.childCount > 0) { <span class="mc-pick__n">{{ node.childCount }}</span> }
+                      @if (node.status !== 'active') { <i class="mc-dot" [attr.data-ink]="node.status" [title]="statusLabel(node.status)" aria-hidden="true"></i> }
+                    </button>
+                  </div>
+                </li>
               } @empty {
-                <tr>
-                  <td [attr.colspan]="canManage() ? 7 : 6" class="text-center text-muted py-6">
-                    Nothing matches that search.
-                  </td>
-                </tr>
+                <li class="mc-state mc-state--inline">
+                  <i class="ri-search-line" aria-hidden="true"></i>
+                  <p class="mc-state__title">Nothing matches that</p>
+                  <p class="mc-state__hint">Try a shorter search.</p>
+                </li>
               }
-            </tbody>
-          </table>
+            </ul>
+          </nav>
+
+          <!-- ======================= Inspector ======================= -->
+          <section class="mc-ins" aria-live="polite" aria-label="Selected menu item">
+            @if (selected(); as n) {
+
+              <header class="mc-ins__head">
+                @if (n.path.length) {
+                  <p class="mc-crumbs">
+                    @for (step of n.path; track $index) { <span>{{ step }}</span><i class="ri-arrow-right-s-line" aria-hidden="true"></i> }
+                  </p>
+                } @else {
+                  <p class="mc-crumbs"><span>Top-level menu</span></p>
+                }
+
+                <div class="mc-ins__title">
+                  <i class="mc-glyph mc-glyph--lg" [class]="iconClass(n.icon)" aria-hidden="true"></i>
+                  <div class="mc-ins__id">
+                    <h2>{{ n.name }}</h2>
+                    <span class="mc-ins__code">{{ n.code }}</span>
+                  </div>
+                  <span class="mc-state-word"><i class="mc-dot" [attr.data-ink]="n.status" aria-hidden="true"></i>{{ statusLabel(n.status) }}</span>
+                </div>
+
+                @if (n.isMandatory || n.isPlatformOnly) {
+                  <p class="mc-flags">
+                    @if (n.isMandatory) {
+                      <span title="Required: people must always be able to reach it"><i class="ri-lock-2-line" aria-hidden="true"></i>Required</span>
+                    }
+                    @if (n.isPlatformOnly) {
+                      <span title="Only ever visible to platform staff"><i class="ri-shield-star-line" aria-hidden="true"></i>Platform staff only</span>
+                    }
+                  </p>
+                }
+
+                @if (canManage()) {
+                  <div class="mc-ins__actions">
+                    <button type="button" class="mc-btn" (click)="startEdit(n)">
+                      <i class="ri-edit-line" aria-hidden="true"></i><span>Edit</span>
+                    </button>
+                    @if (canHaveChildren(n)) {
+                      <button type="button" class="mc-btn" (click)="startCreate(n)">
+                        <i class="ri-node-tree" aria-hidden="true"></i><span>Add beneath</span>
+                      </button>
+                    }
+                    @if (n.status === 'retired') {
+                      <button type="button" class="mc-btn mc-btn--ok" [disabled]="saving()" (click)="restore(n)" title="Bring it back">
+                        <i class="ri-arrow-go-back-line" aria-hidden="true"></i><span>Restore</span>
+                      </button>
+                    } @else if (!n.isMandatory) {
+                      <button type="button" class="mc-btn mc-btn--warn" [disabled]="saving()" (click)="retire(n)" title="Hide it everywhere. Reversible.">
+                        <i class="ri-archive-line" aria-hidden="true"></i><span>Retire</span>
+                      </button>
+                    }
+                    @if (!n.isMandatory) {
+                      <button type="button" class="mc-btn mc-btn--danger" [disabled]="saving()" (click)="askDelete(n)"
+                              title="Remove it entirely. Only possible while nothing uses it.">
+                        <i class="ri-delete-bin-line" aria-hidden="true"></i><span>Delete</span>
+                      </button>
+                    }
+                  </div>
+                }
+              </header>
+
+              <dl class="mc-ledger">
+                <div>
+                  <dt>Route</dt>
+                  <dd>
+                    @if (n.route) { <span class="mc-mono">{{ n.route }}</span> }
+                    @else { <span class="mc-none">None &mdash; a heading that holds other items</span> }
+                  </dd>
+                </div>
+                <div>
+                  <dt>Permission</dt>
+                  <dd>
+                    @if (n.requiredPermissionCode) { <span class="mc-mono mc-mono--perm">{{ n.requiredPermissionCode }}</span> }
+                    @else { <span class="mc-none">No permission check</span> }
+                  </dd>
+                </div>
+                <div>
+                  <dt>Level</dt>
+                  <dd>{{ levelLabel(n.level) }}</dd>
+                </div>
+                <div>
+                  <dt>Module</dt>
+                  <dd><span class="mc-mono">{{ n.moduleCode }}</span></dd>
+                </div>
+                <div>
+                  <dt>Position</dt>
+                  <dd><span class="mc-mono">{{ n.displayOrder ?? 0 }}</span></dd>
+                </div>
+                <div>
+                  <dt>Behaviour</dt>
+                  <dd>
+                    {{ n.isEnabledByDefault === false ? 'Off by default for new organisations' : 'On by default for new organisations' }}
+                    @if (n.opensInNewTab) { <span class="mc-sep" aria-hidden="true"></span>Opens in a new tab }
+                    @if (n.badgeKey) { <span class="mc-sep" aria-hidden="true"></span>Badge <span class="mc-mono">{{ n.badgeKey }}</span> }
+                  </dd>
+                </div>
+                @if (n.description) {
+                  <div>
+                    <dt>About</dt>
+                    <dd>{{ n.description }}</dd>
+                  </div>
+                }
+              </dl>
+
+              @if (n.childCount > 0) {
+                <div class="mc-inside">
+                  <p class="mc-inside__cap">Inside this item <span class="mc-count">{{ n.childCount }}</span></p>
+                  <ul>
+                    @for (child of n.children ?? []; track child.id) {
+                      <li>
+                        <button type="button" class="mc-inside__row" [class.is-retired]="child.status === 'retired'" (click)="jumpTo(child)">
+                          <i class="mc-glyph" [class]="iconClass(child.icon)" aria-hidden="true"></i>
+                          <span class="mc-inside__name">{{ child.name }}</span>
+                          <span class="mc-inside__route">{{ child.route || 'Heading' }}</span>
+                          <i class="mc-dot" [attr.data-ink]="child.status" aria-hidden="true"></i>
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+            } @else {
+              <div class="mc-state">
+                <i class="ri-menu-line" aria-hidden="true"></i>
+                <p class="mc-state__title">The catalogue is empty</p>
+              </div>
+            }
+          </section>
         </div>
-      </div>
-    }
+      }
+    </section>
 
     <!-- ============================================================ the editor -->
     @if (editingId() !== null) {
-      <div class="modal d-block" tabindex="-1" role="dialog" style="background: rgba(0,0,0,.5);">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">
-                {{ isCreating() ? 'Add a menu item' : 'Edit ' + form().name }}
-              </h5>
-              <button type="button" class="btn-close" aria-label="Close" (click)="closeEditor()"></button>
-            </div>
+      <app-popup [open]="true" size="lg" icon="ri-menu-add-line"
+                 kicker="Platform catalogue"
+                 [title]="isCreating() ? 'Add a menu item' : 'Edit ' + form().name"
+                 (closed)="closeEditor()">
 
-            <div class="modal-body">
-              @if (formError()) {
-                <div class="alert alert-danger d-flex align-items-start gap-2">
-                  <i class="ri-error-warning-line mt-1"></i>
-                  <span>{{ formError() }}</span>
-                </div>
-              }
+        @if (formError()) {
+          <p class="mc-formerror" role="alert">
+            <i class="ri-error-warning-line" aria-hidden="true"></i><span>{{ formError() }}</span>
+          </p>
+        }
 
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label small" for="mc-name">Name <span class="text-danger">*</span></label>
-                  <input id="mc-name" class="form-control" maxlength="120"
-                         [ngModel]="form().name" (ngModelChange)="patch('name', $event)">
-                </div>
+        <!-- Identity -->
+        <h3 class="mc-part">Identity</h3>
+        <div class="mc-grid">
+          <div class="yp-field mc-s6">
+            <label class="yp-label" for="mc-name">Name <em>*</em></label>
+            <input id="mc-name" maxlength="120" [ngModel]="form().name" (ngModelChange)="patch('name', $event)">
+          </div>
 
-                <div class="col-md-6">
-                  <label class="form-label small" for="mc-code">Code <span class="text-danger">*</span></label>
-                  <input id="mc-code" class="form-control" maxlength="60"
-                         placeholder="e.g. FR_DONOR_LIST"
-                         [disabled]="!isCreating()"
-                         [ngModel]="form().code" (ngModelChange)="patch('code', $event)">
-                  <small class="text-muted">
-                    {{ isCreating()
-                       ? 'Upper case, digits, underscores or hyphens. Permanent once saved.'
-                       : 'The code identifies the item and cannot be changed.' }}
-                  </small>
-                </div>
+          <div class="yp-field mc-s6">
+            <label class="yp-label" for="mc-code">Code <em>*</em></label>
+            <input id="mc-code" maxlength="60" placeholder="e.g. FR_DONOR_LIST"
+                   [disabled]="!isCreating()" [ngModel]="form().code" (ngModelChange)="patch('code', $event)">
+            <p class="yp-hint">
+              {{ isCreating()
+                 ? 'Upper case, digits, underscores or hyphens. Permanent once saved.'
+                 : 'The code identifies the item and cannot be changed.' }}
+            </p>
+          </div>
 
-                <div class="col-12">
-                  <label class="form-label small" for="mc-description">Description</label>
-                  <input id="mc-description" class="form-control" maxlength="300"
-                         [ngModel]="form().description" (ngModelChange)="patch('description', $event)">
-                </div>
-
-                <div class="col-md-4">
-                  <label class="form-label small" for="mc-level">Level</label>
-                  <select id="mc-level" class="form-select" [disabled]="!isCreating()"
-                          [ngModel]="form().level" (ngModelChange)="patch('level', $event)">
-                    <option value="" disabled>Select Level</option>
-                    @for (option of levelOptions(); track option.value) {
-                      <option [value]="option.value">{{ option.label }}</option>
-                    }
-                  </select>
-                  <small class="text-muted">Three levels; a child submenu cannot have children.</small>
-                </div>
-
-                <div class="col-md-8">
-                  <label class="form-label small" for="mc-parent">Sits under</label>
-                  <select id="mc-parent" class="form-select" [disabled]="!isCreating()"
-                          [ngModel]="form().parentMenuId" (ngModelChange)="patch('parentMenuId', $event)">
-                    <option value="">Select Parent Menu</option>
-                    @for (option of parentOptions(); track option.id) {
-                      <option [value]="option.id">{{ option.label }}</option>
-                    }
-                  </select>
-                  <small class="text-muted">Leave unselected for a top-level menu.</small>
-                </div>
-
-                <div class="col-md-4">
-                  <label class="form-label small" for="mc-module">Module</label>
-                  <input id="mc-module" class="form-control" list="mc-modules" maxlength="20"
-                         [disabled]="!isCreating()"
-                         [ngModel]="form().moduleCode" (ngModelChange)="patch('moduleCode', $event)">
-                  <datalist id="mc-modules">
-                    @for (module of moduleCodes(); track module) { <option [value]="module"></option> }
-                  </datalist>
-                </div>
-
-                <div class="col-md-8">
-                  <label class="form-label small" for="mc-route">Route</label>
-                  <input id="mc-route" class="form-control" maxlength="200"
-                         placeholder="/app/… — leave empty for a heading"
-                         [ngModel]="form().route" (ngModelChange)="patch('route', $event)">
-
-                  <!--
-                    THE CHECK THAT MAKES AUTHORING SAFE. A catalogue route is a promise that a
-                    screen exists. Asking the Angular router what this build actually registers
-                    turns "you find out when somebody clicks it" into a sentence on the form.
-                    A WARNING, NOT A BLOCK: a route is legitimately added just before the screen
-                    behind it ships, and refusing would make the catalogue impossible to prepare.
-                  -->
-                  @if (routeWarning()) {
-                    <div class="alert alert-warning py-2 px-3 mt-2 mb-0 small d-flex gap-2">
-                      <i class="ri-alert-line mt-1"></i>
-                      <span>{{ routeWarning() }}</span>
-                    </div>
-                  } @else if (isHeading()) {
-                    <small class="text-muted">
-                      No route: this is a heading that holds other items.
-                    </small>
-                  } @else {
-                    <small class="text-success">
-                      <i class="ri-check-line"></i> A screen is registered at this route.
-                    </small>
-                  }
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label small" for="mc-permission">Required permission</label>
-                  <input id="mc-permission" class="form-control" list="mc-permissions" maxlength="120"
-                         placeholder="Leave empty for no permission check"
-                         [ngModel]="form().requiredPermissionCode"
-                         (ngModelChange)="patch('requiredPermissionCode', $event)">
-                  <datalist id="mc-permissions">
-                    @for (permission of permissions(); track permission.code) {
-                      <option [value]="permission.code">{{ permission.name }}</option>
-                    }
-                  </datalist>
-                  <small class="text-muted">
-                    Checked against the permission catalogue when you save. Hiding the item is
-                    tidiness — the endpoint behind it enforces this regardless.
-                  </small>
-                </div>
-
-                <div class="col-md-3">
-                  <label class="form-label small" for="mc-icon">Icon</label>
-                  <div class="input-group">
-                    <span class="input-group-text"><i [class]="iconClass(form().icon)"></i></span>
-                    <input id="mc-icon" class="form-control" maxlength="60" placeholder="ri-user-line"
-                           [ngModel]="form().icon" (ngModelChange)="patch('icon', $event)">
-                  </div>
-                </div>
-
-                <div class="col-md-3">
-                  <label class="form-label small" for="mc-order">Position</label>
-                  <input id="mc-order" type="number" class="form-control" min="0" max="9999"
-                         [ngModel]="form().displayOrder" (ngModelChange)="patch('displayOrder', $event)">
-                </div>
-
-                @if (!isCreating()) {
-                  <div class="col-md-4">
-                    <label class="form-label small" for="mc-status">Status</label>
-                    <select id="mc-status" class="form-select"
-                            [ngModel]="form().status" (ngModelChange)="patch('status', $event)">
-                      <option value="" disabled>Select Status</option>
-                      @for (option of statusOptions(); track option.value) {
-                        <option [value]="option.value">{{ option.label }}</option>
-                      }
-                    </select>
-                  </div>
-                }
-
-                <div class="col-md-4">
-                  <label class="form-label small" for="mc-badge">Badge key</label>
-                  <input id="mc-badge" class="form-control" maxlength="60"
-                         [ngModel]="form().badgeKey" (ngModelChange)="patch('badgeKey', $event)">
-                </div>
-
-                <div class="col-12">
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="mc-default"
-                           [checked]="form().isEnabledByDefault"
-                           (change)="patch('isEnabledByDefault', !form().isEnabledByDefault)">
-                    <label class="form-check-label small" for="mc-default">
-                      On by default for new organisations
-                    </label>
-                  </div>
-
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="mc-newtab"
-                           [checked]="form().opensInNewTab"
-                           (change)="patch('opensInNewTab', !form().opensInNewTab)">
-                    <label class="form-check-label small" for="mc-newtab">Opens in a new tab</label>
-                  </div>
-
-                  @if (isCreating()) {
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="mc-platform"
-                             [checked]="form().isPlatformOnly"
-                             (change)="patch('isPlatformOnly', !form().isPlatformOnly)">
-                      <label class="form-check-label small" for="mc-platform">
-                        Platform staff only — never offered to an organisation
-                      </label>
-                    </div>
-
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="mc-mandatory"
-                             [checked]="form().isMandatory"
-                             (change)="patch('isMandatory', !form().isMandatory)">
-                      <label class="form-check-label small" for="mc-mandatory">
-                        Required — cannot be switched off, retired or deleted
-                      </label>
-                    </div>
-                  }
-                </div>
-              </div>
-            </div>
-
-            <div class="modal-footer">
-              @if (validationError()) {
-                <small class="text-danger me-auto">{{ validationError() }}</small>
-              }
-              <button type="button" class="btn btn-outline-secondary" (click)="closeEditor()">
-                Cancel
-              </button>
-              <button type="button" class="btn btn-primary"
-                      [disabled]="saving() || !!validationError()" (click)="save()">
-                @if (saving()) { <i class="ri-loader-4-line me-1"></i> Saving… }
-                @else { <i class="ri-save-line me-1"></i> {{ isCreating() ? 'Add to catalogue' : 'Save' }} }
-              </button>
-            </div>
+          <div class="yp-field mc-s12">
+            <label class="yp-label" for="mc-description">Description</label>
+            <input id="mc-description" maxlength="300" [ngModel]="form().description" (ngModelChange)="patch('description', $event)">
           </div>
         </div>
-      </div>
+
+        <!-- Placement -->
+        <h3 class="mc-part">Placement</h3>
+        <div class="mc-grid">
+          <div class="yp-field mc-s4">
+            <label class="yp-label" for="mc-level">Level</label>
+            <select id="mc-level" [disabled]="!isCreating()" [ngModel]="form().level" (ngModelChange)="patch('level', $event)">
+              <option value="" disabled>Select Level</option>
+              @for (option of levelOptions(); track option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
+            </select>
+            <p class="yp-hint">Three levels; a child submenu cannot have children.</p>
+          </div>
+
+          <div class="yp-field mc-s8">
+            <label class="yp-label" for="mc-parent">Sits under</label>
+            <select id="mc-parent" [disabled]="!isCreating()" [ngModel]="form().parentMenuId" (ngModelChange)="patch('parentMenuId', $event)">
+              <option value="">Select Parent Menu</option>
+              @for (option of parentOptions(); track option.id) {
+                <option [value]="option.id">{{ option.label }}</option>
+              }
+            </select>
+            <p class="yp-hint">Leave unselected for a top-level menu.</p>
+          </div>
+
+          <div class="yp-field mc-s4">
+            <label class="yp-label" for="mc-module">Module</label>
+            <input id="mc-module" list="mc-modules" maxlength="20" [disabled]="!isCreating()"
+                   [ngModel]="form().moduleCode" (ngModelChange)="patch('moduleCode', $event)">
+            <datalist id="mc-modules">
+              @for (module of moduleCodes(); track module) { <option [value]="module"></option> }
+            </datalist>
+          </div>
+
+          <div class="yp-field mc-s8">
+            <label class="yp-label" for="mc-route">Route</label>
+            <input id="mc-route" maxlength="200" placeholder="/app/… — leave empty for a heading"
+                   [ngModel]="form().route" (ngModelChange)="patch('route', $event)">
+
+            <!--
+              THE CHECK THAT MAKES AUTHORING SAFE. A catalogue route is a promise that a
+              screen exists. Asking the Angular router what this build actually registers
+              turns "you find out when somebody clicks it" into a sentence on the form.
+              A WARNING, NOT A BLOCK: a route is legitimately added just before the screen
+              behind it ships, and refusing would make the catalogue impossible to prepare.
+            -->
+            @if (routeWarning()) {
+              <p class="mc-route mc-route--warn"><i class="ri-alert-line" aria-hidden="true"></i><span>{{ routeWarning() }}</span></p>
+            } @else if (isHeading()) {
+              <p class="yp-hint">No route: this is a heading that holds other items.</p>
+            } @else {
+              <p class="mc-route mc-route--ok"><i class="ri-check-line" aria-hidden="true"></i><span>A screen is registered at this route.</span></p>
+            }
+          </div>
+        </div>
+
+        <!-- Access & appearance -->
+        <h3 class="mc-part">Access &amp; appearance</h3>
+        <div class="mc-grid">
+          <div class="yp-field mc-s6">
+            <label class="yp-label" for="mc-permission">Required permission</label>
+            <input id="mc-permission" list="mc-permissions" maxlength="120"
+                   placeholder="Leave empty for no permission check"
+                   [ngModel]="form().requiredPermissionCode" (ngModelChange)="patch('requiredPermissionCode', $event)">
+            <datalist id="mc-permissions">
+              @for (permission of permissions(); track permission.code) {
+                <option [value]="permission.code">{{ permission.name }}</option>
+              }
+            </datalist>
+            <p class="yp-hint">
+              Checked against the permission catalogue when you save. Hiding the item is tidiness &mdash;
+              the endpoint behind it enforces this regardless.
+            </p>
+          </div>
+
+          <div class="yp-field mc-s3">
+            <label class="yp-label" for="mc-icon">Icon</label>
+            <div class="mc-iconfield">
+              <i [class]="iconClass(form().icon)" aria-hidden="true"></i>
+              <input id="mc-icon" maxlength="60" placeholder="ri-user-line"
+                     [ngModel]="form().icon" (ngModelChange)="patch('icon', $event)">
+            </div>
+          </div>
+
+          <div class="yp-field mc-s3">
+            <label class="yp-label" for="mc-order">Position</label>
+            <input id="mc-order" type="number" min="0" max="9999"
+                   [ngModel]="form().displayOrder" (ngModelChange)="patch('displayOrder', $event)">
+          </div>
+
+          @if (!isCreating()) {
+            <div class="yp-field mc-s6">
+              <label class="yp-label" for="mc-status">Status</label>
+              <select id="mc-status" [ngModel]="form().status" (ngModelChange)="patch('status', $event)">
+                <option value="" disabled>Select Status</option>
+                @for (option of statusOptions(); track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          <div class="yp-field" [class.mc-s6]="!isCreating()" [class.mc-s12]="isCreating()">
+            <label class="yp-label" for="mc-badge">Badge key</label>
+            <input id="mc-badge" maxlength="60" [ngModel]="form().badgeKey" (ngModelChange)="patch('badgeKey', $event)">
+          </div>
+        </div>
+
+        <!-- Behaviour -->
+        <h3 class="mc-part">Behaviour</h3>
+        <div class="mc-checks">
+          <label class="mc-check" for="mc-default">
+            <input type="checkbox" id="mc-default" [checked]="form().isEnabledByDefault"
+                   (change)="patch('isEnabledByDefault', !form().isEnabledByDefault)">
+            <span class="mc-check__box" aria-hidden="true"></span>
+            <span class="mc-check__text"><b>On by default</b>for new organisations</span>
+          </label>
+
+          <label class="mc-check" for="mc-newtab">
+            <input type="checkbox" id="mc-newtab" [checked]="form().opensInNewTab"
+                   (change)="patch('opensInNewTab', !form().opensInNewTab)">
+            <span class="mc-check__box" aria-hidden="true"></span>
+            <span class="mc-check__text"><b>Opens in a new tab</b>instead of the current one</span>
+          </label>
+
+          @if (isCreating()) {
+            <label class="mc-check" for="mc-platform">
+              <input type="checkbox" id="mc-platform" [checked]="form().isPlatformOnly"
+                     (change)="patch('isPlatformOnly', !form().isPlatformOnly)">
+              <span class="mc-check__box" aria-hidden="true"></span>
+              <span class="mc-check__text"><b>Platform staff only</b>never offered to an organisation</span>
+            </label>
+
+            <label class="mc-check" for="mc-mandatory">
+              <input type="checkbox" id="mc-mandatory" [checked]="form().isMandatory"
+                     (change)="patch('isMandatory', !form().isMandatory)">
+              <span class="mc-check__box" aria-hidden="true"></span>
+              <span class="mc-check__text"><b>Required</b>cannot be switched off, retired or deleted</span>
+            </label>
+          }
+        </div>
+
+        <ng-container popupActions>
+          @if (validationError()) {
+            <span class="yp-error mc-foot-note">{{ validationError() }}</span>
+          }
+          <button type="button" class="yp-btn" (click)="closeEditor()">Cancel</button>
+          <button type="button" class="yp-btn yp-btn--primary"
+                  [disabled]="saving() || !!validationError()" (click)="save()">
+            @if (saving()) { <i class="ri-loader-4-line" aria-hidden="true"></i> Saving&hellip; }
+            @else { <i class="ri-save-line" aria-hidden="true"></i> {{ isCreating() ? 'Add to catalogue' : 'Save' }} }
+          </button>
+        </ng-container>
+      </app-popup>
     }
 
     <!-- ============================================================ delete confirmation -->
     @if (confirmingDelete(); as target) {
-      <div class="modal d-block" tabindex="-1" role="dialog" style="background: rgba(0,0,0,.5);">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Remove {{ target.name }}?</h5>
-              <button type="button" class="btn-close" aria-label="Close" (click)="cancelDelete()"></button>
-            </div>
-            <div class="modal-body">
-              <p class="mb-2">
-                This removes <strong>{{ target.name }}</strong> from the catalogue for every
-                organisation. It cannot be undone.
-              </p>
-              <!--
-                Said here because the refusal, when it comes, is about rows on other
-                organisations that this screen cannot show. Better to set the expectation than
-                to let the error look arbitrary.
-              -->
-              <p class="text-muted small mb-0">
-                If any organisation has configured it, or any role is mapped to it, the server
-                will refuse — retire it instead, which hides it everywhere and can be undone.
-              </p>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline-secondary" (click)="cancelDelete()">
-                Cancel
-              </button>
-              <button type="button" class="btn btn-danger" [disabled]="saving()" (click)="confirmDelete()">
-                @if (saving()) { <i class="ri-loader-4-line me-1"></i> Removing… }
-                @else { <i class="ri-delete-bin-line me-1"></i> Remove it }
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <app-popup [open]="true" size="sm" tone="danger" icon="ri-delete-bin-line"
+                 kicker="Remove from catalogue" [title]="'Remove ' + target.name + '?'"
+                 (closed)="cancelDelete()">
+        <p class="mc-say">
+          This removes <b>{{ target.name }}</b> from the catalogue for every organisation. It cannot be undone.
+        </p>
+        <!--
+          Said here because the refusal, when it comes, is about rows on other
+          organisations that this screen cannot show. Better to set the expectation than
+          to let the error look arbitrary.
+        -->
+        <p class="yp-hint">
+          If any organisation has configured it, or any role is mapped to it, the server will refuse &mdash;
+          retire it instead, which hides it everywhere and can be undone.
+        </p>
+        <ng-container popupActions>
+          <button type="button" class="yp-btn" (click)="cancelDelete()">Cancel</button>
+          <button type="button" class="yp-btn yp-btn--danger" [disabled]="saving()" (click)="confirmDelete()">
+            @if (saving()) { <i class="ri-loader-4-line" aria-hidden="true"></i> Removing&hellip; }
+            @else { <i class="ri-delete-bin-line" aria-hidden="true"></i> Remove it }
+          </button>
+        </ng-container>
+      </app-popup>
     }
 
   </div>

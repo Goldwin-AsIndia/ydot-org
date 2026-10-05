@@ -733,10 +733,18 @@ export class Donor360Component {
     openAction(action: 'correct' | 'follow-up' | 'create-intent' | 'delete-draft') {
       this.successPanel.set(null);
 
+      // Edit profile is a full screen of its own, not a pop-up.
+      if (action === 'correct') {
+        this.router.navigate(['/app/fundraising/relationships/donor-360/edit'], {
+          queryParams: { donorId: this.donorId() },
+        });
+        return;
+      }
+
       // OPEN ON THE OWNER THE DONOR ALREADY HAS, so leaving the field alone is a no-change save
       // rather than a silent unassignment. It is the id, because that is what the picker's
       // options are keyed by and what the request carries.
-      if (action === 'correct') {
+      if ((action as string) === 'correct') {
         this.correctOwner.set(this.response()?.donor?.relationshipOwnerUserId ?? '');
         this.correctReason.set('');
         this.ownerSearch.set('');

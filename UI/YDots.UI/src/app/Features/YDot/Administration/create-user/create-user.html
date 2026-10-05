@@ -722,3 +722,14 @@
     }
   </div>
 </ng-template>
+
+<!-- Leaving halfway through creating a user -->
+<app-popup [open]="showLeaveDialog()" tone="warning" size="sm" icon="ri-logout-box-r-line" kicker="Invite or create a user"
+           title="Leave without creating this user?"
+           lead="You have details filled in that have not been saved. If you leave now they will be lost."
+           [closeOnBackdrop]="false" (closed)="resolveLeave(false)">
+  <ng-container popupActions>
+    <button type="button" class="yp-btn" (click)="resolveLeave(false)">Stay and keep editing</button>
+    <button type="button" class="yp-btn yp-btn--primary" (click)="resolveLeave(true)">Discard and leave</button>
+  </ng-container>
+</app-popup>

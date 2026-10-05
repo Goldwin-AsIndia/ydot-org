@@ -1,0 +1,197 @@
+<main class="app-wrapper">
+  <div class="page-wrapper">
+    <div class="container-fluid px-4 py-3">
+      <section class="dpe" aria-label="Edit donor profile">
+        <header class="dpe-top">
+          <button type="button" class="dpe-back" (click)="cancel()" aria-label="Back to Donor 360" title="Back to Donor 360">
+            <i class="ri-arrow-left-line" aria-hidden="true"></i>
+          </button>
+          <div class="dpe-title">
+            <span class="dpe-kicker">Donor 360<span class="dpe-slash" aria-hidden="true">/</span>Edit profile</span>
+            <h1>Edit profile</h1>
+          </div>
+          @if (donor(); as d) {
+            <dl class="dpe-id">
+              <div><dt>Donor</dt><dd>{{ d.displayName }}</dd></div>
+              <div><dt>Reference</dt><dd class="dpe-mono">{{ d.donorNumber }}</dd></div>
+              <div><dt>Status</dt><dd>{{ d.status }}</dd></div>
+            </dl>
+          }
+        </header>
+
+        @switch (state()) {
+          @case ('loading') {
+            <div class="dpe-state" role="status" aria-busy="true"><h2>Loading donor profile…</h2></div>
+          }
+          @case ('no-access') {
+            <div class="dpe-state" role="alert">
+              <i class="ri-lock-line" aria-hidden="true"></i>
+              <h2>Access unavailable</h2>
+              <p>You do not have permission to edit this donor's profile.</p>
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()">Back to Donor 360</button>
+            </div>
+          }
+          @case ('empty') {
+            <div class="dpe-state">
+              <h2>No donor selected</h2>
+              <p>Open a donor from the Donor List, then choose Edit profile.</p>
+            </div>
+          }
+          @case ('error') {
+            <div class="dpe-state" role="alert">
+              <h2>The donor could not be loaded</h2>
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()">Back to Donor 360</button>
+            </div>
+          }
+          @case ('ready') {
+            <form class="dpe-body" (ngSubmit)="save()" novalidate>
+              <div class="dpe-main">
+                <!-- 01 Identity -->
+                <section class="dpe-card" aria-label="Identity">
+                  <h2 class="dpe-h"><span class="dpe-n">01</span>Identity</h2>
+                  <div class="dpe-grid">
+                    <div class="dpe-field dpe-wide">
+                      <span class="dpe-label" id="dpe-type-l">Donor type</span>
+                      <div class="dpe-seg" role="radiogroup" aria-labelledby="dpe-type-l">
+                        @for (t of donorTypes; track t) {
+                          <button type="button" role="radio" [class.on]="donorType() === t"
+                            [attr.aria-checked]="donorType() === t" (click)="donorType.set(t)">{{ t }}</button>
+                        }
+                      </div>
+                    </div>
+
+                    @if (isPerson()) {
+                      <div class="dpe-field" [class.dpe-invalid]="submitted() && errors()['firstName']">
+                        <label class="dpe-label" for="dpe-first">First name <span class="dpe-req">*</span></label>
+                        <input id="dpe-first" type="text" autocomplete="off" [ngModel]="firstName()"
+                          (ngModelChange)="firstName.set($event)" name="firstName"
+                          [attr.aria-invalid]="submitted() && errors()['firstName'] ? true : null" />
+                        @if (submitted() && errors()['firstName']) { <p class="dpe-err">{{ errors()['firstName'] }}</p> }
+                      </div>
+                      <div class="dpe-field">
+                        <label class="dpe-label" for="dpe-last">Last name</label>
+                        <input id="dpe-last" type="text" autocomplete="off" [ngModel]="lastName()"
+                          (ngModelChange)="lastName.set($event)" name="lastName" />
+                      </div>
+                    } @else {
+                      <div class="dpe-field dpe-wide" [class.dpe-invalid]="submitted() && errors()['organisationName']">
+                        <label class="dpe-label" for="dpe-org">Organisation name <span class="dpe-req">*</span></label>
+                        <input id="dpe-org" type="text" autocomplete="off" [ngModel]="organisationName()"
+                          (ngModelChange)="organisationName.set($event)" name="organisationName"
+                          [attr.aria-invalid]="submitted() && errors()['organisationName'] ? true : null" />
+                        @if (submitted() && errors()['organisationName']) { <p class="dpe-err">{{ errors()['organisationName'] }}</p> }
+                      </div>
+                    }
+                  </div>
+                </section>
+
+                <!-- 02 Contact -->
+                <section class="dpe-card" aria-label="Contact">
+                  <h2 class="dpe-h"><span class="dpe-n">02</span>Contact &amp; preferences</h2>
+                  <div class="dpe-grid">
+                    <div class="dpe-field" [class.dpe-invalid]="submitted() && errors()['email']">
+                      <label class="dpe-label" for="dpe-email">Email</label>
+                      @if (emailMasked()) {
+                        <input id="dpe-email" type="text" disabled value="Hidden for your access level" />
+                        <p class="dpe-hint">Masked by the server — it stays as it is.</p>
+                      } @else {
+                        <input id="dpe-email" type="email" autocomplete="off" [ngModel]="email()"
+                          (ngModelChange)="email.set($event)" name="email"
+                          [attr.aria-invalid]="submitted() && errors()['email'] ? true : null" />
+                        @if (submitted() && errors()['email']) { <p class="dpe-err">{{ errors()['email'] }}</p> }
+                      }
+                    </div>
+                    <div class="dpe-field" [class.dpe-invalid]="submitted() && errors()['phone']">
+                      <label class="dpe-label" for="dpe-phone">Phone</label>
+                      @if (phoneMasked()) {
+                        <input id="dpe-phone" type="text" disabled value="Hidden for your access level" />
+                        <p class="dpe-hint">Masked by the server — it stays as it is.</p>
+                      } @else {
+                        <input id="dpe-phone" type="tel" autocomplete="off" [ngModel]="phone()"
+                          (ngModelChange)="phone.set($event)" name="phone"
+                          [attr.aria-invalid]="submitted() && errors()['phone'] ? true : null" />
+                        @if (submitted() && errors()['phone']) { <p class="dpe-err">{{ errors()['phone'] }}</p> }
+                      }
+                    </div>
+                    <div class="dpe-field">
+                      <label class="dpe-label" for="dpe-lang">Preferred language</label>
+                      <select id="dpe-lang" [ngModel]="language()" (ngModelChange)="language.set($event)" name="language">
+                        @if (language() && !languageOptions().length) { <option [value]="language()">{{ language() }}</option> }
+                        @for (l of languageOptions(); track l.value) { <option [value]="l.value">{{ l.label }}</option> }
+                      </select>
+                    </div>
+                    <div class="dpe-field">
+                      <span class="dpe-label" id="dpe-dnc-l">Contact permission</span>
+                      <label class="dpe-switch">
+                        <input type="checkbox" [ngModel]="doNotContact()" (ngModelChange)="doNotContact.set($event)"
+                          name="doNotContact" aria-labelledby="dpe-dnc-l" />
+                        <span class="dpe-switch-ui" aria-hidden="true"></span>
+                        <span>{{ doNotContact() ? 'Do not contact' : 'May be contacted' }}</span>
+                      </label>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- 03 Relationship -->
+                <section class="dpe-card" aria-label="Relationship">
+                  <h2 class="dpe-h"><span class="dpe-n">03</span>Relationship owner</h2>
+                  <div class="dpe-grid">
+                    <div class="dpe-field dpe-wide">
+                      <label class="dpe-label" for="dpe-owner">Owner</label>
+                      @if (ownerOptions().length > 20) {
+                        <input type="search" aria-label="Search relationship owners" placeholder="Search owners…"
+                          [ngModel]="ownerSearch()" (ngModelChange)="ownerSearch.set($event)" name="ownerSearch" />
+                      }
+                      <select id="dpe-owner" [ngModel]="owner()" (ngModelChange)="owner.set($event)" name="owner">
+                        <option value="">Unassigned</option>
+                        @if (owner() && !ownerKnown()) { <option [value]="owner()">{{ donor()?.relationshipOwnerName }}</option> }
+                        @for (p of filteredOwners(); track p.reference) {
+                          <option [value]="p.reference">{{ p.name }}@if (p.context) { · {{ p.context }} }</option>
+                        }
+                      </select>
+                      @if (people.isLoading()) { <p class="dpe-hint">Loading colleagues…</p> }
+                      @else if (people.loadError()) { <p class="dpe-err">{{ people.loadError() }}</p> }
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <!-- Review & save rail -->
+              <aside class="dpe-rail" aria-label="Review and save">
+                <section class="dpe-card dpe-sticky">
+                  <h2 class="dpe-h">Review changes</h2>
+                  @if (changedLabels().length) {
+                    <ul class="dpe-changes">
+                      @for (c of changedLabels(); track c) { <li>{{ c }}</li> }
+                    </ul>
+                  } @else {
+                    <p class="dpe-hint">Nothing changed yet.</p>
+                  }
+
+                  <div class="dpe-field" [class.dpe-invalid]="submitted() && errors()['reason']">
+                    <div class="dpe-label-row">
+                      <label class="dpe-label" for="dpe-reason">Reason for change <span class="dpe-req">*</span></label>
+                      <span class="dpe-count" [class.ok]="reasonCount() >= reasonMin">{{ reasonCount() }} / {{ reasonMin }} min</span>
+                    </div>
+                    <textarea id="dpe-reason" rows="4" [ngModel]="reason()" (ngModelChange)="reason.set($event)"
+                      name="reason" [attr.maxlength]="reasonMax"
+                      placeholder="Why is this profile being corrected? This is kept in the audit trail."
+                      [attr.aria-invalid]="submitted() && errors()['reason'] ? true : null"></textarea>
+                    @if (submitted() && errors()['reason']) { <p class="dpe-err">{{ errors()['reason'] }}</p> }
+                  </div>
+
+                  <div class="dpe-actions">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()" [disabled]="saving()">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm" [disabled]="saving() || !dirty()">
+                      {{ saving() ? 'Saving…' : 'Save changes' }}
+                    </button>
+                  </div>
+                </section>
+              </aside>
+            </form>
+          }
+        }
+      </section>
+    </div>
+  </div>
+</main>

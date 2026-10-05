@@ -159,7 +159,7 @@ public sealed class AccessRequestCommandHandler(
 
         if (request.SubmitImmediately)
         {
-            await NotifyApproversAsync(accessRequest, subject, cancellationToken);
+            await TryNotifyAsync(token => NotifyApproversAsync(accessRequest, subject, token), "approvers", accessRequest.Id, cancellationToken);
         }
 
         logger.LogInformation("Access request operation completed. AccessRequestId: {AccessRequestId}, Status: {Status}.", accessRequest.Id, accessRequest.Status);
@@ -276,7 +276,7 @@ public sealed class AccessRequestCommandHandler(
 
         if (subject is not null)
         {
-            await NotifyApproversAsync(accessRequest, subject, cancellationToken);
+            await TryNotifyAsync(token => NotifyApproversAsync(accessRequest, subject, token), "approvers", accessRequest.Id, cancellationToken);
         }
 
         logger.LogInformation("Access request operation completed. AccessRequestId: {AccessRequestId}, Status: {Status}.", accessRequest.Id, accessRequest.Status);
@@ -378,7 +378,7 @@ public sealed class AccessRequestCommandHandler(
 
         if (subject is not null)
         {
-            await NotifyRequesterAsync(accessRequest, request.Approved, request.Notes, cancellationToken);
+            await TryNotifyAsync(token => NotifyRequesterAsync(accessRequest, request.Approved, request.Notes, token), "requester", accessRequest.Id, cancellationToken);
         }
 
         logger.LogInformation("Access request operation completed. AccessRequestId: {AccessRequestId}, Status: {Status}.", accessRequest.Id, accessRequest.Status);
@@ -617,6 +617,30 @@ public sealed class AccessRequestCommandHandler(
         subject.SecurityStamp = Guid.NewGuid().ToString("N");
 
         return Result.Success();
+    }
+
+    /// <summary>How long a notification may take before the request stops waiting for it.</summary>
+    private static readonly TimeSpan NotificationTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// A notification is a courtesy, never a precondition. By the time it is sent the decision
+    /// has been saved, so a slow or refusing mail relay used to leave the caller waiting on a
+    /// request that had in fact succeeded and then report it as failed. It now gets a short
+    /// deadline and its failure is logged, not returned.
+    /// </summary>
+    private async Task TryNotifyAsync(Func<CancellationToken, Task> send, string what, Guid accessRequestId, CancellationToken cancellationToken)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(NotificationTimeout);
+
+        try
+        {
+            await send(deadline.Token);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Access request notification ({What}) was not delivered. AccessRequestId: {AccessRequestId}.", what, accessRequestId);
+        }
     }
 
     private async Task NotifyApproversAsync(

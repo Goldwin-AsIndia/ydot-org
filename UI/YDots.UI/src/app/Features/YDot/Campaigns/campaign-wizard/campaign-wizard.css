@@ -826,6 +826,77 @@ textarea:focus:not(:focus-visible),
   min-height: calc(40px * var(--ui-scale, 1));
 }
 
+/* 12-hour reminder time: one compact box - HH : MM and a small AM/PM switch */
+.time-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(2px * var(--ui-scale, 1));
+  min-height: calc(38px * var(--ui-scale, 1));
+  padding: 0 calc(5px * var(--ui-scale, 1)) 0 calc(6px * var(--ui-scale, 1));
+  border: 1px solid var(--border);
+  border-radius: calc(10px * var(--ui-scale, 1));
+  background: #fff;
+}
+
+.time-picker:focus-within {
+  outline: 2px solid var(--meadow);
+  outline-offset: 1px;
+}
+
+.time-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: calc(36px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  text-align-last: center;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  outline: 0;
+}
+
+.time-colon {
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.meridiem-toggle {
+  display: inline-flex;
+  margin-left: calc(6px * var(--ui-scale, 1));
+  padding: 2px;
+  border-radius: calc(7px * var(--ui-scale, 1));
+  background: var(--meadow-soft);
+}
+
+.meridiem-toggle button {
+  min-height: 0;
+  height: calc(24px * var(--ui-scale, 1));
+  padding: 0 calc(8px * var(--ui-scale, 1));
+  border: 0;
+  border-radius: calc(5px * var(--ui-scale, 1));
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: calc(11.5px * var(--ui-scale, 1)) !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.meridiem-toggle button.on {
+  background: #fff;
+  color: var(--meadow-2);
+}
+
+.time-picker.invalid {
+  border-color: #c0392b;
+}
+
 /* Campaign code — fixed prefix chip + editable, auto-uppercased suffix */
 .code-input-wrap {
   display: flex;
@@ -2226,4 +2297,211 @@ textarea {
 
 .control.rte-body-lg {
   min-height: calc(340px * var(--ui-scale, 1));
+}
+
+/* ===== Review & Launch — band, figures, equal-height panels ===== */
+.lb-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(10px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
+  padding: calc(10px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--meadow);
+  border-radius: calc(10px * var(--ui-scale, 1));
+  background: #fff;
+}
+
+.lb-id {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.lb-name {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: calc(18px * var(--ui-scale, 1));
+  line-height: 1.25;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.lb-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px calc(14px * var(--ui-scale, 1));
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: calc(12.5px * var(--ui-scale, 1));
+}
+
+.lb-code {
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--meadow-soft);
+  color: var(--meadow-2);
+  font-weight: 700;
+}
+
+.lb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: #b26a00;
+}
+
+.lb-status.is-ready {
+  color: var(--meadow-2);
+}
+
+.lb-figures {
+  display: flex;
+  margin: 0;
+}
+
+.lb-figures > div {
+  padding: 0 calc(16px * var(--ui-scale, 1));
+}
+
+.lb-figures > div + div {
+  border-left: 1px solid var(--border);
+}
+
+.lb-figures > div:last-child {
+  padding-right: 0;
+}
+
+.lb-figures dt {
+  font-size: calc(10.5px * var(--ui-scale, 1));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.lb-figures dd {
+  margin: 1px 0 0;
+  font-size: calc(14px * var(--ui-scale, 1));
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.lb-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(16px * var(--ui-scale, 1));
+  align-items: stretch;
+}
+
+.lb-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: calc(12px * var(--ui-scale, 1));
+  background: #fff;
+  min-width: 0;
+}
+
+.lb-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(12px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
+  border-bottom: 1px solid var(--border);
+}
+
+.lb-panel-head h4 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: calc(16px * var(--ui-scale, 1));
+  color: var(--ink);
+}
+
+.lb-num {
+  display: inline-grid;
+  place-items: center;
+  width: calc(22px * var(--ui-scale, 1));
+  height: calc(22px * var(--ui-scale, 1));
+  border: 1px solid var(--meadow);
+  border-radius: 50%;
+  font-family: var(--font-other);
+  font-size: calc(12px * var(--ui-scale, 1));
+  color: var(--meadow-2);
+}
+
+.lb-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin: 0;
+}
+
+.lb-list > div {
+  display: grid;
+  grid-template-columns: calc(120px * var(--ui-scale, 1)) 1fr;
+  gap: calc(14px * var(--ui-scale, 1));
+  flex: 1;
+  align-items: center;
+  padding: calc(10px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
+  border-bottom: 1px solid hsl(calc(var(--theme-hue) - 21) 23.8% 91.8%);
+  font-size: calc(13.5px * var(--ui-scale, 1));
+}
+
+.lb-list > div:last-child {
+  border-bottom: 0;
+}
+
+.lb-list dt {
+  color: var(--muted);
+}
+
+.lb-list dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.lb-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lb-channel {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--meadow-soft);
+  color: var(--meadow-2);
+}
+
+.lb-prose {
+  flex: 1;
+  padding: calc(14px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
+  font-size: calc(13.5px * var(--ui-scale, 1));
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.lb-prose p {
+  margin: 0 0 6px;
+}
+
+@media (max-width: 900px) {
+  .lb-grid {
+    grid-template-columns: 1fr;
+  }
+  .lb-figures {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .lb-figures > div:first-child {
+    padding-left: 0;
+  }
 }

@@ -15,6 +15,7 @@ import {
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 import { UserSearchFilter } from '../../../../Shared/models/user-directory.model';
 import { LookupItem } from '../../../../Shared/models/api-response.model';
+import { PopupComponent } from '../../../../Shared/components/popup/popup';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 interface AccessRequestView {
@@ -59,7 +60,7 @@ interface AccessRequestView {
 @Component({
   selector: 'app-access-request',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule, RouterModule],
+  imports: [PageHeader, CommonModule, FormsModule, RouterModule, PopupComponent],
   templateUrl: './access-request.html',
   styleUrl: './access-request.css',
 })
@@ -81,6 +82,13 @@ export class AccessRequestComponent {
   loading = signal(true);
   loadError = signal(false);
   submitting = signal(false);
+
+  /**
+   * The row whose Submit is in flight. KEPT APART from `submitting`: that flag disables the
+   * confirm button of whichever pop-up is open, so a slow submit on one row used to leave
+   * "Confirm approval" on a different request dead until the first call finally returned.
+   */
+  rowSubmittingId = signal('');
   errorMessage = signal('');
 
   searchQuery = signal('');
@@ -713,7 +721,8 @@ export class AccessRequestComponent {
   submitRequest(request: AccessRequestView): void {
     if (request.approvalState !== 'Draft') return;
 
-    this.submitting.set(true);
+    if (this.rowSubmittingId() === request.id) return;
+    this.rowSubmittingId.set(request.id);
     this.errorMessage.set('');
 
     this.api
@@ -723,7 +732,7 @@ export class AccessRequestComponent {
       })
       .subscribe({
       next: (outcome) => {
-        this.submitting.set(false);
+        this.rowSubmittingId.set('');
 
         this.decisionResult.set({
           reference: request.reference,
@@ -735,7 +744,7 @@ export class AccessRequestComponent {
         this.loadData();
       },
       error: (error: Error) => {
-        this.submitting.set(false);
+        this.rowSubmittingId.set('');
         this.toast.show('Submit Failed', error.message, 'error');
       },
     });

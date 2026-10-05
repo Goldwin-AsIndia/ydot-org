@@ -1,5 +1,5 @@
 ﻿import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import {
   DocumentSubmissionsComponent,
   DocumentSubmissionsMode,
@@ -567,9 +567,37 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     this.updateSetting(field.key, Math.min(field.max, Math.max(field.min, next)));
   }
 
+  /** True while the history holds the extra entry that Edit pushed. */
+  private editEntryPushed = false;
+
   startEditing(): void {
     this.editing.set(true);
     this.errorMessage.set('');
+
+    // EDIT IS A STATE OF THIS PAGE, NOT A ROUTE, so the browser's Back button knew nothing about
+    // it and skipped straight past the profile to whatever came before. Edit now leaves one
+    // history entry behind, and Back (handled below) closes the editor instead of leaving.
+    if (!this.editEntryPushed) {
+      history.pushState({ ...(history.state ?? {}), orgEdit: true }, '');
+      this.editEntryPushed = true;
+    }
+  }
+
+  /** Browser Back while editing: close the editor and stay on the profile. */
+  @HostListener('window:popstate')
+  onPopState(): void {
+    if (this.editing() && this.editEntryPushed) {
+      this.editEntryPushed = false;
+      this.cancelEditing();
+    }
+  }
+
+  /** Drops the history entry Edit pushed, when the editor is closed by its own buttons. */
+  private releaseEditEntry(): void {
+    if (this.editEntryPushed) {
+      this.editEntryPushed = false;
+      history.back();
+    }
   }
 
   cancelEditing(): void {
@@ -582,6 +610,7 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     this.editing.set(false);
     this.errorMessage.set('');
     this.fieldErrors.set({});
+    this.releaseEditEntry();
   }
 
   /**
@@ -635,6 +664,7 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
         next: (outcome) => {
           this.saving.set(false);
           this.editing.set(false);
+          this.releaseEditEntry();
           this.toast.show('Saved', outcome.message ?? 'The profile has been saved.', 'success');
           this.load();
         },

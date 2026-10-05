@@ -1005,9 +1005,63 @@ export class CommunicationTimelineComponent {
     this.isExportModalOpen.set(false);
   }
 
+  /**
+   * Prints a purpose-built report of the filtered entries, not the live page.
+   *
+   * `window.print()` on the page itself captured whatever was on screen - the export popup
+   * (it is still in the DOM when the call runs, since the signal that closes it has not been
+   * rendered yet) and the app's sidebar and header with it. The report is written into a hidden
+   * iframe so the PDF holds only the timeline.
+   */
   exportAsPdf(): void {
     this.isExportModalOpen.set(false);
-    window.print();
+
+    const esc = (v: unknown): string =>
+      String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const rel = this.relationship();
+    const rows = this.filteredRecords()
+      .map(
+        (r) => `<tr><td>${esc(r.type)}</td><td>${esc(r.date)}<br><small>${esc(r.time)}</small></td>`
+          + `<td>${esc(r.direction)}</td><td>${esc(r.outcome)}</td><td>${esc(r.engagement)}</td>`
+          + `<td>${esc(r.createdBy)}</td><td>${esc(r.summary)}</td></tr>`,
+      )
+      .join('');
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Communication timeline - ${esc(rel.reference)}</title>
+<style>
+  body{font:12px/1.45 Arial,Helvetica,sans-serif;color:#1f2933;margin:24px}
+  h1{font-size:18px;margin:0 0 4px} p{margin:0 0 14px;color:#52606d}
+  table{width:100%;border-collapse:collapse} th,td{border:1px solid #d9dee3;padding:6px 8px;text-align:left;vertical-align:top}
+  th{background:#f1f4f6;font-size:11px;text-transform:uppercase;letter-spacing:.3px} small{color:#7b8794}
+  tr{page-break-inside:avoid}
+</style></head><body>
+<h1>Communication timeline - ${esc(rel.name || 'Communication record')}</h1>
+<p>${esc(rel.reference)} &middot; ${this.filteredRecords().length} entries &middot; Generated ${esc(new Date().toLocaleString())}</p>
+<table><thead><tr><th>Type</th><th>Date</th><th>Direction</th><th>Outcome</th><th>Engagement</th><th>Recorded by</th><th>Summary</th></tr></thead>
+<tbody>${rows || '<tr><td colspan="7">No entries match the current filters.</td></tr>'}</tbody></table>
+</body></html>`;
+
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(frame);
+    const doc = frame.contentWindow?.document;
+    if (!doc || !frame.contentWindow) {
+      frame.remove();
+      return;
+    }
+    doc.open();
+    doc.write(html);
+    doc.close();
+    // Let the iframe lay out before the print dialog opens, then clean up once it closes.
+    window.setTimeout(() => {
+      const win = frame.contentWindow;
+      if (!win) return;
+      win.onafterprint = () => frame.remove();
+      win.focus();
+      win.print();
+      window.setTimeout(() => frame.remove(), 60000);
+    }, 150);
   }
 
   refreshTimeline(): void {

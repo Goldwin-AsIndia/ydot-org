@@ -280,7 +280,60 @@
                         </div>
 
                         <!-- ---- Permissions ---- -->
-                        @if (detailTab() === 'perms') {
+                        @if (detailTab() === 'perms' && permEditing()) {
+                          <div class="rx-ptools">
+                            <p class="rx-ptools__text"><b>{{ permDraft().length }}</b> selected · tick the permissions this role should carry</p>
+                            <div class="rx-ptools__right">
+                              <div class="rx-search rx-search--sm">
+                                <i class="ri-search-line" aria-hidden="true"></i>
+                                <input type="text" placeholder="Find a permission" aria-label="Find a permission"
+                                       [value]="permFilter()" (input)="permFilter.set($any($event.target).value)">
+                              </div>
+                            </div>
+                          </div>
+
+                          @if (!permissionMatrix()) {
+                            <div class="rx-empty"><p>Loading the permission list…</p></div>
+                          }
+                          <div class="rx-pedit">
+                            @for (m of editableModules(); track m.key) {
+                              <section class="rx-pedit__mod">
+                                <label class="rx-pedit__head">
+                                  <input type="checkbox" class="rx-check"
+                                         [checked]="moduleDraftState(m) === 'all'"
+                                         [indeterminate]="moduleDraftState(m) === 'some'"
+                                         (change)="toggleModuleDraft(m)">
+                                  <span class="rx-pedit__name">{{ m.name }}</span>
+                                  <span class="rx-pedit__n">{{ m.items.length }}</span>
+                                </label>
+                                <ul class="rx-pedit__list">
+                                  @for (p of m.items; track p.code) {
+                                    <li>
+                                      <label class="rx-pedit__item" [class.is-blocked]="p.denied">
+                                        <input type="checkbox" class="rx-check"
+                                               [checked]="isPermDrafted(p.code)" [disabled]="p.denied"
+                                               (change)="togglePermDraft(p.code)">
+                                        <span class="rx-pedit__label">{{ p.name }}</span>
+                                        @if (p.isSensitive) { <span class="rx-note rx-note--warn">Sensitive</span> }
+                                        @if (p.denied) { <span class="rx-note rx-note--deny">Blocked</span> }
+                                      </label>
+                                    </li>
+                                  }
+                                </ul>
+                              </section>
+                            }
+                          </div>
+
+                          <div class="rx-pedit__foot">
+                            <input type="text" class="rx-pedit__reason" placeholder="Why is this changing? (recorded in the audit trail)"
+                                   [value]="permReason()" (input)="permReason.set($any($event.target).value)">
+                            <button type="button" class="rx-btn rx-btn--line rx-btn--sm" [disabled]="permSaving()" (click)="cancelPermEdit()">Cancel</button>
+                            <button type="button" class="rx-btn rx-btn--primary rx-btn--sm" [disabled]="permSaving() || !permDirty()" (click)="savePermissions()">
+                              @if (permSaving()) { <span class="spinner-border spinner-border-sm" role="status"></span> }
+                              Save permissions
+                            </button>
+                          </div>
+                        } @else if (detailTab() === 'perms') {
                           <div class="rx-ptools">
                             <p class="rx-ptools__text">
                               <b>{{ permStats().granted }}</b> allowed
@@ -295,6 +348,11 @@
                               </div>
                               @if (detailPermGroups().length) {
                                 <button type="button" class="rx-link" (click)="toggleAllGroups()">{{ allGroupsOpen() ? 'Hide all names' : 'Show all names' }}</button>
+                              }
+                              @if (canEditPermissions()) {
+                                <button type="button" class="rx-btn rx-btn--primary rx-btn--sm" (click)="startPermEdit()">
+                                  <i class="ri-checkbox-multiple-line" aria-hidden="true"></i> Select permissions
+                                </button>
                               }
                             </div>
                           </div>

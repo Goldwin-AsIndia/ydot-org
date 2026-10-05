@@ -16,7 +16,7 @@ import { AuthTokenService } from '../../../../Shared/services/auth-token.service
 import { EnumOptionsService } from '../../../../Shared/services/enum-options.service';
 import { NavigationService } from '../../../../Shared/services/navigation.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { PopupComponent } from '../../../../Shared/components/popup/popup';
 
 /** The editor's working copy of one node. Strings throughout, because that is what inputs give. */
 interface CatalogueForm {
@@ -37,6 +37,9 @@ interface CatalogueForm {
   isMandatory: boolean;
   opensInNewTab: boolean;
 }
+
+/** A node of the tree, flattened, with how deep it sits and the names above it. */
+type MenuRow = MenuDefinitionResponse & { depth: number; childCount: number; path: string[] };
 
 /**
  * The platform navigation catalogue: every screen the product has, across every Organisation.
@@ -83,7 +86,7 @@ interface CatalogueForm {
 @Component({
   selector: 'app-menu-catalogue',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [PopupComponent, CommonModule, FormsModule],
   templateUrl: './menu-catalogue.html',
   styleUrl: './menu-catalogue.css',
 })
@@ -131,19 +134,26 @@ export class MenuCatalogueComponent implements OnInit, OnDestroy {
   // =========================================================================================
 
   readonly rows = computed(() => {
-    const flat: (MenuDefinitionResponse & { depth: number })[] = [];
+    const flat: MenuRow[] = [];
 
-    const walk = (list: MenuDefinitionResponse[], depth: number): void => {
+    const walk = (list: MenuDefinitionResponse[], depth: number, path: string[]): void => {
       for (const node of list) {
-        flat.push({ ...node, depth });
-        walk(node.children ?? [], depth + 1);
+        flat.push({ ...node, depth, childCount: node.children?.length ?? 0, path });
+        walk(node.children ?? [], depth + 1, [...path, node.name ?? node.code ?? '']);
       }
     };
 
-    walk(this.nodes(), 0);
+    walk(this.nodes(), 0, []);
     return flat;
   });
 
+  /** The item shown in the inspector, and which headings are open in the tree. */
+  readonly selectedId = signal('');
+  private readonly opened = signal<Set<string>>(new Set());
+
+  readonly searching = computed(() => this.search().trim().length > 0);
+
+  /** Search matches the route and the permission as well as the name: people arrive holding one. */
   readonly filtered = computed(() => {
     const term = this.search().trim().toLowerCase();
 
@@ -151,14 +161,57 @@ export class MenuCatalogueComponent implements OnInit, OnDestroy {
       return this.rows();
     }
 
-    // Matching the route and the permission as well as the name, because somebody arriving here
-    // usually holds one of those rather than the label.
     return this.rows().filter((node) =>
       (node.name ?? '').toLowerCase().includes(term)
       || (node.code ?? '').toLowerCase().includes(term)
       || (node.route ?? '').toLowerCase().includes(term)
       || (node.requiredPermissionCode ?? '').toLowerCase().includes(term)
       || (node.moduleCode ?? '').toLowerCase().includes(term));
+  });
+
+  /**
+   * What the tree shows: everything under a closed heading is hidden. Searching ignores the folds -
+   * hiding a match behind a closed heading defeats the search.
+   */
+  readonly visible = computed(() => {
+    if (this.searching()) {
+      return this.filtered();
+    }
+
+    const open = this.opened();
+    const shown: MenuRow[] = [];
+    let hideBelow: number | null = null;
+
+    for (const node of this.rows()) {
+      if (hideBelow !== null && node.depth > hideBelow) {
+        continue;
+      }
+
+      hideBelow = null;
+      shown.push(node);
+
+      if (node.childCount > 0 && !open.has(node.id ?? '')) {
+        hideBelow = node.depth;
+      }
+    }
+
+    return shown;
+  });
+
+  /** The chosen item, else the first, so the inspector is never empty while there is anything. */
+  readonly selected = computed<MenuRow | null>(() =>
+    this.rows().find((node) => node.id === this.selectedId()) ?? this.rows()[0] ?? null);
+
+  readonly statusCounts = computed(() => {
+    const counts = { active: 0, draft: 0, retired: 0 };
+
+    for (const node of this.rows()) {
+      if (node.status === 'active') { counts.active++; }
+      else if (node.status === 'draft') { counts.draft++; }
+      else if (node.status === 'retired') { counts.retired++; }
+    }
+
+    return counts;
   });
 
   readonly totalNodes = computed(() => this.rows().length);
@@ -297,6 +350,14 @@ export class MenuCatalogueComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (nodes) => {
           this.nodes.set(nodes);
+
+          // Open on the first menu, with its own items showing, so the screen starts with
+          // something to read.
+          if (!this.selectedId() && nodes[0]?.id) {
+            this.selectedId.set(nodes[0].id);
+            this.opened.update((current) => new Set(current).add(nodes[0].id as string));
+          }
+
           this.loading.set(false);
         },
         error: (error: unknown) => {
@@ -600,8 +661,65 @@ export class MenuCatalogueComponent implements OnInit, OnDestroy {
     return this.navigation.iconClass(icon);
   }
 
-  indent(depth: number): string {
-    return `${depth * 1.5}rem`;
+  isOpen(node: { id?: string }): boolean {
+    return !!node.id && this.opened().has(node.id);
+  }
+
+  /** Picking an item reads it in the inspector and opens whatever it holds. */
+  select(node: MenuRow): void {
+    if (!node.id) {
+      return;
+    }
+
+    const id = node.id;
+    this.selectedId.set(id);
+
+    if (node.childCount > 0) {
+      this.opened.update((current) => new Set(current).add(id));
+    }
+  }
+
+  /** Picks an item that is not on screen yet, by opening everything above it first. */
+  jumpTo(child: MenuDefinitionResponse): void {
+    const node = this.rows().find((row) => row.id === child.id);
+
+    if (node) {
+      this.select(node);
+    }
+  }
+
+  toggleNode(node: { id?: string }): void {
+    if (!node.id) {
+      return;
+    }
+
+    const id = node.id;
+
+    this.opened.update((current) => {
+      const next = new Set(current);
+
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+
+      return next;
+    });
+  }
+
+  expandTree(): void {
+    this.opened.set(new Set(
+      this.rows().filter((node) => node.id && node.childCount > 0).map((node) => node.id as string)));
+  }
+
+  collapseTree(): void {
+    this.opened.set(new Set());
+  }
+
+  /** Padding for one level of nesting in the tree. */
+  indentPx(depth: number): number {
+    return depth * 18;
   }
 
   /** A level as the server labels it. */
@@ -612,23 +730,6 @@ export class MenuCatalogueComponent implements OnInit, OnDestroy {
   /** A status as the server labels it. */
   statusLabel(status: string | undefined): string {
     return enumLabel(this.statusOptions(), status);
-  }
-
-  levelClass(level: string | undefined): string {
-    switch (level) {
-      case 'menu': return 'bg-primary-subtle text-primary';
-      case 'subMenu': return 'bg-info-subtle text-info';
-      default: return 'bg-secondary-subtle text-secondary';
-    }
-  }
-
-  statusClass(status: string | undefined): string {
-    switch (status) {
-      case 'active': return 'bg-success-subtle text-success';
-      case 'draft': return 'bg-warning-subtle text-warning-emphasis';
-      case 'retired': return 'bg-danger-subtle text-danger';
-      default: return 'bg-secondary-subtle text-secondary';
-    }
   }
 
   /** Whether a node may be given children, which is what "Add beneath" needs to know. */

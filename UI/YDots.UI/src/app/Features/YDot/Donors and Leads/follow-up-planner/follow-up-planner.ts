@@ -155,6 +155,27 @@ export class FollowUpPlannerComponent {
   protected cancelPlanner(): void {
     this.router.navigate(['/app/fundraising/relationships/follow-up-queue']);
   }
+
+  /**
+   * The page this planner was opened from, captured when it was opened.
+   *
+   * "Schedule follow-up" is reachable from Donor 360, the Donor List, the lead queues, the
+   * timeline and the queue itself, so Discard cannot assume one destination - it returns to
+   * whichever screen sent the person here. Read during the opening navigation, because by the
+   * time a button is pressed the router no longer knows where it came from.
+   */
+  private readonly openedFrom: string | null = (() => {
+    const url = this.router.currentNavigation()?.previousNavigation?.finalUrl?.toString() ?? null;
+    return url && !url.includes('follow-up-planner') ? url : null;
+  })();
+
+  protected discardPlanner(): void {
+    if (this.openedFrom) {
+      this.router.navigateByUrl(this.openedFrom);
+      return;
+    }
+    this.cancelPlanner();
+  }
   private loadRecord(): void {
     const lead = this.resolvedLeadId();
     const donor = this.resolvedDonorId();

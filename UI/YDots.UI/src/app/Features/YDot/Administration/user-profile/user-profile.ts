@@ -129,12 +129,24 @@ export class UserProfileComponent {
    * validates them as a pair and rejects a number without one.
    */
   editForm = signal({
+    title: '',
+    firstName: '',
+    middleName: '',
+    lastName: '',
     displayName: '',
+    preferredName: '',
     email: '',
     mobileCountryCode: '',
     mobileNumber: '',
+    employeeNumber: '',
     designation: '',
+    workLocation: '',
+    preferredLanguage: 'en-GB',
+    timeZoneId: 'UTC',
   });
+
+  /** Why the change is being made - the API requires one, same as the directory's Edit. */
+  editReason = signal('');
 
   // Role assignments shown in the "Assigned roles" table.
   // Falls back to an empty list if the API doesn't provide structured data yet.
@@ -708,12 +720,22 @@ export class UserProfileComponent {
     if (!detail) return;
 
     this.editForm.set({
+      title: '',
+      firstName: detail.firstName ?? '',
+      middleName: detail.middleName ?? '',
+      lastName: detail.lastName ?? '',
       displayName: detail.displayName ?? '',
+      preferredName: '',
       email: detail.email ?? '',
       mobileCountryCode: detail.mobileCountryCode ?? '',
       mobileNumber: detail.mobileNumber ?? '',
+      employeeNumber: detail.employeeNumber ?? '',
       designation: detail.designation ?? '',
+      workLocation: '',
+      preferredLanguage: detail.preferredCulture ?? 'en-GB',
+      timeZoneId: detail.timeZone ?? 'UTC',
     });
+    this.editReason.set('');
 
     this.showEditModal.set(true);
     this.showMoreMenu.set(false);
@@ -723,8 +745,14 @@ export class UserProfileComponent {
     const form = this.editForm();
     const detail = this.detail();
 
-    if (!form.displayName.trim()) {
-      this.toast.show('Check the form', 'A display name is required.', 'warning');
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.displayName.trim()) {
+      this.toast.show('Check the form', 'First name, last name and display name are all required.', 'warning');
+      return;
+    }
+
+    if (this.editReason().trim().length < 10) {
+      this.toast.show('Check the form',
+        'Give a reason of at least 10 characters. It is recorded in the audit trail.', 'warning');
       return;
     }
 
@@ -740,7 +768,7 @@ export class UserProfileComponent {
 
     this.submitting.set(true);
 
-    const reason = 'Profile edited from the user profile screen.';
+    const reason = this.editReason().trim();
 
     // THE E-MAIL ADDRESS IS NOT SENT. Changing what somebody signs in with is a request with
     // its own verification and approval — see the login-identifier-change screen — precisely so
@@ -759,14 +787,26 @@ export class UserProfileComponent {
         mobileCountryCode: form.mobileCountryCode?.trim() || null,
         mobileNumber: form.mobileNumber?.trim() || null,
         designation: form.designation?.trim() || null,
+        preferredCulture: form.preferredLanguage || null,
+        timeZone: form.timeZoneId || null,
         reason,
       })
       : this.api.updateUser(detail.id, {
         expectedVersion: detail.version ?? 0,
+        firstName: form.firstName.trim(),
+        middleName: form.middleName?.trim() || null,
+        lastName: form.lastName.trim(),
         displayName: form.displayName.trim(),
         mobileCountryCode: form.mobileCountryCode?.trim() || null,
         mobileNumber: form.mobileNumber?.trim() || null,
+        employeeNumber: form.employeeNumber?.trim() || null,
+        // Unit, department and manager are sent back unchanged - this dialog does not move people.
+        organisationUnitId: detail.organisationUnitId ?? null,
+        departmentId: detail.departmentId ?? null,
         designation: form.designation?.trim() || null,
+        managerUserId: detail.managerUserId ?? null,
+        preferredCulture: form.preferredLanguage || null,
+        timeZone: form.timeZoneId || null,
         reason,
       });
 
