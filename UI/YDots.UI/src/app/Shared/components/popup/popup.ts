@@ -39,7 +39,8 @@ export class PopupComponent {
   @Input() icon = '';
   @Input() showIcon = true;
   @Input() showClose = true;
-  @Input() closeOnBackdrop = true;
+  /** A pop-up closes from its X only; the backdrop answers a click with a nudge (PopupGuardService). */
+  @Input() closeOnBackdrop = false;
   @Input() closeOnEscape = true;
   @Input() role: 'dialog' | 'alertdialog' = 'dialog';
 

@@ -311,3 +311,36 @@ app-popup { display: contents; }
 @media (prefers-reduced-motion: reduce) {
   .yp-backdrop, .yp-modal { animation: none; }
 }
+
+/* ---- one way to close (PopupGuardService) ---- */
+/* Close buttons that only duplicate the X are retired, not removed, so the X can still press them. */
+[data-yp-dismiss] { display: none !important; }
+
+/* The answer to a click on the dimmed area: a hint under the X. */
+.yp-close-hint {
+  position: absolute;
+  z-index: 20;
+  max-width: calc(240px * var(--ui-scale, 1));
+  padding: calc(7px * var(--ui-scale, 1)) calc(11px * var(--ui-scale, 1));
+  border-radius: calc(9px * var(--ui-scale, 1));
+  background: var(--ov-ink, #1c2a24);
+  color: #ffffff;
+  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.857) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.35;
+  pointer-events: none;
+  animation: yp-hint-in .2s ease-out both;
+}
+.yp-close-hint::before {
+  content: "";
+  position: absolute;
+  top: calc(-4px * var(--ui-scale, 1));
+  right: calc(12px * var(--ui-scale, 1));
+  width: calc(8px * var(--ui-scale, 1));
+  height: calc(8px * var(--ui-scale, 1));
+  background: inherit;
+  rotate: 45deg;
+}
+@keyframes yp-hint-in {
+  from { opacity: 0; translate: 0 -4px; }
+  to   { opacity: 1; translate: 0 0; }
+}

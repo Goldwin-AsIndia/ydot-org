@@ -220,7 +220,7 @@ export class RoleAwareApplicationShellComponent {
   /** Commands permitted for the signed-in person; only permitted ones are shown (4.7.1). */
   protected readonly commands: readonly ShellCommand[] = [
     { label: 'Create donation', permission: 'donation.create', permitted: true, icon: 'edit' },
-    { label: 'Add beneficiary', permission: 'beneficiary.create', permitted: true, icon: 'people' },
+    { label: 'Create beneficiary', permission: 'beneficiary.create', permitted: true, icon: 'people' },
     { label: 'Schedule follow up', permission: 'followup.create', permitted: true, icon: 'check' },
     { label: 'Raise access request', permission: 'access-request.create', permitted: true, icon: 'lock' },
     { label: 'Create announcement', permission: 'announcement.create', permitted: false, icon: 'megaphone' },

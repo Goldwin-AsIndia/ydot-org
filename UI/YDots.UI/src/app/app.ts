@@ -5,6 +5,7 @@ import { Toast } from "./Shared/components/toast/toast";
 import { CommonModule } from '@angular/common';
 import { DateFieldPickerService } from './Shared/services/date-field-picker.service';
 import { InputGuardService } from './Shared/services/input-guard.service';
+import { PopupGuardService } from './Shared/services/popup-guard.service';
 
 @Component({
   selector: 'app-root',
@@ -20,6 +21,8 @@ export class App {
     inject(DateFieldPickerService).install();
     // Number boxes refuse letters and name boxes refuse digits, app-wide.
     inject(InputGuardService).install();
+    // Pop-ups close from one X at the top right only; a click on the dimmed area answers with a nudge.
+    inject(PopupGuardService).install();
   }
 
  
