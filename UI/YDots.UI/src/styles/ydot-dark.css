@@ -28,11 +28,11 @@ html[data-ydot-mode="dark"] {
   /* the inverse of --dk-fwd, in reverse order (1/.8 = 1.25 for contrast and brightness) */
   --dk-inv: saturate(1.25) contrast(1.25) brightness(0.8) hue-rotate(180deg) invert(1);
 
-  /* The page canvas. It lives on <html>, OUTSIDE the filtered layer below, so it is this exact colour and
+  /* The page canvas. It lives on <html>, OUTSIDE the filtered layer below, so it is this exact colour (tinted by the theme hue) and
      is deliberately deeper than the cards, which the filter lifts to graphite (#1a1a1a) - the usual dark
      layering: deep canvas, raised surfaces. It also shows behind short pages, in overscroll and between
      cards. Without it the (filtered) canvas was the same graphite as the cards, or lighter than them. */
-  --dk-canvas: #0c0d10;
+  --dk-canvas: hsl(var(--theme-hue, 150) 28% 6.5%);
   background-color: var(--dk-canvas) !important;
   /* Scrollbars, date pickers and other native controls draw light, and are inverted with the page. */
   color-scheme: light;
@@ -46,6 +46,21 @@ html[data-ydot-mode="dark"] body {
 }
 html[data-ydot-mode="dark"] body > :not(script):not(style):not(link):not(noscript) {
   filter: var(--dk-fwd);
+}
+
+/* The theme colour tints the whole dark screen: a faint veil in the theme hue, blended by colour only (it
+   keeps every pixel's lightness, so contrast is untouched) over the app and its pop-ups. It sits outside
+   the filtered layer and follows --theme-hue live, so changing the theme colour in dark mode repaints
+   the surfaces, not just the accents. Kept light enough that red / green / amber status colours still read. */
+html[data-ydot-mode="dark"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  background: hsl(var(--theme-hue, 150) 55% 50%);
+  opacity: 0.13;
+  mix-blend-mode: color;
 }
 
 /* Full-page wrappers that painted their own (light) canvas now let the dark one show through. */
@@ -104,6 +119,9 @@ html[data-ydot-mode="dark"] dialog::backdrop {
 @media print {
   html[data-ydot-mode="dark"] {
     background-color: #fff !important;
+  }
+  html[data-ydot-mode="dark"] body::after {
+    display: none;
   }
   html[data-ydot-mode="dark"] body > * {
     filter: none;
