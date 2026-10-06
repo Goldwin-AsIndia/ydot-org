@@ -24,6 +24,7 @@ import { MasterService } from '../master.service';
 import { GeoMasterService } from '../../../../Shared/services/geo-master.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -124,7 +125,7 @@ function newId(): string {
 
 @Component({
   selector: 'app-state',
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
   templateUrl: './state.html',
   styleUrls: ['../masters-ui.css', './state.css'],
 })

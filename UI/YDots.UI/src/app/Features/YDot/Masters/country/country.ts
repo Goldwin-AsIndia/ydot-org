@@ -27,6 +27,7 @@ import {
 } from '../../../../Shared/models/global-master.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /**
  * The row shape the country template binds to.
  *
@@ -80,7 +81,7 @@ interface Toast {
 @Component({
   selector: 'app-country',
   standalone: true,
-  imports: [PageHeader, FormsModule, DatePipe],
+  imports: [RowsPerPage, PageHeader, FormsModule, DatePipe],
   templateUrl: './country.html',
   styleUrls: ['../masters-ui.css', './country.css'],
 })

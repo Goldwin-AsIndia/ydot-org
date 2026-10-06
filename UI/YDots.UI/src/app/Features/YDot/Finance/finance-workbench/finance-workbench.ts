@@ -9,9 +9,10 @@ import { FinanceWorkbenchPermissions, WorkbenchRecord, WorkbenchStage, ScopeAwar
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 @Component({
   selector: 'app-finance-workbench',
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
   templateUrl: './finance-workbench.html',
   styleUrl: './finance-workbench.css',
 })
@@ -94,7 +95,8 @@ export class FinanceWorkbenchComponent {
   // ================= Context and filters (4.1.1 + 4.1.2) =================
   protected readonly savedViews = ['All Queues (Default)', 'Reconciliation focus', 'Exceptions focus'];
   protected readonly savedView = signal(this.savedViews[0]);
-  protected readonly pageSize = 5;
+  protected readonly pageSize = signal(10);
+  protected setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
   protected readonly currentPage = signal(1);
 
   /** Pre-filled from an incoming ?settlementRef= handoff (e.g. from Settlement batch detail's Match action). */
@@ -246,16 +248,16 @@ export class FinanceWorkbenchComponent {
     });
   });
 
-  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.recordCount() / this.pageSize)));
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.recordCount() / this.pageSize())));
   private readonly clampedPage = computed(() => Math.min(this.currentPage(), this.totalPages()));
   protected readonly pagedRecords = computed(() => {
-    const start = (this.clampedPage() - 1) * this.pageSize;
-    return this.visibleRecords().slice(start, start + this.pageSize);
+    const start = (this.clampedPage() - 1) * this.pageSize();
+    return this.visibleRecords().slice(start, start + this.pageSize());
   });
   protected readonly pageStart = computed(() =>
-    this.recordCount() === 0 ? 0 : (this.clampedPage() - 1) * this.pageSize + 1,
+    this.recordCount() === 0 ? 0 : (this.clampedPage() - 1) * this.pageSize() + 1,
   );
-  protected readonly pageEnd = computed(() => Math.min(this.clampedPage() * this.pageSize, this.recordCount()));
+  protected readonly pageEnd = computed(() => Math.min(this.clampedPage() * this.pageSize(), this.recordCount()));
   protected readonly pageNumbers = computed(() => {
     const total = this.totalPages();
     const current = this.clampedPage();

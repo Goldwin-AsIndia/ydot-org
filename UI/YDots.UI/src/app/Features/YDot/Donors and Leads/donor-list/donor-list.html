@@ -341,7 +341,7 @@
                   <button type="button" class="dn-act" (click)="openCommunicationTimeline(donor, $event)" aria-label="Communication timeline" title="Communication timeline"><i class="ri-chat-history-line" aria-hidden="true"></i></button>
                   <button type="button" class="dn-act" (click)="openFollowUpPlanner(donor, $event)" aria-label="Plan a follow-up" title="Plan a follow-up"><i class="ri-calendar-schedule-line" aria-hidden="true"></i></button>
                   <div class="dn-anchor">
-                    <button type="button" class="dn-act" (click)="toggleMoreMenu(donor.donorId, $event)" aria-label="More donor actions" [attr.aria-expanded]="openMoreMenuId() === donor.donorId" title="More"><i class="ri-more-2-fill" aria-hidden="true"></i></button>
+                    <button type="button" class="dn-act" (click)="toggleMoreMenu(donor.donorId, $event)" aria-label="More donor actions" [attr.aria-expanded]="openMoreMenuId() === donor.donorId" title="More"><i class="ri-more-2-line" aria-hidden="true"></i></button>
                     @if (openMoreMenuId() === donor.donorId) {
                       <ng-container *ngTemplateOutlet="moreMenu; context: { $implicit: donor }"></ng-container>
                     }
@@ -411,7 +411,7 @@
                     <button type="button" class="dn-act" (click)="openPreview(donor, $event)" aria-label="Quick look" title="Quick look"><i class="ri-eye-line" aria-hidden="true"></i></button>
                     <button type="button" class="dn-act" (click)="openFollowUpPlanner(donor, $event)" aria-label="Plan a follow-up" title="Plan a follow-up"><i class="ri-calendar-schedule-line" aria-hidden="true"></i></button>
                     <span class="dn-anchor">
-                      <button type="button" class="dn-act" (click)="toggleMoreMenu(donor.donorId, $event)" aria-label="More donor actions" [attr.aria-expanded]="openMoreMenuId() === donor.donorId" title="More"><i class="ri-more-2-fill" aria-hidden="true"></i></button>
+                      <button type="button" class="dn-act" (click)="toggleMoreMenu(donor.donorId, $event)" aria-label="More donor actions" [attr.aria-expanded]="openMoreMenuId() === donor.donorId" title="More"><i class="ri-more-2-line" aria-hidden="true"></i></button>
                       @if (openMoreMenuId() === donor.donorId) {
                         <ng-container *ngTemplateOutlet="moreMenu; context: { $implicit: donor }"></ng-container>
                       }
@@ -427,12 +427,7 @@
           <footer class="dn-pager">
             <div class="dn-pager-l">
               <span class="dn-range" aria-live="polite"><b>{{ rangeStart() }}–{{ rangeEnd() }}</b> of <b>{{ totalRecords() }}</b></span>
-              <!-- <label class="dn-select dn-select--sm">
-                <span class="dn-select-cap">Per page</span>
-                <select [value]="pageSize()" (change)="setPageSize(+$any($event.target).value)" aria-label="Donors per page">
-                  @for (size of pageSizeOptions; track size) { <option [value]="size">{{ size }}</option> }
-                </select>
-              </label> -->
+              <app-rows-per-page [value]="pageSize()" (changed)="setPageSize($event)" />
             </div>
             <nav class="dn-pages" aria-label="Pagination">
               <button type="button" class="dn-step" (click)="previousPage()" [disabled]="effectivePage() === 1" aria-label="Previous page"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>

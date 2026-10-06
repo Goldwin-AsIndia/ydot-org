@@ -359,7 +359,7 @@
 
                       <span class="mc-row-tools">
                         @if (mode() === 'organisation') {
-                          <button type="button" class="mc-ib mc-ib--sm" (click)="openEditor(leaf.node)" title="Edit" aria-label="Edit"><i class="ri-pencil-line" aria-hidden="true"></i></button>
+                          <button type="button" class="mc-ib mc-ib--sm" (click)="openEditor(leaf.node)" title="Edit" aria-label="Edit"><i class="ri-edit-line" aria-hidden="true"></i></button>
                           <button type="button" class="mc-ib mc-ib--sm" (click)="move(leaf.id, -1)" [disabled]="!canConfigure() || j === 0" title="Move up" aria-label="Move up"><i class="ri-arrow-up-s-line" aria-hidden="true"></i></button>
                           <button type="button" class="mc-ib mc-ib--sm" (click)="move(leaf.id, 1)" [disabled]="!canConfigure() || j === pages.length - 1" title="Move down" aria-label="Move down"><i class="ri-arrow-down-s-line" aria-hidden="true"></i></button>
                           @if (canManageStructure() && leaf.node.isOrganisationOwned) {
@@ -480,7 +480,7 @@
     <header class="mcs-head">
       <div class="mcs-head-top">
         <span class="mcs-kind">
-          <i [class]="d.kind === 'create' ? 'ri-add-circle-line' : 'ri-pencil-line'" aria-hidden="true"></i>
+          <i [class]="d.kind === 'create' ? 'ri-add-circle-line' : 'ri-edit-line'" aria-hidden="true"></i>
           {{ d.kind === 'create' ? 'New' : 'Edit' }} {{ levelLabel(d.level) | lowercase }}
         </span>
         <button type="button" class="mcs-x" aria-label="Close" (click)="closeEditor()"><i class="ri-close-line" aria-hidden="true"></i></button>
@@ -680,7 +680,7 @@
     <div class="mc-modal-backdrop" (click)="cancelDelete()">
       <div class="mc-modal" role="dialog" aria-modal="true" aria-labelledby="mc-del-title" (click)="$event.stopPropagation()">
         <div class="mc-modal-top">
-          <span class="mc-modal-ico is-danger" aria-hidden="true"><i class="ri-delete-bin-6-line"></i></span>
+          <span class="mc-modal-ico is-danger" aria-hidden="true"><i class="ri-delete-bin-line"></i></span>
           <div>
             <h2 class="mc-modal-title" id="mc-del-title">Delete this menu item?</h2>
             <p class="mc-modal-lead">
@@ -695,7 +695,7 @@
         <div class="mc-modal-actions">
           <button type="button" class="mc-btn mc-btn--ghost" (click)="cancelDelete()">Keep it</button>
           <button type="button" class="mc-btn mc-btn--danger" (click)="confirmDelete()" [disabled]="savingNode()">
-            @if (savingNode()) { Deleting… } @else { <i class="ri-delete-bin-6-line" aria-hidden="true"></i> Delete }
+            @if (savingNode()) { Deleting… } @else { <i class="ri-delete-bin-line" aria-hidden="true"></i> Delete }
           </button>
         </div>
       </div>

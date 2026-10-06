@@ -16,6 +16,7 @@ import {
 import { MasterService } from '../master.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /**
  * One currency, in the shape this screen's template binds to.
  *
@@ -139,7 +140,7 @@ function blankCurrency(): Currency {
 @Component({
   selector: 'app-currency',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
   templateUrl: './currency.html',
   styleUrls: ['../masters-ui.css', './currency.css'],
 })

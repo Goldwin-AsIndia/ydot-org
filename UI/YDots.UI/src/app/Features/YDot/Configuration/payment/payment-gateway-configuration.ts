@@ -20,6 +20,7 @@ import { ToastService } from '../../../../Shared/services/toast.service';
 import { PopupComponent } from '../../../../Shared/components/popup/popup';
 import { ClickOutsideDirective } from '../../../../Shared/directives/click-outside';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /**
  * The editable state of the form.
  *
@@ -96,7 +97,7 @@ type ViewMode = 'list' | 'form' | 'detail';
 @Component({
   selector: 'app-payment-gateway-configuration',
   standalone: true,
-  imports: [PopupComponent, CommonModule, FormsModule, ClickOutsideDirective],
+  imports: [RowsPerPage, PopupComponent, CommonModule, FormsModule, ClickOutsideDirective],
   templateUrl: './payment-gateway-configuration.html',
   styleUrl: './payment-gateway-configuration.css',
 })

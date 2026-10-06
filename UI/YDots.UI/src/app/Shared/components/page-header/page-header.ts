@@ -28,6 +28,21 @@ import { HeaderScreenKey, headerWatermarks } from '../header-watermark/header-wa
  * Projected content is styled by the global .ph-btn / .ph-chip classes (styles/ydot-theme.css) because
  * component-scoped CSS cannot reach into projected nodes.
  */
+const screenModules: Record<string, string> = {
+  ...Object.fromEntries(['communication-exception-queue', 'complaint-case', 'conversation-detail', 'outbound-message-composer',
+    'sla-policy-calendar', 'suppression-and-contact-restriction', 'template-catalogue', 'unified-inbox'].map(k => [k, 'Communications'])),
+  'payment-event-queue': 'Donations & payments',
+  ...Object.fromEntries(['consent-preference-centre', 'donor-identity-verification', 'donor-list', 'follow-up-execution',
+    'follow-up-queue', 'my-leads'].map(k => [k, 'Donors & leads'])),
+  ...Object.fromEntries(['finance-exception-case', 'finance-workbench', 'financial-correction-or-reversal', 'maker-checker-review',
+    'offline-donation-entry', 'period-campaign-close', 'reconciliation-workspace', 'settlement-batch-detail'].map(k => [k, 'Finance'])),
+  ...Object.fromEntries(['batch-ledger', 'inventory-exception-queue', 'inventory-overview', 'reservation-manager',
+    'stock-adjustment-approval', 'stock-count-session', 'stock-movement-form', 'warehouse-transfer'].map(k => [k, 'Inventory'])),
+  ...Object.fromEntries(['city', 'country', 'currency', 'state', 'time-zone'].map(k => [k, 'Masters'])),
+  ...Object.fromEntries(['executive-dashboard', 'global-search', 'work-space', 'notification-centre', 'role-aware-application-shell',
+    'saved-view-builder', 'standard-list-page', 'standard-record-detail'].map(k => [k, 'Workspace'])),
+};
+
 @Component({
   selector: 'app-page-header',
   templateUrl: './page-header.html',
@@ -64,6 +79,19 @@ export class PageHeader {
 
   /** Small uppercase label above the title. Shown by the 'card' variant only. */
   readonly eyebrow = input<string | null | undefined>('');
+
+  /**
+   * The gold kicker over the title. 'card' / 'gold' headers show the `eyebrow` they are given; a plain header
+   * shows the given one too, or "<Module> · <title>" built from the screen's module below, so every
+   * screen opens with the same two-line masthead (Campaigns keeps its own look and is left out).
+   */
+  protected readonly kicker = computed(() => {
+    const given = (this.eyebrow() ?? '').trim();
+    if (given) return given;
+    if (this.variant() !== 'plain') return '';
+    const module = screenModules[this.screen() as string];
+    return module ? `${module} · ${this.title()}` : '';
+  });
 
   protected readonly watermark = computed(() => headerWatermarks[this.screen()]);
 }

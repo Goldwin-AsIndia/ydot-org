@@ -15,9 +15,10 @@ import { CurrentUserService } from '../../../../Service/current-user.service';
 import { TrackingAssetStoreService } from '../../../../Shared/services/tracking-asset-store.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 @Component({
   selector: 'app-attribution-explorer',
-  imports: [PageHeader, CommonModule, FormsModule, ClickOutsideDirective],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule, ClickOutsideDirective],
   templateUrl: './attribution-explorer.html',
   styleUrl: './attribution-explorer.css',
 })
@@ -140,12 +141,13 @@ export class AttributeExplorerComponent {
   protected readonly recordCount = computed(() => this.visibleRecords().length);
 
   // ================= Pagination =================
-  protected readonly pageSize = 10;
+  protected readonly pageSize = signal(10);
+  protected setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
   protected readonly currentPage = signal(1);
-  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.visibleRecords().length / this.pageSize)));
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.visibleRecords().length / this.pageSize())));
   protected readonly pagedRecords = computed(() => {
-    const start = (this.currentPage() - 1) * this.pageSize;
-    return this.visibleRecords().slice(start, start + this.pageSize);
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.visibleRecords().slice(start, start + this.pageSize());
   });
   protected goToPage(p: number): void {
     if (p < 1 || p > this.totalPages()) return;
@@ -168,10 +170,10 @@ export class AttributeExplorerComponent {
     return pages;
   });
   protected readonly pagedStart = computed(() =>
-    this.visibleRecords().length === 0 ? 0 : (this.currentPage() - 1) * this.pageSize + 1,
+    this.visibleRecords().length === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1,
   );
   protected readonly pagedEnd = computed(() =>
-    Math.min(this.currentPage() * this.pageSize, this.visibleRecords().length),
+    Math.min(this.currentPage() * this.pageSize(), this.visibleRecords().length),
   );
 
   // ================= Selection =================

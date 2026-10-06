@@ -9,6 +9,7 @@ import {
 import { DonorApiService } from "../../../../Service/donor-api.service";
 import { ToastService } from "../../../../Shared/services/toast.service";
 import { apiErrorMessage } from "../../../../Shared/models/api-response.model";
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 import {
   AssignmentBoardResponse,
   AssignmentBoardRow,
@@ -124,7 +125,7 @@ interface AssignResult {
  */
 @Component({
   selector: "app-assignment-board",
-  imports: [CommonModule, FormsModule],
+  imports: [RowsPerPage, CommonModule, FormsModule],
   templateUrl: "./assignment-board.html",
   styleUrl: "./assignment-board.css",
 })
@@ -814,6 +815,13 @@ export class AssignmentBoardComponent {
   protected readonly pagedEnd = computed(() =>
     Math.min(this.currentPage() * this.pageSize(), this.totalCountFromServer()),
   );
+
+  protected setPageSize(n: number): void {
+    this.pageSize.set(n);
+    this.exitSelectionMode();
+    this.currentPage.set(1);
+    this.load();
+  }
 
   protected goToPage(page: number): void {
     if (page < 1 || page > this.totalPages() || page === this.currentPage()) {

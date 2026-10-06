@@ -89,6 +89,7 @@ const SidebarComponentIcons: Record<string, string> = {
   imports: [ThemedLogo, CommonModule, RouterModule],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.css',
+  host: { '(mouseover)': 'placeFlyout($event)' },
 })
 export class SidebarComponent implements OnDestroy {
   readonly layoutService = inject(LayoutService);
@@ -98,6 +99,42 @@ export class SidebarComponent implements OnDestroy {
   private readonly router = inject(Router);
 
   private readonly destroy$ = new Subject<void>();
+
+  /**
+   * Folded rail: a group's flyout is placed beside its own icon. It drops down from the icon when it fits
+   * below, otherwise it rises so its foot is level with the icon; a panel taller than the window is capped
+   * and scrolls. The position is computed from the icon's place on screen and written as `top` relative to
+   * the panel's real containing block (it is not the list item), so it cannot drift to the rail's foot.
+   * Done on hover, when the panel is displayed and measurable.
+   */
+  placeFlyout(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    const item = target?.closest?.('.pe-main-menu > .pe-slide.pe-has-sub') as HTMLElement | null;
+    const panel = item?.querySelector(':scope > .pe-slide-menu') as HTMLElement | null;
+    const link = item?.querySelector(':scope > .pe-nav-link') as HTMLElement | null;
+    if (!item || !panel || !link || document.documentElement.getAttribute('data-sidebar') !== 'icon') return;
+    const margin = 8;
+    const pad = 11; // the panel's own padding + border, so its first/last row lines up with the icon
+    panel.style.maxHeight = '';
+    item.classList.remove('sb-fly-scroll');
+    const height = panel.offsetHeight;
+    const row = link.getBoundingClientRect();
+    const win = window.innerHeight;
+    let top: number;
+    if (height > win - margin * 2) {
+      panel.style.maxHeight = `${win - margin * 2}px`;
+      item.classList.add('sb-fly-scroll');
+      top = margin;
+    } else if (row.top - pad + height <= win - margin) {
+      top = row.top - pad;
+    } else {
+      top = Math.max(margin, row.bottom + pad - height);
+    }
+    const parent = (panel.offsetParent as HTMLElement | null)?.getBoundingClientRect();
+    panel.style.setProperty('top', `${top - (parent?.top ?? 0)}px`, 'important');
+    panel.style.setProperty('bottom', 'auto', 'important');
+    panel.style.setProperty('margin-top', '0', 'important');
+  }
 
   /**
    * The server tree, with three presentation-only overrides applied on top.

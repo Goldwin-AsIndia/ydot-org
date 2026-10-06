@@ -18,6 +18,7 @@ import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { CommunicationTimelineResponse } from '../../../../Shared/models/donor-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 type CommunicationType =
   | 'Call'
   | 'Email'
@@ -92,7 +93,7 @@ interface SuggestedAction {
 @Component({
   selector: 'app-communication-timeline',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
   templateUrl: './communication-timeline.html',
   styleUrl: './communication-timeline.css',
 })
@@ -155,7 +156,8 @@ export class CommunicationTimelineComponent {
   readonly dateToFilter = signal('');
   readonly searchQuery = signal('');
   readonly currentPage = signal(1);
-  readonly pageSize = 10;
+  readonly pageSize = signal(10);
+  setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
 
   /**
    * The profile beside the timeline.
@@ -398,15 +400,15 @@ export class CommunicationTimelineComponent {
     .map((part) => part[0]?.toUpperCase())
     .join('') || '—');
 
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredRecords().length / this.pageSize)));
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredRecords().length / this.pageSize())));
   readonly paginatedRecords = computed(() => {
     const safePage = Math.min(this.currentPage(), this.totalPages());
-    const start = (safePage - 1) * this.pageSize;
-    return this.filteredRecords().slice(start, start + this.pageSize);
+    const start = (safePage - 1) * this.pageSize();
+    return this.filteredRecords().slice(start, start + this.pageSize());
   });
   readonly pageNumbers = computed(() => Array.from({ length: this.totalPages() }, (_, index) => index + 1));
-  readonly firstVisibleRecord = computed(() => this.filteredRecords().length ? (this.currentPage() - 1) * this.pageSize + 1 : 0);
-  readonly lastVisibleRecord = computed(() => Math.min(this.currentPage() * this.pageSize, this.filteredRecords().length));
+  readonly firstVisibleRecord = computed(() => this.filteredRecords().length ? (this.currentPage() - 1) * this.pageSize() + 1 : 0);
+  readonly lastVisibleRecord = computed(() => Math.min(this.currentPage() * this.pageSize(), this.filteredRecords().length));
 
   /** The visible page, one group per calendar day, so the journal reads as dated entries. */
   readonly dayGroups = computed(() => {

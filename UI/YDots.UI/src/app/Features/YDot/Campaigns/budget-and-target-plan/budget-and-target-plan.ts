@@ -18,6 +18,7 @@ import { PeopleDirectoryService } from '../../../../Shared/services/people-direc
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /** Field labels used verbatim in the validation copy. */
 const FIELD_LABELS: Record<string, string> = {
   campaign: 'Campaign',
@@ -47,7 +48,7 @@ const FINANCE_REJECT_REFERENCE = 'PLAN-2025-0009';
 
 @Component({
   selector: 'app-budget-target-plan',
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
   templateUrl: './budget-and-target-plan.html',
   styleUrl: './budget-and-target-plan.css',
 })
@@ -191,15 +192,16 @@ export class BudgetTargetPlanComponent {
 
   // ---- Pagination ----
   protected currentPage = signal(1);
-  protected pageSize = 10;
+  protected pageSize = signal(10);
+  protected setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
 
   protected get totalPages(): number {
-    return Math.max(1, Math.ceil(this.filteredPlans().length / this.pageSize));
+    return Math.max(1, Math.ceil(this.filteredPlans().length / this.pageSize()));
   }
 
   protected paginatedPlans(): PlanItem[] {
-    const start = (this.currentPage() - 1) * this.pageSize;
-    return this.filteredPlans().slice(start, start + this.pageSize);
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredPlans().slice(start, start + this.pageSize());
   }
 
   protected pageNumbers(): number[] {

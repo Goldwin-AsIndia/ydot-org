@@ -13,6 +13,7 @@ import { CurrentUserService } from '../../../../Shared/services/current-user.ser
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { CampaignApiService } from '../../../../Service/campaign-api.service';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /** One row of a CAM reference catalogue: the id the API takes, and the name a person reads. */
 interface CatalogueOption {
   readonly ref: string;
@@ -22,7 +23,7 @@ interface CatalogueOption {
 
 @Component({
   selector: 'app-tracking-asset-manager',
-  imports: [CommonModule, FormsModule, ClickOutsideDirective],
+  imports: [RowsPerPage, CommonModule, FormsModule, ClickOutsideDirective],
   templateUrl: './tracking-asset-manager.html',
   styleUrl: './tracking-asset-manager.css',
 })
@@ -109,7 +110,8 @@ export class TrackingAssetManagerComponent {
    * holds a full ten before pagination has to advance — the table never grows taller than five
    * rows to show them.
    */
-  protected readonly pageSize = 10;
+  protected readonly pageSize = signal(10);
+  protected setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
   protected readonly currentPage = signal(1);
 
   /** The filters section is hidden until the user opens it with the Filter button. */
@@ -445,12 +447,12 @@ export class TrackingAssetManagerComponent {
 
   /** "Showing 1–5 of 5 assets" — the visible slice of the filtered set. */
   protected readonly showingFrom = computed(() =>
-    this.recordCount() === 0 ? 0 : (this.clampedPage() - 1) * this.pageSize + 1,
+    this.recordCount() === 0 ? 0 : (this.clampedPage() - 1) * this.pageSize() + 1,
   );
-  protected readonly showingTo = computed(() => Math.min(this.clampedPage() * this.pageSize, this.recordCount()));
+  protected readonly showingTo = computed(() => Math.min(this.clampedPage() * this.pageSize(), this.recordCount()));
 
   // ----- Pagination (footer pager slices the filtered set) -----
-  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.recordCount() / this.pageSize)));
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.recordCount() / this.pageSize())));
   private readonly clampedPage = computed(() => Math.min(this.currentPage(), this.totalPages()));
   // ----- Reference-image table: name sort -----
   /** Cyclic sort on the asset name column: asc → desc → off. */
@@ -465,8 +467,8 @@ export class TrackingAssetManagerComponent {
       rows = [...rows].sort((a, b) => a.trackingReference.localeCompare(b.trackingReference));
       if (dir === 'desc') rows.reverse();
     }
-    const start = (this.clampedPage() - 1) * this.pageSize;
-    return rows.slice(start, start + this.pageSize);
+    const start = (this.clampedPage() - 1) * this.pageSize();
+    return rows.slice(start, start + this.pageSize());
   });
   protected readonly pageNumbers = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i + 1));
   protected goToPage(page: number): void {

@@ -10,6 +10,7 @@ import { PaymentEventListItem, ReceiptRegisterRow } from '../../../../Shared/mod
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /**
  * The three outcomes a payment event can settle in. Unlike the old Payment Event Queue (which
  * only ever showed Fail/Pending) and the old Receipt Register (which only ever showed
@@ -125,7 +126,7 @@ export interface PaymentsReceiptsSummary {
  */
 @Component({
   selector: 'app-payment-event-queue',
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
   templateUrl: './payment-event-queue.html',
   styleUrl: './payment-event-queue.css',
 })
@@ -330,7 +331,8 @@ export class PaymentEventQueueComponent {
   protected readonly totalRecords = signal(0);
   protected readonly summary = signal<PaymentsReceiptsSummary | null>(null);
   protected readonly permittedActions = signal<readonly string[]>([]);
-  protected readonly pageSize = 8;
+  protected readonly pageSize = signal(10);
+  protected setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); this.loadRows(); }
   protected readonly currentPage = signal(1);
 
   protected readonly totalEvents = computed(() => this.summary()?.totalEvents ?? 0);
@@ -339,14 +341,14 @@ export class PaymentEventQueueComponent {
   protected readonly pendingCount = computed(() => this.summary()?.pending ?? 0);
   protected readonly failedCount = computed(() => this.summary()?.failed ?? 0);
 
-  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalRecords() / this.pageSize)));
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalRecords() / this.pageSize())));
   protected readonly pageNumbers = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i + 1));
   protected readonly pagedRecords = computed(() => this.records());
   protected readonly pageStart = computed(() =>
-    this.totalRecords() === 0 ? 0 : (this.currentPage() - 1) * this.pageSize + 1,
+    this.totalRecords() === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1,
   );
   protected readonly pageEnd = computed(() =>
-    Math.min(this.currentPage() * this.pageSize, this.totalRecords()),
+    Math.min(this.currentPage() * this.pageSize(), this.totalRecords()),
   );
 
   protected goToPage(page: number): void {
@@ -427,7 +429,7 @@ export class PaymentEventQueueComponent {
     // Single status selected -> single source, exact server-side pagination (same as before).
     if (filter === 'Fail' || filter === 'Pending') {
       this.payments
-        .searchPaymentEvents({ page: this.currentPage(), pageSize: this.pageSize, search, paymentOutcome: filter })
+        .searchPaymentEvents({ page: this.currentPage(), pageSize: this.pageSize(), search, paymentOutcome: filter })
         .subscribe({
           next: (page) => this.applyRows(page.items.map((item) => this.fromQueueItem(item)), page.totalCount),
           error: (error) => this.handleLoadError(error),
@@ -436,7 +438,7 @@ export class PaymentEventQueueComponent {
     }
     if (filter === 'Success') {
       this.payments
-        .getReceiptRegister({ page: this.currentPage(), pageSize: this.pageSize, search, status: 'Success' })
+        .getReceiptRegister({ page: this.currentPage(), pageSize: this.pageSize(), search, status: 'Success' })
         .subscribe({
           next: (page) => {
             this.permittedActions.set(page.permittedActions ?? []);
@@ -460,8 +462,8 @@ export class PaymentEventQueueComponent {
         const merged = [...queueRows, ...receiptRows].sort((a, b) =>
           b.sortKey.localeCompare(a.sortKey),
         );
-        const start = (this.currentPage() - 1) * this.pageSize;
-        this.applyRows(merged.slice(start, start + this.pageSize), merged.length);
+        const start = (this.currentPage() - 1) * this.pageSize();
+        this.applyRows(merged.slice(start, start + this.pageSize()), merged.length);
       },
       error: (error) => this.handleLoadError(error),
     });
