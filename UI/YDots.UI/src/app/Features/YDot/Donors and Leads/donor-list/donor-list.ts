@@ -6,7 +6,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { Router } from '@angular/router';
 import { WorkflowStateService } from '../../../../Service/workflow-state.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
@@ -71,7 +71,7 @@ const VIEW_KEY = 'ydot.donor-list.view';
 @Component({
   selector: 'app-donor-list',
   standalone: true,
-  imports: [RowsPerPage, PageHeader, DecimalPipe, NgTemplateOutlet],
+  imports: [RowsPerPage, PageHeader, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(document:keydown.escape)': 'onEscape()',

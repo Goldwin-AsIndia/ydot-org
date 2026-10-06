@@ -10,7 +10,6 @@ import { AuthTokenService } from '../../../../Shared/services/auth-token.service
 import { UserProfileData, RoleAssignmentItem } from '../../../../Shared/models/user-profile.model';
 import { UserDetail } from '../../../../Shared/models/user-directory.model';
 import { MfaMethodType, UserSecurityResponse } from '../../../../Shared/models/iam-contract.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 import { LayoutService } from '../../../../Service/layout-service';
 import { dialCodeError, employeeNumberError, minLengthError, nameError, phoneWithCodeError, textWithLettersError } from '../../../../Shared/validation/field-rules';
 
@@ -26,7 +25,7 @@ interface MfaMethodView {
 @Component({
   selector: 'app-user-profile',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './user-profile.html',
   styleUrl: './user-profile.css',
 })

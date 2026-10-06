@@ -12,7 +12,9 @@
    eased. Nothing is left behind - tables, dialogs, charts, third-party widgets, new screens all follow.
 
        invert(1) hue-rotate(180deg)   white -> black, ink -> white, hues unchanged
-       contrast(.86)                  black lifts to a soft graphite (#121212) and white eases to ~#dcdcdc
+       brightness(1.25)               mid-tones lift (white-on-black stays put): grey text, hairline borders and
+                                      tinted fills read clearly instead of sinking into the surface
+       contrast(.8)                   black lifts to a soft graphite (#1a1a1a) and white eases to ~#e6e6e6
        saturate(.8)                   colour is muted: no vibrant tones in dark
 
    Content that must keep its own colours (photos, avatars, video, canvases, QR codes) is rendered through
@@ -22,15 +24,56 @@
    dark one; scrims are therefore painted white-ish below, which the filter turns into a dimming veil.
    ===================================================================================================== */
 html[data-ydot-mode="dark"] {
-  --dk-fwd: invert(1) hue-rotate(180deg) contrast(0.86) saturate(0.8);
-  /* the inverse of --dk-fwd, in reverse order (1/.8 = 1.25, 1/.86 = 1.1628) */
-  --dk-inv: saturate(1.25) contrast(1.1628) hue-rotate(180deg) invert(1);
+  --dk-fwd: invert(1) hue-rotate(180deg) brightness(1.25) contrast(0.8) saturate(0.8);
+  /* the inverse of --dk-fwd, in reverse order (1/.8 = 1.25 for contrast and brightness) */
+  --dk-inv: saturate(1.25) contrast(1.25) brightness(0.8) hue-rotate(180deg) invert(1);
 
-  /* The canvas behind the page, authored light like everything else. */
-  background-color: #f4f4f4;
-  filter: var(--dk-fwd);
+  /* The page canvas. It lives on <html>, OUTSIDE the filtered layer below, so it is this exact colour (tinted by the theme hue) and
+     is deliberately deeper than the cards, which the filter lifts to graphite (#1a1a1a) - the usual dark
+     layering: deep canvas, raised surfaces. It also shows behind short pages, in overscroll and between
+     cards. Without it the (filtered) canvas was the same graphite as the cards, or lighter than them. */
+  --dk-canvas: hsl(var(--theme-hue, 150) 28% 6.5%);
+  background-color: var(--dk-canvas) !important;
   /* Scrollbars, date pickers and other native controls draw light, and are inverted with the page. */
   color-scheme: light;
+}
+
+/* The filter sits on the app (and anything appended straight to <body>: sweet-alert, overlays), not on
+   <html>, so the canvas above is not part of it. Position:fixed inside behaves as it did under <html>
+   because the app host spans the whole document. */
+html[data-ydot-mode="dark"] body {
+  background-color: transparent !important;
+}
+html[data-ydot-mode="dark"] body > :not(script):not(style):not(link):not(noscript) {
+  filter: var(--dk-fwd);
+}
+
+/* The theme colour tints the whole dark screen: a faint veil in the theme hue, blended by colour only (it
+   keeps every pixel's lightness, so contrast is untouched) over the app and its pop-ups. It sits outside
+   the filtered layer and follows --theme-hue live, so changing the theme colour in dark mode repaints
+   the surfaces, not just the accents. Kept light enough that red / green / amber status colours still read. */
+html[data-ydot-mode="dark"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  background: hsl(var(--theme-hue, 150) 55% 50%);
+  opacity: 0.13;
+  mix-blend-mode: color;
+}
+
+/* Full-page wrappers that painted their own (light) canvas now let the dark one show through. */
+html[data-ydot-mode="dark"] #layout-wrapper,
+html[data-ydot-mode="dark"] .content-page,
+html[data-ydot-mode="dark"] .content-page > router-outlet + *,
+html[data-ydot-mode="dark"] .content-page > router-outlet + * > :is(.app-wrapper, .page-wrapper),
+html[data-ydot-mode="dark"] .content-page > router-outlet + * > .app-wrapper > .page-wrapper,
+html[data-ydot-mode="dark"] .content-page .page-wrapper > .container-fluid.cpc,
+html[data-ydot-mode="dark"] app-duplicate-review .page,
+html[data-ydot-mode="dark"] app-lead-capture .lc-page,
+html[data-ydot-mode="dark"] .content-page :is(.gs-page, .svb-page) {
+  background-color: transparent !important;
 }
 
 /* ---- content that keeps its own colours ---- */
@@ -75,8 +118,13 @@ html[data-ydot-mode="dark"] dialog::backdrop {
 
 @media print {
   html[data-ydot-mode="dark"] {
+    background-color: #fff !important;
+  }
+  html[data-ydot-mode="dark"] body::after {
+    display: none;
+  }
+  html[data-ydot-mode="dark"] body > * {
     filter: none;
-    background-color: #fff;
   }
   html[data-ydot-mode="dark"] img,
   html[data-ydot-mode="dark"] video,
