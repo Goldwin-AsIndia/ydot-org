@@ -211,6 +211,7 @@
     animation: none !important;
     transition: none;
   }
+
   /* Hover opens a menu. Keyboard focus does too, but only :focus-visible - plain :focus-within stayed true
      after a mouse click (the clicked link keeps focus), so the clicked menu stayed open on top of the next. */
   [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:hover > .pe-slide-menu,
@@ -245,10 +246,18 @@
     height: auto;
     background: transparent !important;
   }
-  /* Near the right edge, drop-downs and their flyouts open leftwards so they stay on screen. */
-  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:nth-last-child(-n + 3) > .pe-slide-menu {
-    left: auto;
-    right: 0;
+  /* EVERY TOP-LEVEL DROP-DOWN OPENS DIRECTLY BELOW ITS OWN TRIGGER, LEFT-ALIGNED.
+
+     left:0 lines the panel's left edge up with the trigger's left edge, so the
+     menu appears kilae (below) the button - never pushed out to the LEFT of it.
+     (Centring was tried before: with min-width 230px vs a ~150px trigger the
+     panel overhung ~40px each side, which still read as "left side thalli".)
+     The nested-flyout rules below keep opening sideways - this never applies
+     to them. */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-slide-menu {
+    left: -44px;
+    right: auto;
+    transform: none !important;
   }
   [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:nth-last-child(-n + 3) .pe-slide-item > .pe-slide-menu {
     left: auto;
@@ -355,3 +364,225 @@
   color: inherit;
 }
 .pe-nav-icon.ph-duotone::before { opacity: .28; }
+
+/* =====================================================================================================
+   ACTIVE + HOVER DESIGN for the horizontal bar (2026-10-05)
+   The bar used to borrow the vertical rail's active look (filled block, rail markers). On a bar the
+   natural cue is a tab indicator, so:
+     top level   hover  -> soft theme tint behind the item
+                 active -> theme-coloured text + icon, a light tint pill, and a 3px rounded indicator
+                           sitting on the bar's bottom edge under the item (it grows in from the centre)
+     drop-down   hover  -> soft tint row
+                 active -> theme-coloured text, a lighter tint, and a short 3px bar on the row's left
+                 parent of the active page (3rd level) -> theme-coloured text, so the trail is visible
+   Colour follows var(--primary) (falls back to the theme primary).
+   ===================================================================================================== */
+@media (min-width: 992px) {
+  [data-layout='horizontal'] .pe-app-sidebar {
+    --hz-accent: var(--primary, var(--theme-primary, #2c4a3d));
+    --hz-tint: color-mix(in srgb, var(--hz-accent) 8%, transparent);
+    --hz-tint-strong: color-mix(in srgb, var(--hz-accent) 12%, transparent);
+    --hz-ink: var(--theme-text, #1d2a24);
+    --hz-muted: color-mix(in srgb, var(--hz-ink) 62%, transparent);
+  }
+
+  /* ---- top level: reset the rail's active styling ---- */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link.active,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide.active > .pe-nav-link {
+    position: relative;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: calc(9px * var(--ui-scale, 1)) !important;
+    box-shadow: none !important;
+    color: var(--hz-muted) !important;
+    font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900);
+    transition: background-color .15s ease, color .15s ease;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link::before,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link::after {
+    content: none !important;
+    display: none !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link :is(.pe-nav-icon, .pe-nav-arrow) {
+    color: inherit !important;
+    opacity: .85;
+  }
+
+  /* hover / open */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:hover > .pe-nav-link,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link:focus-visible {
+    background: var(--hz-tint) !important;
+    color: var(--hz-ink) !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:hover > .pe-nav-link .pe-nav-arrow.arrow-right {
+    transform: rotate(-90deg);           /* points up while its drop-down is open */
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link .pe-nav-arrow.arrow-right {
+    transition: transform .18s ease;
+  }
+
+  /* active item: theme text, tint pill */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide.active > .pe-nav-link,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link.active {
+    background: var(--hz-tint) !important;
+    color: var(--hz-accent) !important;
+    font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide.active > .pe-nav-link :is(.pe-nav-icon, .pe-nav-arrow),
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-nav-link.active :is(.pe-nav-icon, .pe-nav-arrow) {
+    opacity: 1;
+  }
+
+  /* the tab indicator on the bar's bottom edge */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide::after {
+    content: '' !important;
+    display: block !important;
+    position: absolute;
+    left: calc(12px * var(--ui-scale, 1));
+    right: calc(12px * var(--ui-scale, 1));
+    bottom: -1px;                         /* covers the bar's 1px bottom border */
+    height: calc(3px * var(--ui-scale, 1));
+    border-radius: calc(3px * var(--ui-scale, 1)) calc(3px * var(--ui-scale, 1)) 0 0;
+    background: var(--hz-accent);
+    transform: scaleX(0);
+    transition: transform .2s ease;
+    pointer-events: none;
+    width: auto;
+    top: auto;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide.active::after,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:has(> .pe-nav-link.active)::after {
+    transform: scaleX(1);
+  }
+  /* hovering a different item shows a faint preview of the indicator */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide:not(.active):hover::after {
+    transform: scaleX(.5);
+    background: color-mix(in srgb, var(--hz-accent) 35%, transparent);
+  }
+
+  /* ---- drop-down rows ---- */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu {
+    box-shadow: none !important;           /* flat, like the rest of the app */
+    border-color: color-mix(in srgb, var(--hz-accent) 14%, var(--theme-border, #e3e6e4)) !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link {
+    position: relative;
+    color: var(--hz-ink) !important;
+    background: transparent !important;
+    transition: background-color .12s ease, color .12s ease, padding-left .12s ease;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link:hover,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-slide-item:hover > .pe-nav-link {
+    background: var(--hz-tint) !important;
+  }
+
+  /* active page: theme text, lighter tint, short left bar (drawn inside the row) */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link.active {
+    background: var(--hz-tint-strong) !important;
+    color: var(--hz-accent) !important;
+    font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+    padding-left: calc(18px * var(--ui-scale, 1)) !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link.active::before {
+    content: '' !important;
+    display: block !important;
+    position: absolute;
+    left: calc(7px * var(--ui-scale, 1));
+    top: 50%;
+    width: calc(3px * var(--ui-scale, 1));
+    height: 52%;
+    border-radius: calc(3px * var(--ui-scale, 1));
+    background: var(--hz-accent);
+    transform: translateY(-50%);
+  }
+
+  /* the 3rd-level parent of the active page keeps the trail visible */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-slide-item.active > .pe-nav-link {
+    color: var(--hz-accent) !important;
+    font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-slide-item.active > .pe-nav-link .pe-nav-arrow {
+    color: var(--hz-accent) !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide::after,
+    [data-layout='horizontal'] .pe-app-sidebar .pe-nav-link,
+    [data-layout='horizontal'] .pe-app-sidebar .pe-nav-arrow {
+      transition: none !important;
+    }
+  }
+}
+
+/* ---- Drop-down rows, v2 (2026-10-05) ----
+   The left bar collided with the first letter and the active row picked up a border from the theme.
+   Now: hover is a neutral light grey, the active page is theme-coloured text on a soft tint with a
+   small check mark at the right end - easy to tell apart, nothing overlapping the text. */
+@media (min-width: 992px) {
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu {
+    margin-top: calc(6px * var(--ui-scale, 1)) !important;
+    padding: calc(5px * var(--ui-scale, 1)) !important;
+    border-radius: calc(12px * var(--ui-scale, 1)) !important;
+  }
+  /* invisible bridge so the pointer can move from the bar into the drop-down across the 6px gap */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu > .pe-slide > .pe-slide-menu::after {
+    content: '' !important;
+    display: block !important;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(-8px * var(--ui-scale, 1));
+    height: calc(8px * var(--ui-scale, 1));
+    background: transparent !important;
+  }
+
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link.active {
+    min-height: calc(36px * var(--ui-scale, 1));
+    padding: calc(8px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1)) !important;
+    border: 0 !important;
+    outline: 0;
+    box-shadow: none !important;
+    border-radius: calc(8px * var(--ui-scale, 1)) !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link.active::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* hover: neutral, so it never looks like "selected" */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link:hover,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-slide-item:hover > .pe-nav-link {
+    background: #f3f4f3 !important;
+    color: var(--hz-ink) !important;
+  }
+
+  /* active page: tint + theme text + check at the right */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link.active,
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link.active:hover {
+    background: var(--hz-tint) !important;
+    color: var(--hz-accent) !important;
+    font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-nav-link.active::after {
+    content: '' !important;
+    display: block !important;
+    flex: none;
+    width: calc(15px * var(--ui-scale, 1));
+    height: calc(15px * var(--ui-scale, 1));
+    margin-left: auto;
+    background: var(--hz-accent);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  /* 3rd-level parent of the active page: theme text only (no tint, no check) */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-slide-item.active > .pe-nav-link:not(.active) {
+    background: transparent !important;
+    color: var(--hz-accent) !important;
+  }
+  [data-layout='horizontal'] .pe-app-sidebar .pe-slide-menu .pe-slide-item.active:hover > .pe-nav-link:not(.active) {
+    background: #f3f4f3 !important;
+  }
+}
