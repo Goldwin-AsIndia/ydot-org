@@ -31,6 +31,7 @@ import {
 import { MasterService } from '../master.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /* ───────────────────── Models ───────────────────── */
 export interface CityModel {
   id: string;
@@ -97,7 +98,7 @@ export interface ToastMessage {
 @Component({
   selector: 'app-city',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule, ReactiveFormsModule],
   templateUrl: './city.html',
   styleUrls: ['../masters-ui.css', './city.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,

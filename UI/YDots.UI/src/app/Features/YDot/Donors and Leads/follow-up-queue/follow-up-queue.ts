@@ -19,6 +19,7 @@ import {
 } from "../../../../Shared/models/donor-contract.model";
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 export type RecordType = "Lead" | "Donor";
 export type FollowUpType =
   | "Call"
@@ -243,7 +244,7 @@ function emptyFilters(): GeneralFilters {
 @Component({
   selector: "app-follow-up-queue",
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
   templateUrl: "./follow-up-queue.html",
   styleUrls: ["./follow-up-queue.css"],
 })
@@ -562,7 +563,9 @@ export class FollowUpQueueComponent {
     return true;
   }
 
-  readonly pageSize = 10;
+  readonly pageSize = signal(10);
+
+  setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
   readonly sortOrder = signal("newest");
   readonly sortedFollowUps = computed(() =>
     [...this.filteredFollowUps()].sort((a, b) => {
@@ -580,21 +583,21 @@ export class FollowUpQueueComponent {
     computation: () => 1,
   });
   readonly totalPages = computed(() =>
-    Math.max(1, Math.ceil(this.sortedFollowUps().length / this.pageSize)),
+    Math.max(1, Math.ceil(this.sortedFollowUps().length / this.pageSize())),
   );
   readonly pagedFollowUps = computed(() =>
     this.sortedFollowUps().slice(
-      (this.currentPage() - 1) * this.pageSize,
-      this.currentPage() * this.pageSize,
+      (this.currentPage() - 1) * this.pageSize(),
+      this.currentPage() * this.pageSize(),
     ),
   );
   readonly pageStart = computed(() =>
     this.sortedFollowUps().length
-      ? (this.currentPage() - 1) * this.pageSize + 1
+      ? (this.currentPage() - 1) * this.pageSize() + 1
       : 0,
   );
   readonly pageEnd = computed(() =>
-    Math.min(this.currentPage() * this.pageSize, this.sortedFollowUps().length),
+    Math.min(this.currentPage() * this.pageSize(), this.sortedFollowUps().length),
   );
   readonly pageNumbers = computed(() => {
     const start = Math.max(

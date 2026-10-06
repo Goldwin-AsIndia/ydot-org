@@ -172,12 +172,7 @@
                 @if (filtering()) { <button type="button" class="pc-link" (click)="clearFilters()">Clear filters</button> }
               </p>
 
-              <label class="pc-pager__size">
-                <span>Per page</span>
-                <select [ngModel]="pageSize()" (ngModelChange)="setPageSize($event)">
-                  @for (size of pageSizes; track size) { <option [ngValue]="size">{{ size }}</option> }
-                </select>
-              </label>
+              <app-rows-per-page [value]="pageSize()" (changed)="setPageSize($event)" />
 
               <div class="pc-pager__pages" role="navigation" aria-label="Pages">
                 <button type="button" class="pc-page-btn" aria-label="Previous page" [disabled]="safePage() === 1" (click)="goTo(safePage() - 1)">

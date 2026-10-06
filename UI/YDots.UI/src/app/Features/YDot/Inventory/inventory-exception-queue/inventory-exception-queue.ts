@@ -5,6 +5,7 @@ import * as pageData from '../../../../../assets/data/inventory/inventory-except
 import { InventoryUiState } from '../../../../Shared/models/inventory.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 interface ExceptionRecord {
   readonly exceptionReference: string;
   readonly exceptionType: string;
@@ -35,7 +36,7 @@ interface ScreenData {
 @Component({
   selector: 'app-inventory-exception-queue',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
   templateUrl: './inventory-exception-queue.html',
   styleUrl: './inventory-exception-queue.css',
 })
@@ -45,7 +46,8 @@ export class InventoryExceptionQueueComponent {
   protected readonly searchTerm = signal('');
   protected readonly typeFilter = signal('');
   protected readonly currentPage = signal(1);
-  protected readonly pageSize = 5;
+  protected readonly pageSize = signal(10);
+  protected setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
 
   protected readonly filteredRecords = computed(() => {
     const q = this.searchTerm().trim().toLowerCase();
@@ -57,13 +59,13 @@ export class InventoryExceptionQueueComponent {
     });
   });
   protected readonly recordCount = computed(() => this.filteredRecords().length);
-  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.recordCount() / this.pageSize)));
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.recordCount() / this.pageSize())));
   protected readonly pagedRecords = computed(() => {
-    const start = (this.currentPage() - 1) * this.pageSize;
-    return this.filteredRecords().slice(start, start + this.pageSize);
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredRecords().slice(start, start + this.pageSize());
   });
-  protected readonly pageStart = computed(() => (this.recordCount() === 0 ? 0 : (this.currentPage() - 1) * this.pageSize + 1));
-  protected readonly pageEnd = computed(() => Math.min(this.currentPage() * this.pageSize, this.recordCount()));
+  protected readonly pageStart = computed(() => (this.recordCount() === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1));
+  protected readonly pageEnd = computed(() => Math.min(this.currentPage() * this.pageSize(), this.recordCount()));
   protected readonly pageNumbers = computed(() => {
     const total = this.totalPages();
     const current = this.currentPage();

@@ -17,6 +17,7 @@ import { UserSearchFilter } from '../../../../Shared/models/user-directory.model
 import { LookupItem } from '../../../../Shared/models/api-response.model';
 import { PopupComponent } from '../../../../Shared/components/popup/popup';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 
 interface AccessRequestView {
   id: string;
@@ -63,7 +64,7 @@ interface AccessRequestView {
 @Component({
   selector: 'app-access-request',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule, RouterModule, PopupComponent],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule, RouterModule, PopupComponent],
   templateUrl: './access-request.html',
   styleUrl: './access-request.css',
 })
@@ -100,7 +101,7 @@ export class AccessRequestComponent {
 
   filteredRequests = signal<AccessRequestView[]>([]);
   readonly pageSize = signal(10);
-  readonly pageSizeOptions = [10, 20, 50, 100];
+  readonly pageSizeOptions = [10, 20, 30, 40, 50];
   readonly currentPage = signal(1);
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredRequests().length / this.pageSize())));
   readonly paginatedRequests = computed(() => {

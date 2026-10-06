@@ -8,6 +8,7 @@ import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { LeadListItem } from '../../../../Shared/models/donor-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 // ============================================================================
 // DATA MODEL
 // ============================================================================
@@ -135,7 +136,7 @@ type FilterValue = 'All' | string;
 @Component({
   selector: 'app-my-leads',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
 templateUrl: './my-leads.html',
 styleUrl: './my-leads.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -216,7 +217,8 @@ export class MyLeadsComponent {
   readonly selectedRefs = signal<ReadonlySet<string>>(new Set());
   readonly activeRef = signal<string | null>(null);
   readonly currentPage = signal(1);
-  readonly pageSize = 10;
+  readonly pageSize = signal(10);
+  setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
 
   // ---- copy-to-clipboard feedback state ----
   readonly copiedRef = signal<string | null>(null);
@@ -351,15 +353,15 @@ export class MyLeadsComponent {
     });
   });
 
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredLeads().length / this.pageSize)));
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredLeads().length / this.pageSize())));
 
   readonly pagedLeads = computed(() => {
-    const start = (this.currentPage() - 1) * this.pageSize;
-    return this.filteredLeads().slice(start, start + this.pageSize);
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredLeads().slice(start, start + this.pageSize());
   });
 
-  readonly pageStart = computed(() => this.filteredLeads().length === 0 ? 0 : (this.currentPage() - 1) * this.pageSize + 1);
-  readonly pageEnd = computed(() => Math.min(this.currentPage() * this.pageSize, this.filteredLeads().length));
+  readonly pageStart = computed(() => this.filteredLeads().length === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1);
+  readonly pageEnd = computed(() => Math.min(this.currentPage() * this.pageSize(), this.filteredLeads().length));
 
   readonly pageNumbers = computed(() => Array.from({ length: this.totalPages() }, (_, index) => index + 1));
 

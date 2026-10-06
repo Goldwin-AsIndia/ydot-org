@@ -146,6 +146,15 @@
     animation: sb-flyout-in 0.18s var(--lx-ease, ease) both;
   }
 
+  /* Too tall for the room it has: capped and scrollable. The hover bridge would be clipped by the scroll
+     box, so the panel sits flush against the rail instead and the pointer never crosses a gap. */
+  :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu > .pe-slide.pe-has-sub.sb-fly-scroll > .pe-slide-menu {
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    margin-inline-start: 0 !important;
+  }
+
   /* Nested: opens to the side of its parent row, aligned with the row (panel padding above it). */
   :host-context([data-sidebar='icon']) .pe-app-sidebar .pe-main-menu .pe-slide.pe-has-sub .pe-slide-menu .pe-slide-item.pe-has-sub .pe-slide-menu {
     margin-top: calc(-11px * var(--ui-scale, 1));

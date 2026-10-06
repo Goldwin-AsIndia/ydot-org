@@ -171,7 +171,7 @@
 
               <div class="ud-acts" (click)="$event.stopPropagation()">
                 <button type="button" class="ud-act View" title="Open profile" aria-label="Open profile" (click)="openProfile(user)"><i class="ri-eye-line"></i></button>
-                <button type="button" class="ud-act Edit" title="Edit" aria-label="Edit" (click)="openEdit(user)" ><i class="ri-edit-2-line"></i></button>
+                <button type="button" class="ud-act Edit" title="Edit" aria-label="Edit" (click)="openEdit(user)" ><i class="ri-edit-line"></i></button>
               </div>
             </div>
           }
@@ -181,26 +181,7 @@
         <div class="ud-foot">
           <span class="ud-foot-count">Showing <b>{{ rangeStart() }}–{{ rangeEnd() }}</b> of <b>{{ totalCount() }}</b></span>
 
-          <div class="dir-dd dir-dd-sm dir-dd-up" [class.dir-dd-open]="openDropdown() === 'pageSize'" (click)="$event.stopPropagation()">
-            <!-- <button type="button" class="dir-dd-trigger" aria-haspopup="listbox"
-                    [attr.aria-expanded]="openDropdown() === 'pageSize'" (click)="toggleDropdown('pageSize')">
-              <span class="dir-dd-value">{{ pageSize() }} per page</span>
-              <i class="ri-arrow-down-s-line dir-dd-chev"></i>
-            </button> -->
-            @if (openDropdown() === 'pageSize') {
-              <div class="dir-dd-menu" role="listbox">
-                <div class="dir-dd-list">
-                  @for (size of pageSizes; track size) {
-                    <button type="button" role="option" class="dir-dd-option" [class.dir-dd-option-on]="size === pageSize()"
-                            [attr.aria-selected]="size === pageSize()" (click)="pickPageSize(size)">
-                      <span>{{ size }} per page</span>
-                      @if (size === pageSize()) { <i class="ri-check-line"></i> }
-                    </button>
-                  }
-                </div>
-              </div>
-            }
-          </div>
+          <app-rows-per-page [value]="pageSize()" (changed)="changePageSize($event)" />
 
           <nav class="ud-pager" aria-label="Pagination">
             <button type="button" class="ud-page" aria-label="Previous page" [disabled]="pageIndex() === 1" (click)="goToPage(pageIndex() - 1)"><i class="ri-arrow-left-s-line"></i></button>
@@ -287,7 +268,7 @@
 
         <footer class="ud-dos-foot">
           <button type="button" class="btn btn-primary btn-sm" (click)="openProfile(u)"><span class="ud-t">Full profile</span><i class="ri-arrow-right-line" aria-hidden="true"></i></button>
-          <button type="button" class="btn btn-outline-secondary btn-sm " (click)="openEdit(u)"><i class="ri-pencil-line" aria-hidden="true"></i>&nbsp;&nbsp;<span class="ud-t">Edit</span></button>
+          <button type="button" class="btn btn-outline-secondary btn-sm " (click)="openEdit(u)"><i class="ri-edit-line" aria-hidden="true"></i>&nbsp;&nbsp;<span class="ud-t">Edit</span></button>
           <span class="ud-dos-more">
             @if (canInvite(u)) {
               <button type="button" class="ud-act MailSend" title="Send invitation" aria-label="Send invitation" (click)="openInvite(u)"><i class="ri-mail-send-line"></i></button>
@@ -299,7 +280,7 @@
               <button type="button" class="ud-act Reactivate" title="Reactivate" aria-label="Reactivate" (click)="openReactivate(u)"><i class="ri-play-circle-line"></i></button>
             }
             @if (u.status !== 'deactivated') {
-              <button type="button" class="ud-act Delete" title="Delete" aria-label="Delete" (click)="openDelete(u)"><i class="ri-delete-bin-6-line"></i></button>
+              <button type="button" class="ud-act Delete" title="Delete" aria-label="Delete" (click)="openDelete(u)"><i class="ri-delete-bin-line"></i></button>
             }
           </span>
         </footer>
@@ -436,7 +417,7 @@
           </button>
           <span class="flex-grow-1"></span>
           <button type="button" class="dir-btn dir-btn-line" (click)="openEdit(selected()!)">
-            <i class="ri-pencil-line"></i> Edit
+            <i class="ri-edit-line"></i> Edit
           </button>
           <button type="button" class="dir-btn dir-btn-primary" (click)="openProfile(selected()!)">
             Full profile <i class="ri-arrow-right-line"></i>
@@ -449,7 +430,7 @@
     @if (dialog() === 'edit') {
       <div class="dir-sheet-hero">
         <div class="dir-sheet-bar">
-          <span class="dir-sheet-eyebrow"><i class="ri-pencil-line"></i> Edit profile</span>
+          <span class="dir-sheet-eyebrow"><i class="ri-edit-line"></i> Edit profile</span>
           <button type="button" class="dir-sheet-x" aria-label="Close" (click)="closeDialog()">
             <i class="ri-close-line"></i>
           </button>
@@ -680,7 +661,7 @@
           }
           @case ('delete') {
             @if (isHardDelete()) {
-              <li><i class="ri-delete-bin-6-line"></i>The draft was never invited, so it is erased completely.</li>
+              <li><i class="ri-delete-bin-line"></i>The draft was never invited, so it is erased completely.</li>
               <li><i class="ri-error-warning-line"></i>This cannot be undone.</li>
             } @else if (isPendingInvite(selected()!)) {
               <li><i class="ri-link-unlink"></i>The invitation is withdrawn and the link stops working.</li>
@@ -749,7 +730,7 @@
         }
         @case ('delete') {
           <button type="button" class="dir-btn dir-btn-tone" [disabled]="busy() || !canConfirmDelete()" (click)="confirmDelete()">
-            <i class="ri-delete-bin-6-line"></i>
+            <i class="ri-delete-bin-line"></i>
             {{
               busy()
                 ? 'Working…'

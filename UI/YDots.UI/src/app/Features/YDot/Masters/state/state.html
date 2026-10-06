@@ -53,8 +53,8 @@
                     <svg viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"></path><path d="M9 3v15M15 6v15"></path></svg>
                   </span>
                   <div>
-                    <h2>States &amp; Provinces</h2>
-                    <p>{{ scopedCount }} result{{ scopedCount === 1 ? '' : 's' }} in current scope</p>
+                    <h2>Regional Divisions</h2>
+                    <p>{{ scopedCount }} {{ scopedCount === 1 ? "region" : "regions" }} grouped by country</p>
                   </div>
                 </div>
 
@@ -155,7 +155,7 @@
                             </button>
                             @if (s.isActive) {
                               <button type="button" class="gm-icon-btn is-on" title="Deactivate" [attr.aria-label]="'Deactivate ' + s.stateProvinceName" (click)="$event.stopPropagation(); confirmDeactivate(s)">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="16.5" cy="12" r="3"></circle></svg>
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8"></path><path d="M7.05 6.7a8 8 0 1 0 9.9 0"></path></svg>
                               </button>
                             } @else {
                               <button type="button" class="gm-icon-btn is-off" title="Activate" [attr.aria-label]="'Activate ' + s.stateProvinceName" (click)="$event.stopPropagation(); confirmActivate(s)">
@@ -191,15 +191,7 @@
 
               @if (filteredStates.length > 0) {
                 <div class="gm-panel-foot">
-                  <label class="gm-rows" for="pageSizeSelect">
-                    <span>Rows per page</span>
-                    <select id="pageSizeSelect" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
-                      <option value="5">5</option>
-                      <option value="10">10</option>
-                      <option value="25">25</option>
-                      <option value="50">50</option>
-                    </select>
-                  </label>
+                  <app-rows-per-page [value]="pageSize" (changed)="onPageSizeChange($event + '')" />
 
                   <span class="gm-range">Showing <strong>{{ ((currentPage - 1) * pageSize) + 1 }}–{{ pageEndItem }}</strong> of <strong>{{ scopedCount }}</strong></span>
 
@@ -687,7 +679,7 @@ Cancel</button>
             </button>
             <div class="gm-confirm-body">
               <span class="gm-confirm-tile" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="7.5" cy="12" r="3"></circle></svg>
+                <svg viewBox="0 0 24 24"><path d="M12 3.5v8"></path><path d="M7.05 6.7a8 8 0 1 0 9.9 0"></path></svg>
               </span>
               <div class="gm-confirm-text">
                 <h3 id="deactivate-title">Deactivate State / Province</h3>

@@ -11,6 +11,7 @@ import { Router } from '@angular/router';
 import { WorkflowStateService } from '../../../../Service/workflow-state.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /**
  * One Donor List row, as `WorkflowStateService` maps it from `DON /api/v1/donors`
  * (DonorListItem). Contact may arrive masked by the server; `contactMasked` says so.
@@ -70,7 +71,7 @@ const VIEW_KEY = 'ydot.donor-list.view';
 @Component({
   selector: 'app-donor-list',
   standalone: true,
-  imports: [PageHeader, DecimalPipe, NgTemplateOutlet],
+  imports: [RowsPerPage, PageHeader, DecimalPipe, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(document:keydown.escape)': 'onEscape()',
@@ -118,8 +119,8 @@ export class DonorListComponent {
 
   /** ----- Pagination (multiples of 12 so the card grid fills its rows) ----- */
   protected readonly currentPage = signal(1);
-  protected readonly pageSize = signal(12);
-  protected readonly pageSizeOptions = [12, 24, 48];
+  protected readonly pageSize = signal(10);
+  protected readonly pageSizeOptions = [10, 20, 30, 40, 50];
 
   protected readonly followUpOptions = FOLLOW_UP_OPTIONS;
   protected readonly verificationOptions = VERIFICATION_OPTIONS;

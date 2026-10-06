@@ -11,6 +11,7 @@ import { ToastService } from '../../../../Shared/services/toast.service';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { CampaignApiService } from '../../../../Service/campaign-api.service';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /**
  * The sentinel that means "do not filter by owner".
  *
@@ -38,7 +39,7 @@ export const ALL_OWNERS_REFERENCE = 'ALL';
 
 @Component({
   selector: 'app-campaign-register',
-  imports: [CommonModule, FormsModule, ClickOutsideDirective],
+  imports: [RowsPerPage, CommonModule, FormsModule, ClickOutsideDirective],
   templateUrl: './campaign-register.html',
   styleUrl: './campaign-register.css',
 })
@@ -115,7 +116,8 @@ export class CampaignRegisterComponent {
    * rather than leaving it mostly-empty above the pagination footer; a shorter viewport still
    * gets an inner scrollbar for the rest of the current page.
    */
-  protected readonly pageSize = 15;
+  protected readonly pageSize = signal(10);
+  protected setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
   protected readonly currentPage = signal(1);
 
   /** Campaign name or code — scope-aware searchable selector. */
@@ -365,17 +367,17 @@ export class CampaignRegisterComponent {
   protected readonly recordCount = computed(() => this.visibleRecords().length);
 
   // ----- Pagination (footer pager; the register slices the filtered set) -----
-  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.recordCount() / this.pageSize)));
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.recordCount() / this.pageSize())));
   /** Current page clamped to the available page count as filters change. */
   private readonly clampedPage = computed(() => Math.min(this.currentPage(), this.totalPages()));
   protected readonly pagedRecords = computed(() => {
-    const start = (this.clampedPage() - 1) * this.pageSize;
-    return this.visibleRecords().slice(start, start + this.pageSize);
+    const start = (this.clampedPage() - 1) * this.pageSize();
+    return this.visibleRecords().slice(start, start + this.pageSize());
   });
   protected readonly pageStart = computed(() =>
-    this.recordCount() === 0 ? 0 : (this.clampedPage() - 1) * this.pageSize + 1,
+    this.recordCount() === 0 ? 0 : (this.clampedPage() - 1) * this.pageSize() + 1,
   );
-  protected readonly pageEnd = computed(() => Math.min(this.clampedPage() * this.pageSize, this.recordCount()));
+  protected readonly pageEnd = computed(() => Math.min(this.clampedPage() * this.pageSize(), this.recordCount()));
   protected readonly pageNumbers = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i + 1));
 
   protected goToPage(page: number): void {

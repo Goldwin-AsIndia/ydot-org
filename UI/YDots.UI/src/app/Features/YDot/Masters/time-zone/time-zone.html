@@ -52,8 +52,8 @@
                       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
                     </span>
                     <div>
-                      <h2>Time Zones</h2>
-                      <p>{{ totalCount }} result{{ totalCount === 1 ? '' : 's' }} in current scope</p>
+                      <h2>Registry</h2>
+                      <p>{{ totalCount }} UTC {{ totalCount === 1 ? "offset" : "offsets" }} for scheduling</p>
                     </div>
                   </div>
 
@@ -138,7 +138,7 @@
                               </button>
                               @if (t.isActive) {
                                 <button type="button" class="gm-icon-btn is-on" title="Deactivate" aria-label="Deactivate time zone" (click)="$event.stopPropagation(); confirmDeactivate(t)">
-                                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="16.5" cy="12" r="3"></circle></svg>
+                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8"></path><path d="M7.05 6.7a8 8 0 1 0 9.9 0"></path></svg>
                                 </button>
                               } @else {
                                 <button type="button" class="gm-icon-btn is-off" title="Activate" aria-label="Activate time zone" (click)="$event.stopPropagation(); confirmActivate(t)">
@@ -170,15 +170,7 @@
 
                 @if (filteredTimeZones.length) {
                   <div class="gm-panel-foot">
-                    <label class="gm-rows">
-                      <span>Rows per page</span>
-                      <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)" aria-label="Rows per page">
-                        <option value="5">5</option>
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                      </select>
-                    </label>
+                    <app-rows-per-page [value]="pageSize" (changed)="onPageSizeChange($event + '')" />
 
                     <span class="gm-range">Showing <strong>{{ rangeStart }}–{{ rangeEnd }}</strong> of <strong>{{ totalCount }}</strong></span>
 
@@ -519,7 +511,7 @@
             </button>
             <div class="gm-confirm-body">
               <span class="gm-confirm-tile" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="7.5" cy="12" r="3"></circle></svg>
+                <svg viewBox="0 0 24 24"><path d="M12 3.5v8"></path><path d="M7.05 6.7a8 8 0 1 0 9.9 0"></path></svg>
               </span>
               <div class="gm-confirm-text">
                 <h3 id="deactivate-title">Deactivate Time Zone</h3>

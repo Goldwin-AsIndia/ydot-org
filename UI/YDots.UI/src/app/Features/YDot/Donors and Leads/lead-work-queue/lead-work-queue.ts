@@ -17,6 +17,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { debounceTime, Subject, Subscription } from 'rxjs';
 import { DonorApiService } from '../../../../Service/donor-api.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 import {
   DonLookupItem,
   LeadListItem,
@@ -136,7 +137,7 @@ type SavedView = (typeof SAVED_VIEWS)[number];
   selector: 'app-lead-work-queue',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [RowsPerPage, CommonModule, FormsModule, RouterLink],
   templateUrl: './lead-work-queue.html',
   styleUrl: './lead-work-queue.css',
 })
@@ -291,9 +292,9 @@ export class LeadWorkQueueComponent {
   protected readonly showFilters = signal(false);
 
   // Paging. The server pages the queue; these are the page asked for and its size.
-  protected readonly pageSizes = [12, 24, 48, 96] as const;
+  protected readonly pageSizes = [10, 20, 30, 40, 50] as const;
   protected readonly pageIndex = signal(1);
-  protected readonly pageSize = signal(12);
+  protected readonly pageSize = signal(10);
 
   protected readonly leads = signal<readonly LeadItem[]>([]);
   protected readonly totalCount = signal(0);

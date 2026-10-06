@@ -6,6 +6,7 @@ import { IamAdminApiService } from '../../../../Service/iam-admin-api.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { PermissionMatrixResponse } from '../../../../Shared/models/iam-contract.model';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /** One permission with the place it lives. */
 interface PermissionEntry {
   id: string;
@@ -37,7 +38,7 @@ interface PermissionEntry {
 @Component({
   selector: 'app-permission-catalogue',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [RowsPerPage, CommonModule, FormsModule],
   templateUrl: './permission-catalogue.html',
   styleUrl: './permission-catalogue.css',
 })
@@ -45,7 +46,7 @@ export class PermissionCatalogueComponent implements OnInit, OnDestroy {
   private readonly api = inject(IamAdminApiService);
   private readonly destroy$ = new Subject<void>();
 
-  readonly pageSizes = [10, 20, 50];
+  readonly pageSizes = [10, 20, 30, 40, 50];
 
   readonly matrix = signal<PermissionMatrixResponse | null>(null);
   readonly loading = signal(true);

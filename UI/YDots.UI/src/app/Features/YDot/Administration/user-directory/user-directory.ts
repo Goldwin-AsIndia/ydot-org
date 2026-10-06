@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { Observable, Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, shareReplay, takeUntil, tap } from 'rxjs';
 import { ToastService } from '../../../../Shared/services/toast.service';
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 import { UserDirectoryApiService } from '../../../../Service/user-directory-api.service';
 import {
   UserDetail,
@@ -24,7 +25,7 @@ type DirectoryTab = 'all' | 'active' | 'invited' | 'suspended' | 'draft';
 @Component({
   selector: 'app-user-directory',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [RowsPerPage, CommonModule, FormsModule, RouterModule],
   templateUrl: './user-directory.html',
   styleUrl: './user-directory.css',
 })
@@ -45,7 +46,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   // ---- Filters ------------------------------------------------------------------------------
   searchText = '';
-  readonly filter = signal<UserSearchFilter>({ pageIndex: 1, pageSize: 12 });
+  readonly filter = signal<UserSearchFilter>({ pageIndex: 1, pageSize: 10 });
 
   // ---- Dialogs -------------------------------------------------------------------------------
   readonly dialog = signal<DialogKind>('none');
@@ -163,7 +164,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   readonly dropdownQuery = signal('');
 
   /** Multiples of 12 split evenly into 2, 3, 4 and 6 card columns, so the last row is never half empty. */
-  readonly pageSizes = [12, 24, 48, 96];
+  readonly pageSizes = [10, 20, 30, 40, 50];
 
   /** Placeholder cards shown while a page loads. */
   readonly skeletons = [1, 2, 3, 4, 5, 6];
@@ -270,7 +271,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   readonly totalCount = computed(() => this.data()?.users.totalCount ?? 0);
   readonly pageIndex = computed(() => this.data()?.users.page ?? 1);
-  readonly pageSize = computed(() => this.data()?.users.pageSize ?? 12);
+  readonly pageSize = computed(() => this.data()?.users.pageSize ?? 10);
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize())));
 
   /** First row number on this page — "Showing 11–20 of 42". */
@@ -351,7 +352,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     switch (this.dialog()) {
       case 'suspend': return { tone: 'warning', icon: 'ri-forbid-2-line' };
       case 'reactivate': return { tone: 'success', icon: 'ri-play-circle-line' };
-      case 'delete': return { tone: 'danger', icon: 'ri-delete-bin-6-line' };
+      case 'delete': return { tone: 'danger', icon: 'ri-delete-bin-line' };
       case 'invite': return { tone: 'primary', icon: 'ri-mail-send-line' };
       default: return { tone: 'primary', icon: 'ri-information-line' };
     }

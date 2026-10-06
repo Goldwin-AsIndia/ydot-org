@@ -222,13 +222,7 @@
               @if (uiState() === 'loading') { Loading… }
               @else { Showing <b class="pq-num">{{ rangeStart() | number }}–{{ rangeEnd() | number }}</b> of <b class="pq-num">{{ totalCount() | number }}</b> }
             </span>
-            <!-- <label class="pq-size">
-              <span class="visually-hidden">Leads per page</span>
-              <select [ngModel]="pageSize()" (ngModelChange)="setPageSize(+$event)" [disabled]="uiState() === 'loading'">
-                @for (size of pageSizes; track size) { <option [ngValue]="size">{{ size }} per page</option> }
-              </select>
-              <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
-            </label> -->
+            <app-rows-per-page [value]="pageSize()" (changed)="setPageSize($event)" />
             <nav class="pq-pager" aria-label="Pagination">
               <button type="button" class="pq-page-btn" aria-label="Previous page" title="Previous page" [disabled]="pageIndex() === 1 || uiState() === 'loading'" (click)="goToPage(pageIndex() - 1)"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
               @if (pageNumbers()[0] > 1) {

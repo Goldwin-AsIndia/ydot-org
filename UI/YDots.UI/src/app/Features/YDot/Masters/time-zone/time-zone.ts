@@ -14,6 +14,7 @@ import {
 import { MasterService } from '../master.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /* ============================================================
    Models
    ============================================================ */
@@ -106,7 +107,7 @@ type ViewMode = 'list' | 'form';
 @Component({
   selector: 'app-time-zone',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
   templateUrl: './time-zone.html',
   styleUrls: ['../masters-ui.css', './time-zone.css'],
 })

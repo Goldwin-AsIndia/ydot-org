@@ -261,23 +261,7 @@
           <nav class="ar-pager" aria-label="Access request pagination">
             <div class="ar-pager-left">
               <span class="ar-pager-info">Showing <b>{{ firstVisibleRow() }}–{{ lastVisibleRow() }}</b> of <b>{{ filteredRequests().length }}</b></span>
-              <div class="ar-dd ar-dd--size" [class.is-open]="openDd() === 'pageSize'" (click)="$event.stopPropagation()">
-                <!-- <button type="button" class="ar-dd-trigger" (click)="toggleDd('pageSize')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'pageSize'">
-                  <span class="ar-dd-value">{{ pageSize() }} / page</span>
-                  <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
-                </button> -->
-                @if (openDd() === 'pageSize') {
-                  <div class="ar-dd-menu ar-dd-menu--up" role="listbox" aria-label="Rows per page">
-                    @for (size of pageSizeOptions; track size) {
-                      <button type="button" class="ar-dd-opt" role="option" [class.is-on]="pageSize() === size"
-                              [attr.aria-selected]="pageSize() === size" (click)="setPageSize(size)">
-                        <span class="ar-dd-text">{{ size }} / page</span>
-                        @if (pageSize() === size) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
-                      </button>
-                    }
-                  </div>
-                }
-              </div>
+              <app-rows-per-page [value]="pageSize()" (changed)="setPageSize($event)" />
             </div>
             <div class="ar-pages">
               <button type="button" class="ar-page-btn " (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() === 1" aria-label="Previous page">

@@ -231,15 +231,8 @@
             </div>
 
             <footer class="pg-box__foot">
-              <label class="pg-size">
-                <span>Rows per page</span>
-                <select [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange(+$event)" aria-label="Rows per page">
-                  <option [value]="10">10</option>
-                  <option [value]="25">25</option>
-                  <option [value]="50">50</option>
-                </select>
-                <span>of <b>{{ totalCount() }}</b></span>
-              </label>
+              <app-rows-per-page [value]="pageSize()" (changed)="onPageSizeChange($event)" />
+              <span class="pg-size">of <b>{{ totalCount() }}</b></span>
               <nav class="pg-pages" aria-label="Gateway pages">
                 <button type="button" class="pg-page" [disabled]="page() === 1" (click)="goToPage(page() - 1)" aria-label="Previous page">‹</button>
                 @for (p of pageNumbers(); track p) {
@@ -541,7 +534,7 @@
                     }
                     @if (can(d, 'edit')) {
                       <button type="button" class="pg-btn pg-btn--primary" (click)="startEdit(d)">
-                        <i class="ri-pencil-line" aria-hidden="true"></i>Edit gateway
+                        <i class="ri-edit-line" aria-hidden="true"></i>Edit gateway
                       </button>
                     }
                   }
