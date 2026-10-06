@@ -53,6 +53,15 @@ export class LayoutService {
 
     this.desktopQuery?.addEventListener('change', (event) => this.onBreakpointChange(event.matches));
 
+    // Keep every screen laid out as if the menu were folded (see syncContentFit).
+    new MutationObserver(() => this.syncContentFit())
+      .observe(this.htmlElement, { attributes: true, attributeFilter: ['data-sidebar', 'data-layout', 'style'] });
+    window.addEventListener('resize', () => {
+      this.fitWidths = null;
+      this.syncContentFit();
+    });
+    this.syncContentFit();
+
     // Escape closes the drawer. Bound once, here, not per layout instance, so signing out and in again
     // cannot stack listeners.
     document.addEventListener('keydown', (event) => {
@@ -89,6 +98,53 @@ export class LayoutService {
     const next = this.htmlElement.getAttribute('data-sidebar') === 'icon' ? 'default' : 'icon';
     this.setAndSaveAttribute('data-sidebar', next);
     this.updateSimpleBar(this.htmlElement.getAttribute('data-layout') ?? 'vertical');
+  }
+
+  /**
+   * SAME SCREEN WHETHER THE MENU IS OPEN OR FOLDED. Opening the menu takes ~11rem from the content, and every
+   * screen then reflowed into its narrow layout (side panels dropping below, columns wrapping). Instead, the
+   * content is scaled by (width with the menu open) / (width with it folded): its layout width is then exactly
+   * the folded one, so the design is identical, just smaller. styles.css applies `--shell-fit` as `zoom` to
+   * the routed page. Only the default (open) desktop rail needs it; every other mode gets 1.
+   */
+  private fitWidths: { key: string; open: number; folded: number } | null = null;
+
+  private syncContentFit(): void {
+    const root = this.htmlElement;
+    let fit = 1;
+    if (this.isDesktopState()
+      && root.getAttribute('data-sidebar') === 'default'
+      && root.getAttribute('data-layout') !== 'horizontal') {
+      // Measured once per root font size (the widths are rem based): a probe forces a layout, and this runs on
+      // every menu toggle, which is exactly when the page must not be laid out twice.
+      const rem = root.style.fontSize + '|' + window.innerWidth;
+      if (!this.fitWidths || this.fitWidths.key !== rem) {
+        this.fitWidths = {
+          key: rem,
+          open: this.measureVar('--pe-app-sidebar-width'),
+          folded: this.measureVar('--pe-app-sidebar-sm-width'),
+        };
+      }
+      const { open, folded } = this.fitWidths;
+      const viewport = root.clientWidth;
+      if (open > 0 && folded > 0 && viewport > open) {
+        fit = Math.min(1, (viewport - open) / (viewport - folded));
+      }
+    }
+    const value = fit.toFixed(4);
+    if (root.style.getPropertyValue('--shell-fit') !== value) {
+      root.style.setProperty('--shell-fit', value);
+    }
+  }
+
+  /** Resolves a width custom property (rem based, so it follows the UI scale) to pixels. */
+  private measureVar(name: string): number {
+    const probe = document.createElement('div');
+    probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;width:var(${name})`;
+    document.body.appendChild(probe);
+    const width = probe.getBoundingClientRect().width;
+    probe.remove();
+    return width;
   }
 
   openMobileMenu(): void {

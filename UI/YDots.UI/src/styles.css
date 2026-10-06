@@ -360,6 +360,31 @@ html[data-sidebar='icon'] .app-wrapper {
   min-height: 0;
 }
 
+/* SAME SCREEN WITH THE MENU OPEN OR FOLDED. LayoutService writes --shell-fit = (content width with the menu open)
+   / (content width folded) on <html> (1 whenever the menu is folded, a drawer, or the layout is horizontal).
+   Zooming the routed page by it gives the page a layout width equal to the folded one, so every screen draws
+   exactly its folded design (panels stay beside each other, nothing wraps) just slightly smaller. The offset
+   margin lives on .app-wrapper itself, so the zoom goes on its children. */
+.app-wrapper > * {
+  zoom: var(--shell-fit, 1);
+}
+
+/* NO LAG WHEN THE MENU OPENS / FOLDS. The theme animates `all` on .app-wrapper (and left / margin / width on the
+   header, footer and rail) for 0.2s, so the page was re-laid-out on every frame of the slide while the zoom
+   above jumps in one step - a stutter on any screen with a lot of content. Everything that moves with the menu
+   now changes in the same single frame, which costs exactly one layout. */
+@media (min-width: 992px) {
+  html:is([data-sidebar='default'], [data-sidebar='icon']) :is(.app-wrapper, .footer, .app-header, .pe-app-sidebar) {
+    transition: none !important;
+  }
+}
+
+/* Pop-ups, modals and drawers are fixed to the screen, not part of the page: undo the zoom so they keep their
+   exact size and position. */
+.app-wrapper > * :is(.yp-backdrop, .yp-frame, .modal, .modal-backdrop, .offcanvas, .offcanvas-backdrop) {
+  zoom: calc(1 / var(--shell-fit, 1));
+}
+
 /* NOTE: .app-footer class rule removed — nothing uses class="app-footer";
    the component renders as <app-footer> wrapping <footer class="footer"> */
 .footer{
