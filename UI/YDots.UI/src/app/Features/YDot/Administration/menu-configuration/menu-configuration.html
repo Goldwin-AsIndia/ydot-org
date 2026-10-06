@@ -214,7 +214,7 @@
               <div class="mc-actions">
                 <button type="button" class="mc-act Edit" (click)="openEditor(sec.node)"><i class="ri-edit-line" aria-hidden="true"></i><span class="mc-t">Edit</span></button>
                 @if (canManageStructure() && childLevel(sec.node.level)) {
-                  <button type="button" class="mc-act" (click)="openCreator(sec.node)"><i class="ri-add-line" aria-hidden="true"></i><span class="mc-t">Create submenu</span></button>
+                  <button type="button" class="mc-act" (click)="openCreator(sec.node)"><i class="ri-add-line" aria-hidden="true"></i><span class="mc-t">Create</span></button>
                 }
                 <span class="mc-act-pair">
                   <button type="button" class="mc-ib" (click)="move(sec.id, -1)" [disabled]="!canConfigure()" title="Move earlier in the sidebar" aria-label="Move earlier"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
@@ -457,12 +457,12 @@
       @if (mode() === 'organisation') {
         <button type="button" class="btn btn-secondary btn-sm" (click)="cancelConfiguration()" [disabled]="saving()">Discard</button>
         <button type="button" class="btn btn-primary btn-sm" (click)="saveConfiguration()" [disabled]="saving() || !canConfigure()">
-          @if (saving()) { <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i> Saving… } @else { Save changes }
+          @if (saving()) { <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i> Saving… } @else { Save }
         </button>
       } @else {
         <button type="button" class="btn btn-secondary btn-sm" (click)="cancelMapping()" [disabled]="saving()">Discard</button>
         <button type="button" class="btn btn-primary btn-sm" (click)="saveMapping()" [disabled]="saving() || !canMapRoles()">
-          @if (saving()) { <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i> Saving… } @else { Save mapping }
+          @if (saving()) { <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i> Saving… } @else { Save }
         </button>
       }
     </div>
@@ -668,8 +668,8 @@
       <button type="button" class="btn btn-outline-secondary" (click)="closeEditor()">Cancel</button>
       <button type="button" class="btn btn-primary" (click)="applyEditor()" [disabled]="savingNode()">
         @if (savingNode()) { Saving… }
-        @else if (d.kind === 'create') {  Create {{ levelLabel(d.level) | lowercase }} }
-        @else {  Save changes }
+        @else if (d.kind === 'create') {  Create }
+        @else {  Save }
       </button>
     </footer>
   </aside>

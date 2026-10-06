@@ -30,7 +30,7 @@
       <button type="button" class="ph-btn ph-btn--ghost" (click)="exportList()" [disabled]="!canExport">Export</button>
       <button type="button" class="ph-btn ph-btn--primary" (click)="openAddPanel()" [disabled]="!canAdd">
         <span aria-hidden="true">+</span>
-        Add restriction
+        Create
       </button>
     </ng-container>
   </app-page-header>
@@ -113,7 +113,7 @@
       </p>
       <div class="empty-state__actions">
         <button type="button" class="btn btn--ghost" (click)="clearFilters()">Reset filters</button>
-        <button type="button" class="btn btn--primary" (click)="openAddPanel()" *ngIf="canAdd">Create restriction</button>
+        <button type="button" class="btn btn--primary" (click)="openAddPanel()" *ngIf="canAdd">Create</button>
       </div>
     </div>
 
@@ -173,7 +173,7 @@
   <div class="panel-backdrop" *ngIf="panelOpen" (click)="closePanel()" aria-hidden="true"></div>
   <aside class="side-panel" [class.side-panel--open]="panelOpen" role="dialog" aria-modal="true" aria-labelledby="panelTitle" *ngIf="panelOpen">
     <header class="side-panel__header">
-      <h2 id="panelTitle">{{ editingItem ? 'Update restriction' : 'Add restriction' }}</h2>
+      <h2 id="panelTitle">{{ editingItem ? 'Save' : 'Create' }}</h2>
       <button type="button" class="icon-btn" (click)="closePanel()" aria-label="Close panel">×</button>
     </header>
 
@@ -308,7 +308,7 @@
         <div class="form-actions">
           <button type="button" class="btn btn--ghost" (click)="closePanel()">Cancel</button>
           <button type="submit" class="btn btn--primary" [disabled]="submitting">
-            {{ submitting ? 'Saving…' : (editingItem ? 'Save changes' : 'Add restriction') }}
+            {{ submitting ? 'Saving…' : (editingItem ? 'Save' : 'Create') }}
           </button>
         </div>
       </form>
