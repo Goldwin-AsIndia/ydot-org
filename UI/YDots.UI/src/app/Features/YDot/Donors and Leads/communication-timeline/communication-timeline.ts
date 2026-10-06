@@ -16,7 +16,6 @@ import { DonorApiService } from '../../../../Service/donor-api.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { CommunicationTimelineResponse } from '../../../../Shared/models/donor-contract.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 type CommunicationType =
@@ -93,7 +92,7 @@ interface SuggestedAction {
 @Component({
   selector: 'app-communication-timeline',
   standalone: true,
-  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, CommonModule, FormsModule],
   templateUrl: './communication-timeline.html',
   styleUrl: './communication-timeline.css',
 })
