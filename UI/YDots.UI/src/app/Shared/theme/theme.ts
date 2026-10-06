@@ -69,10 +69,13 @@ interface ThemeSettings {
   sidebarBg: string | null;
   profilePhoto: string | null;
   fontsV?: number;
+  /** Text-size baseline: 2 = the panel's 100% is the 116% size (older saves were relative to the old base). */
+  textScaleV?: number;
 }
 
 const STORAGE_KEY = 'app-theme-settings';
 const FONTS_VERSION = 3;
+const TEXT_SCALE_VERSION = 2;
 
 /** One size step is 6% of the designed size; -4 is 76%, +6 is 136%. */
 const SIZE_STEP = 0.06;
@@ -101,6 +104,7 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   numberFont: 'Outfit, sans-serif',
   otherFont: 'Outfit, sans-serif',
   textScale: 1,
+  textScaleV: TEXT_SCALE_VERSION,
   sizeSteps: NO_STEPS,
   weightSteps: NO_STEPS,
   lineHeight: 1.6,
@@ -976,7 +980,9 @@ export class ThemeComponent implements OnInit {
       if (raw) {
         const saved = JSON.parse(raw);
         this.settings = { ...DEFAULT_SETTINGS, ...saved };
-        this.settings.textScale = Number.isFinite(saved.textScale) ? saved.textScale : 1;
+        // The base size moved up 16% (old 116% is now 100%), so a size saved before that starts again at 100%.
+        this.settings.textScale = saved.textScaleV === TEXT_SCALE_VERSION && Number.isFinite(saved.textScale) ? saved.textScale : 1;
+        this.settings.textScaleV = TEXT_SCALE_VERSION;
         this.settings.sizeSteps = this.cleanSteps(saved.sizeSteps, SIZE_STEP_MIN, SIZE_STEP_MAX);
         this.settings.weightSteps = this.cleanSteps(saved.weightSteps, WEIGHT_STEP_MIN, WEIGHT_STEP_MAX);
         // One-time move to the Outfit type system: drop fonts saved by older builds, keep the menu font.

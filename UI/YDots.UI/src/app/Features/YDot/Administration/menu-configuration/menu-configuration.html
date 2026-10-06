@@ -76,7 +76,7 @@
 
         @if (canManageStructure()) {
           <button type="button" class="btn btn-primary btn-sm" (click)="openCreator(null)">
-            <i class="ri-add-line" aria-hidden="true"></i> Add
+            <i class="ri-add-line" aria-hidden="true"></i> Create
           </button>
         }
       </div>
@@ -214,7 +214,7 @@
               <div class="mc-actions">
                 <button type="button" class="mc-act Edit" (click)="openEditor(sec.node)"><i class="ri-edit-line" aria-hidden="true"></i><span class="mc-t">Edit</span></button>
                 @if (canManageStructure() && childLevel(sec.node.level)) {
-                  <button type="button" class="mc-act" (click)="openCreator(sec.node)"><i class="ri-add-line" aria-hidden="true"></i><span class="mc-t">Add submenu</span></button>
+                  <button type="button" class="mc-act" (click)="openCreator(sec.node)"><i class="ri-add-line" aria-hidden="true"></i><span class="mc-t">Create submenu</span></button>
                 }
                 <span class="mc-act-pair">
                   <button type="button" class="mc-ib" (click)="move(sec.id, -1)" [disabled]="!canConfigure()" title="Move earlier in the sidebar" aria-label="Move earlier"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
@@ -281,7 +281,7 @@
                       <button type="button" class="mc-ib" (click)="move(sub.id, 1)" [disabled]="!canConfigure()" title="Move down" aria-label="Move down"><i class="ri-arrow-down-s-line" aria-hidden="true" style="font-size: 17px !important;"></i></button>
                       @if (canManageStructure() && childLevel(sub.node.level)) {
                         <button type="button" class="mc-ib" (click)="openCreator(sub.node)"
-                                [title]="'Add a ' + levelLabel(childLevel(sub.node.level)) + ' under ' + pendingName(sub.node)" aria-label="Add child item">
+                                [title]="'Create a ' + levelLabel(childLevel(sub.node.level)) + ' under ' + pendingName(sub.node)" aria-label="Create child item">
                           <i class="ri-add-line" aria-hidden="true"  style="font-size: 17px !important;"></i>
                         </button>
                       }
@@ -397,7 +397,7 @@
               <i class="ri-file-list-3-line" aria-hidden="true"></i>
               <span class="mc-t">{{ sec.node.route ? 'A single page — nothing sits under it.' : 'Nothing sits under this menu yet.' }}</span>
               @if (mode() === 'organisation' && canManageStructure() && childLevel(sec.node.level)) {
-                <button type="button" class="mc-btn mc-btn--line mc-btn--sm" (click)="openCreator(sec.node)"><i class="ri-add-line" aria-hidden="true"></i> Add a submenu</button>
+                <button type="button" class="mc-btn mc-btn--line mc-btn--sm" (click)="openCreator(sec.node)"><i class="ri-add-line" aria-hidden="true"></i> Create a submenu</button>
               }
             </div>
           }
@@ -485,7 +485,7 @@
         </span>
         <button type="button" class="mcs-x" aria-label="Close" (click)="closeEditor()"><i class="ri-close-line" aria-hidden="true"></i></button>
       </div>
-      <h3 class="mcs-title" id="mcsTitle">{{ d.kind === 'create' ? 'Add a ' + (levelLabel(d.level) | lowercase) : draftDisplayName() }}</h3>
+      <h3 class="mcs-title" id="mcsTitle">{{ d.kind === 'create' ? 'Create a ' + (levelLabel(d.level) | lowercase) : draftDisplayName() }}</h3>
       <div class="mcs-trail">
         <span class="mc-t">Sidebar</span>
         @if (draftParentName()) { <i class="ri-arrow-right-s-line" aria-hidden="true"></i><span class="mc-t">{{ draftParentName() }}</span> }
@@ -668,7 +668,7 @@
       <button type="button" class="btn btn-outline-secondary" (click)="closeEditor()">Cancel</button>
       <button type="button" class="btn btn-primary" (click)="applyEditor()" [disabled]="savingNode()">
         @if (savingNode()) { Saving… }
-        @else if (d.kind === 'create') {  Add {{ levelLabel(d.level) | lowercase }} }
+        @else if (d.kind === 'create') {  Create {{ levelLabel(d.level) | lowercase }} }
         @else {  Save changes }
       </button>
     </footer>
