@@ -27,8 +27,8 @@
           </label>
 
           @if (canManage()) {
-            <button type="button" class="mc-btn mc-btn--primary" (click)="startCreate()">
-              <i class="ri-add-line" aria-hidden="true"></i><span>Create menu item</span>
+            <button type="button" class="btn btn-primary btn-sm" (click)="startCreate()">
+              <i class="ri-add-line" aria-hidden="true"></i><span>Create</span>
             </button>
           }
         </div>
@@ -150,25 +150,25 @@
 
                 @if (canManage()) {
                   <div class="mc-ins__actions">
-                    <button type="button" class="mc-btn" (click)="startEdit(n)">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="startEdit(n)">
                       <i class="ri-edit-line" aria-hidden="true"></i><span>Edit</span>
                     </button>
                     @if (canHaveChildren(n)) {
-                      <button type="button" class="mc-btn" (click)="startCreate(n)">
-                        <i class="ri-node-tree" aria-hidden="true"></i><span>Create beneath</span>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="startCreate(n)">
+                        <i class="ri-node-tree" aria-hidden="true"></i><span>Add beneath</span>
                       </button>
                     }
                     @if (n.status === 'retired') {
-                      <button type="button" class="mc-btn mc-btn--ok" [disabled]="saving()" (click)="restore(n)" title="Bring it back">
+                      <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="saving()" (click)="restore(n)" title="Bring it back">
                         <i class="ri-arrow-go-back-line" aria-hidden="true"></i><span>Restore</span>
                       </button>
                     } @else if (!n.isMandatory) {
-                      <button type="button" class="mc-btn mc-btn--warn" [disabled]="saving()" (click)="retire(n)" title="Hide it everywhere. Reversible.">
+                      <button type="button" class="btn btn-outline-warning btn-sm" [disabled]="saving()" (click)="retire(n)" title="Hide it everywhere. Reversible.">
                         <i class="ri-archive-line" aria-hidden="true"></i><span>Retire</span>
                       </button>
                     }
                     @if (!n.isMandatory) {
-                      <button type="button" class="mc-btn mc-btn--danger" [disabled]="saving()" (click)="askDelete(n)"
+                      <button type="button" class="btn btn-danger btn-sm" [disabled]="saving()" (click)="askDelete(n)"
                               title="Remove it entirely. Only possible while nothing uses it.">
                         <i class="ri-delete-bin-line" aria-hidden="true"></i><span>Delete</span>
                       </button>
@@ -437,11 +437,11 @@
           @if (validationError()) {
             <span class="yp-error mc-foot-note">{{ validationError() }}</span>
           }
-          <button type="button" class="yp-btn" (click)="closeEditor()">Cancel</button>
-          <button type="button" class="yp-btn yp-btn--primary"
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeEditor()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm"
                   [disabled]="saving() || !!validationError()" (click)="save()">
-            @if (saving()) { <i class="ri-loader-4-line" aria-hidden="true"></i> Saving&hellip; }
-            @else { <i class="ri-save-line" aria-hidden="true"></i> {{ isCreating() ? 'Create in catalogue' : 'Save' }} }
+            @if (saving()) {Saving&hellip; }
+            @else {{{ isCreating() ? 'Add to catalogue' : 'Save' }} }
           </button>
         </ng-container>
       </app-popup>
@@ -465,10 +465,10 @@
           retire it instead, which hides it everywhere and can be undone.
         </p>
         <ng-container popupActions>
-          <button type="button" class="yp-btn" (click)="cancelDelete()">Cancel</button>
-          <button type="button" class="yp-btn yp-btn--danger" [disabled]="saving()" (click)="confirmDelete()">
-            @if (saving()) { <i class="ri-loader-4-line" aria-hidden="true"></i> Removing&hellip; }
-            @else { <i class="ri-delete-bin-line" aria-hidden="true"></i> Remove it }
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDelete()">Cancel</button>
+          <button type="button" class="btn btn-danger btn-sm" [disabled]="saving()" (click)="confirmDelete()">
+            @if (saving()) {  Removing&hellip; }
+            @else { Remove it }
           </button>
         </ng-container>
       </app-popup>
