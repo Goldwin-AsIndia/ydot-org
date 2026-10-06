@@ -12,6 +12,7 @@
    eased. Nothing is left behind - tables, dialogs, charts, third-party widgets, new screens all follow.
 
        invert(1) hue-rotate(180deg)   white -> black, ink -> white, hues unchanged
+       tone (gamma .72)               mid-tones lift: grey text, hairline borders and tinted fills stay visible
        contrast(.8)                   black lifts to a soft graphite (#1a1a1a) and white eases to ~#e6e6e6
        saturate(.8)                   colour is muted: no vibrant tones in dark
 
@@ -22,9 +23,9 @@
    dark one; scrims are therefore painted white-ish below, which the filter turns into a dimming veil.
    ===================================================================================================== */
 html[data-ydot-mode="dark"] {
-  --dk-fwd: invert(1) hue-rotate(180deg) contrast(0.8) saturate(0.8);
-  /* the inverse of --dk-fwd, in reverse order (1/.8 = 1.25 for both) */
-  --dk-inv: saturate(1.25) contrast(1.25) hue-rotate(180deg) invert(1);
+  --dk-fwd: invert(1) hue-rotate(180deg) url(#ydot-dk-tone) contrast(0.8) saturate(0.8);
+  /* the inverse of --dk-fwd, in reverse order (1/.8 = 1.25; the tone curve is undone by its inverse, gamma 1/.72 = 1.3889, see index.html) */
+  --dk-inv: saturate(1.25) contrast(1.25) url(#ydot-dk-untone) hue-rotate(180deg) invert(1);
 
   /* The page canvas. It lives on <html>, OUTSIDE the filtered layer below, so it is this exact colour and
      is deliberately deeper than the cards, which the filter lifts to graphite (#1a1a1a) - the usual dark
@@ -42,7 +43,7 @@ html[data-ydot-mode="dark"] {
 html[data-ydot-mode="dark"] body {
   background-color: transparent !important;
 }
-html[data-ydot-mode="dark"] body > :not(script):not(style):not(link):not(noscript) {
+html[data-ydot-mode="dark"] body > :not(script):not(style):not(link):not(noscript):not(svg) {
   filter: var(--dk-fwd);
 }
 
