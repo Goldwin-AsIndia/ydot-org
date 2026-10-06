@@ -18,7 +18,7 @@
         <div class="empty-state-icon"><i class="ri-error-warning-line"></i></div>
         <h5 class="fw-bold">Failed to load</h5>
         <p class="text-muted mb-3">The user details couldn't be retrieved. Try again.</p>
-        <button class="btn btn-primary" (click)="retry()"><i class="ri-refresh-line me-1"></i> Retry</button>
+        <button class="btn btn-primary btn-sm" (click)="retry()"><i class="ri-refresh-line me-1"></i> Retry</button>
       </div>
     }
 
@@ -223,8 +223,8 @@
             <small class="text-muted">This is recorded against your name in the audit trail.</small>
           </div>
           <div class="modal-footer border-top" style="padding-top: calc(18px * var(--ui-scale, 1));">
-            <button class="btn btn-light btn-sm" (click)="closeMfaModal()">Cancel</button>
-            <button class="btn btn-sm" [class.btn-success]="mfaAction() === 'enable'" [class.btn-danger]="mfaAction() === 'disable'" (click)="toggleMfa()" [disabled]="mfaSubmitting()">
+            <button class="btn btn-outline-secondary btn-sm" (click)="closeMfaModal()">Cancel</button>
+            <button class="btn btn-sm" [class.btn-primary]="mfaAction() === 'enable'" [class.btn-danger]="mfaAction() === 'disable'" (click)="toggleMfa()" [disabled]="mfaSubmitting()">
               @if (mfaSubmitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
               <i class="ri-check-line me-1"></i> {{ mfaAction() === 'enable' ? 'Require two-step verification' : 'Reset two-step verification' }}
             </button>
@@ -269,7 +269,7 @@
             }
           </div>
           <div class="modal-footer border-top" style="padding-top: calc(18px * var(--ui-scale, 1));">
-            <button class="btn btn-light btn-sm" (click)="closeForgotPasswordModal()">Close</button>
+            <button class="btn btn-outline-secondary btn-sm" (click)="closeForgotPasswordModal()">Close</button>
             @if (!forgotPasswordSent()) {
               <button class="btn btn-primary btn-sm" (click)="sendForgotPassword()" [disabled]="forgotPasswordSubmitting()">
                 @if (forgotPasswordSubmitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }

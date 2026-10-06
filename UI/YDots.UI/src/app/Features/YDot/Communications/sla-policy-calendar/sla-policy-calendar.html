@@ -36,8 +36,8 @@
         your organisation's approved process.
       </p>
       <div class="no-access__actions">
-        <button class="btn btn-secondary" type="button">Request access</button>
-        <button class="btn btn-primary" type="button" (click)="setScenario('normal')">Return to permitted page</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button">Request access</button>
+        <button class="btn btn-primary btn-sm" type="button" (click)="setScenario('normal')"><i class="ri-arrow-left-line" aria-hidden="true"></i>Return to permitted page</button>
       </div>
     </section>
   } @else {
@@ -54,10 +54,10 @@
         <span meta class="ph-chip">{{ status() }}</span>
         <span meta class="ph-chip">{{ policyReference() }}</span>
         <ng-container actions>
-          <button class="ph-btn ph-btn--ghost" type="button" title="Copy reference" (click)="copyReference()" aria-label="Copy policy reference">Copy reference</button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" title="Copy reference" (click)="copyReference()" aria-label="Copy policy reference">Copy reference</button>
           <!-- Header's single primary action per contract: Version -->
-          <button class="ph-btn ph-btn--primary" type="button" [disabled]="!canOpenVersion()"
-                  (click)="openVersionPanel()" title="com.sla-policy-calendar.version">Version</button>
+          <button class="btn btn-primary btn-sm" type="button" [disabled]="!canOpenVersion()"
+                  (click)="openVersionPanel()" title="com.sla-policy-calendar.version"><i class="ri-git-branch-line" aria-hidden="true"></i>Version</button>
         </ng-container>
       </app-page-header>
     }
@@ -77,8 +77,8 @@
               <div><dt>Owner</dt><dd>{{ o.owner }}</dd></div>
             </dl>
             <div class="outcome__actions">
-              <button class="btn btn-secondary btn-sm" type="button" (click)="retryDependency()">Retry dependency</button>
-              <button class="btn btn-tertiary btn-sm" type="button">Contact support</button>
+              <button class="btn btn-outline-secondary btn-sm" type="button" (click)="retryDependency()"><i class="ri-refresh-line" aria-hidden="true"></i>Retry dependency</button>
+              <button class="btn btn-outline-secondary btn-sm" type="button">Contact support</button>
               <button class="icon-btn outcome__dismiss" type="button" (click)="dismissOutcome()" aria-label="Dismiss">✕</button>
             </div>
           </div>
@@ -95,7 +95,7 @@
               <div><dt>Downstream</dt><dd>{{ o.downstreamStatus }}</dd></div>
             </dl>
             <div class="outcome__actions">
-              <button class="btn btn-secondary btn-sm" type="button">{{ o.nextAction }}</button>
+              <button class="btn btn-outline-secondary btn-sm" type="button">{{ o.nextAction }}</button>
               <button class="icon-btn outcome__dismiss" type="button" (click)="dismissOutcome()" aria-label="Dismiss">✕</button>
             </div>
           </div>
@@ -112,9 +112,9 @@
           <p class="conflict-banner__text">Review the latest version before continuing. Your unsaved changes on this screen are kept below.</p>
         </div>
         <div class="conflict-banner__actions">
-          <button class="btn btn-tertiary btn-sm" type="button">Compare</button>
-          <button class="btn btn-secondary btn-sm" type="button" (click)="reviewLatestVersion()">Review latest</button>
-          <button class="btn btn-primary btn-sm" type="button" (click)="reapplyChanges()">Reapply eligible changes</button>
+          <button class="btn btn-outline-secondary btn-sm" type="button">Compare</button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="reviewLatestVersion()">Review latest</button>
+          <button class="btn btn-primary btn-sm" type="button" (click)="reapplyChanges()"><i class="ri-refresh-line" aria-hidden="true"></i>Reapply eligible changes</button>
         </div>
       </section>
     }
@@ -227,10 +227,10 @@
                 <p class="duplicate-banner__text">{{ dup.name }} — <span class="mono">{{ dup.reference }}</span></p>
               </div>
               <div class="duplicate-banner__actions">
-                <button class="btn btn-tertiary btn-sm" type="button">Link</button>
-                <button class="btn btn-tertiary btn-sm" type="button">Merge</button>
-                <button class="btn btn-secondary btn-sm" type="button">Change value</button>
-                <button class="btn btn-tertiary btn-sm" type="button">Request review</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button">Link</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button">Merge</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button">Change value</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button">Request review</button>
               </div>
             </section>
           }
@@ -537,7 +537,7 @@
                   <p class="version-list__meta">{{ v.date }} · {{ v.actor }}</p>
                 </div>
                 @if (v.version !== version()) {
-                  <button class="btn btn-tertiary btn-sm" type="button" (click)="applyVersion(v.version)">Switch to this</button>
+                  <button class="btn btn-outline-secondary btn-sm" type="button" (click)="applyVersion(v.version)">Switch to this</button>
                 } @else {
                   <span class="muted">Current</span>
                 }
@@ -567,7 +567,7 @@
             <div class="test-result test-result--failed">
               <p class="test-result__title">Simulation could not complete</p>
               <p class="field__hint">The routing simulation dependency was unavailable. No configuration was changed.</p>
-              <button class="btn btn-secondary btn-sm" type="button" (click)="retryDependency()">Retry</button>
+              <button class="btn btn-outline-secondary btn-sm" type="button" (click)="retryDependency()"><i class="ri-refresh-line" aria-hidden="true"></i>Retry</button>
             </div>
           } @else {
             <div class="test-result test-result--passed">
@@ -616,8 +616,8 @@
         </div>
 
         <div class="modal__actions">
-          <button class="btn btn-tertiary" type="button" (click)="closePublishDialog()">Cancel</button>
-          <button class="btn btn-primary" type="button" [disabled]="publishConfirmText().trim().toUpperCase() !== 'PUBLISH' || isBusy()" (click)="confirmPublish()">
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="closePublishDialog()">Cancel</button>
+          <button class="btn btn-primary btn-sm" type="button" [disabled]="publishConfirmText().trim().toUpperCase() !== 'PUBLISH' || isBusy()" (click)="confirmPublish()">
             @if (isBusy()) { Publishing… } @else { Confirm publish }
           </button>
         </div>
@@ -658,8 +658,8 @@
         }
 
         <div class="modal__actions">
-          <button class="btn btn-tertiary" type="button" (click)="closeRetireDialog()">Cancel</button>
-          <button class="btn btn-danger" type="button" [disabled]="!retireReasonCode() || isBusy()" (click)="confirmRetire()">
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="closeRetireDialog()">Cancel</button>
+          <button class="btn btn-danger btn-sm" type="button" [disabled]="!retireReasonCode() || isBusy()" (click)="confirmRetire()">
             @if (isBusy()) { Retiring… } @else { Confirm retire }
           </button>
         </div>

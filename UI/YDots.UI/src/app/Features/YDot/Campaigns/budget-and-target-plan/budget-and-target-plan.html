@@ -544,25 +544,25 @@
         <div class="modal-footer border-top">
           @switch (uiState()) {
             @case ('success') {
-              <button class="btn btn-primary" (click)="closeActionModal()"><i class="ri-check-line me-1"></i> Done</button>
+              <button class="btn btn-primary btn-sm" (click)="closeActionModal()"><i class="ri-check-line me-1"></i> Done</button>
             }
             @case ('duplicate') {
-              <button class="btn btn-light" (click)="closeActionModal()">Cancel</button>
-              <button class="btn btn-primary" (click)="setUiState('ready')">Change a value</button>
+              <button class="btn btn-outline-secondary btn-sm" (click)="closeActionModal()">Cancel</button>
+              <button class="btn btn-primary btn-sm" (click)="setUiState('ready')">Change a value</button>
             }
             @case ('conflict') {
-              <button class="btn btn-light" (click)="closeActionModal()">Cancel</button>
-              <button class="btn btn-primary" (click)="reloadLatest()">Review latest version</button>
+              <button class="btn btn-outline-secondary btn-sm" (click)="closeActionModal()">Cancel</button>
+              <button class="btn btn-primary btn-sm" (click)="reloadLatest()">Review latest version</button>
             }
             @case ('dependency-failure') {
-              <button class="btn btn-light" (click)="closeActionModal()">Close</button>
-              <button class="btn btn-primary" (click)="retryDependency()" [disabled]="actionSubmitting()">
+              <button class="btn btn-outline-secondary btn-sm" (click)="closeActionModal()">Close</button>
+              <button class="btn btn-primary btn-sm" (click)="retryDependency()" [disabled]="actionSubmitting()">
                 @if (actionSubmitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                Retry finance step
+                <i class="ri-refresh-line me-1"></i>Retry finance step
               </button>
             }
             @default {
-              <button class="btn btn-light" (click)="closeActionModal()">Cancel</button>
+              <button class="btn btn-outline-secondary btn-sm" (click)="closeActionModal()">Cancel</button>
               @if (actionMode() === 'allocate' || actionMode() === 'revise') {
                 <button class="btn {{ getActionButtonClass() }}" (click)="saveForm()" [disabled]="actionSubmitting()">
                   @if (actionSubmitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
@@ -570,13 +570,13 @@
                 </button>
               }
               @if (actionMode() === 'submit') {
-                <button class="btn btn-primary" (click)="confirmSubmit()" [disabled]="actionSubmitting()">
+                <button class="btn btn-primary btn-sm" (click)="confirmSubmit()" [disabled]="actionSubmitting()">
                   @if (actionSubmitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
                   <i class="ri-send-plane-line me-1"></i> Submit
                 </button>
               }
               @if (actionMode() === 'approve') {
-                <button class="btn btn-success" (click)="confirmApprove()"
+                <button class="btn btn-primary btn-sm" (click)="confirmApprove()"
                         [disabled]="actionSubmitting() || isSelfApproval() || !approveReason().trim()">
                   @if (actionSubmitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
                   <i class="ri-check-double-line me-1"></i> Approve

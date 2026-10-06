@@ -97,8 +97,8 @@
                     </label>
 
                     @if (searchText || selectedCountryId || selectedStateId || selectedStatus) {
-                      <button type="button" class="gm-btn gm-btn-ghost" (click)="clearFilters()">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearFilters()">
+                        <i class="ri-close-line" aria-hidden="true"></i>
                         Clear
                       </button>
                     }
@@ -148,7 +148,7 @@
                                 </button>
                               } @else {
                                 <button type="button" class="gm-icon-btn is-off" title="Activate" [attr.aria-label]="'Activate ' + c.cityName" (click)="$event.stopPropagation(); confirmActivate(c)">
-                                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6.5" width="18" height="11" rx="5.5"></rect><circle class="fill" cx="7.5" cy="12" r="3"></circle></svg>
+                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8"></path><path d="M7.05 6.7a8 8 0 1 0 9.9 0"></path></svg>
                                 </button>
                               }
                               <button type="button" class="gm-icon-btn is-danger" title="Delete" [attr.aria-label]="'Delete ' + c.cityName" (click)="$event.stopPropagation(); confirmDelete(c)">
@@ -167,14 +167,14 @@
                               @if (cities().length === 0) {
                                 <strong>{{ isLoading() ? 'Loading cities…' : 'No cities yet' }}</strong>
                                 <span>Get started by creating your first city.</span>
-                                <button type="button" class="gm-btn sm gm-btn-primary" (click)="goToCreate()">
-                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                                <button type="button" class="btn btn-primary btn-sm" (click)="goToCreate()">
+                                  <i class="ri-add-line" aria-hidden="true"></i>
                                   Create City
                                 </button>
                               } @else {
                                 <strong>No cities match your filters</strong>
                                 <span>Try adjusting your search or filters.</span>
-                                <button type="button" class="gm-btn sm gm-btn-outline" (click)="clearFilters()">Clear Filters</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearFilters()">Clear Filters</button>
                               }
                             </div>
                           </td>
@@ -312,8 +312,8 @@
                   </div>
                 </div>
                 <div class="gm-confirm-foot">
-                  <button type="button" class="gm-cbtn is-outline" (click)="showActivateModal.set(false)">Cancel</button>
-                  <button type="button" class="gm-cbtn is-success" (click)="activateConfirmed()">Yes, Activate</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="showActivateModal.set(false)">Cancel</button>
+                  <button type="button" class="btn btn-primary btn-sm" (click)="activateConfirmed()">Yes, Activate</button>
                 </div>
               </div>
             </div>
@@ -341,9 +341,9 @@
                   </div>
                 </div>
                 <div class="gm-confirm-foot">
-                  <button type="button" class="gm-cbtn is-outline" (click)="showDeactivateModal.set(false)">{{ !actionsLoading() && !canDeactivate() ? 'Close' : 'Cancel' }}</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="showDeactivateModal.set(false)">{{ !actionsLoading() && !canDeactivate() ? 'Close' : 'Cancel' }}</button>
                   @if (canDeactivate() && !actionsLoading()) {
-                    <button type="button" class="gm-cbtn is-warning" (click)="deactivateConfirmed()">Yes, Deactivate</button>
+                    <button type="button" class="btn btn-primary btn-sm" (click)="deactivateConfirmed()">Yes, Deactivate</button>
                   }
                 </div>
               </div>
@@ -373,9 +373,9 @@
                   </div>
                 </div>
                 <div class="gm-confirm-foot">
-                  <button type="button" class="gm-cbtn is-outline" (click)="showDeleteModal.set(false)">{{ !actionsLoading() && !canDelete() ? 'Close' : 'Cancel' }}</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="showDeleteModal.set(false)">{{ !actionsLoading() && !canDelete() ? 'Close' : 'Cancel' }}</button>
                   @if (canDelete() && !actionsLoading()) {
-                    <button type="button" class="gm-cbtn is-danger" (click)="deleteConfirmed()">Yes, Delete</button>
+                    <button type="button" class="btn btn-danger btn-sm" (click)="deleteConfirmed()">Yes, Delete</button>
                   }
                 </div>
               </div>

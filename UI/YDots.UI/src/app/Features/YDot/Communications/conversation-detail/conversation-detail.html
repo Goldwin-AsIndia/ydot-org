@@ -53,7 +53,7 @@
     <div class="state-icon" aria-hidden="true">⦸</div>
     <h2>You don't have access to this conversation</h2>
     <p>This route is only available to people with the conversation-detail view permission for this record's scope.</p>
-    <button type="button" class="btn btn-primary" (click)="returnToLanding()">Return to unified inbox</button>
+    <button type="button" class="btn btn-primary btn-sm" (click)="returnToLanding()"><i class="ri-inbox-line" aria-hidden="true"></i>Return to unified inbox</button>
   </section>
 
   <!-- ==================== Loading ==================== -->
@@ -91,7 +91,7 @@
         <strong>We could not complete the dependent service step.</strong>
         <p>Your confirmed local result is unchanged. Correlation reference {{ reference }}-DLV.</p>
       </div>
-      <button type="button" class="btn btn-outline" (click)="retryDependency()">Retry delivery step</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="retryDependency()"><i class="ri-refresh-line" aria-hidden="true"></i>Retry delivery step</button>
     </section>
 
     <!-- Duplicate candidate -->
@@ -101,10 +101,10 @@
         <p>A similar open conversation exists for this donor and campaign. Review before continuing.</p>
       </div>
       <div class="banner-actions">
-        <button type="button" class="btn btn-outline" (click)="resolveDuplicate('compare')">Compare</button>
-        <button type="button" class="btn btn-outline" (click)="resolveDuplicate('merge')">Merge</button>
-        <button type="button" class="btn btn-outline" (click)="resolveDuplicate('change')">Change value</button>
-        <button type="button" class="btn btn-text" (click)="resolveDuplicate('cancel')">Cancel</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resolveDuplicate('compare')">Compare</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resolveDuplicate('merge')">Merge</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resolveDuplicate('change')">Change value</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resolveDuplicate('cancel')">Cancel</button>
       </div>
     </section>
 
@@ -115,9 +115,9 @@
         <p>Review the latest version before continuing.</p>
       </div>
       <div class="banner-actions">
-        <button type="button" class="btn btn-outline" (click)="resolveConflict('compare')">Compare</button>
-        <button type="button" class="btn btn-outline" (click)="resolveConflict('reapply')">Reapply eligible changes</button>
-        <button type="button" class="btn btn-text" (click)="resolveConflict('cancel')">Cancel</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resolveConflict('compare')">Compare</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resolveConflict('reapply')">Reapply eligible changes</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resolveConflict('cancel')">Cancel</button>
       </div>
     </section>
 
@@ -206,7 +206,7 @@
           <div class="empty-state" *ngIf="visibleMessages.length === 0">
             <p>No messages match the current scope or filters.</p>
             <p class="muted">This conversation has not been contacted yet, or search is filtering every entry.</p>
-            <button type="button" class="btn btn-text" (click)="searchWithinConversation = ''">Clear search</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="searchWithinConversation = ''">Clear search</button>
           </div>
 
           <ul class="message-list" *ngIf="visibleMessages.length > 0">
@@ -345,8 +345,8 @@
           </div>
 
           <div class="composer-actions" *ngIf="canSend.allowed">
-            <button type="button" class="btn btn-outline" [disabled]="!canAddNote.allowed || !internalNote.trim()" (click)="addNote()">Save</button>
-            <button type="button" class="btn btn-primary" (click)="openReview()">Review &amp; send</button>
+            <button type="button" class="btn btn-primary btn-sm" [disabled]="!canAddNote.allowed || !internalNote.trim()" (click)="addNote()"><i class="ri-save-line" aria-hidden="true"></i>Save</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="openReview()"><i class="ri-send-plane-line" aria-hidden="true"></i>Review &amp; send</button>
           </div>
         </section>
 
@@ -367,8 +367,8 @@
           </dl>
 
           <div class="review-actions">
-            <button type="button" class="btn btn-text" (click)="cancelReview()">Cancel</button>
-            <button type="button" class="btn btn-primary" (click)="confirmSend()">Confirm send</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelReview()">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="confirmSend()"><i class="ri-send-plane-line" aria-hidden="true"></i>Confirm send</button>
           </div>
         </section>
 
@@ -416,8 +416,8 @@
         <textarea id="close-reason-text" rows="2" [(ngModel)]="closeReasonText" name="closeReasonText"></textarea>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-text" (click)="cancelClose()">Cancel</button>
-        <button type="button" class="btn btn-danger" [disabled]="!closeReasonCode" (click)="confirmClose()">Close conversation</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelClose()">Cancel</button>
+        <button type="button" class="btn btn-danger btn-sm" [disabled]="!closeReasonCode" (click)="confirmClose()">Close conversation</button>
       </div>
     </div>
   </div>
@@ -432,8 +432,8 @@
         <textarea id="delete-reason-text" rows="2" [(ngModel)]="deleteReasonText" name="deleteReasonText"></textarea>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-text" (click)="cancelDelete()">Cancel</button>
-        <button type="button" class="btn btn-danger" [disabled]="!deleteReasonText.trim()" (click)="confirmDelete()">Delete draft</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDelete()">Cancel</button>
+        <button type="button" class="btn btn-danger btn-sm" [disabled]="!deleteReasonText.trim()" (click)="confirmDelete()">Delete draft</button>
       </div>
     </div>
   </div>

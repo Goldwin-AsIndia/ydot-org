@@ -618,6 +618,11 @@ svg {
   stroke: none;
 }
 
+.gm-icon-btn i {
+  font-size: calc(17px * var(--ui-scale, 1));
+  line-height: 1;
+}
+
 .gm-icon-btn:hover {
   color: var(--gm-primary-dark);
   background: var(--gm-primary-soft);
@@ -631,7 +636,7 @@ svg {
 }
 
 .gm-icon-btn.is-on:hover {
-  color: #1f7a52;
+  color: #1a6b47;
   background: transparent;
   border-color: transparent;
 }
@@ -1532,8 +1537,8 @@ td.gm-empty-cell {
   box-shadow: none;
   animation: gm-cf-pop 0.22s var(--ov-ease, ease) both;
 }
-.gm-confirm.is-warning { --tone: #a8660d; }
-.gm-confirm.is-success { --tone: var(--ov-accent, var(--theme-primary, #375c4c)); }
+.gm-confirm.is-warning { --tone: var(--gm-warn, #a86a06); }
+.gm-confirm.is-success { --tone: var(--gm-ok, #1f7a52); }
 
 /* Close: a quiet square, centred on the tile. */
 .gm-confirm-close {
@@ -1652,9 +1657,9 @@ td.gm-empty-cell {
   animation: gm-cf-spin 0.7s linear infinite;
 }
 
-/* Footer: tinted, buttons on the right. */
+/* Footer: tinted, buttons on the right. Always shown - a dialog must never lose its actions. */
 .gm-confirm-foot {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
@@ -1662,6 +1667,30 @@ td.gm-empty-cell {
   padding: calc(10px * var(--ui-scale, 1)) var(--ov-pad, calc(20px * var(--ui-scale, 1)));
   border-top: 1px solid var(--ov-line, #e3e8e5);
   background: var(--ov-foot, #f9faf9);
+}
+
+/* Confirm action button takes the dialog's tone so it always renders as a solid, visible chip:
+   GREEN on Activate (is-success), amber WARNING on Deactivate (is-warning), red on Delete (is-danger).
+   Explicit background/border/colour with !important so the global button layer can't wash it out. */
+.gm-confirm .gm-confirm-foot .btn-primary,
+.gm-confirm .gm-confirm-foot .btn-warning,
+.gm-confirm .gm-confirm-foot .btn-danger {
+  background: var(--tone) !important;
+  border: 1px solid var(--tone) !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+.gm-confirm .gm-confirm-foot .btn-primary:hover:not(:disabled),
+.gm-confirm .gm-confirm-foot .btn-warning:hover:not(:disabled),
+.gm-confirm .gm-confirm-foot .btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--tone) 86%, #000000) !important;
+  border-color: color-mix(in srgb, var(--tone) 86%, #000000) !important;
+}
+.gm-confirm .gm-confirm-foot .btn-primary:focus-visible,
+.gm-confirm .gm-confirm-foot .btn-warning:focus-visible,
+.gm-confirm .gm-confirm-foot .btn-danger:focus-visible {
+  outline: 2px solid var(--tone);
+  outline-offset: 2px;
 }
 
 .gm-cbtn {

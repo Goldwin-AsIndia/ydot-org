@@ -586,3 +586,98 @@
     background: #f3f4f3 !important;
   }
 }
+
+/* =====================================================================================================
+   HORIZONTAL MENU SLIDER (2026-10-06)
+
+   THE BUG. With many top-level items the row ran past the space left for the header's buttons, so the
+   last items ("Hope Foundation") slid under the notification bell and avatar.
+
+   THE FIX. The row now slides. The nav is clipped to its own width, but ONLY the bar strip: a plain
+   overflow:hidden (or a scroll box) would also have cut off every drop-down, because overflow-x and
+   overflow-y cannot differ. The clip-path below is a "T" shape - the bar row clipped to the nav's width,
+   everything below the bar open across the whole screen - so drop-downs and their flyouts still show.
+
+   The row is moved with a transform from --hz-shift, which the component sets (arrows, mouse wheel,
+   keyboard focus, and auto-reveal of the active item after navigation). The arrows only appear while
+   the row actually overflows. Desktop only; the phone drawer is unchanged.
+   ===================================================================================================== */
+
+/* Never visible outside the horizontal desktop bar. */
+.hz-slide {
+  display: none;
+}
+
+@media (min-width: 992px) {
+  [data-layout='horizontal'] .pe-app-sidebar .pe-app-sidebar-menu {
+    clip-path: polygon(
+      0 0,
+      100% 0,
+      100% calc(100% + 2px),
+      calc(100% + 100vw) calc(100% + 2px),
+      calc(100% + 100vw) calc(100% + 100vh),
+      -100vw calc(100% + 100vh),
+      -100vw calc(100% + 2px),
+      0 calc(100% + 2px)
+    );
+  }
+
+  /* The row is as wide as its items (so it can be measured), and slides by --hz-shift. */
+  [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu {
+    position: relative;               /* items measure their offsetLeft from the row */
+    flex: none;
+    width: max-content;
+    transform: translateX(calc(-1 * var(--hz-shift, 0px)));
+    transition: transform 0.28s ease;
+    will-change: transform;
+  }
+
+  [dir='rtl'][data-layout='horizontal'] .pe-app-sidebar .pe-main-menu {
+    transform: translateX(var(--hz-shift, 0px));
+  }
+
+  /* ---- The arrows: flat, hairline, the same height as a bar item ---- */
+  [data-layout='horizontal'] .pe-app-sidebar .hz-slide.is-on {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: calc(32px * var(--ui-scale, 1));
+    height: calc(32px * var(--ui-scale, 1));
+    margin-inline: calc(4px * var(--ui-scale, 1));
+    padding: 0;
+    border: 1px solid var(--theme-border, var(--pe-border-color, #e3e6e4));
+    border-radius: calc(8px * var(--ui-scale, 1));
+    background: var(--pe-secondary-bg, #fff);
+    color: var(--hz-ink, #1d2a24);
+    box-shadow: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  }
+
+  [data-layout='horizontal'] .pe-app-sidebar .hz-slide.is-on i {
+    font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+    line-height: 1;
+  }
+
+  [data-layout='horizontal'] .pe-app-sidebar .hz-slide.is-on:hover:not(:disabled) {
+    background: var(--hz-tint, color-mix(in srgb, var(--primary, #2c4a3d) 8%, transparent));
+    border-color: color-mix(in srgb, var(--hz-accent, var(--primary, #2c4a3d)) 30%, var(--theme-border, #e3e6e4));
+    color: var(--hz-accent, var(--primary, #2c4a3d));
+  }
+
+  [data-layout='horizontal'] .pe-app-sidebar .hz-slide.is-on:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  /* In RTL the row slides the other way, so the arrows swap their glyphs. */
+  [dir='rtl'][data-layout='horizontal'] .pe-app-sidebar .hz-slide.is-on i {
+    transform: scaleX(-1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-layout='horizontal'] .pe-app-sidebar .pe-main-menu {
+      transition: none;
+    }
+  }
+}

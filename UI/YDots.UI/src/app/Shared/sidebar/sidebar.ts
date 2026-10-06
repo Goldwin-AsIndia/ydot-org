@@ -1,5 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, computed, inject } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  OnDestroy,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { filter, map, Subject, takeUntil } from 'rxjs';
@@ -97,8 +107,14 @@ export class SidebarComponent implements OnDestroy {
   private readonly tokens = inject(AuthTokenService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly destroy$ = new Subject<void>();
+
+  constructor() {
+    // The horizontal slider measures real DOM, so it starts once the view exists (browser only).
+    afterNextRender(() => this.initHzSlider());
+  }
 
   /**
    * Folded rail: a group's flyout is placed beside its own icon. It drops down from the icon when it fits
@@ -339,6 +355,126 @@ export class SidebarComponent implements OnDestroy {
 
   trackByCode(_index: number, node: MenuNode): string {
     return node.code ?? node.id ?? String(_index);
+  }
+
+  // ---- Horizontal layout: slide the top-level row when it is wider than the bar -----------
+  //
+  // THE BUG. With many top-level items the horizontal bar ran past the space left for the header's
+  // buttons, and the last items slid under the bell and the avatar. The row now slides instead:
+  // CSS clips the bar strip to the nav's width (drop-downs stay unclipped) and moves the row by
+  // `--hz-shift`; this code decides that shift. Arrows appear only while the row overflows.
+
+  private readonly menuNav = viewChild<ElementRef<HTMLElement>>('menuNav');
+
+  /** How far (px) the row has been slid towards its end. */
+  readonly hzShift = signal(0);
+  /** The furthest it can slide; 0 means everything fits. */
+  readonly hzMax = signal(0);
+
+  readonly hzOverflowing = computed(() => this.hzMax() > 0);
+  readonly hzCanPrev = computed(() => this.hzShift() > 0);
+  readonly hzCanNext = computed(() => this.hzShift() < this.hzMax());
+
+  private initHzSlider(): void {
+    const nav = this.menuNav()?.nativeElement;
+    const list = nav?.querySelector<HTMLElement>('.pe-main-menu');
+    if (!nav || !list) return;
+
+    // Re-measure when the bar resizes, the menu grows (items arrive from the API),
+    // or the layout / direction is switched in Theme Settings.
+    const ro = new ResizeObserver(() => this.measureHz());
+    ro.observe(nav);
+    ro.observe(list);
+
+    const mo = new MutationObserver(() => this.measureHz());
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-layout', 'dir'] });
+
+    // After each navigation, bring the active top-level item into view.
+    const sub = this.router.events
+      .pipe(filter((e) => e instanceof NavigationEnd))
+      .subscribe(() => requestAnimationFrame(() => this.revealActiveHz()));
+
+    this.destroyRef.onDestroy(() => {
+      ro.disconnect();
+      mo.disconnect();
+      sub.unsubscribe();
+    });
+
+    this.measureHz();
+    requestAnimationFrame(() => this.revealActiveHz());
+  }
+
+  private isHorizontalDesktop(): boolean {
+    return document.documentElement.getAttribute('data-layout') === 'horizontal'
+      && window.matchMedia('(min-width: 992px)').matches;
+  }
+
+  private measureHz(): void {
+    const nav = this.menuNav()?.nativeElement;
+    const list = nav?.querySelector<HTMLElement>('.pe-main-menu');
+
+    if (!nav || !list || !this.isHorizontalDesktop()) {
+      this.hzMax.set(0);
+      this.hzShift.set(0);
+      return;
+    }
+
+    const overflow = Math.ceil(list.scrollWidth - nav.clientWidth);
+    const max = overflow > 2 ? overflow : 0; // ignore sub-pixel rounding
+    this.hzMax.set(max);
+    this.hzShift.update((s) => Math.min(s, max));
+  }
+
+  private setHzShift(value: number): void {
+    this.hzShift.set(Math.round(Math.min(this.hzMax(), Math.max(0, value))));
+  }
+
+  /** Arrow buttons: slide by most of a bar's width, so one item stays in view for context. */
+  slideHz(direction: 1 | -1): void {
+    const nav = this.menuNav()?.nativeElement;
+    if (!nav) return;
+    this.setHzShift(this.hzShift() + direction * nav.clientWidth * 0.7);
+  }
+
+  /** Mouse wheel / trackpad over the bar slides it sideways. */
+  onHzWheel(event: WheelEvent): void {
+    if (!this.hzOverflowing()) return;
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    if (!delta) return;
+    event.preventDefault();
+    this.setHzShift(this.hzShift() + delta);
+  }
+
+  /** Tabbing onto a hidden item slides it into view. */
+  onHzFocus(event: FocusEvent): void {
+    if (!this.hzOverflowing()) return;
+    const li = (event.target as HTMLElement | null)?.closest<HTMLElement>('.pe-main-menu > li');
+    if (li) this.revealHzItem(li);
+  }
+
+  private revealActiveHz(): void {
+    this.measureHz();
+    if (!this.hzOverflowing()) return;
+    const nav = this.menuNav()?.nativeElement;
+    const li = nav?.querySelector<HTMLElement>('.pe-main-menu > .pe-slide.active');
+    if (li) this.revealHzItem(li);
+  }
+
+  private revealHzItem(li: HTMLElement): void {
+    const nav = this.menuNav()?.nativeElement;
+    if (!nav || document.documentElement.getAttribute('dir') === 'rtl') return;
+
+    const pad = 24;
+    const left = li.offsetLeft;
+    const right = left + li.offsetWidth;
+    const shift = this.hzShift();
+    const width = nav.clientWidth;
+
+    if (left < shift) {
+      this.setHzShift(left - pad);
+    } else if (right > shift + width) {
+      this.setHzShift(right - width + pad);
+    }
   }
 
   // ---- Theme panel, unchanged ------------------------------------------------------------

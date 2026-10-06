@@ -25,14 +25,15 @@
           @if (permissions().view) {
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCompare()" [disabled]="!compareAllowed()"
                     [attr.title]="selectedCount() < 2 ? 'Tick at least two campaigns to compare' : null">
-              Compare @if (selectedCount() > 0) { <span class="cr-b__n">{{ selectedCount() }}</span> }
+    <!-- Compare / merge style -->
+<i class="ri-arrow-left-right-line"></i> Compare @if (selectedCount() > 0) { <span class="cr-b__n">{{ selectedCount() }}</span> }
             </button>
           }
           @if (permissions().export) {
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openExportDialog()" [disabled]="!exportAllowed()">Export</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openExportDialog()" [disabled]="!exportAllowed()"><i class="ri-download-2-line"></i> Export</button>
           }
           @if (permissions().create) {
-            <button type="button" class="btn btn-primary btn-sm" (click)="openCreate()" [disabled]="!createAllowed()">New campaign</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="openCreate()" [disabled]="!createAllowed()"><i class="ri ri-add-line"></i>Create</button>
           }
         </div>
       </header>

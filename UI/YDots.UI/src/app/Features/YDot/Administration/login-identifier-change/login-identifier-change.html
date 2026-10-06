@@ -15,7 +15,7 @@
         } @else if (loadError()) {
             <div class="text-center py-5">
                 <p class="text-danger mb-3">Failed to load page data.</p>
-                <button class="btn btn-primary" (click)="retry()">Retry</button>
+                <button class="btn btn-primary btn-sm" (click)="retry()"><i class="ri-refresh-line me-1"></i>Retry</button>
             </div>
         } @else {
             <form [formGroup]="identifierForm">
@@ -178,7 +178,7 @@
                         -->
                         @if (!openRequest()) {
                         <div class="d-flex gap-3 mb-4">
-                            <button type="button" class="btn btn-success px-4" (click)="submitIdentifierChange()" [disabled]="submitting() || loading()">
+                            <button type="button" class="btn btn-primary btn-sm px-4" (click)="submitIdentifierChange()" [disabled]="submitting() || loading()">
                                 @if (submitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
                                 <i class="uil uil-check me-1"></i> Submit Change Request
                             </button>
@@ -213,7 +213,7 @@
                                        [ngModel]="verificationCode()"
                                        (ngModelChange)="verificationCode.set($event)"
                                        [ngModelOptions]="{ standalone: true }">
-                                <button type="button" class="btn btn-primary px-4"
+                                <button type="button" class="btn btn-primary btn-sm px-4"
                                         (click)="sendVerification()" [disabled]="submitting()">
                                     @if (submitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
                                     <i class="uil uil-check-circle me-1"></i> Verify
@@ -224,16 +224,16 @@
 
                         <div class="d-flex gap-3 mb-4 flex-wrap">
                             @if (request.status === 'pendingApproval') {
-                            <button type="button" class="btn btn-success px-4" (click)="decide(true)" [disabled]="submitting()">
+                            <button type="button" class="btn btn-primary btn-sm px-4" (click)="decide(true)" [disabled]="submitting()">
                                 <i class="uil uil-check me-1"></i> Approve
                             </button>
-                            <button type="button" class="btn btn-outline-danger px-4" (click)="decide(false)" [disabled]="submitting()">
+                            <button type="button" class="btn btn-danger btn-sm px-4" (click)="decide(false)" [disabled]="submitting()">
                                 <i class="uil uil-times me-1"></i> Reject
                             </button>
                             }
 
                             @if (request.status === 'approved') {
-                            <button type="button" class="btn btn-success px-4" (click)="applyChange()" [disabled]="submitting()">
+                            <button type="button" class="btn btn-primary btn-sm px-4" (click)="applyChange()" [disabled]="submitting()">
                                 @if (submitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
                                 <i class="uil uil-check-circle me-1"></i> Apply the change
                             </button>
@@ -439,8 +439,8 @@
                 </div>
             </div>
             <div class="modal-modern-footer">
-                <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="submitting()">Cancel</button>
-                <button type="button" class="btn btn-primary" (click)="confirmAndSubmit()" [disabled]="submitting()">
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeModal()" [disabled]="submitting()">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" (click)="confirmAndSubmit()" [disabled]="submitting()">
                     @if (submitting()) {
                         <span class="spinner-border spinner-border-sm me-1" role="status"></span>
                         Submitting...

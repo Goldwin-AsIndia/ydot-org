@@ -110,10 +110,10 @@
   </div>
 
   <footer class="df-foot">
-    <button type="button" class="btn btn-outline-secondary" (click)="cancel()">Cancel</button>
-    <button type="button" class="btn btn-primary" [disabled]="saving() || loading() || notFound()" (click)="save()">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()">Cancel</button>
+    <button type="button" class="btn btn-primary btn-sm" [disabled]="saving() || loading() || notFound()" (click)="save()">
       @if (saving()) { Saving… }
-      @else {  {{ isNew() ? 'Create' : 'Save' }} }
+      @else {  @if (isNew()) { <i class="ri-add-line" aria-hidden="true"></i> Create } @else { <i class="ri-save-line" aria-hidden="true"></i> Save } }
     </button>
   </footer>
 </section>

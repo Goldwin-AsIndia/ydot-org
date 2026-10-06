@@ -35,7 +35,7 @@
         <i class="ph-duotone ph-whatsapp-logo" aria-hidden="true"></i>
         <h2 class="cn-h">No numbers to message yet</h2>
         <p class="cn-empty">Numbers appear here once CheckNumber confirms they are on WhatsApp. Upload a list to get started.</p>
-        <a routerLink="/app/whatsapp/check-number" class="cn-btn cn-btn--primary"><i class="ph-duotone ph-upload-simple" aria-hidden="true"></i> Check numbers</a>
+        <a routerLink="/app/whatsapp/check-number" class="btn btn-primary btn-sm"><i class="ph-duotone ph-upload-simple" aria-hidden="true"></i> Check numbers</a>
       </div>
     } @else {
       <div class="wt-compose">
@@ -116,7 +116,7 @@
                 @for (b of blockers(); track b) { <li><i class="ph-duotone ph-circle-dashed" aria-hidden="true"></i>{{ b }}</li> }
               </ul>
             }
-            <button type="button" class="cn-btn cn-btn--primary wt-go" (click)="review()">
+            <button type="button" class="btn btn-primary btn-sm wt-go" (click)="review()">
               <i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i>
               Send to {{ n(selected().size) }} {{ selected().size === 1 ? 'recipient' : 'recipients' }}
             </button>
@@ -240,7 +240,7 @@
           <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
           <input type="search" placeholder="Number or broadcast" [value]="reportQuery()" (input)="reportQuery.set($any($event.target).value)" aria-label="Search the report" />
         </label>
-        <button type="button" class="cn-btn cn-btn--ghost" (click)="exportCsv()" [disabled]="reportRows().length === 0">
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [disabled]="reportRows().length === 0">
           <i class="ph-duotone ph-download-simple" aria-hidden="true"></i> Export CSV
         </button>
       </div>
@@ -251,7 +251,7 @@
           @else { No messages match these filters. }
         </p>
         @if (store.messages().length === 0) {
-          <p class="wt-empty-act"><a routerLink="/app/whatsapp/wati" class="cn-btn cn-btn--primary"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Send a message</a></p>
+          <p class="wt-empty-act"><a routerLink="/app/whatsapp/wati" class="btn btn-primary btn-sm"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Send a message</a></p>
         }
       } @else {
         <div class="wt-tablewrap cn-scroll">
@@ -310,8 +310,8 @@
   </dl>
   <p class="wt-confirm-msg">{{ previewText() }}</p>
   <ng-container popupActions>
-    <button type="button" class="yp-btn yp-btn--ghost" (click)="confirming.set(false)">Go back</button>
-    <button type="button" class="yp-btn yp-btn--primary" (click)="send()">Send now</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="confirming.set(false)">Go back</button>
+    <button type="button" class="btn btn-primary btn-sm" (click)="send()">Send now</button>
   </ng-container>
 </app-popup>
 
@@ -363,6 +363,6 @@
     </div>
   }
   <ng-container popupActions>
-    <button type="button" class="yp-btn yp-btn--ghost" (click)="detailId.set(null)">Close</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="detailId.set(null)">Close</button>
   </ng-container>
 </app-popup>

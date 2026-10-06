@@ -249,16 +249,16 @@
                               </button>
                             }
                             @if (d.canRetire) {
-                              <button class="btn btn-secondary btn-sm" type="button" [disabled]="submitting()" (click)="retireRole(d)">
+                              <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="submitting()" (click)="retireRole(d)">
                                 <i class="ri-archive-line" aria-hidden="true"></i> Retire
                               </button>
                             }
                             @if (!d.isSystemRole) {
-                              <button class="btn btn-secondary btn-sm" type="button" [disabled]="submitting()" (click)="openEditRole(d)">
+                              <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="submitting()" (click)="openEditRole(d)">
                                 <i class="ri-edit-line" aria-hidden="true"></i> Edit
                               </button>
                             }
-                            <button class="btn btn-secondary btn-sm" type="button" [disabled]="submitting()" (click)="cloneRole(d)">
+                            <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="submitting()" (click)="cloneRole(d)">
                               <i class="ri-file-copy-line" aria-hidden="true"></i> Clone
                             </button>
                             @if (selectedItem(); as item) {
@@ -820,9 +820,9 @@
     <footer class="rx-oc__foot">
       <!-- <span class="rx-oc__note"><i class="ri-information-line" aria-hidden="true"></i>Saved as a draft. Nothing is live until it is put into use.</span> -->
       <div class="rx-oc__btns">
-        <button class="btn btn-outline-secondary " type="button" (click)="closeCreateModal()">Cancel</button>
-        <button class="btn btn-primary" type="button" (click)="confirmCreateRole()" [disabled]="submitting()">
-          {{ editingRoleId() ? 'Save' : 'Create' }}
+        <button class="btn btn-outline-secondary btn-sm" type="button" (click)="closeCreateModal()">Cancel</button>
+        <button class="btn btn-primary btn-sm" type="button" (click)="confirmCreateRole()" [disabled]="submitting()">
+          @if (editingRoleId()) { <i class="ri-save-line" aria-hidden="true"></i> Save } @else { <i class="ri-add-line" aria-hidden="true"></i> Create }
         </button>
       </div>
     </footer>

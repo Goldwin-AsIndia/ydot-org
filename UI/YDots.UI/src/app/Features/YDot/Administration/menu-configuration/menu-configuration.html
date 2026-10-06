@@ -455,14 +455,14 @@
         </small>
       </div>
       @if (mode() === 'organisation') {
-        <button type="button" class="btn btn-secondary btn-sm" (click)="cancelConfiguration()" [disabled]="saving()">Discard</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelConfiguration()" [disabled]="saving()">Discard</button>
         <button type="button" class="btn btn-primary btn-sm" (click)="saveConfiguration()" [disabled]="saving() || !canConfigure()">
-          @if (saving()) { <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i> Saving… } @else { Save }
+          @if (saving()) { <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i> Saving… } @else { <i class="ri-save-line" aria-hidden="true"></i> Save }
         </button>
       } @else {
-        <button type="button" class="btn btn-secondary btn-sm" (click)="cancelMapping()" [disabled]="saving()">Discard</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelMapping()" [disabled]="saving()">Discard</button>
         <button type="button" class="btn btn-primary btn-sm" (click)="saveMapping()" [disabled]="saving() || !canMapRoles()">
-          @if (saving()) { <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i> Saving… } @else { Save }
+          @if (saving()) { <i class="ri-loader-4-line mc-spin" aria-hidden="true"></i> Saving… } @else { <i class="ri-save-line" aria-hidden="true"></i> Save }
         </button>
       }
     </div>
@@ -665,11 +665,11 @@
       <span class="mcs-foot-hint">
         @if (d.kind === 'create') { Appears in the sidebar as soon as it is added. } @else { Saved straight away for this organisation. }
       </span>
-      <button type="button" class="btn btn-outline-secondary" (click)="closeEditor()">Cancel</button>
-      <button type="button" class="btn btn-primary" (click)="applyEditor()" [disabled]="savingNode()">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeEditor()">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="applyEditor()" [disabled]="savingNode()">
         @if (savingNode()) { Saving… }
-        @else if (d.kind === 'create') {  Create }
-        @else {  Save }
+        @else if (d.kind === 'create') { <i class="ri-add-line" aria-hidden="true"></i> Create }
+        @else { <i class="ri-save-line" aria-hidden="true"></i> Save }
       </button>
     </footer>
   </aside>

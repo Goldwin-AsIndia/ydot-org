@@ -16,7 +16,20 @@
         <!--end::Brand Image-->
     </div>
 
-    <nav class="pe-app-sidebar-menu nav nav-pills" data-simplebar id="sidebar-simplebar">
+    <!--
+      HORIZONTAL LAYOUT SLIDER. When the top-level items are wider than the bar, the row slides
+      instead of running under the header's buttons. These arrows show only in the horizontal
+      layout on a desktop, and only while the row actually overflows (see measureHz()).
+    -->
+    <button type="button" class="hz-slide hz-slide--prev" aria-label="Show previous menu items"
+            [class.is-on]="hzOverflowing()" [disabled]="!hzCanPrev()" (click)="slideHz(-1)">
+        <i class="ri-arrow-left-s-line"></i>
+    </button>
+
+    <nav #menuNav class="pe-app-sidebar-menu nav nav-pills" data-simplebar id="sidebar-simplebar"
+         [style.--hz-shift]="hzShift() + 'px'"
+         (wheel)="onHzWheel($event)"
+         (focusin)="onHzFocus($event)">
         <div class="d-flex align-items-start flex-column w-100">
             <ul class="pe-main-menu list-unstyled">
 
@@ -177,4 +190,9 @@
             </ul>
         </div>
     </nav>
+
+    <button type="button" class="hz-slide hz-slide--next" aria-label="Show more menu items"
+            [class.is-on]="hzOverflowing()" [disabled]="!hzCanNext()" (click)="slideHz(1)">
+        <i class="ri-arrow-right-s-line"></i>
+    </button>
 </aside>

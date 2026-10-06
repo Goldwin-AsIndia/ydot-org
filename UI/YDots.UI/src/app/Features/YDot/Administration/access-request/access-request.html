@@ -117,7 +117,7 @@
         <div class="ar-state-ico ar-state-ico--danger"><i class="ri-error-warning-line" aria-hidden="true"></i></div>
         <div class="ar-state-title">Failed to load</div>
         <div class="ar-state-sub">The access request queue couldn't be retrieved. Try again.</div>
-        <button type="button" class="ar-btn ar-btn--line" (click)="retry()"><i class="ri-refresh-line" aria-hidden="true"></i> Retry</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="retry()"><i class="ri-refresh-line" aria-hidden="true"></i> Retry</button>
       </div>
     }
 
@@ -486,9 +486,9 @@
       </div>
 
       <footer class="ar-modal-foot">
-        <button type="button" class="btn btn-outline-secondary" (click)="closeNewRequest()">Cancel</button>
-        <button type="button" class="btn btn-primary" (click)="submitNewRequest()" [disabled]="submitting()">
-
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeNewRequest()">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="submitNewRequest()" [disabled]="submitting()">
+          <i class="ri-send-plane-line" aria-hidden="true"></i>
           Submit
         </button>
       </footer>
@@ -518,13 +518,13 @@
     </label>
     @if (decisionError()) { <p class="yp-error">{{ decisionError() }}</p> }
     <ng-container popupActions>
-      <button type="button" class="yp-btn" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">Keep it</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">Keep it</button>
       @if (showReturnModal()) {
-        <button type="button" class="yp-btn yp-btn--primary" (click)="confirmReturn()" [disabled]="submitting()">Confirm return</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="confirmReturn()" [disabled]="submitting()">Confirm return</button>
       } @else if (showCancelModal()) {
-        <button type="button" class="yp-btn yp-btn--primary" (click)="confirmCancel()" [disabled]="submitting()">Confirm cancellation</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="confirmCancel()" [disabled]="submitting()">Confirm cancellation</button>
       } @else {
-        <button type="button" class="yp-btn yp-btn--danger" (click)="confirmDelete()" [disabled]="submitting()">Permanently delete</button>
+        <button type="button" class="btn btn-danger btn-sm" (click)="confirmDelete()" [disabled]="submitting()">Permanently delete</button>
       }
     </ng-container>
   </app-popup>
@@ -552,11 +552,11 @@
     </label>
     @if (decisionError()) { <p class="yp-error">{{ decisionError() }}</p> }
     <ng-container popupActions>
-      <button type="button" class="yp-btn" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()">Cancel</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()">Cancel</button>
       @if (showApproveModal()) {
-        <button type="button" class="yp-btn yp-btn--primary" (click)="confirmApprove()" [disabled]="submitting()">Confirm approval</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="confirmApprove()" [disabled]="submitting()">Confirm approval</button>
       } @else {
-        <button type="button" class="yp-btn yp-btn--danger" (click)="confirmReject()" [disabled]="submitting()">Confirm rejection</button>
+        <button type="button" class="btn btn-danger btn-sm" (click)="confirmReject()" [disabled]="submitting()">Confirm rejection</button>
       }
     </ng-container>
   </app-popup>
@@ -573,7 +573,7 @@
       <div><dt>Next</dt><dd>{{ result.nextAction }}</dd></div>
     </dl>
     <ng-container popupActions>
-      <button type="button" class="yp-btn yp-btn--primary" (click)="closeDecisionResultModal()">Done</button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="closeDecisionResultModal()">Done</button>
     </ng-container>
   </app-popup>
 }

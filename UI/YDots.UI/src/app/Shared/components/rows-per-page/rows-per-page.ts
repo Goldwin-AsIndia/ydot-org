@@ -19,7 +19,7 @@ export const ROWS_PER_PAGE_OPTIONS: readonly number[] = [10, 20, 30, 40, 50];
     </button>
     @if (open()) {
       <div class="rpp-menu" role="listbox" aria-label="Rows per page">
-        <div class="rpp-head">Rows per page</div>
+    
         @for (o of options(); track o) {
           <button type="button" role="option" class="rpp-opt" [class.is-on]="o === value()"
                   [attr.aria-selected]="o === value()" (click)="pick(o)">
@@ -36,8 +36,12 @@ export const ROWS_PER_PAGE_OPTIONS: readonly number[] = [10, 20, 30, 40, 50];
     :host { position: relative; display: inline-flex; align-items: center; font-size: 0.8125rem; }
     button { font: inherit; color: inherit; cursor: pointer; }
     .rpp-trigger {
-      display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 10px 0 12px;
-      border-radius: 999px; background: color-mix(in srgb, currentColor 5%, transparent);
+      display: inline-flex; align-items: center; gap: 7px;
+    height: 42px;
+    width: 100%;
+    padding: 0 7px 0 9px;
+
+      border-radius: 8px; background: color-mix(in srgb, currentColor 5%, transparent);
       border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
       transition: border-color .15s, background .15s, box-shadow .15s;
     }
