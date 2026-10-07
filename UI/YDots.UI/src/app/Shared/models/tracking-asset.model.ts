@@ -8,7 +8,7 @@ export type AssetStatus =
   | 'Active'
 
   /** Live, with a disable request on it awaiting an approver. It still resolves scans. */
-  | 'Disable requested'
+  | 'Submitted for disable'
   | 'Inactive'
   | 'Paused'
   | 'Disabled';
@@ -73,6 +73,10 @@ export interface TrackingAsset {
   readonly trackingReference: string;
   readonly assetType: string;
   readonly channel: string;
+  /** The API ids behind the names above — an edit writes these back. */
+  readonly channelId?: string;
+  readonly sourceId?: string;
+  readonly mediumId?: string;
   readonly destination: string;
   readonly campaignRef: string;
   readonly source: string;

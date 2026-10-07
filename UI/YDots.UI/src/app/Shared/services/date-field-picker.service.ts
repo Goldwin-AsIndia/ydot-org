@@ -117,6 +117,8 @@ export class DateFieldPickerService {
     panel.className = 'ydp';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', 'Choose a date');
+    // A calendar is a tool, not a form pop-up: it closes on pick / outside click, so the pop-up guard must not add an X.
+    panel.setAttribute('data-popup-free', '');
     panel.addEventListener('click', (e) => this.onPanelClick(e));
     panel.addEventListener('mousedown', (e) => {
       // Keep focus in the field (so typing still works), except for the time box.
@@ -158,10 +160,21 @@ export class DateFieldPickerService {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const gap = 6;
-    let top = r.bottom + gap;
-    if (top + h > vh - 8 && r.top - gap - h > 8) top = r.top - gap - h;
-    top = Math.max(8, Math.min(top, vh - h - 8));
+    // ABOVE THE FIELD, so the calendar never covers the date it is editing. Below only when
+    // there is no room above (a field at the very top of the window).
+    let top = r.top - gap - h;
     let left = r.left;
+    if (top < 8) {
+      top = r.bottom + gap;
+      if (top + h > vh - 8) {
+        // No room above or below: sit beside the field rather than over it.
+        top = Math.max(8, Math.min(r.top, vh - h - 8));
+        left = r.right + gap + w <= vw - 8 ? r.right + gap : Math.max(8, r.left - gap - w);
+        panel.style.top = `${Math.round(top)}px`;
+        panel.style.left = `${Math.round(left)}px`;
+        return;
+      }
+    }
     if (left + w > vw - 8) left = Math.max(8, r.right - w);
     panel.style.top = `${Math.round(top)}px`;
     panel.style.left = `${Math.round(left)}px`;

@@ -560,38 +560,40 @@
 /* Five rows tall with an inner scroll for the rest of the page of ten (see pageSize in the component). */
 .tam-table-scroll {
   max-height: calc(calc(64px * var(--ui-scale, 1)) * 5 + calc(46px * var(--ui-scale, 1)));
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   scrollbar-width: thin;
 }
 /* Fixed columns: long references, campaign names and URLs truncate inside their column instead of
    widening the table past its card. The asset column takes whatever the others leave. */
 .tam-table {
   width: 100%;
-  min-width: calc(820px * var(--ui-scale, 1));
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.964) * var(--ui-text-scale, 1)) !important;
 }
-.tam-table .tam-col-type { width: calc(128px * var(--ui-scale, 1)); white-space: nowrap; color: var(--tam-ink-2); }
-.tam-table .tam-col-channel { width: calc(124px * var(--ui-scale, 1)); }
-.tam-table .tam-col-dest { width: 24%; }
-.tam-table .tam-col-status { width: calc(124px * var(--ui-scale, 1)); }
-.tam-table thead .tam-col-num { width: calc(92px * var(--ui-scale, 1)); }
-.tam-table thead .tam-col-actions { width: calc(96px * var(--ui-scale, 1)); }
+.tam-table .tam-col-name { width: 24%; }
+.tam-table .tam-col-type { width: 12%; white-space: nowrap; color: var(--tam-ink-2); }
+.tam-table .tam-col-channel { width: 12%; }
+.tam-table .tam-col-dest { width: 23%; }
+.tam-table .tam-col-status { width: 10%; }
+.tam-table td[data-label="Status"] .tam-badge { white-space: normal; line-height: 1.25; }
+.tam-table thead .tam-col-num { width: 6%; }
+.tam-table thead .tam-col-actions { width: 13%; }
 .tam-table thead th {
   position: sticky;
   top: 0;
   z-index: 2;
   height: calc(46px * var(--ui-scale, 1));
-  padding: 0 calc(16px * var(--ui-scale, 1));
+  padding: 0 calc(10px * var(--ui-scale, 1));
   text-align: left;
   white-space: nowrap;
   vertical-align: middle;
   border-radius: 0 !important;
 }
 .tam-table thead th:first-child { padding-left: calc(24px * var(--ui-scale, 1)); }
-.tam-table thead th:last-child { padding-right: calc(24px * var(--ui-scale, 1)); }
+.tam-table thead th:last-child { padding-right: calc(12px * var(--ui-scale, 1)); }
 .tam-sort-btn {
   display: inline-flex;
   align-items: center;
@@ -608,7 +610,7 @@
 
 .tam-table tbody td {
   height: calc(64px * var(--ui-scale, 1));
-  padding: calc(10px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  padding: calc(10px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
   vertical-align: middle;
   border-bottom: 1px solid var(--tam-line-soft);
   color: var(--tam-ink-2);
@@ -616,7 +618,7 @@
   transition: background-color .15s ease;
 }
 .tam-table tbody td:first-child { padding-left: calc(24px * var(--ui-scale, 1)); }
-.tam-table tbody td:last-child { padding-right: calc(20px * var(--ui-scale, 1)); }
+.tam-table tbody td:last-child { padding-right: calc(12px * var(--ui-scale, 1)); }
 .tam-table tbody tr { cursor: pointer; }
 .tam-table tbody tr:hover td { background: var(--tam-tint-2); }
 .tam-table tbody tr.tam-row-selected td { background: var(--tam-tint); }
@@ -624,8 +626,8 @@
 .tam-table tbody tr.tam-row-compare-picked td { background: color-mix(in srgb, var(--tam-accent) 8%, #ffffff); }
 .tam-table tbody tr:last-child td { border-bottom: 0; }
 
-.tam-col-num { text-align: right !important; }
-.tam-col-actions { text-align: right; }
+.tam-col-num { text-align: left !important; }
+.tam-col-actions { text-align: left; }
 
 /* Asset cell */
 .tam-asset-id { display: flex; align-items: center; gap: calc(12px * var(--ui-scale, 1)); min-width: 0; }
@@ -737,7 +739,7 @@
 }
 
 /* Row actions */
-.tam-inline-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.tam-inline-actions { display: inline-flex; align-items: center; justify-content: flex-start; gap: 2px; }
 .tam-icon-action {
   display: inline-grid;
   place-items: center;
@@ -1614,7 +1616,7 @@
 .tam-make .tam-field-label { font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
 
 /* ---------- asset type: outlined one-line tiles ---------- */
-.tam-type-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(10px * var(--s)); }
+.tam-type-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(10px * var(--s)); }
 .tam-tile {
   position: relative;
   display: flex;
@@ -1845,7 +1847,7 @@
   .tam-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container (max-width: 940px) {
-  .tam-type-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .tam-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container (max-width: 760px) {
   .tam-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2255,3 +2257,30 @@
 @media (prefers-reduced-motion: reduce) {
   .tam-filterbar, .tam-menu, .tam-combo-list { animation: none; }
 }
+
+/* ---- Row action icons: approve / edit / disable sit in the row itself ---- */
+.tam-icon-action--approve { color: var(--tam-good); }
+.tam-icon-action--approve:hover:not(:disabled) { background: color-mix(in srgb, var(--tam-good) 12%, transparent); color: var(--tam-good); }
+.tam-icon-action--danger { color: var(--tam-danger); }
+.tam-icon-action--danger:hover:not(:disabled) { background: var(--tam-danger-soft); color: var(--tam-danger); }
+
+/* The list shows only the start of the link; the whole of it is in the tooltip and the copy button. */
+.tam-dest-url { max-width: 24ch; }
+
+/* What an asset is waiting on, under the off-canvas header. */
+.tam-detail-notice {
+  margin: 0;
+  padding: calc(10px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1));
+  border-bottom: 1px solid var(--tam-line);
+  background: color-mix(in srgb, var(--tam-info) 8%, transparent);
+  color: var(--tam-ink-2);
+  font-size: calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.893);
+}
+.tam-detail-notice--danger { background: var(--tam-danger-soft); color: var(--tam-danger); }
+
+.tam-menu-approve { color: var(--tam-good); }
+.tam-menu-approve:hover:not(:disabled) { background: color-mix(in srgb, var(--tam-good) 12%, transparent); }
+
+/* Actions sits a little to the right of Usage; no other column moves. */
+.tam-table thead th.tam-col-actions,
+.tam-table tbody td.tam-col-actions { padding-left: calc(32px * var(--ui-scale, 1)); }

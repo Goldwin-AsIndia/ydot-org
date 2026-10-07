@@ -337,7 +337,7 @@
               <th scope="col" class="tam-col-dest">Destination / URL</th>
               <th scope="col" class="tam-col-status">Status</th>
               <th scope="col" class="tam-col-num">Usage</th>
-              <th scope="col" class="tam-col-actions"><span class="tam-visually-hidden">Actions</span></th>
+              <th scope="col" class="tam-col-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -379,7 +379,7 @@
                 <!-- Destination + Generated URL or QR (read-only) -->
                 <td class="tam-cell-dest" data-label="Destination / URL">
                   <span class="tam-dest-line" (click)="$event.stopPropagation()">
-                    <span class="tam-dest-url" [attr.title]="r.generatedUrl">{{ r.generatedUrl || '—' }}</span>
+                    <span class="tam-dest-url" [attr.title]="r.generatedUrl">{{ r.generatedUrl ? shortUrl(r.generatedUrl) : '—' }}</span>
                     @if (r.generatedUrl) {
                       <button type="button" class="tam-copy-btn" [class.is-copied]="copiedRowRef() === r.trackingReference"
                               (click)="copyRowUrl(r.trackingReference, r.generatedUrl)"
@@ -401,67 +401,32 @@
 
                 <td class="tam-col-num tam-usage" data-label="Usage">{{ formatUsage(r.usageCount) }}</td>
 
-                <!-- Row actions: view / edit / more -->
+                <!-- Row actions: one 3-dot menu; each option carries its own name -->
                 <td class="tam-col-actions" (click)="$event.stopPropagation()">
-                  <div class="tam-inline-actions" aria-label="Actions">
-                    @if (canEverEdit()) {
-                      <button type="button" class="tam-icon-action" title="Edit asset" aria-label="Edit asset"
-                              (click)="requestEdit(r)" [disabled]="!editAllowed(r)">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 5 5 5M4 20l3.5-.8L19 7.7a2 2 0 0 0-2.7-2.7L4.8 16.5 4 20Z"/></svg>
-                      </button>
+                  <div class="tam-menu-wrap">
+                    <button #tamRowBtn type="button" class="tam-icon-action" (click)="toggleRowMenu(r.trackingReference, tamRowBtn)"
+                            [attr.aria-expanded]="openRowMenu() === r.trackingReference" aria-haspopup="menu"
+                            aria-label="More actions" title="More actions">
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+                    </button>
+                    @if (openRowMenu() === r.trackingReference) {
+                      <div class="tam-menu" role="menu" aria-label="Tracking asset actions"
+                           [class.tam-menu-up]="rowMenuUp()" [ngStyle]="rowMenuStyle()"
+                           appClickOutside [clickOutsideExcept]="tamRowBtn" (appClickOutside)="closeRowMenu()">
+                        @if (pendingApproval(r)) {
+                          <button type="button" class="tam-menu-item tam-menu-approve" role="menuitem"
+                                  [attr.title]="pendingApprovalTip(r)" (click)="closeRowMenu(); onApprove(r)">{{ approveMenuLabel(r) }}</button>
+                        }
+                        @if (canEverEdit()) {
+                          <button type="button" class="tam-menu-item" role="menuitem" (click)="closeRowMenu(); requestEdit(r)"
+                                  [disabled]="!editAllowed(r)" [attr.title]="editAllowed(r) ? null : editDisabledReason(r)">Edit</button>
+                        }
+                        @if (canEverDisableOrRequest()) {
+                          <button type="button" class="tam-menu-item tam-menu-danger" role="menuitem" (click)="closeRowMenu(); onRowDisable(r)"
+                                  [disabled]="!rowDisableEnabled(r)" [attr.title]="rowDisableEnabled(r) ? null : rowDisableTitle(r)">{{ disableMenuLabel() }}</button>
+                        }
+                      </div>
                     }
-                    <div class="tam-menu-wrap">
-                      <button #tamRowBtn type="button" class="tam-icon-action" (click)="toggleRowMenu(r.trackingReference, tamRowBtn)"
-                              [attr.aria-expanded]="openRowMenu() === r.trackingReference" aria-haspopup="menu"
-                              aria-label="More actions" title="More actions">
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
-                      </button>
-                      @if (openRowMenu() === r.trackingReference) {
-                        <div class="tam-menu" role="menu" aria-label="Tracking asset actions"
-                             [class.tam-menu-up]="rowMenuUp()" [ngStyle]="rowMenuStyle()"
-                             appClickOutside [clickOutsideExcept]="tamRowBtn" (appClickOutside)="closeRowMenu()">
-                          <!-- A VERB THIS ROLE DOES NOT HOLD IS NOT RENDERED AT ALL. Every item
-                               below is wrapped in the permission that governs it; what stays
-                               inside `[disabled]` is the record's STATE, which is a "not yet"
-                               worth explaining rather than a "never". -->
-                          <button type="button" class="tam-menu-item" role="menuitem" (click)="selectAsset(r.trackingReference)">Open details</button>
-                          @if (canEverSubmit()) {
-                            <button type="button" class="tam-menu-item" role="menuitem" (click)="requestSubmit(r)"
-                                    [disabled]="!submitAllowed(r)" [title]="submitAllowed(r) ? '' : submitDisabledReason(r)">Submit for approval</button>
-                          }
-                          @if (canEverApprove()) {
-                            <button type="button" class="tam-menu-item" role="menuitem" (click)="requestApprove(r)"
-                                    [disabled]="!approveAllowed(r)" [title]="approveAllowed(r) ? '' : approveDisabledReason(r)">Approve</button>
-                          }
-                          @if (canEverActivate()) {
-                            <button type="button" class="tam-menu-item" role="menuitem" (click)="requestActivate(r)"
-                                    [disabled]="!activateAllowed(r)" [title]="activateAllowed(r) ? '' : activateDisabledReason(r)">Activate</button>
-                          }
-                          @if (canEverEdit()) {
-                            <button type="button" class="tam-menu-item" role="menuitem" (click)="requestEdit(r)"
-                                    [disabled]="!editAllowed(r)" [title]="editAllowed(r) ? '' : editDisabledReason(r)">Edit</button>
-                          }
-                          @if (canEverRequestDisable() || canEverDisable() || canDeleteDraft(r)) {
-                            <div class="tam-menu-divider" role="separator"></div>
-                          }
-                          @if (canEverRequestDisable()) {
-                            <button type="button" class="tam-menu-item tam-menu-danger" role="menuitem" (click)="askForDisable(r)"
-                                    [disabled]="!requestDisableAllowed(r)"
-                                    [title]="requestDisableAllowed(r) ? '' : requestDisableDisabledReason(r)">Request disable</button>
-                          }
-                          @if (canEverDisable()) {
-                            <button type="button" class="tam-menu-item tam-menu-danger" role="menuitem" (click)="requestDisable(r)"
-                                    [disabled]="!disableAllowed(r)" [title]="disableAllowed(r) ? '' : disableDisabledReason(r)">
-                              {{ r.assetStatus === 'Disable requested' ? 'Approve disable' : 'Disable' }}
-                            </button>
-                          }
-                          @if (canDeleteDraft(r)) {
-                            <button type="button" class="tam-menu-item tam-menu-danger" role="menuitem"
-                                    (click)="requestDeleteDraft(r)">Delete unused draft</button>
-                          }
-                        </div>
-                      }
-                    </div>
                   </div>
                 </td>
               </tr>
@@ -512,8 +477,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
       </button>
       <div class="tam-make-name">
-        <span class="tam-make-kicker">Tracking asset manager<span class="tam-make-slash" aria-hidden="true">/</span>New asset</span>
-        <h1 id="tam-make-title" class="tam-make-h">Create tracking asset</h1>
+        <span class="tam-make-kicker">Tracking asset manager<span class="tam-make-slash" aria-hidden="true">/</span>{{ isEditing() ? editingRef() : 'New asset' }}</span>
+        <h1 id="tam-make-title" class="tam-make-h">{{ isEditing() ? 'Edit tracking asset' : 'Create tracking asset' }}</h1>
       </div>
     </header>
 
@@ -527,9 +492,9 @@
                    active from/to from what was chosen for that campaign in the Campaign Wizard -->
               <div class="tam-field tam-c8" [class.tam-field-invalid]="missing('campaign')">
                 <label class="tam-field-label" for="g-campaign">Campaign <span class="tam-req">*</span>
-                  <span class="tam-label-aside">{{ gCampaign() ? campaignOf(gCampaign()).context : 'Fills channel, source &amp; dates' }}</span></label>
+                  <span class="tam-label-aside">{{ gCampaign() ? campaignOf(gCampaign()).context : 'Fills the campaign dates' }}</span></label>
                 <div class="tam-combo" [class.is-open]="openMenu() === 'g-campaign'" appClickOutside (appClickOutside)="onClickOutside('g-campaign')">
-                  <button id="g-campaign" type="button" class="tam-combo-btn" (click)="toggleMenu('g-campaign')"
+                  <button id="g-campaign" type="button" class="tam-combo-btn" (click)="toggleMenu('g-campaign')" [disabled]="isEditing()"
                           role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-campaign'">
                     <span class="tam-combo-value" [class.tam-combo-ph]="!gCampaign()">{{ gCampaign() ? (campaignOf(gCampaign()).name + ' · ' + gCampaign()) : 'Select an eligible campaign in scope…' }}</span>
                     <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -552,27 +517,26 @@
                 @if (missing('campaign')) { <p class="tam-field-hint tam-field-error">Enter Campaign.</p> }
               </div>
 
-              <!-- Channel (required) — auto-filled from the campaign -->
+              <!-- Medium (required) — the channel options; auto-filled from the campaign -->
               <div class="tam-field tam-c4 tam-fill-mid" [class.tam-field-invalid]="missing('channel')">
-                <label class="tam-field-label" for="g-channel">Channel <span class="tam-req">*</span></label>
+                <label class="tam-field-label" for="g-channel">Medium <span class="tam-req">*</span></label>
                 <div class="tam-combo" [class.is-open]="openMenu() === 'g-channel'" appClickOutside (appClickOutside)="onClickOutside('g-channel')">
                   <button id="g-channel" type="button" class="tam-combo-btn" (click)="toggleMenu('g-channel')"
                           role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-channel'">
-                    <span class="tam-combo-value" [class.tam-combo-ph]="!gChannel()">{{ gChannel() ? channelLabel(gChannel()) : 'Select a channel…' }}</span>
+                    <span class="tam-combo-value" [class.tam-combo-ph]="!gChannel()">{{ gChannel() ? channelLabel(gChannel()) : 'Select a medium…' }}</span>
                     <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                   </button>
                   @if (openMenu() === 'g-channel') {
                     <ul class="tam-combo-list" role="listbox">
-                      <li role="option" [attr.aria-selected]="!gChannel()"><button type="button" class="tam-combo-option" [class.is-selected]="!gChannel()" (click)="gChannel.set(''); closeMenu()">Select a channel…</button></li>
+                      <li role="option" [attr.aria-selected]="!gChannel()"><button type="button" class="tam-combo-option" [class.is-selected]="!gChannel()" (click)="gChannel.set(''); closeMenu()">Select a medium…</button></li>
                       @for (c of channelChoices(); track c.ref) {
                         <li role="option" [attr.aria-selected]="gChannel() === c.ref"><button type="button" class="tam-combo-option" [class.is-selected]="gChannel() === c.ref" (click)="gChannel.set(c.ref); closeMenu()">{{ c.label }}</button></li>
                       }
                     </ul>
                   }
                 </div>
-                @if (missing('channel')) { <p class="tam-field-hint tam-field-error">Enter Channel.</p> }
+                @if (missing('channel')) { <p class="tam-field-hint tam-field-error">Enter Medium.</p> }
               </div>
-
 
               <!-- Asset type (required) — one outlined tile per type, so the choice reads at a glance -->
               <div class="tam-field tam-field-span" [class.tam-field-invalid]="missing('assetType')">
@@ -580,7 +544,7 @@
                 <div class="tam-type-grid" role="radiogroup" aria-labelledby="g-assetType">
                   @for (t of assetTypeCatalogue; track t) {
                     <button type="button" class="tam-tile" role="radio" [attr.aria-checked]="gAssetType() === t"
-                            [class.is-selected]="gAssetType() === t" (click)="gAssetType.set(t)">
+                            [class.is-selected]="gAssetType() === t" [disabled]="isEditing()" (click)="selectAssetType(t)">
                       <svg class="tam-tile-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path [attr.d]="assetTypeMeta(t).icon"/></svg>
                       <span class="tam-tile-text">
                         <span class="tam-type-name">{{ t }}</span>
@@ -715,14 +679,15 @@
             <div class="tam-sec-grid">
               <div class="tam-field tam-c6" [class.tam-field-invalid]="missing('activeFrom')">
                 <label class="tam-field-label" for="g-activeFrom">Active from <span class="tam-req">*</span></label>
-                <input id="g-activeFrom" type="date" class="tam-input" [ngModel]="gActiveFrom()" (ngModelChange)="gActiveFrom.set($event)" (click)="openDatePicker($event)" />
+                <input id="g-activeFrom" type="date" class="tam-input" [attr.min]="fromMin()" [attr.max]="fromMax()" [ngModel]="gActiveFrom()" (ngModelChange)="gActiveFrom.set($event)" (click)="openDatePicker($event)" />
                 @if (missing('activeFrom')) { <p class="tam-field-hint tam-field-error">Enter Active from.</p> }
               </div>
 
               <div class="tam-field tam-c6" [class.tam-field-invalid]="missing('activeTo') || gRangeInvalid()">
                 <label class="tam-field-label" for="g-activeTo">Active to <span class="tam-req">*</span></label>
-                <input id="g-activeTo" type="date" class="tam-input" [ngModel]="gActiveTo()" (ngModelChange)="gActiveTo.set($event)" (click)="openDatePicker($event)" />
+                <input id="g-activeTo" type="date" class="tam-input" [attr.min]="toMin()" [attr.max]="toMax()" [ngModel]="gActiveTo()" (ngModelChange)="gActiveTo.set($event)" (click)="openDatePicker($event)" />
                 @if (gRangeInvalid()) { <p class="tam-field-hint tam-field-error">Review Active to. The value does not meet the stated format or range.</p> }
+                @else if (gOutsideCampaign()) { <p class="tam-field-hint tam-field-error">Keep the window inside the campaign dates.</p> }
                 @else if (missing('activeTo')) { <p class="tam-field-hint tam-field-error">Enter Active to.</p> }
               </div>
               <div class="tam-field tam-field-span tam-window" role="status">
@@ -839,74 +804,6 @@
 
         </aside>
 
-        <!-- ---------- 04 Attribution ---------- -->
-        <section class="tam-part tam-part--attr" id="tam-step-4" aria-label="Attribution">
-          <div class="tam-sec-grid">
-              <!-- Source (required) — CHOSEN FROM THE CATALOGUE, NOT TYPED: the API takes a Guid. -->
-              <div class="tam-field tam-c4" [class.tam-field-invalid]="missing('source')">
-                <label class="tam-field-label" for="g-source">Source <span class="tam-req">*</span></label>
-                <div class="tam-combo" [class.is-open]="openMenu() === 'g-source'" appClickOutside (appClickOutside)="onClickOutside('g-source')">
-                  <button id="g-source" type="button" class="tam-combo-btn" (click)="toggleMenu('g-source')"
-                          role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-source'">
-                    <span class="tam-combo-value" [class.tam-combo-ph]="!gSource()">{{ gSource() ? sourceLabel(gSource()) : 'Select a source…' }}</span>
-                    <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                  </button>
-                  @if (openMenu() === 'g-source') {
-                    <ul class="tam-combo-list" role="listbox">
-                      <li role="option" [attr.aria-selected]="!gSource()"><button type="button" class="tam-combo-option" [class.is-selected]="!gSource()" (click)="gSource.set(''); closeMenu()">Select a source…</button></li>
-                      @for (o of sourceChoices(); track o.ref) {
-                        <li role="option" [attr.aria-selected]="gSource() === o.ref"><button type="button" class="tam-combo-option" [class.is-selected]="gSource() === o.ref" (click)="gSource.set(o.ref); closeMenu()">{{ o.label }}</button></li>
-                      }
-                    </ul>
-                  }
-                </div>
-                @if (missing('source')) { <p class="tam-field-hint tam-field-error">Choose a source.</p> }
-              </div>
-
-              <!-- Medium (required) — chosen from the catalogue, for the same reason as Source. -->
-              <div class="tam-field tam-c4" [class.tam-field-invalid]="missing('medium')">
-                <label class="tam-field-label" for="g-medium">Medium <span class="tam-req">*</span></label>
-                <div class="tam-combo" [class.is-open]="openMenu() === 'g-medium'" appClickOutside (appClickOutside)="onClickOutside('g-medium')">
-                  <button id="g-medium" type="button" class="tam-combo-btn" (click)="toggleMenu('g-medium')"
-                          role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'g-medium'">
-                    <span class="tam-combo-value" [class.tam-combo-ph]="!gMedium()">{{ gMedium() ? mediumLabel(gMedium()) : 'Select a medium…' }}</span>
-                    <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                  </button>
-                  @if (openMenu() === 'g-medium') {
-                    <ul class="tam-combo-list" role="listbox">
-                      <li role="option" [attr.aria-selected]="!gMedium()"><button type="button" class="tam-combo-option" [class.is-selected]="!gMedium()" (click)="gMedium.set(''); closeMenu()">Select a medium…</button></li>
-                      @for (o of mediumChoices(); track o.ref) {
-                        <li role="option" [attr.aria-selected]="gMedium() === o.ref"><button type="button" class="tam-combo-option" [class.is-selected]="gMedium() === o.ref" (click)="gMedium.set(o.ref); closeMenu()">{{ o.label }}</button></li>
-                      }
-                    </ul>
-                  }
-                </div>
-                @if (missing('medium')) { <p class="tam-field-hint tam-field-error">Choose a medium.</p> }
-              </div>
-
-              <!-- Content tag (optional) -->
-              <div class="tam-field tam-c4">
-                <label class="tam-field-label" for="g-contentTag">Content tag <span class="tam-label-aside">{{ gContentTag().length }} / {{ gContentTagMax }}</span></label>
-                <input id="g-contentTag" type="text" class="tam-input" [ngModel]="gContentTag()" (ngModelChange)="gContentTag.set($event)"
-                       [attr.maxlength]="gContentTagMax" placeholder="Optional · e.g. may-issue" />
-              </div>
-
-              <!-- Asset status (required) — a segmented control: five fixed states, all visible at once -->
-              <div class="tam-field tam-field-span">
-                <span class="tam-field-label" id="g-status">Asset status <span class="tam-req">*</span>
-                  <span class="tam-label-aside">Draft stays private until submitted</span></span>
-                <div class="tam-seg" role="radiogroup" aria-labelledby="g-status">
-                  @for (st of assetStatusChoices; track st) {
-                    <button type="button" class="tam-seg-btn" role="radio" [attr.aria-checked]="gAssetStatus() === st"
-                            [class.is-selected]="gAssetStatus() === st" (click)="gAssetStatus.set(st)">
-                      <span class="tam-seg-dot" [attr.data-status]="st" aria-hidden="true"></span>{{ st }}
-                    </button>
-                  }
-                </div>
-              </div>
-
-          </div>
-        </section>
       </div>
     </div>
 
@@ -919,10 +816,11 @@
           <span class="tam-req">*</span> Required fields
         }
       </p>
-      <button type="button" class="tam-btn tam-btn-outline" (click)="cancelGenerate()">Cancel</button>
-      <button type="button" class="tam-btn tam-btn-primary" (click)="confirmGenerate()">
-        <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        Create asset
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelGenerate()">Cancel</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="confirmGenerate('Draft')">Draft</button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="confirmGenerate('Submitted')">
+        <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+        Activate
       </button>
     </footer>
   </div>
@@ -957,6 +855,15 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button>
       </header>
+
+      <!-- What the asset is waiting on — and, for an approver, what approving will do. -->
+      @if (pendingApproval(a) === 'activate') {
+        <p class="tam-detail-notice" role="status">Awaiting your approval. Approving activates this asset and issues its tracking link.</p>
+      } @else if (pendingApproval(a) === 'disable') {
+        <p class="tam-detail-notice tam-detail-notice--danger" role="status">A request to disable this asset is awaiting your approval. Approving stops its scans and clicks.</p>
+      } @else if (awaitingNote(a)) {
+        <p class="tam-detail-notice" role="status">{{ awaitingNote(a) }}</p>
+      }
 
       <div class="tam-detail-body">
         <!-- Generated URL or QR — read-only; copy / open preserve the exact stable value -->
@@ -1063,21 +970,14 @@
 
       <!-- Workflow actions on this asset -->
       <footer class="tam-detail-foot">
-        @if (!approveAllowed(a) && approveDisabledReason(a) && canEverApprove()) {
-          <p class="tam-field-hint tam-detail-why">{{ approveDisabledReason(a) }}</p>
-        }
         <div class="tam-detail-actions">
           @if (canEverEdit()) {
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestEdit(a)" [disabled]="!editAllowed(a)" [title]="editAllowed(a) ? '' : editDisabledReason(a)">Edit</button>
           }
-          @if (canEverActivate()) {
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestActivate(a)" [disabled]="!activateAllowed(a)" [title]="activateAllowed(a) ? '' : activateDisabledReason(a)">Activate</button>
-          }
-          @if (canEverApprove()) {
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestApprove(a)" [disabled]="!approveAllowed(a)" [title]="approveAllowed(a) ? '' : approveDisabledReason(a)">Approve</button>
-          }
-          @if (canEverSubmit()) {
-            <button type="button" class="btn btn-primary btn-sm" (click)="requestSubmit(a)" [disabled]="!submitAllowed(a)" [title]="submitAllowed(a) ? '' : submitDisabledReason(a)">Submit for approval</button>
+          @if (pendingApproval(a); as kind) {
+            <button type="button" class="btn btn-primary btn-sm" (click)="onApprove(a)" [title]="pendingApprovalTip(a)">
+              {{ kind === 'disable' ? 'Approve disable' : 'Approve & activate' }}
+            </button>
           }
         </div>
         <!-- Take-down verbs sit apart from the workflow, as quiet red links. -->
@@ -1087,10 +987,8 @@
             @if (canEverRequestDisable()) {
               <button type="button" class="tam-danger-link" (click)="askForDisable(a)" [disabled]="!requestDisableAllowed(a)" [title]="requestDisableAllowed(a) ? '' : requestDisableDisabledReason(a)">Request disable</button>
             }
-            @if (canEverDisable()) {
-              <button type="button" class="tam-danger-link" (click)="requestDisable(a)" [disabled]="!disableAllowed(a)" [title]="disableAllowed(a) ? '' : disableDisabledReason(a)">
-                {{ a.assetStatus === 'Disable requested' ? 'Approve disable' : 'Disable' }}
-              </button>
+            @if (canEverDisable() && a.assetStatus !== 'Submitted for disable') {
+              <button type="button" class="tam-danger-link" (click)="requestDisable(a)" [disabled]="!disableAllowed(a)" [title]="disableAllowed(a) ? '' : disableDisabledReason(a)">Disable</button>
             }
             @if (canDeleteDraft(a)) {
               <button type="button" class="tam-danger-link" (click)="requestDeleteDraft(a)">Delete draft</button>
@@ -1101,43 +999,15 @@
     </aside>
   }
 
-  <!-- ============ SUBMIT DIALOG ============ -->
-  @if (submitDialogOpen() && submitTarget()) {
-    <div class="tam-modal-backdrop">
-      <div class="tam-modal" role="dialog" aria-modal="true" aria-labelledby="tam-submit-title" (click)="$event.stopPropagation()">
-        <header class="ov-head">
-          <p class="tam-modal-kicker">Submit · {{ submitTarget()!.trackingReference }}</p>
-          <h2 id="tam-submit-title" class="tam-modal-title">Submit for approval</h2>
-          <p class="tam-modal-lead">The draft moves to Submitted and opens for independent review. The stable tracking
-            reference and history are preserved.</p>
-          <button type="button" class="tam-modal-x" (click)="cancelSubmit()" aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-          </button>
-        </header>
-        <div class="ov-body">
-        <dl class="tam-kv">
-          <div><dt>Tracking reference</dt><dd>{{ submitTarget()!.trackingReference }}</dd></div>
-          <div><dt>Destination</dt><dd class="tam-break">{{ submitTarget()!.destination }}</dd></div>
-          <div><dt>Status change</dt><dd>{{ submitTarget()!.assetStatus }} → Submitted</dd></div>
-        </dl>
-        </div>
-        <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelSubmit()">Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="confirmSubmit()">Submit for approval</button>
-        </div>
-      </div>
-    </div>
-  }
-
   <!-- ============ APPROVE DIALOG ============ -->
   @if (approveDialogOpen() && approveTarget()) {
     <div class="tam-modal-backdrop">
       <div class="tam-modal" role="dialog" aria-modal="true" aria-labelledby="tam-approve-title" (click)="$event.stopPropagation()">
         <header class="ov-head">
           <p class="tam-modal-kicker">Approval · {{ approveTarget()!.trackingReference }}</p>
-          <h2 id="tam-approve-title" class="tam-modal-title">Approve tracking asset</h2>
-          <p class="tam-modal-lead">This decision records independent authority and moves the asset forward. Review the
-            record, consequence and effective time.</p>
+          <h2 id="tam-approve-title" class="tam-modal-title">Approve and activate asset</h2>
+          <p class="tam-modal-lead">Approving records independent authority and makes the asset Active, issuing its tracking
+            link. Review the record, consequence and effective time.</p>
           <button type="button" class="tam-modal-x" (click)="cancelApprove()" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
           </button>
@@ -1148,7 +1018,7 @@
           <div><dt>Approval change</dt><dd>{{ approveTarget()!.approvalState }} → Approved</dd></div>
           <div><dt>Authority</dt><dd>Authorised independent approver</dd></div>
           <div><dt>Effective version</dt><dd>v-current · {{ lastRefresh() }}</dd></div>
-          <div><dt>Resulting state</dt><dd>Approved · next owner {{ owner }}</dd></div>
+          <div><dt>Resulting state</dt><dd>Active · tracking link issued</dd></div>
         </dl>
         <div class="tam-field">
           <label class="tam-field-label" for="tam-approve-reason">Reason <span class="tam-req">*</span></label>
@@ -1165,36 +1035,6 @@
         <div class="tam-modal-actions">
           <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelApprove()">Cancel</button>
           <button type="button" class="btn btn-primary btn-sm" (click)="confirmApprove()" [disabled]="!approveReasonValid()">Confirm approval</button>
-        </div>
-      </div>
-    </div>
-  }
-
-  <!-- ============ ACTIVATE DIALOG ============ -->
-  @if (activateDialogOpen() && activateTarget()) {
-    <div class="tam-modal-backdrop">
-      <div class="tam-modal" role="dialog" aria-modal="true" aria-labelledby="tam-activate-title" (click)="$event.stopPropagation()">
-        <header class="ov-head">
-          <p class="tam-modal-kicker">Go live · {{ activateTarget()!.trackingReference }}</p>
-          <h2 id="tam-activate-title" class="tam-modal-title">Activate tracking asset</h2>
-          <p class="tam-modal-lead">Once Active it resolves scans and clicks inside its own date window. The tracking
-            reference, generated URL and history are unchanged.</p>
-          <button type="button" class="tam-modal-x" (click)="cancelActivate()" aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-          </button>
-        </header>
-        <div class="ov-body">
-        <dl class="tam-kv">
-          <div><dt>Tracking reference</dt><dd>{{ activateTarget()!.trackingReference }}</dd></div>
-          <div><dt>Destination</dt><dd class="tam-break">{{ activateTarget()!.destination }}</dd></div>
-          <div><dt>Status change</dt><dd>{{ activateTarget()!.assetStatus }} &rarr; Active</dd></div>
-          <div><dt>Live window</dt><dd>{{ formatDate(activateTarget()!.activeFrom) }} &ndash; {{ formatDate(activateTarget()!.activeTo) }}</dd></div>
-          <div><dt>Effective time</dt><dd>{{ lastRefresh() }}</dd></div>
-        </dl>
-        </div>
-        <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelActivate()">Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="confirmActivate()">Activate asset</button>
         </div>
       </div>
     </div>
@@ -1217,7 +1057,7 @@
         <dl class="tam-kv">
           <div><dt>Tracking reference</dt><dd>{{ requestDisableTarget()!.trackingReference }}</dd></div>
           <div><dt>Destination</dt><dd class="tam-break">{{ requestDisableTarget()!.destination }}</dd></div>
-          <div><dt>Status change</dt><dd>{{ requestDisableTarget()!.assetStatus }} &rarr; Disable requested</dd></div>
+          <div><dt>Status change</dt><dd>{{ requestDisableTarget()!.assetStatus }} &rarr; Submitted for disable</dd></div>
           <div><dt>Consequence</dt><dd>None yet &mdash; an approver decides whether the asset comes down</dd></div>
           <div><dt>Effective time</dt><dd>{{ lastRefresh() }}</dd></div>
         </dl>
@@ -1247,7 +1087,7 @@
       <div class="tam-modal tam-modal--danger" role="dialog" aria-modal="true" aria-labelledby="tam-disable-title" (click)="$event.stopPropagation()">
         <header class="ov-head ov-head--danger">
           <p class="tam-modal-kicker">Take down · {{ disableTarget()!.trackingReference }}</p>
-          <h2 id="tam-disable-title" class="tam-modal-title">Disable tracking asset</h2>
+          <h2 id="tam-disable-title" class="tam-modal-title">{{ disableTarget()!.assetStatus === 'Submitted for disable' ? 'Approve disable request' : 'Disable tracking asset' }}</h2>
           <p class="tam-modal-lead">New scans and redirects stop. Linked history is preserved and the tracking reference is retained.</p>
           <button type="button" class="tam-modal-x" (click)="cancelDisable()" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
@@ -1274,89 +1114,7 @@
         </div>
         <div class="tam-modal-actions">
           <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelDisable()">Cancel</button>
-          <button type="button" class="btn btn-danger btn-sm" (click)="confirmDisable()" [disabled]="!disableReasonValid()">Disable asset</button>
-        </div>
-      </div>
-    </div>
-  }
-
-  <!-- ============ EDIT DIALOG (Draft only) ============ -->
-  @if (editDialogOpen() && editTarget()) {
-    <div class="tam-modal-backdrop">
-      <div class="tam-modal tam-modal-wide" role="dialog" aria-modal="true" aria-labelledby="tam-edit-title" (click)="$event.stopPropagation()">
-        <header class="ov-head">
-          <p class="tam-modal-kicker">Edit draft · {{ editTarget()!.trackingReference }}</p>
-          <h2 id="tam-edit-title" class="tam-modal-title">Edit tracking asset</h2>
-          <p class="tam-modal-lead">Editing is available while the asset is a Draft. The stable tracking reference and
-            its linked history are preserved.</p>
-          <button type="button" class="tam-modal-x" (click)="cancelEdit()" aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-          </button>
-        </header>
-        <div class="ov-body">
-        <dl class="tam-kv">
-          <div><dt>Tracking reference</dt><dd>{{ editTarget()!.trackingReference }} <span class="tam-kv-dim">preserved</span></dd></div>
-          <div><dt>Status</dt><dd><span class="tam-badge" [class]="statusClass(editTarget()!.assetStatus)">{{ editTarget()!.assetStatus }}</span></dd></div>
-        </dl>
-
-        <div class="tam-form-grid">
-          <div class="tam-field tam-field-span" [class.tam-field-invalid]="editSubmitted() && !editDestinationValid()">
-            <label class="tam-field-label" for="tam-edit-dest">Destination URL <span class="tam-req">*</span></label>
-            <input id="tam-edit-dest" type="text" class="tam-input" [ngModel]="editDestination()"
-                   (ngModelChange)="editDestination.set($event)" placeholder="Enter the destination URL or path" />
-            @if (editSubmitted() && !editDestinationValid()) { <p class="tam-field-hint tam-field-error">Enter Destination.</p> }
-          </div>
-
-          <div class="tam-field">
-            <label class="tam-field-label" for="tam-edit-channel">Channel</label>
-            <div class="tam-combo" [class.is-open]="openMenu() === 'e-channel'" appClickOutside (appClickOutside)="onClickOutside('e-channel')">
-              <button id="tam-edit-channel" type="button" class="tam-combo-btn" (click)="toggleMenu('e-channel')"
-                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'e-channel'">
-                <span class="tam-combo-value" [class.tam-combo-ph]="!editChannel()">{{ editChannel() || 'Select a channel…' }}</span>
-                <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              @if (openMenu() === 'e-channel') {
-                <ul class="tam-combo-list" role="listbox">
-                  <li role="option" [attr.aria-selected]="!editChannel()"><button type="button" class="tam-combo-option" [class.is-selected]="!editChannel()" (click)="editChannel.set(''); closeMenu()">Select a channel…</button></li>
-                  @for (c of channelCatalogue(); track c) {
-                    <li role="option" [attr.aria-selected]="editChannel() === c"><button type="button" class="tam-combo-option" [class.is-selected]="editChannel() === c" (click)="editChannel.set(c); closeMenu()">{{ c }}</button></li>
-                  }
-                </ul>
-              }
-            </div>
-          </div>
-
-          <div class="tam-field">
-            <label class="tam-field-label" for="tam-edit-content">Content tag</label>
-            <input id="tam-edit-content" type="text" class="tam-input" [ngModel]="editContentTag()" (ngModelChange)="editContentTag.set($event)" [attr.maxlength]="gContentTagMax" placeholder="e.g. may-issue" />
-          </div>
-
-          <div class="tam-field">
-            <label class="tam-field-label" for="tam-edit-source">Source</label>
-            <input id="tam-edit-source" type="text" class="tam-input" [ngModel]="editSource()" (ngModelChange)="editSource.set($event)" placeholder="e.g. newsletter" />
-          </div>
-
-          <div class="tam-field">
-            <label class="tam-field-label" for="tam-edit-medium">Medium</label>
-            <input id="tam-edit-medium" type="text" class="tam-input" [ngModel]="editMedium()" (ngModelChange)="editMedium.set($event)" placeholder="e.g. email" />
-          </div>
-
-          <div class="tam-field">
-            <label class="tam-field-label" for="tam-edit-from">Active from <span class="tam-tz">{{ operatingTimeZone }}</span></label>
-            <input id="tam-edit-from" type="date" class="tam-input" [ngModel]="editActiveFrom()" (ngModelChange)="editActiveFrom.set($event)" (click)="openDatePicker($event)" />
-          </div>
-
-          <div class="tam-field" [class.tam-field-invalid]="editRangeInvalid()">
-            <label class="tam-field-label" for="tam-edit-to">Active to <span class="tam-tz">{{ operatingTimeZone }}</span></label>
-            <input id="tam-edit-to" type="date" class="tam-input" [ngModel]="editActiveTo()" (ngModelChange)="editActiveTo.set($event)" (click)="openDatePicker($event)" />
-            @if (editRangeInvalid()) { <p class="tam-field-hint tam-field-error">Review Active to. The value does not meet the stated format or range.</p> }
-          </div>
-        </div>
-        </div>
-
-        <div class="tam-modal-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEdit()">Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="confirmEdit()">Save</button>
+          <button type="button" class="btn btn-danger btn-sm" (click)="confirmDisable()" [disabled]="!disableReasonValid()">{{ disableTarget()!.assetStatus === 'Submitted for disable' ? 'Approve disable' : 'Disable asset' }}</button>
         </div>
       </div>
     </div>

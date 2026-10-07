@@ -140,8 +140,6 @@ export class TrackingAssetManagerComponent {
   /** Asset type — searchable controlled choice; effective approved catalogue. */
   protected readonly assetTypeCatalogue: readonly string[] = [
     'QR Code',
-    'Short Link',
-    'UTM Link',
     'Landing Page',
   ];
   protected readonly assetTypeFilter = signal<string>('');
@@ -173,9 +171,6 @@ export class TrackingAssetManagerComponent {
       }
     );
   }
-  /** The asset states offered on create, in lifecycle order. */
-  protected readonly assetStatusChoices = ['Draft', 'Submitted', 'Approved', 'Active', 'Inactive'] as const;
-
   /**
    * Channel, source and medium — THE CAM CATALOGUES, BY ID.
    *
@@ -238,7 +233,7 @@ export class TrackingAssetManagerComponent {
 
   /** Asset status — search-select using only current catalogue values. */
   protected readonly statusCatalogue: readonly AssetStatus[] =
-    ['Draft', 'Submitted', 'Approved', 'Active', 'Disable requested', 'Inactive', 'Paused', 'Disabled'];
+    ['Draft', 'Submitted', 'Approved', 'Active', 'Submitted for disable', 'Inactive', 'Paused', 'Disabled'];
   protected readonly statusFilter = signal<AssetStatus | ''>('');
 
   /** Active from / Active to — date range in the operating time zone. */
@@ -496,10 +491,7 @@ export class TrackingAssetManagerComponent {
    */
   protected readonly anyWorkflowDialogOpen = computed(
     () =>
-      this.submitDialogOpen() ||
       this.approveDialogOpen() ||
-      this.activateDialogOpen() ||
-      this.editDialogOpen() ||
       this.requestDisableDialogOpen() ||
       this.disableDialogOpen() ||
       this.deleteDialogOpen() ||
@@ -515,9 +507,9 @@ export class TrackingAssetManagerComponent {
    *  you opened it" if a workflow action is then attempted on the same still-open panel. */
   protected readonly selectedSnapshotVersion = signal<number | null>(null);
   protected selectAsset(ref: string): void {
+    this.closeRowMenu();
     this.selectedRef.set(ref);
     this.selectedSnapshotVersion.set(this.store.get(ref)?.version ?? null);
-    this.closeRowMenu();
   }
   /** True when a workflow action targets the currently-open asset and it has changed since it was opened. */
   private isStaleSinceOpened(asset: TrackingAsset): boolean {
@@ -812,29 +804,16 @@ export class TrackingAssetManagerComponent {
     this.permissions().generate
       ? ''
       : 'Creating a tracking asset needs the cam.tracking-assets.create permission.');
-  /** Submit — a Draft asset is submitted for approval (moves Draft → Submitted). */
-  protected submitAllowed(asset: TrackingAsset | null): boolean {
-    return !!asset && asset.assetStatus === 'Draft';
-  }
-  /** Why Submit is unavailable — only a Draft can be submitted for approval. */
-  protected submitDisabledReason(asset: TrackingAsset | null): string {
-    if (!asset) return '';
-    if (asset.assetStatus !== 'Draft') return `Submit is only available while this asset is a Draft, not ${asset.assetStatus}.`;
-    return '';
-  }
-
   /**
    * Whether this session may EVER submit, regardless of the asset in front of it.
    *
-   * SEPARATE FROM `submitAllowed` ON PURPOSE, and the same split runs through every action on
+   * SEPARATE FROM `approveAllowed` ON PURPOSE, and the same split runs through every action on
    * this screen. A missing PERMISSION means the action is not this person's to take and the item
    * is not rendered; an incompatible STATE means it is theirs but not yet, and the item is
    * rendered disabled with a sentence saying why. Greying out a verb a role will never hold
    * teaches people to ignore greyed-out things.
    */
-  protected readonly canEverSubmit = computed(() => this.currentUser.hasPermission('cam.tracking-assets.submit'));
   protected readonly canEverApprove = computed(() => this.permissions().approve);
-  protected readonly canEverActivate = computed(() => this.permissions().activate);
   protected readonly canEverRequestDisable = computed(() => this.permissions().requestDisable);
   protected readonly canEverDisable = computed(() => this.permissions().disable);
   protected readonly canEverEdit = computed(() => this.permissions().replace);
@@ -865,29 +844,10 @@ export class TrackingAssetManagerComponent {
     return '';
   }
   /**
-   * Activate — the step between Approved and live.
-   *
-   * WITHOUT IT THE LIFECYCLE STOPPED AT APPROVED. `PermittedActionsFor` on the server offers
-   * Activate from exactly this state and nothing in the client ever called it, so an approved
-   * asset stayed approved: it had a reference and a generated URL, and it resolved nothing,
-   * because `IsLiveAt` requires the status to be Active.
-   */
-  protected activateAllowed(asset: TrackingAsset | null): boolean {
-    return !!asset && this.permissions().activate && asset.assetStatus === 'Approved';
-  }
-  /** Why Activate is unavailable — explains permission or an incompatible current state. */
-  protected activateDisabledReason(asset: TrackingAsset | null): string {
-    if (!asset) return '';
-    if (asset.assetStatus !== 'Approved') {
-      return `Activate is only available once this asset is Approved, not ${asset.assetStatus}.`;
-    }
-    return '';
-  }
-  /**
    * Request disable — the maker asking for a live asset to be taken down.
    *
    * A REQUEST, NOT THE ACT. Disabling an asset stops a printed QR code resolving, so it is a
-   * decision somebody else makes. This moves the asset to "Disable requested", and it goes on
+   * decision somebody else makes. This moves the asset to "Submitted for disable", and it goes on
    * resolving scans until an approver decides - nothing about asking should change what a
    * donor's scan does.
    */
@@ -897,7 +857,7 @@ export class TrackingAssetManagerComponent {
   }
   protected requestDisableDisabledReason(asset: TrackingAsset | null): string {
     if (!asset) return '';
-    if (asset.assetStatus === 'Disable requested') {
+    if (asset.assetStatus === 'Submitted for disable') {
       return 'A disable request is already waiting for an approver on this asset.';
     }
     if (asset.assetStatus !== 'Active' && asset.assetStatus !== 'Paused') {
@@ -911,7 +871,7 @@ export class TrackingAssetManagerComponent {
     return !!asset && this.permissions().disable
       && (asset.assetStatus === 'Active'
         || asset.assetStatus === 'Paused'
-        || asset.assetStatus === 'Disable requested');
+        || asset.assetStatus === 'Submitted for disable');
   }
   /**
    * Why Disable is unavailable.
@@ -926,6 +886,72 @@ export class TrackingAssetManagerComponent {
     }
     return '';
   }
+  /**
+   * A maker asks for a disable and an approver decides it; a role holding both decides directly.
+   * The single Disable icon on a row follows whichever of those this session is.
+   */
+  protected readonly disableByRequest = computed(() => this.canEverRequestDisable() && !this.canEverDisable());
+  protected readonly canEverDisableOrRequest = computed(() => this.canEverRequestDisable() || this.canEverDisable());
+
+  protected rowDisableEnabled(asset: TrackingAsset): boolean {
+    return this.disableByRequest()
+      ? this.requestDisableAllowed(asset)
+      : this.disableAllowed(asset) && asset.assetStatus !== 'Submitted for disable';
+  }
+  protected rowDisableTitle(asset: TrackingAsset): string {
+    if (this.rowDisableEnabled(asset)) {
+      return this.disableByRequest() ? 'Send a request to disable this asset' : 'Disable asset';
+    }
+    if (asset.assetStatus === 'Submitted for disable') {
+      return this.disableByRequest()
+        ? 'A disable request is already waiting for an approver'
+        : 'A disable request is waiting for your approval — use the approve icon';
+    }
+    return this.disableByRequest() ? this.requestDisableDisabledReason(asset) : this.disableDisabledReason(asset);
+  }
+  protected onRowDisable(asset: TrackingAsset): void {
+    if (this.disableByRequest()) this.askForDisable(asset);
+    else this.requestDisable(asset);
+  }
+
+  /**
+   * What the approver is being asked to decide on this asset, or null when nothing awaits them.
+   * 'activate' = a submitted asset (approving also makes it Active); 'disable' = a disable request.
+   */
+  protected pendingApproval(asset: TrackingAsset | null): 'activate' | 'disable' | null {
+    if (!asset) return null;
+    if (this.approveAllowed(asset)) return 'activate';
+    if (asset.assetStatus === 'Submitted for disable' && this.permissions().disable) return 'disable';
+    return null;
+  }
+  protected pendingApprovalTip(asset: TrackingAsset | null): string {
+    switch (this.pendingApproval(asset)) {
+      case 'activate':
+        return 'Awaiting your approval to activate this asset';
+      case 'disable':
+        return 'Awaiting your approval to disable this asset';
+      default:
+        return '';
+    }
+  }
+  protected onApprove(asset: TrackingAsset): void {
+    if (this.pendingApproval(asset) === 'disable') this.requestDisable(asset);
+    else this.requestApprove(asset);
+  }
+  /** One short line for the detail panel: what state the asset is waiting in, whoever is reading. */
+  protected awaitingNote(asset: TrackingAsset | null): string {
+    if (!asset) return '';
+    if (asset.assetStatus === 'Submitted') return 'Submitted — waiting for an approver to approve and activate it.';
+    if (asset.assetStatus === 'Submitted for disable') return 'A request to disable this asset is waiting for an approver. It stays live until then.';
+    return '';
+  }
+
+  /** The destination shortened for the list — the full address stays in the tooltip and the copy. */
+  protected shortUrl(url: string): string {
+    const bare = (url ?? '').replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+    return bare.length > 22 ? `${bare.slice(0, 22)}…` : bare;
+  }
+
   /** Edit — the asset's details can be edited only while it is a Draft; once Submitted it is locked. */
   protected editAllowed(asset: TrackingAsset | null): boolean {
     return !!asset && this.permissions().replace && asset.assetStatus === 'Draft';
@@ -947,18 +973,9 @@ export class TrackingAssetManagerComponent {
     return asset.assetStatus === 'Draft' && !asset.hasDownstreamReference && this.permissions().deleteDraft;
   }
 
-  // ----- Row overflow menu -----
+  // ----- Row overflow menu (Approve / Edit / Disable, each named) -----
   protected readonly openRowMenu = signal<string | null>(null);
-  /**
-   * Fixed-viewport placement for the open row menu, computed from the trigger button's own
-   * position rather than the table's layout.
-   *
-   * THE TABLE SCROLLS (see `.tam-table-scroll`'s fixed height), and an `overflow: auto` ancestor
-   * clips any `position: absolute` descendant that would render outside its box — including this
-   * menu, which used to always open downward with no way to avoid that clipping for a row near
-   * the bottom of the visible five. Anchoring it with `position: fixed` off the button's
-   * `getBoundingClientRect()` escapes the clipping entirely and picks a direction with room.
-   */
+  /** Fixed-viewport placement off the trigger's own position, so the scrolling table cannot clip it. */
   protected readonly rowMenuStyle = signal<Record<string, string> | null>(null);
   protected readonly rowMenuUp = computed(() => {
     const style = this.rowMenuStyle();
@@ -975,10 +992,7 @@ export class TrackingAssetManagerComponent {
       return;
     }
     const rect = trigger.getBoundingClientRect();
-    // Room for the longest possible menu (Open / Submit / Approve / Activate / Edit /
-    // Request disable / Disable / Delete unused draft).
-    const menuAllowance = 340;
-    const openUp = window.innerHeight - rect.bottom < menuAllowance;
+    const openUp = window.innerHeight - rect.bottom < 180;
     this.rowMenuStyle.set({
       position: 'fixed',
       right: `${Math.max(8, window.innerWidth - rect.right)}px`,
@@ -990,6 +1004,14 @@ export class TrackingAssetManagerComponent {
     this.openRowMenu.set(null);
     this.rowMenuStyle.set(null);
   }
+  /** The name of the approve option for this asset. */
+  protected approveMenuLabel(asset: TrackingAsset): string {
+    return this.pendingApproval(asset) === 'disable' ? 'Approve disable' : 'Approve & activate';
+  }
+  /** The name of the disable option: a maker requests it, an approver (or admin) disables. */
+  protected disableMenuLabel(): string {
+    return this.disableByRequest() ? 'Request disable' : 'Disable';
+  }
 
   // ================= Generate primary action =================
   protected readonly generateDialogOpen = signal(false);
@@ -999,13 +1021,8 @@ export class TrackingAssetManagerComponent {
   protected readonly gDestination = signal<string>(''); // required
   protected readonly gCampaign = signal<string>(''); // required
   protected readonly gChannel = signal<string>(''); // required
-  // REQUIRED, AND NO LONGER PRE-ANSWERED. It started on 'Draft', so somebody who never touched
-  // the field created a Draft asset without choosing to - and a Draft asset resolves no scans, so
-  // a QR code could be printed against one that was never going to work. Empty means the person
-  // has to pick, and errorSummary() refuses the form until they do.
-  protected readonly gAssetStatus = signal<AssetStatus | ''>('');
-  protected readonly gSource = signal<string>(''); // conditional
-  protected readonly gMedium = signal<string>(''); // conditional
+  protected readonly gSource = signal<string>(''); // derived from the campaign
+  protected readonly gMedium = signal<string>(''); // derived: kept from the asset on edit
   protected readonly gContentTag = signal<string>(''); // optional
   protected readonly gContentTagMax = 150;
   protected readonly gActiveFrom = signal<string>(''); // conditional
@@ -1026,24 +1043,15 @@ export class TrackingAssetManagerComponent {
     const rec = this.campaignStore.get(ref);
     if (!rec) return;
 
-    // THE ID, NOT THE NAME. `rec.channels` holds the API's Guids, which is exactly what the
-    // picker and the create call both want now. The old prefill took `channelNames[0]` and tried
-    // to match it against this screen's own hard-coded label list, falling through an alias map
-    // when it did not - so it either set a label the API cannot accept or set nothing at all.
-    const firstChannel = rec.channels?.[0];
-    if (firstChannel && this.channelChoices().some((choice) => choice.ref === firstChannel)) {
-      this.gChannel.set(firstChannel);
-      // Asset type is left for the person to choose - it is not auto-derived from the
-      // selected campaign or channel.
-    }
+    // CHANNEL AND SOURCE ARE NO LONGER ASKED FOR. The API still needs both, so they are taken
+    // from what the campaign was set up with (its first channel and source), falling back to the
+    // first active row of the catalogue when the campaign carries none.
+    this.deriveChannelAndSource(rec.channels, rec.sources?.[0]);
 
-    const firstSource = rec.sources?.[0];
-    if (firstSource && this.sourceChoices().some((choice) => choice.ref === firstSource)) {
-      this.gSource.set(firstSource);
-    }
-
-    if (rec.startDate) this.gActiveFrom.set(rec.startDate);
-    if (rec.endDate) this.gActiveTo.set(rec.endDate);
+    // THE WINDOW STARTS AS THE CAMPAIGN'S OWN. It stays editable, but only inside the campaign's
+    // dates (see `campaignStart` / `campaignEnd`, bound to the date fields' min and max).
+    this.gActiveFrom.set(this.dayOf(rec.startDate));
+    this.gActiveTo.set(this.dayOf(rec.endDate));
 
     // THE CAMPAIGN'S GEOGRAPHY HAS TO BE FETCHED BEFORE IT CAN BE SHOWN.
     //
@@ -1082,6 +1090,71 @@ export class TrackingAssetManagerComponent {
     },
   );
 
+  /** The ids the create call needs for channel and source, resolved from the campaign. */
+  private deriveChannelAndSource(campaignChannels?: readonly string[], source?: string): void {
+    const channels = this.channelChoices();
+    const sources = this.sourceChoices();
+    const offered = channels.filter((c) => campaignChannels?.includes(c.ref));
+
+    // A QR code on a campaign that runs Offline is an on-ground asset (one QR per place), so that
+    // channel wins for a QR code; otherwise the campaign's first channel is used.
+    const offline = this.gAssetType() === 'QR Code'
+      ? offered.find((c) => c.label.toLowerCase() === 'offline')
+      : undefined;
+    this.gChannel.set(offline?.ref ?? offered[0]?.ref ?? channels[0]?.ref ?? '');
+    this.gSource.set(
+      sources.find((c) => c.ref === source)?.ref ?? sources[0]?.ref ?? '');
+  }
+
+  /** Picks the asset type; the channel follows (a QR code can become an on-ground asset). */
+  protected selectAssetType(type: string): void {
+    this.gAssetType.set(type);
+    const rec = this.campaignStore.get(this.gCampaign());
+    if (!rec || this.isEditing() || type !== 'QR Code') return;
+    const offline = this.channelChoices().find(
+      (c) => c.label.toLowerCase() === 'offline' && rec.channels?.includes(c.ref));
+    if (offline) this.gChannel.set(offline.ref);
+  }
+
+  /**
+   * The medium id the API needs. The form's second field is the Medium choice (it lists the
+   * channels), so the separate medium catalogue entry is taken from it: the one with the same
+   * name when there is one, otherwise the first. An edit keeps the asset's own.
+   */
+  private resolvedMedium(): string {
+    if (this.gMedium()) return this.gMedium();
+    const name = this.channelLabel(this.gChannel()).toLowerCase();
+    const choices = this.mediumChoices();
+    return choices.find((m) => m.label.toLowerCase() === name)?.ref ?? choices[0]?.ref ?? '';
+  }
+
+  /** A date-only value (yyyy-MM-dd) from whatever the API sent. */
+  private dayOf(value: string | undefined | null): string {
+    return (value ?? '').slice(0, 10);
+  }
+
+  /** The selected campaign's own dates — the outer limits of an asset's active window. */
+  protected readonly campaignStart = computed(() =>
+    this.dayOf(this.campaignStore.get(this.gCampaign())?.startDate));
+  protected readonly campaignEnd = computed(() =>
+    this.dayOf(this.campaignStore.get(this.gCampaign())?.endDate));
+
+  /** Active from may not pass Active to (or the campaign's end); Active to may not precede either start. */
+  protected readonly fromMin = computed(() => this.campaignStart() || null);
+  protected readonly fromMax = computed(() => this.gActiveTo() || this.campaignEnd() || null);
+  protected readonly toMin = computed(() => this.gActiveFrom() || this.campaignStart() || null);
+  protected readonly toMax = computed(() => this.campaignEnd() || null);
+
+  /** True when the window sits outside the campaign's dates (only reachable by typing). */
+  protected readonly gOutsideCampaign = computed(() => {
+    const from = this.gActiveFrom();
+    const to = this.gActiveTo();
+    const start = this.campaignStart();
+    const end = this.campaignEnd();
+    return (!!from && ((!!start && from < start) || (!!end && from > end)))
+      || (!!to && ((!!start && to < start) || (!!end && to > end)));
+  });
+
   /** On-ground events happen in more than one physical place for the same campaign, so each place
    *  gets its own separate QR/link — this is what lets the team see which place is contributing most. */
   /**
@@ -1101,6 +1174,7 @@ export class TrackingAssetManagerComponent {
    */
   protected readonly isOnGround = computed(
     () =>
+      !this.isEditing() &&
       this.gAssetType().toLowerCase() === 'qr code' &&
       this.channelLabel(this.gChannel()).toLowerCase() === 'offline',
   );
@@ -1231,22 +1305,18 @@ export class TrackingAssetManagerComponent {
     switch (field) {
       case 'assetType':
         return !this.gAssetType();
-      case 'channel':
-        return !this.gChannel();
       case 'destination':
         return !this.isOnGround() && !this.gDestination().trim();
       case 'places':
         return this.isOnGround() && !this.placesValid();
       case 'campaign':
         return !this.gCampaign();
-      case 'source':
-        return !this.gSource().trim();
-      case 'medium':
-        return !this.gMedium().trim();
+      case 'channel':
+        return !this.gChannel();
       case 'activeFrom':
         return !this.gActiveFrom();
       case 'activeTo':
-        return !this.gActiveTo() || this.gRangeInvalid();
+        return !this.gActiveTo() || this.gRangeInvalid() || this.gOutsideCampaign();
       default:
         return false;
     }
@@ -1326,16 +1396,6 @@ export class TrackingAssetManagerComponent {
     return { days, phase, label, elapsedPct, fromLabel: fmt(start), toLabel: fmt(end) };
   });
 
-  /** The full-screen create page's four sections, each marked Complete once its required fields are in. */
-  protected readonly createSteps = computed(() => [
-    { label: 'Campaign & type', done: !!(this.gCampaign() && this.gAssetType() && this.gChannel()) },
-    {
-      label: this.isOnGround() ? 'Places' : 'Destination',
-      done: this.isOnGround() ? this.placesValid() : !!this.gDestination().trim(),
-    },
-    { label: 'Attribution', done: !!(this.gSource().trim() && this.gMedium().trim() && this.gAssetStatus()) },
-    { label: 'Active window', done: !!(this.gActiveFrom() && this.gActiveTo()) && !this.gRangeInvalid() },
-  ]);
   /** Opens the browser's date picker when the date field itself is clicked, not only its calendar icon. */
   protected openDatePicker(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -1350,28 +1410,30 @@ export class TrackingAssetManagerComponent {
     if (!this.generateSubmitted()) return [] as { key: string; label: string }[];
     const errs: { key: string; label: string }[] = [];
     if (this.missing('assetType')) errs.push({ key: 'g-assetType', label: 'Enter Asset type.' });
-    if (this.missing('channel')) errs.push({ key: 'g-channel', label: 'Enter Channel.' });
+    if (this.missing('campaign')) errs.push({ key: 'g-campaign', label: 'Enter Campaign.' });
+    if (this.missing('channel')) errs.push({ key: 'g-channel', label: 'Enter Medium.' });
     if (this.missing('destination')) errs.push({ key: 'g-destination', label: 'Enter Destination.' });
     if (this.missing('places')) errs.push({ key: 'g-places', label: 'Enter at least one place name and destination.' });
-    if (this.missing('campaign')) errs.push({ key: 'g-campaign', label: 'Enter Campaign.' });
-    if (this.missing('source')) errs.push({ key: 'g-source', label: 'Enter Source.' });
-    if (this.missing('medium')) errs.push({ key: 'g-medium', label: 'Enter Medium.' });
-    if (!this.gAssetStatus()) errs.push({ key: 'g-assetStatus', label: 'Enter Asset status.' });
+    if (this.gCampaign() && (!this.gChannel() || !this.gSource()))
+      errs.push({ key: 'g-campaign', label: 'The channel and source lists could not be loaded. Reload the page.' });
     if (this.missing('activeFrom')) errs.push({ key: 'g-activeFrom', label: 'Enter Active from.' });
     if (this.gRangeInvalid())
       errs.push({ key: 'g-activeTo', label: 'Review Active to. The value does not meet the stated format or range.' });
+    else if (this.gOutsideCampaign())
+      errs.push({ key: 'g-activeTo', label: 'Keep the active window inside the campaign dates.' });
     else if (this.missing('activeTo')) errs.push({ key: 'g-activeTo', label: 'Enter Active to.' });
     return errs;
   });
 
-  protected openGenerate(): void {
-    if (!this.generateAllowed()) return;
+  /** The asset being edited, or '' when the form is creating a new one. */
+  protected readonly editingRef = signal('');
+  protected readonly isEditing = computed(() => !!this.editingRef());
+
+  private resetGenerateForm(): void {
     this.gAssetType.set('');
     this.gDestination.set('');
     this.gCampaign.set('');
     this.gChannel.set('');
-    // Reset to unanswered, not to Draft — the person picks.
-    this.gAssetStatus.set('');
     this.gSource.set('');
     this.gMedium.set('');
     this.gContentTag.set('');
@@ -1380,12 +1442,19 @@ export class TrackingAssetManagerComponent {
     this.gPlaces.set([{ id: 'place-1', label: '', destination: '', customFields: [] }]);
     this.generateSubmitted.set(false);
     this.generatedReferences.set([]);
+  }
+
+  protected openGenerate(): void {
+    if (!this.generateAllowed()) return;
+    this.editingRef.set('');
+    this.resetGenerateForm();
     this.generateDialogOpen.set(true);
     // The create screen replaces the list in place: start it at the top of the page.
     setTimeout(() => document.querySelector('app-tracking-asset-manager')?.scrollIntoView({ block: 'start' }));
   }
   protected cancelGenerate(): void {
     this.generateDialogOpen.set(false);
+    this.editingRef.set('');
     // Leaving the form discards its validation state, so the list never inherits the banner.
     this.generateSubmitted.set(false);
     if (this.uiState() === 'validation') this.uiState.set('ready');
@@ -1393,6 +1462,7 @@ export class TrackingAssetManagerComponent {
   /** Build one asset record (shared by the single-destination and per-place on-ground paths). */
   private buildAsset(
     destination: string,
+    status: 'Draft' | 'Submitted',
     placeInfo?: { label: string; city: string; state: string; customFields: readonly { key: string; value: string }[] },
   ): TrackingAsset {
     const reference = this.store.nextReference(this.gAssetType());
@@ -1406,19 +1476,17 @@ export class TrackingAssetManagerComponent {
       channel: this.gChannel(),
       destination,
       campaignRef: this.gCampaign(),
-      source: this.gSource().trim(),
-      medium: this.gMedium().trim(),
+      source: this.gSource(),
+      medium: this.resolvedMedium(),
       contentTag: this.gContentTag().trim(),
       activeFrom: this.gActiveFrom(),
       activeTo: this.gActiveTo(),
       generatedUrl: this.store.buildGeneratedUrl(reference, isQr),
       isQr,
       lastTestResult: 'Not tested',
-      approvalState: this.gAssetStatus() === 'Submitted' ? 'Pending review' : 'Not required',
+      approvalState: status === 'Submitted' ? 'Pending review' : 'Not required',
       usageCount: 0,
-      // Non-empty by the time this runs: buildAsset is only reached from confirmGenerate, which
-      // returns early while errorSummary() still reports a missing Asset status.
-      assetStatus: this.gAssetStatus() || 'Draft',
+      assetStatus: status,
       hasDownstreamReference: false,
       createdByRef: this.currentUserRef(),
       version: 1,
@@ -1434,11 +1502,16 @@ export class TrackingAssetManagerComponent {
    * location gets its own separate QR/link and the team can see which place is contributing
    * most. Preserve values on recoverable failure; show a persistent confirmed result.
    */
-  protected confirmGenerate(): void {
+  protected confirmGenerate(status: 'Draft' | 'Submitted'): void {
     this.generateSubmitted.set(true);
     if (this.errorSummary().length > 0) {
       // Validation state — keep non-sensitive input, focus first invalid field.
       this.uiState.set('validation');
+      return;
+    }
+
+    if (this.isEditing()) {
+      this.saveEdit(status);
       return;
     }
 
@@ -1460,7 +1533,7 @@ export class TrackingAssetManagerComponent {
       let firstError: string | undefined;
 
       for (const p of places) {
-        const asset = this.buildAsset(p.destination.trim(), {
+        const asset = this.buildAsset(p.destination.trim(), status, {
           label: p.label.trim(),
           city: this.placeLocation().city,
           state: this.placeLocation().state,
@@ -1476,7 +1549,7 @@ export class TrackingAssetManagerComponent {
           pending -= 1;
 
           if (pending === 0) {
-            this.announceGenerated(refs, firstError);
+            this.announceGenerated(refs, status, firstError);
           }
         });
       }
@@ -1498,12 +1571,12 @@ export class TrackingAssetManagerComponent {
       return;
     }
 
-    const asset = this.buildAsset(this.gDestination().trim());
+    const asset = this.buildAsset(this.gDestination().trim(), status);
     this.generatedReferences.set([asset.trackingReference]);
     this.generatedReference.set(asset.trackingReference);
 
     this.store.create(asset, (outcome) =>
-      this.announceGenerated([asset.trackingReference], outcome.created ? undefined : outcome.error));
+      this.announceGenerated([asset.trackingReference], status, outcome.created ? undefined : outcome.error));
   }
 
   /**
@@ -1516,7 +1589,7 @@ export class TrackingAssetManagerComponent {
    * browser had invented, and the register was empty on the next load with nothing anywhere
    * saying why.
    */
-  private announceGenerated(refs: readonly string[], error?: string): void {
+  private announceGenerated(refs: readonly string[], status: 'Draft' | 'Submitted', error?: string): void {
     if (error) {
       this.toast.show('Tracking asset not created', error, 'error');
       this.uiState.set('validation');
@@ -1525,57 +1598,11 @@ export class TrackingAssetManagerComponent {
 
     this.generateDialogOpen.set(false);
     this.toast.show(
-      'Tracking asset created',
-      refs.length > 1
-        ? `Created ${refs.length} assets: ${refs.join(', ')}.`
-        : `${refs[0]} created as ${this.gAssetStatus()}.`,
+      status === 'Draft' ? 'Saved as draft' : 'Submitted for approval',
+      status === 'Draft'
+        ? 'The asset is in the list as a Draft.'
+        : 'The asset is in the list as Submitted. An approver will activate it.',
       'success',
-    );
-    this.uiState.set('ready');
-  }
-
-  // ================= Submit action =================
-  protected readonly submitDialogOpen = signal(false);
-  protected readonly submitTarget = signal<TrackingAsset | null>(null);
-  protected requestSubmit(asset: TrackingAsset): void {
-    this.closeRowMenu();
-    if (!this.submitAllowed(asset)) return;
-    if (this.isStaleSinceOpened(asset)) {
-      this.uiState.set('conflict');
-      return;
-    }
-    this.submitTarget.set(asset);
-    this.submitDialogOpen.set(true);
-  }
-  protected cancelSubmit(): void {
-    this.submitDialogOpen.set(false);
-    this.submitTarget.set(null);
-  }
-  /** Submit the draft for approval — moves Draft → Submitted and opens it for independent review. */
-  protected confirmSubmit(): void {
-    const target = this.submitTarget();
-    this.submitDialogOpen.set(false);
-    this.submitTarget.set(null);
-    if (!target) return;
-    // Back to the Asset Manager list: close the detail off-canvas rather than letting it
-    // reappear on the same record when the dialog closes.
-    this.selectedRef.set('');
-    // Waits for the real outcome — see `TrackingAssetStoreService.update`'s doc comment. A toast
-    // fired the instant this call was MADE said "Submitted" even when the server refused it.
-    this.store.update(
-      target.trackingReference,
-      { assetStatus: 'Submitted', approvalState: 'Pending review' },
-      (result) => {
-        if (!result.applied) {
-          this.toast.show(
-            'Not submitted',
-            result.error ?? `${target.trackingReference} could not be submitted.`,
-            'error',
-          );
-          return;
-        }
-        this.toast.show('Submitted for approval', `${target.trackingReference} moved to Submitted.`, 'success');
-      },
     );
     this.uiState.set('ready');
   }
@@ -1593,7 +1620,6 @@ export class TrackingAssetManagerComponent {
   protected readonly approveReasonCount = computed(() => this.approveReason().trim().length);
 
   protected requestApprove(asset: TrackingAsset): void {
-    this.closeRowMenu();
     if (!this.approveAllowed(asset)) return;
     if (this.isStaleSinceOpened(asset)) {
       this.uiState.set('conflict');
@@ -1630,7 +1656,7 @@ export class TrackingAssetManagerComponent {
         target.trackingReference,
         {
           approvalState: 'Approved',
-          assetStatus: 'Approved',
+          assetStatus: 'Active',
           approvedByRef: this.currentUserRef(),
           approvedAt: this.lastRefresh(),
         },
@@ -1645,7 +1671,7 @@ export class TrackingAssetManagerComponent {
           }
           this.toast.show(
             'Asset approved',
-            `${target.trackingReference} is Approved. Activate it to make it live.`,
+            `${target.trackingReference} is approved and now Active.`,
             'success',
           );
         },
@@ -1653,44 +1679,6 @@ export class TrackingAssetManagerComponent {
     }
     this.approveDialogOpen.set(false);
     this.approveTarget.set(null);
-    this.uiState.set('ready');
-  }
-
-  // ================= Activate action =================
-  protected readonly activateDialogOpen = signal(false);
-  protected readonly activateTarget = signal<TrackingAsset | null>(null);
-
-  protected requestActivate(asset: TrackingAsset): void {
-    this.closeRowMenu();
-    if (!this.activateAllowed(asset)) return;
-    if (this.isStaleSinceOpened(asset)) {
-      this.uiState.set('conflict');
-      return;
-    }
-    this.activateTarget.set(asset);
-    this.activateDialogOpen.set(true);
-  }
-  protected cancelActivate(): void {
-    this.activateDialogOpen.set(false);
-    this.activateTarget.set(null);
-  }
-  /** Bring an approved asset live — Approved to Active, after which it resolves scans and clicks. */
-  protected confirmActivate(): void {
-    const target = this.activateTarget();
-    this.activateDialogOpen.set(false);
-    this.activateTarget.set(null);
-    if (!target) return;
-    this.store.update(target.trackingReference, { assetStatus: 'Active' }, (result) => {
-      if (!result.applied) {
-        this.toast.show(
-          'Asset not activated',
-          result.error ?? `${target.trackingReference} could not be activated.`,
-          'error',
-        );
-        return;
-      }
-      this.toast.show('Asset activated', `${target.trackingReference} is now Active.`, 'success');
-    });
     this.uiState.set('ready');
   }
 
@@ -1707,7 +1695,6 @@ export class TrackingAssetManagerComponent {
   protected readonly requestDisableReasonCount = computed(() => this.requestDisableReason().trim().length);
 
   protected askForDisable(asset: TrackingAsset): void {
-    this.closeRowMenu();
     if (!this.requestDisableAllowed(asset)) return;
     if (this.isStaleSinceOpened(asset)) {
       this.uiState.set('conflict');
@@ -1728,7 +1715,7 @@ export class TrackingAssetManagerComponent {
     this.requestDisableDialogOpen.set(false);
     this.requestDisableTarget.set(null);
     if (!target) return;
-    this.store.update(target.trackingReference, { assetStatus: 'Disable requested' }, (result) => {
+    this.store.update(target.trackingReference, { assetStatus: 'Submitted for disable' }, (result) => {
       if (!result.applied) {
         this.toast.show(
           'Request not raised',
@@ -1738,7 +1725,7 @@ export class TrackingAssetManagerComponent {
         return;
       }
       this.toast.show(
-        'Disable requested',
+        'Submitted for disable',
         `${target.trackingReference} stays live until an approver decides the request.`,
         'success',
       );
@@ -1759,7 +1746,6 @@ export class TrackingAssetManagerComponent {
   protected readonly disableReasonCount = computed(() => this.disableReason().trim().length);
 
   protected requestDisable(asset: TrackingAsset): void {
-    this.closeRowMenu();
     if (!this.disableAllowed(asset)) return;
     if (this.isStaleSinceOpened(asset)) {
       this.uiState.set('conflict');
@@ -1796,77 +1782,67 @@ export class TrackingAssetManagerComponent {
   }
 
   // ================= Edit action (Draft only) =================
-  protected readonly editDialogOpen = signal(false);
-  protected readonly editTarget = signal<TrackingAsset | null>(null);
-  protected readonly editDestination = signal('');
-  protected readonly editChannel = signal('');
-  protected readonly editSource = signal('');
-  protected readonly editMedium = signal('');
-  protected readonly editContentTag = signal('');
-  protected readonly editActiveFrom = signal('');
-  protected readonly editActiveTo = signal('');
-  protected readonly editSubmitted = signal(false);
-  protected readonly editDestinationValid = computed(() => this.editDestination().trim().length > 0);
-  protected readonly editRangeInvalid = computed(() => {
-    const s = this.editActiveFrom();
-    const e = this.editActiveTo();
-    return !!s && !!e && new Date(e) < new Date(s);
-  });
-
+  /**
+   * Edit reopens the create screen with the saved asset in it, rather than a separate pop-up.
+   * The campaign is shown but locked - an asset cannot be moved to another campaign.
+   */
   protected requestEdit(asset: TrackingAsset): void {
-    this.closeRowMenu();
     if (!this.editAllowed(asset)) return;
     if (this.isStaleSinceOpened(asset)) {
       this.uiState.set('conflict');
       return;
     }
-    this.editTarget.set(asset);
-    this.editDestination.set(asset.destination);
-    this.editChannel.set(asset.channel);
-    this.editSource.set(asset.source);
-    this.editMedium.set(asset.medium);
-    this.editContentTag.set(asset.contentTag);
-    this.editActiveFrom.set(asset.activeFrom);
-    this.editActiveTo.set(asset.activeTo);
-    this.editSubmitted.set(false);
-    this.editDialogOpen.set(true);
+    this.resetGenerateForm();
+    this.editingRef.set(asset.trackingReference);
+    this.gAssetType.set(asset.assetType);
+    this.gCampaign.set(asset.campaignRef);
+    this.gChannel.set(asset.channelId ?? '');
+    this.gSource.set(asset.sourceId ?? '');
+    this.gMedium.set(asset.mediumId ?? '');
+    this.gDestination.set(asset.destination);
+    this.gContentTag.set(asset.contentTag);
+    this.gActiveFrom.set(asset.activeFrom);
+    this.gActiveTo.set(asset.activeTo);
+    this.campaignStore.loadDetail(asset.campaignRef);
+    // The off-canvas (if the edit came from it) gives way to the form.
+    this.selectedRef.set('');
+    this.generateDialogOpen.set(true);
+    setTimeout(() => document.querySelector('app-tracking-asset-manager')?.scrollIntoView({ block: 'start' }));
   }
-  protected cancelEdit(): void {
-    this.editDialogOpen.set(false);
-    this.editTarget.set(null);
-  }
-  /** Save the edited details while preserving the stable tracking reference and history. */
-  protected confirmEdit(): void {
-    this.editSubmitted.set(true);
-    if (!this.editDestinationValid() || this.editRangeInvalid()) return;
-    const target = this.editTarget();
-    if (target) {
-      this.store.update(
-        target.trackingReference,
-        {
-          destination: this.editDestination().trim(),
-          channel: this.editChannel(),
-          source: this.editSource().trim(),
-          medium: this.editMedium().trim(),
-          contentTag: this.editContentTag().trim(),
-          activeFrom: this.editActiveFrom(),
-          activeTo: this.editActiveTo(),
-        },
-        (result) => {
-          if (!result.applied) {
-            this.toast.show(
-              'Changes not saved',
-              result.error ?? `${target.trackingReference} could not be updated.`,
-              'error',
-            );
-            return;
-          }
-          this.toast.show('Changes saved', `${target.trackingReference} updated.`, 'success');
-        },
-      );
-    }
-    this.editDialogOpen.set(false);
-    this.editTarget.set(null);
+
+  /** Saves the edited asset. 'Submitted' (the Activate button) then sends it for approval. */
+  private saveEdit(status: 'Draft' | 'Submitted'): void {
+    const ref = this.editingRef();
+    if (!ref) return;
+
+    this.store.saveDraft(
+      ref,
+      {
+        destination: this.gDestination().trim(),
+        channelId: this.gChannel(),
+        sourceId: this.gSource(),
+        mediumId: this.resolvedMedium(),
+        contentTag: this.gContentTag().trim(),
+        activeFrom: this.gActiveFrom(),
+        activeTo: this.gActiveTo(),
+      },
+      status === 'Submitted',
+      (result) => {
+        if (!result.applied) {
+          this.toast.show('Changes not saved', result.error ?? `${ref} could not be updated.`, 'error');
+          return;
+        }
+        this.toast.show(
+          status === 'Draft' ? 'Changes saved' : 'Submitted for approval',
+          status === 'Draft' ? `${ref} updated.` : `${ref} moved to Submitted.`,
+          'success',
+        );
+      },
+    );
+
+    this.generateDialogOpen.set(false);
+    this.editingRef.set('');
+    this.generateSubmitted.set(false);
     this.uiState.set('ready');
   }
 
@@ -1883,7 +1859,6 @@ export class TrackingAssetManagerComponent {
   protected readonly deleteReasonCount = computed(() => this.deleteReason().trim().length);
 
   protected requestDeleteDraft(asset: TrackingAsset): void {
-    this.closeRowMenu();
     if (!this.canDeleteDraft(asset)) return;
     this.deleteTarget.set(asset);
     this.deleteReason.set('');
@@ -2049,7 +2024,7 @@ export class TrackingAssetManagerComponent {
       case 'Approved':
         return 'tam-badge-active';
       case 'Submitted':
-      case 'Disable requested':
+      case 'Submitted for disable':
         return 'tam-badge-submitted';
       case 'Paused':
         return 'tam-badge-paused';

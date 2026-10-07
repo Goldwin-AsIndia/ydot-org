@@ -39,7 +39,10 @@ MODULES = {
                   "app-standard-record-detail"],
 }
 ALL_HOSTS = [h for hs in MODULES.values() for h in hs]
-PREFIX = f":is({', '.join(ALL_HOSTS)}) "
+# One cheap attribute instead of an :is() of every host tag: a list that long made the engine test every
+# ancestor of every element against 80 tag names (~130 ms of style recalculation per navigation).
+# DialogHostMarkerService stamps data-dg-host on exactly these tags as they appear.
+PREFIX = "[data-dg-host] "
 
 
 # ------------------------------------------------------------------------------------------------ registries

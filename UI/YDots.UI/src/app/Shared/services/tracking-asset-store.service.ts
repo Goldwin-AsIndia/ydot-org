@@ -187,7 +187,7 @@ export class TrackingAssetStoreService {
         sourceId: asset.source,
         mediumId: asset.medium,
         activeFrom: this.toInstant(asset.activeFrom),
-        activeTo: this.toInstant(asset.activeTo),
+        activeTo: this.toInstant(asset.activeTo, true),
         contentTag: asset.contentTag || null,
 
         // THE STATUS THE FORM ASKED FOR, SENT EXPLICITLY. It used to be left off entirely and the
@@ -270,7 +270,29 @@ export class TrackingAssetStoreService {
 
     if (patch.approvalState === 'Approved') {
       this.api.approveTrackingAsset(id, { expectedVersion }).subscribe({
-        next: () => {
+        next: (outcome) => {
+          // APPROVING MAKES IT LIVE. The caller asks for `assetStatus: 'Active'` alongside the
+          // approval, and the server has two separate steps for it - approve, then activate (which
+          // is what mints the reference and URL) - so the second one is chained here on the
+          // version the approval just produced.
+          if (patch.assetStatus === 'Active') {
+            this.api
+              .activateTrackingAsset(id, { expectedVersion: outcome?.version ?? expectedVersion + 1 })
+              .subscribe({
+                next: () => {
+                  this.refresh();
+                  onDone?.({ applied: true });
+                },
+                error: (error: unknown) => {
+                  const message = apiErrorMessage(error, 'The asset was approved but could not be activated.');
+                  this.failed(message);
+                  onDone?.({ applied: false, error: message });
+                },
+              });
+
+            return;
+          }
+
           this.refresh();
           onDone?.({ applied: true });
         },
@@ -302,7 +324,7 @@ export class TrackingAssetStoreService {
 
     // THE MAKER'S HALF OF THE DISABLE PAIR. An Initiator holds request-disable and not
     // deactivate, so routing their click to the decision endpoint answered 403.
-    if (patch.assetStatus === 'Disable requested') {
+    if (patch.assetStatus === 'Submitted for disable') {
       this.api.requestDisableTrackingAsset(id, { expectedVersion }).subscribe({
         next: () => {
           this.refresh();
@@ -357,18 +379,84 @@ export class TrackingAssetStoreService {
       .updateTrackingAsset(id, {
         expectedVersion,
         assetType: this.toAssetType(merged.assetType),
-        channelId: merged.channel,
+        channelId: merged.channelId ?? merged.channel,
         destination: merged.destination,
-        sourceId: merged.source,
-        mediumId: merged.medium,
+        sourceId: merged.sourceId ?? merged.source,
+        mediumId: merged.mediumId ?? merged.medium,
         activeFrom: this.toInstant(merged.activeFrom),
-        activeTo: this.toInstant(merged.activeTo),
+        activeTo: this.toInstant(merged.activeTo, true),
         contentTag: merged.contentTag || null,
       })
       .subscribe({
         next: () => {
           this.refresh();
           onDone?.({ applied: true });
+        },
+        error: (error: unknown) => {
+          const message = apiErrorMessage(error, 'The asset could not be saved.');
+          this.failed(message);
+          onDone?.({ applied: false, error: message });
+        },
+      });
+  }
+
+  /**
+   * Saves an edited Draft and, when asked, submits it for approval straight afterwards.
+   *
+   * ONE METHOD FOR THE PAIR because the submit has to carry the version the save produced. Two
+   * `update()` calls back to back would send the second with the version the first one had just
+   * made stale, and the server would answer with a conflict.
+   */
+  saveDraft(
+    ref: string,
+    patch: Partial<TrackingAsset>,
+    submit: boolean,
+    onDone?: TrackingAssetOutcome,
+  ): void {
+    const current = this.get(ref);
+    const id = this.idsByReference.get(ref);
+
+    if (!current || !id) {
+      onDone?.({ applied: false, error: 'That asset is not loaded yet. Refresh and try again.' });
+      return;
+    }
+
+    const merged = { ...current, ...patch };
+    const expectedVersion = this.versionsByReference.get(ref) ?? 0;
+
+    this.api
+      .updateTrackingAsset(id, {
+        expectedVersion,
+        assetType: this.toAssetType(merged.assetType),
+        channelId: merged.channelId ?? merged.channel,
+        destination: merged.destination,
+        sourceId: merged.sourceId ?? merged.source,
+        mediumId: merged.mediumId ?? merged.medium,
+        activeFrom: this.toInstant(merged.activeFrom),
+        activeTo: this.toInstant(merged.activeTo, true),
+        contentTag: merged.contentTag || null,
+      })
+      .subscribe({
+        next: (detail) => {
+          if (!submit) {
+            this.refresh();
+            onDone?.({ applied: true });
+            return;
+          }
+
+          this.api
+            .submitTrackingAsset(id, { expectedVersion: detail?.version ?? expectedVersion + 1 })
+            .subscribe({
+              next: () => {
+                this.refresh();
+                onDone?.({ applied: true });
+              },
+              error: (error: unknown) => {
+                const message = apiErrorMessage(error, 'The changes were saved but the asset could not be submitted.');
+                this.failed(message);
+                onDone?.({ applied: false, error: message });
+              },
+            });
         },
         error: (error: unknown) => {
           const message = apiErrorMessage(error, 'The asset could not be saved.');
@@ -492,6 +580,9 @@ export class TrackingAssetStoreService {
       trackingReference: item.trackingReference ?? item.code,
       assetType: this.fromAssetType(item.assetType),
       channel: item.channelName,
+      channelId: item.channelId,
+      sourceId: item.sourceId,
+      mediumId: item.mediumId,
       destination: item.destination,
       campaignRef: item.campaignCode,
       source: item.sourceName,
@@ -581,7 +672,7 @@ export class TrackingAssetStoreService {
       // goes on resolving scans until somebody decides the request - nothing about asking should
       // change what a donor's scan does.
       case 'disableRequested':
-        return 'Disable requested';
+        return 'Submitted for disable';
 
       // 'Disabled' rather than 'Inactive' because that is the word the Disable action writes, and
       // the badge for the two is the same.
@@ -607,7 +698,7 @@ export class TrackingAssetStoreService {
 
   /** True while a disable request is waiting on an approver. */
   awaitingDisableDecision(ref: string): boolean {
-    return this.get(ref)?.assetStatus === 'Disable requested';
+    return this.get(ref)?.assetStatus === 'Submitted for disable';
   }
 
   /**
@@ -654,12 +745,15 @@ export class TrackingAssetStoreService {
    * time of day. An empty date becomes today rather than an invalid instant the server would
    * reject on a field the form never asked about.
    */
-  private toInstant(dateOnly: string): string {
+  private toInstant(dateOnly: string, endOfDay = false): string {
     if (!dateOnly) {
       return new Date().toISOString();
     }
 
-    return new Date(`${dateOnly}T00:00:00Z`).toISOString();
+    // THE LAST DAY RUNS TO ITS END. 'Active to' is a date on the form, so it means "through that
+    // day"; midnight at its start made a one-day window empty (the server needs the end after the
+    // start) and made an asset ending today un-activatable.
+    return new Date(`${dateOnly}T${endOfDay ? '23:59:59' : '00:00:00'}Z`).toISOString();
   }
 }
 

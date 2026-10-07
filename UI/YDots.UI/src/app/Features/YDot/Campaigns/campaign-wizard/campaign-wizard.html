@@ -217,7 +217,7 @@
                 @if (stepIndex() === 0) {
                   <div class="field-grid">
                     <!-- Campaign name — free-text input -->
-                    <div class="field">
+                    <div class="field field-5">
                       <label class="field-label" for="f-name"
                         >Campaign name <span class="req" aria-hidden="true">*</span></label
                       >
@@ -237,8 +237,6 @@
                       />
                       @if (wasAttempted(0) && !campaignNameValid()) {
                         <p class="field-error">Enter Campaign name.</p>
-                      } @else {
-                        <p class="field-hint">Enter a clear and concise campaign name.</p>
                       }
                     </div>
 
@@ -262,9 +260,64 @@
                       />
                       @if (wasAttempted(0) && !campaignCode().trim()) {
                         <p class="field-error">Enter Campaign code.</p>
-                      } @else {
-                        <p class="field-hint">
-                          Enter a unique campaign code — up to {{ campaignCodeMax }} characters.
+                      }
+                    </div>
+
+                    <!-- Start date — date picker with time-zone label -->
+                    <div class="field field-2">
+                      <label class="field-label" for="f-start"
+                        >Start date <span class="req" aria-hidden="true">*</span></label
+                      >
+                      <input
+                        #startDateInput
+                        id="f-start"
+                        type="date"
+                        class="control"
+                        [min]="todayIso"
+                        [disabled]="identityLocked()"
+                        [ngModel]="startDate()"
+                        (ngModelChange)="startDate.set($event)"
+                        (click)="openDatePicker(startDateInput)"
+                        [attr.aria-invalid]="
+                          !startDateValid() && (!!startDate() || wasAttempted(0)) ? 'true' : null
+                        "
+                      />
+                      @if (!startDateValid() && (!!startDate() || wasAttempted(0))) {
+                        <p class="field-error">
+                          {{
+                            startDateInPast()
+                              ? 'Review Start date. A campaign cannot start before today.'
+                              : 'Enter Start date.'
+                          }}
+                        </p>
+                      }
+                    </div>
+
+                    <!-- End date — date picker with time-zone label -->
+                    <div class="field field-2">
+                      <label class="field-label" for="f-end"
+                        >End date <span class="req" aria-hidden="true">*</span></label
+                      >
+                      <input
+                        #endDateInput
+                        id="f-end"
+                        type="date"
+                        class="control"
+                        [min]="endDateMin()"
+                        [ngModel]="endDate()"
+                        (ngModelChange)="endDate.set($event)"
+                        (click)="openDatePicker(endDateInput)"
+                        [attr.aria-invalid]="
+                          !endDateValid() && (!!endDate() || wasAttempted(0)) ? 'true' : null
+                        "
+                      />
+                      @if (!endDateValid() && (!!endDate() || wasAttempted(0))) {
+                        <p class="field-error">
+                          {{
+                            !endDate()
+                              ? 'Enter End date.'
+                              : 'Review End date. The end cannot fall before the start.'
+                          }}
                         </p>
                       }
                     </div>
@@ -277,7 +330,7 @@
                          inputmode="decimal" rather than type="number": a number input accepts
                          "1e5" and "--3" from a keyboard and then reports an empty string for
                          both, so the value is filtered on the way in instead. -->
-                    <div class="field field-3">
+                    <div class="field field-2">
                       <label class="field-label" for="f-campaign-amount"
                         >Campaign amount <span class="req" aria-hidden="true">*</span></label
                       >
@@ -303,16 +356,12 @@
                         <p class="field-error">
                           Review Campaign amount. It has to be greater than zero.
                         </p>
-                      } @else {
-                        <p class="field-hint">
-                          The amount this campaign is stated at{{ currencyCode() ? ', in ' + currencyCode() : '' }}. Donors see it when they choose this campaign.
-                        </p>
                       }
                     </div>
 
                     <!-- Target amount — the fundraising target, shown wherever the campaign's target
                          is shown (campaign detail progress, register, reports). -->
-                    <div class="field field-3">
+                    <div class="field field-2">
                       <label class="field-label" for="f-target-amount"
                         >Target amount <span class="req" aria-hidden="true">*</span></label
                       >
@@ -338,15 +387,11 @@
                         <p class="field-error">
                           Review Target amount. It has to be greater than zero.
                         </p>
-                      } @else {
-                        <p class="field-hint">
-                          What this campaign aims to raise{{ currencyCode() ? ', in ' + currencyCode() : '' }}.
-                        </p>
                       }
                     </div>
 
                     <!-- Fund or programme — text input -->
-                    <div class="field">
+                    <div class="field field-4">
                       <label class="field-label" for="f-fund"
                         >Fund or programme <span class="req" aria-hidden="true">*</span></label
                       >
@@ -364,14 +409,12 @@
                       />
                       @if (wasAttempted(0) && !fundProgrammeValid()) {
                         <p class="field-error">Enter Fund or programme.</p>
-                      } @else {
-                        <p class="field-hint">The fund or programme this campaign belongs to.</p>
                       }
                     </div>
 
                     <!-- Owner — a single box that holds every accountable owner as a chip. Picking an owner adds a chip and removes that person from the
                          dropdown; a new campaign starts with the full list again. -->
-                    <div class="field">
+                    <div class="field field-4">
                       <label class="field-label" for="f-owner"
                         >Owner <span class="req" aria-hidden="true">*</span></label
                       >
@@ -439,78 +482,6 @@
                       }
                       @if (wasAttempted(0) && !selectedOwners().length) {
                         <p class="field-error">Enter Owner.</p>
-                      } @else {
-                        <p class="field-hint">One or more people responsible for this campaign.</p>
-                      }
-                    </div>
-
-                    <!-- Start date — date picker with time-zone label -->
-                    <div class="field">
-                      <label class="field-label" for="f-start"
-                        >Start date <span class="req" aria-hidden="true">*</span></label
-                      >
-                      <input
-                        #startDateInput
-                        id="f-start"
-                        type="date"
-                        class="control"
-                        [min]="todayIso"
-                        [disabled]="identityLocked()"
-                        [ngModel]="startDate()"
-                        (ngModelChange)="startDate.set($event)"
-                        (click)="openDatePicker(startDateInput)"
-                        [attr.aria-invalid]="
-                          !startDateValid() && (!!startDate() || wasAttempted(0)) ? 'true' : null
-                        "
-                      />
-                      @if (!startDateValid() && (!!startDate() || wasAttempted(0))) {
-                        <p class="field-error">
-                          {{
-                            startDateInPast()
-                              ? 'Review Start date. A campaign cannot start before today.'
-                              : 'Enter Start date.'
-                          }}
-                        </p>
-                      } @else {
-                        <p class="field-hint">
-                          When will this campaign go live? Interpreted as
-                          <strong>{{ interpretDate(startDate()) }}</strong> ·
-                          {{ operatingTimeZone }}
-                        </p>
-                      }
-                    </div>
-
-                    <!-- End date — date picker with time-zone label -->
-                    <div class="field">
-                      <label class="field-label" for="f-end"
-                        >End date <span class="req" aria-hidden="true">*</span></label
-                      >
-                      <input
-                        #endDateInput
-                        id="f-end"
-                        type="date"
-                        class="control"
-                        [min]="endDateMin()"
-                        [ngModel]="endDate()"
-                        (ngModelChange)="endDate.set($event)"
-                        (click)="openDatePicker(endDateInput)"
-                        [attr.aria-invalid]="
-                          !endDateValid() && (!!endDate() || wasAttempted(0)) ? 'true' : null
-                        "
-                      />
-                      @if (!endDateValid() && (!!endDate() || wasAttempted(0))) {
-                        <p class="field-error">
-                          {{
-                            !endDate()
-                              ? 'Enter End date.'
-                              : 'Review End date. The end cannot fall before the start.'
-                          }}
-                        </p>
-                      } @else {
-                        <p class="field-hint">
-                          When will this campaign end? Interpreted as
-                          <strong>{{ interpretDate(endDate()) }}</strong> · {{ operatingTimeZone }}
-                        </p>
                       }
                     </div>
 
@@ -597,10 +568,6 @@
                           >
                         } @else if (purposeValid()) {
                           <span class="looks-good">✓ Looks good!</span>
-                        } @else {
-                          <span class="field-hint"
-                            >Meaningful text required for this controlled decision.</span
-                          >
                         }
                         <span class="char-count" [class.over]="purposeLen() > purposeMax"
                           >{{ purposeLen() }} / {{ purposeMax }} characters</span
@@ -667,10 +634,6 @@
                       </div>
                       @if (wasAttempted(1) && !countryValid()) {
                         <p class="field-error">Enter Country.</p>
-                      } @else {
-                        <p class="field-hint">
-                          This campaign can be sent to any country. Type to filter the list.
-                        </p>
                       }
                     </div>
 
@@ -735,8 +698,6 @@
                       </div>
                       @if (wasAttempted(1) && !regionValid()) {
                         <p class="field-error">Enter State.</p>
-                      } @else {
-                        <p class="field-hint">State for the selected country.</p>
                       }
                     </div>
 
@@ -799,8 +760,6 @@
                       </div>
                       @if (wasAttempted(1) && !cityValid()) {
                         <p class="field-error">Enter City.</p>
-                      } @else {
-                        <p class="field-hint">City or town for this campaign's activity.</p>
                       }
                     </div>
 
@@ -827,8 +786,6 @@
                         <p class="field-error">
                           {{ pincode() === '' ? 'Enter Zip code.' : 'Review Zip code. Enter a valid postal code.' }}
                         </p>
-                      } @else {
-                        <p class="field-hint">Zip code for the selected state.</p>
                       }
                     </div>
 
@@ -945,15 +902,9 @@
                           </div>
                           @if (wasAttempted(1) && !reminderTimeValid()) {
                             <p class="field-error">Enter Reminder time.</p>
-                          } @else if (reminderTime()) {
-                            <p class="field-hint">Reminder at {{ reminderTimeDisplay() }}</p>
                           }
                         </div>
                       </div>
-                      <p class="field-hint">
-                        A reminder is sent this many days before the start date, at the time
-                        above, so an owner can activate on time.
-                      </p>
                     </div>
                   </div>
                 }
@@ -1137,11 +1088,6 @@
                             }}
                             characters.</span
                           >
-                        } @else {
-                          <span class="field-hint"
-                            >Internal unless a separately approved publication field is used. Use
-                            the toolbar to format the text.</span
-                          >
                         }
                         <span class="char-count"
                           >{{ publicDescriptionLen() }} / {{ publicDescriptionMax }} characters</span
@@ -1318,11 +1264,6 @@
                             >Review Terms and notice. Enter {{ purposeMin }}–{{
                               termsNoticeMax | number
                             }} characters.</span
-                          >
-                        } @else {
-                          <span class="field-hint"
-                            >Entered value is preserved on recoverable failure. Use the toolbar to
-                            format the text.</span
                           >
                         }
                         <span class="char-count" [class.over]="termsNoticeLen() > termsNoticeMax"

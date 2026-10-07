@@ -5,6 +5,7 @@ import { Toast } from "./Shared/components/toast/toast";
 import { CommonModule } from '@angular/common';
 import { DateFieldPickerService } from './Shared/services/date-field-picker.service';
 import { InputGuardService } from './Shared/services/input-guard.service';
+import { DialogHostMarkerService } from './Shared/services/dialog-host-marker.service';
 import { PopupGuardService } from './Shared/services/popup-guard.service';
 
 @Component({
@@ -23,6 +24,8 @@ export class App {
     inject(InputGuardService).install();
     // Pop-ups close from one X at the top right only; a click on the dimmed area answers with a nudge.
     inject(PopupGuardService).install();
+    // Marks the screens the shared dialog design covers with one cheap attribute (keeps navigation fast).
+    inject(DialogHostMarkerService).install();
   }
 
  

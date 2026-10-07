@@ -12,21 +12,29 @@
    ========================================================================================= */
 
 @supports (appearance: base-select) {
+  /* !important: many screen stylesheets set `appearance: none` (and a drawn arrow) on their selects,
+     which out-ranks this file and silently leaves the browser's native list. */
   select:not([multiple]):not([size]),
   select:not([multiple]):not([size])::picker(select) {
-    appearance: base-select;
+    appearance: base-select !important;
   }
 
   /* The closed field keeps the look each screen already gives it; only the arrow changes hands. */
   select:not([multiple]):not([size]) {
     cursor: pointer;
-    display: inline-flex;
+    display: inline-flex !important;
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    background-image: none;
+    background-image: none !important;
+  }
+
+  /* Screens that drew their own arrow beside the select (an <svg>/<i>/<span> chevron or caret) would show two;
+     the shared picker arrow is the one that stays. */
+  select:not([multiple]):not([size]) ~ :is([class*="chev"], [class*="caret"], [class*="arrow"]) {
+    display: none !important;
   }
 
   select:not([multiple]):not([size]):disabled {
@@ -60,6 +68,8 @@
     min-inline-size: anchor-size(inline);
     max-block-size: min(calc(260px * var(--ui-scale, 1)), 60vh);
     overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--theme-muted, #647579) 45%, #ffffff) transparent;
     background: #ffffff;
     border: 1px solid var(--lx-card-line, #e8eaec);
     border-radius: calc(14px * var(--ui-scale, 1));
