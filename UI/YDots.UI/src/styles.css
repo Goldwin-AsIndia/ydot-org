@@ -5521,10 +5521,71 @@ button,
   line-height: var(--line-height-base, 1.6) !important;
 }
 
+/* ── Heading colour ──
+   The panel's Heading colour picker writes --heading-color; every page and section heading
+   reads it here. !important is required to outrank each component's own emulated title colour.
+   Exceptions below keep artwork headings (white on dark) and semantic status colours. */
+h1, h2, h3, h4, h5, h6,
+.page-title,
+.card-title,
+.modal-title,
+.notif-title,
+.tc-header-title h2 {
+  color: var(--heading-color, #111827) !important;
+}
+
+/* Headings painted on artwork or carrying a status keep their own colour. */
+.cu-done-title,
+.gm-aside-head h3 {
+  color: #ffffff !important;
+}
+.xr-ready-status[data-q='success'] {
+  color: var(--xr-ok) !important;
+}
+.xr-ready-status[data-q='warning'] {
+  color: var(--xr-warn) !important;
+}
+.gm-confirm.is-danger .gm-confirm-text h3 {
+  color: var(--ov-danger, #b3261e) !important;
+}
+
 /* ── Shadow strength ──
-   (.card / .detail-card / .profile-header-card are owned by styles/ydot-card.css) */
+   The Shadow slider writes --shadow-strength (0 → 0.40) on <html>; the tokens below scale every
+   elevation from it, so 0 = the flat design and 40 = deep. ydot-premium.css flattens the vendor
+   shadows first — these rules sit after that import, so they win. Cards inside dropdown menus
+   stay flat (navigation chrome), and controls (buttons, inputs, list rows) stay flat whatever
+   the slider says. (.card / .detail-card / .profile-header-card shells read --yc-shadow from
+   styles/ydot-card.css, re-pointed here because ydot-premium.css forces it to none.) */
+:root {
+  --theme-elev-1:
+    0 1px 2px rgb(15 23 42 / calc(var(--shadow-strength, .15) * .7)),
+    0 10px 24px -12px rgb(15 23 42 / calc(var(--shadow-strength, .15) * 1.6));
+  --theme-elev-2:
+    0 2px 4px -2px rgb(15 23 42 / calc(var(--shadow-strength, .15) * .8)),
+    0 20px 44px -18px rgb(15 23 42 / calc(var(--shadow-strength, .15) * 2));
+
+  /* ydot-premium.css forces these tokens to none at :root; re-point them here (later wins),
+     so token readers follow the slider too. The --pe-card/-box-shadow tokens stay flat: the
+     header-dropdown cards read them and are deliberately flat chrome — those surfaces are
+     driven by the element rules below instead. */
+  --yc-shadow: var(--theme-elev-1);
+  --shadow-card: var(--theme-elev-1);
+  --shadow-card-hover: var(--theme-elev-2);
+}
+
+.card:not(.dropdown-menu *),
+.detail-card,
+.profile-header-card,
+.ydot-card {
+  box-shadow: var(--theme-elev-1) !important;
+}
 .modal-content,
 .dropdown-menu,
+.offcanvas,
+.popover,
+.toast {
+  box-shadow: var(--theme-elev-2) !important;
+}
 .theme-option-card,
 .notif-row,
 .mfa-method-row,
@@ -5575,6 +5636,7 @@ button,
 
 /* ── Button radius ── */
 
+.btn,
 .btn-outline-danger,
 .btn-warning,
 .btn-light,
@@ -5590,7 +5652,27 @@ button,
 .status-pill,
 .pill-soft,
 .tab-count-pill {
-  border-radius:8px;
+  border-radius: var(--btn-radius, 8px);
+}
+
+/* ── Profile photo ──
+   The panel's Profile photo picker writes --profile-image plus has-profile-photo on <html>;
+   the shell's initials badges (top bar on every page, profile, identifier pages) paint the
+   photo instead of the initials. Clearing the class restores the badges. */
+html.has-profile-photo .tb-avatar,
+html.has-profile-photo .cr-avatar-text {
+  background-image: var(--profile-image, none);
+  background-size: cover;
+  background-position: center;
+  color: transparent; /* the initials sit behind the photo, not through it */
+}
+html.has-profile-photo .user-detail-avatar {
+  background-image: var(--profile-image, none);
+  background-size: cover;
+  background-position: center;
+}
+html.has-profile-photo .user-detail-avatar i {
+  color: transparent;
 }
 /* YDot mark: the three-swoosh logo as an alpha mask, so it takes the theme colour (--theme-primary)
    anywhere it is placed. Width is set inline; the mark is square. */
@@ -5675,4 +5757,10 @@ button,
   height: auto !important;
   line-height: 1 !important;
   margin: 0 !important;
+}
+.btn-primary,.btn-outline-primary,.btn-secondary,.btn-outline-secondary,.btn-success,.btn-outline-success,.btn-danger,.btn-outline-danger,.btn-warning,.btn-outline-warning,.btn-info,.btn-outline-info,.btn-light,.btn-outline-light,.btn-dark,.btn-outline-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+    padding-right: 11px;
 }

@@ -85,8 +85,9 @@ describe('Theme Settings entry', () => {
     const text = root.textContent ?? '';
     expect(text).not.toContain('Color palette');
     expect(root.querySelector('.tc-palette-chip')).toBeNull();
-    expect(text).toContain('Primary color');
-    expect(text).toContain('Text size');
+    // Panel copy was redesigned (British spelling + renamed sliders) — assert against the live labels.
+    expect(text).toContain('Primary colour');
+    expect(text).toContain('Overall size');
     expect(root.querySelector('app-theme-picker')).not.toBeNull();
   });
 
@@ -129,5 +130,41 @@ describe('Theme Settings entry', () => {
     expect(style.getPropertyValue('--ts-global')).toBe('1');
     expect(style.getPropertyValue('--ts-title')).toBe('1');
     expect(style.getPropertyValue('--fwb-title')).toBe('0');
+  });
+
+  it('applies the picked profile photo across the shell and clears it on reset', () => {
+    const theme = TestBed.createComponent(ThemeComponent);
+    theme.detectChanges();
+    const c = theme.componentInstance;
+    const html = document.documentElement;
+
+    c.selectProfile('https://example.com/me.png');
+    // The class is the switch the global CSS keys the badges on (top bar, profile, identifier page).
+    expect(html.classList).toContain('has-profile-photo');
+    expect(html.style.getPropertyValue('--profile-image')).toContain('example.com/me.png');
+
+    // Reset must clear both — the old photo used to leak through resetTheme().
+    c.resetTheme();
+    expect(html.classList).not.toContain('has-profile-photo');
+    expect(html.style.getPropertyValue('--profile-image')).toBe('');
+  });
+
+  it('writes heading colour, shadow strength and radii where every screen reads them', () => {
+    const theme = TestBed.createComponent(ThemeComponent);
+    theme.detectChanges();
+    const c = theme.componentInstance;
+    const style = document.documentElement.style;
+
+    c.setHeadingPreset('#00af43');
+    expect(style.getPropertyValue('--heading-color')).toBe('#00af43');
+
+    c.onShadowInput({ target: { value: '30' } } as unknown as Event);
+    expect(style.getPropertyValue('--shadow-strength')).toBe('0.30');
+
+    c.onBorderRadiusInput({ target: { value: '22' } } as unknown as Event);
+    expect(style.getPropertyValue('--radius')).toBe('22px');
+
+    c.onButtonRadiusInput({ target: { value: '14' } } as unknown as Event);
+    expect(style.getPropertyValue('--btn-radius')).toBe('14px');
   });
 });

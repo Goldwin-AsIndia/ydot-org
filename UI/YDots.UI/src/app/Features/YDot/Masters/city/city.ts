@@ -380,7 +380,7 @@ export class CityComponent implements OnInit {
   openList(): void {
     this.mode.set('list');
     this.isEdit.set(false);
-    this.pageTitle.set('City List');
+    this.pageTitle.set('City');
     this.pageSubTitle.set('Manage your cities');
     this.loadListData();
   }

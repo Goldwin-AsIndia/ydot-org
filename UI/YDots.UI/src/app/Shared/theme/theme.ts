@@ -838,11 +838,31 @@ export class ThemeComponent implements OnInit {
 
   selectProfile(url: string): void {
     this.settings.profilePhoto = url;
-    this.setCssVar('--profile-image', `url(${url})`);
-    this.document.querySelectorAll<HTMLImageElement>('img.profile-avatar, img.user-img').forEach(img => {
-      img.src = url;
-    });
+    this.applyProfilePhoto();
     this.autoPersist();
+  }
+
+  /**
+   * Paints the picked photo onto the shell's initials badges: --profile-image carries the image,
+   * has-profile-photo on <html> is the switch the CSS keys on (styles.css, "Profile photo" — top
+   * bar on every page, profile, identifier pages). With no photo both are removed so the badges
+   * fall back to initials — which also clears a stale photo when the theme is reset.
+   */
+  private applyProfilePhoto(): void {
+    const root = this.document.documentElement;
+    const url = this.settings.profilePhoto;
+    if (url) {
+      this.setCssVar('--profile-image', `url(${url})`);
+      root.classList.add('has-profile-photo');
+      this.document.querySelectorAll<HTMLImageElement>('img.profile-avatar, img.user-img').forEach(img => {
+        img.src = url;
+      });
+    } else {
+      // DashCase flag: without it removeStyle() does `el.style[name] = ''`, which does not
+      // clear a custom property — the old photo then survived resetTheme() (caught by spec).
+      this.renderer.removeStyle(root, '--profile-image', 2 /* DashCase, no important */);
+      root.classList.remove('has-profile-photo');
+    }
   }
 
   // ═══════════ Custom color persistence ═══════════
@@ -927,9 +947,7 @@ export class ThemeComponent implements OnInit {
     if (this.settings.sidebarBg) {
       this.applySidebarBg(this.settings.sidebarBg);
     }
-    if (this.settings.profilePhoto) {
-      this.setCssVar('--profile-image', `url(${this.settings.profilePhoto})`);
-    }
+    this.applyProfilePhoto();
   }
 
   // ═══════════ Save / Reset ═══════════

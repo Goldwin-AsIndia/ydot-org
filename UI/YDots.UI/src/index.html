@@ -67,6 +67,17 @@
           html.style.setProperty('--ts-' + roles[role], String(Math.round(size * 1000) / 1000));
           html.style.setProperty('--fwb-' + roles[role], String(weight));
         }
+        // Heading colour / shadow / radius / profile photo get the same pre-paint treatment so the
+        // first frame matches the saved theme (auth pages included — ThemeComponent only mounts
+        // inside the app shell). Values mirror ThemeComponent's own writes in Shared/theme.
+        if (saved.headingColor) { html.style.setProperty('--heading-color', saved.headingColor); }
+        if (typeof saved.borderRadius === 'number') { html.style.setProperty('--radius', saved.borderRadius + 'px'); }
+        if (typeof saved.buttonRadius === 'number') { html.style.setProperty('--btn-radius', saved.buttonRadius + 'px'); }
+        if (typeof saved.shadowStrength === 'number') { html.style.setProperty('--shadow-strength', (saved.shadowStrength / 100).toFixed(2)); }
+        if (saved.profilePhoto) {
+          html.style.setProperty('--profile-image', 'url(' + saved.profilePhoto + ')');
+          html.classList.add('has-profile-photo');
+        }
       } catch (e) { /* storage blocked or malformed: the light, designed-size defaults apply */ }
     })();
   </script>

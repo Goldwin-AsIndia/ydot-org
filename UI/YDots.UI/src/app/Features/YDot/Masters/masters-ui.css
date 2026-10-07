@@ -375,9 +375,54 @@ svg {
 .gm-table th.ta-end { text-align: right; }
 
 .gm-table .col-actions {
-  width: 1%;
+  /* width: 1%; */
   white-space: nowrap;
   text-align: right;
+}
+
+/* Equal space between columns without horizontal scroll (Country, State, City,
+   Currency, Time Zone): fixed layout divides the leftover width equally among
+   the visible data columns; Actions shrink-wraps to its buttons (width: 1%).
+   Every data cell clips with an ellipsis instead of pushing the table wider,
+   so .gm-table-wrap never needs its horizontal scrollbar at normal widths.
+   Narrow screens still hide columns via the gm-hide and gm-col-opt rules. */
+.gm-table {
+  table-layout: fixed;
+  max-width: 100%;
+}
+.gm-table thead th:not(.col-actions),
+.gm-table tbody td:not(.col-actions):not(.gm-empty-cell) {
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gm-table tbody td.gm-empty-cell {
+  white-space: normal;
+}
+.gm-table .gm-ident {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+.gm-table .gm-ident > * {
+  min-width: 0;
+}
+.gm-table .gm-ident-text {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.gm-table .gm-ident-name,
+.gm-table .gm-ident-sub {
+  max-width: 100%;
+}
+.gm-table .gm-code,
+.gm-table .gm-chip,
+.gm-table .gm-status {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The identity cell: an avatar tile, a name and a quiet second line. */
@@ -2264,4 +2309,93 @@ textarea.mf-in {
   .mf-lab { min-height: 0; }
   .mf-foot-actions { width: 100%; }
   .mf-foot-actions .gm-btn { flex: 1 1 auto; }
+}
+
+/* =============================================================================================
+   TABLE: NO SIDEWAYS SCROLL, EQUAL COLUMNS, ONE ALIGNMENT (2026-10-07)
+   =============================================================================================
+
+   THE SCROLLBAR HAD TWO CAUSES.
+   1. The Actions column. The table is `table-layout: fixed`, so it takes its column widths from the header
+      row, and Actions asked for `width: 1%` - a sliver about 20px wide - while its buttons need 130-170px.
+      The buttons spilled past the table's right edge and the wrapper scrolled to reach them. Actions now
+      gets a real width, sized by how many buttons the row has (3 or 4).
+   2. Page stylesheets. Country and State set their own column widths / table min-width in their component
+      CSS, which load after this file and win. Those widths add up to more than the card, so those two
+      pages still scrolled. The rules below are prefixed with :host .gm-panel and marked !important so they
+      win over any page sheet: every data column is `auto`, and a fixed-layout table shares the space left
+      after Actions equally between them, whether there are 5 or 6.
+
+   THE MISALIGNMENT. Some values were centred under left-aligned headers. Every data column now starts on
+   the same left edge as its header, and Actions sits right under its own header. */
+:host {
+  --gm-actions-w: calc(132px * var(--ui-scale, 1));
+}
+
+/* Four row actions (view, edit, toggle, delete): 4 x 32px buttons + 3 gaps + cell padding. */
+:host .gm-panel .gm-table:has(td.col-actions .gm-actions > :nth-child(4)) {
+  --gm-actions-w: calc(172px * var(--ui-scale, 1));
+}
+
+:host .gm-panel .gm-table-wrap {
+  overflow-x: hidden !important;
+}
+
+:host .gm-panel .gm-table {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+}
+
+/* Data columns: no width of their own, so they share the free space equally. */
+:host .gm-panel .gm-table thead th:not(.col-actions),
+:host .gm-panel .gm-table tbody td:not(.col-actions):not(.gm-empty-cell) {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  padding-inline: calc(14px * var(--ui-scale, 1)) !important;
+  text-align: left !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A <col> or a page rule may also have given a column a width; neutralise those too. */
+:host .gm-panel .gm-table col:not(.col-actions) {
+  width: auto !important;
+}
+
+:host .gm-panel .gm-table th.col-actions,
+:host .gm-panel .gm-table td.col-actions {
+  width: var(--gm-actions-w) !important;
+  min-width: 0 !important;
+  padding-inline: calc(10px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) !important;
+  text-align: right !important;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+:host .gm-panel .gm-table td.col-actions .gm-actions {
+  justify-content: flex-end;
+  width: 100%;
+}
+
+/* The identity cell (flag / code + name + sub-line) fills its column and never pushes it wider. */
+:host .gm-panel .gm-table .gm-ident {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0 !important;
+}
+
+:host .gm-panel .gm-table .gm-ident-name,
+:host .gm-panel .gm-table .gm-ident-sub {
+  max-width: 100% !important;
+}
+
+/* Phones only: the few columns left visible may still need a sideways scroll as a last resort. */
+@media (max-width: 768px) {
+  :host .gm-panel .gm-table-wrap {
+    overflow-x: auto !important;
+  }
 }

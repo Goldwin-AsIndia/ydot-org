@@ -36,9 +36,10 @@
   --yc-border: none;
   --yc-divider: 1px solid var(--yc-border-color);
 
-  /* Shape */
-  --yc-radius: calc(20px * var(--ui-scale, 1));                 /* .fk-panel / .fk-kpi */
-  --yc-radius-inner: calc(16px * var(--ui-scale, 1));           /* nested card inside a card (.fk-rail-card) */
+  /* Shape — the panel's Border radius slider drives these: at the default 8px the offsets
+     below land on the designed 20px / 16px, and moving the slider rounds every card in the app. */
+  --yc-radius: calc((var(--radius, 8px) + 12px) * var(--ui-scale, 1));     /* default 20px — .fk-panel / .fk-kpi */
+  --yc-radius-inner: calc((var(--radius, 8px) + 8px) * var(--ui-scale, 1)); /* default 16px — nested card (.fk-rail-card) */
   --yc-radius-badge: 50%;            /* icon badge is a circle (.fk-ic-bubble) */
 
   /* Spacing */
@@ -48,7 +49,10 @@
   --yc-gap: calc(16px * var(--ui-scale, 1));                    /* .fk-overview-panel / .fk-chart-panel */
   --yc-gap-kpi: calc(10px * var(--ui-scale, 1));                /* .fk-kpi */
 
-  /* Elevation — the card is flat: the border carries the edge, no shadow. */
+  /* Elevation — the border carries the edge by default; the panel's Shadow slider drives the
+     shadow through --shadow-strength: ydot-premium.css flattens this token at :root, and
+     styles.css (customiser section) re-points it at --theme-elev-1, so cards lift with the
+     slider. --yc-shadow-inner keeps nested cards flat. */
   --yc-shadow: none;
   --yc-shadow-inner: none;   /* only a card nested in a card */
 
