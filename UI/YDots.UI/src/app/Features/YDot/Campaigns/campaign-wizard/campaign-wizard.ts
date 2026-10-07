@@ -10,7 +10,6 @@ import { CurrentUserService } from '../../../../Shared/services/current-user.ser
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { OrganisationContextService } from '../../../../Shared/services/organisation-context.service';
-import { CampaignApiService } from '../../../../Service/campaign-api.service';
 import { GeoMasterService } from '../../../../Shared/services/geo-master.service';
 import { MasterLookup } from '../../../../Shared/models/global-master.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
@@ -78,8 +77,6 @@ export class CampaignWizardComponent {
    * private additions out of another's.
    */
   private readonly masters = inject(GeoMasterService);
-  /** Channels — the campaign module's own reference catalogue. */
-  private readonly campaignApi = inject(CampaignApiService);
   /** The signed-in Organisation, which supplies the currency now that nobody can choose one. */
   private readonly organisation = inject(OrganisationContextService);
 
@@ -148,7 +145,7 @@ export class CampaignWizardComponent {
     // TARGET & BUDGET IS ON HOLD and is deliberately absent, along with its panel, its recap
     // and its fields. Turning it back on means restoring this entry, the template panel, the
     // three signals and their keys in `requiredValid`.
-    { title: 'Channels & Sources', caption: 'Select channels, source and location' },
+    { title: 'Location & Reminder', caption: 'Location and pre-launch reminder' },
     { title: 'Publication & Notice', caption: 'Public description and terms' },
     { title: 'Review & Launch', caption: 'Review and confirm' },
   ];
@@ -220,6 +217,7 @@ export class CampaignWizardComponent {
           r.campaignName &&
           r.campaignCode &&
           r.campaignAmount &&
+          r.targetAmount &&
           r.purpose &&
           r.fundProgramme &&
           r.owner &&
@@ -230,7 +228,6 @@ export class CampaignWizardComponent {
         return (
           r.reminderDaysBefore &&
           r.reminderTime &&
-          r.channels &&
           r.country &&
           r.region &&
           r.city &&
@@ -330,6 +327,51 @@ export class CampaignWizardComponent {
     const code = this.currencyCode();
 
     return code ? `${code} ${formatted}` : formatted;
+  });
+
+  // --- Target amount — what the campaign aims to raise in total. ---
+  //
+  // Held as text for the same reason as the campaign amount above. It is the figure the detail
+  // page measures "raised to date" against.
+  protected readonly targetAmount = signal('');
+
+  protected setTargetAmount(value: string): void {
+    const cleaned = (value ?? '')
+      .replace(/[^0-9.]/g, '')
+      .replace(/(\..*)\./g, '$1');
+    const [whole, fraction] = cleaned.split('.');
+    this.targetAmount.set(fraction === undefined ? whole : `${whole}.${fraction.slice(0, 2)}`);
+  }
+
+  protected readonly targetAmountValue = computed(() => {
+    const parsed = Number(this.targetAmount().trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+  });
+
+  protected readonly targetAmountValid = computed(() => {
+    const value = this.targetAmountValue();
+    return value > 0 && value <= this.campaignAmountMaximum;
+  });
+
+  protected readonly targetAmountLabel = computed(() => {
+    if (!this.targetAmountValid()) {
+      return '—';
+    }
+    const formatted = this.targetAmountValue().toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    const code = this.currencyCode();
+    return code ? `${code} ${formatted}` : formatted;
+  });
+
+  /**
+   * Name, code and start date are fixed once a campaign is live. They can still be changed while
+   * it is a Draft, Submitted or Scheduled.
+   */
+  protected readonly identityLocked = computed(() => {
+    const status = this.liveEditStatus();
+    return status === 'Active' || status === 'Paused';
   });
 
   // --- Purpose — rich-text editor with character counter, 10–1,000 chars.
@@ -443,6 +485,8 @@ export class CampaignWizardComponent {
    */
   protected readonly startDateValid = computed(() => {
     const value = this.startDate();
+    // A campaign that is already live keeps the start date it went live with, which is in the past.
+    if (this.liveEditStatus() === 'Active') return !!value;
     return !!value && value >= this.todayIso;
   });
 
@@ -676,36 +720,6 @@ export class CampaignWizardComponent {
 
     return `${String(twelve).padStart(2, '0')}:${minutes} ${meridiem}`;
   }
-
-  // --- Channels — searchable controlled choice from the approved catalogue ---
-  //
-  // FROM THE CAM REFERENCE ENDPOINT, so `ref` is the channel's Guid. The five rows this list
-  // used to hold were invented, and the wizard sent their LABELS - 'Website', 'Email' - as
-  // `channelIds`, which the API declares as Guids. The seeded channels are different rows
-  // entirely, so even the codes would not have matched.
-  protected readonly channelCatalogue = signal<readonly MasterOption[]>([]);
-  protected readonly channelQuery = signal('');
-  protected readonly selectedChannels = signal<readonly string[]>([]);
-  protected readonly channelsValid = computed(() => this.selectedChannels().length > 0);
-  protected readonly channelResults = computed(() => {
-    const q = this.channelQuery().trim().toLowerCase();
-    const all = this.channelCatalogue();
-    if (!q) return all;
-    return all.filter((c) => c.label.toLowerCase().includes(q));
-  });
-  protected toggleChannel(ref: string): void {
-    this.selectedChannels.update((list) =>
-      list.includes(ref) ? list.filter((r) => r !== ref) : [...list, ref],
-    );
-  }
-  protected channelLabel(ref: string): string {
-    return this.channelCatalogue().find((c) => c.ref === ref)?.label ?? ref;
-  }
-
-  /** The chosen channels as people read them — the review step must never print Guids. */
-  protected readonly selectedChannelLabels = computed(() =>
-    this.selectedChannels().map((ref) => this.channelLabel(ref)),
-  );
 
   // --- Country — searchable single-select from the platform's country master.
   //
@@ -1038,6 +1052,7 @@ export class CampaignWizardComponent {
     campaignName: this.campaignNameValid(),
     campaignCode: this.campaignCode().trim().length > 0,
     campaignAmount: this.campaignAmountValid(),
+    targetAmount: this.targetAmountValid(),
     purpose: this.purposeValid(),
     fundProgramme: this.fundProgrammeValid(),
     owner: this.selectedOwners().length > 0,
@@ -1046,7 +1061,6 @@ export class CampaignWizardComponent {
     // TARGET AMOUNT, CURRENCY AND BUDGET ARE ABSENT while Target & Budget is on hold. A field
     // the user cannot reach must not be counted as required information, or the progress meter
     // could never reach 100% and Submit would stay disabled for ever.
-    channels: this.channelsValid(),
     country: this.countryValid(),
     region: this.regionValid(),
     city: this.cityValid(),
@@ -1068,6 +1082,7 @@ export class CampaignWizardComponent {
       r.campaignName &&
       r.campaignCode &&
       r.campaignAmount &&
+      r.targetAmount &&
       r.purpose &&
       r.fundProgramme &&
       r.owner &&
@@ -1077,7 +1092,7 @@ export class CampaignWizardComponent {
   });
   protected readonly step2Complete = computed(() => {
     const r = this.requiredValid();
-    return r.reminderDaysBefore && r.reminderTime && r.channels && r.country && r.region && r.city && r.pincode;
+    return r.reminderDaysBefore && r.reminderTime && r.country && r.region && r.city && r.pincode;
   });
   protected readonly step3Complete = computed(() => {
     const r = this.requiredValid();
@@ -1113,12 +1128,12 @@ export class CampaignWizardComponent {
       campaignName: 'Campaign name',
       campaignCode: 'Campaign code',
       campaignAmount: 'Campaign amount',
+      targetAmount: 'Target amount',
       purpose: 'Purpose',
       fundProgramme: 'Fund or programme',
       owner: 'Owner',
       startDate: 'Start date',
       endDate: 'End date',
-      channels: 'Channels',
       country: 'Country',
       region: 'State',
       city: 'City',
@@ -1179,6 +1194,17 @@ export class CampaignWizardComponent {
       this.uiState() !== 'no-access',
   );
 
+  /** Plain text as editor markup: escaped, with line breaks kept. */
+  private textToHtml(text: string | undefined): string {
+    if (!text) return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .split('\n')
+      .join('<br>');
+  }
+
   /** Populate every wizard field from an existing store record, and mark it as the
    *  record Save Draft writes back to (instead of creating a new one). No-op when
    *  `ref` is absent/unknown — the wizard then starts blank as normal. */
@@ -1194,6 +1220,9 @@ export class CampaignWizardComponent {
     // validator refuses zero - so the step would look complete and the save would be refused.
     this.campaignAmount.set(
       record.campaignAmount && record.campaignAmount > 0 ? String(record.campaignAmount) : '',
+    );
+    this.targetAmount.set(
+      record.targetAmount && record.targetAmount > 0 ? String(record.targetAmount) : '',
     );
     this.purpose.set(record.purpose ?? '');
     this.purposeHtml.set(record.purpose ?? '');
@@ -1222,7 +1251,6 @@ export class CampaignWizardComponent {
     if (record.currency) {
       this.currency.set(record.currency);
     }
-    this.selectedChannels.set([...(record.channels ?? [])]);
     if (record.country) {
       this.selectedCountry.set(record.country);
       this.countryQuery.set(record.countryName ?? '');
@@ -1238,9 +1266,13 @@ export class CampaignWizardComponent {
     this.reminderDaysBefore.set(record.reminderDaysBefore ?? 3);
     this.reminderTime.set(record.reminderTime ?? '');
     this.publicDescription.set(record.publicDescription ?? '');
-    this.publicDescriptionHtml.set(record.publicDescriptionHtml ?? '');
+    // A description stored as plain text has no markup twin, so the editor is seeded from the
+    // text itself; otherwise Publication & Notice opened empty while Review & Launch showed it.
+    this.publicDescriptionHtml.set(
+      record.publicDescriptionHtml || this.textToHtml(record.publicDescription),
+    );
     this.termsNotice.set(record.termsNotice ?? '');
-    this.termsNoticeHtml.set(record.termsNoticeHtml ?? '');
+    this.termsNoticeHtml.set(record.termsNoticeHtml || this.textToHtml(record.termsNotice));
 
     this.stableReference.set(record.code);
     this.lifecycleState.set('Draft');
@@ -1288,6 +1320,7 @@ export class CampaignWizardComponent {
       // loaded is exactly right - the hazard the next paragraph describes is about keys the
       // wizard has no value for at all.
       campaignAmount: this.campaignAmountValue(),
+      targetAmount: this.targetAmountValue(),
 
       // TARGET AND BUDGET ARE OMITTED, not set to a default. The keys must be ABSENT rather
       // than undefined: the store merges `{ ...current, ...patch }`, so a present-but-undefined
@@ -1298,8 +1331,6 @@ export class CampaignWizardComponent {
       // is what the API rejected; the `*Name` twins carry what the detail page should print.
       currency: this.currency() || undefined,
       currencyName: this.currency() ? this.currencyLabel() : undefined,
-      channels: [...this.selectedChannels()],
-      channelNames: this.selectedChannelLabels(),
       country: this.selectedCountry() || undefined,
       countryName: this.selectedCountry() ? this.selectedCountryLabel() : undefined,
       regionLabel: this.selectedCountry() ? this.regionLabel() : undefined,
@@ -1622,6 +1653,7 @@ export class CampaignWizardComponent {
     this.campaignName.set('');
     this.campaignCode.set('');
     this.campaignAmount.set('');
+    this.targetAmount.set('');
     this.selectedOwners.set([]);
     this.ownerQuery.set('');
     this.ownerOpen.set(false);
@@ -1631,7 +1663,6 @@ export class CampaignWizardComponent {
     this.fundProgramme.set('');
     this.startDate.set('');
     this.endDate.set('');
-    this.selectedChannels.set([]);
     this.clearCountry();
     this.city.set('');
     this.pincode.set('');
@@ -1718,28 +1749,14 @@ export class CampaignWizardComponent {
 
     this.masters.getCountries().subscribe((countries) => {
       this.countryCatalogue.set(this.toOptions(countries));
+      const chosen = this.countryCatalogue().find((c) => c.ref === this.selectedCountry());
+      if (chosen && !this.countryQuery()) this.countryQuery.set(chosen.label);
 
       if (countries.length === 0) {
         this.referenceError.set(
           'The currency and country lists could not be loaded. Reload the page to try again.',
         );
       }
-    });
-
-    this.campaignApi.getReferenceData().subscribe({
-      next: (reference) => {
-        // ACTIVE CHANNELS ONLY. A retired channel is one the API will refuse on the way back
-        // in, so offering it produces a selection the create call rejects.
-        this.channelCatalogue.set(
-          reference.channels
-            .filter((channel) => channel.isActive)
-            .map((channel) => ({ ref: channel.id, label: channel.name })),
-        );
-      },
-      error: () =>
-        this.referenceError.set(
-          'The channel list could not be loaded. Reload the page to try again.',
-        ),
     });
   }
 
@@ -1750,12 +1767,18 @@ export class CampaignWizardComponent {
     // empty array rather than throwing, so that path needs no error branch of its own.
     this.masters.getStates(countryId).subscribe((states) => {
       this.regionOptions.set(this.toOptions(states));
+      // An edit arrives holding the state's id; if its name did not come with it, read the name
+      // from the list so the field is not left blank.
+      const chosen = this.regionOptions().find((r) => r.ref === this.region());
+      if (chosen && !this.regionQuery()) this.regionQuery.set(chosen.label);
     });
   }
 
   private loadCities(stateProvinceId: string): void {
     this.masters.getCities(stateProvinceId).subscribe((cities) => {
       this.cityOptions.set(this.toOptions(cities));
+      const chosen = this.cityOptions().find((c) => c.ref === this.city());
+      if (chosen && !this.cityQuery()) this.cityQuery.set(chosen.label);
     });
   }
 

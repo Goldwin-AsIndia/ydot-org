@@ -118,6 +118,14 @@ public class Campaign : TenantEntity, ICodedEntity
     /// <summary>Only a Draft campaign may be edited freely or deleted.</summary>
     public bool IsDraft => Status == CampaignStatus.Draft;
 
-    /// <summary>Whether the campaign's details may be edited: while Draft, or once Active.</summary>
-    public bool IsEditable => Status is CampaignStatus.Draft or CampaignStatus.Active;
+    /// <summary>
+    /// Whether the campaign's details may be edited: while Draft, Submitted, Approved, Scheduled
+    /// or Active. Once it is Active the name and start date are fixed (see <see cref="IsIdentityLocked"/>).
+    /// </summary>
+    public bool IsEditable =>
+        Status is CampaignStatus.Draft or CampaignStatus.Submitted or CampaignStatus.Approved
+            or CampaignStatus.Scheduled or CampaignStatus.Active;
+
+    /// <summary>A live campaign keeps the name and start date it went live with.</summary>
+    public bool IsIdentityLocked => Status == CampaignStatus.Active;
 }

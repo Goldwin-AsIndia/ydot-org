@@ -12,6 +12,9 @@ public sealed record GetCampaignReadinessQuery(Guid CampaignId);
 /// <summary>One check in full, with its blockers.</summary>
 public sealed record GetReadinessCheckQuery(Guid CheckId);
 
+/// <summary>The checks assigned to the caller that are due a reminder.</summary>
+public sealed record GetMyReadinessRemindersQuery;
+
 /// <summary>The read side of the Campaign Readiness slice.</summary>
 public sealed class ReadinessQueryHandler(
     ICampaignReadinessReadService readService,
@@ -68,5 +71,22 @@ public sealed class ReadinessQueryHandler(
             query.CheckId);
 
         return Result.Success(check);
+    }
+
+    /// <summary>
+    /// The reminder for the person a check is assigned to: a required check that has not passed,
+    /// on a campaign that starts within the next four days.
+    /// </summary>
+    public const int ReminderDaysBeforeStart = 4;
+
+    public async Task<Result<IReadOnlyList<ReadinessReminderResponse>>> HandleAsync(
+        GetMyReadinessRemindersQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        var reminders = await readService.GetRemindersForUserAsync(
+            currentUser.UserId, ReminderDaysBeforeStart, cancellationToken);
+
+        return Result.Success(reminders);
     }
 }

@@ -43,6 +43,7 @@ import {
   UpdateCampaignRequest,
   UpdateReadinessCheckRequest,
   UpdateTrackingAssetRequest,
+  ReadinessReminder,
 } from '../Shared/models/campaign-contract.model';
 
 /**
@@ -363,6 +364,13 @@ export class CampaignApiService {
     return this.http
       .get<ApiResponse<CampaignReadiness>>(`${this.rootUrl}/campaigns/${campaignId}/readiness`)
       .pipe(map((response) => response.data!));
+  }
+
+  /** The readiness checks assigned to me that are due a reminder (campaign starts within 4 days). */
+  getMyReadinessReminders(): Observable<ReadinessReminder[]> {
+    return this.http
+      .get<ApiResponse<ReadinessReminder[]>>(`${this.rootUrl}/readiness-checks/my-reminders`)
+      .pipe(map((response) => response.data ?? []));
   }
 
   addReadinessCheck(

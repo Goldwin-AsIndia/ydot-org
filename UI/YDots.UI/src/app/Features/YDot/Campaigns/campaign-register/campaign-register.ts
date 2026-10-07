@@ -3,7 +3,6 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import { ClickOutsideDirective } from '../../../../Shared/directives/click-outside';
 import { UiState, CampaignStatus, OwnerOption, CampaignRecord, SortableColumn, SortDirection } from '../../../../Shared/models/campaign.model';
 import { CampaignStoreService } from '../../../../Shared/services/campaign-store.service';
 import { CurrentUserService } from '../../../../Shared/services/current-user.service';
@@ -39,7 +38,7 @@ export const ALL_OWNERS_REFERENCE = 'ALL';
 
 @Component({
   selector: 'app-campaign-register',
-  imports: [RowsPerPage, CommonModule, FormsModule, ClickOutsideDirective],
+  imports: [RowsPerPage, CommonModule, FormsModule],
   templateUrl: './campaign-register.html',
   styleUrl: './campaign-register.css',
 })
@@ -515,14 +514,17 @@ export class CampaignRegisterComponent {
   }
 
   /**
-   * Edit is offered for a Draft, to a caller who holds the edit permission.
+   * Edit is offered for a Draft, Submitted, Scheduled or Active campaign, to a caller who holds the edit permission.
    *
    * BOTH HALVES, WHICH IT DID NOT HAVE. The status half was here and the permission half was not,
    * so an Approver - a role defined by not editing what it approves - was shown Edit on every
    * draft on the register.
    */
   protected canEdit(record: CampaignRecord): boolean {
-    return this.permissions().edit && record.status === 'Draft';
+    return (
+      this.permissions().edit &&
+      ['Draft', 'Submitted', 'Approved', 'Scheduled', 'Active'].includes(record.status)
+    );
   }
   protected openEdit(record: CampaignRecord): void {
     this.closeRowMenu();

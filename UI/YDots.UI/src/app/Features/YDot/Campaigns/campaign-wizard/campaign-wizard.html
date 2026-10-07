@@ -227,6 +227,7 @@
                         class="control"
                         autocomplete="off"
                         [attr.maxlength]="campaignNameMax"
+                        [disabled]="identityLocked()"
                         placeholder="Enter the campaign name…"
                         [ngModel]="campaignName()"
                         (ngModelChange)="campaignName.set($event)"
@@ -253,6 +254,7 @@
                         class="control mono"
                         autocomplete="off"
                         [attr.maxlength]="campaignCodeMax"
+                        [disabled]="identityLocked()"
                         [ngModel]="campaignCode()"
                         (ngModelChange)="setCampaignCode($event)"
                         [attr.aria-invalid]="wasAttempted(0) && !campaignCode().trim() ? 'true' : null"
@@ -304,6 +306,41 @@
                       } @else {
                         <p class="field-hint">
                           The amount this campaign is stated at{{ currencyCode() ? ', in ' + currencyCode() : '' }}. Donors see it when they choose this campaign.
+                        </p>
+                      }
+                    </div>
+
+                    <!-- Target amount — the fundraising target, shown wherever the campaign's target
+                         is shown (campaign detail progress, register, reports). -->
+                    <div class="field field-3">
+                      <label class="field-label" for="f-target-amount"
+                        >Target amount <span class="req" aria-hidden="true">*</span></label
+                      >
+                      <div class="amount-control">
+                        @if (currencyCode()) {
+                          <span class="amount-prefix" aria-hidden="true">{{ currencyCode() }}</span>
+                        }
+                        <input
+                          id="f-target-amount"
+                          type="text"
+                          inputmode="decimal"
+                          class="control"
+                          autocomplete="off"
+                          [ngModel]="targetAmount()"
+                          (ngModelChange)="setTargetAmount($event)"
+                          [attr.aria-invalid]="wasAttempted(0) && !targetAmountValid() ? 'true' : null"
+                          placeholder="e.g. 1000000.00"
+                        />
+                      </div>
+                      @if (wasAttempted(0) && !targetAmount().trim()) {
+                        <p class="field-error">Enter Target amount.</p>
+                      } @else if (wasAttempted(0) && !targetAmountValid()) {
+                        <p class="field-error">
+                          Review Target amount. It has to be greater than zero.
+                        </p>
+                      } @else {
+                        <p class="field-hint">
+                          What this campaign aims to raise{{ currencyCode() ? ', in ' + currencyCode() : '' }}.
                         </p>
                       }
                     </div>
@@ -418,6 +455,7 @@
                         type="date"
                         class="control"
                         [min]="todayIso"
+                        [disabled]="identityLocked()"
                         [ngModel]="startDate()"
                         (ngModelChange)="startDate.set($event)"
                         (click)="openDatePicker(startDateInput)"
@@ -572,41 +610,9 @@
                   </div>
                 }
 
-                <!-- ===== STEP 2 — Channels & Sources ===== -->
+                <!-- ===== STEP 2 — Location & Reminder ===== -->
                 @else if (stepIndex() === 1) {
                   <div class="field-grid">
-                    <!-- Channels — searchable controlled choice -->
-                    <div class="field field-wide">
-                      <label class="field-label" id="f-channels"
-                        >Channels <span class="req" aria-hidden="true">*</span></label
-                      >
-                      <div class="choice-chips" role="group" aria-label="Channels" aria-labelledby="f-channels">
-                        @for (c of channelResults(); track c.ref) {
-                          <button
-                            type="button"
-                            class="chip-toggle"
-                            [class.on]="selectedChannels().includes(c.ref)"
-                            [attr.aria-pressed]="selectedChannels().includes(c.ref)"
-                            (click)="toggleChannel(c.ref)"
-                          >
-                            {{ c.label }}
-                          </button>
-                        }
-                      </div>
-                      @if (wasAttempted(1) && !channelsValid()) {
-                        <p class="field-error">Select at least one channel.</p>
-                      } @else {
-                        <p class="field-hint">
-                          From the effective approved catalogue. Selected:
-                          @if (selectedChannels().length) {
-                            <strong>{{ selectedChannels().length }}</strong>
-                            (<span class="mono">{{ selectedChannelLabels().join(', ') }}</span>)
-                          } @else {
-                            none
-                          }
-                        </p>
-                      }
-                    </div>
                     <!-- Country — searchable single-select from the full country list -->
                     <div class="field field-3">
                       <label class="field-label" for="f-country"
@@ -1347,7 +1353,7 @@
                         </p>
                       </div>
                       <dl class="lb-figures">
-                        <div><dt>Target</dt><dd class="mono">{{ campaignAmountLabel() }}</dd></div>
+                        <div><dt>Target</dt><dd class="mono">{{ targetAmountLabel() }}</dd></div>
                         <div><dt>Starts</dt><dd>{{ interpretDate(startDate()) }}</dd></div>
                         <div><dt>Ends</dt><dd>{{ interpretDate(endDate()) }}</dd></div>
                         <div><dt>Activation</dt><dd>{{ activationMode() === 'auto' ? 'Automatic' : 'Manual' }}</dd></div>
@@ -1365,23 +1371,16 @@
                           <div><dt>Fund / programme</dt><dd>{{ fundProgramme().trim() || '—' }}</dd></div>
                           <div><dt>Owner</dt><dd>{{ ownersLabel() }}</dd></div>
                           <div><dt>Campaign code</dt><dd class="mono">{{ campaignCode() || '—' }}</dd></div>
+                          <div><dt>Campaign amount</dt><dd class="mono">{{ campaignAmountLabel() }}</dd></div>
                         </dl>
                       </section>
 
                       <section class="lb-panel">
                         <header class="lb-panel-head">
-                          <h4><span class="lb-num">2</span>Channels &amp; location</h4>
+                          <h4><span class="lb-num">2</span>Location &amp; reminder</h4>
                           <button type="button" class="link-btn" (click)="goToStep(1)">Edit</button>
                         </header>
                         <dl class="lb-list">
-                          <div>
-                            <dt>Channels</dt>
-                            <dd class="lb-channels">
-                              @for (c of selectedChannelLabels(); track c) {
-                                <span class="lb-channel">{{ c }}</span>
-                              } @empty { — }
-                            </dd>
-                          </div>
                           <div>
                             <dt>Location</dt>
                             <dd>
@@ -1458,7 +1457,7 @@
                       (click)="saveDraft()"
                       [disabled]="!saveDraftAllowed()"
                     ><i class="ri-save-line"></i>
-                      {{ liveEditStatus() ? 'Save' : 'Save' }}
+                      {{ liveEditStatus() ? 'Save' : 'Draft' }}
                     </button>
                   }
                   <button

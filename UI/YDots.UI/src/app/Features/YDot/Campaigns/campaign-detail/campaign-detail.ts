@@ -15,11 +15,11 @@ import { CurrentUserService } from '../../../../Shared/services/current-user.ser
 import { TrackingAssetStoreService } from '../../../../Shared/services/tracking-asset-store.service';
 import { BudgetTargetStoreService } from '../../../../Shared/services/budget-target-store.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
-import { PauseResumeCloseCampaignComponent } from '../pause-resume-and-close-campaign/pause-resume-and-close-campaign';
+import { CloseRequestStoreService } from '../../../../Shared/services/close-request-store.service';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { CampaignApiService } from '../../../../Service/campaign-api.service';
 import { PaymentApiService } from '../../../../Service/payment-api.service';
-import { MoneyResponse } from '../../../../Shared/models/payment.model';
+import { DonationListItem, MoneyResponse } from '../../../../Shared/models/payment.model';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 
 /** One named lifecycle transition offered from a given state. */
@@ -62,7 +62,6 @@ const PRIMARY_TRANSITION: Partial<Record<CampaignStatus, LifecycleTransition>> =
   Scheduled: { key: 'primary', label: 'Activate', target: 'Active', requires: 'Activate' },
   Active: { key: 'primary', label: 'Pause', target: 'Paused', requires: 'Pause' },
   Paused: { key: 'primary', label: 'Resume', target: 'Active', requires: 'Resume' },
-  Closing: { key: 'primary', label: 'Complete closure', target: 'Closed', requires: 'ApproveClose' },
 };
 const SECONDARY_TRANSITIONS: Partial<Record<CampaignStatus, readonly LifecycleTransition[]>> = {
   Scheduled: [{ key: 'pause', label: 'Pause', target: 'Paused', requires: 'Pause' }],
@@ -118,7 +117,7 @@ interface CalEvent {
 
 @Component({
   selector: 'app-campaign-detail',
-  imports: [CommonModule, FormsModule, PauseResumeCloseCampaignComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './campaign-detail.html',
   styleUrl: './campaign-detail.css',
 })
@@ -137,6 +136,7 @@ export class CampaignDetailComponent {
   private readonly trackingStore = inject(TrackingAssetStoreService);
   private readonly budgetStore = inject(BudgetTargetStoreService);
   private readonly toast = inject(ToastService);
+  private readonly closeStore = inject(CloseRequestStoreService);
 
   /** The payments service. This campaign's Payments tab reads its donations from it. */
   private readonly payments = inject(PaymentApiService);
@@ -340,7 +340,7 @@ export class CampaignDetailComponent {
   protected readonly exportAllowed = computed(
     () => (this.allows('Export') || this.permissions().export) && this.uiState() !== 'no-access',
   );
-  /** Edit is offered for a Draft or Active campaign (the server decides) — opens the Campaign Wizard pre-filled with this record. */
+  /** Edit is offered for a Draft, Submitted, Scheduled or Active campaign (the server decides) — opens the Campaign Wizard pre-filled with this record. */
   protected readonly canEdit = computed(() => this.allows('Edit') && this.uiState() !== 'no-access');
   /** Tooltip for the overview's edit icon — says why it is unavailable when it is. */
   protected readonly editHint = computed(() => {
@@ -348,8 +348,8 @@ export class CampaignDetailComponent {
       return 'Edit campaign';
     }
     const status = this.status();
-    return status !== 'Draft' && status !== 'Active'
-      ? `Only a Draft or Active campaign can be edited. This one is ${status}.`
+    return !['Draft', 'Submitted', 'Approved', 'Scheduled', 'Active'].includes(status)
+      ? `Only a Draft, Submitted, Scheduled or Active campaign can be edited. This one is ${status}.`
       : 'You do not have permission to edit this campaign.';
   });
   protected openEdit(): void {
@@ -379,12 +379,15 @@ export class CampaignDetailComponent {
   protected readonly launchDate = computed(() => this.liveRecord()?.startDate || '2025-05-01');
   protected readonly endDate = computed(() => this.liveRecord()?.endDate || '2025-12-31');
 
-  /** Target and reconciled progress — server-derived amounts. */
-  protected readonly targetAmount = computed(() => this.liveRecord()?.targetAmount ?? 2500000);
-  protected readonly reconciledAmount = computed(() => this.liveRecord()?.reconciledAmount ?? 1275000);
-  protected readonly progressPercent = computed(() =>
-    Math.round((this.reconciledAmount() / this.targetAmount()) * 100),
+  /** Target (entered on the wizard's first step) and what has actually been raised against it. */
+  protected readonly targetAmount = computed(() => this.liveRecord()?.targetAmount ?? 0);
+  protected readonly reconciledAmount = computed(() =>
+    this.donationStats().reduce((sum, d) => sum + d.amount, 0),
   );
+  protected readonly progressPercent = computed(() => {
+    const target = this.targetAmount();
+    return target > 0 ? Math.round((this.reconciledAmount() / target) * 100) : 0;
+  });
 
   /** Targets — server-derived plan amount. */
   protected readonly targetsAmount = computed(() => this.targetAmount());
@@ -480,6 +483,9 @@ export class CampaignDetailComponent {
    * total and the trend describe what this screen has actually seen — when a campaign
    * outgrows one page the full figures remain the payments register's job.
    */
+  /** Every counted donation on the campaign — amount, date and donor — behind the header figures. */
+  private readonly donationStats = signal<readonly { amount: number; at: string; donor: string }[]>([]);
+
   private readonly donationSamples = signal<readonly { amount: number; currency: string; at: string }[]>([]);
 
   /** The trend chart's range — the dashboard dropdown. */
@@ -716,6 +722,7 @@ export class CampaignDetailComponent {
       this.donations.set([]);
       this.donationsCount.set(0);
       this.donationSamples.set([]);
+      this.donationStats.set([]);
       this.recentDonations.set([]);
       return;
     }
@@ -723,60 +730,97 @@ export class CampaignDetailComponent {
     this.donationsLoading.set(true);
     this.donationsError.set(null);
 
-    this.payments.searchDonations({ campaignId, page: 1, pageSize: 20 }).subscribe({
-      next: (page) => {
-        this.donations.set(
-          (page.items ?? []).map((donation) => ({
-            primary: `${this.money(donation.amount)} · ${donation.donorName || 'Anonymous donor'}`,
-            secondary: [donation.sourceType as string | null, donation.methodType as string | null]
-              .filter((part): part is string => !!part)
-              .join(' · ') || donation.statusDescription,
-            meta: this.donationWhen(donation.donatedAtUtc),
-            dayKey: this.dayKeyOf(donation.donatedAtUtc),
-          })),
-        );
+    // EVERY PAGE, NOT JUST THE FIRST. The header figures (raised to date, monthly revenue, donors)
+    // describe the whole campaign, so they are computed from all of its donations. The lists below
+    // still show the twenty most recent.
+    const all: DonationListItem[] = [];
+    const maxPages = 50;
 
-        this.donationsCount.set(page.totalCount ?? 0);
-        this.donationSamples.set(
-          (page.items ?? []).map((donation) => ({
-            amount: donation.amount?.amount ?? 0,
-            currency: donation.amount?.currencyCode || 'INR',
-            at: donation.donatedAtUtc,
-          })),
-        );
-        // The dashboard's "Recent Donations" list — the same read, displayed as people
-        // rather than ledger rows. Initials stand in for avatars we don't store.
-        this.recentDonations.set(
-          (page.items ?? []).map((donation, i) => {
-            const name = donation.donorName || 'Anonymous donor';
-            const parts = name.trim().split(/\s+/);
-            const initials =
-              (parts[0]?.[0] || '?') + (parts.length > 1 ? parts[parts.length - 1][0] : '');
-            return {
-              name,
-              initials: initials.toUpperCase(),
-              amount: this.money(donation.amount),
-              when: this.donationWhen(donation.donatedAtUtc),
-              key: `${donation.donatedAtUtc ?? 'na'}-${i}`,
-            };
-          }),
-        );
-        this.donationsLoading.set(false);
-      },
+    const fetchPage = (page: number): void => {
+      this.payments.searchDonations({ campaignId, page, pageSize: 100 }).subscribe({
+        next: (result) => {
+          all.push(...(result.items ?? []));
 
-      // REPORTED, NOT SWALLOWED INTO AN EMPTY LIST. "No donations" and "the payments service did
-      // not answer" are different facts, and only one of them is a reason to stop chasing a
-      // missing donation.
-      error: (error: unknown) => {
-        this.donations.set([]);
-        this.donationsCount.set(0);
-        this.donationSamples.set([]);
-        this.recentDonations.set([]);
-        this.donationsLoading.set(false);
-        this.donationsError.set(
-          apiErrorMessage(error, 'This campaign\u2019s donations could not be loaded.'));
-      },
-    });
+          if (result.hasNextPage && page < maxPages) {
+            fetchPage(page + 1);
+            return;
+          }
+
+          this.applyDonations(all, result.totalCount ?? all.length);
+        },
+
+        // REPORTED, NOT SWALLOWED INTO AN EMPTY LIST. "No donations" and "the payments service did
+        // not answer" are different facts, and only one of them is a reason to stop chasing a
+        // missing donation.
+        error: (error: unknown) => {
+          this.donations.set([]);
+          this.donationsCount.set(0);
+          this.donationSamples.set([]);
+          this.donationStats.set([]);
+          this.recentDonations.set([]);
+          this.donationsLoading.set(false);
+          this.donationsError.set(
+            apiErrorMessage(error, 'This campaign\u2019s donations could not be loaded.'));
+        },
+      });
+    };
+
+    fetchPage(1);
+  }
+
+  /** Fills the Payments tab, the recent list and the header figures from the donations read. */
+  private applyDonations(all: readonly DonationListItem[], totalCount: number): void {
+    const recent = all.slice(0, 20);
+
+    this.donations.set(
+      recent.map((donation) => ({
+        primary: `${this.money(donation.amount)} · ${donation.donorName || 'Anonymous donor'}`,
+        secondary: [donation.sourceType as string | null, donation.methodType as string | null]
+          .filter((part): part is string => !!part)
+          .join(' · ') || donation.statusDescription,
+        meta: this.donationWhen(donation.donatedAtUtc),
+        dayKey: this.dayKeyOf(donation.donatedAtUtc),
+      })),
+    );
+
+    this.donationsCount.set(totalCount);
+    this.donationSamples.set(
+      recent.map((donation) => ({
+        amount: donation.amount?.amount ?? 0,
+        currency: donation.amount?.currencyCode || 'INR',
+        at: donation.donatedAtUtc,
+      })),
+    );
+
+    // What counts as money raised: everything except a donation that was returned or voided.
+    this.donationStats.set(
+      all
+        .filter((d) => d.status !== 'refunded' && d.status !== 'chargedBack' && d.status !== 'voided')
+        .map((d) => ({
+          amount: (d.status === 'partiallyRefunded' ? d.netAmount?.amount : undefined) ?? d.amount?.amount ?? 0,
+          at: d.donatedAtUtc,
+          donor: (d.donorEmail || d.donorName || '').trim().toLowerCase(),
+        })),
+    );
+
+    // The dashboard's "Recent Donations" list — the same read, displayed as people
+    // rather than ledger rows. Initials stand in for avatars we don't store.
+    this.recentDonations.set(
+      recent.map((donation, i) => {
+        const name = donation.donorName || 'Anonymous donor';
+        const parts = name.trim().split(/\s+/);
+        const initials =
+          (parts[0]?.[0] || '?') + (parts.length > 1 ? parts[parts.length - 1][0] : '');
+        return {
+          name,
+          initials: initials.toUpperCase(),
+          amount: this.money(donation.amount),
+          when: this.donationWhen(donation.donatedAtUtc),
+          key: `${donation.donatedAtUtc ?? 'na'}-${i}`,
+        };
+      }),
+    );
+    this.donationsLoading.set(false);
   }
 
   /** An amount as its own currency prints it, rather than as a bare number. */
@@ -1042,11 +1086,82 @@ export class CampaignDetailComponent {
     }
   }
 
-  // ---------- KPI card 1: Total Revenue (the real campaign amount) ----------
-  protected readonly kpiRevenue = computed(() => {
-    const amount = this.liveRecord()?.campaignAmount ?? 0;
-    return amount ? this.rupeeINR(amount) : '₹12,40,000';
+  // ---------- Header figures: real data for this campaign ----------
+
+  /** Start of the current and previous calendar month. */
+  private monthBounds(): { thisStart: Date; prevStart: Date; nextStart: Date } {
+    const now = new Date();
+    return {
+      thisStart: new Date(now.getFullYear(), now.getMonth(), 1),
+      prevStart: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+      nextStart: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+    };
+  }
+
+  /** The increase or decrease between two counts, as the arrow and percentage shown on the card. */
+  protected changeOf(current: number, previous: number): { cls: string; text: string } {
+    if (previous <= 0) {
+      return current > 0 ? { cls: 'is-up', text: '↑ New' } : { cls: 'is-flat', text: '— 0%' };
+    }
+    const pct = Math.round(((current - previous) / previous) * 100);
+    if (pct > 0) return { cls: 'is-up', text: `↑ ${pct}%` };
+    if (pct < 0) return { cls: 'is-down', text: `↓ ${Math.abs(pct)}%` };
+    return { cls: 'is-flat', text: '→ 0%' };
+  }
+
+  private readonly monthlyDonations = computed(() => {
+    const { thisStart, prevStart, nextStart } = this.monthBounds();
+    let current = 0;
+    let previous = 0;
+    const currentDonors = new Set<string>();
+    const previousDonors = new Set<string>();
+
+    for (const d of this.donationStats()) {
+      const when = new Date(d.at);
+      if (Number.isNaN(when.getTime())) continue;
+      if (when >= thisStart && when < nextStart) {
+        current += d.amount;
+        if (d.donor) currentDonors.add(d.donor);
+      } else if (when >= prevStart && when < thisStart) {
+        previous += d.amount;
+        if (d.donor) previousDonors.add(d.donor);
+      }
+    }
+
+    return { current, previous, currentDonors: currentDonors.size, previousDonors: previousDonors.size };
   });
+
+  // ---------- Monthly revenue (this month's donations vs last month's) ----------
+  protected readonly kpiRevenue = computed(() => this.rupeeINR(this.monthlyDonations().current));
+  protected readonly kpiRevenueChange = computed(() =>
+    this.changeOf(this.monthlyDonations().current, this.monthlyDonations().previous),
+  );
+
+  // ---------- Total donors (distinct donors, and how many gave this month) ----------
+  protected readonly totalDonorsLabel = computed(() =>
+    new Set(this.donationStats().map((d) => d.donor).filter((d) => !!d)).size.toLocaleString('en-IN'),
+  );
+  protected readonly monthlyDonorsLabel = computed(() =>
+    this.monthlyDonations().currentDonors.toLocaleString('en-IN'),
+  );
+  protected readonly donorsChange = computed(() =>
+    this.changeOf(this.monthlyDonations().currentDonors, this.monthlyDonations().previousDonors),
+  );
+
+  // ---------- Tracking assets (created this month vs last month) ----------
+  protected readonly assetsThisMonth = computed(() => this.assetsCreatedIn(0));
+  protected readonly assetsChange = computed(() =>
+    this.changeOf(this.assetsThisMonth(), this.assetsCreatedIn(-1)),
+  );
+  private assetsCreatedIn(monthOffset: 0 | -1): number {
+    const { thisStart, prevStart, nextStart } = this.monthBounds();
+    const from = monthOffset === 0 ? thisStart : prevStart;
+    const to = monthOffset === 0 ? nextStart : thisStart;
+    return this.trackingStore.forCampaign(this.reference).filter((a) => {
+      const when = new Date(a.activeFrom ?? '');
+      return !Number.isNaN(when.getTime()) && when >= from && when < to;
+    }).length;
+  }
 
   /**
    * Donut segments for a 100-unit circumference starting at 12 o'clock — the classic
@@ -1773,38 +1888,125 @@ export class CampaignDetailComponent {
     () => this.permissions().view && this.uiState() !== 'no-access',
   );
 
-  /** Opens the Pause / Resume / Close panel — the header's "Manage lifecycle" button. */
-  protected openLifecycle(): void {
-    if (!this.lifecycleAllowed()) {
+  // ================= Manage lifecycle — an inline panel under the header =================
+  //
+  // No pop-up and no off-canvas: the button opens a strip of the actions that apply to the
+  // campaign's current state, and each one runs straight away. Only Request close asks for
+  // anything - a reason, in a box that opens under its own button.
+
+  protected readonly lifecycleBusy = signal(false);
+  protected readonly lifecycleError = signal('');
+  protected readonly closeBoxOpen = signal(false);
+  protected readonly closeReason = signal('');
+  protected readonly closeReasonTouched = signal(false);
+  protected readonly closeReasonValid = computed(() => {
+    const length = this.closeReason().trim().length;
+    return length >= 10 && length <= 2000;
+  });
+
+  /**
+   * The actions offered for the campaign's current state, and only the ones the server lists for
+   * this caller:
+   *
+   *   Approved / Scheduled → Activate        Active → Pause, Request close
+   *   Paused               → Resume, Request close        Closing → Approve close
+   */
+  protected readonly lifecycleActions = computed<
+    readonly { key: 'activate' | 'pause' | 'resume' | 'requestClose' | 'approveClose'; label: string; tone: 'primary' | 'danger' }[]
+  >(() => {
+    const status = this.status();
+    const actions: { key: 'activate' | 'pause' | 'resume' | 'requestClose' | 'approveClose'; label: string; tone: 'primary' | 'danger' }[] = [];
+
+    if ((status === 'Approved' || status === 'Scheduled') && this.allows('Activate')) {
+      actions.push({ key: 'activate', label: 'Activate', tone: 'primary' });
+    }
+    if (status === 'Active' && this.allows('Pause')) {
+      actions.push({ key: 'pause', label: 'Pause', tone: 'primary' });
+    }
+    if (status === 'Paused' && this.allows('Resume')) {
+      actions.push({ key: 'resume', label: 'Resume', tone: 'primary' });
+    }
+    if ((status === 'Active' || status === 'Paused') && this.allows('RequestClose')) {
+      actions.push({ key: 'requestClose', label: 'Request close', tone: 'danger' });
+    }
+    if (status === 'Closing' && this.allows('ApproveClose')) {
+      actions.push({ key: 'approveClose', label: 'Approve close', tone: 'danger' });
+    }
+    return actions;
+  });
+
+  protected runLifecycle(key: 'activate' | 'pause' | 'resume' | 'requestClose' | 'approveClose'): void {
+    if (this.lifecycleBusy()) {
       return;
     }
-    this.lifecyclePopupOpen.set(true);
+    this.lifecycleError.set('');
+
+    // Request close only opens its reason box; the call is made from the box.
+    if (key === 'requestClose') {
+      this.closeBoxOpen.update((open) => !open);
+      this.closeReasonTouched.set(false);
+      return;
+    }
+    this.closeBoxOpen.set(false);
+
+    const ref = this.reference;
+    const finish = (landedOn: CampaignStatus, message: string) =>
+      (result: { readonly applied: boolean; readonly error?: string }): void => {
+        this.lifecycleBusy.set(false);
+        if (!result.applied) {
+          this.lifecycleError.set(result.error ?? 'That change was refused. The campaign has not been changed.');
+          return;
+        }
+        // Show the new state at once, then let the reload bring the server's own.
+        this.store.applyStatus(ref, landedOn);
+        this.store.reload(ref);
+        this.closeStore.load(ref);
+        this.toast.show('Lifecycle updated', message, 'success');
+      };
+
+    this.lifecycleBusy.set(true);
+    switch (key) {
+      case 'activate':
+        this.store.activate(ref, finish('Active', `${ref} is now Active.`));
+        break;
+      case 'pause':
+        this.store.pause(ref, finish('Paused', `${ref} is now Paused.`));
+        break;
+      case 'resume':
+        this.store.resume(ref, finish('Active', `${ref} is now Active.`));
+        break;
+      case 'approveClose':
+        // APPROVES THE OUTSTANDING REQUEST. This used to go to the request-close endpoint, which
+        // answered 409 and left the campaign Closing for ever.
+        this.closeStore.approveClose(ref, 'Close request approved.', finish('Closed', `${ref} is now Closed.`));
+        break;
+    }
   }
 
-  /** Lifecycle popup — Pause / Resume / Close is a modal launched from this page, not a
-   *  separate route. */
-  protected readonly lifecyclePopupOpen = signal(false);
-  /** True while the embedded pause/resume/close action off-canvas is open — the host hides its
-   *  own lifecycle popup beneath it, and restores it when the action panel closes. */
-  protected readonly lifecyclePanelOpen = signal(false);
-  protected closeLifecyclePopup(): void {
-    this.lifecyclePopupOpen.set(false);
-    this.lifecyclePanelOpen.set(false);
+  /** Sends the close request with the one reason typed under the button. */
+  protected submitCloseRequest(): void {
+    this.closeReasonTouched.set(true);
+    if (!this.closeReasonValid() || this.lifecycleBusy()) {
+      return;
+    }
+    const ref = this.reference;
+    const reason = this.closeReason().trim();
+
+    this.lifecycleBusy.set(true);
+    this.lifecycleError.set('');
+    this.closeStore.requestClose(ref, 'Close requested', reason, '', reason, (result) => {
+      this.lifecycleBusy.set(false);
+      if (!result.applied) {
+        this.lifecycleError.set(result.error ?? 'The close request could not be raised.');
+        return;
+      }
+      this.closeBoxOpen.set(false);
+      this.closeReason.set('');
+      this.store.applyStatus(ref, 'Closing');
+      this.store.reload(ref);
+      this.toast.show('Close requested', `${ref} is waiting for a close approval.`, 'success');
+    });
   }
-  /**
-   * The campaign reference handed to the lifecycle panel. Always THIS campaign's.
-   *
-   * IT USED TO FALL BACK TO 'CAMP-2025-0011' - a seeded demo reference from before this screen
-   * carried a real ?ref - whenever `liveRecord()` was null. That is not a rare state: the record
-   * is null for the whole of the first load, and for every load where the register has not
-   * finished refreshing. Manage lifecycle opened in that window pointed the panel at a campaign
-   * that does not exist in the Organisation, so it found no record, showed no state and offered
-   * no actions - and did it while displaying this campaign's name in the header behind it.
-   *
-   * The panel has its own empty state for a reference it cannot resolve, which is the honest
-   * answer while the record is still loading.
-   */
-  protected readonly lifecyclePopupRef = computed(() => this.reference);
 
   /**
    * The header's maker action — Submit / Approve / Complete closure — in its in-place high-risk
@@ -1883,9 +2085,14 @@ export class CampaignDetailComponent {
 
     // The store owns the write, and `status` above reads the record back - so there is no local
     // status to set here, and nothing to diverge from the server if the transition is refused.
-    this.store.setStatus(this.reference, target);
+    this.store.setStatus(this.reference, target, (result) => {
+      if (!result.applied) {
+        this.toast.show('Not changed', result.error ?? 'That change was refused.', 'error');
+        return;
+      }
+      this.toast.show('Lifecycle updated', `${this.reference} is now ${target}.`, 'success');
+    });
     this.operateDialogOpen.set(false);
-    this.toast.show('Lifecycle updated', `${this.reference} is now ${target}.`, 'success');
     this.uiState.set('ready');
   }
 

@@ -44,7 +44,7 @@ public static class CampaignMappingConfig
             // A placeholder, not a figure anybody entered: Target & Budget is on hold and no screen
             // collects either value. The column stays non-nullable so the module can pick it up
             // again without a migration.
-            TargetAmount = 0m,
+            TargetAmount = request.TargetAmount,
             BudgetAmount = null,
 
             // THE CAMPAIGN AMOUNT IS THE ONE MONEY FIGURE A SCREEN ACTUALLY COLLECTS. It is step
@@ -91,10 +91,15 @@ public static class CampaignMappingConfig
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(campaign);
 
-        campaign.Name = request.Name.Trim();
+        // A live campaign keeps the name and start date it went live with.
+        if (!campaign.IsIdentityLocked)
+        {
+            campaign.Name = request.Name.Trim();
+            campaign.StartDate = request.StartDate;
+        }
+
         campaign.Purpose = request.Purpose.Trim();
         campaign.FundOrProgramme = request.FundOrProgramme.Trim();
-        campaign.StartDate = request.StartDate;
         campaign.EndDate = request.EndDate;
         // TargetAmount and BudgetAmount are LEFT ALONE. They are not on the update contract while
         // Target & Budget is on hold, and assigning them from a request that no longer carries them
@@ -104,6 +109,7 @@ public static class CampaignMappingConfig
         // every save - the hazard the two lines above describe does not apply to a field the
         // screen actually collects.
         campaign.CampaignAmount = request.CampaignAmount;
+        campaign.TargetAmount = request.TargetAmount;
         campaign.CurrencyId = request.CurrencyId;
         campaign.CountryId = request.CountryId;
         campaign.StateId = NullIfEmpty(request.StateId);
@@ -429,7 +435,7 @@ public static class CampaignMappingConfig
             actions.Add("Export");
         }
 
-        // Edit is offered while Draft and, by request, once Active (see Campaign.IsEditable).
+        // Edit is offered while Draft, Submitted, Approved, Scheduled and Active (see Campaign.IsEditable).
         if (campaign.IsEditable && hasPermission(PermissionCodes.CampaignsEdit))
         {
             actions.Add("Edit");

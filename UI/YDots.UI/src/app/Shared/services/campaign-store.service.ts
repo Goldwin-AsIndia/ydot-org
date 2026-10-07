@@ -283,6 +283,7 @@ export class CampaignStoreService {
         // campaignAmount IS sent, and is a different field entirely - step 1 collects it beside
         // the code, and the server requires it to be greater than zero.
         campaignAmount: draft.campaignAmount ?? 0,
+        targetAmount: draft.targetAmount ?? 0,
         currencyId: draft.currency ?? '',
         countryId: draft.country ?? '',
         ownerIds: [...(draft.ownerReferences ?? [draft.ownerReference ?? draft.createdByRef])],
@@ -364,6 +365,7 @@ export class CampaignStoreService {
         // re-sends what the record already holds rather than zeroing it - which is the trap the
         // note below describes for the target.
         campaignAmount: merged.campaignAmount ?? 0,
+        targetAmount: merged.targetAmount ?? 0,
 
         // targetAmount is not sent on edit either, which is what stops a save from writing 0 over
         // a target the record already holds.
@@ -592,6 +594,18 @@ export class CampaignStoreService {
    * Chained on the list load rather than fired beside it, so the detail merge lands on the row
    * the refresh has already replaced instead of racing it.
    */
+  /** Re-reads the register and this campaign's detail — for a screen that ran a transition itself. */
+  reload(ref: string): void {
+    this.reloadAfterTransition(ref);
+  }
+
+  /** Shows a status on the screen at once; the reload that follows replaces it with the server's. */
+  applyStatus(ref: string, status: CampaignStatus): void {
+    this.records.update((records) =>
+      records.map((record) => (record.code === ref ? { ...record, status } : record)),
+    );
+  }
+
   private reloadAfterTransition(ref: string): void {
     this.refresh(() => {
       if (this.get(ref)?.detailLoaded) {
@@ -761,6 +775,7 @@ export class CampaignStoreService {
       ownerReferences: detail.ownerIds?.length ? [...detail.ownerIds] : record.ownerReferences,
 
       campaignAmount: detail.campaignAmount ?? record.campaignAmount ?? 0,
+      targetAmount: detail.targetAmount ?? record.targetAmount ?? 0,
 
       currency: detail.currencyId,
       currencyName: detail.currencyCode ?? undefined,
@@ -922,6 +937,30 @@ export class CampaignStoreService {
       // at, and drop the permittedActions the lifecycle buttons are drawn from.
       permittedActions: existing?.permittedActions,
       detailLoaded: existing?.detailLoaded,
+
+      // The detail-only fields are carried forward too: a refresh that kept `detailLoaded` but
+      // dropped these left the edit form with a blank State, City, Zip code and wording.
+      ...(existing?.detailLoaded
+        ? {
+            country: existing.country,
+            countryName: existing.countryName,
+            region: existing.region,
+            regionName: existing.regionName,
+            city: existing.city,
+            cityName: existing.cityName,
+            pincode: existing.pincode,
+            channels: existing.channels,
+            channelNames: existing.channelNames,
+            activationMode: existing.activationMode,
+            reminderDaysBefore: existing.reminderDaysBefore,
+            reminderTime: existing.reminderTime,
+            publicDescription: existing.publicDescription,
+            publicDescriptionHtml: existing.publicDescriptionHtml,
+            termsNotice: existing.termsNotice,
+            termsNoticeHtml: existing.termsNoticeHtml,
+            purpose: existing.purpose,
+          }
+        : {}),
     } as CampaignRecord;
   }
 

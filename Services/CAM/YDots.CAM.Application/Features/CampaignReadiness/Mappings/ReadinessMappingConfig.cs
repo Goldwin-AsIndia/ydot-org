@@ -233,7 +233,7 @@ public static class ReadinessMappingConfig
 
     /// <summary>What the caller may do to this check next.</summary>
     public static IReadOnlyList<string> PermittedActionsFor(
-        CampaignReadinessCheck check, Func<string, bool> hasPermission)
+        CampaignReadinessCheck check, Func<string, bool> hasPermission, Guid? callerUserId = null)
     {
         ArgumentNullException.ThrowIfNull(check);
         ArgumentNullException.ThrowIfNull(hasPermission);
@@ -262,7 +262,14 @@ public static class ReadinessMappingConfig
         //
         // Passing is still blocked while a blocker is open: signing off a check somebody has
         // flagged as blocked is exactly what the blocker exists to prevent.
-        if (check.Status != ReadinessCheckStatus.Passed)
+        //
+        // ONLY THE PERSON THE CHECK IS ASSIGNED TO may record a verdict on it. A check with nobody
+        // assigned stays open to anyone who holds the permission.
+        var mayJudge = callerUserId is null
+            || check.OwnerUserId is null
+            || check.OwnerUserId == callerUserId;
+
+        if (check.Status != ReadinessCheckStatus.Passed && mayJudge)
         {
             if (hasPermission(PermissionCodes.ReadinessPass) && !check.HasOpenBlockers)
             {
@@ -336,9 +343,11 @@ public static class ReadinessMappingConfig
             actions.Add("View");
         }
 
-        // Checks are added while there is still time to act on them. Past Scheduled the campaign
-        // is going live, and a new required check would be one nothing can now clear.
+        // Checks are added while there is still time to act on them: Draft, Submitted, Approved
+        // and Scheduled. Once the campaign is Active it is live, and a new required check would
+        // be one nothing can now clear.
         if (campaign.Status is CampaignStatus.Draft or CampaignStatus.Submitted or CampaignStatus.Approved
+                or CampaignStatus.Scheduled
             && hasPermission(PermissionCodes.ReadinessCreate))
         {
             actions.Add("AddCheck");

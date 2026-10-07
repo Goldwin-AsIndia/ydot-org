@@ -165,6 +165,8 @@ export interface CreateCampaignRequest {
    * zero, and it is the number both donation forms show once a donor picks the campaign.
    */
   campaignAmount: number;
+  /** The fundraising target, captured on step 1. Required and greater than zero. */
+  targetAmount: number;
 
   currencyId: string;
   countryId: string;
@@ -208,7 +210,8 @@ export interface UpdateCampaignRequest {
   /** The campaign amount. Sent on every save, so an edit changes it like any other field. */
   campaignAmount: number;
 
-  /** `targetAmount` is absent for the same reason as on create; an edit cannot touch a stored target. */
+  /** The fundraising target. Sent on every save. */
+  targetAmount: number;
   currencyId: string;
   countryId: string;
   ownerIds: string[];
@@ -1059,4 +1062,18 @@ export function canPerformCampaignAction(
   return !!record?.permittedActions?.some(
     (candidate) => candidate.toLowerCase() === action.toLowerCase(),
   );
+}
+
+/**
+ * A required readiness check that has not passed, assigned to the signed-in person, on a campaign
+ * that starts within four days. The reminder their check is owed.
+ */
+export interface ReadinessReminder {
+  checkId: string;
+  checkName: string;
+  campaignId: string;
+  campaignCode: string;
+  campaignName: string;
+  startDate: string;
+  daysUntilStart: number;
 }

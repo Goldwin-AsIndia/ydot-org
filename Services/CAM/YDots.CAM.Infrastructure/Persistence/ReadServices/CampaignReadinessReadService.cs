@@ -108,8 +108,45 @@ public sealed class CampaignReadinessReadService(
 
         return check.ToDetailResponse(
             clock.TodayUtc,
-            ReadinessMappingConfig.PermittedActionsFor(check, currentUser.HasPermission),
+            ReadinessMappingConfig.PermittedActionsFor(check, currentUser.HasPermission, currentUser.UserId),
             resolved);
+    }
+
+    public async Task<IReadOnlyList<ReadinessReminderResponse>> GetRemindersForUserAsync(
+        Guid userId, int daysAhead, CancellationToken cancellationToken)
+    {
+        var today = clock.TodayUtc;
+        var last = today.AddDays(daysAhead);
+
+        var rows = await context.CampaignReadinessChecks
+            .AsNoTracking()
+            .Where(check => check.OwnerUserId == userId
+                && check.RequiredForLaunch
+                && check.Status != Domain.Enums.ReadinessCheckStatus.Passed
+                && check.Campaign.StartDate >= today
+                && check.Campaign.StartDate <= last
+                && (check.Campaign.Status == Domain.Enums.CampaignStatus.Draft
+                    || check.Campaign.Status == Domain.Enums.CampaignStatus.Submitted
+                    || check.Campaign.Status == Domain.Enums.CampaignStatus.Approved
+                    || check.Campaign.Status == Domain.Enums.CampaignStatus.Scheduled))
+            .OrderBy(check => check.Campaign.StartDate)
+            .Select(check => new
+            {
+                check.Id,
+                check.CheckName,
+                check.CampaignId,
+                check.Campaign.Code,
+                CampaignName = check.Campaign.Name,
+                check.Campaign.StartDate
+            })
+            .ToListAsync(cancellationToken);
+
+        return
+        [
+            .. rows.Select(row => new ReadinessReminderResponse(
+                row.Id, row.CheckName, row.CampaignId, row.Code, row.CampaignName,
+                row.StartDate, row.StartDate.DayNumber - today.DayNumber))
+        ];
     }
 
     /// <summary>

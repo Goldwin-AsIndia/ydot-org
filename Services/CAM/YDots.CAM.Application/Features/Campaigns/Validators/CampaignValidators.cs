@@ -175,6 +175,13 @@ public sealed class CreateCampaignRequestValidator : AbstractValidator<CreateCam
             .Must(amount => decimal.Round(amount, 2) == amount)
             .WithMessage("A campaign amount can have at most two decimal places.");
 
+        RuleFor(request => request.TargetAmount)
+            .GreaterThan(0m).WithMessage("Enter the target amount.")
+            .LessThanOrEqualTo(9_999_999_999_999_999.99m)
+            .WithMessage("That target amount is larger than this field can hold.")
+            .Must(amount => decimal.Round(amount, 2) == amount)
+            .WithMessage("A target amount can have at most two decimal places.");
+
         // TARGET AND BUDGET ARE NOT VALIDATED HERE WHILE TARGET & BUDGET IS ON HOLD.
         //
         // The wizard has no Target & Budget step, so the client never sends either value and a
@@ -228,8 +235,7 @@ public sealed class CreateCampaignRequestValidator : AbstractValidator<CreateCam
         // A campaign with no channel has no route to anybody, and the tracking assets created
         // against it have no channel to inherit.
         RuleFor(request => request.ChannelIds)
-            .NotEmpty().WithMessage("Choose at least one channel.")
-            .Must(channels => channels.All(id => id != Guid.Empty))
+            .Must(channels => channels is null || channels.All(id => id != Guid.Empty))
             .WithMessage("A channel id cannot be empty.");
 
         // ---- Step 3: publication and notice ----------------------------------------------------
@@ -320,6 +326,13 @@ public sealed class UpdateCampaignRequestValidator : AbstractValidator<UpdateCam
             .Must(amount => decimal.Round(amount, 2) == amount)
             .WithMessage("A campaign amount can have at most two decimal places.");
 
+        RuleFor(request => request.TargetAmount)
+            .GreaterThan(0m).WithMessage("Enter the target amount.")
+            .LessThanOrEqualTo(9_999_999_999_999_999.99m)
+            .WithMessage("That target amount is larger than this field can hold.")
+            .Must(amount => decimal.Round(amount, 2) == amount)
+            .WithMessage("A target amount can have at most two decimal places.");
+
         // TARGET AND BUDGET ARE NOT VALIDATED HERE WHILE TARGET & BUDGET IS ON HOLD.
         //
         // The wizard has no Target & Budget step, so the client never sends either value and a
@@ -379,8 +392,7 @@ public sealed class UpdateCampaignRequestValidator : AbstractValidator<UpdateCam
             .MustAllExist(people, tenant);
 
         RuleFor(request => request.ChannelIds)
-            .NotEmpty().WithMessage("Choose at least one channel.")
-            .Must(channels => channels.All(id => id != Guid.Empty))
+            .Must(channels => channels is null || channels.All(id => id != Guid.Empty))
             .WithMessage("A channel id cannot be empty.");
     }
 }
