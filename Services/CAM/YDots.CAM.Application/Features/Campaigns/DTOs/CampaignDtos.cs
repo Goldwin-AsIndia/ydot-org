@@ -53,6 +53,9 @@ public sealed record CreateCampaignRequest(
     /// </summary>
     decimal CampaignAmount,
 
+    /// <summary>The fundraising target - what the campaign hopes to raise in total. Step 1.</summary>
+    decimal TargetAmount,
+
     string FundOrProgramme,
     IReadOnlyList<Guid> OwnerIds,
     DateOnly StartDate,
@@ -101,6 +104,9 @@ public sealed record UpdateCampaignRequest(
 
     /// <summary>The campaign amount. Editable while the campaign is a Draft, like the rest.</summary>
     decimal CampaignAmount,
+
+    /// <summary>The fundraising target.</summary>
+    decimal TargetAmount,
 
     string FundOrProgramme,
     IReadOnlyList<Guid> OwnerIds,

@@ -61,6 +61,20 @@ public sealed class CampaignReadinessController(
         return FromResult(result);
     }
 
+    /// <summary>
+    /// The reminders for the caller: required checks assigned to them, not yet passed, on a campaign
+    /// that starts within four days.
+    /// </summary>
+    [HttpGet("readiness-checks/my-reminders")]
+    [HasPermission(PermissionCodes.ReadinessView)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ReadinessReminderResponse>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyRemindersAsync(CancellationToken cancellationToken)
+    {
+        var result = await queries.HandleAsync(new GetMyReadinessRemindersQuery(), cancellationToken);
+
+        return FromResult(result);
+    }
+
     [HttpGet("readiness-checks/{id:guid}", Name = nameof(GetCheckAsync))]
     [HasPermission(PermissionCodes.ReadinessView)]
     [ProducesResponseType(typeof(ApiResponse<ReadinessCheckDetailResponse>), StatusCodes.Status200OK)]

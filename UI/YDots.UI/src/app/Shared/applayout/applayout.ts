@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { NotificationService } from '../../Service/notification.service';
 import { FooterComponent } from '../footer/footer';
 import { SidebarComponent } from '../sidebar/sidebar';
 import { ThemeComponent } from '../theme/theme';
@@ -14,10 +15,14 @@ import { RainbowLoaderComponent } from '../components/rainbow-loader/rainbow-loa
   styleUrl: './applayout.css',
 })
 export class ApplayoutComponent implements OnInit {
+  private readonly notifications = inject(NotificationService);
+
   constructor(protected readonly layoutService: LayoutService) {}
 
   ngOnInit(): void {
     this.layoutService.init();
+    // Reminds the owner of any required readiness check that is due before its campaign starts.
+    this.notifications.checkReadinessReminders();
     
   }
 

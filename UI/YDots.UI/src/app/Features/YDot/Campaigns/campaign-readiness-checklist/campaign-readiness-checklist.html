@@ -82,7 +82,7 @@
         <div class="crc-tally-cell" data-k="total">
           <dt>Total checks</dt>
           <dd class="crc-tally-fig">{{ getTotalCount() }}</dd>
-          <dd class="crc-tally-sub" [class.is-alert]="blockers().length > 0">{{ blockers().length }} open {{ blockers().length === 1 ? 'blocker' : 'blockers' }}</dd>
+          <dd class="crc-tally-sub">On this campaign</dd>
         </div>
       </dl>
       <div class="crc-tally-rule" aria-hidden="true">
@@ -112,7 +112,7 @@
                     [disabled]="!permissions().addCheck"
                     (click)="openAddCheckDrawer()">Create</button>
             @if (!permissions().addCheck) {
-              <p class="crc-menu-why">Checks can be added until the campaign is Scheduled.</p>
+              <p class="crc-menu-why">Checks cannot be created once the campaign is Active.</p>
             }
             <div class="crc-menu-divider" role="separator"></div>
           }
@@ -162,7 +162,7 @@
     <section class="crc-banner crc-banner-warn" role="alert">
       <div class="crc-banner-body">
         <p class="crc-banner-title">A matching entry already exists</p>
-        <p class="crc-banner-text">This dependency already has an open blocker, or a launch request is already in progress. Compare or cancel — nothing was overwritten.</p>
+        <p class="crc-banner-text">A launch request is already in progress. Compare or cancel — nothing was overwritten.</p>
       </div>
       <button type="button" class="crc-btn crc-btn-ghost crc-btn-sm" (click)="dismissBanner()">Dismiss</button>
     </section>
@@ -196,7 +196,7 @@
         </div>
         @if (capabilities().addCheck) {
           <button type="button" class="btn btn-primary btn-sm" [disabled]="!permissions().addCheck"
-                  [attr.title]="permissions().addCheck ? null : 'Checks can be added until the campaign is Scheduled.'"
+                  [attr.title]="permissions().addCheck ? null : 'Checks cannot be created once the campaign is Active.'"
                   (click)="openAddCheckDrawer()">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             Create check
@@ -256,12 +256,6 @@
                 } @else {
                   <span class="crc-flag">Optional</span>
                 }
-                @if (item.openBlocker) {
-                  <span class="crc-flag crc-flag-blocked">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>
-                    Blocked
-                  </span>
-                }
               </div>
 
               <span class="crc-status" [attr.data-status]="checklistStatusClass(item.status)">{{ item.status }}</span>
@@ -278,37 +272,25 @@
                          appClickOutside [clickOutsideExcept]="crcChecklistBtn" (appClickOutside)="closeChecklistRowMenu()">
                       <!-- EACH VERB IS WRAPPED IN THE PERMISSION THAT GOVERNS IT, so a role that
                            does not hold it never sees it. -->
-                      @if (capabilities().pass) {
+                      @if (capabilities().pass && isAssignee(item)) {
                         <button type="button" role="menuitem" class="crc-menu-item"
                                 [disabled]="item.status === 'Passed'"
                                 (click)="markChecklistPassed(item)">Mark as passed</button>
                       }
-                      @if (capabilities().fail) {
+                      @if (capabilities().fail && isAssignee(item)) {
                         <button type="button" role="menuitem" class="crc-menu-item"
                                 [disabled]="item.status === 'Failed'"
                                 (click)="markChecklistFailed(item)">Mark as failed</button>
                       }
                       @if (capabilities().editCheck) {
                         <button type="button" role="menuitem" class="crc-menu-item"
-                                (click)="openEditCheckDrawer(item)">Edit check</button>
-                      }
-                      <!-- A PASSED CHECK CANNOT BE BLOCKED, and an already-blocked one cannot be
-                           blocked twice: the server allows at most one open blocker per check. -->
-                      @if (capabilities().assignBlocker) {
-                        <button type="button" role="menuitem" class="crc-menu-item"
-                                [disabled]="item.status === 'Passed' || !!item.openBlocker"
-                                (click)="openBlockerFor(item.id, item.name)">Assign blocker</button>
-                        @if (item.status === 'Passed') {
-                          <p class="crc-menu-why">This check has passed, so there is nothing to block.</p>
-                        } @else if (item.openBlocker) {
-                          <p class="crc-menu-why">A blocker is already open on this check.</p>
-                        }
+                                (click)="openEditCheckDrawer(item)">Edit</button>
                       }
                       @if (capabilities().deleteCheck) {
                         <div class="crc-menu-divider" role="separator"></div>
                         <button type="button" role="menuitem" class="crc-menu-item crc-menu-item-danger"
                                 [disabled]="!deleteCheckAllowed(item)"
-                                (click)="deleteChecklistItem(item)">Delete check</button>
+                                (click)="deleteChecklistItem(item)">Delete</button>
                         @if (deleteCheckDisabledReason(item); as why) {
                           <p class="crc-menu-why">{{ why }}</p>
                         }
@@ -374,13 +356,11 @@
                 </p>
               } @else if (v.canLaunch) {
                 <p class="crc-verdict-title"><span class="crc-dot crc-dot-pass" aria-hidden="true"></span> Ready to launch</p>
-                <p class="crc-verdict-text">Every required check has passed and nothing is blocked.</p>
+                <p class="crc-verdict-text">Every required check has passed.</p>
               } @else {
                 <p class="crc-verdict-title"><span class="crc-dot crc-dot-fail" aria-hidden="true"></span> Not ready to launch</p>
                 <p class="crc-verdict-text">
                   @if (v.requiredOutstanding > 0) { {{ v.requiredOutstanding }} required check(s) not yet passed }
-                  @if (v.requiredOutstanding > 0 && v.openBlockers > 0) { · }
-                  @if (v.openBlockers > 0) { {{ v.openBlockers }} open blocker(s) }
                   — the campaign cannot activate until these clear.
                 </p>
               }
@@ -407,37 +387,6 @@
           </dl>
         </div>
       </section>
-
-      <!-- Open blockers -->
-      <section class="crc-panel crc-blockers" aria-labelledby="crc-blockers-title">
-        <header class="crc-panel-head crc-panel-head-tight">
-          <h2 id="crc-blockers-title" class="crc-panel-title">Open blockers</h2>
-          <span class="crc-count" [class.is-zero]="blockers().length === 0">{{ blockers().length }}</span>
-        </header>
-        @if (blockers().length === 0) {
-          <p class="crc-blockers-empty">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16 10"/></svg>
-            <span>Nothing is blocked. Use <strong>Assign blocker</strong> on a check to tie an unmet dependency to an owner.</span>
-          </p>
-        } @else {
-          <ul class="crc-blocker-list">
-            @for (b of blockers(); track b.id) {
-              <li class="crc-blocker-item">
-                <div class="crc-blocker-main">
-                  <span class="crc-blocker-dep">{{ b.dependencyLabel }}</span>
-                  <span class="crc-blocker-note">{{ b.note }}</span>
-                  <!-- The owner as a NAME and the date as a DATE, from the server's blocker record. -->
-                  <span class="crc-blocker-meta">{{ ownerName(b.ownerRef) }} · raised {{ raisedWhen(b.createdAt) }}</span>
-                </div>
-                <!-- RESOLVE IS THE CHECKER'S HALF: raising and clearing are two permissions. -->
-                @if (capabilities().resolveBlocker) {
-                  <button type="button" class="crc-btn crc-btn-outline crc-btn-xs" (click)="removeBlocker(b.id)" aria-label="Resolve blocker">Resolve</button>
-                }
-              </li>
-            }
-          </ul>
-        }
-      </section>
     </aside>
   </div>
   }
@@ -446,47 +395,6 @@
 </div>
 
 <!-- ============================ DIALOGS ============================ -->
-
-<!-- Assign blocker -->
-@if (blockerDialogOpen()) {
-  <div class="crc-modal-backdrop" (click)="cancelBlocker()">
-    <div class="crc-modal" role="dialog" aria-modal="true" aria-labelledby="crc-blocker-title" (click)="$event.stopPropagation()">
-      <header class="ov-head">
-        <p class="crc-modal-kicker">Blocker</p>
-        <h2 id="crc-blocker-title" class="crc-modal-title">Assign blocker</h2>
-        <p class="crc-modal-lead">Tie an unmet dependency to an owner. Nothing launches while a blocker is open.</p>
-        <button type="button" class="crc-modal-x" (click)="cancelBlocker()" aria-label="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-        </button>
-      </header>
-      <div class="ov-body">
-      <dl class="crc-review">
-        <div><dt>Readiness check</dt><dd>{{ blockerTargetLabel() }}</dd></div>
-      </dl>
-      <div class="crc-field">
-        <label class="crc-field-label" for="crc-blocker-owner">Owner <span class="crc-req">*</span></label>
-        <select id="crc-blocker-owner" class="crc-input" [class.is-invalid]="blockerTouched() && !blockerOwnerValid()" [ngModel]="blockerOwnerRef()" (ngModelChange)="blockerOwnerRef.set($event)">
-          <option value="" disabled>Select an owner…</option>
-          @for (o of ownerOptions(); track o.reference) {
-            <!-- The dash only when there is something after it. -->
-            <option [value]="o.reference">{{ o.name }}@if (o.context) { — {{ o.context }} }</option>
-          }
-        </select>
-        @if (blockerTouched() && !blockerOwnerValid()) { <span class="crc-field-error">Enter Owner.</span> }
-      </div>
-      <div class="crc-field">
-        <label class="crc-field-label" for="crc-blocker-note">Blocker note <span class="crc-req">*</span></label>
-        <textarea id="crc-blocker-note" class="crc-input crc-textarea" rows="3" [class.is-invalid]="blockerTouched() && !blockerNoteValid()" [ngModel]="blockerNote()" (ngModelChange)="blockerNote.set($event)" placeholder="What must be resolved before this check can pass?"></textarea>
-        @if (blockerTouched() && !blockerNoteValid()) { <span class="crc-field-error">Enter Blocker note.</span> }
-      </div>
-      </div>
-      <div class="crc-modal-actions">
-        <button type="button" class="crc-btn crc-btn-outline" (click)="cancelBlocker()">Cancel</button>
-        <button type="button" class="crc-btn crc-btn-primary" (click)="confirmBlocker()">Create</button>
-      </div>
-    </div>
-  </div>
-}
 
 <!-- Request approval -->
 @if (requestDialogOpen()) {
@@ -593,7 +501,7 @@
       <div class="crc-modal-actions">
         <button type="button" class="crc-btn crc-btn-outline" (click)="closeViewCheck()">Close</button>
         @if (capabilities().editCheck) {
-          <button type="button" class="crc-btn crc-btn-primary" (click)="editFromView(vc)">Edit check</button>
+          <button type="button" class="crc-btn crc-btn-primary" (click)="editFromView(vc)">Edit</button>
         }
       </div>
     </div>

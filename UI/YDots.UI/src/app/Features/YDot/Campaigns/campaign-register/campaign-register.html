@@ -128,7 +128,7 @@
             }
           </div>
         } @else {
-          <div class="cr-tablewrap" (scroll)="closeRowMenu()">
+          <div class="cr-tablewrap">
             <table class="cr-table">
               <thead>
                 <tr>
@@ -178,26 +178,17 @@
                     <td class="cr-c-endDate cr-mono">{{ formatDate(r.endDate) }}</td>
                     <td class="cr-c-act">
                       <span class="cr-row-acts">
-                        <span class="cr-menu-wrap">
-                          <button #crRowBtn type="button" class="btn btn-outline-secondary btn-sm" (click)="toggleRowMenu(r.code, crRowBtn)"
-                                  [attr.aria-expanded]="openRowMenu() === r.code" aria-haspopup="menu">More</button>
-                          @if (openRowMenu() === r.code) {
-                            <div class="cr-menu" role="menu" aria-label="Campaign actions" [class.cr-menu-up]="rowMenuUp()"
-                                 [ngStyle]="rowMenuStyle()" appClickOutside [clickOutsideExcept]="crRowBtn" (appClickOutside)="closeRowMenu()">
-                              <button type="button" class="cr-menu-item" role="menuitem" (click)="openRecord(r)">Open</button>
-                              @if (canEdit(r)) {
-                                <button type="button" class="cr-menu-item" role="menuitem" (click)="openEdit(r)">Edit</button>
-                              }
-                              <button type="button" class="cr-menu-item" role="menuitem" (click)="openReadiness(r)">Readiness checklist</button>
-                              @if (canApprove(r)) {
-                                <button type="button" class="cr-menu-item cr-menu-item-primary" role="menuitem" (click)="requestApprove(r)">Approve</button>
-                              }
-                              @if (canDeleteDraft(r)) {
-                                <button type="button" class="cr-menu-item cr-menu-danger" role="menuitem" (click)="requestDeleteDraft(r)">Delete unused draft</button>
-                              }
-                            </div>
-                          }
-                        </span>
+                        <button type="button" class="cr-act" title="Open" aria-label="Open" (click)="openRecord(r)"><i class="ri-eye-line" aria-hidden="true"></i></button>
+                        @if (canEdit(r)) {
+                          <button type="button" class="cr-act" title="Edit" aria-label="Edit" (click)="openEdit(r)"><i class="ri-edit-2-line" aria-hidden="true"></i></button>
+                        }
+                        <button type="button" class="cr-act" title="Readiness checklist" aria-label="Readiness checklist" (click)="openReadiness(r)"><i class="ri-checkbox-multiple-line" aria-hidden="true"></i></button>
+                        @if (canApprove(r)) {
+                          <button type="button" class="cr-act cr-act--ok" title="Approve" aria-label="Approve" (click)="requestApprove(r)"><i class="ri-check-double-line" aria-hidden="true"></i></button>
+                        }
+                        @if (canDeleteDraft(r)) {
+                          <button type="button" class="cr-act cr-act--bad" title="Delete unused draft" aria-label="Delete unused draft" (click)="requestDeleteDraft(r)"><i class="ri-delete-bin-6-line" aria-hidden="true"></i></button>
+                        }
                       </span>
                     </td>
                   </tr>

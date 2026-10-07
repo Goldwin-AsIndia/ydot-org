@@ -6,7 +6,6 @@ import { ActivatedRoute } from '@angular/router';
 import { ClickOutsideDirective } from '../../../../Shared/directives/click-outside';
 import { CampaignStatus } from '../../../../Shared/models/campaign.model';
 import {
-  Blocker,
   CrcUiState,
   ReadinessOwnerOption,
 } from '../../../../Shared/models/campaign-readiness.model';
@@ -245,7 +244,6 @@ export class CampaignReadinessChecklistComponent {
   protected readonly ownerReference = computed(
     () => this.readiness()?.ownerReference ?? this.campaign()?.ownerReference ?? '',
   );
-  protected readonly blockers = computed<readonly Blocker[]>(() => this.readiness()?.blockers ?? []);
 
   // ================= Checklist aggregation =================
   //
@@ -535,15 +533,23 @@ export class CampaignReadinessChecklistComponent {
    * Initiator does not hold, so refusals are routine - produced "marked as passed" over a card
    * that had not moved. The card is the truth; the toast now says what the card is going to say.
    */
+  /**
+   * Only the person a check is assigned to may pass or fail it. A check nobody is assigned to can be
+   * judged by anyone who holds the permission.
+   */
+  protected isAssignee(check: ReadinessCheck): boolean {
+    return !check.ownerId || check.ownerId === this.currentUserRef();
+  }
+
   protected markChecklistPassed(check: ReadinessCheck): void {
     this.closeChecklistRowMenu();
-    if (!this.permissions().validate) return;
+    if (!this.permissions().validate || !this.isAssignee(check)) return;
     this.recordVerdict(check, 'Passed');
   }
   /** Row "Fail" — records that a check is not ready. A separate permission from passing it. */
   protected markChecklistFailed(check: ReadinessCheck): void {
     this.closeChecklistRowMenu();
-    if (!this.permissions().recordFailure) return;
+    if (!this.permissions().recordFailure || !this.isAssignee(check)) return;
     this.recordVerdict(check, 'Failed');
   }
   private recordVerdict(check: ReadinessCheck, status: 'Passed' | 'Failed'): void {
@@ -565,14 +571,11 @@ export class CampaignReadinessChecklistComponent {
   /** Row "Delete" — removes the check entirely. */
   /** Whether this check can actually be removed: Pending, unblocked, and the role holds it. */
   protected deleteCheckAllowed(check: ReadinessCheck): boolean {
-    return this.capabilities().deleteCheck && check.status === 'Pending' && !check.openBlocker;
+    return this.capabilities().deleteCheck && check.status === 'Pending';
   }
   protected deleteCheckDisabledReason(check: ReadinessCheck): string {
     if (check.status !== 'Pending') {
       return `Only a Pending check can be deleted. This one is ${check.status}, and the verdict on it would go too.`;
-    }
-    if (!!check.openBlocker) {
-      return 'This check has a blocker raised against it. Resolve it before removing the check.';
     }
     return '';
   }
@@ -598,108 +601,6 @@ export class CampaignReadinessChecklistComponent {
 
       this.lastRefresh.set('Just now · IST');
       this.toast.show('Readiness check deleted', `${check.name} was removed.`, 'success');
-    });
-  }
-
-  // ================= Assign blocker =================
-  // Assign blocker is now raised per checklist card (from its Action menu), so the dialog
-  // targets one specific dependency / check rather than choosing one from a list.
-  protected readonly blockerDialogOpen = signal(false);
-  protected readonly blockerDependency = signal<string>('');
-  protected readonly blockerTargetLabel = signal<string>('');
-  protected readonly blockerOwnerRef = signal('');
-  protected readonly blockerNote = signal('');
-  protected readonly blockerTouched = signal(false);
-  protected readonly blockerOwnerValid = computed(() => this.blockerOwnerRef() !== '');
-  protected readonly blockerNoteValid = computed(() => this.blockerNote().trim().length > 0);
-  protected readonly blockerValid = computed(
-    () => this.blockerDependency() !== '' && this.blockerOwnerValid() && this.blockerNoteValid(),
-  );
-
-  /** Open Assign blocker pre-targeted at a specific readiness check. */
-  protected openBlockerFor(key: string, label: string): void {
-    this.closeChecklistRowMenu();
-    if (!this.permissions().assignBlocker) return;
-
-    // The menu disables both of these, and this is the second half of the same rule: a passed
-    // check has nothing left to block, and the server keeps at most one open blocker per check.
-    const check = this.checklistItems().find((item) => item.id === key);
-
-    if (check && (check.status === 'Passed' || !!check.openBlocker)) return;
-    this.blockerDependency.set(key);
-    this.blockerTargetLabel.set(label);
-    this.blockerOwnerRef.set('');
-    this.blockerNote.set('');
-    this.blockerTouched.set(false);
-    this.blockerDialogOpen.set(true);
-  }
-  protected cancelBlocker(): void {
-    this.blockerDialogOpen.set(false);
-  }
-  protected confirmBlocker(): void {
-    this.blockerTouched.set(true);
-    if (!this.blockerValid()) {
-      // Keep the dialog open with inline field errors; preserve the entered values.
-      return;
-    }
-    const depKey = this.blockerDependency();
-    // A blocker already open on the same dependency is a duplicate — offer compare/cancel, never overwrite.
-    if (this.blockers().some((b) => b.dependencyKey === depKey)) {
-      this.uiState.set('duplicate');
-      return;
-    }
-    const label = this.blockerTargetLabel();
-    const ownerRef = this.blockerOwnerRef();
-    const blocker: Blocker = {
-      id: `BLK-${Date.now()}`,
-      dependencyKey: depKey,
-      dependencyLabel: label,
-      owner: this.ownerName(ownerRef),
-      ownerRef,
-      note: this.blockerNote().trim(),
-      createdByRef: this.currentUserRef(),
-      createdAt: this.lastRefresh(),
-    };
-    // THE DIALOG CLOSES AND THE SUCCESS IS ANNOUNCED ONLY IF THE BLOCKER WAS ACTUALLY RAISED.
-    //
-    // Both used to happen on the next two lines, unconditionally, while the request was still in
-    // flight — and the request is refused outright for every DERIVED dependency card (Budget,
-    // Tracking, Public content, …) because their keys are 'budget'/'tracking', not readiness
-    // check ids, and a blocker has to hang off a check. So the screen said "Blocker raised",
-    // closed, and left no blocker anywhere: not on the launch panel, not on the server, not on
-    // the next page load.
-    this.readinessStore.addBlocker(this.campaignRef, blocker, (outcome) => {
-      if (!outcome.raised) {
-        this.toast.show(
-          'Blocker not raised',
-          outcome.error ?? 'The blocker could not be raised.',
-          'error');
-        return;
-      }
-
-      this.blockerDialogOpen.set(false);
-      this.showSuccess(this.campaignRef, `Blocker on ${label}`, 'Resolve the blocker or Validate readiness');
-    });
-  }
-  /**
-   * Resolves a blocker.
-   *
-   * GUARDED ON RESOLVE, NOT ON ASSIGN. It checked the assign permission, which is the code for
-   * RAISING one - so anybody who could flag a problem could clear their own flag, and an open
-   * blocker is exactly what stops a check being passed.
-   */
-  protected removeBlocker(id: string): void {
-    if (!this.capabilities().resolveBlocker) return;
-
-    this.readinessStore.removeBlocker(this.campaignRef, id, (outcome) => {
-      this.syncSnapshot();
-
-      this.toast.show(
-        outcome.resolved ? 'Blocker resolved' : 'Blocker not resolved',
-        outcome.resolved
-          ? 'The check is pending verification again.'
-          : (outcome.error ?? 'The blocker could not be resolved.'),
-        outcome.resolved ? 'success' : 'error');
     });
   }
 

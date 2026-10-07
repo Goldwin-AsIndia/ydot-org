@@ -1,5 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { CampaignRole, CurrentUserService } from './current-user.service';
+import { CampaignApiService } from './campaign-api.service';
+import { ToastService } from '../Shared/services/toast.service';
 
 /** The lifecycle events that fan out as notifications. */
 export type CampaignEventKind =
@@ -11,7 +13,8 @@ export type CampaignEventKind =
   | 'paused'
   | 'resumed'
   | 'closed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'readiness-reminder';
 
 /** A single in-app notification, addressed to a role and/or a specific user reference. */
 export interface AppNotification {
@@ -45,7 +48,10 @@ export interface CampaignEventTarget {
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
   private readonly user = inject(CurrentUserService);
+  private readonly campaignApi = inject(CampaignApiService);
+  private readonly toast = inject(ToastService);
   private counter = 0;
+  private remindedOn = '';
 
   private readonly items = signal<readonly AppNotification[]>([
     {
@@ -131,6 +137,8 @@ export class NotificationService {
         return { title: 'Campaign closed', body: `${ref} was closed.` };
       case 'cancelled':
         return { title: 'Campaign cancelled', body: `${ref} was cancelled.` };
+      case 'readiness-reminder':
+        return { title: 'Readiness check due', body: `${ref} has a readiness check waiting on you.` };
     }
   }
 
@@ -158,6 +166,54 @@ export class NotificationService {
         this.push({ kind: event, title, body, toRole: 'Approver' });
       }
     }
+  }
+
+  /**
+   * The readiness reminder.
+   *
+   * A required readiness check that is assigned to the signed-in person and has not passed is a
+   * reminder once its campaign is four days (or fewer) from its start date. Asked once a day, when
+   * the person is in the app; each check becomes a notification addressed to them, and a toast
+   * says so on the screen they are looking at.
+   */
+  checkReadinessReminders(): void {
+    const ref = this.user.reference();
+    const today = new Date().toISOString().slice(0, 10);
+    const key = `${ref}|${today}`;
+
+    if (!ref || this.remindedOn === key || !this.user.hasPermission('cam.readiness.view')) {
+      return;
+    }
+    this.remindedOn = key;
+
+    this.campaignApi.getMyReadinessReminders().subscribe({
+      next: (reminders) => {
+        for (const r of reminders) {
+          const when = r.daysUntilStart <= 0 ? 'today' : r.daysUntilStart === 1 ? 'tomorrow' : `in ${r.daysUntilStart} days`;
+          this.push({
+            kind: 'readiness-reminder',
+            title: 'Readiness check due',
+            body: `"${r.checkName}" on ${r.campaignName} (${r.campaignCode}) is not passed yet and the campaign starts ${when}.`,
+            toRef: ref,
+          });
+        }
+
+        if (reminders.length > 0) {
+          const first = reminders[0];
+          this.toast.show(
+            'Readiness check due',
+            reminders.length === 1
+              ? `"${first.checkName}" on ${first.campaignName} must be passed before it starts.`
+              : `${reminders.length} readiness checks assigned to you must be passed before their campaigns start.`,
+            'warning',
+            8000,
+          );
+        }
+      },
+      // A reminder that cannot be fetched is not worth interrupting anybody for; it is asked again
+      // the next time the app opens.
+      error: () => { this.remindedOn = ''; },
+    });
   }
 
   markRead(id: string): void {

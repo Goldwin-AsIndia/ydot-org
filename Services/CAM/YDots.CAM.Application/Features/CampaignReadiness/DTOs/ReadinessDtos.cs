@@ -199,3 +199,16 @@ public sealed record ReadinessBlockerResponse(
     DateTimeOffset? ResolvedAtUtc,
     string? ResolutionNote,
     DateTimeOffset CreatedAtUtc);
+
+/// <summary>
+/// A required readiness check that has not passed, assigned to the caller, on a campaign that starts
+/// within the reminder window. This is the reminder the check's owner is sent.
+/// </summary>
+public sealed record ReadinessReminderResponse(
+    Guid CheckId,
+    string CheckName,
+    Guid CampaignId,
+    string CampaignCode,
+    string CampaignName,
+    DateOnly StartDate,
+    int DaysUntilStart);

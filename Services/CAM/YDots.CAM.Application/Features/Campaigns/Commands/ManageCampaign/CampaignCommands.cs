@@ -152,9 +152,9 @@ public sealed class CampaignCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.Concurrency());
         }
 
-        // A DRAFT OR AN ACTIVE CAMPAIGN MAY BE EDITED. Active is allowed by request, so a running
-        // campaign's details can be corrected without closing it. Submitted / Approved / Scheduled
-        // stay locked while an approval is in play, and Paused / Closed / Cancelled stay as they are.
+        // A DRAFT, SUBMITTED, APPROVED, SCHEDULED OR ACTIVE CAMPAIGN MAY BE EDITED, so details can
+        // be corrected without closing it. Paused / Closing / Closed / Cancelled stay as they are.
+        // An Active campaign keeps its name and start date (see ApplyTo).
         if (!campaign.IsEditable)
         {
             logger.LogWarning(
@@ -162,7 +162,7 @@ public sealed class CampaignCommandHandler(
                 campaign.Id, campaign.Status);
 
             return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
-                $"Only a Draft or Active campaign can be edited. This one is {campaign.Status}."));
+                $"Only a Draft, Submitted, Scheduled or Active campaign can be edited. This one is {campaign.Status}."));
         }
 
         request.ApplyTo(campaign);

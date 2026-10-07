@@ -17,4 +17,11 @@ public interface ICampaignReadinessReadService
 
     Task<ReadinessCheckDetailResponse?> GetCheckAsync(
         Guid checkId, AccessScope scope, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The required checks assigned to <paramref name="userId"/> that have not passed and whose
+    /// campaign starts within <paramref name="daysAhead"/> days.
+    /// </summary>
+    Task<IReadOnlyList<ReadinessReminderResponse>> GetRemindersForUserAsync(
+        Guid userId, int daysAhead, CancellationToken cancellationToken);
 }

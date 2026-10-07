@@ -204,6 +204,14 @@ public sealed class ReadinessCommandHandler(
         // THE BLOCKER RULE IS UNCHANGED and is what keeps this honest. A check with an open
         // blocker cannot be passed from any state, so "raise a blocker, then pass it anyway" is
         // still impossible; the blocker has to be resolved first, on the record, by somebody.
+        if (!IsAssignee(check))
+        {
+            logger.LogWarning("User {UserId} tried to pass readiness check {CheckId} assigned to someone else.", currentUser.UserId, check.Id);
+
+            return Result.Failure<OutcomeResponse>(Error.Forbidden(
+                "Only the person this check is assigned to can pass or fail it."));
+        }
+
         if (check.Status == ReadinessCheckStatus.Passed)
         {
             logger.LogWarning("Cannot pass readiness check {CheckId} because it has already been passed.", check.Id);
@@ -256,6 +264,14 @@ public sealed class ReadinessCommandHandler(
         }
 
         var check = loaded.Value!;
+
+        if (!IsAssignee(check))
+        {
+            logger.LogWarning("User {UserId} tried to fail readiness check {CheckId} assigned to someone else.", currentUser.UserId, check.Id);
+
+            return Result.Failure<OutcomeResponse>(Error.Forbidden(
+                "Only the person this check is assigned to can pass or fail it."));
+        }
 
         if (check.Status != ReadinessCheckStatus.Pending)
         {
@@ -576,9 +592,16 @@ public sealed class ReadinessCommandHandler(
         return check;
     }
 
+    /// <summary>
+    /// A verdict (passed or failed) may be recorded only by the person the check is assigned to.
+    /// A check nobody is assigned to can be judged by anyone who holds the permission.
+    /// </summary>
+    private bool IsAssignee(CampaignReadinessCheck check) =>
+        check.OwnerUserId is null || check.OwnerUserId == currentUser.UserId;
+
     private OutcomeResponse BuildOutcome(CampaignReadinessCheck check, string message) =>
         new(check.Id, check.Status.ToString(), check.Version, message, PermittedActions(check));
 
     private IReadOnlyList<string> PermittedActions(CampaignReadinessCheck check) =>
-        ReadinessMappingConfig.PermittedActionsFor(check, currentUser.HasPermission);
+        ReadinessMappingConfig.PermittedActionsFor(check, currentUser.HasPermission, currentUser.UserId);
 }
