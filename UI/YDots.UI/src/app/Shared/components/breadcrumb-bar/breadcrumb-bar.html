@@ -1,0 +1,20 @@
+<!-- `app-wrapper` gives the bar the shell's own offsets (header height above, sidebar width beside it, the folded /
+     horizontal layouts, the shell-fit zoom) so it lines up with every page without a second set of numbers. -->
+<div class="app-wrapper ybc-shell">
+  @if (crumbs().length) {
+    <nav class="ybc" aria-label="Breadcrumb">
+      <ol class="ybc__list">
+        @for (crumb of crumbs(); track $index; let last = $last) {
+          <li class="ybc__item">
+            @if (!$first) { <span class="ybc__sep" aria-hidden="true">/</span> }
+            @if (crumb.link && !last) {
+              <a class="ybc__link" [routerLink]="crumb.link">{{ crumb.label }}</a>
+            } @else {
+              <span class="ybc__text" [attr.aria-current]="last ? 'page' : null">{{ crumb.label }}</span>
+            }
+          </li>
+        }
+      </ol>
+    </nav>
+  }
+</div>

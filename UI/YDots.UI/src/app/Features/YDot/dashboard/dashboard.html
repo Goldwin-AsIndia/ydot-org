@@ -31,7 +31,7 @@
         <section class="dbd-tile dbd-rail dbd-s12" aria-label="At a glance">
 
           <a class="dbd-stat dbd-t-ok" routerLink="/app/donations/payment-event-queue">
-            <span class="dbd-stat-head"><i class="dbd-g ri-wallet-3-line"></i>Funds received</span>
+            <span class="dbd-stat-head"><i class="dbd-g ri-wallet-3-line"></i> Funds received</span>
             <span class="dbd-stat-row">
               <b class="dbd-stat-fig">{{ donations()?.netAmount?.display ?? '—' }}</b>
               @if (sparkNet().line) {
@@ -48,7 +48,7 @@
           </a>
 
           <a class="dbd-stat dbd-t-wait" routerLink="/app/fundraising/relationships/donor-list">
-            <span class="dbd-stat-head"><i class="dbd-g ri-heart-3-line"></i>Gifts received</span>
+            <span class="dbd-stat-head"><i class="dbd-g ri-heart-3-line"></i> Gifts received</span>
             <span class="dbd-stat-row">
               <b class="dbd-stat-fig">{{ donations() ? (donations()!.totalCount | number) : '—' }}</b>
               @if (sparkGifts().length) {
@@ -61,7 +61,7 @@
           </a>
 
           <a class="dbd-stat dbd-t-warn" routerLink="/app/fundraising/campaigns/campaign-register">
-            <span class="dbd-stat-head"><i class="dbd-g ri-megaphone-line"></i>Campaigns live</span>
+            <span class="dbd-stat-head"><i class="dbd-g ri-megaphone-line"></i> Campaigns live</span>
             <span class="dbd-stat-row">
               <b class="dbd-stat-fig">{{ campaigns() ? campaigns()!.active : '—' }}</b>
               @if (campaigns()) {
@@ -78,7 +78,7 @@
           </a>
 
           <a class="dbd-stat dbd-t-brand" routerLink="/app/fundraising/relationships/lead-work-queue">
-            <span class="dbd-stat-head"><i class="dbd-g ri-user-heart-line"></i>Open leads</span>
+            <span class="dbd-stat-head"><i class="dbd-g ri-user-heart-line"></i> Open leads</span>
             <span class="dbd-stat-row">
               <b class="dbd-stat-fig">{{ leads() ? (leads()!.totalLeads | number) : '—' }}</b>
               @if (leads(); as l) {
@@ -93,13 +93,13 @@
 
         <!-- ===== Pulse strip: every counter opens its screen ===== -->
         <section class="dbd-tile dbd-pulse-strip dbd-s12" aria-label="Pulse">
-          <a routerLink="/app/fundraising/relationships/donor-list"><i class="ri-heart-3-line"></i><span class="dbd-label">Donors</span><b class="dbd-num">{{ donorCount() !== null ? (donorCount()! | number) : '—' }}</b></a>
-          <a routerLink="/app/donations/payment-event-queue"><i class="ri-receipt-line"></i><span class="dbd-label">Receipts issued</span><b class="dbd-num">{{ receipts() ? (receipts()!.successful | number) : '—' }}</b></a>
-          <a routerLink="/app/administration/access/user-directory"><i class="ri-team-line"></i><span class="dbd-label">Active users</span><b class="dbd-num">{{ activeUsers() !== null ? (activeUsers()! | number) : '—' }}</b></a>
-          <a routerLink="/app/administration/access/user-directory"><i class="ri-mail-send-line"></i><span class="dbd-label">Invited</span><b class="dbd-num">{{ invitedUsers() !== null ? invitedUsers() : '—' }}</b></a>
-          <a routerLink="/app/administration/access/access-request-and-approval"><i class="ri-shield-user-line"></i><span class="dbd-label">Access requests</span><b class="dbd-num">{{ pendingAccess() !== null ? pendingAccess() : '—' }}</b></a>
-          <a routerLink="/app/money/finance/finance-workbench"><i class="ri-refund-2-line"></i><span class="dbd-label">Open refunds</span><b class="dbd-num">{{ openRefunds() !== null ? openRefunds() : '—' }}</b></a>
-          <a routerLink="/app/money/finance/finance-workbench"><i class="ri-alarm-warning-line"></i><span class="dbd-label">Open chargebacks</span><b class="dbd-num">{{ openChargebacks() !== null ? openChargebacks() : '—' }}</b></a>
+          <a routerLink="/app/fundraising/relationships/donor-list"><i class="ri-heart-3-line"></i> <span class="dbd-label">Donors</span><b class="dbd-num">{{ donorCount() !== null ? (donorCount()! | number) : '—' }}</b></a>
+          <a routerLink="/app/donations/payment-event-queue"><i class="ri-receipt-line"></i> <span class="dbd-label">Receipts issued</span><b class="dbd-num">{{ receipts() ? (receipts()!.successful | number) : '—' }}</b></a>
+          <a routerLink="/app/administration/access/user-directory"><i class="ri-team-line"></i> <span class="dbd-label">Active users</span><b class="dbd-num">{{ activeUsers() !== null ? (activeUsers()! | number) : '—' }}</b></a>
+          <a routerLink="/app/administration/access/user-directory"><i class="ri-mail-send-line"></i> <span class="dbd-label">Invited</span><b class="dbd-num">{{ invitedUsers() !== null ? invitedUsers() : '—' }}</b></a>
+          <a routerLink="/app/administration/access/access-request-and-approval"><i class="ri-shield-user-line"></i> <span class="dbd-label">Access requests</span><b class="dbd-num">{{ pendingAccess() !== null ? pendingAccess() : '—' }}</b></a>
+          <a routerLink="/app/money/finance/finance-workbench"><i class="ri-refund-2-line"></i> <span class="dbd-label">Open refunds</span><b class="dbd-num">{{ openRefunds() !== null ? openRefunds() : '—' }}</b></a>
+          <a routerLink="/app/money/finance/finance-workbench"><i class="ri-alarm-warning-line"></i> <span class="dbd-label">Open chargebacks</span><b class="dbd-num">{{ openChargebacks() !== null ? openChargebacks() : '—' }}</b></a>
         </section>
 
         <!-- ===== Giving curve ===== -->
@@ -362,9 +362,9 @@
                       <span class="dbd-cx-kicker">{{ stageLabel() }} · {{ lead.fundOrProgramme }}</span>
                       <strong class="dbd-cx-lead-name">{{ lead.name }}</strong>
                       <span class="dbd-cx-meta">
-                        <span><i class="ri-hashtag"></i>{{ lead.code }}</span>
-                        @if (lead.targetAmount) { <span><i class="ri-focus-3-line"></i>{{ short(lead.targetAmount) }} goal</span> }
-                        <span [class.is-urgent]="lt.urgent"><i class="ri-time-line"></i>{{ lt.text }}</span>
+                        <span><i class="ri-hashtag"></i> {{ lead.code }}</span>
+                        @if (lead.targetAmount) { <span><i class="ri-focus-3-line"></i> {{ short(lead.targetAmount) }} goal</span> }
+                        <span [class.is-urgent]="lt.urgent"><i class="ri-time-line"></i> {{ lt.text }}</span>
                       </span>
                     </span>
                     <i class="ri-arrow-right-up-line dbd-cx-go"></i>
@@ -406,7 +406,7 @@
                   <a class="dbd-lq-tile" [class.is-lead]="i === 0" [class.is-dim]="cbHover() !== null && cbHover() !== i" routerLink="/app/fundraising/campaigns/campaign-register" [style.--c]="m.colour" [style.--lvl]="m.width + '%'" [attr.data-pct]="(m.share | number: '1.0-0') + '%'" [style.--d]="i * 90 + 'ms'" (mouseenter)="cbHover.set(i)" (mouseleave)="cbHover.set(null)" (focus)="cbHover.set(i)" (blur)="cbHover.set(null)">
                     <span class="dbd-lq-fill" aria-hidden="true"></span>
                     <span class="dbd-lq-top">
-                      <span class="dbd-lq-rank">@if (i === 0) {<i class="ri-trophy-fill"></i>} @else { {{ m.rank }} }</span>
+                      <span class="dbd-lq-rank">@if (i === 0) {<i class="ri-trophy-fill"></i> } @else { {{ m.rank }} }</span>
                       <em>{{ m.share | number: '1.0-0' }}%</em>
                     </span>
                     <span class="dbd-lq-bot">

@@ -35,7 +35,7 @@
                   <i class="ri-refresh-line" [class.is-spin]="loading()" aria-hidden="true"></i>
                 </button>
                 @if (canManage()) {
-                  <button type="button" class="btn btn-primary btn-sm" (click)="startCreate()"><i class="ri-add-line" aria-hidden="true"></i>Create</button>
+                  <button type="button" class="btn btn-primary btn-sm" (click)="startCreate()"><i class="ri-add-line" aria-hidden="true"></i> Create</button>
                 }
               </div>
             </div>
@@ -101,7 +101,7 @@
                 <tbody>
                   @if (loadFailed()) {
                     <tr class="pg-msg"><td colspan="8">
-                      <div class="pg-empty"><p>{{ errorMessage() }}</p><button type="button" class="btn btn-primary btn-sm" (click)="load()"><i class="ri-refresh-line" aria-hidden="true"></i>Try again</button></div>
+                      <div class="pg-empty"><p>{{ errorMessage() }}</p><button type="button" class="btn btn-primary btn-sm" (click)="load()"><i class="ri-refresh-line" aria-hidden="true"></i> Try again</button></div>
                     </td></tr>
                   } @else if (configurations().length === 0 && !loading()) {
                     <tr class="pg-msg"><td colspan="8">
@@ -110,7 +110,7 @@
                           @if (hasFilters()) { Try changing the search or filters. } @else { Until one is set up and made active, donations cannot be collected. }
                         </p>
                         @if (canManage() && !hasFilters()) {
-                          <button type="button" class="btn btn-primary btn-sm" (click)="startCreate()"><i class="ri-add-line" aria-hidden="true"></i>Create</button>
+                          <button type="button" class="btn btn-primary btn-sm" (click)="startCreate()"><i class="ri-add-line" aria-hidden="true"></i> Create</button>
                         }
                       </div>
                     </td></tr>
@@ -177,14 +177,14 @@
                         </td>
                         <td class="pg-c-act">
                           <span class="pg-row-acts">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDetails(row)"><i class="ri-eye-line" aria-hidden="true"></i>View</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDetails(row)"><i class="ri-eye-line" aria-hidden="true"></i> View</button>
                             @if (isInherited(row)) {
                               @if (canManage()) {
                                 <button type="button" class="btn btn-outline-secondary btn-sm" title="Configure your own keys for this gateway" (click)="startCreateFrom(row)">Take over</button>
                               }
                             } @else {
                               @if (can(row, 'edit')) {
-                                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="startEdit(row)"><i class="ri-edit-line" aria-hidden="true"></i>Edit</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="startEdit(row)"><i class="ri-edit-line" aria-hidden="true"></i> Edit</button>
                               }
                               <span class="pg-menu-wrap">
                                 <button #pgMore type="button" class="btn btn-outline-secondary btn-sm" aria-haspopup="menu"
@@ -257,11 +257,11 @@
                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelForm()">Cancel</button>
                 @if (form().id && canTest()) {
                   <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="testing() !== null" (click)="test(form().existing!)">
-                    <i class="ri-plug-line" aria-hidden="true"></i>{{ testing() ? 'Testing…' : 'Test connection' }}
+                    <i class="ri-plug-line" aria-hidden="true"></i> {{ testing() ? 'Testing…' : 'Test connection' }}
                   </button>
                 }
                 <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="save()">
-                  <i class="ri-save-line" aria-hidden="true"></i>{{ saving() ? 'Saving…' : 'Save' }}
+                  <i class="ri-save-line" aria-hidden="true"></i> {{ saving() ? 'Saving…' : 'Save' }}
                 </button>
               </div>
             </div>
@@ -507,7 +507,7 @@
                   @if (isInherited(d)) {
                     @if (canManage()) {
                       <button type="button" class="btn btn-primary btn-sm" (click)="startCreateFrom(d)">
-                        <i class="ri-key-2-line" aria-hidden="true"></i>Configure your own keys
+                        <i class="ri-key-2-line" aria-hidden="true"></i> Configure your own keys
                       </button>
                     }
                   } @else {
@@ -534,7 +534,7 @@
                     }
                     @if (can(d, 'edit')) {
                       <button type="button" class="btn btn-primary btn-sm" (click)="startEdit(d)">
-                        <i class="ri-edit-line" aria-hidden="true"></i>Edit gateway
+                        <i class="ri-edit-line" aria-hidden="true"></i> Edit gateway
                       </button>
                     }
                   }
@@ -651,7 +651,7 @@
                       <div class="pgd-addr__line">
                         @if (d.webhookUrl) {
                           <span class="pg-mono" [title]="d.webhookUrl">{{ d.webhookUrl }}</span>
-                          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="copy(d.webhookUrl, 'Webhook URL')"><i class="ri-file-copy-line" aria-hidden="true"></i>Copy</button>
+                          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="copy(d.webhookUrl, 'Webhook URL')"><i class="ri-file-copy-line" aria-hidden="true"></i> Copy</button>
                         } @else {
                           <span class="pgd-none">Not set. The provider will not report payments back.</span>
                         }

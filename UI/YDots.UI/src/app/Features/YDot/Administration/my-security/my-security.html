@@ -125,73 +125,52 @@
 <div class="msec-card msec-panel" id="account-security-section"
      [class.msec-is-jump-target]="highlightedSection() === 'account-security-section'">
 <div class="msec-panel__header">
-
 <h6>Account Overview</h6>
-</div>
-<div class="msec-panel__body">
-<div class="msec-account-grid">
-<div class="msec-account-item">
-<span class="msec-icon-circle msec-account-icon"><i class="ri-user-line"></i></span>
-<div class="msec-account-text">
-<span class="msec-account-label">Display Name</span>
-<span class="msec-account-value">{{ data()?.displayName }}</span>
-</div>
-</div>
-<div class="msec-account-item">
-<span class="msec-icon-circle msec-account-icon"><i class="ri-at-line"></i></span>
-<div class="msec-account-text">
-<span class="msec-account-label">Username</span>
-<span class="msec-account-value">{{ data()?.username || '—' }}</span>
-</div>
-</div>
-<div class="msec-account-item">
-<span class="msec-icon-circle msec-account-icon"><i class="ri-mail-line"></i></span>
-<div class="msec-account-text">
-<span class="msec-account-label">Login Email</span>
-<span class="msec-account-value">{{ data()?.loginEmail }}</span>
-</div>
-</div>
-<div class="msec-account-item">
-<span class="msec-icon-circle msec-account-icon"><i class="ri-calendar-2-line"></i></span>
-<div class="msec-account-text">
-<span class="msec-account-label">Password Last Changed</span>
-<span class="msec-account-value">{{ data()?.passwordLastChanged }}</span>
-</div>
-</div>
-<div class="msec-account-item">
-<span class="msec-icon-circle msec-account-icon"><i class="ri-shield-keyhole-line"></i></span>
-<div class="msec-account-text">
-<span class="msec-account-label">MFA Requirement</span>
-<span class="msec-account-pill">{{ data()?.mfaRequirement }}</span>
-</div>
-</div>
-<div class="msec-account-item ">
-<span class="msec-icon-circle msec-account-icon"><i class="ri-error-warning-line"></i></span>
-<div class="msec-account-text">
-<span class="msec-account-label">Failed Sign-ins</span>
-<span class="msec-account-value">{{ data()?.accessFailedCount }}</span>
-                  @if ((data()?.attemptsRemaining ?? 0) > 0) {
-<span class="msec-account-hint">{{ data()?.attemptsRemaining }} attempts left before lockout</span>
-                  }
-</div>
-</div>
-</div>
-<div class="msec-tip-row">
-<button type="button" class="msec-edit-btn" (click)="editProfile()">
+<button type="button" class="msec-edit-btn msec-edit-btn--head" (click)="editProfile()">
                 Edit Profile <i class="ri-edit-line"></i>
 </button>
-<div class="msec-tip-in-panel">
-<div class="msec-tip-left">
-<span class="msec-icon-circle msec-tip-icon"><i class="ri-lightbulb-flash-line"></i></span>
-<div>
-<h6 class="msec-tip-title">Security Tip</h6>
+</div>
+<div class="msec-panel__body">
+<dl class="msec-ao-list">
+<div class="msec-ao-row">
+<dt><i class="ri-user-line"></i>Display name</dt>
+<dd>{{ data()?.displayName }}</dd>
+</div>
+<div class="msec-ao-row">
+<dt><i class="ri-at-line"></i>Username</dt>
+<dd>{{ data()?.username || '—' }}</dd>
+</div>
+<div class="msec-ao-row">
+<dt><i class="ri-mail-line"></i>Login email</dt>
+<dd>{{ data()?.loginEmail }}</dd>
+</div>
+<div class="msec-ao-row">
+<dt><i class="ri-calendar-2-line"></i>Password changed</dt>
+<dd>{{ data()?.passwordLastChanged }}</dd>
+</div>
+<div class="msec-ao-row">
+<dt><i class="ri-shield-keyhole-line"></i>MFA requirement</dt>
+<dd><span class="msec-ao-chip">{{ data()?.mfaRequirement }}</span></dd>
+</div>
+<div class="msec-ao-row">
+<dt><i class="ri-error-warning-line"></i>Failed sign-ins</dt>
+<dd>
+<span>{{ data()?.accessFailedCount }}</span>
+                  @if ((data()?.attemptsRemaining ?? 0) > 0) {
+<span class="msec-ao-hint">{{ data()?.attemptsRemaining }} attempts left before lockout</span>
+                  }
+</dd>
+</div>
+</dl>
+<div class="msec-tip-in-panel msec-tip-strip">
+<span class="msec-tip-icon"><i class="ri-lightbulb-flash-line"></i></span>
+<div class="msec-tip-strip__text">
+<h6 class="msec-tip-title">Security tip</h6>
 <p class="msec-tip-text">Enable MFA to add an extra layer of security to your account.</p>
+</div>
 <button type="button" class="msec-tip-action" (click)="enrolMfa()">
-                Enable Now <i class="ri-arrow-right-line"></i>
+                Enable now <i class="ri-arrow-right-line"></i>
 </button>
-</div>
-</div>
-</div>
 </div>
 </div>
 </div>

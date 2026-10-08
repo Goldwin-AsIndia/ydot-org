@@ -345,8 +345,30 @@ html:not([data-sidebar='icon']):not([data-layout='horizontal'])
 }
 
 .app-wrapper{
-      padding-left: 0 !important;
-    padding-right: 0 !important;
+      /* PAGE GUTTER = THE TOP BAR'S MARGIN. The fixed top bar (.app-header) sits 15px in from each side of the
+         content area, so every screen starts and ends exactly where the bar does: the gutter lives here, on the
+         shell wrapper (it is not zoomed by --shell-fit, whose zoom is applied to the wrapper's children), and
+         the screens' own containers carry no side padding of their own (rule below). */
+      padding-left: 15px !important;
+      padding-right: 15px !important;
+}
+
+/* Screens' own page containers never add a second side gutter on top of the shell's, so section edges =
+   top bar edges. `.page-wrapper` / `.container-fluid` / `.container` are Bootstrap's; the `px-4`, `py-6` ... utilities
+   on them are !important too, hence the extra specificity here. */
+.content-page .app-wrapper > :is(.page-wrapper, .container-fluid),
+.content-page .app-wrapper > .page-wrapper > :is(.container-fluid, .container) {
+  padding-inline: 0 !important;
+}
+
+/* Screens whose own root (rather than a container) sets a side padding, a width cap or auto side margins: they too
+   fill the area between the shell's gutters, so their edges are the top bar's edges. */
+.content-page .app-wrapper :is(.org-page, .msec-page, .ae-page, .cd-page, .campaign-wizard, .fcr, .ode-page, .pci-page,
+    .rwn-page, .d360-page, .exec-dashboard, .workspace, .nc-page, .sh-page, .list-page, .record-detail, .gm-page,
+    .tc-page, .inbox-page, .omc, .screen) {
+  max-width: none !important;
+  margin-inline: 0 !important;
+  padding-inline: 0 !important;
 }
 
 /* FOLDED SIDEBAR: NO PHANTOM SCROLL.
@@ -5764,3 +5786,19 @@ html.has-profile-photo .user-detail-avatar i {
   justify-content: center;
     padding-right: 11px;
 }
+/* The in-header gold kicker the breadcrumb bar (app-breadcrumb-bar) has taken over. */
+[data-crumb-src] { display: none !important; }
+
+/* One space (≈0.25em) between a button/link icon and its label. Flex/inline-flex
+   containers collapse the literal whitespace, so supply it as a gap. Zero
+   specificity (:where) so any component that sets its own gap still wins. */
+:where(button, a, .btn, [role="button"]):has(> i[class*="ri-"]:first-child) {
+  column-gap: 0.3em;
+}
+
+/* The breadcrumb bar (app-breadcrumb-bar) now carries the header offset, so the routed page itself no longer adds it. */
+.content-page .app-wrapper:not(.ybc-shell) { padding-top: 0 !important; }
+
+/* Page headers sit right under the breadcrumb: no extra air above the title (a plain header, or the transparent
+   gold/card header the Access screens use). */
+app-page-header:not(.ph-host--card) { padding-top: 0 !important; }

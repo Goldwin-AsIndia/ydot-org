@@ -37,8 +37,11 @@ app-footer {
   /* Wraps only what the routed page needs — a short page contributes no extra height,
      so the window cannot scroll unless the page content genuinely overflows. */
   height: auto;
-  overflow-x: hidden;
-  overflow-y: auto;
+  /* `clip`, not hidden/auto: the page scrolls with the window, so this box must never grow a scrollbar of its own.
+     The shell zooms the routed page (--shell-fit), which made scrollHeight a few dozen px larger than the real
+     content, so an `auto` box showed a phantom second scrollbar that took ~11px off the page's right edge and left it
+     short of the top bar's right edge. */
+  overflow: clip;
 }
 
 /* Make router outlet content fill the space */

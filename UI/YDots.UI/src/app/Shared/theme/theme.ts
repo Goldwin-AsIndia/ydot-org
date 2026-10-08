@@ -68,6 +68,8 @@ interface ThemeSettings {
   buttonRadius: number;
   sidebarBg: string | null;
   profilePhoto: string | null;
+  /** Precision type: one font stack applied to every role, without losing the per-role picks. */
+  precisionFont: boolean;
   fontsV?: number;
   /** Text-size baseline: 2 = the panel's 100% is the 116% size (older saves were relative to the old base). */
   textScaleV?: number;
@@ -86,6 +88,9 @@ const WEIGHT_STEP = 100;
 const WEIGHT_STEP_MIN = -2;
 const WEIGHT_STEP_MAX = 3;
 
+/** The Precision stack: Manrope first (self-hosted), then system fallbacks. */
+const PRECISION_STACK = 'Manrope, "Segoe UI", Arial, sans-serif';
+
 const NO_STEPS: RoleLevels = { display: 0, heading: 0, other: 0, number: 0, menu: 0 };
 
 /** Custom property suffix per role: --ts-<suffix> (size) and --fwb-<suffix> (weight step), see styles/ydot-typography.css. */
@@ -98,6 +103,7 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   headingColor: '#111827',
   isDarkMode: false,
   layoutMode: 'box',
+  precisionFont: false,
   menuFont: 'Outfit, sans-serif',
   displayFont: 'Outfit, sans-serif',
   headingFont: 'Outfit, sans-serif',
@@ -379,7 +385,16 @@ export class ThemeComponent implements OnInit {
     this.openFontRole.update(r => (r === role ? null : role));
   }
 
+  readonly precisionStack = PRECISION_STACK;
+  get precisionOn(): boolean { return this.settings.precisionFont; }
+
+  setPrecision(on: boolean): void {
+    this.settings.precisionFont = on;
+    this.applyFontVars();
+  }
+
   fontFor(role: FontRole): string {
+    if (this.settings.precisionFont) return PRECISION_STACK;
     switch (role) {
       case 'display': return this.settings.displayFont;
       case 'heading': return this.settings.headingFont;
@@ -394,7 +409,7 @@ export class ThemeComponent implements OnInit {
   }
 
   isPairingActive(p: FontPairing): boolean {
-    return p.display === this.settings.displayFont && p.heading === this.settings.headingFont &&
+    return !this.settings.precisionFont && p.display === this.settings.displayFont && p.heading === this.settings.headingFont &&
       p.other === this.settings.otherFont && p.number === this.settings.numberFont && p.menu === this.settings.menuFont;
   }
 
@@ -728,6 +743,8 @@ export class ThemeComponent implements OnInit {
   // ═══════════ Fonts ═══════════
 
   setFont(type: FontRole, value: string): void {
+    // Choosing a font by hand leaves Precision mode.
+    this.settings.precisionFont = false;
     switch (type) {
       case 'display': this.settings.displayFont = value; break;
       case 'menu':    this.settings.menuFont = value; break;
@@ -746,13 +763,14 @@ export class ThemeComponent implements OnInit {
    */
   private applyFontVars(): void {
     const s = this.settings;
-    this.setCssVar('--font-display', s.displayFont);
-    this.setCssVar('--font-heading', s.headingFont);
-    this.setCssVar('--font-menu', s.menuFont);
-    this.setCssVar('--font-number', s.numberFont);
-    this.setCssVar('--font-mono', s.numberFont);
+    const f = (v: string) => (s.precisionFont ? PRECISION_STACK : v);
+    this.setCssVar('--font-display', f(s.displayFont));
+    this.setCssVar('--font-heading', f(s.headingFont));
+    this.setCssVar('--font-menu', f(s.menuFont));
+    this.setCssVar('--font-number', f(s.numberFont));
+    this.setCssVar('--font-mono', f(s.numberFont));
     for (const v of ['--font-other', '--font-body', '--font-ui', '--pe-font-family', '--bs-body-font-family']) {
-      this.setCssVar(v, s.otherFont);
+      this.setCssVar(v, f(s.otherFont));
     }
   }
 
