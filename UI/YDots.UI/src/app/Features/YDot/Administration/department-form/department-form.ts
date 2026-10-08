@@ -11,6 +11,7 @@ import { PeopleDirectoryService } from '../../../../Shared/services/people-direc
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { PickerComponent, PickerOption } from '../../../../Shared/components/picker/picker';
 import { codeError, maxLengthError, textWithLettersError } from '../../../../Shared/validation/field-rules';
+import { InvalidBorderDirective } from '../../../../Shared/directives/invalid-border';
 
 /**
  * Add or edit one department in a pop-up over the Departments list.
@@ -21,7 +22,8 @@ import { codeError, maxLengthError, textWithLettersError } from '../../../../Sha
  * `closed` / `saved`. Escape and a click on the backdrop close it, as Cancel does.
  *
  * It borrows the field and button styles of the office page (office-form.css) so the two forms look
- * alike, with its own dialog frame on top (department-form.css).
+ * alike, with its own dialog frame on top (department-form.css). Invalid inputs get their red border
+ * from InvalidBorderDirective, because the global theme's input rules beat any stylesheet rule here.
  *
  * The save rules are the list screen's, unchanged: a create sends null for an empty description,
  * an update sends the trimmed text - empty included - because the server reads null as "leave it
@@ -30,7 +32,7 @@ import { codeError, maxLengthError, textWithLettersError } from '../../../../Sha
 @Component({
   selector: 'app-department-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, PickerComponent],
+  imports: [CommonModule, FormsModule, PickerComponent, InvalidBorderDirective],
   templateUrl: './department-form.html',
   styleUrls: ['../office-form/office-form.css', './department-form.css'],
 })
@@ -140,8 +142,9 @@ export class DepartmentFormComponent implements OnInit, OnDestroy {
     return { name: this.nameMessage(), code: this.codeMessage(), description: this.descriptionMessage() }[field];
   }
 
+  /** Focuses the first invalid field in the order they appear on screen: Code, Name, Description. */
   private focusFirstInvalid(): void {
-    const id = this.nameMessage() ? 'df-name' : this.codeMessage() ? 'df-code' : this.descriptionMessage() ? 'df-description' : null;
+    const id = this.codeMessage() ? 'df-code' : this.nameMessage() ? 'df-name' : this.descriptionMessage() ? 'df-description' : null;
     if (id) setTimeout(() => (document.getElementById(id) as HTMLElement | null)?.focus());
   }
 
@@ -269,13 +272,22 @@ export class DepartmentFormComponent implements OnInit, OnDestroy {
       },
       error: (error: unknown) => {
         this.saving.set(false);
-        this.errorMessage.set(apiErrorMessage(error, 'That could not be saved.'));
+
+        // A refused save (e.g. "A department in this organisation already uses that code.") goes to a
+        // toast, not the red banner at the top of the form. The banner stays only for a failed load,
+        // where there is no form to work with.
+        this.toast.show(
+          'Not saved',
+          apiErrorMessage(error, 'That could not be saved.'),
+          'error',
+        );
+
         const mapped: Record<string, string> = {};
         for (const [field, message] of Object.entries(apiFieldErrors(error))) {
           mapped[field.charAt(0).toLowerCase() + field.slice(1)] = message;
         }
         this.fieldErrors.set(mapped);
-        const first = ['name', 'code', 'description'].find((field) => mapped[field]);
+        const first = ['code', 'name', 'description'].find((field) => mapped[field]);
         if (first) setTimeout(() => (document.getElementById('df-' + first) as HTMLElement | null)?.focus());
       },
     });

@@ -321,7 +321,7 @@
 
     <!-- READY / VALIDATION / DUPLICATE / CONFLICT / DEPENDENCY-FAILURE / SUCCESS keep the index visible -->
     @else {
-      <div class="tam-table-scroll" (scroll)="closeRowMenu()">
+      <div class="tam-table-scroll">
         <table class="tam-table">
           <thead>
             <tr>
@@ -401,31 +401,28 @@
 
                 <td class="tam-col-num tam-usage" data-label="Usage">{{ formatUsage(r.usageCount) }}</td>
 
-                <!-- Row actions: one 3-dot menu; each option carries its own name -->
+                <!-- Row actions: shown as icons right in the row, no menu to open. Each icon carries its
+                     own name as a tooltip and an aria-label; a disallowed action stays visible but
+                     disabled, and its tooltip says why. -->
                 <td class="tam-col-actions" (click)="$event.stopPropagation()">
-                  <div class="tam-menu-wrap">
-                    <button #tamRowBtn type="button" class="tam-icon-action" (click)="toggleRowMenu(r.trackingReference, tamRowBtn)"
-                            [attr.aria-expanded]="openRowMenu() === r.trackingReference" aria-haspopup="menu"
-                            aria-label="More actions" title="More actions">
-                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
-                    </button>
-                    @if (openRowMenu() === r.trackingReference) {
-                      <div class="tam-menu" role="menu" aria-label="Tracking asset actions"
-                           [class.tam-menu-up]="rowMenuUp()" [ngStyle]="rowMenuStyle()"
-                           appClickOutside [clickOutsideExcept]="tamRowBtn" (appClickOutside)="closeRowMenu()">
-                        @if (pendingApproval(r)) {
-                          <button type="button" class="tam-menu-item tam-menu-approve" role="menuitem"
-                                  [attr.title]="pendingApprovalTip(r)" (click)="closeRowMenu(); onApprove(r)">{{ approveMenuLabel(r) }}</button>
-                        }
-                        @if (canEverEdit()) {
-                          <button type="button" class="tam-menu-item" role="menuitem" (click)="closeRowMenu(); requestEdit(r)"
-                                  [disabled]="!editAllowed(r)" [attr.title]="editAllowed(r) ? null : editDisabledReason(r)">Edit</button>
-                        }
-                        @if (canEverDisableOrRequest()) {
-                          <button type="button" class="tam-menu-item tam-menu-danger" role="menuitem" (click)="closeRowMenu(); onRowDisable(r)"
-                                  [disabled]="!rowDisableEnabled(r)" [attr.title]="rowDisableEnabled(r) ? null : rowDisableTitle(r)">{{ disableMenuLabel() }}</button>
-                        }
-                      </div>
+                  <div class="tam-row-acts">
+                    @if (pendingApproval(r)) {
+                      <button type="button" class="tam-icon-action tam-icon-action--approve" (click)="onApprove(r)"
+                              [attr.title]="pendingApprovalTip(r) || approveMenuLabel(r)" [attr.aria-label]="approveMenuLabel(r)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/></svg>
+                      </button>
+                    }
+                    @if (canEverEdit()) {
+                      <button type="button" class="tam-icon-action" (click)="requestEdit(r)" [disabled]="!editAllowed(r)"
+                              [attr.title]="editAllowed(r) ? 'Edit' : editDisabledReason(r)" aria-label="Edit">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>
+                      </button>
+                    }
+                    @if (canEverDisableOrRequest()) {
+                      <button type="button" class="tam-icon-action tam-icon-action--danger" (click)="onRowDisable(r)" [disabled]="!rowDisableEnabled(r)"
+                              [attr.title]="rowDisableEnabled(r) ? disableMenuLabel() : rowDisableTitle(r)" [attr.aria-label]="disableMenuLabel()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>
+                      </button>
                     }
                   </div>
                 </td>
@@ -816,8 +813,8 @@
           <span class="tam-req">*</span> Required fields
         }
       </p>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelGenerate()">Cancel</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="confirmGenerate('Draft')">Draft</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelGenerate()"><i class="ri ri-close-line"></i> Cancel</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="confirmGenerate('Draft')"><i class="ri ri-draft-line"></i>Draft</button>
       <button type="button" class="btn btn-primary btn-sm" (click)="confirmGenerate('Submitted')">
         <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
         Activate

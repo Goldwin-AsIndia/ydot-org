@@ -1,0 +1,615 @@
+/* =========================================================================================
+   YDOT LIST-VIEW ROW ACTIONS — one ghost style for every list page.
+   -----------------------------------------------------------------------------------------
+   USAGE (new pages): wrap the row buttons in .ydot-row-actions and give each button
+   .ydot-act plus one tone class:
+
+     <div class="ydot-row-actions">
+       <button type="button" class="ydot-act ydot-act--view" title="View" ...>
+         <i class="ri-eye-line"></i>
+       </button>
+       <button type="button" class="ydot-act ydot-act--edit" title="Edit" ...>
+         <i class="ri-edit-line"></i>
+       </button>
+       <button type="button" class="ydot-act ydot-act--delete" title="Delete" ...>
+         <i class="ri-delete-bin-line"></i>
+       </button>
+     </div>
+
+   EXISTING PAGES: keep your own class names — the mapping block in PART 2 below
+   restyles every legacy row-action class to this same ghost look, so no template
+   edits are needed.
+
+   DESIGN — ghost / outline:
+     - white background, 1px neutral border, muted icon
+     - hover: tinted background + coloured border + coloured icon
+     - view/edit/info  -> indigo   - delete/danger -> red
+     - success/approve -> green    - warn/toggle   -> amber
+   Every icon box is 40 x 40 px with an 18 px glyph (airy padding like the
+   reference: small centred icon, generous white space inside the box).
+   ========================================================================================= */
+
+/* ---- Row container: one line, fixed gap ---- */
+.ydot-row-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: calc(8px * var(--ui-scale, 1)) !important;
+  flex-wrap: nowrap !important;
+}
+
+/* ---- Base ghost button ---- */
+.ydot-act {
+  width: calc(40px * var(--ui-scale, 1)) !important;
+  height: calc(40px * var(--ui-scale, 1)) !important;
+  min-width: calc(40px * var(--ui-scale, 1)) !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #ffffff !important;
+  border: 1px solid #e3e6ee !important;
+  border-radius: calc(10px * var(--ui-scale, 1)) !important;
+  color: #6b7280 !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, transform 0.15s ease !important;
+}
+
+.ydot-act > i {
+  font-size: calc(18px * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
+
+.ydot-act > svg {
+  width: calc(18px * var(--ui-scale, 1)) !important;
+  height: calc(18px * var(--ui-scale, 1)) !important;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ydot-act:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.ydot-act:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.ydot-act:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.ydot-act:focus-visible {
+  outline: 2px solid #4f46e5 !important;
+  outline-offset: 2px !important;
+}
+
+/* ---- Tones (hover colour wash) — NEW-API base tones + focus ring match ----
+   view = indigo · edit = orange · delete = red · success = green ·
+   warn = amber · review = purple · chat = teal · more = slate.
+   Every icon gets its OWN colour — no two actions share one. ---- */
+.ydot-act--view:hover:not(:disabled),
+.ydot-act--view:focus-visible,
+.ydot-act--info:hover:not(:disabled),
+.ydot-act--info:focus-visible {
+  background: #eef2ff !important;
+  border-color: #4f46e5 !important;
+  color: #4f46e5 !important;
+}
+
+.ydot-act--edit:hover:not(:disabled),
+.ydot-act--edit:focus-visible {
+  background: #fff3e8 !important;
+  border-color: #ea580c !important;
+  color: #ea580c !important;
+}
+
+.ydot-act--delete:hover:not(:disabled),
+.ydot-act--delete:focus-visible,
+.ydot-act--danger:hover:not(:disabled),
+.ydot-act--danger:focus-visible {
+  background: #fdecec !important;
+  border-color: #e5484d !important;
+  color: #e5484d !important;
+}
+
+.ydot-act--success:hover:not(:disabled),
+.ydot-act--success:focus-visible,
+.ydot-act--approve:hover:not(:disabled),
+.ydot-act--approve:focus-visible {
+  background: #e7f7ef !important;
+  border-color: #12b76a !important;
+  color: #12a35f !important;
+}
+
+.ydot-act--warn:hover:not(:disabled),
+.ydot-act--warn:focus-visible,
+.ydot-act--toggle:hover:not(:disabled),
+.ydot-act--toggle:focus-visible {
+  background: #fff7e8 !important;
+  border-color: #f59e0b !important;
+  color: #d97706 !important;
+}
+
+.ydot-act--review:hover:not(:disabled),
+.ydot-act--review:focus-visible {
+  background: #f3efff !important;
+  border-color: #7c3aed !important;
+  color: #7c3aed !important;
+}
+
+.ydot-act--chat:hover:not(:disabled),
+.ydot-act--chat:focus-visible {
+  background: #e6f7f5 !important;
+  border-color: #0d9488 !important;
+  color: #0d9488 !important;
+}
+
+.ydot-act--more:hover:not(:disabled),
+.ydot-act--more:focus-visible {
+  background: #f1f5f9 !important;
+  border-color: #64748b !important;
+  color: #64748b !important;
+}
+
+/* ---- ICON MAP, group 1: view(eye)=indigo · edit=orange · delete=red (hover+focus) ----
+   Same icon = same colour everywhere; every DIFFERENT icon = its OWN colour.
+   Remix <i> glyphs match by icon class — no template change needed. */
+/* view / open / preview (eye) -> indigo */
+button:has(> .ri-eye-line):hover:not(:disabled),
+button:has(> .ri-eye-line):focus-visible {
+  background: #eef2ff !important;
+  border-color: #4f46e5 !important;
+  color: #4f46e5 !important;
+}
+
+/* edit / pencil -> orange (own colour, NOT indigo — eye already uses indigo) */
+button:has(> .ri-edit-line):hover:not(:disabled),
+button:has(> .ri-edit-line):focus-visible,
+button:has(> .ri-edit-2-line):hover:not(:disabled),
+button:has(> .ri-edit-2-line):focus-visible {
+  background: #fff3e8 !important;
+  border-color: #ea580c !important;
+  color: #ea580c !important;
+}
+
+/* delete / bin -> red */
+button:has(> .ri-delete-bin-line):hover:not(:disabled),
+button:has(> .ri-delete-bin-line):focus-visible,
+button:has(> .ri-delete-bin-6-line):hover:not(:disabled),
+button:has(> .ri-delete-bin-6-line):focus-visible {
+  background: #fdecec !important;
+  border-color: #e5484d !important;
+  color: #e5484d !important;
+}
+
+/* ---- ICON MAP, group 2: approve=green · readiness=purple · chat/mail=teal ·
+   calendar=amber · more/move=slate (hover+focus) ---- */
+/* approve / double-check / reactivate-play -> green */
+button:has(> .ri-check-double-line):hover:not(:disabled),
+button:has(> .ri-check-double-line):focus-visible,
+button:has(> .ri-play-circle-line):hover:not(:disabled),
+button:has(> .ri-play-circle-line):focus-visible {
+  background: #e7f7ef !important;
+  border-color: #12b76a !important;
+  color: #12a35f !important;
+}
+
+/* readiness / checklist / shield-review -> purple */
+button:has(> .ri-checkbox-multiple-line):hover:not(:disabled),
+button:has(> .ri-checkbox-multiple-line):focus-visible,
+button:has(> .ri-shield-check-line):hover:not(:disabled),
+button:has(> .ri-shield-check-line):focus-visible {
+  background: #f3efff !important;
+  border-color: #7c3aed !important;
+  color: #7c3aed !important;
+}
+
+/* communicate / chat / mail -> teal */
+button:has(> .ri-chat-3-line):hover:not(:disabled),
+button:has(> .ri-chat-3-line):focus-visible,
+button:has(> .ri-chat-history-line):hover:not(:disabled),
+button:has(> .ri-chat-history-line):focus-visible,
+button:has(> .ri-mail-send-line):hover:not(:disabled),
+button:has(> .ri-mail-send-line):focus-visible {
+  background: #e6f7f5 !important;
+  border-color: #0d9488 !important;
+  color: #0d9488 !important;
+}
+
+/* calendar / follow-up -> amber */
+button:has(> .ri-calendar-schedule-line):hover:not(:disabled),
+button:has(> .ri-calendar-schedule-line):focus-visible {
+  background: #fff7e8 !important;
+  border-color: #f59e0b !important;
+  color: #d97706 !important;
+}
+
+/* more / move / assign / suspend -> slate */
+button:has(> .ri-more-2-line):hover:not(:disabled),
+button:has(> .ri-more-2-line):focus-visible,
+button:has(> .ri-arrow-up-s-line):hover:not(:disabled),
+button:has(> .ri-arrow-up-s-line):focus-visible,
+button:has(> .ri-arrow-down-s-line):hover:not(:disabled),
+button:has(> .ri-arrow-down-s-line):focus-visible,
+button:has(> .ri-arrow-left-s-line):hover:not(:disabled),
+button:has(> .ri-arrow-left-s-line):focus-visible,
+button:has(> .ri-arrow-right-s-line):hover:not(:disabled),
+button:has(> .ri-arrow-right-s-line):focus-visible,
+button:has(> .ri-user-shared-line):hover:not(:disabled),
+button:has(> .ri-user-shared-line):focus-visible,
+button:has(> .ri-login-box-line):hover:not(:disabled),
+button:has(> .ri-login-box-line):focus-visible,
+button:has(> .ri-loader-4-line):hover:not(:disabled),
+button:has(> .ri-loader-4-line):focus-visible,
+button:has(> .ri-forbid-2-line):hover:not(:disabled),
+button:has(> .ri-forbid-2-line):focus-visible {
+    /* background: #f1f5f9 !important;
+    border-color: #64748b !important;
+    color: #64748b !important; */
+} 
+
+/* ---- ICON MAP, group 3: inline-<svg> rows match by button title ---- */
+/* Masters view/edit/delete (title="View[. name]" etc.) */
+button[title="View"] > svg,
+button[title^="View "] > svg {
+  color: inherit;
+}
+button[title="View"]:hover:not(:disabled) > svg,
+button[title^="View "]:hover:not(:disabled) > svg,
+button[title="View"]:focus-visible > svg,
+button[title^="View "]:focus-visible > svg {
+  color: #4f46e5 !important;
+}
+button[title="View"]:hover:not(:disabled),
+button[title^="View "]:hover:not(:disabled),
+button[title="View"]:focus-visible,
+button[title^="View "]:focus-visible {
+  background: #eef2ff !important;
+  border-color: #4f46e5 !important;
+  color: #4f46e5 !important;
+}
+
+button[title="Edit"]:hover:not(:disabled),
+button[title^="Edit "]:hover:not(:disabled),
+button[title="Edit"]:focus-visible,
+button[title^="Edit "]:focus-visible {
+  background: #fff3e8 !important;
+  border-color: #ea580c !important;
+  color: #ea580c !important;
+}
+
+button[title="Delete"]:hover:not(:disabled),
+button[title^="Delete "]:hover:not(:disabled),
+button[title="Delete"]:focus-visible,
+button[title^="Delete "]:focus-visible {
+  background: #fdecec !important;
+  border-color: #e5484d !important;
+  color: #e5484d !important;
+}
+
+/* Execute (follow-up queue, title="Execute[. ref]") — green wash on hover/focus.
+   NOTE: Masters Deactivate/Activate have their own ALWAYS-ON colours (rest +
+   hover) in the toggle block below, so they are intentionally NOT listed here. */
+button[title="Execute"]:hover:not(:disabled),
+button[title^="Execute "]:hover:not(:disabled),
+button[title="Execute"]:focus-visible,
+button[title^="Execute "]:focus-visible {
+  background: #e7f7ef !important;
+  border-color: #12b76a !important;
+  color: #12a35f !important;
+}
+
+/* Reschedule (follow-up drawer) — amber wash on hover/focus. */
+button[title^="Reschedule "]:hover:not(:disabled),
+button[title="Reschedule"]:focus-visible,
+button[title^="Reschedule "]:focus-visible {
+  background: #fff7e8 !important;
+  border-color: #f59e0b !important;
+  color: #d97706 !important;
+}
+
+/* ---- ICON MAP, group 4: Tracking Asset Manager (.tam-icon-action, inline SVG).
+   Titles are dynamic (approveMenuLabel / disableMenuLabel), so match by the
+   page's own modifier classes instead of titles:
+     approve (check-circle) -> green · edit (pencil) -> orange ·
+     disable (ban-circle, .tam-icon-action--danger) -> red ---- */
+.tam-icon-action--approve:hover:not(:disabled),
+.tam-icon-action--approve:focus-visible {
+  background: #e7f7ef !important;
+  border-color: #12b76a !important;
+  color: #12a35f !important;
+}
+
+.tam-icon-action:not(.tam-icon-action--approve):not(.tam-icon-action--danger):hover:not(:disabled),
+.tam-icon-action:not(.tam-icon-action--approve):not(.tam-icon-action--danger):focus-visible {
+  background: #fff3e8 !important;
+  border-color: #ea580c !important;
+  color: #ea580c !important;
+}
+
+.tam-icon-action--danger:hover:not(:disabled),
+.tam-icon-action--danger:focus-visible {
+  background: #fdecec !important;
+  border-color: #e5484d !important;
+  color: #e5484d !important;
+}
+
+button[title="More actions"]:hover:not(:disabled),
+button[title^="More actions "]:hover:not(:disabled),
+button[title="More actions"]:focus-visible,
+button[title^="More actions "]:focus-visible,
+button[title="View details"]:hover:not(:disabled),
+button[title="View details"]:focus-visible {
+  background: #f1f5f9 !important;
+  border-color: #64748b !important;
+  color: #64748b !important;
+}
+button[title="View details"]:hover:not(:disabled) > svg,
+button[title="View details"]:focus-visible > svg {
+  color: #64748b !important;
+}
+
+/* =========================================================================================
+   PART 2 — LEGACY MAPPING. Every existing list-page row-action class is restyled to
+   the ghost look above. No template change required: pages keep their class names,
+   this block only overrides their paint + size.
+   Pages: user-directory (.ud-act) · donor-list (.dn-act) · lead-work-queue (.pq-act) ·
+   organisation-directory (.dl-act) · super-admin-view (.org-icon-btn) ·
+   organisation-structure (.btn.View/.Edit/.Delete icon-only, .os-act) ·
+   menu-configuration (.mc-ib) · document-submissions (.ds-icon-btn) ·
+   follow-up-queue (.fq-icon-btn row variant) · payment-event-queue (.pr-icon-btn) ·
+   campaign-register (.cr-act) · Masters (.gm-icon-btn) ·
+   tracking-asset-manager (.tam-icon-action) ·
+   assignment-board (.ab-tool, .ab-btn--row icon-only) ·
+   standard-list-page (.row-action)
+   NOTE: generic .icon-btn (complaint-case, conversation-detail, …) is a toolbar /
+   utility button, NOT a list row action — intentionally untouched.
+   ========================================================================================= */
+
+/* ---- Box: white bg + neutral border + fixed 40px ---- */
+.ud-act,
+.dn-act,
+.pq-act,
+.dl-act,
+.org-icon-btn,
+.mc-ib,
+.mc-ib--sm,
+.ds-icon-btn,
+.pr-icon-btn,
+.cr-act,
+.tam-icon-action,
+.ab-tool,
+.ab-btn--row:has(> i:only-child),
+.gm-icon-btn,
+.row-action,
+.os-act,
+.os-actions .btn.View:has(> i:only-child),
+.os-actions .btn.Edit:has(> i:only-child),
+.os-actions .btn.Delete:has(> i:only-child),
+.fq-row-actions .fq-icon-btn {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #ffffff !important;
+  border: 1px solid #e3e6ee !important;
+  border-radius: 10px !important;
+  color: #6b7280 !important;
+  line-height: 1 !important;
+}
+
+/* ---- Glyph: one 18px size everywhere, airy padding like the reference.
+   Remix icons are a FONT: thickness comes from font-weight (400 = thin like
+   other pages, 900 = bold). Force 400 + antialiased so Donor/Leads glyphs match
+   the rest of the app. Inline SVGs get a uniform 1.8 stroke. ---- */
+.ud-act > i,
+.dn-act > i,
+.pq-act > i,
+.dl-act > i,
+.org-icon-btn > i,
+.mc-ib > i,
+.mc-ib--sm > i,
+.ds-icon-btn > i,
+.cr-act > i,
+.tam-icon-action > svg,
+.ab-tool > i,
+.ab-btn--row > i:only-child,
+.os-act > i,
+.os-actions .btn > i:only-child,
+.pr-icon-btn > svg,
+.gm-icon-btn > i,
+.gm-icon-btn > svg,
+.row-action > i,
+.fq-row-actions .fq-icon-btn > svg,
+.fq-row-actions .fq-icon-btn > i {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+  /* remix = font: normal weight + smoothing = same thin stroke as other pages */
+  font-weight: 400 !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* ---- Inline-SVG stroke: one 1.8 width everywhere (follow-up <use> sprites,
+   payment-queue eye, Masters glyphs, TAM glyphs) ---- */
+.pr-icon-btn > svg,
+.gm-icon-btn > svg,
+.tam-icon-action > svg,
+.fq-row-actions .fq-icon-btn > svg {
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.8 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  vector-effect: non-scaling-stroke !important;
+}
+
+/* ---- Donor & Leads spacing: 8px gaps + breathing padding so 40px ghost boxes
+   never touch/overlap (screenshots). Column widths live in the component files
+   (container queries there beat shared CSS). Grid rows below keep alignment. ---- */
+.dn-acts {
+  gap: calc(8px * var(--s)) !important;
+  padding: calc(4px * var(--s)) calc(2px * var(--s)) !important;
+}
+/* lead-work-queue: max 3 boxes */
+.pq-acts {
+  gap: calc(8px * var(--s)) !important;
+  padding: calc(4px * var(--s)) calc(2px * var(--s)) !important;
+}
+/* follow-up-queue table cell: 3 boxes fit in 108px -> widen + breathing room */
+.fq-table th.fq-col-actions {
+  width: calc(152px * var(--s)) !important;
+}
+.fq-row-actions {
+  gap: calc(8px * var(--s)) !important;
+  padding: calc(4px * var(--s)) calc(2px * var(--s)) !important;
+}
+
+/* ---- Legacy class fallback (icon-map above wins where it matches) ----
+   View falls back to indigo; Edit falls back to orange (NOT indigo). */
+.ud-act.View:hover:not(:disabled),
+.dn-act:hover:not(:disabled),
+.pq-act:hover:not(:disabled),
+.dl-act:hover:not(:disabled),
+.org-icon-btn:hover:not(:disabled),
+.mc-ib:hover:not(:disabled),
+.mc-ib--sm:hover:not(:disabled),
+.ds-icon-btn:hover:not(:disabled),
+.pr-icon-btn:hover:not(:disabled),
+.cr-act:hover:not(:disabled),
+.gm-icon-btn:hover:not(:disabled),
+.row-action:hover:not(:disabled),
+.os-act:hover:not(:disabled),
+.os-actions .btn.View:hover:not(:disabled),
+.dl-act-view:hover:not(:disabled),
+.tam-icon-action:hover:not(:disabled) {
+  background: #eef2ff !important;
+  border-color: #4f46e5 !important;
+  color: #4f46e5 !important;
+}
+
+/* ---- ICON MAP, group 5: Assignment board — assign/history slate, follow-up amber.
+   Same icon colours as every other page (icon-map :has() rules above also match
+   ri-history-line / ri-user-add-line / ri-calendar-schedule-line globally). ---- */
+.ab-btn--row:hover:not(:disabled),
+.ab-btn--row:focus-visible,
+button:has(> .ri-history-line):hover:not(:disabled),
+button:has(> .ri-history-line):focus-visible,
+button:has(> .ri-user-add-line):hover:not(:disabled),
+button:has(> .ri-user-add-line):focus-visible {
+  background: #f1f5f9 !important;
+  border-color: #64748b !important;
+  color: #64748b !important;
+}
+
+.ab-tool.Clock:hover:not(:disabled),
+.ab-tool.Clock:focus-visible {
+  background: #f1f5f9 !important;
+  border-color: #64748b !important;
+  color: #64748b !important;
+}
+
+.ab-tool.Calender:hover:not(:disabled),
+.ab-tool.Calender:focus-visible {
+  background: #fff7e8 !important;
+  border-color: #f59e0b !important;
+  color: #d97706 !important;
+}
+
+.os-actions .btn.Edit:hover:not(:disabled),
+.ud-act.Edit:hover:not(:disabled) {
+  background: #fff3e8 !important;
+  border-color: #ea580c !important;
+  color: #ea580c !important;
+}
+
+/* ---- Delete / danger -> red wash ---- */
+.ud-act.Delete:hover:not(:disabled),
+.ud-act--danger:hover:not(:disabled),
+.mc-ib--danger:hover:not(:disabled),
+.ds-icon-btn.is-danger:hover:not(:disabled),
+.gm-icon-btn.is-danger:hover:not(:disabled),
+.cr-act--bad:hover:not(:disabled),
+.os-act-remove:hover:not(:disabled),
+.os-actions .btn.Delete:hover:not(:disabled),
+.fq-row-actions .fq-icon-btn.is-danger:hover:not(:disabled),
+.tam-icon-action--danger:hover:not(:disabled) {
+  background: #fdecec !important;
+  border-color: #e5484d !important;
+  color: #e5484d !important;
+}
+
+/* ---- Masters toggle: ONLY the inactive row's Activate button is coloured.
+   Active record-ல Deactivate (.is-on) -> plain grey ghost (மத்த icons மாதிரி).
+   Inactive record-ல Activate (.is-off) -> amber wash ALWAYS (rest + hover +
+   focus), screenshot மாதிரி. Hover-ல wash deepen ஆகும். ---- */
+.gm-icon-btn.is-off:not(:disabled),
+button[title="Activate"]:not(:disabled),
+button[title^="Activate "]:not(:disabled) {
+  background: #fff7e8 !important;
+  border-color: #f59e0b !important;
+  color: #d97706 !important;
+}
+.gm-icon-btn.is-off:hover:not(:disabled),
+button[title="Activate"]:hover:not(:disabled),
+button[title^="Activate "]:hover:not(:disabled),
+.gm-icon-btn.is-off:focus-visible,
+button[title="Activate"]:focus-visible,
+button[title^="Activate "]:focus-visible {
+  background: #ffedd5 !important;
+  border-color: #ea580c !important;
+  color: #ea580c !important;
+}
+
+/* ---- Success fallback -> green wash (Masters .is-on toggle has its own always-on colours above) ---- */
+.cr-act--ok:hover:not(:disabled),
+.fq-row-actions .fq-icon-btn.is-go:hover:not(:disabled) {
+  background: #e7f7ef !important;
+  border-color: #12b76a !important;
+  color: #12a35f !important;
+}
+
+/* ---- Warn fallback -> amber wash (Masters toggle has its own always-on colours above) ---- */
+.dl-act-review:hover:not(:disabled),
+.pq-act--go:hover:not(:disabled) {
+  background: #fff7e8 !important;
+  border-color: #f59e0b !important;
+  color: #d97706 !important;
+}
+
+/* ---- Keyboard focus: visible indigo ring ---- */
+.ud-act:focus-visible,
+.dn-act:focus-visible,
+.pq-act:focus-visible,
+.dl-act:focus-visible,
+.org-icon-btn:focus-visible,
+.mc-ib:focus-visible,
+.mc-ib--sm:focus-visible,
+.ds-icon-btn:focus-visible,
+.pr-icon-btn:focus-visible,
+.cr-act:focus-visible,
+.gm-icon-btn:focus-visible,
+.row-action:focus-visible,
+.os-act:focus-visible,
+.tam-icon-action:focus-visible,
+.ab-tool:focus-visible,
+.ab-btn--row:focus-visible,
+.fq-row-actions .fq-icon-btn:focus-visible {
+  outline: 2px solid #4f46e5 !important;
+  outline-offset: 2px !important;
+}
+

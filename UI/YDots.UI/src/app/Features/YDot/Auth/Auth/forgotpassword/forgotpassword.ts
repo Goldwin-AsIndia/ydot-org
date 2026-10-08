@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -40,6 +40,19 @@ export class ForgotpasswordComponent {
   readonly submitted = signal(false);
   readonly errorMessage = signal('');
   readonly confirmation = signal('');
+
+  /** Send button — Enter in the field first moves focus here, then submits. */
+  @ViewChild('sendBtn') private readonly sendBtn?: ElementRef<HTMLButtonElement>;
+
+  /**
+   * ENTER FLOW — field fill panni Enter thattuna Send button-ku focus poyi auto submit aagum.
+   * Button-la focus irukum bothu Enter/Space thattunaalum submit aagum (native form submit).
+   */
+  onFieldEnter(event: Event): void {
+    event.preventDefault();
+    this.sendBtn?.nativeElement.focus();
+    this.onSubmit();
+  }
 
   onSubmit(): void {
     this.errorMessage.set('');

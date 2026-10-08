@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -148,6 +148,42 @@ export class AccountUnavailableComponent implements OnInit {
   // =========================================================================================
   // Actions
   // =========================================================================================
+
+  // =========================================================================================
+  // ENTER FLOW — Enter in a field first moves focus to the action button, then submits.
+  // =========================================================================================
+
+  /** Recovery + support submit buttons. */
+  @ViewChild('recoveryBtn') private readonly recoveryBtn?: ElementRef<HTMLButtonElement>;
+  @ViewChild('supportBtn') private readonly supportBtn?: ElementRef<HTMLButtonElement>;
+
+  /** Recovery identifier field + Enter → Start button focus + auto submit. */
+  onRecoveryEnter(event: Event): void {
+    event.preventDefault();
+    this.recoveryBtn?.nativeElement.focus();
+    this.startRecovery();
+  }
+
+  /**
+   * Support contact-email field + Enter → Send button focus + auto submit.
+   * (Message textarea-la plain Enter newline than; Ctrl/Cmd+Enter submit pannum.)
+   */
+  onSupportEmailEnter(event: Event): void {
+    event.preventDefault();
+    this.supportBtn?.nativeElement.focus();
+    this.submitSupportRequest();
+  }
+
+  /** Support message textarea-la Ctrl+Enter / Cmd+Enter → Send button focus + auto submit. */
+  onSupportMessageEnter(event: KeyboardEvent): void {
+    if (!(event.ctrlKey || event.metaKey)) {
+      return;
+    }
+
+    event.preventDefault();
+    this.supportBtn?.nativeElement.focus();
+    this.submitSupportRequest();
+  }
 
   startRecovery(): void {
     const identifier = this.emailOrUsername().trim();

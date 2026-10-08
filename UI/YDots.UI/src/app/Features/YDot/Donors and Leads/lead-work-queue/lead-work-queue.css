@@ -512,6 +512,7 @@
 /* =====================================================================================================
    THE QUEUE - column caption and rows share one grid
    ===================================================================================================== */
+/* actions column = 160px: 3 ghost boxes x 40px + 2 gaps x 8px + padding */
 .pq-cols,
 .pq-row {
   display: grid;
@@ -524,7 +525,7 @@
     minmax(calc(100px * var(--s)), 0.75fr)
     minmax(calc(104px * var(--s)), 0.75fr)
     minmax(calc(124px * var(--s)), 0.9fr)
-    calc(126px * var(--s));
+    calc(160px * var(--s));
   align-items: center;
   column-gap: calc(18px * var(--s));
   padding: 0 var(--pq-pad);
@@ -695,28 +696,18 @@
 .pq-next[data-due='today'] .pq-due { color: var(--pq-warn); font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; }
 .pq-next[data-due='soon'] .pq-due { color: var(--pq-accent); }
 
-/* Action: bare glyphs (no box, border or fill, by request) in fixed slots - open, communicate,
-   assign - so they line up row to row. Hover is a colour change; keyboard focus keeps an outline. */
-.pq-acts { display: flex; align-items: center; gap: calc(6px * var(--s)); }
+/* Action row buttons — box/paint/size + hover + focus now come from
+   styles/ydot-list-actions.css (ghost style). 8px gap + padding = 40px boxes
+   never touch or clip (shared file also sets this; kept here for container queries). */
+.pq-acts { display: flex; align-items: center; align-self: center; gap: calc(8px * var(--s)); min-height: calc(48px * var(--s)); padding: calc(4px * var(--s)) calc(2px * var(--s)); overflow: visible; }
 .pq-act {
   display: grid;
   place-items: center;
   flex: none;
-  width: calc(36px * var(--s));
-  height: calc(36px * var(--s));
   padding: 0;
-  border: 0 !important;
-  border-radius: calc(8px * var(--s));
-  background: none !important;
-  color: var(--pq-muted);
   cursor: pointer;
   transition: color 0.15s ease, transform 0.15s ease;
 }
-.pq-act i { font-size: calc(calc(21px * var(--s)) * var(--ui-text-scale, 1)) !important; line-height: 1; }
-.pq-act:hover { color: var(--pq-accent); transform: translateY(-1px); }
-.pq-act:focus-visible { outline: 2px solid color-mix(in srgb, var(--pq-accent) 45%, #ffffff); outline-offset: 0; }
-.pq-act--go { color: var(--pq-warn); }
-.pq-act--go:hover { color: color-mix(in srgb, var(--pq-warn) 80%, #000000); }
 
 .pq-row--ghost { grid-template-columns: 1.4fr 1.1fr 1fr 0.8fr 0.6fr; }
 .pq-row--ghost span {
@@ -1070,7 +1061,7 @@ dialog.pq-drawer::backdrop {
   .pq-row {
     grid-template-columns:
       calc(20px * var(--s)) minmax(calc(170px * var(--s)), 1.4fr) minmax(calc(150px * var(--s)), 1.15fr) minmax(calc(110px * var(--s)), 0.9fr)
-      minmax(calc(96px * var(--s)), 0.75fr) minmax(calc(100px * var(--s)), 0.75fr) minmax(calc(120px * var(--s)), 0.9fr) calc(126px * var(--s));
+      minmax(calc(96px * var(--s)), 0.75fr) minmax(calc(100px * var(--s)), 0.75fr) minmax(calc(120px * var(--s)), 0.9fr) calc(160px * var(--s));
   }
   .pq-c-camp, .pq-camp { display: none; }
 }
@@ -1079,7 +1070,7 @@ dialog.pq-drawer::backdrop {
   .pq-row {
     grid-template-columns:
       calc(20px * var(--s)) minmax(calc(160px * var(--s)), 1.4fr) minmax(calc(140px * var(--s)), 1.1fr) minmax(calc(96px * var(--s)), 0.8fr)
-      minmax(calc(96px * var(--s)), 0.75fr) minmax(calc(112px * var(--s)), 0.85fr) calc(126px * var(--s));
+      minmax(calc(96px * var(--s)), 0.75fr) minmax(calc(112px * var(--s)), 0.85fr) calc(160px * var(--s));
   }
   .pq-c-sig, .pq-signals { display: none; }
   .pq-lane { grid-template-columns: calc(26px * var(--s)) minmax(0, 1fr); column-gap: calc(10px * var(--s)); padding-left: calc(14px * var(--s)); padding-right: calc(10px * var(--s)); }

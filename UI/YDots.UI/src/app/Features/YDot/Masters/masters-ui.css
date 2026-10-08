@@ -634,23 +634,18 @@ svg {
   gap: calc(4px * var(--ui-scale, 1));
 }
 
+/* Row actions — box/paint/size now come from styles/ydot-list-actions.css (ghost style).
+   This block only keeps layout + svg stroke defaults; DO NOT re-add width,
+   background, border or :hover paint here or pages will diverge again. */
 .gm-icon-btn {
   display: inline-grid;
   place-items: center;
-  width: calc(32px * var(--ui-scale, 1));
-  height: calc(32px * var(--ui-scale, 1));
   padding: 0;
-  color: var(--gm-muted);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: calc(9px * var(--ui-scale, 1));
   cursor: pointer;
   transition: color .15s ease, background-color .15s ease, border-color .15s ease;
 }
 
 .gm-icon-btn svg {
-  width: calc(17px * var(--ui-scale, 1));
-  height: calc(17px * var(--ui-scale, 1));
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
@@ -663,66 +658,7 @@ svg {
   stroke: none;
 }
 
-.gm-icon-btn i {
-  font-size: calc(17px * var(--ui-scale, 1));
-  line-height: 1;
-}
-
-.gm-icon-btn:hover {
-  color: var(--gm-primary-dark);
-  background: var(--gm-primary-soft);
-  border-color: var(--gm-primary-line);
-}
-
-.gm-icon-btn.is-on {
-  color: #1f7a52;
-  background: transparent;
-  border-color: transparent;
-}
-
-.gm-icon-btn.is-on:hover {
-  color: #1a6b47;
-  background: transparent;
-  border-color: transparent;
-}
-
-.gm-icon-btn.is-on:focus-visible {
-  outline: 2px solid var(--gm-ok);
-  outline-offset: 1px;
-}
-
-.gm-icon-btn.is-off {
-  color: #c0392b;
-  background: transparent;
-  border-color: transparent;
-}
-
-.gm-icon-btn.is-off:hover {
-  color: #b3372f;
-  background: transparent;
-  border-color: transparent;
-}
-
-.gm-icon-btn.is-off:focus-visible {
-  outline: 2px solid var(--gm-bad);
-  outline-offset: 1px;
-}
-
-.gm-icon-btn.is-danger:hover {
-  color: var(--gm-bad);
-  background: var(--gm-bad-soft);
-  border-color: color-mix(in srgb, var(--gm-bad) 25%, #ffffff);
-}
-
-.gm-icon-btn:focus-visible {
-  outline: 2px solid var(--gm-primary);
-  outline-offset: 1px;
-}
-
-.gm-icon-btn:disabled {
-  opacity: .45;
-  cursor: not-allowed;
-}
+/* (hover / tone / focus / disabled paint lives in ydot-list-actions.css) */
 
 /* Empty state */
 .gm-empty {

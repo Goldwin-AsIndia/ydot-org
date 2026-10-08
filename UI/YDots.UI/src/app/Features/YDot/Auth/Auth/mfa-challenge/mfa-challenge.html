@@ -70,6 +70,7 @@
           <div class="otp-row d-flex justify-content-center gap-2 mb-4" (paste)="onPaste($event)">
             @for (digit of digits(); track $index) {
               <input
+                #otpBox
                 [id]="'mfa-digit-' + $index"
                 type="text"
                 inputmode="numeric"
@@ -80,7 +81,8 @@
                 [attr.aria-label]="'Digit ' + ($index + 1) + ' of 6'"
                 [disabled]="submitting() || expired()"
                 (input)="onDigitInput($index, $any($event.target).value)"
-                (keydown)="onDigitKeydown($index, $event)">
+                (keydown)="onDigitKeydown($index, $event)"
+                (keydown.enter)="onOtpEnter($index, $event)">
             }
           </div>
 
@@ -101,7 +103,7 @@
             </label>
           </div>
 
-          <button type="submit" class="btn btn-primary w-100 mb-3" [disabled]="!canSubmitCode() || expired()">
+          <button #verifyBtn type="submit" class="btn btn-primary w-100 mb-3 auth-submit-btn" [disabled]="!canSubmitCode() || expired()">
             {{ submitting() ? 'Verifying…' : 'Verify and sign in' }}
           </button>
 
@@ -129,14 +131,15 @@
             spellcheck="false"
             [value]="recoveryCode()"
             (input)="recoveryCode.set($any($event.target).value)"
-            [disabled]="submitting()">
+            [disabled]="submitting()"
+            (keydown.enter)="onRecoveryEnter($event)">
 
           <p class="small text-muted mb-4">
             Using a code consumes it permanently. Generate a fresh set from
             <strong>My Security</strong> once you are signed in.
           </p>
 
-          <button type="submit" class="btn btn-primary w-100 mb-3" [disabled]="!canSubmitRecovery()">
+          <button #recoveryBtn type="submit" class="btn btn-primary w-100 mb-3 auth-submit-btn" [disabled]="!canSubmitRecovery()">
             {{ submitting() ? 'Checking…' : 'Use recovery code' }}
           </button>
         </form>

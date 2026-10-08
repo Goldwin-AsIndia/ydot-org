@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
@@ -167,6 +167,26 @@ export class SelectOrganisationComponent implements OnInit, OnDestroy {
   /** Whether an Organisation can be worked in, or only reviewed. */
   isOperable(option: TenantOptionResponse): boolean {
     return this.organisations.isOperable(option);
+  }
+
+  /** ENTER FLOW refs — search-la Enter thattuna first org button-ku focus poyi select aagum. */
+  @ViewChildren('orgBtn') private readonly orgBtns?: QueryList<ElementRef<HTMLButtonElement>>;
+
+  /**
+   * ENTER FLOW — search field fill panni Enter thattuna first organisation button-ku
+   * focus poyi auto select aagum. Button-la focus irukum bothu Enter/Space select pannum
+   * (native button behaviour).
+   */
+  onSearchEnter(event: Event): void {
+    event.preventDefault();
+
+    const first = this.filtered()[0];
+    if (!first) {
+      return;
+    }
+
+    this.orgBtns?.first?.nativeElement.focus();
+    this.select(first);
   }
 
   statusClass(status: string | undefined): string {

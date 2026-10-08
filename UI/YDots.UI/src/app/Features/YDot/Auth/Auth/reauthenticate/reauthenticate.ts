@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -145,6 +145,29 @@ export class ReauthenticateComponent implements OnInit, OnDestroy {
 
   togglePassword(): void {
     this.showPassword.update((shown) => !shown);
+  }
+
+  /** ENTER FLOW refs — Enter in a field first moves focus to the Confirm button, then submits. */
+  @ViewChild('codeInput') private readonly codeInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('confirmBtn') private readonly confirmBtn?: ElementRef<HTMLButtonElement>;
+
+  /**
+   * ENTER FLOW — field fill panni Enter thattuna:
+   *   password field + Enter        → code field iruntha anga focus, illana Confirm button-ku focus + auto submit
+   *   code field + Enter            → Confirm button-ku focus poyi auto submit aagum
+   */
+  onFieldEnter(next: 'code' | 'submit', event: Event): void {
+    event.preventDefault();
+
+    if (next === 'code') {
+      if (this.needsCode() && this.codeInput) {
+        this.codeInput.nativeElement.focus();
+        return;
+      }
+    }
+
+    this.confirmBtn?.nativeElement.focus();
+    this.confirm();
   }
 
   confirm(): void {

@@ -1,101 +1,242 @@
 /* ---------------------------------------------------------------------------------------
-   The pop-up frame for the department form. Fields, buttons and hints come from the office
-   page's stylesheet (office-form.css, loaded alongside this one); this file only adds the
-   backdrop, the dialog, and its head / body / foot.
+   Department form pop-up — flat & minimal: hairlines, small radius, no shadows,
+   theme from var(--primary). Inputs keep .of-input from office-form.css.
+
+   WHY THE DROPDOWNS WERE BREAKING: the dialog had `overflow: hidden` and the body had
+   `overflow-y: auto`, so every app-picker panel was clipped at the dialog edge and drawn
+   over the fields below it. The dialog and body no longer clip; the body is raised above
+   the footer so an open panel hangs cleanly over it and over the backdrop.
    --------------------------------------------------------------------------------------- */
 :host {
+  --df-line: var(--of-line, #e3e6e8);
+  --df-line-2: var(--of-line-2, #eef0f2);
+  --df-ink: var(--of-ink, #1c2328);
+  --df-ink-2: var(--of-ink-2, #48525a);
+  --df-muted: var(--of-muted, #6b757d);
+  --df-faint: var(--of-faint, #9aa3ab);
+  --df-brand: var(--primary, #2f5d4b);
+  --df-danger: #d92d20;
+  --df-radius: 6px;
+
   position: fixed;
   inset: 0;
   z-index: 1080;
   display: grid;
   place-items: center;
   padding: 16px;
+  overflow-y: auto;
 }
 
 .df-backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: rgba(15, 23, 30, .45);
-  backdrop-filter: blur(2px);
-  animation: df-fade .2s ease both;
+  background: rgba(15, 23, 30, .42);
+  animation: df-fade .18s ease both;
 }
 
 .df-dialog {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(780px, 100%);
-  max-height: calc(100vh - 32px);
+  width: min(680px, 100%);
   background: #fff;
-  border-radius: 20px;
-  box-shadow: 0 30px 70px -20px rgba(15, 23, 30, .45);
-  overflow: hidden;
-  animation: df-in .25s cubic-bezier(.2, .8, .2, 1) backwards;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius);
+  box-shadow: none;
+  overflow: visible;            /* never clip a dropdown */
+  animation: df-in .2s ease backwards;
 }
 
+/* ---------- Head ---------- */
 .df-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--of-line-2);
+  padding: 18px 24px 16px;
+  border-bottom: 1px solid var(--df-line);
 }
+.df-head-text { min-width: 0; }
 .df-title {
   --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   margin: 0;
   font-family: var(--font-display);
-  font-size: calc(20px * var(--ui-text-scale, 1));
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
-  line-height: 1.25;
-  color: var(--of-ink);
+  font-size: calc(19px * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.25 !important;
+  color: var(--df-ink);
 }
-.df-sub { margin: 4px 0 0; font-size: calc(13px * var(--ui-text-scale, 1)) !important; line-height: 1.45 !important; color: var(--of-muted); }
+.df-sub {
+  margin: 4px 0 0;
+  font-size: calc(13.5px * var(--ui-text-scale, 1)) !important;
+  line-height: 1.45 !important;
+  color: var(--df-muted);
+}
 .df-close {
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: inline-grid;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--of-line);
-  border-radius: 10px;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius);
   background: #fff;
-  color: var(--of-ink-2);
+  color: var(--df-ink-2);
   cursor: pointer;
-  transition: border-color .15s ease, color .15s ease, background-color .15s ease;
 }
 .df-close i { font-size: calc(18px * var(--ui-text-scale, 1)) !important; line-height: 1; }
-.df-close:hover { border-color: var(--of-brand-line); color: var(--of-brand); background: var(--of-brand-soft); }
-.df-close:focus-visible { outline: 2px solid var(--of-brand); outline-offset: 2px; }
+.df-close:hover { border-color: var(--df-brand); color: var(--df-brand); }
+.df-close:focus-visible { outline: 2px solid var(--df-brand); outline-offset: 2px; }
 
+/* ---------- Body ---------- */
 .df-body {
-  flex: 1;
+  position: relative;
+  z-index: 2;                   /* an open picker panel paints above the footer */
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 24px 22px;
-  /* Sized to fit without scrolling; the scroll is only a fallback for a very short window. */
-  overflow-y: auto;
+  gap: 0;
+  padding: 4px 24px 8px;
+  overflow: visible;
 }
-.df-body > .of-alert { margin-bottom: 0; }
 
-/* Three columns: Name spans two beside Code; the pickers and order share a row. */
+.df-group {
+  padding: 16px 0;
+}
+.df-group + .df-group { border-top: 1px solid var(--df-line-2); }
+.df-group-title {
+  margin: 0 0 12px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--df-muted);
+}
+
 .df-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
   align-items: start;
 }
-.df-span-2 { grid-column: span 2; }
-.df-span-3 { grid-column: 1 / -1; }
-/* The quick picks sit inside the Name field, under its box, and stay within its width. */
-.df-suggest { gap: 6px; margin-top: 2px; }
-.df-suggest .of-suggest-opt { padding: 4px 11px; font-size: calc(12.5px * var(--ui-text-scale, 1)) !important; }
-.df-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.df-count { font-size: calc(11.5px * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important; color: var(--of-faint); }
-.df-note { margin: 0; align-self: end; padding-bottom: 12px; font-size: calc(12px * var(--ui-text-scale, 1)) !important; line-height: 1.4 !important; color: var(--of-muted); }
+.df-span-2 { grid-column: 1 / -1; }
 
+.df-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.df-field > label {
+  margin: 0;
+  font-size: calc(13.5px * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--df-ink-2);
+}
+.df-field > label em,
+.df-foot-note em { font-style: normal; color: var(--df-danger); }
+.df-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.df-count {
+  font-size: calc(12px * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  color: var(--df-faint);
+}
+
+/* Inputs and pickers share one height and one radius so the rows line up. */
+.df-field .of-input,
+.df-field app-picker { width: 100%; }
+.df-field .of-input:not(textarea) { height: 40px; }
+.df-field .of-input { border-radius: var(--df-radius); font-size: calc(14px * var(--ui-text-scale, 1)) !important; }
+.df-textarea { min-height: 84px; resize: vertical; }
+
+/* ---------- Validation ----------
+   The office-form.css invalid rules are written against `.of-field`, and this form uses `.df-field`,
+   so they never matched - that is why no red border appeared. These are this form's own, and
+   !important so the shared :focus border cannot paint over the red. */
+/* High specificity (:host + doubled class) beats the global theme's input rules, and the inset
+   box-shadow draws the red edge even where the theme paints the box with a shadow instead of a border. */
+:host .df-dialog .df-field.has-error .of-input.of-input,
+:host .df-dialog .df-field .of-input.is-invalid.is-invalid,
+:host .df-dialog .df-field .of-input[aria-invalid='true'] {
+  border: 1px solid #d92d20 !important;
+  border-color: #d92d20 !important;
+  box-shadow: inset 0 0 0 1px #d92d20 !important;
+}
+:host .df-dialog .df-field.has-error .of-input.of-input:focus,
+:host .df-dialog .df-field .of-input.is-invalid.is-invalid:focus,
+:host .df-dialog .df-field .of-input[aria-invalid='true']:focus {
+  outline: none !important;
+  border-color: #d92d20 !important;
+  box-shadow: inset 0 0 0 1px #d92d20, 0 0 0 3px rgba(217, 45, 32, .16) !important;
+}
+.df-field.has-error > label { color: var(--df-danger) !important; }
+
+.df-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.4 !important;
+  color: var(--df-danger) !important;
+}
+.df-error i {
+  flex: none;
+  margin-top: 1px;
+  font-size: calc(14px * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+  color: inherit !important;
+}
+.df-hint {
+  font-size: calc(12.5px * var(--ui-text-scale, 1)) !important;
+  line-height: 1.4 !important;
+  color: var(--df-muted);
+}
+
+/* Quick picks — small outlined chips under the Name box. */
+.df-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+.df-chips-label {
+  margin-right: 2px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1)) !important;
+  color: var(--df-muted);
+}
+.df-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius);
+  background: #fff;
+  color: var(--df-ink-2);
+  font-size: calc(12.5px * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.df-chip:hover { border-color: var(--df-brand); color: var(--df-brand); }
+.df-chip.is-on {
+  border-color: var(--df-brand);
+  background: color-mix(in srgb, var(--df-brand) 8%, #fff);
+  color: var(--df-brand);
+}
+
+/* Alert and the loading / not-found states */
+.df-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--df-danger) 35%, #fff);
+  border-radius: var(--df-radius);
+  background: color-mix(in srgb, var(--df-danger) 6%, #fff);
+  color: var(--df-danger);
+  font-size: calc(13.5px * var(--ui-text-scale, 1)) !important;
+}
 .df-state {
   display: flex;
   flex-direction: column;
@@ -103,34 +244,68 @@
   gap: 8px;
   padding: 36px 16px;
   text-align: center;
-  color: var(--of-muted);
+  color: var(--df-muted);
 }
-.df-state i { font-size: calc(26px * var(--ui-text-scale, 1)) !important; color: var(--of-faint); }
-.df-state strong { font-size: calc(15px * var(--ui-text-scale, 1)) !important; color: var(--of-ink); }
+.df-state i { font-size: calc(26px * var(--ui-text-scale, 1)) !important; color: var(--df-faint); }
+.df-state strong { font-size: calc(15px * var(--ui-text-scale, 1)) !important; color: var(--df-ink); }
 
+/* ---------- Footer ---------- */
 .df-foot {
+  position: relative;
+  z-index: 1;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  padding: 14px 24px;
-  border-top: 1px solid var(--of-line-2);
-  background: var(--of-well);
+  padding: 12px 24px;
+  border-top: 1px solid var(--df-line);
+  border-radius: 0 0 var(--df-radius) var(--df-radius);
+  background: #fff;
 }
+.df-foot-note {
+  margin-right: auto;
+  font-size: calc(12.5px * var(--ui-text-scale, 1)) !important;
+  color: var(--df-muted);
+}
+.df-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius);
+  background: #fff;
+  color: var(--df-ink) !important;
+  font-size: calc(14px * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.df-btn i { font-size: calc(16px * var(--ui-text-scale, 1)) !important; line-height: 1; }
+.df-btn:hover:not(:disabled) { border-color: var(--df-brand); color: var(--df-brand) !important; }
+.df-btn--primary {
+  border-color: var(--df-brand);
+  background: var(--df-brand);
+  color: #fff !important;
+}
+.df-btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--df-brand) 86%, #000);
+  color: #fff !important;
+}
+.df-btn:disabled { opacity: .55; cursor: not-allowed; }
+.df-btn:focus-visible { outline: 2px solid var(--df-brand); outline-offset: 2px; }
 
 @keyframes df-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes df-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes df-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-@media (max-width: 767.98px) {
-  .df-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .df-span-2 { grid-column: 1 / -1; }
-}
 @media (max-width: 575.98px) {
-  :host { padding: 12px; }
+  :host { padding: 12px; place-items: start center; }
   .df-grid { grid-template-columns: minmax(0, 1fr); }
-  .df-note { padding-bottom: 0; }
   .df-head, .df-body { padding-left: 18px; padding-right: 18px; }
-  .df-foot { padding: 12px 18px; }
-  .df-foot .of-btn { flex: 1; }
+  .df-foot { padding: 12px 18px; flex-wrap: wrap; }
+  .df-foot-note { width: 100%; }
+  .df-btn { flex: 1; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   .df-backdrop, .df-dialog { animation: none; }

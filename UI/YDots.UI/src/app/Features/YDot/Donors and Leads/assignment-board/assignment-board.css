@@ -104,11 +104,11 @@
 }
 
 /* every Remix glyph on the page: styles.css forces `i` to the base size */
-.ab-page i[class^='ri-'],
+/* .ab-page i[class^='ri-'],
 .ab-page i[class*=' ri-'] {
   font-size: calc(calc(15px * var(--s)) * var(--ui-text-scale, 1)) !important;
   line-height: 1 !important;
-}
+} */
 
 /* status colour, shared by dots, SLA text and load rules */
 [data-tone] {
@@ -301,18 +301,13 @@
   line-height: 1 !important;
 }
 
-/* square glyph button (row tools, clear selection) */
+/* square glyph button (row tools) — box/paint/size + hover/focus come from
+   styles/ydot-list-actions.css (ghost style). Only layout kept here. */
 .ab-tool {
   flex: none;
   display: inline-grid;
   place-items: center;
-  width: calc(30px * var(--s));
-  height: calc(30px * var(--s));
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: calc(8px * var(--s));
-  background: none;
-  color:hsl(0deg 0% 0% / 47%);
   cursor: pointer;
   transition: color .15s ease, border-color .15s ease;
 }
@@ -322,9 +317,11 @@
   color: var(--ab-accent);
 } */
 
-.ab-page .ab-tool i {
-  font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)) !important;
-}
+/* .ab-page .ab-tool i {
+  font-size: calc(calc(18px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: 400 !important;
+  -webkit-font-smoothing: antialiased !important;
+} */
 
 /* =====================================================================================================
    SHEET + MASTHEAD
@@ -944,8 +941,13 @@
 .ab-acts {
   display: flex;
   align-items: center;
+  align-self: center;
   justify-content: flex-end;
-  gap: calc(2px * var(--s));
+  /* 40px ghost box + focus ring breathing room — never clip (campaign-register fix மாதிரி) */
+  min-height: calc(48px * var(--s));
+  padding: calc(4px * var(--s)) calc(2px * var(--s));
+  overflow: visible;
+  gap: calc(8px * var(--s));
 }
 
 .ab-btn--row {

@@ -179,25 +179,16 @@
 }
 .fq-btn--danger:hover:not(:disabled) { background: #951f18; border-color: #951f18; }
 
+/* row icon buttons — box/paint/size + row hover + focus now come from
+   styles/ydot-list-actions.css (ghost style). Only generic layout kept here;
+   .is-boxed stays for the drawer toolbar (not a list row). */
 .fq-icon-btn {
   display: inline-grid;
   place-items: center;
-  width: calc(28px * var(--s));
-  height: calc(28px * var(--s));
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--fq-r-sm);
-  background: transparent;
-  color: var(--fq-muted);
   cursor: pointer;
   transition: background-color .15s ease, color .15s ease, border-color .15s ease;
 }
-.fq-icon-btn:hover:not(:disabled),
-.fq-icon-btn.is-open { background: var(--fq-tint); color: var(--fq-accent-deep); }
-.fq-icon-btn:disabled { opacity: .35; cursor: not-allowed; }
-.fq-icon-btn.is-go { color: var(--fq-ok); }
-.fq-icon-btn.is-go:hover:not(:disabled) { background: var(--fq-ok-soft); color: var(--fq-ok); }
-.fq-icon-btn.is-go .fq-i { fill: currentColor; stroke-width: 1.2; width: calc(13px * var(--s)); height: calc(13px * var(--s)); }
 .fq-icon-btn.is-boxed {
   width: calc(34px * var(--s));
   height: calc(34px * var(--s));
@@ -1255,7 +1246,7 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
 .fq-table th.fq-col-owner   { width: calc(170px * var(--s)); }
 .fq-table th.fq-col-prio    { width: calc(92px * var(--s)); }
 .fq-table th.fq-col-status  { width: calc(112px * var(--s)); }
-.fq-table th.fq-col-actions { width: calc(108px * var(--s)); }
+.fq-table th.fq-col-actions { width: calc(160px * var(--s)); }
 .fq-table td { overflow: visible; }
 .fq-table td.fq-col-record { overflow: hidden; }
 
@@ -1463,13 +1454,18 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
 .fq-status[data-s="Escalated"]   { --st: var(--fq-hot);    --st-soft: var(--fq-hot-soft); }
 .fq-status[data-s="Rescheduled"] { --st: var(--fq-violet); --st-soft: var(--fq-violet-soft); }
 
-/* Row actions and menu */
+/* Row actions and menu — gap/padding here (8px) so 40px ghost boxes never
+   touch or clip; box/paint/size + hover + focus come from ydot-list-actions.css. */
 .fq-row-actions {
   position: relative;
   display: flex;
   align-items: center;
+  align-self: center;
   justify-content: flex-end;
-  gap: 2px;
+  gap: calc(8px * var(--s));
+  min-height: calc(48px * var(--s));
+  padding: calc(4px * var(--s)) calc(2px * var(--s));
+  overflow: visible;
 }
 .fq-menu {
   position: absolute;

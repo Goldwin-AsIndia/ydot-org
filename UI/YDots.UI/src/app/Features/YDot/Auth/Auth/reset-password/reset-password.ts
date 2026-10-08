@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -64,6 +64,35 @@ export class ResetPasswordComponent implements OnInit, OnDestroy {
   readonly showRequestNew = signal(false);
   emailOrUsername = '';
   readonly requestingNew = signal(false);
+
+  /** ENTER FLOW refs — Enter in a field first moves focus to the submit button, then submits. */
+  @ViewChild('newLinkBtn') private readonly newLinkBtn?: ElementRef<HTMLButtonElement>;
+  @ViewChild('confirmInput') private readonly confirmInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('setPasswordBtn') private readonly setPasswordBtn?: ElementRef<HTMLButtonElement>;
+
+  /** Link-expired form: single field + Enter → button focus + auto submit. */
+  onNewLinkEnter(event: Event): void {
+    event.preventDefault();
+    this.newLinkBtn?.nativeElement.focus();
+    this.requestNewLink();
+  }
+
+  /**
+   * Set-password form:
+   *   new password + Enter → confirm field-ku focus pogum
+   *   confirm + Enter       → Set button-ku focus poyi auto submit aagum
+   */
+  onPasswordEnter(next: 'confirm' | 'submit', event: Event): void {
+    event.preventDefault();
+
+    if (next === 'confirm') {
+      this.confirmInput?.nativeElement.focus();
+      return;
+    }
+
+    this.setPasswordBtn?.nativeElement.focus();
+    this.submit();
+  }
 
   // ---- Countdown on the link's validity ---------------------------------------------------------
   readonly secondsRemaining = signal(0);

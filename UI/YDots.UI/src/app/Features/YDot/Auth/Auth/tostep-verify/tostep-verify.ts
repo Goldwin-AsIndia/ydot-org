@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
@@ -22,6 +22,26 @@ export class TostepVerifyComponent implements OnInit, OnDestroy {
   errorMessage: string = '';
   successMessage: string = '';
   private readonly expectedOtpCode = '123456';
+
+  /** ENTER FLOW ref — last OTP box-la Enter thattuna Verify button-ku focus poyi auto submit aagum. */
+  @ViewChild('verifyBtn') private readonly verifyBtn?: ElementRef<HTMLButtonElement>;
+
+  /**
+   * ENTER FLOW — OTP box-la Enter:
+   *   middle box + Enter → ngModelChange already next box-ku focus kudukum, inga onnum vena
+   *   last box (5) + Enter → Verify button-ku focus poyi auto verify aagum
+   */
+  onOtpEnter(index: number, event: Event): void {
+    event.preventDefault();
+
+    if (index < 5) {
+      document.querySelector<HTMLInputElement>(`#tostep-otp-${index + 1}`)?.focus();
+      return;
+    }
+
+    this.verifyBtn?.nativeElement.focus();
+    this.verifyOtp();
+  }
 
   ngOnInit(): void {
     this.startCodeExpiryTimer();

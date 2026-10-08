@@ -56,7 +56,8 @@
                 autocomplete="current-password"
                 [value]="password()"
                 (input)="password.set($any($event.target).value)"
-                [disabled]="submitting()">
+                [disabled]="submitting()"
+                (keydown.enter)="onFieldEnter('code', $event)">
               <button type="button" class="btn btn-link position-absolute end-0 top-0 text-muted" (click)="togglePassword()">
                 <i [class]="showPassword() ? 'ri-eye-line' : 'ri-eye-off-line'"></i>
               </button>
@@ -68,6 +69,7 @@
             <div class="mb-4">
               <label class="form-label" for="reauthCode">Verification code</label>
               <input
+                #codeInput
                 id="reauthCode"
                 type="text"
                 inputmode="numeric"
@@ -77,14 +79,15 @@
                 placeholder="000000"
                 [value]="verificationCode()"
                 (input)="verificationCode.set($any($event.target).value)"
-                [disabled]="submitting()">
+                [disabled]="submitting()"
+                (keydown.enter)="onFieldEnter('submit', $event)">
               <small class="text-muted d-block mt-1">
                 The current code from your authenticator application.
               </small>
             </div>
           }
 
-          <button type="submit" class="btn btn-primary w-100 mb-3" [disabled]="!canSubmit()">
+          <button #confirmBtn type="submit" class="btn btn-primary w-100 mb-3 auth-submit-btn" [disabled]="!canSubmit()">
             {{ submitting() ? 'Confirming…' : 'Confirm and continue' }}
           </button>
         </form>
