@@ -1,32 +1,27 @@
 namespace YDot.IAM.Application.Common.Constants;
 
 /// <summary>
-/// The roles the seeder creates inside every Organisation, and what each one holds.
+/// The roles the seeder creates inside every Organisation, what each one holds, and which part of
+/// the navigation each one is mapped to.
 ///
-/// THREE ROLES, NOT FOURTEEN. The set this replaces modelled job titles - Campaign Manager,
-/// Finance Officer, Data Steward, Donor Care - which put IAM in the position of deciding, for
-/// every permission any module ever added, which of thirteen job descriptions ought to own it.
-/// That is a question IAM cannot answer, and the evidence that it was answering it badly is in
-/// the catalogue: several codes belonged to no role at all, so the only account that could reach
-/// the screens behind them was the Organisation administrator.
+/// SEVEN ROLES, SHAPED AROUND THE TEAMS AN NGO ACTUALLY HAS:
 ///
-/// These three model AUTHORITY, which is a question IAM CAN answer, because authority is what an
-/// identity platform is for:
+///   TENANT_ADMIN          Organisation Admin    everything, inside one Organisation
+///   CAMPAIGN_EXECUTIVE    Campaign Executive    the campaign maker
+///   CAMPAIGN_MANAGER      Campaign Manager      the campaign maker and checker
+///   FUNDRAISER_EXECUTIVE  Fundraiser Executive  the donor and lead maker
+///   FUNDRAISING_MANAGER   Fundraising Manager   the donor and lead maker and checker
+///   DONOR                 Donor                 a member of the public, their own giving only
+///   DONOR_CARE            DonorCare             supporter care, screens to be mapped later
 ///
-///   TENANT_ADMIN  everything, inside one Organisation
-///   INITIATOR     does the work and approves none of it
-///   APPROVER      decides the work and creates none of it
+/// WHAT REPLACED INITIATOR AND APPROVER. Those two were authority without a department: a maker
+/// across every module and a checker across every module. The working roles above keep exactly
+/// the same maker and checker rules - <see cref="RoleAccessProfiles"/> still computes them from
+/// the permission actions - and confine each to the module its team works in.
 ///
-/// A FOURTH ROLE, DONOR, IS SEEDED ALONGSIDE THEM AND IS NOT ONE OF THE THREE. It is not a level
-/// of authority over the Organisation's records; it is a member of the public with a login,
-/// scoped to their own giving. It exists because a donation converts a lead into an account
-/// holder, and that account has to land somewhere other than the staff default.
-///
-/// An Organisation that wants job-shaped roles builds them itself, in Roles and Permissions, from
-/// the same catalogue. That is the right place for a decision about how one charity is staffed.
-///
-/// THE FOURTH ROLE, SUPER_ADMIN, IS NOT HERE. It is a platform role with a null TenantId, seeded
-/// once by <c>SeedPlatformRoleAsync</c>, and it is never copied into an Organisation.
+/// THE PLATFORM ROLE, SUPER_ADMIN ("Platform Admin"), IS NOT HERE. It is a platform role with a
+/// null TenantId, seeded once by <c>SeedPlatformRoleAsync</c>, and it is never copied into an
+/// Organisation.
 /// </summary>
 public static class TenantRoleDefinitions
 {
@@ -37,6 +32,13 @@ public static class TenantRoleDefinitions
     /// holds every Tenant permission that exists, now and in future, with no RolePermission rows
     /// at all. It is how TENANT_ADMIN avoids needing re-mapping in every customer database each
     /// time a module ships a permission.
+    ///
+    /// <paramref name="MenuScope"/> is the part of the sidebar the role is MAPPED to: each code
+    /// named, everything beneath it and the headings above it. Null maps the whole Organisation
+    /// catalogue; an empty list maps nothing beyond the mandatory nodes - the dashboard and My
+    /// Security - which every role keeps. It is what the seeder writes into the Menu
+    /// Configuration grid, and like every row there it can only ever hide a screen: a node inside
+    /// the scope still needs the permission its screen requires.
     /// </summary>
     public sealed record RoleDefinition(
         string Code,
@@ -46,18 +48,31 @@ public static class TenantRoleDefinitions
         IReadOnlyList<string> PermissionCodes,
         bool GrantsAll = false,
         bool IsDefault = false,
-        bool IsPrivileged = false);
+        bool IsPrivileged = false,
+        IReadOnlyList<string>? MenuScope = null);
+
+    /// <summary>The Campaigns branch: Campaign Register and Create Campaign.</summary>
+    private const string CampaignMenus = "FR_CAMPAIGNS";
+
+    /// <summary>The Donors and Leads branch: Lead Work Queue, Follow-up Queue and Donor List.</summary>
+    private const string DonorAndLeadMenus = "FR_RELATIONSHIPS";
+
+    /// <summary>
+    /// The Donations and Payments branch: Public Donation Initiation and Payments and Receipts.
+    /// </summary>
+    private const string DonationAndPaymentMenus = "MN_DONATIONS";
 
     public static readonly IReadOnlyList<RoleDefinition> All =
     [
-        // ============ TENANT_ADMIN ==========================================================
+        // ============ ORGANISATION ADMIN ====================================================
         //
         // Full control of one Organisation and nothing outside it. The scoping is not a property
         // of this role at all - it comes from TenantId on the row and the Organisation filter on
-        // every query - which is why "full control" here is safe to express as GrantsAll.
+        // every query - which is why "full control" here is safe to express as GrantsAll, and why
+        // its menu scope is the whole catalogue.
         new(
             RoleCodes.TenantAdmin,
-            "Organisation Administrator",
+            "Organisation Admin",
             "Full control of this organisation: users, roles, menus, settings and every module. "
             + "Scoped to this organisation and never beyond it.",
             Priority: 100,
@@ -65,40 +80,71 @@ public static class TenantRoleDefinitions
             GrantsAll: true,
             IsPrivileged: true),
 
-        // ============ INITIATOR =============================================================
+        // ============ CAMPAIGN MANAGER ======================================================
         //
-        // The maker. Everything in IAM, CAM, DON and PAY except approvals - see
-        // RoleAccessProfiles for how that set is computed and why it is computed rather than
-        // listed.
-        //
-        // IT IS THE DEFAULT ROLE. A new user created without one chooses work over authority,
-        // which is the safer of the two mistakes: an account that can raise things but decide
-        // none of them cannot approve its own work by accident.
+        // PRIVILEGED, because it approves: the flag drives the enhanced audit rows and the
+        // access-review campaigns, and the ability to decide is the thing worth reviewing.
         new(
-            RoleCodes.Initiator,
-            "Initiator",
-            "Creates, edits, submits and deletes across IAM, Campaigns, Donors and Payments. "
-            + "Approves nothing - everything raised here waits for an Approver.",
-            Priority: 60,
-            PermissionCodes: RoleAccessProfiles.Initiator,
-            IsDefault: true),
+            RoleCodes.CampaignManager,
+            "Campaign Manager",
+            "Owns the organisation's campaigns: plans and prepares them, approves, pauses, resumes "
+            + "and closes them, and decides tracking assets, readiness and budgets. Never approves "
+            + "a campaign they created or submitted.",
+            Priority: 80,
+            PermissionCodes: RoleAccessProfiles.CampaignManager,
+            IsPrivileged: true,
+            MenuScope: [CampaignMenus]),
 
-        // ============ APPROVER ==============================================================
-        //
-        // The checker. Views, edits and approves, plus the operations that follow a decision -
-        // and creates and deletes nothing.
-        //
-        // MARKED PRIVILEGED, which INITIATOR is not. The flag drives the enhanced audit rows and
-        // the access-review campaigns: the ability to approve is the thing worth reviewing
-        // periodically, and the ability to type is not.
+        // ============ FUNDRAISING MANAGER ===================================================
         new(
-            RoleCodes.Approver,
-            "Approver",
-            "Approves, edits and views across IAM, Campaigns, Donors and Payments, and runs the "
-            + "operations that follow a decision. Creates and deletes nothing.",
-            Priority: 75,
-            PermissionCodes: RoleAccessProfiles.Approver,
-            IsPrivileged: true),
+            RoleCodes.FundraisingManager,
+            "Fundraising Manager",
+            "Leads the fundraising team: works donors and leads, routes and reassigns leads, and "
+            + "approves donor records, duplicate decisions and escalated identity checks.",
+            Priority: 80,
+            PermissionCodes: RoleAccessProfiles.FundraisingManager,
+            IsPrivileged: true,
+            MenuScope: [DonorAndLeadMenus]),
+
+        // ============ CAMPAIGN EXECUTIVE ====================================================
+        //
+        // THE DEFAULT ROLE. A staff account created with no role falls back to it, and it is the
+        // safest working choice: it can prepare campaigns, it approves nothing, and it reaches no
+        // donor's contact details. The donor portal never lands here - CreateUserCommand gives a
+        // donor account DONOR by its category.
+        new(
+            RoleCodes.CampaignExecutive,
+            "Campaign Executive",
+            "Prepares campaigns: creates and edits them, sets up tracking assets, readiness checks "
+            + "and budgets, and submits them for approval. Approves nothing.",
+            Priority: 60,
+            PermissionCodes: RoleAccessProfiles.CampaignExecutive,
+            IsDefault: true,
+            MenuScope: [CampaignMenus]),
+
+        // ============ FUNDRAISER EXECUTIVE ==================================================
+        new(
+            RoleCodes.FundraiserExecutive,
+            "Fundraiser Executive",
+            "Works donors and leads: captures and qualifies leads, contacts supporters, records "
+            + "consent and follow-ups, and keeps donor records up to date. Approves nothing.",
+            Priority: 60,
+            PermissionCodes: RoleAccessProfiles.FundraiserExecutive,
+            MenuScope: [DonorAndLeadMenus]),
+
+        // ============ DONORCARE =============================================================
+        //
+        // CREATED NOW, MAPPED LATER. The role exists so people can be assigned to it today; which
+        // screens supporter care works in is a decision still to be made, so it holds no
+        // permission and maps no menu beyond the mandatory two.
+        new(
+            RoleCodes.DonorCare,
+            "DonorCare",
+            "Supporter care: answers donor queries, receipt requests and preference changes. "
+            + "Screens for this role are to be mapped.",
+            Priority: 40,
+            PermissionCodes: RoleAccessProfiles.DonorCare,
+            MenuScope: []),
 
         // ============ DONOR =================================================================
         //
@@ -110,20 +156,18 @@ public static class TenantRoleDefinitions
         // would lose every screen it needs. CreateUserCommand picks this one from the account
         // CATEGORY instead, which is the fact that actually distinguishes the two.
         //
-        // NOT PRIVILEGED. The flag drives enhanced audit and periodic access review, and both
-        // exist for authority somebody could misuse against the Organisation. A donor can reach
-        // one person's records - their own - so reviewing them quarterly would bury the reviews
-        // that matter under a list of every donor who has ever given.
+        // NOT PRIVILEGED. A donor can reach one person's records - their own - so reviewing them
+        // quarterly would bury the reviews that matter under a list of every donor who has given.
         //
         // LOWEST PRIORITY, so a donor who is also a member of staff - a volunteer who gives, an
-        // employee who gives - is labelled and sorted by the staff role they hold. Holding both
-        // is legitimate and neither role takes anything away from the other.
+        // employee who gives - is labelled and sorted by the staff role they hold.
         new(
             RoleCodes.Donor,
             "Donor",
             "Views and pays their own donations and views their own receipts. Sees no other "
             + "donor's records and no staff screens.",
             Priority: 10,
-            PermissionCodes: RoleAccessProfiles.Donor)
+            PermissionCodes: RoleAccessProfiles.Donor,
+            MenuScope: [DonationAndPaymentMenus])
     ];
 }

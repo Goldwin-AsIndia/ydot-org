@@ -130,6 +130,13 @@ public static class DependencyInjection
         // ---- Seeding -------------------------------------------------------------------------------------------
         services.AddScoped<CampaignDbSeeder>();
 
+        // THE DEMONSTRATION CAMPAIGNS, which wait for IAM. They belong to Organisations and name
+        // people that IAM creates after this service has already started, so they are written by
+        // a loop that keeps asking rather than by start-up seeding, which runs once. Both do
+        // nothing unless SeedSettings:CreateSampleData is on.
+        services.AddScoped<DemoCampaignSeeder>();
+        services.AddHostedService<DemoDataSeedingService>();
+
         return services;
     }
 }

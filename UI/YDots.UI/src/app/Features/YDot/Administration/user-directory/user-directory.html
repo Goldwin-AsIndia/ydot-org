@@ -40,16 +40,16 @@
           <i class="ri-equalizer-line" aria-hidden="true"></i>&nbsp;<span class="ud-t">Filters</span>
           @if (hasActiveFilters()) { <span class="ud-btn-dot" aria-label="Filters active"></span> }
         </button>
-        <!-- @if (canExport()) { -->
+        @if (canExport()) {
           <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="busy() || loading()" (click)="exportCsv()">
             <i class="ri-download-2-line" aria-hidden="true"></i><span class="ud-t">&nbsp;Export</span>
           </button>
-        <!-- } -->
-        <!-- @if (canCreate()) { -->
+        }
+        @if (canCreate()) {
           <button type="button" class="btn btn-primary btn-sm" (click)="createUser()">
             <i class="ri-user-add-line" aria-hidden="true"></i><span class="ud-t">&nbsp;Create</span>
           </button>
-        <!-- } -->
+        }
       </div>
     </div>
 
@@ -149,7 +149,7 @@
         <div class="ud-rows">
           @for (user of sortedUsers(); track user.id) {
             <div class="ud-row" [class.is-focus]="focusedId() === user.id" [class.is-selected]="isRowSelected(user)"
-                 (click)="focusUser(user)" (mouseenter)="prefetch(user)" (mouseleave)="cancelPrefetch()">
+                 (click)="focusUser(user)">
               <label class="ud-check" (click)="$event.stopPropagation()">
                 <input type="checkbox" [checked]="isRowSelected(user)" (change)="toggleRowSelection(user)" [attr.aria-label]="'Select ' + user.displayName">
               </label>
@@ -171,7 +171,9 @@
 
               <div class="ud-acts" (click)="$event.stopPropagation()">
                 <button type="button" class="ud-act View" title="Open profile" aria-label="Open profile" (click)="openProfile(user)"><i class="ri-eye-line"></i></button>
-                <button type="button" class="ud-act Edit" title="Edit" aria-label="Edit" (click)="openEdit(user)" ><i class="ri-edit-line"></i></button>
+                @if (canEdit()) {
+                  <button type="button" class="ud-act Edit" title="Edit" aria-label="Edit" (click)="openEdit(user)" ><i class="ri-edit-line"></i></button>
+                }
               </div>
             </div>
           }
@@ -268,18 +270,20 @@
 
         <footer class="ud-dos-foot">
           <button type="button" class="btn btn-primary btn-sm" (click)="openProfile(u)"><span class="ud-t">Full profile</span><i class="ri-arrow-right-line" aria-hidden="true"></i></button>
-          <button type="button" class="btn btn-outline-secondary btn-sm " (click)="openEdit(u)"><i class="ri-edit-line" aria-hidden="true"></i>&nbsp;&nbsp;<span class="ud-t">Edit</span></button>
+          @if (canEdit()) {
+            <button type="button" class="btn btn-outline-secondary btn-sm " (click)="openEdit(u)"><i class="ri-edit-line" aria-hidden="true"></i>&nbsp;&nbsp;<span class="ud-t">Edit</span></button>
+          }
           <span class="ud-dos-more">
-            @if (canInvite(u)) {
+            @if (canInvite(u) && canResendInvitation()) {
               <button type="button" class="ud-act MailSend" title="Send invitation" aria-label="Send invitation" (click)="openInvite(u)"><i class="ri-mail-send-line"></i></button>
             }
             @if (canSuspend() && u.status === 'active') {
               <button type="button" class="ud-act Suspend" title="Suspend" aria-label="Suspend" (click)="openSuspend(u)"><i class="ri-forbid-2-line"></i></button>
             }
-            @if (u.status === 'suspended') {
+            @if (canReactivate() && u.status === 'suspended') {
               <button type="button" class="ud-act Reactivate" title="Reactivate" aria-label="Reactivate" (click)="openReactivate(u)"><i class="ri-play-circle-line"></i></button>
             }
-            @if (u.status !== 'deactivated') {
+            @if (u.status !== 'deactivated' && canRemove(u)) {
               <button type="button" class="ud-act Delete" title="Delete" aria-label="Delete" (click)="openDelete(u)"><i class="ri-delete-bin-line"></i></button>
             }
           </span>
@@ -605,7 +609,7 @@
             @case ('reactivate') { Reactivate account }
             @case ('invite') { Send invitation }
             @case ('delete') {
-              @if (isHardDelete()) { Delete draft }
+              @if (isHardDelete()) { Withdraw draft }
               @else if (isPendingInvite(selected()!)) { Withdraw invitation }
               @else { Deactivate account }
             }
@@ -617,7 +621,7 @@
             @case ('reactivate') { They can sign in again straight away. }
             @case ('invite') { An activation link is e-mailed to them. }
             @case ('delete') {
-              @if (isHardDelete()) { This cannot be undone. }
+              @if (isHardDelete()) { The record is kept and marked withdrawn. }
               @else if (isPendingInvite(selected()!)) { The open invitation link stops working. }
               @else { The record and its history are kept. }
             }
@@ -660,8 +664,8 @@
           }
           @case ('delete') {
             @if (isHardDelete()) {
-              <li><i class="ri-delete-bin-line"></i>The draft was never invited, so it is erased completely.</li>
-              <li><i class="ri-error-warning-line"></i>This cannot be undone.</li>
+              <li><i class="ri-history-line"></i>The draft is withdrawn, not erased. Nothing was sent, so there is no link to cancel.</li>
+              <li><i class="ri-mail-send-line"></i>The account can be invited again later.</li>
             } @else if (isPendingInvite(selected()!)) {
               <li><i class="ri-link-unlink"></i>The invitation is withdrawn and the link stops working.</li>
               <li><i class="ri-mail-send-line"></i>The account can be invited again later.</li>
@@ -734,7 +738,7 @@
               busy()
                 ? 'Working…'
                 : isHardDelete()
-                  ? 'Delete draft'
+                  ? 'Withdraw draft'
                   : isPendingInvite(selected()!)
                     ? 'Withdraw invitation'
                     : 'Deactivate account'

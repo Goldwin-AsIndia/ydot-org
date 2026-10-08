@@ -40,7 +40,14 @@ public sealed record CreateOrganisationRequest(
     /// Skips the invitation e-mail and leaves the Organisation Invited. For bulk imports
     /// where the invitations go out later on a schedule.
     /// </summary>
-    bool SendInvitation = true);
+    bool SendInvitation = true,
+
+    /// <summary>
+    /// What the Organisation is, in a sentence or two. The set-up wizard has always asked for
+    /// it and sent it; with no field here to receive it, what was typed was dropped and the
+    /// profile opened blank.
+    /// </summary>
+    string? Description = null);
 
 /// <summary>The Organisation as created, plus what happened to the invitation.</summary>
 public sealed record CreateOrganisationResponse(

@@ -99,6 +99,13 @@ public static class AuditActionCodes
     public const string UserBulkOperation = "iam.user.bulk-operation";
     public const string UserExported = "iam.user.exported";
 
+    /// <summary>
+    /// An administrator read somebody's unmasked e-mail and mobile. Was written as
+    /// <see cref="UserUpdated"/>, so the trail recorded a profile EDIT every time a record was
+    /// merely opened - and the user's activity history read as though it was being changed daily.
+    /// </summary>
+    public const string UserContactViewed = "iam.user.contact.viewed";
+
     // ---- Roles and permissions -------------------------------------------------------------
     public const string RoleCreated = "iam.role.created";
     public const string RoleUpdated = "iam.role.updated";

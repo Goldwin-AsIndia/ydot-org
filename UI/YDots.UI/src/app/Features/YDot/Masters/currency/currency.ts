@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule, NgForm } from '@angular/forms';
+import { Subject, Subscription, debounceTime } from 'rxjs';
 import { apiErrorMessage, apiFieldErrors } from '../../../../Shared/models/api-response.model';
 import { enumLabel } from '../../../../Shared/models/enum-option.model';
 import {
@@ -238,9 +239,22 @@ export class CurrencyComponent implements OnInit {
   toasts: ToastMessage[] = [];
   private nextToastId = 1;
 
+  /** The page request in flight, so a newer one can replace it. */
+  private listSubscription?: Subscription;
+
+  /** The `MasterService.writeVersion` the status totals were last read at; -1 is "never". */
+  private countsReadAt = -1;
+
+  /** Search-box keystrokes, debounced into one request per pause rather than one per letter. */
+  private readonly searchTyped$ = new Subject<void>();
+
   ngOnInit(): void {
     this.loadReferenceData();
     this.loadData();
+
+    this.searchTyped$
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.applyFilters());
   }
 
   /**
@@ -322,7 +336,10 @@ export class CurrencyComponent implements OnInit {
   loadData(): void {
     this.isLoading = true;
 
-    this.masters
+    // A newer page request replaces one still in flight, so a slow answer to an older search
+    // cannot land last and leave the grid disagreeing with its own search box.
+    this.listSubscription?.unsubscribe();
+    this.listSubscription = this.masters
       .searchCurrencies({
         page: this.currentPage,
         pageSize: this.pageSize,
@@ -354,6 +371,15 @@ export class CurrencyComponent implements OnInit {
 
     // The two status counts are a second, cheap call: the paged response reports one total, and
     // showing "12 active" derived from a page of ten would simply be wrong.
+    //
+    // They cover the whole catalogue, so a page turn or a search cannot change them - only a write
+    // can. Re-read them on opening and after a write, not on every load.
+    if (this.countsReadAt === this.masters.writeVersion) {
+      return;
+    }
+
+    this.countsReadAt = this.masters.writeVersion;
+
     this.masters
       .searchCurrencies({ pageSize: 1, status: 'active' })
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -386,7 +412,7 @@ export class CurrencyComponent implements OnInit {
   }
 
   onSearch(): void {
-    this.applyFilters();
+    this.searchTyped$.next();
   }
 
   onTypeChange(): void {

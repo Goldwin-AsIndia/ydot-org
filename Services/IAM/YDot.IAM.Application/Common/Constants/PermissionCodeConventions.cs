@@ -8,7 +8,7 @@ namespace YDot.IAM.Application.Common.Constants;
 ///
 /// WHY THIS IS SHARED RATHER THAN PRIVATE TO THE SEEDER. Two places have to agree on what action
 /// a code represents: the seeder, which writes <c>Permission.Action</c> into the catalogue, and
-/// <see cref="RoleAccessProfiles"/>, which decides whether INITIATOR or APPROVER holds it. When
+/// <see cref="RoleAccessProfiles"/>, which decides whether the maker or the checker holds it. When
 /// the derivation lived only in the seeder the profile had to guess, and a code the seeder filed
 /// as Approve could land in the maker role - the exact failure the two roles exist to prevent.
 ///

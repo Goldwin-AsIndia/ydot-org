@@ -115,6 +115,22 @@ public class Role : IdentityRole<Guid>, IAuditable, ITenantScoped, ICodedEntity
     /// <summary>Colour or icon token used by the UI badge. Purely cosmetic.</summary>
     public string? DisplayTag { get; set; }
 
+    /// <summary>
+    /// Codes from this SYSTEM role's own definition that an administrator has taken out of it.
+    ///
+    /// WHY A ROLE HAS TO REMEMBER WHAT IT DOES NOT HOLD. The seeder tops a system role up to its
+    /// definition on every start, so that a permission added in a release reaches databases that
+    /// already exist. It cannot tell "this code is missing because it is new" from "this code is
+    /// missing because somebody removed it" - the row is simply not there in both cases - so a
+    /// permission an administrator unticked came back the next time the service restarted, with
+    /// no audit row and nobody told. This list is the difference between the two: the top-up
+    /// skips what is written here.
+    ///
+    /// Written whenever an administrator saves the role's permission set, and only for a system
+    /// role. A role somebody created is never topped up, so it has nothing to remember.
+    /// </summary>
+    public string[] WithheldPermissionCodes { get; set; } = [];
+
     // ---- Navigations -------------------------------------------------------------------------------
 
     public ICollection<RolePermission> RolePermissions { get; set; } = [];

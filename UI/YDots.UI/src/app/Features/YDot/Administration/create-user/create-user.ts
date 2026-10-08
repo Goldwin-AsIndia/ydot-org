@@ -16,7 +16,6 @@ import {
   EnumOptionsResponse,
   ReferenceDataResponse,
 } from '../../../../Shared/models/iam-contract.model';
-import { forkJoin } from 'rxjs';
 import { emailError, employeeNumberError, minLengthError, nameError, phoneWithCodeError, requiredError, textWithLettersError, usernameError } from '../../../../Shared/validation/field-rules';
 
 /** One row of a custom dropdown, normalised from whichever source the list comes from. */
@@ -86,9 +85,9 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   /**
    * Honorifics for the Title dropdown.
    *
-   * The API's CreateUserRequest carries no title field — this is collected for the directory
-   * record only — so a fixed list cannot break a save. Rendered as a dropdown, as the design
-   * asks, rather than a free-text box that invites "Dr." and "Mr " into the same column.
+   * Saved on the user record as `title`. The platform keeps no catalogue of honorifics, so the
+   * list lives here; every entry passes the server's name rule. Rendered as a dropdown, as the
+   * design asks, rather than a free-text box that invites "Dr." and "Mr " into the same column.
    */
   readonly titles = ['Mr', 'Ms', 'Mrs', 'Mx', 'Dr', 'Prof'];
 
@@ -141,8 +140,11 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     departmentId: '',
     designation: '',
     workLocation: '',
-    preferredLanguage: 'en-GB',
-    timeZoneId: 'UTC',
+    // Empty means "inherit the Organisation's default", which is what the server stores for an
+    // unanswered locale. These used to start at "en-GB" and "UTC" - the second of which exists
+    // nowhere in the time-zone catalogue - and neither was ever sent.
+    preferredLanguage: '',
+    timeZoneId: '',
 
     // Access
     primaryRoleId: '',
@@ -213,7 +215,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     accountCategory: 'cuCategory', firstName: 'cuFirst', lastName: 'cuLast', displayName: 'cuDisplay',
     preferredName: 'cuPreferred', email: 'cuEmail', username: 'cuUsername', mobileCountryCode: 'cuCode',
     mobileNumber: 'cuMobile', employeeNumber: 'cuEmployee', designation: 'cuDesignation',
-    businessJustification: 'cuJustification',
+    workLocation: 'cuLocation', businessJustification: 'cuJustification',
   };
 
   private focusFirstInvalid(step: number): void {
@@ -229,6 +231,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     accountCategory: 'Account type', firstName: 'First name', lastName: 'Last name', displayName: 'Display name',
     preferredName: 'Preferred name', email: 'Login e-mail', username: 'Username', mobileCountryCode: 'Country code',
     mobileNumber: 'Mobile', employeeNumber: 'Employee or volunteer number', engagementType: 'Engagement',
+    workLocation: 'Work location',
     primaryRoleId: 'Primary role', dataScopeType: 'Data scope', mfaRequirement: 'Two-step verification',
     businessJustification: 'Business justification',
   };
@@ -237,7 +240,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   private static readonly STEP_FIELDS: string[][] = [
     ['accountCategory', 'firstName', 'lastName', 'displayName', 'preferredName', 'email', 'username',
       'mobileCountryCode', 'mobileNumber', 'employeeNumber'],
-    ['engagementType', 'designation'],
+    ['engagementType', 'designation', 'workLocation'],
     ['primaryRoleId', 'dataScopeType', 'businessJustification'],
     ['mfaRequirement'],
   ];
@@ -266,6 +269,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
       case 'employeeNumber':
         return employeeNumberError('Employee or volunteer number', f.employeeNumber, this.employeeNumberRequired());
       case 'designation': return textWithLettersError('Designation', f.designation, { required: false, max: 120 });
+      case 'workLocation': return textWithLettersError('Work location', f.workLocation, { required: false, max: 200 });
       case 'engagementType': return requiredError('Engagement', f.engagementType);
       case 'primaryRoleId': return f.primaryRoleId ? null : 'Choose a primary role.';
       case 'dataScopeType': return requiredError('Data scope', f.dataScopeType);
@@ -343,7 +347,22 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
   readonly accountCategories = computed<EnumOption[]>(() => this.enums()?.accountCategories ?? []);
   readonly engagementTypes = computed<EnumOption[]>(() => this.enums()?.engagementTypes ?? []);
-  readonly dataScopeTypes = computed<EnumOption[]>(() => this.enums()?.dataScopeTypes ?? []);
+
+  /**
+   * The data scopes this form can actually grant.
+   *
+   * ONLY THE TWO THAT NAME NO RECORD. Every other scope type - a campaign, a warehouse, a queue,
+   * a place, named records - needs to say WHICH one, and this form has nowhere to say it. They
+   * used to be offered anyway and, like the two that remain, were never sent: whatever was
+   * chosen, the account was created with access to the whole Organisation. A narrower scope is
+   * granted afterwards through an access request, which does carry a value.
+   */
+  readonly dataScopeTypes = computed<EnumOption[]>(() =>
+    (this.enums()?.dataScopeTypes ?? []).filter((option) =>
+      CreateUserComponent.GRANTABLE_SCOPES.includes(String(option.value ?? '').toLowerCase())));
+
+  private static readonly GRANTABLE_SCOPES = ['organisation', 'assignment'];
+
   readonly mfaRequirements = computed<EnumOption[]>(() => this.enums()?.mfaRequirements ?? []);
 
   readonly initials = computed(() => {
@@ -415,8 +434,8 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
    * beside the empty list says where to create them, but nobody should be unable to invite their
    * first colleague for want of an org chart.
    */
-  readonly organisationComplete = computed(
-    () => this.localError('engagementType') === null && this.localError('designation') === null,
+  readonly organisationComplete = computed(() =>
+    CreateUserComponent.STEP_FIELDS[1].every((field) => this.localError(field) === null),
   );
 
   readonly accessComplete = computed(() =>
@@ -442,16 +461,13 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   // =========================================================================================
 
   ngOnInit(): void {
-    // Both in one go: the form is unusable until BOTH have arrived, so waiting for the pair
-    // is honest about that rather than rendering half a form and filling the rest in later.
-    forkJoin({
-      reference: this.api.getFormReferenceData(),
-      enums: this.api.getEnumOptions(),
-    }).subscribe({
-      next: ({ reference, enums }) => {
+    // ONE REQUEST. The reference data already carries the enum labels the dropdowns need; they
+    // used to be fetched a second time from `/reference-data/enums`.
+    this.api.getFormReferenceData().subscribe({
+      next: (reference) => {
         this.loading.set(false);
         this.view.set(reference);
-        this.enums.set(enums);
+        this.enums.set(reference.enums ?? null);
 
         // Organisation unit deliberately keeps its "Select Organisation Unit" placeholder
         // rather than pre-picking the first unit: the field is optional and is sent as null
@@ -633,8 +649,12 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   onEmailChanged(): void {
     const f = this.form();
 
-    if (f.email.includes('@') && !f.username.trim()) {
-      this.update('username', f.email.split('@')[0].toLowerCase());
+    // Letters and digits only - the username rule, on this form and on the server. The raw local
+    // part ("first.last") was suggested as-is and then rejected by the very next check.
+    const suggestion = f.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    if (f.email.includes('@') && !f.username.trim() && suggestion) {
+      this.update('username', suggestion);
     }
 
     this.checkIdentity();
@@ -835,11 +855,18 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
     // NO ORGANISATION FIELD. It comes from the signed token; an id from this form would let
     // the request be aimed at somebody else's Organisation.
+    //
+    // EVERY FIELD THE FORM COLLECTS IS SENT. Title, preferred name, work location, language, time
+    // zone, the business justification and the data scope were all asked for and then left out
+    // of this object, so each was typed in and discarded - the justification the form insists
+    // is "recorded in the audit trail" included.
     const request: CreateUserRequest = {
+      title: f.title.trim() || null,
       firstName: f.firstName.trim(),
       middleName: f.middleName || null,
       lastName: f.lastName.trim(),
       displayName: f.displayName.trim(),
+      preferredName: f.preferredName.trim() || null,
       email: f.email.trim().toLowerCase(),
       username: f.username.trim().toLowerCase() || null,
       employeeNumber: f.employeeNumber || null,
@@ -851,7 +878,12 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
       organisationUnitId: f.organisationUnitId || null,
       departmentId: f.departmentId || null,
       designation: f.designation || null,
+      workLocation: f.workLocation.trim() || null,
       managerUserId: null,
+
+      // Null inherits the Organisation's defaults.
+      preferredCulture: f.preferredLanguage || null,
+      timeZone: f.timeZoneId || null,
 
       // Dates go over the wire as UTC instants, not as the local strings the pickers produce.
       accessStartsAtUtc: f.accessStartsAt ? new Date(f.accessStartsAt).toISOString() : null,
@@ -859,7 +891,14 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
       mfaRequirement: f.mfaRequirement as CreateUserRequest['mfaRequirement'],
       roleIds: f.primaryRoleId ? [f.primaryRoleId] : [],
-      dataScopes: [],
+
+      // "Whole organisation" is the absence of a narrowing scope, so it sends nothing. "What they
+      // are assigned" is a real narrowing; the server fills in its value (the new account
+      // itself), which this form cannot know yet.
+      dataScopes: f.dataScopeType.toLowerCase() === 'assignment'
+        ? [{ scopeType: 'assignment', scopeValue: '' }]
+        : [],
+      justification: f.businessJustification.trim() || null,
 
       // The person sets their own password from the e-mailed link, so no temporary password is
       // ever generated, written down, or sent anywhere.
@@ -956,6 +995,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
       mobileNumber: '',
       employeeNumber: '',
       designation: '',
+      workLocation: '',
       businessJustification: '',
       welcomeMessage: '',
     }));

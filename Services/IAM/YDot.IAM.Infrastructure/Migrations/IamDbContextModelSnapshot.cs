@@ -3363,6 +3363,13 @@ namespace YDot.IAM.Infrastructure.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("version");
 
+                    b.PrimitiveCollection<string[]>("WithheldPermissionCodes")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("withheld_permission_codes")
+                        .HasDefaultValueSql("'{}'::text[]");
+
                     b.HasKey("Id")
                         .HasName("pk_iam_roles");
 
@@ -5284,6 +5291,11 @@ namespace YDot.IAM.Infrastructure.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("preferred_culture");
 
+                    b.Property<string>("PreferredName")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("preferred_name");
+
                     b.Property<string>("PrivilegeLevel")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -5317,6 +5329,11 @@ namespace YDot.IAM.Infrastructure.Migrations
                         .HasColumnType("character varying(80)")
                         .HasColumnName("time_zone");
 
+                    b.Property<string>("Title")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("title");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("two_factor_enabled");
@@ -5338,6 +5355,11 @@ namespace YDot.IAM.Infrastructure.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<string>("WorkLocation")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("work_location");
 
                     b.HasKey("Id")
                         .HasName("pk_iam_users");

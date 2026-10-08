@@ -66,6 +66,7 @@ public sealed class UserLifecycleCommandHandler(
     IUserRepository users,
     ITenantRepository tenants,
     IBusinessUnitRepository businessUnits,
+    IInvitationRepository invitations,
     ISecurityRepository security,
     ISessionTokenService sessions,
     IPasswordHasher passwordHasher,
@@ -600,6 +601,30 @@ public sealed class UserLifecycleCommandHandler(
         if (target == UserStatus.Deactivated || target == UserStatus.Withdrawn)
         {
             user.ExitedOn ??= now;
+        }
+
+        if (target == UserStatus.Withdrawn)
+        {
+            // THE LINK HAS TO DIE WITH THE ACCOUNT. Withdrawing changed the account's status and
+            // left its invitation Pending, and accepting an invitation sets the account Active
+            // without asking what it was - so the person could still follow the link they had
+            // been sent and switch back on an account an administrator had just withdrawn.
+            //
+            // Revoked AND re-keyed, the same two steps RevokeUserInvitationCommand takes: the
+            // status is what the code checks, and the scrambled hash is what makes a copy of the
+            // old link useless even to a path that forgets to check.
+            var invitation = await invitations.GetPendingForUserAsync(user.Id, cancellationToken);
+
+            if (invitation is not null)
+            {
+                invitation.Status = InvitationStatus.Revoked;
+                invitation.RevokedAtUtc = now;
+                invitation.RevokedByUserId = currentUser.UserId;
+                invitation.RevocationReason = reason;
+                invitation.TokenHash = tokenHasher.Hash(tokenHasher.GenerateToken());
+
+                logger.LogInformation("Outstanding invitation revoked because the account was withdrawn. UserId {UserId}, InvitationId {InvitationId}.", user.Id, invitation.Id);
+            }
         }
 
         if (revokeSessions)

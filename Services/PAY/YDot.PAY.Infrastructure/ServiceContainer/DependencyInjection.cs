@@ -237,6 +237,14 @@ public static class DependencyInjection
         // PAYMENT_GATEWAY_NOT_CONFIGURED. See GatewayAccountSeedingService.
         services.AddHostedService<GatewayAccountSeedingService>();
 
+        // THE DEMONSTRATION DONATIONS, on a loop of their own. They belong to Organisations IAM
+        // creates after this service has already started, so they wait for it the same way the
+        // gateway accounts above do - but separately, because that loop ends where no gateway is
+        // configured and a stack without one still wants a populated register. Both do nothing
+        // unless PaymentSettings:SeedSampleDonations is on.
+        services.AddScoped<DemoDonationSeeder>();
+        services.AddHostedService<DemoDataSeedingService>();
+
         return services;
     }
 }

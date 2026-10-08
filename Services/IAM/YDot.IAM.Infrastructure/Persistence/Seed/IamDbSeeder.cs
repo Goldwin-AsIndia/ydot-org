@@ -23,9 +23,11 @@ namespace YDot.IAM.Infrastructure.Persistence.Seed;
 /// 1. BusinessUnit          the root everything hangs off
 /// 2. Permissions           the global catalogue, from code
 /// 3. Menu definitions      the global navigation, from code
-/// 4. Platform role         SUPER_ADMIN, TenantId null
-/// 5. SuperAdmin user       TenantId null, rajat.sivan@gmail.com
-/// 6. Sample Organisations  three, in three different lifecycle states
+/// 4. Platform role         SUPER_ADMIN ("Platform Admin"), TenantId null
+/// 5. Platform admins       the configured root account, then the named administrators
+/// 6. Sample Organisations  two Active, two Invited - see SampleOrganisationCatalogue
+/// 7. Their structure       departments and branches, Active Organisations only
+/// 8. Their people          administrator, staff and donors
 /// </code>
 ///
 /// IT WRITES THROUGH THE DbContext WITH FILTERS BYPASSED. There is no request and therefore
@@ -41,76 +43,6 @@ public sealed class IamDbSeeder(
 {
     private readonly SeedSettings _seed = seedOptions.Value;
     private readonly SecuritySettings _security = securityOptions.Value;
-
-    /// <summary>
-    /// The three sample Organisations from section 49 of the brief, in three deliberately
-    /// different states so every branch of the onboarding flow can be exercised immediately.
-    /// </summary>
-    private static readonly (bool UsesConfiguredId, string Name, string Subdomain,
-        string AdminEmail, string FirstName, string LastName, TenantStatus Status)[] SampleTenants =
-    [
-        // ---- ONE ORGANISATION, APPROVED AND ACTIVATED -------------------------------------
-        //
-        // Its administrator account is already usable and holds TENANT_ADMIN, and the two role
-        // accounts below - INITIATOR and APPROVER - are seeded into it.
-        //
-        // IT TAKES ITS ID FROM CONFIGURATION rather than generating one, and that is the single
-        // place in this seeder where a fixed identifier is load-bearing. See the note on
-        // SeedSettings.SampleOrganisationId: DON stamps its own demonstration donors, leads and
-        // campaigns with the matching value, and if the two differ that data is returned to
-        // nobody.
-        (UsesConfiguredId: true,
-            "Hope Foundation", "ten1", "rajat.sivan@yahoo.com", "Rajat", "Sivan",
-            TenantStatus.Active),
-
-        // ---- ONE ORGANISATION STILL ON AN OUTSTANDING INVITATION ---------------------------
-        //
-        // Seeded deliberately, so the Invited half of the lifecycle is testable from the first
-        // start rather than only after somebody has driven the setup wizard. It has:
-        //
-        //   * no password on its administrator, so the account cannot be signed into at all;
-        //   * a PENDING UserInvitation whose plaintext token is written to the start-up log,
-        //     which is what makes the activation link walkable without a mail relay;
-        //   * no role accounts and no completed registration profile, because an organisation
-        //     that has not accepted its invitation has no staff and has submitted nothing.
-        //
-        // Its id is generated at creation. Nothing outside IAM refers to it, so unlike the
-        // activated sample above it needs no agreed value.
-        (UsesConfiguredId: false,
-            "Bright Future Trust", "ten2", "bright.future@example.com", "Ananya", "Desai",
-            TenantStatus.Invited)
-    ];
-
-    /// <summary>
-    /// One demonstration account per Tenant role, for the activated sample Organisation.
-    ///
-    /// WHY THESE ARE SEEDED RATHER THAN CREATED AFTERWARDS. The demonstration guide lists these
-    /// accounts and the password they share. Creating them with a script meant a fresh
-    /// `docker compose up` produced an Organisation containing one administrator and nobody else,
-    /// so the documented credentials were wrong on any machine that had not run that script -
-    /// which is every machine except the one it was written on.
-    ///
-    /// They are seeded ACTIVE with a password, exactly like the sample administrator, because the
-    /// point of them is to be signed into. The invitation flow is demonstrated by creating a
-    /// further user through the product rather than by leaving a documented account unusable.
-    ///
-    /// TWO ACCOUNTS, NOT THIRTEEN, because there are now two roles below the administrator. The
-    /// third Organisation role, TENANT_ADMIN, is not listed here: it is held by the sample
-    /// Organisation's own administrator, created by SeedSampleTenantAsync with the address from
-    /// the SampleTenants table above, and seeding a second holder of it would put two
-    /// unrestricted accounts in a demonstration database for no reason.
-    ///
-    /// THESE ARE REAL ADDRESSES AND NOT example.com ONES, which the thirteen they replace were.
-    /// The nominated testers sign in as these two and need the invitation and password-reset mail
-    /// to actually arrive. That makes IAM_MAIL_REDIRECT_TO worth a thought before pointing this
-    /// environment at anything containing real supporters - see the note on it in .env.
-    /// </summary>
-    private static readonly (string RoleCode, string Username, string First, string Last,
-        string Email)[] RoleAccounts =
-    [
-        (RoleCodes.Initiator, "initiator", "Rajat", "Sivan", "rajat.sivan@outlook.com"),
-        (RoleCodes.Approver, "approver", "Gowri", "Saranya", "gowrisaranya6@gmail.com")
-    ];
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
@@ -134,58 +66,41 @@ public sealed class IamDbSeeder(
         var platformRole = await SeedPlatformRoleAsync(businessUnit, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
 
-        await SeedSuperAdminAsync(businessUnit, platformRole, cancellationToken);
+        var rootAdministrator = await SeedSuperAdminAsync(businessUnit, platformRole, cancellationToken);
+        await SeedPlatformAdministratorsAsync(businessUnit, platformRole, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
 
         if (_seed.SeedSampleTenants)
         {
-            foreach (var sample in SampleTenants)
+            foreach (var sample in SampleOrganisationCatalogue.Organisations)
             {
-                await SeedSampleTenantAsync(businessUnit, sample, cancellationToken);
+                var tenant = await SeedSampleTenantAsync(
+                    businessUnit, sample, rootAdministrator, cancellationToken);
+
+                await context.SaveChangesAsync(cancellationToken);
+
+                // EVERY START, NOT ONLY THE FIRST, and each step saved before the next. The two
+                // passes below add only what is missing, so an Organisation that already exists
+                // picks up a department or a person added to the catalogue since it was created.
+                //
+                // THE SAVE BETWEEN THEM IS LOAD-BEARING. The people pass looks the Organisation's
+                // roles, departments and branches up from the DATABASE; run against rows that
+                // existed only in the change tracker, those lookups came back empty on a fresh
+                // database and every account was skipped as "role not found" - which is exactly
+                // how the demonstration logins once went missing on the one database that matters
+                // most, the one a colleague starts from nothing.
+                //
+                // Departments and branches belong to Active Organisations only: an invited one
+                // has not onboarded, and its administrator sets them up after approval.
+                if (sample.IsActive)
+                {
+                    await SeedOrganisationStructureAsync(tenant, sample, cancellationToken);
+                    await context.SaveChangesAsync(cancellationToken);
+                }
+
+                await SeedOrganisationPeopleAsync(tenant, sample, cancellationToken);
                 await context.SaveChangesAsync(cancellationToken);
             }
-
-            // AFTER THE SAVE, DELIBERATELY, AND IN A SEPARATE PASS.
-            //
-            // SeedRoleAccountsAsync looks the Organisation's roles up from the database to find
-            // the one each account should hold. Called from inside SeedSampleTenantAsync it ran
-            // BEFORE SaveChangesAsync, when those roles existed only in the change tracker - so
-            // the lookup came back empty, every account was skipped as "role not found", and the
-            // eleven demonstration logins were silently absent.
-            //
-            // It only showed up on a FRESH database. On one where the Organisation already
-            // existed the roles were already saved, so it worked - which is exactly backwards
-            // from where it needed to work, because a colleague starting from nothing is the
-            // whole point of seeding them.
-            foreach (var sample in SampleTenants.Where(item => item.Status == TenantStatus.Active))
-            {
-                var tenant = await context.Tenants
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(
-                        item => item.BusinessUnitId == businessUnit.Id
-                                && item.Subdomain == sample.Subdomain,
-                        cancellationToken);
-
-                if (tenant is not null)
-                {
-                    await SeedRoleAccountsAsync(
-                        tenant, businessUnit, DateTimeOffset.UtcNow, cancellationToken);
-
-                    // Departments and units are seeded HERE rather than inside
-                    // SeedSampleTenantAsync, and the reason is the early return at the top of
-                    // that method: it exits the moment the Organisation already exists, so
-                    // anything it creates can only ever appear on a database that has never
-                    // been seeded before. Departments and units are what the Create User form's
-                    // two dropdowns read, and an upgraded database left both permanently empty -
-                    // a form with an unfillable field, and nothing in the API to explain it.
-                    // Run from here it reconciles on every start, so an existing Organisation
-                    // gets them too.
-                    await SeedOrganisationStructureAsync(
-                        tenant, businessUnit, DateTimeOffset.UtcNow, cancellationToken);
-                }
-            }
-
-            await context.SaveChangesAsync(cancellationToken);
         }
 
         // AFTER the Organisations exist, because it reconciles what they hold.
@@ -204,9 +119,8 @@ public sealed class IamDbSeeder(
             await ReconcileSystemRolePermissionsAsync(cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
 
-            // AFTER THE ROLES EXIST, because a conflict names two of them by id. The rule is what
-            // makes the maker-checker split enforceable rather than merely intended - see the
-            // note on RoleConflicts for why an empty table meant the check allowed everything.
+            // AFTER THE ROLES EXIST, because a conflict names two of them by id. See the note on
+            // RoleConflicts for why the catalogue currently records none.
             await ReconcileRoleIncompatibilitiesAsync(cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
 
@@ -352,10 +266,10 @@ public sealed class IamDbSeeder(
     private static Permission BuildPermission(string code, int displayOrder, bool isPlatformOnly)
     {
         // THE DERIVATION MOVED OUT OF HERE, into PermissionCodeConventions, and it had to.
-        // RoleAccessProfiles decides whether INITIATOR or APPROVER holds a code by asking what
+        // RoleAccessProfiles decides whether the maker or the checker holds a code by asking what
         // action it is, and while this method was the only place that knew, the profile had to
         // guess - so a code this method filed as Approve could land in the maker role, which is
-        // the one outcome the two roles exist to prevent. One derivation, two callers, no drift.
+        // the one outcome the split exists to prevent. One derivation, two callers, no drift.
         return new Permission
         {
             Code = code,
@@ -550,6 +464,10 @@ public sealed class IamDbSeeder(
     /// this cannot tell a stale grant apart from one an administrator added on purpose, and
     /// silently revoking the second to tidy up the first is the worse mistake by a distance.
     ///
+    /// AND IT DOES NOT ADD BACK WHAT AN ADMINISTRATOR REMOVED. A code they took out of a system
+    /// role is recorded on the role (<c>WithheldPermissionCodes</c>) and skipped here, so their
+    /// decision survives a restart the same way an extra grant always has.
+    ///
     /// SYSTEM ROLES ONLY - <c>IsSystemRole</c>, which is set only by this seeder. A role somebody
     /// created in the Role Catalogue is theirs and is never touched. A blanket-grant role is
     /// skipped too: the flag is the grant, and rows would add nothing.
@@ -640,39 +558,25 @@ public sealed class IamDbSeeder(
     /// <summary>
     /// The segregation-of-duties rules every Organisation gets.
     ///
-    /// ONE RULE, AND IT IS THE ONE THE WHOLE ROLE MODEL RESTS ON: nobody holds INITIATOR and
-    /// APPROVER at once. <see cref="RoleAccessProfiles.Initiator"/> is computed as "everything
-    /// except the approvals" and APPROVER as "the approvals", so a person holding both is a maker
-    /// and a checker simultaneously - which is the exact combination the two roles were split to
-    /// prevent.
+    /// NONE AT PRESENT, and that follows from the role catalogue rather than being an oversight.
+    /// The one rule this list held - nobody holds INITIATOR and APPROVER at once - existed because
+    /// those two were the maker and the checker for EVERY module, so one person holding both could
+    /// decide their own work anywhere. The Managers that replaced APPROVER are maker and checker
+    /// by design, and the four-eyes rule moved onto the record: CAM refuses an approval from
+    /// whoever created or submitted the campaign, the asset or the budget version. A blocking rule
+    /// between an Executive and their Manager would refuse a combination the Manager already
+    /// holds on its own.
     ///
-    /// WHY IT HAD TO BE SEEDED RATHER THAN LEFT TO ADMINISTRATORS. The rule was enforceable from
-    /// the first release - <c>CheckSegregationOfDutiesAsync</c> is called on every path that
-    /// grants a role - but the table was empty on every database, so the check ran, matched
-    /// nothing and allowed everything. Worse, the only way to record a rule through the product
-    /// is the Create Draft Role dialog, which names conflicts for a role being CREATED; INITIATOR
-    /// and APPROVER are built-in and already exist, so there was no route to it at all.
-    ///
-    /// IT IS BLOCKING. The alternative - flagging the combination for review - is the right
-    /// setting where one person genuinely has to wear both hats, and an Organisation that needs
-    /// that can set <c>IsBlocking</c> false or deactivate the rule. Refusing by default is the
-    /// safer way round: a combination that is allowed by accident is discovered at an audit, and
-    /// one that is refused by accident is discovered immediately by somebody who can change it.
-    ///
-    /// IT DOES NOT UNPICK WHAT IS ALREADY GRANTED. The check runs when a role is being assigned,
-    /// so an account that already holds both keeps them - removing somebody's access on a
-    /// start-up pass, with no operator involved and no record of the decision, would be a far
-    /// worse thing to do than leaving a known combination in place for somebody to resolve.
+    /// THE MECHANISM STAYS. <c>CheckSegregationOfDutiesAsync</c> runs on every path that grants a
+    /// role, and the only way to record a rule through the product is the Create Draft Role
+    /// dialog, which names conflicts for a role being CREATED - so a rule between two built-in
+    /// roles can only ever come from here. Rules added are BLOCKING, and do not unpick what an
+    /// account already holds: removing somebody's access on a start-up pass, with no operator
+    /// involved and no record of the decision, would be far worse than leaving a known
+    /// combination in place for somebody to resolve.
     /// </summary>
     private static readonly (string RoleCode, string ConflictingRoleCode, string Reason)[]
-        RoleConflicts =
-    [
-        (RoleCodes.Initiator, RoleCodes.Approver,
-            "The maker and the checker must be different people. Initiator raises campaigns, "
-            + "donors, payments and access requests; Approver decides on them. One person holding "
-            + "both can have their own work approved by a colleague whose work they approve in "
-            + "return, which is the arrangement these two roles exist to prevent.")
-    ];
+        RoleConflicts = [];
 
     /// <summary>
     /// Records the conflicts above in every Organisation that has both roles.
@@ -824,7 +728,11 @@ public sealed class IamDbSeeder(
 
             foreach (var permissionCode in definition.PermissionCodes)
             {
+                // WITHHELD MEANS AN ADMINISTRATOR TOOK IT OUT. Without this test the pass could
+                // not tell a code that is missing because it is new from one that is missing
+                // because somebody removed it, and handed the second back on the next restart.
                 if (current.Contains(permissionCode)
+                    || role.WithheldPermissionCodes.Contains(permissionCode, StringComparer.Ordinal)
                     || !permissions.TryGetValue(permissionCode, out var permission))
                 {
                     continue;
@@ -930,15 +838,20 @@ public sealed class IamDbSeeder(
     /// the full grid means an administrator changes a decision that is already written down
     /// rather than creating the first one by accident.
     ///
+    /// WHAT IT WRITES IS THE ROLE'S MENU SCOPE, filtered by what the role may do. A node is
+    /// visible when it lies inside the scope <see cref="TenantRoleDefinitions"/> gives the role -
+    /// the named branch, everything beneath it and the headings above it, plus the mandatory
+    /// dashboard and My Security - AND the role holds the permission its screen requires. That
+    /// is what keeps a Campaign Executive's sidebar to Campaigns although the role also reads
+    /// donations, and what leaves DonorCare on the mandatory two until its menus are mapped.
+    ///
     /// IT CANNOT GRANT ANYTHING, and that is what makes it safe to write in bulk. RoleMenu is a
     /// subtractive filter by construction - see the note on the entity - so the worst a wrong row
-    /// here can do is hide a screen. IsVisible is set from whether the role actually holds the
-    /// node's required permission, so what it writes is a faithful record of what was already
-    /// true, not a new decision.
+    /// here can do is hide a screen.
     ///
-    /// EXISTING ROWS ARE LEFT ALONE. An administrator who has hidden Payments from Initiator
-    /// meant it, and a reconcile that stamped over that on the next restart would be a bug wearing
-    /// the clothes of a feature. This adds what is missing and touches nothing else.
+    /// EXISTING ROWS ARE LEFT ALONE. An administrator who has hidden Payments from a role meant
+    /// it, and a reconcile that stamped over that on the next restart would be a bug wearing the
+    /// clothes of a feature. This adds what is missing and touches nothing else.
     /// </summary>
     private async Task ReconcileRoleMenusAsync(CancellationToken cancellationToken)
     {
@@ -950,7 +863,9 @@ public sealed class IamDbSeeder(
             .Where(menu => !menu.IsPlatformOnly
                            && menu.IsEnabledByDefault
                            && menu.Status != MenuStatus.Retired)
-            .Select(menu => new { menu.Id, menu.Code, menu.RequiredPermissionCode })
+            .Select(menu => new MappableMenu(
+                menu.Id, menu.Code, menu.ParentMenuId, menu.RequiredPermissionCode,
+                menu.IsMandatory, menu.OwnerTenantId))
             .ToListAsync(cancellationToken);
 
         if (mappable.Count == 0)
@@ -1000,6 +915,14 @@ public sealed class IamDbSeeder(
                 group => group.Key,
                 group => group.Select(item => item.MenuDefinitionId).ToHashSet());
 
+        // Each role's scope, resolved to node ids once per role CODE rather than once per role:
+        // every Organisation shares the catalogue, so CAMPAIGN_EXECUTIVE's scope is the same set
+        // in all of them. Null means the whole catalogue.
+        var scopes = TenantRoleDefinitions.All.ToDictionary(
+            definition => definition.Code,
+            definition => ResolveMenuScope(definition.MenuScope, mappable),
+            StringComparer.Ordinal);
+
         var now = DateTimeOffset.UtcNow;
         var added = 0;
 
@@ -1013,14 +936,22 @@ public sealed class IamDbSeeder(
                 ? existing
                 : [];
 
+            // A system role the blueprint no longer defines is mapped by permission alone. It is
+            // deactivated by RetireUnknownSystemRolesAsync anyway; this only keeps its grid honest.
+            var scope = scopes.GetValueOrDefault(role.NormalizedCode);
+
             foreach (var node in mappable.Where(node => !already.Contains(node.Id)))
             {
+                var isMapped = scope is null || scope.Contains(node.Id);
+
                 // TENANT_ADMIN holds everything by flag and owns no RolePermission rows at all,
                 // so asking `held` about it would answer no to every node and hide the entire
                 // sidebar from the one role that is supposed to see all of it.
-                var isVisible = role.GrantsAllTenantPermissions
-                                || string.IsNullOrWhiteSpace(node.RequiredPermissionCode)
-                                || held.Contains(node.RequiredPermissionCode);
+                var isPermitted = role.GrantsAllTenantPermissions
+                                  || string.IsNullOrWhiteSpace(node.RequiredPermissionCode)
+                                  || held.Contains(node.RequiredPermissionCode);
+
+                var isVisible = isMapped && isPermitted;
 
                 await context.RoleMenus.AddAsync(new RoleMenu
                 {
@@ -1037,9 +968,14 @@ public sealed class IamDbSeeder(
 
                     MappedAtUtc = now,
                     MappedByUserId = Guid.Empty,
-                    Notes = isVisible
-                        ? "Seeded: this role holds the permission this screen requires."
-                        : "Seeded: this role does not hold the permission this screen requires.",
+                    Notes = (isMapped, isPermitted) switch
+                    {
+                        (false, _) => "Seeded: not part of this role's menu mapping.",
+                        (true, true) => "Seeded: mapped to this role, which holds the permission "
+                                        + "this screen requires.",
+                        (true, false) => "Seeded: mapped to this role, but it does not hold the "
+                                         + "permission this screen requires."
+                    },
                     CreatedAtUtc = now,
                     CreatedByUserId = Guid.Empty
                 }, cancellationToken);
@@ -1055,6 +991,70 @@ public sealed class IamDbSeeder(
                 + "and {NodeCount} navigable node(s).",
                 added, roles.Count, mappable.Count);
         }
+    }
+
+    /// <summary>One node of the navigation as the menu mapping needs it.</summary>
+    private sealed record MappableMenu(
+        Guid Id, string Code, Guid? ParentMenuId, string? RequiredPermissionCode, bool IsMandatory,
+        Guid? OwnerTenantId);
+
+    /// <summary>
+    /// The node ids a menu scope covers: each named node, everything beneath it and every heading
+    /// above it - plus the mandatory nodes and their headings, which every role keeps.
+    ///
+    /// THE HEADINGS ABOVE ARE INCLUDED because a child whose parent is hidden is never reached by
+    /// the menu builder, so mapping Campaigns without Fundraising would map nothing at all.
+    ///
+    /// ONLY PLATFORM ROWS ARE MATCHED BY CODE. An Organisation's own nodes have codes that are
+    /// unique only inside that Organisation, so a scope naming a code means the catalogue's node
+    /// of that name and never somebody's look-alike.
+    /// </summary>
+    private static HashSet<Guid>? ResolveMenuScope(
+        IReadOnlyList<string>? scopeCodes, IReadOnlyList<MappableMenu> nodes)
+    {
+        if (scopeCodes is null)
+        {
+            return null;
+        }
+
+        var byId = nodes.ToDictionary(node => node.Id);
+        var children = nodes
+            .Where(node => node.ParentMenuId.HasValue)
+            .ToLookup(node => node.ParentMenuId!.Value);
+
+        var roots = nodes.Where(node => node.OwnerTenantId is null
+                                        && (node.IsMandatory
+                                            || scopeCodes.Contains(node.Code, StringComparer.Ordinal)));
+
+        var covered = new HashSet<Guid>();
+
+        foreach (var root in roots)
+        {
+            // Downwards: the node and everything beneath it.
+            var pending = new Stack<MappableMenu>([root]);
+
+            while (pending.TryPop(out var node))
+            {
+                if (covered.Add(node.Id))
+                {
+                    foreach (var child in children[node.Id])
+                    {
+                        pending.Push(child);
+                    }
+                }
+            }
+
+            // Upwards: the headings that have to be visible for the node to be reached at all.
+            var parentId = root.ParentMenuId;
+
+            while (parentId.HasValue && byId.TryGetValue(parentId.Value, out var parent))
+            {
+                covered.Add(parent.Id);
+                parentId = parent.ParentMenuId;
+            }
+        }
+
+        return covered;
     }
 
     /// <summary>
@@ -1104,8 +1104,8 @@ public sealed class IamDbSeeder(
 
         logger.LogWarning(
             "Deactivated {Count} system role(s) no longer in the catalogue: {Codes}. Anyone still "
-            + "assigned to one keeps the assignment but loses its grants; reassign them to "
-            + "INITIATOR or APPROVER.",
+            + "assigned to one keeps the assignment but loses its grants; reassign them to one of "
+            + "the current roles.",
             stale.Count,
             string.Join(", ", stale.Select(role => role.NormalizedCode).Distinct(StringComparer.Ordinal)));
     }
@@ -1185,11 +1185,14 @@ public sealed class IamDbSeeder(
     }
 
     /// <summary>
-    /// The platform role: TenantId null, held only by SuperAdmin.
+    /// The platform role, shown as "Platform Admin": TenantId null, held only by platform
+    /// administrators.
     ///
-    /// It carries no permission rows. SuperAdmin authority comes from the <c>IsSuperAdmin</c>
+    /// It carries no permission rows. Platform authority comes from the <c>IsSuperAdmin</c>
     /// flag and the Global scope claim, not from an enumerated list that would go stale the
-    /// moment a permission is added.
+    /// moment a permission is added. The same flag is what puts the whole Platform branch, the
+    /// dashboard and the global masters in its holders' sidebar, which is why the role has no
+    /// menu mapping rows: RoleMenu belongs to an Organisation, and this role belongs to none.
     /// </summary>
     private async Task<Role> SeedPlatformRoleAsync(BusinessUnit businessUnit, CancellationToken cancellationToken)
     {
@@ -1210,9 +1213,12 @@ public sealed class IamDbSeeder(
             BusinessUnitId = businessUnit.Id,
             Code = RoleCodes.SuperAdmin,
             NormalizedCode = RoleCodes.SuperAdmin,
-            Name = "Platform Administrator",
-            NormalizedName = "PLATFORM ADMINISTRATOR",
-            Description = "Root platform role. Unrestricted access across every organisation.",
+            Name = "Platform Admin",
+            NormalizedName = "PLATFORM ADMIN",
+            Description = "Runs the platform: creates, reviews and approves organisations, and "
+                          + "maintains the business unit, the permission and menu catalogues, the "
+                          + "global masters and the platform audit. Unrestricted across every "
+                          + "organisation.",
             RoleType = RoleType.Platform,
             Status = RoleStatus.Active,
             IsSystemRole = true,
@@ -1231,13 +1237,14 @@ public sealed class IamDbSeeder(
     }
 
     /// <summary>
-    /// The global root user.
+    /// The global root user, returned so the Organisations seeded after it can name who
+    /// reviewed and approved them.
     ///
     /// <c>TenantId</c> is NULL and stays null forever — that is the invariant the whole
     /// tenancy model rests on, and there is a check constraint enforcing it. They are not a
     /// member of any Organisation; they select one to operate in.
     /// </summary>
-    private async Task SeedSuperAdminAsync(
+    private async Task<User> SeedSuperAdminAsync(
         BusinessUnit businessUnit, Role platformRole, CancellationToken cancellationToken)
     {
         var normalisedEmail = _seed.SuperAdminEmail.Trim().ToUpperInvariant();
@@ -1250,10 +1257,42 @@ public sealed class IamDbSeeder(
 
         if (existing is not null)
         {
-            return;
+            return existing;
         }
 
         var now = DateTimeOffset.UtcNow;
+
+        // THE CONFIGURED ADDRESS CHANGED ON A DATABASE THAT ALREADY HAS ITS ROOT ACCOUNT. The
+        // lookup above is by address, so it answered "not there" and a SECOND root was inserted
+        // beside the first - same code, same username - because no unique index covers a row
+        // whose TenantId is null. Two accounts then answered to "superadmin" and which one a
+        // sign-in reached was down to row order. The root account is the platform's own identity
+        // and there is exactly one of it, so a new address is a change to that account.
+        //
+        // ONLY THE ADDRESS MOVES. The password, the stamp and every session are left as they
+        // are: a configuration value changing is not a reason to sign the administrator out.
+        var root = await context.Users
+            .IgnoreQueryFilters()
+            .Where(user => user.TenantId == null && user.IsSystemAccount && user.IsSuperAdmin)
+            .OrderBy(user => user.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (root is not null)
+        {
+            var previous = root.Email;
+
+            root.Email = _seed.SuperAdminEmail.Trim().ToLowerInvariant();
+            root.NormalizedEmail = normalisedEmail;
+            root.UpdatedAtUtc = now;
+            root.UpdatedByUserId = Guid.Empty;
+
+            logger.LogWarning(
+                "SeedSettings:SuperAdminEmail no longer matches the root account, so its address was "
+                + "changed from {PreviousEmail} to {Email}. Nothing else about the account was touched.",
+                previous, root.Email);
+
+            return root;
+        }
 
         var superAdmin = new User
         {
@@ -1320,53 +1359,142 @@ public sealed class IamDbSeeder(
         }, cancellationToken);
 
         logger.LogInformation("Seeded the SuperAdmin account {Email}.", superAdmin.Email);
+
+        return superAdmin;
     }
 
     /// <summary>
-    /// One sample Organisation, complete with its host, roles, menus, administrator and
-    /// invitation.
+    /// The named platform administrators from <see cref="SampleOrganisationCatalogue"/>.
     ///
-    /// The three samples are deliberately left in different lifecycle states so the whole
-    /// onboarding flow can be exercised the moment the database comes up: one Active with a
-    /// usable administrator, and two sitting on an outstanding invitation.
+    /// PEOPLE, NOT SYSTEM ACCOUNTS. The root account above is the platform's own identity; these
+    /// hold the same role so the platform side of a demonstration has a named person on it, the
+    /// way an operations team would. They share the configured SuperAdmin password, and are
+    /// created without one when it is unset - exactly like the root.
+    ///
+    /// SAMPLE DATA, so it follows the sample-Organisation switch. Idempotent by address.
     /// </summary>
-    private async Task SeedSampleTenantAsync(
+    private async Task SeedPlatformAdministratorsAsync(
+        BusinessUnit businessUnit, Role platformRole, CancellationToken cancellationToken)
+    {
+        if (!_seed.SeedSampleTenants)
+        {
+            return;
+        }
+
+        var present = (await context.Users
+                .IgnoreQueryFilters()
+                .Where(user => user.TenantId == null)
+                .Select(user => user.NormalizedEmail!)
+                .ToListAsync(cancellationToken))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var now = DateTimeOffset.UtcNow;
+        var seeded = 0;
+
+        foreach (var (person, index) in SampleOrganisationCatalogue.PlatformAdministrators
+                     .Select((person, index) => (person, index)))
+        {
+            if (present.Contains(person.Email.Trim().ToUpperInvariant()))
+            {
+                continue;
+            }
+
+            var administrator = BuildUser(person, null, businessUnit.Id, $"PLT-{index + 1:D3}", now);
+
+            Activate(administrator, HashOrNull(_seed.SuperAdminPassword), now);
+            administrator.PrivilegeLevel = PrivilegeLevel.SuperAdmin;
+            administrator.IsSuperAdmin = true;
+            administrator.MfaRequirement = MfaRequirement.Optional;
+
+            await context.Users.AddAsync(administrator, cancellationToken);
+            await context.UserRoles.AddAsync(
+                BuildAssignment(null, businessUnit.Id, administrator.Id, platformRole.Id, now,
+                    "Named platform administrator."),
+                cancellationToken);
+
+            seeded++;
+        }
+
+        if (seeded > 0)
+        {
+            logger.LogInformation("Seeded {Count} named platform administrator(s).", seeded);
+        }
+    }
+
+    /// <summary>
+    /// One sample Organisation, complete with its host, profile, lifecycle history, roles and
+    /// default navigation. Returns the Organisation, whether it was created now or already there.
+    ///
+    /// ITS PEOPLE ARE NOT CREATED HERE. They need the roles, departments and branches to have
+    /// been SAVED first - see the note in <see cref="SeedAsync"/> - so they are a later pass.
+    ///
+    /// THE PROFILE IS COMPLETE IN BOTH STATES. An Active Organisation could not have been
+    /// approved without one; an Invited one carries what the platform knew when it sent the
+    /// invitation, so its administrator finds the profile pre-filled when they accept and only
+    /// has to check it and submit.
+    /// </summary>
+    private async Task<Tenant> SeedSampleTenantAsync(
         BusinessUnit businessUnit,
-        (bool UsesConfiguredId, string Name, string Subdomain, string AdminEmail,
-            string FirstName, string LastName, TenantStatus Status) sample,
+        SampleOrganisationCatalogue.SampleOrganisation sample,
+        User rootAdministrator,
         CancellationToken cancellationToken)
     {
         var existing = await context.Tenants
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(
                 tenant => tenant.BusinessUnitId == businessUnit.Id && tenant.Subdomain == sample.Subdomain,
                 cancellationToken);
 
         if (existing is not null)
         {
-            return;
+            return existing;
         }
 
         var now = DateTimeOffset.UtcNow;
-        var isActive = sample.Status == TenantStatus.Active;
 
         var count = await context.Tenants
+            .IgnoreQueryFilters()
             .CountAsync(tenant => tenant.BusinessUnitId == businessUnit.Id, cancellationToken);
 
         var code = $"TEN{count + 1:D3}";
+        var contact = sample.Administrator;
 
         var tenant = new Tenant
         {
-            // FROM CONFIGURATION for the activated sample, generated for the rest. See the
-            // note on SeedSettings.SampleOrganisationId: DON's demonstration data is stamped
-            // with the matching value and is invisible to every caller whose token carries a
-            // different one.
+            // FROM CONFIGURATION for the one sample that takes it, generated for the rest. See
+            // the note on SeedSettings.SampleOrganisationId: CAM, DON and PAY stamp their optional
+            // demonstration data with the matching value.
             Id = sample.UsesConfiguredId ? _seed.SampleOrganisationId : Guid.NewGuid(),
             BusinessUnitId = businessUnit.Id,
             Code = code,
             Name = sample.Name,
-            LegalName = $"{sample.Name} Trust",
+            LegalName = sample.LegalName,
             Subdomain = sample.Subdomain,
             Status = sample.Status,
+
+            OrganisationType = sample.OrganisationType,
+            Description = sample.Description,
+            WebsiteUrl = sample.WebsiteUrl,
+            RegistrationNumber = sample.RegistrationNumber,
+            TaxIdentificationNumber = sample.TaxIdentificationNumber,
+            PanNumber = sample.PanNumber,
+            GstNumber = sample.GstNumber,
+            EstablishedOn = sample.EstablishedOn,
+
+            // The primary contact is the administrator, which is how CreateOrganisationCommand
+            // records it: the person the platform invited is the person it deals with.
+            ContactPersonName = contact.DisplayName,
+            ContactEmail = contact.Email.Trim().ToLowerInvariant(),
+            ContactPhoneCountryCode = "+91",
+            ContactPhone = contact.Mobile,
+
+            AddressLine1 = sample.Address.Line1,
+            AddressLine2 = sample.Address.Line2,
+            City = sample.Address.City,
+            State = sample.Address.State,
+            Country = sample.Address.Country,
+            PostalCode = sample.Address.PostalCode,
+
             TimeZone = businessUnit.TimeZone,
             DefaultCurrency = businessUnit.DefaultCurrency,
             DefaultCulture = businessUnit.DefaultCulture,
@@ -1375,30 +1503,23 @@ public sealed class IamDbSeeder(
             LockoutDurationMinutes = _security.LockoutMinutes,
             PasswordMinimumLength = _security.PasswordMinimumLength,
             SessionIdleTimeoutMinutes = _security.SessionIdleTimeoutMinutes,
-            ContactEmail = sample.AdminEmail.ToLowerInvariant(),
+            MaximumUsers = sample.MaximumUsers,
+
             InvitedAtUtc = now,
             CreatedAtUtc = now,
             CreatedByUserId = Guid.Empty
         };
 
-        // The Active sample gets a complete profile, so it is genuinely usable rather than
-        // Active-but-incomplete - which is a state the submission rules would not have allowed.
-        if (isActive)
+        // An Active Organisation walked the whole ladder, so it carries every step's stamp and
+        // the platform administrator who decided it.
+        if (sample.IsActive)
         {
-            tenant.RegistrationNumber = $"REG-{code}-2026";
-            tenant.OrganisationType = "Charitable Trust";
-            tenant.ContactPersonName = $"{sample.FirstName} {sample.LastName}";
-            tenant.ContactPhoneCountryCode = "+91";
-            tenant.ContactPhone = "9876543210";
-            tenant.AddressLine1 = "1 Charity Road";
-            tenant.City = "Chennai";
-            tenant.State = "Tamil Nadu";
-            tenant.Country = "India";
-            tenant.PostalCode = "600001";
-            tenant.EstablishedOn = now.AddYears(-5);
             tenant.InvitationAcceptedAtUtc = now;
             tenant.SubmittedAtUtc = now;
+            tenant.ReviewStartedAtUtc = now;
+            tenant.ReviewedByUserId = rootAdministrator.Id;
             tenant.ApprovedAtUtc = now;
+            tenant.ApprovedByUserId = rootAdministrator.Id;
             tenant.ActivatedAtUtc = now;
         }
 
@@ -1415,31 +1536,61 @@ public sealed class IamDbSeeder(
             // Verified on creation: the platform already controls the apex domain.
             IsVerified = true,
             VerifiedAtUtc = now,
+            VerifiedByUserId = rootAdministrator.Id,
             IsActive = true,
             CreatedAtUtc = now,
             CreatedByUserId = Guid.Empty
         }, cancellationToken);
 
         // ---- The lifecycle ladder -------------------------------------------------------------
-        await context.TenantStatusHistory.AddAsync(new TenantStatusHistory
+        //
+        // ONE ROW PER STEP, in order, so the history panel tells the story the status claims.
+        // The steps are a second apart rather than simultaneous, which keeps them in sequence on
+        // a screen that sorts by time.
+        //
+        // The administrator's own steps carry their name but no user id: their account is created
+        // in the people pass, after this Organisation has been saved.
+        (TenantStatus? From, TenantStatus To, bool ByPlatform, string Notes)[] ladder = sample.IsActive
+            ?
+            [
+                (null, TenantStatus.Invited, true,
+                    $"Organisation created and administrator {contact.Email} invited."),
+                (TenantStatus.Invited, TenantStatus.InvitationAccepted, false,
+                    "Invitation accepted and administrator account activated."),
+                (TenantStatus.InvitationAccepted, TenantStatus.Submitted, false,
+                    "Registration profile and documents submitted for review."),
+                (TenantStatus.Submitted, TenantStatus.Approved, true,
+                    "Registration verified and approved."),
+                (TenantStatus.Approved, TenantStatus.Active, true,
+                    "Organisation activated.")
+            ]
+            :
+            [
+                (null, TenantStatus.Invited, true,
+                    $"Organisation created and administrator {contact.Email} invited.")
+            ];
+
+        foreach (var (step, index) in ladder.Select((step, index) => (step, index)))
         {
-            BusinessUnitId = businessUnit.Id,
-            TenantId = tenant.Id,
-            FromStatus = null,
-            ToStatus = sample.Status,
-            OccurredAtUtc = now,
-            ActorDisplayName = "System",
-            Notes = "Seeded sample organisation.",
-            CreatedAtUtc = now,
-            CreatedByUserId = Guid.Empty
-        }, cancellationToken);
+            await context.TenantStatusHistory.AddAsync(new TenantStatusHistory
+            {
+                BusinessUnitId = businessUnit.Id,
+                TenantId = tenant.Id,
+                FromStatus = step.From,
+                ToStatus = step.To,
+                OccurredAtUtc = now.AddSeconds(index - ladder.Length + 1),
+                ActorUserId = step.ByPlatform ? rootAdministrator.Id : null,
+                ActorDisplayName = step.ByPlatform ? rootAdministrator.DisplayName : contact.DisplayName,
+                Notes = step.Notes,
+                CreatedAtUtc = now,
+                CreatedByUserId = Guid.Empty
+            }, cancellationToken);
+        }
 
         // ---- Its own roles -----------------------------------------------------------------------
         var permissions = await context.Permissions
             .Where(permission => permission.Status == PermissionStatus.Active && !permission.IsPlatformOnly)
             .ToDictionaryAsync(permission => permission.Code, StringComparer.Ordinal, cancellationToken);
-
-        Role? tenantAdminRole = null;
 
         foreach (var definition in TenantRoleDefinitions.All)
         {
@@ -1464,11 +1615,6 @@ public sealed class IamDbSeeder(
             };
 
             await context.Roles.AddAsync(role, cancellationToken);
-
-            if (definition.Code == RoleCodes.TenantAdmin)
-            {
-                tenantAdminRole = role;
-            }
 
             // A blanket-grant role needs no rows: the flag is the grant.
             if (definition.GrantsAll)
@@ -1518,110 +1664,15 @@ public sealed class IamDbSeeder(
             }, cancellationToken);
         }
 
-        // ---- Its administrator ------------------------------------------------------------------------
-        var email = sample.AdminEmail.Trim().ToLowerInvariant();
-        var username = email.Split('@')[0];
+        logger.LogInformation(
+            "Seeded organisation {Code} ({Name}) on {Host}, {Status}.",
+            code, sample.Name, $"{sample.Subdomain}.{businessUnit.RootDomain}", sample.Status);
 
-        var admin = new User
-        {
-            TenantId = tenant.Id,
-            BusinessUnitId = businessUnit.Id,
-            Code = "USR-00001",
-            FirstName = sample.FirstName,
-            LastName = sample.LastName,
-            DisplayName = $"{sample.FirstName} {sample.LastName}",
-            Email = email,
-            NormalizedEmail = email.ToUpperInvariant(),
-            UserName = username,
-            NormalizedUserName = username.ToUpperInvariant(),
-            // Active only for the approved sample. The other two are genuinely Invited, with
-            // no password at all, so they cannot be signed into until the link is used.
-            EmailConfirmed = isActive,
-            EmailConfirmedAtUtc = isActive ? now : null,
-            Status = isActive ? UserStatus.Active : UserStatus.Invited,
-            AccountCategory = UserAccountCategory.Employee,
-            PrivilegeLevel = PrivilegeLevel.TenantAdmin,
-            IsTenantAdmin = true,
-            MfaRequirement = MfaRequirement.Inherited,
-            AccessStartsAtUtc = now,
-            LockoutEnabled = true,
-            CredentialSetupMethod = CredentialSetupMethod.InvitationLink,
-            CreatedAtUtc = now,
-            CreatedByUserId = Guid.Empty
-        };
-
-        if (isActive && !string.IsNullOrWhiteSpace(_seed.SuperAdminPassword))
-        {
-            // Development convenience only, and only for the already-activated sample: it
-            // shares the configured seed password so the flow can be walked without e-mail.
-            admin.PasswordHash = passwordHasher.Hash(_seed.SuperAdminPassword);
-            admin.PasswordChangedAtUtc = now;
-        }
-
-        await context.Users.AddAsync(admin, cancellationToken);
-
-        if (tenantAdminRole is not null)
-        {
-            await context.UserRoles.AddAsync(new UserRole
-            {
-                TenantId = tenant.Id,
-                BusinessUnitId = businessUnit.Id,
-                UserId = admin.Id,
-                RoleId = tenantAdminRole.Id,
-                Status = UserRoleAssignmentStatus.Active,
-                IsPrimary = true,
-                AssignedAtUtc = now,
-                AssignedByUserId = Guid.Empty,
-                EffectiveFromUtc = now,
-                Justification = "First administrator of the organisation.",
-                CreatedAtUtc = now,
-                CreatedByUserId = Guid.Empty
-            }, cancellationToken);
-        }
-
-        // ---- The outstanding invitation, for the two that are not yet activated -----------------------
-        if (!isActive)
-        {
-            var plaintext = tokenHasher.GenerateToken();
-
-            await context.UserInvitations.AddAsync(new UserInvitation
-            {
-                TenantId = tenant.Id,
-                BusinessUnitId = businessUnit.Id,
-                UserId = admin.Id,
-                Email = email,
-                NormalizedEmail = email.ToUpperInvariant(),
-                InvitationType = InvitationType.TenantAdmin,
-                InitialRoleId = tenantAdminRole?.Id,
-                TokenHash = tokenHasher.Hash(plaintext),
-                Reference = tokenHasher.GenerateReference("INV"),
-                ExpiresAtUtc = now.AddDays(_security.InvitationExpiryDays),
-                Status = InvitationStatus.Pending,
-                InvitedByUserId = Guid.Empty,
-                InvitedAtUtc = now,
-                InvitationHostName = $"{sample.Subdomain}.{businessUnit.RootDomain}",
-                LastSentAtUtc = now,
-                CreatedAtUtc = now,
-                CreatedByUserId = Guid.Empty
-            }, cancellationToken);
-
-            // Logged so the flow can be walked without a mail relay. The token exists only in
-            // this log line and in the hash - it is not recoverable afterwards.
-            logger.LogInformation(
-                "Seeded organisation {Code} ({Name}) with a PENDING invitation for {Email}. "
-                + "Activation token: {Token}",
-                code, sample.Name, email, plaintext);
-        }
-        else
-        {
-            logger.LogInformation(
-                "Seeded organisation {Code} ({Name}), ACTIVE, administrator {Email}.",
-                code, sample.Name, email);
-        }
+        return tenant;
     }
 
     /// <summary>
-    /// The Organisation's departments and units.
+    /// The Organisation's departments and branches.
     ///
     /// These two lists are the entire content of the Department and Organisation Unit dropdowns
     /// on Create User and User Profile. Nothing else fills them - there is no fallback list in
@@ -1634,40 +1685,27 @@ public sealed class IamDbSeeder(
     /// has since renamed, re-parented or archived is left exactly as they left it.
     /// </summary>
     private async Task SeedOrganisationStructureAsync(
-        Tenant tenant, BusinessUnit businessUnit, DateTimeOffset now,
+        Tenant tenant,
+        SampleOrganisationCatalogue.SampleOrganisation sample,
         CancellationToken cancellationToken)
     {
-        // (Code, Name, Description, DisplayOrder)
-        (string Code, string Name, string Description, int Order)[] departments =
-        [
-            ("FIN",  "Finance",              "Receipting, reconciliation and statutory reporting.", 10),
-            ("FR",   "Fundraising",          "Campaigns, donor acquisition and major gifts.",       20),
-            ("PROG", "Programmes",           "Delivery of the charitable objects on the ground.",   30),
-            ("OPS",  "Operations",           "Inventory, procurement and logistics.",               40),
-            ("COMM", "Communications",       "Outbound messaging, complaints and supporter care.",  50),
-            ("HR",   "People and Culture",   "Recruitment, onboarding and staff records.",          60),
-            ("IT",   "Technology",           "Platform administration and information security.",   70)
-        ];
+        var now = DateTimeOffset.UtcNow;
 
-        var existingDepartmentCodes = await context.Departments
-            .IgnoreQueryFilters()
-            .Where(department => department.TenantId == tenant.Id)
-            .Select(department => department.Code)
-            .ToListAsync(cancellationToken);
+        var departmentCodes = (await context.Departments
+                .IgnoreQueryFilters()
+                .Where(department => department.TenantId == tenant.Id)
+                .Select(department => department.Code)
+                .ToListAsync(cancellationToken))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var departmentCodeSet = existingDepartmentCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var departmentsAdded = 0;
 
-        foreach (var definition in departments)
+        foreach (var definition in sample.Departments.Where(item => !departmentCodes.Contains(item.Code)))
         {
-            if (departmentCodeSet.Contains(definition.Code))
-            {
-                continue;
-            }
-
             await context.Departments.AddAsync(new Department
             {
                 TenantId = tenant.Id,
-                BusinessUnitId = businessUnit.Id,
+                BusinessUnitId = tenant.BusinessUnitId,
                 Code = definition.Code,
                 Name = definition.Name,
                 Description = definition.Description,
@@ -1676,180 +1714,380 @@ public sealed class IamDbSeeder(
                 CreatedAtUtc = now,
                 CreatedByUserId = Guid.Empty
             }, cancellationToken);
+
+            departmentsAdded++;
         }
 
-        // (Code, Name, UnitType, City, State, DisplayOrder)
-        (string Code, string Name, string UnitType, string City, string State, int Order)[] units =
-        [
-            ("HO",  "Head Office",       "Head Office",     "Chennai",   "Tamil Nadu",    10),
-            ("CHN", "Chennai Branch",    "Branch",          "Chennai",   "Tamil Nadu",    20),
-            ("BLR", "Bengaluru Branch",  "Branch",          "Bengaluru", "Karnataka",     30),
-            ("MUM", "Mumbai Branch",     "Branch",          "Mumbai",    "Maharashtra",   40),
-            ("DEL", "Delhi Branch",      "Regional Office", "New Delhi", "Delhi",         50),
-            ("WH1", "Central Warehouse", "Warehouse",       "Chennai",   "Tamil Nadu",    60)
-        ];
+        var unitCodes = (await context.OrganisationUnits
+                .IgnoreQueryFilters()
+                .Where(unit => unit.TenantId == tenant.Id)
+                .Select(unit => unit.Code)
+                .ToListAsync(cancellationToken))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var existingUnitCodes = await context.OrganisationUnits
-            .IgnoreQueryFilters()
-            .Where(unit => unit.TenantId == tenant.Id)
-            .Select(unit => unit.Code)
-            .ToListAsync(cancellationToken);
+        var unitsAdded = 0;
 
-        var unitCodeSet = existingUnitCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var definition in units)
+        foreach (var definition in sample.Units.Where(item => !unitCodes.Contains(item.Code)))
         {
-            if (unitCodeSet.Contains(definition.Code))
-            {
-                continue;
-            }
-
             await context.OrganisationUnits.AddAsync(new OrganisationUnit
             {
                 TenantId = tenant.Id,
-                BusinessUnitId = businessUnit.Id,
+                BusinessUnitId = tenant.BusinessUnitId,
                 Code = definition.Code,
                 Name = definition.Name,
                 UnitType = definition.UnitType,
-                City = definition.City,
-                State = definition.State,
-                Country = "India",
+                AddressLine1 = definition.Address.Line1,
+                AddressLine2 = definition.Address.Line2,
+                City = definition.Address.City,
+                State = definition.Address.State,
+                Country = definition.Address.Country,
+                PostalCode = definition.Address.PostalCode,
+                ContactEmail = definition.ContactEmail,
                 TimeZone = tenant.TimeZone,
                 Status = RecordStatus.Active,
                 DisplayOrder = definition.Order,
                 CreatedAtUtc = now,
                 CreatedByUserId = Guid.Empty
             }, cancellationToken);
+
+            unitsAdded++;
         }
 
-        logger.LogInformation(
-            "Reconciled the structure of {Code}: {DepartmentCount} department(s) and "
-            + "{UnitCount} unit(s) added.",
-            tenant.Code,
-            departments.Length - departmentCodeSet.Count(code =>
-                departments.Any(item => string.Equals(item.Code, code, StringComparison.OrdinalIgnoreCase))),
-            units.Length - unitCodeSet.Count(code =>
-                units.Any(item => string.Equals(item.Code, code, StringComparison.OrdinalIgnoreCase))));
+        if (departmentsAdded > 0 || unitsAdded > 0)
+        {
+            logger.LogInformation(
+                "Reconciled the structure of {Code}: {DepartmentCount} department(s) and "
+                + "{UnitCount} unit(s) added.",
+                tenant.Code, departmentsAdded, unitsAdded);
+        }
     }
 
     /// <summary>
-    /// One account per Tenant role in the activated sample Organisation.
+    /// The Organisation's people: its administrator, and - for an Active Organisation - its
+    /// staff and its donors.
     ///
-    /// Only for the ACTIVATED sample. An Organisation still working through onboarding has no
-    /// business having a fundraising team already in it, and seeding one would make the
-    /// onboarding demonstration look like it had skipped a step.
+    /// THE ADMINISTRATOR MIRRORS WHAT CreateOrganisationCommand DOES. In an Active Organisation
+    /// they have accepted their invitation long ago, so the account is Active with the demo
+    /// password. In an Invited one they have not: the account has NO password and cannot be
+    /// signed into at all, and a PENDING invitation is written whose plaintext token appears in
+    /// the start-up log - which is what makes the activation link walkable without a mail relay.
+    ///
+    /// EVERYBODY ELSE IS ACTIVE WITH THE SHARED DEMO PASSWORD, because the point of them is to be
+    /// signed into. They need <c>SeedSettings:RoleAccountPassword</c>: leave it unset, as anything
+    /// that is not a demonstration should, and only the administrators are created.
+    ///
+    /// IDEMPOTENT BY USERNAME. Whoever is already in the Organisation is left exactly as they
+    /// are - including a password, a role or a department somebody has since changed.
     /// </summary>
-    private async Task SeedRoleAccountsAsync(
-        Tenant tenant, BusinessUnit businessUnit, DateTimeOffset now,
+    private async Task SeedOrganisationPeopleAsync(
+        Tenant tenant,
+        SampleOrganisationCatalogue.SampleOrganisation sample,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(_seed.RoleAccountPassword))
-        {
-            logger.LogInformation(
-                "No role-account password configured, so the demonstration accounts were skipped.");
-
-            return;
-        }
+        var now = DateTimeOffset.UtcNow;
 
         var roles = await context.Roles
             .IgnoreQueryFilters()
             .Where(role => role.TenantId == tenant.Id)
             .ToDictionaryAsync(role => role.Code, StringComparer.Ordinal, cancellationToken);
 
-        // Whoever is already here, by username. This runs on every start, so it must add only
-        // what is missing and leave everything else alone - including a password somebody has
-        // since changed.
-        var present = await context.Users
+        var departments = await context.Departments
+            .IgnoreQueryFilters()
+            .Where(department => department.TenantId == tenant.Id)
+            .ToDictionaryAsync(department => department.Code, StringComparer.OrdinalIgnoreCase, cancellationToken);
+
+        var units = await context.OrganisationUnits
+            .IgnoreQueryFilters()
+            .Where(unit => unit.TenantId == tenant.Id)
+            .ToDictionaryAsync(unit => unit.Code, StringComparer.OrdinalIgnoreCase, cancellationToken);
+
+        // Everybody already here, by username - the people just created are added as they go, so
+        // a manager named further down the list resolves to the account made above it.
+        var people = await context.Users
             .IgnoreQueryFilters()
             .Where(user => user.TenantId == tenant.Id)
-            .Select(user => user.UserName!)
-            .ToListAsync(cancellationToken);
+            .ToDictionaryAsync(user => user.UserName!, StringComparer.OrdinalIgnoreCase, cancellationToken);
 
-        var existingUsernames = present.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var userCount = people.Count;
 
-        var passwordHash = passwordHasher.Hash(_seed.RoleAccountPassword);
-        var seeded = 0;
+        var created = new List<(User User, SampleOrganisationCatalogue.SamplePerson Person)>();
 
-        foreach (var account in RoleAccounts)
+        // ---- The administrator ------------------------------------------------------------------
+        if (!people.ContainsKey(sample.Administrator.Username))
         {
-            if (existingUsernames.Contains(account.Username))
+            var administrator = BuildUser(
+                sample.Administrator, tenant.Id, tenant.BusinessUnitId, $"USR-{++userCount:D5}", now);
+
+            administrator.PrivilegeLevel = PrivilegeLevel.TenantAdmin;
+            administrator.IsTenantAdmin = true;
+            PlaceInStructure(administrator, sample.Administrator, departments, units);
+
+            if (sample.IsActive)
             {
-                continue;
+                // THE DEMO PASSWORD, falling back to the SuperAdmin one when only that is
+                // configured - which is what the activated sample's administrator used to be
+                // given, so an environment that sets only IAM_SUPERADMIN_PASSWORD still gets an
+                // Organisation somebody can sign into.
+                Activate(
+                    administrator,
+                    HashOrNull(_seed.RoleAccountPassword) ?? HashOrNull(_seed.SuperAdminPassword),
+                    now);
+
+                tenant.SubmittedByUserId ??= administrator.Id;
+            }
+            else
+            {
+                // Genuinely Invited: no password, so the invitation link is the only way in.
+                administrator.Status = UserStatus.Invited;
+                administrator.EmailConfirmed = false;
+                administrator.CredentialSetupMethod = CredentialSetupMethod.InvitationLink;
             }
 
-            if (!roles.TryGetValue(account.RoleCode, out var role))
-            {
-                logger.LogWarning(
-                    "Role {RoleCode} does not exist in {Tenant}, so {Username} was skipped.",
-                    account.RoleCode, tenant.Code, account.Username);
+            await AddPersonAsync(administrator, sample.Administrator, roles, tenant, now,
+                "First administrator of the organisation.", cancellationToken);
 
-                continue;
+            if (!sample.IsActive && roles.TryGetValue(RoleCodes.TenantAdmin, out var tenantAdminRole))
+            {
+                await AddAdministratorInvitationAsync(
+                    tenant, administrator, tenantAdminRole, now, cancellationToken);
             }
 
-            var email = account.Email.ToLowerInvariant();
-
-            var user = new User
-            {
-                TenantId = tenant.Id,
-                BusinessUnitId = businessUnit.Id,
-                Code = $"USR-{present.Count + seeded + 1:D5}",
-                FirstName = account.First,
-                LastName = account.Last,
-                DisplayName = $"{account.First} {account.Last}",
-                Email = email,
-                NormalizedEmail = email.ToUpperInvariant(),
-                UserName = account.Username,
-                NormalizedUserName = account.Username.ToUpperInvariant(),
-                EmployeeNumber = $"HF-{account.Username.ToUpperInvariant()}",
-
-                // ACTIVE WITH A PASSWORD, because the whole point of these is to be signed into.
-                // The invitation flow is demonstrated by creating a further user through the
-                // product, not by leaving the documented accounts unusable.
-                EmailConfirmed = true,
-                EmailConfirmedAtUtc = now,
-                Status = UserStatus.Active,
-                PasswordHash = passwordHash,
-                PasswordChangedAtUtc = now,
-
-                AccountCategory = UserAccountCategory.Employee,
-                PrivilegeLevel = PrivilegeLevel.Standard,
-                IsTenantAdmin = false,
-                MfaRequirement = MfaRequirement.Inherited,
-                AccessStartsAtUtc = now,
-                LockoutEnabled = true,
-                CredentialSetupMethod = CredentialSetupMethod.InvitationLink,
-                CreatedAtUtc = now,
-                CreatedByUserId = Guid.Empty
-            };
-
-            await context.Users.AddAsync(user, cancellationToken);
-
-            await context.UserRoles.AddAsync(new UserRole
-            {
-                TenantId = tenant.Id,
-                BusinessUnitId = businessUnit.Id,
-                UserId = user.Id,
-                RoleId = role.Id,
-                Status = UserRoleAssignmentStatus.Active,
-                IsPrimary = true,
-                AssignedAtUtc = now,
-                AssignedByUserId = Guid.Empty,
-                EffectiveFromUtc = now,
-                Justification = "Demonstration account for this role.",
-                CreatedAtUtc = now,
-                CreatedByUserId = Guid.Empty
-            }, cancellationToken);
-
-            seeded++;
+            people[administrator.UserName!] = administrator;
+            created.Add((administrator, sample.Administrator));
         }
 
-        if (seeded > 0)
+        // ---- Staff and donors, Active Organisations only ------------------------------------------
+        if (sample.IsActive && sample.Staff.Count > 0)
         {
-            await context.SaveChangesAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(_seed.RoleAccountPassword))
+            {
+                logger.LogInformation(
+                    "No role-account password configured, so the demonstration accounts in {Code} "
+                    + "were skipped.", tenant.Code);
+            }
+            else
+            {
+                foreach (var person in sample.Staff.Where(person => !people.ContainsKey(person.Username)))
+                {
+                    if (!roles.ContainsKey(person.RoleCode))
+                    {
+                        logger.LogWarning(
+                            "Role {RoleCode} does not exist in {Tenant}, so {Username} was skipped.",
+                            person.RoleCode, tenant.Code, person.Username);
 
+                        continue;
+                    }
+
+                    var user = BuildUser(person, tenant.Id, tenant.BusinessUnitId, $"USR-{++userCount:D5}", now);
+
+                    // Hashed per account, so no two rows share a salt even though the demo
+                    // accounts share a password.
+                    Activate(user, HashOrNull(_seed.RoleAccountPassword), now);
+                    PlaceInStructure(user, person, departments, units);
+
+                    await AddPersonAsync(user, person, roles, tenant, now,
+                        "Demonstration account for this role.", cancellationToken);
+
+                    people[user.UserName!] = user;
+                    created.Add((user, person));
+                }
+            }
+        }
+
+        // ---- Reporting lines and department heads, now that everybody exists --------------------
+        //
+        // ONLY FOR THE PEOPLE CREATED IN THIS PASS, and a department head only where none is set,
+        // so an administrator's own reorganisation is never undone on a restart.
+        foreach (var (user, person) in created)
+        {
+            if (person.ManagerUsername is not null
+                && people.TryGetValue(person.ManagerUsername, out var manager)
+                && manager.Id != user.Id)
+            {
+                user.ManagerUserId = manager.Id;
+            }
+        }
+
+        foreach (var definition in sample.Departments.Where(item => item.HeadUsername is not null))
+        {
+            if (departments.TryGetValue(definition.Code, out var department)
+                && department.HeadUserId is null
+                && people.TryGetValue(definition.HeadUsername!, out var head))
+            {
+                department.HeadUserId = head.Id;
+            }
+        }
+
+        if (created.Count > 0)
+        {
             logger.LogInformation(
-                "Seeded {Count} role account(s) in {Tenant}. They share the configured "
-                + "role-account password.", seeded, tenant.Code);
+                "Seeded {Count} account(s) in {Code} ({Name}).", created.Count, tenant.Code, tenant.Name);
         }
     }
+
+    /// <summary>Adds a person and their one role, which is their primary.</summary>
+    private async Task AddPersonAsync(
+        User user,
+        SampleOrganisationCatalogue.SamplePerson person,
+        IReadOnlyDictionary<string, Role> roles,
+        Tenant tenant,
+        DateTimeOffset now,
+        string justification,
+        CancellationToken cancellationToken)
+    {
+        await context.Users.AddAsync(user, cancellationToken);
+
+        if (roles.TryGetValue(person.RoleCode, out var role))
+        {
+            await context.UserRoles.AddAsync(
+                BuildAssignment(tenant.Id, tenant.BusinessUnitId, user.Id, role.Id, now, justification),
+                cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// The outstanding invitation an Invited Organisation's administrator holds - the same row
+    /// CreateOrganisationCommand writes when the platform creates an Organisation.
+    /// </summary>
+    private async Task AddAdministratorInvitationAsync(
+        Tenant tenant, User administrator, Role tenantAdminRole, DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var plaintext = tokenHasher.GenerateToken();
+        var hostName = await context.TenantDomains
+            .IgnoreQueryFilters()
+            .Where(domain => domain.TenantId == tenant.Id && domain.IsPrimary)
+            .Select(domain => domain.HostName)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        await context.UserInvitations.AddAsync(new UserInvitation
+        {
+            TenantId = tenant.Id,
+            BusinessUnitId = tenant.BusinessUnitId,
+            UserId = administrator.Id,
+            Email = administrator.Email!,
+            NormalizedEmail = administrator.NormalizedEmail!,
+            InvitationType = InvitationType.TenantAdmin,
+            InitialRoleId = tenantAdminRole.Id,
+            TokenHash = tokenHasher.Hash(plaintext),
+            Reference = tokenHasher.GenerateReference("INV"),
+            ExpiresAtUtc = now.AddDays(_security.InvitationExpiryDays),
+            Status = InvitationStatus.Pending,
+            InvitedByUserId = Guid.Empty,
+            InvitedAtUtc = now,
+            InvitationHostName = hostName,
+            Message = $"Welcome to the platform. Accept this invitation to activate {tenant.Name} "
+                      + "and complete its registration for approval.",
+            LastSentAtUtc = now,
+            CreatedAtUtc = now,
+            CreatedByUserId = Guid.Empty
+        }, cancellationToken);
+
+        // Logged so the flow can be walked without a mail relay. The token exists only in this
+        // log line and in the hash - it is not recoverable afterwards.
+        logger.LogInformation(
+            "Seeded organisation {Code} ({Name}) with a PENDING invitation for {Email} on {Host}. "
+            + "Activation token: {Token}",
+            tenant.Code, tenant.Name, administrator.Email, hostName, plaintext);
+    }
+
+    /// <summary>
+    /// A person's account with everything the catalogue says about them, in the Invited-and-
+    /// passwordless state CreateUserCommand starts from. <see cref="Activate"/> moves it on.
+    /// </summary>
+    private static User BuildUser(
+        SampleOrganisationCatalogue.SamplePerson person, Guid? tenantId, Guid businessUnitId,
+        string code, DateTimeOffset now)
+    {
+        var email = person.Email.Trim().ToLowerInvariant();
+        var username = person.Username.Trim().ToLowerInvariant();
+
+        var user = new User
+        {
+            TenantId = tenantId,
+            BusinessUnitId = businessUnitId,
+            Code = code,
+            EmployeeNumber = person.EmployeeNumber,
+            FirstName = person.FirstName,
+            LastName = person.LastName,
+            DisplayName = person.DisplayName,
+            Email = email,
+            NormalizedEmail = email.ToUpperInvariant(),
+            UserName = username,
+            NormalizedUserName = username.ToUpperInvariant(),
+            MobileCountryCode = "+91",
+            MobileNumber = person.Mobile,
+            Designation = person.Designation,
+            AccountCategory = person.Category,
+            EngagementType = person.Engagement,
+            JoinedOn = person.JoinedOn,
+            PreferredCulture = "en-IN",
+            TimeZone = "Asia/Kolkata",
+            Status = UserStatus.Invited,
+            PrivilegeLevel = PrivilegeLevel.Standard,
+            MfaRequirement = MfaRequirement.Inherited,
+            AccessStartsAtUtc = now,
+            LockoutEnabled = true,
+            CredentialSetupMethod = CredentialSetupMethod.InvitationLink,
+            CreatedAtUtc = now,
+            CreatedByUserId = Guid.Empty
+        };
+
+        user.PhoneNumber = user.ToE164();
+
+        return user;
+    }
+
+    /// <summary>
+    /// Ready to sign into: Active, address confirmed, and the password the platform set for it.
+    /// A null hash leaves it Active with no password, which a reset link resolves.
+    /// </summary>
+    private static void Activate(User user, string? passwordHash, DateTimeOffset now)
+    {
+        user.Status = UserStatus.Active;
+        user.EmailConfirmed = true;
+        user.EmailConfirmedAtUtc = now;
+        user.PasswordHash = passwordHash;
+        user.PasswordChangedAtUtc = passwordHash is null ? null : now;
+        user.CredentialSetupMethod = CredentialSetupMethod.AdministratorSet;
+    }
+
+    private static void PlaceInStructure(
+        User user,
+        SampleOrganisationCatalogue.SamplePerson person,
+        IReadOnlyDictionary<string, Department> departments,
+        IReadOnlyDictionary<string, OrganisationUnit> units)
+    {
+        if (person.DepartmentCode is not null && departments.TryGetValue(person.DepartmentCode, out var department))
+        {
+            user.DepartmentId = department.Id;
+        }
+
+        if (person.UnitCode is not null && units.TryGetValue(person.UnitCode, out var unit))
+        {
+            user.OrganisationUnitId = unit.Id;
+        }
+    }
+
+    private static UserRole BuildAssignment(
+        Guid? tenantId, Guid businessUnitId, Guid userId, Guid roleId, DateTimeOffset now,
+        string justification) =>
+        new()
+        {
+            TenantId = tenantId,
+            BusinessUnitId = businessUnitId,
+            UserId = userId,
+            RoleId = roleId,
+            Status = UserRoleAssignmentStatus.Active,
+            IsPrimary = true,
+            AssignedAtUtc = now,
+            AssignedByUserId = Guid.Empty,
+            EffectiveFromUtc = now,
+            Justification = justification,
+            CreatedAtUtc = now,
+            CreatedByUserId = Guid.Empty
+        };
+
+    private string? HashOrNull(string? password) =>
+        string.IsNullOrWhiteSpace(password) ? null : passwordHasher.Hash(password);
 }

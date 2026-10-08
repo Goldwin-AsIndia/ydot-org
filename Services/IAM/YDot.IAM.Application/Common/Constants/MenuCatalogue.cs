@@ -197,7 +197,7 @@ public static class MenuCatalogue
         // raises a ticket about a broken screen instead of asking for access.
         //
         // ONLY SUPER_ADMIN AND TENANT_ADMIN EVER SEE THIS. `iam.payment-gateways.view` is in
-        // RoleAccessProfiles.AdministratorOnlyCodes, so INITIATOR and APPROVER hold none of it.
+        // RoleAccessProfiles.AdministratorOnlyCodes, so no working role holds any of it.
         new("ADMIN_CONFIGURATION", "Configuration", Administration, MenuLevel.SubMenu, "IAM",
             null, "settings", PermissionCodes.PaymentGatewaysView, 30),
 
@@ -268,8 +268,16 @@ public static class MenuCatalogue
         // A PARENT NAMES THE SECTION CODE, a child names the code its own screen needs. That
         // way losing one screen collapses one row rather than hiding the branch that holds the
         // others.
+        //
+        // EXCEPT THIS HEADING, WHICH SPANS TWO SECTIONS AND SO CARRIES NO PERMISSION. It used to
+        // require CAM.View, which hid Donors and Leads - a DON branch - from every Fundraiser
+        // Executive and Fundraising Manager, because they hold DON's section code and not CAM's.
+        // It never showed while one maker role held every module's codes. The rule is the one
+        // the Administration heading states: a grouping header must never be stricter than its
+        // most permissive child. Each child still names its own section code, and filter 8
+        // removes this heading whenever neither child survives.
         new(Fundraising, "Fundraising", null, MenuLevel.Menu, "CAM",
-            null, "heart", PermissionCodes.SectionCam, 60),
+            null, "heart", null, 60),
 
         new("FR_CAMPAIGNS", "Campaigns", Fundraising, MenuLevel.SubMenu, "CAM",
             null, "flag", "cam.campaigns.view", 10),
@@ -459,7 +467,7 @@ public static class MenuCatalogue
         // STEP 1 OF THE FLOW. The same component the donor reaches anonymously through the QR
         // code; inside the panel it renders the internal reference view the document shows in
         // Fig 2. The permission is CREATE rather than VIEW because the only thing this screen
-        // does is start a donation - which, on the role matrix, is TENANT_ADMIN and INITIATOR.
+        // does is start a donation - which, on the role matrix, is TENANT_ADMIN and DONOR.
         new("MN_PUBLIC_DONATION", "Public Donation Initiation", "MN_DONATIONS", MenuLevel.ChildSubMenu, "PAY",
             "/app/donations/public-donation-initiation", "heart", "pay.intents.create", 10),
 

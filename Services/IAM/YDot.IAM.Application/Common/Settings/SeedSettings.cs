@@ -38,23 +38,26 @@ public sealed class SeedSettings
     public string SuperAdminPassword { get; set; } = string.Empty;
 
     // ---- Sample Organisations -------------------------------------------------------------
-    /// <summary>Creates the sample Organisation the demonstration starts from.</summary>
+    /// <summary>
+    /// Creates the demonstration Organisations, their people and the named platform
+    /// administrators - all listed in <c>SampleOrganisationCatalogue</c> in the Infrastructure
+    /// seed folder.
+    /// </summary>
     public bool SeedSampleTenants { get; set; } = true;
 
     /// <summary>
-    /// The id given to the ACTIVATED sample Organisation, rather than a generated one.
+    /// The id given to the first activated sample Organisation - Smile Foundation - rather
+    /// than a generated one.
     ///
-    /// WHY THIS IS CONFIGURATION AND NOT A GENERATED GUID. DON seeds its own demonstration
-    /// donors, leads and campaigns, and stamps every one of them with an OrganisationId it reads
-    /// from its OWN settings. Every screen in the donor module then filters on the OrganisationId
-    /// carried in the caller's token. If the two values differ, DON's sample data exists in the
-    /// database and is returned to nobody: Donor List, Lead Work Queue and Donor 360 all open
-    /// empty on a freshly seeded platform, with no error anywhere to explain why.
+    /// WHY THIS IS CONFIGURATION AND NOT A GENERATED GUID. It gives one Organisation the same id
+    /// in every database, which is what lets a script, a bookmark or a support note written
+    /// against one environment name it in another.
     ///
-    /// IT IS DELIBERATELY THE SAME KIND OF SETTING ON BOTH SIDES, so the two are set together
-    /// from one place. docker-compose passes a single SAMPLE_ORGANISATION_ID value into
-    /// SeedSettings__SampleOrganisationId here and SeedSettings__OrganisationId in DON, which is
-    /// what stops the pair drifting apart the way a constant compiled into each service would.
+    /// NOTHING ELSE HAS TO AGREE WITH IT ANY MORE. CAM, DON and PAY used to stamp their
+    /// demonstration data with their own copy of this value, and a copy that differed put those
+    /// rows where no real user's token could reach them - present in the database and returned
+    /// to nobody. Each of them now finds its Organisations by SUBDOMAIN in this module's own
+    /// table when it seeds, which also covers HelpAge India, whose id is generated.
     ///
     /// It is only ever read on a database that has never been seeded. Changing it afterwards
     /// renames nothing and moves nothing - the Organisation keeps the id it was created with.
@@ -63,15 +66,41 @@ public sealed class SeedSettings
         Guid.Parse("9fb11890-a08e-4adc-95ca-8e4d71f4dd21");
 
     /// <summary>
-    /// The password shared by the seeded demonstration role accounts.
+    /// The password shared by every seeded Organisation account - administrators, staff and
+    /// donors.
     ///
-    /// Separate from the SuperAdmin password on purpose: these eleven are demonstration logins
-    /// that appear in a document, and the platform administrator's credential should not be the
-    /// same string as something written in a guide. Leave it empty and the accounts are not
-    /// seeded at all, which is what any deployment that is not a demonstration should do.
+    /// Separate from the SuperAdmin password on purpose: these are demonstration logins that
+    /// appear in a document, and the platform administrator's credential should not be the same
+    /// string as something written in a guide. Leave it empty and only the Organisation
+    /// administrators are seeded, which is what any deployment that is not a demonstration
+    /// should do.
     /// </summary>
     public string RoleAccountPassword { get; set; } = string.Empty;
 
     /// <summary>Seeds the global permission catalogue and the menu catalogue.</summary>
     public bool SeedCatalogues { get; set; } = true;
+
+    // ---- Payment gateway ----------------------------------------------------------------
+    /// <summary>
+    /// Gives every sample Organisation a Razorpay configuration on the Payment Configuration
+    /// screen, built from the three keys below - see <c>PaymentGatewayConfigurationSeeder</c>.
+    ///
+    /// THE KEYS ARE SEED INPUT AND NOTHING ELSE. They are sealed into
+    /// iam_payment_gateway_configurations, one row per Organisation, and the payments service
+    /// takes every payment with the row belonging to the donation's Organisation. No service
+    /// reads them from the environment at payment time.
+    ///
+    /// OFF BY DEFAULT: it is a development convenience, and only a test key (rzp_test_) is ever
+    /// seeded, whatever this says.
+    /// </summary>
+    public bool SeedPaymentGateways { get; set; }
+
+    /// <summary>RAZORPAY_KEY_ID: the public half of the test key pair.</summary>
+    public string RazorpayKeyId { get; set; } = string.Empty;
+
+    /// <summary>RAZORPAY_KEY_SECRET: the secret half. Sealed before it reaches a column.</summary>
+    public string RazorpayKeySecret { get; set; } = string.Empty;
+
+    /// <summary>RAZORPAY_WEBHOOK_SECRET: optional, and blank on a machine Razorpay cannot reach.</summary>
+    public string RazorpayWebhookSecret { get; set; } = string.Empty;
 }

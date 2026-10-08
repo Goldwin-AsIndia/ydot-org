@@ -6,6 +6,7 @@ import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
+import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { codeError, textWithLettersError } from '../../../../Shared/validation/field-rules';
 import { RoleCatalogueApiService } from '../../../../Service/role-catalogue-api.service';
@@ -26,6 +27,8 @@ interface RolePermissionView {
   isSensitive: boolean;
   /** view / create / edit / submit / approve / operate / export - drives the action strip. */
   action: string;
+  /** The module's readable name, as the server names it everywhere else. */
+  moduleName: string;
 }
 
 /** One action on a module card: lit when the role grants it, struck when it denies it. */
@@ -82,6 +85,7 @@ interface RoleDetailView {
   updatedAt: string;
   canActivate: boolean;
   canRetire: boolean;
+  canEdit: boolean;
   version: number;
 }
 
@@ -161,7 +165,24 @@ export class RoleCatalogueComponent {
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
   private readonly api = inject(RoleCatalogueApiService);
+  private readonly tokens = inject(AuthTokenService);
   private readonly destroyRef = inject(DestroyRef);
+
+  // =========================================================================================
+  // What the signed-in person may do here.
+  //
+  // ONE FLAG PER ENDPOINT, named for the permission that endpoint asks for. Every button on this
+  // screen used to be drawn for anybody who could open it, so somebody holding only
+  // iam.roles.view was offered Create, Edit, Retire and Delete and found out from a 403. These
+  // only decide what is DRAWN: the API checks the same codes again on every call.
+  // =========================================================================================
+  readonly canCreateRole = computed(() => this.tokens.hasPermission('iam.roles.create'));
+  readonly canManageConflicts = computed(() => this.tokens.hasPermission('iam.roles.manage-incompatibility'));
+  private readonly mayEditRoles = computed(() => this.tokens.hasPermission('iam.roles.edit'));
+  private readonly mayDeleteRoles = computed(() => this.tokens.hasPermission('iam.roles.delete'));
+  private readonly mayActivateRoles = computed(() => this.tokens.hasPermission('iam.roles.activate'));
+  private readonly mayRetireRoles = computed(() => this.tokens.hasPermission('iam.roles.deactivate'));
+  private readonly mayAssignPermissions = computed(() => this.tokens.hasPermission('iam.roles.assign-permissions'));
 
   data = signal<RoleCatalogueResponse | null>(null);
   detailCache = new Map<string, RoleDetail>();
@@ -281,8 +302,15 @@ export class RoleCatalogueComponent {
       description: textWithLettersError('Purpose', f.description, { min: 10, max: 500 }),
       isPrivileged: f.isPrivileged === null ? 'Choose a privilege level.' : null,
       isDefaultRole: f.isDefaultRole === null ? 'Choose whether everybody gets this role.' : null,
+      // The server takes 0 to 999. The stepper used to stop at 9999 and the box takes anything
+      // typed, so a value the API would refuse reached it and came back as a bare error.
+      priority: Number.isInteger(f.priority) && f.priority >= 0 && f.priority <= RoleCatalogueComponent.MAX_PRIORITY
+        ? null
+        : `Priority must be a whole number from 0 to ${RoleCatalogueComponent.MAX_PRIORITY}.`,
     };
   }
+
+  private static readonly MAX_PRIORITY = 999;
 
   /** The message under a create-role field, or null while it is fine (or untouched). */
   roleErr(field: string): string | null {
@@ -341,9 +369,17 @@ export class RoleCatalogueComponent {
       name: permission.permissionName ?? permission.permissionCode ?? '',
       isSensitive: permission.isSensitive === true,
       action: (permission.action ?? (permission.permissionCode ?? '').split('.').pop() ?? '').toLowerCase(),
+      moduleName: permission.moduleName ?? '',
     });
 
     const status = detail.status ?? '';
+    const isSystemRole = detail.isSystemRole === true;
+
+    // WHAT THE RECORD'S STATE ALLOWS IS THE SERVER'S ANSWER (`permittedActions`), not a second
+    // copy of its rules kept here. The copy had drifted: it offered "Put into use" for a draft
+    // only, so a retired role could never be brought back, and it offered Edit on a retired
+    // role, which the server does not.
+    const allows = (action: string) => (detail.permittedActions ?? []).includes(action);
 
     return {
       id: detail.id ?? '',
@@ -382,8 +418,12 @@ export class RoleCatalogueComponent {
       createdAt: detail.createdAtUtc ? this.formatDate(detail.createdAtUtc) : '—',
       updatedAt: detail.updatedAtUtc ? this.formatDate(detail.updatedAtUtc) : '—',
 
-      canActivate: status === 'draft' && detail.isSystemRole !== true,
-      canRetire: status === 'active' && detail.isSystemRole !== true,
+      // A built-in role keeps its name, its code and its place in the catalogue: it is not
+      // renamed, retired or put back from this screen. What it GRANTS can be changed - see
+      // `canEditPermissions`.
+      canActivate: allows('Activate') && !isSystemRole && this.mayActivateRoles(),
+      canRetire: allows('Deactivate') && !isSystemRole && this.mayRetireRoles(),
+      canEdit: allows('Edit') && !isSystemRole && this.mayEditRoles(),
       version: detail.version ?? 0,
     };
   });
@@ -494,6 +534,7 @@ export class RoleCatalogueComponent {
     if (this.openDd()) { this.closeDd(); return; }
     if (this.showCompareModal()) { this.closeCompareModal(); return; }
     if (this.showDeleteRoleModal()) { this.closeDeleteRoleModal(); return; }
+    if (this.statusChange()) { this.closeStatusChange(); return; }
     if (this.showCreateModal()) { this.closeCreateModal(); }
   }
 
@@ -562,21 +603,16 @@ export class RoleCatalogueComponent {
   }
 
   stepPriority(delta: number): void {
-    const next = Math.min(9999, Math.max(0, (this.createRoleForm().priority ?? 0) + delta));
+    const next = Math.min(RoleCatalogueComponent.MAX_PRIORITY, Math.max(0, (this.createRoleForm().priority ?? 0) + delta));
     this.createRoleForm.set({ ...this.createRoleForm(), priority: next });
   }
 
   // ---- Detail pane: permissions grouped by module -----------------------------------------
-  private static readonly MODULE_LABELS: Record<string, string> = {
-    iam: 'Identity & access',
-    don: 'Donors',
-    cam: 'Campaigns',
-    pay: 'Payments',
-    vol: 'Volunteers',
-    evt: 'Events',
-    cms: 'Content',
-    rpt: 'Reports',
-  };
+  //
+  // THE MODULE NAMES COME FROM THE SERVER (`moduleName` on each permission), the same names the
+  // permission matrix uses. This used to be a list of eight typed here - four of them modules the
+  // platform does not have, and none for Global Masters or Platform, which showed up as "GM" and
+  // "PLATFORM".
 
   /** The seven verbs a permission can carry, in the order the action strip prints them. */
   private static readonly ACTIONS: { key: string; label: string; short: string }[] = [
@@ -620,7 +656,7 @@ export class RoleCatalogueComponent {
         });
         return {
           key,
-          label: RoleCatalogueComponent.MODULE_LABELS[key] ?? key.toUpperCase(),
+          label: items.find((item) => item.moduleName)?.moduleName || key.toUpperCase(),
           items,
           granted: items.length - denied,
           denied,
@@ -751,9 +787,9 @@ export class RoleCatalogueComponent {
     this.loading.set(true);
     this.loadFailed.set(false);
 
-    const filter: RoleSearchFilter = { page: 1, pageSize: 100 };
-
-    this.api.getCatalogue(filter).subscribe({
+    // The whole catalogue: search, the state tabs and every count on the masthead run in the
+    // browser, so a first page standing in for the catalogue would undercount all of them.
+    this.api.getCatalogue().subscribe({
       next: (res) => {
         this.data.set(res);
         this.loading.set(false);
@@ -770,7 +806,7 @@ export class RoleCatalogueComponent {
 
   /** Re-reads the list quietly, so counts update without the page flashing its loader. */
   private reloadCatalogue(): void {
-    this.api.getCatalogue({ page: 1, pageSize: 100 }).subscribe({
+    this.api.getCatalogue().subscribe({
       next: (res) => { this.data.set(res); this.applyFilters(); },
     });
   }
@@ -811,11 +847,13 @@ export class RoleCatalogueComponent {
 
     return {
       status,
-      canActivate: status === 'draft' && r.isSystemRole !== true,
-      canRetire: status === 'active' && r.isSystemRole !== true,
+      canActivate: status !== 'active' && r.isSystemRole !== true && this.mayActivateRoles(),
+      canRetire: status === 'active' && r.isSystemRole !== true && this.mayRetireRoles(),
 
       // Only a draft can be removed outright; once a role has been in use, retiring applies.
-      canDelete: status === 'draft' && r.isSystemRole !== true,
+      // Nobody may hold it either - the server refuses that delete, so the button is not drawn.
+      canDelete: status === 'draft' && r.isSystemRole !== true && (r.memberCount ?? 0) === 0
+        && this.mayDeleteRoles(),
 
       id: r.id ?? '',
       reference: r.code ?? '',
@@ -1089,6 +1127,7 @@ export class RoleCatalogueComponent {
     this.roleSubmitted.set(true);
     const labels: Record<string, string> = {
       name: 'Role name', code: 'Role code', description: 'Purpose', isPrivileged: 'Privilege level', isDefaultRole: 'Given to everybody',
+      priority: 'Priority',
     };
     const failing = Object.entries(this.roleRuleErrors()).filter(([, message]) => message !== null);
     if (failing.length > 0) {
@@ -1117,6 +1156,10 @@ export class RoleCatalogueComponent {
       isPrivileged: form.isPrivileged ?? false,
       isDefaultRole: form.isDefaultRole ?? false,
       permissionCodes: this.selectedPermissionCodes(),
+      // THE DENY HALF OF THE PICKER. It was collected, counted in the dropdown's footer, shown as
+      // red chips - and never sent, so a role created with three permissions blocked was created
+      // with none blocked, and a clone of a role came out more permissive than the original.
+      deniedPermissionCodes: this.selectedDeniedCodes(),
       visibleMenuIds: [],
     };
 
@@ -1230,23 +1273,43 @@ export class RoleCatalogueComponent {
   readonly permSaving = signal(false);
   /** The permission codes ticked in the editor - the draft, not yet saved. */
   readonly permDraft = signal<string[]>([]);
+  /** The codes this role BLOCKS - the other half of the draft. Deny beats allow. */
+  readonly permDenyDraft = signal<string[]>([]);
+  /** Which list the checkboxes are writing to: what the role allows, or what it blocks. */
+  readonly permEditMode = signal<'grant' | 'deny'>('grant');
   readonly permReason = signal('');
 
-  /** Every permission, grouped by module, narrowed by the search box. */
+  /**
+   * Every permission, grouped by module, narrowed by the search box.
+   *
+   * WHAT A CHECKBOX MEANS DEPENDS ON THE MODE. Allowing: ticked is "this role grants it", and a
+   * blocked permission is locked, because lifting a block is a decision to take on purpose and
+   * not something a tick-all should do in passing. Blocking: ticked is "this role blocks it",
+   * and nothing is locked.
+   */
   readonly editableModules = computed(() => {
     const q = this.permFilter().trim().toLowerCase();
-    const denied = new Set(this.detailView()?.excludedPermissions.map((p) => p.code) ?? []);
+    const granted = new Set(this.permDraft());
+    const denied = new Set(this.permDenyDraft());
+    const blocking = this.permEditMode() === 'deny';
 
     return (this.permissionMatrix()?.modules ?? [])
       .map((module) => {
         const items = (module.groups ?? [])
           .flatMap((group) => group.permissions ?? [])
-          .map((permission) => ({
-            code: permission.code ?? '',
-            name: permission.name ?? permission.code ?? '',
-            isSensitive: permission.isSensitive === true,
-            denied: denied.has(permission.code ?? ''),
-          }))
+          .map((permission) => {
+            const code = permission.code ?? '';
+            return {
+              code,
+              name: permission.name ?? permission.code ?? '',
+              isSensitive: permission.isSensitive === true,
+              denied: denied.has(code),
+              /** Allowed by this role - shown beside the name while blocking, so it is not blocked by accident. */
+              allowed: blocking && granted.has(code),
+              ticked: blocking ? denied.has(code) : granted.has(code),
+              locked: !blocking && denied.has(code),
+            };
+          })
           .filter((p) => !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q));
 
         return { key: module.moduleName ?? '', name: module.moduleName ?? 'Other', items };
@@ -1255,22 +1318,35 @@ export class RoleCatalogueComponent {
   });
 
   readonly permDirty = computed(() => {
-    const original = new Set(this.detailView()?.permissionBundle.map((p) => p.code) ?? []);
-    const draft = this.permDraft();
-    return draft.length !== original.size || draft.some((code) => !original.has(code));
+    const d = this.detailView();
+    const differs = (draft: string[], saved: string[]) => {
+      const original = new Set(saved);
+      return draft.length !== original.size || draft.some((code) => !original.has(code));
+    };
+
+    return differs(this.permDraft(), d?.permissionBundle.map((p) => p.code) ?? [])
+      || differs(this.permDenyDraft(), d?.excludedPermissions.map((p) => p.code) ?? []);
   });
 
-  /** Built-in roles are fixed; everything else can have its permissions changed. */
-  readonly canEditPermissions = computed(() => {
-    const d = this.detailView();
-    return !!d && !d.isSystemRole && !d.grantsAllPermissions;
-  });
+  /**
+   * Whether this role's permissions can be changed by the person looking at it.
+   *
+   * THE SERVER DECIDES WHICH ROLES (`AssignPermissions` in `permittedActions`): every role
+   * except the one that grants everything. This used to say "not a built-in role" as well - and
+   * every role an organisation starts with is built in, so on a new organisation nobody could
+   * add, change or remove a single permission on any role without first cloning it. The server
+   * has always allowed it, and keeps what an administrator removes across restarts.
+   */
+  readonly canEditPermissions = computed(() =>
+    (this.detailRole()?.permittedActions ?? []).includes('AssignPermissions') && this.mayAssignPermissions());
 
   startPermEdit(): void {
     const d = this.detailView();
     if (!d) return;
 
     this.permDraft.set(d.permissionBundle.map((p) => p.code));
+    this.permDenyDraft.set(d.excludedPermissions.map((p) => p.code));
+    this.permEditMode.set('grant');
     this.permReason.set('');
     this.permEditing.set(true);
 
@@ -1286,33 +1362,64 @@ export class RoleCatalogueComponent {
     this.permEditing.set(false);
     this.permSaving.set(false);
     this.permDraft.set([]);
+    this.permDenyDraft.set([]);
+    this.permEditMode.set('grant');
     this.permReason.set('');
   }
 
-  isPermDrafted(code: string): boolean {
-    return this.permDraft().includes(code);
-  }
-
+  /**
+   * One checkbox changed, in whichever mode the editor is in.
+   *
+   * A CODE IS NEVER IN BOTH LISTS. The server refuses a permission that is granted and denied at
+   * once, so blocking one takes it out of what the role allows. Unblocking leaves it not given:
+   * handing back what was blocked is a second decision, made in the other mode.
+   */
   togglePermDraft(code: string): void {
+    if (this.permEditMode() === 'deny') {
+      const blocked = this.permDenyDraft();
+
+      if (blocked.includes(code)) {
+        this.permDenyDraft.set(blocked.filter((c) => c !== code));
+      } else {
+        this.permDenyDraft.set([...blocked, code]);
+        this.permDraft.set(this.permDraft().filter((c) => c !== code));
+      }
+
+      return;
+    }
+
+    // Allowing. A blocked permission is locked in this mode, so it cannot arrive here ticked.
+    if (this.permDenyDraft().includes(code)) return;
+
     const draft = this.permDraft();
     this.permDraft.set(draft.includes(code) ? draft.filter((c) => c !== code) : [...draft, code]);
   }
 
-  /** The module's tick state: every visible permission, some of them, or none. */
-  moduleDraftState(module: { items: { code: string; denied: boolean }[] }): 'all' | 'some' | 'none' {
-    const usable = module.items.filter((p) => !p.denied);
-    const ticked = usable.filter((p) => this.isPermDrafted(p.code)).length;
+  /** The module's tick state: every permission it can change, some of them, or none. */
+  moduleDraftState(module: { items: { ticked: boolean; locked: boolean }[] }): 'all' | 'some' | 'none' {
+    const usable = module.items.filter((p) => !p.locked);
+    const ticked = usable.filter((p) => p.ticked).length;
     return usable.length > 0 && ticked === usable.length ? 'all' : ticked > 0 ? 'some' : 'none';
   }
 
-  toggleModuleDraft(module: { items: { code: string; denied: boolean }[] }): void {
-    const codes = module.items.filter((p) => !p.denied).map((p) => p.code);
-    const draft = this.permDraft();
+  toggleModuleDraft(module: { items: { code: string; ticked: boolean; locked: boolean }[] }): void {
+    const codes = module.items.filter((p) => !p.locked).map((p) => p.code);
+    const untick = this.moduleDraftState(module) === 'all';
+    const apply = (draft: string[]) =>
+      untick ? draft.filter((c) => !codes.includes(c)) : [...new Set([...draft, ...codes])];
 
-    this.permDraft.set(
-      this.moduleDraftState(module) === 'all'
-        ? draft.filter((c) => !codes.includes(c))
-        : [...new Set([...draft, ...codes])]);
+    if (this.permEditMode() === 'deny') {
+      this.permDenyDraft.set(apply(this.permDenyDraft()));
+
+      // Blocking a whole area takes it out of what the role allows, one code at a time.
+      if (!untick) {
+        this.permDraft.set(this.permDraft().filter((c) => !codes.includes(c)));
+      }
+
+      return;
+    }
+
+    this.permDraft.set(apply(this.permDraft()));
   }
 
   savePermissions(): void {
@@ -1321,15 +1428,24 @@ export class RoleCatalogueComponent {
 
     this.permSaving.set(true);
 
+    const granted = this.permDraft();
+    const blocked = this.permDenyDraft();
+
     this.api.assignPermissions(d.id, {
-      permissionCodes: this.permDraft(),
-      // Blocked permissions are not edited here; they go back exactly as they were.
-      deniedPermissionCodes: d.excludedPermissions.map((p) => p.code),
+      permissionCodes: granted,
+      // BOTH LISTS, AS EDITED. The blocked list used to be sent back exactly as it was read,
+      // which is why a block could be seen on this screen and never added, changed or lifted.
+      deniedPermissionCodes: blocked,
       expectedVersion: d.version,
       justification: this.permReason().trim() || null,
     }).subscribe({
       next: () => {
-        this.toast.show('Permissions saved', `${d.name} now has ${this.permDraft().length} permissions.`, 'success');
+        this.toast.show(
+          'Permissions saved',
+          blocked.length > 0
+            ? `${d.name} now allows ${granted.length} permissions and blocks ${blocked.length}.`
+            : `${d.name} now has ${granted.length} permissions.`,
+          'success');
         this.cancelPermEdit();
         this.refreshOpenRole(d.id);
         this.reloadCatalogue();
@@ -1550,40 +1666,92 @@ export class RoleCatalogueComponent {
   }
 
   // ===== ROLE ACTIONS =====
-  submitRole(role: RoleItemView | RoleDetailView): void {
-    this.submitting.set(true);
-    this.api.submitRole((role.id ?? ''), (role.version ?? 0), 'Ready for use.').subscribe({
-      next: () => {
-        this.submitting.set(false);
-        this.detailCache.delete((role.id ?? ''));
+  //
+  // ASKED FIRST, AND THE REASON IS THE ADMINISTRATOR'S. Retire used to act on the click: one
+  // press took a role's permissions from everybody who held it, with nothing to confirm and no
+  // way back from this screen. Both actions also wrote a sentence of this file's into the audit
+  // trail as the reason - "Role is no longer required." against every role ever retired - which
+  // records that something happened and nothing about why.
 
-        this.toast.show(
-          'Role activated',
-          `${this.roleDisplayName(role)} is now in use.`,
-          'success');
-        this.refreshIfOpen(role.id ?? '');
-        this.loadData();
-      },
-      error: (error: Error) => {
-        this.submitting.set(false);
-        this.toast.show('Submit Failed', error.message, 'error');
-      },
-    });
+  /** The status change waiting to be confirmed, or null while the dialog is closed. */
+  readonly statusChange = signal<{
+    id: string;
+    name: string;
+    code: string;
+    version: number;
+    holders: number;
+    target: 'active' | 'inactive';
+    /** True when the role was retired before, so its holders get their permissions back. */
+    wasRetired: boolean;
+  } | null>(null);
+
+  readonly statusReason = signal('');
+  readonly statusError = signal('');
+
+  submitRole(role: RoleItemView | RoleDetailView): void {
+    this.openStatusChange(role, 'active');
   }
 
   retireRole(role: RoleItemView | RoleDetailView): void {
+    this.openStatusChange(role, 'inactive');
+  }
+
+  private openStatusChange(role: RoleItemView | RoleDetailView, target: 'active' | 'inactive'): void {
+    const listed = (this.data()?.roles ?? []).find((item) => item.id === role.id);
+
+    this.statusReason.set('');
+    this.statusError.set('');
+    this.statusChange.set({
+      id: role.id ?? '',
+      name: this.roleDisplayName(role),
+      code: 'roleCode' in role ? role.roleCode : role.code,
+      version: role.version ?? 0,
+      holders: role.assignedUserCount ?? 0,
+      target,
+      wasRetired: listed?.status === 'inactive',
+    });
+  }
+
+  closeStatusChange(): void {
+    this.statusChange.set(null);
+    this.statusReason.set('');
+    this.statusError.set('');
+  }
+
+  confirmStatusChange(): void {
+    const change = this.statusChange();
+    if (!change) return;
+
+    const reason = this.statusReason().trim();
+    if (reason.length < 10) {
+      this.statusError.set('The reason must be at least 10 characters.');
+      return;
+    }
+
+    const activating = change.target === 'active';
+
     this.submitting.set(true);
-    this.api.retireRole((role.id ?? ''), (role.version ?? 0), 'Role is no longer required.').subscribe({
+    this.statusError.set('');
+
+    (activating
+      ? this.api.submitRole(change.id, change.version, reason)
+      : this.api.retireRole(change.id, change.version, reason)
+    ).subscribe({
       next: () => {
         this.submitting.set(false);
-        this.detailCache.delete((role.id ?? ''));
-        this.toast.show('Role retired', `${this.roleDisplayName(role)} has been retired.`, 'info');
-        this.refreshIfOpen(role.id ?? '');
+        this.closeStatusChange();
+        this.detailCache.delete(change.id);
+
+        this.toast.show(
+          activating ? 'Role activated' : 'Role retired',
+          activating ? `${change.name} is now in use.` : `${change.name} has been retired.`,
+          activating ? 'success' : 'info');
+        this.refreshIfOpen(change.id);
         this.loadData();
       },
       error: (error: Error) => {
         this.submitting.set(false);
-        this.toast.show('Retire Failed', error.message, 'error');
+        this.statusError.set(error.message);
       },
     });
   }

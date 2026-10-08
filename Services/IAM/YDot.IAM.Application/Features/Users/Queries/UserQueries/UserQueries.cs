@@ -102,7 +102,7 @@ public sealed class UserQueryHandler(
         if (canSeeContact && query.UserId != currentUser.UserId)
         {
             await audit.WriteAsync(
-                AuditActionCodes.UserUpdated, nameof(User), query.UserId, detail.DisplayName,
+                AuditActionCodes.UserContactViewed, nameof(User), query.UserId, detail.DisplayName,
                 new { Action = "ViewedSensitiveContact" }, cancellationToken: cancellationToken);
 
             await unitOfWork.SaveChangesAsync(cancellationToken);

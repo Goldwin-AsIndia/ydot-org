@@ -30,6 +30,7 @@ public static class OrganisationMappingConfig
             Subdomain = subdomain,
             Status = TenantStatus.Invited,
             OrganisationType = request.OrganisationType?.Trim(),
+            Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
             ContactPhoneCountryCode = request.ContactPhoneCountryCode?.Trim(),
             ContactPhone = request.ContactPhone?.Trim(),
             ContactEmail = request.AdminEmail.Trim().ToLowerInvariant(),
@@ -54,6 +55,12 @@ public static class OrganisationMappingConfig
     ///
     /// Every field is null-guarded, so a partial update touches only what it names. A screen
     /// that posts three fields must not silently blank the other twenty.
+    ///
+    /// AN EMPTY STRING IS NOT NULL. For an optional field it means "this is now blank", and it
+    /// clears the stored value - otherwise somebody who removes a second address line, a GSTIN
+    /// or a website was told "saved" while the old value stayed. The fields the profile cannot
+    /// do without (the name, the first address line and the regional defaults) still ignore a
+    /// blank, exactly as before.
     /// </summary>
     public static void ApplyProfile(this UpdateOrganisationProfileRequest request, Tenant tenant)
     {
@@ -61,15 +68,15 @@ public static class OrganisationMappingConfig
         ArgumentNullException.ThrowIfNull(tenant);
 
         tenant.Name = Coalesce(request.Name, tenant.Name)!;
-        tenant.LegalName = Coalesce(request.LegalName, tenant.LegalName);
-        tenant.RegistrationNumber = Coalesce(request.RegistrationNumber, tenant.RegistrationNumber);
-        tenant.TaxIdentificationNumber = Coalesce(request.TaxIdentificationNumber, tenant.TaxIdentificationNumber);
-        tenant.PanNumber = Coalesce(request.PanNumber, tenant.PanNumber)?.ToUpperInvariant();
-        tenant.GstNumber = Coalesce(request.GstNumber, tenant.GstNumber)?.ToUpperInvariant();
-        tenant.OrganisationType = Coalesce(request.OrganisationType, tenant.OrganisationType);
+        tenant.LegalName = CoalesceOptional(request.LegalName, tenant.LegalName);
+        tenant.RegistrationNumber = CoalesceOptional(request.RegistrationNumber, tenant.RegistrationNumber);
+        tenant.TaxIdentificationNumber = CoalesceOptional(request.TaxIdentificationNumber, tenant.TaxIdentificationNumber);
+        tenant.PanNumber = CoalesceOptional(request.PanNumber, tenant.PanNumber)?.ToUpperInvariant();
+        tenant.GstNumber = CoalesceOptional(request.GstNumber, tenant.GstNumber)?.ToUpperInvariant();
+        tenant.OrganisationType = CoalesceOptional(request.OrganisationType, tenant.OrganisationType);
         tenant.EstablishedOn = request.EstablishedOn ?? tenant.EstablishedOn;
-        tenant.Description = Coalesce(request.Description, tenant.Description);
-        tenant.LogoUrl = Coalesce(request.LogoUrl, tenant.LogoUrl);
+        tenant.Description = CoalesceOptional(request.Description, tenant.Description);
+        tenant.LogoUrl = CoalesceOptional(request.LogoUrl, tenant.LogoUrl);
 
         request.ApplyContactAndAddress(tenant);
     }
@@ -95,23 +102,23 @@ public static class OrganisationMappingConfig
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(tenant);
 
-        tenant.WebsiteUrl = Coalesce(request.WebsiteUrl, tenant.WebsiteUrl);
-        tenant.ContactPersonName = Coalesce(request.ContactPersonName, tenant.ContactPersonName);
+        tenant.WebsiteUrl = CoalesceOptional(request.WebsiteUrl, tenant.WebsiteUrl);
+        tenant.ContactPersonName = CoalesceOptional(request.ContactPersonName, tenant.ContactPersonName);
 
         tenant.TimeZone = Coalesce(request.TimeZone, tenant.TimeZone)!;
         tenant.DefaultCurrency = Coalesce(request.DefaultCurrency, tenant.DefaultCurrency)!.ToUpperInvariant();
         tenant.DefaultCulture = Coalesce(request.DefaultCulture, tenant.DefaultCulture)!;
 
-        tenant.ContactEmail = Coalesce(request.ContactEmail, tenant.ContactEmail)?.ToLowerInvariant();
-        tenant.ContactPhoneCountryCode = Coalesce(request.ContactPhoneCountryCode, tenant.ContactPhoneCountryCode);
-        tenant.ContactPhone = Coalesce(request.ContactPhone, tenant.ContactPhone);
+        tenant.ContactEmail = CoalesceOptional(request.ContactEmail, tenant.ContactEmail)?.ToLowerInvariant();
+        tenant.ContactPhoneCountryCode = CoalesceOptional(request.ContactPhoneCountryCode, tenant.ContactPhoneCountryCode);
+        tenant.ContactPhone = CoalesceOptional(request.ContactPhone, tenant.ContactPhone);
 
         tenant.AddressLine1 = Coalesce(request.AddressLine1, tenant.AddressLine1);
-        tenant.AddressLine2 = Coalesce(request.AddressLine2, tenant.AddressLine2);
-        tenant.City = Coalesce(request.City, tenant.City);
-        tenant.State = Coalesce(request.State, tenant.State);
-        tenant.Country = Coalesce(request.Country, tenant.Country);
-        tenant.PostalCode = Coalesce(request.PostalCode, tenant.PostalCode);
+        tenant.AddressLine2 = CoalesceOptional(request.AddressLine2, tenant.AddressLine2);
+        tenant.City = CoalesceOptional(request.City, tenant.City);
+        tenant.State = CoalesceOptional(request.State, tenant.State);
+        tenant.Country = CoalesceOptional(request.Country, tenant.Country);
+        tenant.PostalCode = CoalesceOptional(request.PostalCode, tenant.PostalCode);
     }
 
     public static OrganisationListItemResponse ToListItemResponse(
@@ -455,6 +462,13 @@ public static class OrganisationMappingConfig
 
     private static string? Coalesce(string? incoming, string? existing) =>
         string.IsNullOrWhiteSpace(incoming) ? existing : incoming.Trim();
+
+    /// <summary>
+    /// For an optional field: null leaves the stored value alone, an empty string clears it, and
+    /// anything else is trimmed and stored. See <see cref="ApplyProfile"/>.
+    /// </summary>
+    private static string? CoalesceOptional(string? incoming, string? existing) =>
+        incoming is null ? existing : string.IsNullOrWhiteSpace(incoming) ? null : incoming.Trim();
 
     /// <summary>"RegistrationCertificate" becomes "Registration certificate".</summary>
     private static string SplitPascalCase(string value)

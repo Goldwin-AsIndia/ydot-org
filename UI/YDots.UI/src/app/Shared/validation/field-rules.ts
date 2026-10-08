@@ -204,6 +204,23 @@ export function httpsUrlError(label: string, value: unknown, options: { required
   return text.length > max ? `Maximum ${max} characters.` : null;
 }
 
+/** An absolute http:// or https:// URL - for a sandbox, where a developer's own machine is the host. */
+export function webUrlError(label: string, value: unknown, options: { required?: boolean; max?: number } = {}): string | null {
+  const { required = false, max = 500 } = options;
+  if (blank(value)) return required ? `${label} is required.` : null;
+  const text = String(value).trim();
+  if (!/^https?:\/\//i.test(text)) return `${label} must start with http:// or https://`;
+  try {
+    const host = new URL(text).hostname;
+    if (/\s/.test(text) || !host || (!host.includes('.') && host !== 'localhost')) {
+      return `Enter a valid ${label.toLowerCase()} (https://example.com/path).`;
+    }
+  } catch {
+    return `Enter a valid ${label.toLowerCase()} (https://example.com/path).`;
+  }
+  return text.length > max ? `Maximum ${max} characters.` : null;
+}
+
 /** An in-app route: starts with /app/, no spaces. Backend limit 300. */
 export function appRouteError(label: string, value: unknown, required = false): string | null {
   if (blank(value)) return required ? `${label} is required.` : null;

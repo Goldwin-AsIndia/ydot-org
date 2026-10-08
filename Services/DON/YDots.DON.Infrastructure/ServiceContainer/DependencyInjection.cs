@@ -89,7 +89,13 @@ public static class DependencyInjection
         services.AddScoped<IAuthorizationHandler, SegregationOfDutiesHandler>();
 
         // ---- Seeder ------------------------------------------------------------------------------------
-        services.AddScoped<DonDbSeeder>();
+        //
+        // THE DEMONSTRATION DONORS AND LEADS, which wait for IAM. They belong to Organisations and
+        // name relationship owners that IAM creates after this service has already started, so
+        // they are written by a loop that keeps asking rather than by start-up seeding, which runs
+        // once. Both do nothing unless SeedSettings:CreateSampleData is on.
+        services.AddScoped<DemoDonorSeeder>();
+        services.AddHostedService<DemoDataSeedingService>();
 
         return services;
     }

@@ -5,6 +5,7 @@ import { RouterModule } from '@angular/router';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { UserDirectoryApiService } from '../../../../Service/user-directory-api.service';
 import { UserSearchFilter } from '../../../../Shared/models/user-directory.model';
+import { fetchAllPages } from '../../../../Shared/services/paging';
 import {
   PermissionSummaryResponse,
   UserAccessPreviewResponse,
@@ -34,8 +35,11 @@ interface ModuleSection {
   sensitiveCount: number;
 }
 
-/** The seven verbs the matrix shows as columns. */
-type ActionKey = 'view' | 'create' | 'edit' | 'manage' | 'approve' | 'export' | 'delete';
+/**
+ * The seven actions a permission can carry - the server's own list (`PermissionAction`), and the
+ * same seven the Roles and Permissions matrix uses.
+ */
+type ActionKey = 'view' | 'create' | 'edit' | 'submit' | 'approve' | 'operate' | 'export';
 
 /**
  * One matrix cell.
@@ -59,11 +63,11 @@ interface MatrixRow {
   permissions: PermissionSummaryResponse[];
   grantedCount: number;
   sensitiveCount: number;
-  /** Codes whose verb is not one of the seven columns; they still show in the drill-down. */
+  /** Codes carrying an action this screen does not know; they still show in the drill-down. */
   otherCount: number;
 }
 
-/** A column in the checkbox matrix: one of the seven verbs, or "other" for codes with no verb. */
+/** A column in the checkbox matrix: one of the seven actions, or "other" for one this screen does not know. */
 type MatrixColumnKey = ActionKey | 'other';
 
 /** How a read-only checkbox is drawn. */
@@ -208,11 +212,14 @@ export class AccessPreviewComponent {
     this.peopleLoading.set(true);
     this.peopleError.set(false);
 
-    const filter: UserSearchFilter = { pageIndex: 1, pageSize: 200 };
-
-    this.api.getDirectory(filter).subscribe({
-      next: (response) => {
-        this.people.set((response.users.items ?? []).map((user) => ({
+    // EVERYBODY, in one request for any organisation of up to a hundred people. This asked for
+    // "200" through the directory endpoint - which also fetched the whole filter vocabulary it
+    // never used - and the server caps a page at 100, so person 101 onwards could never be
+    // previewed.
+    fetchAllPages((page, pageSize) =>
+      this.api.searchUsers({ pageIndex: page, pageSize } as UserSearchFilter)).subscribe({
+      next: (users) => {
+        this.people.set(users.map((user) => ({
           id: user.id ?? '',
           reference: user.code ?? '',
           displayName: user.displayName ?? '',
@@ -353,14 +360,22 @@ export class AccessPreviewComponent {
 
   // ---- The matrix: modules down, verbs across --------------------------------------------------
 
+  /**
+   * The columns, in the order the Roles and Permissions matrix prints the same seven.
+   *
+   * THESE ARE THE SERVER'S ACTIONS. The headings used to be View, Create, Edit, Manage, Approve,
+   * Export and Delete, with each permission dropped under one by matching words in its code -
+   * a vocabulary the platform does not have. "Operate" is where the working actions sit that
+   * are none of the other six: activate, assign, cancel, delete, suspend and the rest.
+   */
   readonly actionColumns: { key: ActionKey; label: string }[] = [
     { key: 'view', label: 'View' },
     { key: 'create', label: 'Create' },
     { key: 'edit', label: 'Edit' },
-    { key: 'manage', label: 'Manage' },
+    { key: 'submit', label: 'Submit' },
     { key: 'approve', label: 'Approve' },
+    { key: 'operate', label: 'Operate' },
     { key: 'export', label: 'Export' },
-    { key: 'delete', label: 'Delete' },
   ];
 
   /**
@@ -419,11 +434,21 @@ export class AccessPreviewComponent {
 
   // ---- The checkbox matrix ---------------------------------------------------------------------
 
-  /** The seven verbs plus "Other", as the matrix columns. */
-  readonly matrixColumns: { key: MatrixColumnKey; label: string }[] = [
-    ...this.actionColumns,
-    { key: 'other', label: 'Other' },
-  ];
+  /**
+   * The matrix columns: the seven actions, and "Other" only when something needs it.
+   *
+   * Every permission carries one of the seven, so on today's catalogue "Other" would be a column
+   * of dashes. It is kept for the day the server adds an action this screen has not been taught:
+   * those codes then get a column of their own instead of vanishing from the matrix.
+   */
+  private readonly matrixColumnList = computed<{ key: MatrixColumnKey; label: string }[]>(() =>
+    this.matrix().some((row) => row.otherCount > 0)
+      ? [...this.actionColumns, { key: 'other', label: 'Other' }]
+      : this.actionColumns);
+
+  get matrixColumns(): { key: MatrixColumnKey; label: string }[] {
+    return this.matrixColumnList();
+  }
 
   /** The column a single code sits in. */
   actionKeyOf(permission: PermissionSummaryResponse): MatrixColumnKey {
@@ -515,7 +540,7 @@ export class AccessPreviewComponent {
     const blank = (): MatrixCell => ({ state: 'na', granted: 0, total: 0 });
     return {
       moduleCode,
-      cells: { view: blank(), create: blank(), edit: blank(), manage: blank(), approve: blank(), export: blank(), delete: blank() },
+      cells: { view: blank(), create: blank(), edit: blank(), submit: blank(), approve: blank(), operate: blank(), export: blank() },
       permissions: [],
       grantedCount: 0,
       sensitiveCount: 0,
@@ -523,27 +548,24 @@ export class AccessPreviewComponent {
     };
   }
 
-  /** Reads the verb from the code's last segment first (e.g. `CAM.CAMPAIGN.EXPORT`), then the whole code and name. */
+  /**
+   * The action a permission belongs to: the one the server gave it.
+   *
+   * NOT WORKED OUT FROM THE CODE, which is what this did - seven word lists tried against the
+   * code's last segment, then the whole code, then the name. The whole-code pass matched inside
+   * words: "read" in cam.READiness and "get" in cam.budGET-plans put passing a readiness check,
+   * allocating a budget and merging duplicate donors under VIEW, so the matrix showed a tick in
+   * View for somebody who could do considerably more than look. Twelve permissions were filed
+   * under View that way and sixty-nine fell through to Other. The answer was in the response all
+   * along, as `action`.
+   */
   private actionOf(permission: PermissionSummaryResponse): ActionKey | null {
-    const code = (permission.code ?? '').toLowerCase();
-    const last = code.split(/[.:_\-\/\s]+/).filter(Boolean).pop() ?? '';
-    const rules: [ActionKey, RegExp][] = [
-      ['delete', /delete|remove|purge|erase/],
-      ['export', /export|download|extract/],
-      ['approve', /approve|reject|decide|decision|authori[sz]e|sign.?off/],
-      ['manage', /manage|admin|configure|config|assign|grant|revoke|setting/],
-      ['edit', /edit|update|modify|change|write|amend/],
-      ['create', /create|add|new|submit|raise|insert|register/],
-      ['view', /view|read|list|get|search|see|browse|show/],
-    ];
-    for (const source of [last, code, (permission.name ?? '').toLowerCase()]) {
-      if (!source) { continue; }
-      for (const [key, pattern] of rules) {
-        if (pattern.test(source)) { return key; }
-      }
-    }
-    return null;
+    const action = permission.action;
+    return action && AccessPreviewComponent.KNOWN_ACTIONS.has(action) ? action : null;
   }
+
+  private static readonly KNOWN_ACTIONS: ReadonlySet<string> = new Set<ActionKey>(
+    ['view', 'create', 'edit', 'submit', 'approve', 'operate', 'export']);
 
   /** Share of the granted permissions that are sensitive, 0-100, for the meter in the summary. */
   readonly sensitiveShare = computed(() => {
@@ -619,17 +641,20 @@ export class AccessPreviewComponent {
     return permission.grantedVia?.trim() || 'Role';
   }
 
-  moduleLabel(moduleCode: string): string {
-    const names: Record<string, string> = {
-      IAM: 'Users and access',
-      GM: 'Master data',
-      CAM: 'Campaigns',
-      DON: 'Donors',
-      PAY: 'Donations and payments',
-      PLATFORM: 'Platform',
-    };
+  /**
+   * Module code → the name the server gives it, from the permission groups it sent.
+   *
+   * SERVER-NAMED, like the role catalogue and the permission matrix. This used to be a list typed
+   * here that disagreed with both of them ("Users and access" here, "Identity & access" on the
+   * role catalogue, "Identity and Access" in the matrix) and named only six modules.
+   */
+  private readonly moduleNames = computed(() => new Map(
+    (this.access()?.permissionGroups ?? [])
+      .filter((group) => !!group.moduleCode && !!group.moduleName)
+      .map((group) => [group.moduleCode!, group.moduleName!] as const)));
 
-    return names[moduleCode] ?? moduleCode;
+  moduleLabel(moduleCode: string): string {
+    return this.moduleNames().get(moduleCode) ?? moduleCode;
   }
 
   moduleIcon(moduleCode: string): string {

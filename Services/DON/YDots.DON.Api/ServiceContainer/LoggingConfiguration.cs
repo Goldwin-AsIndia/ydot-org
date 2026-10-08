@@ -10,12 +10,27 @@ public static class LoggingConfiguration
 {
     public static WebApplicationBuilder AddSerilogLogging(this WebApplicationBuilder builder)
     {
-        builder.Host.UseSerilog((context, services, logger) => logger
-            .ReadFrom.Configuration(context.Configuration)
-            .ReadFrom.Services(services)
-            .Enrich.FromLogContext()
-            .Enrich.WithProperty("Service", "YDots.DON")
-            .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName));
+        builder.Host.UseSerilog((context, services, logger) =>
+        {
+            logger
+                .ReadFrom.Configuration(context.Configuration)
+                .ReadFrom.Services(services)
+                .Enrich.FromLogContext()
+                .Enrich.WithProperty("Service", "YDots.DON")
+                .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName);
+
+            // Seq is added here, from Seq:ServerUrl, and only when one is set - the same setting
+            // and the same rule the other three services use. It used to be a sink in
+            // appsettings.json with a blank address, which nothing ever filled in: compose sets
+            // Seq__ServerUrl, not that sink's argument, so this service wrote no events to Seq
+            // at all, and a blank address is an invalid URI that stops a local run at start-up.
+            var seqUrl = context.Configuration["Seq:ServerUrl"];
+
+            if (!string.IsNullOrWhiteSpace(seqUrl))
+            {
+                logger.WriteTo.Seq(seqUrl);
+            }
+        });
 
         return builder;
     }

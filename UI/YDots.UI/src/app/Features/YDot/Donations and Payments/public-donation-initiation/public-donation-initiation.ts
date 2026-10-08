@@ -19,6 +19,7 @@ import {
   CreateDonationIntentRequest,
   DonationIntentResponse,
   ExistingDonorCheckResponse,
+  unpayableReason,
 } from '../../../../Shared/models/payment.model';
 
 
@@ -743,15 +744,20 @@ export class PublicDonationInitiationComponent {
 
   protected readonly reviewAllowed = computed(() => this.permissions().view && this.uiState() !== 'no-access');
 
+  /** Why the reopened donation cannot be paid, or empty when it can. See `unpayableReason`. */
+  private readonly paymentBlockedReason = signal('');
+
   /**
    * Whether "Continue to payment" can be pressed.
    * 'AWAITING PAYMENT' COUNTS - it is the state where continuing is the ONLY thing left to do.
+   * A REOPENED DONATION THE SERVER WILL NOT TAKE A PAYMENT ON DOES NOT.
    */
   protected readonly continueToPaymentAllowed = computed(
     () =>
       this.permissions().continueToPayment &&
       (this.lifecycleState() === 'Submitted' || this.lifecycleState() === 'Awaiting payment') &&
-      this.uiState() !== 'no-access',
+      this.uiState() !== 'no-access' &&
+      !this.paymentBlockedReason(),
   );
 
   protected requestReview(): void {
@@ -1291,6 +1297,7 @@ export class PublicDonationInitiationComponent {
     this.consentEffectiveTime.set('');
     this.intentReference.set('');
     this.paymentLinkDestination.set('');
+    this.paymentBlockedReason.set('');
     this.lifecycleState.set('No record');
     this.lastOutcome.set(null);
     this.uiState.set('ready');
@@ -1433,6 +1440,21 @@ export class PublicDonationInitiationComponent {
         }
 
         this.pushActivity('Loaded donation intent ' + intent.intentReference + '.');
+
+        // SAID NOW, NOT AFTER THE CLICK. A donation the server will not take a payment on keeps
+        // Continue to payment disabled, and the reason is given here instead of as the error the
+        // button would only have produced.
+        const reason = unpayableReason(intent.status);
+        this.paymentBlockedReason.set(reason ?? '');
+
+        if (reason) {
+          this.pushActivity(
+            'Donation ' + intent.intentReference + ' cannot be paid: ' + intent.statusDescription + '.',
+          );
+          this.toast.show('Payment not available', reason, 'warning');
+          return;
+        }
+
         this.toast.show(
           'Continue payment',
           'Donation ' + intent.intentReference + ' is ready. Select Continue to payment to finish it.',

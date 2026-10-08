@@ -60,10 +60,16 @@ public sealed class UpsertPaymentGatewayConfigurationRequestValidator
         // A WEBHOOK URL MUST BE ABSOLUTE AND MUST BE HTTPS IN PRODUCTION. A provider posting a
         // payment outcome over plain HTTP puts the donation record on the wire in clear, and a
         // relative URL is one the provider simply cannot call at all.
+        //
+        // HTTP IS ACCEPTED IN SANDBOX, which is what the production rule below always implied. The
+        // general rule used to demand https as well, so the production one could never fire - and
+        // a sandbox row on a developer's machine could not be saved with the address the screen
+        // itself suggests, http://localhost:6700/pay-api/webhooks/razorpay.
         RuleFor(request => request.WebhookUrl)
-            .NotEmpty().WithMessage("Enter the webhook address, starting with https://")
+            .NotEmpty().WithMessage("Enter the webhook address the provider should call.")
             .MaximumLength(500)
-            .HttpsUrl();
+            .Must(BeAWebAddress)
+            .WithMessage("Webhook URL must be a full web address starting with http:// or https://");
 
         RuleFor(request => request.WebhookUrl)
             .Must(url => url!.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -73,9 +79,17 @@ public sealed class UpsertPaymentGatewayConfigurationRequestValidator
                 "A production webhook has to be https. Over plain http the payment outcome "
                 + "travels in clear and can be read or altered in transit.");
 
+        // The same rule as the webhook: any absolute address in sandbox, https in production.
         RuleFor(request => request.ReturnUrl)
             .MaximumLength(500)
-            .HttpsUrl();
+            .Must(BeAWebAddress)
+            .WithMessage("Return URL must be a full web address starting with http:// or https://");
+
+        RuleFor(request => request.ReturnUrl)
+            .Must(url => url!.Trim().StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            .When(request => request.Environment == PaymentGatewayEnvironment.Production
+                             && !string.IsNullOrWhiteSpace(request.ReturnUrl))
+            .WithMessage("A production return URL has to be https.");
 
         RuleFor(request => request.SettlementCurrencyCode)
             .NotEmpty()
@@ -109,9 +123,12 @@ public sealed class UpsertPaymentGatewayConfigurationRequestValidator
             .MaximumLength(1000);
     }
 
-    private static bool BeAnAbsoluteUrl(string? value) =>
-        Uri.TryCreate(value, UriKind.Absolute, out var uri)
-        && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
+    /// <summary>Blank, or an absolute http:// or https:// address with no spaces in it.</summary>
+    private static bool BeAWebAddress(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+        || (Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
+            && !value.Trim().Any(char.IsWhiteSpace));
 }
 
 /// <summary>Shape checks on activate and deactivate.</summary>

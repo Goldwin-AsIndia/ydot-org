@@ -48,7 +48,25 @@ public sealed record CreateUserRequest(
     bool SendInvitation = true,
 
     CredentialSetupMethod CredentialSetupMethod = CredentialSetupMethod.InvitationLink,
-    string? InvitationMessage = null);
+    string? InvitationMessage = null,
+
+    string? Title = null,
+    string? PreferredName = null,
+    string? WorkLocation = null,
+
+    /// <summary>
+    /// Language and clock for the person's e-mails and screens. Null inherits the Organisation's
+    /// defaults. The create form always asked for both and, until these existed, discarded them.
+    /// </summary>
+    string? PreferredCulture = null,
+    string? TimeZone = null,
+
+    /// <summary>
+    /// Why this person is being given access, in the administrator's own words. Recorded on the
+    /// role assignment and on the audit row - it is the first thing an access review reads.
+    /// Null falls back to a generic note, which is what every assignment used to carry.
+    /// </summary>
+    string? Justification = null);
 
 /// <summary>
 /// Checks whether an e-mail address or username is free, before the create form is submitted.
@@ -127,7 +145,13 @@ public sealed record UpdateUserRequest(
     /// surname" and "changed at the person's request after marriage" look identical in a diff,
     /// and the difference is exactly what somebody reviewing it six months later needs.
     /// </summary>
-    string? Reason = null);
+    string? Reason = null,
+
+    // Null leaves the stored value alone; an empty string clears it - the same rule as every
+    // other optional text field on this request.
+    string? Title = null,
+    string? PreferredName = null,
+    string? WorkLocation = null);
 
 // =====================================================================================
 // Lifecycle
@@ -327,7 +351,10 @@ public sealed record UserDetailResponse(
     bool MobileMasked,
     bool HasPendingInvitation,
     DateTimeOffset? InvitationExpiresAtUtc,
-    IReadOnlyList<string> PermittedActions);
+    IReadOnlyList<string> PermittedActions,
+    string? Title = null,
+    string? PreferredName = null,
+    string? WorkLocation = null);
 
 /// <summary>One option in a user picker.</summary>
 public sealed record UserLookupResponse(Guid Id, string Code, string DisplayName, string Email, UserStatus Status);
@@ -402,7 +429,13 @@ public sealed record UserAccessPreviewResponse(
 public sealed record PermissionGroupResponse(
     string ModuleCode,
     string? GroupCode,
-    IReadOnlyList<PermissionSummaryResponse> Permissions);
+    IReadOnlyList<PermissionSummaryResponse> Permissions,
+
+    /// <summary>
+    /// The module's readable name, from the same table the permission matrix uses, so every
+    /// screen calls a module the same thing instead of each keeping its own label list.
+    /// </summary>
+    string? ModuleName = null);
 
 /// <summary>One permission in the preview.</summary>
 public sealed record PermissionSummaryResponse(

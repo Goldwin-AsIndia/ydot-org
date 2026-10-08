@@ -17,8 +17,8 @@ namespace YDot.IAM.Api.Configuration;
 /// credentials.
 ///
 /// WHO REACHES IT. SUPERADMIN and TENANTADMIN, and nobody else. The four permission codes behind
-/// these endpoints are in <c>RoleAccessProfiles.AdministratorOnlyCodes</c>, so INITIATOR and
-/// APPROVER never carry one however an Organisation configures its roles. A root user may read
+/// these endpoints are in <c>RoleAccessProfiles.AdministratorOnlyCodes</c>, so the working
+/// roles never carry one however an Organisation configures its roles. A root user may read
 /// and write any Organisation's configuration but must name which; a TenantAdmin's Organisation
 /// comes from their token and a TenantId in a request body is ignored.
 ///

@@ -2,7 +2,7 @@ import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { Observable, Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, shareReplay, takeUntil, tap } from 'rxjs';
+import { Observable, Subject, Subscription, debounceTime, distinctUntilChanged, finalize, shareReplay, takeUntil, tap } from 'rxjs';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 import { UserDirectoryApiService } from '../../../../Service/user-directory-api.service';
@@ -36,6 +36,18 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   private readonly destroy$ = new Subject<void>();
   private readonly searchInput$ = new Subject<string>();
+
+  /**
+   * The filter vocabulary (roles, departments, units, enum labels), fetched ONCE per visit.
+   *
+   * Every search, page turn and filter change used to re-request it - six queries server-side for
+   * lists that do not change while the screen is open. A failed fetch is not cached: the next
+   * load tries again.
+   */
+  private readonly reference$ = this.api.getReference().pipe(shareReplay({ bufferSize: 1, refCount: false }));
+
+  /** The page request in flight, so a newer one can supersede it. */
+  private loadSubscription: Subscription | null = null;
 
   // ---- Data ---------------------------------------------------------------------------------
   readonly data = signal<UserDirectoryResponse | null>(null);
@@ -104,10 +116,16 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   readonly focusLoading = signal(false);
   readonly focusFailed = signal(false);
 
-  /** Records already fetched this visit, by user id, so going back to somebody is instant. */
+  /**
+   * Records already fetched this visit, by user id, so going back to somebody is instant.
+   *
+   * FILLED ONLY BY A CHOICE TO OPEN SOMEBODY. The record used to be prefetched when the pointer
+   * merely rested on a row - and reading a record with its unmasked e-mail and mobile is itself
+   * written to the audit trail, so sweeping the mouse down the list recorded a contact-detail
+   * view for every person passed over, none of whom anybody had opened.
+   */
   private readonly detailCache = new Map<string, UserDetail>();
   private readonly inFlight = new Map<string, Observable<UserDetail>>();
-  private prefetchTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** The list row of the focused person: status and lock-out read from here, so they follow actions at once. */
   readonly focused = computed(() => {
@@ -153,7 +171,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   /** The search bar's sliders button opens the filters that did not earn a tab. */
   readonly showAdvancedFilters = signal(false);
 
-  /** Client-side sort of the loaded page by name: asc, then desc, then off. */
+  /** Sort by name across the whole directory (done by the server): asc, then desc, then off. */
   readonly sortDirection = signal<'asc' | 'desc' | 'none'>('none');
 
   // ---- Custom dropdowns ------------------------------------------------------------------------
@@ -185,8 +203,8 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     employeeNumber: '',
     designation: '',
     workLocation: '',
-    preferredLanguage: 'en-GB',
-    timeZoneId: 'UTC',
+    preferredLanguage: '',
+    timeZoneId: '',
   });
 
   /** Set once Save has been pressed, so untouched fields are not shouted at before then. */
@@ -196,9 +214,10 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   private readonly editServerErrors = signal<Record<string, string>>({});
 
   private static readonly EDIT_LABELS: Record<string, string> = {
-    firstName: 'First name', middleName: 'Middle name', lastName: 'Last name', displayName: 'Display name',
+    title: 'Title', firstName: 'First name', middleName: 'Middle name', lastName: 'Last name', displayName: 'Display name',
     preferredName: 'Preferred name', mobileCountryCode: 'Country code', mobileNumber: 'Mobile',
-    employeeNumber: 'Employee number', designation: 'Designation', reason: 'Reason for this change',
+    employeeNumber: 'Employee number', designation: 'Designation', workLocation: 'Work location',
+    reason: 'Reason for this change',
   };
 
   /** What is wrong with each edit-profile field right now (ignores whether Save was pressed). */
@@ -206,6 +225,9 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     const f = this.editForm();
     const code = f.mobileCountryCode.trim();
     return {
+      // Title and work location are saved now, so they are held to the server's own rules.
+      title: nameError('Title', f.title, false, 20),
+      workLocation: textWithLettersError('Work location', f.workLocation, { required: false, max: 200 }),
       firstName: nameError('First name', f.firstName, true, 80),
       middleName: nameError('Middle name', f.middleName, false, 80),
       lastName: nameError('Last name', f.lastName, true, 80),
@@ -228,9 +250,9 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   }
 
   private static readonly EDIT_IDS: Record<string, string> = {
-    firstName: 'edFirst', middleName: 'edMiddle', lastName: 'edLast', displayName: 'edDisplay',
+    title: 'edTitle', firstName: 'edFirst', middleName: 'edMiddle', lastName: 'edLast', displayName: 'edDisplay',
     preferredName: 'edPreferred', mobileCountryCode: 'edCode', mobileNumber: 'edMobile',
-    employeeNumber: 'edEmployee', designation: 'edDesignation', reason: 'edReason',
+    employeeNumber: 'edEmployee', designation: 'edDesignation', workLocation: 'edLocation', reason: 'edReason',
   };
 
   private focusEditField(field: string): void {
@@ -255,19 +277,14 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   readonly users = computed(() => this.data()?.users.items ?? []);
 
-  /** The page in display order — the name column sorts client-side, asc then desc. */
-  readonly sortedUsers = computed(() => {
-    const rows = [...this.users()];
-    const direction = this.sortDirection();
-
-    if (direction === 'none') {
-      return rows;
-    }
-
-    return rows.sort(
-      (a, b) => (a.displayName ?? '').localeCompare(b.displayName ?? '') * (direction === 'asc' ? 1 : -1),
-    );
-  });
+  /**
+   * The page in display order - the order the server returned it in.
+   *
+   * THE NAME SORT IS THE SERVER'S. It used to reorder only the rows already on screen, which put
+   * page one in alphabetical order without making it the alphabetically FIRST page: with three
+   * pages, "A-Z" showed whichever ten people happened to be on page one, sorted among themselves.
+   */
+  readonly sortedUsers = computed(() => this.users());
 
   readonly totalCount = computed(() => this.data()?.users.totalCount ?? 0);
   readonly pageIndex = computed(() => this.data()?.users.page ?? 1);
@@ -315,6 +332,25 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   /** Row-level actions are only drawn once the row exists, so plain gating is right here. */
   readonly canSuspend = computed(() => this.permittedActions().includes('Suspend'));
+  readonly canEdit = computed(() => this.permittedActions().includes('Edit'));
+  readonly canReactivate = computed(() => this.permittedActions().includes('Reactivate'));
+  readonly canResendInvitation = computed(() => this.permittedActions().includes('ResendInvitation'));
+
+  /**
+   * Whether the remove button applies to this person: a draft or an unaccepted invitation is
+   * WITHDRAWN (iam.users.cancel), anybody else is DEACTIVATED (iam.users.deactivate) - the same
+   * split `confirmDelete` makes when it picks the endpoint.
+   */
+  canRemove(user: UserListItem): boolean {
+    // Already withdrawn or deactivated: there is nothing further to remove, and the server
+    // refuses the move. A withdrawn account was offered the button and answered with an error.
+    if (user.status === 'withdrawn' || user.status === 'deactivated') {
+      return false;
+    }
+
+    const action = user.status === 'draft' || user.status === 'invited' ? 'Withdraw' : 'Deactivate';
+    return this.permittedActions().includes(action);
+  }
 
   readonly filterSummary = computed(() => this.data()?.activeFilterSummary ?? '');
   readonly dataScopeSummary = computed(() => this.data()?.dataScopeSummary ?? '');
@@ -335,11 +371,12 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   });
 
   /**
-   * True when the record can simply be removed rather than deactivated.
+   * True when the record is a DRAFT, which is WITHDRAWN rather than deactivated.
    *
-   * Only a DRAFT qualifies: nobody has ever signed in as it, so there is no history to preserve
-   * and nothing to attribute. Everything else is deactivated, because a person's actions have to
-   * remain traceable to somebody long after they have left.
+   * THE NAME IS OLDER THAN THE BEHAVIOUR. Nothing on this screen erases an account: the server
+   * keeps a withdrawn draft, marked Withdrawn, with its e-mail address and username still taken -
+   * and it can be invited again from there. The dialog used to promise the draft was "erased
+   * completely" and "cannot be undone"; neither was true, so it now says what happens.
    */
   readonly isHardDelete = computed(() => this.selected()?.status === 'draft');
 
@@ -383,7 +420,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     if (this.countRaf !== null) {
       cancelAnimationFrame(this.countRaf);
     }
-    this.cancelPrefetch();
+    this.loadSubscription?.unsubscribe();
   }
 
   // =========================================================================================
@@ -394,7 +431,11 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.loadFailed.set(false);
 
-    this.api.getDirectory(this.filter()).subscribe({
+    // A newer load supersedes one still in flight. Otherwise a slow answer for an older search or
+    // page could arrive last and replace the newer one - a list that disagrees with its own
+    // search box.
+    this.loadSubscription?.unsubscribe();
+    this.loadSubscription = this.api.getDirectory(this.filter(), this.reference$).subscribe({
       next: (response) => {
         this.data.set(response);
         this.loading.set(false);
@@ -435,33 +476,6 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     }
 
     this.loadFocus(id);
-  }
-
-  /**
-   * Starts fetching a person's record as soon as the pointer rests on their line, so the click that
-   * usually follows finds it already there. A short delay keeps a sweep across the list from firing a
-   * request per line.
-   */
-  prefetch(user: UserListItem): void {
-    const id = user.id ?? '';
-    if (this.prefetchTimer !== null) {
-      clearTimeout(this.prefetchTimer);
-    }
-    if (!id || this.detailCache.has(id) || this.inFlight.has(id)) {
-      return;
-    }
-
-    this.prefetchTimer = setTimeout(() => {
-      this.prefetchTimer = null;
-      this.fetchDetail(id).subscribe({ error: () => undefined });
-    }, 120);
-  }
-
-  cancelPrefetch(): void {
-    if (this.prefetchTimer !== null) {
-      clearTimeout(this.prefetchTimer);
-      this.prefetchTimer = null;
-    }
   }
 
   /** One request per person at a time; the answer is kept for the next time they are opened. */
@@ -547,7 +561,8 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.openDropdown.set(null);
     this.searchText = '';
     this.activeTab.set('all');
-    this.filter.set({ pageIndex: 1, pageSize: this.pageSize() });
+    // The name sort is not a filter, so it survives clearing them.
+    this.filter.set({ pageIndex: 1, pageSize: this.pageSize(), sort: this.filter().sort });
     this.load();
   }
 
@@ -583,9 +598,23 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.load();
   }
 
-  /** asc → desc → off, so a third click puts the page back the way the server returned it. */
+  /**
+   * asc → desc → off, so a third click puts the directory back in the server's default order.
+   *
+   * Sent to the server and back to page one: the sort applies to the whole directory, so the page
+   * the person was on no longer holds the same people.
+   */
   toggleSort(): void {
-    this.sortDirection.update((current) => (current === 'asc' ? 'desc' : current === 'desc' ? 'none' : 'asc'));
+    const current = this.sortDirection();
+    const next = current === 'asc' ? 'desc' : current === 'desc' ? 'none' : 'asc';
+
+    this.sortDirection.set(next);
+    this.filter.update((filter) => ({
+      ...filter,
+      sort: next === 'none' ? undefined : `displayName ${next}`,
+      pageIndex: 1,
+    }));
+    this.load();
   }
 
   // =========================================================================================
@@ -663,23 +692,30 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   // =========================================================================================
 
   /**
-   * Counts for the tab badges, read straight off the search endpoint with a page of one.
-   * Deliberately cosmetic — a failed count leaves the tabs working and the badges blank.
+   * Counts for the tab badges, from the directory statistics - one request where there used to
+   * be five one-row searches. Deliberately cosmetic — a failed count leaves the tabs working and
+   * the badges blank.
+   *
+   * `byStatus` is keyed by the C# enum name ("Draft"), so it is read case-insensitively.
    */
   private loadStatusCounts(): void {
-    const countFor = (status?: UserStatus) =>
-      this.api.searchUsers({ pageIndex: 1, pageSize: 1, status }).pipe(map((page) => page.totalCount ?? 0));
-
-    forkJoin({
-      all: countFor(),
-      active: countFor('active'),
-      invited: countFor('invited'),
-      suspended: countFor('suspended'),
-      draft: countFor('draft'),
-    })
+    this.api
+      .getStatistics()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (counts) => {
+        next: (statistics) => {
+          const byStatus = new Map(
+            Object.entries(statistics.byStatus ?? {}).map(([status, count]) => [status.toLowerCase(), count]));
+          const countOf = (status: UserStatus) => byStatus.get(status.toLowerCase()) ?? 0;
+
+          const counts: Record<DirectoryTab, number> = {
+            all: statistics.total ?? 0,
+            active: statistics.active ?? countOf('active'),
+            invited: statistics.invited ?? countOf('invited'),
+            suspended: statistics.suspended ?? countOf('suspended'),
+            draft: countOf('draft'),
+          };
+
           this.statusCounts.set(counts);
           this.animateCounts(counts);
         },
@@ -831,22 +867,29 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.editTouched.set(new Set());
     this.editServerErrors.set({});
 
-    // The list row does not carry every editable field, so the full record is fetched.
+    // The list row does not carry every editable field, so the full record is fetched - fresh,
+    // because the save has to quote the record's CURRENT version.
+    //
+    // EVERY FIELD IS WHAT IS STORED, AND NOTHING ELSE. Empty values used to be replaced with
+    // "+91", "en-GB" and "UTC" here, and the save sent them back - so correcting somebody's
+    // surname quietly set their language and time zone, and gave a person with no mobile a
+    // country code. Title, preferred name and work location used to open blank whatever had been
+    // entered, because the server did not keep them; it does now.
     this.loadDetail((user.id ?? ''), (detail) => {
       this.editForm.set({
-        title: '',
+        title: detail.title ?? '',
         firstName: detail.firstName ?? '',
         middleName: detail.middleName ?? '',
         lastName: detail.lastName ?? '',
         displayName: detail.displayName ?? '',
-        preferredName: '',
-        mobileCountryCode: detail.mobileCountryCode || '+91',
+        preferredName: detail.preferredName ?? '',
+        mobileCountryCode: detail.mobileCountryCode ?? '',
         mobileNumber: detail.mobileNumber ?? '',
         employeeNumber: detail.employeeNumber ?? '',
         designation: detail.designation ?? '',
-        workLocation: '',
-        preferredLanguage: detail.preferredCulture ?? 'en-GB',
-        timeZoneId: detail.timeZone ?? 'UTC',
+        workLocation: detail.workLocation ?? '',
+        preferredLanguage: detail.preferredCulture ?? '',
+        timeZoneId: detail.timeZone ?? '',
       });
     });
   }
@@ -932,22 +975,32 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.errorMessage.set('');
     this.editServerErrors.set({});
 
+    const mobileNumber = form.mobileNumber.trim();
+
     this.api
       .updateUser((detail.id ?? ''), {
+        // OPTIONAL TEXT IS SENT AS '' WHEN EMPTIED, NEVER AS null. The server reads null as "leave
+        // this alone" and an empty string as "clear it", so `|| null` made it impossible to remove
+        // a middle name, a designation or a mobile number: the save said "updated" and the old
+        // value stayed.
         firstName: form.firstName.trim(),
-        middleName: form.middleName || null,
+        middleName: form.middleName.trim(),
         lastName: form.lastName.trim(),
         displayName: form.displayName.trim(),
-        mobileCountryCode: form.mobileCountryCode || null,
-        mobileNumber: form.mobileNumber || null,
-        employeeNumber: form.employeeNumber || null,
+        title: form.title.trim(),
+        preferredName: form.preferredName.trim(),
+        // The code goes with the number: clearing the number clears both.
+        mobileCountryCode: mobileNumber ? form.mobileCountryCode.trim() : '',
+        mobileNumber,
+        employeeNumber: form.employeeNumber.trim(),
         // Sent back unchanged: this dialog does not move people between units or departments.
         organisationUnitId: detail.organisationUnitId ?? null,
         departmentId: detail.departmentId ?? null,
-        designation: form.designation || null,
+        designation: form.designation.trim(),
+        workLocation: form.workLocation.trim(),
         managerUserId: detail.managerUserId ?? null,
-        preferredCulture: form.preferredLanguage,
-        timeZone: form.timeZoneId,
+        preferredCulture: form.preferredLanguage.trim(),
+        timeZone: form.timeZoneId.trim(),
         reason: this.reason.trim(),
         // Carrying the version back lets the server refuse the write if somebody else saved.
         expectedVersion: (detail.version ?? 0),
@@ -1124,9 +1177,16 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     return roles.length > 0 ? roles.join(', ') : 'No roles';
   }
 
-  /** Whether an invitation can be sent to this row. */
+  /**
+   * Whether an invitation can be sent to this row.
+   *
+   * A WITHDRAWN ACCOUNT CAN BE INVITED AGAIN - that is how a withdrawn draft or invitation is
+   * brought back, and without it the person could never be added again, because the address
+   * stays taken. An EXPIRED account is not on the list: its access window closed after it had
+   * been activated, the server refuses to invite it, and the button only ever produced an error.
+   */
   canInvite(user: UserListItem): boolean {
-    return user.status === 'draft' || user.status === 'invited' || user.status === 'expired';
+    return user.status === 'draft' || user.status === 'invited' || user.status === 'withdrawn';
   }
 
   /** What the profile panel says about an outstanding invitation. */
@@ -1137,7 +1197,12 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
         : 'Outstanding';
     }
 
-    return detail.status === 'draft' ? 'Not sent' : 'Accepted';
+    if (detail.status === 'draft') {
+      return 'Not sent';
+    }
+
+    // Withdrawn before anybody accepted: "Accepted" here would be the one thing that did not happen.
+    return detail.status === 'withdrawn' ? 'Withdrawn' : 'Accepted';
   }
 
   /** How somebody signs in with a second factor, in the words the screen uses. */

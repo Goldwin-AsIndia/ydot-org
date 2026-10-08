@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { environment } from '../environments/environment';
 import { MainlayoutComponent } from './Shared/mainlayout/mainlayout';
 
 import { ApplayoutComponent } from './Shared/applayout/applayout';
@@ -752,5 +753,22 @@ export const routes: Routes = [
   // Anything unrecognised goes to sign-in rather than a blank page.
   { path: '**', redirectTo: 'auth/sign-in' },
 ];
-routes.unshift({ path: 'pv-rd8', component: ApplayoutComponent, children: [{ path: 'lq', component: LeadWorkQueueComponent }, { path: 'fp', component: FollowUpPlannerComponent }, { path: 'fx', component: FollowUpExecutionComponent }, { path: 'ud', component: UserDirectoryComponent }, { path: 'pr', component: PaymentEventQueueComponent }, { path: 'd3', component: Donor360Component }] });
-routes.unshift({ path: 'pv-lw', component: ApplayoutComponent, children: [{ path: 'ct', component: CommunicationTimelineComponent }] });
+
+// =================================================================================================
+// Screen previews - DEVELOPMENT BUILDS ONLY.
+//
+// Short addresses that open a handful of screens straight inside the application shell, for looking
+// at a layout without signing in. They carry NO authGuard and NO requirePermission, and they are
+// put at the front of the table, so they win over everything above.
+//
+// THAT IS WHY THEY ARE NOT IN A PRODUCTION BUILD. Registered unconditionally, anybody who knew
+// /pv-rd8/ud was shown the User Directory screen - shell, menu and all - with no session, and a
+// signed-in person without iam.users.view reached it the same way. The API still refused the data,
+// so nothing leaked, but a route guard that an alternative address walks around is not a guard.
+// `environment.production` is true in the production and docker builds (angular.json swaps the
+// file), so the two entries below exist only under `ng serve` and a development build.
+// =================================================================================================
+if (!environment.production) {
+  routes.unshift({ path: 'pv-rd8', component: ApplayoutComponent, children: [{ path: 'lq', component: LeadWorkQueueComponent }, { path: 'fp', component: FollowUpPlannerComponent }, { path: 'fx', component: FollowUpExecutionComponent }, { path: 'ud', component: UserDirectoryComponent }, { path: 'pr', component: PaymentEventQueueComponent }, { path: 'd3', component: Donor360Component }] });
+  routes.unshift({ path: 'pv-lw', component: ApplayoutComponent, children: [{ path: 'ct', component: CommunicationTimelineComponent }] });
+}

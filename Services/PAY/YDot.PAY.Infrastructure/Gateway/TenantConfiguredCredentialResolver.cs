@@ -7,32 +7,31 @@ using YDot.PAY.Domain.Entities;
 namespace YDot.PAY.Infrastructure.Gateway;
 
 /// <summary>
-/// Resolves a gateway credential from the Organisation's own configuration first, and from the
-/// deployment's configuration second.
+/// Resolves a gateway credential from the Organisation's own configuration, and from nowhere
+/// else.
 ///
-/// THE TWO SOURCES, AND WHY BOTH EXIST.
+/// THE CREDENTIAL COMES FROM THE ORGANISATION'S ROW IN iam_payment_gateway_configurations - the
+/// Payment Configuration screen's table, where IAM seals it (from an administrator's entry, or
+/// from the deployment's test keys at seed time). It is opened here, at the moment of use, with
+/// the key the two services share.
 ///
-/// The deployment's configuration - <c>PaymentGateways:{reference}:ApiKey</c>, resolved by
-/// <see cref="ConfigurationGatewayCredentialResolver"/> - is the stronger arrangement and is
-/// unchanged: the database holds a NAME, the key lives in the environment, and a stolen backup
-/// yields no credential at all. It costs a deployment per Organisation, which is exactly what
-/// the configuration screen exists to remove.
+/// THERE IS NO FALL-BACK TO A DEPLOYMENT KEY. There used to be: an Organisation with no
+/// configuration, or one whose credential would not open, was silently paid with
+/// <c>PaymentGateways:{reference}:ApiKey</c> from this service's environment. That made a
+/// payment look healthy while it settled into whichever merchant account the environment named -
+/// for a shared default, somebody else's - and it hid a credential IAM and PAY could no longer
+/// agree on behind a donation that still worked. Now either the Organisation's own credential is
+/// used, or no payment is attempted and the caller reports PAYMENT_GATEWAY_NOT_CONFIGURED.
 ///
-/// The Organisation's own configuration is sealed in IAM's table and opened here. Weaker, and
-/// deliberately so - see the entity's own comment in IAM for the full argument - but it lets a
-/// TenantAdmin who has just been issued a merchant key put it somewhere without waiting on a
-/// release.
+/// THE ORGANISATION IS CHECKED BEFORE ANYTHING IS OPENED. The account must belong to the
+/// Organisation the configuration belongs to, and must name that configuration row - the marker
+/// <see cref="ConfiguredGatewayAccountRepository"/> writes into <c>ApiKeyReference</c>. An account
+/// that arrived any other way is refused rather than paired with whichever row the Organisation
+/// has now.
 ///
-/// THE ORDER IS TENANT FIRST, DEPLOYMENT SECOND, and it has to be that way round. An
-/// Organisation that has explicitly entered its own credentials has said where its money goes,
-/// and a deployment default silently winning over that would settle donations into whichever
-/// merchant account the environment happened to name - which for a shared default is somebody
-/// else's.
-///
-/// A FALL-THROUGH IS SILENT AND IS MEANT TO BE. An Organisation with no configuration, or one
-/// whose credential cannot be opened, gets the deployment's answer - which is how every donation
-/// on this platform was taken before this feature existed. The unsealer logs the one case worth
-/// investigating, a credential that is present but will not open.
+/// <see cref="GatewayConfigurationSettings.UseTenantConfiguration"/> false is the one way back to
+/// the deployment's credentials, and it is a restart with that setting changed, never a
+/// fall-through.
 /// </summary>
 internal sealed class TenantConfiguredCredentialResolver(
     ConfigurationGatewayCredentialResolver fallback,
@@ -50,7 +49,9 @@ internal sealed class TenantConfiguredCredentialResolver(
     /// reported to a donor as PAYMENT_GATEWAY_NOT_CONFIGURED; reusing it would make an
     /// Organisation that HAS configured a gateway indistinguishable from one that has not. The
     /// prefix says "look in the tenant configuration", and the configuration id after it makes a
-    /// log line traceable to the row it came from.
+    /// log line traceable to the row it came from - and is checked against the row
+    /// <see cref="Resolve"/> opens, so a credential is only ever paired with the account built
+    /// from it.
     /// </summary>
     private const string ReferencePrefix = "tenant-config:";
 
@@ -77,27 +78,45 @@ internal sealed class TenantConfiguredCredentialResolver(
 
         if (configuration is null)
         {
-            return fallback.Resolve(account);
+            logger.LogWarning(
+                "Organisation {TenantId} has no active payment gateway configuration, so there is "
+                + "no credential to take a payment with. Configure one on the Payment "
+                + "Configuration screen.",
+                account.TenantId);
+
+            return null;
+        }
+
+        if (configuration.TenantId != account.TenantId
+            || !string.Equals(account.ApiKeyReference, ReferenceFor(configuration), StringComparison.Ordinal))
+        {
+            logger.LogError(
+                "Refused a credential for gateway account {AccountId}: it does not name "
+                + "organisation {TenantId}'s active gateway configuration {ConfigurationId}. No "
+                + "payment request was made with it.",
+                account.Id,
+                account.TenantId,
+                configuration.Id);
+
+            return null;
         }
 
         var credential = Build(configuration);
 
-        if (credential is not null)
+        if (credential is null)
         {
-            return credential;
+            // Blank, or sealed with a key this service cannot derive - the unsealer has already
+            // said which. Refused rather than replaced with another key.
+            logger.LogError(
+                "Organisation {TenantId} has an active {Provider} gateway configuration "
+                + "({ConfigurationId}), but no usable credential could be read from it. Payments "
+                + "for this organisation are refused until it is corrected.",
+                account.TenantId,
+                configuration.Provider,
+                configuration.Id);
         }
 
-        // The Organisation has a configuration but no usable credential in it - blank, or sealed
-        // with a key this service cannot derive. Falling back rather than refusing is what keeps
-        // a stack whose keys are in the environment working while somebody half-fills the screen.
-        logger.LogWarning(
-            "Organisation {TenantId} has an active {Provider} gateway configuration, but no "
-            + "usable credential could be read from it. Falling back to this deployment's own "
-            + "configured credentials.",
-            account.TenantId,
-            configuration.Provider);
-
-        return fallback.Resolve(account);
+        return credential;
     }
 
     /// <summary>
@@ -129,7 +148,7 @@ internal sealed class TenantConfiguredCredentialResolver(
         // adapters: "hosted checkout" is whatever endpoint the deployment stood up, so a blank
         // base URL there is not a gap to paper over - it is a configuration this service cannot
         // act on, and building a request against an empty address would throw on the donation
-        // path. Declining here sends the caller to the deployment's own credentials instead.
+        // path. Declining here means no payment request is made at all.
         if (string.IsNullOrWhiteSpace(baseUrl)
             && string.Equals(configuration.Provider, "HostedCheckout", StringComparison.OrdinalIgnoreCase))
         {

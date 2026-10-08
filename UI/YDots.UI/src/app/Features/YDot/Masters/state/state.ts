@@ -10,6 +10,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { Subject, Subscription, debounceTime } from 'rxjs';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { enumLabel } from '../../../../Shared/models/enum-option.model';
 import {
@@ -160,6 +161,10 @@ export class StateComponent implements OnInit {
     this.loadReferenceData();
     this.loadData();
     this.isInitialized = true;
+
+    this.searchTyped$
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.applyFilters());
   }
 
   /**
@@ -273,6 +278,15 @@ export class StateComponent implements OnInit {
   showDeactivateModal = false;
   showDeleteModal = false;
 
+  /** The page request in flight, so a newer one can replace it. */
+  private listSubscription?: Subscription;
+
+  /** The `MasterService.writeVersion` the status totals were last read at; -1 is "never". */
+  private countsReadAt = -1;
+
+  /** Search-box keystrokes, debounced into one request per pause rather than one per letter. */
+  private readonly searchTyped$ = new Subject<void>();
+
   /** The server's totals. A page of ten cannot tell you how many states the catalogue holds. */
   private totalCountFromServer = 0;
   private activeCountFromServer = 0;
@@ -337,7 +351,10 @@ export class StateComponent implements OnInit {
   private loadData(): void {
     this.isLoading = true;
 
-    this.masters
+    // A newer page request replaces one still in flight, so a slow answer to an older search
+    // cannot land last and leave the grid disagreeing with its own search box.
+    this.listSubscription?.unsubscribe();
+    this.listSubscription = this.masters
       .searchStates({
         page: this.currentPage,
         pageSize: this.pageSize,
@@ -368,6 +385,15 @@ export class StateComponent implements OnInit {
           );
         },
       });
+
+    // The active / inactive totals cover the whole catalogue, so a page turn or a search cannot
+    // change them - only a write can. Re-read them on opening and after a write, not on every
+    // load, which made each keystroke three requests.
+    if (this.countsReadAt === this.masters.writeVersion) {
+      return;
+    }
+
+    this.countsReadAt = this.masters.writeVersion;
 
     this.masters
       .searchStates({ pageSize: 1, status: 'active' })
@@ -456,7 +482,7 @@ export class StateComponent implements OnInit {
 
   onSearch(value: string): void {
     this.searchText = value;
-    this.applyFilters();
+    this.searchTyped$.next();
   }
 
   onStatusFilterChange(value: string): void {

@@ -62,6 +62,20 @@ public sealed class CreateUserRequestValidator : AbstractValidator<CreateUserReq
             .WithMessage("An employee number is required for employees.");
 
         RuleFor(request => request.InvitationMessage).MaximumLength(1000);
+
+        RuleFor(request => request.Title).MaximumLength(20).PersonName();
+        RuleFor(request => request.PreferredName).MaximumLength(160).PersonName();
+        RuleFor(request => request.WorkLocation).MaximumLength(200).ContainsLetter();
+        RuleFor(request => request.PreferredCulture).MaximumLength(20);
+        RuleFor(request => request.TimeZone).MaximumLength(80);
+
+        // Optional - an import has no administrator to ask - but when one is given it has to
+        // say something, because it is what the next access review reads.
+        RuleFor(request => request.Justification)
+            .MinimumLength(10)
+            .When(request => !string.IsNullOrWhiteSpace(request.Justification))
+            .WithMessage("Give a justification of at least 10 characters.")
+            .MaximumLength(1000);
     }
 }
 
@@ -87,6 +101,9 @@ public sealed class UpdateUserRequestValidator : AbstractValidator<UpdateUserReq
         RuleFor(request => request.PreferredCulture).MaximumLength(20);
         RuleFor(request => request.TimeZone).MaximumLength(80);
         RuleFor(request => request.AvatarUrl).MaximumLength(500);
+        RuleFor(request => request.Title).MaximumLength(20).PersonName();
+        RuleFor(request => request.PreferredName).MaximumLength(160).PersonName();
+        RuleFor(request => request.WorkLocation).MaximumLength(200).ContainsLetter();
 
         RuleFor(request => request)
             .Must(request => MobileNumberValue.TryParse(
@@ -99,6 +116,29 @@ public sealed class UpdateUserRequestValidator : AbstractValidator<UpdateUserReq
             .GreaterThanOrEqualTo(request => request.JoinedOn!.Value)
             .When(request => request.JoinedOn.HasValue && request.ExitedOn.HasValue)
             .WithMessage("The exit date cannot be before the joining date.");
+    }
+}
+
+/// <summary>
+/// The self-service profile edit. It had no validator, so the only limits on its text were the
+/// column widths - an over-long value reached the database and came back as a 500 rather than as
+/// a message under the field.
+/// </summary>
+public sealed class UpdateMyProfileRequestValidator : AbstractValidator<MyProfile.UpdateMyProfileRequest>
+{
+    public UpdateMyProfileRequestValidator()
+    {
+        RuleFor(request => request.ExpectedVersion)
+            .GreaterThan(0).WithMessage("Reload the page and try again.");
+
+        RuleFor(request => request.DisplayName).MaximumLength(160).PersonName();
+        RuleFor(request => request.Designation).MaximumLength(120).ContainsLetter();
+        RuleFor(request => request.PreferredCulture).MaximumLength(20);
+        RuleFor(request => request.TimeZone).MaximumLength(80);
+        RuleFor(request => request.Title).MaximumLength(20).PersonName();
+        RuleFor(request => request.PreferredName).MaximumLength(160).PersonName();
+        RuleFor(request => request.WorkLocation).MaximumLength(200).ContainsLetter();
+        RuleFor(request => request.Reason).MaximumLength(500);
     }
 }
 
@@ -279,6 +319,15 @@ public sealed class CreateRoleRequestValidator : AbstractValidator<CreateRoleReq
         RuleFor(request => request.Priority)
             .InclusiveBetween(0, 999)
             .WithMessage("Priority must be between 0 and 999.");
+
+        // The same contradiction the permission editor refuses: deny would win without a word.
+        RuleFor(request => request)
+            .Must(request => request.DeniedPermissionCodes is null
+                             || request.PermissionCodes is null
+                             || !request.DeniedPermissionCodes.Intersect(
+                                 request.PermissionCodes, StringComparer.Ordinal).Any())
+            .WithName(nameof(CreateRoleRequest.DeniedPermissionCodes))
+            .WithMessage("A permission cannot be both granted and denied.");
     }
 }
 
@@ -322,6 +371,36 @@ public sealed class AssignRolePermissionsRequestValidator : AbstractValidator<As
                                  request.PermissionCodes, StringComparer.Ordinal).Any())
             .WithName(nameof(AssignRolePermissionsRequest.DeniedPermissionCodes))
             .WithMessage("A permission cannot be both granted and denied.");
+    }
+}
+
+public sealed class ChangeRoleStatusRequestValidator : AbstractValidator<ChangeRoleStatusRequest>
+{
+    public ChangeRoleStatusRequestValidator()
+    {
+        RuleFor(request => request.ExpectedVersion).GreaterThan(0);
+
+        // Retiring a role takes its permissions from everybody who holds it, and putting one into
+        // use hands them out. The audit row has to say why in the administrator's own words - a
+        // sentence the screen made up says the same thing about every role there has ever been.
+        RuleFor(request => request.Reason)
+            .NotEmpty().WithMessage("Give a reason.")
+            .MinimumLength(10).WithMessage("The reason must be at least 10 characters.")
+            .MaximumLength(1000);
+    }
+}
+
+public sealed class DeleteRoleRequestValidator : AbstractValidator<DeleteRoleRequest>
+{
+    public DeleteRoleRequestValidator()
+    {
+        RuleFor(request => request.ExpectedVersion).GreaterThan(0);
+
+        // A deleted role leaves nothing behind but its audit row, so that row carries the why.
+        RuleFor(request => request.Reason)
+            .NotEmpty().WithMessage("Give a reason.")
+            .MinimumLength(10).WithMessage("The reason must be at least 10 characters.")
+            .MaximumLength(1000);
     }
 }
 

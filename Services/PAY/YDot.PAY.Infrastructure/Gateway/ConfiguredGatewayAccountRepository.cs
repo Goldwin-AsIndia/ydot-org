@@ -80,6 +80,12 @@ internal sealed class ConfiguredGatewayAccountRepository(
     ///
     /// THIS IS THE ONE THE MONEY GOES THROUGH. Every donation, every verification, every refund
     /// resolves its account here.
+    ///
+    /// NO CONFIGURATION, NO ACCOUNT. A <c>pay_gateway_accounts</c> row on its own holds no
+    /// credential - only the name of a deployment setting this service no longer pays with - so
+    /// an Organisation that has not configured its gateway gets null, and the caller refuses the
+    /// payment with PAYMENT_GATEWAY_NOT_CONFIGURED before any attempt is opened. Returning the
+    /// bare row instead would open an attempt that could only fail.
     /// </summary>
     public async Task<PaymentGatewayAccount?> GetActiveForTenantAsync(
         Guid tenantId, CancellationToken cancellationToken)
@@ -97,7 +103,26 @@ internal sealed class ConfiguredGatewayAccountRepository(
 
         if (configuration is null)
         {
-            return account;
+            logger.LogWarning(
+                "Organisation {TenantId} has no active payment gateway configuration, so it cannot "
+                + "take payments until one is set up on the Payment Configuration screen.",
+                tenantId);
+
+            return null;
+        }
+
+        // The reader filters on the Organisation already. Checked again here because this is the
+        // last step before the configuration's credentials are put behind a payment.
+        if (configuration.TenantId != tenantId)
+        {
+            logger.LogError(
+                "Gateway configuration {ConfigurationId} belongs to organisation {ConfigurationTenantId}, "
+                + "not {TenantId}. It was not used.",
+                configuration.Id,
+                configuration.TenantId,
+                tenantId);
+
+            return null;
         }
 
         if (account is null)

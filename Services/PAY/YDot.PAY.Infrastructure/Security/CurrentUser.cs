@@ -185,12 +185,24 @@ public sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICur
     private const string DonorRoleCode = "DONOR";
 
     /// <summary>
-    /// The roles that mean "this person is staff", whatever else they also hold.
+    /// The roles that mean "this person is staff", whatever else they also hold - every
+    /// Organisation role IAM seeds except DONOR. Mirrors IAM's <c>RoleCodes</c>.
     ///
     /// SUPER_ADMIN AND TENANT_ADMIN ARE NOT LISTED because their own claims are checked directly
     /// above - the token carries a boolean for each, which is the authoritative form.
+    ///
+    /// A STAFF ROLE MISSING HERE IS NOT HARMLESS. Somebody holding it AND Donor would be narrowed
+    /// to their own giving on every payment screen, so this list has to move whenever IAM's role
+    /// catalogue does - it named INITIATOR and APPROVER until those two were retired.
     /// </summary>
-    private static readonly string[] StaffRoleCodes = ["INITIATOR", "APPROVER"];
+    private static readonly string[] StaffRoleCodes =
+    [
+        "CAMPAIGN_EXECUTIVE",
+        "CAMPAIGN_MANAGER",
+        "FUNDRAISER_EXECUTIVE",
+        "FUNDRAISING_MANAGER",
+        "DONOR_CARE"
+    ];
 
     private string? FindFirst(string claimType) => Principal?.FindFirst(claimType)?.Value;
 

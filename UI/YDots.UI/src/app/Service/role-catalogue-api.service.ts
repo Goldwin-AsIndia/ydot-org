@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, forkJoin, map } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { fetchAllPages } from '../Shared/services/paging';
 import {
   ApiResponse,
   LookupItem,
@@ -210,17 +211,19 @@ export class RoleCatalogueApiService {
   // ---- The vocabulary the role screen uses ---------------------------------------------------
 
   /**
-   * The catalogue, shaped for the screen.
+   * The catalogue, shaped for the screen: EVERY role matching the filter, plus its vocabularies.
    *
-   * The screen wants rows plus its filter vocabularies; the API serves the rows. The
-   * vocabularies are the domain's own — three statuses and three role types — so they are named
-   * here rather than fetched from an endpoint whose whole payload would be six words.
+   * The screen searches, filters and counts in the browser, so it needs the whole list. It used
+   * to take one page of "100" - the server's ceiling - and treat it as the catalogue, so the
+   * 101st role and every count past it silently went missing. The vocabularies are the domain's
+   * own - three statuses and three role types - so they are named here rather than fetched from an
+   * endpoint whose whole payload would be six words.
    */
-  getCatalogue(filter: RoleSearchFilter): Observable<RoleCatalogueView> {
-    return this.search(filter).pipe(
-      map((page) => ({
-        roles: page.items ?? [],
-        totalCount: page.totalCount ?? 0,
+  getCatalogue(filter: RoleSearchFilter = {}): Observable<RoleCatalogueView> {
+    return fetchAllPages((page, pageSize) => this.search({ ...filter, page, pageSize })).pipe(
+      map((roles) => ({
+        roles,
+        totalCount: roles.length,
         statusOptions: RoleCatalogueApiService.STATUS_OPTIONS,
         roleTypeOptions: RoleCatalogueApiService.ROLE_TYPE_OPTIONS,
       })),
@@ -295,10 +298,16 @@ export class RoleCatalogueApiService {
     { id: 'inactive', code: 'inactive', name: 'Retired', isActive: true },
   ];
 
+  /**
+   * The server's `RoleType`: tenant, template, platform.
+   *
+   * THERE IS NO "custom" ROLE TYPE. The filter offered one, which matched nothing whatever the
+   * catalogue held, and had no entry for the template roles that do exist.
+   */
   private static readonly ROLE_TYPE_OPTIONS: LookupItem[] = [
-    { id: 'platform', code: 'platform', name: 'Platform', isActive: true },
     { id: 'tenant', code: 'tenant', name: 'Organisation', isActive: true },
-    { id: 'custom', code: 'custom', name: 'Custom', isActive: true },
+    { id: 'template', code: 'template', name: 'Template', isActive: true },
+    { id: 'platform', code: 'platform', name: 'Platform', isActive: true },
   ];
 
   private toParams(filter: RoleSearchFilter): HttpParams {

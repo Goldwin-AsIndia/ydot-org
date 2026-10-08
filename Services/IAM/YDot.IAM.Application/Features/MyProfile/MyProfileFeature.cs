@@ -15,11 +15,14 @@ namespace YDot.IAM.Application.Features.MyProfile;
 /// <summary>
 /// Body of "save my own profile".
 ///
-/// FIVE FIELDS, AND THE LIST IS THE POINT. An administrative edit may move somebody's
+/// A SHORT LIST, AND THE LIST IS THE POINT. An administrative edit may move somebody's
 /// department, manager, account category, access window and MFA requirement; a person editing
 /// their own record may not, because every one of those is a statement about their place in the
 /// organisation rather than about them. Anything absent from this record simply cannot be
 /// reached through this endpoint, which is a tighter guarantee than checking it in a handler.
+///
+/// Title, preferred name and work location sit with the display name and designation: they are
+/// about the person, and the profile's edit dialog has always offered them.
 /// </summary>
 public sealed record UpdateMyProfileRequest(
     long ExpectedVersion,
@@ -29,7 +32,10 @@ public sealed record UpdateMyProfileRequest(
     string? Designation = null,
     string? PreferredCulture = null,
     string? TimeZone = null,
-    string? Reason = null);
+    string? Reason = null,
+    string? Title = null,
+    string? PreferredName = null,
+    string? WorkLocation = null);
 
 /// <summary>Saves the caller's own profile. There is no user id: it is always the caller.</summary>
 public sealed record UpdateMyProfileCommand(UpdateMyProfileRequest Request);
@@ -115,7 +121,10 @@ public sealed class MyProfileFeatureHandler(
             Designation: request.Designation,
             PreferredCulture: request.PreferredCulture,
             TimeZone: request.TimeZone,
-            Reason: request.Reason).ApplyTo(user);
+            Reason: request.Reason,
+            Title: request.Title,
+            PreferredName: request.PreferredName,
+            WorkLocation: request.WorkLocation).ApplyTo(user);
 
         await audit.WriteAsync(
             AuditActionCodes.UserUpdated, nameof(User), user.Id, user.DisplayName,

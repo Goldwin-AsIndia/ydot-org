@@ -120,7 +120,7 @@ public sealed class PeopleDirectory(
         //
         // display_name falls back to the first and last name because it is set from them at
         // creation and can be blank on a row imported another way - an owner column reading
-        // "Arun Pillai" is what the screen is for, and one reading nothing is the bug being fixed.
+        // "Arun Kumar" is what the screen is for, and one reading nothing is the bug being fixed.
         const string Sql = """
             SELECT id,
                    code,

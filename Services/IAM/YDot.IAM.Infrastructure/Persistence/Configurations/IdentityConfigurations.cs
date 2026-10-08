@@ -86,6 +86,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(user => user.MiddleName).HasMaxLength(80);
         builder.Property(user => user.LastName).HasMaxLength(80).IsRequired();
         builder.Property(user => user.DisplayName).HasMaxLength(160).IsRequired();
+        builder.Property(user => user.Title).HasMaxLength(20);
+        builder.Property(user => user.PreferredName).HasMaxLength(160);
+        builder.Property(user => user.WorkLocation).HasMaxLength(200);
         builder.Property(user => user.Designation).HasMaxLength(120);
         builder.Property(user => user.MobileCountryCode).HasMaxLength(8);
         builder.Property(user => user.MobileNumber).HasMaxLength(20);
@@ -204,6 +207,13 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
         builder.Property(role => role.NormalizedCode).HasMaxLength(50).IsRequired();
         builder.Property(role => role.Description).HasMaxLength(500);
         builder.Property(role => role.DisplayTag).HasMaxLength(40);
+
+        // An empty array rather than null, so every existing role reads as "nothing withheld"
+        // without a backfill and the seeder never has to tell the two apart.
+        builder.Property(role => role.WithheldPermissionCodes)
+            .HasColumnType("text[]")
+            .HasDefaultValueSql("'{}'::text[]")
+            .IsRequired();
 
         builder.Property(role => role.Status).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(role => role.RoleType).HasConversion<string>().HasMaxLength(80).IsRequired();

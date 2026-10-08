@@ -27,7 +27,14 @@ public sealed record CreateRoleRequest(
     IReadOnlyList<string>? PermissionCodes = null,
 
     /// <summary>Menu nodes this role may see. Empty means no navigation restriction.</summary>
-    IReadOnlyList<Guid>? VisibleMenuIds = null);
+    IReadOnlyList<Guid>? VisibleMenuIds = null,
+
+    /// <summary>
+    /// Codes explicitly denied on creation - the same list <see cref="AssignRolePermissionsRequest"/>
+    /// takes. Without it a role could only be created with grants, and the "Deny" half of the
+    /// create form had nowhere to go: what was picked there was dropped without a word.
+    /// </summary>
+    IReadOnlyList<string>? DeniedPermissionCodes = null);
 
 /// <summary>Editing a role.</summary>
 public sealed record UpdateRoleRequest(
@@ -141,7 +148,10 @@ public sealed record RolePermissionResponse(
     bool IsSensitive,
     bool IsDenied,
     DateTimeOffset GrantedAtUtc,
-    DateTimeOffset? ExpiresAtUtc);
+    DateTimeOffset? ExpiresAtUtc,
+
+    /// <summary>The module's readable name - the same one the permission matrix shows.</summary>
+    string? ModuleName = null);
 
 /// <summary>One claim carried by holders of a role.</summary>
 public sealed record RoleClaimResponse(int Id, string ClaimType, string ClaimValue, string? Description);

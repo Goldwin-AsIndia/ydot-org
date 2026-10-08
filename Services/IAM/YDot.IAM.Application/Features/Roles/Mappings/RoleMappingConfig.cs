@@ -80,7 +80,8 @@ public static class RoleMappingConfig
             rolePermission.Permission?.IsSensitive ?? false,
             rolePermission.IsDenied,
             rolePermission.GrantedAtUtc,
-            rolePermission.ExpiresAtUtc);
+            rolePermission.ExpiresAtUtc,
+            DescribeModule(rolePermission.Permission?.ModuleCode ?? string.Empty));
 
     public static PermissionListItemResponse ToListItemResponse(this Permission permission) =>
         new(

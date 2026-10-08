@@ -1,0 +1,35 @@
+{
+  "_about": [
+    "Notes that tools/generate-iam-contract.py writes into iam-contract.model.ts as doc comments.",
+    "",
+    "The contract file is generated and must not be edited by hand - the next run would discard the",
+    "edit. Explanations that somebody wrote into it by hand live here instead, keyed by",
+    "\"Interface.field\" (or just \"TypeName\"), and the generator puts them back every time. A",
+    "description published by the API itself always wins over a note with the same key."
+  ],
+
+  "EnumOptionsResponse.organisationTypes": [
+    "Stored text rather than enum members: value and label are the same label."
+  ],
+
+  "InvitationPreviewResponse.dialingCodes": [
+    "Dialling prefixes for the mobile number on the SMS/WhatsApp enrolment step.",
+    "",
+    "They arrive with the preview because the activation screen is anonymous and cannot call",
+    "the authenticated `/masters/lookups/countries` endpoint — doing so answered 401 and the",
+    "interceptor redirected the whole screen to sign-in."
+  ],
+
+  "OrganisationDetailResponse.editableProfileFields": [
+    "The profile fields the Organisation's current state still allows to be changed.",
+    "",
+    "Once SuperAdmin has approved it this narrows to contact e-mail, telephone and address —",
+    "the identity fields were verified against the uploaded documents and the server discards",
+    "them from a profile save afterwards. Absent means \"an older API that has not been told to",
+    "restrict anything\", which the screen treats as the whole form."
+  ],
+
+  "OrganisationDocumentResponse.submissionId": [
+    "Null for files uploaded before grouped submissions existed."
+  ]
+}

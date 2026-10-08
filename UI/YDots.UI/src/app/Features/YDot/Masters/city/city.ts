@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { Subject, Subscription, debounceTime } from 'rxjs';
 import {
   FormBuilder,
   FormGroup,
@@ -287,8 +288,21 @@ export class CityComponent implements OnInit {
 
   inactiveCount = computed(() => this.inactiveCountFromServer());
 
+  /** The page request in flight, so a newer one can replace it. */
+  private listSubscription?: Subscription;
+
+  /** The `MasterService.writeVersion` the status totals were last read at; -1 is "never". */
+  private countsReadAt = -1;
+
+  /** Search-box keystrokes, debounced into one request per pause rather than one per letter. */
+  private readonly searchTyped$ = new Subject<void>();
+
   /* ───────────────────── Lifecycle ───────────────────── */
   ngOnInit(): void {
+    this.searchTyped$
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.applyFilters());
+
     this.loadReferenceData();
     this.form = this.fb.group({
       cityCode: ['', [Validators.required, Validators.maxLength(15)]],
@@ -555,7 +569,10 @@ export class CityComponent implements OnInit {
   private loadListData(): void {
     this.isLoading.set(true);
 
-    this.masters
+    // A newer page request replaces one still in flight, so a slow answer to an older search
+    // cannot land last and leave the grid disagreeing with its own search box.
+    this.listSubscription?.unsubscribe();
+    this.listSubscription = this.masters
       .searchCities({
         page: this.currentPage(),
         pageSize: this.pageSize(),
@@ -587,6 +604,15 @@ export class CityComponent implements OnInit {
           );
         },
       });
+
+    // The active / inactive totals cover the whole catalogue, so a page turn or a search cannot
+    // change them - only a write can. Re-read them on opening and after a write, not on every
+    // load, which made each keystroke three requests.
+    if (this.countsReadAt === this.masters.writeVersion) {
+      return;
+    }
+
+    this.countsReadAt = this.masters.writeVersion;
 
     this.masters
       .searchCities({ pageSize: 1, status: 'active' })
@@ -654,7 +680,7 @@ export class CityComponent implements OnInit {
   /* ───────────────────── List methods ───────────────────── */
   onSearch(value: string): void {
     this.searchText = value;
-    this.applyFilters();
+    this.searchTyped$.next();
   }
 
   onCountryChangeFilter(value: string): void {

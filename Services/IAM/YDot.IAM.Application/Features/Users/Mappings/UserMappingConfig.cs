@@ -52,6 +52,9 @@ public static class UserMappingConfig
         SetText(request.PreferredCulture, () => user.PreferredCulture, value => user.PreferredCulture = value, nameof(User.PreferredCulture));
         SetText(request.TimeZone, () => user.TimeZone, value => user.TimeZone = value, nameof(User.TimeZone));
         SetText(request.AvatarUrl, () => user.AvatarUrl, value => user.AvatarUrl = value, nameof(User.AvatarUrl));
+        SetText(request.Title, () => user.Title, value => user.Title = value, nameof(User.Title));
+        SetText(request.PreferredName, () => user.PreferredName, value => user.PreferredName = value, nameof(User.PreferredName));
+        SetText(request.WorkLocation, () => user.WorkLocation, value => user.WorkLocation = value, nameof(User.WorkLocation));
 
         // DisplayName follows the name unless it was set explicitly, so a rename does not
         // leave a stale display name behind.
@@ -330,7 +333,8 @@ public static class UserMappingConfig
                                 permission.IsSensitive,
                                 permission.IsGranted,
                                 permission.GrantedVia))
-                    ]))
+                    ],
+                    Features.Roles.Mappings.RoleMappingConfig.DescribeModule(group.Key.ModuleCode)))
         ];
     }
 }
