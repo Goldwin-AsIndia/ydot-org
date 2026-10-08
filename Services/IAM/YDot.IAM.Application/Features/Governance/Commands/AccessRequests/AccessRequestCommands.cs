@@ -654,12 +654,13 @@ public sealed class AccessRequestCommandHandler(
 
         var tenant = await tenants.GetByIdAsync(accessRequest.TenantId, cancellationToken);
 
-        // APPROVER, not the ACCESS_APPROVER this used to name. That role was one of thirteen
-        // job-shaped roles the catalogue no longer seeds; the code below looks the role up by
-        // code and returns quietly when it finds nothing, so the rename would not have thrown -
-        // it would simply have stopped notifying anybody that a request was waiting.
+        // TENANT_ADMIN, because the Organisation Admin is the only role that decides access
+        // requests: none of the working roles holds `iam.access-requests.approve`. It named
+        // APPROVER before that role was retired, and the lookup below returns quietly when the
+        // code finds nothing - so a stale code would not have thrown, it would simply have
+        // stopped notifying anybody that a request was waiting.
         var approverRole = await roles.GetByCodeAsync(
-            RoleCodes.Approver, accessRequest.TenantId, cancellationToken);
+            RoleCodes.TenantAdmin, accessRequest.TenantId, cancellationToken);
 
         if (approverRole is null)
         {

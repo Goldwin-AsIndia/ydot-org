@@ -10,9 +10,20 @@ surfaces as an empty cell on a screen weeks later. Generating removes the whole 
 
 Regenerate whenever the API contract changes:
 
-    python tools/generate-iam-contract.py http://localhost:5017/swagger/v1/swagger.json
+    python tools/generate-iam-contract.py http://localhost:6702/swagger/v1/swagger.json
 
 The output is committed, so a build never depends on the API being up.
+
+NEVER EDIT THE OUTPUT BY HAND - NOT EVEN TO ADD A COMMENT
+---------------------------------------------------------
+The next run discards it. That is how the committed file once drifted until it was neither this
+script's output nor a subset of it: a type was added by hand for an endpoint the API does not
+have, and four explanations were written into it that a regeneration would have deleted, so
+nobody dared regenerate and new API fields were typed in by hand instead.
+
+An explanation worth keeping goes in tools/iam-contract.notes.json, keyed "Interface.field" or
+"TypeName". This script writes it back as a doc comment on every run. A type the API does not
+publish does not belong in the contract at all - put it beside the service that uses it.
 """
 import io
 import json
@@ -21,10 +32,12 @@ import re
 import sys
 import urllib.request
 
-DEFAULT_URL = "http://localhost:5017/swagger/v1/swagger.json"
+DEFAULT_URL = "http://localhost:6702/swagger/v1/swagger.json"
 OUT = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "..", "src", "app", "Shared", "models", "iam-contract.model.ts")
+
+NOTES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "iam-contract.notes.json")
 
 PRIMITIVES = {
     ("string", None): "string",
@@ -49,6 +62,19 @@ def load(url):
             return json.loads(response.read().decode("utf-8"))
     with io.open(url, encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def load_notes():
+    """Hand-written explanations to carry into the output. See the note at the top of this file."""
+    if not os.path.exists(NOTES):
+        return {}
+    with io.open(NOTES, encoding="utf-8") as handle:
+        raw = json.load(handle)
+    return {
+        key: "\n".join(value) if isinstance(value, list) else str(value)
+        for key, value in raw.items()
+        if not key.startswith("_")
+    }
 
 
 def ref_name(ref):
@@ -113,6 +139,17 @@ def main():
     url = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_URL
     document = load(url)
     schemas = document.get("components", {}).get("schemas", {})
+    notes = load_notes()
+    used_notes = set()
+
+    def describe(node, key):
+        """The API's own description when it publishes one, otherwise the note kept for this key."""
+        if node.get("description"):
+            return node["description"]
+        if key in notes:
+            used_notes.add(key)
+            return notes[key]
+        return None
 
     out = [
         "/* eslint-disable */",
@@ -148,7 +185,7 @@ def main():
             union = " | ".join("'%s'" % value for value in values)
         else:
             union = " | ".join(str(value) for value in values)
-        description = doc(node.get("description"))
+        description = doc(describe(node, safe_name(name)))
         if description:
             out.append(description)
         out.append("export type %s = %s;" % (safe_name(name), union))
@@ -166,7 +203,7 @@ def main():
         if "enum" in node:
             continue
 
-        description = doc(node.get("description"))
+        description = doc(describe(node, safe_name(name)))
         properties = node.get("properties")
 
         if not properties:
@@ -182,7 +219,7 @@ def main():
         out.append("export interface %s {" % safe_name(name))
 
         for prop, sub in properties.items():
-            member_doc = doc(sub.get("description"), "  ")
+            member_doc = doc(describe(sub, "%s.%s" % (safe_name(name), prop)), "  ")
             if member_doc:
                 out.append(member_doc)
             optional = "" if prop in required else "?"
@@ -199,8 +236,13 @@ def main():
     with io.open(target, "w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(out).rstrip() + "\n")
 
-    print("wrote %s (%d enums, %d interfaces)"
-          % (target, len(enum_names), len(schemas) - len(enum_names)))
+    print("wrote %s (%d enums, %d interfaces, %d notes)"
+          % (target, len(enum_names), len(schemas) - len(enum_names), len(used_notes)))
+
+    # A note whose type or field has gone is explaining something that no longer exists.
+    for key in sorted(set(notes) - used_notes):
+        print("WARNING: note for %s matched nothing in the API - remove or rename it in %s"
+              % (key, os.path.basename(NOTES)))
 
 
 if __name__ == "__main__":

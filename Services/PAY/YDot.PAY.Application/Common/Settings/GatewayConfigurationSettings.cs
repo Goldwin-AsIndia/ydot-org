@@ -34,12 +34,16 @@ public sealed class GatewayConfigurationSettings
     public string EncryptionKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Whether a tenant-entered configuration is allowed to override the deployment's own.
+    /// Whether payments are made with each Organisation's own configuration. On by default, and
+    /// then it is the ONLY source of a credential: an Organisation without an active, readable
+    /// configuration takes no payment rather than borrowing a deployment key.
     ///
-    /// AN ESCAPE HATCH, AND ONE WORTH HAVING. If a configuration screen ever put a bad credential
-    /// in front of every donation for an Organisation, this turns the whole mechanism off with a
-    /// restart and puts the deployment's configured credentials back in charge - without a
-    /// release, and without an administrator having to find and correct the row first.
+    /// AN ESCAPE HATCH WHEN OFF. If a configuration screen ever put a bad credential in front of
+    /// every donation for an Organisation, this turns the whole mechanism off with a restart and
+    /// puts the deployment's configured credentials back in charge - without a release, and
+    /// without an administrator having to find and correct the row first. Those credentials
+    /// (<c>PaymentGateways:{name}:ApiKey</c>, and a <c>pay_gateway_accounts</c> row naming them)
+    /// are no longer supplied by default, so they have to be provided along with it.
     /// </summary>
     public bool UseTenantConfiguration { get; set; } = true;
 }

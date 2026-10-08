@@ -196,9 +196,18 @@ public sealed class RolesController(
         return FromResult(result);
     }
 
+    /// <summary>
+    /// Puts a role into use, or retires it.
+    ///
+    /// WHICH PERMISSION IT NEEDS DEPENDS ON THE DIRECTION - iam.roles.activate to put a role into
+    /// use, iam.roles.deactivate to retire one - and the direction is in the body, so the handler
+    /// asks for it. An attribute here could only ever name one of the two, which is how
+    /// iam.roles.deactivate came to be a permission nothing checked.
+    /// </summary>
     [HttpPost("{id:guid}/status")]
-    [HasPermission(PermissionCodes.RolesActivate)]
+    [Authorize(Policy = PolicyNames.FullAccessToken)]
     [ProducesResponseType(typeof(ApiResponse<OutcomeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ChangeStatusAsync(
         Guid id, [FromBody] ChangeRoleStatusRequest request, CancellationToken cancellationToken)
     {

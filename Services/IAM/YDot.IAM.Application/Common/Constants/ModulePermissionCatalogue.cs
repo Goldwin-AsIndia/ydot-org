@@ -114,7 +114,7 @@ public static class ModulePermissionCatalogue
     /// configured.
     ///
     /// THE ACTIONS ARE MIRRORED IN <c>YDots.CAM.Application/Common/Constants/PermissionCodes.cs</c>,
-    /// entry for entry. IAM derives INITIATOR and APPROVER from the action declared here, and CAM
+    /// entry for entry. IAM derives the maker and checker sets from the action declared here, and CAM
     /// states the same action beside its own constant so the two can be compared; a code the two
     /// services classify differently is granted by one and withheld by the other.
     /// </summary>
@@ -152,9 +152,9 @@ public static class ModulePermissionCatalogue
 
         // THE DISABLE PAIR. Taking a live asset down stops a PRINTED QR code resolving, so the
         // person who made the asset asks and somebody else decides - the same maker-checker split
-        // the campaign close already has. Request is a Submit, which keeps it out of APPROVER;
-        // the decision is an Operate named in PostApprovalOperations, which keeps it out of
-        // INITIATOR.
+        // the campaign close already has. Request is a Submit, which keeps it out of the checker;
+        // the decision is an Operate named in PostApprovalOperations, which keeps it out of the
+        // maker.
         new("cam.tracking-assets.request-disable", "Request a tracking asset disable", "CAM", "TrackingAssets", PermissionAction.Submit),
         new("cam.tracking-assets.deactivate", "Approve a tracking asset disable", "CAM", "TrackingAssets", PermissionAction.Operate, IsSensitive: true),
 

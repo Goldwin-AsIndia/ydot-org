@@ -1119,6 +1119,29 @@ export function canPerform(
 }
 
 /**
+ * Why the server will refuse to take a payment on this donation, or null when it will not.
+ *
+ * THE SAME FOUR STATES THE SERVER REFUSES WHEN A PAYMENT IS OPENED, and only those. A donation
+ * form that reopens one of these must not offer Continue to payment: pressing it can only end
+ * in an error - "A payment is already in progress for this donation" for the commonest of them.
+ */
+export function unpayableReason(status: DonationIntentStatus | null | undefined): string | null {
+  switch (status) {
+    case 'paymentInProgress':
+      return 'A payment for this donation is already in progress with the payment provider. It cannot '
+        + 'be paid again until that payment is confirmed or released, so that nobody is charged twice.';
+    case 'paid':
+      return 'This donation has already been paid. Thank you - a receipt is on its way.';
+    case 'cancelled':
+      return 'This donation was cancelled, so it cannot be paid. Start a new donation instead.';
+    case 'expired':
+      return 'This donation has expired, so it cannot be paid. Start a new donation instead.';
+    default:
+      return null;
+  }
+}
+
+/**
  * The colour class for a status chip, so the six registers agree with one another.
  *
  * Returns a token the existing theme already defines rather than a hex value - the screens are

@@ -1,46 +1,33 @@
 namespace YDots.CAM.Application.Common.Settings;
 
 /// <summary>
-/// What the demonstration campaign is stamped with.
+/// Whether the demonstration campaigns are written.
 ///
-/// <see cref="OrganisationId"/> HAS TO MATCH IAM's <c>SeedSettings:SampleOrganisationId</c>, and
-/// DON's <c>SeedSettings:OrganisationId</c> with it. Every Tenant-owned row in CAM is filtered to
-/// the Organisation on the caller's token, so a campaign stamped with anything else sits outside
-/// every real user's scope: present in the database, returned by nothing, and baffling to the
-/// first person who goes looking for the campaign the release notes promised.
+/// THERE IS NO ORGANISATION ID HERE ANY MORE, and its absence is the point. The demonstration
+/// data used to be stamped with a configured <c>OrganisationId</c> that had to match IAM's
+/// <c>SeedSettings:SampleOrganisationId</c> and DON's and PAY's copies of it, so one wrong value
+/// in one service put its sample rows where no real user's token could reach them - present in
+/// the database, returned by nothing. The data now covers two Organisations, only one of which
+/// has a configured id at all, so each is found by its SUBDOMAIN in IAM's own table at the
+/// moment of seeding. There is nothing left to keep in step.
 ///
-/// THE THREE ARE SET FROM ONE PLACE so they cannot drift. docker-compose passes a single
-/// <c>SAMPLE_ORGANISATION_ID</c> into all three services, and the defaults below match the other
-/// two - so the platform is correct with no .env at all, and overriding one without the others is
-/// the mistake this arrangement exists to prevent.
-///
-/// WHY CAM SEEDS A CAMPAIGN AT ALL, having deliberately stopped. The seeder's own comment records
-/// why the previous sample data was removed: it was stamped with a fabricated Organisation that
-/// no real token ever carried. That was the right removal, and it left a gap - a fresh database
-/// has no campaign, so the donation form's campaign picker is empty, no tracking asset can be
-/// generated, and nothing downstream of a campaign can be demonstrated or tested without somebody
-/// first driving the creation wizard by hand. This puts one back, keyed on the Organisation that
-/// genuinely exists.
+/// The actor on each row is likewise a real account of the Organisation - the Campaign Executive
+/// who created the campaign, the Campaign Manager who approved it - rather than a configured
+/// system user, which is what lets each of them find their own work in the register.
 /// </summary>
 public sealed class SeedSettings
 {
     public const string SectionName = "SeedSettings";
 
-    /// <summary>The seeded Organisation. Matches IAM SeedSettings:SampleOrganisationId.</summary>
-    public Guid OrganisationId { get; set; } = Guid.Parse("9fb11890-a08e-4adc-95ca-8e4d71f4dd21");
-
-    /// <summary>The IAM system user, used as the actor and owner on every seeded row.</summary>
-    public Guid SystemUserId { get; set; } = Guid.Parse("00000000-0000-0000-0000-000000000001");
-
-    /// <summary>Display name written onto the seeded owner field.</summary>
-    public string SystemUserDisplayName { get; set; } = "YDot Administrator";
-
     /// <summary>
-    /// Insert the demonstration campaign.
+    /// Write the demonstration campaigns, readiness checklists and tracking assets of the two
+    /// activated sample Organisations - see <c>DemoCampaignCatalogue</c> in the Infrastructure
+    /// seed folder for what they are.
     ///
-    /// ON BY DEFAULT, and safe to leave on: the seeder is idempotent by fixed id, so it inserts
-    /// once and recognises its own row on every start afterwards. Turn it off for a deployment
-    /// that must contain only real campaigns.
+    /// OFF BY DEFAULT, because a campaign is an Organisation's own record and these are invented.
+    /// The Docker stack switches it on, since a demonstration stack with empty registers has
+    /// nothing to demonstrate. It is safe to leave on: an Organisation that already holds the
+    /// data is left exactly as it is, so the rows are written once and never put back.
     /// </summary>
-    public bool CreateSampleData { get; set; } = true;
+    public bool CreateSampleData { get; set; }
 }

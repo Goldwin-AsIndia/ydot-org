@@ -114,7 +114,9 @@ public sealed class GovernanceReadService(
                         .Where(user => user.Id == request.DecidedByUserId)
                         .Select(user => user.DisplayName).FirstOrDefault(),
                 request.RequestedByUserId,
-                request.Version
+                request.Version,
+                request.ScopeType,
+                request.ScopeValue
             })
             .ToListAsync(cancellationToken);
 
@@ -146,7 +148,9 @@ public sealed class GovernanceReadService(
                 CanCancel: row.RequestedByUserId == currentUserId
                            && (row.Status == AccessRequestStatus.Draft
                                || row.Status == AccessRequestStatus.Submitted),
-                row.Version))
+                row.Version,
+                ScopeType: row.ScopeType,
+                ScopeValue: row.ScopeValue))
             .ToList();
 
         return new PagedResponse<AccessRequestListItemResponse>(items, total, filter.Page, filter.PageSize);

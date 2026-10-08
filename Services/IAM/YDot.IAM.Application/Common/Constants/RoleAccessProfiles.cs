@@ -3,20 +3,28 @@ using YDot.IAM.Domain.Enums;
 namespace YDot.IAM.Application.Common.Constants;
 
 /// <summary>
-/// What INITIATOR and APPROVER hold, computed from the permission catalogue rather than typed
-/// out as two lists of strings.
+/// What each Organisation role holds, computed from the permission catalogue rather than typed
+/// out as lists of strings.
 ///
-/// WHY IT IS COMPUTED. The alternative is roughly three hundred hand-written codes across the two
-/// roles, and a typo in one of them is invisible: the seeder skips a code it cannot find in the
-/// catalogue, so a mistyped grant does not fail - it silently does not exist, and the first anyone
-/// hears of it is a 403 on a screen that should have worked. Deriving both sets from the same
-/// catalogue the permissions are seeded from makes that class of error impossible, and means a
-/// permission added to CAM, DON or PAY next month lands in the right role by itself.
+/// WHY IT IS COMPUTED. The alternative is hundreds of hand-written codes across the roles, and a
+/// typo in one of them is invisible: the seeder skips a code it cannot find in the catalogue, so a
+/// mistyped grant does not fail - it silently does not exist, and the first anyone hears of it is
+/// a 403 on a screen that should have worked. Deriving every set from the same catalogue the
+/// permissions are seeded from makes that class of error impossible, and means a permission added
+/// to CAM or DON next month lands in the right role by itself.
 ///
-/// THE RULE, IN ONE LINE EACH:
+/// TWO RULES, THEN A MODULE. The maker and checker sets below are the platform's long-standing
+/// split, unchanged:
 ///
-///   INITIATOR  everything except approvals.
-///   APPROVER   view, edit, approve, export - plus the operations that follow a decision.
+///   maker    everything except approvals.
+///   checker  view, edit, approve, export - plus the operations that follow a decision.
+///
+/// The job-shaped roles are those two sets confined to one module:
+///
+///   Campaign Executive    maker            within CAM
+///   Campaign Manager      maker + checker  within CAM
+///   Fundraiser Executive  maker            within DON
+///   Fundraising Manager   maker + checker  within DON
 ///
 /// THE PIVOT IS <c>PermissionAction</c>, not the verb in the code. CAM, DON and PAY declare their
 /// action in <see cref="ModulePermissionCatalogue"/>; IAM and GM codes have theirs derived by
@@ -38,7 +46,7 @@ public static class RoleAccessProfiles
     private static readonly IReadOnlyList<string> AdditionalApprovalCodes =
     [
         // Refusing an access request is half of deciding it; the "approve" half is already
-        // classified. Leaving this one in INITIATOR would let the raiser close their own request.
+        // classified. Leaving this one with the maker would let the raiser close their own request.
         PermissionCodes.AccessRequestsReject,
 
         // Certifying or revoking access in a review campaign. The verb is "decide", which is
@@ -52,7 +60,7 @@ public static class RoleAccessProfiles
     ///
     /// AN ALLOW-LIST, NOT A BLOCK-LIST, and deliberately so. Operate is the catch-all bucket - it
     /// holds activate and it also holds delete-draft, archive, void and merge - so a rule naming
-    /// what to exclude would hand APPROVER a new destructive verb the day somebody adds one. This
+    /// what to exclude would hand the checker a new destructive verb the day somebody adds one. This
     /// names the few to keep, so anything new stays out until a person decides otherwise.
     ///
     /// NOTHING HERE CREATES OR DESTROYS. That is the test each entry has to pass.
@@ -92,10 +100,10 @@ public static class RoleAccessProfiles
         "cam.tracking-assets.deactivate",
 
         // FAILING A READINESS CHECK IS THE OTHER HALF OF PASSING IT, and leaving it out gave
-        // APPROVER the strange shape of a checker who could sign a check off but not record that
+        // the checker the strange shape of one who could sign a check off but not record that
         // it was not ready. Pass is declared Approve and reaches this role through the action
         // filter; fail is declared Operate, so it has to be named here or the pair comes apart.
-        // It stays with INITIATOR too - noticing that something is not ready is the maker's job
+        // It stays with the maker too - noticing that something is not ready is the maker's job
         // as much as the checker's.
         "cam.readiness.fail",
 
@@ -169,7 +177,7 @@ public static class RoleAccessProfiles
         // reversing that decision as belonging to whoever took it.
         //
         // THE MAKER KEEPS REQUEST CLOSE, which is how they raise the problem they have noticed.
-        // Both codes stay on PostApprovalOperations, so APPROVER goes on holding them.
+        // Both codes stay on PostApprovalOperations, so the checker goes on holding them.
         "cam.campaigns.pause",
         "cam.campaigns.resume",
 
@@ -182,7 +190,7 @@ public static class RoleAccessProfiles
         // IT STAYS WITH THE CHECKER, unlike the campaign verb above which went to the
         // administrator alone. The difference is that a campaign has an automatic route to Active
         // - CampaignActivationService takes a Scheduled campaign live on its start date with
-        // nobody involved - and an asset has none. Withholding it from APPROVER as well would mean
+        // nobody involved - and an asset has none. Withholding it from the checker as well would mean
         // no tracking asset could ever go live without an Organisation Administrator, and the
         // workflow lists Active under Tenant Admin's "All Access" rather than as theirs alone.
         "cam.tracking-assets.activate",
@@ -190,7 +198,7 @@ public static class RoleAccessProfiles
         // SENDING A READINESS CHECKLIST BACK TO DRAFT. The workflow's readiness lines give the
         // maker "Create checklist -> pass/Fail, Assign Blocker" and Request Approval; returning
         // the work is the other half of refusing it, and belongs with whoever the approval was
-        // sent to. It stays on PostApprovalOperations, so APPROVER keeps it.
+        // sent to. It stays on PostApprovalOperations, so the checker keeps it.
         "cam.readiness.return-to-draft",
 
         // TURNING A ROLE ON. Role creation runs draft -> submit -> activate for the same reason
@@ -291,7 +299,7 @@ public static class RoleAccessProfiles
     /// <summary>
     /// Every code that represents an approval decision, however its verb is spelled.
     ///
-    /// This is the set INITIATOR is defined by NOT holding, so it is the one place to look when
+    /// This is the set the maker is defined by NOT holding, so it is the one place to look when
     /// asking whether the maker-checker split is intact.
     /// </summary>
     public static IReadOnlyList<string> ApprovalCodes { get; } =
@@ -316,70 +324,25 @@ public static class RoleAccessProfiles
     /// profile says it does not have. So a narrowing has to be stated, and this is where. Each
     /// entry is removed from that role in every Organisation, once, on start-up.
     ///
+    /// EMPTY SINCE THE ROLE CATALOGUE WAS RESET. Every entry here named INITIATOR or APPROVER,
+    /// and the database was rebuilt from nothing when those two roles were replaced, so there is
+    /// no existing grant left for any of them to withdraw.
+    ///
     /// AN ENTRY HERE IS A DELIBERATE REMOVAL OF ACCESS SOMEBODY CURRENTLY HAS. Add one only when
     /// the role genuinely must not keep the right, and say why - as opposed to simply not
     /// granting a code to begin with, which needs nothing here.
     /// </summary>
     public static IReadOnlyDictionary<string, IReadOnlyList<string>> WithdrawnGrants { get; } =
-        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
-        {
-            [RoleCodes.Initiator] =
-            [
-                // THE MAKER NO LONGER DISABLES A LIVE TRACKING ASSET. Taking one down stops a
-                // printed QR code resolving, which is a decision and not an edit; the maker now
-                // asks with `cam.tracking-assets.request-disable` and a checker decides.
-                "cam.tracking-assets.deactivate",
-
-                // PAUSING AND RESUMING A LIVE CAMPAIGN MOVED TO THE CHECKER. See the note in
-                // CheckerOnlyOperations: the Campaign Management workflow gives Initiator "create
-                // Campaign (Draft/Submitted), Request Close" and nothing else on the lifecycle.
-                // Named here as well as excluded from the profile, because the reconciliation only
-                // adds rows - without these two lines every Organisation that has already run
-                // would keep granting them.
-                "cam.campaigns.pause",
-                "cam.campaigns.resume",
-
-                // ACTIVATE WAS ALREADY OFF THE INITIATOR PROFILE, but an Organisation seeded
-                // before that change still holds the row. Withdrawn here so those databases catch
-                // up rather than being the only ones where a maker can put a campaign live.
-                "cam.campaigns.activate",
-
-                // MINTING A TRACKING ASSET AND RETURNING A CHECKLIST TO DRAFT both moved to the
-                // checker with the same reasoning as the campaign verbs above. See
-                // CheckerOnlyOperations.
-                "cam.tracking-assets.activate",
-                "cam.readiness.return-to-draft"
-            ],
-
-            [RoleCodes.Approver] =
-            [
-                // RAISING A BLOCKER IS THE MAKER'S. The checker's half is the new
-                // `cam.readiness.resolve-blockers`, which the profile grants instead.
-                "cam.readiness.manage-blockers",
-
-                // A CHECKER DOES NOT EDIT THE THING IT IS ABOUT TO APPROVE. Editing a campaign,
-                // its tracking assets or its checklist is the maker's work; a checker who edits
-                // and then approves has approved their own change.
-                "cam.campaigns.edit",
-                "cam.tracking-assets.edit",
-                "cam.readiness.edit",
-
-                // TAKING A CAMPAIGN LIVE IS THE ADMINISTRATOR'S. See AdministratorOnlyCodes: the
-                // Campaign Management workflow names Activate under Tenant Admin and leaves it off
-                // Approver's line. Withdrawn rather than merely ungranted, so Organisations seeded
-                // while APPROVER held it are brought in line on start-up.
-                "cam.campaigns.activate"
-            ]
-        };
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
     /// <summary>
     /// DONOR: their own giving, and nothing else.
     ///
-    /// THE ONLY PROFILE IN THIS FILE THAT IS LISTED RATHER THAN COMPUTED, and the reason is worth
-    /// stating because the rest of the class argues hard for computing. INITIATOR and APPROVER
-    /// are computed because their boundary is a VERB - one approves and the other does not - so
-    /// a permission added tomorrow lands in the right role by itself, which is exactly what the
-    /// fourteen-role catalogue failed at.
+    /// THE ONE WORKING PROFILE IN THIS FILE THAT IS LISTED RATHER THAN COMPUTED, and the reason is
+    /// worth stating because the rest of the class argues hard for computing. The staff roles are
+    /// computed because their boundary is a VERB and a MODULE - an Executive approves nothing, a
+    /// Manager does, and each stays inside its own module - so a permission added tomorrow lands
+    /// in the right role by itself.
     ///
     /// A DONOR'S BOUNDARY IS NOT A VERB. It is whose records they are, and no action name encodes
     /// that: <c>pay.donations.view</c> is a donor looking at their own gift and a fundraiser
@@ -425,10 +388,23 @@ public static class RoleAccessProfiles
     ];
 
     /// <summary>
-    /// INITIATOR: create, view, edit, submit, operate and export across every module - and no
-    /// approval of any kind.
+    /// DONORCARE: nothing yet, deliberately.
+    ///
+    /// The role exists, is active and can be assigned, but which screens supporter care works in
+    /// has not been decided - its menus are to be mapped later. An empty grant is the honest
+    /// encoding of that: a member signs in to the dashboard and My Security, and every other
+    /// screen stays closed until somebody chooses what this team should reach. Filling it in is
+    /// a change to this list, and the start-up reconciliation carries it to every Organisation.
     /// </summary>
-    public static IReadOnlyList<string> Initiator { get; } =
+    public static IReadOnlyList<string> DonorCare { get; } = [];
+
+    /// <summary>
+    /// The maker: create, view, edit, submit, operate and export - and no approval of any kind.
+    ///
+    /// What INITIATOR used to hold across every module. Never granted whole any more: each
+    /// Executive role takes the slice of it that belongs to its own module.
+    /// </summary>
+    private static IReadOnlyList<string> Maker { get; } =
     [
         .. TenantAssignable
             .Select(item => item.Code)
@@ -441,16 +417,19 @@ public static class RoleAccessProfiles
     ];
 
     /// <summary>
-    /// APPROVER: view, edit, approve and export across every module, plus
-    /// <see cref="PostApprovalOperations"/> - and no creation and no deletion.
+    /// The checker: view, edit, approve and export, plus <see cref="PostApprovalOperations"/> -
+    /// and no creation and no deletion.
     ///
     /// Create is excluded by the action filter, since <c>Create</c> is not one of the four
     /// actions admitted. Deletion is excluded the same way: every destructive verb in the
     /// catalogue - delete, delete-draft, archive, void, cancel, withdraw, merge - is declared or
     /// derived as <c>Operate</c>, and Operate enters this set only by being named explicitly
     /// above.
+    ///
+    /// What APPROVER used to hold across every module. Each Manager role adds the slice of it
+    /// that belongs to its own module to the maker's slice.
     /// </summary>
-    public static IReadOnlyList<string> Approver { get; } =
+    private static IReadOnlyList<string> Checker { get; } =
     [
         .. TenantAssignable
             .Where(item => item.Action is PermissionAction.View
@@ -462,6 +441,99 @@ public static class RoleAccessProfiles
             .Concat(PostApprovalOperations)
             .Where(code => !CheckerExcludedCodes.Contains(code, StringComparer.Ordinal))
             .Where(code => !AdministratorOnlyCodes.Contains(code, StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+    ];
+
+    /// <summary>Every CAM code an Organisation role may hold.</summary>
+    private static IReadOnlySet<string> CampaignModule { get; } =
+        ModulePermissionCatalogue.Campaigns
+            .Where(seed => !seed.IsPlatformOnly)
+            .Select(seed => seed.Code)
+            .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>Every DON code an Organisation role may hold.</summary>
+    private static IReadOnlySet<string> DonorModule { get; } =
+        ModulePermissionCatalogue.Donors
+            .Where(seed => !seed.IsPlatformOnly)
+            .Select(seed => seed.Code)
+            .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The PAY codes the campaign screens read through, and the only thing outside CAM that a
+    /// campaign role holds.
+    ///
+    /// Campaign Detail computes "raised to date", monthly revenue and donor counts from the
+    /// donations attributed to the campaign, and that list is served by PAY's donation search.
+    /// Without it the header figures fail to load for the very people who own the campaign.
+    /// View only: donor contact stays masked, because <c>pay.donations.view-sensitive-donor</c>
+    /// is not granted, and no PAY section appears in the sidebar because <c>PAY.View</c> is not
+    /// either.
+    /// </summary>
+    private static IReadOnlyList<string> CampaignReadsFromPayments { get; } =
+    [
+        "pay.donations.view"
+    ];
+
+    /// <summary>
+    /// CAMPAIGN EXECUTIVE: the maker, inside CAM. Creates, edits and submits campaigns, tracking
+    /// assets, readiness checks and budget plans, and requests a closure - and approves none of
+    /// it. Everything raised here stops at the approval gate for a Campaign Manager.
+    /// </summary>
+    public static IReadOnlyList<string> CampaignExecutive { get; } =
+    [
+        .. Maker
+            .Where(CampaignModule.Contains)
+            .Concat(CampaignReadsFromPayments)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+    ];
+
+    /// <summary>
+    /// CAMPAIGN MANAGER: maker and checker together, inside CAM.
+    ///
+    /// A Manager prepares campaigns as well as deciding them, which is how campaign teams work
+    /// and how the Campaign Manager role worked before the catalogue was cut to INITIATOR and
+    /// APPROVER. The four-eyes rule does not depend on keeping the two halves apart any more:
+    /// CAM refuses an approval from whoever created or submitted the campaign, the asset or the
+    /// budget version, so a Manager can decide an Executive's work and never their own.
+    ///
+    /// ACTIVATING A CAMPAIGN BY HAND STAYS WITH THE ORGANISATION ADMIN - it is in
+    /// <see cref="AdministratorOnlyCodes"/>, and an approved campaign goes live on its start date
+    /// without anybody pressing anything.
+    /// </summary>
+    public static IReadOnlyList<string> CampaignManager { get; } =
+    [
+        .. Maker
+            .Concat(Checker)
+            .Where(CampaignModule.Contains)
+            .Concat(CampaignReadsFromPayments)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+    ];
+
+    /// <summary>
+    /// FUNDRAISER EXECUTIVE: the maker, inside DON. Captures, qualifies, contacts, assigns and
+    /// follows up leads and donors - and approves no donor record.
+    /// </summary>
+    public static IReadOnlyList<string> FundraiserExecutive { get; } =
+    [
+        .. Maker
+            .Where(DonorModule.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+    ];
+
+    /// <summary>
+    /// FUNDRAISING MANAGER: maker and checker together, inside DON - everything a Fundraiser
+    /// Executive does, plus approving donor records and the decisions on duplicate candidates and
+    /// escalated identity checks.
+    /// </summary>
+    public static IReadOnlyList<string> FundraisingManager { get; } =
+    [
+        .. Maker
+            .Concat(Checker)
+            .Where(DonorModule.Contains)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
     ];

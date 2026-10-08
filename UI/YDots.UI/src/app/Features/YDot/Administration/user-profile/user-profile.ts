@@ -141,8 +141,8 @@ export class UserProfileComponent {
     employeeNumber: '',
     designation: '',
     workLocation: '',
-    preferredLanguage: 'en-GB',
-    timeZoneId: 'UTC',
+    preferredLanguage: '',
+    timeZoneId: '',
   });
 
   /** Why the change is being made - the API requires one, same as the directory's Edit. */
@@ -152,9 +152,9 @@ export class UserProfileComponent {
   readonly editSubmitted = signal(false);
 
   private static readonly EDIT_LABELS: Record<string, string> = {
-    firstName: 'First name', middleName: 'Middle name', lastName: 'Last name', displayName: 'Display name',
+    title: 'Title', firstName: 'First name', middleName: 'Middle name', lastName: 'Last name', displayName: 'Display name',
     preferredName: 'Preferred name', mobileCountryCode: 'Country code', mobileNumber: 'Mobile number',
-    reason: 'Reason for this change',
+    workLocation: 'Work location', reason: 'Reason for this change',
   };
 
   /** What is wrong with each edit field right now (null = fine). */
@@ -163,6 +163,9 @@ export class UserProfileComponent {
     const code = (f.mobileCountryCode ?? '').trim();
     const own = this.isSelf();
     return {
+      // Saved now, so held to the server's rules.
+      title: nameError('Title', f.title, false, 20),
+      workLocation: textWithLettersError('Work location', f.workLocation, { required: false, max: 200 }),
       // Somebody editing their own profile cannot change the name parts, so those are not checked.
       firstName: own ? null : nameError('First name', f.firstName, true, 80),
       middleName: own ? null : nameError('Middle name', f.middleName, false, 80),
@@ -198,9 +201,9 @@ export class UserProfileComponent {
   }
 
   private static readonly EDIT_IDS: Record<string, string> = {
-    firstName: 'epx_firstName', middleName: 'epx_middleName', lastName: 'epx_lastName', displayName: 'epx_displayName',
+    title: 'epx_title', firstName: 'epx_firstName', middleName: 'epx_middleName', lastName: 'epx_lastName', displayName: 'epx_displayName',
     preferredName: 'epx_preferredName', mobileNumber: 'epxMobile', employeeNumber: 'epx_employeeNumber',
-    designation: 'epx_designation', reason: 'epxReason',
+    designation: 'epx_designation', workLocation: 'epx_workLocation', reason: 'epxReason',
   };
 
   private focusEditField(field: string): void {
@@ -779,21 +782,24 @@ export class UserProfileComponent {
     const detail = this.detail();
     if (!detail) return;
 
+    // What is stored, and nothing else: empty values used to become "en-GB" and "UTC" here and
+    // were saved back, so editing a name also set a language and a time zone. Title, preferred
+    // name and work location opened blank because the server did not keep them; it does now.
     this.editForm.set({
-      title: '',
+      title: detail.title ?? '',
       firstName: detail.firstName ?? '',
       middleName: detail.middleName ?? '',
       lastName: detail.lastName ?? '',
       displayName: detail.displayName ?? '',
-      preferredName: '',
+      preferredName: detail.preferredName ?? '',
       email: detail.email ?? '',
       mobileCountryCode: detail.mobileCountryCode ?? '',
       mobileNumber: detail.mobileNumber ?? '',
       employeeNumber: detail.employeeNumber ?? '',
       designation: detail.designation ?? '',
-      workLocation: '',
-      preferredLanguage: detail.preferredCulture ?? 'en-GB',
-      timeZoneId: detail.timeZone ?? 'UTC',
+      workLocation: detail.workLocation ?? '',
+      preferredLanguage: detail.preferredCulture ?? '',
+      timeZoneId: detail.timeZone ?? '',
     });
     this.editReason.set('');
     this.editSubmitted.set(false);
@@ -836,33 +842,46 @@ export class UserProfileComponent {
     // action" to most roles editing their OWN name, and to every root user who had not yet
     // chosen an Organisation. `PUT /my-profile` takes no id, needs no permission and needs no
     // Organisation — the same split as the read above and as /my-security.
+    // OPTIONAL TEXT IS SENT AS '' WHEN EMPTIED, NEVER AS null. Both endpoints read null as
+    // "leave this alone" and an empty string as "clear it", so `|| null` made it impossible to
+    // remove a middle name, a designation or a mobile number - "The changes have been saved",
+    // and the old value stayed. The country code travels with the number.
+    const mobileNumber = (form.mobileNumber ?? '').trim();
+    const mobileCountryCode = mobileNumber ? (form.mobileCountryCode ?? '').trim() : '';
+
     const request = this.isSelf()
       ? this.api.updateMyProfile({
         expectedVersion: detail.version ?? 0,
         displayName: form.displayName.trim(),
-        mobileCountryCode: form.mobileCountryCode?.trim() || null,
-        mobileNumber: form.mobileNumber?.trim() || null,
-        designation: form.designation?.trim() || null,
-        preferredCulture: form.preferredLanguage || null,
-        timeZone: form.timeZoneId || null,
+        title: form.title.trim(),
+        preferredName: form.preferredName.trim(),
+        mobileCountryCode,
+        mobileNumber,
+        designation: (form.designation ?? '').trim(),
+        workLocation: form.workLocation.trim(),
+        preferredCulture: form.preferredLanguage.trim(),
+        timeZone: form.timeZoneId.trim(),
         reason,
       })
       : this.api.updateUser(detail.id, {
         expectedVersion: detail.version ?? 0,
         firstName: form.firstName.trim(),
-        middleName: form.middleName?.trim() || null,
+        middleName: (form.middleName ?? '').trim(),
         lastName: form.lastName.trim(),
         displayName: form.displayName.trim(),
-        mobileCountryCode: form.mobileCountryCode?.trim() || null,
-        mobileNumber: form.mobileNumber?.trim() || null,
-        employeeNumber: form.employeeNumber?.trim() || null,
+        title: form.title.trim(),
+        preferredName: form.preferredName.trim(),
+        mobileCountryCode,
+        mobileNumber,
+        employeeNumber: (form.employeeNumber ?? '').trim(),
         // Unit, department and manager are sent back unchanged - this dialog does not move people.
         organisationUnitId: detail.organisationUnitId ?? null,
         departmentId: detail.departmentId ?? null,
-        designation: form.designation?.trim() || null,
+        designation: (form.designation ?? '').trim(),
+        workLocation: form.workLocation.trim(),
         managerUserId: detail.managerUserId ?? null,
-        preferredCulture: form.preferredLanguage || null,
-        timeZone: form.timeZoneId || null,
+        preferredCulture: form.preferredLanguage.trim(),
+        timeZone: form.timeZoneId.trim(),
         reason,
       });
 

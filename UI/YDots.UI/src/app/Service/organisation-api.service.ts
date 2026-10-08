@@ -26,7 +26,6 @@ import {
   TransitionRequest,
   UpdateOrganisationProfileRequest,
   UpdateOrganisationSettingsRequest,
-  UploadOrganisationDocumentRequest,
   VerifyOrganisationDomainRequest,
 } from '../Shared/models/iam-contract.model';
 
@@ -242,12 +241,6 @@ export class OrganisationApiService {
     return this.http
       .get<ApiResponse<OrganisationDocumentResponse[]>>(`${this.baseUrl}/mine/documents`)
       .pipe(map((response) => response.data ?? []));
-  }
-
-  uploadMyDocument(request: UploadOrganisationDocumentRequest): Observable<OrganisationDocumentResponse> {
-    return this.http
-      .post<ApiResponse<OrganisationDocumentResponse>>(`${this.baseUrl}/mine/documents`, request)
-      .pipe(map((response) => response.data!));
   }
 
   /**

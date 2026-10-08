@@ -22,6 +22,7 @@ import {
   ConfirmCheckoutRequest,
   CreateDonationIntentRequest,
   DonationIntentResponse,
+  unpayableReason,
 } from '../../../../../Shared/models/payment.model';
 
 type UiState =
@@ -850,12 +851,19 @@ export class DonorformComponent {
   /** Review (Page/row) — any authorised state, view permission (4.2.3). */
   protected readonly reviewAllowed = computed(() => this.permissions().view && this.uiState() !== 'no-access');
 
-  /** Continue to payment (Workflow action) — permitted lifecycle state = Submitted (4.2.3). */
+  /** Why the reopened donation cannot be paid, or empty when it can. See `unpayableReason`. */
+  private readonly paymentBlockedReason = signal('');
+
+  /**
+   * Continue to payment (Workflow action) — permitted lifecycle state = Submitted (4.2.3).
+   * NOT FOR A REOPENED DONATION THE SERVER WILL NOT TAKE A PAYMENT ON.
+   */
   protected readonly continueToPaymentAllowed = computed(
     () =>
       this.permissions().continueToPayment &&
       this.lifecycleState() === 'Submitted' &&
-      this.uiState() !== 'no-access',
+      this.uiState() !== 'no-access' &&
+      !this.paymentBlockedReason(),
   );
 
   /** Review — refreshes only the authorised record and shows the confirmed result, not a toast alone (4.2.3). */
@@ -1156,6 +1164,14 @@ export class DonorformComponent {
    */
   protected requestContinueToPayment(): void {
     const reference = this.intentReference();
+
+    // This form's one button stays enabled, so a refusal is said again rather than ignored.
+    const blocked = this.paymentBlockedReason();
+
+    if (blocked) {
+      this.toast.show('Payment not available', blocked, 'warning');
+      return;
+    }
 
     if (!this.continueToPaymentAllowed() || !reference) {
       return;
@@ -1477,6 +1493,7 @@ export class DonorformComponent {
     this.consentEffectiveTime.set('');
     this.intentReference.set('');
     this.paymentLinkDestination.set('');
+    this.paymentBlockedReason.set('');
     this.isExistingDonor.set(false);
     this.lifecycleState.set('No record');
     this.lastOutcome.set(null);
@@ -1644,6 +1661,18 @@ export class DonorformComponent {
         }
 
         this.pushActivity('Reopened donation ' + intent.intentReference + '.');
+
+        // SAID NOW, NOT AFTER THE CLICK. A donation the server will not take a payment on keeps
+        // the button from continuing it, and the reason is given here instead of as the error
+        // pressing it would only have produced.
+        const reason = unpayableReason(intent.status);
+        this.paymentBlockedReason.set(reason ?? '');
+
+        if (reason) {
+          this.toast.show('Payment not available', reason, 'warning');
+          return;
+        }
+
         this.toast.show(
           'Continue payment',
           'Donation ' + intent.intentReference + ' is ready to be paid.',

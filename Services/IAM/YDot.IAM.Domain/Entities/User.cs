@@ -100,6 +100,25 @@ public class User : IdentityUser<Guid>, IAuditable, ITenantScoped
     public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Honorific shown before the name - Mr, Ms, Dr. Optional, and only ever a courtesy: nothing
+    /// is keyed on it. The create and edit forms always collected it; until it had a column here
+    /// it was typed in and thrown away on save.
+    /// </summary>
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// What the person likes to be called, when it is not their display name. Same history as
+    /// <see cref="Title"/>: collected by every user form, stored nowhere until now.
+    /// </summary>
+    public string? PreferredName { get; set; }
+
+    /// <summary>
+    /// Where the person usually works - a free-text place, not an organisation unit. Units are
+    /// the reporting structure; this is the office or site a colleague would look for them in.
+    /// </summary>
+    public string? WorkLocation { get; set; }
+
+    /// <summary>
     /// Set when <see cref="IdentityUser{TKey}.EmailConfirmed"/> flips true. The base carries
     /// only the boolean, and an auditor almost always wants the date as well.
     /// </summary>

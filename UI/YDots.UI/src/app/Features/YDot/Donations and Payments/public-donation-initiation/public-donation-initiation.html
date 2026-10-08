@@ -311,7 +311,7 @@
                          [ngModel]="mobileNumber()" (ngModelChange)="mobileNumber.set($event)" name="mobileNumber"
                          [attr.aria-invalid]="mobileInvalid() && uiState() === 'validation'" />
                 </span>
-                @if (mobileInvalid() && (mobileNumber().trim() || uiState() === 'validation')) {
+                @if (!formLocked() && mobileInvalid() && (mobileNumber().trim() || uiState() === 'validation')) {
                   <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>{{ mobileNumber().trim() ? 'Review Mobile No. Enter 10 to 15 digits.' : 'Enter Mobile No.' }}</span>
                 }
               </label>

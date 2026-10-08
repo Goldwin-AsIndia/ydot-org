@@ -223,7 +223,10 @@ public sealed class UserReadService(
             MobileMasked: !canSeeSensitiveContact && hasMobile,
             HasPendingInvitation: invitation is not null,
             InvitationExpiresAtUtc: invitation?.ExpiresAtUtc,
-            UserMappingConfig.PermittedActionsFor(user, now));
+            UserMappingConfig.PermittedActionsFor(user, now),
+            Title: user.Title,
+            PreferredName: user.PreferredName,
+            WorkLocation: user.WorkLocation);
     }
 
     public async Task<IReadOnlyList<UserLookupResponse>> LookupAsync(

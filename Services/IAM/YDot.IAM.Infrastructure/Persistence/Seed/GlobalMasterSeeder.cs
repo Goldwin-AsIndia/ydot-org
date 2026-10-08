@@ -380,7 +380,17 @@ public sealed class GlobalMasterSeeder(IamDbContext context, ILogger<GlobalMaste
 
             // The reason JurisdictionType has an Other member: an emirate is none of the
             // enumerated kinds, and the free-text description is what the UI shows instead.
-            ("22222222-2222-2222-2222-222222222012", Emirates, "DU", "Dubai", JurisdictionType.Other, "Emirate", null, DubaiTime, 12)
+            ("22222222-2222-2222-2222-222222222012", Emirates, "DU", "Dubai", JurisdictionType.Other, "Emirate", null, DubaiTime, 12),
+
+            // WHERE THE SEEDED ORGANISATIONS ARE. Smile Foundation and HelpAge India are both
+            // registered in New Delhi and run branches in Hyderabad, Kolkata and Lucknow, and an
+            // address whose state is not in this list cannot be picked again in the profile's
+            // cascading dropdown - so the state has to exist before the address that names it.
+            // Delhi is the National Capital Territory, which is why it is a Union Territory here.
+            ("22222222-2222-2222-2222-222222222013", India, "DL", "Delhi", JurisdictionType.UnionTerritory, null, "07", IndiaTimeZone, 13),
+            ("22222222-2222-2222-2222-222222222014", India, "TG", "Telangana", JurisdictionType.State, null, "36", IndiaTimeZone, 14),
+            ("22222222-2222-2222-2222-222222222015", India, "WB", "West Bengal", JurisdictionType.State, null, "19", IndiaTimeZone, 15),
+            ("22222222-2222-2222-2222-222222222016", India, "UP", "Uttar Pradesh", JurisdictionType.State, null, "09", IndiaTimeZone, 16)
         ];
 
         var existing = await ExistingIdsAsync(context.StateProvinces, cancellationToken);
@@ -438,6 +448,10 @@ public sealed class GlobalMasterSeeder(IamDbContext context, ILogger<GlobalMaste
         const string NewYork = "22222222-2222-2222-2222-222222222006";
         const string Ontario = "22222222-2222-2222-2222-222222222008";
         const string Dubai = "22222222-2222-2222-2222-222222222012";
+        const string Delhi = "22222222-2222-2222-2222-222222222013";
+        const string Telangana = "22222222-2222-2222-2222-222222222014";
+        const string WestBengal = "22222222-2222-2222-2222-222222222015";
+        const string UttarPradesh = "22222222-2222-2222-2222-222222222016";
 
         (string Id, string StateId, string Code, string Name, bool Metro, decimal Latitude,
             decimal Longitude, string? Postal, int Order)[] seeds =
@@ -453,7 +467,14 @@ public sealed class GlobalMasterSeeder(IamDbContext context, ILogger<GlobalMaste
             ("33333333-3333-3333-3333-333333333009", California, "LAX", "Los Angeles", true, 34.0522m, -118.2437m, null, 9),
             ("33333333-3333-3333-3333-333333333010", NewYork, "NYC", "New York City", true, 40.7128m, -74.0060m, null, 10),
             ("33333333-3333-3333-3333-333333333011", Ontario, "TOR", "Toronto", true, 43.6532m, -79.3832m, null, 11),
-            ("33333333-3333-3333-3333-333333333012", Dubai, "DXB", "Dubai", true, 25.2048m, 55.2708m, null, 12)
+            ("33333333-3333-3333-3333-333333333012", Dubai, "DXB", "Dubai", true, 25.2048m, 55.2708m, null, 12),
+
+            // The seeded Organisations' head offices and branches - see the note on the states.
+            ("33333333-3333-3333-3333-333333333013", Delhi, "DEL", "New Delhi", true, 28.6139m, 77.2090m, @"^\d{6}$", 13),
+            ("33333333-3333-3333-3333-333333333014", Maharashtra, "PNQ", "Pune", true, 18.5204m, 73.8567m, @"^\d{6}$", 14),
+            ("33333333-3333-3333-3333-333333333015", Telangana, "HYD", "Hyderabad", true, 17.3850m, 78.4867m, @"^\d{6}$", 15),
+            ("33333333-3333-3333-3333-333333333016", WestBengal, "CCU", "Kolkata", true, 22.5726m, 88.3639m, @"^\d{6}$", 16),
+            ("33333333-3333-3333-3333-333333333017", UttarPradesh, "LKO", "Lucknow", false, 26.8467m, 80.9462m, @"^\d{6}$", 17)
         ];
 
         // THE COUNTRY IS LOOKED UP FROM THE STATE, exactly as the create handler does it. The
@@ -782,9 +803,9 @@ public sealed class GlobalMasterSeeder(IamDbContext context, ILogger<GlobalMaste
     ///
     /// THE MULTI-LANGUAGE COUNTRIES ARE SPELLED OUT FOR THE SAME REASON THE MULTI-ZONE ONES ARE.
     /// India is the case that matters here: a picker offering only Hindi would be wrong for most
-    /// of the country, and the platform's own seeded states are Tamil Nadu, Karnataka, Kerala and
-    /// Maharashtra - four different languages between them. Canada gets French, Singapore its
-    /// four official languages, South Africa three of its eleven.
+    /// of the country, and the platform's own seeded states run from Tamil Nadu and Kerala to West
+    /// Bengal and Uttar Pradesh - a different language in nearly every one. Canada gets French,
+    /// Singapore its four official languages, South Africa three of its eleven.
     ///
     /// EXACTLY ONE ROW PER COUNTRY IS PRIMARY: the language a form pre-selects once the country
     /// is chosen. For India that is English (India) rather than Hindi, because en-IN is what the

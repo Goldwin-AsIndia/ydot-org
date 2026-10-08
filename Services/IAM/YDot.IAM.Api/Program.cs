@@ -237,14 +237,17 @@ internal static class DatabaseInitialisation
                 var masterSeeder = scope.ServiceProvider.GetRequiredService<GlobalMasterSeeder>();
                 await masterSeeder.SeedAsync();
 
-                // THIRD, AND LAST. The demonstration access requests and the recertification
-                // campaign name the sample Organisation's users and roles by id, so they need
-                // IamDbSeeder to have created and SAVED both - which is why this cannot be a
-                // step inside it.
-                var governanceSeeder = scope.ServiceProvider
-                    .GetRequiredService<AccessGovernanceSeeder>();
+                // THIRD, because it needs the sample Organisations: each one is given a Razorpay
+                // configuration sealed from the test keys in .env - the row PAY pays with.
+                var gatewaySeeder = scope.ServiceProvider
+                    .GetRequiredService<PaymentGatewayConfigurationSeeder>();
+                await gatewaySeeder.SeedAsync();
 
-                await governanceSeeder.SeedAsync();
+                // NO GOVERNANCE DEMONSTRATION DATA ANY MORE. AccessGovernanceSeeder used to run
+                // third, filling the access-request queue and a recertification campaign with
+                // invented requests between the INITIATOR and APPROVER sample accounts. Those
+                // roles and accounts are gone, and access requests and reviews now start empty
+                // and are raised through the product like any other record.
             }
 
             // The document bucket, created if missing and switched to versioned. Deliberately

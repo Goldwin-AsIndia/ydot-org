@@ -120,7 +120,7 @@ services:
   # ===============================================================================================
 
   ydot-iam:
-    image: ramya2000/ydot-iam:9.4.1
+    image: sivan67906/ydot-iam:10.0.1
     build:
       context: .
       dockerfile: Services/IAM/YDot.IAM.Api/Dockerfile
@@ -166,11 +166,25 @@ services:
       # would make every stored merchant credential unreadable, so set an explicit one before
       # going live.
       PaymentGatewaySettings__EncryptionKey: "${PAYMENT_CREDENTIAL_KEY:-}"
+
+      # ---- Razorpay test keys, as SEED INPUT -----------------------------------------------------
+      # Each sample organisation is given a Razorpay row on the Payment Configuration screen,
+      # sealed from these three with the key above and stored in iam_payment_gateway_configurations.
+      # That row is what ydot-pay pays with - ydot-pay holds no Razorpay key of its own.
+      #
+      # Written only for an organisation with no gateway configuration at all, so an
+      # administrator's own row is never overwritten, and refused outright for anything but an
+      # rzp_test_ key. See PaymentGatewayConfigurationSeeder.
+      SeedSettings__SeedPaymentGateways: "${SEED_PAYMENT_GATEWAYS:-true}"
+      SeedSettings__RazorpayKeyId: "${RAZORPAY_KEY_ID:-}"
+      SeedSettings__RazorpayKeySecret: "${RAZORPAY_KEY_SECRET:-}"
+      SeedSettings__RazorpayWebhookSecret: "${RAZORPAY_WEBHOOK_SECRET:-}"
       JwtSettings__RefreshTokenCookieSameSite: "Lax"
 
       # ---- Tenancy -------------------------------------------------------------------------
-      # RootDomain=localhost is what makes ten1.localhost resolve to the "ten1" Organisation,
-      # exactly as ten1.ngoplanet.com would in production. See §7.4 of the implementation guide.
+      # RootDomain=localhost is what makes smilefoundation.localhost resolve to the
+      # "smilefoundation" Organisation, exactly as smilefoundation.ngoplanet.com would in
+      # production. See §7.4 of the implementation guide.
       TenancySettings__RootDomain: "localhost"
       TenancySettings__PlatformHosts__0: "localhost"
       TenancySettings__PlatformHosts__1: "127.0.0.1"
@@ -179,7 +193,8 @@ services:
       # endpoint without a hosts-file edit. Off in production.
       TenancySettings__AllowHeaderOverrideOnLoopback: "true"
       # Refuses a token whose host_name claim does not match the host it arrived on, so a token
-      # minted at ten1 cannot be replayed against ten2 even though its signature is valid.
+      # minted at smilefoundation cannot be replayed against helpageindia even though its
+      # signature is valid.
       #
       # THIS USED TO BE "false", with a comment saying the UI and the API were different origins.
       # That describes the Angular dev server, not this stack: nginx serves the bundle and proxies
@@ -270,32 +285,37 @@ services:
       SeedSettings__SuperAdminPassword: "${IAM_SUPERADMIN_PASSWORD:-SuperAdmin@2026}"
       SeedSettings__SeedSampleTenants: "true"
 
-      # THE ID THE ACTIVATED SAMPLE ORGANISATION IS CREATED WITH, and the one value in this file
-      # that TWO services have to agree on. DON stamps its demonstration donors, leads and
-      # campaigns with the same guid (SeedSettings__OrganisationId, below) and every donor screen
-      # filters on the OrganisationId in the caller's token. Set them apart and DON's sample data
-      # is in the database and returned to nobody - Donor List, Lead Work Queue and Donor 360 all
-      # open empty with nothing to explain it.
+      # THE SEEDED ORGANISATIONS. Smile Foundation and HelpAge India are Active with nine staff and
+      # twelve donors each; Global Relief Foundation and Unity for Change are Invited, each
+      # administrator holding a pending invitation whose token is written to this service's
+      # start-up log. The data lives in
+      # Services/IAM/.../Persistence/Seed/SampleOrganisationCatalogue.cs.
       #
-      # One variable feeds both, which is the point: there is no way to change one and forget the
-      # other. It is read only on a database that has never been seeded.
+      # THE ID SMILE FOUNDATION IS CREATED WITH. It used to be the one value in this file that
+      # CAM, DON and PAY had to agree on, because each stamped its demonstration data with its own
+      # copy of it. They no longer hold one: each finds both Organisations by SUBDOMAIN in IAM's
+      # table when it seeds, so there is nothing to keep in step. The id stays configurable only
+      # so that Smile Foundation's is the same in every database. It is read only on a database
+      # that has never been seeded.
       SeedSettings__SampleOrganisationId: "${SAMPLE_ORGANISATION_ID:-9fb11890-a08e-4adc-95ca-8e4d71f4dd21}"
 
-      # The password the eleven seeded demonstration accounts share. Leave it unset in
-      # anything that is not a demonstration and those accounts are not created at all.
+      # The password every seeded Organisation account shares - administrators, staff and donors.
+      # The platform administrators use SuperAdminPassword above. Leave this unset in anything
+      # that is not a demonstration and only the Organisation administrators are created.
       SeedSettings__RoleAccountPassword: "${IAM_ROLE_ACCOUNT_PASSWORD:-YDot@2026Demo}"
 
       # ---- Where the browser is --------------------------------------------------------------
       # Every origin the UI can be reached on, including the tenant subdomains: CORS with
-      # credentials cannot use a wildcard, and the refresh cookie needs credentials.
+      # credentials cannot use a wildcard, and the refresh cookie needs credentials. Any
+      # *.localhost subdomain is also accepted by pattern, so an Organisation created at runtime
+      # works without a line here; these name the seeded ones.
       ClientAppSettings__BaseUrl: "http://localhost:6700"
       ClientAppSettings__AllowedOrigins__0: "http://localhost:6700"
       ClientAppSettings__AllowedOrigins__1: "http://localhost:6701"
-      ClientAppSettings__AllowedOrigins__2: "http://ten1.localhost:6700"
-      ClientAppSettings__AllowedOrigins__3: "http://ten2.localhost:6700"
-      ClientAppSettings__AllowedOrigins__4: "http://ten3.localhost:6700"
-      ClientAppSettings__AllowedOrigins__5: "http://ten4.localhost:6700"
-      ClientAppSettings__AllowedOrigins__6: "http://ten5.localhost:6700"
+      ClientAppSettings__AllowedOrigins__2: "http://smilefoundation.localhost:6700"
+      ClientAppSettings__AllowedOrigins__3: "http://helpageindia.localhost:6700"
+      ClientAppSettings__AllowedOrigins__4: "http://globalrelief.localhost:6700"
+      ClientAppSettings__AllowedOrigins__5: "http://unityforchange.localhost:6700"
 
       Seq__ServerUrl: "http://seq:5341"
     ports:
@@ -318,7 +338,7 @@ services:
   # ===============================================================================================
 
   ydot-cam:
-    image: ramya2000/ydot-cam:9.4.1
+    image: sivan67906/ydot-cam:10.0.1
     build:
       context: .
       dockerfile: Services/CAM/YDots.CAM.API/Dockerfile
@@ -356,18 +376,19 @@ services:
       # submitter and approver of the same campaign. Segregation of duties is not a setting.
       CampaignSettings__AllowLaunchWithOutstandingChecks: "false"
 
-      # THE DEMONSTRATION CAMPAIGN, AND THE ORGANISATION IT BELONGS TO.
+      # THE DEMONSTRATION DATA: sixteen campaigns in every status, their readiness checklists and
+      # twenty-seven tracking assets, in each of Smile Foundation and HelpAge India. The data lives
+      # in Services/CAM/.../Persistence/Seed/DemoCampaignCatalogue.cs.
       #
-      # THE SAME GUID AS ydot-iam's SeedSettings__SampleOrganisationId AND ydot-don's
-      # SeedSettings__OrganisationId, from one variable so the three cannot drift. Every
-      # Tenant-owned row in CAM is filtered to the Organisation on the caller's token: a campaign
-      # stamped with anything else is in the database and visible to nobody, which is exactly the
-      # failure that had the previous sample campaigns removed from the seeder.
-      SeedSettings__OrganisationId: "${SAMPLE_ORGANISATION_ID:-9fb11890-a08e-4adc-95ca-8e4d71f4dd21}"
-
-      # Set false for a deployment that must contain only real campaigns. The seeder is
-      # idempotent by fixed id either way, so leaving it on inserts once and then does nothing.
-      SeedSettings__CreateSampleData: "${CAM_SEED_SAMPLE_DATA:-true}"
+      # ON, because this is a demonstration stack and an empty register demonstrates nothing. ONE
+      # VARIABLE SWITCHES CAM, DON AND PAY TOGETHER - SEED_DEMO_DATA - because the three hold
+      # halves of one story: a donation here names a campaign there and a donor in the third, so
+      # seeding one module without the others leaves rows pointing at nothing. Set
+      # SEED_DEMO_DATA=false in .env for a stack with the Organisations and no transactions.
+      #
+      # It is written once per Organisation, after IAM has created them, and never put back: a
+      # campaign edited or deleted during a demonstration stays as it was left.
+      SeedSettings__CreateSampleData: "${SEED_DEMO_DATA:-true}"
 
       ClientAppSettings__BaseUrl: "http://localhost:6700"
       ClientAppSettings__AllowedOrigins__0: "http://localhost:6700"
@@ -391,7 +412,7 @@ services:
   # ===============================================================================================
 
   ydot-don:
-    image: ramya2000/ydot-don:9.4.1
+    image: sivan67906/ydot-don:10.0.1
     build:
       context: .
       dockerfile: Services/DON/YDots.DON.Api/Dockerfile
@@ -407,11 +428,14 @@ services:
       DatabaseSettings__ApplyMigrationsOnStartup: "true"
       DatabaseSettings__SeedOnStartup: "true"
 
-      # THE SAME VALUE IAM CREATES THE SAMPLE ORGANISATION WITH. See the note beside
-      # SeedSettings__SampleOrganisationId on ydot-iam: the demonstration donors, leads and
-      # campaigns below are stamped with this guid, and if it does not match the Organisation IAM
-      # actually created, every donor screen opens empty for everybody.
-      SeedSettings__OrganisationId: "${SAMPLE_ORGANISATION_ID:-9fb11890-a08e-4adc-95ca-8e4d71f4dd21}"
+      # THE DEMONSTRATION DATA: twenty-two donors, sixty-four leads in every pipeline stage and
+      # the follow-up tasks behind them, in each of Smile Foundation and HelpAge India. The data
+      # lives in Services/DON/.../Persistence/Seed/DemoDonorCatalogue.cs.
+      #
+      # The same switch as ydot-cam and ydot-pay - see the note there. Each donor's giving total is
+      # read from the demonstration donations PAY seeds, so it appears a few seconds after PAY has
+      # written them.
+      SeedSettings__CreateSampleData: "${SEED_DEMO_DATA:-true}"
 
       JwtSettings__SigningKey: "${JWT_SIGNING_KEY:-ydot-iam-docker-signing-key-please-replace-in-every-real-environment-2026}"
       JwtSettings__Issuer: "YDot.IAM"
@@ -437,12 +461,13 @@ services:
   # ===============================================================================================
   # PAY — donation intents, payments, receipts, refunds and chargebacks
   #
-  # IT DOES NOT SEED. Seeding a payments module would mean inventing donations, and a donation is
-  # a record that money moved.
+  # IT HAS NO REFERENCE DATA TO SEED, and SeedOnStartup below stays off for that reason. What it
+  # does write, where asked, is gateway accounts from configuration and the demonstration
+  # donations - both from background loops that wait for IAM, never from start-up.
   # ===============================================================================================
 
   ydot-pay:
-    image: ramya2000/ydot-pay:9.4.1
+    image: sivan67906/ydot-pay:10.0.1
     build:
       context: .
       dockerfile: Services/PAY/YDot.PAY.Api/Dockerfile
@@ -465,9 +490,14 @@ services:
       # THE SAME KEY IAM SEALS WITH. See the note on ydot-iam for what happens if they differ.
       PaymentGatewaySettings__EncryptionKey: "${PAYMENT_CREDENTIAL_KEY:-}"
 
-      # The escape hatch. Set to "false" to ignore every gateway configured on the IAM screen and
-      # go back to taking payments with the credentials in this file alone - which is how the
-      # module worked before that screen existed. A restart away, and no release needed.
+      # "true": every payment is made with the paying organisation's own row on the Payment
+      # Configuration screen (iam_payment_gateway_configurations), unsealed with the key above at
+      # the moment of payment. An organisation without an active, readable row takes no payment -
+      # there is no fall-back to a shared key.
+      #
+      # "false" is the escape hatch back to deployment credentials, and it only works with
+      # PaymentGateways__<provider>__ApiKey and a pay_gateway_accounts row supplied by hand, since
+      # neither is provided any more.
       PaymentGatewaySettings__UseTenantConfiguration: "true"
 
       PaymentSettings__FinancialYearStartMonth: "4"
@@ -480,35 +510,23 @@ services:
       PaymentSettings__AutoDeliverReceipt: "true"
       PaymentSettings__ReceiptDocumentRoot: "/var/ydot/receipts"
 
-      # ---- Gateway accounts, from configuration ------------------------------------------------
+      # ---- Gateway accounts ----------------------------------------------------------------------
       #
-      # WHAT THIS REPLACES: the ydot-pay-gateway-seed container and the SQL script it bind-mounted
-      # from ./docker/sql. That worked, but it meant the payment module could not be brought up
-      # from a compose file and a .env alone - anybody handed those two and nothing else got a
-      # stack where every donation was refused with PAYMENT_GATEWAY_NOT_CONFIGURED, and the seed
-      # container swallowed its own failure and exited 0, so nothing said why.
-      #
-      # PAY now creates the row itself at startup: one active Razorpay account per organisation,
-      # idempotent, holding NO credentials - only the name of the section the keys live in, which
-      # is these two RAZORPAY_* values below.
-      #
-      # OFF BY DEFAULT IN CODE and switched on here, because this is a development compose file.
-      # It refuses to run at all against an rzp_live_ key, whatever this says - creating an active
-      # payment configuration for every organisation is fine when the worst case is a declined
-      # test charge, and not fine when the keys move real money.
-      #
-      # Set it to "false" once the per-organisation Payment Gateway configuration screen exists.
-      PaymentSettings__SeedGatewayAccountsFromConfiguration: "${PAY_SEED_GATEWAY_ACCOUNTS:-true}"
-      PaymentSettings__SeedGatewayName: "Razorpay"
+      # OFF. These were deployment-wide pay_gateway_accounts rows naming PaymentGateways:Razorpay
+      # in this environment. The per-organisation Payment Configuration screen replaced them:
+      # ydot-iam seeds each sample organisation's Razorpay row there from the .env test keys, and
+      # that row is the only thing a payment is made with.
+      PaymentSettings__SeedGatewayAccountsFromConfiguration: "false"
 
-      # THE DEMONSTRATION DONATIONS: one Success with a receipt, one Pending, one Failed.
+      # THE DEMONSTRATION DONATIONS: forty-six payments across last month and this one in each of
+      # Smile Foundation and HelpAge India - every payment method, and every payment and receipt
+      # state the Payments and Receipts page can show. The data lives in
+      # Services/PAY/.../Persistence/Seed/DemoDonationCatalogue.cs.
       #
-      # Same Organisation guid as ydot-iam, ydot-cam and ydot-don, from one variable. Payments
-      # are filtered to the Organisation on the caller's token, so donations stamped with any
-      # other value would be in the database and visible to nobody.
-      PaymentSettings__SampleOrganisationId: "${SAMPLE_ORGANISATION_ID:-9fb11890-a08e-4adc-95ca-8e4d71f4dd21}"
-      PaymentSettings__SeedSampleDonations: "${PAY_SEED_SAMPLE_DONATIONS:-true}"
-      PaymentSettings__SeedGatewaySettlementCurrency: "INR"
+      # A DONATION IS A RECORD THAT MONEY MOVED, AND NONE OF THIS MONEY DID. It is on here because
+      # this is a demonstration stack; it must never be on anywhere real. The same switch as
+      # ydot-cam and ydot-don - see the note on ydot-cam.
+      PaymentSettings__SeedSampleDonations: "${SEED_DEMO_DATA:-true}"
 
       # ---- Donor portal accounts ---------------------------------------------------------------
       #
@@ -528,13 +546,19 @@ services:
       IdentityIntegration__BaseUrl: "http://ydot-iam:8080"
 
       # THE CREDENTIAL PAY SIGNS IN WITH to create the donor's account. It needs iam.users.create
-      # in the Organisation the donation belongs to, so the activated sample Organisation's
-      # administrator - who holds TENANT_ADMIN - is the default, and shares the seed password by
-      # the seeder's own design. Set PAY_IDENTITY_SERVICE_* in .env to use a dedicated service
-      # account instead, which is what any environment past a demonstration should do: a named
-      # person's credential in a service config cannot be rotated without breaking this job.
-      IdentityIntegration__ServiceAccountUsername: "${PAY_IDENTITY_SERVICE_USERNAME:-rajat.sivan@yahoo.com}"
-      IdentityIntegration__ServiceAccountPassword: "${PAY_IDENTITY_SERVICE_PASSWORD:-${IAM_SUPERADMIN_PASSWORD:-}}"
+      # in the Organisation the donation belongs to, so Smile Foundation's Organisation Admin -
+      # who holds TENANT_ADMIN - is the default, with the password every seeded Organisation
+      # account shares (IAM_ROLE_ACCOUNT_PASSWORD). Set PAY_IDENTITY_SERVICE_* in .env to use a
+      # dedicated service account instead, which is what any environment past a demonstration
+      # should do: a named person's credential in a service config cannot be rotated without
+      # breaking this job.
+      #
+      # ONE ORGANISATION ONLY. PAY signs in on the donating Organisation's own host, and an
+      # account exists in exactly one Organisation - so with this default, donor accounts are
+      # created for Smile Foundation's donations and HelpAge India's are logged as not created.
+      # Serving both needs an account with the same identifier and password in each.
+      IdentityIntegration__ServiceAccountUsername: "${PAY_IDENTITY_SERVICE_USERNAME:-anjali.prakash@smilefoundationindia.test}"
+      IdentityIntegration__ServiceAccountPassword: "${PAY_IDENTITY_SERVICE_PASSWORD:-${IAM_ROLE_ACCOUNT_PASSWORD:-YDot@2026Demo}}"
 
       # ---- Mail ------------------------------------------------------------------------------
       #
@@ -558,27 +582,25 @@ services:
 
       # WHERE A RECEIPT LINKS BACK TO. Only the PATH is set here: the scheme and port come from
       # BaseUrl above and the HOST comes from the organisation's own row in iam_tenant_domains,
-      # so a receipt issued by the organisation on ten1.localhost links to
-      # http://ten1.localhost:6700/app/donations/payment-event-queue and not to the platform host.
+      # so a receipt issued by the organisation on smilefoundation.localhost links to
+      # http://smilefoundation.localhost:6700/app/donations/payment-event-queue and not to the
+      # platform host.
       ClientAppSettings__ReceiptsPath: "/app/donations/payment-event-queue"
 
       # The zone receipt dates are PRINTED in. Storage stays UTC; this only stops a receipt
       # saying 08 September for a gift the register shows on the 9th.
       PaymentSettings__DisplayTimeZone: "${PAY_DISPLAY_TIME_ZONE:-Asia/Kolkata}"
 
-      # ---- Payment provider credentials ------------------------------------------------------
+      # ---- Payment provider credentials: none here -------------------------------------------
       #
-      # A gateway account row holds only the NAME of the section its credentials live in, so a
-      # dump of the payments database contains no charity's merchant keys. "Razorpay" below is
-      # that name: set a pay_gateway_accounts row's ApiKeyReference to it and its GatewayName to
-      # "Razorpay", and the RazorpayGateway adapter is what serves that organisation.
+      # ydot-pay HOLDS NO RAZORPAY KEY. A payment is made with the key id, key secret and webhook
+      # secret stored - sealed - against the paying organisation in
+      # iam_payment_gateway_configurations, which ydot-iam seeds from RAZORPAY_KEY_ID,
+      # RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET and the Payment Configuration screen edits.
       #
-      # THE API KEY IS "key_id:key_secret" - the pair Razorpay's HTTP Basic authentication wants.
-      # Test keys begin rzp_test_; live keys begin rzp_live_ and belong in a secret store rather
-      # than in a .env file beside the compose file.
+      # Only the provider's API address is set, because it belongs to the provider rather than to
+      # any merchant and the screen deliberately does not ask for it.
       PaymentGateways__Razorpay__BaseUrl: "${RAZORPAY_BASE_URL:-https://api.razorpay.com/v1/}"
-      PaymentGateways__Razorpay__ApiKey: "${RAZORPAY_KEY_ID:-}:${RAZORPAY_KEY_SECRET:-}"
-      PaymentGateways__Razorpay__WebhookSecret: "${RAZORPAY_WEBHOOK_SECRET:-}"
 
       Seq__ServerUrl: "http://seq:5341"
     ports:
@@ -639,9 +661,10 @@ services:
   #     file, an unreachable database or a 120-second timeout all exited 0. Nothing looked broken;
   #     donations were simply refused with PAYMENT_GATEWAY_NOT_CONFIGURED for ever.
   #
-  # PAY does it itself now, at startup, from configuration - see
-  # PaymentSettings__SeedGatewayAccountsFromConfiguration above and PaymentDbSeeder
-  # .SeedConfiguredGatewayAccountsAsync. Same rows, same idempotency, no extra file, and it says
+  # NEITHER IT NOR ITS SUCCESSOR IN PAY IS USED NOW. Each organisation's gateway is a row on the
+  # Payment Configuration screen: ydot-iam seeds the sample organisations' Razorpay rows from the
+  # .env test keys at startup (SeedSettings__SeedPaymentGateways above, PaymentGatewayConfigurationSeeder),
+  # sealed, and ydot-pay pays with that row alone. No extra file, no extra container, and it says
   # in the log what it did or why it did not.
   # ===============================================================================================
 
@@ -650,11 +673,12 @@ services:
   #
   # nginx proxies /iam-api, /cam-api, /don-api and /pay-api to the four services, so the browser
   # sees ONE origin. That is what makes the refresh cookie work without third-party-cookie rules,
-  # and what makes ten1.localhost:6700 reach the API as the same origin it was served from.
+  # and what makes smilefoundation.localhost:6700 reach the API as the same origin it was served
+  # from.
   # ===============================================================================================
 
   ydot-ui:
-    image: ramya2000/ydot-ui:9.4.1
+    image: sivan67906/ydot-ui:10.0.1
     build:
       context: UI/YDots.UI
       dockerfile: Dockerfile

@@ -138,7 +138,7 @@ public static class PermissionCodes
     // say, whose bank account the money reaches.
     //
     // THEY BELONG TO ADMINISTRATORS ONLY. SuperAdmin holds every code by virtue of scope and
-    // TenantAdmin by GrantsAllTenantPermissions; INITIATOR and APPROVER are excluded explicitly
+    // TenantAdmin by GrantsAllTenantPermissions; the working roles are excluded explicitly
     // in RoleAccessProfiles.AdministratorOnlyCodes rather than by accident of the action
     // derivation, which would otherwise hand "manage" to the maker as an ordinary operate verb.
     //

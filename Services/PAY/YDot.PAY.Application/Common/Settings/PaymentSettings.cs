@@ -139,6 +139,12 @@ public sealed class PaymentSettings
     ///
     /// IT REFUSES A LIVE KEY WHATEVER THIS SAYS. See the seeder - an rzp_live_ key means real
     /// money, and no convenience is worth auto-configuring that across every tenant.
+    ///
+    /// SUPERSEDED, AND LEFT OFF BY THE DOCKER STACK. Each Organisation's credentials are now
+    /// seeded, sealed, into the Payment Configuration table by IAM, and with
+    /// <c>PaymentGatewaySettings:UseTenantConfiguration</c> on - the default - a row this creates
+    /// takes no payment, because it holds no credential. It is only of use together with that
+    /// escape hatch switched off and <c>PaymentGateways:{name}:ApiKey</c> supplied by hand.
     /// </summary>
     public bool SeedGatewayAccountsFromConfiguration { get; set; }
 
@@ -152,26 +158,23 @@ public sealed class PaymentSettings
     public string SeedGatewayName { get; set; } = "Razorpay";
 
     /// <summary>
-    /// The Organisation the demonstration donations belong to.
+    /// Write the demonstration donations of the two activated sample Organisations - forty-six
+    /// payments each across last month and this one, in every payment and receipt state. See
+    /// <c>DemoDonationCatalogue</c> in the Infrastructure seed folder for what they are.
     ///
-    /// MATCHES IAM's SeedSettings:SampleOrganisationId, DON's SeedSettings:OrganisationId and
-    /// CAM's SeedSettings:OrganisationId. Every Tenant-owned row in PAY is filtered to the
-    /// Organisation on the caller's token, so donations stamped with anything else are in the
-    /// database and visible to nobody.
-    /// </summary>
-    public Guid SampleOrganisationId { get; set; } =
-        Guid.Parse("9fb11890-a08e-4adc-95ca-8e4d71f4dd21");
-
-    /// <summary>The IAM system user, recorded as the actor on every seeded row.</summary>
-    public Guid SystemUserId { get; set; } = Guid.Parse("00000000-0000-0000-0000-000000000001");
-
-    /// <summary>
-    /// Insert one donation in each payment status - Success, Pending and Failed.
+    /// OFF BY DEFAULT, AND IT MATTERS MORE HERE THAN ANYWHERE. A donation is a record that money
+    /// moved, and none of this money did. The Docker stack switches it on, because a
+    /// demonstration stack with an empty Payments and Receipts page has nothing to show; no real
+    /// deployment should.
     ///
-    /// Off for a deployment that must contain only real donations. The seeder is idempotent by
-    /// fixed id either way, so leaving it on inserts once and then does nothing.
+    /// THERE IS NO ORGANISATION ID TO GO WITH IT ANY MORE. The demonstration rows used to be
+    /// stamped with a configured id that had to match IAM's, CAM's and DON's copies of it, and a
+    /// wrong value in one service put its rows where no token could reach them. Each Organisation
+    /// is now found by its subdomain in IAM's own table at the moment of seeding.
+    ///
+    /// The seeder writes once per Organisation and never again, so this is safe to leave on.
     /// </summary>
-    public bool SeedSampleDonations { get; set; } = true;
+    public bool SeedSampleDonations { get; set; }
 
     /// <summary>
     /// The currency the seeded account settles in.

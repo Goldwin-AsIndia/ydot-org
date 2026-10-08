@@ -7,7 +7,6 @@ using YDots.DON.Application.Common.Settings;
 using YDots.DON.Application.ServiceContainer;
 using YDots.DON.Infrastructure.Multitenancy;
 using YDots.DON.Infrastructure.Persistence;
-using YDots.DON.Infrastructure.Persistence.Seed;
 using YDots.DON.Infrastructure.ServiceContainer;
 using Microsoft.AspNetCore.HttpOverrides;
 
@@ -45,7 +44,7 @@ try
     // full account and for the environment variable that narrows the trusted set.
     app.UseForwardedHeaders(ForwardedHeadersConfiguration.Build(builder.Configuration));
 
-    // ---- Migrate and seed on startup ------------------------------------------------------------
+    // ---- Migrate on startup ---------------------------------------------------------------------
     using (var scope = app.Services.CreateScope())
     {
         var provider = scope.ServiceProvider;
@@ -62,16 +61,15 @@ try
                 await context.Database.MigrateAsync();
             }
 
-            if (databaseSettings.SeedOnStartup)
-            {
-                logger.LogInformation("Seeding Donors reference data...");
-                await provider.GetRequiredService<DonDbSeeder>().SeedAsync();
-            }
+            // NOTHING IS SEEDED HERE ANY MORE. The module has no reference data of its own, and
+            // its demonstration donors and leads belong to Organisations IAM has not created yet
+            // when this runs on a fresh database - so they are written by DemoDataSeedingService,
+            // which keeps asking until IAM has finished. SeedOnStartup still switches that off.
         }
         catch (Exception exception)
         {
             // The API still starts, so the failure is visible in the log rather than as a silent crash.
-            logger.LogError(exception, "Database migration or seeding failed. Check the connection string in DatabaseSettings.");
+            logger.LogError(exception, "Database migration failed. Check the connection string in DatabaseSettings.");
         }
     }
 

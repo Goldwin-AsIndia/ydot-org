@@ -745,30 +745,37 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     this.fieldErrors.set({});
 
     const f = this.form();
+    const contactPhone = f.contactPhone.trim();
 
+    // OPTIONAL FIELDS ARE SENT AS '' WHEN EMPTIED, NEVER AS null. The server reads null as "leave
+    // this alone" and an empty string as "clear it", so `|| null` meant a second address line, a
+    // GSTIN or a website could never be removed: "The profile has been saved" and the old value
+    // stayed. The fields the profile cannot do without - the name, the first address line and the
+    // regional defaults - are still sent as null when blank, which the server ignores.
     this.api
       .updateMine({
         expectedVersion: organisation.version ?? 0,
         name: f.name.trim() || null,
-        legalName: f.legalName.trim() || null,
-        registrationNumber: f.registrationNumber.trim() || null,
-        taxIdentificationNumber: f.taxIdentificationNumber.trim() || null,
-        panNumber: f.panNumber.trim() || null,
-        gstNumber: f.gstNumber.trim() || null,
-        organisationType: f.organisationType || null,
+        legalName: f.legalName.trim(),
+        registrationNumber: f.registrationNumber.trim(),
+        taxIdentificationNumber: f.taxIdentificationNumber.trim(),
+        panNumber: f.panNumber.trim(),
+        gstNumber: f.gstNumber.trim(),
+        organisationType: f.organisationType.trim(),
         establishedOn: f.establishedOn || null,
-        description: f.description.trim() || null,
-        websiteUrl: f.websiteUrl.trim() || null,
-        contactPersonName: f.contactPersonName.trim() || null,
-        contactEmail: f.contactEmail.trim() || null,
-        contactPhoneCountryCode: f.contactPhone ? f.contactPhoneCountryCode : null,
-        contactPhone: f.contactPhone.trim() || null,
+        description: f.description.trim(),
+        websiteUrl: f.websiteUrl.trim(),
+        contactPersonName: f.contactPersonName.trim(),
+        contactEmail: f.contactEmail.trim(),
+        // The code travels with the number: clearing the number clears both.
+        contactPhoneCountryCode: contactPhone ? f.contactPhoneCountryCode : '',
+        contactPhone,
         addressLine1: f.addressLine1.trim() || null,
-        addressLine2: f.addressLine2.trim() || null,
-        city: f.city.trim() || null,
-        state: f.state.trim() || null,
-        country: f.country.trim() || null,
-        postalCode: f.postalCode.trim() || null,
+        addressLine2: f.addressLine2.trim(),
+        city: f.city.trim(),
+        state: f.state.trim(),
+        country: f.country.trim(),
+        postalCode: f.postalCode.trim(),
         timeZone: f.timeZone.trim() || null,
         defaultCurrency: f.defaultCurrency.trim() || null,
         defaultCulture: f.defaultCulture.trim() || null,

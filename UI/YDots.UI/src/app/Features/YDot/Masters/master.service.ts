@@ -4,6 +4,7 @@ import { Observable, map, shareReplay } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { ApiResponse, OutcomeResponse, PagedResponse } from '../../../Shared/models/api-response.model';
 import { apiEnumValue } from '../../../Shared/models/enum-option.model';
+import { GeoMasterService } from '../../../Shared/services/geo-master.service';
 import {
   CityDetail,
   CityListItem,
@@ -62,6 +63,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class MasterService {
   private readonly http = inject(HttpClient);
+  private readonly geo = inject(GeoMasterService);
 
   private readonly baseUrl = `${environment.apiBaseUrl}/masters`;
   private readonly countriesUrl = `${this.baseUrl}/countries`;
@@ -139,8 +141,30 @@ export class MasterService {
    * Call it after adding or retiring a country, state, currency or time zone, so the next form
    * that opens sees the change rather than the list as it stood when the tab was first loaded.
    */
+  /**
+   * How many writes the Masters screens have made this session.
+   *
+   * Every write calls `invalidateReferenceData()`, so the count moves exactly when a catalogue
+   * changed. A screen compares it with the value it last counted at and re-reads its active /
+   * inactive totals only then - those totals do not change when somebody turns a page or types a
+   * search, which is when they used to be re-requested.
+   */
+  get writeVersion(): number {
+    return this.writes;
+  }
+
+  private writes = 0;
+
   invalidateReferenceData(): void {
     this.referenceData$ = undefined;
+    this.writes++;
+
+    // AND THE LOOKUPS EVERY OTHER FORM READS. Each Masters screen calls this after a write, but
+    // until now it dropped only this screen's own cache: the country, currency and time-zone
+    // pickers on user creation, the organisation profile and the payment gateways went on
+    // offering the catalogue as it stood when the tab was opened - a currency retired a minute ago
+    // still selectable, a country just added nowhere to be found - until a full page reload.
+    this.geo.invalidate();
   }
 
   // =========================================================================================

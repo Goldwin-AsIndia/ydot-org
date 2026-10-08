@@ -12,7 +12,9 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject, Subscription, debounceTime } from 'rxjs';
 import { MasterService } from '../master.service';
+import { fetchPages } from '../../../../Shared/services/paging';
 import { apiErrorMessage, apiFieldErrors } from '../../../../Shared/models/api-response.model';
 import { enumLabel } from '../../../../Shared/models/enum-option.model';
 import {
@@ -193,9 +195,19 @@ export class Country implements OnInit {
    * `ngAfterViewInit` writes to signals the template has already rendered — the source of
    * NG0100 "expression changed after it was checked" in development.
    */
+  /** The list request in flight, so a newer one can replace it. */
+  private listSubscription?: Subscription;
+
+  /** Search-box keystrokes, debounced into one request per pause rather than one per letter. */
+  private readonly searchTyped$ = new Subject<void>();
+
   ngOnInit(): void {
     this.loadReferenceData();
     this.loadCountries();
+
+    this.searchTyped$
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadCountries());
   }
 
   // ================= loading =================
@@ -224,24 +236,33 @@ export class Country implements OnInit {
   protected loadCountries(): void {
     this.isLoading.set(true);
 
-    this.masterService
-      .searchCountries({
-        search: this.searchText().trim() || undefined,
-        region: (this.selectedRegion() as GeographicRegion) || undefined,
-        status: this.resolveStatusFilter(),
-        page: 1,
-        pageSize: Country.FetchLimit,
-        sort: 'sortOrder',
-      })
+    const filter = {
+      search: this.searchText().trim() || undefined,
+      region: (this.selectedRegion() as GeographicRegion) || undefined,
+      status: this.resolveStatusFilter(),
+      sort: 'sortOrder',
+    };
+
+    // UP TO `FetchLimit` ROWS, FOR REAL. This asked for all 500 in one page, but the server caps
+    // a page at 100 - so the limit was silently 100, and the grid, its counters and its region
+    // list stopped there. The further pages are fetched only when they exist.
+    //
+    // A newer search replaces one still in flight, so a slow answer to an older one cannot land
+    // last and leave the grid disagreeing with its own search box.
+    this.listSubscription?.unsubscribe();
+    this.listSubscription = fetchPages(
+      (page, pageSize) => this.masterService.searchCountries({ ...filter, page, pageSize }),
+      100,
+      Country.FetchLimit)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (page) => {
+        next: (result) => {
           // REPLACED, NOT APPENDED. The previous version did
           // `countries.update(list => [...list, response.value.data])`, which appended the whole
           // payload as a single element on every load - so a second refresh produced a list of
           // arrays and the grid rendered nothing.
-          this.countries.set(page.items.map((item) => this.toModel(item)));
-          this.isTruncated.set(page.totalCount > page.items.length);
+          this.countries.set(result.items.map((item) => this.toModel(item)));
+          this.isTruncated.set(result.totalCount > result.items.length);
           this.isLoading.set(false);
         },
         error: (error) => {
@@ -504,7 +525,8 @@ export class Country implements OnInit {
   onSearchChange(value: string): void {
     this.searchText.set(value);
     this.resetPaging();
-    this.loadCountries();
+    // Debounced: one request per pause in typing rather than one per letter.
+    this.searchTyped$.next();
   }
 
   onRegionChange(value: string): void {

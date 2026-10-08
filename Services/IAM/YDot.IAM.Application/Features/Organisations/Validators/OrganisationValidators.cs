@@ -56,6 +56,7 @@ public sealed class CreateOrganisationRequestValidator : AbstractValidator<Creat
 
         RuleFor(request => request.LegalName).MaximumLength(250);
         RuleFor(request => request.OrganisationType).MaximumLength(100);
+        RuleFor(request => request.Description).MaximumLength(2000);
 
         RuleFor(request => request.MaximumUsers)
             .GreaterThan(0).WithMessage("The user limit must be at least 1.")

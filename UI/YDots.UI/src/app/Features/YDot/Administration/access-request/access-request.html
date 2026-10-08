@@ -223,7 +223,7 @@
                           <button type="button" class="ar-act ar-act--primary " (click)="submitRequest(req)" [disabled]="rowSubmittingId() === req.id" title="Submit request" aria-label="Submit request">
                             <i class="ri-send-plane-line" aria-hidden="true"></i>
                           </button>
-                          <button type="button" class="ar-act ar-act--danger" (click)="openDeleteModal(req)" title="Delete draft" aria-label="Delete draft">
+                          <button type="button" class="ar-act ar-act--danger" (click)="openDeleteModal(req)" title="Withdraw draft" aria-label="Withdraw draft">
                             <i class="ri-delete-bin-line" aria-hidden="true"></i>
                           </button>
                         }
@@ -501,17 +501,17 @@
   <app-popup [open]="true" size="sm" [tone]="showDeleteModal() ? 'danger' : showReturnModal() ? 'warning' : 'default'"
              [icon]="showReturnModal() ? 'ri-arrow-go-back-line' : showCancelModal() ? 'ri-close-circle-line' : 'ri-delete-bin-line'"
              [kicker]="'Access request · ' + target.reference"
-             [title]="showReturnModal() ? 'Return access request' : showCancelModal() ? 'Cancel access request' : 'Delete unused draft'"
+             [title]="showReturnModal() ? 'Return access request' : showCancelModal() ? 'Cancel access request' : 'Withdraw unused draft'"
              [lead]="showReturnModal() ? 'This returns the request to the requester for correction. The request history is preserved.'
                    : showCancelModal() ? 'This will cancel the request. The history is retained permanently.'
-                   : 'This permanently deletes the draft request. This action cannot be undone.'"
+                   : 'This withdraws the draft request. It stays in the list as Withdrawn and can no longer be submitted.'"
              (closed)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">
     <dl class="yp-facts">
       <div><dt>User</dt><dd>{{ target.user }}</dd></div>
       <div><dt>Requested role</dt><dd>{{ target.requestedRole }}</dd></div>
     </dl>
     <label class="yp-field">
-      <span class="yp-label">{{ showReturnModal() ? 'Return reason' : showCancelModal() ? 'Cancellation reason' : 'Deletion reason' }} *</span>
+      <span class="yp-label">{{ showReturnModal() ? 'Return reason' : showCancelModal() ? 'Cancellation reason' : 'Withdrawal reason' }} *</span>
       <textarea rows="3" maxlength="1000" placeholder="Enter reason (10–1000 characters)"
                 [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)"></textarea>
       <span class="yp-hint">Required — 10 to 1000 characters. {{ decisionReason().length }}/1000</span>
@@ -524,7 +524,7 @@
       } @else if (showCancelModal()) {
         <button type="button" class="btn btn-primary btn-sm" (click)="confirmCancel()" [disabled]="submitting()">Confirm cancellation</button>
       } @else {
-        <button type="button" class="btn btn-danger btn-sm" (click)="confirmDelete()" [disabled]="submitting()">Permanently delete</button>
+        <button type="button" class="btn btn-danger btn-sm" (click)="confirmDelete()" [disabled]="submitting()">Withdraw draft</button>
       }
     </ng-container>
   </app-popup>

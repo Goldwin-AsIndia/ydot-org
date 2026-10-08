@@ -239,7 +239,7 @@
                    [ngModel]="mobileNumber()" (ngModelChange)="mobileNumber.set($event)" name="mobileNumber"
                    [attr.aria-invalid]="mobileInvalid() && uiState() === 'validation'" />
           </span>
-          @if (mobileInvalid()) {
+          @if (!formLocked() && mobileInvalid()) {
             <span class="field-error">Review Mobile No. Enter 10 to 15 digits.</span>
           }
         </label>

@@ -13,7 +13,7 @@ import {
   CreateAccessRequestRequest,
 } from '../../../../Shared/models/access-request-api.model';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
-import { UserSearchFilter } from '../../../../Shared/models/user-directory.model';
+import { fetchAllPages } from '../../../../Shared/services/paging';
 import { LookupItem } from '../../../../Shared/models/api-response.model';
 import { PopupComponent } from '../../../../Shared/components/popup/popup';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
@@ -220,13 +220,15 @@ export class AccessRequestComponent {
     this.loading.set(true);
     this.loadError.set(false);
 
-    const filter: AccessRequestSearchFilter = { page: 1, pageSize: 100 } as AccessRequestSearchFilter;
-
-    this.api.getRequests(filter).subscribe({
-      next: (page) => {
+    // EVERY REQUEST, not the first page. The queue is searched, filtered, paged and counted in the
+    // browser, and it used to take one page of 100 - the server's ceiling - as the whole queue,
+    // so the 101st request was never shown and every figure on the cards was a count of page one.
+    fetchAllPages((page, pageSize) =>
+      this.api.getRequests({ page, pageSize } as AccessRequestSearchFilter)).subscribe({
+      next: (requests) => {
         this.data.set({
-          requests: page.items ?? [],
-          totalCount: page.totalCount ?? 0,
+          requests,
+          totalCount: requests.length,
 
           // The statuses and request types are the domain's own vocabulary rather than
           // configuration, so they are named here instead of fetched. A new status means new
@@ -323,15 +325,24 @@ export class AccessRequestComponent {
     }
   }
 
+  /**
+   * The people a request can be raised for.
+   *
+   * THE ORGANISATION'S PEOPLE DIRECTORY, not the administration directory. That one needs
+   * `iam.users.view`, which a person raising an access request for a colleague need not hold - so
+   * for them the "User" dropdown was silently empty - and it cost three requests (a page of users
+   * plus the whole filter vocabulary) for a list that was then cut at 100. This is one request,
+   * open to every member, and returns active people only: access for an account that cannot sign
+   * in is not something anybody can use.
+   */
   private loadUserDirectory(): void {
-    const filter: UserSearchFilter = { pageIndex: 1, pageSize: 100 };
-    this.userApi.getDirectory(filter).subscribe({
-      next: (res) => {
-        this.userOptions.set((res.users.items ?? []).map(u => ({
-          id: u.id ?? '',
-          reference: u.code ?? '',
-          displayName: u.displayName ?? '',
-          orgUnit: u.organisationUnitName ?? ''
+    this.userApi.peopleDirectory(undefined, 500).subscribe({
+      next: (people) => {
+        this.userOptions.set(people.map((person) => ({
+          id: person.id ?? '',
+          reference: person.code ?? '',
+          displayName: person.displayName ?? '',
+          orgUnit: person.unitName ?? '',
         })));
       },
       error: () => { /* Non-blocking */ }
@@ -576,12 +587,16 @@ export class AccessRequestComponent {
       user: r.requestedForName ?? '',
 
       // The queue row is deliberately lean: it carries what triage needs, not the whole
-      // request. The justification, the scope and the decision notes are on the detail, which
-      // is fetched when a row is opened.
+      // request. The justification and the decision notes stay on the detail.
       currentRoleAndScope: '',
       requestedRole: r.roleName ?? r.permissionCode ?? '—',
-      scopeType: 'organisation',
-      scopeValue: 'All',
+
+      // THE SCOPE THE REQUEST ACTUALLY NAMES. Every row used to read "organisation · All" -
+      // including in the approve and reject dialog, so an approver deciding a request narrowed
+      // to one campaign was shown a whole-organisation grant. No scope means the request does not
+      // narrow anything, which is a dash rather than "everything".
+      scopeType: r.scopeType ? this.scopeLabel(r.scopeType) : '—',
+      scopeValue: r.scopeType ? (r.scopeValue || '—') : '—',
       effectiveFrom: r.accessStartsAtUtc ? this.formatDate(r.accessStartsAtUtc) : '—',
       effectiveTo: r.accessEndsAtUtc ? this.formatDate(r.accessEndsAtUtc) : '—',
       businessJustification: '',
@@ -616,6 +631,12 @@ export class AccessRequestComponent {
           ? 'You raised this request, so somebody else has to decide it.'
           : 'You are not an eligible approver for this request.',
     };
+  }
+
+  /** A scope type in the words the New Request dialog uses for it. */
+  private scopeLabel(scopeType: string): string {
+    return AccessRequestComponent.SCOPE_TYPE_OPTIONS.find((option) => option.id === scopeType)?.name
+      ?? scopeType;
   }
 
   private stateClass(state: string): string {
@@ -739,13 +760,34 @@ export class AccessRequestComponent {
 
         // A persistent confirmation, not just a toast: somebody who raised a request needs its
         // reference afterwards, and a toast that has faded is no use for that.
-        this.decisionResult.set({
-          reference: outcome.message ?? 'Draft saved',
-          state: outcome.status ?? 'Draft',
-          effectiveTime: this.formatDateTime(new Date().toISOString()),
-          nextAction: `The request has been drafted. Submit it for independent approval.`
+        //
+        // WHAT THE SERVER DID, NOT WHAT THIS SCREEN ASSUMED. A new request is SUBMITTED straight
+        // away unless the caller asks for a draft, and this always announced "drafted - submit it
+        // for approval", sending people to look for a Submit button on a request already waiting
+        // for an approver. The reference slot also held the whole confirmation sentence. The
+        // request is read back for its number and its real status.
+        const showOutcome = (reference: string, status: string, statusDisplay: string) => {
+          this.decisionResult.set({
+            reference,
+            state: statusDisplay,
+            effectiveTime: this.formatDateTime(new Date().toISOString()),
+            nextAction: status.toLowerCase() === 'draft'
+              ? 'The request has been saved as a draft. Submit it for independent approval.'
+              : 'The request is waiting for an independent approver. You cannot decide it yourself.',
+          });
+          this.showDecisionResultModal.set(true);
+        };
+
+        const fallbackStatus = outcome.status ?? 'Submitted';
+
+        this.api.get(outcome.id).subscribe({
+          next: (detail) => showOutcome(
+            detail.requestNumber ?? '',
+            detail.status ?? fallbackStatus,
+            detail.statusDisplay ?? fallbackStatus),
+          error: () => showOutcome('', fallbackStatus, fallbackStatus),
         });
-        this.showDecisionResultModal.set(true);
+
         this.loadData();
       },
       error: (error: Error) => {
@@ -882,11 +924,14 @@ export class AccessRequestComponent {
         // predicted — applied the grant, stamped the decision — and a locally patched row
         // would quietly disagree with it.
 
+        // THE STATE IS THE SERVER'S WORD FOR IT. Cancelling is a withdrawal there, and the queue
+        // shows "Withdrawn" a moment later; a result that said "Cancelled" named a state the
+        // request never has.
         this.decisionResult.set({
           reference: target.reference,
-          state: 'Cancelled',
+          state: outcome.status ?? 'Withdrawn',
           effectiveTime: this.formatDateTime(new Date().toISOString()),
-          nextAction: `Request ${target.reference} was cancelled. The history is retained.`
+          nextAction: `Request ${target.reference} was cancelled and is now marked Withdrawn. The history is retained.`
         });
         this.showDecisionResultModal.set(true);
         this.loadData();
@@ -920,7 +965,7 @@ export class AccessRequestComponent {
 
     const reason = this.decisionReason().trim();
     if (reason.length < 10) {
-      this.decisionError.set('Deletion reason must be at least 10 characters.');
+      this.decisionError.set('Withdrawal reason must be at least 10 characters.');
       return;
     }
 
@@ -934,14 +979,14 @@ export class AccessRequestComponent {
         this.submitting.set(false);
         this.closeDeleteModal();
 
-        const items = this.filteredRequests().filter(r => r.id !== target.id);
-        this.filteredRequests.set(items);
-
+        // WITHDRAWN, NOT DELETED. The server keeps every governance record, so the draft comes
+        // back on the next load marked Withdrawn; announcing that it had been permanently deleted
+        // was contradicted by the queue a second later.
         this.decisionResult.set({
           reference: target.reference,
-          state: 'Deleted',
+          state: 'Withdrawn',
           effectiveTime: this.formatDateTime(new Date().toISOString()),
-          nextAction: `Request ${target.reference} was permanently deleted.`
+          nextAction: `Request ${target.reference} was withdrawn. It stays in the history and can no longer be submitted.`
         });
         this.showDecisionResultModal.set(true);
         this.loadData();

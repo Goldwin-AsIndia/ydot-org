@@ -677,6 +677,19 @@ public sealed class DonationIntentCommandHandler(
             return Result.Failure<OpenedAttempt>(Error.PaymentGatewayNotConfigured());
         }
 
+        // THE MERCHANT ACCOUNT MUST BE THE DONATION'S OWN ORGANISATION'S. Checked here, before an
+        // attempt exists, because this is the last point at which a mismatch costs nothing: one
+        // step later the provider is asked for money on another charity's merchant account.
+        if (account.TenantId != intent.TenantId)
+        {
+            logger.LogError(
+                "The gateway account resolved for intent {IntentReference} belongs to organisation "
+                + "{AccountTenantId}, not the intent's organisation {TenantId}. The payment was refused.",
+                intent.IntentReference, account.TenantId, intent.TenantId);
+
+            return Result.Failure<OpenedAttempt>(Error.PaymentGatewayNotConfigured());
+        }
+
         // The currency the campaign asks for has to be one the merchant account actually settles
         // in, or the gateway takes the money and the charity cannot be paid out.
         if (!string.Equals(

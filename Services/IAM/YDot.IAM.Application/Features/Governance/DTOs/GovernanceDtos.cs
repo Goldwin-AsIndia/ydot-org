@@ -173,7 +173,16 @@ public sealed record AccessRequestListItemResponse(
     /// <summary>True only for the person who raised the request, while it is still undecided.</summary>
     bool CanCancel,
 
-    long Version);
+    long Version,
+
+    /// <summary>
+    /// What the access is narrowed to, when the request names a scope. ON THE ROW because the
+    /// queue and the decision dialog both show it: without it the screen printed "Whole
+    /// organisation" for every request, so an approver deciding a campaign-scoped request was
+    /// shown a scope nobody had asked for.
+    /// </summary>
+    DataScopeType? ScopeType = null,
+    string? ScopeValue = null);
 
 /// <summary>A request with everything a decision needs.</summary>
 public sealed record AccessRequestDetailResponse(

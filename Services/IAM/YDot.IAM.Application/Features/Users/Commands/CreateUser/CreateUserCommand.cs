@@ -7,6 +7,7 @@ using YDot.IAM.Application.Common.Constants;
 using YDot.IAM.Application.Common.Results;
 using YDot.IAM.Application.Common.Settings;
 using YDot.IAM.Application.Features.Users.DTOs;
+using YDot.IAM.Application.Features.Users.Mappings;
 using YDot.IAM.Domain.Entities;
 using YDot.IAM.Domain.Enums;
 using YDot.IAM.Domain.ValueObjects;
@@ -300,6 +301,24 @@ public sealed class CreateUserCommandHandler(
             }
         }
 
+        // ---- Data scopes, checked before anything is staged ------------------------------------
+        //
+        // Every scope type but two names a record - a campaign, a warehouse, a queue - and a scope
+        // naming nothing would narrow the person to nothing at all. ORGANISATION ("everything")
+        // and ASSIGNMENT ("only what is assigned to them") are the exceptions: neither has a
+        // record to name, which is why the create form can offer them without a value picker.
+        var unnamedScope = (request.DataScopes ?? []).FirstOrDefault(scope =>
+            string.IsNullOrWhiteSpace(scope.ScopeValue)
+            && scope.ScopeType is not (DataScopeType.Organisation or DataScopeType.Assignment));
+
+        if (unnamedScope is not null)
+        {
+            logger.LogWarning("User creation failed because a data scope of type {ScopeType} named no value. TenantId {TenantId}.", unnamedScope.ScopeType, tenantId);
+            return Result.Failure<CreateUserResponse>(
+                Error.Validation("Say which record that data scope covers.",
+                    [new ValidationError(nameof(request.DataScopes), "A scope of this type needs a value.")]));
+        }
+
         // ---- The user ---------------------------------------------------------------------------
         var displayName = string.IsNullOrWhiteSpace(request.DisplayName)
             ? $"{request.FirstName.Trim()} {request.LastName.Trim()}".Trim()
@@ -315,6 +334,13 @@ public sealed class CreateUserCommandHandler(
             MiddleName = request.MiddleName?.Trim(),
             LastName = request.LastName.Trim(),
             DisplayName = displayName,
+            Title = Optional(request.Title),
+            PreferredName = Optional(request.PreferredName),
+            WorkLocation = Optional(request.WorkLocation),
+            // Null inherits the Organisation's defaults, which is what an unanswered locale
+            // question should mean.
+            PreferredCulture = Optional(request.PreferredCulture),
+            TimeZone = Optional(request.TimeZone),
             Email = email.Value,
             NormalizedEmail = email.Value.ToUpperInvariant(),
             UserName = finalUsername,
@@ -358,8 +384,15 @@ public sealed class CreateUserCommandHandler(
         await users.AddAsync(user, cancellationToken);
 
         // ---- Roles ------------------------------------------------------------------------------
+        //
+        // THE ADMINISTRATOR'S OWN WORDS, when they gave any. The create form has always required
+        // a business justification and every assignment was stamped with the same generic
+        // sentence instead - so an access review asking "why does this person hold this role?"
+        // found nothing but boilerplate.
+        var justification = Optional(request.Justification);
+
         var assigned = await AssignRolesAsync(
-            user, tenant, request.RoleIds, request.AccountCategory, now, cancellationToken);
+            user, tenant, request.RoleIds, request.AccountCategory, justification, now, cancellationToken);
         if (assigned.IsFailure)
         {
             logger.LogWarning("User creation failed during role assignment. UserId {UserId}, TenantId {TenantId}.", user.Id, tenantId);
@@ -369,13 +402,22 @@ public sealed class CreateUserCommandHandler(
         // ---- Narrowing scopes ---------------------------------------------------------------------
         foreach (var scope in request.DataScopes ?? [])
         {
+            // The two value-less types are filled in here: an assignment scope is about the
+            // person themselves (whose id only exists now), an organisation scope is about the
+            // Organisation. Anything else was checked above and carries its own value.
+            var scopeValue = !string.IsNullOrWhiteSpace(scope.ScopeValue)
+                ? scope.ScopeValue.Trim()
+                : scope.ScopeType == DataScopeType.Organisation
+                    ? tenantId.ToString()
+                    : user.Id.ToString();
+
             await governance.AddDataScopeAsync(new UserDataScope
             {
                 TenantId = tenantId,
                 BusinessUnitId = businessUnit.Id,
                 UserId = user.Id,
                 ScopeType = scope.ScopeType,
-                ScopeValue = scope.ScopeValue.Trim(),
+                ScopeValue = scopeValue,
                 DisplayLabel = scope.DisplayLabel,
                 GrantedAtUtc = now,
                 GrantedByUserId = currentUser.UserId,
@@ -424,9 +466,11 @@ public sealed class CreateUserCommandHandler(
                 Email = email.Value,
                 user.AccountCategory,
                 RoleCount = request.RoleIds?.Count ?? 0,
+                DataScopeCount = request.DataScopes?.Count ?? 0,
                 request.SendInvitation
             },
-            cancellationToken: cancellationToken);
+            justification,
+            cancellationToken);
 
         if (invitation is not null)
         {
@@ -481,11 +525,21 @@ public sealed class CreateUserCommandHandler(
             return Result.Failure<CreateUserResponse>(Error.UserNotFound());
         }
 
-        if (user.Status is not (UserStatus.Invited or UserStatus.Draft))
+        // WITHDRAWN IS INVITED AGAIN HERE. CanTransitionTo allows Withdrawn to Invited and the
+        // record offers "Invite" for it, but this handler - the only one that sends an
+        // invitation to an existing account - took Invited and Draft alone. So a withdrawn
+        // draft or invitation could never be brought back, and because the address and the
+        // username stay reserved for as long as the row exists, the person could not be
+        // created again either.
+        var previousStatus = user.Status;
+
+        if (previousStatus is not (UserStatus.Invited or UserStatus.Draft or UserStatus.Withdrawn))
         {
             logger.LogWarning("User invitation resend rejected because UserId {UserId} has status {Status}.", command.UserId, user.Status);
             return Result.Failure<CreateUserResponse>(Error.InvalidTransition(
-                "That account is already active. There is nothing to resend."));
+                previousStatus == UserStatus.Active
+                    ? "That account is already active. There is nothing to resend."
+                    : $"An account that is {UserMappingConfig.DescribeStatus(previousStatus).ToLowerInvariant()} cannot be sent an invitation."));
         }
 
         var tenant = user.TenantId.HasValue
@@ -543,9 +597,15 @@ public sealed class CreateUserCommandHandler(
 
         user.Status = UserStatus.Invited;
 
+        if (previousStatus == UserStatus.Withdrawn)
+        {
+            // Withdrawing stamped the day they left. They have not left any more.
+            user.ExitedOn = null;
+        }
+
         await audit.WriteAsync(
             AuditActionCodes.UserInvitationResent, nameof(UserInvitation), invitation.Id,
-            user.DisplayName, new { invitation.ResendCount },
+            user.DisplayName, new { invitation.ResendCount, PreviousStatus = previousStatus.ToString() },
             cancellationToken: cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -632,6 +692,7 @@ public sealed class CreateUserCommandHandler(
         Tenant tenant,
         IReadOnlyList<Guid>? roleIds,
         UserAccountCategory accountCategory,
+        string? justification,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -651,20 +712,20 @@ public sealed class CreateUserCommandHandler(
         // which reads as a broken account rather than a missing role.
         //
         // WHICH ROLE DEPENDS ON WHAT KIND OF ACCOUNT THIS IS, and it did not used to. Every
-        // account with no roles fell through to the Organisation's DEFAULT role, which is
-        // INITIATOR — and the donor portal creates exactly such an account. A lead who scanned a
-        // QR code, paid, and activated the invitation in their e-mail was therefore given maker
-        // rights across IAM, Campaigns, Donors and Payments: the campaign register, the donor
-        // list, the user directory. Nobody chose that. It is what "the default role" means when
-        // the account being created is not a member of staff.
+        // account with no roles fell through to the Organisation's DEFAULT role - a staff role,
+        // CAMPAIGN_EXECUTIVE today and a maker across every module when this was written - and
+        // the donor portal creates exactly such an account. A lead who scanned a QR code, paid,
+        // and activated the invitation in their e-mail was therefore given staff rights. Nobody
+        // chose that. It is what "the default role" means when the account being created is not
+        // a member of staff.
         //
         // A DonorPortal account gets DONOR: their own giving, and nothing else.
         //
         // IF DONOR IS MISSING THE ACCOUNT GETS NOTHING, and that is the right way to fail. The
         // seeder creates the role in every Organisation, so its absence means a database that
         // has not been reconciled — and on that database an account with no roles sees an empty
-        // application, which somebody reports, whereas an account quietly holding INITIATOR is a
-        // member of the public inside the staff screens and nobody finds out.
+        // application, which somebody reports, whereas an account quietly holding a staff role
+        // is a member of the public inside the staff screens and nobody finds out.
         if (requested.Count == 0)
         {
             var fallback = accountCategory == UserAccountCategory.DonorPortal
@@ -723,7 +784,7 @@ public sealed class CreateUserCommandHandler(
                 AssignedAtUtc = now,
                 AssignedByUserId = currentUser.UserId,
                 EffectiveFromUtc = now,
-                Justification = "Assigned when the user was created."
+                Justification = justification ?? "Assigned when the user was created."
             }, cancellationToken);
 
             isFirst = false;
@@ -733,6 +794,10 @@ public sealed class CreateUserCommandHandler(
 
         return Result.Success();
     }
+
+    /// <summary>A trimmed value, or null when nothing but whitespace was sent.</summary>
+    private static string? Optional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private string BuildActivationUrl(string hostName, string token)
     {

@@ -54,6 +54,7 @@ public sealed record AssignRoleClaimsCommand(Guid RoleId, AssignRoleClaimsReques
 /// </summary>
 public sealed class RoleCommandHandler(
     IRoleRepository roles,
+    IRoleReadService readService,
     IPermissionRepository permissions,
     IMenuRepository menus,
     IUserRepository users,
@@ -137,10 +138,13 @@ public sealed class RoleCommandHandler(
             await ClearOtherDefaultsAsync(tenantId, role.Id, cancellationToken);
         }
 
-        if (request.PermissionCodes is { Count: > 0 })
+        var grantedOnCreate = request.PermissionCodes ?? [];
+        var deniedOnCreate = request.DeniedPermissionCodes ?? [];
+
+        if (grantedOnCreate.Count > 0 || deniedOnCreate.Count > 0)
         {
             var applied = await ApplyPermissionsAsync(
-                role, request.PermissionCodes, [], now, cancellationToken);
+                role, grantedOnCreate, deniedOnCreate, now, cancellationToken);
 
             if (applied.IsFailure)
             {
@@ -156,14 +160,19 @@ public sealed class RoleCommandHandler(
 
         await audit.WriteAsync(
             AuditActionCodes.RoleCreated, nameof(Role), role.Id, role.Name,
-            new { role.Code, PermissionCount = request.PermissionCodes?.Count ?? 0 },
+            new { role.Code, PermissionCount = grantedOnCreate.Count, DeniedCount = deniedOnCreate.Count },
             cancellationToken: cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Role created successfully. RoleId {RoleId}.", role.Id);
 
-        return Result.Success(role.ToDetailResponse([], [], [], [], 0));
+        // READ BACK, NOT ASSEMBLED FROM EMPTY LISTS. This used to answer with no permissions and
+        // no menus whatever had just been saved, so a role created with thirty grants was shown
+        // as holding none until somebody reloaded the page.
+        var created = await readService.GetDetailAsync(role.Id, cancellationToken);
+
+        return Result.Success(created ?? role.ToDetailResponse([], [], [], [], 0));
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -284,6 +293,12 @@ public sealed class RoleCommandHandler(
                 "This role already grants every permission in the organisation, so its permission list cannot be edited."));
         }
 
+        var grantedBefore = CodesOf(role, denied: false);
+        var deniedBefore = CodesOf(role, denied: true);
+
+        var grantedAfter = (request.PermissionCodes ?? []).ToHashSet(StringComparer.Ordinal);
+        var deniedAfter = (request.DeniedPermissionCodes ?? []).ToHashSet(StringComparer.Ordinal);
+
         var applied = await ApplyPermissionsAsync(
             role, request.PermissionCodes ?? [], request.DeniedPermissionCodes ?? [], now, cancellationToken);
 
@@ -293,6 +308,21 @@ public sealed class RoleCommandHandler(
             return Result.Failure<OutcomeResponse>(applied.Error!);
         }
 
+        // A SYSTEM ROLE REMEMBERS WHAT WAS TAKEN OUT OF IT, or the seeder hands it back on the
+        // next start: see Role.WithheldPermissionCodes.
+        var withheld = ResolveWithheldCodes(role, grantedAfter, deniedAfter);
+        if (!withheld.SequenceEqual(role.WithheldPermissionCodes, StringComparer.Ordinal))
+        {
+            role.WithheldPermissionCodes = withheld;
+        }
+
+        // A ROLE IS ITS PERMISSIONS, so changing them changes the role. The grants live in their
+        // own rows, which left the role row untouched: its version never moved, so ExpectedVersion
+        // let a second administrator overwrite the first one's save without a conflict, and "last
+        // changed" went on showing a date from before the change. Touching the row fixes both -
+        // the DbContext stamps the version and the editor from there.
+        role.UpdatedAtUtc = now;
+
         // Changing a role changes what its holders can do, so every one of their tokens has
         // to stop being trusted. Stamping each holder is the price of immediate revocation.
         await InvalidateHoldersAsync(role.Id, cancellationToken);
@@ -301,8 +331,15 @@ public sealed class RoleCommandHandler(
             AuditActionCodes.RolePermissionsChanged, nameof(Role), role.Id, role.Name,
             new
             {
-                Granted = request.PermissionCodes?.Count ?? 0,
-                Denied = request.DeniedPermissionCodes?.Count ?? 0,
+                Granted = grantedAfter.Count,
+                Denied = deniedAfter.Count,
+
+                // WHICH ONES, not only how many. "48 granted" a year later says nothing about
+                // what a person could suddenly do; the names of what moved do.
+                Added = Summarise(grantedAfter.Except(grantedBefore, StringComparer.Ordinal)),
+                Removed = Summarise(grantedBefore.Except(grantedAfter, StringComparer.Ordinal)),
+                Blocked = Summarise(deniedAfter.Except(deniedBefore, StringComparer.Ordinal)),
+                Unblocked = Summarise(deniedBefore.Except(deniedAfter, StringComparer.Ordinal)),
                 request.Justification
             },
             request.Justification, cancellationToken);
@@ -313,7 +350,9 @@ public sealed class RoleCommandHandler(
 
         return Result.Success(new OutcomeResponse(
             role.Id, role.Status.ToString(), role.Version,
-            $"Role permissions saved. {request.PermissionCodes?.Count ?? 0} permission(s) granted.",
+            deniedAfter.Count == 0
+                ? $"Role permissions saved. {grantedAfter.Count} permission(s) granted."
+                : $"Role permissions saved. {grantedAfter.Count} permission(s) granted, {deniedAfter.Count} blocked.",
             RoleMappingConfig.PermittedActionsFor(role, 0)));
     }
 
@@ -323,6 +362,27 @@ public sealed class RoleCommandHandler(
         ArgumentNullException.ThrowIfNull(command);
 
         logger.LogInformation("Changing role status. RoleId {RoleId}, Status {Status}.", command.RoleId, command.Request.Status);
+
+        var target = command.Request.Status;
+
+        // TWO PERMISSIONS, ONE ENDPOINT. Putting a role into use and taking it out of use are
+        // separate rights in the catalogue, but the route asked for iam.roles.activate either way -
+        // so iam.roles.deactivate could be granted and did nothing, and anybody allowed to
+        // activate could also retire. The direction decides which one is needed, so it is asked
+        // here, where the direction is known - and asked FIRST, before the role is looked up, so
+        // somebody without the right learns nothing about which roles exist.
+        var requiredPermission = target == RoleStatus.Active
+            ? PermissionCodes.RolesActivate
+            : PermissionCodes.RolesDeactivate;
+
+        if (!currentUser.HasPermission(requiredPermission))
+        {
+            logger.LogWarning("Role status change rejected because the caller lacks {Permission}. RoleId {RoleId}.", requiredPermission, command.RoleId);
+            return Result.Failure<OutcomeResponse>(Error.Forbidden(
+                target == RoleStatus.Active
+                    ? "You do not have permission to put a role into use."
+                    : "You do not have permission to retire a role."));
+        }
 
         var role = await roles.GetByIdAsync(command.RoleId, cancellationToken);
         if (role is null)
@@ -335,6 +395,24 @@ public sealed class RoleCommandHandler(
         {
             logger.LogWarning("Role status change failed due to concurrency conflict. RoleId {RoleId}.", command.RoleId);
             return Result.Failure<OutcomeResponse>(Error.Concurrency());
+        }
+
+        // The same moves PermittedActionsFor offers: a draft or a retired role can be put into
+        // use, and a role in use can be retired. Nothing returns to draft.
+        if (role.Status == target)
+        {
+            logger.LogWarning("Role status change rejected because RoleId {RoleId} is already {Status}.", command.RoleId, target);
+            return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
+                $"This role is already {RoleMappingConfig.DescribeStatus(target).ToLowerInvariant()}."));
+        }
+
+        if (target == RoleStatus.Draft || (target == RoleStatus.Inactive && role.Status != RoleStatus.Active))
+        {
+            logger.LogWarning("Role status change rejected for RoleId {RoleId}. CurrentStatus {CurrentStatus}, TargetStatus {TargetStatus}.", command.RoleId, role.Status, target);
+            return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
+                target == RoleStatus.Draft
+                    ? "A role cannot be moved back to draft."
+                    : "Only a role that is in use can be retired. Delete a draft that is not wanted."));
         }
 
         // Deactivating the administrator role is how an Organisation locks itself out.
@@ -641,6 +719,56 @@ public sealed class RoleCommandHandler(
         }
 
         return Result.Success();
+    }
+
+    private static HashSet<string> CodesOf(Role role, bool denied) =>
+        role.RolePermissions
+            .Where(grant => grant.IsDenied == denied)
+            .Select(grant => grant.PermissionCode)
+            .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The codes from a system role's definition that this save leaves out of it.
+    ///
+    /// Empty for a role somebody created: nothing tops those up, so there is nothing to hold
+    /// back. A denied code is not "left out" - it has a row of its own, which the top-up already
+    /// treats as present.
+    /// </summary>
+    private static string[] ResolveWithheldCodes(
+        Role role, IReadOnlySet<string> granted, IReadOnlySet<string> denied)
+    {
+        if (!role.IsSystemRole)
+        {
+            return [];
+        }
+
+        var definition = TenantRoleDefinitions.All.FirstOrDefault(
+            item => string.Equals(item.Code, role.NormalizedCode, StringComparison.Ordinal));
+
+        return definition is null
+            ? []
+            : [.. definition.PermissionCodes
+                .Where(code => !granted.Contains(code) && !denied.Contains(code))
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    /// A list of codes sized for an audit row, which holds 8,000 characters and is cut off
+    /// mid-word beyond that. Four of these lists go into one row, and the longest code is fifty
+    /// characters, so twenty-five names each is what fits with room for the justification. That
+    /// answers "what changed" for any ordinary edit; a bulk change says how many more there were
+    /// instead of losing the end of the row.
+    /// </summary>
+    private static IReadOnlyList<string> Summarise(IEnumerable<string> codes)
+    {
+        const int Shown = 25;
+
+        var ordered = codes.Order(StringComparer.Ordinal).ToList();
+
+        return ordered.Count <= Shown
+            ? ordered
+            : [.. ordered.Take(Shown), $"... and {ordered.Count - Shown} more"];
     }
 
     private async Task ApplyMenuMappingAsync(

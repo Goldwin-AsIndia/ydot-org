@@ -3,16 +3,18 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, forkJoin, map, switchMap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ApiResponse, OutcomeResponse, PagedResponse } from '../Shared/models/api-response.model';
+import { apiEnumValue } from '../Shared/models/enum-option.model';
 import { isGuid } from '../Shared/models/identifier';
 import {
   EnumOption,
-  EnumOptionsResponse,
   ReferenceDataResponse,
   UserAccessPreviewResponse,
   UserDetailResponse,
   UserListItemResponse,
   UserSecurityResponse,
+  UserStatisticsResponse,
 } from '../Shared/models/iam-contract.model';
+import { AuthTokenService } from '../Shared/services/auth-token.service';
 import {
   ReasonRequest,
   UpdateMyProfileRequest,
@@ -53,49 +55,81 @@ export interface PersonLookupResponse {
 @Injectable({ providedIn: 'root' })
 export class UserDirectoryApiService {
   private readonly http = inject(HttpClient);
+  private readonly tokens = inject(AuthTokenService);
   private readonly usersUrl = `${environment.apiBaseUrl}/users`;
   private readonly referenceUrl = `${environment.apiBaseUrl}/reference-data`;
 
   /**
+   * The filter bar's vocabulary: this Organisation's roles, departments and units, plus the
+   * product's enum labels.
+   *
+   * ONE REQUEST. `/reference-data` already carries the enums; a second call to
+   * `/reference-data/enums` used to fetch the same lists again on every directory load.
+   */
+  getReference(): Observable<ReferenceDataResponse> {
+    return this.http
+      .get<ApiResponse<ReferenceDataResponse>>(this.referenceUrl)
+      .pipe(map((response) => response.data!));
+  }
+
+  /**
    * The directory: a page of people, plus everything the filter bar needs.
    *
-   * The reference data comes along on every call rather than being cached here, because a
-   * service that caches has to decide when to invalidate — and getting that wrong shows a
-   * department that was deleted an hour ago. The payload is small and the request is cheap.
+   * PASS `reference$` TO REUSE THE FILTER VOCABULARY across the loads of one visit. The page
+   * changes on every keystroke and every page turn; the roles, departments and units do not, and
+   * `/reference-data` is six queries - every role, department, unit, manager and permission. A
+   * screen that keeps one `shareReplay`ed stream for its lifetime still sees a department added
+   * an hour ago the next time it opens, without paying for the vocabulary thirty times a minute.
+   * Left out, the vocabulary is fetched alongside the page, as before.
    */
-  getDirectory(filter: UserSearchFilter): Observable<UserDirectoryResponse> {
+  getDirectory(
+    filter: UserSearchFilter,
+    reference$: Observable<ReferenceDataResponse> = this.getReference(),
+  ): Observable<UserDirectoryResponse> {
     return forkJoin({
       users: this.searchUsers(filter),
-      reference: this.http
-        .get<ApiResponse<ReferenceDataResponse>>(this.referenceUrl)
-        .pipe(map((response) => response.data!)),
-      enums: this.http
-        .get<ApiResponse<EnumOptionsResponse>>(`${this.referenceUrl}/enums`)
-        .pipe(map((response) => response.data!)),
+      reference: reference$,
     }).pipe(
-      map(({ users, reference, enums }) => ({
-        screenId: 'IAM-USR-01',
-        route: '/app/administration/access/user-directory',
-        users,
+      map(({ users, reference }) => {
+        const enums = reference.enums;
 
-        // The enum payloads are value/label; the directory model wants LookupItem, which is
-        // id/code/name. Converted here, once, rather than at every binding in the template.
-        statusOptions: this.toLookups(enums.userStatuses),
-        invitationStatusOptions: this.toLookups(enums.userStatuses),
-        accountCategoryOptions: this.toLookups(enums.accountCategories),
-        dataScopeTypeOptions: this.toLookups(enums.dataScopeTypes),
+        return {
+          screenId: 'IAM-USR-01',
+          route: '/app/administration/access/user-directory',
+          users,
 
-        // These are the Organisation's own records and are already LookupItems.
-        organisationUnitOptions: reference.organisationUnits ?? [],
-        departmentOptions: reference.departments ?? [],
-        roleOptions: reference.roles ?? [],
+          // The enum payloads are value/label; the directory model wants LookupItem, which is
+          // id/code/name. Converted here, once, rather than at every binding in the template.
+          statusOptions: this.toLookups(enums?.userStatuses),
+          invitationStatusOptions: this.toLookups(enums?.userStatuses),
+          accountCategoryOptions: this.toLookups(enums?.accountCategories),
+          dataScopeTypeOptions: this.toLookups(enums?.dataScopeTypes),
 
-        permittedActions: [],
-        activeFilterSummary: this.describeFilter(filter),
-        dataScopeSummary: reference.currentTenantName ?? '',
-        state: 'Ready',
-      })),
+          // These are the Organisation's own records and are already LookupItems.
+          organisationUnitOptions: reference.organisationUnits ?? [],
+          departmentOptions: reference.departments ?? [],
+          roleOptions: reference.roles ?? [],
+
+          permittedActions: this.permittedDirectoryActions(),
+          activeFilterSummary: this.describeFilter(filter),
+          dataScopeSummary: reference.currentTenantName ?? '',
+          state: 'Ready',
+        };
+      }),
     );
+  }
+
+  /**
+   * The status counts for the directory's tabs, in ONE request.
+   *
+   * The tabs used to be counted with five searches of one row each - one per status plus one for
+   * "everyone" - every time the directory loaded or anything in it changed. The server already
+   * groups the same scoped query by status.
+   */
+  getStatistics(): Observable<UserStatisticsResponse> {
+    return this.http
+      .get<ApiResponse<UserStatisticsResponse>>(`${this.usersUrl}/statistics`)
+      .pipe(map((response) => response.data!));
   }
 
   /**
@@ -108,8 +142,9 @@ export class UserDirectoryApiService {
    * controls at the administration search is why the Owner box read "No eligible person in
    * scope" on the one screen whose whole purpose is to name an owner.
    */
-  peopleDirectory(search?: string): Observable<PersonLookupResponse[]> {
-    let params = new HttpParams().set('take', '200');
+  peopleDirectory(search?: string, take = 200): Observable<PersonLookupResponse[]> {
+    // The server clamps `take` to 1-500.
+    let params = new HttpParams().set('take', String(take));
 
     if (search) {
       params = params.set('search', search);
@@ -355,11 +390,45 @@ export class UserDirectoryApiService {
       .pipe(map((response) => response.data!));
   }
 
-  /** Enum options are value/label on the wire; the directory model speaks LookupItem. */
+  /**
+   * What the signed-in person may do in the directory, from the permissions their token carries.
+   *
+   * THIS WAS A LITERAL `[]`. Every check the screen made against it therefore failed once the
+   * directory had loaded - Suspend never appeared for anybody, and the Create and Export buttons
+   * vanished the moment the list arrived, which is why they had been commented out of the
+   * template rather than gated. The names match the screen's existing checks; the codes are the
+   * ones each endpoint demands, so a button is offered exactly when the server would allow it.
+   */
+  private permittedDirectoryActions(): string[] {
+    const grants: [action: string, permission: string][] = [
+      ['Invite', 'iam.users.create'],
+      ['Export', 'iam.users.export'],
+      ['Edit', 'iam.users.edit'],
+      ['Suspend', 'iam.users.suspend'],
+      ['Reactivate', 'iam.users.reactivate'],
+      ['Deactivate', 'iam.users.deactivate'],
+      ['Withdraw', 'iam.users.cancel'],
+      ['ResendInvitation', 'iam.users.invite'],
+    ];
+
+    return grants
+      .filter(([, permission]) => this.tokens.hasPermission(permission))
+      .map(([action]) => action);
+  }
+
+  /**
+   * Enum options are value/label on the wire; the directory model speaks LookupItem.
+   *
+   * THE VALUE IS RE-CASED to the API's own spelling. `/reference-data` names enums as C# does
+   * ("Active"), while every enum the API returns on a record is camelCase ("active") - so a
+   * status option never matched the tab it belonged to, and the filter panel listed Active,
+   * Invited, Suspended and Draft a second time as "other statuses". The server parses either
+   * spelling, so filtering is unaffected.
+   */
   private toLookups(options: EnumOption[] | null | undefined) {
     return (options ?? []).map((option) => ({
-      id: option.value ?? '',
-      code: option.value ?? '',
+      id: apiEnumValue(option.value),
+      code: apiEnumValue(option.value),
       name: option.label ?? option.value ?? '',
       isActive: true,
       description: null,

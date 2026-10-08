@@ -128,4 +128,7 @@ export interface UpdateMyProfileRequest {
   preferredCulture?: string | null;
   timeZone?: string | null;
   reason?: string | null;
+  title?: string | null;
+  preferredName?: string | null;
+  workLocation?: string | null;
 }

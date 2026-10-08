@@ -1,10 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { Subject, debounceTime, takeUntil } from 'rxjs';
+import { Subject, debounceTime, map, takeUntil } from 'rxjs';
 import { PaymentGatewayConfigApiService } from '../../../../Service/payment-gateway-config-api.service';
+import { GeoMasterService } from '../../../../Shared/services/geo-master.service';
 import { apiErrorMessage, apiFieldErrors } from '../../../../Shared/models/api-response.model';
-import { httpsUrlError, identifierError, maxLengthError, rangeError, requiredError } from '../../../../Shared/validation/field-rules';
+import { httpsUrlError, identifierError, maxLengthError, rangeError, requiredError, webUrlError } from '../../../../Shared/validation/field-rules';
 import {
   PaymentGatewayAuditEntry,
   PaymentGatewayCatalogue,
@@ -105,6 +107,7 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
   private readonly api = inject(PaymentGatewayConfigApiService);
   private readonly tokens = inject(AuthTokenService);
   private readonly toast = inject(ToastService);
+  private readonly geo = inject(GeoMasterService);
 
   private readonly destroy$ = new Subject<void>();
 
@@ -175,7 +178,27 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
   ];
 
   /** The currencies offered on the form. */
-  readonly currencies = ['INR', 'USD', 'EUR', 'GBP', 'AUD', 'SGD', 'AED'];
+  /**
+   * The settlement currencies on offer: the Currency master's active rows, by code.
+   *
+   * WAS SEVEN CODES TYPED HERE. A currency added on the Masters screen never appeared, one retired
+   * there stayed selectable, and the server - which accepts any three-letter code - had no reason
+   * to object. The stored value of the configuration being edited is kept in the list even if it
+   * has since left the master, so opening an old configuration never silently blanks it.
+   */
+  private readonly currencyCodes = toSignal(
+    this.geo.getCurrencies().pipe(
+      map((currencies) => currencies
+        .filter((currency) => !currency.status || currency.status === 'active')
+        .map((currency) => currency.code))),
+    { initialValue: [] as string[] });
+
+  get currencies(): string[] {
+    const codes = this.currencyCodes();
+    const current = this.form().settlementCurrencyCode;
+
+    return current && !codes.includes(current) ? [current, ...codes] : codes;
+  }
 
   // =============================================================================================
   // Summary tiles
@@ -658,10 +681,14 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
   /**
    * What is wrong with each field right now (null = fine). The limits are the API's: link validity
    * 15-1440 minutes, URLs and credentials up to 500 characters, display name and merchant ID up to 150.
+   *
+   * THE TWO ADDRESSES MUST BE HTTPS IN PRODUCTION ONLY, as the API rules them. A sandbox runs on a
+   * developer's own machine, and the webhook address "Use ours" fills in there is http.
    */
   private formRules(): Record<string, string | null> {
     const state = this.form();
     const name = state.displayName.trim();
+    const urlError = state.environment === 'Production' ? httpsUrlError : webUrlError;
     return {
       provider: state.provider ? null : 'Choose a payment gateway.',
       displayName: !name ? null
@@ -669,10 +696,10 @@ export class PaymentGatewayConfigurationComponent implements OnInit, OnDestroy {
         : !/^[\p{L}\p{N} ._-]+$/u.test(name) ? 'Display name can contain letters, digits, spaces, dot, hyphen and underscore only.'
         : maxLengthError(name, 150),
       merchantId: identifierError('Merchant ID', state.merchantId, { max: 150 }),
-      webhookUrl: httpsUrlError('Webhook URL', state.webhookUrl, { required: true, max: 500 }),
+      webhookUrl: urlError('Webhook URL', state.webhookUrl, { required: true, max: 500 }),
       settlementCurrencyCode: requiredError('Settlement currency', state.settlementCurrencyCode),
       paymentLinkValidityMinutes: rangeError('Link validity', state.paymentLinkValidityMinutes, 15, 1440),
-      returnUrl: httpsUrlError('Return URL', state.returnUrl, { max: 500 }),
+      returnUrl: urlError('Return URL', state.returnUrl, { max: 500 }),
     };
   }
 

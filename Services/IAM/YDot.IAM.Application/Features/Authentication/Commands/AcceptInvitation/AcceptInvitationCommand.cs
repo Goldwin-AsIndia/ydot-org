@@ -131,6 +131,12 @@ public sealed class AcceptInvitationCommandHandler(
             return Result.Failure<AcceptInvitationResponse>(Error.InvitationInvalid());
         }
 
+        if (!AwaitsActivation(user))
+        {
+            logger.LogWarning("Invitation acceptance refused because user {UserId} is {Status}", user.Id, user.Status);
+            return Result.Failure<AcceptInvitationResponse>(InvitationClosed());
+        }
+
         var businessUnit = await businessUnits.GetByIdAsync(invitation.BusinessUnitId, cancellationToken);
         if (businessUnit is null)
         {
@@ -571,10 +577,15 @@ public sealed class AcceptInvitationCommandHandler(
 
         // An unknown or spent token is answered exactly like a good one. Anything else turns this
         // endpoint into a way of testing whether an invitation token is real.
+        //
+        // AN ACCOUNT THAT IS NO LONGER WAITING TO BE ACTIVATED IS ANSWERED THE SAME WAY, and
+        // nothing is sent. Without that test the recipient of an old link could mail themselves
+        // a fresh one after an administrator had suspended or withdrawn the account.
         if (invitation is null
-            || invitation.Status == InvitationStatus.Accepted
+            || invitation.Status is InvitationStatus.Accepted or InvitationStatus.Revoked
             || user is null
-            || businessUnit is null)
+            || businessUnit is null
+            || !AwaitsActivation(user))
         {
             logger.LogWarning("Replacement invitation request could not be processed because the invitation was invalid or unavailable");
 
@@ -702,6 +713,12 @@ public sealed class AcceptInvitationCommandHandler(
             return new ActivationContext(Error.InvitationInvalid());
         }
 
+        if (!AwaitsActivation(user))
+        {
+            logger.LogWarning("Activation context refused because user {UserId} is {Status}", user.Id, user.Status);
+            return new ActivationContext(InvitationClosed());
+        }
+
         var businessUnit = await businessUnits.GetByIdAsync(invitation.BusinessUnitId, cancellationToken);
         if (businessUnit is null)
         {
@@ -715,6 +732,22 @@ public sealed class AcceptInvitationCommandHandler(
 
         return new ActivationContext(invitation, user, tenant, businessUnit);
     }
+
+    /// <summary>
+    /// Whether an invitation may still switch this account on.
+    ///
+    /// ASKED OF THE ACCOUNT AS WELL AS OF THE INVITATION. Acceptance sets the account Active, and
+    /// it used to do so whatever the account was - so somebody an administrator had suspended or
+    /// withdrawn while their invitation was still open could follow the link and undo that
+    /// decision themselves. Only an account that is waiting to be activated can be: Invited, or a
+    /// Draft whose invitation went out by another route.
+    /// </summary>
+    private static bool AwaitsActivation(User user) =>
+        user.Status is UserStatus.Invited or UserStatus.Draft;
+
+    /// <summary>What the person is told: not why, only that this link will not work and who to ask.</summary>
+    private static Error InvitationClosed() => Error.InvitationInvalid(
+        "That invitation is no longer open. Ask your administrator to send a new one.");
 
     /// <summary>Either the four things an activation call needs, or the reason it cannot have them.</summary>
     private readonly record struct ActivationContext

@@ -3,31 +3,31 @@ namespace YDots.DON.Application.Common.Settings;
 /// <summary>
 /// Bound from the SeedSettings section of appsettings.json.
 ///
-/// OrganisationId HAS TO MATCH IAM's SeedSettings:SampleOrganisationId. The demonstration donors
-/// and leads are stamped with it, and a real user's token carries whatever IAM gave the seeded
-/// Organisation — if the two differ, those records sit outside everybody's data scope and Donor
-/// List, Lead Work Queue and Donor 360 all open empty on a fresh database, with nothing anywhere
-/// to explain why.
+/// THERE IS NO ORGANISATION ID HERE ANY MORE, and its absence is the point. The demonstration
+/// donors and leads used to be stamped with a configured <c>OrganisationId</c> that had to match
+/// IAM's <c>SeedSettings:SampleOrganisationId</c>; where the two differed, those records sat
+/// outside everybody's data scope and Donor List, Lead Work Queue and Donor 360 all opened empty
+/// on a fresh database, with nothing anywhere to explain why. The data now covers two
+/// Organisations, only one of which has a configured id at all, so each is found by its
+/// SUBDOMAIN in IAM's own table at the moment of seeding. There is nothing left to keep in step.
 ///
-/// THE TWO ARE SET FROM ONE PLACE so they cannot drift. docker-compose passes a single
-/// SAMPLE_ORGANISATION_ID into SeedSettings__OrganisationId here and
-/// SeedSettings__SampleOrganisationId in IAM. The defaults below match the IAM default, so the
-/// platform is correct with no .env at all; overriding one without the other is the mistake this
-/// arrangement exists to prevent.
+/// The relationship owner on each row is likewise a real account of the Organisation rather than
+/// a configured system user, which is what lets each fundraiser find their own leads and
+/// follow-ups in the queue.
 /// </summary>
 public sealed class SeedSettings
 {
     public const string SectionName = "SeedSettings";
 
-    /// <summary>The YDot organisation. Matches IAM SeedSettings:OrganisationId.</summary>
-    public Guid OrganisationId { get; set; } = Guid.Parse("9fb11890-a08e-4adc-95ca-8e4d71f4dd21");
-
-    /// <summary>The IAM system user, used as the actor on every seeded row.</summary>
-    public Guid SystemUserId { get; set; } = Guid.Parse("00000000-0000-0000-0000-000000000001");
-
-    /// <summary>Display name written onto the seeded owner fields.</summary>
-    public string SystemUserDisplayName { get; set; } = "YDot Administrator";
-
-    /// <summary>Insert the demonstration donors and leads as well as the campaigns.</summary>
-    public bool CreateSampleData { get; set; } = true;
+    /// <summary>
+    /// Write the demonstration donors, leads and follow-up tasks of the two activated sample
+    /// Organisations - see <c>DemoDonorCatalogue</c> in the Infrastructure seed folder for what
+    /// they are.
+    ///
+    /// OFF BY DEFAULT, because a donor is an Organisation's own record and these are invented.
+    /// The Docker stack switches it on, since a demonstration stack with empty queues has nothing
+    /// to demonstrate. It is safe to leave on: an Organisation that already holds the data is
+    /// left exactly as it is, so the rows are written once and never put back.
+    /// </summary>
+    public bool CreateSampleData { get; set; }
 }

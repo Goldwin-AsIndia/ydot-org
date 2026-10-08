@@ -52,10 +52,12 @@
         </dl>
       }
 
-      <button class="btn btn-primary btn-sm " type="button" (click)="createDraftRole()" style="padding-left: 9px;margin-left: 0;padding-right: 9px;">
-        <i class="ri-add-line" aria-hidden="true"></i>
-        <span>Create</span>
-      </button>
+      @if (canCreateRole()) {
+        <button class="btn btn-primary btn-sm " type="button" (click)="createDraftRole()" style="padding-left: 9px;margin-left: 0;padding-right: 9px;">
+          <i class="ri-add-line" aria-hidden="true"></i>
+          <span>Create</span>
+        </button>
+      }
     </section>
 
     <!-- ======================= Loading ======================= -->
@@ -203,7 +205,7 @@
                         <span class="rx-role__code">{{ role.roleCode }}</span>
                       </span>
                       @if (role.isPrivileged) { <span class="rx-note" title="Every assignment of this role is reviewed">Privileged</span> }
-                      @if (role.isSystemRole) { <span class="rx-note" title="Comes with the platform and cannot be edited">Built in</span> }
+                      @if (role.isSystemRole) { <span class="rx-note" title="Comes with the platform. It cannot be renamed, retired or deleted.">Built in</span> }
                     </div>
                   </td>
                   <td>{{ role.roleType || '—' }}</td>
@@ -239,7 +241,7 @@
                               <li><i [class]="d.isPrivileged ? 'ri-shield-keyhole-line' : 'ri-shield-line'" aria-hidden="true"></i>{{ d.isPrivileged ? 'Privileged — every assignment is reviewed' : 'Standard — assigned without extra review' }}</li>
                               @if (d.isDefaultRole) { <li><i class="ri-group-line" aria-hidden="true"></i>Given to every new person</li> }
                               @if (d.grantsAllPermissions) { <li><i class="ri-key-2-line" aria-hidden="true"></i>Grants every permission</li> }
-                              @if (d.isSystemRole) { <li><i class="ri-lock-2-line" aria-hidden="true"></i>Built in — cannot be edited</li> }
+                              @if (d.isSystemRole) { <li><i class="ri-lock-2-line" aria-hidden="true"></i>Built in — cannot be renamed, retired or deleted</li> }
                             </ul>
                           </div>
                           <div class="rx-detail__actions">
@@ -253,14 +255,16 @@
                                 <i class="ri-archive-line" aria-hidden="true"></i> Retire
                               </button>
                             }
-                            @if (!d.isSystemRole) {
+                            @if (d.canEdit) {
                               <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="submitting()" (click)="openEditRole(d)">
                                 <i class="ri-edit-line" aria-hidden="true"></i> Edit
                               </button>
                             }
-                            <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="submitting()" (click)="cloneRole(d)">
-                              <i class="ri-file-copy-line" aria-hidden="true"></i> Clone
-                            </button>
+                            @if (canCreateRole()) {
+                              <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="submitting()" (click)="cloneRole(d)">
+                                <i class="ri-file-copy-line" aria-hidden="true"></i> Clone
+                              </button>
+                            }
                             @if (selectedItem(); as item) {
                               <button type="button" class="btn btn-primary btn-sm" (click)="openCompareModal(item)">
                                 <i class="ri-arrow-left-right-line" aria-hidden="true"></i> Compare
@@ -290,8 +294,18 @@
                         <!-- ---- Permissions ---- -->
                         @if (detailTab() === 'perms' && permEditing()) {
                           <div class="rx-ptools">
-                            <p class="rx-ptools__text"><b>{{ permDraft().length }}</b> selected · tick the permissions this role should carry</p>
+                            @if (permEditMode() === 'grant') {
+                              <p class="rx-ptools__text"><b>{{ permDraft().length }}</b> selected · tick the permissions this role should carry</p>
+                            } @else {
+                              <p class="rx-ptools__text"><b>{{ permDenyDraft().length }}</b> blocked · tick what this role must never do, even if another role allows it</p>
+                            }
                             <div class="rx-ptools__right">
+                              <!-- Which list the ticks write to: what the role allows, or what it blocks.
+                                   The same control the create panel uses for its Grant / Deny picker. -->
+                              <div class="rx-seg" role="group" aria-label="What the ticks change">
+                                <button type="button" [class.on]="permEditMode() === 'grant'" [attr.aria-pressed]="permEditMode() === 'grant'" (click)="permEditMode.set('grant')"><i class="ri-check-line" aria-hidden="true"></i> Allow</button>
+                                <button type="button" [class.on]="permEditMode() === 'deny'" [attr.aria-pressed]="permEditMode() === 'deny'" (click)="permEditMode.set('deny')"><i class="ri-forbid-line" aria-hidden="true"></i> Block</button>
+                              </div>
                               <div class="rx-search rx-search--sm">
                                 <i class="ri-search-line" aria-hidden="true"></i>
                                 <input type="text" placeholder="Find a permission" aria-label="Find a permission"
@@ -317,12 +331,13 @@
                                 <ul class="rx-pedit__list">
                                   @for (p of m.items; track p.code) {
                                     <li>
-                                      <label class="rx-pedit__item" [class.is-blocked]="p.denied">
+                                      <label class="rx-pedit__item" [class.is-blocked]="p.locked">
                                         <input type="checkbox" class="rx-check"
-                                               [checked]="isPermDrafted(p.code)" [disabled]="p.denied"
+                                               [checked]="p.ticked" [disabled]="p.locked"
                                                (change)="togglePermDraft(p.code)">
                                         <span class="rx-pedit__label">{{ p.name }}</span>
                                         @if (p.isSensitive) { <span class="rx-note rx-note--warn">Sensitive</span> }
+                                        @if (p.allowed) { <span class="rx-note">Allowed</span> }
                                         @if (p.denied) { <span class="rx-note rx-note--deny">Blocked</span> }
                                       </label>
                                     </li>
@@ -431,7 +446,7 @@
                         @if (detailTab() === 'sod') {
                           <div class="rx-ptools">
                             <p class="rx-ptools__text">A person holding <b>{{ d.name }}</b> cannot also be given these roles.</p>
-                            @if (!showConflictForm()) {
+                            @if (!showConflictForm() && canManageConflicts()) {
                               <button type="button" class="rx-btn rx-btn--line rx-btn--sm" (click)="openConflictForm()" [disabled]="conflictCandidates().length === 0">
                                 <i class="ri-add-line" aria-hidden="true"></i> Create
                               </button>
@@ -454,10 +469,12 @@
                                     </td>
                                     <td class="rx-muted">{{ conflict.reason || '—' }}</td>
                                     <td class="rx-rules__end">
-                                      <button type="button" class="rx-link rx-link--danger" [disabled]="conflictRemovingId() === conflict.id" (click)="removeConflict(conflict)">
-                                        @if (conflictRemovingId() === conflict.id) { <span class="spinner-border spinner-border-sm" role="status"></span> }
-                                        Remove
-                                      </button>
+                                      @if (canManageConflicts()) {
+                                        <button type="button" class="rx-link rx-link--danger" [disabled]="conflictRemovingId() === conflict.id" (click)="removeConflict(conflict)">
+                                          @if (conflictRemovingId() === conflict.id) { <span class="spinner-border spinner-border-sm" role="status"></span> }
+                                          Remove
+                                        </button>
+                                      }
                                     </td>
                                   </tr>
                                 }
@@ -971,6 +988,65 @@
           @if (submitting()) { <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> }
           @else { <i class="ri-delete-bin-line" aria-hidden="true"></i> }
           Delete permanently
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- =====================================================================
+     PUT INTO USE / RETIRE — popup
+     Both are asked first and both take a reason. Retiring takes a role's permissions from
+     everybody who holds it, and what is typed here is the reason the audit trail records.
+     Same shell as the delete popup above.
+     ===================================================================== -->
+@if (statusChange(); as change) {
+  <div class="rx-modal-wrap" (click)="closeStatusChange()">
+    <div class="rx-modal" role="dialog" aria-modal="true" aria-labelledby="statusModalTitle" (click)="$event.stopPropagation()">
+      <button type="button" class="rx-x rx-modal__x" aria-label="Close" (click)="closeStatusChange()"><i class="ri-close-line" aria-hidden="true"></i></button>
+
+      <div class="rx-modal__top">
+        <span class="rx-ring" [class.rx-ring--danger]="change.target === 'inactive'"><i [class]="change.target === 'active' ? 'ri-check-double-line' : 'ri-archive-line'" aria-hidden="true"></i></span>
+        <h5 class="rx-modal__title" id="statusModalTitle">{{ change.target === 'active' ? 'Put this role into use?' : 'Retire this role?' }}</h5>
+        <p class="rx-modal__sub">
+          <b>{{ change.name }}</b> ({{ change.code }})
+          @if (change.target === 'inactive') {
+            @if (change.holders > 0) {
+              stops giving its permissions to the {{ change.holders }} {{ change.holders === 1 ? 'person who holds' : 'people who hold' }} it, straight away. They keep the role, so putting it back into use returns their access.
+            } @else {
+              can no longer be given to anybody. Nobody holds it at the moment.
+            }
+          } @else if (change.wasRetired && change.holders > 0) {
+            can be given to people again, and the {{ change.holders }} {{ change.holders === 1 ? 'person who still holds it gets' : 'people who still hold it get' }} its permissions back.
+          } @else {
+            becomes available to give to people, with the permissions it carries.
+          }
+        </p>
+      </div>
+
+      <div class="rx-modal__body">
+        <label class="rx-label" for="statusReasonInput">Reason <span class="rx-req">*</span></label>
+        <textarea id="statusReasonInput" class="rx-input" rows="3" maxlength="1000"
+                  [placeholder]="change.target === 'active' ? 'Why is this role being put into use?' : 'Why is this role being retired?'"
+                  [class.rx-input--err]="!!statusError()"
+                  [ngModel]="statusReason()" (ngModelChange)="statusReason.set($event)"
+                  [attr.aria-invalid]="!!statusError()" [attr.aria-describedby]="statusError() ? 'statusReasonError' : null"></textarea>
+        <div class="rx-meta">
+          @if (statusError()) {
+            <span class="rx-err" id="statusReasonError" role="alert"><i class="ri-error-warning-line" aria-hidden="true"></i>{{ statusError() }}</span>
+          } @else {
+            <span class="rx-hint">10 to 1000 characters.</span>
+          }
+          <span class="rx-counter" [class.rx-counter--ok]="statusReason().trim().length >= 10">{{ statusReason().length }}/1000</span>
+        </div>
+      </div>
+
+      <div class="rx-modal__foot">
+        <button class="rx-btn rx-btn--ghost" type="button" (click)="closeStatusChange()">Cancel</button>
+        <button class="rx-btn" [ngClass]="change.target === 'active' ? 'rx-btn--primary' : 'rx-btn--danger'" type="button" [disabled]="submitting()" (click)="confirmStatusChange()">
+          @if (submitting()) { <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> }
+          @else { <i [class]="change.target === 'active' ? 'ri-check-double-line' : 'ri-archive-line'" aria-hidden="true"></i> }
+          {{ change.target === 'active' ? 'Put into use' : 'Retire role' }}
         </button>
       </div>
     </div>

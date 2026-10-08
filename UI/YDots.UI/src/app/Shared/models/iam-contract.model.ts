@@ -41,13 +41,25 @@ export type ClientType = 'unknown' | 'web' | 'mobile' | 'desktop' | 'api';
 
 export type CredentialSetupMethod = 'invitationLink' | 'administratorSet' | 'temporaryPassword';
 
+export type CurrencyType = 'fiat' | 'crypto' | 'other';
+
 export type DataScopeType = 'organisation' | 'geography' | 'campaign' | 'warehouse' | 'queue' | 'assignment' | 'explicitRecord';
+
+export type DocumentSubmissionDecision = 'approve' | 'reject' | 'requestReupload';
 
 export type EngagementType = 'fullTime' | 'partTime' | 'contract' | 'volunteer' | 'intern' | 'external';
 
+export type GeographicRegion = 'asia' | 'europe' | 'northAmerica' | 'southAmerica' | 'africa' | 'oceania' | 'middleEast' | 'antarctica';
+
 export type InvitationType = 'tenantAdmin' | 'tenantUser' | 'donorPortal';
 
+export type JurisdictionType = 'state' | 'unionTerritory' | 'province' | 'territory' | 'region' | 'district' | 'prefecture' | 'other';
+
 export type LoginIdentifierChangeStatus = 'draft' | 'pendingVerification' | 'pendingApproval' | 'approved' | 'applied' | 'rejected' | 'cancelled' | 'expired';
+
+export type MasterDataStatus = 'draft' | 'active' | 'inactive';
+
+export type MasterRowScope = 'all' | 'platform' | 'tenant';
 
 export type MenuLevel = 'menu' | 'subMenu' | 'childSubMenu';
 
@@ -58,6 +70,12 @@ export type MfaMethodStatus = 'pending' | 'active' | 'revoked';
 export type MfaMethodType = 'authenticatorApp' | 'sms' | 'email' | 'securityKey';
 
 export type MfaRequirement = 'inherited' | 'required' | 'optional';
+
+export type PaymentGatewayConfigurationAction = 'created' | 'updated' | 'activated' | 'deactivated' | 'deleted' | 'tested' | 'credentialsRotated';
+
+export type PaymentGatewayEnvironment = 'sandbox' | 'production';
+
+export type PaymentGatewayProvider = 'none' | 'razorpay' | 'stripe' | 'payPal' | 'payU' | 'cashfree' | 'hostedCheckout';
 
 export type PermissionAction = 'view' | 'create' | 'edit' | 'submit' | 'approve' | 'operate' | 'export';
 
@@ -71,11 +89,17 @@ export type RoleStatus = 'draft' | 'active' | 'inactive';
 
 export type RoleType = 'tenant' | 'platform' | 'template';
 
+export type RoundingMode = 'halfUp' | 'halfDown' | 'bankers';
+
 export type SignInOutcome = 'succeeded' | 'invalidCredentials' | 'unknownAccount' | 'lockedOut' | 'suspended' | 'deactivated' | 'expired' | 'mfaRequired' | 'mfaFailed' | 'tenantInactive' | 'tenantNotResolved' | 'wrongTenant' | 'notActivated';
 
 export type SignInResultStatus = 'succeeded' | 'mfaRequired' | 'tenantSelectionRequired' | 'passwordChangeRequired';
 
+export type SymbolPosition = 'prefix' | 'suffix';
+
 export type TenantDocumentStatus = 'uploaded' | 'underReview' | 'accepted' | 'rejected' | 'superseded';
+
+export type TenantDocumentSubmissionStatus = 'draft' | 'submitted' | 'underReview' | 'approved' | 'rejected' | 'reuploadRequested';
 
 export type TenantDocumentType = 'registrationCertificate' | 'taxExemptionCertificate' | 'panCard' | 'gstCertificate' | 'addressProof' | 'bankProof' | 'trustDeed' | 'annualReport' | 'authorisedSignatoryProof' | 'logo' | 'other';
 
@@ -199,6 +223,8 @@ export interface AccessRequestListItemResponse {
   canDecide?: boolean;
   canCancel?: boolean;
   version?: number;
+  scopeType?: DataScopeType;
+  scopeValue?: string | null;
 }
 
 export interface AccessRequestListItemResponsePagedResponse {
@@ -651,6 +677,12 @@ export interface ChangePasswordRequest {
   signOutOtherSessions?: boolean;
 }
 
+export interface ChangePaymentGatewayStatusRequest {
+  isActive?: boolean;
+  expectedVersion?: number;
+  reason?: string | null;
+}
+
 export interface ChangeRoleStatusRequest {
   status?: RoleStatus;
   expectedVersion?: number;
@@ -703,6 +735,92 @@ export interface CheckUserIdentityResponseApiResponse {
   correlationId?: string | null;
 }
 
+export interface CityDetailResponse {
+  id?: string;
+  tenantId?: string | null;
+  businessUnitId?: string;
+  cityCode?: string | null;
+  cityName?: string | null;
+  displayName?: string | null;
+  stateProvinceId?: string;
+  stateProvinceCode?: string | null;
+  stateProvinceName?: string | null;
+  countryId?: string;
+  countryCode?: string | null;
+  countryName?: string | null;
+  defaultPostalCodePattern?: string | null;
+  isMetro?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  hasCoordinates?: boolean;
+  status?: MasterDataStatus;
+  statusDescription?: string | null;
+  isActive?: boolean;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+  notes?: string | null;
+  createdAtUtc?: string;
+  createdByUserId?: string;
+  updatedAtUtc?: string | null;
+  updatedByUserId?: string | null;
+  version?: number;
+  permittedActions?: string[] | null;
+  createdByName?: string | null;
+  updatedByName?: string | null;
+}
+
+export interface CityDetailResponseApiResponse {
+  success?: boolean;
+  data?: CityDetailResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface CityListItemResponse {
+  id?: string;
+  tenantId?: string | null;
+  cityCode?: string | null;
+  cityName?: string | null;
+  displayName?: string | null;
+  stateProvinceId?: string;
+  stateProvinceCode?: string | null;
+  stateProvinceName?: string | null;
+  countryId?: string;
+  countryCode?: string | null;
+  countryName?: string | null;
+  isMetro?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  status?: MasterDataStatus;
+  statusDescription?: string | null;
+  isActive?: boolean;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+  updatedAtUtc?: string | null;
+  version?: number;
+}
+
+export interface CityListItemResponsePagedResponse {
+  items?: CityListItemResponse[] | null;
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
+export interface CityListItemResponsePagedResponseApiResponse {
+  success?: boolean;
+  data?: CityListItemResponsePagedResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
 export interface CloseAccessReviewCampaignRequest {
   expectedVersion?: number;
   notes?: string | null;
@@ -720,6 +838,117 @@ export interface ContactSupportRequest {
   message?: string | null;
   contactEmail?: string | null;
   supportReference?: string | null;
+}
+
+export interface CountryDetailResponse {
+  id?: string;
+  tenantId?: string | null;
+  businessUnitId?: string;
+  countryCode?: string | null;
+  countryName?: string | null;
+  officialName?: string | null;
+  region?: GeographicRegion;
+  iso2?: string | null;
+  iso3?: string | null;
+  numericCode?: string | null;
+  flagEmoji?: string | null;
+  defaultCurrencyCode?: string | null;
+  hasStates?: boolean;
+  postalCodePattern?: string | null;
+  phoneCountryCode?: string | null;
+  status?: MasterDataStatus;
+  statusDescription?: string | null;
+  isActive?: boolean;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+  notes?: string | null;
+  stateProvinceCount?: number;
+  cityCount?: number;
+  createdAtUtc?: string;
+  createdByUserId?: string;
+  updatedAtUtc?: string | null;
+  updatedByUserId?: string | null;
+  version?: number;
+  permittedActions?: string[] | null;
+  createdByName?: string | null;
+  updatedByName?: string | null;
+}
+
+export interface CountryDetailResponseApiResponse {
+  success?: boolean;
+  data?: CountryDetailResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface CountryListItemResponse {
+  id?: string;
+  tenantId?: string | null;
+  countryCode?: string | null;
+  countryName?: string | null;
+  officialName?: string | null;
+  region?: GeographicRegion;
+  iso2?: string | null;
+  iso3?: string | null;
+  flagEmoji?: string | null;
+  defaultCurrencyCode?: string | null;
+  phoneCountryCode?: string | null;
+  hasStates?: boolean;
+  status?: MasterDataStatus;
+  statusDescription?: string | null;
+  isActive?: boolean;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+  stateProvinceCount?: number;
+  updatedAtUtc?: string | null;
+  version?: number;
+}
+
+export interface CountryListItemResponsePagedResponse {
+  items?: CountryListItemResponse[] | null;
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
+export interface CountryListItemResponsePagedResponseApiResponse {
+  success?: boolean;
+  data?: CountryListItemResponsePagedResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface CountryLookupResponse {
+  id?: string;
+  code?: string | null;
+  name?: string | null;
+  iso2?: string | null;
+  flagEmoji?: string | null;
+  phoneCountryCode?: string | null;
+  hasStates?: boolean;
+  defaultCurrencyId?: string | null;
+  defaultCurrencyCode?: string | null;
+  primaryTimeZoneId?: string | null;
+  timeZoneCount?: number;
+  status?: MasterDataStatus;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+}
+
+export interface CountryLookupResponseIReadOnlyListApiResponse {
+  success?: boolean;
+  data?: CountryLookupResponse[] | null;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
 }
 
 export interface CreateAccessRequestRequest {
@@ -766,6 +995,54 @@ export interface CreateBulkOperationRequest {
   applyImmediately?: boolean;
 }
 
+export interface CreateCityRequest {
+  cityCode?: string | null;
+  cityName?: string | null;
+  stateProvinceId?: string;
+  displayName?: string | null;
+  defaultPostalCodePattern?: string | null;
+  isMetro?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  status?: MasterDataStatus;
+  sortOrder?: number;
+  notes?: string | null;
+}
+
+export interface CreateCountryRequest {
+  countryCode?: string | null;
+  countryName?: string | null;
+  iso2?: string | null;
+  officialName?: string | null;
+  region?: GeographicRegion;
+  iso3?: string | null;
+  numericCode?: string | null;
+  defaultCurrencyCode?: string | null;
+  hasStates?: boolean;
+  postalCodePattern?: string | null;
+  phoneCountryCode?: string | null;
+  status?: MasterDataStatus;
+  sortOrder?: number;
+  notes?: string | null;
+}
+
+export interface CreateCurrencyRequest {
+  currencyCode?: string | null;
+  currencyName?: string | null;
+  numericCode?: number | null;
+  currencyType?: CurrencyType;
+  symbol?: string | null;
+  symbolPosition?: SymbolPosition;
+  displayFormat?: string | null;
+  decimalPlaces?: number;
+  minorUnitName?: string | null;
+  roundingMode?: RoundingMode;
+  roundingStep?: number | null;
+  status?: MasterDataStatus;
+  sortOrder?: number;
+  notes?: string | null;
+}
+
 export interface CreateDepartmentRequest {
   name?: string | null;
   code?: string | null;
@@ -773,6 +1050,15 @@ export interface CreateDepartmentRequest {
   parentDepartmentId?: string | null;
   headUserId?: string | null;
   displayOrder?: number;
+}
+
+export interface CreateDocumentSubmissionRequest {
+  documentType?: TenantDocumentType;
+  title?: string | null;
+  notes?: string | null;
+  referenceNumber?: string | null;
+  issuedOn?: string | null;
+  expiresOn?: string | null;
 }
 
 export interface CreateMenuDefinitionRequest {
@@ -802,7 +1088,6 @@ export interface CreateOrganisationRequest {
   code?: string | null;
   legalName?: string | null;
   organisationType?: string | null;
-  description?: string | null;
   contactPhoneCountryCode?: string | null;
   contactPhone?: string | null;
   adminUsername?: string | null;
@@ -813,6 +1098,7 @@ export interface CreateOrganisationRequest {
   defaultMfaRequirement?: MfaRequirement;
   invitationMessage?: string | null;
   sendInvitation?: boolean;
+  description?: string | null;
 }
 
 export interface CreateOrganisationResponse {
@@ -876,6 +1162,38 @@ export interface CreateRoleRequest {
   displayTag?: string | null;
   permissionCodes?: string[] | null;
   visibleMenuIds?: string[] | null;
+  deniedPermissionCodes?: string[] | null;
+}
+
+export interface CreateStateProvinceRequest {
+  stateProvinceCode?: string | null;
+  stateProvinceName?: string | null;
+  countryId?: string;
+  displayName?: string | null;
+  jurisdictionType?: JurisdictionType;
+  otherJurisdictionType?: string | null;
+  isFederalJurisdiction?: boolean;
+  gstStateCode?: string | null;
+  stateTaxJurisdictionCode?: string | null;
+  defaultTimeZoneId?: string | null;
+  postalCodePattern?: string | null;
+  addressFormatHint?: string | null;
+  status?: MasterDataStatus;
+  sortOrder?: number;
+  notes?: string | null;
+}
+
+export interface CreateTimeZoneRequest {
+  timeZoneKey?: string | null;
+  displayName?: string | null;
+  standardUtcOffsetMinutes?: number;
+  shortName?: string | null;
+  supportsDaylightSaving?: boolean;
+  daylightSavingRuleNote?: string | null;
+  isDefaultRecommended?: boolean;
+  status?: MasterDataStatus;
+  sortOrder?: number;
+  notes?: string | null;
 }
 
 export interface CreateUserDataScopeRequest {
@@ -910,6 +1228,12 @@ export interface CreateUserRequest {
   sendInvitation?: boolean;
   credentialSetupMethod?: CredentialSetupMethod;
   invitationMessage?: string | null;
+  title?: string | null;
+  preferredName?: string | null;
+  workLocation?: string | null;
+  preferredCulture?: string | null;
+  timeZone?: string | null;
+  justification?: string | null;
 }
 
 export interface CreateUserResponse {
@@ -933,6 +1257,109 @@ export interface CreateUserResponseApiResponse {
   correlationId?: string | null;
 }
 
+export interface CurrencyDetailResponse {
+  id?: string;
+  tenantId?: string | null;
+  businessUnitId?: string;
+  currencyCode?: string | null;
+  currencyName?: string | null;
+  numericCode?: number | null;
+  currencyType?: CurrencyType;
+  symbol?: string | null;
+  symbolPosition?: SymbolPosition;
+  displayFormat?: string | null;
+  decimalPlaces?: number;
+  minorUnitName?: string | null;
+  roundingMode?: RoundingMode;
+  roundingStep?: number | null;
+  isZeroDecimal?: boolean;
+  sampleAmount?: string | null;
+  status?: MasterDataStatus;
+  statusDescription?: string | null;
+  isActive?: boolean;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+  notes?: string | null;
+  countryUsageCount?: number;
+  createdAtUtc?: string;
+  createdByUserId?: string;
+  updatedAtUtc?: string | null;
+  updatedByUserId?: string | null;
+  version?: number;
+  permittedActions?: string[] | null;
+  createdByName?: string | null;
+  updatedByName?: string | null;
+}
+
+export interface CurrencyDetailResponseApiResponse {
+  success?: boolean;
+  data?: CurrencyDetailResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface CurrencyListItemResponse {
+  id?: string;
+  tenantId?: string | null;
+  currencyCode?: string | null;
+  currencyName?: string | null;
+  numericCode?: number | null;
+  currencyType?: CurrencyType;
+  symbol?: string | null;
+  symbolPosition?: SymbolPosition;
+  decimalPlaces?: number;
+  sampleAmount?: string | null;
+  status?: MasterDataStatus;
+  statusDescription?: string | null;
+  isActive?: boolean;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+  updatedAtUtc?: string | null;
+  version?: number;
+}
+
+export interface CurrencyListItemResponsePagedResponse {
+  items?: CurrencyListItemResponse[] | null;
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
+export interface CurrencyListItemResponsePagedResponseApiResponse {
+  success?: boolean;
+  data?: CurrencyListItemResponsePagedResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface CurrencyLookupResponse {
+  id?: string;
+  code?: string | null;
+  name?: string | null;
+  symbol?: string | null;
+  decimalPlaces?: number;
+  isDefaultForCountry?: boolean;
+  status?: MasterDataStatus;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+}
+
+export interface CurrencyLookupResponseIReadOnlyListApiResponse {
+  success?: boolean;
+  data?: CurrencyLookupResponse[] | null;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
 export interface DecideAccessRequestRequest {
   approved?: boolean;
   expectedVersion?: number;
@@ -947,6 +1374,12 @@ export interface DecideAccessReviewRequest {
   applyImmediately?: boolean;
 }
 
+export interface DecideDocumentSubmissionRequest {
+  decision?: DocumentSubmissionDecision;
+  expectedVersion?: number;
+  notes?: string | null;
+}
+
 export interface DecideLoginIdentifierChangeRequest {
   requestId?: string;
   approved?: boolean;
@@ -957,6 +1390,16 @@ export interface DelegateAccessReviewRequest {
   reviewerUserId?: string;
   reason?: string | null;
   expectedVersion?: number;
+}
+
+export interface DeleteMasterRequest {
+  expectedVersion?: number;
+  reason?: string | null;
+}
+
+export interface DeletePaymentGatewayConfigurationRequest {
+  expectedVersion?: number;
+  reason?: string | null;
 }
 
 export interface DeleteRoleRequest {
@@ -997,6 +1440,87 @@ export interface DepartmentResponseApiResponse {
 export interface DepartmentResponseIReadOnlyListApiResponse {
   success?: boolean;
   data?: DepartmentResponse[] | null;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface DocumentDownloadLinkResponse {
+  documentId?: string;
+  fileName?: string | null;
+  contentType?: string | null;
+  fileSizeBytes?: number;
+  url?: string | null;
+  expiresAtUtc?: string;
+  isPreviewable?: boolean;
+}
+
+export interface DocumentDownloadLinkResponseApiResponse {
+  success?: boolean;
+  data?: DocumentDownloadLinkResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface DocumentSubmissionResponse {
+  id?: string;
+  tenantId?: string;
+  organisationName?: string | null;
+  organisationCode?: string | null;
+  documentType?: TenantDocumentType;
+  documentTypeDisplay?: string | null;
+  title?: string | null;
+  notes?: string | null;
+  status?: TenantDocumentSubmissionStatus;
+  statusDisplay?: string | null;
+  submittedAtUtc?: string | null;
+  submittedByName?: string | null;
+  reviewStartedAtUtc?: string | null;
+  decidedAtUtc?: string | null;
+  reviewedByName?: string | null;
+  decisionNotes?: string | null;
+  reuploadCount?: number;
+  fileCount?: number;
+  totalSizeBytes?: number;
+  fileKinds?: string[] | null;
+  files?: SubmissionFileResponse[] | null;
+  permittedActions?: string[] | null;
+  version?: number;
+}
+
+export interface DocumentSubmissionResponseApiResponse {
+  success?: boolean;
+  data?: DocumentSubmissionResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface DocumentSubmissionResponseIReadOnlyListApiResponse {
+  success?: boolean;
+  data?: DocumentSubmissionResponse[] | null;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface DocumentUploadPolicyResponse {
+  maximumFileSizeMegabytes?: number;
+  maximumFileSizeBytes?: number;
+  maximumFilesPerSubmission?: number;
+  allowedContentTypes?: string[] | null;
+  allowedExtensions?: string[] | null;
+  downloadLinkExpirySeconds?: number;
+}
+
+export interface DocumentUploadPolicyResponseApiResponse {
+  success?: boolean;
+  data?: DocumentUploadPolicyResponse;
   message?: string | null;
   errorCode?: string | null;
   errors?: ValidationError[] | null;
@@ -1075,6 +1599,48 @@ export interface ForgotPasswordResponseApiResponse {
   correlationId?: string | null;
 }
 
+export interface GeoLookupResponse {
+  countries?: CountryLookupResponse[] | null;
+  stateProvinces?: MasterLookupResponse[] | null;
+  cities?: MasterLookupResponse[] | null;
+  currencies?: CurrencyLookupResponse[] | null;
+  timeZones?: TimeZoneLookupResponse[] | null;
+  timeZonesAreCountryFiltered?: boolean;
+  languages?: LanguageLookupResponse[] | null;
+  languagesAreCountryFiltered?: boolean;
+}
+
+export interface GeoLookupResponseApiResponse {
+  success?: boolean;
+  data?: GeoLookupResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface GlobalMasterReferenceDataResponse {
+  countries?: MasterLookupResponse[] | null;
+  stateProvinces?: MasterLookupResponse[] | null;
+  currencies?: MasterLookupResponse[] | null;
+  timeZones?: MasterLookupResponse[] | null;
+  regions?: EnumOption[] | null;
+  jurisdictionTypes?: EnumOption[] | null;
+  currencyTypes?: EnumOption[] | null;
+  symbolPositions?: EnumOption[] | null;
+  roundingModes?: EnumOption[] | null;
+  statuses?: EnumOption[] | null;
+}
+
+export interface GlobalMasterReferenceDataResponseApiResponse {
+  success?: boolean;
+  data?: GlobalMasterReferenceDataResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
 export interface InvitationPreviewResponse {
   isValid?: boolean;
   email?: string | null;
@@ -1103,7 +1669,6 @@ export interface InvitationPreviewResponse {
   passwordRequireNonAlphanumeric?: boolean;
   mfaMandatory?: boolean;
   allowedMfaMethods?: MfaMethodType[] | null;
-
   /**
    * Dialling prefixes for the mobile number on the SMS/WhatsApp enrolment step.
    *
@@ -1121,6 +1686,37 @@ export interface InvitationPreviewResponseApiResponse {
   errorCode?: string | null;
   errors?: ValidationError[] | null;
   correlationId?: string | null;
+}
+
+export interface LanguageLookupListResponse {
+  languages?: LanguageLookupResponse[] | null;
+  isCountryFiltered?: boolean;
+}
+
+export interface LanguageLookupListResponseApiResponse {
+  success?: boolean;
+  data?: LanguageLookupListResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface LanguageLookupResponse {
+  id?: string;
+  code?: string | null;
+  cultureCode?: string | null;
+  name?: string | null;
+  nativeName?: string | null;
+  displayLabel?: string | null;
+  iso2?: string | null;
+  isRightToLeft?: boolean;
+  isPrimaryForCountry?: boolean;
+  isOfficialInCountry?: boolean;
+  isDefaultRecommended?: boolean;
+  status?: MasterDataStatus;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
 }
 
 export interface LoginIdentifierChangeResponse {
@@ -1171,6 +1767,29 @@ export interface MapRoleMenusRequest {
   landingMenuId?: string | null;
 }
 
+export interface MasterLookupResponse {
+  id?: string;
+  code?: string | null;
+  name?: string | null;
+  status?: MasterDataStatus;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+}
+
+export interface MasterLookupResponseIReadOnlyListApiResponse {
+  success?: boolean;
+  data?: MasterLookupResponse[] | null;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface MasterStatusChangeRequest {
+  expectedVersion?: number;
+  reason?: string | null;
+}
+
 export interface MenuDefinitionResponse {
   id?: string;
   code?: string | null;
@@ -1191,12 +1810,23 @@ export interface MenuDefinitionResponse {
   opensInNewTab?: boolean;
   badgeKey?: string | null;
   version?: number;
+  ownerTenantId?: string | null;
+  isSystemDefined?: boolean;
   children?: MenuDefinitionResponse[] | null;
 }
 
 export interface MenuDefinitionResponseApiResponse {
   success?: boolean;
   data?: MenuDefinitionResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface MenuDefinitionResponseIReadOnlyListApiResponse {
+  success?: boolean;
+  data?: MenuDefinitionResponse[] | null;
   message?: string | null;
   errorCode?: string | null;
   errors?: ValidationError[] | null;
@@ -1224,6 +1854,21 @@ export interface MenuNode {
 export interface MenuNodeIReadOnlyListApiResponse {
   success?: boolean;
   data?: MenuNode[] | null;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface MenuPermissionOptionResponse {
+  code?: string | null;
+  name?: string | null;
+  moduleCode?: string | null;
+}
+
+export interface MenuPermissionOptionResponseIReadOnlyListApiResponse {
+  success?: boolean;
+  data?: MenuPermissionOptionResponse[] | null;
   message?: string | null;
   errorCode?: string | null;
   errors?: ValidationError[] | null;
@@ -1382,7 +2027,6 @@ export interface OrganisationDetailResponse {
   permittedActions?: string[] | null;
   outstandingProfileFields?: string[] | null;
   isProfileComplete?: boolean;
-
   /**
    * The profile fields the Organisation's current state still allows to be changed.
    *
@@ -1653,10 +2297,172 @@ export interface PasswordPolicyResponseApiResponse {
   correlationId?: string | null;
 }
 
+export interface PaymentGatewayCatalogueResponse {
+  providers?: PaymentGatewayProviderOption[] | null;
+  webhookEvents?: PaymentGatewayEventOption[] | null;
+  paymentMethods?: PaymentGatewayMethodOption[] | null;
+  webhookUrlTemplate?: string | null;
+}
+
+export interface PaymentGatewayCatalogueResponseApiResponse {
+  success?: boolean;
+  data?: PaymentGatewayCatalogueResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface PaymentGatewayConfigurationAuditResponse {
+  id?: string;
+  configurationId?: string;
+  tenantId?: string;
+  organisationName?: string | null;
+  provider?: string | null;
+  environment?: string | null;
+  action?: string | null;
+  fieldName?: string | null;
+  fieldLabel?: string | null;
+  oldValue?: string | null;
+  newValue?: string | null;
+  actorUserId?: string | null;
+  actorDisplayName?: string | null;
+  occurredAtUtc?: string;
+  reason?: string | null;
+  ipAddress?: string | null;
+  correlationId?: string | null;
+}
+
+export interface PaymentGatewayConfigurationAuditResponsePagedResponse {
+  items?: PaymentGatewayConfigurationAuditResponse[] | null;
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
+export interface PaymentGatewayConfigurationAuditResponsePagedResponseApiResponse {
+  success?: boolean;
+  data?: PaymentGatewayConfigurationAuditResponsePagedResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface PaymentGatewayConfigurationResponse {
+  id?: string;
+  tenantId?: string;
+  organisationName?: string | null;
+  organisationCode?: string | null;
+  provider?: string | null;
+  providerName?: string | null;
+  environment?: string | null;
+  displayName?: string | null;
+  merchantId?: string | null;
+  apiKeyHint?: string | null;
+  hasApiKey?: boolean;
+  hasSecretKey?: boolean;
+  webhookUrl?: string | null;
+  hasWebhookSecret?: boolean;
+  subscribedEvents?: string[] | null;
+  settlementCurrencyCode?: string | null;
+  returnUrl?: string | null;
+  paymentLinkValidityMinutes?: number;
+  enabledMethods?: string[] | null;
+  isActive?: boolean;
+  isAdapterAvailable?: boolean;
+  lastTestedAtUtc?: string | null;
+  lastTestSucceeded?: boolean | null;
+  lastTestMessage?: string | null;
+  notes?: string | null;
+  createdAtUtc?: string;
+  updatedAtUtc?: string | null;
+  version?: number;
+  permittedActions?: string[] | null;
+  source?: string | null;
+  isSuperseded?: boolean;
+  deploymentKeyReference?: string | null;
+}
+
+export interface PaymentGatewayConfigurationResponseApiResponse {
+  success?: boolean;
+  data?: PaymentGatewayConfigurationResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface PaymentGatewayConfigurationResponsePagedResponse {
+  items?: PaymentGatewayConfigurationResponse[] | null;
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
+export interface PaymentGatewayConfigurationResponsePagedResponseApiResponse {
+  success?: boolean;
+  data?: PaymentGatewayConfigurationResponsePagedResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface PaymentGatewayEventOption {
+  code?: string | null;
+  name?: string | null;
+  description?: string | null;
+}
+
+export interface PaymentGatewayMethodOption {
+  code?: string | null;
+  name?: string | null;
+}
+
+export interface PaymentGatewayProviderOption {
+  code?: string | null;
+  name?: string | null;
+  hasAdapter?: boolean;
+  apiKeyLabel?: string | null;
+  secretKeyLabel?: string | null;
+  merchantIdLabel?: string | null;
+  testKeyPrefix?: string | null;
+  liveKeyPrefix?: string | null;
+  documentationUrl?: string | null;
+}
+
+export interface PaymentGatewayTestResultResponse {
+  configurationId?: string;
+  provider?: string | null;
+  environment?: string | null;
+  succeeded?: boolean;
+  message?: string | null;
+  reference?: string | null;
+  durationMilliseconds?: number;
+  testedAtUtc?: string;
+}
+
+export interface PaymentGatewayTestResultResponseApiResponse {
+  success?: boolean;
+  data?: PaymentGatewayTestResultResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
 export interface PermissionGroupResponse {
   moduleCode?: string | null;
   groupCode?: string | null;
   permissions?: PermissionSummaryResponse[] | null;
+  moduleName?: string | null;
 }
 
 export interface PermissionListItemResponse {
@@ -1744,6 +2550,23 @@ export interface PermissionSummaryResponse {
   isSensitive?: boolean;
   isGranted?: boolean;
   grantedVia?: string | null;
+}
+
+export interface PersonLookupResponse {
+  id?: string;
+  displayName?: string | null;
+  code?: string | null;
+  roleName?: string | null;
+  unitName?: string | null;
+}
+
+export interface PersonLookupResponseIReadOnlyListApiResponse {
+  success?: boolean;
+  data?: PersonLookupResponse[] | null;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
 }
 
 export interface PreviewUserAccessRequest {
@@ -2128,8 +2951,8 @@ export interface RoleMenuNodeResponse {
   requiredPermissionCode?: string | null;
   isVisible?: boolean;
   isPermitted?: boolean;
-isEnabledForOrganisation?: boolean;
   isLandingPage?: boolean;
+  isEnabledForOrganisation?: boolean;
   children?: RoleMenuNodeResponse[] | null;
 }
 
@@ -2145,6 +2968,7 @@ export interface RolePermissionResponse {
   isDenied?: boolean;
   grantedAtUtc?: string;
   expiresAtUtc?: string | null;
+  moduleName?: string | null;
 }
 
 export interface SaveProtectedDraftRequest {
@@ -2280,9 +3104,124 @@ export interface StartRecoveryRequest {
   identifier?: string | null;
 }
 
+export interface StateProvinceDetailResponse {
+  id?: string;
+  tenantId?: string | null;
+  businessUnitId?: string;
+  stateProvinceCode?: string | null;
+  stateProvinceName?: string | null;
+  displayName?: string | null;
+  countryId?: string;
+  countryCode?: string | null;
+  countryName?: string | null;
+  jurisdictionType?: JurisdictionType;
+  jurisdictionDescription?: string | null;
+  otherJurisdictionType?: string | null;
+  isFederalJurisdiction?: boolean;
+  gstStateCode?: string | null;
+  stateTaxJurisdictionCode?: string | null;
+  defaultTimeZoneId?: string | null;
+  defaultTimeZoneName?: string | null;
+  postalCodePattern?: string | null;
+  addressFormatHint?: string | null;
+  status?: MasterDataStatus;
+  statusDescription?: string | null;
+  isActive?: boolean;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+  notes?: string | null;
+  cityCount?: number;
+  createdAtUtc?: string;
+  createdByUserId?: string;
+  updatedAtUtc?: string | null;
+  updatedByUserId?: string | null;
+  version?: number;
+  permittedActions?: string[] | null;
+  createdByName?: string | null;
+  updatedByName?: string | null;
+}
+
+export interface StateProvinceDetailResponseApiResponse {
+  success?: boolean;
+  data?: StateProvinceDetailResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface StateProvinceListItemResponse {
+  id?: string;
+  tenantId?: string | null;
+  stateProvinceCode?: string | null;
+  stateProvinceName?: string | null;
+  displayName?: string | null;
+  countryId?: string;
+  countryCode?: string | null;
+  countryName?: string | null;
+  jurisdictionType?: JurisdictionType;
+  jurisdictionDescription?: string | null;
+  isFederalJurisdiction?: boolean;
+  gstStateCode?: string | null;
+  status?: MasterDataStatus;
+  statusDescription?: string | null;
+  isActive?: boolean;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+  cityCount?: number;
+  updatedAtUtc?: string | null;
+  version?: number;
+}
+
+export interface StateProvinceListItemResponsePagedResponse {
+  items?: StateProvinceListItemResponse[] | null;
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
+export interface StateProvinceListItemResponsePagedResponseApiResponse {
+  success?: boolean;
+  data?: StateProvinceListItemResponsePagedResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface StringIReadOnlyListApiResponse {
+  success?: boolean;
+  data?: string[] | null;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface SubmissionFileResponse {
+  id?: string;
+  fileName?: string | null;
+  contentType?: string | null;
+  fileSizeBytes?: number;
+  contentHash?: string | null;
+  status?: TenantDocumentStatus;
+  uploadedAtUtc?: string;
+  uploadedByName?: string | null;
+  isPreviewable?: boolean;
+  supersededByDocumentId?: string | null;
+}
+
 export interface SubmitAccessRequestRequest {
   expectedVersion?: number;
   comment?: string | null;
+}
+
+export interface SubmitDocumentSubmissionRequest {
+  expectedVersion?: number;
+  notes?: string | null;
 }
 
 export interface SubmitOrganisationRequest {
@@ -2337,11 +3276,9 @@ export interface TenantMenuItemRequest {
 
 export interface TenantMenuNodeResponse {
   menuDefinitionId?: string;
-  parentMenuDefinitionId?: string | null;
   code?: string | null;
   catalogueName?: string | null;
   resolvedName?: string | null;
-    version?: number;
   level?: MenuLevel;
   moduleCode?: string | null;
   route?: string | null;
@@ -2350,10 +3287,12 @@ export interface TenantMenuNodeResponse {
   resolvedOrder?: number;
   isEnabled?: boolean;
   isMandatory?: boolean;
-  isOrganisationOwned?: boolean;
   displayNameOverride?: string | null;
   iconOverride?: string | null;
   displayOrderOverride?: number | null;
+  isOrganisationOwned?: boolean;
+  version?: number;
+  parentMenuDefinitionId?: string | null;
   children?: TenantMenuNodeResponse[] | null;
 }
 
@@ -2398,6 +3337,112 @@ export interface TenantResolutionResponseApiResponse {
   errorCode?: string | null;
   errors?: ValidationError[] | null;
   correlationId?: string | null;
+}
+
+export interface TimeZoneDetailResponse {
+  id?: string;
+  tenantId?: string | null;
+  businessUnitId?: string;
+  timeZoneKey?: string | null;
+  displayName?: string | null;
+  shortName?: string | null;
+  standardUtcOffsetMinutes?: number;
+  offsetDisplay?: string | null;
+  supportsDaylightSaving?: boolean;
+  daylightSavingRuleNote?: string | null;
+  isDefaultRecommended?: boolean;
+  status?: MasterDataStatus;
+  statusDescription?: string | null;
+  isActive?: boolean;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+  notes?: string | null;
+  stateUsageCount?: number;
+  createdAtUtc?: string;
+  createdByUserId?: string;
+  updatedAtUtc?: string | null;
+  updatedByUserId?: string | null;
+  version?: number;
+  permittedActions?: string[] | null;
+  createdByName?: string | null;
+  updatedByName?: string | null;
+}
+
+export interface TimeZoneDetailResponseApiResponse {
+  success?: boolean;
+  data?: TimeZoneDetailResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface TimeZoneListItemResponse {
+  id?: string;
+  tenantId?: string | null;
+  timeZoneKey?: string | null;
+  displayName?: string | null;
+  shortName?: string | null;
+  standardUtcOffsetMinutes?: number;
+  offsetDisplay?: string | null;
+  supportsDaylightSaving?: boolean;
+  isDefaultRecommended?: boolean;
+  status?: MasterDataStatus;
+  statusDescription?: string | null;
+  isActive?: boolean;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
+  updatedAtUtc?: string | null;
+  version?: number;
+}
+
+export interface TimeZoneListItemResponsePagedResponse {
+  items?: TimeZoneListItemResponse[] | null;
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
+export interface TimeZoneListItemResponsePagedResponseApiResponse {
+  success?: boolean;
+  data?: TimeZoneListItemResponsePagedResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface TimeZoneLookupListResponse {
+  timeZones?: TimeZoneLookupResponse[] | null;
+  isCountryFiltered?: boolean;
+}
+
+export interface TimeZoneLookupListResponseApiResponse {
+  success?: boolean;
+  data?: TimeZoneLookupListResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface TimeZoneLookupResponse {
+  id?: string;
+  code?: string | null;
+  ianaKey?: string | null;
+  name?: string | null;
+  shortName?: string | null;
+  offsetDisplay?: string | null;
+  standardUtcOffsetMinutes?: number;
+  supportsDaylightSaving?: boolean;
+  isPrimaryForCountry?: boolean;
+  isDefaultRecommended?: boolean;
+  status?: MasterDataStatus;
+  isPlatformRow?: boolean;
+  sortOrder?: number;
 }
 
 export interface TokenResponse {
@@ -2453,6 +3498,52 @@ export interface UpdateAccessRequestRequest {
   accessEndsAtUtc?: string | null;
 }
 
+export interface UpdateCityRequest {
+  expectedVersion?: number;
+  cityName?: string | null;
+  displayName?: string | null;
+  defaultPostalCodePattern?: string | null;
+  isMetro?: boolean | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  sortOrder?: number | null;
+  notes?: string | null;
+  clearCoordinates?: boolean;
+}
+
+export interface UpdateCountryRequest {
+  expectedVersion?: number;
+  countryName?: string | null;
+  officialName?: string | null;
+  region?: GeographicRegion;
+  iso2?: string | null;
+  iso3?: string | null;
+  numericCode?: string | null;
+  defaultCurrencyCode?: string | null;
+  hasStates?: boolean | null;
+  postalCodePattern?: string | null;
+  phoneCountryCode?: string | null;
+  sortOrder?: number | null;
+  notes?: string | null;
+}
+
+export interface UpdateCurrencyRequest {
+  expectedVersion?: number;
+  currencyName?: string | null;
+  numericCode?: number | null;
+  currencyType?: CurrencyType;
+  symbol?: string | null;
+  symbolPosition?: SymbolPosition;
+  displayFormat?: string | null;
+  decimalPlaces?: number | null;
+  minorUnitName?: string | null;
+  roundingMode?: RoundingMode;
+  roundingStep?: number | null;
+  sortOrder?: number | null;
+  notes?: string | null;
+  clearRoundingStep?: boolean;
+}
+
 export interface UpdateDepartmentRequest {
   expectedVersion?: number;
   name?: string | null;
@@ -2476,6 +3567,20 @@ export interface UpdateMenuDefinitionRequest {
   isEnabledByDefault?: boolean | null;
   opensInNewTab?: boolean | null;
   badgeKey?: string | null;
+}
+
+export interface UpdateMyProfileRequest {
+  expectedVersion?: number;
+  displayName?: string | null;
+  mobileCountryCode?: string | null;
+  mobileNumber?: string | null;
+  designation?: string | null;
+  preferredCulture?: string | null;
+  timeZone?: string | null;
+  reason?: string | null;
+  title?: string | null;
+  preferredName?: string | null;
+  workLocation?: string | null;
 }
 
 export interface UpdateOrganisationProfileRequest {
@@ -2547,6 +3652,34 @@ export interface UpdateRoleRequest {
   displayTag?: string | null;
 }
 
+export interface UpdateStateProvinceRequest {
+  expectedVersion?: number;
+  stateProvinceName?: string | null;
+  displayName?: string | null;
+  jurisdictionType?: JurisdictionType;
+  otherJurisdictionType?: string | null;
+  isFederalJurisdiction?: boolean | null;
+  gstStateCode?: string | null;
+  stateTaxJurisdictionCode?: string | null;
+  defaultTimeZoneId?: string | null;
+  postalCodePattern?: string | null;
+  addressFormatHint?: string | null;
+  sortOrder?: number | null;
+  notes?: string | null;
+}
+
+export interface UpdateTimeZoneRequest {
+  expectedVersion?: number;
+  displayName?: string | null;
+  shortName?: string | null;
+  standardUtcOffsetMinutes?: number | null;
+  supportsDaylightSaving?: boolean | null;
+  daylightSavingRuleNote?: string | null;
+  isDefaultRecommended?: boolean | null;
+  sortOrder?: number | null;
+  notes?: string | null;
+}
+
 export interface UpdateUserRequest {
   expectedVersion?: number;
   firstName?: string | null;
@@ -2571,18 +3704,31 @@ export interface UpdateUserRequest {
   timeZone?: string | null;
   avatarUrl?: string | null;
   reason?: string | null;
+  title?: string | null;
+  preferredName?: string | null;
+  workLocation?: string | null;
 }
 
-export interface UploadOrganisationDocumentRequest {
-  documentType?: TenantDocumentType;
-  fileName?: string | null;
-  storagePath?: string | null;
-  contentType?: string | null;
-  fileSizeBytes?: number;
-  contentHash?: string | null;
-  referenceNumber?: string | null;
-  issuedOn?: string | null;
-  expiresOn?: string | null;
+export interface UpsertPaymentGatewayConfigurationRequest {
+  id?: string | null;
+  tenantId?: string | null;
+  provider?: PaymentGatewayProvider;
+  environment?: PaymentGatewayEnvironment;
+  displayName?: string | null;
+  merchantId?: string | null;
+  apiKey?: string | null;
+  secretKey?: string | null;
+  webhookUrl?: string | null;
+  webhookSecret?: string | null;
+  subscribedEvents?: string[] | null;
+  settlementCurrencyCode?: string | null;
+  returnUrl?: string | null;
+  paymentLinkValidityMinutes?: number;
+  enabledMethods?: string[] | null;
+  isActive?: boolean;
+  notes?: string | null;
+  expectedVersion?: number | null;
+  reason?: string | null;
 }
 
 export interface UserAccessComparisonResponse {
@@ -2699,6 +3845,9 @@ export interface UserDetailResponse {
   hasPendingInvitation?: boolean;
   invitationExpiresAtUtc?: string | null;
   permittedActions?: string[] | null;
+  title?: string | null;
+  preferredName?: string | null;
+  workLocation?: string | null;
 }
 
 export interface UserDetailResponseApiResponse {
