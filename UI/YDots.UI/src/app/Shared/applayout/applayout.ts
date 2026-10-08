@@ -7,10 +7,11 @@ import { TopheaderComponent } from '../topheader/topheader';
 import { LayoutService } from '../../Service/layout-service';
 import { RouterOutlet } from '@angular/router';
 import { RainbowLoaderComponent } from '../components/rainbow-loader/rainbow-loader';
+import { BreadcrumbBarComponent } from '../components/breadcrumb-bar/breadcrumb-bar';
 
 @Component({
   selector: 'app-applayout',
-  imports: [RouterOutlet,SidebarComponent,TopheaderComponent,FooterComponent,ThemeComponent,RainbowLoaderComponent],
+  imports: [RouterOutlet,SidebarComponent,TopheaderComponent,FooterComponent,ThemeComponent,RainbowLoaderComponent,BreadcrumbBarComponent],
   templateUrl: './applayout.html',
   styleUrl: './applayout.css',
 })

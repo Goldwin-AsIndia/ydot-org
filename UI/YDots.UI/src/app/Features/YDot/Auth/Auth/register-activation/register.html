@@ -177,7 +177,8 @@
               [class.is-invalid]="!!passwordValue() && rulesMet() < 5"
               autocomplete="new-password"
               [value]="password"
-              (input)="onPasswordInput($any($event.target).value)">
+              (input)="onPasswordInput($any($event.target).value)"
+              (keydown.enter)="onPasswordStepEnter('confirm', $event)">
             <button type="button" class="btn btn-link position-absolute end-0 top-0 text-muted" (click)="togglePassword()">
               <i [class]="showPassword() ? 'ri-eye-line' : 'ri-eye-off-line'"></i>
             </button>
@@ -208,13 +209,15 @@
           <label class="form-label" for="confirmPassword">Confirm password <span class="ydot-req">*</span></label>
           <div class="position-relative">
             <input
+              #confirmInput
               id="confirmPassword"
               [type]="showConfirm() ? 'text' : 'password'"
               class="form-control pe-10"
               [class.is-invalid]="!!confirmValue() && !passwordsMatch()"
               autocomplete="new-password"
               [value]="confirmPassword"
-              (input)="onConfirmInput($any($event.target).value)">
+              (input)="onConfirmInput($any($event.target).value)"
+              (keydown.enter)="onPasswordStepEnter('submit', $event)">
             <button type="button" class="btn btn-link position-absolute end-0 top-0 text-muted" (click)="toggleConfirm()">
               <i [class]="showConfirm() ? 'ri-eye-line' : 'ri-eye-off-line'"></i>
             </button>
@@ -237,7 +240,7 @@
           <button type="button" class="btn btn-outline-secondary flex-shrink-0" (click)="backToDetails()">
             <i class="ri-arrow-left-line"></i>
           </button>
-          <button type="button" class="btn btn-primary flex-grow-1" [disabled]="!canLeavePasswordStep()" (click)="goToSecurity()">
+          <button #continueBtn type="button" class="btn btn-primary flex-grow-1 auth-submit-btn" [disabled]="!canLeavePasswordStep()" (click)="goToSecurity()">
             Continue
           </button>
         </div>
@@ -311,8 +314,9 @@
                     <option value="" disabled>Select Code</option>
                   @for (code of countryCodes(); track code) { <option [value]="code">{{ code }}</option> }
                 </select>
-                <input id="mobileNumber" type="tel" inputmode="numeric" maxlength="15" class="form-control" placeholder="98765 43210"
-                       [(ngModel)]="mobileNumber" name="mobileNumber">
+                <input #mobileInput id="mobileNumber" type="tel" inputmode="numeric" maxlength="15" class="form-control" placeholder="98765 43210"
+                       [(ngModel)]="mobileNumber" name="mobileNumber"
+                       (keydown.enter)="onMobileEnter($event)">
               </div>
             </div>
           }
@@ -361,7 +365,7 @@
                       <code class="d-block mb-2">{{ s.sharedSecret }}</code>
                       <div class="small text-muted mb-2">{{ s.maskedDestination }}</div>
                       <button type="button" class="btn btn-outline-secondary btn-sm" (click)="copySecret()">
-                        <i class="ri-file-copy-line me-1"></i>{{ secretCopied() ? 'Copied' : 'Copy key' }}
+                        <i class="ri-file-copy-line me-1"></i> {{ secretCopied() ? 'Copied' : 'Copy key' }}
                       </button>
                     </div>
                   }
@@ -398,15 +402,16 @@
                   class="form-control form-control-lg text-center code-input"
                   placeholder="000000"
                   [value]="verificationCode()"
-                  (input)="verificationCode.set($any($event.target).value)">
+                  (input)="verificationCode.set($any($event.target).value)"
+                  (keydown.enter)="onSetupCodeEnter($event)">
               </div>
 
               <div class="d-flex gap-2 mb-3">
                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="startSetup()" [disabled]="settingUp()">
                   <i class="ri-refresh-line"></i>
                 </button>
-                <button type="button" class="btn btn-primary btn-sm flex-grow-1" [disabled]="!canVerifyMethod()" (click)="verifyMethod()">
-                  <i class="ri-shield-check-line me-1"></i>{{ submitting() ? 'Checking…' : 'Verify this code' }}
+                <button #verifyCodeBtn type="button" class="btn btn-primary btn-sm flex-grow-1 auth-submit-btn" [disabled]="!canVerifyMethod()" (click)="verifyMethod()">
+                  <i class="ri-shield-check-line me-1"></i> {{ submitting() ? 'Checking…' : 'Verify this code' }}
                 </button>
               </div>
             } @else {
@@ -515,11 +520,12 @@
     <textarea id="reg-cancel-reason" rows="4"
               placeholder="For example: my role should be Finance Officer, not Volunteer."
               [(ngModel)]="cancelReason"
-              name="cancelReason"></textarea>
+              name="cancelReason"
+              (keydown)="onCancelReasonEnter($event)"></textarea>
   </div>
   <ng-container popupActions>
     <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeCancelDialog()">Keep going</button>
-    <button type="button" class="btn btn-primary btn-sm" [disabled]="!canCancelActivation() || submitting()" (click)="confirmCancel()">
+    <button #cancelSendBtn type="button" class="btn btn-primary btn-sm auth-submit-btn" [disabled]="!canCancelActivation() || submitting()" (click)="confirmCancel()">
       {{ submitting() ? 'Sending…' : 'Send and exit' }}
     </button>
   </ng-container>

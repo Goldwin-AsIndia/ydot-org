@@ -451,7 +451,7 @@
     align-items: center;
     gap: calc(10px * var(--s));
     min-width: 0;
-    height: calc(27px * var(--s));
+    height: calc(34px * var(--s));
     margin: 0;
     padding: 0 calc(6px * var(--s)) 0 calc(15px * var(--s));
     border: 1px solid var(--dn-line);
@@ -690,6 +690,7 @@
 .dn-token--removable:hover i { color: var(--dn-accent); }
 
 /* ---------- table ---------- */
+/* actions column = 200px: 4 ghost boxes x 40px + 3 gaps x 8px + padding */
 .dn-cols,
 .dn-row {
   display: grid;
@@ -701,7 +702,7 @@
     minmax(calc(108px * var(--s)), 0.8fr)
     minmax(calc(118px * var(--s)), 0.85fr)
     minmax(calc(160px * var(--s)), 1fr)
-    calc(144px * var(--s));
+    calc(200px * var(--s));
   align-items: center;
   column-gap: calc(16px * var(--s));
   padding: 0 var(--dn-pad);
@@ -776,6 +777,9 @@ button.dn-col[data-sort='asc']::after { opacity: 1; transform: rotate(225deg) tr
   border-bottom: 1px solid var(--dn-line-2);
   cursor: pointer;
   transition: background-color 0.15s ease;
+  /* ghost action boxes (40px + ring) row-க்குள் vertically center-ஆ முழுசா தெரிய;
+     கீழே வெட்டாது */
+  align-content: center;
 }
 .dn-row:hover { background: var(--dn-hover); }
 .dn-row.is-selected::before,
@@ -789,7 +793,7 @@ button.dn-col[data-sort='asc']::after { opacity: 1; transform: rotate(225deg) tr
   border-radius: 0 calc(3px * var(--ui-scale, 1)) calc(3px * var(--ui-scale, 1)) 0;
   background: var(--dn-accent);
 }
-.dn-row > * { min-width: 0; }
+.dn-row > * { min-width: 0; overflow: visible; }
 
 .dn-who { display: flex; align-items: center; gap: calc(14px * var(--s)); }
 .dn-mono {
@@ -981,35 +985,33 @@ button.dn-col[data-sort='asc']::after { opacity: 1; transform: rotate(225deg) tr
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: calc(2px * var(--s));
+  align-self: center;
+  gap: calc(8px * var(--s));
+  /* 40px ghost box + 2px focus ring + 2px offset = 48px breathing room.
+     Screenshot-ல கீழே வெட்டுனது: grid cell stretch + focus outline clip.
+     min-height + overflow visible = முழு icon-ம் தெரியும். */
+  min-height: calc(48px * var(--s));
+  padding: calc(4px * var(--s)) calc(2px * var(--s));
+  overflow: visible;
   cursor: default;
 }
 .dn-act {
   display: grid;
   place-items: center;
-  width: calc(34px * var(--s));
-  height: calc(34px * var(--s));
   padding: 0;
-  border: 0;
-  background: none;
-  color: var(--dn-faint);
   cursor: pointer;
   transition: color 0.15s ease;
 }
-/* styles.css forces a small font-size on every <i>, so the glyph size needs !important */
-.dn-act i { font-size: calc(calc(21px * var(--s)) * var(--ui-text-scale, 1)) !important; line-height: 1 !important; }
+/* NOTE: box/paint/size + hover + focus now come from styles/ydot-list-actions.css
+   (ghost style). The rules below only keep row/tile colour context — do NOT re-add
+   background/border/box paint here. */
+/* styles.css forces a small font-size on every <i>, so the glyph size needs !important.
+   weight 400 + smoothing = same thin stroke as other pages (shared file also sets this). */
+/* .dn-act i { font-size: calc(calc(18px * var(--s)) * var(--ui-text-scale, 1)) !important; line-height: 1 !important; font-weight: 400 !important; -webkit-font-smoothing: antialiased !important; } */
 .dn-row:hover .dn-act,
 .dn-tile:hover .dn-act { color: var(--dn-muted); }
-/* hover / open: colour only, no box behind the glyph */
-.dn-act:hover,
-.dn-act:focus,
-.dn-act[aria-expanded='true'] {
-  border: 0 !important;
-  background: none !important;
-  box-shadow: none !important;
-  color: var(--dn-accent) !important;
-}
-.dn-act:focus-visible { outline: 2px solid var(--dn-accent); outline-offset: calc(-2px * var(--s)); border-radius: calc(8px * var(--s)); }
+/* hover / open paint + focus ring now come from styles/ydot-list-actions.css (ghost style) */
+.dn-act:focus-visible { border-radius: calc(8px * var(--s)); }
 .dn-menu--row { min-width: calc(250px * var(--s)); }
 .dn-menu--up { top: auto; bottom: calc(100% + calc(8px * var(--s))); }
 

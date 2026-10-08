@@ -35,9 +35,6 @@ interface LifecycleTransition {
   readonly requires?: string;
 }
 
-
-
-
 /**
  * The primary lifecycle transition offered from each state — the verb the header
  * button runs: Draft→Submit, Submitted→Approve, Approved→Schedule,
@@ -93,6 +90,9 @@ const CANCEL_TRANSITION: LifecycleTransition = {
  * screen; the detail page never opens an in-place activation dialog.
  */
 const LIFECYCLE_PAGE_STATES: readonly CampaignStatus[] = ['Scheduled', 'Active', 'Paused'];
+
+/** The keys of the lifecycle actions shown in the header. */
+type LifecycleActionKey = 'activate' | 'pause' | 'resume' | 'requestClose' | 'approveClose';
 
 /**
  * Campaign detail.
@@ -253,8 +253,6 @@ export class CampaignDetailComponent {
   protected readonly ownerRef = computed(() => this.liveRecord()?.ownerReference ?? '');
   /** The owner's human reference — USR-00001 — or an empty string when it is not known. */
   protected readonly ownerCode = computed(() => this.people.get(this.ownerRef())?.code ?? '');
-  /** Owner role — from the mock session profile when the owner is one of the seeded users; a plain
-   *  campaign owner otherwise (this app models every non-staff campaign owner as that role). */
   /**
    * The owner's role.
    *
@@ -302,11 +300,6 @@ export class CampaignDetailComponent {
   });
 
   /**
-   * Effective permissions — sourced from the shared mock session
-   * (CurrentUserService), the same authority Campaign Register reads, so the two
-   * screens share one session context rather than holding a local permission object.
-   */
-  /**
    * What the server says THIS caller may do to THIS campaign.
    *
    * THE ONLY AUTHORITY FOR A LIFECYCLE BUTTON ON THIS SCREEN. Empty until the detail has loaded,
@@ -324,14 +317,8 @@ export class CampaignDetailComponent {
    *
    * NOTE WHAT IS NOT HERE ANY MORE: an `operate` flag computed as "holds ANY lifecycle
    * permission". That check is what put an <strong>Approve</strong> button in front of an
-   * INITIATOR. An Initiator holds submit, activate, pause, resume and request-close - five of the
-   * seven codes it tested - so `operate` was true, and the button's LABEL came from a status
-   * lookup that says Submitted means Approve. The screen therefore offered the one action the
-   * role is defined by never having. Pressing it answered 403, but by then the wrong thing had
-   * already been promised.
-   *
-   * Per-record lifecycle rights now come from `permittedActions` above. What stays here is only
-   * what is genuinely a page-level capability, decided by permission alone.
+   * INITIATOR. Per-record lifecycle rights now come from `permittedActions` above. What stays
+   * here is only what is genuinely a page-level capability, decided by permission alone.
    */
   protected readonly permissions = computed(() => ({
     view: this.currentUser.hasPermission('cam.campaigns.view'),
@@ -393,33 +380,27 @@ export class CampaignDetailComponent {
   protected readonly targetsAmount = computed(() => this.targetAmount());
 
   /**
-   * Budget summary — live from the shared BudgetTargetStoreService,
-   * not a page-local mock.
+   * Budget summary — live from the shared BudgetTargetStoreService, not a page-local mock.
    * Reads ONLY each plan's current Approved version (`approvedForCampaign`), never
-   * summing across Draft/Submitted/Superseded versions — this is what prevents the
-   * double-counting the screen exists to avoid.
+   * summing across Draft/Submitted/Superseded versions.
    */
   protected readonly budgetPlans = computed(() => this.budgetStore.approvedForCampaign(this.campaignName()));
   protected readonly budgetAmount = computed(() =>
     this.budgetPlans().reduce((sum, v) => sum + v.budgetAmount, 0),
   );
-  /** Planned operating budget and fundraising target, formatted for the overview card. Both are
-   *  planning figures set on the wizard, not donations received — the card says so underneath. */
+  /** Planned operating budget and fundraising target, formatted for the overview card. */
   protected readonly plannedBudgetLabel = computed(() => this.rupeeINR(this.budgetAmount()));
   protected readonly fundraisingTargetLabel = computed(() => this.rupeeINR(this.targetAmount()));
-  /** Each approved allocation's share of the total budget — how the total is split
-   *  across categories. */
+  /** Each approved allocation's share of the total budget. */
   protected budgetShare(planBudget: number): number {
     const total = this.budgetAmount();
     return total ? Math.round((planBudget / total) * 1000) / 10 : 0;
   }
 
   /**
-   * Tracking assets — read-only. Read live from the single
-   * shared TrackingAssetStoreService — not a
-   * page-local copy — so a Generate on the Tracking Asset Manager appears here
-   * immediately, without a refresh. Falls back to a built-in mock when
-   * opened directly without a reference (no real campaign to filter by).
+   * Tracking assets — read-only. Read live from the single shared TrackingAssetStoreService,
+   * so a Generate on the Tracking Asset Manager appears here immediately, without a refresh.
+   * Falls back to a built-in mock when opened directly without a reference.
    */
   protected readonly trackingAssets = computed<
     readonly (HistoryRow & { createdOn?: string; usageCount?: number; dayKey?: string | null })[]
@@ -447,21 +428,8 @@ export class CampaignDetailComponent {
   });
 
   /**
-   * This campaign's donations — THE REAL ONES, from the payments service.
-   *
-   * WHAT WAS HERE: three hard-coded rows compiled into the bundle. "₹5,000 · Ramesh Kumar",
-   * "₹2,500 · Anitha S", "₹10,000 · Corporate — Zentra", dated May 2025, with a headline
-   * count of 1,248 donations. Every campaign, in every organisation, showed the same three
-   * donations from the same three people and the same total — including a campaign created a
-   * minute earlier that had received nothing at all.
-   *
-   * That is worse than an empty tab in a way worth being exact about: a named donor and an
-   * amount on a campaign's Payments tab reads as a financial record. Somebody reconciling that
-   * campaign would be reading three invented transactions attributed to three invented people,
-   * and a fourth number, 1,248, attributed to nobody.
-   *
-   * It is now GET /donations?campaignId={id} — the payments register's own endpoint, filtered to
-   * this campaign, permission-checked and organisation-scoped server-side like every other read.
+   * This campaign's donations — THE REAL ONES, from the payments service
+   * (GET /donations?campaignId={id}), permission-checked and organisation-scoped server-side.
    * A campaign with no donations shows the empty state, which is the truth.
    */
   protected readonly donations = signal<readonly (HistoryRow & { dayKey?: string | null })[]>([]);
@@ -469,20 +437,8 @@ export class CampaignDetailComponent {
   protected readonly donationsLoading = signal(false);
   protected readonly donationsError = signal<string | null>(null);
 
-  // ================= Campaign dashboard (the summary grid's replacement) =================
+  // ================= Campaign dashboard =================
 
-  /**
-   * THE DONATIONS THE PAYMENTS READ ALREADY FETCHED, kept as bare amounts and dates.
-   *
-   * The dashboard needs two things the HistoryRow mapping throws away: the amount per
-   * donation (to total "Donations received" and to bucket the trend by month) and the
-   * date each was received. No second request is made — this is filled by the same
-   * `loadDonations()` read that fills the Payments tab, so the two can never disagree.
-   *
-   * IT IS A PAGE, NOT THE LEDGER. The read fetches the most recent page of twenty, so the
-   * total and the trend describe what this screen has actually seen — when a campaign
-   * outgrows one page the full figures remain the payments register's job.
-   */
   /** Every counted donation on the campaign — amount, date and donor — behind the header figures. */
   private readonly donationStats = signal<readonly { amount: number; at: string; donor: string }[]>([]);
 
@@ -571,9 +527,7 @@ export class CampaignDetailComponent {
     return [0, 1, 2, 3, 4].map((i) => i * step);
   });
 
-  /** The channel chart's plot box — a compact 660×124 canvas with small inset margins,
-   *  matching the Figma chart's own dimensions (no axis-label gutters: this design shows
-   *  gridlines only, with figures surfaced on hover instead). */
+  /** The channel chart's plot box — a compact 660×124 canvas with small inset margins. */
   private readonly trendView = { w: 660, h: 124, top: 10, right: 15, bottom: 14, left: 15 };
 
   private trendX(i: number, count: number): number {
@@ -598,17 +552,8 @@ export class CampaignDetailComponent {
   );
 
   /**
-   * A SMOOTH LINE THROUGH THE POINTS — monotone cubic (Fritsch–Carlson), not Catmull–Rom.
-   *
-   * THE OLD CURVE COULD DIP BELOW THE BASELINE. Catmull-Rom derives each point's tangent from
-   * its neighbours with no limit on how large that tangent gets, so a flat run of months
-   * followed by a sharp rise produced a tangent that swung the curve down before it turned
-   * up — a visible dip under a chart that never actually went negative.
-   *
-   * Monotone cubic interpolation is built for exactly this: on any stretch where the data is
-   * non-decreasing (or non-increasing), the curve is mathematically guaranteed to stay
-   * within that range too. Flat-then-rising stays flat-then-rising, with no overshoot in
-   * either direction, while still drawing a smooth curve rather than sharp straight joins.
+   * A SMOOTH LINE THROUGH THE POINTS — monotone cubic (Fritsch–Carlson), not Catmull–Rom,
+   * so the curve never dips below the baseline or overshoots a point.
    */
   private smoothPath(points: readonly { x: number; y: number }[]): string {
     const n = points.length;
@@ -709,11 +654,8 @@ export class CampaignDetailComponent {
   protected readonly statusProgress = computed(() => this.liveRecord()?.progress ?? 0);
 
   /**
-   * Reads this campaign's donations.
-   *
-   * A PAGE OF TWENTY, ordered by the API. The tab is a summary beside the campaign, not the
-   * payments register — the full ledger is that screen's job — so it shows the most recent and
-   * reports the true total beside them.
+   * Reads this campaign's donations — every page, so the header figures describe the whole
+   * campaign; the lists below still show the twenty most recent.
    */
   private loadDonations(): void {
     const campaignId = this.store.apiId(this.reference);
@@ -730,9 +672,6 @@ export class CampaignDetailComponent {
     this.donationsLoading.set(true);
     this.donationsError.set(null);
 
-    // EVERY PAGE, NOT JUST THE FIRST. The header figures (raised to date, monthly revenue, donors)
-    // describe the whole campaign, so they are computed from all of its donations. The lists below
-    // still show the twenty most recent.
     const all: DonationListItem[] = [];
     const maxPages = 50;
 
@@ -750,8 +689,7 @@ export class CampaignDetailComponent {
         },
 
         // REPORTED, NOT SWALLOWED INTO AN EMPTY LIST. "No donations" and "the payments service did
-        // not answer" are different facts, and only one of them is a reason to stop chasing a
-        // missing donation.
+        // not answer" are different facts.
         error: (error: unknown) => {
           this.donations.set([]);
           this.donationsCount.set(0);
@@ -803,8 +741,7 @@ export class CampaignDetailComponent {
         })),
     );
 
-    // The dashboard's "Recent Donations" list — the same read, displayed as people
-    // rather than ledger rows. Initials stand in for avatars we don't store.
+    // The dashboard's "Recent Donations" list — initials stand in for avatars we don't store.
     this.recentDonations.set(
       recent.map((donation, i) => {
         const name = donation.donorName || 'Anonymous donor';
@@ -860,34 +797,16 @@ export class CampaignDetailComponent {
     { primary: 'May 2025 donation statement', secondary: 'CSV · 88 KB', meta: 'Confidential · record scope' },
   ];
   /**
-   * Documents carries its own, independent check rather than only relying on the page-level
-   * view gate: the attachments are marked confidential and record-scoped.
-   *
-   * IT NOW ASKS A PERMISSION AND NOT A ROLE NAME. It used to require
-   * `currentUser.role() === 'Campaign Manager'`, which was wrong twice over. It contradicted the
-   * contract on that computed - which says in as many words that it is a LABEL and that nothing
-   * gates on it, because a person can hold campaign permissions under any role name an
-   * organisation invents - and when the catalogue was cut to four authority-shaped roles the
-   * string stopped matching anything at all, so the section would have vanished for every user
-   * on the platform without a single error to say why.
-   *
-   * `cam.campaigns.export` is the closest honest gate the catalogue offers: taking campaign
-   * material out of the system is exactly what reading a confidential attachment amounts to, and
-   * it is the permission an organisation already grants to decide that question.
+   * Documents carries its own, independent check: the attachments are confidential and
+   * record-scoped. It asks a permission, not a role name.
    */
   protected readonly documentsAllowed = computed(
     () => this.permissions().view && this.permissions().export,
   );
 
   /**
-   * The campaign's activity chronology.
-   *
-   * WHAT THIS REPLACES. Five fixed entries, identical on every campaign, dated May 2025 - one of
-   * them "Donation received: ₹5,000 from Ramesh Kumar". A named donor and an amount, on a screen
-   * a fundraiser reads to see what has been happening, against a gift nobody made.
-   *
-   * IT NOW READS THE CAMPAIGN'S OWN LIFECYCLE HISTORY - the server's append-only trail of who did
-   * what to this campaign and whether it was allowed.
+   * The campaign's activity chronology — the server's append-only trail of who did what to this
+   * campaign and whether it was allowed.
    */
   protected readonly recentActivity = signal<readonly ActivityItem[]>([]);
 
@@ -918,8 +837,8 @@ export class CampaignDetailComponent {
   ];
 
   /**
-   * The icon + colour family of a Recent Activity row, read from its title (the channel it went out on, or the
-   * kind of lifecycle step). A refused action is always 'alert', whatever it was.
+   * The icon + colour family of a Recent Activity row, read from its title. A refused action is
+   * always 'alert', whatever it was.
    */
   protected activityKind(item: ActivityItem): 'email' | 'whatsapp' | 'instagram' | 'sms' | 'person' | 'approve' | 'create' | 'edit' | 'alert' {
     if (item.tone === 'plum') return 'alert';
@@ -934,12 +853,7 @@ export class CampaignDetailComponent {
     return 'edit';
   }
 
-  /** How many entries the chronicle shows before "Show all"; the panel keeps its height without an inner scroll. */
-
-  /**
-   * Recent Activity grouped by day for the chronicle: a day caption, then that day's entries
-   * (time, channel node, title, detail, kind). The list scrolls inside the panel (about five rows tall).
-   */
+  /** Recent Activity grouped by day for the chronicle: a day caption, then that day's entries. */
   protected readonly activityDays = computed(() => {
     const items = this.recentActivity();
     const days: { day: string; items: { item: ActivityItem; time: string; kind: ReturnType<CampaignDetailComponent['activityKind']> }[] }[] = [];
@@ -999,14 +913,8 @@ export class CampaignDetailComponent {
     this.activityLoading.set(true);
     this.activityError.set(null);
 
-    // THE FIELD NAMES ARE THE ONES THE SERVER ACTUALLY SENDS.
-    //
-    // This read `actionTypeDescription`, `actionType`, `detailedReason`, `reasonCategory`,
-    // `effectiveAtUtc`, `createdAtUtc` and `actionStatus` off an untyped bag. `CampaignHistoryResponse`
-    // carries none of them - it is `actionCode`, `actorUserId`, `result`, `reason` and
-    // `occurredAtUtc` - so every one of those lookups was undefined, and each row came out as a
-    // blank title, a blank detail and a blank time. Those names belong to
-    // `CampaignLifecycleAction`, a different DTO on a different endpoint.
+    // THE FIELD NAMES ARE THE ONES THE SERVER ACTUALLY SENDS: `actionCode`, `actorUserId`,
+    // `result`, `reason` and `occurredAtUtc` on CampaignHistoryResponse.
     this.campaignApi.getCampaignHistory(campaignId).subscribe({
       next: (entries) =>
         this.recentActivity.set(
@@ -1023,9 +931,7 @@ export class CampaignDetailComponent {
                   })
                 : '',
 
-              // A REFUSED ACTION IS DRAWN DIFFERENTLY. The history records attempts that were not
-              // allowed as well as ones that were, and a trail that showed both the same way would
-              // hide the more interesting half.
+              // A REFUSED ACTION IS DRAWN DIFFERENTLY.
               tone: /denied|failure|failed|reject|refus/i.test(result) ? 'plum' : 'good',
             } as ActivityItem;
           }),
@@ -1039,13 +945,7 @@ export class CampaignDetailComponent {
     });
   }
 
-  /**
-   * An audit action code as a sentence.
-   *
-   * `actionCode` is a machine token - 'CampaignSubmitted', 'CAMPAIGN_APPROVED' - and printing it
-   * raw is how a history panel ends up reading like a log file. Anything this does not recognise
-   * is split on its own word boundaries rather than dropped, so a code added later still reads.
-   */
+  /** An audit action code as a sentence ('CampaignSubmitted' -> 'Campaign submitted'). */
   private describeHistoryAction(code: string | null | undefined): string {
     const raw = (code ?? '').trim();
 
@@ -1070,12 +970,6 @@ export class CampaignDetailComponent {
   }
 
   // ================= Design-mirror dashboard (KPI cards, channels, calendar) =================
-  //
-  // The screen's upper half mirrors the approved dashboard mock. Where the API carries a
-  // figure — the campaign amount, the donation trend, the asset and payment counts, the
-  // campaign dates — the value is REAL. Where no module feeds this screen yet (donor counts,
-  // email sends, channel splits, activity entries) the mock's placeholder figures stand in,
-  // exactly as the design drew them, so the layout can be reviewed before the data lands.
 
   /** A figure with the rupee mark and Indian grouping — ₹2,500 — for chart ticks and cards. */
   protected rupeeINR(value: number): string {
@@ -1188,8 +1082,7 @@ export class CampaignDetailComponent {
     this.trendTicks().map((value) => ({ value, label: this.westernCompact(value) })),
   );
 
-  /** A figure as a Western compact label — 100K rather than the Indian 1L — for the chart axis,
-   *  which the reference draws in K/M rather than lakh/crore. */
+  /** A figure as a Western compact label — 100K rather than the Indian 1L — for the chart axis. */
   protected westernCompact(value: number): string {
     try {
       return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
@@ -1253,13 +1146,9 @@ export class CampaignDetailComponent {
   });
 
   /**
-   * Three channel curves over the REAL donation trend. The Whatsapp envelope tracks the
-   * actual monthly total (its 0.94 factor keeps it under the y-axis peak); SMS and
-   * Instagram are deterministic wavy fractions of it, so the chart carries the mock's
-   * three-colour shape without inventing a second data source.
-   *
-   * A climb off the baseline is subdivided along an accelerating (t²) ramp, so the rise
-   * sweeps like the design's curved climb instead of leaving the axis as a hard spike.
+   * Three channel curves over the REAL donation trend. SMS and Instagram are deterministic wavy
+   * fractions of it, so the chart carries the mock's three-colour shape without inventing a
+   * second data source.
    */
   protected readonly channelSeries = computed(() => {
     const points = this.trendPoints();
@@ -1294,10 +1183,7 @@ export class CampaignDetailComponent {
     ];
   });
 
-
   // ---------- Campaign Calendar (real campaign dates, demo activities around them) ----------
-  // The seven event kinds and their colours are ported exactly from the Figma
-  // CalendarSection (node 3:118) legend row.
   protected readonly calDow = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   protected readonly calLegend = [
     { label: 'Email Campaign', kind: 'email', color: '#07565b' },
@@ -1309,7 +1195,7 @@ export class CampaignDetailComponent {
     { label: 'Campaign Launch', kind: 'launch', color: '#22c55e' },
   ];
 
-  /** The logo stacked on a calendar day, one per event kind or channel (Remix icons, as elsewhere in the app). */
+  /** The logo stacked on a calendar day, one per event kind or channel (Remix icons). */
   protected calKindIcon(kind: string): string {
     const icons: Record<string, string> = {
       email: 'ri-mail-line',
@@ -1329,7 +1215,7 @@ export class CampaignDetailComponent {
   }
 
   private readonly calMonth = signal(this.startOfMonth(new Date()));
-  /** The clicked day's key, or null: the day panel opens only while a date is selected. */
+  /** The clicked day's key, or null. */
   private readonly calSelected = signal<string | null>(null);
 
   private startOfMonth(date: Date): Date {
@@ -1347,7 +1233,7 @@ export class CampaignDetailComponent {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
-  /** Changing month closes the day panel: the selected day is no longer on screen. */
+  /** Changing month clears the selected day: it is no longer on screen. */
   protected calShift(delta: number): void {
     const current = this.calMonth();
     this.calMonth.set(new Date(current.getFullYear(), current.getMonth() + delta, 1));
@@ -1360,11 +1246,8 @@ export class CampaignDetailComponent {
 
   /**
    * The shown month's activity entries. The campaign's own dates (launch, close) are real;
-   * the mock's demo activities sit on fixed days of the shown month so the calendar reads
-   * like the design until the activity planner module feeds real entries. `time` is the
-   * chip's displayed text — a clock time for the demo entries, exactly as the Figma grid
-   * draws them; the two real campaign-date entries carry no time of day, so their chip
-   * falls back to the label instead.
+   * the mock's demo activities sit on fixed days of the shown month until the activity
+   * planner module feeds real entries.
    */
   private calEvents(): Map<string, CalEvent[]> {
     const map = new Map<string, CalEvent[]>();
@@ -1387,7 +1270,6 @@ export class CampaignDetailComponent {
       label: 'Campaign Ends', kind: 'email', owner, note: 'The campaign closes to new donations.',
     });
     const anchor = this.calMonth();
-    // Day 2 is the Figma rail's own content (Volunteer Alert / Impact Update / New Donor).
     const demo: [number, CalEvent][] = [
       [2, { label: 'Impact Update', kind: 'email', time: '10:00 AM', end: '11:00 AM', status: 'Sent', owner: 'Maya Patel', note: 'Share September wins with donors and supporters.' }],
       [2, { label: 'Volunteer Alert', kind: 'sms', time: '2:00 PM', end: '3:00 PM', status: 'Queued', owner: 'Luis Romero', note: "Remind volunteers about Saturday's community drive." }],
@@ -1414,10 +1296,8 @@ export class CampaignDetailComponent {
   }
 
   /**
-   * Just this month's own days - 28 in February, 30 or 31 elsewhere, never a day borrowed from the
-   * month before or after. A handful of blank cells before day 1 keep the weekday columns lined up
-   * (Monday-first); they carry no date and are not clickable, unlike the old approach of padding the
-   * grid out to 42 cells with real days from neighbouring months.
+   * Just this month's own days, with blank Monday-first alignment cells before day 1 —
+   * never a day borrowed from the month before or after.
    */
   protected readonly calCells = computed(() => {
     const first = this.calMonth();
@@ -1456,9 +1336,8 @@ export class CampaignDetailComponent {
   });
 
   /**
-   * Clicking a day filters the tabbed lists below the calendar (Tracking, Payments, Leads, Donors,
-   * Source, SMS, Whatsapp, Instagram) to that date and scrolls them into view. Clicking the same
-   * day again goes back to today, which is what the lists show when no date is picked.
+   * Clicking a day filters the tabbed lists below the calendar to that date and scrolls them into
+   * view. Clicking the same day again goes back to today.
    */
   protected selectCalDay(cell: { key: string }): void {
     const next = this.calSelected() === cell.key ? null : cell.key;
@@ -1472,7 +1351,7 @@ export class CampaignDetailComponent {
   }
 
   /** The same key `dateKey` builds, for a stored date string. A bare `YYYY-MM-DD` is read as a
-   *  local calendar day (not UTC midnight, which lands on the previous day west of Greenwich). */
+   *  local calendar day (not UTC midnight). */
   private dayKeyOf(value: string | null | undefined): string | null {
     if (!value) {
       return null;
@@ -1482,10 +1361,16 @@ export class CampaignDetailComponent {
     return date ? this.dateKey(date) : null;
   }
 
-  /**
-   * The day the tab lists show: the date picked on the calendar, or TODAY when none is picked,
-   * so the tabs always read as "what happened on this day".
-   */
+  /** Whether a calendar day is picked — the empty state then offers "Back to today". */
+  protected readonly hasCalDay = computed(() => this.calSelected() !== null);
+
+  /** Drops the picked day, so the tab lists go back to today. */
+  protected clearCalDay(): void {
+    this.calSelected.set(null);
+    this.trackPage.set(1);
+  }
+
+  /** The day the tab lists show: the date picked on the calendar, or TODAY when none is picked. */
   private readonly activeDayKey = computed(() => this.calSelected() ?? this.dateKey(new Date()));
 
   /** The day the tab lists are filtered to, for their empty-state messages. */
@@ -1496,20 +1381,14 @@ export class CampaignDetailComponent {
     return cell ? label : `Today · ${label}`;
   });
 
-  /** Payments, narrowed to the selected calendar day when one is picked. */
+  /** Payments, narrowed to the selected calendar day. */
   protected readonly paymentRows = computed(() => {
     const day = this.activeDayKey();
     return this.donations().filter((row) => row.dayKey === day);
   });
 
   // ================= Campaign Overview summary card content =================
-  // Campaign reference / name / status / owner are already shown in the task header directly
-  // above this card, so the summary card itself surfaces the fields that aren't shown there:
-  // Purpose (as the lead paragraph), Target & Budget, Channel, Public description, Terms & notice.
-
-  // THE `*Name` FIELDS, NOT THE ID FIELDS. `channels`, `currency`, `country`, `region` and
-  // `city` on a CampaignRecord hold the API's Guids — that is what the create and update
-  // bodies require — so printing them directly would put raw identifiers on the summary card.
+  // THE `*Name` FIELDS, NOT THE ID FIELDS — the id fields hold the API's Guids.
   protected readonly channelsLabel = computed(() => {
     const list = this.liveRecord()?.channelNames;
     return list && list.length ? list.join(', ') : '—';
@@ -1518,17 +1397,8 @@ export class CampaignDetailComponent {
   protected readonly fundProgramme = computed(() => this.liveRecord()?.fundProgramme || '—');
 
   /**
-   * The campaign amount, as the summary card prints it.
-   *
-   * THIS IS THE FIGURE STEP 1 COLLECTS, and it is why the card can show money again. The note on
-   * the card explains why Target & Budget is still absent: those two are collected by no screen,
-   * so printing "₹0 target" on every campaign put a number in front of people that nobody had
-   * entered. This one was typed by whoever created the campaign, and it is the same number the
-   * donation forms show a donor - so a campaign whose two screens disagreed about the amount
-   * would be the visible symptom of a real problem.
-   *
-   * A DASH FOR ZERO. Campaigns created before the column existed hold 0, which means "never
-   * stated" rather than "free".
+   * The campaign amount, as the summary card prints it. A DASH FOR ZERO: campaigns created
+   * before the column existed hold 0, which means "never stated" rather than "free".
    */
   protected readonly campaignAmountLabel = computed(() => {
     const record = this.liveRecord();
@@ -1547,11 +1417,6 @@ export class CampaignDetailComponent {
 
     return code ? `${code} ${formatted}` : formatted;
   });
-  // CURRENCY IS NO LONGER SHOWN. The summary card carried a Currency row, but no wizard step
-  // asks for one - the API requires a CurrencyId, so the client sends the Organisation's default
-  // - and nothing on this screen displays an amount for it to qualify. The row therefore reported
-  // a value nobody chose, about figures that are not on the page. `currencyName` is still on the
-  // record for the screens that do show money.
   /** Country / State / City / Zip code — captured on Wizard step 3. */
   protected readonly locationLabel = computed(() => {
     const rec = this.liveRecord();
@@ -1605,7 +1470,6 @@ export class CampaignDetailComponent {
   /** "Read more" popup — Public description and Terms & notice open the full rendered content. */
   protected readonly readMoreField = signal<'description' | 'terms' | null>(null);
   protected openReadMore(which: 'description' | 'terms'): void {
-    // Do not open the popup when there is no value to show.
     if (which === 'terms' ? !this.hasTermsNotice() : !this.hasPublicDescription()) return;
     this.readMoreField.set(which);
   }
@@ -1622,14 +1486,6 @@ export class CampaignDetailComponent {
   protected readonly readMoreMinutes = computed(() => Math.max(1, Math.round(this.readMoreWordCount() / 200)));
 
   // ================= Main work: tabs =================
-  /**
-   * The work tabs.
-   *
-   * TARGETS AND BUDGET ARE GONE. Both read from the Budget & Target Plans module, which is on
-   * hold - so Targets rendered a zero target against a progress meter stuck at 0%, and Budget
-   * rendered "No approved budget plan for this campaign" for every campaign that has ever
-   * existed, because no plan can be created. They come back with the module.
-   */
   protected readonly tabs: readonly DetailTab[] = [
     { key: 'tracking', label: 'Tracking' },
     { key: 'payments', label: 'Payments' },
@@ -1640,27 +1496,14 @@ export class CampaignDetailComponent {
     { key: 'whatsapp', label: 'Whatsapp' },
     { key: 'instagram', label: 'Instagram' },
   ];
-  /**
-   * The tab shown on arrival: whichever one is FIRST, read from the list above.
-   *
-   * IT WAS THE LITERAL 'targets', AND THAT TAB NO LONGER EXISTS. When Targets and Budget were
-   * withdrawn the default was left behind pointing at one of them, so `activeTab()` matched no
-   * panel and the whole section rendered as an empty bordered box - tab labels across the top and
-   * nothing underneath - until somebody clicked one. It looked like a loading failure and was
-   * simply a default naming a tab that had been removed.
-   *
-   * READING IT FROM `tabs[0]` MEANS IT CANNOT DRIFT AGAIN. Withdraw or reorder a tab and the
-   * default follows; there is no second place holding a key that has to be kept in step.
-   */
+  /** The tab shown on arrival: whichever one is FIRST, so it cannot drift from the list. */
   protected readonly activeTab = signal<string>(this.tabs[0]?.key ?? '');
   protected selectTab(key: string): void {
     this.activeTab.set(key);
     this.trackPage.set(1);
   }
 
-  // ---------- Donor mix donut (mock figures until donors/leads feed the screen; matches the
-  //  Figma DonutCard spec exactly — SMS/WhatsApp/Instagram, no fourth channel). ----------
-  //  Soft pastel tints of the graph legend's channel colours (SMS pink, WhatsApp green, Instagram purple).
+  // ---------- Donor mix donut (mock figures until donors/leads feed the screen) ----------
   protected readonly donorMix = [
     { label: 'SMS', display: '1,120', pct: 44, color: '#f2a6bf' },
     { label: 'WhatsApp', display: '860', pct: 34, color: '#96e0bb' },
@@ -1676,9 +1519,7 @@ export class CampaignDetailComponent {
   private static readonly TRACK_PAGE_SIZE = 5;
   protected readonly trackPage = signal(1);
 
-  /** Free-text filter over reference/type-channel, matching the search box in the Figma table
-   *  header. Resets to page 1 whenever it changes, so a filtered result never opens on a page
-   *  past the end. */
+  /** Free-text filter over reference/type-channel. Resets to page 1 whenever it changes. */
   protected readonly trackSearchTerm = signal('');
   protected setTrackSearch(value: string): void {
     this.trackSearchTerm.set(value);
@@ -1702,11 +1543,7 @@ export class CampaignDetailComponent {
     return 'muted';
   }
 
-  /**
-   * Tracking rows shaped for the compact card: the meta string carries "Active · 214 scans",
-   * so it splits into a status word for the dot and a usage tail, exactly how the design
-   * prints "Active - 412 uses".
-   */
+  /** Tracking rows shaped for the compact card: status word for the dot, plus a usage tail. */
   protected readonly trackRows = computed(() => {
     const rows = this.trackingAssets().map((row) => {
       const parts = row.meta.split('·');
@@ -1754,36 +1591,23 @@ export class CampaignDetailComponent {
   }
 
   // ================= Context and filters =================
-  /**
-   * Active data scope - this campaign's own country and state.
-   *
-   * IT READS THE NAMES, NOT THE IDS. `country` and `region` hold master-data GUIDs, so this line
-   * printed "a8f3... · 91bc... · This campaign" at the top of the screen: thirty-six characters of
-   * identifier where a person expected "India". The `*Name` twins beside them are what the API
-   * resolves them to and what a reader can actually use.
-   */
+  /** Active data scope - this campaign's own country and state (names, not ids). */
   protected readonly scope = computed(() => {
     const rec = this.liveRecord();
     const parts = [rec?.countryName, rec?.regionName].filter((v): v is string => !!v);
     return parts.length ? `${parts.join(' · ')} · This campaign` : 'This campaign';
   });
 
-  /** Active-filter summary chips — kept for a possible future filter, empty today (no search/saved view). */
+  /** Active-filter summary chips — kept for a possible future filter, empty today. */
   protected readonly activeFilterSummary = computed<readonly { key: string; label: string }[]>(() => []);
 
-  /** Donations in scope — modelled as backend-fetched: re-reading it stamps a fresh refreshed time. */
+  /** Donations in scope — re-reading it stamps a fresh refreshed time. */
   protected readonly donationsScopeFetching = signal(false);
   protected readonly scopedTotals = computed(
     () => `${this.donationsCount().toLocaleString('en-IN')} donations in scope · refreshed ${this.lastRefresh()}`,
   );
 
-  /**
-   * Re-reads this campaign's donations.
-   *
-   * IT ACTUALLY RE-READS THEM NOW. This was a 400 ms `setTimeout` that stamped a fresh
-   * "refreshed" time onto a list that had not changed and could not change, because the list was
-   * a constant — so pressing Refresh made the invented figures look freshly confirmed.
-   */
+  /** Re-reads this campaign's donations. */
   protected refreshDonationsScope(): void {
     this.donationsScopeFetching.set(true);
     this.loadDonations();
@@ -1796,9 +1620,6 @@ export class CampaignDetailComponent {
   }
 
   // ================= Related and history =================
-  // Only Activity is shown for now — Linked records / Documents / Integration status /
-  // Support correlation / Audit chronology are hidden (not deleted) below, kept for
-  // later re-enabling.
   protected readonly linkedRecords: readonly HistoryRow[] = [
     { primary: 'BUD-2025-0031', secondary: 'FY25 campaign budget', meta: 'Budget · Approved' },
     { primary: 'PLAN-2025-0007', secondary: 'Budget and target plan v3', meta: 'Plan · Current' },
@@ -1817,13 +1638,10 @@ export class CampaignDetailComponent {
   ];
 
   // ================= Actions, eligibility and result =================
-  /** The named transition this state's header button performs. */
   /**
    * The primary transition for this status, IF the server has listed it for this caller.
-   *
-   * The status decides which transition is the interesting one; `permittedActions` decides
-   * whether this particular person may run it. Both have to agree, and the second half is the
-   * one that was missing - which is how an Initiator was offered Approve on a Submitted campaign.
+   * The status decides which transition is interesting; `permittedActions` decides whether
+   * this particular person may run it.
    */
   protected readonly primaryTransition = computed(() => {
     const transition = PRIMARY_TRANSITION[this.status()];
@@ -1832,13 +1650,11 @@ export class CampaignDetailComponent {
       return undefined;
     }
 
-    // No `requires` means the transition predates this rule; treat it as not offered rather than
-    // as universally allowed, so a future status added without a mapping fails closed.
+    // No `requires` means the transition predates this rule; fail closed.
     return transition.requires && this.allows(transition.requires) ? transition : undefined;
   });
 
-  /** Other eligible transitions for this state, offered inside the same confirm dialog
-   *  rather than as extra header buttons. Filtered against `permittedActions` too. */
+  /** Other eligible transitions for this state, offered inside the same confirm dialog. */
   protected readonly alternateTransitions = computed<readonly LifecycleTransition[]>(() => {
     const alts = [...(SECONDARY_TRANSITIONS[this.status()] ?? [])];
 
@@ -1848,61 +1664,46 @@ export class CampaignDetailComponent {
 
     return alts.filter((transition) => !!transition.requires && this.allows(transition.requires));
   });
-  /**
-   * The single primary action: appears only when the SERVER has listed it for this caller.
-   *
-   * `primaryTransition()` is already filtered against `permittedActions`, so an Initiator looking
-   * at a Submitted campaign gets no primary button at all rather than an Approve they cannot use.
-   */
-  /** True when this state's lifecycle actions are run on the Pause / Resume / Close panel rather
-   *  than in the in-place confirm dialog. Those states have no in-place primary button: the
-   *  "Manage lifecycle" button beside it is their doorway. */
+
+  /** True when this state's lifecycle actions run from the header's lifecycle buttons rather
+   *  than in the in-place confirm dialog. */
   protected readonly lifecycleUsesDedicatedPage = computed(() => LIFECYCLE_PAGE_STATES.includes(this.status()));
 
-  /**
-   * The in-place maker action — Submit on a Draft, Approve on a Submitted, Complete closure on a
-   * Closing campaign.
-   *
-   * IT NO LONGER DOUBLES AS THE LIFECYCLE DOORWAY. This button used to change identity with the
-   * status: for Scheduled / Active / Paused it relabelled itself "Manage lifecycle" and opened
-   * the panel, and for every other status the panel had no button at all. So a Submitted campaign
-   * - which is what a campaign looks like for the whole of its approval - showed Approve and no
-   * way to reach lifecycle management, and that is the button reported missing. Manage lifecycle
-   * is now its own button and is always present.
-   */
+  /** The in-place maker action — Submit on a Draft, Approve on a Submitted campaign. */
   protected readonly operateAllowed = computed(
     () => !!this.primaryTransition() && !this.lifecycleUsesDedicatedPage() && this.uiState() !== 'no-access',
   );
   protected readonly primaryActionLabel = computed(() => this.primaryTransition()?.label ?? '');
 
-  /**
-   * Manage lifecycle — offered for every state a reader can see.
-   *
-   * NOT GATED ON HOLDING A TRANSITION. The panel is a record as much as a control: current state,
-   * open donation intents, active tracking assets, financial exceptions and the accountable
-   * history of who moved this campaign and when. It renders its own view-only mode for a caller
-   * who holds none of the actions, and offers whichever ones apply to the state it finds. Gating
-   * the doorway on the actions behind it is what hid the whole thing from a Submitted campaign.
-   */
+  /** Lifecycle actions — offered for every state a reader can see; each action is filtered below. */
   protected readonly lifecycleAllowed = computed(
     () => this.permissions().view && this.uiState() !== 'no-access',
   );
 
-  // ================= Manage lifecycle — an inline panel under the header =================
+  // ================= Lifecycle actions in the header =================
   //
-  // No pop-up and no off-canvas: the button opens a strip of the actions that apply to the
-  // campaign's current state, and each one runs straight away. Only Request close asks for
-  // anything - a reason, in a box that opens under its own button.
+  // Activate / Pause / Resume / Approve close run straight away. Request close opens the
+  // reason popup (a cd-modal, the same shell as Delete draft) and is sent from there.
 
   protected readonly lifecycleBusy = signal(false);
   protected readonly lifecycleError = signal('');
+
+  /** Whether the Request close popup is open. */
   protected readonly closeBoxOpen = signal(false);
   protected readonly closeReason = signal('');
+  /** Set on the first submit attempt, never on blur — so an untouched box shows no error. */
   protected readonly closeReasonTouched = signal(false);
+  protected readonly closeReasonMin = 10;
+  protected readonly closeReasonMax = 2000;
+  protected readonly closeReasonCount = computed(() => this.closeReason().trim().length);
   protected readonly closeReasonValid = computed(() => {
-    const length = this.closeReason().trim().length;
-    return length >= 10 && length <= 2000;
+    const length = this.closeReasonCount();
+    return length >= this.closeReasonMin && length <= this.closeReasonMax;
   });
+  /** The error appears only after a submit attempt, then updates live as the user types. */
+  protected readonly closeReasonShowError = computed(
+    () => this.closeReasonTouched() && !this.closeReasonValid(),
+  );
 
   /**
    * The actions offered for the campaign's current state, and only the ones the server lists for
@@ -1912,10 +1713,10 @@ export class CampaignDetailComponent {
    *   Paused               → Resume, Request close        Closing → Approve close
    */
   protected readonly lifecycleActions = computed<
-    readonly { key: 'activate' | 'pause' | 'resume' | 'requestClose' | 'approveClose'; label: string; tone: 'primary' | 'danger' }[]
+    readonly { key: LifecycleActionKey; label: string; tone: 'primary' | 'danger' }[]
   >(() => {
     const status = this.status();
-    const actions: { key: 'activate' | 'pause' | 'resume' | 'requestClose' | 'approveClose'; label: string; tone: 'primary' | 'danger' }[] = [];
+    const actions: { key: LifecycleActionKey; label: string; tone: 'primary' | 'danger' }[] = [];
 
     if ((status === 'Approved' || status === 'Scheduled') && this.allows('Activate')) {
       actions.push({ key: 'activate', label: 'Activate', tone: 'primary' });
@@ -1935,26 +1736,30 @@ export class CampaignDetailComponent {
     return actions;
   });
 
-  protected runLifecycle(key: 'activate' | 'pause' | 'resume' | 'requestClose' | 'approveClose'): void {
+  protected runLifecycle(key: LifecycleActionKey): void {
     if (this.lifecycleBusy()) {
       return;
     }
     this.lifecycleError.set('');
 
-    // Request close only opens its reason box; the call is made from the box.
+    // Request close only opens its popup; the call is made from the popup's own button.
     if (key === 'requestClose') {
-      this.closeBoxOpen.update((open) => !open);
-      this.closeReasonTouched.set(false);
+      this.openCloseRequest();
       return;
     }
-    this.closeBoxOpen.set(false);
 
     const ref = this.reference;
     const finish = (landedOn: CampaignStatus, message: string) =>
       (result: { readonly applied: boolean; readonly error?: string }): void => {
         this.lifecycleBusy.set(false);
         if (!result.applied) {
-          this.lifecycleError.set(result.error ?? 'That change was refused. The campaign has not been changed.');
+          // Refusals (e.g. "You cannot approve a close request you raised") go to a toast,
+          // not an inline row under the header.
+          this.toast.show(
+            'Not changed',
+            result.error ?? 'That change was refused. The campaign has not been changed.',
+            'error',
+          );
           return;
         }
         // Show the new state at once, then let the reload bring the server's own.
@@ -1976,14 +1781,33 @@ export class CampaignDetailComponent {
         this.store.resume(ref, finish('Active', `${ref} is now Active.`));
         break;
       case 'approveClose':
-        // APPROVES THE OUTSTANDING REQUEST. This used to go to the request-close endpoint, which
-        // answered 409 and left the campaign Closing for ever.
+        // APPROVES THE OUTSTANDING REQUEST rather than calling the request-close endpoint again.
         this.closeStore.approveClose(ref, 'Close request approved.', finish('Closed', `${ref} is now Closed.`));
         break;
     }
   }
 
-  /** Sends the close request with the one reason typed under the button. */
+  /** Opens the Request close popup with an empty, untouched reason, and focuses the box. */
+  protected openCloseRequest(): void {
+    this.closeReason.set('');
+    this.closeReasonTouched.set(false);
+    this.lifecycleError.set('');
+    this.closeBoxOpen.set(true);
+    setTimeout(() => document.getElementById('cd-close-reason')?.focus());
+  }
+
+  /** Closes the popup (✕, Cancel, backdrop or Esc). Not while the request is being sent. */
+  protected cancelCloseRequest(): void {
+    if (this.lifecycleBusy()) {
+      return;
+    }
+    this.closeBoxOpen.set(false);
+    this.closeReason.set('');
+    this.closeReasonTouched.set(false);
+    this.lifecycleError.set('');
+  }
+
+  /** Sends the close request with the reason typed in the popup. */
   protected submitCloseRequest(): void {
     this.closeReasonTouched.set(true);
     if (!this.closeReasonValid() || this.lifecycleBusy()) {
@@ -1997,22 +1821,20 @@ export class CampaignDetailComponent {
     this.closeStore.requestClose(ref, 'Close requested', reason, '', reason, (result) => {
       this.lifecycleBusy.set(false);
       if (!result.applied) {
+        // Stays inside the popup, so the typed reason is not lost.
         this.lifecycleError.set(result.error ?? 'The close request could not be raised.');
         return;
       }
       this.closeBoxOpen.set(false);
       this.closeReason.set('');
+      this.closeReasonTouched.set(false);
       this.store.applyStatus(ref, 'Closing');
       this.store.reload(ref);
       this.toast.show('Close requested', `${ref} is waiting for a close approval.`, 'success');
     });
   }
 
-  /**
-   * The header's maker action — Submit / Approve / Complete closure — in its in-place high-risk
-   * confirm dialog. Activate / Pause / Resume / Close live on the Manage lifecycle panel and no
-   * longer route through here.
-   */
+  /** The header's maker action — Submit / Approve — in its in-place high-risk confirm dialog. */
   protected runPrimaryLifecycle(): void {
     if (!this.operateAllowed()) {
       return;
@@ -2038,9 +1860,6 @@ export class CampaignDetailComponent {
     const primary = this.primaryTransition();
     return primary ? [primary, ...this.alternateTransitions()] : this.alternateTransitions();
   });
-  // Annotated with the null it really can be: with no transitions available, `[0]` is
-  // undefined and the `?? null` is what runs. Left to inference, TypeScript reads the index as
-  // always present, concludes the fallback is dead, and the template's `?.` looks redundant.
   protected readonly proposedTransition = computed<LifecycleTransition | null>(
     () =>
       this.dialogOptions().find((t) => t.key === this.selectedTransitionKey()) ?? this.dialogOptions()[0] ?? null,
@@ -2069,12 +1888,7 @@ export class CampaignDetailComponent {
   }
   /**
    * Require explicit confirmation; change only the authorised record and show a persistent result.
-   *
-   * `setStatus` ROUTES TO THE TRANSITION'S OWN ENDPOINT. This called `store.update(ref, { status })`,
-   * which is the generic content PUT: the status went into the local record, the body sent to the
-   * server carries no status at all, and the refresh that followed put the server's unchanged
-   * state straight back. Submit and Approve both reported success on this screen without ever
-   * being sent. The same defect is fixed on the Manage lifecycle panel.
+   * `setStatus` routes to the transition's own endpoint.
    */
   protected confirmOperate(): void {
     this.operateReasonTouched.set(true);
@@ -2083,8 +1897,6 @@ export class CampaignDetailComponent {
     }
     const target = this.proposedState();
 
-    // The store owns the write, and `status` above reads the record back - so there is no local
-    // status to set here, and nothing to diverge from the server if the transition is refused.
     this.store.setStatus(this.reference, target, (result) => {
       if (!result.applied) {
         this.toast.show('Not changed', result.error ?? 'That change was refused.', 'error');
@@ -2107,23 +1919,7 @@ export class CampaignDetailComponent {
 
   // ----- Export this campaign -----
   /**
-   * The campaign, as a document about THIS campaign.
-   *
-   * IT USED TO BE A REGISTER ROW. The file was a header line and one data line in the register's
-   * own column shape - code, name, status, owner, dates, target, progress - which is to say the
-   * detail page's Export produced the same nine fields the Campaign Register's Export produces
-   * for every campaign at once, and nothing that is only on this page. Somebody exporting from a
-   * campaign's own screen is asking for that campaign's configuration: its purpose, the fund it
-   * belongs to, its channels, where it runs, how it activates, and the public wording. Those are
-   * the fields below, and none of them fit a register column.
-   *
-   * KEY-AND-VALUE ROWS RATHER THAN A WIDE HEADER. One campaign in a fifteen-column single-row CSV
-   * is unreadable in a spreadsheet without scrolling sideways; a two-column extract of the same
-   * fields reads down the page, which is how a person actually reviews one record.
-   *
-   * IT SAYS WHEN IT WAS TAKEN. The old file carried no date anywhere - the name ended in an epoch
-   * number and the body had no stamp at all - so two exports of the same campaign taken a month
-   * apart were indistinguishable.
+   * The campaign, as a key-and-value document about THIS campaign, stamped with when it was taken.
    */
   protected exportThisCampaign(): void {
     if (!this.exportAllowed()) {
@@ -2161,7 +1957,6 @@ export class CampaignDetailComponent {
       ...rows.map(([field, value]) => [csvField(field), csvField(value)].join(',')),
     ].join('\n');
 
-    // A date in the NAME as well, so a folder of these sorts and reads without being opened.
     const stamp = takenAt.toISOString().slice(0, 10);
 
     this.saveFile(
@@ -2244,6 +2039,28 @@ export class CampaignDetailComponent {
         return 'cd-badge-closed';
       case 'Cancelled':
         return 'cd-badge-cancelled';
+    }
+  }
+
+  protected getLifecycleIcon(key: string): string {
+    switch (key) {
+      case 'activate':
+        return 'ri-play-circle-line';
+      case 'pause':
+        return 'ri-pause-circle-line';
+      case 'resume':
+        return 'ri-play-circle-line';
+      case 'requestClose':
+        return 'ri-close-circle-line';
+      case 'approveClose':
+      case 'close':
+        return 'ri-lock-line';
+      case 'cancel':
+        return 'ri-close-line';
+      case 'reopen':
+        return 'ri-refresh-line';
+      default:
+        return 'ri-arrow-right-line';
     }
   }
 }

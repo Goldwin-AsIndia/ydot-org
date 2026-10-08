@@ -74,9 +74,10 @@
               placeholder="you@example.com"
               [value]="emailOrUsername()"
               (input)="onIdentifierInput($any($event.target).value)"
-              [disabled]="submitting()">
+              [disabled]="submitting()"
+              (keydown.enter)="onRecoveryEnter($event)">
 
-            <button type="button" class="btn btn-primary w-100" [disabled]="submitting()" (click)="startRecovery()">
+            <button #recoveryBtn type="button" class="btn btn-primary w-100 auth-submit-btn" [disabled]="submitting()" (click)="startRecovery()">
               {{ submitting() ? 'Sending…' : 'Start account recovery' }}
             </button>
           </div>
@@ -91,7 +92,7 @@
             <code class="reference-code d-block text-truncate">{{ supportReference() }}</code>
           </div>
           <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" (click)="copyReference()">
-            <i class="ri-file-copy-line me-1"></i>{{ copied() === 'reference' ? 'Copied' : 'Copy' }}
+            <i class="ri-file-copy-line me-1"></i> {{ copied() === 'reference' ? 'Copied' : 'Copy' }}
           </button>
         </div>
 
@@ -118,14 +119,16 @@
               rows="4"
               placeholder="Describe what you were trying to do and what you saw."
               [value]="supportMessage()"
-              (input)="supportMessage.set($any($event.target).value)"></textarea>
+              (input)="supportMessage.set($any($event.target).value)"
+              (keydown)="onSupportMessageEnter($event)"></textarea>
 
             <label class="form-label small" for="contactEmail">Where should we reply? (optional)</label>
             <input id="contactEmail" type="email" class="form-control mb-3" placeholder="you@example.com"
                    [value]="contactEmail()"
-                   (input)="contactEmail.set($any($event.target).value)">
+                   (input)="contactEmail.set($any($event.target).value)"
+                   (keydown.enter)="onSupportEmailEnter($event)">
 
-            <button type="button" class="btn btn-primary w-100" [disabled]="!canSubmitSupport()" (click)="submitSupportRequest()">
+            <button #supportBtn type="button" class="btn btn-primary w-100 auth-submit-btn" [disabled]="!canSubmitSupport()" (click)="submitSupportRequest()">
               {{ submitting() ? 'Sending…' : 'Send request' }}
             </button>
           </div>

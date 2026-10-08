@@ -362,7 +362,27 @@
 .cr-table tbody tr:hover td { background: var(--cr-hover); }
 .cr-table tbody tr.is-ticked td:first-child { box-shadow: inset 3px 0 0 var(--cr-acc); }
 .cr-table td.cr-mono { font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important; color: var(--cr-ink); }
-.cr-table .cr-c-act { text-align: right; overflow: visible; }
+.cr-table .cr-c-act {
+  text-align: right;
+  /* Ghost action buttons are 40px + a 2px focus ring: the generic body-cell
+     rule below fixes every cell at 62px with overflow:hidden, which clips the
+     ring (and the button on scaled text). The action cell keeps its height but
+     stays visible and vertically centred so icons are never cut off. */
+  overflow: visible;
+  vertical-align: middle;
+}
+.cr-table tbody td.cr-c-act {
+  overflow: visible;
+  white-space: normal;
+}
+.cr-row-acts {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: calc(6px * var(--s));
+  /* Focus ring (2px + 2px offset) needs breathing room inside the 62px row. */
+  padding: calc(4px * var(--s)) calc(2px * var(--s));
+}
 
 .cr-c-tick { width: calc(var(--cr-pad) + calc(28px * var(--s))); }
 .cr-table .cr-c-status { width: calc(132px * var(--s)); }
@@ -435,7 +455,6 @@
 .cr-owner:hover { color: var(--cr-acc); text-decoration: underline; text-underline-offset: 3px; }
 .cr-owner em { font-style: normal; font-family: var(--cr-num) !important; font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important; color: var(--cr-muted); }
 
-.cr-row-acts { display: inline-flex; align-items: center; justify-content: flex-end; gap: calc(6px * var(--s)); }
 .cr-menu-wrap { position: relative; display: inline-flex; }
 .cr-menu {
   position: absolute;
@@ -607,14 +626,9 @@
   .cr-box__foot { flex-direction: column; align-items: flex-start; }
 }
 
-/* Row actions as icon buttons (replaces the More menu) */
+/* Row actions — box/paint/size + hover + focus now come from
+   styles/ydot-list-actions.css (ghost style). Only layout kept here. */
 .cr-act {
   display: inline-flex; align-items: center; justify-content: center;
-  width: calc(30px * var(--s)); height: calc(30px * var(--s));
-  padding: 0; border: 1px solid var(--cr-line); border-radius: calc(8px * var(--s));
-  background: #ffffff; color: var(--cr-ink); cursor: pointer;
+  padding: 0; cursor: pointer;
 }
-.cr-act i { font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)) !important; line-height: 1 !important; }
-.cr-act:hover { background: var(--cr-hover); color: var(--cr-acc); }
-.cr-act--ok { color: var(--cr-acc); }
-.cr-act--bad, .cr-act--bad:hover { color: var(--cr-bad); }

@@ -17,9 +17,9 @@
             @if (exportMenuOpen()) {
               <div class="dn-menu" role="menu">
                 <span class="dn-menu-cap">{{ selectedCount() ? selectedCount() + ' selected donors' : totalRecords() + ' donors in view' }}</span>
-                <button type="button" role="menuitem" class="dn-menu-item" (click)="exportData('excel')"><i class="ri-file-excel-2-line" aria-hidden="true"></i><span>Excel workbook</span></button>
-                <button type="button" role="menuitem" class="dn-menu-item" (click)="exportData('csv')"><i class="ri-file-text-line" aria-hidden="true"></i><span>CSV file</span></button>
-                <button type="button" role="menuitem" class="dn-menu-item" (click)="exportData('pdf')"><i class="ri-printer-line" aria-hidden="true"></i><span>Print or save as PDF</span></button>
+                <button type="button" role="menuitem" class="dn-menu-item" (click)="exportData('excel')"><i class="ri-file-excel-2-line" aria-hidden="true"></i> <span>Excel workbook</span></button>
+                <button type="button" role="menuitem" class="dn-menu-item" (click)="exportData('csv')"><i class="ri-file-text-line" aria-hidden="true"></i> <span>CSV file</span></button>
+                <button type="button" role="menuitem" class="dn-menu-item" (click)="exportData('pdf')"><i class="ri-printer-line" aria-hidden="true"></i> <span>Print or save as PDF</span></button>
               </div>
             }
           </div>
@@ -101,8 +101,8 @@
             </p> -->
           </div>
           <div class="dn-switch" role="group" aria-label="Layout">
-            <button type="button" class="dn-switch-b" [class.is-on]="viewMode() === 'table'" [attr.aria-pressed]="viewMode() === 'table'" (click)="setView('table')"><i class="ri-list-check-2" aria-hidden="true"></i><span>Table</span></button>
-            <button type="button" class="dn-switch-b" [class.is-on]="viewMode() === 'cards'" [attr.aria-pressed]="viewMode() === 'cards'" (click)="setView('cards')"><i class="ri-layout-grid-line" aria-hidden="true"></i><span>Cards</span></button>
+            <button type="button" class="dn-switch-b" [class.is-on]="viewMode() === 'table'" [attr.aria-pressed]="viewMode() === 'table'" (click)="setView('table')"><i class="ri-list-check-2" aria-hidden="true"></i> <span>Table</span></button>
+            <button type="button" class="dn-switch-b" [class.is-on]="viewMode() === 'cards'" [attr.aria-pressed]="viewMode() === 'cards'" (click)="setView('cards')"><i class="ri-layout-grid-line" aria-hidden="true"></i> <span>Cards</span></button>
           </div>
         </header>
 
@@ -143,7 +143,7 @@
               <i [class]="sortDirection() === 'asc' ? 'ri-sort-asc' : 'ri-sort-desc'" aria-hidden="true"></i>
             </button>
             <button type="button" class="btn btn-outline-secondary btn-sm" [class.is-on]="filterPanelOpen()" (click)="toggleFilterPanel()" [attr.aria-expanded]="filterPanelOpen()" aria-controls="dn-filters">
-              <i class="ri-equalizer-2-line" aria-hidden="true"></i><span>Filters</span>
+              <i class="ri-equalizer-2-line" aria-hidden="true"></i> <span>Filters</span>
               @if (panelFilterCount()) { <span class="dn-count-dot">{{ panelFilterCount() }}</span> }
             </button>
           </div>
@@ -212,7 +212,7 @@
               </div>
             </div>
             <div class="dn-filters-foot">
-              <button type="button" class="dn-link dn-link--mute" (click)="clearFilters()"><i class="ri-filter-off-line" aria-hidden="true"></i>Reset filters</button>
+              <button type="button" class="dn-link dn-link--mute" (click)="clearFilters()"><i class="ri-filter-off-line" aria-hidden="true"></i> Reset filters</button>
               <button type="button" class="ph-btn ph-btn--ghost" (click)="toggleFilterPanel()"><span>Done</span></button>
             </div>
           </div>
@@ -242,7 +242,7 @@
             <span class="dn-empty-glyph is-bad"><i class="ri-cloud-off-line" aria-hidden="true"></i></span>
             <p class="dn-empty-t">Donors could not be loaded</p>
             <p class="dn-empty-s">{{ error() }}</p>
-            <button type="button" class="btn btn-primary btn-sm" (click)="refresh()"><i class="ri-refresh-line" aria-hidden="true"></i><span>Try again</span></button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="refresh()"><i class="ri-refresh-line" aria-hidden="true"></i> <span>Try again</span></button>
           </div>
         } @else if (paginatedDonors().length === 0) {
           <div class="dn-empty">
@@ -250,7 +250,7 @@
             <p class="dn-empty-t">{{ donors().length ? 'No donors match' : 'No donors yet' }}</p>
             <p class="dn-empty-s">{{ donors().length ? 'Nothing matches this search and these filters. Try widening them.' : 'Donors appear here once the first gift is received or a lead is converted.' }}</p>
             @if (donors().length) {
-              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearAll()"><i class="ri-filter-off-line" aria-hidden="true"></i><span>Clear search and filters</span></button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearAll()"><i class="ri-filter-off-line" aria-hidden="true"></i> <span>Clear search and filters</span></button>
             }
           </div>
         } @else if (viewMode() === 'table') {
@@ -446,9 +446,9 @@
           <div class="dn-bulk" role="status">
             <span class="dn-bulk-n"><b>{{ selectedCount() }}</b> {{ selectedCount() === 1 ? 'donor' : 'donors' }} selected</span>
             <span class="dn-bulk-acts">
-              <button type="button" class="dn-bulk-b" (click)="exportData('excel')"><i class="ri-file-excel-2-line" aria-hidden="true"></i><span>Excel</span></button>
-              <button type="button" class="dn-bulk-b" (click)="exportData('csv')"><i class="ri-file-text-line" aria-hidden="true"></i><span>CSV</span></button>
-              <button type="button" class="dn-bulk-b" (click)="exportData('pdf')"><i class="ri-printer-line" aria-hidden="true"></i><span>Print</span></button>
+              <button type="button" class="dn-bulk-b" (click)="exportData('excel')"><i class="ri-file-excel-2-line" aria-hidden="true"></i> <span>Excel</span></button>
+              <button type="button" class="dn-bulk-b" (click)="exportData('csv')"><i class="ri-file-text-line" aria-hidden="true"></i> <span>CSV</span></button>
+              <button type="button" class="dn-bulk-b" (click)="exportData('pdf')"><i class="ri-printer-line" aria-hidden="true"></i> <span>Print</span></button>
               <button type="button" class="dn-bulk-b dn-bulk-b--mute" (click)="clearSelection()" aria-label="Clear selection" title="Clear selection"><i class="ri-close-line" aria-hidden="true"></i></button>
             </span>
           </div>
@@ -462,16 +462,18 @@
   <ng-template #moreMenu let-donor>
     <div class="dn-menu dn-menu--row" [class.dn-menu--up]="moreMenuUp()" role="menu" (click)="$event.stopPropagation()">
       <span class="dn-menu-cap">{{ donor.name }}</span>
-      <button type="button" role="menuitem" class="dn-menu-item" (click)="openDonor360(donor, $event)"><i class="ri-user-3-line" aria-hidden="true"></i><span>Open Donor 360</span></button>
-      <button type="button" role="menuitem" class="dn-menu-item" (click)="openDonations(donor, $event)"><i class="ri-hand-coin-line" aria-hidden="true"></i><span>Donations</span></button>
-      <button type="button" role="menuitem" class="dn-menu-item" (click)="openCommunicationTimeline(donor, $event)"><i class="ri-chat-history-line" aria-hidden="true"></i><span>Communication timeline</span></button>
-      <!-- <button type="button" role="menuitem" class="dn-menu-item" (click)="openConsentCentre(donor, $event)"><i class="ri-shield-keyhole-line" aria-hidden="true"></i><span>Consent centre</span></button> -->
-      <!-- <button type="button" role="menuitem" class="dn-menu-item" (click)="openIdentityVerification(donor, $event)"><i class="ri-fingerprint-line" aria-hidden="true"></i><span>Identity verification</span></button> -->
+      <button type="button" role="menuitem" class="dn-menu-item" (click)="openDonor360(donor, $event)"><i class="ri-user-3-line" aria-hidden="true"></i> <span>Open Donor 360</span></button>
+      <button type="button" role="menuitem" class="dn-menu-item" (click)="openDonations(donor, $event)"><i class="ri-hand-coin-line" aria-hidden="true"></i> <span>Donations</span></button>
+      <button type="button" role="menuitem" class="dn-menu-item" (click)="openCommunicationTimeline(donor, $event)"><i class="ri-chat-history-line" aria-hidden="true"></i> <span>Communication timeline</span></button>
+      <!-- <button type="button" role="menuitem" class="dn-menu-item" (click)="openConsentCentre(donor, $event)"><i class="ri-shield-keyhole-line" aria-hidden="true"></i> <span>Consent centre</span></button> -->
+      <!-- <button type="button" role="menuitem" class="dn-menu-item" (click)="openIdentityVerification(donor, $event)"><i class="ri-fingerprint-line" aria-hidden="true"></i> <span>Identity verification</span></button> -->
       <span class="dn-menu-rule" aria-hidden="true"></span>
-      <button type="button" role="menuitem" class="dn-menu-item" (click)="exportDonorRecord(donor, $event)"><i class="ri-download-2-line" aria-hidden="true"></i><span>Export this donor</span></button>
+      <button type="button" role="menuitem" class="dn-menu-item" (click)="exportDonorRecord(donor, $event)"><i class="ri-download-2-line" aria-hidden="true"></i> <span>Export this donor</span></button>
     </div>
   </ng-template>
 
+
+</main>
   <!-- =============================== DONOR SHEET (quick look) =============================== -->
   @if (previewDonor(); as donor) {
     <div class="dl-drawer-backdrop" (click)="closePreview()">
@@ -536,12 +538,11 @@
         </div>
 
         <div class="dl-drawer__actions">
-          <button type="button" class="btn btn-primary btn-sm" (click)="openDonor360(donor)"><i class="ri-user-3-line" aria-hidden="true"></i><span>Open Donor 360</span></button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDonations(donor, $event)"><i class="ri-hand-coin-line" aria-hidden="true"></i><span>Donations</span></button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCommunicationTimeline(donor, $event)"><i class="ri-chat-history-line" aria-hidden="true"></i><span>Timeline</span></button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openFollowUpPlanner(donor, $event)"><i class="ri-calendar-schedule-line" aria-hidden="true"></i><span>Follow-up</span></button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="openDonor360(donor)"><i class="ri-user-3-line" aria-hidden="true"></i> <span>Open Donor 360</span></button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openDonations(donor, $event)"><i class="ri-hand-coin-line" aria-hidden="true"></i> <span>Donations</span></button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCommunicationTimeline(donor, $event)"><i class="ri-chat-history-line" aria-hidden="true"></i> <span>Timeline</span></button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openFollowUpPlanner(donor, $event)"><i class="ri-calendar-schedule-line" aria-hidden="true"></i> <span>Follow-up</span></button>
         </div>
       </aside>
     </div>
   }
-</main>

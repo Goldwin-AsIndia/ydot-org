@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
@@ -21,6 +21,26 @@ export class EmailverifyComponent {
   codeExpiryTimer: any;
   errorMessage: string = '';
   successMessage: string = '';
+
+  /** ENTER FLOW ref — last OTP box-la Enter thattuna Verify button-ku focus poyi auto submit aagum. */
+  @ViewChild('verifyBtn') private readonly verifyBtn?: ElementRef<HTMLButtonElement>;
+
+  /**
+   * ENTER FLOW — OTP box-la Enter:
+   *   middle box + Enter → next box-ku focus pogum
+   *   last box (4) + Enter → Verify button-ku focus poyi auto verify aagum
+   */
+  onOtpEnter(index: number, event: Event): void {
+    event.preventDefault();
+
+    if (index < 4) {
+      document.querySelector<HTMLInputElement>(`#email-otp-${index + 1}`)?.focus();
+      return;
+    }
+
+    this.verifyBtn?.nativeElement.focus();
+    this.verifyEmail();
+  }
 
   ngOnInit(): void {
     this.startCodeExpiryTimer();

@@ -49,6 +49,7 @@
                             [ngModelOptions]="{standalone: true}"
                             (ngModelChange)="onOtpInput(i, $event)"
                             (keydown)="onOtpKeydown(i, $event)"
+                            (keydown.enter)="onOtpEnter(i, $event)"
                             (paste)="onOtpPaste($event)"
                             aria-label="OTP digit {{ i + 1 }}">
                         }
@@ -56,7 +57,7 @@
                     <div class="small text-muted text-center mb-4">
                         Code expires in <span class="fw-semibold">{{ formattedCodeExpiry }}</span>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100" [disabled]="!canVerify">
+                    <button #verifyBtn type="submit" class="btn btn-primary w-100 auth-submit-btn" [disabled]="!canVerify">
                         Verify & Continue
                     </button>
                 </form>

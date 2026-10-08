@@ -1,119 +1,151 @@
-<!-- Pop-up: backdrop (click to close) and a dialog - head with close, scrolling body, footer actions. -->
+<!-- Department form pop-up.
+     Backdrop (click to close) + a flat dialog: head (title, one-line help, close), body, footer.
+     THE BODY DOES NOT CLIP. The dialog used to be `overflow: hidden` with a scrolling body, so every
+     picker's dropdown was cut off at the dialog's edge and covered the fields under it. The body now
+     lets a dropdown hang over the footer and the backdrop; it only scrolls on a very short window. -->
 <div class="df-backdrop" (click)="cancel()"></div>
 
-<section class="df-dialog" role="dialog" aria-modal="true" aria-labelledby="df-title">
-  <header class="df-head" style="display: flex;    align-items: center !important;
-    justify-content: flex-start;">
-    <div>
+<section class="df-dialog" role="dialog" aria-modal="true" aria-labelledby="df-title" aria-describedby="df-sub">
+  <header class="df-head">
+    <div class="df-head-text">
       <h2 id="df-title" class="df-title">{{ isNew() ? 'Create a department' : 'Edit department' }}</h2>
-      <!-- <p class="df-sub">
-        @if (isNew()) { What people do - a function such as Fundraising or Finance. }
-        @else { Changes apply as soon as they are saved. }
-      </p> -->
+      <p id="df-sub" class="df-sub">
+        @if (isNew()) { A function people work in, such as Fundraising or Finance. }
+        @else { Changes apply as soon as you save. }
+      </p>
     </div>
     <button type="button" class="df-close" aria-label="Close" title="Close" (click)="cancel()">
-      <i class="ri-close-line"></i>
+      <i class="ri-close-line" aria-hidden="true"></i>
     </button>
   </header>
 
   <div class="df-body">
     @if (errorMessage()) {
-      <div class="of-alert">
-        <i class="ri-error-warning-line"></i>
+      <div class="df-alert" role="alert">
+        <i class="ri-error-warning-line" aria-hidden="true"></i>
         <span>{{ errorMessage() }}</span>
       </div>
     }
 
     @if (loading()) {
-      <div class="df-state"><i class="ri-loader-4-line of-spin"></i><span>Loading…</span></div>
+      <div class="df-state"><i class="ri-loader-4-line of-spin" aria-hidden="true"></i><span>Loading…</span></div>
     } @else if (notFound()) {
       <div class="df-state">
-        <i class="ri-organization-chart"></i>
+        <i class="ri-organization-chart" aria-hidden="true"></i>
         <strong>This department could not be found</strong>
         <span>It may have been removed. Close this and pick it again.</span>
       </div>
     } @else {
 
-      <!-- One compact three-column grid, so the whole form fits the pop-up without scrolling:
-           Code | Name (with its quick picks, adding only), Sits under | Head, Status (editing only),
-           then the description across the full width. -->
-      <div class="df-grid">
-        <div class="of-field">
-          <label for="df-code">Code <em>*</em></label>
-          <input id="df-code" type="text" data-input="free" class="of-input of-mono" maxlength="50" placeholder="e.g. FUN" (blur)="touch('code')"
-                 autocapitalize="characters" spellcheck="false"
-                 [class.is-invalid]="!!error('code')"
-                 [ngModel]="form().code" (ngModelChange)="update('code', $event)">
-          @if (error('code')) { <span class="of-error">{{ error('code') }}</span> }
-        </div>
+      <!-- ---------- Details ---------- -->
+      <section class="df-group" aria-labelledby="df-g1">
+        <p class="df-group-title" id="df-g1">Details</p>
+        <div class="df-grid">
+          <div class="df-field" [class.has-error]="!!error('code')">
+            <label for="df-code">Code <em aria-hidden="true">*</em></label>
+            <input id="df-code" type="text" data-input="free" class="of-input of-mono" maxlength="50" placeholder="e.g. FUN"
+                   autocapitalize="characters" spellcheck="false" (blur)="touch('code')"
+                   [class.is-invalid]="!!error('code')" [attr.aria-invalid]="!!error('code')" [dfInvalid]="!!error('code')"
+                   [attr.aria-describedby]="error('code') ? 'df-code-err' : null"
+                   [ngModel]="form().code" (ngModelChange)="update('code', $event)">
+            @if (error('code')) {
+              <span class="df-error" id="df-code-err" role="alert"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ error('code') }}</span>
+            }
+          </div>
 
-        <div class="of-field df-span-2">
-          <label for="df-name">Name <em>*</em></label>
-          <input id="df-name" type="text" class="of-input" maxlength="200" placeholder="e.g. Fundraising" (blur)="touch('name')"
-                 [class.is-invalid]="!!error('name')"
-                 [ngModel]="form().name" (ngModelChange)="update('name', $event)">
-          @if (error('name')) { <span class="of-error">{{ error('name') }}</span> }
-          @if (isNew()) {
-            <div class="of-suggest df-suggest" role="group" aria-label="Common departments">
-              @for (name of nameSuggestions; track name) {
-                <button type="button" class="of-suggest-opt" [class.is-on]="form().name === name"
-                        (click)="useSuggestion(name)">{{ name }}</button>
-              }
+          <div class="df-field">
+            <label for="df-order">Display order</label>
+            <input id="df-order" type="number" class="of-input" min="0"
+                   [ngModel]="form().displayOrder" (ngModelChange)="update('displayOrder', +$event)">
+          </div>
+
+          <div class="df-field df-span-2" [class.has-error]="!!error('name')">
+            <label for="df-name">Name <em aria-hidden="true">*</em></label>
+            <input id="df-name" type="text" class="of-input" maxlength="200" placeholder="e.g. Fundraising"
+                   (blur)="touch('name')"
+                   [class.is-invalid]="!!error('name')" [attr.aria-invalid]="!!error('name')" [dfInvalid]="!!error('name')"
+                   [attr.aria-describedby]="error('name') ? 'df-name-err' : null"
+                   [ngModel]="form().name" (ngModelChange)="update('name', $event)">
+            @if (error('name')) {
+              <span class="df-error" id="df-name-err" role="alert"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ error('name') }}</span>
+            }
+            @if (isNew()) {
+              <div class="df-chips" role="group" aria-label="Common departments">
+                <span class="df-chips-label">Quick pick</span>
+                @for (name of nameSuggestions; track name) {
+                  <button type="button" class="df-chip" [class.is-on]="form().name === name"
+                          [attr.aria-pressed]="form().name === name" (click)="useSuggestion(name)">{{ name }}</button>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Structure ---------- -->
+      <section class="df-group" aria-labelledby="df-g2">
+        <p class="df-group-title" id="df-g2">Structure</p>
+        <div class="df-grid">
+          <div class="df-field" [class.has-error]="!!fieldErrors()['parentDepartmentId']">
+            <label for="df-parent">Sits under</label>
+            <app-picker inputId="df-parent" [options]="parentPickerOptions()" [value]="form().parentId"
+                        noneLabel="Top level" searchPlaceholder="Search departments"
+                        [invalid]="!!fieldErrors()['parentDepartmentId']"
+                        (valueChange)="update('parentId', $event)" />
+            @if (fieldErrors()['parentDepartmentId']) {
+              <span class="df-error" role="alert"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ fieldErrors()['parentDepartmentId'] }}</span>
+            }
+          </div>
+
+          <div class="df-field">
+            <label for="df-head">Head of department</label>
+            <app-picker inputId="df-head" [options]="headPickerOptions()" [value]="form().headUserId"
+                        noneLabel="No head yet" searchPlaceholder="Search people"
+                        (valueChange)="update('headUserId', $event)" />
+            @if (people.loadError()) {
+              <span class="df-error" role="alert"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ people.loadError() }}</span>
+            }
+          </div>
+
+          @if (!isNew()) {
+            <div class="df-field">
+              <label for="df-status">Status</label>
+              <app-picker inputId="df-status" [options]="statusPickerOptions()" [value]="form().status"
+                          [searchable]="false"
+                          (valueChange)="update('status', $any($event))" />
+              <span class="df-hint">Inactive hides it from pickers but keeps its history.</span>
             </div>
           }
         </div>
+      </section>
 
-        <div class="of-field">
-          <label for="df-parent">Sits under</label>
-          <app-picker inputId="df-parent" [options]="parentPickerOptions()" [value]="form().parentId"
-                      noneLabel="Top level" searchPlaceholder="Search departments"
-                      [invalid]="!!fieldErrors()['parentDepartmentId']"
-                      (valueChange)="update('parentId', $event)" />
-          @if (fieldErrors()['parentDepartmentId']) { <span class="of-error">{{ fieldErrors()['parentDepartmentId'] }}</span> }
-        </div>
-
-        <div class="of-field df-span-2">
-          <label for="df-head">Head of department</label>
-          <app-picker inputId="df-head" [options]="headPickerOptions()" [value]="form().headUserId"
-                      noneLabel="No head yet" searchPlaceholder="Search people"
-                      (valueChange)="update('headUserId', $event)" />
-          @if (people.loadError()) { <span class="of-error">{{ people.loadError() }}</span> }
-        </div>
-
-        <div class="of-field">
-          <label for="df-order">Display order</label>
-          <input id="df-order" type="number" class="of-input" min="0"
-                 [ngModel]="form().displayOrder" (ngModelChange)="update('displayOrder', +$event)">
-        </div>
-
-        @if (!isNew()) {
-          <div class="of-field  ">
-            <label for="df-status">Status</label>
-            <app-picker inputId="df-status" [options]="statusPickerOptions()" [value]="form().status"
-                        [searchable]="false"
-                        (valueChange)="update('status', $any($event))" />
-          </div>
-          <!-- <p class="df-note df-span-2">Inactive hides a department from the pickers but keeps its history.</p> -->
-        }
-
-        <div class="of-field df-span-2">
+      <!-- ---------- Description ---------- -->
+      <section class="df-group">
+        <div class="df-field" [class.has-error]="!!error('description')">
           <label for="df-description" class="df-label-row">
-            Description <span class="df-count">{{ form().description.length }} / 1000</span>
+            <span>Description</span>
+            <span class="df-count">{{ form().description.length }} / 1000</span>
           </label>
-          <textarea id="df-description" class="of-input" rows="2" maxlength="1000" (blur)="touch('description')" [class.is-invalid]="!!error('description')"
-                    placeholder="What this department is responsible for."
+          <textarea id="df-description" class="of-input df-textarea" rows="3" maxlength="1000"
+                    placeholder="What this department is responsible for." (blur)="touch('description')"
+                    [class.is-invalid]="!!error('description')" [attr.aria-invalid]="!!error('description')" [dfInvalid]="!!error('description')"
+                    [attr.aria-describedby]="error('description') ? 'df-description-err' : null"
                     [ngModel]="form().description" (ngModelChange)="update('description', $event)"></textarea>
-          @if (error('description')) { <span class="of-error">{{ error('description') }}</span> }
+          @if (error('description')) {
+            <span class="df-error" id="df-description-err" role="alert"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ error('description') }}</span>
+          }
         </div>
-      </div>
+      </section>
     }
   </div>
 
   <footer class="df-foot">
-    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()">Cancel</button>
-    <button type="button" class="btn btn-primary btn-sm" [disabled]="saving() || loading() || notFound()" (click)="save()">
+    <span class="df-foot-note"><em aria-hidden="true">*</em> Required</span>
+    <button type="button" class="df-btn" (click)="cancel()">Cancel</button>
+    <button type="button" class="df-btn df-btn--primary" [disabled]="saving() || loading() || notFound()" (click)="save()">
       @if (saving()) { Saving… }
-      @else {  @if (isNew()) { <i class="ri-add-line" aria-hidden="true"></i> Create } @else { <i class="ri-save-line" aria-hidden="true"></i> Save } }
+      @else if (isNew()) { <i class="ri-add-line" aria-hidden="true"></i> Create }
+      @else { <i class="ri-save-line" aria-hidden="true"></i> Save }
     </button>
   </footer>
 </section>

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -70,6 +70,35 @@ export class MfaChallengeComponent implements OnInit, OnDestroy {
   /** A signal, so canSubmitRecovery below actually re-evaluates as it is typed. */
   readonly recoveryCode = signal('');
   rememberDevice = false;
+
+  /** ENTER FLOW refs — Enter in a box first moves focus to the Verify button, then submits. */
+  @ViewChildren('otpBox') private readonly otpBoxes?: QueryList<ElementRef<HTMLInputElement>>;
+  @ViewChild('verifyBtn') private readonly verifyBtn?: ElementRef<HTMLButtonElement>;
+  @ViewChild('recoveryBtn') private readonly recoveryBtn?: ElementRef<HTMLButtonElement>;
+
+  /**
+   * ENTER FLOW — OTP box-la Enter thattuna:
+   *   middle box (0-4) + Enter → next box-ku focus pogum
+   *   last box (5) + Enter     → Verify button-ku focus poyi auto submit aagum
+   */
+  onOtpEnter(index: number, event: Event): void {
+    event.preventDefault();
+
+    if (index < 5) {
+      this.otpBoxes?.get(index + 1)?.nativeElement.focus();
+      return;
+    }
+
+    this.verifyBtn?.nativeElement.focus();
+    this.verifyCode();
+  }
+
+  /** Recovery code field + Enter → Use button-ku focus poyi auto submit aagum. */
+  onRecoveryEnter(event: Event): void {
+    event.preventDefault();
+    this.recoveryBtn?.nativeElement.focus();
+    this.useRecoveryCode();
+  }
 
   /** Seconds until the challenge expires. Drives the countdown. */
   readonly secondsRemaining = signal(0);

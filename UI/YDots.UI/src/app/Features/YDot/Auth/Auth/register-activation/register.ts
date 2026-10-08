@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -306,6 +306,61 @@ export class RegisterComponent implements OnInit {
 
   toggleTerms(checked: boolean): void {
     this.termsAccepted.set(checked);
+  }
+
+  /** ENTER FLOW refs — Enter in a field first moves focus to the step button, then advances. */
+  @ViewChild('confirmInput') private readonly confirmInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('continueBtn') private readonly continueBtn?: ElementRef<HTMLButtonElement>;
+  @ViewChild('mobileInput') private readonly mobileInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('verifyCodeBtn') private readonly verifyCodeBtn?: ElementRef<HTMLButtonElement>;
+  @ViewChild('cancelSendBtn') private readonly cancelSendBtn?: ElementRef<HTMLButtonElement>;
+
+  /**
+   * ENTER FLOW (step 2) — password field + Enter → confirm field-ku focus;
+   * confirm field + Enter → Continue button-ku focus poyi auto next step pogum.
+   */
+  onPasswordStepEnter(next: 'confirm' | 'submit', event: Event): void {
+    event.preventDefault();
+
+    if (next === 'confirm') {
+      this.confirmInput?.nativeElement.focus();
+      return;
+    }
+
+    this.continueBtn?.nativeElement.focus();
+    this.goToSecurity();
+  }
+
+  /**
+   * ENTER FLOW (step 3, mobile/email/sms) — mobile field + Enter → Send button focus + auto send.
+   */
+  onMobileEnter(event: Event): void {
+    event.preventDefault();
+    this.mobileInput?.nativeElement.blur();
+    this.startSetup();
+  }
+
+  /**
+   * ENTER FLOW (step 3, verify box) — code field + Enter → Verify button focus + auto verify.
+   */
+  onSetupCodeEnter(event: Event): void {
+    event.preventDefault();
+    this.verifyCodeBtn?.nativeElement.focus();
+    this.verifyMethod();
+  }
+
+  /**
+   * ENTER FLOW (cancel dialog) — reason textarea-la Ctrl+Enter / Cmd+Enter →
+   * Send button focus + auto send. (Plain Enter textarea-la newline than, submit illa.)
+   */
+  onCancelReasonEnter(event: KeyboardEvent): void {
+    if (!(event.ctrlKey || event.metaKey)) {
+      return;
+    }
+
+    event.preventDefault();
+    this.cancelSendBtn?.nativeElement.focus();
+    this.confirmCancel();
   }
 
   // =========================================================================================

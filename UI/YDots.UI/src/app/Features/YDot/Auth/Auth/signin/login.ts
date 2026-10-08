@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AuthApiService } from '../../../../../Service/auth-api.service';
@@ -68,6 +68,10 @@ export class LoginComponent implements OnInit, OnDestroy {
   /** Where to go after a successful sign-in, if the guard sent us here from somewhere. */
   private returnUrl: string | null = null;
 
+  /** Login button — Enter pressed in a field first moves focus here, then signs in. */
+  @ViewChild('signInBtn') private readonly signInBtn?: ElementRef<HTMLButtonElement>;
+  @ViewChild('passwordInput') private readonly passwordInput?: ElementRef<HTMLInputElement>;
+
   ngOnInit(): void {
     window.addEventListener('online', this.updateOnlineStatus);
     window.addEventListener('offline', this.updateOnlineStatus);
@@ -85,6 +89,26 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   togglePasswordVisibility(): void {
     this.showPassword = !this.showPassword;
+  }
+
+  /**
+   * ENTER FLOW — field fill panni Enter thattuna:
+   *   email field + Enter        → password field-ku focus pogum
+   *   password field + Enter     → Sign In button-ku focus poyi auto login aagum
+   * Button-la focus irukum bothu Enter/Space thattunaalum login aagum
+   * (native form submit behaviour).
+   */
+  onFieldEnter(next: 'password' | 'submit', event: Event): void {
+    event.preventDefault();
+
+    if (next === 'password') {
+      this.passwordInput?.nativeElement.focus();
+      return;
+    }
+
+    // Password field Enter: Sign In button-ku focus kuduthu login pannu.
+    this.signInBtn?.nativeElement.focus();
+    this.onSignIn();
   }
 
   onSignIn(): void {

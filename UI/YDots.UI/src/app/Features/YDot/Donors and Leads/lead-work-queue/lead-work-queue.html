@@ -34,7 +34,7 @@
                 }
               </label>
               <button type="button" class="btn btn-outline-secondary btn-sm" [class.is-on]="showFilters() || panelFilterCount() > 0" aria-controls="pq-filters" [attr.aria-expanded]="showFilters()" (click)="toggleFilters()">
-                <i class="ri-equalizer-line" aria-hidden="true"></i><span>&nbsp;Filters</span>
+                <i class="ri-equalizer-line" aria-hidden="true"></i> <span>&nbsp;Filters</span>
                 @if (panelFilterCount() > 0) { <span class="pq-filter-n">{{ panelFilterCount() }}</span> }
                 <i class="ri-arrow-down-s-line pq-caret" [class.is-open]="showFilters()" aria-hidden="true"></i>
               </button>
@@ -44,7 +44,7 @@
            
                <a  routerLink="/app/fundraising/relationships/assignment-board" title="Open the assignment board">
                   <button class="btn btn-outline-secondary btn-sm">
-                <i class="ri-layout-column-line" aria-hidden="true"></i>&nbsp;Assignment board
+                <i class="ri-layout-column-line" aria-hidden="true"></i> &nbsp;Assignment board
 
                   </button>
               </a>
@@ -52,12 +52,12 @@
             }
             @if (permissions().export) {
               <button type="button" class="btn btn-outline-secondary btn-sm" title="Export the leads shown" (click)="exportLeads()" [disabled]="!hasResults() || uiState() === 'loading'">
-                <i class="ri-download-2-line" aria-hidden="true"></i>Export
+                <i class="ri-download-2-line" aria-hidden="true"></i> Export
               </button>
             }
             @if (permissions().create) {
               <button type="button" class="btn btn-primary btn-sm" title="Capture a new lead" (click)="createLead()">
-                <i class="ri-user-add-line" aria-hidden="true"></i>Capture lead
+                <i class="ri-user-add-line" aria-hidden="true"></i> Capture lead
               </button>
             }
           </div>
@@ -86,7 +86,7 @@
             <div class="pq-filter-foot">
               <span class="pq-filter-note"><i class="ri-information-line" aria-hidden="true"></i>Lead source narrows the leads already loaded.</span>
               <button type="button" class="pq-link pq-link--mute" (click)="clearAllFilters()">Clear all</button>
-              <button type="button" class="pq-btn pq-btn--primary" (click)="applyFilters()"><i class="ri-check-line" aria-hidden="true"></i>Apply filters</button>
+              <button type="button" class="pq-btn pq-btn--primary" (click)="applyFilters()"><i class="ri-check-line" aria-hidden="true"></i> Apply filters</button>
             </div>
           </div>
         }
@@ -99,7 +99,7 @@
                 <button type="button" [title]="'Remove ' + chip.label" [attr.aria-label]="'Remove ' + chip.label" (click)="removeFilterChip(chip.key)"><i class="ri-close-line" aria-hidden="true"></i></button>
               </span>
             }
-            <button type="button" class="pq-link pq-link--mute" (click)="clearAllFilters()"><i class="ri-restart-line" aria-hidden="true"></i>Reset all</button>
+            <button type="button" class="pq-link pq-link--mute" (click)="clearAllFilters()"><i class="ri-restart-line" aria-hidden="true"></i> Reset all</button>
           </div>
         }
 
@@ -130,7 +130,7 @@
               <h3>Unable to load leads</h3>
               <p>{{ errorMessage() }}</p>
             </div>
-            <button type="button" class="pq-btn" (click)="refresh()"><i class="ri-refresh-line" aria-hidden="true"></i>Try again</button>
+            <button type="button" class="pq-btn" (click)="refresh()"><i class="ri-refresh-line" aria-hidden="true"></i> Try again</button>
           </div>
         } @else if (uiState() === 'loading') {
           <ul class="pq-list" aria-hidden="true">
@@ -149,7 +149,7 @@
             <div class="pq-state-acts">
               <button type="button" class="pq-btn" (click)="clearAllFilters()">Reset filters</button>
               @if (permissions().create) {
-                <button type="button" class="pq-btn pq-btn--primary" (click)="createLead()"><i class="ri-user-add-line" aria-hidden="true"></i>Capture lead</button>
+                <button type="button" class="pq-btn pq-btn--primary" (click)="createLead()"><i class="ri-user-add-line" aria-hidden="true"></i> Capture lead</button>
               }
             </div>
           </div>
@@ -248,10 +248,10 @@
             <span class="pq-selbar-gap"></span>
             <button type="button" class="pq-link pq-link--mute" (click)="clearSelection()">Clear</button>
             @if (permissions().export) {
-              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="bulkExport()"><i class="ri-download-2-line" aria-hidden="true"></i>&nbsp;Export selected</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="bulkExport()"><i class="ri-download-2-line" aria-hidden="true"></i> &nbsp;Export selected</button>
             }
             @if (permissions().assign) {
-              <button type="button" class="btn btn-primary btn-sm" (click)="bulkAssign()"><i class="ri-user-shared-line" aria-hidden="true"></i>&nbsp;Assign selected</button>
+              <button type="button" class="btn btn-primary btn-sm" (click)="bulkAssign()"><i class="ri-user-shared-line" aria-hidden="true"></i> &nbsp;Assign selected</button>
             }
           </div>
         }
@@ -378,10 +378,10 @@
     <footer class="pq-dr-foot">
       <span class="pq-selbar-gap"></span>
       @if (permissions().schedule) {
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSchedule(lead)"><i class="ri-calendar-event-line" aria-hidden="true"></i>Schedule follow-up</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSchedule(lead)"><i class="ri-calendar-event-line" aria-hidden="true"></i> Schedule follow-up</button>
       }
       @if (permissions().communicate) {
-        <button type="button" class="btn btn-primary btn-sm" (click)="onCommunicate(lead)"><i class="ri-chat-3-line" aria-hidden="true"></i>Communicate</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="onCommunicate(lead)"><i class="ri-chat-3-line" aria-hidden="true"></i> Communicate</button>
       }
     </footer>
   }
