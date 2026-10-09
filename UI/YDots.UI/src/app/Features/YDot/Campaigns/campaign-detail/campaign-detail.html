@@ -14,7 +14,9 @@
             <p class="cd-fol-kicker">
               <span>Campaign</span>
               <span class="cd-fol-ref">{{ reference }}</span>
+              @if (hasRecord()) {
               <span class="cd-fol-state" [attr.data-state]="status()">{{ status() }}</span>
+              }
             </p>
             <h1 id="cd-folio-title" class="cd-fol-title">{{ campaignName() }}</h1>
           </div>
@@ -74,7 +76,7 @@
           </div>
         </div>
 
-        @if (uiState() !== 'loading' && uiState() !== 'no-access') {
+        @if (uiState() !== 'loading' && uiState() !== 'no-access' && uiState() !== 'empty') {
         <div class="cd-fol-band">
           <div class="cd-fol-raise">
             <span class="cd-fol-label">Raised to date</span>
@@ -88,8 +90,8 @@
             <span class="cd-fol-note"><strong>{{ progressPercent() }}%</strong> of target<span class="cd-fol-dot" aria-hidden="true"></span>{{ formatDate(launchDate()) }} – {{ formatDate(endDate()) }}</span>
           </div>
 
-          <!-- Figures unchanged: revenue and assets are live, donors and WhatsApp sends are the mock's
-               placeholders until those modules feed this screen. -->
+          <!-- Four figures, all read from the services: revenue, donors and donations from the
+               payments service, tracking assets from CAM. -->
           <dl class="cd-fol-figs">
             <div class="cd-fol-fig">
               <dt class="cd-fol-label">Monthly revenue</dt>
@@ -101,11 +103,10 @@
               <dd class="cd-fol-num">{{ totalDonorsLabel() }}</dd>
               <dd class="cd-fol-sub"><span class="cd-fol-delta" [class]="'cd-fol-delta ' + donorsChange().cls">{{ donorsChange().text }}</span><strong>{{ monthlyDonorsLabel() }}</strong> monthly</dd>
             </div>
-            <!-- No data yet: the WhatsApp figures arrive once this screen is connected to WATI. -->
             <div class="cd-fol-fig">
-              <dt class="cd-fol-label">WhatsApp sends</dt>
-              <dd class="cd-fol-num">0</dd>
-              <dd class="cd-fol-sub"><span class="cd-fol-delta is-flat">— 0%</span><strong>0</strong> monthly</dd>
+              <dt class="cd-fol-label">Donations</dt>
+              <dd class="cd-fol-num">{{ donationsTotalLabel() }}</dd>
+              <dd class="cd-fol-sub"><span class="cd-fol-delta" [class]="'cd-fol-delta ' + donationsChange().cls">{{ donationsChange().text }}</span><strong>{{ donationsThisMonthLabel() }}</strong> monthly</dd>
             </div>
             <div class="cd-fol-fig">
               <dt class="cd-fol-label">Tracking assets</dt>
@@ -128,9 +129,9 @@
       }
       @case ('empty') {
       <section class="cd-state-panel">
-        <h2 class="cd-state-title">Nothing to show in this view</h2>
-        <p class="cd-state-note">No related items match the current scope and filters — this is not a global zero.</p>
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearFilters()"><i class="ri-refresh-line" aria-hidden="true"></i> Reset filters</button>
+        <h2 class="cd-state-title">No campaign to show</h2>
+        <p class="cd-state-note">@if (reference) { No campaign matches <strong>{{ reference }}</strong> inside your organisation. } @else { No campaign was selected. } Open one from the Campaign Register.</p>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openRegister()"><i class="ri-arrow-left-line" aria-hidden="true"></i> Campaign Register</button>
       </section>
       }
       @case ('validation') {
@@ -172,7 +173,7 @@
       @case ('dependency-failure') {
       <section class="cd-state-panel cd-state-warn">
         <h2 class="cd-state-title">The dependent service step could not complete</h2>
-        <p class="cd-state-note">Your confirmed local result is unchanged. Correlation reference INT-88421.</p>
+        <p class="cd-state-note">Your confirmed local result is unchanged.</p>
         <button type="button" class="btn btn-outline-secondary btn-sm" (click)="dismissBanner()"><i class="ri-refresh-line" aria-hidden="true"></i> Retry dependency</button>
       </section>
       }
@@ -188,8 +189,7 @@
         </svg>
         <div class="cd-success-text">
           <strong>Saved successfully.</strong>
-          Reference {{ reference }}; state {{ status() }}; effective {{ effectiveTime }}.
-          <span class="cd-success-sub">Pending dependency: receipt email queued. Next: notify assigned people.</span>
+          Reference {{ reference }}; state {{ status() }}; effective {{ effectiveTime() }}.
         </div>
         <button type="button" class="cd-banner-close" (click)="dismissBanner()" aria-label="Dismiss confirmation">
           <svg class="cd-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -200,7 +200,7 @@
       </section>
       }
 
-      @if (uiState() !== 'loading' && uiState() !== 'no-access') {
+      @if (uiState() !== 'loading' && uiState() !== 'no-access' && uiState() !== 'empty') {
 
       <!-- ============ TWO-REGION TASK LAYOUT ============ -->
       <div class="cd-layout">
@@ -212,8 +212,8 @@
           <section class="cd-dash">
             <div class="cd-row-2col">
 
-              <!-- Campaign Calendar — the campaign's real dates first (launch, close), the
-                   mock's demo activities around them so the month reads like the design.
+              <!-- Campaign Calendar — this campaign's own records by day: its start and end, each
+                   lifecycle step, each tracking asset going live and each day donations arrived.
                    Clicking a day filters the tabbed lists below it to that date and scrolls down to them. -->
               <article class="fk-panel fk-cal-panel cd-cal-panel">
                 <div class="fk-cal-head">
@@ -259,7 +259,7 @@
                       }
                     </div>
                     <ul class="fk-cal-legend">
-                      @for (item of calLegend; track item.kind) {
+                      @for (item of calLegend(); track item.kind) {
                       <li><span class="fk-cal-logo" [attr.data-kind]="item.kind" aria-hidden="true"><i [class]="calKindIcon(item.kind)"></i></span>{{ item.label }}</li>
                       }
                     </ul>
@@ -320,16 +320,20 @@
                 }
               </article>
 
-              <!-- Donations by Channel — the donor mix. -->
+              <!-- Donations by Channel — how this campaign's gifts of the last twelve months were
+                   traced, from CAM's attribution summary. -->
               <article class="fk-panel cd-mix-panel">
                 <div class="cd-mix-head">
                   <p class="cd-mix-title">Donations by Channel</p>
                   <span class="fk-period-pill">Last 12 Months <span aria-hidden="true">▾</span></span>
                 </div>
 
+                @if (!donorMix().length) {
+                <p class="cd-state-note">{{ attributionError() || 'No donations in the last twelve months to break down by channel.' }}</p>
+                } @else {
                 <div class="cd-mix-body">
                   <div class="cd-mix-ring">
-                    <svg viewBox="0 0 42 42" role="img" aria-label="Donor share by channel">
+                    <svg viewBox="0 0 42 42" role="img" aria-label="Donation share by channel">
                       <circle class="cd-mix-track" cx="21" cy="21" r="15.9155" />
                       @for (seg of donorMixDonut(); track seg.label) {
                       <circle class="cd-mix-seg" cx="21" cy="21" r="15.9155" [style.stroke]="seg.color"
@@ -339,8 +343,8 @@
                       }
                     </svg>
                     <div class="cd-mix-center">
-                      <strong>{{ donorMixTotalLabel }}</strong>
-                      <span>Total donors</span>
+                      <strong>{{ donorMixTotalLabel() }}</strong>
+                      <span>Donations</span>
                     </div>
                   </div>
 
@@ -353,11 +357,12 @@
                     </li>
                     }
                     <li class="cd-mix-row cd-mix-row-total">
-                      <span class="cd-mix-name">Total donors</span>
-                      <strong class="cd-mix-count">{{ donorMixTotalLabel }}</strong>
+                      <span class="cd-mix-name">Total donations</span>
+                      <strong class="cd-mix-count">{{ donorMixTotalLabel() }}</strong>
                     </li>
                   </ul>
                 </div>
+                }
               </article>
               </div>
 
@@ -365,7 +370,7 @@
               <section class="fk-panel fk-table-card cd-work-card cd-work-card-compact" id="cd-date-tabs">
                   <div class="fk-table-head">
                     <nav class="fk-tabs" role="tablist" aria-label="Campaign detail sections">
-                      @for (t of tabs; track t.key) {
+                      @for (t of tabs(); track t.key) {
                       <button type="button" class="fk-tab" role="tab" [class.fk-tab-active]="activeTab() === t.key"
                         [attr.aria-selected]="activeTab() === t.key" (click)="selectTab(t.key)">
                         {{ t.label }}
@@ -446,11 +451,16 @@
                     </div>
                     }
 
-                    <!-- The design's remaining sections — each reports honestly until its module feeds this screen. -->
+                    <!-- Leads (donors service), Donors and Source (this campaign's gifts), and one tab per
+                         channel the campaign runs on (CAM's attribution) — each narrowed to the day. -->
                     @if (activeTab() !== 'tracking' && activeTab() !== 'payments') {
                     <div role="tabpanel" [attr.aria-label]="activeTab()">
+                      @if (tabError(); as failed) {
+                      <p class="cd-state-note">{{ failed }}</p>
+                      } @else {
                       <ng-container
-                        *ngTemplateOutlet="rowTable; context: { $implicit: [], cols: ['Record', 'Detail', 'Status'] }"></ng-container>
+                        *ngTemplateOutlet="rowTable; context: { $implicit: tabRows(), cols: tabColumns() }"></ng-container>
+                      }
                     </div>
                     }
                   </div>
@@ -627,7 +637,7 @@
             </div>
             <div class="cd-fact">
               <dt>Effective time</dt>
-              <dd>{{ effectiveTime }}</dd>
+              <dd>{{ effectiveTime() }}</dd>
             </div>
           </dl>
 
@@ -671,10 +681,15 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
             </button>
             <p class="cd-modal-kicker">{{ campaignName() }}</p>
-            <h2 class="cd-modal-title" id="cd-close-title">Request to close this campaign</h2>
+            <h2 class="cd-modal-title" id="cd-close-title">{{ closeBoxMode() === 'reject' ? 'Reject the close request' : 'Request to close this campaign' }}</h2>
             <p class="cd-modal-lead" id="cd-close-lead">
-              The campaign moves to Closing and stops taking new activity. It is closed only after a close
-              approver signs off.
+              @if (closeBoxMode() === 'reject') {
+              The close request is refused and the campaign goes back to running as it was. Whoever asked
+              for the close sees your reason.
+              } @else {
+              The campaign moves to Closing and stops taking new activity. It is closed only after a
+              Campaign Manager approves the close.
+              }
             </p>
           </header>
 
@@ -686,7 +701,7 @@
               </div>
               <div class="cd-fact">
                 <dt>Consequence</dt>
-                <dd>State {{ status() }} → Closing</dd>
+                <dd>@if (closeBoxMode() === 'reject') { Close request rejected — the campaign stays open } @else { State {{ status() }} → Closing }</dd>
               </div>
             </dl>
 
@@ -694,7 +709,7 @@
               <label class="cd-field-label" for="cd-close-reason">Reason <span class="cd-req">required</span></label>
               <textarea id="cd-close-reason" class="cd-textarea" rows="4" maxlength="2000"
                 [ngModel]="closeReason()" (ngModelChange)="closeReason.set($event)"
-                placeholder="Why should this campaign be closed?"
+                [attr.placeholder]="closeBoxMode() === 'reject' ? 'Why should this campaign stay open?' : 'Why should this campaign be closed?'"
                 [attr.aria-invalid]="closeReasonShowError()"
                 [attr.aria-describedby]="closeReasonShowError() ? 'cd-close-err' : null"></textarea>
               <span class="cd-field-foot">
@@ -716,7 +731,7 @@
             <button type="button" class="btn btn-danger btn-sm" (click)="submitCloseRequest()"
               [disabled]="lifecycleBusy()">
               <i class="ri-close-circle-line" aria-hidden="true"></i>
-              {{ lifecycleBusy() ? 'Sending…' : 'Request close' }}
+              {{ lifecycleBusy() ? 'Sending…' : closeBoxMode() === 'reject' ? 'Reject close' : 'Request close' }}
             </button>
           </div>
         </div>

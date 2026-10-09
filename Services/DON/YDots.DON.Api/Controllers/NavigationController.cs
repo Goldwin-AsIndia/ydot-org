@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using YDots.DON.Application.Common.Constants;
+using YDots.DON.Application.Common.Models;
 using YDots.DON.Application.Common.Results;
 using YDots.DON.Application.Features.Navigation.Queries.GetDonorMenu;
 using YDots.DON.Application.Features.ReferenceData.Queries.GetReferenceData;
@@ -102,6 +103,20 @@ public sealed class NavigationController : ApiControllerBase
         {
             _logger.LogWarning("Campaign reference data search failed.");
         }
+
+        return FromResult(result);
+    }
+
+    /// <summary>GET the people a lead, a donor or a follow-up may be given to.</summary>
+    [HttpGet("reference-data/owners")]
+    [HasPermission(PermissionCodes.DonView)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<LookupItem>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAssignableOwners(
+        [FromServices] ReferenceDataQueryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(new GetAssignableOwnersQuery(), cancellationToken);
 
         return FromResult(result);
     }

@@ -14,6 +14,7 @@ using YDots.DON.Application.Features.LeadCapture.DTOs;
 using YDots.DON.Application.Features.Leads.Mappings;
 using YDots.DON.Domain.Entities;
 using YDots.DON.Domain.Enums;
+using YDots.DON.Domain.ValueObjects;
 
 namespace YDots.DON.Application.Features.LeadCapture.Commands.CaptureLead;
 
@@ -84,6 +85,12 @@ public sealed class LeadCaptureCommandHandler(
 
         logger.LogInformation("Lead capture started for campaign {CampaignId} in organisation {OrganisationId}.", request.CampaignId, currentUser.OrganisationId);
 
+        var consentWindowFailure = CheckConsentWindow(request.Consent);
+        if (consentWindowFailure is not null)
+        {
+            return Result.Failure<LeadDetailResponse>(consentWindowFailure);
+        }
+
         var campaign = await campaignRepository.GetByIdAsync(request.CampaignId, cancellationToken);
         if (campaign is null || campaign.OrganisationId != currentUser.OrganisationId)
         {
@@ -105,8 +112,20 @@ public sealed class LeadCaptureCommandHandler(
         var reference = await referenceNumbers.NextLeadReferenceAsync(cancellationToken);
         var lead = request.ToEntity(reference, currentUser.OrganisationId);
 
-        lead.OwnerUserId = request.OwnerUserId ?? currentUser.UserId;
-        lead.OwnerName = request.OwnerName?.Trim() ?? currentUser.DisplayName;
+        // A NEW LEAD IS UNASSIGNED unless an owner is named. The role flow is explicit - "the lead
+        // is created with Owner = Unassigned" - and the Lead Work Queue's Unassigned lane and its
+        // Assign action exist for exactly this; defaulting the owner to whoever typed the lead in
+        // skipped the routing step entirely. Bulk upload has always left owners empty.
+        //
+        // THE ONE EXCEPTION is a caller limited to their own records: a lead nobody owns is outside
+        // their scope, so they could not even open the draft they had just saved.
+        var ownerUserId = request.OwnerUserId
+                          ?? (currentUser.Scope.IsOwnRecordsOnly ? currentUser.UserId : (Guid?)null);
+
+        lead.OwnerUserId = ownerUserId;
+        lead.OwnerName = ownerUserId is null
+            ? null
+            : request.OwnerName?.Trim() ?? (ownerUserId == currentUser.UserId ? currentUser.DisplayName : null);
         lead.SlaState = LeadMappingConfig.CalculateSlaState(lead.NextActionDueUtc, clock.UtcNow, _settings);
 
         // Record the safe duplicate summary at save time so the panel has something to show
@@ -118,7 +137,7 @@ public sealed class LeadCaptureCommandHandler(
 
         if (request.Consent?.CollectConsent == true)
         {
-            AddConsentRows(lead, request.Consent);
+            RecordConsent(lead, request.Consent, existing: []);
         }
 
         await auditWriter.WriteAsync(
@@ -133,7 +152,7 @@ public sealed class LeadCaptureCommandHandler(
 
         logger.LogInformation("Lead {LeadId} captured successfully for campaign {CampaignId}.", lead.Id, request.CampaignId);
 
-        return Result.Success(lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents));
+        return Result.Success(lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents, currentUser.HasPermission));
     }
 
     public async Task<Result<LeadDetailResponse>> HandleAsync(
@@ -175,12 +194,19 @@ public sealed class LeadCaptureCommandHandler(
                 [new ValidationError(nameof(command.Request.CampaignId), "Choose a campaign from the list.")]));
         }
 
+        var consentWindowFailure = CheckConsentWindow(command.Request.Consent);
+        if (consentWindowFailure is not null)
+        {
+            return Result.Failure<LeadDetailResponse>(consentWindowFailure);
+        }
+
         command.Request.ApplyUpdate(lead);
         lead.SlaState = LeadMappingConfig.CalculateSlaState(lead.NextActionDueUtc, clock.UtcNow, _settings);
 
         if (command.Request.Consent?.CollectConsent == true)
         {
-            AddConsentRows(lead, command.Request.Consent);
+            var recorded = await consentRepository.GetForLeadAsync(lead.Id, cancellationToken);
+            RecordConsent(lead, command.Request.Consent, recorded);
         }
 
         await auditWriter.WriteAsync(
@@ -195,7 +221,7 @@ public sealed class LeadCaptureCommandHandler(
 
         logger.LogInformation("Lead {LeadId} updated successfully.", command.LeadId);
 
-        return Result.Success(lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents));
+        return Result.Success(lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents, currentUser.HasPermission));
     }
 
     public async Task<Result<DeduplicateResultResponse>> HandleAsync(
@@ -268,7 +294,7 @@ public sealed class LeadCaptureCommandHandler(
 
                 logger.LogInformation("Lead submission replay detected for lead {LeadId}; returning the existing result.", command.LeadId);
 
-                return Result.Success(lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consented));
+                return Result.Success(lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consented, currentUser.HasPermission));
             }
         }
 
@@ -307,7 +333,7 @@ public sealed class LeadCaptureCommandHandler(
 
         logger.LogInformation("Lead {LeadId} submitted successfully to the work queue.", command.LeadId);
 
-        return Result.Success(lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents));
+        return Result.Success(lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents, currentUser.HasPermission));
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -375,15 +401,59 @@ public sealed class LeadCaptureCommandHandler(
     }
 
     /// <summary>
-    /// Turns the consent toggle into one immutable Consent row per channel. A channel the
-    /// person did not tick is recorded as Withdrawn rather than left out, because "not asked"
-    /// and "asked and refused" are different facts and only one of them permits contact later.
+    /// A permission cannot lapse before it starts.
+    ///
+    /// CHECKED HERE AS WELL AS IN THE VALIDATOR, because the validator can only compare two dates
+    /// it was given. When the form states no consent date the permission starts now, and "now" is
+    /// the clock's to say, not the request's.
     /// </summary>
-    private void AddConsentRows(Lead lead, LeadConsentRequest request)
+    private Error? CheckConsentWindow(LeadConsentRequest? consent)
+    {
+        if (consent is not { CollectConsent: true, ExpiryAtUtc: not null })
+        {
+            return null;
+        }
+
+        var effective = consent.ConsentDateUtc ?? clock.UtcNow;
+
+        return consent.ExpiryAtUtc > effective
+            ? null
+            : Error.Validation(
+                "Review Expiry time. It has to be later than the effective time.",
+                [new ValidationError("consent.expiryAtUtc", "Choose a later date and time.")]);
+    }
+
+    /// <summary>
+    /// Writes what the consent section of the form says as consent rows, one per channel decision.
+    ///
+    /// THE STATE APPLIES TO THE TICKED CHANNELS. The form asks two things - which channels, and
+    /// what the person said - and it used to store only the first: every ticked channel was
+    /// written as Granted whatever "Consent state" read, so a withdrawal typed into this form was
+    /// saved as a permission. What is stored now:
+    ///
+    ///   Granted       ticked channels are permitted; the ones left unticked are recorded as
+    ///                 refused, because "asked and said no" is a different fact from "not asked"
+    ///                 and only one of them permits contact later.
+    ///   Withdrawn     ticked channels are refused. The others were not discussed and get no row.
+    ///   Pending,      no channel decision exists yet, so no row is written. The lead's own
+    ///   Not provided  consent state says which of the two it is.
+    ///   Do not        every channel is refused, whatever is ticked.
+    ///   contact
+    ///
+    /// EXPIRY, RECOGNITION AND RESTRICTIONS ARE STORED TOO. The form has always asked for them and
+    /// the consent table has always had the columns; nothing carried one to the other.
+    ///
+    /// SAVING THE FORM AGAIN IS NOT A NEW DECISION. Each save used to append four more rows, so a
+    /// draft saved and then submitted carried every decision twice. A channel whose answer is
+    /// unchanged is left alone; one whose answer changed gets a new row that supersedes the old,
+    /// which is the same append-only rule the Consent Centre follows.
+    /// </summary>
+    private void RecordConsent(Lead lead, LeadConsentRequest request, IReadOnlyList<Consent> existing)
     {
         var effective = request.ConsentDateUtc ?? clock.UtcNow;
+        var state = ResolveConsentState(request);
 
-        var decisions = new (ConsentChannel Channel, bool Granted)[]
+        var ticked = new (ConsentChannel Channel, bool Ticked)[]
         {
             (ConsentChannel.Email, request.EmailConsent),
             (ConsentChannel.Sms, request.SmsConsent),
@@ -391,27 +461,111 @@ public sealed class LeadCaptureCommandHandler(
             (ConsentChannel.PhoneCall, request.PhoneCallConsent)
         };
 
+        (ConsentChannel Channel, bool Granted)[] decisions = state switch
+        {
+            _ when request.DoNotContact => [.. ticked.Select(channel => (channel.Channel, false))],
+            ConsentState.Granted => [.. ticked.Select(channel => (channel.Channel, channel.Ticked))],
+            ConsentState.Withdrawn => [.. ticked.Where(channel => channel.Ticked).Select(channel => (channel.Channel, false))],
+            _ => []
+        };
+
+        var purpose = NullIfBlank(request.Purpose) ?? "Fundraising communication";
+        var source = NullIfBlank(request.ConsentSource) ?? "Lead capture form";
+        var evidenceReference = NullIfBlank(request.ConsentEvidenceReference);
+        var notes = NullIfBlank(request.ConsentNotes);
+        var restrictions = DescribeRestrictions(request);
+
         foreach (var (channel, granted) in decisions)
         {
-            consentRepository.Add(new Consent
+            var decision = granted ? ConsentState.Granted : ConsentState.Withdrawn;
+            var expiry = granted ? request.ExpiryAtUtc : null;
+
+            var current = existing
+                .Where(consent => consent.Channel == channel && consent.Status != ConsentStatus.Superseded)
+                .OrderByDescending(consent => consent.EffectiveAtUtc)
+                .ThenByDescending(consent => consent.CreatedAtUtc)
+                .FirstOrDefault();
+
+            if (current is not null
+                && current.ConsentState == decision
+                && current.Purpose == purpose
+                && current.EvidenceSource == source
+                && current.EvidenceReference == evidenceReference
+                && current.Description == notes
+                && current.ExpiryAtUtc == expiry
+                && current.PublicRecognitionPreference == request.PublicRecognitionPreference
+                && current.ContactRestrictions == restrictions
+                && (request.ConsentDateUtc is null || current.EffectiveAtUtc == request.ConsentDateUtc))
+            {
+                continue;
+            }
+
+            var consent = new Consent
             {
                 LeadId = lead.Id,
                 OrganisationId = currentUser.OrganisationId,
                 Name = $"{channel} consent - {lead.LeadReference}",
-                Description = request.ConsentNotes?.Trim(),
+                Description = notes,
                 Status = granted ? ConsentStatus.Active : ConsentStatus.Withdrawn,
-                Purpose = request.Purpose?.Trim() ?? "Fundraising communication",
+                Purpose = purpose,
                 Channel = channel,
-                ConsentState = granted ? ConsentState.Granted : ConsentState.Withdrawn,
+                ConsentState = decision,
                 NoticeVersion = _settings.CurrentNoticeVersion,
-                EvidenceSource = request.ConsentSource?.Trim() ?? "Lead capture form",
-                EvidenceReference = request.ConsentEvidenceReference?.Trim(),
+                EvidenceSource = source,
+                EvidenceReference = evidenceReference,
                 EffectiveAtUtc = effective,
+                ExpiryAtUtc = expiry,
+                PublicRecognitionPreference = request.PublicRecognitionPreference,
+                ContactRestrictions = restrictions,
+                CorrectionReason = current is null ? null : NullIfBlank(request.CorrectionReason),
+                WithdrawnAtUtc = granted ? null : effective,
                 CapturedByUserId = currentUser.UserId,
                 CapturedByName = currentUser.DisplayName
-            });
+            };
+
+            consentRepository.Add(consent);
+
+            if (current is not null)
+            {
+                current.Status = ConsentStatus.Superseded;
+                current.SupersededByConsentId = consent.Id;
+            }
         }
+
+        // The lead's own summary of the same answer, which is what the queue's consent badge reads.
+        lead.ConsentState = decisions.Length == 0
+            ? state
+            : decisions.Any(decision => decision.Granted) ? ConsentState.Granted : ConsentState.Withdrawn;
+
+        lead.ConsentEvidenceReference = evidenceReference;
     }
+
+    private static ConsentState ResolveConsentState(LeadConsentRequest request)
+    {
+        if (request.DoNotContact)
+        {
+            return ConsentState.Withdrawn;
+        }
+
+        return Enum.TryParse<ConsentState>(request.ConsentState, ignoreCase: true, out var state) && Enum.IsDefined(state)
+            ? state
+            : ConsentState.Granted;
+    }
+
+    /// <summary>"Do not contact" and whatever limit was typed, as the one sentence the consent row keeps.</summary>
+    private static string? DescribeRestrictions(LeadConsentRequest request)
+    {
+        var text = string.Join(". ", new[]
+        {
+            request.DoNotContact ? "Do not contact" : null,
+            NullIfBlank(request.ContactRestrictions)
+        }.Where(part => part is not null));
+
+        return text.Length == 0 ? null : text;
+    }
+
+    private static string? NullIfBlank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>
     /// Looks for both existing leads and existing donors that could be the same person. The
@@ -549,7 +703,7 @@ public sealed class LeadCaptureCommandHandler(
             : null;
 
         var defaultSource = string.IsNullOrWhiteSpace(request.DefaultSource)
-            ? "Bulk Upload"
+            ? LeadSources.BulkUpload
             : request.DefaultSource.Trim();
 
         var results = new List<BulkLeadImportRowResult>(request.Rows.Count);
@@ -573,6 +727,42 @@ public sealed class LeadCaptureCommandHandler(
                 results.Add(new BulkLeadImportRowResult(row.RowNumber, false, null,
                     "Give a mobile number or an e-mail address so the lead can be contacted."));
                 continue;
+            }
+
+            // A ROW IS HELD TO THE FORM'S RULES. It used to be stored exactly as typed: a number
+            // without a prefix stayed without one although the upload panel says it is completed,
+            // "Tamil" was saved where the form saves "ta-IN", and a mobile or an e-mail that the
+            // form would refuse went straight in. The row is now completed where the answer is
+            // certain and rejected, with the reason, where it is not.
+            var mobile = CompleteMobileNumber(row.MobileNumber);
+            if (mobile is not null && !PrimaryPhoneValue.IsValid(mobile))
+            {
+                results.Add(new BulkLeadImportRowResult(row.RowNumber, false, null,
+                    $"Mobile number '{row.MobileNumber!.Trim()}' is not a valid number. Use digits, with the country prefix "
+                    + $"(for example +919876543210) or without it for a {_settings.DefaultDiallingCode} number."));
+                continue;
+            }
+
+            var email = string.IsNullOrWhiteSpace(row.EmailAddress) ? null : row.EmailAddress.Trim();
+            if (email is not null && !EmailValue.IsValid(email))
+            {
+                results.Add(new BulkLeadImportRowResult(row.RowNumber, false, null,
+                    $"E-mail address '{email}' is not a valid address."));
+                continue;
+            }
+
+            string? language = null;
+            if (!string.IsNullOrWhiteSpace(row.PreferredLanguage))
+            {
+                language = SupportedLanguages.Resolve(row.PreferredLanguage);
+
+                if (language is null)
+                {
+                    results.Add(new BulkLeadImportRowResult(row.RowNumber, false, null,
+                        $"Preferred language '{row.PreferredLanguage.Trim()}' is not on the approved list. Use one of: "
+                        + $"{string.Join(", ", SupportedLanguages.All.Select(item => item.Label))}."));
+                    continue;
+                }
             }
 
             var campaign = ResolveCampaign(row.CampaignNameOrCode, byCode, byName) ?? defaultCampaign;
@@ -599,9 +789,9 @@ public sealed class LeadCaptureCommandHandler(
             {
                 FirstName = firstName,
                 LastName = row.LastName?.Trim(),
-                MobileNumber = row.MobileNumber?.Trim(),
-                EmailAddress = row.EmailAddress?.Trim(),
-                PreferredLanguage = row.PreferredLanguage?.Trim(),
+                MobileNumber = mobile,
+                EmailAddress = email,
+                PreferredLanguage = language,
                 City = row.City?.Trim(),
                 CampaignId = campaign.Id,
                 Source = string.IsNullOrWhiteSpace(row.Source) ? defaultSource : row.Source.Trim(),
@@ -645,6 +835,33 @@ public sealed class LeadCaptureCommandHandler(
             rejected == 0
                 ? $"All {imported} leads were created."
                 : $"{imported} of {request.Rows.Count} leads were created. {rejected} rows were rejected and are listed below."));
+    }
+
+    /// <summary>
+    /// A typed mobile number as the lead will hold it: separators gone, and the default prefix
+    /// added when the number carries none.
+    ///
+    /// ONLY THE PREFIX IS SUPPLIED. A leading zero is the trunk prefix people dial inside the
+    /// country and is dropped with it; nothing else about the number is guessed, and whatever
+    /// comes out still has to pass the E.164 check the form applies.
+    /// </summary>
+    private string? CompleteMobileNumber(string? typed)
+    {
+        if (string.IsNullOrWhiteSpace(typed))
+        {
+            return null;
+        }
+
+        var compact = typed
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("(", string.Empty, StringComparison.Ordinal)
+            .Replace(")", string.Empty, StringComparison.Ordinal)
+            .Trim();
+
+        return compact.StartsWith('+')
+            ? compact
+            : _settings.DefaultDiallingCode + compact.TrimStart('0');
     }
 
     /// <summary>

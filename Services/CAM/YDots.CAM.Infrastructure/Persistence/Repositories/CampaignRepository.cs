@@ -80,5 +80,26 @@ public sealed class CampaignRepository(CampaignDbContext context) : ICampaignRep
     public Task<int> CountTrackingAssetsAsync(Guid campaignId, CancellationToken cancellationToken) =>
         context.TrackingAssets.CountAsync(asset => asset.CampaignId == campaignId, cancellationToken);
 
+    public Task<int> CountReadinessChecksAsync(Guid campaignId, CancellationToken cancellationToken) =>
+        context.CampaignReadinessChecks.CountAsync(check => check.CampaignId == campaignId, cancellationToken);
+
+    public async Task<CampaignStatus> GetStatusBeforeCloseRequestAsync(
+        Guid campaignId, DateTimeOffset requestedAtUtc, CancellationToken cancellationToken)
+    {
+        // The last transition that left the campaign running or paused before the request.
+        var last = await context.CampaignLifecycleActions
+            .AsNoTracking()
+            .Where(action => action.CampaignId == campaignId)
+            .Where(action => action.EffectiveAtUtc <= requestedAtUtc)
+            .Where(action => action.ActionType == CampaignLifecycleActionType.Pause
+                             || action.ActionType == CampaignLifecycleActionType.Resume
+                             || action.ActionType == CampaignLifecycleActionType.Activate)
+            .OrderByDescending(action => action.EffectiveAtUtc)
+            .Select(action => (CampaignLifecycleActionType?)action.ActionType)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return last == CampaignLifecycleActionType.Pause ? CampaignStatus.Paused : CampaignStatus.Active;
+    }
+
     public void Delete(Campaign campaign) => context.Campaigns.Remove(campaign);
 }

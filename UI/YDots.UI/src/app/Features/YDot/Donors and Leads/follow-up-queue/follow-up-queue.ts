@@ -9,27 +9,41 @@ import {
 import { ActivatedRoute, Router } from "@angular/router";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { forkJoin, catchError, map, of } from "rxjs";
+import { forkJoin, catchError, map, of, tap } from "rxjs";
 import { DonorApiService } from "../../../../Service/donor-api.service";
 import { apiErrorMessage } from "../../../../Shared/models/api-response.model";
 import {
   DonLookupItem,
   FollowUp as ApiFollowUp,
   FollowUpPlannerResponse,
+  FollowUpQueueSummary,
 } from "../../../../Shared/models/donor-contract.model";
+import { fetchPages } from "../../../../Shared/services/paging";
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 export type RecordType = "Lead" | "Donor";
-export type FollowUpType =
-  | "Call"
-  | "Meeting"
-  | "Email"
-  | "SMS"
-  | "WhatsApp"
-  | "Task"
-  | "Site Visit";
-export type Priority = "Low" | "Medium" | "High" | "Urgent";
+/**
+ * The channel a follow-up is planned on, in this screen's words: Call, Email, SMS, WhatsApp or
+ * Post. One per consent channel the API has - the list used to include Meeting, Task and Site
+ * Visit, which no follow-up can be, so three filter chips and a whole tab matched nothing.
+ */
+export type FollowUpType = string;
+
+/** The API's priority: Low, Normal, High or Urgent. (It has never had a "Medium".) */
+export type Priority = string;
+
+/**
+ * What a row's status badge reads.
+ *
+ * FIVE WORDS FOR THE SERVER'S STATE, and the mapping is in `toQueueRow`. The API has Planned,
+ * Assigned, Rescheduled, Completed and Cancelled, and records an escalation as a fact about the
+ * follow-up rather than a status. "Pending" is this screen's word for planned-or-assigned work.
+ *
+ * NOTHING IS DECIDED FROM THIS WORD. Whether a follow-up is open, overdue or the caller's to act
+ * on comes from the server's own flags on the row - the screen used to test for "Pending", which
+ * the API never sends, so every count of open work on this page was zero.
+ */
 export type FollowUpStatus =
   | "Pending"
   | "Completed"
@@ -77,8 +91,32 @@ export interface FollowUp {
   history: HistoryEvent[];
   /** The server's row version. Every write on this screen sends it back for the concurrency check. */
   version: number;
-  /** What the caller may do to THIS follow-up, as the server decided it. */
+    /** What the caller may do to THIS follow-up, as the server decided it. */
   permittedActions: readonly string[];
+
+  /** Still to be done. */
+  isOpen: boolean;
+
+  /** Open and due before today, by the organisation's calendar. */
+  isOverdue: boolean;
+
+  /** Overdue | Due Today | Tomorrow | Upcoming | None while open; Completed today | Closed after. */
+  dueState: string;
+
+  /** Assigned to the caller. Only the assignee may execute, reschedule or cancel it. */
+  isMine: boolean;
+  escalated: boolean;
+
+  /**
+   * Who owns the lead or donor this is about - not necessarily who the follow-up is assigned to.
+   * An owner sees a colleague's follow-up on their record, to view; they cannot execute it.
+   */
+  recordOwner: string;
+
+  /** How the execution went, once it has been executed - the executor's own classification. */
+  executionStatus: string;
+  completionReason: string;
+  disposition: string;
 }
 
 export interface SavedView {
@@ -133,8 +171,7 @@ export const SAVED_VIEWS: SavedView[] = [
   { id: "high", label: "High Priority", short: "High priority", groupStart: true },
   { id: "attention", label: "Needs Attention", short: "Needs attention" },
   { id: "escalated", label: "Escalated" },
-  { id: "meetings", label: "Meetings", groupStart: true },
-  { id: "calls", label: "Calls" },
+    { id: "calls", label: "Calls", groupStart: true },
 ];
 
 function initials(name: string): string {
@@ -194,8 +231,7 @@ type QuickFilterKey =
   | "overdue"
   | "upcoming"
   | "highPriority"
-  | "attention"
-  | "meetings"
+    | "attention"
   | "mine"
   | "today"
   | "calls"
@@ -266,16 +302,27 @@ export class FollowUpQueueComponent {
     "Rescheduled",
     "Escalated",
   ];
-  readonly typeOptions: FollowUpType[] = [
-    "Call",
-    "Meeting",
-    "Email",
-    "SMS",
-    "WhatsApp",
-    "Task",
-    "Site Visit",
-  ];
-  readonly priorityOptions: Priority[] = ["Low", "Medium", "High", "Urgent"];
+  /** The channels a follow-up can be planned on, from the API's own list. */
+  readonly typeOptions = signal<FollowUpType[]>([]);
+
+  /** Low, Normal, High, Urgent - the API's priorities. */
+  readonly priorityOptions = signal<Priority[]>([]);
+
+  /** The queue's figures over the caller's whole scope, counted by the server. */
+  readonly summary = signal<FollowUpQueueSummary | null>(null);
+
+  /** What the caller may do on this screen at all: the server's verbs for the queue. */
+  private readonly queueActions = signal<readonly string[]>([]);
+  readonly canSchedule = computed(() => this.queueActions().includes("Schedule follow-up"));
+  readonly canExport = computed(() => this.queueActions().includes("Export"));
+  readonly canComplete = computed(() => this.queueActions().includes("Mark complete"));
+  readonly canReschedule = computed(() => this.queueActions().includes("Reschedule"));
+  readonly canCancel = computed(() => this.queueActions().includes("Cancel task"));
+  readonly canAssign = computed(() => this.queueActions().includes("Assign"));
+
+  /** "Your whole organisation", or the caller's own follow-ups - the server's description. */
+  readonly scopeLabel = signal("");
+
   /** Filled from whatever campaigns the loaded follow-ups actually belong to. */
   readonly campaigns = computed(() =>
     Array.from(
@@ -331,47 +378,69 @@ export class FollowUpQueueComponent {
   readonly loadError = signal("");
 
   /**
-   * The follow-ups scheduled for this owner's leads.
+   * The follow-ups the caller may see.
    *
-   * THE DOCUMENT DEFINES THE SCOPE: "The Follow-Up Queue lists all follow-ups scheduled for leads
-   * assigned to the particular owner." `onlyMine` is how the server is told that; resolving it
-   * server-side from the token is what makes it true, because a browser cannot be trusted to say
-   * whose queue it is looking at.
+   * THE SERVER DECIDES WHOSE THEY ARE. The role flow: the Fundraising Manager and Executive see
+   * every follow-up in the organisation; DonorCare sees the ones assigned to them, and - to view
+   * only - the ones a colleague holds on a lead or donor they own. This screen used to ask for
+   * `onlyMine`, which hid the organisation's queue from the people who manage it.
+   *
+   * EVERY PAGE. The API caps a page at 100 and the request asked for 200, so the 101st
+   * follow-up never appeared while every count on the page read as a total.
+   *
+   * A record named in the address (from Donor 360 or a lead) narrows the list AND the summary to
+   * that person, on the server.
    */
   private load(): void {
     this.loading.set(true);
     this.loadError.set("");
 
-    this.api
-      .getFollowUpPlanner({ page: 1, pageSize: 200, onlyMine: true })
-      .subscribe({
-        next: (response: FollowUpPlannerResponse) => {
-          this.followUps.set(
-            response.followUps.items.map((item) => this.toQueueRow(item)),
-          );
-          this.ownerOptions.set(response.ownerOptions);
-          this.loading.set(false);
+    const donorId = this.route.snapshot.queryParamMap.get("donorId");
+    const leadId = donorId ? null : this.route.snapshot.queryParamMap.get("leadId");
 
-          const requestedId =
-            this.route.snapshot.queryParamMap.get("followUpId");
-          if (
-            requestedId &&
-            this.followUps().some((item) => item.id === requestedId)
-          ) {
-            this.previewId.set(requestedId);
-            if (
-              this.route.snapshot.queryParamMap.get("action") === "reschedule"
-            ) {
-              queueMicrotask(() => this.openReschedule(requestedId));
-            }
+    // The first page's answer carries the summary, the option lists and the permitted actions.
+    let first: FollowUpPlannerResponse | null = null;
+
+    fetchPages<ApiFollowUp>((page, pageSize) =>
+      this.api.getFollowUpPlanner({ page, pageSize, donorId, leadId }).pipe(
+        tap((response) => {
+          first ??= response;
+        }),
+        map((response) => response.followUps),
+      ),
+    ).subscribe({
+      next: ({ items }) => {
+        const response = first!;
+
+        this.followUps.set(items.map((item) => this.toQueueRow(item)));
+        this.ownerOptions.set(response.ownerOptions);
+        this.summary.set(response.summary);
+        this.queueActions.set(response.permittedActions ?? []);
+        this.scopeLabel.set(response.activeScope ?? "");
+        this.typeOptions.set(
+          (response.channelOptions ?? []).map((option) => this.toFollowUpType(option.value)),
+        );
+        this.priorityOptions.set((response.priorityOptions ?? []).map((option) => option.value));
+        this.loading.set(false);
+
+        // A selection can outlive the rows it was made on.
+        const ids = new Set(items.map((item) => item.id));
+        this.selectedIds.update((current) => new Set([...current].filter((id) => ids.has(id))));
+
+        const requestedId = this.route.snapshot.queryParamMap.get("followUpId");
+        if (requestedId && this.followUps().some((item) => item.id === requestedId)) {
+          this.previewId.set(requestedId);
+          if (this.route.snapshot.queryParamMap.get("action") === "reschedule") {
+            queueMicrotask(() => this.openReschedule(requestedId));
           }
-        },
-        error: (error: unknown) => {
-          this.loading.set(false);
-          this.loadError.set(apiErrorMessage(error));
-          this.showToast(this.loadError());
-        },
-      });
+        }
+      },
+      error: (error: unknown) => {
+        this.loading.set(false);
+        this.loadError.set(apiErrorMessage(error));
+        this.showToast(this.loadError());
+      },
+    });
   }
 
   /**
@@ -383,15 +452,24 @@ export class FollowUpQueueComponent {
    */
   private toQueueRow(item: ApiFollowUp): FollowUp {
     const due = item.dueAtUtc ? new Date(item.dueAtUtc) : null;
-    const isLead = !!item.leadId;
+    const isLead = !item.donorId && !!item.leadId;
     const owner = item.relationshipOwnerName ?? "Unassigned";
 
     return {
       id: item.id,
       reference: item.followUpReference || item.id,
-      recordId: item.leadId ?? item.donorId ?? undefined,
+
+      // A donor first: a follow-up on a converted lead's donor is about the donor now.
+      recordId: item.donorId ?? item.leadId ?? undefined,
+
+      // THE PERSON'S NAME. This used to fall back to the lead's reference number, so every lead
+      // follow-up in the queue was titled "LED-2026-000019" rather than with who to call.
       recordName:
-        item.donorDisplayName ?? item.leadReference ?? item.followUpReference,
+        item.recordDisplayName ??
+        item.donorDisplayName ??
+        item.leadDisplayName ??
+        item.leadReference ??
+        item.followUpReference,
       recordType: isLead ? "Lead" : "Donor",
 
       // THE CHANNEL IS THE PERMITTED ONE, not a preference. The server refuses a follow-up on a
@@ -399,8 +477,8 @@ export class FollowUpQueueComponent {
       followUpType: this.toFollowUpType(item.permittedChannel),
       scheduledDate: due ? this.toDateInput(due) : "",
       scheduledTime: due ? this.toTimeInput(due) : "",
-      priority: (item.priority as Priority) ?? "Medium",
-      status: (item.status as FollowUpStatus) ?? "Pending",
+      priority: item.priority,
+      status: this.toStatus(item),
 
       // A CONSENT WARNING IS A BLOCKER. The document's queue shows a dependency state; the real
       // dependency on a follow-up is whether the donor may be contacted on that channel at all.
@@ -411,14 +489,14 @@ export class FollowUpQueueComponent {
       dependencyBlockedReason: item.consentWarning?.hasWarning
         ? item.consentWarning.message
         : undefined,
-      slaStatus: this.toSlaStatus(due),
+      slaStatus: this.toSlaStatus(item),
       assignedTo: owner,
       assignedToInitials: initials(owner),
-      campaign: "",
+      campaign: item.campaignName ?? "",
 
       // MASKED BY THE SERVER unless the caller holds the sensitive-contact permission.
-      phone: "",
-      email: "",
+      phone: item.contactPhone ?? "",
+      email: item.contactEmail ?? "",
       purpose: item.purpose ?? "",
       expectedOutcome: item.nextAction ?? "",
       successCriteria: "",
@@ -426,47 +504,64 @@ export class FollowUpQueueComponent {
       reminderSettings: "",
       notes: item.isNotesMasked ? "" : (item.notes ?? ""),
       attachments: [],
-      history: [],
+
+      // WHAT HAPPENED TO IT, AND WHO DID IT - the server's trail, newest first.
+      history: (item.history ?? []).map((entry) => ({
+        date: new Date(entry.occurredAtUtc).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        label: [entry.action, entry.detail, entry.actorName ? `by ${entry.actorName}` : ""]
+          .filter(Boolean)
+          .join(" · "),
+      })),
       version: item.version,
       permittedActions: item.permittedActions ?? [],
+      isOpen: item.isOpen,
+      isOverdue: item.isOverdue,
+      dueState: item.dueState,
+      isMine: item.isAssignedToMe,
+      escalated: !!item.escalatedAtUtc,
+      recordOwner: item.recordOwnerName ?? "",
+      executionStatus: item.executionStatus ?? "",
+      completionReason: item.completionReason ?? "",
+      disposition: item.disposition ?? "",
     };
   }
 
+  /** The server's state as this screen's status word. See FollowUpStatus. */
+  private toStatus(item: ApiFollowUp): FollowUpStatus {
+    if (item.status === "Completed") return "Completed";
+    if (item.status === "Cancelled") return "Cancelled";
+    if (item.escalatedAtUtc) return "Escalated";
+    return item.status === "Rescheduled" ? "Rescheduled" : "Pending";
+  }
+
+  /** A consent channel as this screen names it. */
   private toFollowUpType(channel: string): FollowUpType {
     switch (channel) {
-      case "Email":
-        return "Email";
-      case "Sms":
-      case "SMS":
-        return "SMS";
-      case "WhatsApp":
-        return "WhatsApp";
       case "PhoneCall":
-      case "Call":
         return "Call";
-      case "Meeting":
-        return "Meeting";
-      case "SiteVisit":
-        return "Site Visit";
+      case "Sms":
+        return "SMS";
       default:
-        return "Task";
+        return channel;
     }
   }
 
   /**
-   * On time / approaching / breached, computed from the due date.
+   * On time / approaching / breached - read off the server's due state.
    *
-   * RECOMPUTED ON READ rather than stored, because overdue happens as time passes and not
-   * because somebody saved the record - a stored value would be wrong for most of the day.
+   * THE SERVER SAYS WHERE A FOLLOW-UP STANDS, by the organisation's calendar day, and the tiles
+   * above count by the same days. This used to be worked out here from the browser's clock, so
+   * the SLA panel, the Overdue tile and the row's own badge could each give a different answer.
    */
-  private toSlaStatus(due: Date | null): SlaStatus {
-    if (!due) {
-      return "On Time";
-    }
-    const hoursAway = (due.getTime() - Date.now()) / 3_600_000;
-    if (hoursAway < 0) return "Breached";
-    if (hoursAway < 24) return "Approaching";
-    return "On Time";
+  private toSlaStatus(item: ApiFollowUp): SlaStatus {
+    if (item.isOverdue) return "Breached";
+    return item.isOpen && item.dueState === "Due Today" ? "Approaching" : "On Time";
   }
 
   private toDateInput(value: Date): string {
@@ -515,52 +610,38 @@ export class FollowUpQueueComponent {
     });
   });
 
-  /** Whether a follow-up belongs to a quick filter / saved view. Shared by the list and the view counts. */
+  /**
+   * Whether a follow-up belongs to a quick filter / saved view. Shared by the list and the view
+   * counts.
+   *
+   * EVERY TEST IS ON THE SERVER'S OWN FLAGS, and each matches the tile of the same name: the
+   * tiles are the server's counts, so the rows a tile opens are the rows it counted.
+   */
   private matchesQuick(f: FollowUp, quick: QuickFilterKey): boolean {
     switch (quick) {
       case "dueToday":
       case "today":
-        if (f.scheduledDate !== TODAY_ISO) return false;
-        break;
+        return f.dueState === "Due Today";
       case "overdue":
-        if (!(f.scheduledDate < TODAY_ISO && f.status === "Pending"))
-          return false;
-        break;
+        return f.isOverdue;
       case "upcoming":
-        if (!(f.scheduledDate > TODAY_ISO && f.status === "Pending"))
-          return false;
-        break;
+        return f.dueState === "Tomorrow" || f.dueState === "Upcoming";
       case "highPriority":
-        if (!(f.priority === "High" || f.priority === "Urgent")) return false;
-        break;
+        return f.priority === "High" || f.priority === "Urgent";
       case "attention":
-        if (
-          !(
-            f.status === "Escalated" ||
-            f.slaStatus === "Breached" ||
-            f.dependencyStatus === "Blocked"
-          )
-        )
-          return false;
-        break;
+        return f.isOpen && (f.escalated || f.isOverdue || f.dependencyStatus === "Blocked");
       case "mine":
-        // The planner request already enforces onlyMine on the server.
-        break;
+        // Assigned to the caller and still to be done - the server's own "assigned to me".
+        return f.isMine && f.isOpen;
       case "escalated":
-        if (f.status !== "Escalated") return false;
-        break;
-      case "meetings":
-        if (f.followUpType !== "Meeting") return false;
-        break;
+        return f.isOpen && f.escalated;
       case "calls":
-        if (f.followUpType !== "Call") return false;
-        break;
+        return f.followUpType === "Call";
       case "completedToday":
-        if (!(f.status === "Completed" && f.scheduledDate === TODAY_ISO))
-          return false;
-        break;
+        return f.dueState === "Completed today";
+      default:
+        return true;
     }
-    return true;
   }
 
   readonly pageSize = signal(10);
@@ -628,22 +709,11 @@ export class FollowUpQueueComponent {
     );
   }
 
-  readonly kpiOverdue = computed(
-    () =>
-      this.followUps().filter(
-        (f) => f.scheduledDate < TODAY_ISO && f.status === "Pending",
-      ).length,
-  );
-  readonly overduePercent = computed(() => {
-    const total = this.followUps().length;
-    return total ? Math.round((this.kpiOverdue() / total) * 100) : 0;
-  });
-  readonly queueHealth = computed<"Healthy" | "Warning" | "Critical">(() => {
-    const p = this.overduePercent();
-    if (p < 5) return "Healthy";
-    if (p <= 15) return "Warning";
-    return "Critical";
-  });
+  // THE HEADLINE FIGURES ARE THE SERVER'S, over the caller's whole scope. They were counted here
+  // from one page of rows, by a status the API does not have.
+  readonly kpiOverdue = computed(() => this.summary()?.overdue ?? 0);
+  readonly overduePercent = computed(() => this.summary()?.overduePercent ?? 0);
+  readonly queueHealth = computed(() => this.summary()?.health ?? "Healthy");
 
   readonly kanbanColumns = computed(() => {
     const list = this.filteredFollowUps();
@@ -651,23 +721,17 @@ export class FollowUpQueueComponent {
       {
         key: "dueToday",
         label: "Due Today",
-        items: list.filter(
-          (f) => f.scheduledDate === TODAY_ISO && f.status === "Pending",
-        ),
+        items: list.filter((f) => f.dueState === "Due Today"),
       },
       {
         key: "upcoming",
         label: "Upcoming",
-        items: list.filter(
-          (f) => f.scheduledDate > TODAY_ISO && f.status === "Pending",
-        ),
+        items: list.filter((f) => f.dueState === "Tomorrow" || f.dueState === "Upcoming"),
       },
       {
         key: "overdue",
         label: "Overdue",
-        items: list.filter(
-          (f) => f.scheduledDate < TODAY_ISO && f.status === "Pending",
-        ),
+        items: list.filter((f) => f.isOverdue),
       },
       {
         key: "completed",
@@ -759,7 +823,7 @@ export class FollowUpQueueComponent {
     const room = this.agendaRows - this.agendaToday().length;
     if (room <= 0) return [];
     return this.followUps()
-      .filter((f) => f.status === "Pending" && f.scheduledDate > TODAY_ISO)
+      .filter((f) => f.isOpen && f.scheduledDate > TODAY_ISO)
       .sort((a, b) =>
         `${a.scheduledDate}T${a.scheduledTime}`.localeCompare(
           `${b.scheduledDate}T${b.scheduledTime}`,
@@ -768,50 +832,14 @@ export class FollowUpQueueComponent {
       .slice(0, room);
   });
 
-  readonly kpiDueToday = computed(
-    () =>
-      this.followUps().filter(
-        (f) => f.scheduledDate === TODAY_ISO && f.status === "Pending",
-      ).length,
-  );
-  readonly kpiUpcoming = computed(
-    () =>
-      this.followUps().filter(
-        (f) => f.scheduledDate > TODAY_ISO && f.status === "Pending",
-      ).length,
-  );
-  readonly kpiCompletedToday = computed(
-    () =>
-      this.followUps().filter(
-        (f) =>
-          f.status === "Completed" &&
-          f.history.some(
-            (h) =>
-              h.label.toLowerCase().includes("completed") &&
-              h.date === new Date().toLocaleDateString("en-GB"),
-          ),
-      ).length ||
-      this.followUps().filter(
-        (f) => f.status === "Completed" && f.scheduledDate === TODAY_ISO,
-      ).length,
-  );
-  readonly kpiEscalated = computed(
-    () => this.followUps().filter((f) => f.status === "Escalated").length,
-  );
-  readonly kpiCompletionRate = computed(() => {
-    const total = this.followUps().filter(
-      (f) => f.status !== "Cancelled",
-    ).length;
-    const done = this.followUps().filter(
-      (f) => f.status === "Completed",
-    ).length;
-    return total ? Math.round((done / total) * 100) : 0;
-  });
+  readonly kpiDueToday = computed(() => this.summary()?.dueToday ?? 0);
+  readonly kpiUpcoming = computed(() => this.summary()?.upcoming ?? 0);
+  readonly kpiCompletedToday = computed(() => this.summary()?.completedToday ?? 0);
+  readonly kpiEscalated = computed(() => this.summary()?.escalated ?? 0);
+  readonly kpiCompletionRate = computed(() => this.summary()?.completionRatePercent ?? 0);
 
   readonly slaBreakdown = computed(() => {
-    const list = this.followUps().filter(
-      (f) => f.status === "Pending" || f.status === "Escalated",
-    );
+    const list = this.followUps().filter((f) => f.isOpen);
     return {
       onTime: list.filter((f) => f.slaStatus === "On Time").length,
       approaching: list.filter((f) => f.slaStatus === "Approaching").length,
@@ -823,7 +851,7 @@ export class FollowUpQueueComponent {
     const buckets = { b0: 0, b1: 0, b2: 0, b3: 0 };
     const now = new Date(TODAY_ISO + "T00:00:00").getTime();
     this.followUps()
-      .filter((f) => f.status === "Pending")
+      .filter((f) => f.isOpen)
       .forEach((f) => {
         const scheduled = new Date(f.scheduledDate + "T00:00:00").getTime();
         const days = Math.max(0, Math.round((now - scheduled) / 86400000));
@@ -955,9 +983,8 @@ export class FollowUpQueueComponent {
       today: "today",
       overdue: "overdue",
       upcoming: "upcoming",
-      high: "highPriority",
+            high: "highPriority",
       attention: "attention",
-      meetings: "meetings",
       calls: "calls",
       escalated: "escalated",
       completedToday: "completedToday",
@@ -977,7 +1004,7 @@ export class FollowUpQueueComponent {
   readonly kpiBlocked = computed(
     () =>
       this.followUps().filter(
-        (f) => f.dependencyStatus === "Blocked" && f.status === "Pending",
+        (f) => f.dependencyStatus === "Blocked" && f.isOpen,
       ).length,
   );
 
@@ -1106,9 +1133,8 @@ export class FollowUpQueueComponent {
       today: "today",
       overdue: "overdue",
       upcoming: "upcoming",
-      high: "highPriority",
+            high: "highPriority",
       attention: "attention",
-      meetings: "meetings",
       calls: "calls",
       escalated: "escalated",
       completedToday: "completedToday",
@@ -1171,11 +1197,45 @@ export class FollowUpQueueComponent {
     this.rescheduleReason.set("");
     this.activeModal.set({ kind: "reschedule", ids: [id] });
   }
-  openBulkReschedule() {
+    openBulkReschedule() {
+    const ids = this.selectedWith("Reschedule");
+    if (!ids.length) return;
     this.rescheduleDate.set("");
     this.rescheduleTime.set("");
     this.rescheduleReason.set("");
-    this.activeModal.set({ kind: "reschedule", ids: [...this.selectedIds()] });
+    this.activeModal.set({ kind: "reschedule", ids });
+  }
+
+  /** Whether the caller may do this to this follow-up - the server's per-row answer. */
+  can(f: FollowUp, action: string): boolean {
+    return f.permittedActions.includes(action);
+  }
+
+  /**
+   * The ticked follow-ups the caller may actually do this to.
+   *
+   * A BULK ACTION ONLY GOES TO THE ROWS THAT ALLOW IT. Rescheduling, cancelling and completing
+   * belong to the person a follow-up is assigned to, and a selection in a manager's queue mixes
+   * their own with everybody else's; sending all of them produced a row of refusals. The message
+   * says how many were left out and why.
+   */
+  private selectedWith(action: string): string[] {
+    const selected = this.bulkFollowUps();
+    const allowed = selected.filter((f) => f.permittedActions.includes(action));
+
+    if (allowed.length === 0) {
+      this.showToast(
+        selected.length === 1
+          ? "That follow-up cannot be changed this way - it is closed, or assigned to somebody else."
+          : "None of the selected follow-ups can be changed this way - they are closed, or assigned to somebody else.",
+      );
+    } else if (allowed.length < selected.length) {
+      this.showToast(
+        `${selected.length - allowed.length} of ${selected.length} left out: closed, or assigned to somebody else.`,
+      );
+    }
+
+    return allowed.map((f) => f.id);
   }
   /**
    * Reschedule - the document's own menu action.
@@ -1212,13 +1272,17 @@ export class FollowUpQueueComponent {
     );
   }
 
-  openReassign(id: string) {
+    openReassign(id: string) {
     this.reassignOwner.set("");
+    this.reassignReason.set("");
     this.activeModal.set({ kind: "reassign", ids: [id] });
   }
-  openBulkReassign() {
+    openBulkReassign() {
+    const ids = this.selectedWith("Reassign");
+    if (!ids.length) return;
     this.reassignOwner.set("");
-    this.activeModal.set({ kind: "reassign", ids: [...this.selectedIds()] });
+    this.reassignReason.set("");
+    this.activeModal.set({ kind: "reassign", ids });
   }
   confirmReassign() {
     const modal = this.activeModal();
@@ -1240,10 +1304,13 @@ export class FollowUpQueueComponent {
       modal.ids,
       (id) => {
         const row = this.followUpById(id);
-        return this.api.assignFollowUp(id, {
+                return this.api.assignFollowUp(id, {
           relationshipOwnerUserId: owner.value,
           relationshipOwnerName: owner.label,
-          reason: "Reassigned from the follow-up queue.",
+
+          // THE REASON THE PERSON TYPED. The dialog has always asked for one and this sent a
+          // fixed sentence instead, so the trail never said why work had been moved.
+          reason: this.reassignReason().trim() || "Reassigned from the follow-up queue.",
           expectedVersion: row?.version ?? null,
         });
       },
@@ -1258,9 +1325,11 @@ export class FollowUpQueueComponent {
     this.cancelReason.set("");
     this.activeModal.set({ kind: "cancel", ids: [id] });
   }
-  openBulkCancel() {
+    openBulkCancel() {
+    const ids = this.selectedWith("Cancel");
+    if (!ids.length) return;
     this.cancelReason.set("");
-    this.activeModal.set({ kind: "cancel", ids: [...this.selectedIds()] });
+    this.activeModal.set({ kind: "cancel", ids });
   }
   confirmCancel() {
     const modal = this.activeModal();
@@ -1282,19 +1351,19 @@ export class FollowUpQueueComponent {
     );
   }
 
-  openEscalate(id: string) {
+    openEscalate(id: string) {
     this.escalateTo.set("");
     this.escalateReason.set("");
+    this.escalateNotes.set("");
     this.activeModal.set({ kind: "escalate", ids: [id] });
   }
   /**
    * Escalate - the document's menu action, which "opens the escalation pop-up".
    *
-   * IT IS A REASSIGNMENT WITH A REASON, and that is the honest mapping rather than a shortcut.
-   * There is no separate escalation state on a follow-up; what escalating a follow-up means in
-   * practice is handing it to somebody more senior and recording why, which is exactly what
-   * `assign` does - and unlike a local 'Escalated' string, the new owner actually sees it in
-   * their own queue.
+   * IT IS RECORDED AS AN ESCALATION NOW. It used to be sent as an ordinary reassignment with the
+   * word "Escalated" in its reason, so nothing marked the follow-up as escalated: the Escalated
+   * tile, tab and filter were all permanently empty. The server stamps the follow-up, hands it to
+   * the person chosen and writes both to its history.
    */
   confirmEscalate() {
     const modal = this.activeModal();
@@ -1310,14 +1379,16 @@ export class FollowUpQueueComponent {
       return;
     }
 
+    const notes = this.escalateNotes().trim();
+
     this.runBatch(
       modal.ids,
       (id) => {
         const row = this.followUpById(id);
-        return this.api.assignFollowUp(id, {
-          relationshipOwnerUserId: owner.value,
-          relationshipOwnerName: owner.label,
-          reason: `Escalated: ${reason}`,
+        return this.api.escalateFollowUp(id, {
+          escalateToUserId: owner.value,
+          escalateToName: owner.label,
+          reason: notes ? `${reason} - ${notes}` : reason,
           expectedVersion: row?.version ?? null,
         });
       },
@@ -1339,9 +1410,11 @@ export class FollowUpQueueComponent {
     );
   }
 
-  openBulkComplete() {
+    openBulkComplete() {
+    const ids = this.selectedWith("Execute");
+    if (!ids.length) return;
     this.completionNote.set("");
-    this.activeModal.set({ kind: "complete", ids: [...this.selectedIds()] });
+    this.activeModal.set({ kind: "complete", ids });
   }
   confirmBulkComplete() {
     const modal = this.activeModal();
@@ -1414,15 +1487,33 @@ export class FollowUpQueueComponent {
     });
   }
 
+    /**
+   * Execute is the assignee's, and nobody else's.
+   *
+   * THE ROLE FLOW: "Execute is available only to the user this follow-up is assigned to." The
+   * owner of the lead or donor sees a colleague's follow-up here and can open it; the server
+   * leaves Execute off that row's actions, and refuses the call if it is made anyway.
+   */
   canExecute(f: FollowUp): boolean {
-    return f.dependencyStatus !== "Blocked";
+    return f.permittedActions.includes("Execute") && f.dependencyStatus !== "Blocked";
+  }
+
+  /** Why Execute is not available on this row, for its tooltip. */
+  executeHint(f: FollowUp): string {
+    if (!f.isOpen) return "This follow-up is closed";
+    if (!f.permittedActions.includes("Execute")) {
+      return f.isMine
+        ? "You do not have permission to execute follow-ups"
+        : `Assigned to ${f.assignedTo} - only they can execute it`;
+    }
+    return f.dependencyStatus === "Blocked"
+      ? `Blocked: ${f.dependencyBlockedReason ?? "dependency pending"}`
+      : "Execute";
   }
 
   executeFollowUp(f: FollowUp) {
     if (!this.canExecute(f)) {
-      this.showToast(
-        `Execution blocked \u2014 ${f.dependencyBlockedReason ?? "dependency not completed"}`,
-      );
+      this.showToast(this.executeHint(f));
       return;
     }
     this.router.navigate(
@@ -1507,7 +1598,10 @@ export class FollowUpQueueComponent {
   onDropOnCompleted(ev: DragEvent) {
     ev.preventDefault();
     const id = this.draggingId ?? ev.dataTransfer?.getData("text/plain");
-    if (id) this.openCompletion(id);
+    const row = id ? this.followUpById(id) : undefined;
+
+    // Dropping a card on Completed is Execute by another route, so it is the assignee's alone.
+    if (row) this.executeFollowUp(row);
     this.draggingId = null;
   }
   allowDrop(ev: DragEvent) {
@@ -1518,8 +1612,11 @@ export class FollowUpQueueComponent {
     this.load();
     this.showToast("Queue refreshed");
   }
-  exportQueue() {
-    const rows = this.filteredFollowUps();
+    exportQueue() {
+    if (!this.canExport()) return;
+    const rows = this.selectedIds().size
+      ? this.bulkFollowUps()
+      : this.filteredFollowUps();
     const cell = (value: string) =>
       '"' +
       (/^[=+@\-\t\r]/.test(value) ? "'" + value : value).replace(/"/g, '""') +
@@ -1597,8 +1694,16 @@ export class FollowUpQueueComponent {
     return `health-${this.queueHealth().toLowerCase()}`;
   }
 
-  isOverdue(f: FollowUp): boolean {
-    return f.scheduledDate < TODAY_ISO && f.status === "Pending";
+    isOverdue(f: FollowUp): boolean {
+    return f.isOverdue;
+  }
+
+  /**
+   * The colour key for a priority. The styles were written for Low / Medium / High / Urgent;
+   * the API's middle value is Normal, and it takes the middle colour.
+   */
+  priorityTone(priority: Priority): string {
+    return priority === "Normal" ? "Medium" : priority;
   }
   trackById(_index: number, item: FollowUp): string {
     return item.id;
@@ -1627,8 +1732,8 @@ export class FollowUpQueueComponent {
         return "message";
       case "WhatsApp":
         return "chat";
-      case "Site Visit":
-        return "pin";
+            case "Post":
+        return "note";
       default:
         return "task";
     }
@@ -1648,9 +1753,9 @@ export class FollowUpQueueComponent {
     );
     if (days === 0) return "Today";
     if (days === 1) return "Tomorrow";
-    if (days === -1) return f.status === "Pending" ? "1 day overdue" : "Yesterday";
+        if (days === -1) return f.isOpen ? "1 day overdue" : "Yesterday";
     if (days > 1) return `In ${days} days`;
-    return f.status === "Pending"
+    return f.isOpen
       ? `${-days} days overdue`
       : `${-days} days ago`;
   }

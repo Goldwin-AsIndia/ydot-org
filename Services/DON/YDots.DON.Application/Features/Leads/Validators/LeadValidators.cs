@@ -1,6 +1,7 @@
 using FluentValidation;
 using YDots.DON.Application.Common.Constants;
 using YDots.DON.Application.Features.Leads.DTOs;
+using YDots.DON.Domain.Enums;
 using YDots.DON.Domain.ValueObjects;
 
 namespace YDots.DON.Application.Features.Leads.Validators;
@@ -46,6 +47,27 @@ public sealed class CreateLeadRequestValidator : AbstractValidator<CreateLeadReq
         RuleFor(request => request.City)
             .MaximumLength(150).WithMessage("Use no more than 150 characters.")
             .When(request => !string.IsNullOrWhiteSpace(request.City));
+
+        RuleFor(request => request.DisplayName)
+            .MaximumLength(150).WithMessage("Use no more than 150 characters.")
+            .When(request => !string.IsNullOrWhiteSpace(request.DisplayName));
+
+        RuleFor(request => request.Country)
+            .MaximumLength(100).WithMessage("Use no more than 100 characters.")
+            .When(request => !string.IsNullOrWhiteSpace(request.Country));
+
+        RuleFor(request => request.AddressLine)
+            .MaximumLength(250).WithMessage("Use no more than 250 characters.")
+            .When(request => !string.IsNullOrWhiteSpace(request.AddressLine));
+
+        // The other numbers obey the primary's rule: the same E.164 check, so a number that could
+        // not be the primary cannot slip in as an alternate either.
+        RuleFor(request => request.AlternateMobileNumbers)
+            .Must(numbers => numbers is null || numbers.Count <= LeadContactLimits.MaximumAlternateNumbers)
+            .WithMessage($"Add no more than {LeadContactLimits.MaximumAlternateNumbers} other numbers.")
+            .Must(numbers => numbers is null
+                             || numbers.All(number => string.IsNullOrWhiteSpace(number) || PrimaryPhoneValue.IsValid(number)))
+            .WithMessage("Review the other mobile numbers. Use the international format, for example +919876543210.");
 
         RuleFor(request => request.CampaignId)
             .NotEmpty().WithMessage("Enter Campaign.");
@@ -111,6 +133,27 @@ public sealed class UpdateLeadRequestValidator : AbstractValidator<UpdateLeadReq
             .GreaterThan(0)
             .WithMessage("The record version is required. Reload the record if it is missing.");
 
+        RuleFor(request => request.DisplayName)
+            .MaximumLength(150).WithMessage("Use no more than 150 characters.")
+            .When(request => !string.IsNullOrWhiteSpace(request.DisplayName));
+
+        RuleFor(request => request.Country)
+            .MaximumLength(100).WithMessage("Use no more than 100 characters.")
+            .When(request => !string.IsNullOrWhiteSpace(request.Country));
+
+        RuleFor(request => request.AddressLine)
+            .MaximumLength(250).WithMessage("Use no more than 250 characters.")
+            .When(request => !string.IsNullOrWhiteSpace(request.AddressLine));
+
+        // The other numbers obey the primary's rule: the same E.164 check, so a number that could
+        // not be the primary cannot slip in as an alternate either.
+        RuleFor(request => request.AlternateMobileNumbers)
+            .Must(numbers => numbers is null || numbers.Count <= LeadContactLimits.MaximumAlternateNumbers)
+            .WithMessage($"Add no more than {LeadContactLimits.MaximumAlternateNumbers} other numbers.")
+            .Must(numbers => numbers is null
+                             || numbers.All(number => string.IsNullOrWhiteSpace(number) || PrimaryPhoneValue.IsValid(number)))
+            .WithMessage("Review the other mobile numbers. Use the international format, for example +919876543210.");
+
         RuleFor(request => request.Consent!)
             .SetValidator(new LeadConsentRequestValidator())
             .When(request => request.Consent is not null);
@@ -160,10 +203,38 @@ public sealed class LeadConsentRequestValidator : AbstractValidator<LeadConsentR
         // NO `WithName` HERE, deliberately: this filter serialises `failure.PropertyName`, which
         // WithName overwrites, so any display name with a space in it lands back in the same
         // unbindable state. The human wording belongs in the message, which is where it is.
+        //
+        // "DO NOT CONTACT" NEEDS NO TICK. It refuses every channel at once, which is a complete
+        // answer by itself; demanding a ticked channel beside it asked the person to name a
+        // channel they had just been told must not be used.
         RuleFor(request => request.EmailConsent)
             .Must((request, _) => request.EmailConsent || request.SmsConsent
                                   || request.WhatsAppConsent || request.PhoneCallConsent)
             .WithMessage("Choose at least one channel, or turn Collect consent off.")
-            .When(request => request.CollectConsent);
+            .When(request => request.CollectConsent && !request.DoNotContact);
+
+        RuleFor(request => request.ConsentState)
+            .Must(state => Enum.TryParse<ConsentState>(state, ignoreCase: true, out _))
+            .WithMessage("Review Consent state. Choose a value from the list.")
+            .When(request => request.CollectConsent && !string.IsNullOrWhiteSpace(request.ConsentState));
+
+        RuleFor(request => request.ExpiryAtUtc)
+            .Must((request, expiry) => expiry > request.ConsentDateUtc)
+            .WithMessage("Review Expiry time. It has to be later than the effective time.")
+            .When(request => request.CollectConsent && request.ExpiryAtUtc is not null && request.ConsentDateUtc is not null);
+
+        RuleFor(request => request.ContactRestrictions)
+            .MaximumLength(250).WithMessage("Use no more than 250 characters.")
+            .When(request => !string.IsNullOrWhiteSpace(request.ContactRestrictions));
+
+        RuleFor(request => request.CorrectionReason)
+            .Length(10, 2000).WithMessage("Use between 10 and 2,000 characters.")
+            .When(request => !string.IsNullOrWhiteSpace(request.CorrectionReason));
     }
+}
+
+/// <summary>How many numbers a lead may carry beside the primary. One place, so the rule and the message agree.</summary>
+public static class LeadContactLimits
+{
+    public const int MaximumAlternateNumbers = 4;
 }

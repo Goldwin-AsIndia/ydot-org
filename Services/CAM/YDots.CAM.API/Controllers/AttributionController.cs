@@ -83,11 +83,15 @@ public sealed class AttributionController(
     [HasPermission(PermissionCodes.AttributionView)]
     [ProducesResponseType(typeof(ApiResponse<AttributionSummaryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSummaryAsync(
-        [FromQuery] Guid? campaignId, CancellationToken cancellationToken)
+        [FromQuery] Guid? campaignId,
+        [FromQuery] DateTimeOffset? fromUtc,
+        [FromQuery] DateTimeOffset? toUtc,
+        CancellationToken cancellationToken)
     {
         logger.LogDebug("Getting attribution summary for CampaignId {CampaignId}.", campaignId);
 
-        var result = await queries.HandleAsync(new GetAttributionSummaryQuery(campaignId), cancellationToken);
+        var result = await queries.HandleAsync(
+            new GetAttributionSummaryQuery(campaignId, fromUtc, toUtc), cancellationToken);
 
         if (result.IsFailure)
         {

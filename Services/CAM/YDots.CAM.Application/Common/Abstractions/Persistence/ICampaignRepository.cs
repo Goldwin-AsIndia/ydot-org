@@ -1,4 +1,5 @@
 using YDots.CAM.Domain.Entities;
+using YDots.CAM.Domain.Enums;
 
 namespace YDots.CAM.Application.Common.Abstractions.Persistence;
 
@@ -58,6 +59,19 @@ public interface ICampaignRepository
 
     /// <summary>Tracking assets attached to a campaign. Non-empty blocks deleting a draft.</summary>
     Task<int> CountTrackingAssetsAsync(Guid campaignId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How many readiness checks a campaign has. Zero means nothing has been verified, which is
+    /// why an empty checklist cannot be approved.
+    /// </summary>
+    Task<int> CountReadinessChecksAsync(Guid campaignId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether a campaign was Active or Paused when a close was requested, read from its lifecycle
+    /// history. Rejecting the request puts it back there.
+    /// </summary>
+    Task<CampaignStatus> GetStatusBeforeCloseRequestAsync(
+        Guid campaignId, DateTimeOffset requestedAtUtc, CancellationToken cancellationToken);
 
     void Delete(Campaign campaign);
 }

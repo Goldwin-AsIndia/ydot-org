@@ -10,6 +10,7 @@ import { TrackingAssetStoreService } from '../../../../Shared/services/tracking-
 import { CloseRequestStoreService } from '../../../../Shared/services/close-request-store.service';
 import { CurrentUserService } from '../../../../Shared/services/current-user.service';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
+import { viewerTimeZone } from '../../../../Shared/services/clock';
 
 /**
  * Pause, resume and close campaign.
@@ -42,13 +43,15 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
   private readonly closeStore = inject(CloseRequestStoreService);
   private readonly currentUser = inject(CurrentUserService);
 
-  protected readonly operatingTimeZone = 'Asia/Kolkata';
+  /** The viewer's own zone: the effective date and time below are read in it. */
+  protected readonly operatingTimeZone = viewerTimeZone();
 
   /** Stable campaign reference — supplied by the host (Campaign detail), defaulting to the
    *  seeded demo campaign when opened without one. The host owns the popup's open/close
    *  state and its own close affordance (backdrop click + ✕ button); this component has
    *  no closing UI of its own. */
-  @Input() campaignRef = 'CAMP-2025-0011';
+  // NO DEFAULT CAMPAIGN. It named 'CAMP-2025-0011', a reference that exists in no organisation.
+  @Input() campaignRef = '';
 
   /** Notifies the host (Campaign detail) whenever this component's own action off-canvas
    *  opens or closes, so the host can hide its lifecycle popup while the action panel is up
@@ -279,6 +282,27 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
       description:
         'Approves the outstanding close request and closes the campaign. Cannot be performed by the person who requested the close.',
     },
+    {
+      id: 'reject_close',
+
+      // THE OTHER ANSWER TO A CLOSE REQUEST. Without it Closing was a dead end: a request could be
+      // approved and nothing else, so one raised by mistake could only end in the campaign being
+      // closed. Refusing it puts the campaign back to Active or Paused, as the server finds it was.
+      label: 'Reject close request',
+      placement: 'primary',
+      permissionKey: 'approveClose',
+      permissionCode: 'cam.campaigns.close',
+      serverAction: 'RejectClose',
+      allowedStates: ['Closing', 'Active', 'Paused'],
+      requiresReasonCategory: false,
+      requiresDetailedReason: true,
+      requiresCommunicationImpact: false,
+      requiresClosureSummary: false,
+      confirmVerb: 'Confirm reject',
+      typedConfirm: false,
+      description:
+        'Refuses the outstanding close request. The campaign goes back to running as it was, and whoever asked for the close sees your reason.',
+    },
   ];
 
   /**
@@ -338,7 +362,7 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
       // Close appears only while a close request is awaiting a decision. The server already
       // withholds ApproveClose when there is none, so this is belt and braces for a record whose
       // detail is a moment stale.
-      if (a.id === 'approve_close') {
+      if (a.id === 'approve_close' || a.id === 'reject_close') {
         return pending;
       }
 
@@ -389,8 +413,11 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
     if (!this.permittedActions().has(action.serverAction) || !this.stateCompatible(action)) {
       return false;
     }
-    if (action.id === 'approve_close') {
-      return this.hasPendingCloseRequest() && !this.isOwnCloseRequest();
+    // WHETHER THIS PERSON MAY DECIDE THE REQUEST IS THE SERVER'S ANSWER: it withholds ApproveClose
+    // from whoever raised it, except the Organisation Admin. The local "is this my request?" test
+    // that stood here could not know about that exception.
+    if (action.id === 'approve_close' || action.id === 'reject_close') {
+      return this.hasPendingCloseRequest();
     }
     if (action.id === 'request_close') {
       return !this.hasPendingCloseRequest() && this.financialExceptionsCount() === 0;
@@ -403,7 +430,9 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
       return `Not available from ${this.currentState() ?? '—'} state.`;
     }
     if (!this.permittedActions().has(action.serverAction)) {
-      return `You do not hold ${action.permissionCode} on this campaign.`;
+      return action.id === 'approve_close' && this.isOwnCloseRequest()
+        ? `This close cannot be approved by the person who requested it (${this.currentUserName()}).`
+        : `You do not hold ${action.permissionCode} on this campaign.`;
     }
     if (action.id === 'request_close') {
       if (this.hasPendingCloseRequest()) {
@@ -496,7 +525,24 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
         untracked(() => this.campaignStore.loadDetail(this.campaignRef));
       }
     });
+
+    // THE CLOSE REQUEST NEEDS THE SAME SECOND CHANCE. `closeStore.ensure` in ngOnInit also needs
+    // the campaign's server id, so on a cold open it read nothing either - and a campaign waiting
+    // on a close decision then offered neither Approve close nor Reject close, to the Campaign
+    // Manager and the Organisation Admin alike, because the panel did not know a request was
+    // pending. Asked once per campaign; Refresh asks again.
+    effect(() => {
+      const campaign = this.campaign();
+
+      if (campaign && !this.closeRequest() && this.closeRecordAskedFor !== this.campaignRef) {
+        this.closeRecordAskedFor = this.campaignRef;
+        untracked(() => this.closeStore.load(this.campaignRef));
+      }
+    });
   }
+
+  /** The campaign whose close request the cold-open effect has already asked for. */
+  private closeRecordAskedFor: string | null = null;
 
   /** Runs after Angular applies the @Input campaignRef binding (unlike the constructor,
    *  which runs before inputs are set) — the loading sequence below needs the real,
@@ -855,6 +901,12 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
 
     let resultingState = previousState as CampaignStatus;
     let nextAction = '';
+
+    const reasons = {
+      reasonCategory: this.reasonCategory(),
+      detailedReason: this.detailedReason(),
+      communicationImpact: this.communicationImpact(),
+    };
     let accountableOwner = this.ownerName(this.campaign()?.ownerReference ?? '');
 
     // ==========================================================================================
@@ -932,20 +984,39 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
     };
 
     switch (action.id) {
+      // THE REASONS GO WITH THE TRANSITION. This panel collects a reason category, a detailed
+      // reason and a communication impact, validates them - and then sent none of them: every one
+      // of these three posted the record version and nothing else, so the lifecycle history showed
+      // a pause with no reason against it.
       case 'activate':
         resultingState = 'Active';
         nextAction = 'Campaign is live and accepting new activity.';
-        this.campaignStore.setStatus(this.campaignRef, 'Active', settle);
+        this.campaignStore.setStatus(this.campaignRef, 'Active', settle, reasons);
         break;
       case 'pause':
         resultingState = 'Paused';
         nextAction = 'Campaign is paused. Resume when ready.';
-        this.campaignStore.setStatus(this.campaignRef, 'Paused', settle);
+        this.campaignStore.setStatus(this.campaignRef, 'Paused', settle, reasons);
         break;
       case 'resume':
         resultingState = 'Active';
         nextAction = 'Campaign is live and accepting new activity.';
-        this.campaignStore.setStatus(this.campaignRef, 'Active', settle);
+        this.campaignStore.setStatus(this.campaignRef, 'Active', settle, reasons);
+        break;
+      case 'reject_close':
+        // The server puts the campaign back where the close was requested from; Active is the
+        // usual answer and the reload behind the call corrects it when it was Paused.
+        resultingState = 'Active';
+        nextAction = 'The close request was refused. The campaign carries on as it was.';
+
+        this.campaignStore.rejectClose(this.campaignRef, this.detailedReason().trim(), (result) => {
+          if (result.applied) {
+            this.closeStore.load(this.campaignRef);
+            resultingState = this.campaignStore.get(this.campaignRef)?.status ?? resultingState;
+          }
+
+          settle(result);
+        });
         break;
       case 'request_close':
         // ==================================================================================

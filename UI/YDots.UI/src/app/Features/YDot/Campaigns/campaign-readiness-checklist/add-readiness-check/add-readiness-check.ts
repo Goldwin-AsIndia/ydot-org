@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ClickOutsideDirective } from '../../../../../Shared/directives/click-outside';
+import { CampaignApiService } from '../../../../../Service/campaign-api.service';
 import { ReadinessOwnerOption } from '../../../../../Shared/models/campaign-readiness.model';
 import {
   ReadinessCheck,
@@ -45,9 +46,28 @@ export class AddReadinessCheckComponent {
   readonly added = output<ReadinessCheck>();
 
   // ================= Reference data =================
-  protected readonly categories: readonly ReadinessCheckCategory[] = [
-    'Content', 'Budget', 'Tracking', 'Payment', 'Template', 'Consent',
-  ];
+  private readonly campaignApi = inject(CampaignApiService);
+
+  /**
+   * The check categories, from CAM's reference data.
+   *
+   * THE SIX WERE TYPED IN HERE. They are the server's `ReadinessCheckCategory` values, the API
+   * refuses any other, and a category added there would never have reached this list.
+   */
+  protected readonly categories = signal<readonly { value: ReadinessCheckCategory; label: string }[]>([]);
+
+  private loadCategories(): void {
+    this.campaignApi.getReferenceData().subscribe({
+      next: (reference) =>
+        this.categories.set(
+          (reference.readinessCategories ?? []).map((option) => ({
+            value: option.value as ReadinessCheckCategory,
+            label: option.label,
+          })),
+        ),
+      error: () => this.categories.set([]),
+    });
+  }
   protected readonly checkTypes: readonly ReadinessCheckType[] = [
     'Manual', 'Automatic', 'Derived', 'External', 'Hybrid',
   ];
@@ -102,6 +122,7 @@ export class AddReadinessCheckComponent {
   }
 
   constructor() {
+    this.loadCategories();
     // Signal inputs aren't guaranteed to be bound yet inside the constructor body, so the
     // pre-fill reads `editing()` from a reactive effect instead — it fires once Angular has
     // actually applied the [editing] binding. The writes are untracked so this doesn't loop.

@@ -24,4 +24,9 @@ public interface ICampaignReadinessReadService
     /// </summary>
     Task<IReadOnlyList<ReadinessReminderResponse>> GetRemindersForUserAsync(
         Guid userId, int daysAhead, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The people a readiness check may be assigned to: those who can record its verdict.
+    /// </summary>
+    Task<IReadOnlyList<ReadinessPersonResponse>> GetAssignableOwnersAsync(CancellationToken cancellationToken);
 }

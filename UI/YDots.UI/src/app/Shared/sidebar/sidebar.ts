@@ -17,7 +17,6 @@ import { LayoutService } from '../../Service/layout-service';
 import { ThemedLogo } from '../components/themed-logo/themed-logo';
 import { MenuNode } from '../models/auth.model';
 import { AuthTokenService } from '../services/auth-token.service';
-import { CurrentUserService } from '../services/current-user.service';
 import { NavigationService } from '../services/navigation.service';
 
 /**
@@ -105,7 +104,6 @@ export class SidebarComponent implements OnDestroy {
   readonly layoutService = inject(LayoutService);
   readonly navigation = inject(NavigationService);
   private readonly tokens = inject(AuthTokenService);
-  private readonly currentUser = inject(CurrentUserService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -153,17 +151,15 @@ export class SidebarComponent implements OnDestroy {
   }
 
   /**
-   * The server tree, with three presentation-only overrides applied on top.
+   * The server's tree, as it was sent.
    *
-   * THESE ARE LABEL/LAYOUT CHANGES, NOT PERMISSION CHANGES. The menu is still exactly what the
-   * server decided this person may see (see the class doc); this only renames one node's label,
-   * drops another, and mirrors Campaign Overview's entry under a new label so Tracking Asset
-   * Manager has a way in from the sidebar. None of the three touches `requiredPermissionCode`,
-   * `route`, or anything the server sent for access control — a node that would not have
-   * appeared still will not, and a node that appears is still gated exactly as the server gated
-   * it. See `overrideMenu` for the mechanics.
+   * THE CAMPAIGNS BRANCH IS NO LONGER REWRITTEN HERE. This renamed Campaign Register to "Campaign
+   * Overview", dropped Create Campaign and added a Tracking Asset Manager link of its own, so the
+   * menu on screen was not the menu IAM held: an Organisation's own label for the register was
+   * overwritten, and the tracking link could not be hidden, renamed or mapped to a role. The
+   * catalogue now says all three, and this draws what it is given.
    */
-  readonly menu = computed(() => this.withWhatsApp(this.overrideMenu(this.navigation.menu())));
+  readonly menu = computed(() => this.withWhatsApp([...this.navigation.menu()]));
   readonly loading = computed(() => this.navigation.loading());
   readonly failed = computed(() => this.navigation.failed());
 
@@ -188,74 +184,14 @@ export class SidebarComponent implements OnDestroy {
     { initialValue: this.router.url },
   );
 
-  /** Absolute route of the campaign wizard's "Create Campaign" link, dropped from the sidebar. */
-  private static readonly CREATE_CAMPAIGN_ROUTE_RE = /\/campaign-wizard$/;
-  /** Absolute route of the campaign list — relabelled "Campaign Overview" here. */
-  private static readonly CAMPAIGN_REGISTER_ROUTE_RE = /\/campaign-register$/;
-  /** Where the injected Tracking Asset Manager link points. */
-  private static readonly TRACKING_ASSET_ROUTE = '/app/fundraising/campaigns/tracking-asset-manager';
   private static readonly CHECK_NUMBER_ROUTE = '/app/whatsapp/check-number';
   private static readonly WATI_ROUTE = '/app/whatsapp/wati';
-
-  private isCreateCampaignNode(node: MenuNode): boolean {
-    return !!node.route && SidebarComponent.CREATE_CAMPAIGN_ROUTE_RE.test(node.route);
-  }
-
-  private isCampaignRegisterNode(node: MenuNode): boolean {
-    return !!node.route && SidebarComponent.CAMPAIGN_REGISTER_ROUTE_RE.test(node.route);
-  }
-
-  /**
-   * Drops "Create Campaign", relabels "Campaign Register" to "Campaign Overview", and adds a
-   * "Tracking Asset Manager" link right beside it — recursively, so it applies at whichever
-   * depth the server nested the campaigns group.
-   */
-  private overrideMenu(nodes: readonly MenuNode[]): MenuNode[] {
-    return nodes.filter((n) => !this.isCreateCampaignNode(n)).map((n) => this.overrideNode(n));
-  }
-
-  private overrideNode(node: MenuNode): MenuNode {
-    if (!node.children || node.children.length === 0) {
-      return this.isCampaignRegisterNode(node) ? { ...node, name: 'Campaign Overview' } : node;
-    }
-
-    let children = this.overrideMenu(node.children);
-
-    const registerIndex = children.findIndex((c) => this.isCampaignRegisterNode(c));
-    const alreadyHasTrackingLink = children.some(
-      (c) => c.route === SidebarComponent.TRACKING_ASSET_ROUTE,
-    );
-    // Gated the same way the campaign-detail page gates its own link to this screen: a person
-    // without `cam.tracking-assets.view` would only reach a route guard that turns them away.
-    const canSeeTrackingAssets = this.currentUser.hasPermission('cam.tracking-assets.view');
-    if (registerIndex !== -1 && !alreadyHasTrackingLink && canSeeTrackingAssets) {
-      const register = children[registerIndex];
-      const trackingNode: MenuNode = {
-        ...register,
-        id: 'client-tracking-asset-manager',
-        code: 'client-tracking-asset-manager',
-        name: 'Tracking Asset Manager',
-        route: SidebarComponent.TRACKING_ASSET_ROUTE,
-        icon: 'clipboard',
-        children: null,
-        isGroupOnly: false,
-        hasChildren: false,
-      };
-      children = [
-        ...children.slice(0, registerIndex + 1),
-        trackingNode,
-        ...children.slice(registerIndex + 1),
-      ];
-    }
-
-    return { ...node, children };
-  }
 
   /**
    * Adds CheckNumber and Wati directly below Dashboard.
    *
-   * CLIENT-SIDE ENTRIES, like the Tracking Asset Manager link above: these two screens run on in-browser data
-   * and have no server menu node yet, so they are placed here. When the menu catalogue gains them, the
+   * CLIENT-SIDE ENTRIES, and the only two: these screens run on in-browser data and have no
+   * server menu node yet, so they are placed here. When the menu catalogue gains them, the
    * `already` check below stops this from adding a second copy.
    */
   private withWhatsApp(nodes: MenuNode[]): MenuNode[] {

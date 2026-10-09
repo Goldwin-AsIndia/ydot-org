@@ -1,9 +1,18 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { AuthApiService } from '../../Service/auth-api.service';
+import { DonorApiService } from '../../Service/donor-api.service';
+import { AuthTokenService } from './auth-token.service';
 import { MenuNode, NavigationResponse } from '../models/auth.model';
 import { OrganisationScopeService } from './organisation-scope.service';
 import { isRenderableIcon, remixIconClass } from '../models/remix-icon-catalogue';
+
+/**
+ * The two "my own records" entries of Donors and Leads. Whether each is shown depends on whether
+ * the person owns any - see `ownership` on the service.
+ */
+const MY_LEADS = 'FR_MY_LEADS';
+const MY_DONORS = 'FR_MY_DONORS';
 
 /**
  * The sidebar, as the server decides it.
@@ -35,7 +44,9 @@ import { isRenderableIcon, remixIconClass } from '../models/remix-icon-catalogue
 @Injectable({ providedIn: 'root' })
 export class NavigationService {
   private readonly authApi = inject(AuthApiService);
+  private readonly donorApi = inject(DonorApiService);
   private readonly organisationScope = inject(OrganisationScopeService);
+  private readonly tokens = inject(AuthTokenService);
 
   private readonly navigationState = signal<NavigationResponse | null>(null);
   readonly navigation = this.navigationState.asReadonly();
@@ -46,7 +57,21 @@ export class NavigationService {
   private readonly failedState = signal(false);
   readonly failed = this.failedState.asReadonly();
 
-  readonly menu = computed<MenuNode[]>(() => this.navigationState()?.menu ?? []);
+  /**
+   * What the signed-in person owns in Donors and Leads.
+   *
+   * THE ROLE FLOW: "if DonorCare is assigned only follow-ups, not any leads or donors, then only
+   * the Follow-up Queue menu is shown to them". The role decides which entries a person MAY have;
+   * this decides which of the two own-record lists there is anything in. It is a fact about the
+   * person's work, not their role, so IAM's tree cannot know it - the Donors service answers it.
+   *
+   * 'pending' while that answer is on its way: the two entries wait rather than appear and then
+   * vanish. 'unavailable' when it could not be had, or does not apply: the tree is shown as IAM
+   * sent it, because an empty list is a better failure than a missing menu.
+   */
+  private readonly ownership = signal<{ leads: number; donors: number } | 'pending' | 'unavailable'>('unavailable');
+
+  readonly menu = computed<MenuNode[]>(() => this.withoutEmptyOwnLists(this.navigationState()?.menu ?? []));
   readonly landingRoute = computed(() => this.navigationState()?.landingRoute ?? '/app/dashboard');
   readonly organisationName = computed(() => this.navigationState()?.tenantName ?? '');
   readonly isTenantMode = computed(() => this.navigationState()?.isTenantMode === true);
@@ -110,6 +135,7 @@ export class NavigationService {
 
           this.navigationState.set(navigation);
           this.loadingState.set(false);
+          this.loadOwnership(navigation.menu ?? [], requestedForScope);
         },
         error: () => {
           if (this.isStale(requestedForScope)) {
@@ -140,6 +166,68 @@ export class NavigationService {
   clear(): void {
     this.navigationState.set(null);
     this.failedState.set(false);
+    this.ownership.set('unavailable');
+  }
+
+  /**
+   * Asks the Donors service what the person owns - only when the tree offers an own-records list.
+   *
+   * Most people's tree has neither entry (a Fundraising Manager works the whole queue; campaign
+   * staff have no Donors section at all), and for them there is nothing to ask.
+   */
+  private loadOwnership(nodes: MenuNode[], requestedForScope: string | null): void {
+    if (!this.offers(nodes, MY_LEADS) && !this.offers(nodes, MY_DONORS)) {
+      this.ownership.set('unavailable');
+      return;
+    }
+
+    // THE ORGANISATION ADMIN KEEPS BOTH, WHATEVER IT OWNS. The rule below exists for DonorCare:
+    // "given only follow-ups, they see only the Follow-up Queue". The administrator is mapped to
+    // every menu in the Organisation, and a sidebar that quietly dropped two of them because the
+    // administrator personally owns no lead or donor would be withholding screens it is entitled
+    // to. 'unavailable' shows the tree exactly as IAM sent it.
+    if (this.tokens.isTenantAdmin()) {
+      this.ownership.set('unavailable');
+      return;
+    }
+
+    this.ownership.set('pending');
+
+    this.donorApi.getMenu().subscribe({
+      next: (menu) => {
+        if (this.isStale(requestedForScope)) return;
+        this.ownership.set({ leads: menu.ownedLeadCount ?? 0, donors: menu.ownedDonorCount ?? 0 });
+      },
+      error: () => {
+        if (this.isStale(requestedForScope)) return;
+        this.ownership.set('unavailable');
+      },
+    });
+  }
+
+  private offers(nodes: readonly MenuNode[], code: string): boolean {
+    return nodes.some((node) => node.code === code || this.offers(node.children ?? [], code));
+  }
+
+  /** The tree without My Leads or My Donor List where the person owns no lead or no donor. */
+  private withoutEmptyOwnLists(nodes: MenuNode[]): MenuNode[] {
+    const ownership = this.ownership();
+
+    if (ownership === 'unavailable') {
+      return nodes;
+    }
+
+    const hidden = new Set<string>();
+    if (ownership === 'pending' || ownership.leads === 0) hidden.add(MY_LEADS);
+    if (ownership === 'pending' || ownership.donors === 0) hidden.add(MY_DONORS);
+
+    return hidden.size === 0 ? nodes : this.prune(nodes, hidden);
+  }
+
+  private prune(nodes: readonly MenuNode[], hidden: ReadonlySet<string>): MenuNode[] {
+    return nodes
+      .filter((node) => !hidden.has(node.code ?? ''))
+      .map((node) => (node.children?.length ? { ...node, children: this.prune(node.children, hidden) } : node));
   }
 
   /**

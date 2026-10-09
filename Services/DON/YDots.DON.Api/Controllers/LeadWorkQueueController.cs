@@ -53,6 +53,35 @@ public sealed class LeadWorkQueueController : ApiControllerBase
         return FromResult(result);
     }
 
+    /// <summary>
+    /// GET the queue as CSV - Export Leads. Every lead the filter matches in the caller's scope,
+    /// contact masked unless they may see it, and the export itself audited.
+    /// </summary>
+    [HttpGet("export")]
+    [HasPermission(PermissionCodes.DonorsExport)]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> Export(
+        [FromQuery] LeadSearchFilter filter,
+        [FromServices] LeadWorkQueueQueryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Lead export started.");
+
+        var result = await handler.HandleAsync(new ExportLeadsQuery(filter), cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            _logger.LogInformation("Lead export completed successfully.");
+        }
+        else
+        {
+            _logger.LogWarning("Lead export failed.");
+        }
+
+        return FileFromResult(result);
+    }
+
     /// <summary>GET one lead for the detail panel beside the queue.</summary>
     [HttpGet("{id:guid}", Name = "GetLeadFromWorkQueue")]
     [HasPermission(PermissionCodes.LeadWorkQueueView)]
@@ -227,6 +256,36 @@ public sealed class LeadWorkQueueController : ApiControllerBase
         }
 
         return FromResult(result, "The lead was closed.");
+    }
+
+    /// <summary>
+    /// POST score. The fundraiser's reading of the lead - temperature and donation potential -
+    /// with a recorded reason. Its own action: it used to travel through Qualify, which changed
+    /// the lead's stage and stored no temperature at all.
+    /// </summary>
+    [HttpPost("{id:guid}/score")]
+    [HasPermission(PermissionCodes.LeadWorkQueueQualify)]
+    [ProducesResponseType(typeof(ApiResponse<LeadDetailResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Score(
+        Guid id,
+        [FromBody] ScoreLeadRequest request,
+        [FromServices] LeadWorkQueueCommandHandler handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Lead scoring started for LeadId {LeadId}.", id);
+
+        var result = await handler.HandleAsync(new ScoreLeadCommand(id, request), cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            _logger.LogWarning("Lead scoring failed for LeadId {LeadId}.", id);
+        }
+
+        return FromResult(result, "The lead temperature and donation potential were updated.");
     }
 
     /// <summary>

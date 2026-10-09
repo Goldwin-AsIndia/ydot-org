@@ -6,6 +6,7 @@ using YDots.DON.Application.Common.Results;
 using YDots.DON.Application.DTOs;
 using YDots.DON.Application.Features.Donors.Commands.ManageDonor;
 using YDots.DON.Application.Features.Donors.DTOs;
+using YDots.DON.Application.Features.Donors.Queries.ExportDonorHistory;
 using YDots.DON.Application.Features.Donors.Queries.SearchDonors;
 using YDots.DON.Infrastructure.Authorization;
 
@@ -56,6 +57,59 @@ public sealed class DonorsController : ApiControllerBase
         }
 
         return FromResult(result);
+    }
+
+    /// <summary>
+    /// GET the Donor List's figures - lifetime and recent giving, the status mix and the "needs
+    /// attention" counts - over the caller's whole scope. <paramref name="onlyMine"/> narrows it to
+    /// the donors whose relationship the caller owns, which is what My Donor List shows.
+    /// </summary>
+    [HttpGet("summary")]
+    [HasPermission(PermissionCodes.DonorsView)]
+    [ProducesResponseType(typeof(ApiResponse<DonorListSummaryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> Summary(
+        [FromQuery] bool? onlyMine,
+        [FromServices] DonorQueryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Donor summary started.");
+
+        var result = await handler.HandleAsync(new GetDonorSummaryQuery(onlyMine), cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            _logger.LogWarning("Donor summary failed.");
+        }
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// GET one donor's history as CSV - Export History on My Donor List. Gifts, pledges,
+    /// follow-ups, conversations and consent decisions in one file, scoped and masked like the
+    /// screen, and audited.
+    /// </summary>
+    [HttpGet("{id:guid}/history/export")]
+    [HasPermission(PermissionCodes.DonorsExport)]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ExportHistory(
+        Guid id,
+        [FromServices] ExportDonorHistoryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Donor history export started for DonorId {DonorId}.", id);
+
+        var result = await handler.HandleAsync(new ExportDonorHistoryQuery(id), cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            _logger.LogWarning("Donor history export failed for DonorId {DonorId}.", id);
+        }
+
+        return FileFromResult(result);
     }
 
     /// <summary>GET the dropdown rows for the donor selectors on the other screens.</summary>

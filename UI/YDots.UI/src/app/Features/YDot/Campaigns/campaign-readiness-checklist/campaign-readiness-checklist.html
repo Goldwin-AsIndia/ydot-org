@@ -54,6 +54,8 @@
       <ul class="crc-docket-meta">
         <li class="crc-docket-ref">{{ campaignRef }}</li>
         <li class="crc-docket-state" [attr.data-state]="lifecycleState()">{{ lifecycleState() }}</li>
+        <!-- The checklist's own status - Pending, Approved or Rejected - from the server. -->
+        <li class="crc-docket-state" [attr.data-state]="decisionStatus()" [attr.title]="decisionLine()">Readiness {{ decisionStatus() | lowercase }}</li>
         <li>
           <svg class="crc-docket-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg>
           {{ ownerName(ownerReference()) }}
@@ -129,6 +131,14 @@
                     [disabled]="!approveLaunchAllowed()"
                     (click)="openApproveDialog()">Approve launch</button>
             @if (approveDisabledReason(); as why) {
+              <p class="crc-menu-why">{{ why }}</p>
+            }
+          }
+          @if (capabilities().reject) {
+            <button type="button" role="menuitem" class="crc-menu-item crc-menu-item-danger"
+                    [disabled]="!rejectAllowed()"
+                    (click)="openRejectDialog()">{{ rejectLabel() }}</button>
+            @if (rejectDisabledReason(); as why) {
               <p class="crc-menu-why">{{ why }}</p>
             }
           }
@@ -261,6 +271,7 @@
               <span class="crc-status" [attr.data-status]="checklistStatusClass(item.status)">{{ item.status }}</span>
 
               <div class="crc-check-actions" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+                @if (rowHasActions(item)) {
                 <div class="crc-overflow">
                   <button #crcChecklistBtn type="button" class="crc-icon-btn" aria-haspopup="menu"
                           [attr.aria-expanded]="checklistRowMenuOpen() === item.id" aria-label="Check actions" title="Actions"
@@ -270,19 +281,22 @@
                   @if (checklistRowMenuOpen() === item.id) {
                     <div class="crc-menu" role="menu"
                          appClickOutside [clickOutsideExcept]="crcChecklistBtn" (appClickOutside)="closeChecklistRowMenu()">
-                      <!-- EACH VERB IS WRAPPED IN THE PERMISSION THAT GOVERNS IT, so a role that
-                           does not hold it never sees it. -->
-                      @if (capabilities().pass && isAssignee(item)) {
+                      <!-- EACH VERB COMES FROM THE SERVER'S LIST FOR THIS CHECK AND THIS PERSON. It
+                           knows who the check is assigned to and whether that person can still
+                           record a verdict; a role that does not hold a verb never sees it. -->
+                      @if (rowAllows(item, 'Pass')) {
                         <button type="button" role="menuitem" class="crc-menu-item"
-                                [disabled]="item.status === 'Passed'"
                                 (click)="markChecklistPassed(item)">Mark as passed</button>
                       }
-                      @if (capabilities().fail && isAssignee(item)) {
+                      @if (rowAllows(item, 'Fail')) {
                         <button type="button" role="menuitem" class="crc-menu-item"
-                                [disabled]="item.status === 'Failed'"
                                 (click)="markChecklistFailed(item)">Mark as failed</button>
                       }
-                      @if (capabilities().editCheck) {
+                      @if (capabilities().pass && item.status !== 'Passed' && item.ownerId
+                           && !rowAllows(item, 'Pass') && !rowAllows(item, 'Fail')) {
+                        <p class="crc-menu-why">Assigned to {{ ownerName(item.ownerId) }} — only they can pass or fail it.</p>
+                      }
+                      @if (rowAllows(item, 'Edit')) {
                         <button type="button" role="menuitem" class="crc-menu-item"
                                 (click)="openEditCheckDrawer(item)">Edit</button>
                       }
@@ -298,6 +312,7 @@
                     </div>
                   }
                 </div>
+                }
               </div>
             </li>
           }
@@ -361,9 +376,11 @@
                 <p class="crc-verdict-title"><span class="crc-dot crc-dot-fail" aria-hidden="true"></span> Not ready to launch</p>
                 <p class="crc-verdict-text">
                   @if (v.requiredOutstanding > 0) { {{ v.requiredOutstanding }} required check(s) not yet passed }
-                  — the campaign cannot activate until these clear.
+                  — the launch cannot be approved until these clear.
                 </p>
               }
+              <!-- The checklist's overall status, with who decided it and why. -->
+              <p class="crc-verdict-text"><strong>Readiness {{ decisionStatus() | lowercase }}.</strong> {{ decisionLine() }}</p>
             </div>
           } @else {
             <div class="crc-verdict">
@@ -471,6 +488,43 @@
   </div>
 }
 
+<!-- Reject launch / Return to draft (high-risk) -->
+@if (rejectDialogOpen()) {
+  <div class="crc-modal-backdrop" (click)="cancelReject()">
+    <div class="crc-modal crc-modal--danger" role="dialog" aria-modal="true" aria-labelledby="crc-reject-title" (click)="$event.stopPropagation()">
+      <header class="ov-head ov-head--danger">
+        <p class="crc-modal-kicker">High-risk decision</p>
+        <h2 id="crc-reject-title" class="crc-modal-title">{{ rejectLabel() }}</h2>
+        <p class="crc-modal-lead">Sends <strong>{{ campaignRef }}</strong> back to <strong>Draft</strong> with your reason. The checklist reads Rejected until approval is requested again.</p>
+        <button type="button" class="crc-modal-x" (click)="cancelReject()" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </header>
+      <div class="ov-body">
+      <dl class="crc-review">
+        <div><dt>Campaign</dt><dd>{{ campaignRef }} · {{ campaignName() }}</dd></div>
+        <div><dt>Lifecycle</dt><dd>{{ lifecycleState() }} → Draft</dd></div>
+        <div><dt>Readiness</dt><dd>{{ getPassCount() }} passed · {{ getFailCount() }} failed · {{ getPendingCount() }} pending of {{ getTotalCount() }}</dd></div>
+        <div><dt>Decided by</dt><dd>{{ currentUserName() }}@if (currentUserCode()) { ({{ currentUserCode() }}) }</dd></div>
+      </dl>
+      <div class="crc-field">
+        <label class="crc-field-label" for="crc-reject-reason">Reason <span class="crc-req">*</span></label>
+        <textarea id="crc-reject-reason" class="crc-input crc-textarea" rows="3" [class.is-invalid]="rejectTouched() && !rejectReasonValid()" [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)" placeholder="Say what has to change before this can launch"></textarea>
+        <div class="crc-field-foot">
+          <span>Minimum {{ approveReasonMin }} characters</span>
+          <span class="crc-charcount" [class.crc-bad]="rejectTouched() && !rejectReasonValid()">{{ rejectReasonCount() }} / {{ approveReasonMax }}</span>
+        </div>
+        @if (rejectTouched() && !rejectReasonValid()) { <span class="crc-field-error">Enter a reason of at least {{ approveReasonMin }} characters.</span> }
+      </div>
+      </div>
+      <div class="crc-modal-actions">
+        <button type="button" class="crc-btn crc-btn-outline" (click)="cancelReject()">Cancel</button>
+        <button type="button" class="crc-btn crc-btn-danger" [disabled]="!rejectReasonValid()" (click)="confirmReject()">{{ rejectLabel() }}</button>
+      </div>
+    </div>
+  </div>
+}
+
 <!-- ============================ View readiness check ============================ -->
 @if (viewCheck(); as vc) {
   <div class="crc-modal-backdrop" (click)="closeViewCheck()">
@@ -500,7 +554,7 @@
       </div>
       <div class="crc-modal-actions">
         <button type="button" class="crc-btn crc-btn-outline" (click)="closeViewCheck()">Close</button>
-        @if (capabilities().editCheck) {
+        @if (rowAllows(vc, 'Edit')) {
           <button type="button" class="crc-btn crc-btn-primary" (click)="editFromView(vc)">Edit</button>
         }
       </div>

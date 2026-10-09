@@ -843,15 +843,23 @@ public sealed class IamDbSeeder(
     /// the named branch, everything beneath it and the headings above it, plus the mandatory
     /// dashboard and My Security - AND the role holds the permission its screen requires. That
     /// is what keeps a Campaign Executive's sidebar to Campaigns although the role also reads
-    /// donations, and what leaves DonorCare on the mandatory two until its menus are mapped.
+    /// donations, and what gives DonorCare its own three Donors and Leads menus and no others.
     ///
     /// IT CANNOT GRANT ANYTHING, and that is what makes it safe to write in bulk. RoleMenu is a
     /// subtractive filter by construction - see the note on the entity - so the worst a wrong row
     /// here can do is hide a screen.
     ///
-    /// EXISTING ROWS ARE LEFT ALONE. An administrator who has hidden Payments from a role meant
-    /// it, and a reconcile that stamped over that on the next restart would be a bug wearing the
-    /// clothes of a feature. This adds what is missing and touches nothing else.
+    /// AN ADMINISTRATOR'S ROWS ARE LEFT ALONE. An administrator who has hidden Payments from a
+    /// role meant it, and a reconcile that stamped over that on the next restart would be a bug
+    /// wearing the clothes of a feature. Menu Configuration stamps every row it saves with the
+    /// administrator's id, so those rows are recognisable and never touched.
+    ///
+    /// THE SEEDER'S OWN ROWS FOLLOW THE DEFINITION. A row whose MappedByUserId is still
+    /// Guid.Empty was written by this method and has never been decided by a person, so it is
+    /// brought back in line whenever a role's scope or grants change. Without this a scope change
+    /// reached only nodes added after it - DonorCare, mapped to nothing when it was created, kept
+    /// "not part of this role's menu mapping" on Follow-up Queue for ever after its menus were
+    /// mapped.
     /// </summary>
     private async Task ReconcileRoleMenusAsync(CancellationToken cancellationToken)
     {
@@ -905,15 +913,17 @@ public sealed class IamDbSeeder(
                 group => group.Key,
                 group => group.Select(item => item.PermissionCode).ToHashSet(StringComparer.Ordinal));
 
+        // TRACKED, because the seeder's own rows may be corrected below.
         var mapped = (await context.RoleMenus
                 .IgnoreQueryFilters()
                 .Where(mapping => roleIds.Contains(mapping.RoleId))
-                .Select(mapping => new { mapping.RoleId, mapping.MenuDefinitionId })
                 .ToListAsync(cancellationToken))
             .GroupBy(mapping => mapping.RoleId)
             .ToDictionary(
                 group => group.Key,
-                group => group.Select(item => item.MenuDefinitionId).ToHashSet());
+                group => group
+                    .GroupBy(mapping => mapping.MenuDefinitionId)
+                    .ToDictionary(rows => rows.Key, rows => rows.First()));
 
         // Each role's scope, resolved to node ids once per role CODE rather than once per role:
         // every Organisation shares the catalogue, so CAMPAIGN_EXECUTIVE's scope is the same set
@@ -925,6 +935,7 @@ public sealed class IamDbSeeder(
 
         var now = DateTimeOffset.UtcNow;
         var added = 0;
+        var corrected = 0;
 
         foreach (var role in roles)
         {
@@ -940,7 +951,7 @@ public sealed class IamDbSeeder(
             // deactivated by RetireUnknownSystemRolesAsync anyway; this only keeps its grid honest.
             var scope = scopes.GetValueOrDefault(role.NormalizedCode);
 
-            foreach (var node in mappable.Where(node => !already.Contains(node.Id)))
+            foreach (var node in mappable)
             {
                 var isMapped = scope is null || scope.Contains(node.Id);
 
@@ -952,6 +963,22 @@ public sealed class IamDbSeeder(
                                   || held.Contains(node.RequiredPermissionCode);
 
                 var isVisible = isMapped && isPermitted;
+                var notes = DescribeSeededMapping(isMapped, isPermitted);
+
+                if (already.TryGetValue(node.Id, out var row))
+                {
+                    // Only a row nobody has decided about. See the method comment.
+                    if (row.MappedByUserId == Guid.Empty && (row.IsVisible != isVisible || row.Notes != notes))
+                    {
+                        row.IsVisible = isVisible;
+                        row.IsLandingPage = isVisible && node.Code == MenuCatalogue.Dashboard;
+                        row.Notes = notes;
+                        row.MappedAtUtc = now;
+                        corrected++;
+                    }
+
+                    continue;
+                }
 
                 await context.RoleMenus.AddAsync(new RoleMenu
                 {
@@ -968,14 +995,7 @@ public sealed class IamDbSeeder(
 
                     MappedAtUtc = now,
                     MappedByUserId = Guid.Empty,
-                    Notes = (isMapped, isPermitted) switch
-                    {
-                        (false, _) => "Seeded: not part of this role's menu mapping.",
-                        (true, true) => "Seeded: mapped to this role, which holds the permission "
-                                        + "this screen requires.",
-                        (true, false) => "Seeded: mapped to this role, but it does not hold the "
-                                         + "permission this screen requires."
-                    },
+                    Notes = notes,
                     CreatedAtUtc = now,
                     CreatedByUserId = Guid.Empty
                 }, cancellationToken);
@@ -984,14 +1004,25 @@ public sealed class IamDbSeeder(
             }
         }
 
-        if (added > 0)
+        if (added > 0 || corrected > 0)
         {
             logger.LogInformation(
-                "Reconciled role menu mapping: {Added} row(s) added across {RoleCount} role(s) "
-                + "and {NodeCount} navigable node(s).",
-                added, roles.Count, mappable.Count);
+                "Reconciled role menu mapping: {Added} row(s) added and {Corrected} seeded row(s) "
+                + "brought in line across {RoleCount} role(s) and {NodeCount} navigable node(s).",
+                added, corrected, roles.Count, mappable.Count);
         }
     }
+
+    /// <summary>Why a seeded mapping row says what it says, as the Menu Configuration grid shows it.</summary>
+    private static string DescribeSeededMapping(bool isMapped, bool isPermitted) =>
+        (isMapped, isPermitted) switch
+        {
+            (false, _) => "Seeded: not part of this role's menu mapping.",
+            (true, true) => "Seeded: mapped to this role, which holds the permission "
+                            + "this screen requires.",
+            (true, false) => "Seeded: mapped to this role, but it does not hold the "
+                             + "permission this screen requires."
+        };
 
     /// <summary>One node of the navigation as the menu mapping needs it.</summary>
     private sealed record MappableMenu(

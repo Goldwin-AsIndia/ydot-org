@@ -18,6 +18,7 @@ import { ReadinessCheck } from '../../../../Shared/models/campaign-readiness-che
 import { AddReadinessCheckComponent } from './add-readiness-check/add-readiness-check';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { CampaignApiService } from '../../../../Service/campaign-api.service';
 
 /**
  * Campaign readiness checklist.
@@ -49,10 +50,24 @@ export class CampaignReadinessChecklistComponent {
   private readonly toast = inject(ToastService);
   private readonly checklistStore = inject(ReadinessChecklistStoreService);
 
+  private readonly campaignApi = inject(CampaignApiService);
+
   protected readonly pageTitle = 'Campaign Readiness Checklist';
   protected readonly pageSubtitle = 'Validate all dependencies before campaign launch.';
-  protected readonly operatingTimeZone = 'Asia/Kolkata · IST (UTC+05:30)';
-  protected readonly lastRefresh = signal('Today, 09:30 AM · IST');
+
+  /**
+   * When this screen last read the checklist from the server, in the viewer's own time.
+   *
+   * IT WAS THE LITERAL 'Today, 09:30 AM · IST' - printed as "Updated ..." under every campaign and
+   * as the "Effective time" of every approval, whatever the clock said.
+   */
+  protected readonly lastRefresh = signal(this.nowLabel());
+
+  private nowLabel(): string {
+    return new Date().toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+  }
 
   /**
    * The campaign this checklist is for, from the route.
@@ -89,13 +104,26 @@ export class CampaignReadinessChecklistComponent {
    */
   private readonly people = inject(PeopleDirectoryService);
 
-  protected readonly ownerOptions = computed<readonly ReadinessOwnerOption[]>(() =>
-    this.people.assignable().map((person) => ({
-      reference: person.reference,
-      name: person.name,
-      context: person.context,
-    })),
-  );
+  /**
+   * WHO A CHECK CAN BE ASSIGNED TO: only people who can pass or fail it - the Campaign Executives
+   * and the Organisation Admin - as CAM lists them. A check given to anybody else is one nobody
+   * can record a verdict on, and the server refuses it.
+   */
+  protected readonly ownerOptions = signal<readonly ReadinessOwnerOption[]>([]);
+
+  private loadOwnerOptions(): void {
+    this.campaignApi.getReadinessAssignableOwners().subscribe({
+      next: (owners) =>
+        this.ownerOptions.set(
+          owners.map((person) => ({
+            reference: person.userId,
+            name: person.displayName || person.userCode || 'Unnamed',
+            context: this.people.get(person.userId)?.context || person.userCode || '',
+          })),
+        ),
+      error: () => this.ownerOptions.set([]),
+    });
+  }
 
   protected ownerName(ref: string): string {
     return this.people.name(ref);
@@ -187,15 +215,17 @@ export class CampaignReadinessChecklistComponent {
       addCheck: this.serverAllows(
         'AddCheck', this.currentUser.hasPermission('cam.readiness.create')),
 
-      // AN APPROVER NEVER SEES "REQUEST APPROVAL". They hold the approval, so a request they
-      // raised is one they must then refuse to approve - the platform's four-eyes rule forbids
-      // one person doing both halves. This is why an Organisation Administrator was being shown
-      // Request approval with Approve launch greyed out beside it: exactly backwards.
+      // REQUEST APPROVAL IS THE EXECUTIVE'S - and the Organisation Admin's, who holds every
+      // option. A Campaign Manager does not hold `cam.campaigns.submit`, so is never shown it.
       requestApproval: this.serverAllows(
-        'RequestApproval',
-        this.currentUser.hasPermission('cam.campaigns.submit') && !canApprove),
+        'RequestApproval', this.currentUser.hasPermission('cam.campaigns.submit')),
 
       approveLaunch: this.serverAllows('ApproveLaunch', canApprove),
+
+      // REJECT IS THE OTHER HALF OF THE LAUNCH DECISION: it sends the campaign back to Draft with
+      // a reason, and the checklist reads Rejected until it is requested again.
+      reject: this.serverAllows(
+        'ReturnToDraft', this.currentUser.hasPermission('cam.readiness.return-to-draft')),
     };
   });
 
@@ -225,12 +255,68 @@ export class CampaignReadinessChecklistComponent {
       assignBlocker: this.currentUser.hasPermission('cam.readiness.manage-blockers'),
       resolveBlocker: this.currentUser.hasPermission('cam.readiness.resolve-blockers'),
 
-      // An approver never raises a launch request: they would be the one approving it, and the
-      // four-eyes rule then refuses the pair. This is a property of the ROLE, not of the record,
-      // so it belongs on this side of the split.
-      requestApproval: this.currentUser.hasPermission('cam.campaigns.submit') && !canApprove,
+      requestApproval: this.currentUser.hasPermission('cam.campaigns.submit'),
       approveLaunch: canApprove,
+      reject: this.currentUser.hasPermission('cam.readiness.return-to-draft'),
     };
+  });
+
+  /**
+   * Whether the server lists an action for THIS check and THIS person.
+   *
+   * THE ROW MENU IS DRAWN FROM IT. Who may pass or fail a check depends on who it is assigned to,
+   * whether that person can still record a verdict, and whether the caller is the Organisation
+   * Admin - three things the server knows and this screen used to approximate with "is the owner
+   * id mine?".
+   */
+  protected rowAllows(check: ReadinessCheck, action: string): boolean {
+    return (check.permittedActions ?? []).includes(action);
+  }
+
+  /** Whether the row's menu would have anything in it for this person. */
+  protected rowHasActions(check: ReadinessCheck): boolean {
+    return (
+      this.rowAllows(check, 'Pass')
+      || this.rowAllows(check, 'Fail')
+      || this.rowAllows(check, 'Edit')
+      || this.capabilities().deleteCheck
+    );
+  }
+
+  /**
+   * The checklist's overall status - Pending, Approved or Rejected - as the server derived it
+   * from the campaign's launch decision.
+   */
+  protected readonly decision = computed(() => this.readinessVerdict()?.decision ?? null);
+  protected readonly decisionStatus = computed(() => this.decision()?.status ?? 'Pending');
+
+  /** Who decided, when and why - one sentence for the launch readiness panel. */
+  protected readonly decisionLine = computed(() => {
+    const decision = this.decision();
+
+    if (!decision) {
+      return '';
+    }
+
+    const who = decision.decidedBy?.displayName || decision.decidedBy?.userCode || '';
+    const when = decision.decidedAtUtc ? this.raisedWhen(decision.decidedAtUtc) : '';
+    const by = [who ? `by ${who}` : '', when ? `on ${when}` : ''].filter(Boolean).join(' ');
+
+    if (decision.status === 'Approved') {
+      return by ? `Approved ${by}.` : 'Approved.';
+    }
+
+    if (decision.status === 'Rejected') {
+      return `${by ? `Rejected ${by}` : 'Rejected'}${decision.reason ? ` — ${decision.reason}` : ''}.`;
+    }
+
+    if (decision.requestedAtUtc) {
+      const requester = decision.requestedBy?.displayName || decision.requestedBy?.userCode || '';
+
+      return `Requested${requester ? ` by ${requester}` : ''} on ${this.raisedWhen(decision.requestedAtUtc)} — awaiting a Campaign Manager's decision.`;
+    }
+
+    return 'Not yet requested. Record a verdict on each check, then request approval.';
   });
 
   // ================= Campaign + readiness record (live from the shared stores) =================
@@ -271,19 +357,28 @@ export class CampaignReadinessChecklistComponent {
   // The counts below are the manually-added checks and nothing else, which is also exactly what
   // the server's own `canLaunch` verdict is computed from.
 
+  // THE SERVER'S COUNTS, read off the same response as the checks. The list on screen is the
+  // whole checklist, so counting it gives the same numbers - it is the fallback for the moment
+  // before the verdict arrives, not a second source.
   protected getPassCount(): number {
-    return this.checklistItems().filter((c) => c.status === 'Passed').length;
+    return this.readinessVerdict()?.passed ?? this.checklistItems().filter((c) => c.status === 'Passed').length;
   }
   protected getFailCount(): number {
-    return this.checklistItems().filter((c) => c.status === 'Failed').length;
+    return this.readinessVerdict()?.failed ?? this.checklistItems().filter((c) => c.status === 'Failed').length;
   }
   protected getPendingCount(): number {
-    return this.checklistItems().filter((c) => c.status === 'Pending').length;
+    return this.readinessVerdict()?.pending ?? this.checklistItems().filter((c) => c.status === 'Pending').length;
   }
   protected getTotalCount(): number {
-    return this.checklistItems().length;
+    return this.readinessVerdict()?.totalItems ?? this.checklistItems().length;
   }
   protected getReadinessPct(): number {
+    const served = this.readinessVerdict()?.readinessPercentage;
+
+    if (served != null) {
+      return Math.round(served);
+    }
+
     const total = this.getTotalCount();
     return total ? Math.round((this.getPassCount() / total) * 100) : 0;
   }
@@ -350,6 +445,8 @@ export class CampaignReadinessChecklistComponent {
       if (loadedFor !== this.campaignRef) {
         loadedFor = this.campaignRef;
         this.readinessStore.ensure(this.campaignRef, campaign.ownerReference);
+        this.lastRefresh.set(this.nowLabel());
+        this.loadOwnerOptions();
       }
 
       this.syncSnapshot();
@@ -401,7 +498,7 @@ export class CampaignReadinessChecklistComponent {
     if (!this.permissions().validate) return;
 
     this.checklistStore.load(this.campaignRef);
-    this.lastRefresh.set('Just now · IST');
+    this.lastRefresh.set(this.nowLabel());
     this.lastValidatedAt.set(this.lastRefresh());
     this.uiState.set('ready');
     this.toast.show(
@@ -515,14 +612,32 @@ export class CampaignReadinessChecklistComponent {
    * records the check and re-reads.
    */
   protected onCheckAdded(check: ReadinessCheck): void {
-    if (this.editingCheck()) {
-      this.checklistStore.updateCheck(this.campaignRef, check.id, check);
-      this.toast.show('Readiness check updated', `${check.name} was updated.`, 'success');
+    const editing = !!this.editingCheck();
+
+    // THE TOAST WAITS FOR THE SERVER, like the verdicts below. It refuses a duplicate name and an
+    // owner who could not record the check's verdict, and "added" over a list that had not
+    // changed was the screen contradicting itself.
+    const done = (outcome: { readonly saved: boolean; readonly error?: string }): void => {
+      if (!outcome.saved) {
+        this.toast.show(
+          editing ? 'Check not updated' : 'Check not added',
+          outcome.error ?? `${check.name} could not be saved.`,
+          'error');
+        return;
+      }
+
+      this.lastRefresh.set(this.nowLabel());
+      this.toast.show(
+        editing ? 'Readiness check updated' : 'Readiness check added',
+        editing ? `${check.name} was updated.` : `${check.name} added to ${this.campaignRef} as Pending.`,
+        'success');
+    };
+
+    if (editing) {
+      this.checklistStore.updateCheck(this.campaignRef, check.id, check, done);
     } else {
-      this.checklistStore.addCheck(this.campaignRef, check);
-      this.toast.show('Readiness check added', `${check.name} added to ${this.campaignRef}.`, 'success');
+      this.checklistStore.addCheck(this.campaignRef, check, done);
     }
-    this.lastRefresh.set('Just now · IST');
   }
 
   /**
@@ -533,23 +648,15 @@ export class CampaignReadinessChecklistComponent {
    * Initiator does not hold, so refusals are routine - produced "marked as passed" over a card
    * that had not moved. The card is the truth; the toast now says what the card is going to say.
    */
-  /**
-   * Only the person a check is assigned to may pass or fail it. A check nobody is assigned to can be
-   * judged by anyone who holds the permission.
-   */
-  protected isAssignee(check: ReadinessCheck): boolean {
-    return !check.ownerId || check.ownerId === this.currentUserRef();
-  }
-
   protected markChecklistPassed(check: ReadinessCheck): void {
     this.closeChecklistRowMenu();
-    if (!this.permissions().validate || !this.isAssignee(check)) return;
+    if (!this.rowAllows(check, 'Pass')) return;
     this.recordVerdict(check, 'Passed');
   }
   /** Row "Fail" — records that a check is not ready. A separate permission from passing it. */
   protected markChecklistFailed(check: ReadinessCheck): void {
     this.closeChecklistRowMenu();
-    if (!this.permissions().recordFailure || !this.isAssignee(check)) return;
+    if (!this.rowAllows(check, 'Fail')) return;
     this.recordVerdict(check, 'Failed');
   }
   private recordVerdict(check: ReadinessCheck, status: 'Passed' | 'Failed'): void {
@@ -564,7 +671,7 @@ export class CampaignReadinessChecklistComponent {
         return;
       }
 
-      this.lastRefresh.set('Just now · IST');
+      this.lastRefresh.set(this.nowLabel());
       this.toast.show('Readiness check updated', `${check.name} marked as ${verb}.`, 'success');
     });
   }
@@ -599,7 +706,7 @@ export class CampaignReadinessChecklistComponent {
         return;
       }
 
-      this.lastRefresh.set('Just now · IST');
+      this.lastRefresh.set(this.nowLabel());
       this.toast.show('Readiness check deleted', `${check.name} was removed.`, 'success');
     });
   }
@@ -643,9 +750,7 @@ export class CampaignReadinessChecklistComponent {
     const status = this.campaign()?.status;
 
     if (status && status !== 'Draft') {
-      return this.currentUser.hasPermission('cam.campaigns.approve')
-        ? 'Approvers do not raise launch requests; use Approve launch.'
-        : `Already ${status.toLowerCase()} — a launch request has been raised for this campaign.`;
+      return `Already ${status.toLowerCase()} — a launch request has been raised for this campaign.`;
     }
 
     return '';
@@ -705,10 +810,11 @@ export class CampaignReadinessChecklistComponent {
           requestedAt: this.lastRefresh(),
         });
         this.requestDialogOpen.set(false);
+        this.checklistStore.load(this.campaignRef);
         this.showSuccess(
           this.campaignRef,
           'Submitted — awaiting Approve launch',
-          'An independent approver must Approve launch');
+          'A Campaign Manager approves or rejects the launch');
       },
     );
   }
@@ -764,6 +870,28 @@ export class CampaignReadinessChecklistComponent {
   protected approveDisabledReason(): string {
     const rec = this.readiness();
     if (!rec || rec.requestState !== 'Submitted') return 'Approve launch is only available after Request approval.';
+
+    // Requested, but the server is not offering it. The checklist is the usual reason: the launch
+    // cannot be approved while a required check has not passed.
+    const verdict = this.readinessVerdict();
+
+    if (verdict && !this.permissions().approveLaunch) {
+      if (verdict.totalItems === 0) {
+        return 'This campaign has no readiness checks. It cannot be approved until its checks are added and passed.';
+      }
+
+      if (verdict.requiredOutstanding > 0 || verdict.openBlockers > 0) {
+        const parts = [
+          verdict.requiredOutstanding > 0 ? `${verdict.requiredOutstanding} required check(s) have not passed` : '',
+          verdict.openBlockers > 0 ? `${verdict.openBlockers} blocker(s) are open` : '',
+        ].filter(Boolean);
+
+        return `${parts.join(' and ')}. Reject the launch, or wait for the checklist to be completed.`;
+      }
+
+      return 'You created or submitted this campaign, so a colleague has to approve it.';
+    }
+
     return '';
   }
 
@@ -800,8 +928,9 @@ export class CampaignReadinessChecklistComponent {
         decisionReason: this.approveReason().trim(),
       });
       this.approveDialogOpen.set(false);
+      this.checklistStore.load(this.campaignRef);
       this.showSuccess(
-        this.campaignRef, target ?? this.lifecycleState(), 'Monitor the campaign from Campaign detail');
+        this.campaignRef, this.lifecycleState(), 'Monitor the campaign from Campaign detail');
     };
 
     // No launch transition to make - the campaign is already running - so only the readiness
@@ -818,16 +947,97 @@ export class CampaignReadinessChecklistComponent {
     // and then silently changed back, which is exactly what "Approve launch — status not
     // updated" looks like from the outside. `setStatus` routes to the lifecycle endpoint that
     // owns the transition.
-    this.campaignStore.setStatus(this.campaignRef, target, (outcome) => {
+    // THE REASON GOES WITH IT. The dialog has always required one; it was never sent, so the
+    // approval's lifecycle row and audit entry recorded a decision with no reason against it.
+    this.campaignStore.setStatus(
+      this.campaignRef,
+      target,
+      (outcome) => {
+        if (!outcome.applied) {
+          this.toast.show(
+            'Launch not approved',
+            outcome.error ?? 'The campaign could not be approved.',
+            'error');
+          return;
+        }
+
+        applyLocally();
+      },
+      { reasonCategory: 'Launch approved', detailedReason: this.approveReason().trim() },
+    );
+  }
+
+  // ================= Reject launch =================
+  //
+  // The Manager's other answer to a launch request. The campaign goes back to Draft with the
+  // reason, the checklist reads Rejected, and the Executive reworks it and requests again.
+  protected readonly rejectDialogOpen = signal(false);
+  protected readonly rejectReason = signal('');
+  protected readonly rejectTouched = signal(false);
+  protected readonly rejectReasonCount = computed(() => this.rejectReason().trim().length);
+  protected readonly rejectReasonValid = computed(() => {
+    const len = this.rejectReason().trim().length;
+    return len >= this.approveReasonMin && len <= this.approveReasonMax;
+  });
+
+  /** "Reject launch" while a decision is pending; "Return to draft" once it has been approved. */
+  protected readonly rejectLabel = computed(() =>
+    this.campaign()?.status === 'Submitted' ? 'Reject launch' : 'Return to draft',
+  );
+
+  protected readonly rejectAllowed = computed(() => this.permissions().reject);
+
+  protected rejectDisabledReason(): string {
+    if (this.rejectAllowed()) {
+      return '';
+    }
+
+    const status = this.campaign()?.status;
+
+    return status === 'Draft'
+      ? 'Nothing to reject yet — approval has not been requested.'
+      : `A campaign that is ${String(status ?? '').toLowerCase()} can no longer be sent back to Draft.`;
+  }
+
+  protected openRejectDialog(): void {
+    this.closeActionsMenu();
+    if (!this.rejectAllowed()) return;
+    if (this.isStale()) {
+      this.uiState.set('conflict');
+      return;
+    }
+    this.rejectReason.set('');
+    this.rejectTouched.set(false);
+    this.rejectDialogOpen.set(true);
+  }
+  protected cancelReject(): void {
+    this.rejectDialogOpen.set(false);
+  }
+  protected confirmReject(): void {
+    this.rejectTouched.set(true);
+    if (!this.rejectReasonValid()) return;
+
+    const label = this.rejectLabel();
+
+    this.campaignStore.returnToDraft(this.campaignRef, this.rejectReason().trim(), (outcome) => {
       if (!outcome.applied) {
         this.toast.show(
-          'Launch not approved',
-          outcome.error ?? 'The campaign could not be approved.',
+          'Not sent back',
+          outcome.error ?? 'The campaign could not be returned to Draft.',
           'error');
         return;
       }
 
-      applyLocally();
+      this.rejectDialogOpen.set(false);
+      this.readinessStore.load(this.campaignRef);
+      this.checklistStore.load(this.campaignRef);
+      this.lastRefresh.set(this.nowLabel());
+      this.toast.show(
+        label === 'Reject launch' ? 'Launch rejected' : 'Returned to draft',
+        `${this.campaignRef} is back in Draft with your reason.`,
+        'success');
+      this.uiState.set('ready');
+      this.syncSnapshot();
     });
   }
 

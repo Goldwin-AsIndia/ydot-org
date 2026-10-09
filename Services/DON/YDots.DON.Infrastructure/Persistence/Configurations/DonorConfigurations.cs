@@ -143,6 +143,14 @@ public sealed class DonorInteractionConfiguration : IEntityTypeConfiguration<Don
         builder.Property(interaction => interaction.Outcome).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(interaction => interaction.PerformedByName).HasMaxLength(200);
 
+        // What the Communication Timeline's log form records about each exchange.
+        builder.Property(interaction => interaction.Direction).HasConversion<string>().HasMaxLength(20);
+        builder.Property(interaction => interaction.EngagementLevel).HasConversion<string>().HasMaxLength(20);
+        builder.Property(interaction => interaction.Quality).HasConversion<string>().HasMaxLength(20);
+        builder.Property(interaction => interaction.IsImportant).HasDefaultValue(false);
+        builder.Property(interaction => interaction.AttachmentName).HasMaxLength(260);
+        builder.Property(interaction => interaction.InternalNotes).HasMaxLength(3000);
+
         builder.HasIndex(interaction => new { interaction.DonorId, interaction.OccurredAtUtc })
             .HasDatabaseName("ix_don_donor_interactions_donor_occurred");
 

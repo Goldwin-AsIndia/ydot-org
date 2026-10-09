@@ -73,7 +73,10 @@ public sealed class TrackingAsset : TenantEntity, ICodedEntity
     public bool IsLiveAt(DateTimeOffset moment) =>
         Status == TrackingAssetStatus.Active && ActiveFrom <= moment && ActiveTo >= moment;
 
-    /// <summary>The same independence rule campaigns use. See <see cref="Campaign.CanBeApprovedBy"/>.</summary>
-    public bool CanBeApprovedBy(Guid userId) =>
-        CreatedByUserId != userId && SubmittedByUserId != userId;
+    /// <summary>
+    /// The same independence rule campaigns use, with the same exception for the Organisation
+    /// Admin. See <see cref="Campaign.CanBeApprovedBy"/>.
+    /// </summary>
+    public bool CanBeApprovedBy(Guid userId, bool isOrganisationAdministrator = false) =>
+        isOrganisationAdministrator || (CreatedByUserId != userId && SubmittedByUserId != userId);
 }

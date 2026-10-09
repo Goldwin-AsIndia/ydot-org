@@ -405,7 +405,8 @@ public sealed class BudgetPlanCommandHandler(
                 + $"{version.ApprovalState}."));
         }
 
-        if (version.SubmittedByUserId == currentUser.UserId)
+        // The Organisation Admin is exempt, as it is from every independence rule in CAM.
+        if (version.SubmittedByUserId == currentUser.UserId && !currentUser.IsTenantAdmin)
         {
             logger.LogWarning(
                 "Budget plan version {BudgetPlanVersionId} approval rejected due to segregation of duties.",
@@ -510,7 +511,7 @@ public sealed class BudgetPlanCommandHandler(
                 + $"{version.ApprovalState}."));
         }
 
-        if (version.SubmittedByUserId == currentUser.UserId)
+        if (version.SubmittedByUserId == currentUser.UserId && !currentUser.IsTenantAdmin)
         {
             logger.LogWarning(
                 "Budget plan version {BudgetPlanVersionId} rejection rejected due to segregation of duties.",

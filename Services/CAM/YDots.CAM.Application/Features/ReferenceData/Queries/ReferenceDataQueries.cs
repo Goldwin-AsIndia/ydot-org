@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using YDots.CAM.Application.Common.Abstractions.Persistence;
+using YDots.CAM.Application.Common.Settings;
 using YDots.CAM.Application.Common.Results;
 using YDots.CAM.Application.Features.ReferenceData.DTOs;
 using YDots.CAM.Application.Features.ReferenceData.Mappings;
@@ -27,6 +29,7 @@ public sealed record GetMediumsQuery(bool ActiveOnly = true);
 /// </summary>
 public sealed class ReferenceDataQueryHandler(
     IReferenceDataRepository referenceData,
+    IOptions<CampaignSettings> campaignOptions,
     ILogger<ReferenceDataQueryHandler> logger)
 {
     public async Task<Result<CampaignReferenceDataResponse>> HandleAsync(
@@ -53,10 +56,16 @@ public sealed class ReferenceDataQueryHandler(
             [.. channels.Select(channel => channel.ToResponse())],
             [.. sources.Select(source => source.ToResponse())],
             [.. mediums.Select(medium => medium.ToResponse())],
-            ReferenceDataMappingConfig.Describe<CampaignStatus>(),
+            // APPROVED IS NOT A STATE A CAMPAIGN RESTS IN ANY MORE. Approval schedules it, so the
+            // lifecycle a screen offers is Draft, Submitted, Scheduled, Active, Paused, Closing,
+            // Closed and Cancelled. The enum value stays for rows written before the change, which
+            // the activation sweep moves to Scheduled.
+            [.. ReferenceDataMappingConfig.Describe<CampaignStatus>()
+                .Where(option => option.Value != nameof(CampaignStatus.Approved))],
             ReferenceDataMappingConfig.Describe<LifecycleActivation>(),
-            ReferenceDataMappingConfig.Describe<TrackingAssetType>(),
-            ReferenceDataMappingConfig.Describe<TrackingAssetStatus>(),
+            ReferenceDataMappingConfig.DescribeTrackingAssetTypes(
+                campaignOptions.Value.OfferedTrackingAssetTypes ?? []),
+            ReferenceDataMappingConfig.DescribeTrackingAssetStatuses(),
             ReferenceDataMappingConfig.Describe<ReadinessCheckCategory>(),
             ReferenceDataMappingConfig.Describe<ReadinessCheckStatus>()));
     }

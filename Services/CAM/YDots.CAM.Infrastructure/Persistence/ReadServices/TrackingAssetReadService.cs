@@ -149,7 +149,7 @@ public sealed class TrackingAssetReadService(
             row.ChannelName, row.SourceName, row.MediumName,
             clock.UtcNow,
             TrackingAssetMappingConfig.PermittedActionsFor(
-                row.Asset, currentUser.UserId, currentUser.HasPermission),
+                row.Asset, currentUser.UserId, currentUser.HasPermission, currentUser.IsTenantAdmin),
             income.GetValueOrDefault(row.Asset.Id),
             cityNames,
             stateNames);

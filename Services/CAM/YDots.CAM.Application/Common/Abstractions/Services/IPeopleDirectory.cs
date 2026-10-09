@@ -52,4 +52,19 @@ public interface IPeopleDirectory
         Guid tenantId,
         IReadOnlyCollection<Guid> userIds,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Active people in the Organisation who hold <paramref name="permissionCode"/> through an
+    /// active role - the Organisation Admin always among them. Narrowed to
+    /// <paramref name="amongUserIds"/> when given; null means everybody.
+    ///
+    /// It answers "who can actually do this", which is what an assignment picker has to offer:
+    /// a readiness check given to somebody who cannot record its verdict is a check nobody can
+    /// close.
+    /// </summary>
+    Task<IReadOnlyList<PersonSummary>> GetPeopleHoldingPermissionAsync(
+        Guid tenantId,
+        string permissionCode,
+        IReadOnlyCollection<Guid>? amongUserIds,
+        CancellationToken cancellationToken);
 }

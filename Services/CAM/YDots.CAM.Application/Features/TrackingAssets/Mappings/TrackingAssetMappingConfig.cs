@@ -319,7 +319,8 @@ public static class TrackingAssetMappingConfig
     /// it.
     /// </summary>
     public static IReadOnlyList<string> PermittedActionsFor(
-        TrackingAsset asset, Guid callerUserId, Func<string, bool> hasPermission)
+        TrackingAsset asset, Guid callerUserId, Func<string, bool> hasPermission,
+        bool callerIsTenantAdmin = false)
     {
         ArgumentNullException.ThrowIfNull(asset);
         ArgumentNullException.ThrowIfNull(hasPermission);
@@ -359,7 +360,7 @@ public static class TrackingAssetMappingConfig
 
         if (asset.Status == TrackingAssetStatus.Submitted
             && hasPermission(PermissionCodes.TrackingAssetsApprove)
-            && asset.CanBeApprovedBy(callerUserId))
+            && asset.CanBeApprovedBy(callerUserId, callerIsTenantAdmin))
         {
             actions.Add("Approve");
         }

@@ -2,49 +2,51 @@ import {
   Component,
   ChangeDetectionStrategy,
   computed,
-  effect,
+  inject,
   signal,
-  untracked,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { Router } from '@angular/router';
-import { WorkflowStateService } from '../../../../Service/workflow-state.service';
+import { ActivatedRoute, Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
+import { DonorApiService } from '../../../../Service/donor-api.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
+import { DonorListItem, DonorListSummary } from '../../../../Shared/models/donor-contract.model';
+import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
+import { parseCsv, toCsvText } from '../../../../Shared/services/csv';
+import { fetchAllPages } from '../../../../Shared/services/paging';
+import { ToastService } from '../../../../Shared/services/toast.service';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 /**
- * One Donor List row, as `WorkflowStateService` maps it from `DON /api/v1/donors`
- * (DonorListItem). Contact may arrive masked by the server; `contactMasked` says so.
+ * One Donor List row, mapped from `DON /api/v1/donors` (DonorListItem). Contact may arrive
+ * masked by the server; `contactMasked` says so.
  */
 export interface Donor {
   donorId: string;
   name: string;
   mobile: string;
   email: string;
-  location: string;
-  region: string;
   campaign: string;
   owner: string;
-  ownerInitials: string;
-  ownerColor: string;
+  ownerUserId: string | null;
   reference: string;
   lastDonationAmount: number;
   lastDonationDate: string;
   /** Received only; pledges are not counted. */
   lifetimeGiving: number;
-  /** Overdue | Due Today | Tomorrow | None */
+  /** Overdue | Due Today | Tomorrow | Upcoming | None */
   followUpStatus: string;
   /** Granted | Partial | Withdrawn | Not provided */
   consentStatus: string;
-  /** Verified | Pending | Failed | Expired, or empty when never checked */
+  /** Verified | Pending | Under review | Failed | Expired | Cancelled | Not checked */
   verificationStatus: string;
-  engagementTag: string;
   consentReviewRequired: boolean;
   createdDate: string;
   /** Prospect | Active | Restricted | Archived | Merged */
-  status?: string;
-  currency?: string;
-  contactMasked?: boolean;
+  status: string;
+  currency: string;
+  contactMasked: boolean;
 }
 
 type SortableColumn = 'name' | 'lastDonationDate' | 'lifetimeGiving' | 'campaign' | 'owner';
@@ -63,9 +65,14 @@ interface FilterToken {
 
 /** Lifecycle order for the status composition; unknown values follow in data order. */
 const STATUS_ORDER = ['Active', 'Prospect', 'Restricted', 'Archived', 'Merged'];
-const FOLLOW_UP_OPTIONS = ['Overdue', 'Due Today', 'Tomorrow', 'None'];
-const VERIFICATION_OPTIONS = ['Verified', 'Pending', 'Failed', 'Expired', 'Not checked'];
-const CONSENT_OPTIONS = ['Granted', 'Partial', 'Withdrawn', 'Not provided'];
+
+// THE ORDER THE FILTER CHIPS ARE DRAWN IN - not the list of chips. Which values exist is read off
+// the donors themselves (see `present`), so a chip can never offer a value the server does not
+// send. These used to be the chips, and two of them were wrong: "Pending" matched nothing because
+// the server sent the enum name, and a follow-up booked for next week had no chip at all.
+const FOLLOW_UP_ORDER = ['Overdue', 'Due Today', 'Tomorrow', 'Upcoming', 'None'];
+const VERIFICATION_ORDER = ['Verified', 'Pending', 'Under review', 'Failed', 'Expired', 'Cancelled', 'Not checked'];
+const CONSENT_ORDER = ['Granted', 'Partial', 'Withdrawn', 'Not provided'];
 const VIEW_KEY = 'ydot.donor-list.view';
 
 @Component({
@@ -81,12 +88,51 @@ const VIEW_KEY = 'ydot.donor-list.view';
   styleUrl: './donor-list.css',
 })
 export class DonorListComponent {
-  /** ----- Data + async state (owned by the workflow service) ----- */
-  protected readonly donors = computed<Donor[]>(() => this.workflow.donors() as Donor[]);
-  protected readonly loading = computed(() => this.workflow.isLoading() && this.donors().length === 0);
-  protected readonly refreshing = computed(() => this.workflow.isLoading());
-  protected readonly error = computed(() => (this.donors().length === 0 ? this.workflow.loadError() : null));
+  private readonly api = inject(DonorApiService);
+  private readonly tokens = inject(AuthTokenService);
+  private readonly toast = inject(ToastService);
+  private readonly route = inject(ActivatedRoute);
+
+  /**
+   * My Donor List: the donors whose relationship the caller owns.
+   *
+   * THE SAME SCREEN, ASKED A NARROWER QUESTION. The route says which list this is; the server
+   * decides who "me" is from the token, for the rows, the summary and the export alike.
+   */
+  protected readonly mineOnly = this.route.snapshot.data['mine'] === true;
+
+  protected readonly heading = this.mineOnly
+    ? { title: 'My Donor List', subtitle: 'The donors whose relationship you own: what they gave and what needs doing next.' }
+    : { title: 'Donor List', subtitle: 'Everyone who has given: what they gave, who looks after them and what needs doing next.' };
+
+  /**
+   * ----- Data + async state -----
+   *
+   * READ FROM THE API BY THIS SCREEN. It used to read a shared in-browser store that loaded "the
+   * first 200" leads, donors and follow-ups for every screen in the section; the API caps a page
+   * at 100, so the 101st donor was missing from the list and from every figure above it.
+   */
+  protected readonly donors = signal<Donor[]>([]);
+
+  /** The figures over the caller's whole scope, counted by the server. Null until it answers. */
+  protected readonly summary = signal<DonorListSummary | null>(null);
+
+  private readonly busy = signal(false);
+  private readonly failure = signal<string | null>(null);
+
+  protected readonly loading = computed(() => this.busy() && this.donors().length === 0);
+  protected readonly refreshing = computed(() => this.busy());
+  protected readonly error = computed(() => (this.donors().length === 0 ? this.failure() : null));
   protected readonly lastRefreshed = signal<Date>(new Date());
+
+  // What the caller may do from a row. Each is rechecked by the server when it is used; hiding
+  // the control only saves somebody a refusal.
+  protected readonly canExport = this.tokens.hasPermission('don.donors.export');
+  protected readonly canPlanFollowUp = this.tokens.hasPermission('don.follow-up-planner.schedule-follow-up');
+  protected readonly canSeeTimeline = this.tokens.hasPermission('don.lead-work-queue.view');
+  protected readonly canAssignOwner = this.tokens.hasPermission('don.assignment-board.view');
+  protected readonly canVerifyIdentity = this.tokens.hasPermission('don.donor-identity-verification.view');
+  protected readonly canSeeConsent = this.tokens.hasPermission('don.consent-and-preference-centre.view');
 
   /** ----- View ----- */
   protected readonly viewMode = signal<ViewMode>(this.readView());
@@ -122,18 +168,79 @@ export class DonorListComponent {
   protected readonly pageSize = signal(10);
   protected readonly pageSizeOptions = [10, 20, 30, 40, 50];
 
-  protected readonly followUpOptions = FOLLOW_UP_OPTIONS;
-  protected readonly verificationOptions = VERIFICATION_OPTIONS;
-  protected readonly consentOptions = CONSENT_OPTIONS;
+  // The filter chips: the values the donors actually carry, in a fixed reading order.
+  protected readonly followUpOptions = computed(() =>
+    this.present(FOLLOW_UP_ORDER, this.donors().map((d) => d.followUpStatus || 'None')));
+  protected readonly verificationOptions = computed(() =>
+    this.present(VERIFICATION_ORDER, this.donors().map((d) => this.verificationLabel(d))));
+  protected readonly consentOptions = computed(() =>
+    this.present(CONSENT_ORDER, this.donors().map((d) => this.consentLabel(d))));
 
-  constructor(
-    private readonly router: Router,
-    private readonly workflow: WorkflowStateService,
-  ) {
-    // Stamp "Updated" whenever a read settles.
-    effect(() => {
-      if (!this.workflow.isLoading()) untracked(() => this.lastRefreshed.set(new Date()));
+  constructor(private readonly router: Router) {
+    this.load();
+  }
+
+  /**
+   * The rows and the summary, together.
+   *
+   * EVERY PAGE OF ROWS, because the search, the filters and the sort on this screen work over the
+   * whole list; AND THE SUMMARY FROM THE SERVER, because the figures above the list are facts
+   * about the organisation's donors (or the caller's own), not about the rows a browser happens
+   * to be holding.
+   */
+  private load(): void {
+    this.busy.set(true);
+    this.failure.set(null);
+
+    forkJoin({
+      rows: fetchAllPages<DonorListItem>((page, pageSize) =>
+        this.api.searchDonors({ page, pageSize, onlyMine: this.mineOnly || null })),
+      summary: this.api.getDonorSummary(this.mineOnly),
+    }).subscribe({
+      next: ({ rows, summary }) => {
+        this.donors.set(rows.map((row) => this.toDonor(row)));
+        this.summary.set(summary);
+
+        // A selection can outlive the rows it was made on: a donor reassigned away is gone.
+        const ids = new Set(rows.map((row) => row.id));
+        this.selectedIds.update((current) => new Set([...current].filter((id) => ids.has(id))));
+
+        this.busy.set(false);
+        this.lastRefreshed.set(new Date());
+      },
+      error: (error: unknown) => {
+        this.busy.set(false);
+        this.failure.set(apiErrorMessage(error, 'The donor list could not be loaded.'));
+      },
     });
+  }
+
+  private toDonor(item: DonorListItem): Donor {
+    return {
+      donorId: item.id,
+      name: item.displayName,
+
+      // MASKED BY THE SERVER unless the caller holds the sensitive-contact permission.
+      mobile: item.mobileNumber ?? '',
+      email: item.emailAddress ?? '',
+      campaign: item.campaignName ?? '',
+      owner: item.relationshipOwnerName?.trim() || 'Unassigned',
+      ownerUserId: item.relationshipOwnerUserId,
+      reference: item.displayCode,
+      lastDonationAmount: item.lastDonationAmount ?? 0,
+      lastDonationDate: item.lastDonationAtUtc ?? '',
+      lifetimeGiving: item.lifetimeGiving ?? 0,
+      followUpStatus: item.followUpStatus || 'None',
+      consentStatus: item.consentStatus ?? '',
+      verificationStatus: item.verificationStatus ?? '',
+      consentReviewRequired: item.consentReviewRequired ?? false,
+
+      // WHEN THE RECORD WAS CREATED. This was the last-updated instant under a "created" name.
+      createdDate: item.createdAtUtc ?? '',
+      status: item.status,
+      currency: item.currency || 'INR',
+      contactMasked: item.isContactMasked ?? false,
+    };
   }
 
   /* =================================================================================
@@ -141,22 +248,22 @@ export class DonorListComponent {
      ================================================================================= */
 
   protected readonly ownerOptions = computed(() => this.uniqueSorted(this.donors().map((d) => d.owner)));
-  protected readonly campaignOptions = computed(() => this.uniqueSorted([...this.workflow.campaignNames(), ...this.donors().map((d) => d.campaign)]));
+  protected readonly campaignOptions = computed(() => this.uniqueSorted(this.donors().map((d) => d.campaign)));
 
-  /** Status composition over every record, in lifecycle order. */
+  /** Every donor in the caller's scope, by the server's count. */
+  protected readonly donorsOnRecord = computed(() => this.summary()?.donorsOnRecord ?? 0);
+
+  /** Status composition over every record, in lifecycle order - the server's counts. */
   protected readonly statusMix = computed(() => {
-    const list = this.donors();
-    const counts = new Map<string, number>();
-    for (const donor of list) {
-      const status = this.statusOf(donor);
-      counts.set(status, (counts.get(status) ?? 0) + 1);
-    }
-    const known = STATUS_ORDER.filter((s) => counts.has(s));
-    const other = [...counts.keys()].filter((s) => !STATUS_ORDER.includes(s));
+    const counts = this.summary()?.statusCounts ?? {};
+    const total = this.donorsOnRecord();
+    const present = Object.keys(counts).filter((status) => counts[status] > 0);
+    const known = STATUS_ORDER.filter((status) => present.includes(status));
+    const other = present.filter((status) => !STATUS_ORDER.includes(status));
     return [...known, ...other].map((status) => ({
       status,
-      count: counts.get(status) ?? 0,
-      share: list.length ? ((counts.get(status) ?? 0) / list.length) * 100 : 0,
+      count: counts[status],
+      share: total ? (counts[status] / total) * 100 : 0,
     }));
   });
 
@@ -164,38 +271,39 @@ export class DonorListComponent {
   protected readonly statusLead = computed(() =>
     [...this.statusMix()].sort((a, b) => b.count - a.count).slice(0, 2));
   protected readonly statusOther = computed(() =>
-    this.donors().length - this.statusLead().reduce((sum, s) => sum + s.count, 0));
+    this.donorsOnRecord() - this.statusLead().reduce((sum, s) => sum + s.count, 0));
 
-  /** Money figures over every record. */
+  /**
+   * Money figures over every record - the server's, from the payments module, net of refunds.
+   *
+   * THEY WERE ADDED UP HERE FROM THE LOADED ROWS, and "gave recently" summed each donor's LATEST
+   * gift rather than what was received in the period - so somebody who gave three times in the
+   * quarter counted once, at the size of their last gift.
+   */
   protected readonly portfolio = computed(() => {
-    const list = this.donors();
-    const givers = list.filter((d) => (d.lifetimeGiving || 0) > 0);
-    const lifetime = givers.reduce((sum, d) => sum + d.lifetimeGiving, 0);
-    const since = Date.now() - 90 * 864e5;
-    const recent = list.filter((d) => {
-      const t = new Date(d.lastDonationDate).getTime();
-      return Number.isFinite(t) && t >= since && d.lastDonationAmount > 0;
-    });
+    const summary = this.summary();
     return {
-      lifetime,
-      givers: givers.length,
-      average: givers.length ? Math.round(lifetime / givers.length) : 0,
-      recentCount: recent.length,
-      recentSum: recent.reduce((sum, d) => sum + d.lastDonationAmount, 0),
-      currency: this.portfolioCurrency(),
+      lifetime: summary?.lifetimeReceived ?? 0,
+      givers: summary?.givers ?? 0,
+      average: summary?.averagePerGiver ?? 0,
+      recentCount: summary?.recentGivers ?? 0,
+      recentSum: summary?.recentGiving ?? 0,
+      recentDays: summary?.recentWindowDays ?? 90,
+      yetToGive: summary?.yetToGive ?? 0,
+      currency: summary?.currency || 'INR',
     };
   });
 
   protected readonly attentionItems = computed(() => {
-    const list = this.donors();
-    const items: { key: Attention; label: string; hint: string; glyph: string; tone: string }[] = [
-      { key: 'overdue', label: 'Follow-ups overdue', hint: 'Promised contact has slipped', glyph: 'ri-alarm-warning-line', tone: 'danger' },
-      { key: 'today', label: 'Follow-ups due today', hint: 'Planned for today', glyph: 'ri-calendar-event-line', tone: 'warn' },
-      { key: 'unverified', label: 'Identity not verified', hint: 'Pending, failed, expired or unchecked', glyph: 'ri-shield-user-line', tone: 'info' },
-      { key: 'consent', label: 'Consent to review', hint: 'A consent expired or was withdrawn', glyph: 'ri-shield-keyhole-line', tone: 'plum' },
-      { key: 'unowned', label: 'Without an owner', hint: 'Nobody looks after them yet', glyph: 'ri-user-unfollow-line', tone: 'slate' },
+    const summary = this.summary();
+    const items: { key: Attention; label: string; hint: string; glyph: string; tone: string; count: number }[] = [
+      { key: 'overdue', label: 'Follow-ups overdue', hint: 'Promised contact has slipped', glyph: 'ri-alarm-warning-line', tone: 'danger', count: summary?.followUpsOverdue ?? 0 },
+      { key: 'today', label: 'Follow-ups due today', hint: 'Planned for today', glyph: 'ri-calendar-event-line', tone: 'warn', count: summary?.followUpsDueToday ?? 0 },
+      { key: 'unverified', label: 'Identity not verified', hint: 'Pending, failed, expired or unchecked', glyph: 'ri-shield-user-line', tone: 'info', count: summary?.identityNotVerified ?? 0 },
+      { key: 'consent', label: 'Consent to review', hint: 'A consent expired or was withdrawn', glyph: 'ri-shield-keyhole-line', tone: 'plum', count: summary?.consentToReview ?? 0 },
+      { key: 'unowned', label: 'Without an owner', hint: 'Nobody looks after them yet', glyph: 'ri-user-unfollow-line', tone: 'slate', count: summary?.withoutOwner ?? 0 },
     ];
-    return items.map((item) => ({ ...item, count: list.filter((d) => this.needs(d, item.key)).length }));
+    return items;
   });
 
   /** ----- Search + filter + sort pipeline ----- */
@@ -507,10 +615,35 @@ export class DonorListComponent {
     });
   }
 
-  protected exportDonorRecord(donor: Donor, event: Event): void {
+  /**
+   * Assign or reassign the donor's owner, on the Assignment Board's Donors view.
+   *
+   * THE WAY IN FOR A DONOR NOBODY OWNS. Somebody who gave without ever being a lead arrives with
+   * no owner, and the board is where the organisation's administrator gives them one. It is
+   * reached from the lead queue for leads; this is the same door for donors.
+   */
+  protected openAssignmentBoard(donor: Donor, event: Event): void {
     event.stopPropagation();
-    this.downloadCsv([donor], `${donor.reference || donor.donorId}.csv`);
     this.openMoreMenuId.set(null);
+    this.router.navigate(['/app/fundraising/relationships/assignment-board'], {
+      // The donor's number as the board's search, so their row is on its first page.
+      queryParams: { recordType: 'Donors', donorId: donor.donorId, search: donor.reference },
+    });
+  }
+
+  /**
+   * Export History - one donor's gifts, conversations, follow-ups and ownership, as the server
+   * holds them. It used to write the donor's single list row to a file, built in the browser.
+   */
+  protected exportDonorHistory(donor: Donor, event: Event): void {
+    event.stopPropagation();
+    this.openMoreMenuId.set(null);
+
+    this.api.exportDonorHistory(donor.donorId).subscribe({
+      next: ({ blob, fileName }) => this.saveBlob(blob, fileName),
+      error: (error: unknown) =>
+        this.toast.show('Not exported', apiErrorMessage(error, 'The donor history could not be exported.'), 'error'),
+    });
   }
 
   protected onRowClick(donor: Donor): void {
@@ -535,7 +668,7 @@ export class DonorListComponent {
 
   /* ----- Header actions ----- */
   protected refresh(): void {
-    this.workflow.refresh();
+    this.load();
   }
 
   protected toggleExportMenu(): void {
@@ -543,14 +676,55 @@ export class DonorListComponent {
     this.exportMenuOpen.update((open) => !open);
   }
 
+  protected readonly exporting = signal(false);
+
+  /**
+   * Export - the donors in view (or the ticked ones), from a file the server wrote.
+   *
+   * ALL THREE FORMATS START FROM THE SERVER'S EXPORT. They used to be built in the browser from
+   * the rows it was holding: no permission check, no masking beyond what the screen happened to
+   * show, and no record that anybody had taken a copy of the donor list. The server's file is
+   * the export - checked against `don.donors.export`, masked for the caller, and logged - and
+   * this re-shapes it: keeps the donors the search, filters or ticks ask for, then saves it as
+   * CSV, as a workbook, or sends it to the printer.
+   */
   protected exportData(format: ExportFormat): void {
-    const rows = this.selectedIds().size > 0
+    this.exportMenuOpen.set(false);
+    if (!this.canExport || this.exporting()) return;
+
+    const chosen = this.selectedIds().size > 0
       ? this.donors().filter((d) => this.selectedIds().has(d.donorId))
       : this.filteredDonors();
-    if (format === 'csv') this.downloadCsv(rows, 'donor-list.csv');
-    else if (format === 'excel') this.downloadExcel(rows, 'donor-list.xls');
-    else this.printAsPdf(rows);
-    this.exportMenuOpen.set(false);
+    const wanted = new Set(chosen.map((d) => d.reference));
+
+    // Opened now, inside the click, or the browser treats it as a pop-up and blocks it.
+    const printWindow = format === 'pdf' ? window.open('', '_blank') : null;
+
+    this.exporting.set(true);
+    this.api.exportDonors({ onlyMine: this.mineOnly || null }).subscribe({
+      next: ({ blob, fileName }) => {
+        void blob.text().then((text) => {
+          const [headers = [], ...all] = parseCsv(text);
+          const rows = all.filter((row) => wanted.has(row[0]));
+          const base = fileName.replace(/\.csv$/i, '');
+
+          if (format === 'csv') {
+            this.saveBlob(new Blob([toCsvText([headers, ...rows])], { type: 'text/csv;charset=utf-8;' }), `${base}.csv`);
+          } else if (format === 'excel') {
+            this.downloadExcel(headers, rows, `${base}.xls`);
+          } else if (printWindow) {
+            this.printAsPdf(printWindow, headers, rows);
+          }
+
+          this.exporting.set(false);
+        });
+      },
+      error: (error: unknown) => {
+        printWindow?.close();
+        this.exporting.set(false);
+        this.toast.show('Not exported', apiErrorMessage(error, 'The donor list could not be exported.'), 'error');
+      },
+    });
   }
 
   /* ----- Pagination ----- */
@@ -588,7 +762,7 @@ export class DonorListComponent {
      ================================================================================= */
 
   protected statusOf(donor: Donor): string {
-    return donor.status || donor.engagementTag || 'Active';
+    return donor.status;
   }
 
   protected verificationLabel(donor: Donor): string {
@@ -604,6 +778,7 @@ export class DonorListComponent {
       case 'Overdue': return 'A planned follow-up has passed its date.';
       case 'Due Today': return 'A follow-up is planned for today.';
       case 'Tomorrow': return 'A follow-up is planned for tomorrow.';
+      case 'Upcoming': return 'A follow-up is planned for a later date.';
       default: return 'Nothing is planned at the moment.';
     }
   }
@@ -611,9 +786,11 @@ export class DonorListComponent {
   protected identityNote(donor: Donor): string {
     switch (donor.verificationStatus) {
       case 'Verified': return 'Identity has been checked and confirmed.';
-      case 'Pending': return 'A check has started and is awaiting its result.';
+      case 'Pending': return 'A code has been sent and is awaiting entry.';
+      case 'Under review': return 'The check was escalated and is being reviewed.';
       case 'Failed': return 'The last check failed and needs another attempt.';
       case 'Expired': return 'The verification has lapsed and should be renewed.';
+      case 'Cancelled': return 'The last check was cancelled before it finished.';
       default: return 'Identity has not been checked yet.';
     }
   }
@@ -723,11 +900,12 @@ export class DonorListComponent {
     return gave && t >= Date.now() - Number(period) * 864e5;
   }
 
-  /** The currency most rows use; the overview totals are only shown in one. */
-  private portfolioCurrency(): string {
-    const counts = new Map<string, number>();
-    for (const d of this.donors()) counts.set(d.currency || 'INR', (counts.get(d.currency || 'INR') ?? 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'INR';
+  /** The values present among `values`, in `order`; anything unexpected follows, sorted. */
+  private present(order: readonly string[], values: readonly string[]): string[] {
+    const seen = new Set(values.filter((value) => !!value));
+    const known = order.filter((value) => seen.has(value));
+    const other = [...seen].filter((value) => !order.includes(value)).sort((a, b) => a.localeCompare(b));
+    return [...known, ...other];
   }
 
   private readView(): ViewMode {
@@ -742,45 +920,32 @@ export class DonorListComponent {
     return Array.from(new Set(values.filter((v) => !!v && v !== 'Unassigned'))).sort((a, b) => a.localeCompare(b));
   }
 
-  private exportRow(d: Donor): (string | number)[] {
-    return [
-      d.reference || d.donorId, d.name, this.statusOf(d), d.mobile, d.email, d.campaign, d.owner,
-      d.currency || 'INR', d.lastDonationAmount, d.lastDonationDate, d.lifetimeGiving,
-      d.followUpStatus, this.consentLabel(d), this.verificationLabel(d),
-    ];
-  }
-
-  private readonly exportHeaders = [
-    'Donor ID', 'Donor Name', 'Status', 'Mobile', 'Email', 'Campaign', 'Owner', 'Currency',
-    'Last Donation Amount', 'Last Donation Date', 'Lifetime Giving', 'Follow-Up Status', 'Consent Status', 'Verification Status',
-  ];
-
-  private downloadCsv(rows: Donor[], filename: string): void {
-    const lines = rows.map((d) =>
-      this.exportRow(d).map((field) => `"${String(field ?? '').replace(/"/g, '""')}"`).join(','));
-    this.triggerDownload([this.exportHeaders.join(','), ...lines].join('\r\n'), filename, 'text/csv;charset=utf-8;');
-  }
-
-  private downloadExcel(rows: Donor[], filename: string): void {
+  /** The server's export as a workbook: the same columns, the same rows. */
+  private downloadExcel(headers: readonly string[], rows: readonly (readonly string[])[], filename: string): void {
     const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    const head = '<tr>' + this.exportHeaders.map((h) => `<th>${h}</th>`).join('') + '</tr>';
-    const body = rows.map((d) => '<tr>' + this.exportRow(d).map((v) => `<td>${esc(v)}</td>`).join('') + '</tr>').join('');
-    this.triggerDownload(`<table>${head}${body}</table>`, filename, 'application/vnd.ms-excel');
+    const head = '<tr>' + headers.map((h) => `<th>${esc(h)}</th>`).join('') + '</tr>';
+    const body = rows.map((row) => '<tr>' + row.map((v) => `<td>${esc(v)}</td>`).join('') + '</tr>').join('');
+    this.saveBlob(new Blob([`<table>${head}${body}</table>`], { type: 'application/vnd.ms-excel' }), filename);
   }
 
-  private printAsPdf(rows: Donor[]): void {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+  /** The server's export on a page: the seven columns that fit one, read by their headings. */
+  private printAsPdf(printWindow: Window, headers: readonly string[], rows: readonly (readonly string[])[]): void {
     const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    const rowsHtml = rows.map((d) =>
-      `<tr><td>${esc(d.reference || d.donorId)}</td><td>${esc(d.name)}</td><td>${esc(this.statusOf(d))}</td>` +
-      `<td>${esc(d.campaign || '—')}</td><td>${esc(d.owner)}</td>` +
-      `<td style="text-align:right">${esc(this.formatMoney(d.lifetimeGiving, d.currency))}</td>` +
-      `<td>${esc(this.verificationLabel(d))}</td></tr>`).join('');
+    const column = (name: string) => headers.indexOf(name);
+    const cell = (row: readonly string[], name: string) => (column(name) >= 0 ? row[column(name)] ?? '' : '');
+    const money = (row: readonly string[]) => {
+      const amount = Number(cell(row, 'Lifetime received'));
+      return Number.isFinite(amount) && amount > 0 ? this.formatMoney(amount, cell(row, 'Currency') || 'INR') : '—';
+    };
+    const rowsHtml = rows.map((row) =>
+      `<tr><td>${esc(cell(row, 'Donor number'))}</td><td>${esc(cell(row, 'Name'))}</td><td>${esc(cell(row, 'Status'))}</td>` +
+      `<td>${esc(cell(row, 'Campaign') || '—')}</td><td>${esc(cell(row, 'Owner'))}</td>` +
+      `<td style="text-align:right">${esc(money(row))}</td>` +
+      `<td>${esc(cell(row, 'Identity'))}</td></tr>`).join('');
     printWindow.document.write(`
       <html>
         <head>
-          <title>Donor List</title>
+          <title>${esc(this.heading.title)}</title>
           <style>
             body { font-family: Georgia, serif; padding: 32px; color: #17211c; }
             h2 { font-weight: 600; margin: 0 0 4px; }
@@ -791,7 +956,7 @@ export class DonorListComponent {
           </style>
         </head>
         <body>
-          <h2>Donor List</h2>
+          <h2>${esc(this.heading.title)}</h2>
           <p>${rows.length} donors · printed ${esc(this.formatDateTime(new Date()))}</p>
           <table>
             <thead><tr><th>Donor ID</th><th>Name</th><th>Status</th><th>Campaign</th><th>Owner</th><th style="text-align:right">Lifetime giving</th><th>Identity</th></tr></thead>
@@ -805,8 +970,7 @@ export class DonorListComponent {
     printWindow.print();
   }
 
-  private triggerDownload(content: string, filename: string, mimeType: string): void {
-    const blob = new Blob([content], { type: mimeType });
+  private saveBlob(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

@@ -26,7 +26,24 @@ public sealed record Donor360Response(
     IReadOnlyList<string> PermittedActions,
     IReadOnlyList<string> MaskedFields,
     string ActiveScope,
-    string State);
+    string State,
+
+    /// <summary>
+    /// Every gift, newest first, as the payments module recorded it. The Donations tab used to
+    /// show stage totals only, so a donor's actual gifts were nowhere on the 360 view.
+    /// </summary>
+    IReadOnlyList<DonationResponse> Donations);
+
+/// <summary>One gift on the Donations tab.</summary>
+public sealed record DonationResponse(
+    Guid Id,
+    string Reference,
+    DateTimeOffset DonatedAtUtc,
+    decimal Amount,
+    decimal RefundedAmount,
+    string Currency,
+    string Status,
+    string? CampaignName);
 
 /// <summary>"Identity and contact summary". Restricted: masked unless separately permitted.</summary>
 public sealed record IdentityAndContactSummaryResponse(
@@ -94,7 +111,15 @@ public sealed record CampaignHistoryResponse(
     string CampaignCode,
     string CampaignName,
     string LeadReference,
-    DateTimeOffset? ConvertedAtUtc);
+    DateTimeOffset? ConvertedAtUtc,
+
+    // ---- What the donor gave to the campaign -----------------------------------------------------
+    //
+    // THE ROW USED TO CARRY NO MONEY, and the screen printed 0 against every campaign. A campaign
+    // appears here because the donor's lead came from it, because they gave to it, or both.
+    decimal Amount,
+    int GiftCount,
+    DateTimeOffset? LastGiftAtUtc);
 
 /// <summary>One conversation from the interaction log.</summary>
 public sealed record ConversationResponse(
@@ -116,7 +141,24 @@ public sealed record Donor360FollowUpResponse(
     DateTimeOffset? DueAtUtc,
     string Priority,
     string Status,
-    string? RelationshipOwnerName);
+    string? RelationshipOwnerName,
+
+    // ---- What the Follow-ups tab needs to tell open from overdue from closed ----------------------
+    //
+    // "OVERDUE" IS NOT A STATUS - the server's statuses are Planned, Assigned, Rescheduled,
+    // Completed and Cancelled - so the tab's Overdue view counted a status that never arrived and
+    // always read 0. It is a fact about an open task's due date, computed here.
+    bool IsOpen,
+    bool IsOverdue,
+    bool IsAssignedToMe,
+    string Channel,
+    string? Purpose,
+    DateTimeOffset? CompletedAtUtc,
+    string? CompletionOutcome,
+
+    // Whether THIS caller may execute it: the assignee, or the Organisation Admin, while it is
+    // open and the caller may complete follow-ups. The tab draws Execute from this.
+    bool CanExecute);
 
 /// <summary>One pledge.</summary>
 public sealed record PromiseResponse(
@@ -157,7 +199,10 @@ public sealed record ActivityHistoryResponse(
     string Result,
     string? Reason,
     DateTimeOffset OccurredAtUtc,
-    string CorrelationId);
+    string CorrelationId,
+
+    /// <summary>Who did it. The panel used to print the record type in the "by" column.</summary>
+    string? ActorName);
 
 /// <summary>SCR-DON-003 Create intent body. Records a stated giving intention as a promise.</summary>
 public sealed class CreateIntentRequest

@@ -135,7 +135,12 @@ public sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICur
             && permissionCodes.Any(code => Permissions.Contains(code));
     }
 
-    public AccessScope Scope => new(OrganisationId, UserId, DataScopes);
+    /// <summary>
+    /// The caller's data scope. Organisation-wide only with <c>don.records.view-all</c>; see
+    /// <see cref="AccessScope.IsOrganisationWide"/>. A SuperAdmin passes HasPermission, so the
+    /// platform root still sees every record of the Organisation it is standing in.
+    /// </summary>
+    public AccessScope Scope => new(OrganisationId, UserId, DataScopes, HasPermission(PermissionCodes.RecordsViewAll));
 
     private string? FindFirst(string claimType) => Principal?.FindFirst(claimType)?.Value;
 

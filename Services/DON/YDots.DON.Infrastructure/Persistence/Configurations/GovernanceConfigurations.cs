@@ -139,8 +139,12 @@ public sealed class FollowUpTaskConfiguration : IEntityTypeConfiguration<FollowU
         builder.Property(task => task.ConsentNoticeVersion).HasMaxLength(60);
         builder.Property(task => task.Status).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(task => task.CompletionOutcome).HasMaxLength(2000);
+        builder.Property(task => task.ExecutionStatus).HasConversion<string>().HasMaxLength(40);
+        builder.Property(task => task.CompletionReason).HasConversion<string>().HasMaxLength(40);
+        builder.Property(task => task.Disposition).HasConversion<string>().HasMaxLength(40);
         builder.Property(task => task.RescheduleReason).HasMaxLength(2000);
         builder.Property(task => task.CancellationReason).HasMaxLength(2000);
+        builder.Property(task => task.EscalationReason).HasMaxLength(2000);
 
         builder.HasIndex(task => task.FollowUpReference)
             .IsUnique()

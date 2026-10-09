@@ -32,7 +32,7 @@ public static class ModulePermissionCatalogue
         string? Description = null);
 
     /// <summary>
-    /// Section 04 Donors. Mirrors the 49 codes DON compiles against.
+    /// Section 04 Donors. Mirrors the 50 codes DON compiles against.
     /// </summary>
     public static readonly IReadOnlyList<PermissionSeed> Donors =
     [
@@ -51,6 +51,14 @@ public static class ModulePermissionCatalogue
             Description: "Unmasks e-mail and phone in list, export and support views."),
         new("don.donors.view-confidential-evidence", "View confidential evidence", "DON", "Donors",
             PermissionAction.View, IsSensitive: true),
+
+        // THE ORGANISATION-WIDE LENS. Without it a holder of the view codes above sees only the
+        // leads, donors and follow-ups assigned to them - which is what DonorCare's My Leads, My
+        // Donor List and Follow-up Queue are. A View, so both computed fundraising profiles carry
+        // it; DonorCare's listed profile deliberately does not.
+        new("don.records.view-all", "View every donor, lead and follow-up", "DON", "Donors",
+            PermissionAction.View,
+            Description: "Without it the holder sees only the leads, donors and follow-ups assigned to them."),
 
         new("don.lead-work-queue.view", "View lead work queue", "DON", "LeadWorkQueue", PermissionAction.View),
         new("don.lead-work-queue.accept", "Accept lead", "DON", "LeadWorkQueue", PermissionAction.Operate),

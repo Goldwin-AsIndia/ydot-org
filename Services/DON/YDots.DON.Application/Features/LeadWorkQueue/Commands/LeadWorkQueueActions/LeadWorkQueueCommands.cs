@@ -37,6 +37,9 @@ public sealed record CloseLeadCommand(Guid LeadId, ReasonRequest Request);
 /// <summary>Step 5 of the guided flow: create or link the donor and preserve attribution.</summary>
 public sealed record ConvertLeadCommand(Guid LeadId, ConvertLeadRequest Request);
 
+/// <summary>Records the fundraiser's reading of a lead: temperature and donation potential.</summary>
+public sealed record ScoreLeadCommand(Guid LeadId, ScoreLeadRequest Request);
+
 /// <summary>
 /// The five queue actions plus conversion.
 ///
@@ -492,6 +495,66 @@ public sealed class LeadWorkQueueCommandHandler(
         return await BuildDetailAsync(lead, cancellationToken);
     }
 
+    public async Task<Result<LeadDetailResponse>> HandleAsync(
+        ScoreLeadCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("Score lead action started.");
+
+        var loaded = await LoadAsync(command.LeadId, command.Request.ExpectedVersion, cancellationToken);
+        if (loaded.Error is not null)
+        {
+            return Result.Failure<LeadDetailResponse>(loaded.Error);
+        }
+
+        var lead = loaded.Lead!;
+
+        if (lead.Status is LeadStatus.Converted or LeadStatus.Closed or LeadStatus.Suppressed)
+        {
+            return Result.Failure<LeadDetailResponse>(Error.InvalidTransition(
+                $"A lead in state {lead.Status} is no longer scored."));
+        }
+
+        if (!Enum.TryParse<LeadTemperature>(command.Request.Temperature, ignoreCase: true, out var temperature))
+        {
+            return Result.Failure<LeadDetailResponse>(Error.Validation(
+                "Review Temperature. Choose Cold, Warm or Hot.",
+                [new ValidationError(nameof(command.Request.Temperature), "Choose a temperature from the list.")]));
+        }
+
+        if (!Enum.TryParse<DonationPotential>(command.Request.DonationPotential, ignoreCase: true, out var potential))
+        {
+            return Result.Failure<LeadDetailResponse>(Error.Validation(
+                "Review Donation potential. Choose Low, Medium or High.",
+                [new ValidationError(nameof(command.Request.DonationPotential), "Choose a donation potential from the list.")]));
+        }
+
+        var reason = command.Request.Reason?.Trim() ?? string.Empty;
+
+        if (reason.Length is < 10 or > 2000)
+        {
+            return Result.Failure<LeadDetailResponse>(Error.Validation(
+                "Enter Reason. Use between 10 and 2,000 characters.",
+                [new ValidationError(nameof(command.Request.Reason), "Use between 10 and 2,000 characters.")]));
+        }
+
+        var before = $"{lead.Temperature}/{lead.DonationPotential}";
+
+        lead.Temperature = temperature;
+        lead.DonationPotential = potential;
+
+        await auditWriter.WriteAsync(
+            new AuditEntry(AuditActionCodes.LeadScored, nameof(Lead), lead.Id, AuditResult.Succeeded,
+                $"{lead.LeadReference} rescored from {before} to {temperature}/{potential}. {reason}"),
+            cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Score lead action completed successfully.");
+
+        return await BuildDetailAsync(lead, cancellationToken);
+    }
+
     private static InteractionType MapChannelToInteraction(ConsentChannel channel) =>
         channel switch
         {
@@ -507,7 +570,7 @@ public sealed class LeadWorkQueueCommandHandler(
         var consents = await consentRepository.GetForLeadAsync(lead.Id, cancellationToken);
 
         return Result.Success(lead.ToDetailResponse(
-            currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents));
+            currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents, currentUser.HasPermission));
     }
 
     /// <summary>Load, scope check and optional version check in one place, since all six actions need it.</summary>

@@ -1,3 +1,4 @@
+using YDots.DON.Application.Common.Abstractions.Services;
 using Microsoft.Extensions.Logging;
 using YDots.DON.Application.Common.Abstractions.Persistence;
 using YDots.DON.Application.Common.Abstractions.Security;
@@ -18,6 +19,17 @@ public sealed record SearchCampaignsQuery(string? Search, int MaximumRows);
 
 /// <summary>GET /api/v1/donors/reference-data/leads. Scope-aware lead autocomplete.</summary>
 public sealed record SearchLeadsQuery(string? Search, int MaximumRows);
+
+/// <summary>
+/// GET reference-data/owners. The people a lead, a donor or a follow-up may be given to.
+///
+/// ONE LIST FOR EVERY OWNER PICKER. Donor 360's Edit profile read its owners from the platform's
+/// people directory, which is every active account in the organisation - so it offered donors
+/// with a portal login, and campaign staff who cannot open a donor, as relationship owners. This
+/// is the list the Assignment Board and the Follow-up Planner already use: active staff whose
+/// role lets them work a lead or a follow-up.
+/// </summary>
+public sealed record GetAssignableOwnersQuery;
 
 /// <summary>One campaign row for a selector.</summary>
 public sealed record CampaignLookupResponse(
@@ -53,7 +65,10 @@ public sealed record ReferenceDataResponse(
     IReadOnlyList<LookupItem> DonationStages,
     IReadOnlyList<LookupItem> PromiseStatuses,
     IReadOnlyList<LookupItem> DocumentClassifications,
-    IReadOnlyList<LookupItem> Languages);
+    IReadOnlyList<LookupItem> Languages,
+
+    /// <summary>Active currencies from the global master, for amounts such as a donation intent.</summary>
+    IReadOnlyList<LookupItem> Currencies);
 
 /// <summary>
 /// Serves the catalogues. Everything comes from the enums themselves, so a value added to an
@@ -62,17 +77,20 @@ public sealed record ReferenceDataResponse(
 public sealed class ReferenceDataQueryHandler(
     ICampaignRepository campaignRepository,
     ILeadRepository leadRepository,
+    ICurrencyCatalogue currencies,
+    IPeopleDirectory peopleDirectory,
     ICurrentUser currentUser,
     ILogger<ReferenceDataQueryHandler> logger)
 {
-    public Task<Result<ReferenceDataResponse>> HandleAsync(
+    public async Task<Result<ReferenceDataResponse>> HandleAsync(
         GetReferenceDataQuery query,
         CancellationToken cancellationToken = default)
     {
         _ = query;
-        _ = cancellationToken;
 
         logger.LogInformation("Getting donor reference data catalogues.");
+
+        var currencyOptions = await currencies.GetActiveAsync(currentUser.OrganisationId, cancellationToken);
 
         var response = new ReferenceDataResponse(
             ToLookup<DonorType>(),
@@ -98,11 +116,12 @@ public sealed class ReferenceDataQueryHandler(
             ToLookup<DonationStage>(),
             ToLookup<PromiseStatus>(),
             ToLookup<DocumentClassification>(),
-            SupportedLanguages.All);
+            SupportedLanguages.All,
+            currencyOptions);
 
         logger.LogInformation("Donor reference data catalogues loaded successfully.");
 
-        return Task.FromResult(Result.Success(response));
+        return Result.Success(response);
     }
 
     public async Task<Result<IReadOnlyList<CampaignLookupResponse>>> HandleAsync(
@@ -164,4 +183,18 @@ public sealed class ReferenceDataQueryHandler(
 
     private static IReadOnlyList<LookupItem> ToLookup<TEnum>() where TEnum : struct, Enum =>
         [.. Enum.GetValues<TEnum>().Select(value => new LookupItem(value.ToString(), value.ToString()))];
+
+    public async Task<Result<IReadOnlyList<LookupItem>>> HandleAsync(
+        GetAssignableOwnersQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        _ = query;
+
+        var people = await peopleDirectory.GetAssignableAsync(currentUser.OrganisationId, cancellationToken);
+
+        IReadOnlyList<LookupItem> owners =
+            [.. people.Select(person => new LookupItem(person.UserId.ToString(), person.Name))];
+
+        return Result.Success(owners);
+    }
 }

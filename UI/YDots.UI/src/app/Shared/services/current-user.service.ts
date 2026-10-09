@@ -13,8 +13,11 @@ import { AuthTokenService } from './auth-token.service';
 export type CampaignRole =
   | 'Super Admin'
   | 'Organisation Administrator'
-  | 'Approver'
-  | 'Initiator'
+  | 'Campaign Manager'
+  | 'Campaign Executive'
+  | 'Fundraising Manager'
+  | 'Fundraiser Executive'
+  | 'DonorCare'
   | 'Donor'
   | 'User';
 
@@ -178,14 +181,28 @@ export class CurrentUserService {
       return 'Organisation Administrator';
     }
 
-    // APPROVER BEFORE INITIATOR, because the order here is most-privileged-first and somebody
+    // THE ROLES IAM SEEDS TODAY. This still looked for APPROVER and INITIATOR, two codes the
+    // catalogue retired, so every Campaign Manager and Executive was labelled plain "User".
+    // MANAGER BEFORE EXECUTIVE, because the order here is most-privileged-first and somebody
     // holding both should be labelled by the authority they carry rather than the work they do.
-    if (roles.includes('APPROVER')) {
-      return 'Approver';
+    if (roles.includes('CAMPAIGN_MANAGER')) {
+      return 'Campaign Manager';
     }
 
-    if (roles.includes('INITIATOR')) {
-      return 'Initiator';
+    if (roles.includes('FUNDRAISING_MANAGER')) {
+      return 'Fundraising Manager';
+    }
+
+    if (roles.includes('CAMPAIGN_EXECUTIVE')) {
+      return 'Campaign Executive';
+    }
+
+    if (roles.includes('FUNDRAISER_EXECUTIVE')) {
+      return 'Fundraiser Executive';
+    }
+
+    if (roles.includes('DONOR_CARE')) {
+      return 'DonorCare';
     }
 
     // LAST, AND BELOW EVERY STAFF ROLE. Somebody who gives AND works here - a volunteer, an
@@ -205,6 +222,14 @@ export class CurrentUserService {
   );
 
   readonly isSuperAdmin = computed(() => this.tokens.isSuperAdmin());
+
+  /**
+   * Whether the caller administers this Organisation.
+   *
+   * FOR WHAT A SCREEN SHOWS, never for what it allows: the Organisation Admin is offered every menu
+   * and every option, and the services decide for themselves what the token may do.
+   */
+  readonly isOrganisationAdmin = computed(() => this.tokens.isTenantAdmin());
 
   /**
    * The signed-in person's own name and address, for a form that should not ask them again.

@@ -19,7 +19,7 @@ Clicking a row or card opens Donor 360. All navigation destinations and query pa
 
 ## Data
 
-Rows come from `WorkflowStateService.donors()`, which maps `DON /api/v1/donors` (`DonorListItem`). The service used to blank contact, campaign, gifts, lifetime giving, follow-up, identity and consent, so every donor showed ₹0 and dashes. It now carries them through, plus `status`, `currency` and `contactMasked`. Masked contact shows a lock and is never unmasked in the browser.
+Rows come from `DonorApiService.searchDonors` (`GET /api/v1/donors`, every page), and every figure above the list from `DonorApiService.getDonorSummary` (`GET /api/v1/donors/summary`), so a count is the organisation's, not the loaded page's. Opened as My Donor List (`data: { mine: true }` on the route) both calls are limited to the donors the signed-in person owns. Exports are the server's CSV, re-shaped for Excel and Print. Masked contact shows a lock and is never unmasked in the browser.
 
 ## Styling rules
 

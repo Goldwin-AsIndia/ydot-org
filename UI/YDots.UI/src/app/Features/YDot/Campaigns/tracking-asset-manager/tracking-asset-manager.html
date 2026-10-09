@@ -99,7 +99,7 @@
           @if (openMenu() === 'f-saved') {
             <ul class="tam-combo-list tam-combo-list-end" role="listbox">
               @for (v of savedViews; track v) {
-                <li role="option" [attr.aria-selected]="savedView() === v"><button type="button" class="tam-combo-option" [class.is-selected]="savedView() === v" (click)="savedView.set(v); closeMenu()">{{ v }}</button></li>
+                <li role="option" [attr.aria-selected]="savedView() === v"><button type="button" class="tam-combo-option" [class.is-selected]="savedView() === v" (click)="applySavedView(v); closeMenu()">{{ v }}</button></li>
               }
             </ul>
           }
@@ -123,7 +123,7 @@
               @if (openMenu() === 'f-assetType') {
                 <ul class="tam-combo-list" role="listbox">
                   <li role="option" [attr.aria-selected]="!assetTypeFilter()"><button type="button" class="tam-combo-option" [class.is-selected]="!assetTypeFilter()" (click)="assetTypeFilter.set(''); currentPage.set(1); closeMenu()">All types</button></li>
-                  @for (t of assetTypeCatalogue; track t) {
+                  @for (t of assetTypeCatalogue(); track t) {
                     <li role="option" [attr.aria-selected]="assetTypeFilter() === t"><button type="button" class="tam-combo-option" [class.is-selected]="assetTypeFilter() === t" (click)="assetTypeFilter.set(t); currentPage.set(1); closeMenu()">{{ t }}</button></li>
                   }
                 </ul>
@@ -163,7 +163,7 @@
               @if (openMenu() === 'f-status') {
                 <ul class="tam-combo-list" role="listbox">
                   <li role="option" [attr.aria-selected]="!statusFilter()"><button type="button" class="tam-combo-option" [class.is-selected]="!statusFilter()" (click)="statusFilter.set(''); currentPage.set(1); closeMenu()">All statuses</button></li>
-                  @for (s of statusCatalogue; track s) {
+                  @for (s of statusCatalogue(); track s) {
                     <li role="option" [attr.aria-selected]="statusFilter() === s"><button type="button" class="tam-combo-option" [class.is-selected]="statusFilter() === s" (click)="statusFilter.set(s); currentPage.set(1); closeMenu()">{{ s }}</button></li>
                   }
                 </ul>
@@ -259,8 +259,7 @@
     }
     @if (uiState() === 'dependency-failure') {
       <div class="tam-banner tam-banner-warn" role="alert">
-        <span class="tam-banner-body">We could not complete the dependent service step. Your confirmed local result is unchanged.
-          <span class="tam-corr">Correlation INT-88421</span></span>
+        <span class="tam-banner-body">We could not complete the dependent service step. Your confirmed local result is unchanged.</span>
         <span class="tam-banner-actions">
           <button type="button" class="tam-link" (click)="dismissBanner()">Retry dependency</button>
         </span>
@@ -539,7 +538,7 @@
               <div class="tam-field tam-field-span" [class.tam-field-invalid]="missing('assetType')">
                 <span class="tam-field-label" id="g-assetType">Asset type <span class="tam-req">*</span></span>
                 <div class="tam-type-grid" role="radiogroup" aria-labelledby="g-assetType">
-                  @for (t of assetTypeCatalogue; track t) {
+                  @for (t of assetTypeCatalogue(); track t) {
                     <button type="button" class="tam-tile" role="radio" [attr.aria-checked]="gAssetType() === t"
                             [class.is-selected]="gAssetType() === t" [disabled]="isEditing()" (click)="selectAssetType(t)">
                       <svg class="tam-tile-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path [attr.d]="assetTypeMeta(t).icon"/></svg>

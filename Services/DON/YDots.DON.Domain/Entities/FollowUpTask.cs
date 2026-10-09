@@ -62,7 +62,35 @@ public class FollowUpTask : AuditEntity, IOrganisationOwned
 
     public string? CompletionOutcome { get; set; }
 
+    // ---- How the execution went -----------------------------------------------------------------
+    //
+    // THE EXECUTION FORM HAS ALWAYS ASKED FOR THESE THREE, as required fields, and there was
+    // nowhere to put the answers - they were collected and dropped. They are the executor's own
+    // classification of the contact and sit beside the free-text outcome, not instead of it.
+    // Null on a follow-up completed before they were stored, or completed in bulk from the queue.
+
+    public FollowUpExecutionStatus? ExecutionStatus { get; set; }
+
+    public FollowUpCompletionReason? CompletionReason { get; set; }
+
+    public FollowUpDisposition? Disposition { get; set; }
+
     public string? RescheduleReason { get; set; }
 
     public string? CancellationReason { get; set; }
+
+    // ---- Escalation -----------------------------------------------------------------------------
+    //
+    // AN ESCALATED FOLLOW-UP IS STILL OPEN. Escalating hands the task to somebody more senior and
+    // records why; it does not finish it. Kept as its own columns rather than a status so the
+    // Follow-up Queue can show "escalated" alongside Planned, Assigned or Rescheduled - the task's
+    // place in its own lifecycle is unchanged by who it was escalated to.
+
+    /// <summary>When the task was last escalated. Null when it never was.</summary>
+    public DateTimeOffset? EscalatedAtUtc { get; set; }
+
+    /// <summary>Why. Required by the escalate action, 10 to 2000 characters.</summary>
+    public string? EscalationReason { get; set; }
+
+    public Guid? EscalatedByUserId { get; set; }
 }

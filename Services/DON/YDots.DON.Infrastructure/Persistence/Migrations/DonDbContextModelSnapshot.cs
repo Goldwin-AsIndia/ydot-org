@@ -867,6 +867,11 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AttachmentName")
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)")
+                        .HasColumnName("attachment_name");
+
                     b.Property<string>("Channel")
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
@@ -885,15 +890,36 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("description");
 
+                    b.Property<string>("Direction")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("direction");
+
                     b.Property<Guid?>("DonorId")
                         .HasColumnType("uuid")
                         .HasColumnName("donor_id");
+
+                    b.Property<string>("EngagementLevel")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("engagement_level");
 
                     b.Property<string>("InteractionType")
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("interaction_type");
+
+                    b.Property<string>("InternalNotes")
+                        .HasMaxLength(3000)
+                        .HasColumnType("character varying(3000)")
+                        .HasColumnName("internal_notes");
+
+                    b.Property<bool>("IsImportant")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_important");
 
                     b.Property<Guid?>("LeadId")
                         .HasColumnType("uuid")
@@ -927,6 +953,11 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("PerformedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("performed_by_user_id");
+
+                    b.Property<string>("Quality")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("quality");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1102,6 +1133,88 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_don_merge_cases_status_updated");
 
                     b.ToTable("don_donor_merge_cases", (string)null);
+                });
+
+            modelBuilder.Entity("YDots.DON.Domain.Entities.DonorOwnerChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AssignedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_by_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<Guid>("DonorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("donor_id");
+
+                    b.Property<DateTimeOffset>("EffectiveAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_at_utc");
+
+                    b.Property<bool>("IsBulkRoute")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_bulk_route");
+
+                    b.Property<string>("NewOwnerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("new_owner_name");
+
+                    b.Property<Guid>("NewOwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("new_owner_user_id");
+
+                    b.Property<Guid>("OrganisationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organisation_id");
+
+                    b.Property<string>("PreviousOwnerName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("previous_owner_name");
+
+                    b.Property<Guid?>("PreviousOwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("previous_owner_user_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_don_donor_owner_changes");
+
+                    b.HasIndex("DonorId", "EffectiveAtUtc")
+                        .HasDatabaseName("ix_don_donor_owner_changes_donor_effective");
+
+                    b.ToTable("don_donor_owner_changes", (string)null);
                 });
 
             modelBuilder.Entity("YDots.DON.Domain.Entities.DonorPromise", b =>
@@ -1282,6 +1395,11 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("completion_outcome");
 
+                    b.Property<string>("CompletionReason")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("completion_reason");
+
                     b.Property<DateTimeOffset?>("ConsentAcknowledgedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("consent_acknowledged_at_utc");
@@ -1303,6 +1421,11 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("created_by_user_id");
 
+                    b.Property<string>("Disposition")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("disposition");
+
                     b.Property<Guid?>("DonorId")
                         .HasColumnType("uuid")
                         .HasColumnName("donor_id");
@@ -1310,6 +1433,24 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("DueAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("due_at_utc");
+
+                    b.Property<DateTimeOffset?>("EscalatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("escalated_at_utc");
+
+                    b.Property<Guid?>("EscalatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("escalated_by_user_id");
+
+                    b.Property<string>("EscalationReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("escalation_reason");
+
+                    b.Property<string>("ExecutionStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("execution_status");
 
                     b.Property<string>("FollowUpReference")
                         .IsRequired()
@@ -1492,6 +1633,16 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("accepted_at_utc");
 
+                    b.Property<string>("AddressLine")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
+                        .HasColumnName("address_line");
+
+                    b.Property<string>("AlternateMobileNumbers")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("alternate_mobile_numbers");
+
                     b.Property<Guid>("CampaignId")
                         .HasColumnType("uuid")
                         .HasColumnName("campaign_id");
@@ -1525,6 +1676,11 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("converted_donor_id");
 
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("country");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
@@ -1532,6 +1688,11 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("display_name");
 
                     b.Property<string>("DonationPotential")
                         .IsRequired()
@@ -1951,6 +2112,18 @@ namespace YDots.DON.Infrastructure.Persistence.Migrations
                     b.Navigation("CandidateADonor");
 
                     b.Navigation("CandidateBDonor");
+                });
+
+            modelBuilder.Entity("YDots.DON.Domain.Entities.DonorOwnerChange", b =>
+                {
+                    b.HasOne("YDots.DON.Domain.Entities.Donor", "Donor")
+                        .WithMany()
+                        .HasForeignKey("DonorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_don_donor_owner_changes_don_donors_donor_id");
+
+                    b.Navigation("Donor");
                 });
 
             modelBuilder.Entity("YDots.DON.Domain.Entities.DonorPromise", b =>

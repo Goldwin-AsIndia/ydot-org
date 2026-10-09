@@ -14,25 +14,30 @@ namespace YDots.CAM.Infrastructure.Persistence.Seed;
 /// is status - its tiles count by it, its filter lists all nine, and each offers different
 /// buttons - so a set that was uniformly Active would leave most of the screen unreachable:
 ///
-///   Draft 2 · Submitted 2 · Approved 2 · Scheduled 2 · Active 3 · Paused 1 · Closing 1 ·
-///   Closed 2 · Cancelled 1
+///   Draft 2 · Submitted 2 · Scheduled 4 · Active 3 · Paused 1 · Closing 1 · Closed 2 ·
+///   Cancelled 1
+///
+/// NO CAMPAIGN IS LEFT IN APPROVED: approval schedules a campaign, and Scheduled is where an
+/// approved campaign waits until it is Active. Two of the four Scheduled campaigns were approved
+/// on or after their start date and are set to manual activation, so they wait for the
+/// Organisation Admin's Activate.
 ///
 /// EVERY DATE IS RELATIVE TO THE DAY THE DATA IS SEEDED, never a calendar date. A campaign seeded
 /// with the dates of the day this was written would be expired on every database created
 /// afterwards. <c>StartsIn</c> and <c>EndsIn</c> count days from today, negative for the past; the
 /// timeline counts days AGO. Three rules keep the set true to the product whenever it is seeded:
 ///
-///   - a Scheduled campaign starts in the future, and an Approved one on or before the day it
-///     was approved, which is exactly how approval chooses between the two;
+///   - a Scheduled campaign set to activate automatically starts in the future (one whose start
+///     date had come would already be Active); a manual one may have started already;
 ///   - the three Active campaigns started more than two months ago, so every donation PAY seeds
 ///     "last month" falls inside a campaign that was already running;
 ///   - nothing was paused, closed or asked to close more than eight days ago, so those donations
 ///     also fall before the campaign stopped taking money.
 ///
 /// THE PEOPLE ARE THE ORGANISATION'S OWN, named by username and resolved against IAM when the
-/// data is written. A Campaign Executive creates and submits, the Campaign Manager approves, and
-/// the Organisation Admin approves a close the manager raised - so no row breaks the rule that
-/// nobody decides their own work, and each account finds its own campaigns in the register.
+/// data is written. A Campaign Executive creates, submits and asks to close; the Campaign Manager
+/// approves, pauses, resumes and approves the close - so no row breaks the rule that nobody decides
+/// their own work, and each account finds its own campaigns in the register.
 ///
 /// THE ORGANISATIONS ARE REAL AND THE CAMPAIGNS ARE NOT. Smile Foundation and HelpAge India are
 /// named as IAM seeds them; every campaign, figure, place and outcome below is invented for the
@@ -396,7 +401,7 @@ internal static class DemoCampaignCatalogue
                     Timeline: new(Created: 9, Submitted: 7, Approved: 5),
                     Readiness: "PP---P-P----"),
 
-                new("SF-STEM-2026", "Girls in STEM Scholarship Fund", CampaignStatus.Approved,
+                new("SF-STEM-2026", "Girls in STEM Scholarship Fund", CampaignStatus.Scheduled,
                     "Scholarship Fund",
                     "Award two-year scholarships to girls entering science and technology "
                     + "streams in senior secondary school, with a laptop and a mentor.",
@@ -411,7 +416,7 @@ internal static class DemoCampaignCatalogue
                     Timeline: new(Created: 16, Submitted: 9, Approved: 2),
                     Readiness: "PPFBP-PPP-PP"),
 
-                new("SF-SKILLS-2026", "Youth Skilling and Employability Drive", CampaignStatus.Approved,
+                new("SF-SKILLS-2026", "Youth Skilling and Employability Drive", CampaignStatus.Scheduled,
                     "Livelihood Fund",
                     "Train young people in retail, healthcare support and digital skills, and "
                     + "place them in their first formal job within six months.",
@@ -780,7 +785,7 @@ internal static class DemoCampaignCatalogue
                     Timeline: new(Created: 10, Submitted: 8, Approved: 6),
                     Readiness: "PP---P-P----"),
 
-                new("HAI-HELPLINE-2026", "Elder Helpline - Keep the Line Open", CampaignStatus.Approved,
+                new("HAI-HELPLINE-2026", "Elder Helpline - Keep the Line Open", CampaignStatus.Scheduled,
                     "Helpline Fund",
                     "Fund the counsellors and the call centre behind the elder helpline, which "
                     + "answers older people facing abuse, abandonment or a medical emergency.",
@@ -795,7 +800,7 @@ internal static class DemoCampaignCatalogue
                     Timeline: new(Created: 15, Submitted: 8, Approved: 1),
                     Readiness: "PPFBP-PPP-PP"),
 
-                new("HAI-DAYCARE-2026", "Adopt a Day-Care Centre", CampaignStatus.Approved,
+                new("HAI-DAYCARE-2026", "Adopt a Day-Care Centre", CampaignStatus.Scheduled,
                     "Elder Care Fund",
                     "Sponsor a day-care centre where older people spend the day in company, "
                     + "with a meal, a health check and something to do.",

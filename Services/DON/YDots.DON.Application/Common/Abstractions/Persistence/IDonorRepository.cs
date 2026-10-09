@@ -50,6 +50,37 @@ public interface IDonorRepository
 
     void AddInteraction(DonorInteraction interaction);
 
+    /// <summary>
+    /// The donors the Assignment Board routes: in the caller's scope, filtered by whether they
+    /// have an owner and by whose they are. Archived and merged donors are not routed.
+    /// </summary>
+    Task<(IReadOnlyList<Donor> Items, int TotalCount)> SearchForAssignmentAsync(
+        string? search,
+        bool? hasOwner,
+        Guid? ownerUserId,
+        int skip,
+        int take,
+        Guid organisationId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Donor>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>The board's strip for donors: how many it routes have no owner, and how many have one.</summary>
+    Task<(int Unassigned, int Assigned)> GetAssignmentCountsAsync(Guid organisationId, CancellationToken cancellationToken = default);
+
+    /// <summary>How many active donor relationships each person owns - the board's donor workload.</summary>
+    Task<IReadOnlyDictionary<Guid, int>> GetOwnedDonorCountsAsync(Guid organisationId, CancellationToken cancellationToken = default);
+
+    void AddOwnerChange(DonorOwnerChange change);
+
+    /// <summary>Donors whose relationship the user owns, merged ones aside.</summary>
+    Task<int> CountOwnedAsync(Guid organisationId, Guid userId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DonorOwnerChange>> GetOwnerChangesAsync(Guid donorId, CancellationToken cancellationToken = default);
+
+    /// <summary>One logged interaction, tracked, for the timeline's edit and flag actions.</summary>
+    Task<DonorInteraction?> GetInteractionAsync(Guid id, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<DonorContact>> GetContactsAsync(Guid donorId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<DonorTag>> GetTagsAsync(Guid donorId, CancellationToken cancellationToken = default);

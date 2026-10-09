@@ -34,12 +34,17 @@ public sealed class AssignmentBoardController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetBoard(
         [FromQuery] LeadSearchFilter filter,
+        [FromQuery] string? recordType,
         [FromServices] AssignmentBoardQueryHandler handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("Assignment board retrieval started.");
 
-        var result = await handler.HandleAsync(new GetAssignmentBoardQuery(filter), cancellationToken);
+        // recordType=Donors is the board's Donors view - giving an owner to a donor who has none.
+        var result = string.Equals(recordType, "Donors", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(recordType, "Donor", StringComparison.OrdinalIgnoreCase)
+            ? await handler.HandleAsync(new GetDonorAssignmentBoardQuery(filter), cancellationToken)
+            : await handler.HandleAsync(new GetAssignmentBoardQuery(filter), cancellationToken);
 
         if (result.IsSuccess)
         {
@@ -76,6 +81,22 @@ public sealed class AssignmentBoardController : ApiControllerBase
         {
             _logger.LogWarning("Assignment history retrieval failed. LeadId={LeadId}", leadId);
         }
+
+        return FromResult(result);
+    }
+
+    /// <summary>GET the append-only ownership trail for one donor - Inspect history on the Donors view.</summary>
+    [HttpGet("donors/{donorId:guid}/history")]
+    [HasPermission(PermissionCodes.AssignmentBoardView)]
+    [ProducesResponseType(typeof(ApiResponse<AssignmentHistoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDonorHistory(
+        Guid donorId,
+        [FromServices] AssignmentBoardQueryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(new GetDonorOwnershipHistoryQuery(donorId), cancellationToken);
 
         return FromResult(result);
     }

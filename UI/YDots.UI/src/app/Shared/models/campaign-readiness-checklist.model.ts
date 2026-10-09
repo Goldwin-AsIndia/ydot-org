@@ -86,4 +86,10 @@ export interface ReadinessCheck {
     readonly ownerUserId: string;
     readonly createdAtUtc: string;
   };
+
+  /**
+   * What the signed-in person may do to this check, as the server decided it: Edit, Pass, Fail,
+   * AddBlocker, ResolveBlocker, Delete. The row's menu is drawn from this and nothing else.
+   */
+  permittedActions?: readonly string[];
 }

@@ -52,6 +52,9 @@ public static class ScreenIds
 
     /// <summary>Donor records, including leads converted by an e-mail match on a donation.</summary>
     public const string DonorList = "DON-UI-13";
+
+    /// <summary>The donors whose relationship the caller owns - DonorCare's My Donor List.</summary>
+    public const string MyDonorList = "DON-UI-14";
 }
 
 /// <summary>
@@ -80,4 +83,6 @@ public static class ScreenRoutes
     public const string FollowUpExecution = Group + "/follow-up-execution";
     public const string CommunicationTimeline = Group + "/communication-timeline";
     public const string DonorList = Group + "/donor-list";
+
+    public const string MyDonorList = Group + "/my-donor-list";
 }

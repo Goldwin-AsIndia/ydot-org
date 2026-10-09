@@ -174,6 +174,19 @@ public sealed class DonationIntentCommandHandler(
                 "Reusing open donation intent {IntentReference} for a repeated submission.",
                 existing.IntentReference);
 
+            // THE LEAD FOLLOWS THE DONOR ONTO THE INTENT THEY ALREADY HAVE. Somebody who started a
+            // gift on the open form and then came back through the link their fundraiser sent is
+            // handed the same intent - and without this it kept no lead, so the gift converted
+            // nobody and the donor arrived with no owner. An intent that already names a lead
+            // keeps it.
+            if (existing.LeadId is null && request.LeadReference is { } leadId && leadId != Guid.Empty)
+            {
+                existing.LeadId = leadId;
+                existing.SourceType = DonationSourceType.FundraiserLead;
+
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
             return existing.ToResponse(
                 campaignName: null,
                 PermittedActions(existing, now));

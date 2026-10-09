@@ -28,6 +28,18 @@ public sealed class CreateLeadRequest
 
     public string? GeographyCode { get; set; }
 
+    /// <summary>How the person is to be shown. Optional: first and last name are used when it is empty.</summary>
+    public string? DisplayName { get; set; }
+
+    /// <summary>Other numbers the person can be reached on. E.164, at most four, never the primary.</summary>
+    public List<string>? AlternateMobileNumbers { get; set; }
+
+    /// <summary>The country, by its name in the master catalogue.</summary>
+    public string? Country { get; set; }
+
+    /// <summary>Street, locality or landmark, as typed.</summary>
+    public string? AddressLine { get; set; }
+
     /// <summary>Required. Must be an active campaign inside the caller's scope.</summary>
     public Guid CampaignId { get; set; }
 
@@ -69,6 +81,18 @@ public sealed class UpdateLeadRequest
     public string? City { get; set; }
 
     public string? GeographyCode { get; set; }
+
+    /// <summary>How the person is to be shown. Optional: first and last name are used when it is empty.</summary>
+    public string? DisplayName { get; set; }
+
+    /// <summary>Other numbers the person can be reached on. E.164, at most four, never the primary.</summary>
+    public List<string>? AlternateMobileNumbers { get; set; }
+
+    /// <summary>The country, by its name in the master catalogue.</summary>
+    public string? Country { get; set; }
+
+    /// <summary>Street, locality or landmark, as typed.</summary>
+    public string? AddressLine { get; set; }
 
     public Guid CampaignId { get; set; }
 
@@ -116,6 +140,28 @@ public sealed class LeadConsentRequest
 
     /// <summary>Why the permission is being asked for. 10 to 2000 characters when consent is collected.</summary>
     public string? Purpose { get; set; }
+
+    /// <summary>
+    /// What the person said about the ticked channels: Granted or Withdrawn. NotProvided and
+    /// Pending record no channel decision at all, only the lead's own consent state. Empty means
+    /// Granted, which is what the form meant before this field existed.
+    /// </summary>
+    public string? ConsentState { get; set; }
+
+    /// <summary>When a granted permission lapses. Has to be later than the consent date.</summary>
+    public DateTimeOffset? ExpiryAtUtc { get; set; }
+
+    /// <summary>True when the person agreed to be named publicly as a supporter.</summary>
+    public bool PublicRecognitionPreference { get; set; }
+
+    /// <summary>"Do not contact": every channel is recorded as refused, whatever is ticked.</summary>
+    public bool DoNotContact { get; set; }
+
+    /// <summary>Any limit the person put on contact, for example a number that must not be called.</summary>
+    public string? ContactRestrictions { get; set; }
+
+    /// <summary>Why a decision already saved for this lead is being changed. 10 to 2000 characters.</summary>
+    public string? CorrectionReason { get; set; }
 }
 
 /// <summary>
@@ -164,7 +210,22 @@ public sealed record LeadListItemResponse(
     DateTimeOffset UpdatedAtUtc,
     long Version,
     bool IsContactMasked,
-    IReadOnlyList<string> PermittedActions);
+    IReadOnlyList<string> PermittedActions,
+
+    // The campaign the lead belongs to, by id: the donation link a fundraiser shares carries it so
+    // the gift is credited to the campaign that found the lead.
+    Guid CampaignId,
+    DateTimeOffset CreatedAtUtc,
+
+    /// <summary>
+    /// Where the next contact stands by the organisation's calendar day: Overdue, Due Today,
+    /// Tomorrow, Upcoming or None. My Leads' Status column and its Due today / Overdue filters
+    /// read this; a lead that has left the queue reads None.
+    /// </summary>
+    string FollowUpState,
+
+    /// <summary>The health score as a word: Healthy, Needs attention or At risk.</summary>
+    string HealthBand);
 
 /// <summary>The full lead record behind SCR-DON-002 and the lead panel of the work queue.</summary>
 public sealed record LeadDetailResponse(
@@ -208,7 +269,18 @@ public sealed record LeadDetailResponse(
     bool IsContactMasked,
     bool IsEvidenceMasked,
     IReadOnlyList<LeadConsentSummaryResponse> Consents,
-    IReadOnlyList<string> PermittedActions);
+    IReadOnlyList<string> PermittedActions,
+
+    /// <summary>The name the lists show: the display name when one was captured, else first and last name.</summary>
+    string DisplayName,
+
+    /// <summary>The other numbers captured for the person. Masked exactly as the primary is.</summary>
+    IReadOnlyList<string> AlternateMobileNumbers,
+
+    string? Country,
+
+    /// <summary>Street, locality or landmark as typed. Withheld with the contact details.</summary>
+    string? AddressLine);
 
 /// <summary>One consent decision shown beside a lead or a donor.</summary>
 public sealed record LeadConsentSummaryResponse(

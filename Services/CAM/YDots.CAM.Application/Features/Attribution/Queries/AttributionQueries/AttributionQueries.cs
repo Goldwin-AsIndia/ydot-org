@@ -16,7 +16,8 @@ public sealed record SearchAttributionQuery(AttributionSearchFilter Filter);
 public sealed record GetAttributionQuery(Guid DonationId);
 
 /// <summary>How income breaks down by channel, source, medium and asset.</summary>
-public sealed record GetAttributionSummaryQuery(Guid? CampaignId);
+public sealed record GetAttributionSummaryQuery(
+    Guid? CampaignId, DateTimeOffset? FromUtc = null, DateTimeOffset? ToUtc = null);
 
 /// <summary>The explorer as a CSV.</summary>
 public sealed record ExportAttributionQuery(AttributionSearchFilter Filter);
@@ -82,7 +83,7 @@ public sealed class AttributionQueryHandler(
             query.CampaignId);
 
         var summary = await readService.GetSummaryAsync(
-            query.CampaignId, currentUser.Scope, cancellationToken);
+            query.CampaignId, query.FromUtc, query.ToUtc, currentUser.Scope, cancellationToken);
 
         logger.LogInformation("Attribution summary retrieved. CampaignId: {CampaignId}.",
             query.CampaignId);

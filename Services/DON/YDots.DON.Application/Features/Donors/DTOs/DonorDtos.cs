@@ -115,7 +115,41 @@ public sealed record DonorListItemResponse(
     /// <summary>True when a consent has expired or been withdrawn and needs somebody to look.</summary>
     bool ConsentReviewRequired,
 
-    bool IsContactMasked);
+    bool IsContactMasked,
+
+    /// <summary>When the donor record was created. The list used to show the last update as this.</summary>
+    DateTimeOffset CreatedAtUtc,
+
+    /// <summary>Gifts that count towards lifetime giving, read from the payments module.</summary>
+    int GiftCount,
+
+    /// <summary>The next open follow-up's due instant, when there is one.</summary>
+    DateTimeOffset? NextFollowUpDueUtc);
+
+/// <summary>
+/// GET /api/v1/donors/summary - the Donor List's figures and "needs attention" counts, over the
+/// caller's whole scope rather than the page the browser happened to load.
+///
+/// MONEY IS PAY'S: lifetime and recent giving are read from the payments module, net of refunds.
+/// </summary>
+public sealed record DonorListSummaryResponse(
+    int DonorsOnRecord,
+    IReadOnlyDictionary<string, int> StatusCounts,
+    decimal LifetimeReceived,
+    string Currency,
+    int Givers,
+    decimal AveragePerGiver,
+    int RecentGivers,
+    decimal RecentGiving,
+    int RecentWindowDays,
+    int YetToGive,
+    int FollowUpsOverdue,
+    int FollowUpsDueToday,
+    int IdentityNotVerified,
+    int ConsentToReview,
+    int WithoutOwner,
+    string ActiveScope,
+    DateTimeOffset AsAtUtc);
 
 /// <summary>
 /// The full detail record. Contact values arrive masked unless the caller holds

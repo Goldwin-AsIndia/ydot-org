@@ -145,11 +145,16 @@ export class ReadinessChecklistStoreService {
    * THE SUCCESS CRITERIA ARE REQUIRED by the API and that is deliberate: a check whose pass
    * condition is not written down is one that gets passed because somebody wanted to launch.
    */
-  addCheck(campaignRef: string, check: ReadinessCheck): void {
+  addCheck(
+    campaignRef: string,
+    check: ReadinessCheck,
+    onDone?: (outcome: { readonly saved: boolean; readonly error?: string }) => void,
+  ): void {
     const campaignId = this.campaigns.apiId(campaignRef);
 
     if (!campaignId) {
       this.loadError.set('The campaign could not be identified.');
+      onDone?.({ saved: false, error: 'The campaign could not be identified.' });
       return;
     }
 
@@ -165,8 +170,18 @@ export class ReadinessChecklistStoreService {
         notes: check.notes || null,
       })
       .subscribe({
-        next: () => this.load(campaignRef),
-        error: () => this.loadError.set('The readiness check could not be added.'),
+        next: () => {
+          this.load(campaignRef);
+          onDone?.({ saved: true });
+        },
+
+        // THE SERVER'S OWN REASON. It refuses a duplicate name, and an owner who could not record
+        // the check's verdict; "could not be added" told the person neither.
+        error: (error: unknown) => {
+          const message = apiErrorMessage(error, 'The readiness check could not be added.');
+          this.loadError.set(message);
+          onDone?.({ saved: false, error: message });
+        },
       });
   }
 
@@ -176,10 +191,16 @@ export class ReadinessChecklistStoreService {
    * A PUT OF THE WHOLE RECORD, merged from what is loaded, because the API takes the complete
    * configuration rather than a patch - and sending only the changed fields would blank the rest.
    */
-  updateCheck(campaignRef: string, id: string, patch: Partial<ReadinessCheck>): void {
+  updateCheck(
+    campaignRef: string,
+    id: string,
+    patch: Partial<ReadinessCheck>,
+    onDone?: (outcome: { readonly saved: boolean; readonly error?: string }) => void,
+  ): void {
     const current = this.checksFor(campaignRef).find((check) => check.id === id);
 
     if (!current) {
+      onDone?.({ saved: false, error: 'That check is no longer on the list. Reload and try again.' });
       return;
     }
 
@@ -198,8 +219,15 @@ export class ReadinessChecklistStoreService {
         notes: merged.notes || null,
       })
       .subscribe({
-        next: () => this.load(campaignRef),
-        error: () => this.failed(campaignRef, 'The readiness check could not be saved.'),
+        next: () => {
+          this.load(campaignRef);
+          onDone?.({ saved: true });
+        },
+        error: (error: unknown) => {
+          const message = apiErrorMessage(error, 'The readiness check could not be saved.');
+          this.failed(campaignRef, message);
+          onDone?.({ saved: false, error: message });
+        },
       });
   }
 
@@ -401,6 +429,7 @@ export class ReadinessChecklistStoreService {
         : undefined,
 
       status: this.fromApiStatus(item.status),
+      permittedActions: item.permittedActions ?? [],
     };
   }
 

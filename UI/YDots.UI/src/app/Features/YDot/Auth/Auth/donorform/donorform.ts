@@ -268,6 +268,20 @@ export class DonorformComponent {
    */
   protected readonly campaignIdFromLink = signal<string | null>(null);
 
+  /**
+   * The lead this link was made for, from `?lead=<id>`.
+   *
+   * IT IS WHAT TURNS A GIFT INTO A CONVERSION. The donation link a fundraiser shares from a lead
+   * carries the lead's id; the payments service marks that lead converted when the gift lands and
+   * the new donor keeps the lead's owner, so they appear in that person's donor list. The form
+   * read the campaign off the link and dropped the lead, so every such gift created a donor with
+   * no owner and left the lead sitting in the queue as though nothing had happened.
+   *
+   * AN ID, AND NOTHING THE DONOR CAN TURN INTO ACCESS. The server only acts on a lead that belongs
+   * to the organisation the gift is for; any other value changes nothing.
+   */
+  protected readonly leadIdFromLink = signal<string | null>(null);
+
   /** Whether a string is a GUID, and therefore a campaign id rather than a campaign code. */
   private static isGuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -1057,6 +1071,11 @@ export class DonorformComponent {
         ?? this.campaignIdFromLink()
         ?? (campaignRef ? this.campaignStoreOrNull()?.apiId(campaignRef) ?? null : null),
       trackingReference: this.trackingReference() || null,
+
+      // The lead the link was made for - see `leadIdFromLink`. Its presence is also what makes
+      // this a fundraiser's lead link rather than an ordinary direct one.
+      leadReference: this.leadIdFromLink(),
+      ...(this.leadIdFromLink() ? { sourceType: 'fundraiserLead' as const } : {}),
       taxIdentifier: this.panOrTaxId().trim() || null,
       addressLine1: this.addressText().trim() || null,
       // CITY / STATE / COUNTRY TRAVEL AS ADDRESS TEXT. The intent's city/state/country
@@ -1520,11 +1539,16 @@ export class DonorformComponent {
    *
    *   intent - an existing donation being continued, from the payments queue or from a result
    *     page that sent somebody back to pay.
+   *
+   *   lead - the lead a fundraiser's donation link was made for. See `leadIdFromLink`.
    */
   private readLinkContext(): void {
     const params = this.route.snapshot.queryParamMap;
 
     this.trackingReference.set(params.get('ref') ?? params.get('tracking') ?? '');
+
+    const lead = (params.get('lead') ?? '').trim();
+    this.leadIdFromLink.set(DonorformComponent.isGuid(lead) ? lead : null);
 
     const campaignCode = (params.get('campaign') ?? '').trim();
 

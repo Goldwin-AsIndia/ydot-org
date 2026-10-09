@@ -75,6 +75,19 @@ public sealed class CampaignReadinessController(
         return FromResult(result);
     }
 
+    /// <summary>
+    /// The people a readiness check can be assigned to: those who can record its Pass or Fail.
+    /// </summary>
+    [HttpGet("readiness-checks/assignable-owners")]
+    [HasPermission(PermissionCodes.ReadinessView)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ReadinessPersonResponse>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAssignableOwnersAsync(CancellationToken cancellationToken)
+    {
+        var result = await queries.HandleAsync(new GetAssignableReadinessOwnersQuery(), cancellationToken);
+
+        return FromResult(result);
+    }
+
     [HttpGet("readiness-checks/{id:guid}", Name = nameof(GetCheckAsync))]
     [HasPermission(PermissionCodes.ReadinessView)]
     [ProducesResponseType(typeof(ApiResponse<ReadinessCheckDetailResponse>), StatusCodes.Status200OK)]

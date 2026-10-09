@@ -15,6 +15,8 @@ public sealed record GetReadinessCheckQuery(Guid CheckId);
 /// <summary>The checks assigned to the caller that are due a reminder.</summary>
 public sealed record GetMyReadinessRemindersQuery;
 
+public sealed record GetAssignableReadinessOwnersQuery;
+
 /// <summary>The read side of the Campaign Readiness slice.</summary>
 public sealed class ReadinessQueryHandler(
     ICampaignReadinessReadService readService,
@@ -88,5 +90,21 @@ public sealed class ReadinessQueryHandler(
             currentUser.UserId, ReminderDaysBeforeStart, cancellationToken);
 
         return Result.Success(reminders);
+    }
+
+    /// <summary>
+    /// Who a readiness check may be assigned to. Only somebody who can pass or fail a check can
+    /// own one - the Campaign Executives and the Organisation Admin.
+    /// </summary>
+    public async Task<Result<IReadOnlyList<ReadinessPersonResponse>>> HandleAsync(
+        GetAssignableReadinessOwnersQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        var owners = await readService.GetAssignableOwnersAsync(cancellationToken);
+
+        logger.LogInformation("Readiness assignable owners retrieved. Count: {Count}.", owners.Count);
+
+        return Result.Success(owners);
     }
 }

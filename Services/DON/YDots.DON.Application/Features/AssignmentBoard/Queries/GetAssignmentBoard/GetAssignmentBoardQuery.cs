@@ -23,8 +23,23 @@ public sealed record GetAssignmentBoardQuery(LeadSearchFilter Filter);
 /// <summary>SCR-DON-006 Inspect history. The append-only ownership trail for one lead.</summary>
 public sealed record GetAssignmentHistoryQuery(Guid LeadId);
 
+/// <summary>
+/// The board's Donors view: donors to give an owner to, or to move between owners.
+///
+/// THE ROLE FLOW PUTS IT HERE: a donor who gave without ever being a lead is created with no
+/// owner, "and the Tenant Admin can subsequently assign the donor to an owner through the
+/// Assignment Board". The board had a Donors switch that drew an empty page.
+/// </summary>
+public sealed record GetDonorAssignmentBoardQuery(LeadSearchFilter Filter);
+
+/// <summary>The append-only ownership trail for one donor.</summary>
+public sealed record GetDonorOwnershipHistoryQuery(Guid DonorId);
+
 public sealed class AssignmentBoardQueryHandler(
     ILeadRepository leadRepository,
+    IDonorRepository donorRepository,
+    IFollowUpRepository followUpRepository,
+    IDonationLedger ledger,
     ICampaignRepository campaignRepository,
     IConsentRepository consentRepository,
     ICurrentUser currentUser,
@@ -43,7 +58,20 @@ public sealed class AssignmentBoardQueryHandler(
         var filter = query.Filter;
         var now = clock.UtcNow;
 
+        // A CONVERTED LEAD IS NOT ROUTED HERE. It became a donor and left the queue; what is owned
+        // now is the donor, on the board's Donors view. The board listed them among the leads,
+        // offering to reassign something nobody works any more.
+        if (filter.IsConverted is null && filter.Status != LeadStatus.Converted)
+        {
+            filter.IsConverted = false;
+        }
+
+        // The SLA filter is read against the clock, not against the word last stored on the lead.
+        LeadMappingConfig.ApplySlaWindow(filter, now, _settings);
+
         var page = await leadRepository.SearchAsync(filter, currentUser.Scope, cancellationToken);
+        var strip = await leadRepository.GetAssignmentCountsAsync(
+            currentUser.OrganisationId, currentUser.Scope, now, now.AddHours(_settings.SlaDueSoonHours), cancellationToken);
         var workloads = await leadRepository.GetOpenWorkCountsByOwnerAsync(currentUser.OrganisationId, cancellationToken);
         var knownOwners = await leadRepository.GetKnownOwnersAsync(currentUser.OrganisationId, cancellationToken);
         var campaigns = await campaignRepository.GetActiveAsync(currentUser.OrganisationId, cancellationToken);
@@ -119,7 +147,10 @@ public sealed class AssignmentBoardQueryHandler(
             DescribeFilter(filter),
             DescribeScope(),
             _settings.BulkRouteMaximumItems,
-            rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial);
+            rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial,
+            strip.Unassigned,
+            strip.Assigned,
+            strip.DueSoon);
 
         logger.LogInformation("Assignment board retrieved successfully with {RowCount} row(s) from {TotalCount} matching lead(s).", rows.Count, page.TotalCount);
 
@@ -145,7 +176,7 @@ public sealed class AssignmentBoardQueryHandler(
         var history = await leadRepository.GetAssignmentHistoryAsync(lead.Id, cancellationToken);
         var consents = await consentRepository.GetForLeadAsync(lead.Id, cancellationToken);
 
-        var detail = lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents);
+        var detail = lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents, currentUser.HasPermission);
 
         var historyResponse = new AssignmentHistoryResponse(
             lead.Id,
@@ -164,6 +195,144 @@ public sealed class AssignmentBoardQueryHandler(
         logger.LogInformation("Assignment history retrieved successfully for LeadId {LeadId} with {HistoryCount} history record(s).", query.LeadId, history.Count);
 
         return Result.Success(new AssignmentBoardLeadResponse(detail, historyResponse));
+    }
+
+    public async Task<Result<AssignmentBoardResponse>> HandleAsync(
+        GetDonorAssignmentBoardQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("Donor assignment board retrieval started.");
+
+        var filter = query.Filter;
+        var now = clock.UtcNow;
+
+        bool? hasOwner = filter.AssignmentState switch
+        {
+            LeadAssignmentState.Unassigned => false,
+            LeadAssignmentState.Assigned => true,
+            _ => null
+        };
+
+        var (donors, total) = await donorRepository.SearchForAssignmentAsync(
+            filter.Search, hasOwner, filter.OwnerUserId, filter.Skip, filter.PageSize,
+            currentUser.OrganisationId, cancellationToken);
+
+        // A DONOR RELATIONSHIP IS THE WORKLOAD HERE, not open leads - the board is weighing who can
+        // take one more donor to look after.
+        var workloads = await donorRepository.GetOwnedDonorCountsAsync(currentUser.OrganisationId, cancellationToken);
+        var knownOwners = await leadRepository.GetKnownOwnersAsync(currentUser.OrganisationId, cancellationToken);
+
+        var owners = knownOwners
+            .Select(owner =>
+            {
+                var load = workloads.TryGetValue(owner.UserId, out var count) ? count : 0;
+                return new OwnerWorkloadResponse(
+                    owner.UserId, owner.Name, owner.TeamCode, load,
+                    LeadMappingConfig.CalculateWorkloadBand(load, _settings).ToString());
+            })
+            .ToList();
+
+        var strip = await donorRepository.GetAssignmentCountsAsync(currentUser.OrganisationId, cancellationToken);
+        var dueSoon = await followUpRepository.CountDonorsDueAsync(
+            currentUser.OrganisationId, now, now.AddHours(_settings.SlaDueSoonHours), cancellationToken);
+
+        var ids = donors.Select(donor => donor.Id).ToList();
+        var giving = await ledger.GetGivingAsync(currentUser.OrganisationId, ids, cancellationToken);
+        var nextFollowUps = await followUpRepository.GetNextOpenForDonorsAsync(ids, cancellationToken);
+
+        var rows = donors
+            .Select(donor =>
+            {
+                var suggestion = owners
+                    .Where(owner => owner.UserId != donor.RelationshipOwnerUserId)
+                    .OrderBy(owner => owner.OpenWorkCount)
+                    .ThenBy(owner => owner.Name, StringComparer.Ordinal)
+                    .FirstOrDefault();
+
+                var currentLoad = donor.RelationshipOwnerUserId is Guid ownerId && workloads.TryGetValue(ownerId, out var count)
+                    ? count
+                    : 0;
+
+                nextFollowUps.TryGetValue(donor.Id, out var next);
+                giving.TryGetValue(donor.Id, out var given);
+
+                return new AssignmentBoardRowResponse(
+                    donor.Id,
+                    donor.DonorNumber,
+                    $"{donor.DonorNumber} · {donor.DisplayName} · {donor.Status}",
+                    given?.LastCampaignName,
+                    donor.RelationshipOwnerUserId,
+                    donor.RelationshipOwnerName,
+                    suggestion?.UserId,
+                    suggestion?.Name,
+                    suggestion is null ? null : $"{suggestion.OpenWorkCount} donor(s) owned, band {suggestion.WorkloadBand}",
+                    currentLoad,
+                    next?.NextAction ?? next?.Purpose,
+                    next?.DueAtUtc,
+                    LeadMappingConfig.CalculateSlaState(next?.DueAtUtc, now, _settings).ToString(),
+                    donor.PreferredLanguage,
+                    null,
+                    donor.Status.ToString(),
+                    donor.Version,
+                    "Donor");
+            })
+            .ToList();
+
+        var response = new AssignmentBoardResponse(
+            ScreenIds.AssignmentBoard,
+            ScreenRoutes.AssignmentBoard,
+            new PagedResponse<AssignmentBoardRowResponse>(rows, total, filter.Page, filter.PageSize),
+            owners,
+            [],
+            [],
+            SupportedLanguages.All,
+            ToLookup<WorkloadBand>(),
+            ToLookup<SlaState>(),
+            BuildPermittedActions(),
+            hasOwner switch
+            {
+                false => "Donors with no owner.",
+                true => "Donors with an owner.",
+                _ => "Every donor."
+            },
+            DescribeScope(),
+            _settings.BulkRouteMaximumItems,
+            rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial,
+            strip.Unassigned,
+            strip.Assigned,
+            dueSoon);
+
+        logger.LogInformation("Donor assignment board retrieved with {RowCount} row(s) of {TotalCount}.", rows.Count, total);
+
+        return Result.Success(response);
+    }
+
+    public async Task<Result<AssignmentHistoryResponse>> HandleAsync(
+        GetDonorOwnershipHistoryQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        var donor = await donorRepository.GetByIdAsync(query.DonorId, cancellationToken);
+
+        if (donor is null || donor.OrganisationId != currentUser.OrganisationId)
+        {
+            return Result.Failure<AssignmentHistoryResponse>(Error.DonorNotFound());
+        }
+
+        var changes = await donorRepository.GetOwnerChangesAsync(donor.Id, cancellationToken);
+
+        return Result.Success(new AssignmentHistoryResponse(
+            donor.Id,
+            donor.DonorNumber,
+            [.. changes.Select(change => new AssignmentHistoryItemResponse(
+                change.Id,
+                change.PreviousOwnerUserId,
+                change.PreviousOwnerName,
+                change.NewOwnerUserId,
+                change.NewOwnerName,
+                change.Reason,
+                change.EffectiveAtUtc,
+                change.AssignedByUserId,
+                change.IsBulkRoute))]));
     }
 
     /// <summary>

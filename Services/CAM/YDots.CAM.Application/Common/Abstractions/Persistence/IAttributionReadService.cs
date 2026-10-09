@@ -18,8 +18,14 @@ public interface IAttributionReadService
     /// Scoped to one campaign when an id is given, and to the whole organisation otherwise - the
     /// two questions people ask are "how is this campaign doing?" and "which channels work for us?".
     /// </summary>
+    /// <paramref name="fromUtc"/> and <paramref name="toUtc"/> narrow it to donations received in
+    /// that window - the campaign screen's "last 12 months".
     Task<AttributionSummaryResponse> GetSummaryAsync(
-        Guid? campaignId, AccessScope scope, CancellationToken cancellationToken);
+        Guid? campaignId,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        AccessScope scope,
+        CancellationToken cancellationToken);
 
     /// <summary>The explorer as a CSV, respecting the same filter and scope as the grid.</summary>
     Task<IReadOnlyList<AttributionListItemResponse>> ListForExportAsync(

@@ -383,7 +383,8 @@ public sealed class BudgetTargetPlanReadService(
 
         // THE SUBMITTER IS EXCLUDED HERE, exactly as in the handler. A screen that drew an Approve
         // button and then had the click refused would look faulty rather than controlled.
-        if (submitted is not null && submitted.SubmittedByUserId != currentUser.UserId)
+        if (submitted is not null
+            && (submitted.SubmittedByUserId != currentUser.UserId || currentUser.IsTenantAdmin))
         {
             if (currentUser.HasPermission(PermissionCodes.BudgetPlansApprove))
             {

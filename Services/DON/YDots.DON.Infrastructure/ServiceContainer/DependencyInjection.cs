@@ -61,6 +61,12 @@ public static class DependencyInjection
         services.AddScoped<ILeadRepository, LeadRepository>();
         services.AddScoped<CampaignProjection>();
         services.AddScoped<PeopleDirectory>();
+        services.AddScoped<IPeopleDirectory>(provider => provider.GetRequiredService<PeopleDirectory>());
+
+        // Giving is read from PAY's own records rather than from a projection nothing kept up to
+        // date. See IDonationLedger.
+        services.AddScoped<IDonationLedger, DonationLedger>();
+        services.AddScoped<ICurrencyCatalogue, CurrencyCatalogue>();
         services.AddScoped<ICampaignRepository, CampaignRepository>();
         services.AddScoped<IConsentRepository, ConsentRepository>();
         services.AddScoped<IDonorMergeCaseRepository, DonorMergeCaseRepository>();

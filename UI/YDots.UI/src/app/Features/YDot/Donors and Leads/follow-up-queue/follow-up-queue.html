@@ -162,7 +162,7 @@
     <div class="container-fluid px-4 py-3">
       <!-- ============================== HEADER ============================== -->
       <app-page-header screen="follow-up-queue" title="Follow-Up Queue" style="padding-top: 0;"
-        subtitle="Your scheduled engagement work - prioritised, on the clock, and one click from done.">
+        [subtitle]="scopeLabel() ? 'Scheduled engagement work - ' + scopeLabel().charAt(0).toLowerCase() + scopeLabel().slice(1) + '.' : 'Scheduled engagement work - prioritised, on the clock, and one click from done.'">
         <!-- <span meta class="ph-chip">{{ todayLabel }}</span>
         <span meta class="ph-chip">Queue health: {{ queueHealth() }}</span> -->
         <ng-container actions>
@@ -172,18 +172,22 @@
             </svg>
             Refresh
           </button>
+          @if (canExport()) {
           <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportQueue()">
             <svg class="fq-i" aria-hidden="true">
               <use href="#fq-i-download" />
             </svg>
             Export
           </button>
+          }
+          @if (canSchedule()) {
           <button type="button" class="btn btn-primary btn-sm" (click)="createFollowUp()">
             <svg class="fq-i" aria-hidden="true">
               <use href="#fq-i-plus" />
             </svg>
             New follow-up
           </button>
+          }
         </ng-container>
       </app-page-header>
 
@@ -261,7 +265,7 @@
                   <span class="fq-block-caption">on time</span>
                 </div>
                 <div class="fq-stack" role="img"
-                  [attr.aria-label]="slaBreakdown().onTime + ' on time, ' + slaBreakdown().approaching + ' due within 24 hours, ' + slaBreakdown().breached + ' breached'">
+                  [attr.aria-label]="slaBreakdown().onTime + ' on time, ' + slaBreakdown().approaching + ' due today, ' + slaBreakdown().breached + ' overdue'">
                   @if (slaTotal() === 0) {
                   <span class="fq-stack-seg is-none"></span>
                   } @else {
@@ -276,11 +280,11 @@
                     <dd>{{ slaBreakdown().onTime }}</dd>
                   </div>
                   <div>
-                    <dt><i class="fq-dot is-warn" aria-hidden="true"></i>Within 24h</dt>
+                    <dt><i class="fq-dot is-warn" aria-hidden="true"></i>Due today</dt>
                     <dd>{{ slaBreakdown().approaching }}</dd>
                   </div>
                   <div>
-                    <dt><i class="fq-dot is-danger" aria-hidden="true"></i>Breached</dt>
+                    <dt><i class="fq-dot is-danger" aria-hidden="true"></i>Overdue</dt>
                     <dd>{{ slaBreakdown().breached }}</dd>
                   </div>
                 </dl>
@@ -325,7 +329,7 @@
               </svg>
               <span class="fq-agenda-empty-text"><b class="fq-agenda-empty-title">A clear day.</b> Nothing is scheduled
                 for today or the days ahead.</span>
-              <button type="button" class="fq-link" (click)="createFollowUp()">Plan a follow-up</button>
+              @if (canSchedule()) { <button type="button" class="fq-link" (click)="createFollowUp()">Plan a follow-up</button> }
             </div>
             } @else {
             @if (agendaItems().length === 0) {
@@ -534,7 +538,7 @@
               <fieldset class="fq-fgroup">
                 <legend>Channel</legend>
                 <div class="fq-chips">
-                  @for (t of typeOptions; track trackByString($index, t)) {
+                  @for (t of typeOptions(); track trackByString($index, t)) {
                   <button type="button" class="fq-chip" [class.is-on]="draftFilters().type.has(t)"
                     [attr.aria-pressed]="draftFilters().type.has(t)" (click)="toggleDraftSet('type', t)">
                     <svg class="fq-i" aria-hidden="true">
@@ -547,10 +551,10 @@
               <fieldset class="fq-fgroup">
                 <legend>Priority</legend>
                 <div class="fq-chips">
-                  @for (p of priorityOptions; track trackByString($index, p)) {
+                  @for (p of priorityOptions(); track trackByString($index, p)) {
                   <button type="button" class="fq-chip" [class.is-on]="draftFilters().priority.has(p)"
                     [attr.aria-pressed]="draftFilters().priority.has(p)" (click)="toggleDraftSet('priority', p)">
-                    <span class="fq-prio-dot" [attr.data-p]="p" aria-hidden="true"></span>{{ p }}
+                    <span class="fq-prio-dot" [attr.data-p]="priorityTone(p)" aria-hidden="true"></span>{{ p }}
                   </button>
                   }
                 </div>
@@ -662,18 +666,20 @@
               <p>
                 {{ isNarrowed()
                 ? 'Try a different tab or loosen the filters to see more follow-ups.'
-                : 'No follow-ups are scheduled for you. Plan the next touchpoint to keep relationships warm.' }}
+                : 'No follow-ups are in your queue. Plan the next touchpoint to keep relationships warm.' }}
               </p>
               <div class="fq-state-actions">
                 @if (isNarrowed()) {
                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resetFilters()">Clear filters</button>
                 }
+                @if (canSchedule()) {
                 <button type="button" class="btn btn-primary btn-sm" (click)="createFollowUp()">
                   <svg class="fq-i" aria-hidden="true">
                     <use href="#fq-i-plus" />
                   </svg>
                   New follow-up
                 </button>
+                }
               </div>
             </div>
             } @else {
@@ -687,7 +693,7 @@
                     </th>
                     <th class="fq-col-record">Follow-up</th>
                     <th class="fq-col-due">Due</th>
-                    <th class="fq-col-owner">Owner</th>
+                    <th class="fq-col-owner">Assigned to</th>
                     <th class="fq-col-prio">Priority</th>
                     <th class="fq-col-status">Status</th>
                     <th class="fq-col-actions"><span class="visually-hidden">Actions</span></th>
@@ -716,6 +722,7 @@
                           <span class="fq-record-meta">
                             <span class="fq-kind">{{ f.recordType }}</span>
                             <span class="fq-ref">{{ f.reference }}</span>
+                            @if (f.isMine) { <span class="fq-kind" title="This follow-up is assigned to you">Yours</span> }
                           </span>
                         </span>
                       </button>
@@ -744,8 +751,8 @@
                       </span>
                     </td>
                     <td class="fq-col-prio">
-                      <span class="fq-prio" [attr.data-p]="f.priority">
-                        <span class="fq-prio-dot" [attr.data-p]="f.priority" aria-hidden="true"></span>{{ f.priority }}
+                      <span class="fq-prio" [attr.data-p]="priorityTone(f.priority)">
+                        <span class="fq-prio-dot" [attr.data-p]="priorityTone(f.priority)" aria-hidden="true"></span>{{ f.priority }}
                       </span>
                     </td>
                     <td class="fq-col-status">
@@ -754,20 +761,22 @@
                     <td class="fq-col-actions">
                       <div class="fq-row-actions">
                         <button type="button" class="fq-icon-btn is-go"
-                          [disabled]="!canExecute(f) || f.status !== 'Pending'"
+                          [disabled]="!canExecute(f)"
                           [attr.aria-label]="'Execute ' + f.reference"
-                          [title]="canExecute(f) ? 'Execute' : 'Blocked: ' + (f.dependencyBlockedReason ?? 'dependency pending')"
+                          [title]="executeHint(f)"
                           (click)="executeFollowUp(f)">
                           <svg class="fq-i" aria-hidden="true">
                             <use href="#fq-i-play" />
                           </svg>
                         </button>
+                        @if (can(f, 'Reschedule')) {
                         <button type="button" class="fq-icon-btn" title="Reschedule"
                           [attr.aria-label]="'Reschedule ' + f.reference" (click)="openReschedule(f.id)">
                           <svg class="fq-i" aria-hidden="true">
                             <use href="#fq-i-calendar" />
                           </svg>
                         </button>
+                        }
                         <button type="button" class="fq-icon-btn" title="More actions"
                           [class.is-open]="openActionMenuId() === f.id"
                           [attr.aria-expanded]="openActionMenuId() === f.id"
@@ -785,26 +794,33 @@
                               <use href="#fq-i-eye" />
                             </svg>Open details
                           </button>
+                          @if (can(f, 'Reassign')) {
                           <button type="button" role="menuitem" (click)="openReassign(f.id); closeActionMenu()">
                             <svg class="fq-i" aria-hidden="true">
                               <use href="#fq-i-reassign" />
                             </svg>Reassign
                           </button>
+                          }
+                          @if (can(f, 'Escalate')) {
                           <button type="button" role="menuitem" (click)="openEscalate(f.id); closeActionMenu()">
                             <svg class="fq-i" aria-hidden="true">
                               <use href="#fq-i-escalate" />
                             </svg>Escalate
                           </button>
+                          }
                           <button type="button" role="menuitem" (click)="openHistory(f.id); closeActionMenu()">
                             <svg class="fq-i" aria-hidden="true">
                               <use href="#fq-i-history" />
                             </svg>View history
                           </button>
+                          @if (canSchedule()) {
                           <button type="button" role="menuitem" (click)="duplicateFollowUp(f.id); closeActionMenu()">
                             <svg class="fq-i" aria-hidden="true">
                               <use href="#fq-i-copy" />
                             </svg>Duplicate
                           </button>
+                          }
+                          @if (can(f, 'Cancel')) {
                           <span class="fq-menu-rule" aria-hidden="true"></span>
                           <button type="button" role="menuitem" class="is-danger"
                             (click)="openCancel(f.id); closeActionMenu()">
@@ -812,6 +828,7 @@
                               <use href="#fq-i-x-circle" />
                             </svg>Cancel follow-up
                           </button>
+                          }
                         </div>
                         }
                       </div>
@@ -874,7 +891,7 @@
                         </svg>
                       </span>
                       <span class="fq-bcard-ref">{{ f.reference }}</span>
-                      <span class="fq-prio-dot" [attr.data-p]="f.priority" [title]="f.priority + ' priority'"></span>
+                      <span class="fq-prio-dot" [attr.data-p]="priorityTone(f.priority)" [title]="f.priority + ' priority'"></span>
                     </span>
                     <span class="fq-bcard-name">{{ f.recordName }}</span>
                     @if (f.purpose) {
@@ -961,31 +978,41 @@
   <div class="fq-bulk" role="region" aria-label="Bulk actions">
     <span class="fq-bulk-count"><strong>{{ selectedIds().size }}</strong> selected</span>
     <span class="fq-bulk-rule" aria-hidden="true"></span>
+    @if (canComplete()) {
     <button type="button" class="fq-bulk-btn is-primary" (click)="openBulkComplete()">
       <svg class="fq-i" aria-hidden="true">
         <use href="#fq-i-check" />
       </svg>Complete
     </button>
+    }
+    @if (canReschedule()) {
     <button type="button" class="fq-bulk-btn" (click)="openBulkReschedule()">
       <svg class="fq-i" aria-hidden="true">
         <use href="#fq-i-calendar" />
       </svg>Reschedule
     </button>
+    }
+    @if (canAssign()) {
     <button type="button" class="fq-bulk-btn" (click)="openBulkReassign()">
       <svg class="fq-i" aria-hidden="true">
         <use href="#fq-i-reassign" />
       </svg>Reassign
     </button>
+    }
+    @if (canExport()) {
     <button type="button" class="fq-bulk-btn" (click)="exportQueue()">
       <svg class="fq-i" aria-hidden="true">
         <use href="#fq-i-download" />
       </svg>Export
     </button>
+    }
+    @if (canCancel()) {
     <button type="button" class="fq-bulk-btn is-danger" (click)="openBulkCancel()">
       <svg class="fq-i" aria-hidden="true">
         <use href="#fq-i-x-circle" />
       </svg>Cancel
     </button>
+    }
     <button type="button" class="fq-bulk-close" aria-label="Clear selection" title="Clear selection"
       (click)="clearSelection()">
       <svg class="fq-i" aria-hidden="true">
@@ -1019,10 +1046,10 @@
       </div>
       <div class="fq-drawer-badges">
         <span class="fq-status" [attr.data-s]="f.status">{{ f.status }}</span>
-        <span class="fq-prio" [attr.data-p]="f.priority">
-          <span class="fq-prio-dot" [attr.data-p]="f.priority" aria-hidden="true"></span>{{ f.priority }} priority
+        <span class="fq-prio" [attr.data-p]="priorityTone(f.priority)">
+          <span class="fq-prio-dot" [attr.data-p]="priorityTone(f.priority)" aria-hidden="true"></span>{{ f.priority }} priority
         </span>
-        <span class="fq-sla" [attr.data-sla]="f.slaStatus">SLA {{ f.slaStatus.toLowerCase() }}</span>
+        @if (f.isOpen) { <span class="fq-sla" [attr.data-sla]="f.slaStatus">{{ f.dueState === 'None' ? 'No due date' : f.dueState }}</span> }
       </div>
     </header>
 
@@ -1049,9 +1076,9 @@
           <span class="fq-fact-sub">Local time</span>
         </div>
         <div class="fq-fact">
-          <span class="fq-fact-label">Owner</span>
+          <span class="fq-fact-label">Assigned to</span>
           <span class="fq-fact-value">{{ f.assignedTo }}</span>
-          <span class="fq-fact-sub">{{ f.recordType }} relationship</span>
+          <span class="fq-fact-sub">{{ f.isMine ? 'Yours to execute' : 'Only they can execute it' }}</span>
         </div>
       </div>
 
@@ -1078,6 +1105,18 @@
             <dd>{{ f.lastCommunicationOutcome }}</dd>
           </div>
           }
+          @if (f.executionStatus) {
+          <div>
+            <dt>Execution</dt>
+            <dd>{{ f.executionStatus }}{{ f.completionReason ? ' · ' + f.completionReason : '' }}</dd>
+          </div>
+          }
+          @if (f.disposition) {
+          <div>
+            <dt>Disposition</dt>
+            <dd>{{ f.disposition }}</dd>
+          </div>
+          }
         </dl>
       </section>
 
@@ -1091,6 +1130,10 @@
           <div>
             <dt>Record type</dt>
             <dd>{{ f.recordType }}</dd>
+          </div>
+          <div>
+            <dt>{{ f.recordType }} owner</dt>
+            <dd>{{ f.recordOwner || 'Unassigned' }}</dd>
           </div>
           <div>
             <dt>Channel</dt>
@@ -1167,37 +1210,51 @@
 
     <footer class="fq-drawer-foot">
       <button type="button" class="fq-btn fq-btn--primary fq-btn--grow" [disabled]="!canExecute(f)"
-        (click)="executeFollowUp(f)">
+        [title]="executeHint(f)" (click)="executeFollowUp(f)">
         <svg class="fq-i" aria-hidden="true">
           <use href="#fq-i-play" />
         </svg>
         Execute follow-up
       </button>
       <div class="fq-drawer-tools">
+        @if (can(f, 'Reschedule')) {
         <button type="button" class="fq-icon-btn is-boxed" title="Reschedule" aria-label="Reschedule"
           (click)="openReschedule(f.id)">
           <svg class="fq-i" aria-hidden="true">
             <use href="#fq-i-calendar" />
           </svg>
         </button>
+        }
+        @if (can(f, 'Reassign')) {
         <button type="button" class="fq-icon-btn is-boxed" title="Reassign" aria-label="Reassign"
           (click)="openReassign(f.id)">
           <svg class="fq-i" aria-hidden="true">
             <use href="#fq-i-reassign" />
           </svg>
         </button>
+        }
+        @if (can(f, 'Escalate')) {
+        <button type="button" class="fq-icon-btn is-boxed" title="Escalate" aria-label="Escalate"
+          (click)="openEscalate(f.id)">
+          <svg class="fq-i" aria-hidden="true">
+            <use href="#fq-i-escalate" />
+          </svg>
+        </button>
+        }
         <button type="button" class="fq-icon-btn is-boxed" title="View history" aria-label="View history"
           (click)="openHistory(f.id)">
           <svg class="fq-i" aria-hidden="true">
             <use href="#fq-i-history" />
           </svg>
         </button>
+        @if (can(f, 'Cancel')) {
         <button type="button" class="fq-icon-btn is-boxed is-danger" title="Cancel follow-up"
           aria-label="Cancel follow-up" (click)="openCancel(f.id)">
           <svg class="fq-i" aria-hidden="true">
             <use href="#fq-i-x-circle" />
           </svg>
         </button>
+        }
       </div>
     </footer>
   </aside>
@@ -1333,7 +1390,7 @@
         </svg></span>
       <div class="fq-modal-titles">
         <h2 id="fq-dlg-title">Escalate follow-up</h2>
-        <p>Hand it to a more senior owner and record why.</p>
+        <p>Hand it to somebody who can move it, and record why. It is marked escalated for everyone.</p>
       </div>
       <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closeModal()">
         <svg class="fq-i" aria-hidden="true">

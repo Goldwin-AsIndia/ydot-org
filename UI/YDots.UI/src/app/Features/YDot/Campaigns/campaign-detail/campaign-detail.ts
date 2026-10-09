@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { forkJoin, map } from 'rxjs';
 
 import {
   UiState,
@@ -18,7 +19,15 @@ import { ToastService } from '../../../../Shared/services/toast.service';
 import { CloseRequestStoreService } from '../../../../Shared/services/close-request-store.service';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { CampaignApiService } from '../../../../Service/campaign-api.service';
+import { DonorApiService } from '../../../../Service/donor-api.service';
 import { PaymentApiService } from '../../../../Service/payment-api.service';
+import {
+  AttributionListItem,
+  AttributionSummary,
+  CampaignHistoryEntry,
+} from '../../../../Shared/models/campaign-contract.model';
+import { LeadListItem } from '../../../../Shared/models/donor-contract.model';
+import { fetchAllPages } from '../../../../Shared/services/paging';
 import { DonationListItem, MoneyResponse } from '../../../../Shared/models/payment.model';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 
@@ -42,7 +51,10 @@ interface LifecycleTransition {
  * Together these make the state machine fully traversable.
  */
 const PRIMARY_TRANSITION: Partial<Record<CampaignStatus, LifecycleTransition>> = {
-  Draft: { key: 'primary', label: 'Submit', target: 'Submitted' },
+  // SUBMIT NEEDS THE SERVER'S WORD LIKE EVERY OTHER TRANSITION. It carried no `requires`, and a
+  // transition without one is withheld - so the header never offered Submit on a Draft to anybody,
+  // the Campaign Executive whose step it is included.
+  Draft: { key: 'primary', label: 'Submit', target: 'Submitted', requires: 'Submit' },
 
   // APPROVAL LANDS ON SCHEDULED. The server moves a Submitted campaign to Scheduled while its
   // start date is still ahead, and to Approved only when that date has already passed. Naming
@@ -61,6 +73,9 @@ const PRIMARY_TRANSITION: Partial<Record<CampaignStatus, LifecycleTransition>> =
   Paused: { key: 'primary', label: 'Resume', target: 'Active', requires: 'Resume' },
 };
 const SECONDARY_TRANSITIONS: Partial<Record<CampaignStatus, readonly LifecycleTransition[]>> = {
+  // REJECT IS THE OTHER ANSWER TO A SUBMITTED CAMPAIGN: back to Draft, with the reason. Offered in
+  // the same confirm dialog as Approve, to whoever the server lists it for.
+  Submitted: [{ key: 'reject', label: 'Reject', target: 'Draft', requires: 'Reject' }],
   Scheduled: [{ key: 'pause', label: 'Pause', target: 'Paused', requires: 'Pause' }],
   Active: [{ key: 'close', label: 'Close', target: 'Closing', requires: 'RequestClose' }],
   Paused: [{ key: 'close', label: 'Close', target: 'Closing', requires: 'RequestClose' }],
@@ -92,7 +107,8 @@ const CANCEL_TRANSITION: LifecycleTransition = {
 const LIFECYCLE_PAGE_STATES: readonly CampaignStatus[] = ['Scheduled', 'Active', 'Paused'];
 
 /** The keys of the lifecycle actions shown in the header. */
-type LifecycleActionKey = 'activate' | 'pause' | 'resume' | 'requestClose' | 'approveClose';
+type LifecycleActionKey =
+  | 'activate' | 'pause' | 'resume' | 'requestClose' | 'approveClose' | 'rejectClose' | 'reject';
 
 /**
  * Campaign detail.
@@ -100,20 +116,20 @@ type LifecycleActionKey = 'activate' | 'pause' | 'resume' | 'requestClose' | 'ap
  * A read-only view of a single campaign — summary, targets, budget, tracking and
  * payments — plus the lifecycle actions available from its current state.
  */
-/** One entry on the campaign calendar: a dot in the month grid and a card in the day panel. */
+/**
+ * One entry on the campaign calendar: a dot in the month grid.
+ *
+ * `kind` picks the dot's icon and colour from the calendar's existing set: `launch` and `email`
+ * for the campaign's own start and end, `report` for a lifecycle step, `website` for a tracking
+ * asset and `donor` for the day's donations.
+ */
 interface CalEvent {
   label: string;
   kind: string;
-  /** Start time as printed ("10:00 AM"); absent for the campaign's own dates, which are all-day. */
-  time?: string;
-  /** End time as printed; the card shows "start - end" when both exist. */
-  end?: string;
-  status?: 'Queued' | 'Sent';
-  owner?: string;
-  note?: string;
-  /** A money figure (donation events); the card leads its body with it instead of an owner row. */
-  amount?: string;
 }
+
+/** A row of the tabbed table, with the calendar day it belongs to. */
+type DatedRow = HistoryRow & { dayKey?: string | null };
 
 @Component({
   selector: 'app-campaign-detail',
@@ -140,6 +156,9 @@ export class CampaignDetailComponent {
 
   /** The payments service. This campaign's Payments tab reads its donations from it. */
   private readonly payments = inject(PaymentApiService);
+
+  /** The donors service. The Leads tab reads this campaign's leads from it, for those who may. */
+  private readonly donors = inject(DonorApiService);
   /**
    * Owner names, resolved from IAM rather than from a map in this file.
    *
@@ -178,10 +197,21 @@ export class CampaignDetailComponent {
     // for exactly the visits where somebody would go looking at it.
     let historyLoadedFor: string | null = null;
 
-    // TEMPORARY PREVIEW: show the hard-coded rows straight away, without waiting for a campaign id.
-    if (this.usePreviewActivity) {
-      this.loadActivity();
+    // NO CAMPAIGN IN THE ADDRESS IS "NOTHING SELECTED", not a demonstration campaign. This screen
+    // used to fall back to an invented one - a name, a purpose, dates and two tracking assets
+    // that exist nowhere - whenever it was opened without a reference.
+    if (!this.routeRef) {
+      this.uiState.set('empty');
     }
+
+    effect(() => {
+      // A reference that matches nothing once the register has answered is also "nothing here".
+      if (this.routeRef && !this.store.isLoading() && !this.liveRecord() && !this.store.loadError()) {
+        untracked(() => this.uiState.set('empty'));
+      } else if (this.liveRecord() && untracked(this.uiState) === 'empty') {
+        untracked(() => this.uiState.set('ready'));
+      }
+    });
 
     effect(() => {
       // `apiId` reads a plain Map, which no effect can track; reading the record makes this
@@ -200,6 +230,9 @@ export class CampaignDetailComponent {
         this.store.loadDetail(this.reference);
         this.loadDonations();
         this.loadActivity();
+        this.loadAttribution();
+        this.loadLeads();
+        this.lastRefresh.set(this.nowLabel());
       });
     });
 
@@ -210,7 +243,7 @@ export class CampaignDetailComponent {
 
   // ================= Task header =================
   /** Campaign reference — server-derived, immutable in this view. */
-  protected readonly reference = this.routeRef ?? 'EDU-2025-001';
+  protected readonly reference = this.routeRef ?? '';
   /**
    * Live re-read of this campaign's record from the shared store on every access
    * NOT a one-time snapshot — so a change made on another page (Wizard edit, Operate
@@ -219,8 +252,11 @@ export class CampaignDetailComponent {
   private readonly liveRecord = computed(() => this.store.get(this.reference));
   /** Campaign name — read-only. */
   protected readonly campaignName = computed(
-    () => this.liveRecord()?.name ?? (this.routeRef ? 'Loading campaign…' : 'Educate a Child 2025'),
+    () => this.liveRecord()?.name ?? (this.routeRef && this.uiState() !== 'empty' ? 'Loading campaign…' : 'No campaign selected'),
   );
+
+  /** Whether the campaign's record has arrived. The status chip waits for it rather than guessing. */
+  protected readonly hasRecord = computed(() => !!this.liveRecord());
   /**
    * Status — server-derived current state, READ LIVE FROM THE RECORD.
    *
@@ -232,7 +268,9 @@ export class CampaignDetailComponent {
    * state the campaign had been in when the page opened.
    */
   protected readonly status = computed<CampaignStatus>(
-    () => this.liveRecord()?.status ?? this.initialRecord?.status ?? 'Active',
+    // 'Draft' IS NEVER SHOWN FOR A CAMPAIGN THAT HAS NOT LOADED: the chip is drawn only once the
+    // record is here (`hasRecord`), and no lifecycle button exists without its permitted actions.
+    () => this.liveRecord()?.status ?? this.initialRecord?.status ?? 'Draft',
   );
   /** Owner — read-only. */
   protected readonly owner = computed(() => {
@@ -281,13 +319,12 @@ export class CampaignDetailComponent {
     const refs = rec?.ownerReferences?.length ? rec.ownerReferences : rec ? [rec.ownerReference] : [];
     return refs.length ? refs.map((r) => this.people.name(r)).join(', ') : this.owner();
   });
-  /** Freshness — server-derived last refresh. */
-  protected readonly lastRefresh = signal('12 May 2025, 02:15 PM · IST');
+  /** Freshness — when this screen last read the campaign from the server, in the viewer's time. */
+  protected readonly lastRefresh = signal(this.nowLabel());
   private nowLabel(): string {
-    return (
-      new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) +
-      ' · IST'
-    );
+    return new Date().toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
+    });
   }
   /** "Created" for a freshly created campaign with no content edits since; "Updated" once it has
    *  been edited (record.wasEdited) — never both fixed labels regardless of record state. */
@@ -356,15 +393,11 @@ export class CampaignDetailComponent {
 
   // ================= Read-only fields =================
   /** Purpose — read-only. */
-  protected readonly purpose = computed(
-    () =>
-      this.liveRecord()?.purpose ??
-      'Support underprivileged children by providing access to quality education, learning resources and school essentials.',
-  );
+  protected readonly purpose = computed(() => this.liveRecord()?.purpose ?? '');
 
-  /** Date range — read-only. */
-  protected readonly launchDate = computed(() => this.liveRecord()?.startDate || '2025-05-01');
-  protected readonly endDate = computed(() => this.liveRecord()?.endDate || '2025-12-31');
+  /** Date range — read-only. Empty until the record arrives; `formatDate` prints a dash for that. */
+  protected readonly launchDate = computed(() => this.liveRecord()?.startDate || '');
+  protected readonly endDate = computed(() => this.liveRecord()?.endDate || '');
 
   /** Target (entered on the wizard's first step) and what has actually been raised against it. */
   protected readonly targetAmount = computed(() => this.liveRecord()?.targetAmount ?? 0);
@@ -400,23 +433,10 @@ export class CampaignDetailComponent {
   /**
    * Tracking assets — read-only. Read live from the single shared TrackingAssetStoreService,
    * so a Generate on the Tracking Asset Manager appears here immediately, without a refresh.
-   * Falls back to a built-in mock when opened directly without a reference.
    */
   protected readonly trackingAssets = computed<
     readonly (HistoryRow & { createdOn?: string; usageCount?: number; dayKey?: string | null })[]
   >(() => {
-    if (!this.routeRef) {
-      return [
-        {
-          primary: 'education-2025-link-07', secondary: 'UTM tracking link · Website',
-          meta: 'Created 12 May 2025, 10:45 AM', createdOn: '12 May 2025', usageCount: 0, dayKey: this.dayKeyOf('2025-05-12'),
-        },
-        {
-          primary: 'QR-EDU-2025-03', secondary: 'QR destination · Print flyer',
-          meta: 'Active · 214 scans', createdOn: '18 May 2025', usageCount: 214, dayKey: this.dayKeyOf('2025-05-18'),
-        },
-      ];
-    }
     return this.trackingStore.forCampaign(this.reference).map((a) => ({
       primary: a.trackingReference,
       secondary: `${a.assetType} · ${a.channel}`,
@@ -441,6 +461,9 @@ export class CampaignDetailComponent {
 
   /** Every counted donation on the campaign — amount, date and donor — behind the header figures. */
   private readonly donationStats = signal<readonly { amount: number; at: string; donor: string }[]>([]);
+
+  /** Each donor's first gift to this campaign, for the Donors tab. From the same payments read. */
+  private readonly firstGifts = signal<readonly DatedRow[]>([]);
 
   private readonly donationSamples = signal<readonly { amount: number; currency: string; at: string }[]>([]);
 
@@ -695,6 +718,7 @@ export class CampaignDetailComponent {
           this.donationsCount.set(0);
           this.donationSamples.set([]);
           this.donationStats.set([]);
+          this.firstGifts.set([]);
           this.recentDonations.set([]);
           this.donationsLoading.set(false);
           this.donationsError.set(
@@ -710,8 +734,11 @@ export class CampaignDetailComponent {
   private applyDonations(all: readonly DonationListItem[], totalCount: number): void {
     const recent = all.slice(0, 20);
 
+    // EVERY DONATION, NOT THE TWENTY NEWEST. The table under the calendar is filtered to one day,
+    // and a day older than the twentieth gift used to read "nothing recorded" when gifts had
+    // been.
     this.donations.set(
-      recent.map((donation) => ({
+      all.map((donation) => ({
         primary: `${this.money(donation.amount)} · ${donation.donorName || 'Anonymous donor'}`,
         secondary: [donation.sourceType as string | null, donation.methodType as string | null]
           .filter((part): part is string => !!part)
@@ -741,6 +768,32 @@ export class CampaignDetailComponent {
         })),
     );
 
+    // Each donor's FIRST gift to this campaign: the Donors tab lists who started giving on a day.
+    const firstByDonor = new Map<string, DonationListItem>();
+
+    for (const donation of all) {
+      const key = (donation.donorEmail || donation.donorName || '').trim().toLowerCase();
+
+      if (!key) {
+        continue;
+      }
+
+      const known = firstByDonor.get(key);
+
+      if (!known || new Date(donation.donatedAtUtc) < new Date(known.donatedAtUtc)) {
+        firstByDonor.set(key, donation);
+      }
+    }
+
+    this.firstGifts.set(
+      [...firstByDonor.values()].map((donation) => ({
+        primary: donation.donorName || 'Anonymous donor',
+        secondary: `First gift ${this.money(donation.amount)}`,
+        meta: this.donationWhen(donation.donatedAtUtc),
+        dayKey: this.dayKeyOf(donation.donatedAtUtc),
+      })),
+    );
+
     // The dashboard's "Recent Donations" list — initials stand in for avatars we don't store.
     this.recentDonations.set(
       recent.map((donation, i) => {
@@ -761,7 +814,7 @@ export class CampaignDetailComponent {
   }
 
   /** An amount as its own currency prints it, rather than as a bare number. */
-  private money(amount: MoneyResponse | null | undefined): string {
+  private money(amount: Pick<MoneyResponse, 'amount' | 'currencyCode'> | null | undefined): string {
     if (!amount) {
       return '—';
     }
@@ -791,19 +844,6 @@ export class CampaignDetailComponent {
         });
   }
 
-  /** Documents — Confidential; visible only within record scope and purpose. */
-  protected readonly documents: readonly HistoryRow[] = [
-    { primary: 'Campaign brief — Educate a Child 2025', secondary: 'PDF · 320 KB', meta: 'Confidential · record scope' },
-    { primary: 'May 2025 donation statement', secondary: 'CSV · 88 KB', meta: 'Confidential · record scope' },
-  ];
-  /**
-   * Documents carries its own, independent check: the attachments are confidential and
-   * record-scoped. It asks a permission, not a role name.
-   */
-  protected readonly documentsAllowed = computed(
-    () => this.permissions().view && this.permissions().export,
-  );
-
   /**
    * The campaign's activity chronology — the server's append-only trail of who did what to this
    * campaign and whether it was allowed.
@@ -816,25 +856,8 @@ export class CampaignDetailComponent {
   /** The reason the trail is missing, when it is missing for a reason. Null when all is well. */
   protected readonly activityError = signal<string | null>(null);
 
-  /**
-   * TEMPORARY PREVIEW: while true, Recent Activity shows the hard-coded rows below instead of the
-   * campaign's real history, so the panel's layout and both tones can be reviewed. Set to false
-   * (or delete this flag, the block in `loadActivity` and `previewActivity`) to read the real trail.
-   */
-  private readonly usePreviewActivity = true;
-
-  private readonly previewActivity: readonly ActivityItem[] = [
-    { title: 'Email Campaign Sent', detail: 'Annual Giving Campaign 2026', time: '22 Sep 2026, 10:00 AM', tone: 'good' },
-    { title: 'Whatsapp Campaign Sent', detail: 'Annual Giving Campaign 2026', time: '22 Sep 2026, 09:40 AM', tone: 'good' },
-    { title: 'Instagram Campaign Sent', detail: 'Annual Giving Campaign 2026', time: '21 Sep 2026, 06:15 PM', tone: 'good' },
-    { title: 'Lead Donor Changed', detail: 'Annual Giving Campaign 2026', time: '20 Sep 2026, 10:00 AM', tone: 'good' },
-    { title: 'Campaign approved', detail: 'Approved by Finance Head after budget review', time: '18 Sep 2026, 04:15 PM', tone: 'good' },
-    { title: 'Campaign submitted', detail: 'Submitted for approval by Priya Nair', time: '17 Sep 2026, 11:30 AM', tone: 'good' },
-    { title: 'Campaign launch', detail: 'Not permitted: launch date is earlier than the approval date', time: '15 Sep 2026, 09:42 AM', tone: 'plum' },
-    { title: 'Owner changed', detail: 'Ownership moved from Arun Kumar to Meena Iyer', time: '12 Sep 2026, 02:05 PM', tone: 'good' },
-    { title: 'Campaign amount updated', detail: 'Target raised from ₹10,00,000 to ₹12,40,000', time: '08 Sep 2026, 10:20 AM', tone: 'good' },
-    { title: 'Campaign created', detail: 'Draft created from the Annual Giving template', time: '02 Sep 2026, 05:48 PM', tone: 'good' },
-  ];
+  /** The history entries as the server sent them - the calendar reads their dates. */
+  private readonly historyEntries = signal<readonly CampaignHistoryEntry[]>([]);
 
   /**
    * The icon + colour family of a Recent Activity row, read from its title. A refused action is
@@ -894,16 +917,10 @@ export class CampaignDetailComponent {
 
   /** Loads the history for the campaign on screen. */
   private loadActivity(): void {
-    if (this.usePreviewActivity) {
-      this.recentActivity.set(this.previewActivity);
-      this.activityLoading.set(false);
-      this.activityError.set(null);
-      return;
-    }
-
     const campaignId = this.store.apiId(this.reference);
 
     if (!campaignId) {
+      this.historyEntries.set([]);
       this.recentActivity.set([]);
       this.activityLoading.set(false);
       this.activityError.set(null);
@@ -916,14 +933,20 @@ export class CampaignDetailComponent {
     // THE FIELD NAMES ARE THE ONES THE SERVER ACTUALLY SENDS: `actionCode`, `actorUserId`,
     // `result`, `reason` and `occurredAtUtc` on CampaignHistoryResponse.
     this.campaignApi.getCampaignHistory(campaignId).subscribe({
-      next: (entries) =>
+      next: (entries) => {
+        this.historyEntries.set(entries);
         this.recentActivity.set(
           entries.map((entry) => {
             const result = String(entry.result ?? '');
 
+            // WHO DID IT, beside what they said. The trail is the record of who took each step,
+            // and a row reading only "Campaign approved" left out the half people look for.
+            const actor = entry.actorUserId ? this.people.name(entry.actorUserId) : '';
+            const said = entry.reason ?? this.describeHistoryResult(result);
+
             return {
               title: this.describeHistoryAction(entry.actionCode),
-              detail: entry.reason ?? this.describeHistoryResult(result),
+              detail: [said, actor && actor !== '—' ? `by ${actor}` : ''].filter(Boolean).join(' · '),
               time: entry.occurredAtUtc
                 ? new Date(entry.occurredAtUtc).toLocaleString('en-IN', {
                     day: '2-digit', month: 'short', year: 'numeric',
@@ -935,8 +958,10 @@ export class CampaignDetailComponent {
               tone: /denied|failure|failed|reject|refus/i.test(result) ? 'plum' : 'good',
             } as ActivityItem;
           }),
-        ),
+        );
+      },
       error: () => {
+        this.historyEntries.set([]);
         this.recentActivity.set([]);
         this.activityLoading.set(false);
         this.activityError.set("This campaign's history could not be loaded.");
@@ -1007,6 +1032,8 @@ export class CampaignDetailComponent {
     const { thisStart, prevStart, nextStart } = this.monthBounds();
     let current = 0;
     let previous = 0;
+    let currentGifts = 0;
+    let previousGifts = 0;
     const currentDonors = new Set<string>();
     const previousDonors = new Set<string>();
 
@@ -1015,15 +1042,33 @@ export class CampaignDetailComponent {
       if (Number.isNaN(when.getTime())) continue;
       if (when >= thisStart && when < nextStart) {
         current += d.amount;
+        currentGifts++;
         if (d.donor) currentDonors.add(d.donor);
       } else if (when >= prevStart && when < thisStart) {
         previous += d.amount;
+        previousGifts++;
         if (d.donor) previousDonors.add(d.donor);
       }
     }
 
-    return { current, previous, currentDonors: currentDonors.size, previousDonors: previousDonors.size };
+    return {
+      current, previous, currentGifts, previousGifts,
+      currentDonors: currentDonors.size, previousDonors: previousDonors.size,
+    };
   });
+
+  // ---------- Donations (how many gifts, and how many of them this month) ----------
+  //
+  // THIS TILE READ "WHATSAPP SENDS  0" WITH A FIXED "— 0%", for every campaign. Nothing on the
+  // platform counts WhatsApp sends, so the figure could only ever be the literal typed into the
+  // template. It now counts what the payments service holds for this campaign.
+  protected readonly donationsTotalLabel = computed(() => this.donationStats().length.toLocaleString('en-IN'));
+  protected readonly donationsThisMonthLabel = computed(() =>
+    this.monthlyDonations().currentGifts.toLocaleString('en-IN'),
+  );
+  protected readonly donationsChange = computed(() =>
+    this.changeOf(this.monthlyDonations().currentGifts, this.monthlyDonations().previousGifts),
+  );
 
   // ---------- Monthly revenue (this month's donations vs last month's) ----------
   protected readonly kpiRevenue = computed(() => this.rupeeINR(this.monthlyDonations().current));
@@ -1070,130 +1115,125 @@ export class CampaignDetailComponent {
     });
   }
 
-  // ---------- Donations by Channel (real trend total, illustrative channel split) ----------
-  protected readonly channelLegend = [
-    { label: 'SMS', color: '#b51246' },
-    { label: 'WhatsApp', color: '#16b978' },
-    { label: 'Instagram', color: '#8e24d1' },
-  ];
+  // ---------- Donations by Channel (CAM's attribution of this campaign's gifts) ----------
 
-  /** Y ticks as Western compact figures — 100K, 200K — matching the reference axis. */
-  protected readonly channelTicks = computed(() =>
-    this.trendTicks().map((value) => ({ value, label: this.westernCompact(value) })),
-  );
+  /** How this campaign's donations of the last twelve months break down, from CAM. */
+  private readonly attribution = signal<AttributionSummary | null>(null);
 
-  /** A figure as a Western compact label — 100K rather than the Indian 1L — for the chart axis. */
-  protected westernCompact(value: number): string {
-    try {
-      return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
-    } catch {
-      return String(value);
-    }
-  }
+  /** Every attributed-or-not donation of the campaign, for the Source and channel tabs. */
+  private readonly attributedDonations = signal<readonly AttributionListItem[]>([]);
 
-  /** The hovered month index — the crosshair, highlighted dots and tooltip all read this. */
-  protected readonly channelHover = signal<number | null>(null);
+  protected readonly attributionError = signal<string | null>(null);
 
-  /** Two-line x labels — the month over the year, as the design draws them. */
-  protected readonly channelXLabels = computed(() => {
-    const points = this.trendPoints();
-    return this.trendSeries().map((bucket, i) => {
-      const [month, ...rest] = bucket.label.split(' ');
-      return { month, year: rest.join(' '), x: points[i]?.x ?? 0 };
-    });
-  });
-
-  /** Snap the pointer to the nearest month bucket of the channel chart. */
-  protected onChannelMove(event: PointerEvent): void {
-    const rect = (event.currentTarget as SVGElement).getBoundingClientRect();
-    const points = this.trendPoints();
-    if (!rect.width || !points.length) {
-      return;
-    }
-    const step = points.length > 1 ? points[1].x - points[0].x : 1;
-    const vx = ((event.clientX - rect.left) / rect.width) * this.trendView.w;
-    const idx = Math.round((vx - points[0].x) / step);
-    this.channelHover.set(Math.max(0, Math.min(points.length - 1, idx)));
-  }
-
-  /** The hover card's contents — each channel's figure for the pointed month. */
-  protected readonly channelTip = computed(() => {
-    const i = this.channelHover();
-    if (i == null) {
-      return null;
-    }
-    const points = this.trendPoints();
-    const series = this.channelSeries();
-    const month = this.trendSeries()[i];
-    if (!points[i] || !month || !series.length || !series[0].points[i]) {
-      return null;
-    }
-    const top = Math.min(...series.map((s) => s.points[i].y));
-    return {
-      label: month.label,
-      x: points[i].x,
-      left: (points[i].x / this.trendView.w) * 100,
-      top: (top / this.trendView.h) * 100,
-      below: top < this.trendView.h * 0.3,
-      rows: series.map((s) => ({
-        key: s.key,
-        color: s.color,
-        label: this.channelLegend.find((l) => l.label.toLowerCase() === s.key)?.label ?? s.key,
-        display: this.rupeeINR(s.points[i].value),
-        y: s.points[i].y,
-      })),
-    };
-  });
+  /** Whether the caller may read attribution at all. Without it the panel and its tabs are withheld. */
+  protected readonly canSeeAttribution = computed(() => this.currentUser.hasPermission('cam.attribution.view'));
 
   /**
-   * Three channel curves over the REAL donation trend. SMS and Instagram are deterministic wavy
-   * fractions of it, so the chart carries the mock's three-colour shape without inventing a
-   * second data source.
+   * Reads the campaign's attribution: the twelve-month summary behind the channel panel, and the
+   * donation-by-donation list behind the Source and channel tabs.
    */
-  protected readonly channelSeries = computed(() => {
-    const points = this.trendPoints();
-    const baseNum = this.trendView.h - this.trendView.bottom;
-    const base = baseNum.toFixed(1);
-    const build = (key: string, color: string, factor: number, phase: number, amp: number) => {
-      const shaped: { x: number; y: number }[] = [];
-      const monthPts: { x: number; y: number; value: number }[] = [];
-      points.forEach((p, i) => {
-        const value = Math.max(0, p.value * factor * (1 + Math.sin(i * 1.9 + phase) * amp));
-        const y = this.trendY(value);
-        const prev = shaped[shaped.length - 1];
-        if (prev && prev.y >= baseNum - 0.5 && y < prev.y - 0.5) {
-          for (let k = 1; k < 6; k++) {
-            const t = k / 6;
-            shaped.push({ x: prev.x + (p.x - prev.x) * t, y: prev.y + (y - prev.y) * t * t });
-          }
-        }
-        shaped.push({ x: p.x, y });
-        monthPts.push({ x: p.x, y, value });
-      });
-      const line = this.smoothPath(shaped);
-      const area = shaped.length
-        ? `${line} L ${shaped[shaped.length - 1].x.toFixed(1)} ${base} L ${shaped[0].x.toFixed(1)} ${base} Z`
-        : '';
-      return { key, color, line, area, end: shaped[shaped.length - 1] ?? null, points: monthPts };
-    };
-    return [
-      build('whatsapp', '#16b978', 0.94, 0.6, 0.07),
-      build('sms', '#b51246', 0.62, 2.3, 0.1),
-      build('instagram', '#8e24d1', 0.34, 4.1, 0.12),
-    ];
+  private loadAttribution(): void {
+    const campaignId = this.store.apiId(this.reference);
+
+    if (!campaignId || !this.canSeeAttribution()) {
+      this.attribution.set(null);
+      this.attributedDonations.set([]);
+      return;
+    }
+
+    const from = new Date();
+    from.setFullYear(from.getFullYear() - 1);
+
+    this.attributionError.set(null);
+
+    this.campaignApi.getAttributionSummary(campaignId, { fromUtc: from.toISOString() }).subscribe({
+      next: (summary) => this.attribution.set(summary),
+      error: (error: unknown) => {
+        this.attribution.set(null);
+        this.attributionError.set(apiErrorMessage(error, 'The channel breakdown could not be loaded.'));
+      },
+    });
+
+    fetchAllPages((page, pageSize) =>
+      this.campaignApi.searchAttribution({ campaignId, page, pageSize })).subscribe({
+      next: (items) => this.attributedDonations.set(items),
+      error: () => this.attributedDonations.set([]),
+    });
+  }
+
+  /** The panel's ring colours, by position. Presentation only - the segments are the server's. */
+  private static readonly MIX_COLOURS = ['#f2a6bf', '#96e0bb', '#c9adf0', '#f6c177', '#8ecae6', '#b8c0cc'];
+
+  /**
+   * The channel panel's segments: one per channel CAM traced gifts to, and one for the gifts it
+   * could not trace, so the ring always adds up to every donation in the window.
+   *
+   * THESE WERE THREE LITERALS - SMS 1,120, WhatsApp 860, Instagram 580, of "2,560 donors" - shown
+   * on every campaign, including ones with no donations at all.
+   */
+  protected readonly donorMix = computed(() => {
+    const summary = this.attribution();
+
+    if (!summary || summary.totalDonations <= 0) {
+      return [] as { label: string; display: string; pct: number; color: string }[];
+    }
+
+    const rows = (summary.byChannel ?? [])
+      .filter((row) => row.donationCount > 0)
+      .map((row) => ({ label: row.label || 'Unnamed channel', count: row.donationCount }));
+
+    if (summary.unattributedDonations > 0) {
+      rows.push({ label: 'Not traced to a channel', count: summary.unattributedDonations });
+    }
+
+    return rows.map((row, index) => ({
+      label: row.label,
+      display: row.count.toLocaleString('en-IN'),
+      pct: Math.round((row.count / summary.totalDonations) * 1000) / 10,
+      color: CampaignDetailComponent.MIX_COLOURS[index % CampaignDetailComponent.MIX_COLOURS.length],
+    }));
   });
 
-  // ---------- Campaign Calendar (real campaign dates, demo activities around them) ----------
-  protected readonly calDow = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  protected readonly calLegend = [
-    { label: 'Email Campaign', kind: 'email', color: '#07565b' },
-    { label: 'SMS Campaign', kind: 'sms', color: '#c8e36d' },
-    { label: 'Donor Follow-up', kind: 'donor', color: '#a855f7' },
-    { label: 'Social Media', kind: 'social', color: '#e879a0' },
-    { label: 'Report Review', kind: 'report', color: '#f97316' },
-    { label: 'Website Update', kind: 'website', color: '#06b6d4' },
-    { label: 'Campaign Launch', kind: 'launch', color: '#22c55e' },
-  ];
+  protected readonly donorMixTotalLabel = computed(() =>
+    (this.attribution()?.totalDonations ?? 0).toLocaleString('en-IN'),
+  );
+
+  protected readonly donorMixDonut = computed(() => this.donutSegments(this.donorMix()));
+
+  // ---------- Campaign Calendar (this campaign's own dates, steps, assets and gifts) ----------
+
+  /** Monday-first weekday captions, in the viewer's language. */
+  protected readonly calDow = Array.from({ length: 7 }, (_, index) =>
+    new Date(2024, 0, 1 + index).toLocaleDateString('en-GB', { weekday: 'short' }));
+
+  /** What each kind of calendar entry is called in the legend. */
+  private static readonly CAL_KIND_LABELS: Readonly<Record<string, string>> = {
+    launch: 'Campaign launch',
+    email: 'Campaign end',
+    report: 'Lifecycle step',
+    website: 'Tracking asset',
+    donor: 'Donations received',
+  };
+
+  /**
+   * The legend: only the kinds of entry the shown month actually holds.
+   *
+   * IT LISTED SEVEN ACTIVITY TYPES - email, SMS, social media, report review and the rest - none
+   * of which this platform records. They explained the invented dots that used to fill the grid.
+   */
+  protected readonly calLegend = computed(() => {
+    const present = new Set<string>();
+
+    for (const cell of this.calCells()) {
+      for (const event of cell.events) {
+        present.add(event.kind);
+      }
+    }
+
+    return Object.entries(CampaignDetailComponent.CAL_KIND_LABELS)
+      .filter(([kind]) => present.has(kind))
+      .map(([kind, label]) => ({ kind, label }));
+  });
 
   /** The logo stacked on a calendar day, one per event kind or channel (Remix icons). */
   protected calKindIcon(kind: string): string {
@@ -1224,6 +1264,13 @@ export class CampaignDetailComponent {
   private dateKey(date: Date): string {
     return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
   }
+  /** A bare YYYY-MM-DD as that LOCAL calendar day (not UTC midnight), or any other date as given. */
+  private tryDateOnly(value: string | null | undefined): Date | null {
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? '');
+
+    return ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : this.tryDate(value);
+  }
+
   /** A parseable date or nothing — campaign dates arrive as strings from the API. */
   private tryDate(value: string | null | undefined): Date | null {
     if (!value) {
@@ -1245,9 +1292,13 @@ export class CampaignDetailComponent {
   );
 
   /**
-   * The shown month's activity entries. The campaign's own dates (launch, close) are real;
-   * the mock's demo activities sit on fixed days of the shown month until the activity
-   * planner module feeds real entries.
+   * The calendar's entries, every one a record: the campaign's start and end dates, each step of
+   * its lifecycle history, each tracking asset on the day it goes live, and each day donations
+   * arrived.
+   *
+   * SEVENTEEN INVENTED ACTIVITIES USED TO BE PAINTED ONTO FIXED DAYS OF WHICHEVER MONTH WAS SHOWN -
+   * "Impact Update", "Volunteer Alert", a "New Donor" of 5,800 euros - with two invented owners,
+   * identically on every campaign and every month.
    */
   private calEvents(): Map<string, CalEvent[]> {
     const map = new Map<string, CalEvent[]>();
@@ -1262,36 +1313,45 @@ export class CampaignDetailComponent {
       }
       map.set(key, list);
     };
-    const owner = this.owner();
-    add(this.tryDate(this.liveRecord()?.startDate), {
-      label: 'Campaign Launch', kind: 'launch', owner, note: 'The campaign opens for donations.',
-    });
-    add(this.tryDate(this.liveRecord()?.endDate), {
-      label: 'Campaign Ends', kind: 'email', owner, note: 'The campaign closes to new donations.',
-    });
-    const anchor = this.calMonth();
-    const demo: [number, CalEvent][] = [
-      [2, { label: 'Impact Update', kind: 'email', time: '10:00 AM', end: '11:00 AM', status: 'Sent', owner: 'Maya Patel', note: 'Share September wins with donors and supporters.' }],
-      [2, { label: 'Volunteer Alert', kind: 'sms', time: '2:00 PM', end: '3:00 PM', status: 'Queued', owner: 'Luis Romero', note: "Remind volunteers about Saturday's community drive." }],
-      [2, { label: 'New Donor', kind: 'donor', time: '3:00 PM', end: '4:00 PM', status: 'Sent', amount: '€ 5,800', note: 'New major donor contribution received.' }],
-      [4, { label: 'Social Media', kind: 'social', time: '11:00 AM', end: '12:00 PM', status: 'Sent', owner: 'Maya Patel', note: 'Post the volunteer drive photo story.' }],
-      [8, { label: 'Donor Follow-up', kind: 'donor', time: '9:30 AM', end: '10:30 AM', status: 'Sent', owner: 'Luis Romero', note: 'Thank the week’s new donors personally.' }],
-      [10, { label: 'Report Review', kind: 'report', time: '1:00 PM', end: '2:00 PM', status: 'Sent', owner: 'Maya Patel', note: 'Review weekly donation and reach figures.' }],
-      [12, { label: 'Website Update', kind: 'website', time: '10:00 AM', end: '11:00 AM', status: 'Sent', owner: 'Luis Romero', note: 'Refresh the campaign page progress bar.' }],
-      [14, { label: 'Campaign Launch', kind: 'launch', time: '11:00 AM', end: '12:00 PM', status: 'Sent', owner: 'Maya Patel', note: 'Phase two opens for public donations.' }],
-      [16, { label: 'Social Media', kind: 'social', time: '3:00 PM', end: '4:00 PM', status: 'Queued', owner: 'Luis Romero', note: 'Share the mid-campaign milestone.' }],
-      [17, { label: 'Email Campaign', kind: 'email', time: '10:00 AM', end: '11:00 AM', status: 'Queued', owner: 'Maya Patel', note: 'Monthly supporter newsletter.' }],
-      [17, { label: 'SMS Campaign', kind: 'sms', time: '2:00 PM', end: '3:00 PM', status: 'Queued', owner: 'Luis Romero', note: 'Reminder to complete pending pledges.' }],
-      [19, { label: 'SMS Campaign', kind: 'sms', time: '9:00 AM', end: '10:00 AM', status: 'Queued', owner: 'Luis Romero', note: 'Event-day reminder for volunteers.' }],
-      [22, { label: 'Email Campaign', kind: 'email', time: '11:00 AM', end: '12:00 PM', status: 'Queued', owner: 'Maya Patel', note: 'Impact story for lapsed donors.' }],
-      [24, { label: 'Donor Follow-up', kind: 'donor', time: '2:00 PM', end: '3:00 PM', status: 'Queued', owner: 'Luis Romero', note: 'Call the top contributors this month.' }],
-      [26, { label: 'Report Review', kind: 'report', time: '10:00 AM', end: '11:00 AM', status: 'Queued', owner: 'Maya Patel', note: 'Prepare the end-of-month summary.' }],
-      [29, { label: 'Website Update', kind: 'website', time: '1:00 PM', end: '2:00 PM', status: 'Queued', owner: 'Luis Romero', note: 'Publish the closing-week banner.' }],
-      [30, { label: 'Campaign Launch', kind: 'launch', time: '4:00 PM', end: '5:00 PM', status: 'Queued', owner: 'Maya Patel', note: 'Final-push appeal goes live.' }],
-    ];
-    for (const [day, event] of demo) {
-      add(new Date(anchor.getFullYear(), anchor.getMonth(), day), event);
+    add(this.tryDateOnly(this.liveRecord()?.startDate), { label: 'Campaign launch', kind: 'launch' });
+    add(this.tryDateOnly(this.liveRecord()?.endDate), { label: 'Campaign ends', kind: 'email' });
+
+    for (const entry of this.historyEntries()) {
+      add(this.tryDate(entry.occurredAtUtc), {
+        label: this.describeHistoryAction(entry.actionCode),
+        kind: 'report',
+      });
     }
+
+    for (const asset of this.trackingStore.forCampaign(this.reference)) {
+      add(this.tryDateOnly(asset.activeFrom), {
+        label: `Tracking asset ${asset.trackingReference}`,
+        kind: 'website',
+      });
+    }
+
+    const giftsByDay = new Map<string, { date: Date; count: number }>();
+
+    for (const gift of this.donationStats()) {
+      const when = this.tryDate(gift.at);
+
+      if (!when) {
+        continue;
+      }
+
+      const key = this.dateKey(when);
+      const day = giftsByDay.get(key) ?? { date: when, count: 0 };
+      day.count++;
+      giftsByDay.set(key, day);
+    }
+
+    for (const day of giftsByDay.values()) {
+      add(day.date, {
+        label: `${day.count} donation${day.count === 1 ? '' : 's'} received`,
+        kind: 'donor',
+      });
+    }
+
     return map;
   }
 
@@ -1486,34 +1546,129 @@ export class CampaignDetailComponent {
   protected readonly readMoreMinutes = computed(() => Math.max(1, Math.round(this.readMoreWordCount() / 200)));
 
   // ================= Main work: tabs =================
-  protected readonly tabs: readonly DetailTab[] = [
+
+  /** Whether the caller may read the organisation's leads. Campaign roles do not; the admin does. */
+  protected readonly canSeeLeads = computed(() => this.currentUser.hasPermission('don.lead-work-queue.view'));
+
+  /**
+   * The tabs, each one backed by a service this caller can read.
+   *
+   * THE LAST SIX WERE Leads, Donors, Source, SMS, Whatsapp AND Instagram, AND ALL SIX WERE ALWAYS
+   * EMPTY - the template handed every one of them an empty array. Leads now reads the donors
+   * service (for those who may), Donors and Source read this campaign's gifts, and the three
+   * channel names typed in here are replaced by the channels THIS campaign actually runs on, as
+   * CAM holds them.
+   */
+  protected readonly tabs = computed<readonly DetailTab[]>(() => [
     { key: 'tracking', label: 'Tracking' },
     { key: 'payments', label: 'Payments' },
-    { key: 'leads', label: 'Leads' },
+    ...(this.canSeeLeads() ? [{ key: 'leads', label: 'Leads' }] : []),
     { key: 'donors', label: 'Donors' },
-    { key: 'source', label: 'Source' },
-    { key: 'sms', label: 'SMS' },
-    { key: 'whatsapp', label: 'Whatsapp' },
-    { key: 'instagram', label: 'Instagram' },
-  ];
-  /** The tab shown on arrival: whichever one is FIRST, so it cannot drift from the list. */
-  protected readonly activeTab = signal<string>(this.tabs[0]?.key ?? '');
+    ...(this.canSeeAttribution() ? [{ key: 'source', label: 'Source' }] : []),
+    ...(this.canSeeAttribution()
+      ? (this.liveRecord()?.channelNames ?? []).map((name) => ({ key: `channel:${name}`, label: name }))
+      : []),
+  ]);
+
+  /** The tab shown on arrival: Tracking, the first of the list. */
+  protected readonly activeTab = signal<string>('tracking');
   protected selectTab(key: string): void {
     this.activeTab.set(key);
     this.trackPage.set(1);
   }
 
-  // ---------- Donor mix donut (mock figures until donors/leads feed the screen) ----------
-  protected readonly donorMix = [
-    { label: 'SMS', display: '1,120', pct: 44, color: '#f2a6bf' },
-    { label: 'WhatsApp', display: '860', pct: 34, color: '#96e0bb' },
-    { label: 'Instagram', display: '580', pct: 22, color: '#c9adf0' },
-  ];
-  protected readonly donorMixTotalLabel = '2,560';
-  protected readonly donorsMonthlyLabel = '428';
-  protected readonly donorMixDonut = computed(() =>
-    this.donutSegments(this.donorMix.map(({ label, pct, color, display }) => ({ label, pct, color, display }))),
-  );
+  /** This campaign's leads, from the donors service. Empty for a caller who may not read leads. */
+  private readonly leads = signal<readonly LeadListItem[]>([]);
+  protected readonly leadsError = signal<string | null>(null);
+
+  private loadLeads(): void {
+    const campaignId = this.store.apiId(this.reference);
+
+    if (!campaignId || !this.canSeeLeads()) {
+      this.leads.set([]);
+      return;
+    }
+
+    this.leadsError.set(null);
+
+    // Converted leads as well as open ones: a lead that became a donor is still this campaign's.
+    const read = (isConverted: boolean) =>
+      fetchAllPages((page, pageSize) =>
+        this.donors
+          .getLeadWorkQueue({ campaignId, page, pageSize, isConverted })
+          .pipe(map((response) => response.leads)));
+
+    forkJoin([read(false), read(true)]).subscribe({
+      next: ([open, converted]) => this.leads.set([...open, ...converted]),
+      error: (error: unknown) => {
+        this.leads.set([]);
+        this.leadsError.set(apiErrorMessage(error, 'This campaign\u2019s leads could not be loaded.'));
+      },
+    });
+  }
+
+  /** One attributed donation as a row of the Source and channel tabs. */
+  private attributionRow(item: AttributionListItem, detail: string): DatedRow {
+    return {
+      primary: `${this.money({ amount: item.amount, currencyCode: item.currencyCode })} · ${item.donorName || 'Anonymous donor'}`,
+      secondary: detail,
+      meta: this.donationWhen(item.receivedAtUtc),
+      dayKey: this.dayKeyOf(item.receivedAtUtc),
+    };
+  }
+
+  /** Column captions for the tab on screen. */
+  protected readonly tabColumns = computed<readonly string[]>(() => {
+    const tab = this.activeTab();
+
+    if (tab === 'leads') return ['Lead', 'Stage · Owner', 'Captured'];
+    if (tab === 'donors') return ['Donor', 'First gift', 'Received'];
+    if (tab === 'source') return ['Donation', 'Source · Medium', 'Received'];
+    return ['Donation', 'Tracking asset · Source', 'Received'];
+  });
+
+  /** The rows of the tab on screen, narrowed to the selected calendar day like every other tab. */
+  protected readonly tabRows = computed<readonly DatedRow[]>(() => {
+    const tab = this.activeTab();
+    const day = this.activeDayKey();
+    let rows: readonly DatedRow[] = [];
+
+    if (tab === 'leads') {
+      rows = this.leads().map((lead) => ({
+        primary: `${lead.name} · ${lead.leadReference}`,
+        secondary: [lead.status, lead.ownerName || 'Unassigned'].filter(Boolean).join(' · '),
+        meta: this.donationWhen(lead.createdAtUtc),
+        dayKey: this.dayKeyOf(lead.createdAtUtc),
+      }));
+    } else if (tab === 'donors') {
+      rows = this.firstGifts();
+    } else if (tab === 'source') {
+      rows = this.attributedDonations().map((item) =>
+        this.attributionRow(
+          item,
+          item.isAttributed
+            ? [item.sourceName, item.mediumName].filter(Boolean).join(' · ') || 'Traced'
+            : 'Not traced to a source'));
+    } else if (tab.startsWith('channel:')) {
+      const channel = tab.slice('channel:'.length);
+
+      rows = this.attributedDonations()
+        .filter((item) => item.isAttributed && item.channelName === channel)
+        .map((item) =>
+          this.attributionRow(item, [item.trackingReference, item.sourceName].filter(Boolean).join(' · ')));
+    }
+
+    return rows.filter((row) => row.dayKey === day);
+  });
+
+  /** Why the tab on screen has nothing to show, when that is a failed read rather than an empty day. */
+  protected readonly tabError = computed(() => {
+    const tab = this.activeTab();
+
+    if (tab === 'leads') return this.leadsError();
+    if (tab === 'source' || tab.startsWith('channel:')) return this.attributionError();
+    return null;
+  });
 
   // ---------- Tracking mini-table (paged five at a time, like the design) ----------
   private static readonly TRACK_PAGE_SIZE = 5;
@@ -1615,27 +1770,14 @@ export class CampaignDetailComponent {
     this.donationsScopeFetching.set(false);
   }
 
+  /** Back to the register - the way out of "no campaign to show". */
+  protected openRegister(): void {
+    this.router.navigate(['/app/fundraising/campaigns/campaign-register']);
+  }
+
   protected clearFilters(): void {
     /* No search/saved-view filters remain on this page — kept as a no-op for the state-panel Reset button. */
   }
-
-  // ================= Related and history =================
-  protected readonly linkedRecords: readonly HistoryRow[] = [
-    { primary: 'BUD-2025-0031', secondary: 'FY25 campaign budget', meta: 'Budget · Approved' },
-    { primary: 'PLAN-2025-0007', secondary: 'Budget and target plan v3', meta: 'Plan · Current' },
-    { primary: 'CAMP-2025-0011', secondary: 'Educate a Child 2025', meta: 'Campaign · Active' },
-  ];
-  protected readonly integrationRows: readonly HistoryRow[] = [
-    { primary: 'Settlement feed', secondary: 'Healthy', meta: 'Last sync 12 May 2025, 02:10 PM' },
-    { primary: 'Payment provider', secondary: 'Healthy', meta: 'Last sync 12 May 2025, 02:08 PM' },
-  ];
-  protected readonly supportRows: readonly HistoryRow[] = [
-    { primary: 'INT-88421', secondary: 'Receipt email retry', meta: 'Resolved · correlation kept' },
-  ];
-  protected readonly auditRows: readonly HistoryRow[] = [
-    { primary: 'Campaign opened', secondary: '', meta: 'A. Kumar · 12 May 2025, 02:15 PM' },
-    { primary: 'Budget updated', secondary: 'Marketing budget increased', meta: 'N. Patel · 11 May 2025, 04:30 PM' },
-  ];
 
   // ================= Actions, eligibility and result =================
   /**
@@ -1718,6 +1860,12 @@ export class CampaignDetailComponent {
     const status = this.status();
     const actions: { key: LifecycleActionKey; label: string; tone: 'primary' | 'danger' }[] = [];
 
+    // REJECT HAS ITS OWN BUTTON, beside Approve. It was reachable only as the second option inside
+    // the dialog the Approve button opens, which is not where somebody about to refuse a campaign
+    // looks. It opens that same dialog, on Reject.
+    if (status === 'Submitted' && this.allows('Reject')) {
+      actions.push({ key: 'reject', label: 'Reject', tone: 'danger' });
+    }
     if ((status === 'Approved' || status === 'Scheduled') && this.allows('Activate')) {
       actions.push({ key: 'activate', label: 'Activate', tone: 'primary' });
     }
@@ -1733,6 +1881,9 @@ export class CampaignDetailComponent {
     if (status === 'Closing' && this.allows('ApproveClose')) {
       actions.push({ key: 'approveClose', label: 'Approve close', tone: 'danger' });
     }
+    if (status === 'Closing' && this.allows('RejectClose')) {
+      actions.push({ key: 'rejectClose', label: 'Reject close', tone: 'primary' });
+    }
     return actions;
   });
 
@@ -1742,9 +1893,15 @@ export class CampaignDetailComponent {
     }
     this.lifecycleError.set('');
 
-    // Request close only opens its popup; the call is made from the popup's own button.
-    if (key === 'requestClose') {
-      this.openCloseRequest();
+    // Request close and Reject close only open the reason popup; the call is made from its button.
+    if (key === 'requestClose' || key === 'rejectClose') {
+      this.openCloseRequest(key === 'rejectClose' ? 'reject' : 'request');
+      return;
+    }
+
+    // Reject is decided in the confirm dialog, with its reason.
+    if (key === 'reject') {
+      this.openOperate('reject');
       return;
     }
 
@@ -1787,8 +1944,15 @@ export class CampaignDetailComponent {
     }
   }
 
-  /** Opens the Request close popup with an empty, untouched reason, and focuses the box. */
-  protected openCloseRequest(): void {
+  /**
+   * Which decision the reason popup is collecting a reason for: asking for a close, or refusing
+   * one that was asked for.
+   */
+  protected readonly closeBoxMode = signal<'request' | 'reject'>('request');
+
+  /** Opens the reason popup with an empty, untouched reason, and focuses the box. */
+  protected openCloseRequest(mode: 'request' | 'reject' = 'request'): void {
+    this.closeBoxMode.set(mode);
     this.closeReason.set('');
     this.closeReasonTouched.set(false);
     this.lifecycleError.set('');
@@ -1818,6 +1982,24 @@ export class CampaignDetailComponent {
 
     this.lifecycleBusy.set(true);
     this.lifecycleError.set('');
+
+    // REFUSING A CLOSE: the campaign goes back to Active or Paused, and whoever asked is told why.
+    if (this.closeBoxMode() === 'reject') {
+      this.store.rejectClose(ref, reason, (result) => {
+        this.lifecycleBusy.set(false);
+        if (!result.applied) {
+          this.lifecycleError.set(result.error ?? 'The close request could not be rejected.');
+          return;
+        }
+        this.closeBoxOpen.set(false);
+        this.closeReason.set('');
+        this.closeReasonTouched.set(false);
+        this.closeStore.load(ref);
+        this.toast.show('Close request rejected', `${ref} stays open.`, 'success');
+      });
+      return;
+    }
+
     this.closeStore.requestClose(ref, 'Close requested', reason, '', reason, (result) => {
       this.lifecycleBusy.set(false);
       if (!result.applied) {
@@ -1868,19 +2050,31 @@ export class CampaignDetailComponent {
   protected readonly proposedState = computed<CampaignStatus>(
     () => this.proposedTransition()?.target ?? this.status(),
   );
-  protected readonly effectiveTime = '12 May 2025, 02:20 PM · IST';
+  /** When the confirm dialog was opened - the moment the decision is being taken. */
+  protected readonly effectiveTime = signal('');
 
   protected selectTransition(key: string): void {
     this.selectedTransitionKey.set(key);
   }
 
-  protected openOperate(): void {
-    if (!this.operateAllowed()) {
+  /**
+   * Opens the confirm dialog on one of its options.
+   *
+   * ANY OPTION OPENS IT, not only the primary one: somebody who may reject a submitted campaign
+   * and may not approve it still has a decision to record.
+   */
+  protected openOperate(preselect = 'primary'): void {
+    if (
+      this.dialogOptions().length === 0 ||
+      this.lifecycleUsesDedicatedPage() ||
+      this.uiState() === 'no-access'
+    ) {
       return;
     }
     this.operateReason.set('');
     this.operateReasonTouched.set(false);
-    this.selectedTransitionKey.set('primary');
+    this.selectedTransitionKey.set(preselect);
+    this.effectiveTime.set(this.nowLabel());
     this.operateDialogOpen.set(true);
   }
   protected cancelOperate(): void {
@@ -1895,15 +2089,32 @@ export class CampaignDetailComponent {
     if (!this.operateReasonValid()) {
       return;
     }
+    const transition = this.proposedTransition();
     const target = this.proposedState();
+    const reason = this.operateReason().trim();
 
-    this.store.setStatus(this.reference, target, (result) => {
+    const done = (result: { readonly applied: boolean; readonly error?: string }): void => {
       if (!result.applied) {
         this.toast.show('Not changed', result.error ?? 'That change was refused.', 'error');
         return;
       }
-      this.toast.show('Lifecycle updated', `${this.reference} is now ${target}.`, 'success');
-    });
+
+      // THE STATE THE SERVER LEFT IT IN, not the one this dialog proposed: an approved campaign
+      // whose start date has come goes straight to Active rather than resting in Scheduled.
+      const landed = this.store.get(this.reference)?.status ?? target;
+      this.toast.show('Lifecycle updated', `${this.reference} is now ${landed}.`, 'success');
+    };
+
+    // THE REASON GOES WITH THE TRANSITION. This dialog has always required one and never sent it.
+    if (transition?.key === 'reject') {
+      this.store.returnToDraft(this.reference, reason, done);
+    } else {
+      this.store.setStatus(this.reference, target, done, {
+        reasonCategory: transition?.label ?? '',
+        detailedReason: reason,
+      });
+    }
+
     this.operateDialogOpen.set(false);
     this.uiState.set('ready');
   }
@@ -2055,6 +2266,9 @@ export class CampaignDetailComponent {
       case 'approveClose':
       case 'close':
         return 'ri-lock-line';
+      case 'rejectClose':
+      case 'reject':
+        return 'ri-arrow-go-back-line';
       case 'cancel':
         return 'ri-close-line';
       case 'reopen':

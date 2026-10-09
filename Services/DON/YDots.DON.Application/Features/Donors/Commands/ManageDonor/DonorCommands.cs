@@ -58,6 +58,7 @@ public sealed class DonorCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     IDateTimeProvider clock,
+    IPeopleDirectory peopleDirectory,
     ILogger<DonorCommandHandler> logger)
 {
     private const string CreateEndpoint = "POST /api/v1/donors";
@@ -114,8 +115,19 @@ public sealed class DonorCommandHandler(
         }
 
         var donor = request.ToEntity(donorNumber, currentUser.OrganisationId);
-        donor.RelationshipOwnerUserId = currentUser.UserId;
-        donor.RelationshipOwnerName = currentUser.DisplayName;
+
+        // A NEW DONOR IS UNASSIGNED. The role flow: a donor who did not come from a lead starts
+        // with Owner = Unassigned, and the Tenant Admin gives them one on the Assignment Board.
+        // Making whoever typed the record its owner skipped that step, and put the donor on a
+        // My Donor List nobody had chosen for them.
+        //
+        // THE ONE EXCEPTION is a caller limited to their own records, as on Lead Capture: a donor
+        // nobody owns is outside their scope, so they could not open the record they had just made.
+        if (currentUser.Scope.IsOwnRecordsOnly)
+        {
+            donor.RelationshipOwnerUserId = currentUser.UserId;
+            donor.RelationshipOwnerName = currentUser.DisplayName;
+        }
 
         await donorRepository.AddAsync(donor, cancellationToken);
 
@@ -313,7 +325,8 @@ public sealed class DonorCommandHandler(
 
         // Maker / checker. UI section 5.4: "The requester cannot silently act as an
         // independent approver." The creator is refused even when they hold the permission.
-        if (donor.CreatedByUserId == currentUser.UserId)
+        // The Organisation Admin is exempt: it has no restriction in its own Organisation.
+        if (donor.CreatedByUserId == currentUser.UserId && !currentUser.IsTenantAdmin)
         {
             logger.LogWarning("Donor approval denied for DonorId {DonorId} because the requesting user is the record creator.", command.DonorId);
 
@@ -559,16 +572,41 @@ public sealed class DonorCommandHandler(
                 : command.Request.PrimaryPhone.Trim();
         }
 
-        // THE RELATIONSHIP OWNER MOVES AS A PAIR. Setting the id without the name leaves the
-        // grid printing the previous owner's name beside the new owner's work, which is worse
-        // than showing nothing - so the name is taken from the request when it is supplied and
-        // cleared when it is not, rather than left at whatever it held.
-        if (command.Request.RelationshipOwnerUserId is not null)
+        // A CHANGE OF OWNER IS AN ASSIGNMENT, WHEREVER IT IS MADE. This used to write whatever id
+        // and name the request carried: nothing checked the person could work a donor, the name
+        // was the browser's word for it, and no ownership row was written - so a donor moved from
+        // Edit profile had an owner the Assignment Board's history knew nothing about. The same
+        // three rules as the board now apply here: the new owner must be somebody the organisation
+        // can assign to, their name comes from the directory, and the move is recorded.
+        if (command.Request.RelationshipOwnerUserId is { } newOwnerId
+            && newOwnerId != donor.RelationshipOwnerUserId)
         {
-            donor.RelationshipOwnerUserId = command.Request.RelationshipOwnerUserId;
-            donor.RelationshipOwnerName = string.IsNullOrWhiteSpace(command.Request.RelationshipOwnerName)
-                ? null
-                : command.Request.RelationshipOwnerName.Trim();
+            var assignable = await peopleDirectory.GetAssignableAsync(donor.OrganisationId, cancellationToken);
+            var newOwner = assignable.FirstOrDefault(person => person.UserId == newOwnerId);
+
+            if (newOwner == default)
+            {
+                logger.LogWarning("Correct donor failed for DonorId {DonorId} because the new owner cannot be assigned donors.", command.DonorId);
+                return Result.Failure<DonorDetailResponse>(Error.Validation(
+                    "That person cannot be given a donor. Choose an active colleague whose role works with leads and donors."));
+            }
+
+            donorRepository.AddOwnerChange(new DonorOwnerChange
+            {
+                OrganisationId = donor.OrganisationId,
+                DonorId = donor.Id,
+                PreviousOwnerUserId = donor.RelationshipOwnerUserId,
+                PreviousOwnerName = donor.RelationshipOwnerName,
+                NewOwnerUserId = newOwner.UserId,
+                NewOwnerName = newOwner.Name,
+                Reason = command.Request.CorrectionReason.Trim(),
+                EffectiveAtUtc = clock.UtcNow,
+                AssignedByUserId = currentUser.UserId,
+                IsBulkRoute = false
+            });
+
+            donor.RelationshipOwnerUserId = newOwner.UserId;
+            donor.RelationshipOwnerName = newOwner.Name;
         }
 
         if (command.Request.PreferredLanguage is not null)
@@ -657,7 +695,7 @@ public sealed class DonorCommandHandler(
     }
 
     private DonorDetailResponse BuildDetail(Donor donor) =>
-        donor.ToDetailResponse(currentUser.CanSeeContact(), DonorMappingConfig.PermittedActionsFor(donor));
+        donor.ToDetailResponse(currentUser.CanSeeContact(), DonorMappingConfig.PermittedActionsFor(donor, currentUser.HasPermission));
 
     /// <summary>
     /// Record scope. A caller restricted to their own records may not act on somebody else's

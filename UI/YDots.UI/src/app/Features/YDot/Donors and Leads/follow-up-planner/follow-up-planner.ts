@@ -8,9 +8,11 @@ import { DonorApiService } from '../../../../Service/donor-api.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import {
+  ConsentWarning,
   DonLookupItem,
   FollowUp as ApiFollowUp,
 } from '../../../../Shared/models/donor-contract.model';
+import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 
 type PlannerUiState = 'ready' | 'loading' | 'success' | 'error' | 'empty';
 
@@ -28,8 +30,9 @@ type PlannerUiState = 'ready' | 'loading' | 'success' | 'error' | 'empty';
 export class FollowUpPlannerComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  private readonly api = inject(DonorApiService);
+    private readonly api = inject(DonorApiService);
   private readonly toast = inject(ToastService);
+  private readonly tokens = inject(AuthTokenService);
 
   /**
    * The Follow-Up Planner - the destination of every "Schedule Follow-Up" in the document.
@@ -74,24 +77,32 @@ export class FollowUpPlannerComponent {
     () => this.leadId() ?? this.existing()?.leadId ?? null,
   );
 
+    /**
+   * The reference a person reads - LED-2026-000019, DON-2026-000004.
+   *
+   * IT USED TO FALL BACK TO THE RECORD'S ID, so a new follow-up was headed with a 36-character
+   * GUID where the lead's number should be. The record, once loaded, carries its own reference.
+   */
   protected readonly recordReference = computed(
     () =>
-      this.existing()?.leadReference ??
       this.existing()?.donorReference ??
-      this.resolvedLeadId() ??
-      this.resolvedDonorId() ??
-      '',
+      this.existing()?.leadReference ??
+      this.record().reference,
   );
   protected readonly relationshipOwner = computed(
     () => this.existing()?.relationshipOwnerName ?? '',
   );
-  protected readonly campaign = computed(() => '');
-  protected readonly preferredLanguage = computed(() => this.existing()?.preferredLanguage ?? '');
+  protected readonly preferredLanguage = computed(
+    () => this.existing()?.preferredLanguage || this.record().language,
+  );
 
-  protected readonly followUpType = signal('Email');
+  protected readonly followUpType = signal('');
   protected readonly scheduledDate = signal('');
   protected readonly scheduledTime = signal('');
-  protected readonly priority = signal('Medium');
+
+  // The API's priorities are Low, Normal, High and Urgent. This used to start on "Medium", a
+  // value it does not have - and then on the first option in its list, which is Low.
+  protected readonly priority = signal('');
   protected readonly owner = signal('');
   protected readonly purpose = signal('');
   protected readonly expectedOutcome = signal('');
@@ -117,7 +128,22 @@ export class FollowUpPlannerComponent {
    * for is refused by the API; asking first means the refusal is a sentence beside the channel
    * picker rather than a 400 after the confirm dialog.
    */
-  protected readonly consentWarning = signal<string>('');
+    protected readonly consentWarning = signal<string>('');
+
+  /** The server's whole answer for this person, so a caution can be told from a refusal. */
+  private readonly consentAnswer = signal<ConsentWarning | null>(null);
+
+  /**
+   * The person scheduling has read the caution and will confirm permission before contact.
+   *
+   * WITHOUT THIS NO FOLLOW-UP COULD BE PLANNED FOR A LEAD WITH NO CONSENT ON FILE - which is most
+   * new leads. The server draws two different lines: a channel the person has WITHDRAWN is
+   * refused outright, and a caution ("no consent has been recorded", or "another channel is
+   * withdrawn") is allowed once it is acknowledged. The screen treated both as a refusal and
+   * never sent the acknowledgement, so the caution could not be got past at all.
+   */
+  protected readonly consentAcknowledged = signal(false);
+
 
   /** When the screen last read the server, for the header's freshness line. */
   protected readonly lastRefresh = signal('');
@@ -130,7 +156,15 @@ export class FollowUpPlannerComponent {
   protected readonly totalPages = signal(1);
   protected readonly rows = signal<readonly ApiFollowUp[]>([]);
   protected readonly modalReason = signal('');
-  protected readonly record = signal({ name: '—', email: '—', phone: '—', owner: 'Unassigned' });
+    protected readonly record = signal({
+    name: '—',
+    reference: '',
+    email: '—',
+    phone: '—',
+    owner: 'Unassigned',
+    ownerUserId: null as string | null,
+    language: '',
+  });
   protected readonly searches = signal<Record<string, string>>({});
   private readonly dialog = viewChild<ElementRef<HTMLDialogElement>>('confirmation');
   private readonly showConfirmation = effect(() => {
@@ -194,13 +228,18 @@ export class FollowUpPlannerComponent {
     const donor = this.resolvedDonorId();
     if (lead)
       this.api.getLead(lead).subscribe({
-        next: (r) =>
+                next: (r) => {
           this.record.set({
             name: [r.firstName, r.lastName].filter(Boolean).join(' '),
+            reference: r.leadReference,
             email: r.emailAddress || '—',
             phone: r.mobileNumber || '—',
             owner: r.ownerName || 'Unassigned',
-          }),
+            ownerUserId: r.ownerUserId,
+            language: r.preferredLanguage ?? '',
+          });
+          this.defaultAssignee();
+        },
         error: () =>
           this.toast.show(
             'Record details unavailable',
@@ -210,13 +249,18 @@ export class FollowUpPlannerComponent {
       });
     else if (donor)
       this.api.getDonor(donor).subscribe({
-        next: (r) =>
+                next: (r) => {
           this.record.set({
             name: r.displayName,
+            reference: r.donorNumber,
             email: r.primaryEmail || '—',
             phone: r.primaryPhone || '—',
             owner: r.relationshipOwnerName || 'Unassigned',
-          }),
+            ownerUserId: r.relationshipOwnerUserId,
+            language: r.preferredLanguage ?? '',
+          });
+          this.defaultAssignee();
+        },
         error: () =>
           this.toast.show(
             'Record details unavailable',
@@ -224,6 +268,25 @@ export class FollowUpPlannerComponent {
             'error',
           ),
       });
+  }
+
+    /**
+   * Who the follow-up starts out assigned to, when nobody has been chosen yet.
+   *
+   * THE RECORD'S OWNER, WHEN THEY CAN TAKE WORK; OTHERWISE THE PERSON PLANNING IT. For a lead
+   * nobody owns, that leaves the planner themselves - or whoever they then pick. Choosing an
+   * assignee here never changes who owns the lead or the donor: the role flow keeps the two
+   * apart, and so does the API.
+   */
+  private defaultAssignee(): void {
+    if (this.owner() || this.existing()) return;
+
+    const options = this.ownerOptions();
+    const has = (id: string | null | undefined) => !!id && options.some((option) => option.value === id);
+    const me = this.tokens.user()?.id;
+
+    if (has(this.record().ownerUserId)) this.owner.set(this.record().ownerUserId!);
+    else if (has(me)) this.owner.set(me!);
   }
 
   constructor() {
@@ -279,9 +342,22 @@ export class FollowUpPlannerComponent {
             if (editing.consentWarning?.hasWarning) {
               this.consentWarning.set(editing.consentWarning.message);
             }
-          } else {
-            this.followUpType.set(response.channelOptions[0]?.value ?? 'Email');
-            this.priority.set(response.priorityOptions[0]?.value ?? 'Medium');
+                    } else {
+            // Keep what the person has already chosen on a reload; otherwise the first channel
+            // the API offers, and its ordinary priority.
+            const offers = (options: readonly DonLookupItem[], value: string) =>
+              options.some((option) => option.value === value);
+
+            if (!offers(response.channelOptions, this.followUpType())) {
+              this.followUpType.set(response.channelOptions[0]?.value ?? '');
+            }
+            if (!offers(response.priorityOptions, this.priority())) {
+              this.priority.set(
+                response.priorityOptions.find((option) => option.value === 'Normal')?.value
+                  ?? response.priorityOptions[0]?.value
+                  ?? '',
+              );
+            }
           }
 
           this.activeScope.set(response.activeScope);
@@ -318,8 +394,10 @@ export class FollowUpPlannerComponent {
   /** Re-asks the server whether the chosen channel is permitted for this person. */
   private consentRequest = 0;
   protected checkConsent(): void {
-    const request = ++this.consentRequest;
+        const request = ++this.consentRequest;
     this.consentWarning.set('Checking channel consent…');
+    this.consentAnswer.set(null);
+    this.consentAcknowledged.set(false);
     const leadId = this.resolvedLeadId();
     const donorId = this.resolvedDonorId();
     if (!leadId && !donorId) {
@@ -330,9 +408,10 @@ export class FollowUpPlannerComponent {
     this.api
       .getConsentWarning(donorId ?? undefined, leadId ?? undefined, this.followUpType())
       .subscribe({
-        next: (warning) => {
-          if (request === this.consentRequest)
-            this.consentWarning.set(warning.hasWarning ? warning.message : '');
+                next: (warning) => {
+          if (request !== this.consentRequest) return;
+          this.consentAnswer.set(warning);
+          this.consentWarning.set(warning.hasWarning ? warning.message : '');
         },
         error: () => {
           if (request === this.consentRequest)
@@ -421,9 +500,11 @@ export class FollowUpPlannerComponent {
 
   protected priorityClass(priority: string): string {
     switch (priority.toLowerCase()) {
-      case 'high':
+            case 'high':
+      case 'urgent':
         return 'fup-badge-high';
       case 'medium':
+      case 'normal':
         return 'fup-badge-medium';
       case 'low':
         return 'fup-badge-low';
@@ -481,11 +562,22 @@ export class FollowUpPlannerComponent {
       return;
     }
 
-    // A CHANNEL THE PERSON HAS WITHDRAWN IS REFUSED BY THE SERVER, so it is refused here first -
-    // the alternative is a confirm dialog, a typed reason and then a 400.
-    if (actionId === 'scheduleFollowUp' && this.consentWarning()) {
-      this.validationMessage.set(this.consentWarning());
-      return;
+        // A CHANNEL THE PERSON HAS WITHDRAWN IS REFUSED BY THE SERVER, so it is refused here first -
+    // the alternative is a confirm dialog, a typed reason and then a 400. A caution is different:
+    // it has to be read and acknowledged, and then the follow-up may be planned.
+    if (actionId === 'scheduleFollowUp') {
+      if (this.consentState() === 'checking') {
+        this.validationMessage.set('Consent is still being checked. Try again in a moment.');
+        return;
+      }
+      if (this.consentState() === 'blocked') {
+        this.validationMessage.set(this.consentWarning());
+        return;
+      }
+      if (this.consentState() === 'caution' && !this.consentAcknowledged()) {
+        this.validationMessage.set('Read the consent note under Channel and tick it before scheduling.');
+        return;
+      }
     }
 
     this.modalReason.set('');
@@ -557,9 +649,9 @@ export class FollowUpPlannerComponent {
           dueAtUtc: this.toDueUtc(),
           priority: this.priority(),
 
-          // FALSE BECAUSE THERE IS NO WARNING. The confirm path above refuses to open when the
-          // channel carries one, so acknowledging is never something this screen does silently.
-          consentWarningAcknowledged: false,
+                    // TRUE ONLY WHEN THE PERSON TICKED IT. A caution is acknowledged by the tick under
+          // Channel, never silently; with no warning there is nothing to acknowledge.
+          consentWarningAcknowledged: this.consentState() === 'caution' && this.consentAcknowledged(),
         })
         .subscribe({
           next: (created) => {
@@ -702,10 +794,11 @@ export class FollowUpPlannerComponent {
 
   protected readonly channelGlyph: Record<string, string> = {
     Call: 'ri-phone-line',
-    PhoneCall: 'ri-phone-line',
+        PhoneCall: 'ri-phone-line',
     Email: 'ri-mail-line',
     'E-mail': 'ri-mail-line',
     SMS: 'ri-message-2-line',
+    Sms: 'ri-message-2-line',
     WhatsApp: 'ri-whatsapp-line',
     Meeting: 'ri-team-line',
     Visit: 'ri-map-pin-line',
@@ -769,11 +862,39 @@ export class FollowUpPlannerComponent {
 
   protected readonly todayIso = this.toDateInput(new Date());
 
-  /** Consent, as three plain states: checking, blocked with the server's words, or clear. */
-  protected readonly consentState = computed<'checking' | 'blocked' | 'clear'>(() => {
+    /**
+   * Consent, as four plain states: checking, blocked, a caution to acknowledge, or clear.
+   *
+   * BLOCKED IS THE SERVER'S REFUSAL: the person is marked do-not-contact, every channel is
+   * withdrawn, or the chosen channel is one they have withdrawn. Anything else it warns about is
+   * a caution - see `consentAcknowledged`.
+   */
+  protected readonly consentState = computed<'checking' | 'blocked' | 'caution' | 'clear'>(() => {
     const warning = this.consentWarning();
     if (warning === 'Checking channel consent…') return 'checking';
-    return warning ? 'blocked' : 'clear';
+    if (!warning) return 'clear';
+
+    const answer = this.consentAnswer();
+
+    // No answer to read the level from (the check failed): refuse rather than assume.
+    if (!answer) return 'blocked';
+
+    const refused =
+      answer.level === 'Blocking' || (answer.prohibitedChannels ?? []).includes(this.followUpType());
+
+    return refused ? 'blocked' : 'caution';
   });
+
+  /** The colour key the styles know: a caution is drawn like a block until it is acknowledged. */
+  protected readonly consentTone = computed(() => {
+    const state = this.consentState();
+    if (state !== 'caution') return state;
+    return this.consentAcknowledged() ? 'clear' : 'blocked';
+  });
+
+  /** The API's middle priority is Normal; the styles call that colour Medium. */
+  protected priorityTone(priority: string): string {
+    return priority === 'Normal' ? 'Medium' : priority;
+  }
 
 }

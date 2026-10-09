@@ -53,9 +53,9 @@
                     <div class="dpe-field dpe-wide">
                       <span class="dpe-label" id="dpe-type-l">Donor type</span>
                       <div class="dpe-seg" role="radiogroup" aria-labelledby="dpe-type-l">
-                        @for (t of donorTypes; track t) {
-                          <button type="button" role="radio" [class.on]="donorType() === t"
-                            [attr.aria-checked]="donorType() === t" (click)="donorType.set(t)">{{ t }}</button>
+                        @for (t of donorTypes(); track t.value) {
+                          <button type="button" role="radio" [class.on]="donorType() === t.value"
+                            [attr.aria-checked]="donorType() === t.value" (click)="donorType.set($any(t.value))">{{ t.label }}</button>
                         }
                       </div>
                     </div>
@@ -145,14 +145,14 @@
                           [ngModel]="ownerSearch()" (ngModelChange)="ownerSearch.set($event)" name="ownerSearch" />
                       }
                       <select id="dpe-owner" [ngModel]="owner()" (ngModelChange)="owner.set($event)" name="owner">
-                        <option value="">Unassigned</option>
+                        @if (canLeaveUnassigned()) { <option value="">Unassigned</option> }
                         @if (owner() && !ownerKnown()) { <option [value]="owner()">{{ donor()?.relationshipOwnerName }}</option> }
-                        @for (p of filteredOwners(); track p.reference) {
-                          <option [value]="p.reference">{{ p.name }}@if (p.context) { · {{ p.context }} }</option>
+                        @for (p of filteredOwners(); track p.value) {
+                          <option [value]="p.value">{{ p.label }}</option>
                         }
                       </select>
-                      @if (people.isLoading()) { <p class="dpe-hint">Loading colleagues…</p> }
-                      @else if (people.loadError()) { <p class="dpe-err">{{ people.loadError() }}</p> }
+                      @if (ownersLoading()) { <p class="dpe-hint">Loading colleagues…</p> }
+                      @else if (ownersError()) { <p class="dpe-err">{{ ownersError() }}</p> }
                     </div>
                   </div>
                 </section>

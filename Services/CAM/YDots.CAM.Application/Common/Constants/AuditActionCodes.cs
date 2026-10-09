@@ -21,6 +21,10 @@ public static class AuditActionCodes
     public const string CampaignResumed = "CAMPAIGN_RESUMED";
     public const string CampaignCloseRequested = "CAMPAIGN_CLOSE_REQUESTED";
     public const string CampaignCloseApproved = "CAMPAIGN_CLOSE_APPROVED";
+
+    /// <summary>A close request refused: the campaign returns to the state it was requested from.</summary>
+    public const string CampaignCloseRejected = "CAMPAIGN_CLOSE_REJECTED";
+
     public const string CampaignDraftDeleted = "CAMPAIGN_DRAFT_DELETED";
 
     /// <summary>

@@ -13,7 +13,7 @@ namespace YDot.IAM.Application.Common.Constants;
 ///   FUNDRAISER_EXECUTIVE  Fundraiser Executive  works donors and leads - and approves nothing
 ///   FUNDRAISING_MANAGER   Fundraising Manager   works AND decides donors and leads
 ///   DONOR                 Donor                 not staff: their OWN giving, and nothing else
-///   DONOR_CARE            DonorCare             supporter care; its screens are mapped later
+///   DONOR_CARE            DonorCare             supporter care: their own leads, donors and follow-ups
 ///
 /// THE MAKER-CHECKER RULES DID NOT GO AWAY WITH INITIATOR AND APPROVER. The working roles are
 /// still computed from the same action rules - see <see cref="RoleAccessProfiles"/> - only now
@@ -85,9 +85,8 @@ public static class RoleCodes
     public const string Donor = "DONOR";
 
     /// <summary>
-    /// The supporter-care team. Created, active and assignable, with NO screens yet: its menus
-    /// and the permissions behind them are to be mapped later, so a member signs in to the
-    /// dashboard and My Security and nothing else until that decision is made.
+    /// The supporter-care team: My Leads, My Donor List and the Follow-up Queue, holding only the
+    /// records assigned to the person. See RoleAccessProfiles.DonorCare.
     /// </summary>
     public const string DonorCare = "DONOR_CARE";
 

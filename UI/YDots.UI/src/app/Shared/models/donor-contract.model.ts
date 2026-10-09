@@ -120,6 +120,36 @@ export interface DonorListItem {
   /** A consent has expired or been withdrawn, so the permitted channels have changed. */
   consentReviewRequired: boolean;
   isContactMasked: boolean;
+  /** When the donor record was created (the list used to show the last update as this). */
+  createdAtUtc: string;
+  /** Gifts that count towards lifetime giving, from the payments module. */
+  giftCount: number;
+  /** The next open follow-up's due instant, when there is one. */
+  nextFollowUpDueUtc: string | null;
+}
+
+/**
+ * GET /donors/summary - the Donor List's figures over the caller's whole scope, so the cards and
+ * the "needs attention" counts no longer depend on how many rows the browser loaded.
+ */
+export interface DonorListSummary {
+  donorsOnRecord: number;
+  statusCounts: Record<string, number>;
+  lifetimeReceived: number;
+  currency: string;
+  givers: number;
+  averagePerGiver: number;
+  recentGivers: number;
+  recentGiving: number;
+  recentWindowDays: number;
+  yetToGive: number;
+  followUpsOverdue: number;
+  followUpsDueToday: number;
+  identityNotVerified: number;
+  consentToReview: number;
+  withoutOwner: number;
+  activeScope: string;
+  asAtUtc: string;
 }
 
 export interface DonorDetail {
@@ -165,6 +195,8 @@ export interface DonorSearchFilter {
   donorType?: string | null;
   approvalState?: string | null;
   relationshipOwnerUserId?: string | null;
+  /** My Donor List: only the donors whose relationship the caller owns (resolved from the token). */
+  onlyMine?: boolean | null;
 }
 
 // =============================================================================================
@@ -191,6 +223,21 @@ export interface LeadConsentRequest {
   consentEvidenceReference?: string | null;
   /** Why the permission is being asked for. 10 to 2000 characters when consent is collected. */
   purpose?: string | null;
+  /**
+   * What the person said about the ticked channels: Granted or Withdrawn. Pending and NotProvided
+   * record no channel decision. Empty means Granted.
+   */
+  consentState?: string | null;
+  /** When a granted permission lapses. Later than `consentDateUtc`. */
+  expiryAtUtc?: string | null;
+  /** True when the person agreed to be named publicly as a supporter. */
+  publicRecognitionPreference?: boolean;
+  /** Every channel is recorded as refused, whatever is ticked. */
+  doNotContact?: boolean;
+  /** Any limit the person put on contact, for example a number that must not be called. */
+  contactRestrictions?: string | null;
+  /** Why a decision already saved for this lead is being changed. */
+  correctionReason?: string | null;
 }
 
 export interface CreateLeadRequest {
@@ -202,6 +249,14 @@ export interface CreateLeadRequest {
   preferredLanguage?: string | null;
   city?: string | null;
   geographyCode?: string | null;
+  /** How the person is to be shown. First and last name are used when it is empty. */
+  displayName?: string | null;
+  /** Other numbers the person can be reached on. E.164, at most four, never the primary. */
+  alternateMobileNumbers?: string[] | null;
+  /** The country, by its name in the master catalogue. */
+  country?: string | null;
+  /** Street, locality or landmark, as typed. */
+  addressLine?: string | null;
   /** Required. Must be an active campaign inside the caller's scope. */
   campaignId: string;
   source: string;
@@ -223,6 +278,14 @@ export interface UpdateLeadRequest {
   preferredLanguage?: string | null;
   city?: string | null;
   geographyCode?: string | null;
+  /** How the person is to be shown. First and last name are used when it is empty. */
+  displayName?: string | null;
+  /** Other numbers the person can be reached on. E.164, at most four, never the primary. */
+  alternateMobileNumbers?: string[] | null;
+  /** The country, by its name in the master catalogue. */
+  country?: string | null;
+  /** Street, locality or landmark, as typed. */
+  addressLine?: string | null;
   campaignId: string;
   source: string;
   notes?: string | null;
@@ -268,6 +331,16 @@ export interface LeadListItem {
   version: number;
   isContactMasked: boolean;
   permittedActions: string[];
+  /** The lead's campaign by id - what a lead's donation link carries. */
+  campaignId: string;
+  createdAtUtc: string;
+  /**
+   * Where the next contact stands by the organisation's calendar day: Overdue, Due Today,
+   * Tomorrow, Upcoming or None. The same day boundaries as the summary's follow-up counts.
+   */
+  followUpState: string;
+  /** The health score as a word: Healthy | Needs attention | At risk. */
+  healthBand: string;
 }
 
 /**
@@ -283,6 +356,21 @@ export interface LeadQueueSummary {
   hotLeads: number;
   convertedLeads: number;
   highDonationPotential: number;
+  /** Captured in the last seven days - the Recently Added lane. */
+  recentlyAddedLeads: number;
+  warmLeads: number;
+  coldLeads: number;
+  /** Open follow-ups on these leads due today / already overdue, in the organisation's calendar. */
+  followUpsDueToday: number;
+  followUpsOverdue: number;
+}
+
+/** POST .../{id}/score - temperature and donation potential, with a recorded reason. */
+export interface ScoreLeadRequest {
+  temperature: string;
+  donationPotential: string;
+  reason: string;
+  expectedVersion?: number | null;
 }
 
 export interface LeadConsentSummary {
@@ -337,6 +425,13 @@ export interface LeadDetail {
   isEvidenceMasked: boolean;
   consents: LeadConsentSummary[];
   permittedActions: string[];
+  /** The name the lists show: the captured display name, else first and last name. */
+  displayName: string;
+  /** The other numbers captured for the person. Masked exactly as the primary is. */
+  alternateMobileNumbers: string[];
+  country: string | null;
+  /** Street, locality or landmark as typed. Withheld with the contact details. */
+  addressLine: string | null;
 }
 
 /**
@@ -396,6 +491,8 @@ export interface LeadWorkQueueResponse {
   activeScope: string;
   lastRefreshedAtUtc: string;
   state: string;
+  /** Every lead source in the caller's scope, for the Lead source filter. */
+  sourceOptions: DonLookupItem[];
 }
 
 export interface LeadWorkQueueFilter {
@@ -422,6 +519,14 @@ export interface LeadWorkQueueFilter {
   isConverted?: boolean | null;
   /** The Recently Added tab, which is a different ordering rather than a filter. */
   newestFirst?: boolean | null;
+  /** Where the lead came from, matched exactly on the server. */
+  source?: string | null;
+  /** The Recently Added lane: captured in the last seven days, newest first. */
+  recentlyAdded?: boolean | null;
+  /** Only these leads, comma-separated ids - "Export selected". */
+  leadIds?: string | null;
+  /** Overdue | DueToday | Upcoming | None, by the organisation's calendar day. */
+  followUpState?: string | null;
   preferredLanguage?: string | null;
   lastContactOutcome?: string | null;
   dueFromUtc?: string | null;
@@ -489,6 +594,12 @@ export interface LeadCaptureResponse {
   permittedActions: string[];
   activeScope: string;
   state: string;
+  /** What "Lead source" offers. The form holds no list of its own. */
+  sourceOptions: DonLookupItem[];
+  /** ISO two-letter code of the country the address starts on, matched to the master catalogue. */
+  defaultCountryCode: string;
+  /** The prefix a number typed without one is given, for example "+91". */
+  defaultDiallingCode: string;
 }
 
 // =============================================================================================
@@ -572,6 +683,22 @@ export interface CampaignHistoryEntry {
   campaignName: string;
   leadReference: string;
   convertedAtUtc: string | null;
+  /** What the donor gave to the campaign, net of refunds, from the payments module. */
+  amount: number;
+  giftCount: number;
+  lastGiftAtUtc: string | null;
+}
+
+/** One gift on the Donations tab, as the payments module recorded it. */
+export interface DonorDonation {
+  id: string;
+  reference: string;
+  donatedAtUtc: string;
+  amount: number;
+  refundedAmount: number;
+  currency: string;
+  status: string;
+  campaignName: string | null;
 }
 
 export interface Conversation {
@@ -594,6 +721,17 @@ export interface Donor360FollowUp {
   priority: string;
   status: string;
   relationshipOwnerName: string | null;
+  /** Planned, Assigned or Rescheduled - still to be done. */
+  isOpen: boolean;
+  /** Open and past its due instant. "Overdue" is never a status. */
+  isOverdue: boolean;
+  isAssignedToMe: boolean;
+  channel: string;
+  purpose: string | null;
+  completedAtUtc: string | null;
+  completionOutcome: string | null;
+  /** Whether THIS caller may execute it: its assignee, or the Organisation Admin. Server-decided. */
+  canExecute: boolean;
 }
 
 export interface DonorPromise {
@@ -635,6 +773,8 @@ export interface ActivityHistoryEntry {
   reason: string | null;
   occurredAtUtc: string;
   correlationId: string;
+  /** Who did it. */
+  actorName: string | null;
 }
 
 /** One payload per panel, so the screen makes ONE call and every tab already has its content. */
@@ -660,6 +800,8 @@ export interface Donor360Response {
   maskedFields: string[];
   activeScope: string;
   state: string;
+  /** Every gift, newest first, from the payments module. */
+  donations: DonorDonation[];
 }
 
 export interface CreateIntentRequest {
@@ -711,6 +853,8 @@ export interface AssignmentBoardRow {
   teamCode: string | null;
   status: string;
   version: number;
+  /** Lead or Donor. On a Donor row the lead* fields carry the donor's id, number and name. */
+  recordType: 'Lead' | 'Donor';
 }
 
 export interface OwnerWorkload {
@@ -737,9 +881,16 @@ export interface AssignmentBoardResponse {
   /** The cap on one bulk route. The server enforces it; the screen shows it before the attempt. */
   bulkRouteMaximumItems: number;
   state: string;
+  /** The strip above the board: everything it routes for this caller, not the page on screen. */
+  unassignedCount: number;
+  assignedCount: number;
+  /** Next contact due inside the SLA's due-soon window. */
+  dueTodayCount: number;
 }
 
 export interface AssignmentRequest {
+  /** Lead (default) or Donor. With Donor, leadId carries the donor id. */
+  recordType?: 'Lead' | 'Donor' | null;
   leadId: string;
   newOwnerUserId: string;
   newOwnerName: string;
@@ -751,6 +902,8 @@ export interface AssignmentRequest {
 }
 
 export interface BulkRouteRequest {
+  /** Lead (default) or Donor. With Donor, the ids are donor ids. */
+  recordType?: 'Lead' | 'Donor' | null;
   leadIds: string[];
   newOwnerUserId: string;
   newOwnerName: string;
@@ -1023,7 +1176,74 @@ export interface FollowUp {
   isNotesMasked: boolean;
   isPreferredTimeMasked: boolean;
   consentWarning: ConsentWarning;
+  /**
+   * What THIS caller may do to THIS follow-up: View, View history, and - for the person it is
+   * assigned to - Execute, Reschedule, Cancel; Reassign and Escalate for whoever may assign.
+   */
   permittedActions: string[];
+
+  // ---- Who it is about, and who owns them (not the same as who it is assigned to) -------------
+  leadDisplayName: string | null;
+  recordDisplayName: string | null;
+  recordOwnerUserId: string | null;
+  recordOwnerName: string | null;
+  campaignName: string | null;
+  /** Masked by the server unless the caller may see contact detail. */
+  contactPhone: string | null;
+  contactEmail: string | null;
+  isContactMasked: boolean;
+  isAssignedToMe: boolean;
+  isOpen: boolean;
+  isOverdue: boolean;
+  escalatedAtUtc: string | null;
+  escalationReason: string | null;
+  history: FollowUpHistoryEntry[];
+  /**
+   * Where it stands by the organisation's calendar day: Overdue, Due Today, Tomorrow, Upcoming or
+   * None while open; Completed today or Closed afterwards. `isOverdue` is the same day-based
+   * reading, and the queue's summary counts by these days.
+   */
+  dueState: string;
+  /** How the execution went, in the words the form offered. Null until it is executed. */
+  executionStatus: string | null;
+  completionReason: string | null;
+  disposition: string | null;
+}
+
+/** One line of a follow-up's history, newest first. */
+export interface FollowUpHistoryEntry {
+  occurredAtUtc: string;
+  action: string;
+  detail: string | null;
+  actorName: string | null;
+}
+
+/** The Follow-up Queue's headline figures over the caller's scope, in the organisation's calendar. */
+export interface FollowUpQueueSummary {
+  total: number;
+  open: number;
+  dueToday: number;
+  upcoming: number;
+  overdue: number;
+  completedToday: number;
+  escalated: number;
+  assignedToMe: number;
+  completed: number;
+  cancelled: number;
+  /** Completed, of everything not cancelled. */
+  completionRatePercent: number;
+  /** Overdue, of what is still open. */
+  overduePercent: number;
+  /** Healthy | Warning | Critical. */
+  health: string;
+}
+
+/** POST .../{id}/escalate. */
+export interface EscalateFollowUpRequest {
+  escalateToUserId: string;
+  escalateToName: string;
+  reason: string;
+  expectedVersion?: number | null;
 }
 
 export interface FollowUpPlannerResponse {
@@ -1040,6 +1260,13 @@ export interface FollowUpPlannerResponse {
   activeFilterSummary: string;
   activeScope: string;
   state: string;
+  summary: FollowUpQueueSummary;
+  /** The Follow-up Execution form's own lists. */
+  executionStatusOptions: DonLookupItem[];
+  completionReasonOptions: DonLookupItem[];
+  dispositionOptions: DonLookupItem[];
+  /** How a contact can actually be made: calls, messages, meetings and visits. */
+  contactChannelOptions: DonLookupItem[];
 }
 
 export interface ScheduleFollowUpRequest {
@@ -1066,10 +1293,29 @@ export interface AssignFollowUpRequest {
   expectedVersion?: number | null;
 }
 
+/**
+ * Execute. The conversation travels with the completion - it is written to the timeline for a
+ * lead's follow-up as well as a donor's.
+ */
 export interface CompleteFollowUpRequest {
   completionOutcome: string;
   completedAtUtc?: string | null;
   expectedVersion?: number | null;
+  outcome?: string | null;
+  interactionType?: string | null;
+  direction?: string | null;
+  notes?: string | null;
+  engagementLevel?: string | null;
+  quality?: string | null;
+  isImportant?: boolean;
+  attachmentName?: string | null;
+  /** Only for a caller who may score leads; refused otherwise. */
+  temperature?: string | null;
+  donationPotential?: string | null;
+  /** The executor's classification - values from the planner response's lists. */
+  executionStatus?: string | null;
+  completionReason?: string | null;
+  disposition?: string | null;
 }
 
 export interface RescheduleFollowUpRequest {
@@ -1181,6 +1427,12 @@ export interface DonorMenuResponse {
   canSeeSensitiveContact: boolean;
   canSeeConfidentialEvidence: boolean;
   canExport: boolean;
+  /** What the caller owns and has been given - decides whether My Leads / My Donor List show. */
+  ownedLeadCount: number;
+  ownedDonorCount: number;
+  assignedFollowUpCount: number;
+  /** True when the caller works the whole organisation rather than their own records. */
+  seesAllRecords: boolean;
 }
 
 export interface CampaignLookup {
@@ -1224,6 +1476,8 @@ export interface DonReferenceData {
   promiseStatuses: DonLookupItem[];
   documentClassifications: DonLookupItem[];
   languages: DonLookupItem[];
+  /** Active currencies from the global master: value = ISO code, description = symbol. */
+  currencies: DonLookupItem[];
 }
 
 // =============================================================================================
@@ -1318,6 +1572,14 @@ export interface CommunicationTimelineEntry {
   notes: string | null;
   performedByName: string | null;
   isNotesMasked: boolean;
+  engagementLevel: string | null;
+  quality: string | null;
+  isImportant: boolean;
+  attachmentName: string | null;
+  performedByUserId: string;
+  /** The person who logged it, or somebody who works the whole organisation. */
+  canEdit: boolean;
+  version: number;
 }
 
 /**
@@ -1355,4 +1617,57 @@ export interface CommunicationTimelineResponse {
   isContactMasked: boolean;
   activeScope: string;
   state: string;
+  /** True while the record is a lead; a converted lead's timeline is its donor's. */
+  isLead: boolean;
+  campaignId: string | null;
+  lastContactedAtUtc: string | null;
+  nextFollowUpReference: string | null;
+  nextFollowUpDueUtc: string | null;
+  nextFollowUpPurpose: string | null;
+  nextFollowUpAssignedTo: string | null;
+  followUpCount: number;
+  followUpCompletedCount: number;
+  directionOptions: DonLookupItem[];
+  engagementOptions: DonLookupItem[];
+  qualityOptions: DonLookupItem[];
+
+  // The readings beside the timeline, worked out by the server over every conversation.
+  /** Healthy | Needs attention | At risk; empty for a donor who was never a lead. */
+  healthBand: string;
+  healthReasons: string[];
+  /** High frequency | Moderate frequency | Low frequency. */
+  contactRhythm: string;
+  /** Improving | Stable | Declining. */
+  engagementTrend: string;
+  interestedCount: number;
+}
+
+/** POST /communication-timeline - log a communication against a lead or a donor. */
+export interface LogCommunicationRequest {
+  leadId?: string | null;
+  donorId?: string | null;
+  interactionType: string;
+  direction: string;
+  occurredAtUtc: string;
+  outcome: string;
+  summary: string;
+  notes?: string | null;
+  engagementLevel?: string | null;
+  quality?: string | null;
+  isImportant: boolean;
+  attachmentName?: string | null;
+}
+
+/** PUT /communication-timeline/{id}. */
+export interface UpdateCommunicationRequest {
+  direction: string;
+  occurredAtUtc: string;
+  outcome: string;
+  summary: string;
+  notes?: string | null;
+  engagementLevel?: string | null;
+  quality?: string | null;
+  isImportant: boolean;
+  attachmentName?: string | null;
+  expectedVersion?: number | null;
 }

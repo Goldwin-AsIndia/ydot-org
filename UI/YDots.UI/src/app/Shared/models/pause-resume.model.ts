@@ -35,7 +35,8 @@ export type ViewState =
 
 /** The lifecycle actions on this screen (doc 03 §4.8.3) plus Activate (Scheduled → Active),
  *  moved here from Campaign detail so every live-lifecycle operation runs on one screen. */
-export type ActionId = 'activate' | 'pause' | 'resume' | 'request_close' | 'approve_close' | 'cancel_draft';
+export type ActionId =
+  | 'activate' | 'pause' | 'resume' | 'request_close' | 'approve_close' | 'reject_close' | 'cancel_draft';
 
 /** Effective permissions for this screen — resolved from the shared session, never a local map. */
 export interface PauseResumePermissions {

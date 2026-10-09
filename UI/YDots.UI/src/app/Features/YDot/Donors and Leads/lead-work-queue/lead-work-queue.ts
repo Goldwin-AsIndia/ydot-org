@@ -49,9 +49,15 @@ export interface LeadItem {
   readonly owner: string;
   readonly ownerUserId: string | null;
   readonly lastActivity: string;
+  /** The next step recorded on the lead - by whoever planned it, not by this screen. */
+  readonly nextAction: string;
+  /** The lead's campaign by id, for the donation link. */
+  readonly campaignId: string;
   readonly nextFollowUp: string;
   readonly nextDue: string | null;
   readonly healthScore: number;
+  /** The server's word for the score: Healthy, Needs attention or At risk. */
+  readonly healthBand: string;
   readonly lastContactOutcome: string;
   readonly language: string;
   readonly masked: boolean;
@@ -381,6 +387,7 @@ export class LeadWorkQueueComponent {
       status: this.stageFilter() || null,
       temperature: this.temperatureFilter() || null,
       donationPotential: this.potentialFilter() || null,
+      source: this.sourceFilter() || null,
     };
 
     const owner = this.ownerFilter();
@@ -403,8 +410,10 @@ export class LeadWorkQueueComponent {
       case 'High Donation Potential':
         filter.donationPotential = 'High';
         break;
+      // THE LAST SEVEN DAYS, NEWEST FIRST - the same window the lane's count uses. It used to
+      // be an ordering of every lead, so the rows under the tab were not what the count counted.
       case 'Recently Added':
-        filter.newestFirst = true;
+        filter.recentlyAdded = true;
         break;
 
       // THE ONLY TAB THAT ASKS FOR CONVERTED ROWS. Everywhere else they are hidden, because the
@@ -425,6 +434,11 @@ export class LeadWorkQueueComponent {
       this.load();
       return;
     }
+    // Before the rows: each row labels its last outcome from this list.
+    this.outcomeLabels = new Map(
+      (response.contactOutcomeOptions ?? []).map((option) => [option.value, option.label]),
+    );
+
     this.leads.set(response.leads.items.map((row) => this.toRow(row)));
     this.totalCount.set(response.leads.totalCount);
     const visibleIds = new Set(this.filteredLeads().map((lead) => lead.id));
@@ -466,6 +480,12 @@ export class LeadWorkQueueComponent {
         value: summary.highDonationPotential,
         hint: 'In selected scope',
       },
+      {
+        id: 'recent',
+        label: 'Recently Added',
+        value: summary.recentlyAddedLeads,
+        hint: 'Captured in the last seven days',
+      },
     ]);
 
     this.pipeline.set(
@@ -480,7 +500,10 @@ export class LeadWorkQueueComponent {
       stages: response.statusOptions,
       temperatures: response.temperatureOptions,
       potentials: response.donationPotentialOptions,
-      sources: this.distinct(response.leads.items.map((row) => row.source ?? '').filter(Boolean)),
+
+      // EVERY SOURCE IN SCOPE, from the server. The list was built from the page of rows on
+      // screen, so a source whose leads were all on page two could not be chosen at all.
+      sources: (response.sourceOptions ?? []).map((option) => option.value),
     });
     this.ownerOptions.set(response.ownerOptions);
 
@@ -499,7 +522,12 @@ export class LeadWorkQueueComponent {
     }
   }
 
+  /** Outcome value to the server's label for it - "CallbackRequested" to "Requested callback". */
+  private outcomeLabels = new Map<string, string>();
+
   private toRow(row: LeadListItem): LeadItem {
+    const outcome = this.outcomeLabels.get(row.lastContactOutcome) ?? row.lastContactOutcome;
+
     return {
       id: row.id,
       reference: row.leadReference,
@@ -516,11 +544,14 @@ export class LeadWorkQueueComponent {
       donationPotential: row.donationPotential,
       owner: row.ownerName ?? 'Unassigned',
       ownerUserId: row.ownerUserId,
-      lastActivity: row.lastContactOutcome,
+      lastActivity: outcome,
+      nextAction: row.nextAction ?? '',
+      campaignId: row.campaignId,
       nextFollowUp: this.formatDate(row.nextActionDueUtc),
       nextDue: row.nextActionDueUtc,
       healthScore: row.healthScore,
-      lastContactOutcome: row.lastContactOutcome,
+      healthBand: row.healthBand,
+      lastContactOutcome: outcome,
       language: row.preferredLanguage,
       masked: row.isContactMasked,
       converted: row.isConverted,
@@ -555,12 +586,11 @@ export class LeadWorkQueueComponent {
       assign: has('Assign'),
       communicate: has('Contact'),
       schedule: has('Contact'),
-      export: has('Filter') || has('Open'),
-    };
-  }
 
-  private distinct(values: readonly string[]): readonly string[] {
-    return [...new Set(values)].sort();
+      // ITS OWN VERB, for `don.donors.export`. It was read off Filter/Open, which everybody who
+      // can see the queue holds - so the button showed for people the export would refuse.
+      export: has('Export'),
+    };
   }
 
   // ===========================================================================================
@@ -604,16 +634,12 @@ export class LeadWorkQueueComponent {
   );
 
   /**
-   * The rows on screen.
+   * The rows on screen - the server's page, exactly.
    *
-   * SOURCE IS THE ONE FILTER STILL APPLIED HERE, because the API has no source parameter. It is
-   * a narrowing of the page rather than of the set, and the chip says so.
+   * NOTHING IS FILTERED HERE ANY MORE. Lead source was the last filter applied in the browser,
+   * over one page of a paged set; it is a query parameter now like the rest.
    */
-  protected readonly filteredLeads = computed(() => {
-    const source = this.sourceFilter();
-    const rows = this.leads();
-    return source ? rows.filter((lead) => lead.source === source) : rows;
-  });
+  protected readonly filteredLeads = computed(() => this.leads());
 
   protected readonly hasResults = computed(() => this.filteredLeads().length > 0);
   protected readonly selectedRows = computed(() =>
@@ -629,13 +655,14 @@ export class LeadWorkQueueComponent {
   // Triage desk presentation - lanes, stage shares, due dates, next steps
   // ===========================================================================================
 
-  /** Which summary figure counts each saved view. "Recently Added" has no server count. */
+  /** Which summary figure counts each saved view. */
   private readonly viewKpi: Record<string, string> = {
     'All Leads': 'total',
     'Unassigned Leads': 'unassigned',
     'Assigned Leads': 'assigned',
     'Hot Leads': 'hot',
     'High Donation Potential': 'potential',
+    'Recently Added': 'recent',
     'Converted Leads': 'converted',
   };
 
@@ -645,7 +672,7 @@ export class LeadWorkQueueComponent {
     'Assigned Leads': { label: 'Assigned', glyph: 'ri-user-follow-line', hint: 'With a fundraiser' },
     'Hot Leads': { label: 'Hot', glyph: 'ri-fire-line', hint: 'Ready to talk' },
     'High Donation Potential': { label: 'High potential', glyph: 'ri-vip-diamond-line', hint: 'Largest likely gifts' },
-    'Recently Added': { label: 'Recently added', glyph: 'ri-time-line', hint: 'Sorted by capture date' },
+    'Recently Added': { label: 'Recently added', glyph: 'ri-time-line', hint: 'Captured in the last 7 days' },
     'Converted Leads': { label: 'Converted', glyph: 'ri-hand-heart-line', hint: 'Donation recorded' },
   };
 
@@ -685,15 +712,30 @@ export class LeadWorkQueueComponent {
     return total > 0 ? Math.round((count / total) * 100) : 0;
   }
 
-  /** The document's recommended next step for a lead at each stage. */
+  /**
+   * The next step recorded on the lead.
+   *
+   * THE SERVER'S, NOT A LOOK-UP BY STAGE. This used to map New, Assigned, Contacted and Engaged
+   * to four fixed sentences, so every Assigned lead read "Hold a qualification call" whatever
+   * had actually been planned for it - and "Engaged" is not a stage the API has. The lead carries
+   * its own next action, set when a follow-up is scheduled or a conversation is logged.
+   */
   protected nextStep(lead: LeadItem): string {
-    switch (lead.stage) {
-      case 'New': return 'Make the first contact';
-      case 'Assigned': return 'Hold a qualification call';
-      case 'Contacted': return 'Follow up the conversation';
-      case 'Engaged': return 'Discuss a proposal';
-      default: return lead.converted ? 'Continue on Donor 360' : 'Review where this lead stands';
-    }
+    if (lead.converted) return 'This lead became a donor - continue on Donor 360.';
+    return lead.nextAction || 'No next step has been planned yet.';
+  }
+
+  /**
+   * The donation link for a lead: the public form, bound to the lead's campaign and carrying the
+   * lead itself.
+   *
+   * THE LEAD ON THE LINK IS WHAT MAKES THE GIFT A CONVERSION - the payments service marks this
+   * lead converted when the donation lands and the new donor keeps this lead's owner. The host is
+   * the organisation's own, which is also how the public form knows whose campaign it is.
+   */
+  protected donationLink(lead: LeadItem): string {
+    const origin = this.document.defaultView?.location.origin ?? '';
+    return `${origin}/auth/donor-form?campaign=${lead.campaignId}&lead=${lead.id}`;
   }
 
   protected potentialLevel(potential: string): number {
@@ -864,7 +906,15 @@ export class LeadWorkQueueComponent {
     this.selectedLead.set(null);
   }
 
-  /** Assign - "available only for an unassigned lead; opens the Assignment Board". */
+  /**
+   * Assign or Reassign - both open the Assignment Board on this lead, which decides which of the
+   * two it is from whether the lead has an owner. A converted lead has left the queue; its donor
+   * is reassigned from the board's Donors view instead.
+   */
+  protected canRoute(lead: LeadItem): boolean {
+    return this.permissions().assign && !lead.converted;
+  }
+
   protected onAssign(lead: LeadItem): void {
     this.router.navigate(['/app/fundraising/relationships/assignment-board'], {
       queryParams: { leadId: lead.id },
@@ -908,68 +958,115 @@ export class LeadWorkQueueComponent {
   }
 
   // ===========================================================================================
+  // Closing a lead
+  // ===========================================================================================
+
+  /** What the last close did, shown above the queue. */
+  protected readonly closeNotice = signal<{ readonly text: string; readonly failed: boolean } | null>(null);
+  protected readonly closing = signal(false);
+
+  /**
+   * Whether this caller may close this lead.
+   *
+   * THE SERVER'S LIST FOR THIS ROW, which already accounts for the lead's stage and for who is
+   * asking. Closing a lead is the Fundraising Manager's decision and the Organisation Admin's, so
+   * a Fundraiser Executive's rows do not carry it. The service has always had the endpoint; no
+   * screen had a way to call it.
+   */
+  protected canClose(lead: LeadItem): boolean {
+    return !lead.converted && lead.permittedActions.includes('Close');
+  }
+
+  /** Mark lost / Mark dormant - the same close, recorded with which of the two it was. */
+  protected onCloseLead(lead: LeadItem, outcome: 'Lost' | 'Dormant'): void {
+    if (!this.canClose(lead) || this.closing()) {
+      return;
+    }
+    this.closing.set(true);
+
+    this.api
+      .closeLead(lead.id, {
+        reason: `${outcome}: Marked ${outcome.toLowerCase()} from the Lead Work Queue.`,
+        expectedVersion: lead.version,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.closing.set(false);
+          this.closePreview();
+          this.closeNotice.set({
+            text: `${lead.reference} was closed as ${outcome.toLowerCase()}.`,
+            failed: false,
+          });
+          this.load();
+        },
+        // The drawer is modal and the notice sits behind it, so it closes either way.
+        error: (error: unknown) => {
+          this.closing.set(false);
+          this.closePreview();
+          this.closeNotice.set({
+            text: apiErrorMessage(error, 'The lead could not be closed.'),
+            failed: true,
+          });
+        },
+      });
+  }
+
+  // ===========================================================================================
   // Export
   // ===========================================================================================
 
+  protected readonly exporting = signal(false);
+
+  /** An export that failed, shown above the queue without discarding the rows already loaded. */
+  protected readonly exportError = signal('');
+
   /**
-   * Export - the document's shared function.
+   * Export Leads - the whole filtered set, written by the server.
    *
-   * IT EXPORTS WHAT IS ON SCREEN. The server has its own donor export endpoint for a full
-   * extract; this is the filtered view the person is looking at, which is what the control
-   * beside the grid means.
+   * IT USED TO BUILD A FILE IN THE BROWSER FROM THE PAGE ON SCREEN: ten rows of a queue of sixty,
+   * with no permission check and no record that anybody had taken a copy. The server writes every
+   * lead the current view and filters match, masks the contact columns by the caller's
+   * permission, requires `don.donors.export`, and logs the export.
    */
   protected exportLeads(): void {
-    this.exportRows(this.filteredLeads());
+    this.download({ ...this.buildFilter() });
   }
 
+  /** Export selected - the same file, narrowed to the ticked leads. */
   protected bulkExport(): void {
     if (this.selectionCount() === 0) {
       return;
     }
-    this.exportRows(this.filteredLeads().filter((lead) => this.selectedIds().has(lead.id)));
+    this.download({
+      ...this.buildFilter(),
+      leadIds: this.selectedRows().map((lead) => lead.id).join(','),
+    });
   }
 
-  private exportRows(rows: readonly LeadItem[]): void {
-    const headers = [
-      'Lead ID',
-      'Name',
-      'Mobile',
-      'Email',
-      'Source',
-      'Campaign',
-      'Stage',
-      'Temperature',
-      'Donation Potential',
-      'Owner',
-      'Next Follow-Up',
-    ];
-    const lines = rows.map((lead) =>
-      [
-        lead.reference,
-        lead.name,
-        lead.mobile,
-        lead.email,
-        lead.source,
-        lead.campaign,
-        lead.stage,
-        lead.temperature,
-        lead.donationPotential,
-        lead.owner,
-        lead.nextFollowUp,
-      ]
-        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
-        .join(','),
-    );
+  private download(filter: LeadWorkQueueFilter): void {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    this.exportError.set('');
 
-    const blob = new Blob([[headers.join(','), ...lines].join('\n')], {
-      type: 'text/csv;charset=utf-8;',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'lead-work-queue.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+    this.api
+      .exportLeads(filter)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ blob, fileName }) => {
+          const url = URL.createObjectURL(blob);
+          const link = this.document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          URL.revokeObjectURL(url);
+          this.exporting.set(false);
+        },
+        error: (error: unknown) => {
+          this.exporting.set(false);
+          this.exportError.set(apiErrorMessage(error, 'The leads could not be exported.'));
+        },
+      });
   }
 
   // ===========================================================================================
@@ -1010,10 +1107,18 @@ export class LeadWorkQueueComponent {
     }
   }
 
-  protected healthClass(score: number): string {
-    if (score >= 80) return 'lq-health-high';
-    if (score >= 55) return 'lq-health-mid';
-    return 'lq-health-low';
+  /**
+   * The ring's colour, from the server's reading of the score.
+   *
+   * THE SCREEN DREW ITS OWN LINES - 80 and 55 here, 70 and 35 on My Leads - so the same lead was
+   * green on one screen and amber on the other. The band is decided once, on the server.
+   */
+  protected healthClass(band: string): string {
+    switch (band) {
+      case 'Healthy': return 'lq-health-high';
+      case 'Needs attention': return 'lq-health-mid';
+      default: return 'lq-health-low';
+    }
   }
 
   protected displayValue(value: string | null | undefined): string {

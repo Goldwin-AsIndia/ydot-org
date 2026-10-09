@@ -40,4 +40,31 @@ public class DonorInteraction : AuditEntity, IOrganisationOwned
     public Guid PerformedByUserId { get; set; }
 
     public string? PerformedByName { get; set; }
+
+    // ---- What the person logging it recorded about the exchange ----------------------------------
+    //
+    // STORED BECAUSE THE COMMUNICATION TIMELINE COLLECTS THEM. The log form has always asked for
+    // the direction, the engagement level, the quality, an "important" flag and an attachment, and
+    // none of them had a column - so they were typed, shown once in the browser, and gone on the
+    // next load, and every entry came back as "Medium" engagement whatever was recorded.
+
+    /// <summary>Who started the exchange. Null on rows written before it was recorded.</summary>
+    public InteractionDirection? Direction { get; set; }
+
+    public EngagementLevel? EngagementLevel { get; set; }
+
+    public CommunicationQuality? Quality { get; set; }
+
+    /// <summary>Flagged as one to come back to. Shared with the whole team, not per browser.</summary>
+    public bool IsImportant { get; set; }
+
+    /// <summary>The file name the person attached. The file itself is not stored here.</summary>
+    public string? AttachmentName { get; set; }
+
+    /// <summary>
+    /// The team's own notes on the exchange, kept apart from the summary. Withheld from a caller
+    /// who may not see donor contact detail, exactly as call notes always were: what a donor said
+    /// about their circumstances is more revealing than the number beside it.
+    /// </summary>
+    public string? InternalNotes { get; set; }
 }

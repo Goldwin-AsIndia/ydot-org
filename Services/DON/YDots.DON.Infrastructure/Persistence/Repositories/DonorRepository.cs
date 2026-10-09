@@ -99,6 +99,111 @@ public sealed class DonorRepository(DonDbContext context) : IDonorRepository
 
     public void AddInteraction(DonorInteraction interaction) => context.DonorInteractions.Add(interaction);
 
+    public async Task<(IReadOnlyList<Donor> Items, int TotalCount)> SearchForAssignmentAsync(
+        string? search,
+        bool? hasOwner,
+        Guid? ownerUserId,
+        int skip,
+        int take,
+        Guid organisationId,
+        CancellationToken cancellationToken = default)
+    {
+        var donors = context.Donors.Where(donor =>
+            donor.OrganisationId == organisationId
+            && donor.Status != DonorStatus.Archived
+            && donor.Status != DonorStatus.Merged);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLowerInvariant();
+
+            donors = donors.Where(donor =>
+                donor.DonorNumber.ToLower().Contains(term)
+                || (donor.FirstName != null && donor.FirstName.ToLower().Contains(term))
+                || (donor.LastName != null && donor.LastName.ToLower().Contains(term))
+                || (donor.OrganisationName != null && donor.OrganisationName.ToLower().Contains(term)));
+        }
+
+        if (hasOwner is not null)
+        {
+            donors = hasOwner.Value
+                ? donors.Where(donor => donor.RelationshipOwnerUserId != null)
+                : donors.Where(donor => donor.RelationshipOwnerUserId == null);
+        }
+
+        if (ownerUserId is not null)
+        {
+            donors = donors.Where(donor => donor.RelationshipOwnerUserId == ownerUserId);
+        }
+
+        var total = await donors.CountAsync(cancellationToken);
+
+        // Unowned first - those are the donors waiting for somebody - then the newest.
+        var items = await donors
+            .OrderBy(donor => donor.RelationshipOwnerUserId != null)
+            .ThenByDescending(donor => donor.CreatedAtUtc)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        return (items, total);
+    }
+
+    public async Task<IReadOnlyList<Donor>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default) =>
+        await context.Donors.Where(donor => ids.Contains(donor.Id)).ToListAsync(cancellationToken);
+
+    public async Task<(int Unassigned, int Assigned)> GetAssignmentCountsAsync(
+        Guid organisationId,
+        CancellationToken cancellationToken = default)
+    {
+        var counts = await context.Donors
+            .Where(donor => donor.OrganisationId == organisationId
+                            && donor.Status != DonorStatus.Archived
+                            && donor.Status != DonorStatus.Merged)
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Unassigned = group.Count(donor => donor.RelationshipOwnerUserId == null),
+                Assigned = group.Count(donor => donor.RelationshipOwnerUserId != null)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return counts is null ? (0, 0) : (counts.Unassigned, counts.Assigned);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, int>> GetOwnedDonorCountsAsync(
+        Guid organisationId,
+        CancellationToken cancellationToken = default) =>
+        (await context.Donors
+            .Where(donor => donor.OrganisationId == organisationId
+                            && donor.RelationshipOwnerUserId != null
+                            && donor.Status != DonorStatus.Archived
+                            && donor.Status != DonorStatus.Merged)
+            .GroupBy(donor => donor.RelationshipOwnerUserId!.Value)
+            .Select(group => new { OwnerUserId = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken))
+        .ToDictionary(entry => entry.OwnerUserId, entry => entry.Count);
+
+    public void AddOwnerChange(DonorOwnerChange change) => context.DonorOwnerChanges.Add(change);
+
+    public Task<int> CountOwnedAsync(Guid organisationId, Guid userId, CancellationToken cancellationToken = default) =>
+        context.Donors.CountAsync(
+            donor => donor.OrganisationId == organisationId
+                     && donor.RelationshipOwnerUserId == userId
+                     && donor.Status != DonorStatus.Merged,
+            cancellationToken);
+
+    public async Task<IReadOnlyList<DonorOwnerChange>> GetOwnerChangesAsync(
+        Guid donorId,
+        CancellationToken cancellationToken = default) =>
+        await context.DonorOwnerChanges
+            .Where(change => change.DonorId == donorId)
+            .OrderByDescending(change => change.EffectiveAtUtc)
+            .ToListAsync(cancellationToken);
+
+    public Task<DonorInteraction?> GetInteractionAsync(Guid id, CancellationToken cancellationToken = default) =>
+        context.DonorInteractions.FirstOrDefaultAsync(interaction => interaction.Id == id, cancellationToken);
+
     public async Task<IReadOnlyList<DonorContact>> GetContactsAsync(Guid donorId, CancellationToken cancellationToken = default) =>
         await context.DonorContacts
             .Where(contact => contact.DonorId == donorId)

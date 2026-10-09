@@ -54,7 +54,8 @@ public static class ReadinessMappingConfig
     public static ReadinessCheckListItemResponse ToListItemResponse(
         this CampaignReadinessCheck check,
         DateOnly today,
-        IReadOnlyDictionary<Guid, PersonSummary>? people = null)
+        IReadOnlyDictionary<Guid, PersonSummary>? people = null,
+        IReadOnlyList<string>? permittedActions = null)
     {
         ArgumentNullException.ThrowIfNull(check);
 
@@ -80,7 +81,8 @@ public static class ReadinessMappingConfig
             [.. check.Blockers
                 .OrderByDescending(blocker => blocker.CreatedAtUtc)
                 .Select(blocker => blocker.ToResponse(resolved))],
-            check.Version);
+            check.Version,
+            permittedActions ?? []);
     }
 
     public static ReadinessCheckDetailResponse ToDetailResponse(
@@ -150,7 +152,9 @@ public static class ReadinessMappingConfig
         IReadOnlyList<CampaignReadinessCheck> checks,
         DateOnly today,
         IReadOnlyList<string> permittedActions,
-        IReadOnlyDictionary<Guid, PersonSummary>? people = null)
+        IReadOnlyDictionary<Guid, PersonSummary>? people = null,
+        ReadinessDecisionResponse? decision = null,
+        Func<CampaignReadinessCheck, IReadOnlyList<string>>? checkActions = null)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(checks);
@@ -209,7 +213,76 @@ public static class ReadinessMappingConfig
             willActivateAutomatically,
             willActivateAutomatically ? campaign.StartDate : null,
             permittedActions,
-            [.. checks.Select(check => check.ToListItemResponse(today, resolved))]);
+            [.. checks.Select(check => check.ToListItemResponse(today, resolved, checkActions?.Invoke(check)))],
+            decision ?? new ReadinessDecisionResponse("Pending", null, null, null, null, null));
+    }
+
+    /// <summary>
+    /// The checklist's overall status, from the campaign and its lifecycle history.
+    ///
+    /// APPROVED once the launch has been approved - every state from Scheduled onwards, and the
+    /// legacy Approved. REJECTED while the campaign sits in Draft because a Manager sent it back,
+    /// which is the latest of its Submit, Approve and ReturnToDraft rows being a ReturnToDraft.
+    /// PENDING otherwise: a Draft nobody has decided on yet, or a Submitted one awaiting the
+    /// decision.
+    /// </summary>
+    public static ReadinessDecisionResponse DecisionFor(
+        Campaign campaign,
+        IReadOnlyList<CampaignLifecycleAction> lifecycle,
+        IReadOnlyDictionary<Guid, PersonSummary>? people = null)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+        ArgumentNullException.ThrowIfNull(lifecycle);
+
+        var resolved = people ?? NoPeople;
+
+        var latestSubmit = lifecycle
+            .Where(action => action.ActionType == CampaignLifecycleActionType.Submit)
+            .MaxBy(action => action.EffectiveAtUtc);
+
+        var requestedBy = ToPerson(campaign.SubmittedByUserId ?? latestSubmit?.RequestedByUserId, resolved);
+        var requestedAt = campaign.SubmittedAtUtc ?? latestSubmit?.EffectiveAtUtc;
+
+        if (campaign.Status is CampaignStatus.Approved or CampaignStatus.Scheduled or CampaignStatus.Active
+            or CampaignStatus.Paused or CampaignStatus.Closing or CampaignStatus.Closed)
+        {
+            var approval = lifecycle
+                .Where(action => action.ActionType == CampaignLifecycleActionType.Approve)
+                .MaxBy(action => action.EffectiveAtUtc);
+
+            return new ReadinessDecisionResponse(
+                "Approved",
+                requestedBy,
+                requestedAt,
+                ToPerson(campaign.ApprovedByUserId ?? approval?.ApprovedByUserId ?? approval?.RequestedByUserId, resolved),
+                campaign.ApprovedAtUtc ?? approval?.EffectiveAtUtc,
+                approval?.DetailedReason);
+        }
+
+        var latestDecisionStep = lifecycle
+            .Where(action => action.ActionType is CampaignLifecycleActionType.Submit
+                or CampaignLifecycleActionType.Approve or CampaignLifecycleActionType.ReturnToDraft)
+            .MaxBy(action => action.EffectiveAtUtc);
+
+        if (campaign.Status == CampaignStatus.Draft
+            && latestDecisionStep?.ActionType == CampaignLifecycleActionType.ReturnToDraft)
+        {
+            return new ReadinessDecisionResponse(
+                "Rejected",
+                requestedBy,
+                requestedAt,
+                ToPerson(latestDecisionStep.RequestedByUserId, resolved),
+                latestDecisionStep.EffectiveAtUtc,
+                latestDecisionStep.DetailedReason ?? latestDecisionStep.ReasonCategory);
+        }
+
+        return new ReadinessDecisionResponse(
+            "Pending",
+            campaign.Status == CampaignStatus.Submitted ? requestedBy : null,
+            campaign.Status == CampaignStatus.Submitted ? requestedAt : null,
+            null,
+            null,
+            null);
     }
 
     public static string DescribeStatus(ReadinessCheckStatus status) => status switch
@@ -233,7 +306,11 @@ public static class ReadinessMappingConfig
 
     /// <summary>What the caller may do to this check next.</summary>
     public static IReadOnlyList<string> PermittedActionsFor(
-        CampaignReadinessCheck check, Func<string, bool> hasPermission, Guid? callerUserId = null)
+        CampaignReadinessCheck check,
+        Func<string, bool> hasPermission,
+        Guid? callerUserId = null,
+        bool callerIsTenantAdmin = false,
+        bool ownerCanRecordVerdict = true)
     {
         ArgumentNullException.ThrowIfNull(check);
         ArgumentNullException.ThrowIfNull(hasPermission);
@@ -265,9 +342,16 @@ public static class ReadinessMappingConfig
         //
         // ONLY THE PERSON THE CHECK IS ASSIGNED TO may record a verdict on it. A check with nobody
         // assigned stays open to anyone who holds the permission.
+        //
+        // TWO EXCEPTIONS. The Organisation Admin may record any verdict - it has no restriction in
+        // its own Organisation. And a check whose assignee can no longer record a verdict (they
+        // were moved to a Manager role, or left) is open to anyone who can: otherwise it could
+        // never be passed, and the campaign behind it could never be approved.
         var mayJudge = callerUserId is null
             || check.OwnerUserId is null
-            || check.OwnerUserId == callerUserId;
+            || check.OwnerUserId == callerUserId
+            || callerIsTenantAdmin
+            || !ownerCanRecordVerdict;
 
         if (check.Status != ReadinessCheckStatus.Passed && mayJudge)
         {
@@ -331,7 +415,11 @@ public static class ReadinessMappingConfig
     /// what once let somebody refused on the campaigns endpoint approve the same campaign here.
     /// </summary>
     public static IReadOnlyList<string> CampaignActionsFor(
-        Campaign campaign, Guid callerUserId, Func<string, bool> hasPermission)
+        Campaign campaign,
+        Guid callerUserId,
+        Func<string, bool> hasPermission,
+        bool callerIsTenantAdmin = false,
+        bool checklistAllowsLaunch = true)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(hasPermission);
@@ -353,18 +441,23 @@ public static class ReadinessMappingConfig
             actions.Add("AddCheck");
         }
 
-        var canApprove = hasPermission(PermissionCodes.CampaignsApprove);
-
-        if (campaign.Status == CampaignStatus.Draft
-            && hasPermission(PermissionCodes.CampaignsSubmit)
-            && !canApprove)
+        // REQUEST APPROVAL IS THE EXECUTIVE'S, and the Organisation Admin's. It used to be withheld
+        // from anybody who could also approve, on the grounds that they would then be refused their
+        // own approval - but the Campaign Manager no longer holds `cam.campaigns.submit` at all, and
+        // the Organisation Admin is exempt from that refusal, so the only person this test still
+        // stopped was the administrator, who is meant to have every option.
+        if (campaign.Status == CampaignStatus.Draft && hasPermission(PermissionCodes.CampaignsSubmit))
         {
             actions.Add("RequestApproval");
         }
 
+        // APPROVE LAUNCH WAITS FOR THE CHECKLIST: every required check passed and no blocker open,
+        // which is the rule the approve endpoint enforces. Offering it before then would draw a
+        // button that answers 422.
         if (campaign.Status == CampaignStatus.Submitted
-            && canApprove
-            && campaign.CanBeApprovedBy(callerUserId))
+            && checklistAllowsLaunch
+            && hasPermission(PermissionCodes.CampaignsApprove)
+            && campaign.CanBeApprovedBy(callerUserId, callerIsTenantAdmin))
         {
             actions.Add("ApproveLaunch");
         }

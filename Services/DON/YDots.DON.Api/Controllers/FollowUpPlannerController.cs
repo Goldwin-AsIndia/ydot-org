@@ -262,4 +262,37 @@ public sealed class FollowUpPlannerController : ApiControllerBase
 
         return FromResult(result, "The follow-up was cancelled.");
     }
+
+    /// <summary>
+    /// POST escalate. Hands an open follow-up to somebody more senior and records why. A routing
+    /// act, so it needs the assign permission - the follow-up stays open and is marked escalated.
+    /// </summary>
+    [HttpPost("{id:guid}/escalate")]
+    [HasPermission(PermissionCodes.FollowUpPlannerAssign)]
+    [ProducesResponseType(typeof(ApiResponse<FollowUpResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Escalate(
+        Guid id,
+        [FromBody] EscalateFollowUpRequest request,
+        [FromServices] FollowUpCommandHandler handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Follow-up escalation started. FollowUpId={FollowUpId}", id);
+
+        var result = await handler.HandleAsync(new EscalateFollowUpCommand(id, request), cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            _logger.LogInformation("Follow-up escalation completed successfully. FollowUpId={FollowUpId}", id);
+        }
+        else
+        {
+            _logger.LogWarning("Follow-up escalation failed. FollowUpId={FollowUpId}", id);
+        }
+
+        return FromResult(result, "The follow-up was escalated.");
+    }
 }

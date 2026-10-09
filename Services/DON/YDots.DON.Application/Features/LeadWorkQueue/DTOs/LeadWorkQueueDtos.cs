@@ -32,7 +32,10 @@ public sealed record LeadWorkQueueResponse(
     string ActiveFilterSummary,
     string ActiveScope,
     DateTimeOffset LastRefreshedAtUtc,
-    string State);
+    string State,
+
+    /// <summary>Every lead source in the caller's scope, for the Lead source filter.</summary>
+    IReadOnlyList<LookupItem> SourceOptions);
 
 /// <summary>POST .../accept. No body beyond the optional note; the caller becomes the owner.</summary>
 public sealed class AcceptLeadRequest
@@ -128,4 +131,39 @@ public sealed record LeadQueueSummaryResponse(
     int AssignedLeads,
     int HotLeads,
     int ConvertedLeads,
-    int HighDonationPotential);
+    int HighDonationPotential,
+
+    // ---- Counted for the lanes and cards that had no server figure ------------------------------
+    //
+    // TOTAL AND EVERY LANE ABOVE EXCLUDE CONVERTED LEADS, because the queue does: a converted lead
+    // leaves the Lead Work Queue for the Donor List. Converted is its own lane.
+
+    /// <summary>Captured in the last seven days - the Recently Added lane.</summary>
+    int RecentlyAddedLeads,
+    int WarmLeads,
+    int ColdLeads,
+
+    /// <summary>Open follow-ups on these leads due today, in the organisation's calendar.</summary>
+    int FollowUpsDueToday,
+
+    /// <summary>Open follow-ups on these leads whose day has passed.</summary>
+    int FollowUpsOverdue);
+
+/// <summary>
+/// POST .../{id}/score. The fundraiser's reading of a lead: temperature and donation potential.
+///
+/// ITS OWN ACTION, because it was being sent through Qualify - which moved the lead to Qualified
+/// and stored nothing about temperature, so "Warm to Hot" on the Communication Timeline qualified
+/// the lead and left it Warm.
+/// </summary>
+public sealed class ScoreLeadRequest
+{
+    public string Temperature { get; set; } = string.Empty;
+
+    public string DonationPotential { get; set; } = string.Empty;
+
+    /// <summary>Required. 10 to 2000 characters.</summary>
+    public string Reason { get; set; } = string.Empty;
+
+    public long? ExpectedVersion { get; set; }
+}

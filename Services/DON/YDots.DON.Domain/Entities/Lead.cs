@@ -22,8 +22,20 @@ public class Lead : AuditEntity, IOrganisationOwned
 
     public string? LastName { get; set; }
 
+    /// <summary>
+    /// How the person is to be shown on lists and screens, when that differs from first and last
+    /// name. Empty means "use the name".
+    /// </summary>
+    public string? DisplayName { get; set; }
+
     /// <summary>E.164. Masked in list, export and support views.</summary>
     public string? MobileNumber { get; set; }
+
+    /// <summary>
+    /// Other numbers the person can be reached on: E.164, comma-separated, never the primary.
+    /// Masked exactly as the primary number is.
+    /// </summary>
+    public string? AlternateMobileNumbers { get; set; }
 
     public string? EmailAddress { get; set; }
 
@@ -34,6 +46,12 @@ public class Lead : AuditEntity, IOrganisationOwned
 
     /// <summary>Approved administrative geography code, verified separately from the entered text.</summary>
     public string? GeographyCode { get; set; }
+
+    /// <summary>The country, by its name in the master catalogue.</summary>
+    public string? Country { get; set; }
+
+    /// <summary>Street, locality or landmark exactly as typed. Never checked against a catalogue.</summary>
+    public string? AddressLine { get; set; }
 
     // ---- Campaign, source and consent context ------------------------------------------------
 

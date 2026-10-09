@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using YDots.DON.Application.Common.Abstractions.Persistence;
 using YDots.DON.Application.Common.Abstractions.Security;
+using YDots.DON.Application.Common.Abstractions.Services;
 using YDots.DON.Application.Common.Constants;
 using YDots.DON.Application.Common.Models;
 using YDots.DON.Application.Common.Results;
@@ -28,12 +29,24 @@ public sealed record GetFollowUpDetailQuery(Guid FollowUpId);
 /// </summary>
 public sealed record GetConsentWarningQuery(Guid? DonorId, Guid? LeadId);
 
+/// <summary>
+/// The read side of the follow-up planner, queue and execution screens.
+///
+/// THE SCOPE IS THE SERVER'S DECISION, NOT THE SCREEN'S. The role flow gives the fundraising team
+/// "all scheduled follow-ups within the tenant" and DonorCare "all follow-ups assigned to the
+/// currently logged-in owner". Both are the same endpoint: AccessScope narrows a caller without
+/// <c>don.records.view-all</c> to the follow-ups assigned to them and those raised on the records
+/// they own, so the Follow-up Queue no longer has to send onlyMine to look right - and a browser
+/// that leaves it off cannot widen anything.
+/// </summary>
 public sealed class FollowUpPlannerQueryHandler(
     IFollowUpRepository followUpRepository,
     IConsentRepository consentRepository,
     IDonorRepository donorRepository,
-    ILeadRepository leadRepository,
+    IPeopleDirectory people,
+    IDonationLedger ledger,
     ICurrentUser currentUser,
+    IDateTimeProvider clock,
     IOptions<DonorSettings> donorSettings,
     ILogger<FollowUpPlannerQueryHandler> logger)
 {
@@ -47,25 +60,24 @@ public sealed class FollowUpPlannerQueryHandler(
 
         logger.LogInformation("Follow-up planner list retrieval started for organisation {OrganisationId}.", currentUser.OrganisationId);
 
+        // "My follow-ups" means assigned to me - the queue's own Mine view. It narrows; the scope
+        // above it is unchanged.
         if (filter.OnlyMine == true)
         {
             filter.RelationshipOwnerUserId = currentUser.UserId;
-            logger.LogInformation("Follow-up planner list restricted to current user's records.");
+            logger.LogInformation("Follow-up planner list restricted to follow-ups assigned to the current user.");
         }
 
         var page = await followUpRepository.SearchAsync(filter, currentUser.Scope, cancellationToken);
-        var canSeeContact = currentUser.CanSeeContact();
-        var canSeeEvidence = currentUser.CanSeeEvidence();
+        var now = clock.UtcNow;
+        var viewer = FollowUpViewer.For(currentUser, now, _settings);
 
-        var rows = new List<FollowUpResponse>(page.Items.Count);
+        var rows = await BuildRowsAsync(page.Items, viewer, cancellationToken);
 
-        foreach (var task in page.Items)
-        {
-            var warning = await BuildWarningAsync(task.DonorId, task.LeadId, cancellationToken);
-            rows.Add(task.ToResponse(canSeeContact, canSeeEvidence, warning));
-        }
-
-        var owners = await leadRepository.GetKnownOwnersAsync(currentUser.OrganisationId, cancellationToken);
+        var owners = await people.GetAssignableAsync(currentUser.OrganisationId, cancellationToken);
+        var (todayStart, todayEnd) = ReportingCalendar.Today(now, _settings);
+        var counts = await followUpRepository.GetSummaryAsync(
+            currentUser.Scope, filter.LeadId, filter.DonorId, now, todayStart, todayEnd, cancellationToken);
 
         var response = new FollowUpPlannerResponse(
             ScreenIds.FollowUpPlanner,
@@ -75,12 +87,17 @@ public sealed class FollowUpPlannerQueryHandler(
             ToLookup<FollowUpPriority>(),
             ToLookup<FollowUpStatus>(),
             SupportedLanguages.All,
-            [.. owners.Select(owner => new LookupItem(owner.UserId.ToString(), owner.Name, owner.TeamCode))],
+            [.. owners.Select(owner => new LookupItem(owner.UserId.ToString(), owner.Name))],
             _settings.CurrentNoticeVersion,
             BuildPermittedActions(),
             DescribeFilter(filter),
             DescribeScope(),
-            rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial);
+            rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial,
+            BuildSummary(counts),
+            FollowUpExecutionCatalogue.ExecutionStatuses,
+            FollowUpExecutionCatalogue.CompletionReasons,
+            FollowUpExecutionCatalogue.Dispositions,
+            FollowUpExecutionCatalogue.ContactChannels);
 
         logger.LogInformation("Follow-up planner list retrieval completed successfully. Returned {RowCount} rows out of {TotalCount} for organisation {OrganisationId}.", rows.Count, page.TotalCount, currentUser.OrganisationId);
 
@@ -95,26 +112,18 @@ public sealed class FollowUpPlannerQueryHandler(
 
         var task = await followUpRepository.GetByIdAsync(query.FollowUpId, cancellationToken);
 
-        if (task is null || task.OrganisationId != currentUser.OrganisationId)
+        if (task is null || task.OrganisationId != currentUser.OrganisationId || !IsInScope(task))
         {
-            logger.LogWarning("Follow-up {FollowUpId} was not found inside the current organisation scope.", query.FollowUpId);
+            logger.LogWarning("Follow-up {FollowUpId} was not found inside the current user's scope.", query.FollowUpId);
 
             return Result.Failure<FollowUpResponse>(Error.NotFound("That follow-up was not found inside your scope."));
         }
 
-        if (currentUser.Scope.IsOwnRecordsOnly && task.RelationshipOwnerUserId != currentUser.UserId)
-        {
-            logger.LogWarning("Follow-up {FollowUpId} was rejected because it is outside the current user's record scope.", query.FollowUpId);
-
-            return Result.Failure<FollowUpResponse>(Error.NotFound("That follow-up was not found inside your scope."));
-        }
-
-        var warning = await BuildWarningAsync(task.DonorId, task.LeadId, cancellationToken);
+        var rows = await BuildRowsAsync([task], FollowUpViewer.For(currentUser, clock.UtcNow, _settings), cancellationToken);
 
         logger.LogInformation("Follow-up detail retrieval completed successfully for follow-up {FollowUpId}.", query.FollowUpId);
 
-        return Result.Success(task.ToResponse(
-            currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), warning));
+        return Result.Success(rows[0]);
     }
 
     public async Task<Result<ConsentWarningResponse>> HandleAsync(
@@ -137,6 +146,76 @@ public sealed class FollowUpPlannerQueryHandler(
 
         return Result.Success(warning);
     }
+
+    /// <summary>
+    /// The rows, with everything each one needs: its consent warning, its history with the names
+    /// of the people who acted, and the donor's campaign where the follow-up is about a donor.
+    ///
+    /// THE HISTORY AND THE NAMES ARE FETCHED ONCE FOR THE PAGE, not per row.
+    /// </summary>
+    private async Task<List<FollowUpResponse>> BuildRowsAsync(
+        IReadOnlyList<FollowUpTask> tasks,
+        FollowUpViewer viewer,
+        CancellationToken cancellationToken)
+    {
+        if (tasks.Count == 0)
+        {
+            return [];
+        }
+
+        var audit = await followUpRepository.GetHistoryAsync([.. tasks.Select(task => task.Id)], cancellationToken);
+        var names = await people.GetNamesAsync(
+            currentUser.OrganisationId,
+            [.. audit.Where(entry => entry.ActorUserId is not null).Select(entry => entry.ActorUserId!.Value)],
+            cancellationToken);
+
+        var donorIds = tasks.Where(task => task.DonorId is not null).Select(task => task.DonorId!.Value).Distinct().ToList();
+        var giving = await ledger.GetGivingAsync(currentUser.OrganisationId, donorIds, cancellationToken);
+
+        var rows = new List<FollowUpResponse>(tasks.Count);
+
+        foreach (var task in tasks)
+        {
+            var warning = await BuildWarningAsync(task.DonorId, task.LeadId, cancellationToken);
+
+            var history = audit
+                .Where(entry => entry.TargetId == task.Id)
+                .Select(entry => new FollowUpHistoryEntryResponse(
+                    entry.CreatedAtUtc,
+                    DescribeAction(entry.ActionCode),
+                    entry.Reason,
+                    entry.ActorUserId is Guid actor && names.TryGetValue(actor, out var name) ? name : null))
+                .ToList();
+
+            var donorCampaign = task.DonorId is Guid donorId && giving.TryGetValue(donorId, out var given)
+                ? given.LastCampaignName
+                : null;
+
+            rows.Add(task.ToResponse(viewer, warning, history, donorCampaign));
+        }
+
+        return rows;
+    }
+
+    /// <summary>The audit code as the history list words it.</summary>
+    private static string DescribeAction(string actionCode) =>
+        actionCode switch
+        {
+            AuditActionCodes.FollowUpScheduled => "Scheduled",
+            AuditActionCodes.FollowUpAssigned => "Reassigned",
+            AuditActionCodes.FollowUpEscalated => "Escalated",
+            AuditActionCodes.FollowUpCompleted => "Completed",
+            AuditActionCodes.FollowUpRescheduled => "Rescheduled",
+            AuditActionCodes.FollowUpCancelled => "Cancelled",
+            _ => actionCode
+        };
+
+    /// <summary>The same rule the repository applies to the list, for a single follow-up.</summary>
+    private bool IsInScope(FollowUpTask task) =>
+        currentUser.Scope.IsOrganisationWide
+        || task.RelationshipOwnerUserId == currentUser.UserId
+        || task.Lead?.OwnerUserId == currentUser.UserId
+        || task.Donor?.RelationshipOwnerUserId == currentUser.UserId;
 
     private async Task<ConsentWarningResponse> BuildWarningAsync(
         Guid? donorId,
@@ -188,11 +267,38 @@ public sealed class FollowUpPlannerQueryHandler(
             actions.Add("Cancel task");
         }
 
+        if (currentUser.HasPermission(PermissionCodes.DonorsExport))
+        {
+            actions.Add("Export");
+        }
+
         return actions;
     }
 
     private string DescribeScope() =>
-        currentUser.Scope.IsOwnRecordsOnly ? "Records assigned to you" : "Your whole organisation";
+        currentUser.Scope.IsOwnRecordsOnly
+            ? "Follow-ups assigned to you, and those on the leads and donors you own"
+            : "Your whole organisation";
+
+    /// <summary>The counts, with the two ratios and the health word the queue's panel prints.</summary>
+    private static FollowUpQueueSummaryResponse BuildSummary(FollowUpCounts counts)
+    {
+        var counted = counts.Total - counts.Cancelled;
+        var completionRate = counted <= 0 ? 0 : (int)Math.Round(counts.Completed * 100m / counted);
+        var overduePercent = counts.Open <= 0 ? 0 : (int)Math.Round(counts.Overdue * 100m / counts.Open);
+
+        var health = overduePercent switch
+        {
+            < 5 => "Healthy",
+            <= 15 => "Warning",
+            _ => "Critical"
+        };
+
+        return new FollowUpQueueSummaryResponse(
+            counts.Total, counts.Open, counts.DueToday, counts.Upcoming, counts.Overdue,
+            counts.CompletedToday, counts.Escalated, counts.AssignedToMe,
+            counts.Completed, counts.Cancelled, completionRate, overduePercent, health);
+    }
 
     private static string DescribeFilter(FollowUpSearchFilter filter)
     {

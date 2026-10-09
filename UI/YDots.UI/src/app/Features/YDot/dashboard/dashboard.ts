@@ -172,6 +172,9 @@ export class DashboardComponent implements OnInit {
   readonly sample = signal<{ items: DonationListItem[]; total: number } | null>(null);
   readonly activity = signal<AuditEventResponse[] | null>(null);
   readonly followUps = signal<FollowUp[] | null>(null);
+
+  /** Overdue follow-ups across the caller's whole scope, counted by the server. */
+  private readonly followUpsOverdueCount = signal<number | null>(null);
   readonly cases = signal<CaseRow[] | null>(null);
   readonly activeUsers = signal<number | null>(null);
   readonly invitedUsers = signal<number | null>(null);
@@ -282,18 +285,26 @@ export class DashboardComponent implements OnInit {
   readonly nextFollowUps = computed(() => {
     const list = this.followUps();
     if (!list) return null;
+        // The server says which are still open - it used to be guessed from the status word.
     return list
-      .filter((f) => !f.completedAtUtc && !/complet|cancel|closed|done/i.test(f.status))
+      .filter((f) => f.isOpen)
       .sort(
         (a, b) =>
           (a.dueAtUtc ? new Date(a.dueAtUtc).getTime() : Infinity) -
           (b.dueAtUtc ? new Date(b.dueAtUtc).getTime() : Infinity),
       );
   });
+    /**
+   * Overdue follow-ups - the server's count, by the organisation's calendar day.
+   *
+   * IT WAS COUNTED FROM THE FIRST FIFTY ROWS, against the browser's clock: an organisation with
+   * more follow-ups than that under-counted, and the figure disagreed with the Follow-up Queue's
+   * own Overdue tile for anything due earlier the same day.
+   */
   readonly followUpsOverdue = computed(
     () =>
-      (this.nextFollowUps() ?? []).filter((f) => f.dueAtUtc && new Date(f.dueAtUtc) < new Date())
-        .length,
+      this.followUpsOverdueCount()
+      ?? (this.nextFollowUps() ?? []).filter((f) => f.isOverdue).length,
   );
 
   /** The four biggest traced channels, each already a share of the TOTAL (untraced gifts included). */
@@ -764,7 +775,7 @@ export class DashboardComponent implements OnInit {
         .searchAuditEvents({ page: 1, pageSize: 8 })
         .pipe(catchError(() => of(null))),
       followUps: this.donorApi
-        .getFollowUpPlanner({ page: 1, pageSize: 50 })
+                .getFollowUpPlanner({ page: 1, pageSize: 100 })
         .pipe(catchError(() => of(null))),
       activeUsers: this.userApi
         .searchUsers({ pageIndex: 1, pageSize: 1, status: 'active' })
@@ -810,7 +821,8 @@ export class DashboardComponent implements OnInit {
       );
       this.recent.set(result.sample ? this.newestFirst(result.sample.items).slice(0, 6) : null);
       this.activity.set(result.activity?.items ?? null);
-      this.followUps.set(result.followUps?.followUps?.items ?? null);
+            this.followUps.set(result.followUps?.followUps?.items ?? null);
+      this.followUpsOverdueCount.set(result.followUps?.summary?.overdue ?? null);
       this.activeUsers.set(result.activeUsers?.totalCount ?? null);
       this.invitedUsers.set(result.invitedUsers?.totalCount ?? null);
       this.pendingAccess.set(result.access?.totalCount ?? null);

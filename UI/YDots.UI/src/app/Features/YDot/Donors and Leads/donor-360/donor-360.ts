@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { DonorApiService } from '../../../../Service/donor-api.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
-import { Donor360Response } from '../../../../Shared/models/donor-contract.model';
+import { DonLookupItem, Donor360Response } from '../../../../Shared/models/donor-contract.model';
 import { FormsModule } from '@angular/forms';
 import {
   UiState,
@@ -12,7 +12,6 @@ import {
   ConfirmDialogConfig,
 } from '../../../../Shared/models/donors-leads.model';
 import { effect, ElementRef, ViewChild } from '@angular/core';
-import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 
 
 @Component({
@@ -25,10 +24,7 @@ import { PeopleDirectoryService } from '../../../../Shared/services/people-direc
 export class Donor360Component {
     readonly pageSize = 10;
     readonly pages = signal<Record<string, number>>({});
-    readonly ownerSearch = signal('');
-    readonly hasSelectedOwner = computed(() => this.ownerOptions().some(p => p.reference === this.correctOwner()));
-    readonly filteredOwners = computed(() => this.ownerOptions().filter(p => p.reference === this.correctOwner() || (p.name + ' ' + (p.context ?? '')).toLowerCase().includes(this.ownerSearch().toLowerCase())));
-    readonly upcoming = computed(() => (this.response()?.followUps ?? []).filter(f => !['Completed','Cancelled'].includes(f.status)).slice().sort((a,b) => (a.dueAtUtc ? Date.parse(a.dueAtUtc) : Infinity) - (b.dueAtUtc ? Date.parse(b.dueAtUtc) : Infinity)));
+    readonly upcoming = computed(() => (this.response()?.followUps ?? []).filter(f => f.isOpen).slice().sort((a,b) => (a.dueAtUtc ? Date.parse(a.dueAtUtc) : Infinity) - (b.dueAtUtc ? Date.parse(b.dueAtUtc) : Infinity)));
     readonly latestDocument = computed(() => this.documents().slice().sort((a,b) => Date.parse(b.uploadedOn)-Date.parse(a.uploadedOn))[0]);
     tabCount(id: TabId): number {
       switch (id) {
@@ -36,6 +32,7 @@ export class Donor360Component {
         case 'follow-ups': return this.upcoming().length;
         case 'documents': return this.documents().length;
         case 'activity': return this.activity().length;
+        case 'consent': return this.channelConsents().length;
         default: return 0;
       }
     }
@@ -53,22 +50,45 @@ export class Donor360Component {
     ];
     readonly followUpRows = computed(() => {
       const view = this.followUpView();
-      return this.followUps().filter((f) => view === 'all' || this.followUpBucket(f.status) === view);
+      return this.followUps().filter((f) => view === 'all' || this.followUpBucket(f) === view);
     });
     followUpViewCount(view: FollowUpView): number {
-      return view === 'all' ? this.followUps().length : this.followUps().filter((f) => this.followUpBucket(f.status) === view).length;
+      return view === 'all' ? this.followUps().length : this.followUps().filter((f) => this.followUpBucket(f) === view).length;
     }
     setFollowUpView(view: FollowUpView): void { this.followUpView.set(view); this.pages.update((p) => ({ ...p, 'follow-ups': 1 })); }
-    private followUpBucket(status: string): FollowUpView {
-      if (status === 'Overdue') return 'overdue';
-      return status === 'Completed' || status === 'Cancelled' ? 'closed' : 'open';
+
+    /**
+     * Open, overdue or closed - from the server's own flags.
+     *
+     * "OVERDUE" IS NOT A STATUS THE API HAS, so reading it off `status` meant the Overdue view was
+     * always empty and the overdue count beside the title was always zero, however late the
+     * follow-up. The server says whether a follow-up is open and whether it is past its date.
+     */
+    private followUpBucket(followUp: FollowUpItem): FollowUpView {
+      if (followUp.isOverdue) return 'overdue';
+      return followUp.isOpen ? 'open' : 'closed';
     }
 
-    /** Every stage with its share of all money on record, for the donations ledger. */
+    /**
+     * The giving ledger: each stage against the money received.
+     *
+     * THE STAGES OVERLAP, SO THEY CANNOT BE ADDED UP. Reconciled is the part of Received the bank
+     * has confirmed; adding the two counted the same gifts twice, and the ledger's "Total on
+     * record" for a donor who had given 14,000 read 26,000. Each stage's bar is now its size
+     * against what has been received, and the figure underneath is the amount received.
+     */
     readonly stageLedger = computed(() => {
       const stages = this.donationTotals();
-      const total = stages.reduce((sum, stage) => sum + stage.amount, 0);
-      return { total, rows: stages.map((stage, index) => ({ ...stage, tone: index % 5, share: total ? Math.round((stage.amount / total) * 100) : 0 })) };
+      const received = this.lifetimeGiving();
+      const base = received > 0 ? received : Math.max(0, ...stages.map((stage) => stage.amount));
+      return {
+        total: received,
+        rows: stages.map((stage, index) => ({
+          ...stage,
+          tone: index % 5,
+          share: base ? Math.min(100, Math.round((stage.amount / base) * 100)) : 0,
+        })),
+      };
     });
 
     /** "24 Sep 2026" → "Thu", for agenda and chronicle rows. */
@@ -91,21 +111,6 @@ export class Donor360Component {
     private readonly route = inject(ActivatedRoute);
     private readonly api = inject(DonorApiService);
     private readonly toast = inject(ToastService);
-
-    /**
-     * The colleagues who can hold a donor relationship.
-     *
-     * THE CORRECT-PROFILE DIALOG NEEDED THIS AND DID NOT HAVE IT. Relationship owner was a plain
-     * text box seeded with the owner's DISPLAY NAME, and whatever it contained was sent as
-     * `relationshipOwnerUserId` - which the API declares as a Guid. So the default value, the
-     * literal word "Unassigned", was refused by model binding before any handler saw it, and the
-     * screen reported "The request could not be read". Typing a real colleague's name failed the
-     * same way. The field is a picker over the directory now, and it carries the id.
-     */
-    protected readonly people = inject(PeopleDirectoryService);
-
-    /** Everybody who may be given the relationship, plus the current holder if they are inactive. */
-    protected readonly ownerOptions = computed(() => this.people.assignable());
 
     /** The server's answer for this donor, or null until it arrives. */
     readonly response = signal<Donor360Response | null>(null);
@@ -131,6 +136,13 @@ export class Donor360Component {
   
     constructor() {
       this.load();
+
+      // The pledge form's currencies. A failure leaves the list empty and the form on the donor's
+      // own currency, rather than offering a guess.
+      this.api.getReferenceData().subscribe({
+        next: (reference) => this.currencyCatalogue.set(reference.currencies ?? []),
+        error: () => this.currencyCatalogue.set([]),
+      });
 
       effect(() => {
         const action = this.activeAction();
@@ -233,8 +245,10 @@ export class Donor360Component {
         // rather than deciding - the old page unmasked on a client-side role check.
         email: detail?.primaryEmail ?? '',
         phone: detail?.primaryPhone ?? '',
-        address: '',
-        consentStatus: (consent?.overallState ?? 'Granted') as 'Granted' | 'Partial' | 'Withdrawn',
+
+        // THE SERVER'S WORD, OR "NOT PROVIDED". It used to fall back to "Granted", so a donor
+        // nobody had ever asked read as having consented.
+        consentStatus: consent?.overallState || 'Not provided',
         consentUpdated: consent?.lastRecordedAtUtc ? this.formatDate(consent.lastRecordedAtUtc) : '',
         // GRANTED CHANNELS ONLY. Listing a channel the donor has withdrawn as "permitted"
         // beside a Communicate button is how somebody ends up contacting them on it.
@@ -242,8 +256,6 @@ export class Donor360Component {
           .filter((preference) => preference.consentState === 'Granted')
           .map((preference) => preference.channel)
           .join(', ') || 'No permitted channels',
-        commsChannel: (response?.communicationPreferences ?? [])[0]?.channel ?? '',
-        commsFrequency: '',
         doNotContact: detail?.doNotContact ?? false,
       };
     });
@@ -264,9 +276,27 @@ export class Donor360Component {
         // THE LEAD THIS DONOR CAME FROM. The document's conversion rule is that a converted lead
         // keeps its history, and this row is where that history is visible.
         role: entry.leadReference || 'Donor',
-        amount: 0,
+
+        // WHAT THE DONOR GAVE TO THE CAMPAIGN, from the payments module. It was the literal 0.
+        amount: entry.amount ?? 0,
+        gifts: entry.giftCount ?? 0,
+        lastGift: entry.lastGiftAtUtc ? this.formatDate(entry.lastGiftAtUtc) : '',
         date: entry.convertedAtUtc ? this.formatDate(entry.convertedAtUtc) : '',
         status: entry.convertedAtUtc ? 'Converted' : '',
+      })),
+    );
+
+    /** Every gift, newest first, as the payments module recorded it. */
+    readonly gifts = computed<GiftItem[]>(() =>
+      (this.response()?.donations ?? []).map((gift) => ({
+        id: gift.id,
+        reference: gift.reference,
+        date: this.formatDate(gift.donatedAtUtc),
+        campaign: gift.campaignName ?? '',
+        amount: gift.amount,
+        refunded: gift.refundedAmount ?? 0,
+        currency: gift.currency,
+        status: gift.status,
       })),
     );
 
@@ -283,11 +313,21 @@ export class Donor360Component {
     readonly followUps = computed<FollowUpItem[]>(() =>
       (this.response()?.followUps ?? []).map((followUp) => ({
         id: followUp.id,
-        title: followUp.nextAction ?? followUp.followUpReference,
+        title: followUp.nextAction ?? followUp.purpose ?? followUp.followUpReference,
         due: followUp.dueAtUtc ? this.formatDate(followUp.dueAtUtc) : '',
         owner: followUp.relationshipOwnerName ?? '',
-        status: followUp.status,
+
+        // What a person reads: an open follow-up past its date is "Overdue", whatever stage of
+        // planning it had reached.
+        status: followUp.isOverdue ? 'Overdue' : followUp.status,
         priority: followUp.priority ?? '',
+        isOpen: followUp.isOpen,
+        isOverdue: followUp.isOverdue,
+
+        // WHO MAY EXECUTE IT IS THE SERVER'S ANSWER: the person it is assigned to, and the
+        // Organisation Admin. Everybody else who can see the donor sees the follow-up and who
+        // holds it.
+        isMine: followUp.canExecute,
       })),
     );
 
@@ -295,6 +335,7 @@ export class Donor360Component {
       (this.response()?.promises ?? []).map((promise) => ({
         id: promise.reference,
         amount: promise.amount,
+        currency: promise.currency,
         dueDate: promise.dueAtUtc ? this.formatDate(promise.dueAtUtc) : '',
         status: promise.status,
       })),
@@ -358,21 +399,22 @@ export class Donor360Component {
     }
 
   
-    readonly activity = computed<ActivityItem[]>(() => (this.response()?.activityHistory ?? []).slice().sort((a,b) => Date.parse(b.occurredAtUtc)-Date.parse(a.occurredAtUtc)).map(a => ({ id:a.id, actor:a.targetType, action:a.reason || a.actionCode, timestamp:this.formatDate(a.occurredAtUtc) })));
+    // WHO DID IT, in the last column - it printed the record type ("Donor", "FollowUpTask").
+    readonly activity = computed<ActivityItem[]>(() => (this.response()?.activityHistory ?? []).slice().sort((a,b) => Date.parse(b.occurredAtUtc)-Date.parse(a.occurredAtUtc)).map(a => ({ id:a.id, actor:a.actorName ?? '', action:a.reason || a.actionCode, timestamp:this.formatDate(a.occurredAtUtc) })));
   
     // ============================================================
     // TABS — progressive disclosure of the main work area
     // ============================================================
   
+    // THE ROLE FLOW'S FIVE: Overview, Donations, Follow-ups, Consent, Activity history. Consent had
+    // a finished panel that only a hand-typed `?tab=consent` could reach. Documents stays one
+    // click away - "View all" beside the latest document on Overview - rather than as a tab.
     readonly tabs: { id: TabId; label: string }[] = [
       { id: 'overview', label: 'Overview' },
       { id: 'donations', label: 'Donations' },
-      
       { id: 'follow-ups', label: 'Follow-Ups' },
-      { id: 'documents', label: 'Documents' },
+      { id: 'consent', label: 'Consent' },
       { id: 'activity', label: 'Activity history' },
-      
-      
     ];
     activeTab = signal<TabId>((this.route.snapshot.queryParamMap.get('tab') as TabId | null) ?? 'overview');
   
@@ -380,25 +422,9 @@ export class Donor360Component {
     // WORKFLOW ACTIONS — Correct / Follow up / Create intent / Delete draft
     // ============================================================
   
-    activeAction = signal<'correct' | 'follow-up' | 'create-intent' | 'delete-draft' | null>(null);
+    activeAction = signal<'correct' | 'create-intent' | 'delete-draft' | null>(null);
     successPanel = signal<SuccessPanel | null>(null);
     dependencyNotice = signal(false);
-  
-    // Correct form state
-    correctReason = signal('');
-
-    /**
-     * The chosen owner's USER ID, not their name. Empty string means "leave unassigned", which
-     * the API accepts as null.
-     */
-    correctOwner = signal('');
-    correctErrors = signal<Record<string, string>>({});
-    correctHasErrors = computed(() => Object.keys(this.correctErrors()).length > 0);
-  
-    // Follow-up form state
-    followUpNote = signal('');
-    followUpDue = signal('');
-    followUpErrors = signal<Record<string, string>>({});
   
     // Delete draft form state
     deleteReason = signal('');
@@ -422,7 +448,15 @@ export class Donor360Component {
 
     // Presentation for the "Record a pledge" note: quick amounts, currency glyph, amount in words,
     // date shortcuts and the one-line pledge statement. None of it changes what is submitted.
-    readonly intentCurrencies = ['INR', 'USD', 'GBP', 'EUR', 'AED', 'SGD'];
+
+    /**
+     * The currencies a pledge may be recorded in - the active ones in the currency master.
+     *
+     * THEY WERE SIX CODES TYPED INTO THIS FILE, so a currency the platform had switched on was
+     * missing and one it had switched off was still offered. `description` is the symbol.
+     */
+    private readonly currencyCatalogue = signal<DonLookupItem[]>([]);
+    readonly intentCurrencies = computed(() => this.currencyCatalogue().map((currency) => currency.value));
     readonly intentPresets = [5000, 10000, 25000, 50000, 100000];
     readonly intentDueShortcuts = [
       { id: 'two-weeks', label: 'In 2 weeks' },
@@ -433,7 +467,8 @@ export class Donor360Component {
     readonly pledgeDonorName = computed(() => this.hasPermission('don.contact.view') ? this.donor().fullName : this.maskedFullName());
     readonly intentCurrencyOptions = computed(() => {
       const code = this.intentCurrency().trim().toUpperCase();
-      return code && !this.intentCurrencies.includes(code) ? [code, ...this.intentCurrencies] : this.intentCurrencies;
+      const known = this.intentCurrencies();
+      return code && !known.includes(code) ? [code, ...known] : known;
     });
     readonly intentSymbol = computed(() => {
       const code = this.intentCurrency().trim().toUpperCase();
@@ -452,11 +487,15 @@ export class Donor360Component {
       const amount = this.intentAmount();
       if (!amount || !(amount > 0) || amount >= 1e12) return '';
       const code = this.intentCurrency().trim().toUpperCase();
-      const names: Record<string, string> = { INR: 'Rupees', USD: 'US dollars', GBP: 'Pounds sterling', EUR: 'Euros', AED: 'Dirhams', SGD: 'Singapore dollars' };
+
+      // The currency's name from the master ("INR - Indian Rupee"), so every currency it offers
+      // reads back in words - not only the six this file used to name.
+      const label = this.currencyCatalogue().find((currency) => currency.value === code)?.label ?? code;
+      const name = label.includes(' - ') ? label.slice(label.indexOf(' - ') + 3) : label;
       const whole = Math.floor(amount);
       const cents = Math.round((amount - whole) * 100);
       const words = this.numberInWords(whole, code === 'INR');
-      return `${names[code] ?? code} ${words}${cents ? ` and ${cents}/100` : ''} only`;
+      return `${name} ${words}${cents ? ` and ${cents}/100` : ''} only`;
     });
     readonly intentDueLabel = computed(() => {
       const [y, m, d] = this.intentDueDate().split('-').map(Number);
@@ -566,8 +605,6 @@ export class Donor360Component {
   
     dialogTitleId = computed(() => {
       switch (this.activeAction()) {
-        case 'correct': return 'correct-title';
-        case 'follow-up': return 'followup-title';
         case 'create-intent': return 'intent-title';
         case 'delete-draft': return 'delete-title';
         default: return null;
@@ -589,16 +626,28 @@ export class Donor360Component {
     fulfilledPromisesCount = computed(() => this.promises().filter(p => p.status === 'Fulfilled').length);
 
     /** KPI: follow-ups currently overdue — surfaced as the "attention" card. */
-    overdueFollowUpsCount = computed(() => this.followUps().filter((f) => f.status === 'Overdue').length);
+    overdueFollowUpsCount = computed(() => this.followUps().filter((f) => f.isOverdue).length);
+
+    /**
+     * The currency this donor's money is recorded in, from the payments module's totals.
+     * Every amount on the page used to be printed with a rupee sign whatever it was.
+     */
+    readonly currency = computed(() => {
+      const response = this.response();
+      return response?.donationTotalsByStage.find((total) => !!total.currency)?.currency
+        ?? response?.donations?.[0]?.currency
+        ?? response?.promises?.[0]?.currency
+        ?? 'INR';
+    });
 
     /** Maps a status/label string from any list in this view to a badge tone. */
     badgeClass(value: string): 'green' | 'blue' | 'amber' | 'red' | 'gray' {
       const tones: Record<string, 'green' | 'blue' | 'amber' | 'red' | 'gray'> = {
-        Active: 'green', Granted: 'green', Fulfilled: 'green', Reconciled: 'green',
-        Scheduled: 'blue', Received: 'blue',
-        Draft: 'gray', Closed: 'gray', Low: 'gray',
-        Pending: 'amber', Partial: 'amber', Pledged: 'amber', Medium: 'amber',
-        Overdue: 'red', Withdrawn: 'red', Restricted: 'red', Inactive: 'red', High: 'red',
+        Active: 'green', Granted: 'green', Fulfilled: 'green', Reconciled: 'green', Completed: 'green', Settled: 'green',
+        Scheduled: 'blue', Received: 'blue', Planned: 'blue', Assigned: 'blue', Rescheduled: 'blue', Recorded: 'blue', Normal: 'blue',
+        Draft: 'gray', Closed: 'gray', Low: 'gray', Cancelled: 'gray', Voided: 'gray', 'Not provided': 'gray', Prospect: 'gray', Archived: 'gray', Merged: 'gray',
+        Pending: 'amber', Partial: 'amber', Pledged: 'amber', Medium: 'amber', Open: 'amber', PartiallyFulfilled: 'amber', PartiallyRefunded: 'amber',
+        Overdue: 'red', Withdrawn: 'red', Restricted: 'red', Inactive: 'red', High: 'red', Urgent: 'red', Lapsed: 'red', Refunded: 'red', ChargedBack: 'red',
       };
       return tones[value] ?? 'gray';
     }
@@ -626,22 +675,42 @@ export class Donor360Component {
       return fields.some((f) => String(f).toLowerCase().includes(q));
     }
 
-    /** Pledged amount and giving progress, feeding the header KPI bar. */
+    /**
+     * Pledged: what the donor has promised and not yet given - the open promises.
+     *
+     * THE "% IN" METER BESIDE IT IS GONE. It divided everything the donor had ever given by the
+     * promises still outstanding - two figures with nothing to do with one another, so a donor
+     * with 14,000 received and one open pledge of 5,000 read "280% in". How much of a pledge has
+     * arrived is not recorded per promise; the count of promises still open is, and is shown.
+     */
     pledgedAmount = computed(() => this.donationTotals().find((d) => d.stage === 'Pledged')?.amount ?? 0);
-    progressPercent = computed(() => {
-      const pledged = this.pledgedAmount();
-      return pledged > 0 ? Math.round((this.lifetimeGiving() / pledged) * 100) : 0;
-    });
 
     // ============================================================
     // TAB PRESENTATION — derived only from the arrays above
     // ============================================================
 
-    /** Each stage's share of all money on record, for the proportion rule under the statement. */
+    /**
+     * The money on record, split into parts that do not overlap, for the proportion rule.
+     *
+     * THE RULE DREW THE SERVER'S FOUR STAGES SIDE BY SIDE AS THOUGH THEY ADDED UP. They do not:
+     * Reconciled is inside Received. So the bar is drawn from what the stages imply - received
+     * and confirmed by the bank, received and not yet confirmed, promised, and refunded - which
+     * are four different pots and do sum to everything on record.
+     */
     readonly stageMix = computed(() => {
-      const stages = this.donationTotals().filter((stage) => stage.amount > 0);
-      const total = stages.reduce((sum, stage) => sum + stage.amount, 0);
-      return stages.map((stage, index) => ({ ...stage, tone: index % 5, share: total ? Math.round((stage.amount / total) * 100) : 0 }));
+      const amount = (stage: string) => this.donationTotals().find((total) => total.stage === stage)?.amount ?? 0;
+      const received = amount('Received');
+      const reconciled = Math.min(amount('Reconciled'), received);
+
+      const parts = [
+        { stage: 'Reconciled', amount: reconciled },
+        { stage: 'Received, to reconcile', amount: received - reconciled },
+        { stage: 'Pledged', amount: amount('Pledged') },
+        { stage: 'Refunded', amount: amount('Refunded') },
+      ].filter((part) => part.amount > 0);
+
+      const total = parts.reduce((sum, part) => sum + part.amount, 0);
+      return parts.map((part, index) => ({ ...part, tone: index % 5, share: total ? Math.round((part.amount / total) * 100) : 0 }));
     });
 
     /** The consent state channel by channel, rather than the joined string. */
@@ -657,18 +726,28 @@ export class Donor360Component {
     readonly language = computed(() => this.response()?.donor?.preferredLanguage ?? '');
     readonly consentNotice = computed(() => this.response()?.consentStatus?.noticeVersion ?? '');
 
-    /** The pending promise that falls due first. */
+    /**
+     * A promise still to be kept: Open or PartiallyFulfilled.
+     *
+     * THE SCREEN ASKED FOR "Pending", A STATUS THE API DOES NOT HAVE - so "Promises pending" was
+     * always 0 and the Overview never showed a promise falling due, whatever had been pledged.
+     */
+    private isOutstanding(promise: PromiseItem): boolean {
+      return promise.status === 'Open' || promise.status === 'PartiallyFulfilled';
+    }
+
+    /** The outstanding promise that falls due first. */
     readonly nextPromise = computed(() =>
       this.promises()
-        .filter((promise) => promise.status === 'Pending')
+        .filter((promise) => this.isOutstanding(promise))
         .sort((a, b) => (Date.parse(a.dueDate) || Infinity) - (Date.parse(b.dueDate) || Infinity))[0] ?? null,
     );
 
     readonly followUpTally = computed(() => {
       const list = this.followUps();
       return {
-        open: list.filter((f) => !['Completed', 'Cancelled', 'Overdue'].includes(f.status)).length,
-        overdue: list.filter((f) => f.status === 'Overdue').length,
+        open: list.filter((f) => f.isOpen && !f.isOverdue).length,
+        overdue: list.filter((f) => f.isOverdue).length,
         done: list.filter((f) => f.status === 'Completed').length,
       };
     });
@@ -697,7 +776,7 @@ export class Donor360Component {
 
     readonly tabMeta = computed(() => {
       switch (this.activeTab()) {
-        case 'donations': return `${this.donationTotals().length} stages · ${this.campaignHistory().length} campaigns · ${this.promises().length} promises`;
+        case 'donations': return `${this.gifts().length} gifts · ${this.campaignHistory().length} campaigns · ${this.promises().length} promises`;
         case 'communications': return `${this.conversations().length} conversations, newest first`;
         case 'follow-ups': {
           const tally = this.followUpTally();
@@ -716,7 +795,7 @@ export class Donor360Component {
     pageTo(key: string, rows: readonly object[]): number { return Math.min(this.pageNumber(key, rows) * this.pageSize, this.filtered(rows).length); }
 
     /** Promises pending, surfaced in the snapshot panel. */
-    pendingPromisesCount = computed(() => this.promises().filter((p) => p.status === 'Pending').length);
+    pendingPromisesCount = computed(() => this.promises().filter((p) => this.isOutstanding(p)).length);
 
     /**
      * Re-reads the donor from the server.
@@ -730,7 +809,7 @@ export class Donor360Component {
       this.load();
     }
 
-    openAction(action: 'correct' | 'follow-up' | 'create-intent' | 'delete-draft') {
+    openAction(action: 'correct' | 'create-intent' | 'delete-draft') {
       this.successPanel.set(null);
 
       // Edit profile is a full screen of its own, not a pop-up.
@@ -741,25 +820,17 @@ export class Donor360Component {
         return;
       }
 
-      // OPEN ON THE OWNER THE DONOR ALREADY HAS, so leaving the field alone is a no-change save
-      // rather than a silent unassignment. It is the id, because that is what the picker's
-      // options are keyed by and what the request carries.
-      if ((action as string) === 'correct') {
-        this.correctOwner.set(this.response()?.donor?.relationshipOwnerUserId ?? '');
-        this.correctReason.set('');
-        this.ownerSearch.set('');
-      }
-
       // A fresh note each time: the last pledge's figures must not reappear on the next one.
       if (action === 'create-intent') {
         this.intentAmount.set(null);
-        this.intentCurrency.set('INR');
+
+        // The currency this donor already gives in, when the master still offers it.
+        const known = this.intentCurrencies();
+        this.intentCurrency.set(known.includes(this.currency()) || known.length === 0 ? this.currency() : known[0]);
         this.intentDueDate.set('');
         this.intentNotes.set('');
       }
 
-      this.correctErrors.set({});
-      this.followUpErrors.set({});
       this.deleteErrors.set({});
       this.intentErrors.set({});
       this.activeAction.set(action);
@@ -767,102 +838,6 @@ export class Donor360Component {
   
     closeAction() {
       this.activeAction.set(null);
-    }
-  
-    submitCorrect() {
-      const errors: Record<string, string> = {};
-      if (this.correctReason().trim().length < 10 || this.correctReason().trim().length > 2000) errors['reason'] = 'Enter a reason between 10 and 2000 characters.';
-      this.correctErrors.set(errors);
-      if (Object.keys(errors).length) return;
-  
-      if (this.effectiveState() === 'conflict') {
-        // handled by the conflict banner instead of proceeding
-        return;
-      }
-
-      if (this.effectiveState() === 'dependency-failure') {
-        this.activeAction.set(null);
-        this.dependencyNotice.set(true);
-        return;
-      }
-  
-      const donorId = this.donorId();
-      const current = this.response();
-      if (!donorId || !current) {
-        return;
-      }
-
-      // A CORRECTION IS AUDITED, WHICH IS WHY IT NEEDS A REASON. The old version patched an
-      // in-memory lead's owner and declared success; nothing was recorded and nothing was saved.
-      this.api
-        .correctDonor(donorId, {
-          // NULL, NOT AN EMPTY STRING. "No owner" is a real choice here, and the API takes null
-          // for it; an empty string is not a Guid and is refused before a handler sees it.
-          relationshipOwnerUserId: this.correctOwner().trim() || null,
-          relationshipOwnerName: this.ownerOptions().find(p => p.reference === this.correctOwner())?.name ?? null,
-          correctionReason: this.correctReason(),
-          expectedVersion: current.donor.version,
-        })
-        .subscribe({
-          next: () => {
-            this.activeAction.set(null);
-            this.successPanel.set({
-              title: 'Correction saved successfully.',
-              reference: this.donor().reference,
-              state: 'Active — corrected',
-              effectiveTime: 'Just now',
-              nextAction: 'View updated record',
-            });
-            this.load();
-          },
-          error: (error: unknown) => {
-            this.activeAction.set(null);
-            this.toast.show('Correction not saved', apiErrorMessage(error), 'error');
-          },
-        });
-    }
-  
-    submitFollowUp() {
-      const errors: Record<string, string> = {};
-      if (!this.followUpNote().trim()) errors['note'] = 'Enter Follow-up note.';
-      if (!this.followUpDue()) errors['due'] = 'Enter Due date.';
-      this.followUpErrors.set(errors);
-      if (Object.keys(errors).length) return;
-  
-      const donorId = this.donorId();
-      if (!donorId) {
-        return;
-      }
-
-      // SCHEDULED AGAINST THE DONOR, not against a lead guessed from an in-memory list. The
-      // consent warning comes back with the created follow-up: the server refuses a channel the
-      // donor has withdrawn, which is the whole point of routing this through the API.
-      this.api
-        .scheduleFollowUp({
-          donorId,
-          purpose: this.followUpNote(),
-          permittedChannel: 'Email',
-          nextAction: this.followUpNote(),
-          dueAtUtc: new Date(this.followUpDue()).toISOString(),
-          consentWarningAcknowledged: true,
-        })
-        .subscribe({
-          next: (created) => {
-            this.activeAction.set(null);
-            this.successPanel.set({
-              title: 'Follow-up scheduled successfully.',
-              reference: created.followUpReference,
-              state: 'Scheduled',
-              effectiveTime: this.followUpDue() || 'Just now',
-              nextAction: 'Open follow-up queue',
-            });
-            this.load();
-          },
-          error: (error: unknown) => {
-            this.activeAction.set(null);
-            this.toast.show('Follow-up not scheduled', apiErrorMessage(error), 'error');
-          },
-        });
     }
   
     submitDeleteDraft() {
@@ -983,7 +958,7 @@ export class Donor360Component {
 
     executeFollowUp(followUpId: string) {
       const followUp = this.followUps().find((item) => item.id === followUpId);
-      if (!followUp || ['Completed', 'Cancelled'].includes(followUp.status)) {
+      if (!followUp || !followUp.isOpen || !followUp.isMine) {
         return;
       }
       this.router.navigate(['/app/fundraising/relationships/follow-up-execution'], {
@@ -1020,8 +995,36 @@ export class Donor360Component {
     // Formatting helpers (kept local — imports array left untouched)
     // ============================================================
   
-    formatINR(amount: number): string {
-      return '₹' + amount.toLocaleString('en-IN');
+    /** An amount in the donor's own currency (see `currency`), or in the one named. */
+    money(amount: number, currency?: string): string {
+      const code = (currency || this.currency()).toUpperCase();
+      const locale = code === 'INR' ? 'en-IN' : 'en-GB';
+      try {
+        return new Intl.NumberFormat(locale, { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol', maximumFractionDigits: 2, minimumFractionDigits: 0 }).format(amount || 0);
+      } catch {
+        return `${code} ${(amount || 0).toLocaleString(locale)}`;
+      }
+    }
+
+    /** Whether the caller may take a copy of this donor's history. */
+    readonly canExportHistory = computed(() => (this.response()?.permittedActions ?? []).includes('Export history'));
+
+    /** Export History - gifts, conversations, follow-ups and ownership, written by the server. */
+    exportHistory(): void {
+      const donorId = this.donorId();
+      if (!donorId) return;
+
+      this.api.exportDonorHistory(donorId).subscribe({
+        next: ({ blob, fileName }) => {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          URL.revokeObjectURL(url);
+        },
+        error: (error: unknown) => this.toast.show('History not exported', apiErrorMessage(error), 'error'),
+      });
     }
   
     /**
@@ -1111,10 +1114,11 @@ export class Donor360Component {
   }
   
   interface DonationStage { stage: string; amount: number; asOf: string; }
-  interface CampaignHistoryItem { id: string; name: string; role: string; amount: number; date: string; status: string; }
+  interface CampaignHistoryItem { id: string; name: string; role: string; amount: number; gifts: number; lastGift: string; date: string; status: string; }
+  interface GiftItem { id: string; reference: string; date: string; campaign: string; amount: number; refunded: number; currency: string; status: string; }
   interface ConversationItem { id: string; channel: string; summary: string; date: string; owner: string; }
-  interface FollowUpItem { id: string; title: string; due: string; owner: string; status: string; priority: string; }
-  interface PromiseItem { id: string; amount: number; dueDate: string; status: string; }
+  interface FollowUpItem { id: string; title: string; due: string; owner: string; status: string; priority: string; isOpen: boolean; isOverdue: boolean; isMine: boolean; }
+  interface PromiseItem { id: string; amount: number; currency: string; dueDate: string; status: string; }
   interface DocumentItem { id: string; name: string; type: string; uploadedOn: string; classification: string; }
   interface DuplicateLink { id: string; reference: string; matchReason: string; similarity: string; }
   interface ActivityItem { id: string; actor: string; action: string; timestamp: string; }

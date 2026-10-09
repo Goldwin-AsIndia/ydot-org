@@ -4,7 +4,7 @@ namespace YDots.DON.Application.Common.Constants;
 /// Every permission code used by Section 04 - Donors, and the action type each one falls under.
 ///
 /// THESE STRINGS ARE A CROSS-SERVICE CONTRACT. DON cannot issue a claim - it never signs a token -
-/// so each of these 49 codes must ALSO exist in IAM (<c>ModulePermissionCatalogue.Donors</c>),
+/// so each of these 50 codes must ALSO exist in IAM (<c>ModulePermissionCatalogue.Donors</c>),
 /// where it is seeded into the permission table and attached to roles. If the two drift, the
 /// symptom is a 403 on an endpoint that looks correctly configured, because the token never
 /// carried the claim the attribute asks for.
@@ -44,6 +44,18 @@ public static class PermissionCodes
 
     /// <summary>Unmasks matching evidence, consent evidence and documents.</summary>
     public const string DonorsViewConfidentialEvidence = "don.donors.view-confidential-evidence";
+
+    /// <summary>
+    /// The organisation-wide lens over leads, donors and follow-ups.
+    ///
+    /// WITHOUT IT A CALLER SEES ONLY WHAT IS ASSIGNED TO THEM - the leads they own, the donors
+    /// whose relationship they own, and the follow-ups assigned to them or raised on their
+    /// records. That is DonorCare's whole world in the role flow (My Leads, My Donor List, their
+    /// own Follow-up Queue), and <see cref="Models.AccessScope"/> enforces it on every read and
+    /// write. A View, so both computed fundraising roles carry it; DonorCare's listed profile in
+    /// IAM deliberately does not.
+    /// </summary>
+    public const string RecordsViewAll = "don.records.view-all";
 
     // ---- SCR-DON-001 Lead work queue -----------------------------------------------------
     public const string LeadWorkQueueView = "don.lead-work-queue.view";
@@ -181,6 +193,7 @@ public static class PermissionCodes
         // somebody has to make on purpose - not that a particular role is shut out of it.
         (DonorsViewSensitiveContact, PermissionAction.View),
         (DonorsViewConfidentialEvidence, PermissionAction.View),
+        (RecordsViewAll, PermissionAction.View),
 
         (LeadWorkQueueView, PermissionAction.View),
         (LeadWorkQueueAccept, PermissionAction.Operate),

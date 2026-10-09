@@ -136,11 +136,13 @@ public sealed class CampaignsController(
     [HasPermission(PermissionCodes.CampaignsExport)]
     [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportAsync(
-        [FromQuery] CampaignSearchFilter filter, CancellationToken cancellationToken)
+        [FromQuery] CampaignSearchFilter filter, [FromQuery] string? reason,
+        CancellationToken cancellationToken)
     {
         logger.LogInformation("Exporting campaigns.");
 
-        var result = await queries.HandleAsync(new ExportCampaignsQuery(filter), cancellationToken);
+        // The register asks why the export is being taken; the answer goes on the audit row.
+        var result = await queries.HandleAsync(new ExportCampaignsQuery(filter, reason), cancellationToken);
 
         if (result.IsFailure)
         {
@@ -424,6 +426,34 @@ public sealed class CampaignsController(
         else
         {
             logger.LogInformation("Campaign closure approved successfully for {CampaignId}.", id);
+        }
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// Refuses an outstanding close request; the campaign returns to Active or Paused. The same
+    /// permission as approving it, because it is the same decision.
+    /// </summary>
+    [HttpPost("{id:guid}/reject-close")]
+    [HasPermission(PermissionCodes.CampaignsApproveClose)]
+    [ProducesResponseType(typeof(ApiResponse<OutcomeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RejectCloseAsync(
+        Guid id, [FromBody] CampaignLifecycleRequest request, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Rejecting campaign closure for {CampaignId}.", id);
+
+        var result = await lifecycle.HandleAsync(
+            new RejectCloseCampaignCommand(id, request), cancellationToken);
+
+        if (result.IsFailure)
+        {
+            logger.LogWarning("Failed to reject campaign closure for {CampaignId}.", id);
+        }
+        else
+        {
+            logger.LogInformation("Campaign closure rejected for {CampaignId}.", id);
         }
 
         return FromResult(result);

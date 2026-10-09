@@ -5,7 +5,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { DonorApiService } from '../../../../Service/donor-api.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { DonLookupItem, Donor360Response, DonorType } from '../../../../Shared/models/donor-contract.model';
-import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 
 type EditState = 'loading' | 'ready' | 'no-access' | 'error' | 'empty';
@@ -32,7 +31,6 @@ export class DonorProfileEditComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(DonorApiService);
   private readonly toast = inject(ToastService);
-  protected readonly people = inject(PeopleDirectoryService);
 
   protected readonly reasonMin = 10;
   protected readonly reasonMax = 2000;
@@ -44,7 +42,8 @@ export class DonorProfileEditComponent {
   protected readonly submitted = signal(false);
 
   // ---- form ----
-  protected readonly donorTypes: readonly DonorType[] = ['Individual', 'Organisation', 'Trust', 'Corporate'];
+  /** The donor types the API accepts, from its own catalogue. They were four words typed here. */
+  protected readonly donorTypes = signal<readonly DonLookupItem[]>([]);
   protected readonly donorType = signal<DonorType>('Individual');
   protected readonly firstName = signal('');
   protected readonly lastName = signal('');
@@ -62,14 +61,31 @@ export class DonorProfileEditComponent {
   protected readonly isPerson = computed(() => this.donorType() === 'Individual');
   protected readonly emailMasked = computed(() => !!this.donor()?.isEmailMasked);
   protected readonly phoneMasked = computed(() => !!this.donor()?.isPhoneMasked);
-  protected readonly ownerOptions = computed(() => this.people.assignable());
+  /**
+   * The colleagues a donor may be given to - the server's assignable list.
+   *
+   * IT WAS THE PLATFORM'S PEOPLE DIRECTORY: every active account in the organisation, so a donor
+   * with a portal login could be chosen as another donor's relationship owner. The server refuses
+   * anybody not on this list, and records the change in the donor's ownership history.
+   */
+  protected readonly ownerOptions = signal<readonly DonLookupItem[]>([]);
+  protected readonly ownersLoading = signal(true);
+  protected readonly ownersError = signal<string | null>(null);
   protected readonly filteredOwners = computed(() => {
     const q = this.ownerSearch().trim().toLowerCase();
     return this.ownerOptions().filter(
-      (p) => p.reference === this.owner() || !q || `${p.name} ${p.context ?? ''}`.toLowerCase().includes(q),
+      (p) => p.value === this.owner() || !q || p.label.toLowerCase().includes(q),
     );
   });
-  protected readonly ownerKnown = computed(() => this.ownerOptions().some((p) => p.reference === this.owner()));
+  protected readonly ownerKnown = computed(() => this.ownerOptions().some((p) => p.value === this.owner()));
+
+  /**
+   * Whether "Unassigned" is offered. Only while the donor has no owner: this form can give a
+   * donor an owner or move them, but it cannot take one away - the correction endpoint reads "no
+   * owner" as "leave it alone" - so offering it for an owned donor promised a change that the
+   * save then quietly did not make.
+   */
+  protected readonly canLeaveUnassigned = computed(() => !this.donor()?.relationshipOwnerUserId);
 
   protected readonly reasonCount = computed(() => this.reason().trim().length);
   protected readonly errors = computed(() => {
@@ -114,9 +130,25 @@ export class DonorProfileEditComponent {
 
   constructor() {
     this.load();
-    this.api.getLeadCaptureForm().subscribe({
-      next: (r) => this.languageOptions.set(r.languageOptions ?? []),
-      error: () => undefined, // the current language stays selectable from the record itself
+
+    // The catalogues behind the selectors. A failure leaves the record's own values selectable.
+    this.api.getReferenceData().subscribe({
+      next: (reference) => {
+        this.languageOptions.set(reference.languages ?? []);
+        this.donorTypes.set(reference.donorTypes ?? []);
+      },
+      error: () => undefined,
+    });
+
+    this.api.getAssignableOwners().subscribe({
+      next: (owners) => {
+        this.ownerOptions.set(owners);
+        this.ownersLoading.set(false);
+      },
+      error: (error: unknown) => {
+        this.ownersLoading.set(false);
+        this.ownersError.set(apiErrorMessage(error, 'The list of colleagues could not be loaded.'));
+      },
     });
   }
 
@@ -173,9 +205,9 @@ export class DonorProfileEditComponent {
         ...(this.phoneMasked() ? {} : { primaryPhone: this.phone().trim() || null }),
         preferredLanguage: this.language() || null,
         doNotContact: this.doNotContact(),
-        // NULL, NOT '' - "no owner" is a real choice and an empty string is not a Guid.
+        // NULL, NOT '' - an empty string is not a Guid, and null leaves the owner as it is.
         relationshipOwnerUserId: this.owner() || null,
-        relationshipOwnerName: this.ownerOptions().find((p) => p.reference === this.owner())?.name ?? null,
+        relationshipOwnerName: this.ownerOptions().find((p) => p.value === this.owner())?.label ?? null,
         correctionReason: this.reason().trim(),
         expectedVersion: current.donor.version,
       })

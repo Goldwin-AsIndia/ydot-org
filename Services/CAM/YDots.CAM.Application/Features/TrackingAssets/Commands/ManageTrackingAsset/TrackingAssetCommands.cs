@@ -159,7 +159,7 @@ public sealed class TrackingAssetCommandHandler(
             context.Value.ChannelName, context.Value.SourceName, context.Value.MediumName,
             clock.UtcNow,
             TrackingAssetMappingConfig.PermittedActionsFor(
-                asset, currentUser.UserId, currentUser.HasPermission));
+                asset, currentUser.UserId, currentUser.HasPermission, currentUser.IsTenantAdmin));
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -303,7 +303,7 @@ public sealed class TrackingAssetCommandHandler(
 
         // The same independence rule campaigns use. Recorded as a DENIED audit row rather than
         // simply refused: an attempt to approve one's own work is what a later review looks for.
-        if (!asset.CanBeApprovedBy(currentUser.UserId))
+        if (!asset.CanBeApprovedBy(currentUser.UserId, currentUser.IsTenantAdmin))
         {
             logger.LogWarning("Tracking asset {AssetId} approval denied by segregation-of-duties rules.", asset.Id);
             await audit.WriteAsync(
@@ -765,7 +765,7 @@ public sealed class TrackingAssetCommandHandler(
             asset.Version,
             message,
             TrackingAssetMappingConfig.PermittedActionsFor(
-                asset, currentUser.UserId, currentUser.HasPermission));
+                asset, currentUser.UserId, currentUser.HasPermission, currentUser.IsTenantAdmin));
 
     /// <summary>The channel, source and medium resolved together, with their codes and names.</summary>
     private sealed record ReferenceContext(

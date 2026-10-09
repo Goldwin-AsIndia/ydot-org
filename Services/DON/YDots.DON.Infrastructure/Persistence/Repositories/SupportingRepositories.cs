@@ -297,15 +297,11 @@ public sealed class FollowUpRepository(DonDbContext context) : IFollowUpReposito
         AccessScope scope,
         CancellationToken cancellationToken = default)
     {
-        var tasks = context.FollowUpTasks
-            .Include(task => task.Donor)
-            .Include(task => task.Lead)
-            .Where(task => task.OrganisationId == scope.OrganisationId);
-
-        if (scope.IsOwnRecordsOnly)
-        {
-            tasks = tasks.Where(task => task.RelationshipOwnerUserId == scope.UserId);
-        }
+        var tasks = ApplyScope(
+            context.FollowUpTasks
+                .Include(task => task.Donor)
+                .Include(task => task.Lead).ThenInclude(lead => lead!.Campaign),
+            scope);
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -378,8 +374,183 @@ public sealed class FollowUpRepository(DonDbContext context) : IFollowUpReposito
     public Task<FollowUpTask?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         context.FollowUpTasks
             .Include(task => task.Donor)
-            .Include(task => task.Lead)
+            .Include(task => task.Lead).ThenInclude(lead => lead!.Campaign)
             .FirstOrDefaultAsync(task => task.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<FollowUpTask>> GetForDonorAsync(
+        Guid donorId,
+        int maximumRows,
+        CancellationToken cancellationToken = default) =>
+        await context.FollowUpTasks
+            .Where(task => task.DonorId == donorId)
+            .OrderBy(task => !OpenStatuses.Contains(task.Status))
+            .ThenByDescending(task => task.DueAtUtc)
+            .Take(maximumRows)
+            .ToListAsync(cancellationToken);
+
+    public async Task<int> CountDonorsDueAsync(
+        Guid organisationId,
+        DateTimeOffset dueFromUtc,
+        DateTimeOffset dueBeforeUtc,
+        CancellationToken cancellationToken = default)
+    {
+        // Each donor's earliest open follow-up, then the ones that fall in the window.
+        var next = await context.FollowUpTasks
+            .Where(task => task.OrganisationId == organisationId
+                           && task.DonorId != null
+                           && task.DueAtUtc != null
+                           && OpenStatuses.Contains(task.Status))
+            .GroupBy(task => task.DonorId!.Value)
+            .Select(group => group.Min(task => task.DueAtUtc))
+            .ToListAsync(cancellationToken);
+
+        return next.Count(due => due >= dueFromUtc && due < dueBeforeUtc);
+    }
+
+    public Task<int> CountAssignedOpenAsync(Guid organisationId, Guid userId, CancellationToken cancellationToken = default) =>
+        context.FollowUpTasks.CountAsync(
+            task => task.OrganisationId == organisationId
+                    && task.RelationshipOwnerUserId == userId
+                    && OpenStatuses.Contains(task.Status),
+            cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, FollowUpTask>> GetNextOpenForDonorsAsync(
+        IReadOnlyCollection<Guid> donorIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (donorIds.Count == 0)
+        {
+            return new Dictionary<Guid, FollowUpTask>();
+        }
+
+        var ids = donorIds.ToList();
+
+        return (await context.FollowUpTasks
+                .AsNoTracking()
+                .Where(task => task.DonorId != null
+                               && ids.Contains(task.DonorId.Value)
+                               && OpenStatuses.Contains(task.Status)
+                               && task.DueAtUtc != null)
+                .ToListAsync(cancellationToken))
+            .GroupBy(task => task.DonorId!.Value)
+            .ToDictionary(group => group.Key, group => group.OrderBy(task => task.DueAtUtc).First());
+    }
+
+    public Task<bool> HasOpenAssignedAsync(
+        Guid userId,
+        Guid? leadId,
+        Guid? donorId,
+        CancellationToken cancellationToken = default) =>
+        context.FollowUpTasks.AnyAsync(
+            task => task.RelationshipOwnerUserId == userId
+                    && OpenStatuses.Contains(task.Status)
+                    && ((leadId != null && task.LeadId == leadId) || (donorId != null && task.DonorId == donorId)),
+            cancellationToken);
+
+    public async Task<(int Total, int Completed)> GetCountsAsync(
+        Guid? leadId,
+        Guid? donorId,
+        CancellationToken cancellationToken = default)
+    {
+        if (leadId is null && donorId is null)
+        {
+            return (0, 0);
+        }
+
+        var tasks = context.FollowUpTasks.Where(task =>
+            (leadId != null && task.LeadId == leadId) || (donorId != null && task.DonorId == donorId));
+
+        var total = await tasks.CountAsync(cancellationToken);
+        var completed = await tasks.CountAsync(task => task.Status == FollowUpStatus.Completed, cancellationToken);
+
+        return (total, completed);
+    }
+
+    public async Task<IReadOnlyList<DonorAuditEvent>> GetHistoryAsync(
+        IReadOnlyCollection<Guid> followUpIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (followUpIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = followUpIds.ToList();
+
+        return await context.AuditEvents
+            .AsNoTracking()
+            .Where(entry => entry.TargetType == nameof(FollowUpTask)
+                            && entry.TargetId != null
+                            && ids.Contains(entry.TargetId.Value))
+            .OrderByDescending(entry => entry.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<FollowUpCounts> GetSummaryAsync(
+        AccessScope scope,
+        Guid? leadId,
+        Guid? donorId,
+        DateTimeOffset now,
+        DateTimeOffset todayStartUtc,
+        DateTimeOffset todayEndUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var tasks = ApplyScope(context.FollowUpTasks.AsNoTracking(), scope);
+
+        if (leadId is not null)
+        {
+            tasks = tasks.Where(task => task.LeadId == leadId);
+        }
+
+        if (donorId is not null)
+        {
+            tasks = tasks.Where(task => task.DonorId == donorId);
+        }
+
+        // ONE ROUND TRIP FOR ALL EIGHT, the same GroupBy(1) shape the lead queue's cards use.
+        var counts = await tasks
+            .GroupBy(_ => 1)
+            .Select(group => new FollowUpCounts(
+                group.Count(),
+                group.Count(task => OpenStatuses.Contains(task.Status)),
+                group.Count(task => OpenStatuses.Contains(task.Status)
+                                    && task.DueAtUtc >= todayStartUtc && task.DueAtUtc < todayEndUtc),
+                group.Count(task => OpenStatuses.Contains(task.Status) && task.DueAtUtc >= todayEndUtc),
+                group.Count(task => OpenStatuses.Contains(task.Status) && task.DueAtUtc < todayStartUtc),
+                group.Count(task => task.Status == FollowUpStatus.Completed
+                                    && task.CompletedAtUtc >= todayStartUtc && task.CompletedAtUtc < todayEndUtc),
+                group.Count(task => OpenStatuses.Contains(task.Status) && task.EscalatedAtUtc != null),
+                group.Count(task => OpenStatuses.Contains(task.Status) && task.RelationshipOwnerUserId == scope.UserId),
+                group.Count(task => task.Status == FollowUpStatus.Completed),
+                group.Count(task => task.Status == FollowUpStatus.Cancelled)))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return counts ?? new FollowUpCounts(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
+
+    /// <summary>
+    /// The scope gate. Organisation always; for a caller limited to their own records, the
+    /// follow-ups assigned to them AND the follow-ups raised on the leads and donors they own.
+    ///
+    /// THE SECOND HALF IS THE ROLE FLOW: a follow-up a colleague was given on your lead shows in
+    /// the record owner queue too, for viewing only. Only the assignee can act on it - the handlers
+    /// and the per-row actions see to that - but the owner can see what is planned for the person
+    /// they look after.
+    /// </summary>
+    private static IQueryable<FollowUpTask> ApplyScope(IQueryable<FollowUpTask> tasks, AccessScope scope)
+    {
+        tasks = tasks.Where(task => task.OrganisationId == scope.OrganisationId);
+
+        if (scope.IsOrganisationWide)
+        {
+            return tasks;
+        }
+
+        return tasks.Where(task =>
+            task.RelationshipOwnerUserId == scope.UserId
+            || (task.Lead != null && task.Lead.OwnerUserId == scope.UserId)
+            || (task.Donor != null && task.Donor.RelationshipOwnerUserId == scope.UserId));
+    }
 
     public async Task<IReadOnlyList<FollowUpTask>> GetOpenForDonorAsync(Guid donorId, CancellationToken cancellationToken = default) =>
         await context.FollowUpTasks

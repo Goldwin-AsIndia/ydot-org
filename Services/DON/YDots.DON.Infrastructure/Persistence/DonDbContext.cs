@@ -49,6 +49,8 @@ public class DonDbContext(
 
     public DbSet<LeadAssignment> LeadAssignments => Set<LeadAssignment>();
 
+    public DbSet<DonorOwnerChange> DonorOwnerChanges => Set<DonorOwnerChange>();
+
     public DbSet<DonorIdentityVerification> DonorIdentityVerifications => Set<DonorIdentityVerification>();
 
     public DbSet<FollowUpTask> FollowUpTasks => Set<FollowUpTask>();

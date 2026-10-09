@@ -52,7 +52,8 @@ internal static class DemoDonorCatalogue
         IReadOnlyList<DemoTask> Stewardship,
         IReadOnlyList<DemoPromise> Promises,
         IReadOnlyList<DemoDocument> Documents,
-        DemoDuplicate Duplicate);
+        DemoDuplicate Duplicate,
+        IReadOnlyList<DemoLeadTask>? LeadFollowUps = null);
 
     /// <summary>
     /// One of CAM's campaigns, as DON's own campaign table mirrors it. <paramref name="Open"/> is
@@ -140,6 +141,23 @@ internal static class DemoDonorCatalogue
         FollowUpPriority Priority,
         FollowUpStatus Status,
         string? Outcome = null);
+
+    /// <summary>
+    /// A follow-up on a lead, given to somebody who does not own it.
+    ///
+    /// THE ROLE FLOW'S OWN EXAMPLE. For an unassigned lead the planner's Assigned User puts the
+    /// follow-up in that person's queue without making them the lead's owner - the lead stays
+    /// Unassigned. <paramref name="Lead"/> is the lead's e-mail (or mobile), as DemoIds keys it.
+    /// </summary>
+    internal sealed record DemoLeadTask(
+        string Lead,
+        string Owner,
+        string Purpose,
+        ConsentChannel Medium,
+        string NextAction,
+        double Due,
+        FollowUpPriority Priority,
+        FollowUpStatus Status);
 
     internal sealed record DemoPromise(
         string Donor,
@@ -335,10 +353,10 @@ internal static class DemoDonorCatalogue
                     "kavita.ashok", 160, "BE-112, Sector I, Salt Lake City, Kolkata 700064",
                     "E+ P+", new(VerificationStatus.ChallengeSent, VerificationChannel.Sms, 0), ["EIGHTY_G"]),
                 Person("Meera Krishnan", "9845163027", "kn-IN", DonorStatus.Active, ApprovalState.Approved,
-                    "pooja.srinivas", 140, "No. 218, 6th Main, HAL 2nd Stage, Indiranagar, Bengaluru 560038",
+                    "farhan.rashid", 140, "No. 218, 6th Main, HAL 2nd Stage, Indiranagar, Bengaluru 560038",
                     "E+ W+ S+", Verified(VerificationChannel.WhatsApp, 120), ["REGULAR_GIVER", "VOLUNTEER"]),
                 Person("Anand Raghavan", "9841052736", "ta-IN", DonorStatus.Active, ApprovalState.Approved,
-                    "pooja.srinivas", 110, "Old No. 9, New No. 17, Second Street, R.A. Puram, Chennai 600028",
+                    "farhan.rashid", 110, "Old No. 9, New No. 17, Second Street, R.A. Puram, Chennai 600028",
                     "E+ P+ W-", Verified(VerificationChannel.Email, 90), ["EIGHTY_G"]),
                 Person("Divya Mahesh", "9820471356", "mr-IN", DonorStatus.Active, ApprovalState.Approved,
                     "manish.vinod", 120, "B-704, Sea Breeze Apartments, Carter Road, Bandra (West), Mumbai 400050",
@@ -473,13 +491,13 @@ internal static class DemoDonorCatalogue
 
                 // ---- Pooja Srinivas, South: fourteen ---------------------------------------------
                 Lead("Swathi Kannan", "Hyderabad", "te-IN", "SF-LIVELIHOOD-2026", "Self-help group exhibition counter",
-                    LeadStatus.Assigned, Warm, Medium, "pooja.srinivas", 4,
+                    LeadStatus.Assigned, Warm, Medium, "farhan.rashid", 4,
                     "Introduction call", 1, ByPhone),
                 Lead("Naveen Prabhu", "Bengaluru", "kn-IN", "SF-NUTRITION-2026", "Tech park food court QR code",
                     LeadStatus.Assigned, Cold, Low, "pooja.srinivas", 3,
                     "Send the programme summary", 2, ByEmail),
                 Lead("Asha Selvam", "Chennai", "ta-IN", "SF-EDU-2026", "Website enquiry form",
-                    LeadStatus.Assigned, Hot, Medium, "pooja.srinivas", 6,
+                    LeadStatus.Assigned, Hot, Medium, "farhan.rashid", 6,
                     "Call - asked to be rung before Friday", -1, ByPhone),
                 Lead("Ravi Senthil", "Coimbatore", "ta-IN", "SF-EDU-2026", "Educate a Child QR poster",
                     LeadStatus.Contacted, Warm, Medium, "pooja.srinivas", 8,
@@ -488,7 +506,7 @@ internal static class DemoDonorCatalogue
                     LeadStatus.Contacted, Cold, Low, "pooja.srinivas", 12,
                     "Second call attempt", -3, ByPhone, NoAnswer, 4),
                 Lead("Vimala Jayan", "Kochi", "ml-IN", "SF-NUTRITION-2026", "Referral from an existing donor",
-                    LeadStatus.Contacted, Hot, High, "pooja.srinivas", 5,
+                    LeadStatus.Contacted, Hot, High, "farhan.rashid", 5,
                     "E-mail the monthly giving form", 1, ByEmail, Reached, 1),
                 Lead("Kiran Babu", "Visakhapatnam", "te-IN", "SF-SKILLS-2026", "Google search enquiry",
                     LeadStatus.Contacted, Warm, Medium, "pooja.srinivas", 9,
@@ -634,6 +652,23 @@ internal static class DemoDonorCatalogue
             ],
             Stewardship:
             [
+                // ---- DonorCare: Farhan Rashid's own donors, and follow-ups given to Neha Rajesh -----
+                new("meera.krishnan@mail.test", "farhan.rashid",
+                    "Thank the donor for her regular gift and share the term report.",
+                    ByPhone, "Thank-you call with the term report", 1,
+                    FollowUpPriority.Normal, FollowUpStatus.Planned),
+                new("anand.raghavan@mail.test", "farhan.rashid",
+                    "Confirm the 80G receipt details before the year-end statement goes out.",
+                    ByEmail, "E-mail the 80G receipt confirmation", -1,
+                    FollowUpPriority.High, FollowUpStatus.Assigned),
+                new("lakshmi.venkatesh@mail.test", "neha.rajesh",
+                    "Answer the donor's question about her receipt and update her postal address.",
+                    ByPhone, "Return the donor's call about her receipt", 0,
+                    FollowUpPriority.High, FollowUpStatus.Assigned),
+                new("rajiv.narayan@mail.test", "neha.rajesh",
+                    "Send the impact report the donor asked for after visiting a learning centre.",
+                    ByEmail, "E-mail the Educate a Child impact report", 2,
+                    FollowUpPriority.Normal, FollowUpStatus.Planned),
                 new("csr@meridiantextiles.test", "anjali.prakash",
                     "Agree the renewal of the CSR partnership and the reporting calendar for next year.",
                     ByEmail, "Send the renewal proposal and book the review meeting", 3,
@@ -717,7 +752,16 @@ internal static class DemoDonorCatalogue
                 + "only in their last two digits.",
                 "Surname (Venkatesh / V.), e-mail address (present / missing), mobile number.",
                 "Confirmed with the donor by telephone that both records are hers; the record "
-                + "created from the telephone enquiry was merged into her main record.")),
+                + "created from the telephone enquiry was merged into her main record."),
+            LeadFollowUps:
+            [
+                // The role flow's example: an unassigned lead, a follow-up given to somebody else,
+                // and the lead still Unassigned afterwards.
+                new("kusum.ramesh@mail.test", "neha.rajesh",
+                    "Welcome a new enquiry while the lead waits for an owner, and learn the best time to call.",
+                    BySms, "Send the welcome SMS and ask when to call", 1,
+                    FollowUpPriority.Normal, FollowUpStatus.Assigned)
+            ]),
 
         // ============ HELPAGE INDIA ===============================================================
         new(
@@ -764,10 +808,10 @@ internal static class DemoDonorCatalogue
                     "gaurav.deepak", 165, "House 1184, Sector 21-B, Chandigarh 160022",
                     "E+ P+", new(VerificationStatus.ChallengeSent, VerificationChannel.Sms, 0), ["EIGHTY_G"]),
                 Person("Geetha Raman", "9840731625", "ta-IN", DonorStatus.Active, ApprovalState.Approved,
-                    "nisha.karthik", 145, "12/5, Kamakoti Street, West Mambalam, Chennai 600033",
+                    "imran.iqbal", 145, "12/5, Kamakoti Street, West Mambalam, Chennai 600033",
                     "E+ W+ S+", Verified(VerificationChannel.WhatsApp, 125), ["REGULAR_GIVER", "VOLUNTEER"]),
                 Person("Joseph Daniel", "9846215703", "ml-IN", DonorStatus.Active, ApprovalState.Approved,
-                    "nisha.karthik", 115, "Puthenpurackal, Convent Road, Ernakulam North, Kochi 682018",
+                    "imran.iqbal", 115, "Puthenpurackal, Convent Road, Ernakulam North, Kochi 682018",
                     "E+ P+ W-", Verified(VerificationChannel.Email, 95), ["EIGHTY_G"]),
                 Person("Padma Narayanan", "9886402517", "kn-IN", DonorStatus.Active, ApprovalState.Approved,
                     "nisha.karthik", 125, "No. 77, 9th Cross, 3rd Block, Jayanagar, Bengaluru 560011",
@@ -843,7 +887,7 @@ internal static class DemoDonorCatalogue
             [
                 // ---- Nisha Karthik, South: eighteen, the heaviest book on the team --------------
                 Lead("Arun Selvam", "Chennai", "ta-IN", "HAI-SIGHT-2026", "Eye camp registration desk",
-                    LeadStatus.Assigned, Warm, Medium, "nisha.karthik", 3,
+                    LeadStatus.Assigned, Warm, Medium, "imran.iqbal", 3,
                     "Introduction call about sponsoring a cataract surgery", 1, ByPhone),
                 Lead("Bindu Jayan", "Kochi", "ml-IN", "HAI-ELDERCARE-2026", "WhatsApp broadcast reply",
                     LeadStatus.Assigned, Cold, Low, "nisha.karthik", 2,
@@ -852,7 +896,7 @@ internal static class DemoDonorCatalogue
                     LeadStatus.Assigned, Warm, Medium, "nisha.karthik", 5,
                     "Introduction call", -1, ByPhone, previousOwner: "gaurav.deepak"),
                 Lead("Ganesh Murugan", "Coimbatore", "ta-IN", "HAI-ELDERCARE-2026", "Instagram lead form",
-                    LeadStatus.Assigned, Hot, High, "nisha.karthik", 1,
+                    LeadStatus.Assigned, Hot, High, "imran.iqbal", 1,
                     "Call today - asked about supporting two elders", 0, ByPhone),
                 Lead("Hema Kannan", "Chennai", "ta-IN", "HAI-ELDERCARE-2026", "Website enquiry form",
                     LeadStatus.Contacted, Warm, Medium, "nisha.karthik", 9,
@@ -864,7 +908,7 @@ internal static class DemoDonorCatalogue
                     LeadStatus.Contacted, Warm, Medium, "nisha.karthik", 12,
                     "Call back after six in the evening", 0.5, ByPhone, Callback, 4),
                 Lead("Jacob Abraham", "Kochi", "ml-IN", "HAI-SIGHT-2026", "Referral from an existing donor",
-                    LeadStatus.Contacted, Hot, High, "nisha.karthik", 6,
+                    LeadStatus.Contacted, Hot, High, "imran.iqbal", 6,
                     "Share the monthly giving options on WhatsApp", 1, ByWhatsApp, Reached, 1),
                 Lead("Kavya Prabhu", "Mysuru", "kn-IN", "HAI-ELDERCARE-2026", "Facebook lead form",
                     LeadStatus.Contacted, Warm, Low, "nisha.karthik", 14,
@@ -1064,6 +1108,23 @@ internal static class DemoDonorCatalogue
             ],
             Stewardship:
             [
+                // ---- DonorCare: Imran Iqbal's own donors, and follow-ups given to Shalini Balaji ----
+                new("geetha.raman@mail.test", "imran.iqbal",
+                    "Thank the donor for sponsoring an elder's care and share the quarterly update.",
+                    ByPhone, "Thank-you call with the quarterly update", 1,
+                    FollowUpPriority.Normal, FollowUpStatus.Planned),
+                new("joseph.daniel@mail.test", "imran.iqbal",
+                    "Confirm the 80G receipt details before the year-end statement goes out.",
+                    ByEmail, "E-mail the 80G receipt confirmation", -1,
+                    FollowUpPriority.High, FollowUpStatus.Assigned),
+                new("ajay.sekar@mail.test", "shalini.balaji",
+                    "Answer the donor's question about his receipt and update his postal address.",
+                    ByPhone, "Return the donor's call about his receipt", 0,
+                    FollowUpPriority.High, FollowUpStatus.Assigned),
+                new("kiran.manoj@mail.test", "shalini.balaji",
+                    "Send the impact report the donor asked for after the eye camp.",
+                    ByEmail, "E-mail the eye camp impact report", 2,
+                    FollowUpPriority.Normal, FollowUpStatus.Planned),
                 new("csr@kaveriagro.test", "arvind.murali",
                     "Agree the renewal of the CSR partnership and the reporting calendar for next year.",
                     ByEmail, "Send the renewal proposal and book the review meeting", 3,
@@ -1147,6 +1208,15 @@ internal static class DemoDonorCatalogue
                 + "only in their last two digits.",
                 "Surname (Rakesh / R.), e-mail address (present / missing), mobile number.",
                 "Confirmed with the donor by telephone that both records are hers; the record "
-                + "created from the telephone enquiry was merged into her main record."))
+                + "created from the telephone enquiry was merged into her main record."),
+            LeadFollowUps:
+            [
+                // The role flow's example: an unassigned lead, a follow-up given to somebody else,
+                // and the lead still Unassigned afterwards.
+                new("hari.babu@mail.test", "shalini.balaji",
+                    "Welcome a new enquiry while the lead waits for an owner, and learn the best time to call.",
+                    BySms, "Send the welcome SMS and ask when to call", 1,
+                    FollowUpPriority.Normal, FollowUpStatus.Assigned)
+            ])
     ];
 }

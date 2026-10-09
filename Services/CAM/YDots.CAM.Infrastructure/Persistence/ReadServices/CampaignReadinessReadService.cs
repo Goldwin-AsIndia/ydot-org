@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using YDots.CAM.Application.Common.Abstractions.Persistence;
 using YDots.CAM.Application.Common.Abstractions.Security;
 using YDots.CAM.Application.Common.Abstractions.Services;
+using YDots.CAM.Application.Common.Constants;
 using YDots.CAM.Application.Common.Models;
+using YDots.CAM.Application.Common.Settings;
 using YDots.CAM.Application.Features.CampaignReadiness.DTOs;
 using YDots.CAM.Application.Features.CampaignReadiness.Mappings;
 using YDots.CAM.Domain.Entities;
@@ -26,7 +29,8 @@ public sealed class CampaignReadinessReadService(
     IPeopleDirectory people,
     ICurrentUser currentUser,
     ITenantContext tenantContext,
-    IDateTimeProvider clock) : ICampaignReadinessReadService
+    IDateTimeProvider clock,
+    IOptions<CampaignSettings> campaignOptions) : ICampaignReadinessReadService
 {
     public async Task<CampaignReadinessResponse?> GetForCampaignAsync(
         Guid campaignId, AccessScope scope, CancellationToken cancellationToken)
@@ -53,21 +57,47 @@ public sealed class CampaignReadinessReadService(
             .ThenBy(check => check.CheckName)
             .ToListAsync(cancellationToken);
 
+        // The lifecycle rows behind the checklist's overall decision - who requested the launch,
+        // and who approved or rejected it.
+        var lifecycle = await context.CampaignLifecycleActions
+            .AsNoTracking()
+            .Where(action => action.CampaignId == campaignId)
+            .Where(action => action.ActionType == Domain.Enums.CampaignLifecycleActionType.Submit
+                             || action.ActionType == Domain.Enums.CampaignLifecycleActionType.Approve
+                             || action.ActionType == Domain.Enums.CampaignLifecycleActionType.ReturnToDraft)
+            .ToListAsync(cancellationToken);
+
         var resolved = await ResolvePeopleAsync(
             [
                 .. campaign.Owners.Select(owner => owner.OwnerId),
                 .. checks.Where(check => check.OwnerUserId.HasValue).Select(check => check.OwnerUserId!.Value),
-                .. checks.SelectMany(check => check.Blockers).Select(blocker => blocker.OwnerUserId)
+                .. checks.SelectMany(check => check.Blockers).Select(blocker => blocker.OwnerUserId),
+                .. lifecycle.Where(action => action.RequestedByUserId.HasValue).Select(action => action.RequestedByUserId!.Value),
+                .. campaign.SubmittedByUserId.HasValue ? new[] { campaign.SubmittedByUserId.Value } : [],
+                .. campaign.ApprovedByUserId.HasValue ? new[] { campaign.ApprovedByUserId.Value } : []
             ],
             cancellationToken);
+
+        var verdictHolders = await VerdictHoldersAsync(checks, cancellationToken);
+
+        // The approve endpoint's own rule: something on the list, every required check passed, no
+        // open blocker - unless the Organisation has switched the gate off.
+        var checklistAllowsLaunch = campaignOptions.Value.AllowLaunchWithOutstandingChecks
+            || (checks.Count > 0
+                && !checks.Any(check => check.BlocksLaunch || check.HasOpenBlockers));
 
         return ReadinessMappingConfig.ToReadinessResponse(
             campaign,
             checks,
             clock.TodayUtc,
             ReadinessMappingConfig.CampaignActionsFor(
-                campaign, currentUser.UserId, currentUser.HasPermission),
-            resolved);
+                campaign, currentUser.UserId, currentUser.HasPermission,
+                currentUser.IsTenantAdmin, checklistAllowsLaunch),
+            resolved,
+            ReadinessMappingConfig.DecisionFor(campaign, lifecycle, resolved),
+            check => ReadinessMappingConfig.PermittedActionsFor(
+                check, currentUser.HasPermission, currentUser.UserId, currentUser.IsTenantAdmin,
+                check.OwnerUserId is not Guid owner || verdictHolders.Contains(owner)));
     }
 
     public async Task<ReadinessCheckDetailResponse?> GetCheckAsync(
@@ -106,10 +136,53 @@ public sealed class CampaignReadinessReadService(
             ],
             cancellationToken);
 
+        var verdictHolders = await VerdictHoldersAsync([check], cancellationToken);
+
         return check.ToDetailResponse(
             clock.TodayUtc,
-            ReadinessMappingConfig.PermittedActionsFor(check, currentUser.HasPermission, currentUser.UserId),
+            ReadinessMappingConfig.PermittedActionsFor(
+                check, currentUser.HasPermission, currentUser.UserId, currentUser.IsTenantAdmin,
+                check.OwnerUserId is not Guid owner || verdictHolders.Contains(owner)),
             resolved);
+    }
+
+    /// <summary>
+    /// The people a readiness check may be assigned to: whoever can record its verdict - the
+    /// Campaign Executives and the Organisation Admin.
+    /// </summary>
+    public async Task<IReadOnlyList<ReadinessPersonResponse>> GetAssignableOwnersAsync(
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.HasTenant)
+        {
+            return [];
+        }
+
+        var holders = await people.GetPeopleHoldingPermissionAsync(
+            tenantContext.RequireTenantId(), PermissionCodes.ReadinessPass, null, cancellationToken);
+
+        return [.. holders.Select(person => new ReadinessPersonResponse(person.UserId, person.UserCode, person.DisplayName))];
+    }
+
+    /// <summary>Which of the checks' assignees can still record a verdict.</summary>
+    private async Task<IReadOnlySet<Guid>> VerdictHoldersAsync(
+        IReadOnlyCollection<CampaignReadinessCheck> checks, CancellationToken cancellationToken)
+    {
+        var owners = checks
+            .Where(check => check.OwnerUserId.HasValue)
+            .Select(check => check.OwnerUserId!.Value)
+            .Distinct()
+            .ToArray();
+
+        if (owners.Length == 0 || !tenantContext.HasTenant)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var holders = await people.GetPeopleHoldingPermissionAsync(
+            tenantContext.RequireTenantId(), PermissionCodes.ReadinessPass, owners, cancellationToken);
+
+        return holders.Select(person => person.UserId).ToHashSet();
     }
 
     public async Task<IReadOnlyList<ReadinessReminderResponse>> GetRemindersForUserAsync(

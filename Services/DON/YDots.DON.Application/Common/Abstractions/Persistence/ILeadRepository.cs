@@ -43,7 +43,14 @@ public interface ILeadRepository
     /// <summary>Owners who already appear on a lead, so the board can offer them without calling IAM.</summary>
     Task<IReadOnlyList<(Guid UserId, string Name, string? TeamCode)>> GetKnownOwnersAsync(Guid organisationId, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(Guid organisationId, AccessScope scope, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Everybody who has owned a lead here, including people who no longer can - for the queue
+    /// Owner FILTER, where a lead left with a former colleague must still be findable. Assignment
+    /// pickers use <see cref="GetKnownOwnersAsync"/>, which offers only people who can take work.
+    /// </summary>
+    Task<IReadOnlyList<(Guid UserId, string Name, string? TeamCode)>> GetOwnerFilterOptionsAsync(Guid organisationId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(Guid organisationId, AccessScope scope, Guid? ownerUserId = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The six summary cards on the lead work queue, counted across the caller's whole scope.
@@ -52,7 +59,34 @@ public interface ILeadRepository
     /// aggregated in a single query rather than by asking the database the same question six
     /// times with a different WHERE clause.
     /// </summary>
-    Task<LeadQueueSummaryResponse> GetQueueSummaryAsync(Guid organisationId, AccessScope scope, CancellationToken cancellationToken = default);
+    Task<LeadQueueSummaryResponse> GetQueueSummaryAsync(
+        Guid organisationId,
+        AccessScope scope,
+        Guid? ownerUserId,
+        DateTimeOffset now,
+        DateTimeOffset todayStartUtc,
+        DateTimeOffset todayEndUtc,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The Assignment Board's strip: leads in the queue with no owner, with one, and with a next
+    /// contact falling inside the window given (the SLA's "due soon").
+    /// </summary>
+    Task<(int Unassigned, int Assigned, int DueSoon)> GetAssignmentCountsAsync(
+        Guid organisationId,
+        AccessScope scope,
+        DateTimeOffset dueFromUtc,
+        DateTimeOffset dueBeforeUtc,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Leads the user owns that are still in the queue (not drafts, not converted).</summary>
+    Task<int> CountOwnedAsync(Guid organisationId, Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Every lead source in scope, for the Lead source filter.</summary>
+    Task<IReadOnlyList<string>> GetSourcesAsync(Guid organisationId, AccessScope scope, CancellationToken cancellationToken = default);
+
+    /// <summary>The leads a filter matches, unpaged, up to a ceiling - for the CSV export.</summary>
+    Task<IReadOnlyList<Lead>> ExportAsync(LeadSearchFilter filter, AccessScope scope, int maximumRows, CancellationToken cancellationToken = default);
 
     void Add(Lead lead);
 

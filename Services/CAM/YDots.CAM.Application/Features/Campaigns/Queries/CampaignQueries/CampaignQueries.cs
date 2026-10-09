@@ -26,7 +26,7 @@ public sealed record GetCampaignStatisticsQuery;
 public sealed record LookupCampaignsQuery(string? Search = null, int Take = 50);
 
 /// <summary>CSV export of the register.</summary>
-public sealed record ExportCampaignsQuery(CampaignSearchFilter Filter);
+public sealed record ExportCampaignsQuery(CampaignSearchFilter Filter, string? Reason = null);
 
 /// <summary>
 /// The read side of the Campaigns slice.
@@ -213,7 +213,10 @@ public sealed class CampaignQueryHandler(
 
         await audit.WriteAsync(
             AuditActionCodes.CampaignExported, nameof(Campaign), Guid.Empty,
-            $"Exported {rows.Count} campaign(s) as {file.Reference}.", cancellationToken);
+            string.IsNullOrWhiteSpace(query.Reason)
+                ? $"Exported {rows.Count} campaign(s) as {file.Reference}."
+                : $"Exported {rows.Count} campaign(s) as {file.Reference}. Reason: {query.Reason.Trim()}",
+            cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

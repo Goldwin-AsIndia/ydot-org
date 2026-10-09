@@ -12,7 +12,7 @@ namespace YDot.IAM.Application.Common.Constants;
 ///   FUNDRAISER_EXECUTIVE  Fundraiser Executive  the donor and lead maker
 ///   FUNDRAISING_MANAGER   Fundraising Manager   the donor and lead maker and checker
 ///   DONOR                 Donor                 a member of the public, their own giving only
-///   DONOR_CARE            DonorCare             supporter care, screens to be mapped later
+///   DONOR_CARE            DonorCare             supporter care, their own leads, donors and follow-ups
 ///
 /// WHAT REPLACED INITIATOR AND APPROVER. Those two were authority without a department: a maker
 /// across every module and a checker across every module. The working roles above keep exactly
@@ -51,11 +51,25 @@ public static class TenantRoleDefinitions
         bool IsPrivileged = false,
         IReadOnlyList<string>? MenuScope = null);
 
-    /// <summary>The Campaigns branch: Campaign Register and Create Campaign.</summary>
+    /// <summary>The Campaigns branch: Campaign Overview and Tracking Asset Manager.</summary>
     private const string CampaignMenus = "FR_CAMPAIGNS";
 
-    /// <summary>The Donors and Leads branch: Lead Work Queue, Follow-up Queue and Donor List.</summary>
-    private const string DonorAndLeadMenus = "FR_RELATIONSHIPS";
+    /// <summary>
+    /// The fundraising team's Donors and Leads menus, per the role flow: Lead Work Queue, Donor
+    /// List and Follow-up Queue - the organisation-wide lists.
+    ///
+    /// NAMED NODE BY NODE rather than as the FR_RELATIONSHIPS branch, because that branch also
+    /// holds My Leads and My Donor List, which the flow gives to DonorCare and not to this team.
+    /// </summary>
+    private static readonly IReadOnlyList<string> DonorAndLeadMenus =
+        ["FR_LEAD_QUEUE", "FR_DONOR_LIST", "FR_FOLLOW_UP_QUEUE"];
+
+    /// <summary>
+    /// DonorCare's Donors and Leads menus, per the role flow: My Leads, My Donor List and
+    /// Follow-up Queue - each one narrowed by DON to the records assigned to the person.
+    /// </summary>
+    private static readonly IReadOnlyList<string> DonorCareMenus =
+        ["FR_MY_LEADS", "FR_MY_DONORS", "FR_FOLLOW_UP_QUEUE"];
 
     /// <summary>
     /// The Donations and Payments branch: Public Donation Initiation and Payments and Receipts.
@@ -104,7 +118,7 @@ public static class TenantRoleDefinitions
             Priority: 80,
             PermissionCodes: RoleAccessProfiles.FundraisingManager,
             IsPrivileged: true,
-            MenuScope: [DonorAndLeadMenus]),
+            MenuScope: DonorAndLeadMenus),
 
         // ============ CAMPAIGN EXECUTIVE ====================================================
         //
@@ -130,21 +144,23 @@ public static class TenantRoleDefinitions
             + "consent and follow-ups, and keeps donor records up to date. Approves nothing.",
             Priority: 60,
             PermissionCodes: RoleAccessProfiles.FundraiserExecutive,
-            MenuScope: [DonorAndLeadMenus]),
+            MenuScope: DonorAndLeadMenus),
 
         // ============ DONORCARE =============================================================
         //
-        // CREATED NOW, MAPPED LATER. The role exists so people can be assigned to it today; which
-        // screens supporter care works in is a decision still to be made, so it holds no
-        // permission and maps no menu beyond the mandatory two.
+        // MAPPED FROM THE DONORS AND LEADS ROLE FLOW: My Leads, My Donor List and Follow-up
+        // Queue, each holding only the records assigned to the person. See
+        // RoleAccessProfiles.DonorCare for the actions, and for what keeps the role to its own
+        // records.
         new(
             RoleCodes.DonorCare,
             "DonorCare",
-            "Supporter care: answers donor queries, receipt requests and preference changes. "
-            + "Screens for this role are to be mapped.",
+            "Supporter care: works the leads, donors and follow-ups assigned to them - "
+            + "communicates, schedules and executes follow-ups, records donation intents and "
+            + "exports their own records. Sees no one else's.",
             Priority: 40,
             PermissionCodes: RoleAccessProfiles.DonorCare,
-            MenuScope: []),
+            MenuScope: DonorCareMenus),
 
         // ============ DONOR =================================================================
         //

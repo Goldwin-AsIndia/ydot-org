@@ -666,6 +666,25 @@ export interface ReadinessCheckListItem {
   /** The blockers raised against this check — the only place the screen can get an id to resolve one. */
   blockers: ReadinessBlocker[];
   version: number;
+  /**
+   * What THIS caller may do to this check now: `Edit`, `Pass`, `Fail`, `AddBlocker`,
+   * `ResolveBlocker`, `Delete`. Decided by the server - it alone knows whether the caller is the
+   * assignee, the Organisation Admin, or picking up a check whose assignee can no longer judge it.
+   */
+  permittedActions: string[];
+}
+
+/**
+ * The readiness checklist's overall status: `Pending` until a Manager decides, then `Approved`
+ * (the launch was approved) or `Rejected` (sent back to Draft, with the reason).
+ */
+export interface ReadinessDecision {
+  status: 'Pending' | 'Approved' | 'Rejected';
+  requestedBy: ReadinessPerson | null;
+  requestedAtUtc: string | null;
+  decidedBy: ReadinessPerson | null;
+  decidedAtUtc: string | null;
+  reason: string | null;
 }
 
 export interface ReadinessCheckDetail {
@@ -738,6 +757,8 @@ export interface CampaignReadiness {
    */
   permittedActions: string[];
   items: ReadinessCheckListItem[];
+  /** Pending, Approved or Rejected - the checklist as a whole. */
+  decision: ReadinessDecision;
 }
 
 // =============================================================================================

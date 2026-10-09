@@ -1,3 +1,5 @@
+using YDots.DON.Application.Features.CommunicationTimeline.Commands;
+using YDots.DON.Application.Features.Donors.Queries.ExportDonorHistory;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,10 +53,12 @@ public static class DependencyInjection
         // ---- Donor resource: the section 7 use-case inventory -----------------------------------
         services.AddScoped<DonorCommandHandler>();
         services.AddScoped<DonorQueryHandler>();
+        services.AddScoped<ExportDonorHistoryHandler>();
 
         // ---- SCR-DON-001 Lead work queue ---------------------------------------------------------
         services.AddScoped<LeadWorkQueueQueryHandler>();
         services.AddScoped<CommunicationTimelineQueryHandler>();
+        services.AddScoped<CommunicationCommandHandler>();
         services.AddScoped<LeadWorkQueueCommandHandler>();
 
         // ---- SCR-DON-002 Lead capture -------------------------------------------------------------

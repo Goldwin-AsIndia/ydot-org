@@ -63,6 +63,8 @@ public sealed class ReadinessCommandHandler(
     ICampaignRepository campaigns,
     IAuditWriter audit,
     ICurrentUser currentUser,
+    ITenantContext tenantContext,
+    IPeopleDirectory people,
     IDateTimeProvider clock,
     IUnitOfWork unitOfWork,
     ILogger<ReadinessCommandHandler> logger)
@@ -95,6 +97,13 @@ public sealed class ReadinessCommandHandler(
                 Error.Duplicate($"A check named '{name}' already exists on this campaign."));
         }
 
+        var ownerProblem = await ValidateOwnerAsync(command.Request.OwnerUserId, cancellationToken);
+
+        if (ownerProblem is not null)
+        {
+            return Result.Failure<ReadinessCheckDetailResponse>(ownerProblem);
+        }
+
         var check = command.Request.ToEntity(campaign);
 
         await readiness.AddAsync(check, cancellationToken);
@@ -107,7 +116,7 @@ public sealed class ReadinessCommandHandler(
 
         logger.LogInformation("Readiness check {CheckId} created for campaign {CampaignId}.", check.Id, campaign.Id);
 
-        return check.ToDetailResponse(clock.TodayUtc, PermittedActions(check));
+        return check.ToDetailResponse(clock.TodayUtc, await PermittedActionsAsync(check, cancellationToken));
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -147,6 +156,16 @@ public sealed class ReadinessCommandHandler(
                 Error.Duplicate($"A check named '{name}' already exists on this campaign."));
         }
 
+        if (command.Request.OwnerUserId != check.OwnerUserId)
+        {
+            var ownerProblem = await ValidateOwnerAsync(command.Request.OwnerUserId, cancellationToken);
+
+            if (ownerProblem is not null)
+            {
+                return Result.Failure<OutcomeResponse>(ownerProblem);
+            }
+        }
+
         command.Request.ApplyTo(check);
 
         await audit.WriteAsync(
@@ -157,7 +176,7 @@ public sealed class ReadinessCommandHandler(
 
         logger.LogInformation("Readiness check {CheckId} updated successfully.", check.Id);
 
-        return BuildOutcome(check, "Readiness check updated.");
+        return await BuildOutcomeAsync(check, "Readiness check updated.", cancellationToken);
     }
 
     /// <summary>
@@ -204,7 +223,7 @@ public sealed class ReadinessCommandHandler(
         // THE BLOCKER RULE IS UNCHANGED and is what keeps this honest. A check with an open
         // blocker cannot be passed from any state, so "raise a blocker, then pass it anyway" is
         // still impossible; the blocker has to be resolved first, on the record, by somebody.
-        if (!IsAssignee(check))
+        if (!await MayRecordVerdictAsync(check, cancellationToken))
         {
             logger.LogWarning("User {UserId} tried to pass readiness check {CheckId} assigned to someone else.", currentUser.UserId, check.Id);
 
@@ -243,7 +262,7 @@ public sealed class ReadinessCommandHandler(
 
         logger.LogInformation("Readiness check {CheckId} passed successfully.", check.Id);
 
-        return BuildOutcome(check, "Readiness check passed.");
+        return await BuildOutcomeAsync(check, "Readiness check passed.", cancellationToken);
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -265,7 +284,7 @@ public sealed class ReadinessCommandHandler(
 
         var check = loaded.Value!;
 
-        if (!IsAssignee(check))
+        if (!await MayRecordVerdictAsync(check, cancellationToken))
         {
             logger.LogWarning("User {UserId} tried to fail readiness check {CheckId} assigned to someone else.", currentUser.UserId, check.Id);
 
@@ -296,7 +315,7 @@ public sealed class ReadinessCommandHandler(
 
         logger.LogInformation("Readiness check {CheckId} recorded as failed.", check.Id);
 
-        return BuildOutcome(check, "Readiness check recorded as failed.");
+        return await BuildOutcomeAsync(check, "Readiness check recorded as failed.", cancellationToken);
     }
 
     /// <summary>
@@ -414,7 +433,7 @@ public sealed class ReadinessCommandHandler(
 
         return check is null
             ? new OutcomeResponse(blocker.Id, "Resolved", 0, "Blocker resolved.", [])
-            : BuildOutcome(check, "Blocker resolved. The check is pending verification again.");
+            : await BuildOutcomeAsync(check, "Blocker resolved. The check is pending verification again.", cancellationToken);
     }
 
     /// <summary>
@@ -559,7 +578,7 @@ public sealed class ReadinessCommandHandler(
             command.Request.Notes, cancellationToken);
 
         // Built while the check is still readable; the row goes on save.
-        var outcome = BuildOutcome(check, "Readiness check deleted.");
+        var outcome = await BuildOutcomeAsync(check, "Readiness check deleted.", cancellationToken);
 
         readiness.Remove(check);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -595,13 +614,70 @@ public sealed class ReadinessCommandHandler(
     /// <summary>
     /// A verdict (passed or failed) may be recorded only by the person the check is assigned to.
     /// A check nobody is assigned to can be judged by anyone who holds the permission.
+    ///
+    /// The Organisation Admin may record any verdict, and a check whose assignee can no longer
+    /// record one is open to anybody who can - see
+    /// <see cref="ReadinessMappingConfig.PermittedActionsFor"/>.
     /// </summary>
-    private bool IsAssignee(CampaignReadinessCheck check) =>
-        check.OwnerUserId is null || check.OwnerUserId == currentUser.UserId;
+    private async Task<bool> MayRecordVerdictAsync(
+        CampaignReadinessCheck check, CancellationToken cancellationToken) =>
+        check.OwnerUserId is null
+        || check.OwnerUserId == currentUser.UserId
+        || currentUser.IsTenantAdmin
+        || !await OwnerCanRecordVerdictAsync(check, cancellationToken);
 
-    private OutcomeResponse BuildOutcome(CampaignReadinessCheck check, string message) =>
-        new(check.Id, check.Status.ToString(), check.Version, message, PermittedActions(check));
+    /// <summary>Whether the check's assignee holds the verdict permission. True when it has none.</summary>
+    private async Task<bool> OwnerCanRecordVerdictAsync(
+        CampaignReadinessCheck check, CancellationToken cancellationToken)
+    {
+        if (check.OwnerUserId is not Guid owner)
+        {
+            return true;
+        }
 
-    private IReadOnlyList<string> PermittedActions(CampaignReadinessCheck check) =>
-        ReadinessMappingConfig.PermittedActionsFor(check, currentUser.HasPermission, currentUser.UserId);
+        var holders = await people.GetPeopleHoldingPermissionAsync(
+            tenantContext.RequireTenantId(), PermissionCodes.ReadinessPass, [owner], cancellationToken);
+
+        return holders.Count > 0;
+    }
+
+    /// <summary>
+    /// Refuses an assignee who could not record the check's verdict.
+    ///
+    /// A CHECK IS ASSIGNED TO THE PERSON WHO WILL PASS OR FAIL IT, and only that person may. So
+    /// the assignee has to be somebody who holds <c>cam.readiness.pass</c> - a Campaign Executive or
+    /// the Organisation Admin. Assigning it to a Campaign Manager, who decides the launch but
+    /// records no verdict, produced a check that sat in Pending for ever.
+    /// </summary>
+    private async Task<Error?> ValidateOwnerAsync(Guid? ownerUserId, CancellationToken cancellationToken)
+    {
+        if (ownerUserId is not Guid owner)
+        {
+            return null;
+        }
+
+        var holders = await people.GetPeopleHoldingPermissionAsync(
+            tenantContext.RequireTenantId(), PermissionCodes.ReadinessPass, [owner], cancellationToken);
+
+        return holders.Count > 0
+            ? null
+            : Error.Validation(
+                "A readiness check can only be assigned to somebody who can pass or fail it.",
+                [new ValidationError(nameof(CreateReadinessCheckRequest.OwnerUserId),
+                    "Choose a Campaign Executive or the Organisation Admin.")]);
+    }
+
+    private async Task<OutcomeResponse> BuildOutcomeAsync(
+        CampaignReadinessCheck check, string message, CancellationToken cancellationToken) =>
+        new(check.Id, check.Status.ToString(), check.Version, message,
+            await PermittedActionsAsync(check, cancellationToken));
+
+    private async Task<IReadOnlyList<string>> PermittedActionsAsync(
+        CampaignReadinessCheck check, CancellationToken cancellationToken) =>
+        ReadinessMappingConfig.PermittedActionsFor(
+            check,
+            currentUser.HasPermission,
+            currentUser.UserId,
+            currentUser.IsTenantAdmin,
+            await OwnerCanRecordVerdictAsync(check, cancellationToken));
 }

@@ -35,6 +35,7 @@ public static class MenuCatalogue
         new(ScreenIds.MyLeads, "My leads", ScreenRoutes.MyLeads, PermissionCodes.LeadWorkQueueView),
         new(ScreenIds.FollowUpQueue, "Follow-up queue", ScreenRoutes.FollowUpQueue, PermissionCodes.FollowUpPlannerView),
         new(ScreenIds.DonorList, "Donor list", ScreenRoutes.DonorList, PermissionCodes.DonorsView),
+        new(ScreenIds.MyDonorList, "My donor list", ScreenRoutes.MyDonorList, PermissionCodes.DonorsView),
 
         // ---- Reached from the four above -----------------------------------------------------
         new(ScreenIds.LeadCapture, "Lead capture", ScreenRoutes.LeadCapture, PermissionCodes.LeadCaptureView),

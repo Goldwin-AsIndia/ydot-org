@@ -11,6 +11,7 @@ import {
 import { CampaignRecord, CampaignStatus } from '../models/campaign.model';
 import { NotificationService } from '../../Service/notification.service';
 import { apiErrorMessage, apiFieldErrors } from '../models/api-response.model';
+import { fetchPages } from './paging';
 
 /**
  * What a lifecycle transition actually did, reported back to the screen that asked for it.
@@ -24,6 +25,13 @@ import { apiErrorMessage, apiFieldErrors } from '../models/api-response.model';
  * `applied: false` carries the server's own message wherever there was one.
  */
 export type LifecycleOutcome = (result: { readonly applied: boolean; readonly error?: string }) => void;
+
+/**
+ * The reasons a person gives for a transition - what the lifecycle panel and the confirm dialogs
+ * collect. They travel to the server with the transition and land on its lifecycle row and audit
+ * trail; they used to be collected and dropped.
+ */
+export type LifecycleReasons = Omit<CampaignLifecycleRequest, 'expectedVersion'>;
 
 /**
  * A save failure, said in a way the person can act on.
@@ -175,26 +183,27 @@ export class CampaignStoreService {
   /**
    * Reloads from the API.
    *
-   * A LARGE PAGE, deliberately. The screens page and filter in memory over whatever they are
-   * given, so this is the working set rather than a page size - and 200 campaigns is more than
-   * any organisation has open at once while still being a bounded request.
+   * EVERY PAGE, because the screens search, filter and page in memory over what they are given.
+   * It asked for one page of 200 and the API caps a page at 100, so an organisation's 101st
+   * campaign was missing from the register, from every count on it and from every screen that
+   * looks a campaign up by its code.
    */
   refresh(onLoaded?: () => void): void {
     this.isLoading.set(true);
     this.loadError.set(null);
 
-    this.api.searchCampaigns({ pageSize: 200 }).subscribe({
-      next: (page) => {
+    fetchPages((page, pageSize) => this.api.searchCampaigns({ page, pageSize })).subscribe({
+      next: ({ items, totalCount }) => {
         this.idsByCode.clear();
         this.versionsByCode.clear();
 
-        for (const item of page.items) {
+        for (const item of items) {
           this.idsByCode.set(item.code, item.id);
           this.versionsByCode.set(item.code, item.version);
         }
 
-        this.records.set(page.items.map((item) => this.toRecord(item)));
-        this.serverTotal.set(page.totalCount);
+        this.records.set(items.map((item) => this.toRecord(item)));
+        this.serverTotal.set(totalCount);
         this.isLoading.set(false);
         onLoaded?.();
       },
@@ -411,11 +420,12 @@ export class CampaignStoreService {
     actorRole: CampaignRole,
     actorRef: string,
     onDone?: LifecycleOutcome,
+    reasons?: LifecycleReasons,
   ): void {
     void actorRole;
     void actorRef;
 
-    this.lifecycle(ref, (id, request) => this.api.submitCampaign(id, request), 'submitted', onDone);
+    this.lifecycle(ref, (id, request) => this.api.submitCampaign(id, request), 'submitted', onDone, reasons);
   }
 
   /**
@@ -425,22 +435,41 @@ export class CampaignStoreService {
    * draw the Approve button from `permittedActions` on the campaign detail rather than from a
    * permission check - otherwise they offer an action that answers 409.
    */
-  approveCampaign(ref: string, approverRef: string, onDone?: LifecycleOutcome): void {
+  approveCampaign(
+    ref: string,
+    approverRef: string,
+    onDone?: LifecycleOutcome,
+    reasons?: LifecycleReasons,
+  ): void {
     void approverRef;
 
-    this.lifecycle(ref, (id, request) => this.api.approveCampaign(id, request), 'approved', onDone);
+    this.lifecycle(ref, (id, request) => this.api.approveCampaign(id, request), 'approved', onDone, reasons);
   }
 
-  activate(ref: string, onDone?: LifecycleOutcome): void {
-    this.lifecycle(ref, (id, request) => this.api.activateCampaign(id, request), 'activated', onDone);
+  activate(ref: string, onDone?: LifecycleOutcome, reasons?: LifecycleReasons): void {
+    this.lifecycle(ref, (id, request) => this.api.activateCampaign(id, request), 'activated', onDone, reasons);
   }
 
-  pause(ref: string, onDone?: LifecycleOutcome): void {
-    this.lifecycle(ref, (id, request) => this.api.pauseCampaign(id, request), 'paused', onDone);
+  pause(ref: string, onDone?: LifecycleOutcome, reasons?: LifecycleReasons): void {
+    this.lifecycle(ref, (id, request) => this.api.pauseCampaign(id, request), 'paused', onDone, reasons);
   }
 
-  resume(ref: string, onDone?: LifecycleOutcome): void {
-    this.lifecycle(ref, (id, request) => this.api.resumeCampaign(id, request), 'resumed', onDone);
+  resume(ref: string, onDone?: LifecycleOutcome, reasons?: LifecycleReasons): void {
+    this.lifecycle(ref, (id, request) => this.api.resumeCampaign(id, request), 'resumed', onDone, reasons);
+  }
+
+  /**
+   * Refuses a pending close request: the campaign goes back to Active or Paused. The reason is
+   * required - whoever asked for the close has to be told why it was refused.
+   */
+  rejectClose(ref: string, reason: string, onDone?: LifecycleOutcome): void {
+    this.lifecycle(
+      ref,
+      (id, request) => this.api.rejectCampaignClose(id, request),
+      null,
+      onDone,
+      { reasonCategory: 'Close request rejected', detailedReason: reason },
+    );
   }
 
   /**
@@ -482,16 +511,20 @@ export class CampaignStoreService {
    * transition for - Draft, say - is refused here rather than silently applied locally, because
    * applying it locally is exactly how the screen and the server came to disagree.
    */
-  setStatus(ref: string, status: CampaignStatus, onDone?: LifecycleOutcome): void {
+  setStatus(
+    ref: string,
+    status: CampaignStatus,
+    onDone?: LifecycleOutcome,
+    reasons?: LifecycleReasons,
+  ): void {
     switch (status) {
       case 'Submitted':
-        // 'Initiator' rather than the 'Campaign Manager' this named: the role catalogue no longer
-        // carries that name. The argument is inert either way - submitForApproval voids it and
-        // the server decides from the token - but it has to be a role that exists.
-        this.submitForApproval(ref, 'Initiator', '', onDone);
+        // The role argument is inert - submitForApproval voids it and the server decides from
+        // the token - but it has to name a role that exists, and submitting is the Executive's.
+        this.submitForApproval(ref, 'Campaign Executive', '', onDone, reasons);
         return;
       case 'Approved':
-        this.approveCampaign(ref, '', onDone);
+        this.approveCampaign(ref, '', onDone, reasons);
         return;
 
       // SCHEDULED IS NOT A TRANSITION ANYBODY RUNS. It is where approval leaves a campaign whose
@@ -502,7 +535,7 @@ export class CampaignStoreService {
         const current = this.get(ref);
 
         if (current?.status === 'Submitted') {
-          this.approveCampaign(ref, '', onDone);
+          this.approveCampaign(ref, '', onDone, reasons);
           return;
         }
 
@@ -516,14 +549,14 @@ export class CampaignStoreService {
       case 'Active': {
         const current = this.get(ref);
         if (current?.status === 'Paused') {
-          this.resume(ref, onDone);
+          this.resume(ref, onDone, reasons);
         } else {
-          this.activate(ref, onDone);
+          this.activate(ref, onDone, reasons);
         }
         return;
       }
       case 'Paused':
-        this.pause(ref, onDone);
+        this.pause(ref, onDone, reasons);
         return;
       case 'Closing':
       case 'Closed':
@@ -537,6 +570,21 @@ export class CampaignStoreService {
         // readiness screen's own endpoint, which requires a reason.
         this.refuse(`A campaign cannot be moved to ${status} from here.`, onDone);
     }
+  }
+
+  /** The reasons without blanks, so an empty box is sent as "no reason" rather than as "". */
+  private cleanReasons(reasons?: LifecycleReasons): LifecycleReasons {
+    const out: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(reasons ?? {})) {
+      const text = typeof value === 'string' ? value.trim() : '';
+
+      if (text) {
+        out[key] = text;
+      }
+    }
+
+    return out as LifecycleReasons;
   }
 
   /** A transition refused before it was sent — surfaced on the store AND reported to the caller,
@@ -664,8 +712,9 @@ export class CampaignStoreService {
       id: string,
       request: CampaignLifecycleRequest,
     ) => ReturnType<CampaignApiService['submitCampaign']>,
-    event: Parameters<NotificationService['emitCampaignEvent']>[1],
+    event: Parameters<NotificationService['emitCampaignEvent']>[1] | null,
     onDone?: LifecycleOutcome,
+    reasons?: LifecycleReasons,
   ): void {
     const record = this.get(ref);
     const id = this.idsByCode.get(ref);
@@ -695,9 +744,11 @@ export class CampaignStoreService {
     // the refresh has already replaced instead of racing it.
     const reloadDetail = () => this.reloadAfterTransition(ref);
 
-    call(id, { expectedVersion: this.versionsByCode.get(ref) ?? 0 }).subscribe({
+    call(id, { ...this.cleanReasons(reasons), expectedVersion: this.versionsByCode.get(ref) ?? 0 }).subscribe({
       next: () => {
-        this.notifications.emitCampaignEvent(record, event);
+        if (event) {
+          this.notifications.emitCampaignEvent(record, event);
+        }
         reloadDetail();
         onDone?.({ applied: true });
       },

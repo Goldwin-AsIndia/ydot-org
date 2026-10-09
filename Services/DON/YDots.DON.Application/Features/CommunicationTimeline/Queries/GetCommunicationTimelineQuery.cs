@@ -8,6 +8,7 @@ using YDots.DON.Application.Common.Results;
 using YDots.DON.Application.Common.Services;
 using YDots.DON.Application.Common.Settings;
 using YDots.DON.Application.Features.CommunicationTimeline.DTOs;
+using YDots.DON.Application.Features.Leads.Mappings;
 using YDots.DON.Domain.Entities;
 using YDots.DON.Domain.Enums;
 using YDots.DON.Domain.Services;
@@ -24,6 +25,12 @@ namespace YDots.DON.Application.Features.CommunicationTimeline.Queries;
 public sealed record GetCommunicationTimelineQuery(Guid? LeadId, Guid? DonorId);
 
 /// <summary>
+/// The same timeline as a CSV. Needs the export permission; what it holds is exactly what the
+/// caller could already read on screen, notes masked the same way.
+/// </summary>
+public sealed record ExportCommunicationTimelineQuery(Guid? LeadId, Guid? DonorId);
+
+/// <summary>
 /// The read side of the Communication Timeline.
 ///
 /// WHY IT READS BY BOTH IDS. The document's conversion rule is that a lead which becomes a donor
@@ -35,7 +42,12 @@ public sealed record GetCommunicationTimelineQuery(Guid? LeadId, Guid? DonorId);
 public sealed class CommunicationTimelineQueryHandler(
     ILeadRepository leadRepository,
     IDonorRepository donorRepository,
+    IFollowUpRepository followUpRepository,
     IInteractionTimelineReader timelineReader,
+    IDonationLedger ledger,
+    IExportService exportService,
+    IAuditWriter auditWriter,
+    IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     IDateTimeProvider clock,
     IOptions<DonorSettings> donorSettings)
@@ -96,12 +108,17 @@ public sealed class CommunicationTimelineQueryHandler(
             return NotFound();
         }
 
-        // OWN-RECORDS SCOPE IS CHECKED ON THE LEAD, because ownership lives there. A fundraiser
-        // limited to their own records must not read somebody else's donor conversations by
-        // arriving with a donor id instead of a lead id.
+        // OWN-RECORDS SCOPE, CHECKED ON WHOEVER OWNS THE PERSON NOW. It used to be checked on the
+        // lead alone, so a caller limited to their own records who arrived with a DONOR id - a
+        // donor with no lead behind it - read that donor's conversations unchecked. A donor's
+        // owner is the relationship owner; a lead that has not converted is owned by its owner.
+        //
+        // THE ASSIGNEE OF AN OPEN FOLLOW-UP ON THE RECORD IS LET IN TOO. The role flow assigns a
+        // follow-up on an unassigned lead to somebody who does not own it, and they cannot execute
+        // it blind - they need the history of who they are about to call.
         if (currentUser.Scope.IsOwnRecordsOnly
-            && lead is not null
-            && lead.OwnerUserId != currentUser.UserId)
+            && !IsOwnedByCaller(lead, donor)
+            && !await followUpRepository.HasOpenAssignedAsync(currentUser.UserId, lead?.Id, donor?.Id, cancellationToken))
         {
             return NotFound();
         }
@@ -110,11 +127,56 @@ public sealed class CommunicationTimelineQueryHandler(
             lead?.Id, donor?.Id, MaximumEntries, cancellationToken);
 
         var canSeeContact = currentUser.CanSeeContact();
+        var canEditAny = currentUser.Scope.IsOrganisationWide;
         var now = clock.UtcNow;
 
         var entries = interactions
-            .Select(interaction => BuildEntry(interaction, canSeeContact))
+            .Select(interaction => BuildEntry(interaction, canSeeContact, canEditAny || interaction.PerformedByUserId == currentUser.UserId))
             .ToList();
+
+        // The follow-up picture: the next open one across the lead and the donor it became, and
+        // how many have ever been planned and completed.
+        var openFollowUps = new List<FollowUpTask>();
+
+        if (lead is not null)
+        {
+            openFollowUps.AddRange(await followUpRepository.GetOpenForLeadAsync(lead.Id, cancellationToken));
+        }
+
+        if (donor is not null)
+        {
+            openFollowUps.AddRange(await followUpRepository.GetOpenForDonorAsync(donor.Id, cancellationToken));
+        }
+
+        var next = openFollowUps
+            .Where(task => task.DueAtUtc is not null)
+            .DistinctBy(task => task.Id)
+            .OrderBy(task => task.DueAtUtc)
+            .FirstOrDefault();
+
+        var (followUpCount, followUpCompleted) = await followUpRepository.GetCountsAsync(lead?.Id, donor?.Id, cancellationToken);
+
+        // A donor with no lead behind it is credited to the campaign of their latest gift.
+        string? campaignName = lead?.Campaign?.Name;
+        Guid? campaignId = lead?.CampaignId;
+
+        if (campaignName is null && donor is not null)
+        {
+            var giving = (await ledger.GetGivingAsync(donor.OrganisationId, [donor.Id], cancellationToken)).GetValueOrDefault(donor.Id);
+            campaignName = giving?.LastCampaignName;
+            campaignId = giving?.LastCampaignId;
+        }
+
+        var lastContacted = interactions
+            .Where(interaction => interaction.InteractionType != InteractionType.Note)
+            .Select(interaction => (DateTimeOffset?)interaction.OccurredAtUtc)
+            .DefaultIfEmpty(lead?.LastContactedAtUtc)
+            .Max();
+
+        // A converted lead is a donor now: the timeline is the donor's, scored only while a lead.
+        var isLead = lead is not null && donor is null;
+
+        var healthScore = lead is null ? 0 : LeadHealth.Calculate(lead, now);
 
         return Result.Success(new CommunicationTimelineResponse(
             ScreenIds.CommunicationTimeline,
@@ -124,63 +186,153 @@ public sealed class CommunicationTimelineQueryHandler(
             donor?.Id,
             donor?.DonorNumber,
             donor?.DisplayName ?? BuildLeadName(lead!),
-            ContactMasking.Phone(lead?.MobileNumber ?? donor?.PrimaryPhone, canSeeContact),
-            ContactMasking.Email(lead?.EmailAddress ?? donor?.PrimaryEmail, canSeeContact),
-            lead?.Campaign?.Name,
+            ContactMasking.Phone(donor?.PrimaryPhone ?? lead?.MobileNumber, canSeeContact),
+            ContactMasking.Email(donor?.PrimaryEmail ?? lead?.EmailAddress, canSeeContact),
+            campaignName,
             lead?.Source,
-            lead?.PreferredLanguage ?? donor?.PreferredLanguage ?? SupportedLanguages.Default,
-            lead?.OwnerName ?? donor?.RelationshipOwnerName,
-            lead?.Status.ToString() ?? donor?.Status.ToString() ?? string.Empty,
-            (lead?.Temperature ?? LeadTemperature.Warm).ToString(),
-            (lead?.DonationPotential ?? DonationPotential.Medium).ToString(),
-            lead is null ? 0 : LeadHealth.Calculate(lead, now),
+            donor?.PreferredLanguage ?? lead?.PreferredLanguage ?? SupportedLanguages.Default,
+            donor is not null ? donor.RelationshipOwnerName : lead?.OwnerName,
+            donor?.Status.ToString() ?? lead?.Status.ToString() ?? string.Empty,
+
+            // THE LEAD'S OWN READING, OR NOTHING. A donor with no lead behind it used to be shown
+            // as "Warm" and "Medium" - two values nobody recorded.
+            lead?.Temperature.ToString() ?? string.Empty,
+            lead?.DonationPotential.ToString() ?? string.Empty,
+            healthScore,
             entries,
             ToLookup<LeadTemperature>(),
             ToLookup<DonationPotential>(),
-            ToLookup<InteractionType>(),
-            ToLookup<ContactOutcome>(),
-            BuildPermittedActions(),
+            CommunicationCatalogue.InteractionTypes,
+            CommunicationCatalogue.Outcomes,
+            BuildPermittedActions(isLead, lead, donor),
             !canSeeContact,
             DescribeScope(),
-            entries.Count == 0 ? ScreenState.Empty : ScreenState.Initial));
+            entries.Count == 0 ? ScreenState.Empty : ScreenState.Initial,
+            isLead,
+            campaignId,
+            lastContacted,
+            next?.FollowUpReference,
+            next?.DueAtUtc,
+            next?.NextAction ?? next?.Purpose,
+            next?.RelationshipOwnerName,
+            followUpCount,
+            followUpCompleted,
+            CommunicationCatalogue.Directions,
+            CommunicationCatalogue.EngagementLevels,
+            CommunicationCatalogue.Qualities,
+            lead is null ? string.Empty : LeadHealth.Band(healthScore),
+            lead is null ? [] : LeadHealth.Explain(lead, now),
+            CommunicationCatalogue.ContactRhythm(interactions),
+            CommunicationCatalogue.EngagementTrend(interactions),
+            interactions.Count(interaction => interaction.Outcome == ContactOutcome.Interested)));
     }
 
     /// <summary>
-    /// Incoming or outgoing, decided from the outcome.
+    /// The timeline as a file.
     ///
-    /// THE ENTITY STORES NO DIRECTION, and the interaction TYPE cannot supply one either - a call
-    /// or an e-mail goes both ways. The outcome can: a donor who called back or replied started
-    /// that exchange, and everything else was something the charity did. A note is neither, and
-    /// says so rather than being labelled with a guess.
+    /// BUILT FROM THE SAME ANSWER THE SCREEN GETS, so the scope check, the follow-up assignee's
+    /// access and the masking of notes are not a second copy of those rules that could drift. The
+    /// screen used to write this file itself, in the browser - no permission asked, and no record
+    /// that somebody had taken a copy of a donor's conversations.
     /// </summary>
-    private static string DescribeDirection(DonorInteraction interaction) =>
-        interaction.InteractionType == InteractionType.Note
-            ? "Internal"
-            : interaction.Outcome == ContactOutcome.CallbackRequested
-                ? "Incoming"
-                : "Outgoing";
+    public async Task<Result<ExportFile>> HandleAsync(
+        ExportCommunicationTimelineQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        var timeline = await HandleAsync(
+            new GetCommunicationTimelineQuery(query.LeadId, query.DonorId), cancellationToken);
+
+        if (!timeline.IsSuccess)
+        {
+            return Result.Failure<ExportFile>(timeline.Error!);
+        }
+
+        var response = timeline.Value!;
+        var label = (IReadOnlyList<LookupItem> options, string? value) =>
+            options.FirstOrDefault(option => option.Value == value)?.Label ?? value ?? string.Empty;
+
+        var rows = response.Entries
+            .Select(entry => (IReadOnlyList<string>)
+            [
+                ReportingCalendar.DateOf(entry.OccurredAtUtc, _settings).ToString("yyyy-MM-dd"),
+                entry.OccurredAtUtc.ToString("u"),
+                label(response.InteractionTypeOptions, entry.InteractionType),
+                entry.Direction,
+                label(response.OutcomeOptions, entry.Outcome),
+                entry.EngagementLevel ?? string.Empty,
+                entry.Quality ?? string.Empty,
+                entry.IsImportant ? "Yes" : "No",
+                entry.PerformedByName ?? string.Empty,
+                entry.Summary,
+                entry.IsNotesMasked ? "Withheld" : entry.Notes ?? string.Empty,
+                entry.AttachmentName ?? string.Empty
+            ])
+            .ToList();
+
+        var reference = response.DonorReference ?? response.LeadReference ?? "record";
+
+        var file = exportService.CreateCsv(
+            $"ydot-timeline-{reference}",
+            ["Date", "Recorded at (UTC)", "Type", "Direction", "Outcome", "Engagement", "Quality",
+             "Important", "Recorded by", "Summary", "Internal notes", "Attachment"],
+            rows);
+
+        await auditWriter.WriteAsync(
+            new AuditEntry(
+                AuditActionCodes.CommunicationsExported,
+                response.DonorId is not null ? nameof(Donor) : nameof(Lead),
+                response.DonorId ?? response.LeadId,
+                AuditResult.Succeeded,
+                $"{rows.Count} communication(s) of {reference} exported. Reference {file.Reference}."),
+            cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(file);
+    }
+
+    private bool IsOwnedByCaller(Lead? lead, Donor? donor) =>
+        donor is not null
+            ? donor.RelationshipOwnerUserId == currentUser.UserId
+            : lead!.OwnerUserId == currentUser.UserId;
 
     private static CommunicationTimelineEntryResponse BuildEntry(
-        DonorInteraction interaction, bool canSeeContact) =>
-        new(interaction.Id,
+        DonorInteraction interaction, bool canSeeContact, bool canEdit)
+    {
+        // ENTRIES LOGGED ON THE TIMELINE keep the summary in Description and the team's notes in
+        // InternalNotes; the older automatic entries keep a title in Name and their notes in
+        // Description. Direction is what tells the two apart - only logged entries store one.
+        var logged = interaction.Direction is not null;
+        var summary = logged ? interaction.Description ?? interaction.Name : interaction.Name;
+        var notes = logged ? interaction.InternalNotes : interaction.Description;
+
+        return new(
+            interaction.Id,
             interaction.InteractionType.ToString(),
             interaction.Channel?.ToString(),
-            DescribeDirection(interaction),
+            CommunicationCatalogue.DirectionOf(interaction).ToString(),
             interaction.OccurredAtUtc,
             interaction.Outcome.ToString(),
-            interaction.Name,
+            summary,
 
             // THE NOTE IS THE SENSITIVE PART. A call note routinely records what a donor said
             // about their circumstances - more revealing than the phone number beside it.
-            canSeeContact ? interaction.Description : null,
+            canSeeContact ? notes : null,
 
             interaction.PerformedByName,
-            !canSeeContact);
+            !canSeeContact && !string.IsNullOrWhiteSpace(notes),
+            interaction.EngagementLevel?.ToString(),
+            interaction.Quality?.ToString(),
+            interaction.IsImportant,
+            interaction.AttachmentName,
+            interaction.PerformedByUserId,
+            canEdit && logged,
+            interaction.Version);
+    }
 
-    private static string BuildLeadName(Lead lead) =>
-        string.IsNullOrWhiteSpace(lead.LastName)
-            ? lead.FirstName
-            : $"{lead.FirstName} {lead.LastName}";
+    private static string BuildLeadName(Lead lead) => LeadMappingConfig.BuildDisplayName(lead);
 
     private static Result<CommunicationTimelineResponse> NotFound() =>
         Result.Failure<CommunicationTimelineResponse>(
@@ -194,7 +346,7 @@ public sealed class CommunicationTimelineQueryHandler(
     /// assignment board "Reassign". Returning raw codes here would have made this the only screen
     /// whose buttons the browser had to match differently.
     /// </summary>
-    private IReadOnlyList<string> BuildPermittedActions()
+    private IReadOnlyList<string> BuildPermittedActions(bool isLead, Lead? lead, Donor? donor)
     {
         var actions = new List<string>();
 
@@ -203,21 +355,32 @@ public sealed class CommunicationTimelineQueryHandler(
             actions.Add("View");
         }
 
-        // Recording a conversation is the same permission as contacting a lead from the queue:
-        // both write a DonorInteraction, and this screen is only a different door to it.
-        if (currentUser.HasPermission(PermissionCodes.LeadWorkQueueContact))
+        // Logging a conversation, for a lead or a donor alike. A closed lead or an archived donor
+        // has finished its journey and takes no new entries.
+        var open = donor is not null
+            ? donor.Status is not (DonorStatus.Archived or DonorStatus.Merged)
+            : lead!.Status is not (LeadStatus.Closed or LeadStatus.Suppressed);
+
+        if (open && currentUser.HasPermission(PermissionCodes.LeadWorkQueueContact))
         {
             actions.Add("Contact");
         }
 
-        if (currentUser.HasPermission(PermissionCodes.LeadWorkQueueQualify))
+        // Temperature and donation potential belong to a lead.
+        if (isLead && open && currentUser.HasPermission(PermissionCodes.LeadWorkQueueQualify))
         {
-            actions.Add("Qualify");
+            actions.Add("Score");
         }
 
         if (currentUser.HasPermission(PermissionCodes.FollowUpPlannerSchedule))
         {
             actions.Add("Schedule follow-up");
+        }
+
+        // The lead's own donation link - how a lead becomes a donor in the role flow.
+        if (isLead && open)
+        {
+            actions.Add("Share donation link");
         }
 
         return actions;

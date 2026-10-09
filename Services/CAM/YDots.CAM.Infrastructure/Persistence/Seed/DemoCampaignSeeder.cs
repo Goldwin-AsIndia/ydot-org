@@ -333,9 +333,12 @@ public sealed class DemoCampaignSeeder(
         {
             var mark = index < seed.Readiness.Length ? seed.Readiness[index] : ReadinessMark.Pending;
 
+            // THE ASSIGNEE RECORDS THE VERDICT, so every check goes to somebody who can pass or fail
+            // it: the executive who built the campaign, the digital executive for tracking, and the
+            // Organisation Admin for the payment set-up only an administrator can see. The Campaign
+            // Manager owns none - it decides the launch on these verdicts rather than recording them.
             var owner = check.Category switch
             {
-                ReadinessCheckCategory.Budget or ReadinessCheckCategory.Consent => approver,
                 ReadinessCheckCategory.Tracking => people[organisation.DigitalExecutive],
                 ReadinessCheckCategory.Payment => people[organisation.Administrator],
                 _ => creator
@@ -402,13 +405,13 @@ public sealed class DemoCampaignSeeder(
                     OwnerUserId = owner,
                     BlockerNote = check.BlockerNote,
                     IsResolved = resolved,
-                    ResolvedByUserId = resolved ? owner : null,
+                    ResolvedByUserId = resolved ? approver : null,
                     ResolvedAtUtc = resolved ? decidedAt : null,
                     ResolutionNote = resolved ? check.ResolutionNote : null,
                     CreatedAtUtc = raisedAt,
-                    CreatedByUserId = approver,
+                    CreatedByUserId = creator,
                     UpdatedAtUtc = resolved ? decidedAt : null,
-                    UpdatedByUserId = resolved ? owner : null,
+                    UpdatedByUserId = resolved ? approver : null,
                     Version = resolved ? 2 : 1
                 });
             }
@@ -421,8 +424,8 @@ public sealed class DemoCampaignSeeder(
     /// The lifecycle rows behind the campaign's present status, one per step it has taken.
     ///
     /// THE PEOPLE FOLLOW THE PRODUCT'S OWN RULES. The executive who created the campaign submits
-    /// it; the Campaign Manager approves, launches, pauses and asks to close; and a close is
-    /// approved by the Organisation Admin, because whoever raised it may not approve it. An
+    /// it and asks to close it; the Campaign Manager approves, pauses, resumes and approves the
+    /// close; and a manually activated campaign is started by the Organisation Admin. An
     /// automatically activated campaign is started by the system user, exactly as the activation
     /// sweep records it.
     /// </summary>
@@ -506,7 +509,7 @@ public sealed class DemoCampaignSeeder(
             }
             else
             {
-                Add(CampaignLifecycleActionType.Activate, activated, approver,
+                Add(CampaignLifecycleActionType.Activate, activated, administrator,
                     reason: new DemoReason(
                         "Launch", "Readiness checklist complete; launched on the start date."));
             }
@@ -528,18 +531,18 @@ public sealed class DemoCampaignSeeder(
         {
             if (timeline.Closed is { } closed)
             {
-                Add(CampaignLifecycleActionType.RequestClose, closeRequested, approver,
-                    reason: seed.Close, approvedBy: administrator, approvedDaysAgo: closed);
+                Add(CampaignLifecycleActionType.RequestClose, closeRequested, creator,
+                    reason: seed.Close, approvedBy: approver, approvedDaysAgo: closed);
 
                 var closedAt = Moment(now, closed, $"{seed.Code}|{CampaignLifecycleActionType.RequestClose}|approved");
 
                 campaign.UpdatedAtUtc = closedAt;
-                campaign.UpdatedByUserId = administrator;
+                campaign.UpdatedByUserId = approver;
                 campaign.Version++;
             }
             else
             {
-                Add(CampaignLifecycleActionType.RequestClose, closeRequested, approver,
+                Add(CampaignLifecycleActionType.RequestClose, closeRequested, creator,
                     CampaignLifecycleActionStatus.Pending, seed.Close);
             }
         }

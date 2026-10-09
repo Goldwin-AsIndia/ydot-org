@@ -22,7 +22,18 @@ public sealed record AssignmentBoardResponse(
     string ActiveFilterSummary,
     string ActiveScope,
     int BulkRouteMaximumItems,
-    string State);
+    string State,
+
+    // ---- The strip above the board --------------------------------------------------------------
+    //
+    // Over everything the board routes for this caller, whatever view or page is on screen. The
+    // screen used to count these from the ten rows it was showing, so a board of sixty leads read
+    // "4 unassigned" on page one and "2 unassigned" on page two.
+    int UnassignedCount = 0,
+    int AssignedCount = 0,
+
+    /// <summary>Next contact due inside the SLA's due-soon window - what the Due today view lists.</summary>
+    int DueTodayCount = 0);
 
 /// <summary>One routable lead, with the owner the board suggests for it.</summary>
 public sealed record AssignmentBoardRowResponse(
@@ -42,7 +53,13 @@ public sealed record AssignmentBoardRowResponse(
     string PreferredLanguage,
     string? TeamCode,
     string Status,
-    long Version);
+    long Version,
+
+    /// <summary>
+    /// Lead or Donor. On a Donor row the Lead* fields carry the donor - its id, its donor number
+    /// and its name - so the board draws both kinds with one row shape.
+    /// </summary>
+    string RecordType = "Lead");
 
 /// <summary>One candidate owner and how loaded they currently are.</summary>
 public sealed record OwnerWorkloadResponse(
@@ -55,6 +72,12 @@ public sealed record OwnerWorkloadResponse(
 /// <summary>POST .../assign and .../reassign. Same body: both are an ownership change.</summary>
 public sealed class AssignmentRequest
 {
+    /// <summary>
+    /// Lead (the default) or Donor. With Donor, <see cref="LeadId"/> carries the donor id - the
+    /// request shape stays the one the board already sends.
+    /// </summary>
+    public string? RecordType { get; set; }
+
     public Guid LeadId { get; set; }
 
     public Guid NewOwnerUserId { get; set; }
@@ -77,6 +100,9 @@ public sealed class AssignmentRequest
 /// </summary>
 public sealed class BulkRouteRequest
 {
+    /// <summary>Lead (the default) or Donor. With Donor, the ids are donor ids.</summary>
+    public string? RecordType { get; set; }
+
     public IList<Guid> LeadIds { get; set; } = [];
 
     public Guid NewOwnerUserId { get; set; }

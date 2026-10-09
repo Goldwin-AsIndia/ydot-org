@@ -16,7 +16,8 @@ namespace YDots.DON.Application.Common.Models;
 public sealed record AccessScope(
     Guid OrganisationId,
     Guid UserId,
-    IReadOnlyList<string> DataScopes)
+    IReadOnlyList<string> DataScopes,
+    bool CanSeeAllRecords = true)
 {
     public const string OrganisationScopeType = "Organisation";
     public const string GeographyScopeType = "Geography";
@@ -32,9 +33,15 @@ public sealed record AccessScope(
     /// Two cases qualify: an explicit Organisation scope, or no scope claim at all. The second
     /// is the common one — most users are never given a narrowing scope, and treating "no
     /// claim" as "see nothing" would lock out the whole fundraising team on day one.
+    ///
+    /// AND THE CALLER HOLDS <c>don.records.view-all</c> (<see cref="CanSeeAllRecords"/>). That
+    /// permission is what separates the fundraising team, who work the whole organisation's
+    /// leads and donors, from DonorCare, who work only what is assigned to them. Without it every
+    /// list, count, detail and write narrows to the caller's own records - which is what My
+    /// Leads, My Donor List and a DonorCare Follow-up Queue are.
     /// </summary>
     public bool IsOrganisationWide =>
-        DataScopes.Count == 0 || HasScopeType(OrganisationScopeType);
+        CanSeeAllRecords && (DataScopes.Count == 0 || HasScopeType(OrganisationScopeType));
 
     /// <summary>
     /// True when the caller carries only narrowing scopes and must therefore be restricted to

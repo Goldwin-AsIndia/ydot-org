@@ -1,3 +1,4 @@
+using YDots.DON.Application.Common.Constants;
 using YDots.DON.Application.Common.Services;
 using YDots.DON.Application.Features.Donors.DTOs;
 using YDots.DON.Domain.Entities;
@@ -74,9 +75,11 @@ public static class DonorMappingConfig
         decimal lifetimeGiving = 0m,
         string currency = "INR",
         string followUpStatus = "None",
-        string verificationStatus = "Pending",
-        string consentStatus = "Granted",
-        bool consentReviewRequired = false) =>
+        string verificationStatus = "Not checked",
+        string consentStatus = "Not provided",
+        bool consentReviewRequired = false,
+        int giftCount = 0,
+        DateTimeOffset? nextFollowUpDueUtc = null) =>
         new(
             donor.Id,
             donor.DonorNumber,
@@ -97,7 +100,10 @@ public static class DonorMappingConfig
             verificationStatus,
             consentStatus,
             consentReviewRequired,
-            !canSeeContact);
+            !canSeeContact,
+            donor.CreatedAtUtc,
+            giftCount,
+            nextFollowUpDueUtc);
 
     public static DonorLookupResponse ToLookupResponse(this Donor donor) =>
         new(donor.Id, donor.DisplayName, donor.Status.ToString());
@@ -140,8 +146,9 @@ public static class DonorMappingConfig
     /// Which actions the record's own state allows. Permission is checked separately by
     /// [HasPermission] on the endpoint; this list is what the UI uses to decide what to draw.
     /// </summary>
-    public static IReadOnlyList<string> PermittedActionsFor(Donor donor) =>
-        donor.Status switch
+    public static IReadOnlyList<string> PermittedActionsFor(Donor donor, Func<string, bool>? hasPermission = null)
+    {
+        IReadOnlyList<string> byState = donor.Status switch
         {
             DonorStatus.Archived => ["View"],
             DonorStatus.Merged => ["View"],
@@ -152,6 +159,24 @@ public static class DonorMappingConfig
             DonorStatus.Active => ["View", "Edit", "Correct", "Follow up", "Cancel", "Archive"],
             _ => ["View"]
         };
+
+        // NARROWED TO WHAT THE CALLER HOLDS, when asked. The state machine alone offered Approve,
+        // Cancel and Archive to a Fundraiser Executive and Submit to a Fundraising Manager; each
+        // belongs to the other half of the team and the endpoints refuse it.
+        return hasPermission is null
+            ? byState
+            : [.. byState.Where(action => action switch
+            {
+                "Edit" => hasPermission(PermissionCodes.DonorsEdit),
+                "Submit" => hasPermission(PermissionCodes.DonorsSubmit),
+                "Approve" => hasPermission(PermissionCodes.DonorsApprove),
+                "Cancel" => hasPermission(PermissionCodes.DonorsCancel),
+                "Archive" => hasPermission(PermissionCodes.DonorsArchive),
+                "Correct" => hasPermission(PermissionCodes.Donor360Correct),
+                "Follow up" => hasPermission(PermissionCodes.Donor360FollowUp),
+                _ => true
+            })];
+    }
 
     /// <summary>
     /// The natural key behind ExistsByBusinessKeyAsync and the DUPLICATE_RECORD check.

@@ -124,6 +124,7 @@
                   @else if (action.id === 'resume') { <i class="ri-play-circle-line"></i> }
                   @else if (action.id === 'request_close') { <i class="ri-close-circle-line"></i> }
                   @else if (action.id === 'approve_close') { <i class="ri-check-double-line"></i> }
+                  @else if (action.id === 'reject_close') { <i class="ri-arrow-go-back-line"></i> }
                   @else if (action.id === 'cancel_draft') { <i class="ri-delete-bin-line"></i> }
                 </span>
                 <div class="prc-action-text">
@@ -292,6 +293,7 @@
                 @case ('resume') { <span class="status-badge" [class]="statusClass('Active')">Active</span> }
                 @case ('cancel_draft') { <span class="status-badge" [class]="statusClass('Cancelled')">Cancelled</span> }
                 @case ('request_close') { <span class="value">{{ currentState() }} · close requested</span> }
+                @case ('reject_close') { <span class="value">Close request rejected · campaign stays open</span> }
                 @case ('approve_close') {
                   @if ((openDonationIntentsCount() ?? 0) > 0 || activeTrackingAssetsCount() > 0) {
                     <span class="status-badge" [class]="statusClass('Closing')">Closing</span>

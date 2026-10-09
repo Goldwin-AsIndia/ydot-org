@@ -27,6 +27,9 @@ public sealed record LookupDonorsQuery(string? Search, int MaximumRows);
 /// <summary>GET /api/v1/donors/export. Controlled CSV of the rows the caller can already see.</summary>
 public sealed record ExportDonorsQuery(DonorSearchFilter Filter);
 
+/// <summary>GET /api/v1/donors/summary. The Donor List's figures over the caller's scope.</summary>
+public sealed record GetDonorSummaryQuery(bool? OnlyMine);
+
 /// <summary>
 /// The read side of the Donor resource. Every method hands <see cref="ICurrentUser.Scope"/>
 /// to the read service, so the scope restriction travels with the query rather than being
@@ -105,6 +108,22 @@ public sealed class DonorQueryHandler(
         return Result.Success(items);
     }
 
+    public async Task<Result<DonorListSummaryResponse>> HandleAsync(
+        GetDonorSummaryQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("Donor summary started.");
+
+        var summary = await readService.GetSummaryAsync(
+            currentUser.Scope,
+            query.OnlyMine == true ? currentUser.UserId : null,
+            cancellationToken);
+
+        logger.LogInformation("Donor summary completed successfully for {DonorCount} donor(s).", summary.DonorsOnRecord);
+
+        return Result.Success(summary);
+    }
+
     public async Task<Result<ExportFile>> HandleAsync(
         ExportDonorsQuery query,
         CancellationToken cancellationToken = default)
@@ -114,20 +133,38 @@ public sealed class DonorQueryHandler(
         var items = await readService.ExportRowsAsync(
             query.Filter, _settings.ExportMaximumRows, currentUser.Scope, cancellationToken);
 
+        // THE COLUMNS THE DONOR LIST SHOWS, not five bookkeeping fields. Contact arrives already
+        // masked for a caller without the sensitive-contact permission; giving is the payments
+        // module's, net of refunds.
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+
         var rows = items
             .Select(item => (IReadOnlyList<string>)
             [
                 item.DisplayCode,
                 item.DisplayName,
                 item.Status,
-                item.UpdatedAtUtc.ToString("u"),
-                item.Version.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                item.MobileNumber ?? string.Empty,
+                item.EmailAddress ?? string.Empty,
+                item.RelationshipOwnerName ?? "Unassigned",
+                item.CampaignName ?? string.Empty,
+                item.Currency,
+                item.LifetimeGiving.ToString("0.00", invariant),
+                item.GiftCount.ToString(invariant),
+                item.LastDonationAmount?.ToString("0.00", invariant) ?? string.Empty,
+                item.LastDonationAtUtc?.ToString("yyyy-MM-dd") ?? string.Empty,
+                item.FollowUpStatus,
+                item.ConsentStatus,
+                item.VerificationStatus,
+                item.CreatedAtUtc.ToString("yyyy-MM-dd")
             ])
             .ToList();
 
         var file = exportService.CreateCsv(
             "ydot-donors",
-            ["Donor number", "Display name", "Status", "Last updated", "Version"],
+            ["Donor number", "Name", "Status", "Mobile", "E-mail", "Owner", "Campaign", "Currency",
+             "Lifetime received", "Gifts", "Last gift amount", "Last gift date", "Follow-up",
+             "Consent", "Identity", "Created"],
             rows);
 
         await auditWriter.WriteAsync(

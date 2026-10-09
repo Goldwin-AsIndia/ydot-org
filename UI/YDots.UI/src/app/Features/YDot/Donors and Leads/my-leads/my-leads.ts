@@ -2,11 +2,13 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Output, computed, inj
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { map, tap } from 'rxjs';
 import { DonorApiService } from '../../../../Service/donor-api.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
-import { LeadListItem } from '../../../../Shared/models/donor-contract.model';
+import { LeadListItem, LeadWorkQueueResponse } from '../../../../Shared/models/donor-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { fetchPages } from '../../../../Shared/services/paging';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 // ============================================================================
@@ -21,8 +23,15 @@ export interface LeadItem {
   temperature: 'Cold' | 'Warm' | 'Hot';
   healthScore: number;
   nextFollowUp: string;
-  followUpStatus: 'Upcoming' | 'Due' | 'Overdue' | 'Completed';
-  qualificationReadiness: string;
+
+  /**
+   * Where the next contact stands, from the server's reading of the organisation's day.
+   * "Not planned" is a lead with nothing booked - it used to read "Upcoming".
+   */
+  followUpStatus: 'Upcoming' | 'Due' | 'Overdue' | 'Not planned';
+
+  /** What this lead's state allows - the server's list, e.g. Contact, Qualify, Close. */
+  permittedActions: readonly string[];
   language: string;
   source: string;
   lastContactOutcome: string;
@@ -172,31 +181,24 @@ export class MyLeadsComponent {
   readonly permissions = signal<Record<string, boolean>>({ view: false });
 
   /**
-   * The summary cards.
+   * The summary cards - the server's summary of the caller's own leads.
    *
-   * COUNTED FROM THE SERVER'S ROWS. They used to be a literal object in the same file as the
-   * leads themselves, so the cards agreed with the file rather than with the queue.
+   * NOT COUNTED HERE. They were first a literal in this file, then a count of the rows this
+   * browser had loaded - which stopped at one page, and read "due today" off an hours-to-breach
+   * badge rather than off the calendar. The queue endpoint counts the caller's leads when it is
+   * asked for `onlyMine`, and counts their open follow-ups against the organisation's day.
    */
-  readonly kpis = computed(() => {
-    const rows = this.sourceLeads();
-    return {
-      assignedLeads: rows.length,
-      followUpsDueToday: rows.filter((l) => l.followUpStatus === 'Due').length,
-      followUpsOverdue: rows.filter((l) => l.followUpStatus === 'Overdue').length,
-      hotLeads: rows.filter((l) => l.temperature === 'Hot').length,
-      warmLeads: rows.filter((l) => l.temperature === 'Warm').length,
-      coldLeads: rows.filter((l) => l.temperature === 'Cold').length,
-    };
+  readonly kpis = signal({
+    assignedLeads: 0,
+    followUpsDueToday: 0,
+    followUpsOverdue: 0,
+    hotLeads: 0,
+    warmLeads: 0,
+    coldLeads: 0,
   });
 
-  readonly pipeline = computed(() => {
-    const rows = this.sourceLeads();
-    const counts = new Map<string, number>();
-    for (const lead of rows) {
-      counts.set(lead.stage, (counts.get(lead.stage) ?? 0) + 1);
-    }
-    return [...counts.entries()].map(([stage, count]) => ({ stage, count }));
-  });
+  /** The caller's leads per stage, from the server's counts, in the server's stage order. */
+  readonly pipeline = signal<PipelineStage[]>([]);
 
   readonly savedFilters = ['All my leads', 'Due today', 'Overdue', 'Hot leads'];
 
@@ -207,6 +209,10 @@ export class MyLeadsComponent {
 
   readonly loading = signal(false);
   readonly loadError = signal<string | null>(null);
+  readonly exporting = signal(false);
+
+  /** Outcome value to the server's label for it - "CallbackRequested" to "Requested callback". */
+  private outcomeLabels = new Map<string, string>();
 
   readonly searchTerm = signal('');
   readonly stageFilter = signal<FilterValue>('All');
@@ -244,12 +250,52 @@ export class MyLeadsComponent {
     this.loading.set(true);
     this.loadError.set(null);
 
-    this.api.getLeadWorkQueue({ page: 1, pageSize: 200, onlyMine: true }).subscribe({
-      next: (response) => {
-        this.sourceLeads.set(response.leads.items.map((row) => this.toLeadItem(row)));
+    // EVERY PAGE, NOT "PAGE 1 OF 200". The API caps a page at 100 whatever is asked for, so the
+    // 101st lead was simply missing while the count above it read as a total. The first page's
+    // answer also carries the cards, the pipeline and the permitted actions; later pages add rows.
+    let first: LeadWorkQueueResponse | null = null;
+
+    fetchPages<LeadListItem>((page, pageSize) =>
+      this.api.getLeadWorkQueue({ page, pageSize, onlyMine: true }).pipe(
+        tap((response) => { first ??= response; }),
+        map((response) => response.leads),
+      ),
+    ).subscribe({
+      next: ({ items }) => {
+        const response = first!;
+
+        this.outcomeLabels = new Map(
+          (response.contactOutcomeOptions ?? []).map((option) => [option.value, option.label]),
+        );
+
+        this.sourceLeads.set(items.map((row) => this.toLeadItem(row)));
+
+        const summary = response.summary;
+        this.kpis.set({
+          assignedLeads: summary.totalLeads,
+          followUpsDueToday: summary.followUpsDueToday,
+          followUpsOverdue: summary.followUpsOverdue,
+          hotLeads: summary.hotLeads,
+          warmLeads: summary.warmLeads,
+          coldLeads: summary.coldLeads,
+        });
+
+        // Converted leads are not in this list - they are donors now, in My Donor List - so a
+        // Converted chip would filter to nothing.
+        this.pipeline.set(
+          (response.statusOptions ?? [])
+            .filter((option) => option.value !== 'Converted')
+            .map((option) => ({ stage: option.value, count: response.statusCounts?.[option.value] ?? 0 }))
+            .filter((stage) => stage.count > 0),
+        );
+
+        this.temperatureOptions.set([
+          'All',
+          ...(response.temperatureOptions ?? []).map((option) => option.value),
+        ]);
 
         // VERBS, from the same endpoint the Lead Queue reads:
-        // ['Accept','Filter','Open','Assign','Contact','Qualify','Close'].
+        // ['Accept','Filter','Open','Create','Assign','Contact','Qualify','Close','Score','Export'].
         const permitted = response.permittedActions ?? [];
         this.permissions.set({
           view: permitted.includes('Open') || permitted.includes('Filter'),
@@ -258,6 +304,7 @@ export class MyLeadsComponent {
           qualify: permitted.includes('Qualify'),
           close: permitted.includes('Close'),
           schedule: permitted.includes('Contact'),
+          export: permitted.includes('Export'),
         });
 
         this.loading.set(false);
@@ -289,12 +336,15 @@ export class MyLeadsComponent {
       temperature: row.temperature as LeadItem['temperature'],
       healthScore: row.healthScore,
       nextFollowUp: this.formatDate(row.nextActionDueUtc),
-      followUpStatus: this.toFollowUpStatus(row.slaState),
-      qualificationReadiness: row.donationPotential === 'High' ? 'Ready' : 'Not Ready',
+      followUpStatus: this.toFollowUpStatus(row.followUpState),
+      permittedActions: row.permittedActions ?? [],
       language: row.preferredLanguage,
       source: row.source ?? '',
-      lastContactOutcome: row.lastContactOutcome,
-      recommendedNextAction: row.nextAction ?? 'Initial contact',
+      lastContactOutcome: this.outcomeLabels.get(row.lastContactOutcome) ?? row.lastContactOutcome,
+
+      // The lead's own next action, or nothing. It used to fall back to "Initial contact" for
+      // every lead without one - a recommendation nobody had made.
+      recommendedNextAction: row.nextAction ?? '',
 
       // MASKED BY THE SERVER, and a masked lead is one this caller may not contact directly.
       contactRestricted: row.isContactMasked,
@@ -302,14 +352,22 @@ export class MyLeadsComponent {
     };
   }
 
-  /** The SLA badge the server computed, in this screen's own words. */
-  private toFollowUpStatus(slaState: string): LeadItem['followUpStatus'] {
-    switch (slaState) {
+  /**
+   * The server's follow-up state, in this screen's four words.
+   *
+   * IT USED TO READ THE SLA BADGE, which answers a different question - hours until a breach -
+   * and got two things wrong: "DueToday" there means "within 24 hours", so tomorrow morning
+   * counted as today; and Breached, the worst state, fell through to "Upcoming". A lead with
+   * nothing planned also read "Upcoming". `followUpState` is by calendar day, the same day the
+   * cards above count against.
+   */
+  private toFollowUpStatus(state: string): LeadItem['followUpStatus'] {
+    switch (state) {
       case 'Overdue': return 'Overdue';
-      case 'DueToday':
-      case 'Due today': return 'Due';
-      case 'Completed': return 'Completed';
-      default: return 'Upcoming';
+      case 'Due Today': return 'Due';
+      case 'Tomorrow':
+      case 'Upcoming': return 'Upcoming';
+      default: return 'Not planned';
     }
   }
 
@@ -331,8 +389,9 @@ export class MyLeadsComponent {
     const term = this.stageOptionSearch().trim().toLowerCase();
     return term ? this.stageOptions().filter((option) => option.toLowerCase().includes(term)) : this.stageOptions();
   });
-  readonly temperatureOptions: FilterValue[] = ['All', 'Cold', 'Warm', 'Hot'];
-  readonly followUpOptions: FilterValue[] = ['All', 'Upcoming', 'Due', 'Overdue', 'Completed'];
+  /** From the server's temperature catalogue; only "All" until it answers. */
+  readonly temperatureOptions = signal<FilterValue[]>(['All']);
+  readonly followUpOptions: FilterValue[] = ['All', 'Upcoming', 'Due', 'Overdue', 'Not planned'];
 
   readonly filteredLeads = computed<LeadItem[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();
@@ -344,7 +403,8 @@ export class MyLeadsComponent {
       const matchesTerm =
         !term ||
         lead.name.toLowerCase().includes(term) ||
-        lead.reference.toLowerCase().includes(term) ||
+        // The reference a person reads and types - `reference` is the API's id.
+        lead.displayReference.toLowerCase().includes(term) ||
         lead.campaign.toLowerCase().includes(term);
       const matchesStage = stage === 'All' || lead.stage === stage;
       const matchesTemperature = temperature === 'All' || lead.temperature === temperature;
@@ -394,17 +454,11 @@ export class MyLeadsComponent {
         return 'badge-overdue';
       case 'Due':
         return 'badge-due';
-      case 'Completed':
+      case 'Not planned':
         return 'badge-completed';
       default:
         return 'badge-upcoming';
     }
-  }
-
-  healthClass(score: number): string {
-    if (score >= 70) return 'health-high';
-    if (score >= 35) return 'health-medium';
-    return 'health-low';
   }
 
   // ---- Permission gating ----
@@ -417,18 +471,18 @@ export class MyLeadsComponent {
   // so Qualify is not drawn for them; TENANT_ADMIN and INITIATOR both hold it.
 
   canQualify(lead: LeadItem): boolean {
-    // STATE AS WELL AS PERMISSION. A lead that is not ready is not qualifiable by anybody.
-    return this.permissions()['qualify'] === true
-      && lead.temperature === 'Hot'
-      && lead.qualificationReadiness === 'Ready';
+    // STATE AS WELL AS PERMISSION, AND THE STATE IS THE SERVER'S. This used to require a Hot
+    // lead with "readiness" - a word this screen derived from donation potential - so whether a
+    // lead could be qualified was decided by a rule that exists nowhere on the server.
+    return this.permissions()['qualify'] === true && lead.permittedActions.includes('Qualify');
   }
 
   canMarkLost(lead: LeadItem): boolean {
-    return this.permissions()['close'] === true && lead.stage !== 'Lost';
+    return this.permissions()['close'] === true && lead.permittedActions.includes('Close');
   }
 
   canMarkDormant(lead: LeadItem): boolean {
-    return this.permissions()['close'] === true && lead.stage !== 'Dormant';
+    return this.permissions()['close'] === true && lead.permittedActions.includes('Close');
   }
 
   get canCommunicate(): boolean {
@@ -443,9 +497,14 @@ export class MyLeadsComponent {
     return this.permissions()['schedule'] === true;
   }
 
-  /** Export is available to every role that can see the list - the document treats it that way. */
+  /** Export Leads needs the export permission - the server refuses it otherwise. */
   get canExport(): boolean {
-    return this.permissions()['view'] === true;
+    return this.permissions()['export'] === true;
+  }
+
+  /** Create Lead belongs to Lead Capture; DonorCare does not hold it. */
+  get canCreate(): boolean {
+    return this.permissions()['create'] === true;
   }
 
   get canBulkAct(): boolean {
@@ -554,38 +613,65 @@ export class MyLeadsComponent {
   }
 
   refresh(): void {
-    // Local re-read of the provided dataset — no simulated network delay.
-    // Replace with a real HTTP call once a data service is available.
-    this.loadError.set(null);
-    try {
-      this.load();
-    } catch {
-      this.loadError.set('Unable to load assigned leads.');
-    }
+    this.load();
   }
 
+  /**
+   * Export Leads - the caller's own leads, written by the server.
+   *
+   * THE FILE USED TO BE BUILT HERE from whatever rows were loaded, with the API's id in the
+   * Reference column, no permission check and no record that a copy had been taken. The server
+   * exports the same scope this list shows (`onlyMine`), under the filters on screen, masks the
+   * contact columns by the caller's permission and logs it. A selection narrows it to those leads.
+   */
   exportSelected(): void {
-    if (!this.canExport) return;
-    const rows = this.selectedCount() > 0 ? this.sourceLeads().filter((l) => this.selectedRefs().has(l.reference)) : this.filteredLeads();
-    this.exportGrid.emit(rows);
-    this.downloadCsv(rows);
+    if (!this.canExport || this.exporting()) return;
+
+    const selected = [...this.selectedRefs()];
+    const stage = this.stageFilter();
+    const temperature = this.temperatureFilter();
+    const followUp = this.followUpFilter();
+
+    this.exportGrid.emit(
+      selected.length > 0
+        ? this.sourceLeads().filter((lead) => this.selectedRefs().has(lead.reference))
+        : this.filteredLeads(),
+    );
+
+    this.exporting.set(true);
+    this.api
+      .exportLeads({
+        onlyMine: true,
+        search: this.searchTerm().trim() || undefined,
+        status: stage === 'All' ? null : stage,
+        temperature: temperature === 'All' ? null : temperature,
+        followUpState: followUp === 'All' ? null : this.toServerFollowUpState(followUp),
+        leadIds: selected.length > 0 ? selected.join(',') : null,
+      })
+      .subscribe({
+        next: ({ blob, fileName }) => {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          URL.revokeObjectURL(url);
+          this.exporting.set(false);
+        },
+        error: (error: unknown) => {
+          this.exporting.set(false);
+          this.toast.show('Not exported', apiErrorMessage(error, 'The leads could not be exported.'), 'error');
+        },
+      });
   }
 
-  private downloadCsv(rows: LeadItem[]): void {
-    const headers = ['Reference', 'Name', 'Campaign', 'Owner', 'Stage', 'Temperature', 'Health Score', 'Next Follow-Up', 'Follow-Up Status'];
-    const lines = rows.map((r) =>
-      [r.reference, r.name, r.campaign, r.owner, r.stage, r.temperature, r.healthScore, r.nextFollowUp, r.followUpStatus]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(',')
-    );
-    const csv = [headers.join(','), ...lines].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'my-leads-export.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+  /** This screen's follow-up words to the server's filter values. */
+  private toServerFollowUpState(status: string): string {
+    switch (status) {
+      case 'Due': return 'DueToday';
+      case 'Not planned': return 'None';
+      default: return status;
+    }
   }
 
   requestCommunicate(ref: string): void {
@@ -630,7 +716,9 @@ export class MyLeadsComponent {
 
     this.api
       .qualifyLead(lead.reference, {
-        qualificationNotes: `Qualified from My Leads. Recommended next action: ${lead.recommendedNextAction}.`,
+        qualificationNotes: lead.recommendedNextAction
+          ? `Qualified from My Leads. Next action: ${lead.recommendedNextAction}.`
+          : 'Qualified from My Leads.',
         moveToNurture: false,
         expectedVersion: lead.version,
       })

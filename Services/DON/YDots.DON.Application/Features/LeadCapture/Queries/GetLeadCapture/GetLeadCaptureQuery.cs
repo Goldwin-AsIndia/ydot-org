@@ -58,7 +58,7 @@ public sealed class GetLeadCaptureQueryHandler(
 
             var consents = await consentRepository.GetForLeadAsync(entity.Id, cancellationToken);
 
-            lead = entity.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents);
+            lead = entity.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents, currentUser.HasPermission);
 
             // The duplicate panel is read-only and always safe: category and route, never the
             // other person's details.
@@ -87,14 +87,17 @@ public sealed class GetLeadCaptureQueryHandler(
             lead,
             [.. campaigns.Select(campaign => new LookupItem(campaign.Id.ToString(), campaign.Name, campaign.Code))],
             SupportedLanguages.All,
-            ToLookup<ConsentChannel>(),
-            ToLookup<ConsentState>(),
+            ConsentChannelOptions,
+            ConsentStateOptions,
             [.. owners.Select(owner => new LookupItem(owner.UserId.ToString(), owner.Name, owner.TeamCode))],
             _settings.CurrentNoticeVersion,
             duplicates,
             BuildPermittedActions(lead),
             DescribeScope(),
-            lead is null ? ScreenState.Initial : ScreenState.Success);
+            lead is null ? ScreenState.Initial : ScreenState.Success,
+            LeadSources.All,
+            _settings.DefaultCountryCode,
+            _settings.DefaultDiallingCode);
 
         logger.LogInformation("Lead capture screen loaded successfully. Existing lead: {HasLead}, CampaignCount: {CampaignCount}, OwnerCount: {OwnerCount}", lead is not null, campaigns.Count(), owners.Count());
 
@@ -147,6 +150,28 @@ public sealed class GetLeadCaptureQueryHandler(
     private string DescribeScope() =>
         currentUser.Scope.IsOwnRecordsOnly ? "Records assigned to you" : "Your whole organisation";
 
-    private static IReadOnlyList<LookupItem> ToLookup<TEnum>() where TEnum : struct, Enum =>
-        [.. Enum.GetValues<TEnum>().Select(value => new LookupItem(value.ToString(), value.ToString()))];
+    /// <summary>
+    /// The channels, with the words a person reads beside the value the API takes.
+    ///
+    /// THE ENUM NAME IS NOT A LABEL. "PhoneCall" and "Sms" are identifiers; printing them in a
+    /// dropdown is how a screen ends up inventing its own list instead, which is what this form
+    /// had done - four options with made-up reference codes that nothing on the server knew.
+    /// </summary>
+    private static readonly IReadOnlyList<LookupItem> ConsentChannelOptions =
+    [
+        new(nameof(ConsentChannel.Email), "Email"),
+        new(nameof(ConsentChannel.Sms), "SMS"),
+        new(nameof(ConsentChannel.WhatsApp), "WhatsApp"),
+        new(nameof(ConsentChannel.PhoneCall), "Phone call"),
+        new(nameof(ConsentChannel.Post), "Post")
+    ];
+
+    /// <summary>What the person said, in the order somebody capturing it reaches for.</summary>
+    private static readonly IReadOnlyList<LookupItem> ConsentStateOptions =
+    [
+        new(nameof(ConsentState.Granted), "Granted", "The ticked channels may be used; the others may not."),
+        new(nameof(ConsentState.Withdrawn), "Withdrawn", "The ticked channels must not be used."),
+        new(nameof(ConsentState.Pending), "Pending", "Asked, and waiting for an answer. No channel decision is recorded."),
+        new(nameof(ConsentState.NotProvided), "Not provided", "Nothing was said. No channel decision is recorded.")
+    ];
 }

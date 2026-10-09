@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, ElementRef, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { map, switchMap } from 'rxjs';
 import { FormsModule } from '@angular/forms';
@@ -11,6 +11,8 @@ import {
 } from '../../../../Shared/models/donors-leads.model';
 import { DonorApiService } from '../../../../Service/donor-api.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
+import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
+import { GeoMasterService } from '../../../../Shared/services/geo-master.service';
 import { createXlsx, createZip, readXlsxRows } from '../../../../Shared/services/spreadsheet';
 import { apiErrorMessage, apiFieldErrors } from '../../../../Shared/models/api-response.model';
 import {
@@ -27,9 +29,6 @@ export interface MobileNumberEntry {
   value: string;
   isPrimary: boolean;
 }
-
-/** Upload → scan → classify → link pipeline shown for consent evidence. */
-export type EvidenceStatus = 'idle' | 'uploading' | 'scanned' | 'classified' | 'linked';
 
 export interface ConsentFields {
   emailConsent: boolean;
@@ -48,7 +47,6 @@ export interface ConsentFields {
   channelRef: string;
   consentState: string;
   evidenceFileName: string;
-  evidenceStatus: EvidenceStatus;
   effectiveDate: string;
   effectiveTime: string;
   expiryDate: string;
@@ -263,8 +261,13 @@ export class LeadCaptureComponent {
   /** The current privacy-notice version, recorded against any consent captured here. */
   protected readonly currentNoticeVersion = signal('');
 
-  /** Granted / Withdrawn / Not provided, as the API's catalogue lists them. */
-  protected readonly consentStateOptions = signal<readonly string[]>([]);
+  /**
+   * What the person said, as the API lists it: the value it stores and the word a person reads.
+   *
+   * This kept the labels only and used them as the values, which worked while the two were the
+   * same word and would have posted "Not provided" for `NotProvided` the day they were not.
+   */
+  protected readonly consentStateOptions = signal<readonly DonLookupItem[]>([]);
 
   /** The saved lead, once there is one. Its id and version drive Update and Submit. */
   protected readonly savedLeadId = signal<string | null>(null);
@@ -285,15 +288,13 @@ export class LeadCaptureComponent {
    */
   protected readonly languageOptions = signal<readonly DonLookupItem[]>([]);
 
-  protected readonly leadSourceOptions: readonly string[] = [
-    'Website',
-    'Campaign',
-    'Event',
-    'Referral',
-    'Bulk Upload',
-    'Walk-In',
-    'Partner NGO',
-  ];
+  /**
+   * What "Lead source" offers - the API's list.
+   *
+   * THE FORM TYPED ITS OWN SEVEN, so the names offered here and the name the bulk import stamps
+   * on a row that states no source were two lists, in two codebases, that agreed by coincidence.
+   */
+  protected readonly leadSourceOptions = signal<readonly DonLookupItem[]>([]);
 
   /**
    * Campaign dropdown — the seed campaign names from lead-capture.json PLUS
@@ -318,37 +319,47 @@ export class LeadCaptureComponent {
     'Recognised',
   ];
 
-  /** Consent & Preference Centre — effective approved channel catalogue. */
-  protected readonly channelOptions: readonly { reference: string; label: string }[] = [
-    { reference: 'CHN-EMAIL', label: 'Email' },
-    { reference: 'CHN-SMS', label: 'SMS' },
-    { reference: 'CHN-WHATSAPP', label: 'WhatsApp' },
-    { reference: 'CHN-PHONE', label: 'Phone call' },
-  ];
+  /**
+   * How the consent was captured - the API's channel list.
+   *
+   * THE CODES WERE INVENTED. This held four options with references "CHN-EMAIL" to "CHN-PHONE"
+   * that no table or enum on the server has ever contained, printed beside each label as though
+   * they were catalogue ids. The choice was required, validated and then never sent.
+   */
+  protected readonly channelOptions = signal<readonly DonLookupItem[]>([]);
 
-  /** Approved administrative geography — country and state catalogues. */
-  protected readonly countryOptions: readonly string[] = ['India'];
-  protected readonly stateOptions: readonly string[] = [
-    'Tamil Nadu',
-    'Karnataka',
-    'Kerala',
-    'Andhra Pradesh',
-    'Telangana',
-    'Puducherry',
-    'Maharashtra',
-    'Delhi',
-    'Gujarat',
-    'West Bengal',
-  ];
-  /** Approved cities per state; states without an entry have none approved yet. */
-  private readonly APPROVED_CITY_CATALOG: Readonly<Record<string, readonly string[]>> = {
-    'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem'],
-    'Karnataka': ['Bengaluru', 'Mysuru', 'Mangaluru'],
-    'Kerala': ['Kochi', 'Thiruvananthapuram', 'Kozhikode'],
-    'Andhra Pradesh': ['Visakhapatnam', 'Vijayawada'],
-    'Telangana': ['Hyderabad', 'Warangal'],
-    'Puducherry': ['Puducherry'],
-  };
+  /**
+   * Country, state and city - the master catalogue, through the cascade every other address form
+   * uses.
+   *
+   * THIS WAS `['India']`, TEN STATES AND SIXTEEN CITIES, TYPED IN. A lead from a city the
+   * organisation had added to its masters could not be captured, a state with no entry in the
+   * typed map offered "No approved cities yet" for ever, and nothing here changed when the
+   * catalogue did. The three lists are now whatever the Masters screens hold.
+   */
+  protected readonly geo = createGeoCascade();
+  private readonly geoMaster = inject(GeoMasterService);
+
+  /** ISO code of the country the address starts on, as the API's settings say. */
+  private readonly defaultCountryCode = signal('');
+
+  /** The prefix the API gives a number that arrives without one. A bulk row is completed with it. */
+  protected readonly serverDiallingCode = signal('');
+
+  /**
+   * The prefix a number typed into THIS form without one is given: the chosen country's, and the
+   * API's default until a country is chosen.
+   */
+  protected readonly diallingCode = computed(
+    () => this.geo.phoneCountryCode() || this.serverDiallingCode(),
+  );
+
+  /** Said beside the mobile boxes, so the rule is read before it is applied. */
+  protected readonly mobilePrefixHint = computed(() =>
+    this.diallingCode()
+      ? `A number without a prefix is saved as ${this.diallingCode()}`
+      : 'Include the country prefix, for example +91',
+  );
 
   private readonly MAX_MOBILE_ENTRIES = 5;
   private readonly MAX_BULK_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -378,23 +389,34 @@ export class LeadCaptureComponent {
     'Notes',
   ];
 
-  private readonly BULK_TEMPLATE_SAMPLE: readonly string[] = [
+  /**
+   * The template's one filled-in row.
+   *
+   * THE CAMPAIGN, LANGUAGE AND SOURCE ARE REAL ONES. The row read "CMP-2026-001", a code no
+   * organisation has, so anybody who filled in a second row and left the sample above it got a
+   * rejected row to puzzle over. It now names the first campaign, language and source the API
+   * listed; the person in the row is still invented.
+   */
+  private readonly bulkTemplateSample = computed<readonly string[]>(() => [
     'Anita',
     'Raman',
     '9876543210',
     'anita.raman@example.com',
-    'Tamil',
+    this.languageOptions()[0]?.label ?? '',
     'Chennai',
-    'CMP-2026-001',
-    'Event',
+    this.campaignDropdownOptions()[0]?.reference ?? '',
+    this.leadSourceOptions()[0]?.value ?? '',
     'Met at the Chennai donor meet. Asked to be called after 6pm.',
-  ];
+  ]);
+
   /** The template's columns as the bulk screen lists them: which are required, and an example. */
-  protected readonly bulkColumns = this.BULK_TEMPLATE_HEADERS.map((name, index) => ({
-    name,
-    required: index < 3,
-    example: this.BULK_TEMPLATE_SAMPLE[index] ?? '',
-  }));
+  protected readonly bulkColumns = computed(() =>
+    this.BULK_TEMPLATE_HEADERS.map((name, index) => ({
+      name,
+      required: index < 3,
+      example: this.bulkTemplateSample()[index] ?? '',
+    })),
+  );
 
   private readonly MAX_EVIDENCE_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
   private readonly ALLOWED_EVIDENCE_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png'];
@@ -416,15 +438,6 @@ export class LeadCaptureComponent {
   /** What a person is allowed to TYPE, before normalisation - digits, spaces, dashes, brackets. */
   private readonly MOBILE_INPUT_PATTERN = /^\+?[0-9][0-9\s()-]{6,20}$/;
 
-  /**
-   * Bare local numbers get the default prefix rather than a rejection.
-   *
-   * The rest of this screen already assumes +91 (see `maskedContactRestrictionPhone`), as does
-   * the country-code default on Create user, so a ten-digit number typed without a prefix is
-   * completed rather than refused. Anything typed WITH a prefix is left exactly as typed.
-   */
-  private readonly DEFAULT_DIALLING_CODE = '+91';
-
   /** Matches `EmailValue` on the API, which requires a top-level domain of two or more. */
   private readonly EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -442,7 +455,9 @@ export class LeadCaptureComponent {
       return '';
     }
 
-    return compact.startsWith('+') ? compact : `${this.DEFAULT_DIALLING_CODE}${compact}`;
+    // A bare local number is completed rather than refused - with the chosen country's prefix,
+    // not a fixed one. Anything typed WITH a prefix is left exactly as typed.
+    return compact.startsWith('+') ? compact : `${this.diallingCode()}${compact}`;
   }
 
   // ---------------------------------------------------------------------
@@ -484,9 +499,13 @@ export class LeadCaptureComponent {
   // ---------------------------------------------------------------------
   // Geography — approved-catalogue lookups
   // ---------------------------------------------------------------------
-  protected readonly approvedCities = computed(
-    () => this.APPROVED_CITY_CATALOG[this.fields().geoState] ?? [],
-  );
+  protected readonly approvedCities = computed(() => this.geo.cityNames());
+
+  /**
+   * Whether a state has to be chosen. False only for a country the catalogue says has none
+   * (Singapore): its cities sit directly beneath it, and a required state would be unanswerable.
+   */
+  protected readonly stateRequired = computed(() => this.geo.selectedCountry()?.hasStates ?? true);
 
   /** Serviceability is verified against the approved city list, separately from the free-text address. */
   protected readonly serviceability = computed<'serviceable' | 'unconfirmed' | null>(() => {
@@ -514,12 +533,12 @@ export class LeadCaptureComponent {
 
   /** Masked review value shown before submission; full number stays restricted elsewhere. */
   protected readonly maskedContactRestrictionPhone = computed(() => {
-    const digits = this.fields().consent.contactRestrictionPhone.replace(/\D/g, '');
-    const local = digits.length > 10 ? digits.slice(-10) : digits;
-    if (local.length < 10) {
+    const number = this.normaliseMobile(this.fields().consent.contactRestrictionPhone);
+    if (!this.MOBILE_PATTERN.test(number)) {
       return '—';
     }
-    return `+91 ${local.slice(0, 2)}${'•'.repeat(5)}${local.slice(-3)}`;
+    // The prefix and the last three digits, whatever country the number belongs to.
+    return `${number.slice(0, 5)}${'•'.repeat(Math.max(number.length - 8, 3))}${number.slice(-3)}`;
   });
 
   // ---------------------------------------------------------------------
@@ -597,7 +616,6 @@ export class LeadCaptureComponent {
       channelRef: '',
       consentState: '',
       evidenceFileName: '',
-      evidenceStatus: 'idle',
       effectiveDate: '',
       effectiveTime: '',
       expiryDate: '',
@@ -630,7 +648,8 @@ export class LeadCaptureComponent {
       mobiles: [this.createEmptyMobile(true)],
       email: '',
       preferredLanguage: '',
-      geoCountry: 'India',
+      // Filled by `applyDefaultCountry` once the catalogue and the API's default have arrived.
+      geoCountry: '',
       geoState: '',
       geoCity: '',
       addressDetails: '',
@@ -741,7 +760,12 @@ export class LeadCaptureComponent {
   // =======================================================================
   protected onGeoCountryChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
-    this.updateField('geoCountry', value);
+    // A state and a city belong to the country they were chosen under.
+    this.fields.update((f) => ({ ...f, geoCountry: value, geoState: '', geoCity: '' }));
+    this.clearError('geoCountry');
+    this.clearError('geoState');
+    this.clearError('geoCity');
+    this.selectCountry(value);
   }
 
   protected onGeoStateChange(event: Event): void {
@@ -750,6 +774,39 @@ export class LeadCaptureComponent {
     this.fields.update((f) => ({ ...f, geoState: value, geoCity: '' }));
     this.clearError('geoState');
     this.clearError('geoCity');
+    this.geo.selectState(value);
+  }
+
+  /** Loads what sits beneath a country: its states, or its cities when it has no states. */
+  private selectCountry(name: string): void {
+    this.geo.selectCountry(name);
+
+    const country = this.geo.selectedCountry();
+    if (country && !country.hasStates) {
+      this.geoMaster.getCities(null, country.id).subscribe((cities) => this.geo.cities.set(cities));
+    }
+  }
+
+  /**
+   * Starts a blank form on the organisation's own country.
+   *
+   * THE API NAMES THE COUNTRY, THE CATALOGUE SUPPLIES THE ROW. The form used to open on a typed
+   * 'India'; the default is now a setting on the server, matched here to the master row so the
+   * states beneath it load at once. Left alone when the person has already chosen.
+   */
+  private applyDefaultCountry(): void {
+    if (this.fields().geoCountry) {
+      return;
+    }
+
+    const code = this.defaultCountryCode().toLowerCase();
+    const country = this.geo.countries().find((option) => option.iso2?.toLowerCase() === code);
+    if (!country) {
+      return;
+    }
+
+    this.fields.update((f) => ({ ...f, geoCountry: country.name }));
+    this.selectCountry(country.name);
   }
 
   protected onGeoCityChange(event: Event): void {
@@ -854,7 +911,14 @@ export class LeadCaptureComponent {
     this.clearError('correctionReason');
   }
 
-  /** Secure evidence uploader — validates type/size, then reflects the scan → classify → link pipeline. */
+  /**
+   * Notes which file is the evidence.
+   *
+   * THE FILE NAME IS WHAT IS RECORDED. This used to walk "Uploaded, Scanned, Classified, Linked"
+   * on three timers, with a comment that the stages "happen server-side" - nothing was uploaded,
+   * scanned or classified, and the Donors service has no document store to do it in. The name is
+   * saved on the consent row as its evidence reference, which is true, and the stages are gone.
+   */
   protected onEvidenceFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files && input.files[0];
@@ -877,13 +941,6 @@ export class LeadCaptureComponent {
 
     this.clearError('evidence');
     this.updateConsent('evidenceFileName', file.name);
-    this.updateConsent('evidenceStatus', 'uploading');
-
-    // Scan → classify → link happen server-side; the UI reflects each stage
-    // as it completes so status is visible before submission.
-    window.setTimeout(() => this.updateConsent('evidenceStatus', 'scanned'), 500);
-    window.setTimeout(() => this.updateConsent('evidenceStatus', 'classified'), 1000);
-    window.setTimeout(() => this.updateConsent('evidenceStatus', 'linked'), 1500);
   }
 
   // =======================================================================
@@ -938,7 +995,7 @@ export class LeadCaptureComponent {
       if (invalidEntry) {
         errs['mobiles'] =
           'Enter the number in international format, for example +91 98765 43210. '
-          + 'A 10-digit number without a prefix is treated as +91.';
+          + `${this.mobilePrefixHint()}.`;
       } else {
         const seen = new Set<string>();
         let hasDuplicate = false;
@@ -974,7 +1031,7 @@ export class LeadCaptureComponent {
     if (!f.geoCountry) {
       errs['geoCountry'] = 'Country is required.';
     }
-    if (!f.geoState) {
+    if (this.stateRequired() && !f.geoState) {
       errs['geoState'] = 'State is required.';
     }
     if (!f.geoCity) {
@@ -986,6 +1043,13 @@ export class LeadCaptureComponent {
     // Lead source
     if (!f.leadSource) {
       errs['leadSource'] = 'Lead source is required.';
+    }
+
+    // Campaign. THE API REQUIRES ONE - a lead belongs to a campaign, and the donation link shared
+    // with the lead carries it. The field was labelled Optional and offered "No campaign", so a
+    // form with every marked field filled in still refused to save.
+    if (!f.campaign) {
+      errs['campaign'] = 'Choose a campaign from the list.';
     }
 
     // Source details
@@ -1028,8 +1092,11 @@ export class LeadCaptureComponent {
       // validated the dropdown and ignored the checkboxes, so ticking nothing produced a 400
       // whose message ("Choose at least one channel...") arrived keyed to `consent.emailConsent`
       // and was then discarded. Checked here, in the same words the server uses.
+      //
+      // "DO NOT CONTACT" NEEDS NO TICK: it refuses every channel at once, which is a whole answer.
       if (
-        !f.consent.emailConsent
+        !f.consent.doNotContact
+        && !f.consent.emailConsent
         && !f.consent.smsConsent
         && !f.consent.whatsappConsent
         && !f.consent.phoneConsent
@@ -1109,11 +1176,19 @@ export class LeadCaptureComponent {
     preferredLanguage: 'preferredLanguage',
     city: 'geoCity',
     geographyCode: 'geoState',
+    country: 'geoCountry',
+    displayName: 'displayName',
+    alternateMobileNumbers: 'mobiles',
     campaignId: 'campaign',
     source: 'leadSource',
     notes: 'sourceDetails',
     'consent.purpose': 'purpose',
-    'consent.consentSource': 'leadSource',
+    'consent.consentSource': 'channelRef',
+    'consent.consentState': 'consentState',
+    'consent.consentDateUtc': 'effective',
+    'consent.expiryAtUtc': 'expiry',
+    'consent.contactRestrictions': 'contactRestrictionPhone',
+    'consent.correctionReason': 'correctionReason',
     'consent.consentNotes': 'consentNotes',
     'consent.consentEvidenceReference': 'evidence',
     'consent.emailConsent': 'consentChannels',
@@ -1170,38 +1245,84 @@ export class LeadCaptureComponent {
       return null;
     }
 
-    const primaryMobile =
-      form.mobiles.find((mobile) => mobile.isPrimary)?.value ?? form.mobiles[0]?.value ?? '';
+    const primary = form.mobiles.find((mobile) => mobile.isPrimary) ?? form.mobiles[0];
+    const primaryMobile = this.normaliseMobile(primary?.value ?? '');
+
+    // EVERY NUMBER TYPED IS SENT. The form takes up to five and posted one: the others were
+    // validated, shown back and dropped.
+    const otherMobiles = form.mobiles
+      .filter((mobile) => mobile !== primary)
+      .map((mobile) => this.normaliseMobile(mobile.value))
+      .filter((mobile) => mobile.length > 0 && mobile !== primaryMobile);
+
+    const consent = form.consent;
+    const capturedThrough = this.channelOptions().find((option) => option.value === consent.channelRef);
 
     return {
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim() || null,
+      displayName: form.displayName.trim() || null,
       // E.164 OR NOTHING. `PrimaryPhoneValue` is the server's rule and it does not guess.
-      mobileNumber: this.normaliseMobile(primaryMobile) || null,
+      mobileNumber: primaryMobile || null,
+      alternateMobileNumbers: otherMobiles,
       emailAddress: form.email.trim() || null,
       preferredLanguage: form.preferredLanguage || null,
+      country: form.geoCountry || null,
       city: form.geoCity || null,
       geographyCode: form.geoState || null,
+      addressLine: form.addressDetails.trim() || null,
       campaignId: this.campaignIdByReference.get(campaign.reference) ?? campaign.reference,
       source: form.leadSource || 'Manual',
       notes: form.sourceDetails.trim() || null,
 
       // CONSENT TRAVELS WITH THE CREATE, not after it. The server writes one Consent row per
-      // permitted channel, which is what makes the Consent Centre and the follow-up planner's
+      // channel decision, which is what makes the Consent Centre and the follow-up planner's
       // channel check read from a single source rather than from a flag on the lead.
+      //
+      // AND ALL OF IT TRAVELS. The state, the effective and expiry times, the recognition choice,
+      // "do not contact" and the restricted number were each required by this form and then left
+      // out of the request, so a withdrawal recorded here was stored as a permission.
       consent: form.collectConsent
         ? {
             collectConsent: true,
-            emailConsent: form.consent.emailConsent,
-            smsConsent: form.consent.smsConsent,
-            whatsAppConsent: form.consent.whatsappConsent,
-            phoneCallConsent: form.consent.phoneConsent,
-            consentSource: form.consent.evidenceFileName || form.leadSource || null,
-            consentNotes: form.consent.consentNotes.trim() || null,
-            purpose: form.consent.purpose || null,
+            emailConsent: consent.emailConsent,
+            smsConsent: consent.smsConsent,
+            whatsAppConsent: consent.whatsappConsent,
+            phoneCallConsent: consent.phoneConsent,
+            doNotContact: consent.doNotContact,
+            consentState: consent.consentState || null,
+            // "Captured through": how the answer was obtained, in the API's own word for it.
+            consentSource: capturedThrough?.label ?? null,
+            consentDateUtc: this.toUtc(consent.effectiveDate, consent.effectiveTime),
+            expiryAtUtc: this.showExpiry() ? this.toUtc(consent.expiryDate, consent.expiryTime) : null,
+            publicRecognitionPreference: consent.recognitionPreference === 'Recognised',
+            contactRestrictions: this.showContactRestriction()
+              ? this.normaliseMobile(consent.contactRestrictionPhone) || null
+              : null,
+            correctionReason: this.showCorrectionReason() ? consent.correctionReason.trim() || null : null,
+            consentEvidenceReference: consent.evidenceFileName || null,
+            consentNotes: consent.consentNotes.trim() || null,
+            purpose: consent.purpose || null,
           }
         : null,
     };
+  }
+
+  /**
+   * The zone the consent times are entered in. The two boxes are labelled IST, and the Donors
+   * service counts its days in the same zone.
+   */
+  private static readonly CONSENT_TIME_OFFSET = '+05:30';
+
+  /** A date and a time as typed into the consent section, as the instant the API stores. */
+  private toUtc(date: string, time: string): string | null {
+    if (!date) {
+      return null;
+    }
+
+    const instant = new Date(`${date}T${time || '00:00'}:00${LeadCaptureComponent.CONSENT_TIME_OFFSET}`);
+
+    return Number.isNaN(instant.getTime()) ? null : instant.toISOString();
   }
 
   /**
@@ -1376,6 +1497,16 @@ export class LeadCaptureComponent {
   constructor() {
     this.loadForm();
 
+    // The default country needs two answers - the API's code and the catalogue's rows - and they
+    // arrive in either order.
+    effect(() => {
+      if (this.geo.countries().length === 0 || !this.defaultCountryCode()) {
+        return;
+      }
+
+      untracked(() => this.applyDefaultCountry());
+    });
+
     // THE ACTION BAR STICKS TO THE BOTTOM OF THE WINDOW. The shell's content column is a scroll
     // container (overflow auto) that never scrolls - the window does - which stops
     // `position: sticky` working inside it. It clips while this screen is open and gets its own
@@ -1424,8 +1555,12 @@ export class LeadCaptureComponent {
         );
 
         this.languageOptions.set(response.languageOptions);
-        this.consentStateOptions.set(response.consentStateOptions.map((option) => option.label));
+        this.leadSourceOptions.set(response.sourceOptions ?? []);
+        this.channelOptions.set(response.consentChannelOptions ?? []);
+        this.consentStateOptions.set(response.consentStateOptions ?? []);
         this.currentNoticeVersion.set(response.currentNoticeVersion);
+        this.serverDiallingCode.set(response.defaultDiallingCode ?? '');
+        this.defaultCountryCode.set(response.defaultCountryCode ?? '');
 
         // VERBS, AS THE API ANSWERS THEM, AND NOTHING INFERRED FROM THEM. `submit` used to fall
         // back to `Save`, because the endpoint withheld 'Submit' until a draft existed and a
@@ -1555,6 +1690,7 @@ export class LeadCaptureComponent {
    */
   private resetForm(): void {
     this.fields.set(this.createInitialFields());
+    this.applyDefaultCountry();
     this.errors.set({});
     this.savedLeadId.set(null);
     this.savedLeadVersion.set(0);
@@ -1585,7 +1721,7 @@ export class LeadCaptureComponent {
    * file drifts from the parser the first time a column is renamed. This one cannot.
    */
   protected downloadBulkTemplate(): void {
-    const grid = [[...this.BULK_TEMPLATE_HEADERS], [...this.BULK_TEMPLATE_SAMPLE]];
+    const grid = [[...this.BULK_TEMPLATE_HEADERS], [...this.bulkTemplateSample()]];
     const encoder = new TextEncoder();
 
     const csv = grid
@@ -1999,7 +2135,9 @@ export class LeadCaptureComponent {
         // A row that names no campaign falls back to whichever one is selected on the form, if
         // any. The server rejects a row with neither rather than guessing.
         defaultCampaignId: this.campaignIdByReference.get(this.fields().campaign) ?? null,
-        defaultSource: 'Bulk Upload',
+
+        // Left to the server, which owns the name a row with no source is recorded under.
+        defaultSource: null,
       })
       .subscribe({
         next: (result) => {

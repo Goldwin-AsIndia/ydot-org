@@ -56,4 +56,25 @@ public sealed class DonorSettings
 
     /// <summary>The current privacy notice version stamped on every consent row.</summary>
     public string CurrentNoticeVersion { get; set; } = "PN-2026-01";
+
+    /// <summary>
+    /// The time zone whose calendar day "due today", "overdue" and "completed today" are counted
+    /// in. A follow-up due at 01:00 in Chennai is due today there although it is still yesterday
+    /// in UTC, and every count on the Donors screens has to agree with the clock on the wall.
+    /// </summary>
+    public string ReportingTimeZone { get; set; } = "Asia/Kolkata";
+
+    /// <summary>
+    /// The ISO 3166 two-letter code of the country a new lead's address starts on. The capture
+    /// form pre-selects the matching row of the master catalogue; it is a default the person can
+    /// change, not a restriction.
+    /// </summary>
+    public string DefaultCountryCode { get; set; } = "IN";
+
+    /// <summary>
+    /// The dialling prefix given to a mobile number that arrives without one, in a bulk upload or
+    /// typed into the capture form before a country is chosen. Goes with
+    /// <see cref="DefaultCountryCode"/>: change the two together.
+    /// </summary>
+    public string DefaultDiallingCode { get; set; } = "+91";
 }

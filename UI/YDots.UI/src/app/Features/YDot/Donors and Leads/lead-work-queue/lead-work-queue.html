@@ -2,6 +2,22 @@
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3" [attr.aria-busy]="uiState() === 'loading'">
 
+      @if (exportError()) {
+        <div class="pq-notice" role="alert">
+          <i class="ri-error-warning-line" aria-hidden="true"></i>
+          <span class="pq-notice-t">{{ exportError() }}</span>
+          <button type="button" class="pq-notice-x" title="Dismiss" aria-label="Dismiss notification" (click)="exportError.set('')"><i class="ri-close-line" aria-hidden="true"></i></button>
+        </div>
+      }
+
+      @if (closeNotice(); as notice) {
+        <div class="pq-notice" [attr.role]="notice.failed ? 'alert' : 'status'">
+          <i [class]="notice.failed ? 'ri-error-warning-line' : 'ri-checkbox-circle-line'" aria-hidden="true"></i>
+          <span class="pq-notice-t">{{ notice.text }}</span>
+          <button type="button" class="pq-notice-x" title="Dismiss" aria-label="Dismiss notification" (click)="closeNotice.set(null)"><i class="ri-close-line" aria-hidden="true"></i></button>
+        </div>
+      }
+
       @if (uiState() === 'success') {
         <div class="pq-notice" role="status">
           <i class="ri-checkbox-circle-line" aria-hidden="true"></i>
@@ -51,7 +67,7 @@
            
             }
             @if (permissions().export) {
-              <button type="button" class="btn btn-outline-secondary btn-sm" title="Export the leads shown" (click)="exportLeads()" [disabled]="!hasResults() || uiState() === 'loading'">
+              <button type="button" class="btn btn-outline-secondary btn-sm" title="Export every lead this view matches" (click)="exportLeads()" [disabled]="!hasResults() || uiState() === 'loading' || exporting()">
                 <i class="ri-download-2-line" aria-hidden="true"></i> Export
               </button>
             }
@@ -84,7 +100,7 @@
               }
             </div>
             <div class="pq-filter-foot">
-              <span class="pq-filter-note"><i class="ri-information-line" aria-hidden="true"></i>Lead source narrows the leads already loaded.</span>
+              <span class="pq-selbar-gap"></span>
               <button type="button" class="pq-link pq-link--mute" (click)="clearAllFilters()">Clear all</button>
               <button type="button" class="pq-btn pq-btn--primary" (click)="applyFilters()"><i class="ri-check-line" aria-hidden="true"></i> Apply filters</button>
             </div>
@@ -206,8 +222,12 @@
                   @if (permissions().communicate) {
                     <button type="button" class="pq-act" title="Communicate" [attr.aria-label]="'Communicate with ' + lead.name" (click)="onCommunicate(lead)"><i class="ri-chat-3-line" aria-hidden="true"></i></button>
                   }
-                  @if (lead.owner === 'Unassigned' && permissions().assign) {
-                    <button type="button" class="pq-act pq-act--go" title="Assign lead" [attr.aria-label]="'Assign ' + lead.name" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i></button>
+                  @if (canRoute(lead)) {
+                    @if (lead.owner === 'Unassigned') {
+                      <button type="button" class="pq-act pq-act--go" title="Assign lead" [attr.aria-label]="'Assign ' + lead.name" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i></button>
+                    } @else {
+                      <button type="button" class="pq-act" title="Reassign lead" [attr.aria-label]="'Reassign ' + lead.name" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i></button>
+                    }
                   }
                 </div>
               </li>
@@ -292,7 +312,7 @@
             <svg viewBox="0 0 36 36" aria-hidden="true">
               <circle cx="18" cy="18" r="15.5" class="pq-health-track"></circle>
               <circle cx="18" cy="18" r="15.5" class="pq-health-val" pathLength="100" [attr.stroke-dasharray]="lead.healthScore + ' 100'"
-                      [attr.data-band]="healthClass(lead.healthScore)"></circle>
+                      [attr.data-band]="healthClass(lead.healthBand)"></circle>
             </svg>
             <b>{{ lead.healthScore }}</b>
           </span>
@@ -359,6 +379,15 @@
           <div><dt>Campaign</dt><dd>{{ displayValue(lead.campaign) }}</dd></div>
           <div><dt>Lead source</dt><dd>{{ displayValue(lead.source) }}</dd></div>
           <div><dt>Owner</dt><dd [class.pq-none]="lead.owner === 'Unassigned'">{{ displayValue(lead.owner) }}</dd></div>
+          @if (!lead.converted && permissions().communicate) {
+            <div>
+              <dt>Donation link</dt>
+              <dd>
+                <span class="pq-trunc" [title]="donationLink(lead)">{{ donationLink(lead) }}</span>
+                <button type="button" class="pq-copy-g" (click)="copyValue('link', donationLink(lead))" title="Copy the donation link for this lead" aria-label="Copy the donation link for this lead"><i [class]="copiedField() === 'link' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
+              </dd>
+            </div>
+          }
         </dl>
       </section>
 
@@ -370,6 +399,16 @@
             <div><dt>Last activity</dt><dd>{{ lead.lastActivity }}</dd></div>
           }
           <div><dt>Next follow-up</dt><dd class="pq-num">{{ lead.nextFollowUp || 'Not planned' }}</dd></div>
+          <!-- Closing a lead: offered to whoever the server lists Close for on this lead. -->
+          @if (canClose(lead)) {
+            <div>
+              <dt>Close lead</dt>
+              <dd>
+                <button type="button" class="pq-link" [disabled]="closing()" (click)="onCloseLead(lead, 'Lost')">Mark lost</button>
+                <button type="button" class="pq-link" [disabled]="closing()" (click)="onCloseLead(lead, 'Dormant')">Mark dormant</button>
+              </dd>
+            </div>
+          }
         </dl>
       </section>
       <span class="visually-hidden" role="status">{{ copiedField() ? 'Copied to clipboard' : '' }}</span>
@@ -377,7 +416,10 @@
 
     <footer class="pq-dr-foot">
       <span class="pq-selbar-gap"></span>
-      @if (permissions().schedule) {
+      @if (canRoute(lead) && lead.owner !== 'Unassigned') {
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i> Reassign</button>
+      }
+      @if (permissions().schedule && !lead.converted) {
         <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSchedule(lead)"><i class="ri-calendar-event-line" aria-hidden="true"></i> Schedule follow-up</button>
       }
       @if (permissions().communicate) {

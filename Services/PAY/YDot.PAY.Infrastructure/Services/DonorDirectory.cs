@@ -164,6 +164,12 @@ public sealed class DonorDirectory(
     /// correct difference: a donation that has actually been captured is stronger evidence of a
     /// real donor than any manual review, and holding the record pending would leave a paid
     /// donation attached to an unapproved donor.
+    ///
+    /// THE DONOR KEEPS THE LEAD'S OWNER. The role flow: "the donor retains the same owner who was
+    /// assigned to the lead" and appears in that owner's My Donor List. The owner columns used to
+    /// be written NULL whatever the lead said, so every converted donor arrived unassigned and the
+    /// fundraiser who had nurtured the lead lost them at the moment it paid off. A donor who gave
+    /// without ever being a lead still arrives unassigned, which is also what the flow says.
     /// </summary>
     public async Task<DonorMatch> CreateDonorAsync(
         CreateDonorFromIntentRequest request, CancellationToken cancellationToken)
@@ -190,7 +196,10 @@ public sealed class DonorDirectory(
                 @first_name, @last_name, NULL,
                 @primary_email, @primary_phone, 'en-IN',
                 'Active', false, 'Approved',
-                NULL, NULL,
+                (SELECT l.owner_user_id FROM don_leads l
+                  WHERE l.id = @source_lead_id AND l.organisation_id = @organisation_id),
+                (SELECT l.owner_name FROM don_leads l
+                  WHERE l.id = @source_lead_id AND l.organisation_id = @organisation_id),
                 @source_lead_id, NULL, @normalized_business_key,
                 @now, @now, NULL,
                 NULL, NULL, @notes,
@@ -316,6 +325,35 @@ public sealed class DonorDirectory(
                 + "another organisation.",
                 leadId);
         }
+
+        // AN EXISTING DONOR WITH NO OWNER TAKES THE LEAD'S. The lead's donor may have been found by
+        // e-mail rather than created here - somebody who gave once before, anonymously - and the
+        // fundraiser who brought them back as a lead is the person to look after them now. A donor
+        // who already has an owner keeps them: that is a relationship somebody is already managing.
+        const string AdoptOwnerSql = """
+            UPDATE don_donors d
+            SET relationship_owner_user_id = l.owner_user_id,
+                relationship_owner_name = l.owner_name,
+                source_lead_id = COALESCE(d.source_lead_id, l.id),
+                updated_at_utc = @now,
+                version = d.version + 1
+            FROM don_leads l
+            WHERE d.id = @donor_id
+              AND d.organisation_id = @organisation_id
+              AND l.id = @lead_id
+              AND l.organisation_id = @organisation_id
+              AND d.relationship_owner_user_id IS NULL
+              AND l.owner_user_id IS NOT NULL
+            """;
+
+        await using var adopt = await CreateCommandAsync(AdoptOwnerSql, cancellationToken);
+
+        adopt.Parameters.Add(new NpgsqlParameter("donor_id", NpgsqlDbType.Uuid) { Value = donorId });
+        adopt.Parameters.Add(new NpgsqlParameter("lead_id", NpgsqlDbType.Uuid) { Value = leadId });
+        adopt.Parameters.Add(new NpgsqlParameter("organisation_id", NpgsqlDbType.Uuid) { Value = tenantId });
+        adopt.Parameters.Add(new NpgsqlParameter("now", NpgsqlDbType.TimestampTz) { Value = DateTimeOffset.UtcNow });
+
+        await adopt.ExecuteNonQueryAsync(cancellationToken);
     }
 
     // =====================================================================================

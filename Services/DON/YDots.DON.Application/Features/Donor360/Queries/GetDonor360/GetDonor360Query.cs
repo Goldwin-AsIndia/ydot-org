@@ -1,3 +1,5 @@
+using YDots.DON.Application.Common.Settings;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using YDots.DON.Application.Common.Abstractions.Persistence;
 using YDots.DON.Application.Common.Abstractions.Security;
@@ -30,12 +32,17 @@ public sealed class Donor360QueryHandler(
     IConsentRepository consentRepository,
     IFollowUpRepository followUpRepository,
     IDonorMergeCaseRepository mergeCaseRepository,
+    IDonationLedger ledger,
+    IPeopleDirectory people,
     IAuditWriter auditWriter,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     IDateTimeProvider clock,
+    IOptions<DonorSettings> donorSettings,
     ILogger<Donor360QueryHandler> logger)
 {
+    private readonly DonorSettings _settings = donorSettings.Value;
+
     private const int HistoryRowLimit = 50;
 
     public async Task<Result<Donor360Response>> HandleAsync(
@@ -69,33 +76,63 @@ public sealed class Donor360QueryHandler(
         var interactions = await donorRepository.GetInteractionsAsync(donor.Id, HistoryRowLimit, cancellationToken);
         var activity = await donorRepository.GetActivityHistoryAsync(donor.Id, HistoryRowLimit, cancellationToken);
         var consents = await consentRepository.GetCurrentForDonorAsync(donor.Id, cancellationToken);
-        var followUps = await followUpRepository.GetOpenForDonorAsync(donor.Id, cancellationToken);
+        // EVERY FOLLOW-UP, not only the open ones: the tab has Open, Overdue and Closed views, and
+        // the Closed view was empty by construction.
+        var followUps = await followUpRepository.GetForDonorAsync(donor.Id, HistoryRowLimit, cancellationToken);
         var mergeCases = await mergeCaseRepository.GetForDonorAsync(donor.Id, cancellationToken);
-        var totals = await donor360Repository.GetDonationSummariesAsync(donor.Id, cancellationToken);
         var promises = await donor360Repository.GetPromisesAsync(donor.Id, cancellationToken);
         var documents = await donor360Repository.GetDocumentsAsync(donor.Id, canSeeEvidence, cancellationToken);
         var campaignHistory = await donor360Repository.GetCampaignHistoryAsync(donor.Id, cancellationToken);
 
-        logger.LogInformation("Donor 360 panel data loaded successfully for DonorId {DonorId}. Contacts {ContactCount}, Tags {TagCount}, Interactions {InteractionCount}, Activity {ActivityCount}, Consents {ConsentCount}, FollowUps {FollowUpCount}, MergeCases {MergeCaseCount}, DonationSummaries {DonationSummaryCount}, Promises {PromiseCount}, Documents {DocumentCount}, CampaignHistory {CampaignHistoryCount}.", donor.Id, contacts.Count, tags.Count, interactions.Count, activity.Count, consents.Count, followUps.Count, mergeCases.Count, totals.Count, promises.Count, documents.Count, campaignHistory.Count);
+        // GIVING IS THE PAYMENTS MODULE'S. See IDonationLedger: the projection this used to read
+        // was written only by the demonstration seeder, so a real gift never appeared here.
+        var giving = (await ledger.GetGivingAsync(donor.OrganisationId, [donor.Id], cancellationToken))
+            .GetValueOrDefault(donor.Id);
+        var gifts = await ledger.GetDonationsAsync(donor.OrganisationId, donor.Id, HistoryRowLimit, cancellationToken);
+        var campaignGiving = await ledger.GetCampaignGivingAsync(donor.OrganisationId, donor.Id, cancellationToken);
+        var totals = BuildDonationTotals(giving, promises, now);
+
+        var actorNames = await people.GetNamesAsync(
+            donor.OrganisationId,
+            [.. activity.Where(entry => entry.ActorUserId is not null).Select(entry => entry.ActorUserId!.Value)],
+            cancellationToken);
+
+        logger.LogInformation("Donor 360 panel data loaded successfully for DonorId {DonorId}. Contacts {ContactCount}, Tags {TagCount}, Interactions {InteractionCount}, Activity {ActivityCount}, Consents {ConsentCount}, FollowUps {FollowUpCount}, MergeCases {MergeCaseCount}, Gifts {GiftCount}, Promises {PromiseCount}, Documents {DocumentCount}, CampaignHistory {CampaignHistoryCount}.", donor.Id, contacts.Count, tags.Count, interactions.Count, activity.Count, consents.Count, followUps.Count, mergeCases.Count, gifts.Count, promises.Count, documents.Count, campaignHistory.Count);
 
         var response = new Donor360Response(
             ScreenIds.Donor360,
             ScreenRoutes.Donor360,
             donor.DonorNumber,
-            donor.ToDetailResponse(canSeeContact, DonorMappingConfig.PermittedActionsFor(donor)),
+            donor.ToDetailResponse(canSeeContact, DonorMappingConfig.PermittedActionsFor(donor, currentUser.HasPermission)),
             BuildIdentitySummary(donor, contacts, tags, canSeeContact),
             donor.RelationshipOwnerUserId is null
                 ? null
                 : new RelationshipOwnerResponse(donor.RelationshipOwnerUserId.Value, donor.RelationshipOwnerName),
             BuildConsentStatus(consents),
             [.. consents.Select(BuildPreference)],
-            [.. totals.Select(total => BuildDonationTotal(total, now))],
-            [.. campaignHistory.Select(entry => new CampaignHistoryResponse(
-                entry.Campaign.Id, entry.Campaign.Code, entry.Campaign.Name, entry.LeadReference, entry.ConvertedAtUtc))],
+            totals,
+            BuildCampaignHistory(campaignHistory, campaignGiving),
             [.. interactions.Select(BuildConversation)],
-            [.. followUps.Select(task => new Donor360FollowUpResponse(
-                task.Id, task.FollowUpReference, task.NextAction, task.DueAtUtc,
-                task.Priority.ToString(), task.Status.ToString(), task.RelationshipOwnerName))],
+            [.. followUps.Select(task =>
+            {
+                var isOpen = task.Status is FollowUpStatus.Planned or FollowUpStatus.Assigned or FollowUpStatus.Rescheduled;
+
+                return new Donor360FollowUpResponse(
+                    task.Id, task.FollowUpReference, task.NextAction, task.DueAtUtc,
+                    task.Priority.ToString(), task.Status.ToString(), task.RelationshipOwnerName,
+                    isOpen,
+
+                    // Due before today, by the organisation's calendar - as the queue reads it.
+                    isOpen && task.DueAtUtc is not null && task.DueAtUtc < ReportingCalendar.Today(now, _settings).StartUtc,
+                    task.RelationshipOwnerUserId == currentUser.UserId,
+                    task.PermittedChannel.ToString(),
+                    task.Purpose,
+                    task.CompletedAtUtc,
+                    task.CompletionOutcome,
+                    isOpen
+                    && (task.RelationshipOwnerUserId == currentUser.UserId || currentUser.IsTenantAdmin)
+                    && currentUser.HasPermission(PermissionCodes.FollowUpPlannerMarkComplete));
+            })],
             [.. promises.Select(promise => new PromiseResponse(
                 promise.Id, promise.Reference, promise.Amount, promise.Currency,
                 promise.PromisedAtUtc, promise.DueAtUtc, promise.Status.ToString(), promise.Campaign?.Name))],
@@ -108,11 +145,17 @@ public sealed class Donor360QueryHandler(
                 $"{ScreenRoutes.DuplicateReview}?reviewId={mergeCase.Id}"))],
             [.. activity.Select(entry => new ActivityHistoryResponse(
                 entry.Id, entry.ActionCode, entry.TargetType, entry.Result.ToString(),
-                entry.Reason, entry.CreatedAtUtc, entry.CorrelationId))],
+                entry.Reason, entry.CreatedAtUtc, entry.CorrelationId,
+                entry.ActorUserId is Guid actor && actorNames.TryGetValue(actor, out var actorName)
+                    ? actorName
+                    : entry.ActorUserId is null ? "System" : null))],
             BuildPermittedActions(donor),
             BuildMaskedFieldList(canSeeContact, canSeeEvidence),
             DescribeScope(),
-            ScreenState.Initial);
+            ScreenState.Initial,
+            [.. gifts.Select(gift => new DonationResponse(
+                gift.Id, gift.Reference, gift.DonatedAtUtc, gift.Amount, gift.RefundedAmount,
+                gift.Currency, gift.Status, gift.CampaignName))]);
 
         // Opening a 360 view with the unmasking permission is a sensitive view in its own right.
         if (canSeeContact || canSeeEvidence)
@@ -200,29 +243,82 @@ public sealed class Donor360QueryHandler(
             consent.PublicRecognitionPreference);
 
     /// <summary>
-    /// Source freshness in words. A number that is a week old and a number from this morning
-    /// look identical on screen otherwise, and the field contract asks for the difference.
+    /// "Donation totals by stage", in the order money moves.
+    ///
+    /// PLEDGED is what the donor promised and has not yet been settled - open and part-fulfilled
+    /// pledges recorded here. RECEIVED, RECONCILED and REFUNDED are the payments module's, read
+    /// live: received is net of refunds, reconciled is the part finance has matched to the bank.
+    /// A stage with nothing in it is left out rather than shown as a zero line.
     /// </summary>
-    private static DonationTotalResponse BuildDonationTotal(DonorDonationSummary summary, DateTimeOffset now)
+    private static IReadOnlyList<DonationTotalResponse> BuildDonationTotals(
+        DonorGiving? giving,
+        IReadOnlyList<DonorPromise> promises,
+        DateTimeOffset now)
     {
-        var age = now - summary.RefreshedAtUtc;
+        const string Live = "Live from payments";
+        var totals = new List<DonationTotalResponse>();
+        var currency = giving?.Currency ?? promises.FirstOrDefault()?.Currency ?? "INR";
 
-        var freshness = age.TotalHours switch
+        var pledged = promises
+            .Where(promise => promise.Status is PromiseStatus.Open or PromiseStatus.PartiallyFulfilled)
+            .ToList();
+
+        if (pledged.Count > 0)
         {
-            < 1 => "Up to date",
-            < 24 => $"Refreshed {(int)age.TotalHours} hour(s) ago",
-            < 168 => $"Refreshed {(int)age.TotalDays} day(s) ago",
-            _ => "Stale - refresh pending"
-        };
+            totals.Add(new DonationTotalResponse(
+                DonationStage.Pledged.ToString(), pledged[0].Currency, pledged.Sum(promise => promise.Amount),
+                pledged.Count, pledged.Max(promise => promise.PromisedAtUtc), now, "Recorded on this record"));
+        }
 
-        return new DonationTotalResponse(
-            summary.Stage.ToString(),
-            summary.Currency,
-            summary.TotalAmount,
-            summary.TransactionCount,
-            summary.AsAtUtc,
-            summary.RefreshedAtUtc,
-            freshness);
+        if (giving is not null && giving.GiftCount > 0)
+        {
+            var asAt = giving.LastGiftAtUtc ?? now;
+
+            totals.Add(new DonationTotalResponse(
+                DonationStage.Received.ToString(), currency, giving.Received, giving.GiftCount, asAt, now, Live));
+
+            if (giving.Reconciled > 0)
+            {
+                totals.Add(new DonationTotalResponse(
+                    DonationStage.Reconciled.ToString(), currency, giving.Reconciled, giving.GiftCount, asAt, now, Live));
+            }
+        }
+
+        if (giving is not null && giving.Refunded > 0)
+        {
+            totals.Add(new DonationTotalResponse(
+                DonationStage.Refunded.ToString(), currency, giving.Refunded, 0, giving.LastGiftAtUtc ?? now, now, Live));
+        }
+
+        return totals;
+    }
+
+    /// <summary>
+    /// The campaigns this donor is connected to: the one their lead came from, and every one they
+    /// gave to, with what they gave. Most recent first.
+    /// </summary>
+    private static IReadOnlyList<CampaignHistoryResponse> BuildCampaignHistory(
+        IReadOnlyList<(Campaign Campaign, string LeadReference, DateTimeOffset? ConvertedAtUtc)> fromLeads,
+        IReadOnlyList<CampaignGiving> fromGifts)
+    {
+        var rows = new Dictionary<Guid, CampaignHistoryResponse>();
+
+        foreach (var gift in fromGifts)
+        {
+            rows[gift.CampaignId] = new CampaignHistoryResponse(
+                gift.CampaignId, gift.CampaignCode ?? string.Empty, gift.CampaignName ?? "Campaign",
+                string.Empty, null, gift.Amount, gift.GiftCount, gift.LastGiftAtUtc);
+        }
+
+        foreach (var (campaign, leadReference, convertedAtUtc) in fromLeads)
+        {
+            rows[campaign.Id] = rows.TryGetValue(campaign.Id, out var given)
+                ? given with { LeadReference = leadReference, ConvertedAtUtc = convertedAtUtc }
+                : new CampaignHistoryResponse(
+                    campaign.Id, campaign.Code, campaign.Name, leadReference, convertedAtUtc, 0m, 0, null);
+        }
+
+        return [.. rows.Values.OrderByDescending(row => row.LastGiftAtUtc ?? row.ConvertedAtUtc ?? DateTimeOffset.MinValue)];
     }
 
     private static ConversationResponse BuildConversation(DonorInteraction interaction) =>
@@ -262,6 +358,19 @@ public sealed class Donor360QueryHandler(
             && donor.ApprovalState == ApprovalState.NotSubmitted)
         {
             actions.Add("Delete unused draft");
+        }
+
+        // Export History - the donor's gifts, pledges, follow-ups, conversations and consent.
+        if (currentUser.HasPermission(PermissionCodes.DonorsExport))
+        {
+            actions.Add("Export history");
+        }
+
+        // Logging a conversation from the Communication Timeline.
+        if (currentUser.HasPermission(PermissionCodes.LeadWorkQueueContact)
+            && donor.Status is not (DonorStatus.Archived or DonorStatus.Merged))
+        {
+            actions.Add("Communicate");
         }
 
         return actions;

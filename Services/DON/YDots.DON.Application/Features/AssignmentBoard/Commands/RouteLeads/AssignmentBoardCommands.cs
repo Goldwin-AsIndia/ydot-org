@@ -35,6 +35,8 @@ public sealed record BulkRouteCommand(BulkRouteRequest Request);
 /// </summary>
 public sealed class AssignmentBoardCommandHandler(
     ILeadRepository leadRepository,
+    IDonorRepository donorRepository,
+    IPeopleDirectory people,
     IConsentRepository consentRepository,
     IAuditWriter auditWriter,
     IUnitOfWork unitOfWork,
@@ -50,6 +52,11 @@ public sealed class AssignmentBoardCommandHandler(
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Lead assignment from board started for LeadId {LeadId}.", command.Request.LeadId);
+
+        if (IsDonor(command.Request.RecordType))
+        {
+            return await ApplyDonorAssignmentAsync(command.Request, expectOwned: false, cancellationToken);
+        }
 
         var result = await ApplyAssignmentAsync(command.Request, expectOwned: false, AuditActionCodes.AssignmentAssigned, cancellationToken);
 
@@ -70,6 +77,11 @@ public sealed class AssignmentBoardCommandHandler(
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Lead reassignment from board started for LeadId {LeadId}.", command.Request.LeadId);
+
+        if (IsDonor(command.Request.RecordType))
+        {
+            return await ApplyDonorAssignmentAsync(command.Request, expectOwned: true, cancellationToken);
+        }
 
         var result = await ApplyAssignmentAsync(command.Request, expectOwned: true, AuditActionCodes.AssignmentReassigned, cancellationToken);
 
@@ -110,6 +122,17 @@ public sealed class AssignmentBoardCommandHandler(
             return Result.Failure<BulkRouteResultResponse>(Error.Validation(
                 $"A bulk route may cover at most {_settings.BulkRouteMaximumItems} leads. Narrow the selection and try again.",
                 [new ValidationError(nameof(request.LeadIds), $"Select no more than {_settings.BulkRouteMaximumItems} rows.")]));
+        }
+
+        var ownerError = await CheckOwnerAsync(request.NewOwnerUserId, cancellationToken);
+        if (ownerError is not null)
+        {
+            return Result.Failure<BulkRouteResultResponse>(ownerError);
+        }
+
+        if (IsDonor(request.RecordType))
+        {
+            return await BulkRouteDonorsAsync(request, requestedIds, cancellationToken);
         }
 
         var leads = await leadRepository.GetByIdsAsync(requestedIds, cancellationToken);
@@ -232,6 +255,12 @@ public sealed class AssignmentBoardCommandHandler(
                 "That person already owns this lead."));
         }
 
+        var ownerError = await CheckOwnerAsync(request.NewOwnerUserId, cancellationToken);
+        if (ownerError is not null)
+        {
+            return Result.Failure<LeadDetailResponse>(ownerError);
+        }
+
         var effective = request.EffectiveAtUtc ?? clock.UtcNow;
 
         ApplyOwnerChange(lead, request.NewOwnerUserId, request.NewOwnerName, request.TeamCode,
@@ -247,7 +276,183 @@ public sealed class AssignmentBoardCommandHandler(
         var consents = await consentRepository.GetForLeadAsync(lead.Id, cancellationToken);
 
         return Result.Success(lead.ToDetailResponse(
-            currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents));
+            currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents, currentUser.HasPermission));
+    }
+
+    private static bool IsDonor(string? recordType) =>
+        string.Equals(recordType, "Donor", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(recordType, "Donors", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The new owner must be somebody who works donors and leads.
+    ///
+    /// THE PICKER USED TO OFFER EVERY ACTIVE ACCOUNT, donor-portal logins included, and the server
+    /// accepted whatever id arrived - so a lead could be handed to a member of the public who could
+    /// never open it. If the directory cannot be read the check stands aside rather than blocking
+    /// all routing.
+    /// </summary>
+    private async Task<Error?> CheckOwnerAsync(Guid newOwnerUserId, CancellationToken cancellationToken)
+    {
+        var assignable = await people.GetAssignableAsync(currentUser.OrganisationId, cancellationToken);
+
+        return assignable.Count == 0 || assignable.Any(person => person.UserId == newOwnerUserId)
+            ? null
+            : Error.Validation(
+                "Choose somebody who works donors and leads. That person cannot be given this work.",
+                [new ValidationError("newOwnerUserId", "Choose an owner from the list.")]);
+    }
+
+    /// <summary>
+    /// Gives a donor an owner, or moves them to another - the role flow's "the Tenant Admin can
+    /// subsequently assign the donor to an owner through the Assignment Board".
+    ///
+    /// THE DONOR'S FOLLOW-UPS DO NOT MOVE WITH IT. The flow keeps the person who owns a
+    /// relationship and the person a follow-up is assigned to apart, so re-routing the donor
+    /// leaves every planned follow-up with whoever it was given to.
+    /// </summary>
+    private async Task<Result<LeadDetailResponse>> ApplyDonorAssignmentAsync(
+        AssignmentRequest request,
+        bool expectOwned,
+        CancellationToken cancellationToken)
+    {
+        var donor = await donorRepository.GetByIdAsync(request.LeadId, cancellationToken);
+
+        if (donor is null || donor.OrganisationId != currentUser.OrganisationId)
+        {
+            return Result.Failure<LeadDetailResponse>(Error.DonorNotFound());
+        }
+
+        if (request.ExpectedVersion is > 0 && request.ExpectedVersion != donor.Version)
+        {
+            return Result.Failure<LeadDetailResponse>(Error.Concurrency());
+        }
+
+        if (donor.Status is DonorStatus.Archived or DonorStatus.Merged)
+        {
+            return Result.Failure<LeadDetailResponse>(Error.InvalidTransition(
+                $"A donor in state {donor.Status} can no longer be routed."));
+        }
+
+        if (expectOwned && donor.RelationshipOwnerUserId is null)
+        {
+            return Result.Failure<LeadDetailResponse>(Error.InvalidTransition(
+                "This donor has no owner yet. Use Assign rather than Reassign."));
+        }
+
+        if (!expectOwned && donor.RelationshipOwnerUserId is not null)
+        {
+            return Result.Failure<LeadDetailResponse>(Error.InvalidTransition(
+                "This donor already has an owner. Use Reassign rather than Assign."));
+        }
+
+        if (donor.RelationshipOwnerUserId == request.NewOwnerUserId)
+        {
+            return Result.Failure<LeadDetailResponse>(Error.InvalidTransition("That person already owns this donor."));
+        }
+
+        var ownerError = await CheckOwnerAsync(request.NewOwnerUserId, cancellationToken);
+        if (ownerError is not null)
+        {
+            return Result.Failure<LeadDetailResponse>(ownerError);
+        }
+
+        ApplyDonorOwnerChange(donor, request.NewOwnerUserId, request.NewOwnerName, request.AssignmentReason,
+            request.EffectiveAtUtc ?? clock.UtcNow, isBulkRoute: false);
+
+        await auditWriter.WriteAsync(
+            new AuditEntry(expectOwned ? AuditActionCodes.DonorOwnerReassigned : AuditActionCodes.DonorOwnerAssigned,
+                nameof(Donor), donor.Id, AuditResult.Succeeded,
+                $"{donor.DonorNumber} given to {request.NewOwnerName.Trim()}. {request.AssignmentReason.Trim()}"),
+            cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // THE BOARD READS NOTHING FROM THIS BUT SUCCESS - it reloads. A lead-shaped body is
+        // returned only so the two kinds of assignment share one response type.
+        return Result.Success<LeadDetailResponse>(null!);
+    }
+
+    private async Task<Result<BulkRouteResultResponse>> BulkRouteDonorsAsync(
+        BulkRouteRequest request,
+        IReadOnlyList<Guid> requestedIds,
+        CancellationToken cancellationToken)
+    {
+        var donors = await donorRepository.GetByIdsAsync([.. requestedIds], cancellationToken);
+        var effective = request.EffectiveAtUtc ?? clock.UtcNow;
+        var items = new List<BulkRouteItemResponse>(requestedIds.Count);
+        var routed = 0;
+
+        foreach (var donorId in requestedIds)
+        {
+            var donor = donors.FirstOrDefault(candidate => candidate.Id == donorId);
+
+            if (donor is null || donor.OrganisationId != currentUser.OrganisationId)
+            {
+                items.Add(new BulkRouteItemResponse(donorId, null, false, "Not found inside your scope."));
+                continue;
+            }
+
+            if (donor.Status is DonorStatus.Archived or DonorStatus.Merged)
+            {
+                items.Add(new BulkRouteItemResponse(donorId, donor.DonorNumber, false, $"State {donor.Status} cannot be routed."));
+                continue;
+            }
+
+            if (donor.RelationshipOwnerUserId == request.NewOwnerUserId)
+            {
+                items.Add(new BulkRouteItemResponse(donorId, donor.DonorNumber, false, "Already owned by the selected person."));
+                continue;
+            }
+
+            ApplyDonorOwnerChange(donor, request.NewOwnerUserId, request.NewOwnerName, request.AssignmentReason, effective, isBulkRoute: true);
+            routed++;
+            items.Add(new BulkRouteItemResponse(donorId, donor.DonorNumber, true, "Routed."));
+        }
+
+        await auditWriter.WriteAsync(
+            new AuditEntry(AuditActionCodes.DonorOwnersBulkRouted, nameof(Donor), null, AuditResult.Succeeded,
+                $"{routed} of {requestedIds.Count} donor(s) routed to {request.NewOwnerName}. {request.AssignmentReason.Trim()}"),
+            cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var skipped = requestedIds.Count - routed;
+
+        return Result.Success(new BulkRouteResultResponse(
+            requestedIds.Count,
+            routed,
+            skipped,
+            items,
+            skipped == 0
+                ? $"All {routed} donor(s) were routed to {request.NewOwnerName}."
+                : $"{routed} donor(s) routed, {skipped} skipped. Review the per-record outcome below.",
+            skipped == 0 ? ScreenState.Success : ScreenState.Validation));
+    }
+
+    private void ApplyDonorOwnerChange(
+        Donor donor,
+        Guid newOwnerUserId,
+        string newOwnerName,
+        string reason,
+        DateTimeOffset effectiveAtUtc,
+        bool isBulkRoute)
+    {
+        donorRepository.AddOwnerChange(new DonorOwnerChange
+        {
+            OrganisationId = donor.OrganisationId,
+            DonorId = donor.Id,
+            PreviousOwnerUserId = donor.RelationshipOwnerUserId,
+            PreviousOwnerName = donor.RelationshipOwnerName,
+            NewOwnerUserId = newOwnerUserId,
+            NewOwnerName = newOwnerName.Trim(),
+            Reason = reason.Trim(),
+            EffectiveAtUtc = effectiveAtUtc,
+            AssignedByUserId = currentUser.UserId,
+            IsBulkRoute = isBulkRoute
+        });
+
+        donor.RelationshipOwnerUserId = newOwnerUserId;
+        donor.RelationshipOwnerName = newOwnerName.Trim();
     }
 
     /// <summary>

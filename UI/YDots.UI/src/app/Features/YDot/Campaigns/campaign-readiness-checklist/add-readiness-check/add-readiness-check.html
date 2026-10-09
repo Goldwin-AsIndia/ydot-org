@@ -29,7 +29,7 @@
           <label class="crcx-label" for="crcx-c-cat">Category <span class="crcx-req">*</span></label>
           <select id="crcx-c-cat" class="crcx-input crcx-select" [class.is-invalid]="submitted() && !cCategoryValid()" [ngModel]="cCategory()" (ngModelChange)="cCategory.set($event)">
             <option value="" disabled>Select a category…</option>
-            @for (o of categories; track o) { <option [value]="o">{{ o }}</option> }
+            @for (o of categories(); track o.value) { <option [value]="o.value">{{ o.label }}</option> }
           </select>
           @if (submitted() && !cCategoryValid()) { <span class="crcx-error">Select a category.</span> }
         </div>

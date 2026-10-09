@@ -112,9 +112,11 @@
                     (click)="viewMode.set('cards')"><i class="ri-layout-grid-line" aria-hidden="true"></i></button>
                 </div>
 
-                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportAssignmentBoard()" title="Export assignment board">
+                @if (canExport) {
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportAssignmentBoard()" title="Export the rows on this page">
                   <i class="ri-download-2-line" aria-hidden="true"></i> <span>Export</span>
                 </button>
+                }
               </div>
             </header>
 
@@ -149,8 +151,8 @@
               }
 
               @if (paginatedRows().length) {
-              <p class="ab-tally" aria-label="On this page">
-                <span class="ab-tally-cap">This page</span>
+              <p class="ab-tally" aria-label="On the whole board">
+                <span class="ab-tally-cap">On the board</span>
                 <span><span class="ab-dot" data-ink="warn" aria-hidden="true"></span><b class="ab-num">{{ unassignedCount() }}</b> unassigned</span>
                 <span><span class="ab-dot" data-ink="ok" aria-hidden="true"></span><b class="ab-num">{{ assignedCount() }}</b> assigned</span>
                 <span><span class="ab-dot" data-ink="danger" aria-hidden="true"></span><b class="ab-num">{{ dueTodayCount() }}</b> due today</span>
@@ -165,7 +167,7 @@
                 <span class="ab-field-label">Owner</span>
                 <ng-container *ngTemplateOutlet="abDd; context: { id: 'owner', opts: ownerFilterOptions(), value: ownerFilter(), placeholder: 'All owners', aria: 'Owner', sm: true }" />
               </div>
-              @for (field of filterFields; track field.key) {
+              @for (field of activeFilterFields(); track field.key) {
               <div class="ab-field">
                 <span class="ab-field-label" [id]="'ab-filter-l-' + field.key">{{ field.label }}</span>
                 <ng-container *ngTemplateOutlet="abDd; context: { id: 'f:' + field.key, opts: filterOptions(field.key), value: filterValue(field.key), placeholder: field.label, aria: field.label, sm: true }" />

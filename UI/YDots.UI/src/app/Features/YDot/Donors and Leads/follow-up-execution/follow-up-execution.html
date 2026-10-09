@@ -40,20 +40,20 @@
           <div class="xr-brief-top">
             <span class="xr-mono" aria-hidden="true">{{ initials(data.lead.fullName) }}</span>
             <div class="xr-brief-who">
-              <p class="xr-eyebrow">{{ donorId() ? 'Donor' : 'Lead' }}<span class="xr-sep" aria-hidden="true"></span><span class="xr-num">{{ data.lead.leadId || leadId() }}</span></p>
+              <p class="xr-eyebrow">{{ data.lead.isDonor ? 'Donor' : 'Lead' }}<span class="xr-sep" aria-hidden="true"></span><span class="xr-num">{{ data.lead.reference }}</span><span class="xr-sep" aria-hidden="true"></span><span class="xr-num">{{ data.followUp.reference }}</span></p>
               <h2 id="xr-brief-name">{{ data.lead.fullName || 'Name unavailable' }}</h2>
               <p class="xr-brief-line">
                 <span><i [class]="glyphFor(data.followUp.type)" aria-hidden="true"></i>{{ data.followUp.type }}</span>
                 <span><i class="ri-calendar-line" aria-hidden="true"></i><span class="xr-num">{{ data.followUp.scheduledDate || 'Not scheduled' }} {{ data.followUp.scheduledTime }}</span></span>
                 <span><i class="ri-user-line" aria-hidden="true"></i>{{ data.followUp.assignedUser || 'Unassigned' }}</span>
-                @if (data.followUp.priority) { <span class="xr-prio" [attr.data-priority]="data.followUp.priority"><span class="xr-dot" aria-hidden="true"></span>{{ data.followUp.priority }} priority</span> }
+                @if (data.followUp.priority) { <span class="xr-prio" [attr.data-priority]="priorityKey(data.followUp.priority)"><span class="xr-dot" aria-hidden="true"></span>{{ data.followUp.priority }} priority</span> }
               </p>
             </div>
             <dl class="xr-figs">
               <div><dt>Open</dt><dd>{{ data.lead.followUpStats.open }}</dd></div>
               <div><dt>Completed</dt><dd>{{ data.lead.followUpStats.completed }}</dd></div>
               <div [class.is-alert]="data.lead.followUpStats.overdue > 0"><dt>Overdue</dt><dd>{{ data.lead.followUpStats.overdue }}</dd></div>
-              <div><dt>Readiness</dt><dd>{{ readinessScore() }}<small>/100</small></dd></div>
+              @if (!data.lead.isDonor) { <div><dt>Readiness</dt><dd>{{ readinessScore() }}<small>/100</small></dd></div> }
             </dl>
           </div>
           <div class="xr-brief-notes">
@@ -74,6 +74,9 @@
         @if (successMessage()) {
           <div class="xr-notice" role="status"><i class="ri-checkbox-circle-line" aria-hidden="true"></i><span>{{ successMessage() }}</span></div>
         }
+        @if (viewOnlyReason()) {
+          <div class="xr-notice" role="status"><i class="ri-eye-line" aria-hidden="true"></i><span>{{ viewOnlyReason() }}</span></div>
+        }
 
         <div class="xr-work">
           <!-- ===================================== REPORT ===================================== -->
@@ -87,11 +90,11 @@
               <!-- 01 contact -->
               <div class="xr-sec">
                 <div class="xr-sec-head"><span class="xr-no">01</span><h3>The contact</h3><p>How and when you actually reached them.</p></div>
-                <span class="xr-label" id="xr-channel-l">Follow-up type <span class="xr-req">*</span></span>
+                <span class="xr-label" id="xr-channel-l">How the contact was made <span class="xr-req">*</span></span>
                 <div class="xr-tiles" role="radiogroup" aria-labelledby="xr-channel-l">
-                  @for (opt of followUpTypeOptions; track opt) {
-                    <button type="button" role="radio" class="xr-tile" [class.is-on]="executionChannel.value === opt" [attr.aria-checked]="executionChannel.value === opt" (click)="pick(executionChannel, opt)">
-                      <i [class]="glyphFor(opt)" aria-hidden="true"></i><span>{{ opt }}</span>
+                  @for (opt of followUpTypeOptions(); track opt.value) {
+                    <button type="button" role="radio" class="xr-tile" [class.is-on]="executionChannel.value === opt.value" [attr.aria-checked]="executionChannel.value === opt.value" [disabled]="!canExecute()" (click)="pick(executionChannel, opt.value)">
+                      <i [class]="glyphFor(opt.value)" aria-hidden="true"></i><span>{{ opt.label }}</span>
                     </button>
                   }
                 </div>
@@ -118,14 +121,14 @@
                     <label class="xr-label" for="executionStatus">Execution status <span class="xr-req">*</span></label>
                     <select id="executionStatus" formControlName="executionStatus" class="xr-input xr-select" required>
                       <option [ngValue]="null" disabled>Select status</option>
-                      @for (opt of executionStatusOptions; track opt) { <option [value]="opt">{{ opt }}</option> }
+                      @for (opt of executionStatusOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
                     </select>
                   </div>
                   <div class="xr-field">
                     <label class="xr-label" for="completionReason">Completion reason <span class="xr-req">*</span></label>
                     <select id="completionReason" formControlName="completionReason" class="xr-input xr-select" required>
                       <option [ngValue]="null" disabled>Select reason</option>
-                      @for (opt of completionReasonOptions; track opt) { <option [value]="opt">{{ opt }}</option> }
+                      @for (opt of completionReasonOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
                     </select>
                   </div>
                   <div class="xr-field">
@@ -133,7 +136,7 @@
                     <select id="outcome" formControlName="outcome" class="xr-input xr-select" required
                             [class.is-invalid]="executionForm.controls.outcome.invalid && executionForm.controls.outcome.touched">
                       <option [ngValue]="null" disabled>Select outcome</option>
-                      @for (opt of outcomeOptions; track opt) { <option [value]="opt">{{ opt }}</option> }
+                      @for (opt of outcomeOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
                     </select>
                   </div>
                 </div>
@@ -149,7 +152,7 @@
                   <div class="xr-field">
                     <span class="xr-label" id="engagement-level-label">Engagement level <span class="xr-req">*</span></span>
                     <div class="xr-scale" role="radiogroup" aria-labelledby="engagement-level-label">
-                      @for (opt of engagementLevelOptions; track opt; let i = $index) {
+                      @for (opt of engagementLevelOptions(); track opt; let i = $index) {
                         <label class="xr-scale-opt" [class.is-on]="executionForm.controls.engagementLevel.value === opt" [attr.data-step]="i">
                           <input type="radio" name="engagementLevel" formControlName="engagementLevel" [value]="opt" />
                           <span class="xr-scale-bars" aria-hidden="true">@for (b of [0, 1, 2]; track b) { <span [class.is-on]="b <= i"></span> }</span>
@@ -161,9 +164,9 @@
                   <div class="xr-field">
                     <span class="xr-label" id="quality-l">Communication quality <span class="xr-req">*</span></span>
                     <div class="xr-scale" role="radiogroup" aria-labelledby="quality-l">
-                      @for (opt of communicationQualityOptions; track opt) {
+                      @for (opt of communicationQualityOptions(); track opt) {
                         <button type="button" role="radio" class="xr-scale-opt" [class.is-on]="executionForm.controls.communicationQuality.value === opt"
-                                [attr.aria-checked]="executionForm.controls.communicationQuality.value === opt" (click)="pick(executionForm.controls.communicationQuality, opt)">{{ opt }}</button>
+                                [attr.aria-checked]="executionForm.controls.communicationQuality.value === opt" [disabled]="!canExecute()" (click)="pick(executionForm.controls.communicationQuality, opt)">{{ opt }}</button>
                       }
                     </div>
                   </div>
@@ -183,7 +186,7 @@
                     @if (executionForm.controls.completionNotes.invalid && executionForm.controls.completionNotes.touched) {
                       <p class="xr-error">Execution notes are required (at least 20 characters).</p>
                     } @else { <span class="xr-hint">At least 20 characters.</span> }
-                    <span id="completionNotes-count" class="xr-count xr-num" [class.is-ok]="executionForm.controls.completionNotes.value.length >= 20">{{ executionForm.controls.completionNotes.value.length }}/3000</span>
+                    <span id="completionNotes-count" class="xr-count xr-num" [class.is-ok]="executionForm.controls.completionNotes.value.length >= 20">{{ executionForm.controls.completionNotes.value.length }}/2000</span>
                   </div>
                 </div>
                 <div class="xr-field">
@@ -197,28 +200,28 @@
             <div class="xr-sec">
               <div class="xr-sec-head"><span class="xr-no">04</span><h3>Relationship update</h3><p>Move the record on if the conversation changed where it stands.</p></div>
               <div class="xr-grid-3">
+                @if (canScore()) {
                 <div class="xr-field">
                   <span class="xr-label">Temperature <span class="xr-now" [attr.data-temp]="data.lead.currentTemperature">now {{ data.lead.currentTemperature }}</span></span>
                   <select [formControl]="temperatureForm.controls.newTemperature" class="xr-input xr-select" aria-label="New temperature">
-                    @for (opt of temperatureOptions; track opt) { <option [value]="opt">{{ opt }}</option> }
+                    @for (opt of temperatureOptions(); track opt) { <option [value]="opt">{{ opt }}</option> }
                   </select>
                   @if (temperatureChanged()) {
-                    <input type="text" class="xr-input" [formControl]="temperatureForm.controls.reasonForChange" placeholder="Reason for the change" required
+                    <input type="text" class="xr-input" [formControl]="temperatureForm.controls.reasonForChange" placeholder="Reason for the change (10 characters or more)" required
                            [class.is-invalid]="temperatureForm.controls.reasonForChange.invalid" aria-label="Reason for the temperature change" />
                   }
                 </div>
+                }
                 <div class="xr-field">
-                  <span class="xr-label">Stage <span class="xr-now">now {{ data.lead.currentStage }}</span></span>
-                  <select [formControl]="stageForm.controls.newStage" class="xr-input xr-select" aria-label="New stage">
-                    @for (opt of stageOptions; track opt) { <option [value]="opt">{{ opt }}</option> }
-                  </select>
-                  @if (stageTransitionBlocked()) { <p class="xr-error">Record an engagement level before moving to Qualified.</p> }
+                  <span class="xr-label">{{ data.lead.isDonor ? 'Status' : 'Stage' }} <span class="xr-now">now</span></span>
+                  <input type="text" class="xr-input" [value]="data.lead.currentStage || '—'" disabled aria-label="Current stage" />
+                  @if (!data.lead.isDonor) { <span class="xr-hint">Recording this contact moves a new or assigned lead on to Contacted.</span> }
                 </div>
                 <div class="xr-field">
                   <label class="xr-label" for="disposition">Disposition <span class="xr-req">*</span> <span class="xr-now">outcome of this record</span></label>
                   <select id="disposition" [formControl]="dispositionForm.controls.disposition" class="xr-input xr-select" required>
                     <option [ngValue]="null" disabled>Select disposition</option>
-                    @for (opt of dispositionOptions; track opt) { <option [value]="opt">{{ opt }}</option> }
+                    @for (opt of dispositionOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
                   </select>
                 </div>
               </div>
@@ -239,27 +242,27 @@
                   <b>{{ readinessScore() }}</b>
                 </span>
                 <div>
-                  <h2 id="readiness-heading" class="xr-ready-status" [attr.data-q]="qualTone(qualificationStatus())">{{ qualificationStatus() }}</h2>
+                  <h2 id="readiness-heading" class="xr-ready-status" [attr.data-q]="qualTone(qualificationStatus())">{{ data.lead.isDonor ? 'Donor' : qualificationStatus() }}</h2>
                   @if (riskIndicator(); as risk) {
                     <p class="xr-risk" [attr.data-risk]="riskTone(risk.level)"><span class="xr-dot" aria-hidden="true"></span>{{ risk.level }}</p>
                     <p class="xr-muted">{{ risk.reason }}</p>
                   }
                 </div>
               </div>
-              @if (!donorId() && qualificationChecks().length) {
+              @if (!data.lead.isDonor && qualificationChecks().length) {
                 <ul class="xr-checks">
                   @for (check of qualificationChecks(); track check.label) {
                     <li [class.is-done]="check.complete"><i [class]="check.complete ? 'ri-checkbox-circle-line' : 'ri-checkbox-blank-circle-line'" aria-hidden="true"></i>{{ check.label }}</li>
                   }
                 </ul>
               }
-              @if (!donorId() && qualificationStatus() === 'Ready') {
+              @if (canScore() && qualificationStatus() === 'Ready') {
                 <button type="button" class="xr-btn xr-btn--wide" (click)="startQualification()" [disabled]="saving()"><i class="ri-medal-line" aria-hidden="true"></i> Start qualification</button>
               }
               <nav class="xr-links" aria-label="Shortcuts">
-                <button type="button" (click)="openLead()" [disabled]="saving()"><i class="ri-user-search-line" aria-hidden="true"></i> {{ donorId() ? 'Open donor' : 'Open lead' }}<i class="ri-arrow-right-up-line" aria-hidden="true"></i></button>
+                @if (data.lead.isDonor) { <button type="button" (click)="openLead()" [disabled]="saving()"><i class="ri-user-search-line" aria-hidden="true"></i> Open Donor 360<i class="ri-arrow-right-up-line" aria-hidden="true"></i></button> }
                 <button type="button" (click)="openCommunicationTimeline()" [disabled]="saving()"><i class="ri-history-line" aria-hidden="true"></i> Communication timeline<i class="ri-arrow-right-up-line" aria-hidden="true"></i></button>
-                <button type="button" class="is-warn" (click)="openEscalationModal()" [disabled]="saving()"><i class="ri-alarm-warning-line" aria-hidden="true"></i> {{ donorId() ? 'Escalate donor' : 'Escalate lead' }}<i class="ri-arrow-right-up-line" aria-hidden="true"></i></button>
+                @if (canEscalate()) { <button type="button" class="is-warn" (click)="openEscalationModal()" [disabled]="saving()"><i class="ri-alarm-warning-line" aria-hidden="true"></i> Escalate this follow-up<i class="ri-arrow-right-up-line" aria-hidden="true"></i></button> }
               </nav>
             </section>
 
@@ -281,14 +284,14 @@
                     <label class="xr-label" for="nfuType">Type <span class="xr-req">*</span></label>
                     <select id="nfuType" formControlName="type" class="xr-input xr-select">
                       <option [ngValue]="null" disabled>Select type</option>
-                      @for (opt of followUpTypeOptions; track opt) { <option [value]="opt">{{ opt }}</option> }
+                      @for (opt of nextChannelOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
                     </select>
                   </div>
                   <div class="xr-field">
                     <label class="xr-label" for="nfuPriority">Priority <span class="xr-req">*</span></label>
                     <select id="nfuPriority" formControlName="priority" class="xr-input xr-select">
                       <option [ngValue]="null" disabled>Select priority</option>
-                      @for (opt of priorityOptions; track opt) { <option [value]="opt">{{ opt }}</option> }
+                      @for (opt of priorityOptions(); track opt) { <option [value]="opt">{{ opt }}</option> }
                     </select>
                   </div>
                   <div class="xr-field">
@@ -315,6 +318,15 @@
                     <label class="xr-label" for="nfuPurpose">Instructions <span class="xr-req">*</span></label>
                     <textarea id="nfuPurpose" formControlName="purpose" class="xr-input xr-textarea xr-textarea--sm" rows="2" maxlength="500"></textarea>
                   </div>
+                  @if (nextConsentCaution()) {
+                    <div class="xr-field xr-span-2">
+                      <p class="xr-error">{{ nextConsentCaution() }}</p>
+                      <label class="xr-hint">
+                        <input type="checkbox" [checked]="nextConsentAcknowledged()" (change)="nextConsentAcknowledged.set($any($event.target).checked)" />
+                        I have read this and will confirm permission before making contact.
+                      </label>
+                    </div>
+                  }
                 </div>
               } @else {
                 <p class="xr-muted xr-next-off">No further contact will be planned. Choose Yes to schedule one as you save.</p>
@@ -346,13 +358,13 @@
                   }
                 </ul>
               } @else {
-                <p class="xr-muted">PDF, DOCX, PNG or JPG, up to 10 MB. Nothing attached yet.</p>
+                <p class="xr-muted">PDF, DOCX, PNG or JPG, up to 10 MB. The file's name is recorded with the conversation.</p>
               }
             </section>
 
             <!-- history -->
             <section class="xr-sheet xr-history" aria-labelledby="history-heading">
-              <p class="xr-eyebrow"><i class="ri-history-line" aria-hidden="true"></i>Earlier executions</p>
+              <p class="xr-eyebrow"><i class="ri-history-line" aria-hidden="true"></i>Earlier conversations</p>
               <h2 id="history-heading" class="visually-hidden">Execution history</h2>
               @if (executionHistory().length) {
                 <ol class="xr-timeline">
@@ -362,18 +374,18 @@
                         <span class="xr-tl-node" aria-hidden="true"><i [class]="glyphFor(entry.type)"></i></span>
                         <span class="xr-tl-t">
                           <span class="xr-tl-outcome">{{ entry.outcome }}</span>
-                          <span class="xr-tl-meta"><span class="xr-num">{{ entry.date }}</span> · {{ entry.type }}</span>
+                          <span class="xr-tl-meta"><span class="xr-num">{{ entry.date }}</span> · {{ entry.typeLabel }}</span>
                         </span>
                         <i class="ri-arrow-down-s-line xr-tl-chev" aria-hidden="true"></i>
                       </button>
                       @if (expandedHistoryId() === entry.id) {
-                        <p class="xr-tl-detail">{{ entry.detail || ('Recorded as ' + entry.type + ' with outcome "' + entry.outcome + '".') }}</p>
+                        <p class="xr-tl-detail">{{ entry.detail || ('Recorded as ' + entry.typeLabel + ' with outcome "' + entry.outcome + '".') }}</p>
                       }
                     </li>
                   }
                 </ol>
               } @else {
-                <p class="xr-muted xr-history-none">This is the first recorded execution for this follow-up.</p>
+                <p class="xr-muted xr-history-none">Nothing has been recorded on this person's timeline yet.</p>
               }
             </section>
           </div>
@@ -382,13 +394,14 @@
         <!-- ===================================== ACTION BAR ===================================== -->
         <div class="xr-bar">
           <button type="button" class="xr-link" [disabled]="saving()" (click)="backToQueue()"><i class="ri-arrow-left-line" aria-hidden="true"></i> Back</button>
-          <span class="xr-bar-note"><i class="ri-information-line" aria-hidden="true"></i>{{ nextFollowUpEnabled() ? 'Saving also schedules the next follow-up.' : 'Saving completes this follow-up.' }}</span>
+          <span class="xr-bar-note"><i class="ri-information-line" aria-hidden="true"></i>{{ !canExecute() ? viewOnlyReason() : nextFollowUpEnabled() ? 'Completing also schedules the next follow-up.' : 'Completing records the conversation on the timeline.' }}</span>
           <button type="button" class="xr-btn" (click)="cancel()" [disabled]="saving()">Cancel</button>
-          <button type="button" class="xr-btn" [disabled]="saving()" (click)="saveDraft()"><i class="ri-save-3-line" aria-hidden="true"></i> @if (saving()) { Saving… } @else { Save }</button>
-          @if (nextFollowUpEnabled()) {
-            <button type="button" class="xr-btn xr-btn--primary" [disabled]="saving()" (click)="completeAndCreateFollowUp()"><i class="ri-calendar-check-line" aria-hidden="true"></i> Save</button>
-          } @else {
-            <button type="button" class="xr-btn xr-btn--primary" [disabled]="saving()" (click)="completeFollowUp()"><i class="ri-check-double-line" aria-hidden="true"></i> @if (saving()) { Completing… } @else { Save }</button>
+          @if (canExecute()) {
+            @if (nextFollowUpEnabled()) {
+              <button type="button" class="xr-btn xr-btn--primary" [disabled]="saving()" (click)="completeAndCreateFollowUp()"><i class="ri-calendar-check-line" aria-hidden="true"></i> @if (saving()) { Completing… } @else { Complete and schedule next }</button>
+            } @else {
+              <button type="button" class="xr-btn xr-btn--primary" [disabled]="saving()" (click)="completeFollowUp()"><i class="ri-check-double-line" aria-hidden="true"></i> @if (saving()) { Completing… } @else { Complete follow-up }</button>
+            }
           }
         </div>
       }
@@ -402,8 +415,8 @@
         <span class="xr-ring-g xr-ring-g--warn" aria-hidden="true"><i class="ri-alarm-warning-line"></i></span>
         <div>
           <p class="xr-eyebrow">Escalation</p>
-          <h2 id="escalation-title">Hand this {{ donorId() ? 'donor' : 'lead' }} up the line</h2>
-          <p class="xr-muted">The person you choose is notified and takes ownership of the next step.</p>
+          <h2 id="escalation-title">Hand this follow-up up the line</h2>
+          <p class="xr-muted">It is marked escalated and assigned to the person you choose. The reason is kept in its history.</p>
         </div>
         <button type="button" class="xr-round" aria-label="Close escalation" title="Close" (click)="closeEscalationModal()" [disabled]="saving()"><i class="ri-close-line" aria-hidden="true"></i></button>
       </header>

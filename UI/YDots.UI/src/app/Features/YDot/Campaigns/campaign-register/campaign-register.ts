@@ -11,6 +11,7 @@ import { PeopleDirectoryService } from '../../../../Shared/services/people-direc
 import { CampaignApiService } from '../../../../Service/campaign-api.service';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
+import { nowLabel, viewerTimeZone } from '../../../../Shared/services/clock';
 /**
  * The sentinel that means "do not filter by owner".
  *
@@ -66,10 +67,17 @@ export class CampaignRegisterComponent {
 
   // ================= Task header =================
   protected readonly pageTitle = 'Campaign Register';
-  protected readonly operatingTimeZone = 'Asia/Kolkata · IST (UTC+05:30)';
+  /** The viewer's own time zone - the one the date filters are interpreted in. */
+  protected readonly operatingTimeZone = viewerTimeZone();
 
-  /** Last refresh — server-derived, read-only freshness evidence. */
-  protected readonly lastRefresh = signal('Today, 09:30 AM · IST');
+  /**
+   * The moment an action is being confirmed - the "Effective time" its dialog shows.
+   *
+   * IT WAS THE LITERAL 'Today, 09:30 AM · IST', on every dialog, at every hour.
+   */
+  protected lastRefresh(): string {
+    return nowLabel();
+  }
 
   /**
    * Effective permissions decided server-side; the client mirrors the same decision
@@ -640,7 +648,7 @@ export class CampaignRegisterComponent {
     return (
       this.user.hasPermission('cam.campaigns.approve') &&
       record.status === 'Submitted' &&
-      record.createdByRef !== this.user.reference()
+      (record.createdByRef !== this.user.reference() || this.user.isOrganisationAdmin())
     );
   }
 
@@ -689,8 +697,12 @@ export class CampaignRegisterComponent {
     purpose: 'Campaign register export — all campaigns',
     scope: `All campaigns in register · ${this.store.all().length} rows`,
     rowFileCount: `${this.store.all().length} rows · 1 file (CSV)`,
-    expiry: 'Link expires in 24 hours',
-    auditReference: 'AUD-EXP-2025-0518',
+    // WHAT ACTUALLY HAPPENS, rather than the two literals that stood here: "Link expires in 24
+    // hours" described a link this export never produces - the file downloads directly - and
+    // "AUD-EXP-2025-0518" was a reference to no record. The server writes the real audit row,
+    // with the reason below, when it builds the file.
+    expiry: 'No link is created — the file downloads once, to this device',
+    auditReference: 'Recorded in the campaign audit trail, with your reason, when the file is produced',
   }));
   protected readonly exportReasonValid = computed(() => {
     const len = this.exportReason().trim().length;
@@ -735,10 +747,10 @@ export class CampaignRegisterComponent {
 
     // EVERY campaign in the register, not just the filtered view (per requirement), so no filter
     // is sent.
-    this.campaignApi.exportCampaigns().subscribe({
+    this.campaignApi.exportCampaigns({}, this.exportReason().trim()).subscribe({
       next: ({ blob, fileName }) => {
         this.saveFile(blob, fileName);
-        this.lastActionReference.set(this.exportConfirmation().auditReference);
+        this.lastActionReference.set(fileName);
         this.toast.show('Export ready', `Campaign register exported · ${fileName}.`, 'success');
         this.uiState.set('ready');
       },

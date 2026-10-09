@@ -110,6 +110,21 @@ public static class LeadHealth
     /// PHRASED AS OBSERVATIONS, not as arithmetic. "Recent activity" is something a fundraiser can
     /// act on; "+20 recency" is a number explaining a number.
     /// </summary>
+    /// <summary>
+    /// Healthy, Needs attention or At risk - the score as a word.
+    ///
+    /// DEFINED HERE, ONCE. Each screen used to draw its own line through the score - the queue
+    /// called 80 healthy, My Leads 70 - and the timeline ignored the score altogether and worked a
+    /// second one out for itself from whichever conversations the browser had loaded.
+    /// </summary>
+    public static string Band(int score) =>
+        score switch
+        {
+            >= 70 => "Healthy",
+            >= 40 => "Needs attention",
+            _ => "At risk"
+        };
+
     public static IReadOnlyList<string> Explain(Lead lead, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(lead);

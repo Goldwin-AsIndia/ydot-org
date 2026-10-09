@@ -41,6 +41,10 @@ public sealed class LeadConfiguration : IEntityTypeConfiguration<Lead>
         builder.Property(lead => lead.PreferredLanguage).HasMaxLength(20).IsRequired();
         builder.Property(lead => lead.City).HasMaxLength(150);
         builder.Property(lead => lead.GeographyCode).HasMaxLength(60);
+        builder.Property(lead => lead.DisplayName).HasMaxLength(150);
+        builder.Property(lead => lead.AlternateMobileNumbers).HasMaxLength(200);
+        builder.Property(lead => lead.Country).HasMaxLength(100);
+        builder.Property(lead => lead.AddressLine).HasMaxLength(250);
         builder.Property(lead => lead.Source).HasMaxLength(200).IsRequired();
         builder.Property(lead => lead.ConsentState).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(lead => lead.ConsentEvidenceReference).HasMaxLength(300);
@@ -88,6 +92,29 @@ public sealed class LeadConfiguration : IEntityTypeConfiguration<Lead>
 }
 
 /// <summary>Table don_lead_assignments.</summary>
+/// <summary>The donor twin of the lead assignment trail. See DonorOwnerChange.</summary>
+public sealed class DonorOwnerChangeConfiguration : IEntityTypeConfiguration<DonorOwnerChange>
+{
+    public void Configure(EntityTypeBuilder<DonorOwnerChange> builder)
+    {
+        builder.ToTable("don_donor_owner_changes");
+        builder.HasKey(change => change.Id);
+        builder.Property(change => change.Version).IsConcurrencyToken();
+
+        builder.Property(change => change.PreviousOwnerName).HasMaxLength(200);
+        builder.Property(change => change.NewOwnerName).HasMaxLength(200).IsRequired();
+        builder.Property(change => change.Reason).HasMaxLength(2000).IsRequired();
+
+        builder.HasIndex(change => new { change.DonorId, change.EffectiveAtUtc })
+            .HasDatabaseName("ix_don_donor_owner_changes_donor_effective");
+
+        builder.HasOne(change => change.Donor)
+            .WithMany()
+            .HasForeignKey(change => change.DonorId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public sealed class LeadAssignmentConfiguration : IEntityTypeConfiguration<LeadAssignment>
 {
     public void Configure(EntityTypeBuilder<LeadAssignment> builder)

@@ -8,6 +8,7 @@ import {
 } from "../../../../Shared/models/donors-leads.model";
 import { DonorApiService } from "../../../../Service/donor-api.service";
 import { ToastService } from "../../../../Shared/services/toast.service";
+import { AuthTokenService } from "../../../../Shared/services/auth-token.service";
 import { apiErrorMessage } from "../../../../Shared/models/api-response.model";
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 import {
@@ -56,10 +57,16 @@ interface LeadRow {
   readonly suggestedOwner: string;
   readonly suggestedOwnerUserId: string | null;
   readonly suggestionRationale: string;
-  readonly openWorkCount: number;
+    readonly openWorkCount: number;
   readonly nextActionDue: string;
   readonly status: string;
   readonly version: number;
+
+  /**
+   * A donor's row rather than a lead's. The board routes both, and the row is the same shape:
+   * for a donor, `leadId`, `leadReference` and `leadPreview` carry the donor's id, number and name.
+   */
+  readonly isDonor: boolean;
 }
 
 type AssignMode = "assign" | "reassign" | "bulkRoute";
@@ -132,8 +139,12 @@ interface AssignResult {
 export class AssignmentBoardComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  private readonly api = inject(DonorApiService);
+    private readonly api = inject(DonorApiService);
   private readonly toast = inject(ToastService);
+  private readonly tokens = inject(AuthTokenService);
+
+  /** Taking a copy of the board is an export like any other, and needs the same permission. */
+  protected readonly canExport = this.tokens.hasPermission("don.donors.export");
 
   protected readonly timezoneLabel = "Asia/Kolkata (IST)";
 
@@ -496,13 +507,35 @@ export class AssignmentBoardComponent {
   private pendingLeadId: string | null = null;
   private pendingLeadIds: string[] = [];
 
+    /**
+   * The leads this visit was opened for, from the Lead Work Queue's Assign or its bulk selection.
+   *
+   * THEY ARE ASKED FOR BY ID, so they are on the page whatever page they would otherwise fall on.
+   * The board used to look for them among the ten rows of its first page: a lead further down the
+   * queue was simply not found, and Assign from the queue opened the board on nothing.
+   */
+  protected readonly pinnedLeadIds = signal<readonly string[]>([]);
+
   constructor() {
     const params = this.route.snapshot.queryParamMap;
-    this.pendingLeadId = params.get("leadId");
-    this.pendingLeadIds = (params.get("leadIds") ?? "")
-      .split(",")
-      .map((v) => v.trim())
-      .filter(Boolean);
+
+    // The Donors view: from the Donor List's "Assign owner", which names the donor and searches
+    // for their number so the row is on the page.
+    if ((params.get("recordType") ?? "").toLowerCase().startsWith("donor")) {
+      this.recordType.set("donors");
+      this.pendingLeadId = params.get("donorId");
+      this.searchTerm.set(params.get("search") ?? "");
+    } else {
+      this.pendingLeadId = params.get("leadId");
+      this.pendingLeadIds = (params.get("leadIds") ?? "")
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
+
+      this.pinnedLeadIds.set(
+        this.pendingLeadId ? [this.pendingLeadId] : this.pendingLeadIds,
+      );
+    }
 
     this.load();
   }
@@ -512,21 +545,11 @@ export class AssignmentBoardComponent {
   // ===========================================================================================
 
   private load(): void {
-    const sequence = ++this.loadSequence;
-    if (this.recordType() === "donors") {
-      this.rows.set([]);
-      this.totalCountFromServer.set(0);
-      this.permissions.set({
-        view: false,
-        assign: false,
-        reassign: false,
-        bulkRoute: false,
-      });
-      this.previewRow.set(null);
-      this.errorMessage.set("");
-      this.uiState.set("empty");
-      return;
-    }
+        const sequence = ++this.loadSequence;
+
+    // THE DONORS VIEW IS REAL NOW. It was a switch that cleared the board and reported "empty",
+    // whatever donors the organisation had - so a donor who gave without ever being a lead, and
+    // therefore arrived with no owner, had no screen on which to be given one.
     this.uiState.set("loading");
     this.errorMessage.set("");
 
@@ -548,10 +571,25 @@ export class AssignmentBoardComponent {
   }
 
   private buildFilter(): Record<string, unknown> {
-    const filter: Record<string, unknown> = {
+        const filter: Record<string, unknown> = {
       page: this.currentPage(),
       pageSize: this.pageSize(),
     };
+
+    if (this.recordType() === "donors") {
+      // Donors are routed by ownership and found by search; a donor has no team or lead SLA.
+      filter["recordType"] = "Donors";
+      if (this.savedFilter() === "Unassigned only") filter["assignmentState"] = "Unassigned";
+      if (this.savedFilter() === "Assigned only") filter["assignmentState"] = "Assigned";
+      if (this.searchTerm().trim()) filter["search"] = this.searchTerm().trim();
+      if (this.ownerFilter()) filter["ownerUserId"] = this.ownerFilter();
+      return filter;
+    }
+
+    if (this.pinnedLeadIds().length > 0) {
+      filter["leadIds"] = this.pinnedLeadIds().join(",");
+    }
+
 
     // THE ID, NOT THE LABEL. The dropdowns show names; the API filters on the lookup value that
     // came with each name, so nothing here has to match one string against another.
@@ -590,12 +628,15 @@ export class AssignmentBoardComponent {
   }
 
   private applyResponse(response: AssignmentBoardResponse): void {
-    this.rows.set(
-      response.rows.items
-        .slice(0, 10)
-        .map((row) => this.toRow(row, response.owners)),
-    );
+        // EVERY ROW OF THE PAGE. This kept the first ten whatever page size had been chosen, so
+    // "50 per page" showed ten rows under a count of fifty.
+    this.rows.set(response.rows.items.map((row) => this.toRow(row, response.owners)));
     this.totalCountFromServer.set(response.rows.totalCount);
+    this.stripCounts.set({
+      unassigned: response.unassignedCount ?? 0,
+      assigned: response.assignedCount ?? 0,
+      dueToday: response.dueTodayCount ?? 0,
+    });
     this.owners.set(response.owners);
     if (!this.ownerFilter() || response.owners.length >= this.rosterOwners().length) {
       this.rosterOwners.set(response.owners);
@@ -677,9 +718,10 @@ export class AssignmentBoardComponent {
       suggestedOwnerUserId: row.suggestedOwnerUserId,
       suggestionRationale: row.suggestionRationale ?? "",
       openWorkCount: row.currentOwnerOpenWorkCount,
-      nextActionDue: this.formatDateTime(row.nextActionDueUtc),
+            nextActionDue: this.formatDateTime(row.nextActionDueUtc),
       status: row.status,
       version: row.version,
+      isDonor: row.recordType === "Donor",
     };
   }
 
@@ -690,21 +732,22 @@ export class AssignmentBoardComponent {
   protected readonly viewMode = signal<"cards" | "table">("table");
 
   protected readonly totalCount = computed(() => this.totalCountFromServer());
-  protected readonly unassignedCount = computed(
-    () => this.rows().filter((r) => !r.currentOwnerUserId).length,
-  );
-  protected readonly assignedCount = computed(
-    () => this.rows().filter((r) => !!r.currentOwnerUserId).length,
-  );
-  protected readonly dueTodayCount = computed(
-    () =>
-      this.rows().filter(
-        (r) => r.slaState.toLowerCase().replace(/\s/g, "") === "duetoday",
-      ).length,
-  );
+    /**
+   * The strip above the board: everything the board routes, counted by the server.
+   *
+   * THESE WERE COUNTS OF THE ROWS ON SCREEN, so they changed with the page and never said how
+   * much of the board still needed an owner.
+   */
+  private readonly stripCounts = signal({ unassigned: 0, assigned: 0, dueToday: 0 });
+  protected readonly unassignedCount = computed(() => this.stripCounts().unassigned);
+  protected readonly assignedCount = computed(() => this.stripCounts().assigned);
+  protected readonly dueTodayCount = computed(() => this.stripCounts().dueToday);
 
   /** The SLA filter option (as the API named it) that means "due today", if the server sent one. */
-  protected readonly dueTodaySlaLabel = computed<string | null>(() => {
+    protected readonly dueTodaySlaLabel = computed<string | null>(() => {
+    // The SLA state is a lead's; the Donors view has no such filter to offer.
+    if (this.recordType() === "donors") return null;
+
     const match = this.filters().slaStates.find(
       (s) => s.toLowerCase().replace(/\s/g, "") === "duetoday",
     );
@@ -839,6 +882,14 @@ export class AssignmentBoardComponent {
         key: "search",
         label: `Search: ${this.searchTerm().trim()}`,
       });
+        if (this.pinnedLeadIds().length > 0)
+      chips.push({
+        key: "pinned",
+        label:
+          this.pinnedLeadIds().length === 1
+            ? "The lead opened from the queue"
+            : `${this.pinnedLeadIds().length} leads selected in the queue`,
+      });
     if (this.ownerFilter())
       chips.push({
         key: "owner",
@@ -869,7 +920,8 @@ export class AssignmentBoardComponent {
   });
 
   protected removeFilterChip(key: string): void {
-    this.exitSelectionMode();
+        this.exitSelectionMode();
+    if (key === "pinned") this.pinnedLeadIds.set([]);
     if (key === "search") this.searchTerm.set("");
     if (key === "owner") this.ownerFilter.set("");
     if (key === "saved") this.savedFilter.set("All leads");
@@ -882,9 +934,11 @@ export class AssignmentBoardComponent {
     this.load();
   }
 
-  protected clearFilters(): void {
-    this.recordType.set("leads");
+    protected clearFilters(): void {
+    // The record type is a view, not a filter: clearing filters on the Donors view used to throw
+    // the person back to Leads.
     this.exitSelectionMode();
+    this.pinnedLeadIds.set([]);
     this.searchTerm.set("");
     this.ownerFilter.set("");
     this.dropdownSearch.set({});
@@ -1257,7 +1311,7 @@ export class AssignmentBoardComponent {
       title: `Confirm ${this.actionLabel(draft.mode)}`,
       message: isBulk
         ? `This will update ownership for ${this.eligibleRows().length} of ${draft.rows.length} selected record(s). ${this.ineligibleRows().length} already belong to ${owner.label} and will be skipped.`
-        : `Ownership moves to ${owner.label}. The reason is recorded on the lead's assignment history.`,
+                : `Ownership moves to ${owner.label}. The reason is recorded on the ${draft.rows[0].isDonor ? "donor's ownership" : "lead's assignment"} history.`,
       confirmLabel: this.actionLabel(draft.mode),
       cancelLabel: "Cancel",
       tone: "primary",
@@ -1307,8 +1361,10 @@ export class AssignmentBoardComponent {
       return;
     }
 
-    const row = draft.rows[0];
+        const row = draft.rows[0];
     const request = {
+      // A donor's row carries the donor's id in `leadId`; the record type says which it is.
+      recordType: row.isDonor ? ("Donor" as const) : ("Lead" as const),
       leadId: row.leadId,
       newOwnerUserId: owner.reference,
       newOwnerName: owner.label,
@@ -1366,7 +1422,8 @@ export class AssignmentBoardComponent {
     const ineligible = this.ineligibleRows();
 
     this.api
-      .bulkRoute({
+            .bulkRoute({
+        recordType: this.recordType() === "donors" ? "Donor" : "Lead",
         leadIds: eligible.map((row) => row.leadId),
         newOwnerUserId: owner.reference,
         newOwnerName: owner.label,
@@ -1393,7 +1450,7 @@ export class AssignmentBoardComponent {
                   | "success"
                   | "ineligible",
                 note:
-                  outcome?.outcome ?? "No outcome was reported for this lead.",
+                                    outcome?.outcome ?? "No outcome was reported for this record.",
               };
             }),
           ];
@@ -1475,7 +1532,11 @@ export class AssignmentBoardComponent {
     this.historyLoading.set(true);
     this.historyEntries.set([]);
 
-    this.api.getAssignmentHistory(row.leadId).subscribe({
+        const history$ = row.isDonor
+      ? this.api.getDonorOwnershipHistory(row.leadId)
+      : this.api.getAssignmentHistory(row.leadId);
+
+    history$.subscribe({
       next: (history) => {
         this.historyEntries.set(
           history.items.map((item) => this.toHistoryEntry(item)),
@@ -1509,7 +1570,7 @@ export class AssignmentBoardComponent {
     this.router.navigate(
       ["/app/fundraising/relationships/communication-timeline"],
       {
-        queryParams: { leadId: row.leadId },
+                queryParams: row.isDonor ? { donorId: row.leadId } : { leadId: row.leadId },
       },
     );
   }
@@ -1585,13 +1646,32 @@ export class AssignmentBoardComponent {
 
   protected readonly recordType = signal<"leads" | "donors">("leads");
 
-  protected onRecordTypeChange(value: "leads" | "donors"): void {
+    protected onRecordTypeChange(value: "leads" | "donors"): void {
+    if (this.recordType() === value) return;
+
     this.recordType.set(value);
     this.exitSelectionMode();
+    this.pinnedLeadIds.set([]);
+
+    // The lead filters do not apply to donors, and a search or owner chosen for one list is not
+    // a question about the other.
+    this.searchTerm.set("");
+    this.ownerFilter.set("");
+    this.campaignFilter.set("All");
+    this.teamFilter.set("All");
+    this.languageFilter.set("All");
+    this.workloadFilter.set("All");
+    this.slaFilter.set("All");
+    this.previewRow.set(null);
     this.currentPage.set(1);
     this.closeDrawer();
     this.load();
   }
+
+  /** The filter panel's lookups. They are a lead's attributes; the Donors view has none of them. */
+  protected readonly activeFilterFields = computed(() =>
+    this.recordType() === "donors" ? [] : this.filterFields,
+  );
 
   protected readonly searchTerm = signal("");
   protected readonly ownerFilter = signal("");
@@ -1687,7 +1767,9 @@ export class AssignmentBoardComponent {
     void this.router.navigate(
       ["/app/fundraising/relationships/follow-up-planner"],
       {
-        queryParams: { leadId: row.leadId },
+                queryParams: row.isDonor
+          ? { donorId: row.leadId, mode: "create" }
+          : { leadId: row.leadId, mode: "create" },
       },
     );
   }
@@ -1748,8 +1830,10 @@ export class AssignmentBoardComponent {
     }
   }
 
-  protected exportAssignmentBoard(): void {
+    protected exportAssignmentBoard(): void {
+    if (!this.canExport) return;
     const rows = this.paginatedRows();
+
 
     if (!rows.length) {
       this.toast.show(
@@ -1760,9 +1844,9 @@ export class AssignmentBoardComponent {
       return;
     }
 
-    const headers = [
-      "Lead ID",
-      "Lead Name",
+        const headers = [
+      this.recordType() === "donors" ? "Donor number" : "Lead ID",
+      this.recordType() === "donors" ? "Donor name" : "Lead name",
       "Campaign",
       "Team",
       "Language",

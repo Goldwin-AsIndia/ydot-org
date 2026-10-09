@@ -112,6 +112,29 @@ public sealed class CampaignActivationService(
         var today = clock.TodayUtc;
         var now = clock.UtcNow;
 
+        // APPROVED IS A LEGACY STATE. Approval used to leave a campaign Approved when its start
+        // date had already come; it now always schedules. A row still sitting in Approved was
+        // approved under the old rule and means exactly what Scheduled means today - approved,
+        // waiting to go live - so it is moved there, and the rest of this sweep treats it like any
+        // other scheduled campaign.
+        var legacy = await context.Campaigns
+            .IgnoreQueryFilters()
+            .Where(campaign => campaign.Status == CampaignStatus.Approved)
+            .ToListAsync(cancellationToken);
+
+        if (legacy.Count > 0)
+        {
+            foreach (var campaign in legacy)
+            {
+                campaign.Status = CampaignStatus.Scheduled;
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(
+                "Moved {Count} campaign(s) from the legacy Approved state to Scheduled.", legacy.Count);
+        }
+
         // SCHEDULED AND SET TO ACTIVATE AUTOMATICALLY. Both halves are load-bearing.
         //
         // Scheduled, because an Approved campaign never reached a start date it was waiting for -

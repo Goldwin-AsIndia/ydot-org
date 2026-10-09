@@ -282,33 +282,34 @@ public static class MenuCatalogue
         new("FR_CAMPAIGNS", "Campaigns", Fundraising, MenuLevel.SubMenu, "CAM",
             null, "flag", "cam.campaigns.view", 10),
 
-        new("FR_CAMPAIGN_REGISTER", "Campaign Register", "FR_CAMPAIGNS", MenuLevel.ChildSubMenu, "CAM",
+        // THE CAMPAIGNS MENU IS WHAT THE SIDEBAR DRAWS, AND THE SIDEBAR NO LONGER REWRITES IT.
+        //
+        // The browser used to take this branch and change it on the way to the screen: it renamed
+        // the register "Campaign Overview", dropped Create Campaign and added a Tracking Asset
+        // Manager link of its own. So the menu an administrator saw in Menu Configuration was not
+        // the menu anybody was shown - a label override there was overwritten, and the tracking
+        // link could be neither hidden, renamed nor mapped to a role, because IAM had never heard
+        // of it. The three decisions now live here, and the sidebar draws what it is given.
+        new("FR_CAMPAIGN_REGISTER", "Campaign Overview", "FR_CAMPAIGNS", MenuLevel.ChildSubMenu, "CAM",
             "/app/fundraising/campaigns/campaign-register", "list", "cam.campaigns.view", 10),
 
-        // The wizard requires CREATE, not view: somebody who may read the register but not add
-        // to it should not be offered a Create Campaign link.
-        new("FR_CAMPAIGN_WIZARD", "Create Campaign", "FR_CAMPAIGNS", MenuLevel.ChildSubMenu, "CAM",
-            "/app/fundraising/campaigns/campaign-wizard", "plus-circle", "cam.campaigns.create", 20),
+        // Every tracking asset in the Organisation, filterable by campaign. Guarded by its own
+        // view code, so a role that reads campaigns and not their assets is not offered it.
+        new("FR_TRACKING_ASSETS", "Tracking Asset Manager", "FR_CAMPAIGNS", MenuLevel.ChildSubMenu, "CAM",
+            "/app/fundraising/campaigns/tracking-asset-manager", "clipboard", "cam.tracking-assets.view", 15),
 
-        // TRACKING ASSETS AND READINESS CHECKLIST HAVE COME OFF THE SIDEBAR.
+        // CREATE CAMPAIGN AND THE READINESS CHECKLIST HAVE NO SIDEBAR ROW.
         //
-        // THE SAME TEST AS THE FOUR RELATIONSHIP SCREENS BELOW: "is there already a way in", not
-        // "is the screen wanted". Both are about ONE campaign and say nothing without one - a
-        // readiness checklist with no campaign in it is a list of checks against nothing, and the
-        // asset manager reached cold is every asset in the Organisation with no reason to be
-        // looking at any of them. Each now has a way in from the campaign it belongs to:
-        //
-        //   Readiness Checklist   Campaign Register row action ("Readiness"), carrying ?ref
-        //   Tracking Assets       Campaign detail header ("Tracking assets"), carrying ?campaign
+        // THE TEST IS "IS THERE ALREADY A WAY IN", not "is the screen wanted". The wizard opens
+        // from the Create button on Campaign Overview, shown to whoever holds
+        // `cam.campaigns.create`; the readiness checklist is about ONE campaign and opens from
+        // that campaign's row action ("Readiness"), carrying ?ref.
         //
         // WITHDRAWN, NOT DELETED. The routes, the screens, their permissions and the CAM
         // endpoints behind them are untouched, and the start-up reconciliation retires each
         // definition and drops the row from every Organisation that already holds it - so this
         // reaches databases that have already run, not only fresh ones. Restoring one is
         // restoring its line.
-        //
-        // WHAT REMAINS UNDER CAMPAIGNS is the pair you arrive at cold: the register, and the way
-        // to add to it.
 
         // THESE TWO ARE NOW ENABLED, and each guards on its OWN permission.
         //
@@ -334,8 +335,19 @@ public static class MenuCatalogue
         new("FR_RELATIONSHIPS", "Donors and Leads", Fundraising, MenuLevel.SubMenu, "DON",
             null, "users", PermissionCodes.SectionDon, 20),
 
+        // THE ORDER IS THE ROLE FLOW'S. Its fundraising team works Lead Work Queue, Donor List and
+        // Follow-up Queue; DonorCare works My Leads, My Donor List and Follow-up Queue. Each "My"
+        // list sits after its organisation-wide twin, so both role menus read in the flow's order
+        // and an administrator holding all five sees each pair together.
         new("FR_LEAD_QUEUE", "Lead Work Queue", "FR_RELATIONSHIPS", MenuLevel.ChildSubMenu, "DON",
             "/app/fundraising/relationships/lead-work-queue", "inbox", "don.lead-work-queue.view", 10),
+
+        // MY LEADS IS BACK IN THE SIDEBAR, as DonorCare's first menu. It is the Lead Work Queue
+        // narrowed to the leads assigned to the caller, so it carries the same view code; DON
+        // withholds it from a sidebar whose holder has no leads at all, which is how a DonorCare
+        // member given only follow-ups sees the Follow-up Queue alone.
+        new("FR_MY_LEADS", "My Leads", "FR_RELATIONSHIPS", MenuLevel.ChildSubMenu, "DON",
+            "/app/fundraising/relationships/my-leads", "user", "don.lead-work-queue.view", 15),
 
         // FOLLOW-UP QUEUE BELONGS IN THE SIDEBAR, and it is the exception to the rule the four
         // withdrawn screens below follow.
@@ -350,7 +362,7 @@ public static class MenuCatalogue
         // which are places you arrive at AFTER choosing a record, so the queue could only be found
         // by somebody who had already stopped needing it.
         new("FR_FOLLOW_UP_QUEUE", "Follow-up Queue", "FR_RELATIONSHIPS", MenuLevel.ChildSubMenu, "DON",
-            "/app/fundraising/relationships/follow-up-queue", "clock", "don.follow-up-planner.view", 20),
+            "/app/fundraising/relationships/follow-up-queue", "clock", "don.follow-up-planner.view", 30),
 
         // LEAD CAPTURE HAS COME OFF THE SIDEBAR, on the same test as the four screens below: the
         // way in already exists. Lead Work Queue carries a "Create Lead" button on both its
@@ -374,7 +386,12 @@ public static class MenuCatalogue
         // only fresh ones. Restoring it is restoring this one line.
 
         new("FR_DONOR_LIST", "Donor List", "FR_RELATIONSHIPS", MenuLevel.ChildSubMenu, "DON",
-            "/app/fundraising/relationships/donor-list", "list", "don.donors.view", 40),
+            "/app/fundraising/relationships/donor-list", "list", "don.donors.view", 20),
+
+        // DonorCare's second menu: the donors whose relationship they own. Withheld by DON the
+        // same way as My Leads when the holder owns no donor.
+        new("FR_MY_DONORS", "My Donor List", "FR_RELATIONSHIPS", MenuLevel.ChildSubMenu, "DON",
+            "/app/fundraising/relationships/my-donor-list", "heart", "don.donors.view", 25),
 
         // FOUR RELATIONSHIP SCREENS HAVE COME OFF THE SIDEBAR: Consent Centre, Assignment Board,
         // Follow-up Planner and Identity Verification.

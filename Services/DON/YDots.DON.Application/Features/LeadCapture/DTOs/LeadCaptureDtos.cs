@@ -21,4 +21,16 @@ public sealed record LeadCaptureResponse(
     IReadOnlyList<DuplicateCandidateResponse> DuplicateCandidates,
     IReadOnlyList<string> PermittedActions,
     string ActiveScope,
-    string State);
+    string State,
+
+    /// <summary>What "Lead source" offers. The form holds no list of its own.</summary>
+    IReadOnlyList<LookupItem> SourceOptions,
+
+    /// <summary>
+    /// The ISO two-letter code of the country the address starts on. The form matches it to a row
+    /// of the master catalogue; the person can change it.
+    /// </summary>
+    string DefaultCountryCode,
+
+    /// <summary>The prefix a number typed without one is given, for example "+91".</summary>
+    string DefaultDiallingCode);

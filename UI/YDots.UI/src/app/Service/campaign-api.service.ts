@@ -6,6 +6,7 @@ import { ApiResponse, OutcomeResponse, PagedResponse } from '../Shared/models/ap
 import {
   AllocateBudgetPlanRequest,
   AssignReadinessBlockerRequest,
+  ReadinessPerson,
   AttributionDetail,
   AttributionListItem,
   AttributionSearchFilter,
@@ -132,10 +133,13 @@ export class CampaignApiService {
       .pipe(map((response) => response.data?.items ?? []));
   }
 
-  exportCampaigns(filter: CampaignSearchFilter = {}): Observable<{ blob: Blob; fileName: string }> {
+  exportCampaigns(
+    filter: CampaignSearchFilter = {},
+    reason?: string,
+  ): Observable<{ blob: Blob; fileName: string }> {
     return this.http
       .get(`${this.campaignsUrl}/export`, {
-        params: this.toParams(filter),
+        params: this.toParams({ ...filter, ...(reason ? { reason } : {}) }),
         responseType: 'blob',
         observe: 'response',
       })
@@ -221,6 +225,14 @@ export class CampaignApiService {
 
   approveCampaignClose(id: string, request: CampaignLifecycleRequest): Observable<OutcomeResponse> {
     return this.lifecycle(id, 'approve-close', request);
+  }
+
+  /**
+   * Refuses a pending close request; the campaign goes back to Active or Paused. The same
+   * permission as approving it, and a reason (`detailedReason`) is required.
+   */
+  rejectCampaignClose(id: string, request: CampaignLifecycleRequest): Observable<OutcomeResponse> {
+    return this.lifecycle(id, 'reject-close', request);
   }
 
   private lifecycle(
@@ -457,6 +469,16 @@ export class CampaignApiService {
    * endpoint above, which enforces segregation of duties. A second approval path here would be a
    * way around that check, which is why this endpoint only ever moves a campaign backwards.
    */
+  /**
+   * The people a readiness check can be assigned to: those who can record its Pass or Fail - the
+   * Campaign Executives and the Organisation Admin.
+   */
+  getReadinessAssignableOwners(): Observable<ReadinessPerson[]> {
+    return this.http
+      .get<ApiResponse<ReadinessPerson[]>>(`${this.rootUrl}/readiness-checks/assignable-owners`)
+      .pipe(map((response) => response.data ?? []));
+  }
+
   returnCampaignToDraft(
     campaignId: string,
     request: ReturnCampaignToDraftRequest,
@@ -651,10 +673,17 @@ export class CampaignApiService {
    * over the traced portion - a channel shown as 60% when it is 60% of the third that could be
    * traced overstates it threefold.
    */
-  getAttributionSummary(campaignId?: string): Observable<AttributionSummary> {
+  getAttributionSummary(
+    campaignId?: string,
+    window?: { fromUtc?: string; toUtc?: string },
+  ): Observable<AttributionSummary> {
     return this.http
       .get<ApiResponse<AttributionSummary>>(`${this.rootUrl}/attribution/summary`, {
-        params: this.toParams(campaignId ? { campaignId } : {}),
+        params: this.toParams({
+          ...(campaignId ? { campaignId } : {}),
+          ...(window?.fromUtc ? { fromUtc: window.fromUtc } : {}),
+          ...(window?.toUtc ? { toUtc: window.toUtc } : {}),
+        }),
       })
       .pipe(map((response) => response.data!));
   }

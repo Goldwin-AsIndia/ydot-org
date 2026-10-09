@@ -336,6 +336,9 @@ export const routes: Routes = [
             // chargebacks appear in the workflow document's flow. A donor's giving history is
             // on Donor 360, which the document does describe.
             { path: 'fundraising/relationships/donor-list', component: DonorListComponent, canActivate: [requirePermission('don.donors.view')] },
+            // MY DONOR LIST - DonorCare's second menu. The same screen, told by the route to ask
+            // for the donors whose relationship the caller owns; the server decides who that is.
+            { path: 'fundraising/relationships/my-donor-list', component: DonorListComponent, data: { mine: true }, canActivate: [requirePermission('don.donors.view')] },
 
       // =========================================================================
       // Access denied.

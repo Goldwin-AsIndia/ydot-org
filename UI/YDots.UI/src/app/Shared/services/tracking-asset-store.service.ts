@@ -10,6 +10,7 @@ import { CampaignApiService } from '../../Service/campaign-api.service';
 import { OrganisationScopeService } from './organisation-scope.service';
 import { CampaignStoreService } from './campaign-store.service';
 import { apiErrorMessage } from '../models/api-response.model';
+import { fetchPages } from './paging';
 
 /** Reports whether an `update()`/`delete()` call actually succeeded, and why if not. */
 export type TrackingAssetOutcome = (result: { readonly applied: boolean; readonly error?: string }) => void;
@@ -104,26 +105,27 @@ export class TrackingAssetStoreService {
   /**
    * Reloads from the API.
    *
-   * A LARGE PAGE, deliberately. The screens page and filter in memory over whatever they are
-   * given, so this is the working set rather than a page size.
+   * EVERY PAGE, because the screens filter and page in memory over what they are given. One page
+   * of 200 was asked for and the API caps a page at 100, so the assets beyond the hundredth were
+   * missing from the manager and from each campaign's tracking tab.
    */
   refresh(): void {
     this.isLoading.set(true);
     this.loadError.set(null);
 
-    this.api.searchTrackingAssets({ pageSize: 200 }).subscribe({
-      next: (page) => {
+    fetchPages((page, pageSize) => this.api.searchTrackingAssets({ page, pageSize })).subscribe({
+      next: ({ items, totalCount }) => {
         this.idsByReference.clear();
         this.versionsByReference.clear();
 
-        for (const item of page.items) {
+        for (const item of items) {
           const reference = item.trackingReference ?? item.code;
           this.idsByReference.set(reference, item.id);
           this.versionsByReference.set(reference, item.version);
         }
 
-        this.records.set(page.items.map((item) => this.toRecord(item)));
-        this.serverTotal.set(page.totalCount);
+        this.records.set(items.map((item) => this.toRecord(item)));
+        this.serverTotal.set(totalCount);
         this.isLoading.set(false);
       },
       error: () => {

@@ -145,7 +145,7 @@
                             <div class="lcp-phone">
                               <input type="tel" class="lcp-in lcp-mono" [value]="m.value" (input)="updateMobileValue(m.id, $event)" placeholder="+91 98765 43210"
                                 [attr.aria-label]="'Mobile number ' + (i + 1)" [attr.aria-invalid]="!!errors()['mobiles']" autocomplete="tel"
-                                title="A 10-digit number without a prefix is saved as +91" />
+                                [title]="mobilePrefixHint()" />
                               @if (fields().mobiles.length > 1) {
                                 <button type="button" class="lcp-star" [class.is-on]="m.isPrimary" (click)="setPrimaryMobile(m.id)"
                                   [attr.aria-pressed]="m.isPrimary" [title]="m.isPrimary ? 'Primary number' : 'Make this the primary number'"
@@ -209,24 +209,25 @@
                     <div class="lcp-grid lcp-g3" role="group" aria-label="Location">
                       <div class="lcp-f" [class.has-error]="errors()['geoCountry']">
                         <label class="lcp-l" for="geoCountry">Country <b class="lcp-req" aria-hidden="true">*</b></label>
-                        @if (countryOptions.length > 20) {
+                        @if (geo.countryNames().length > 20) {
                           <label class="lc-sr-only" for="geoCountry-search">Search countries</label>
                           <input id="geoCountry-search" class="lcp-in lcp-search" type="search" autocomplete="off" placeholder="Search countries" [value]="lookupSearch()['geoCountry'] || ''" (input)="onLookupSearch('geoCountry', $event)" aria-controls="geoCountry" />
                         }
                         <select id="geoCountry" class="lcp-in lcp-sel" [value]="fields().geoCountry" (change)="onGeoCountryChange($event)">
-                          @for (c of filterLookup('geoCountry', countryOptions, fields().geoCountry); track c) { <option [value]="c" [selected]="c === fields().geoCountry">{{ c }}</option> }
+                          <option value="" disabled>{{ geo.loading() ? 'Loading countries' : 'Select a country' }}</option>
+                          @for (c of filterLookup('geoCountry', geo.countryNames(), fields().geoCountry); track c) { <option [value]="c" [selected]="c === fields().geoCountry">{{ c }}</option> }
                         </select>
                         @if (errors()['geoCountry']) { <p class="lcp-err">{{ errors()['geoCountry'] }}</p> }
                       </div>
                       <div class="lcp-f" [class.has-error]="errors()['geoState']">
-                        <label class="lcp-l" for="geoState">State <b class="lcp-req" aria-hidden="true">*</b></label>
-                        @if (stateOptions.length > 20) {
+                        <label class="lcp-l" for="geoState">State @if (stateRequired()) {<b class="lcp-req" aria-hidden="true">*</b>}</label>
+                        @if (geo.stateNames().length > 20) {
                           <label class="lc-sr-only" for="geoState-search">Search states</label>
                           <input id="geoState-search" class="lcp-in lcp-search" type="search" autocomplete="off" placeholder="Search states" [value]="lookupSearch()['geoState'] || ''" (input)="onLookupSearch('geoState', $event)" aria-controls="geoState" />
                         }
-                        <select id="geoState" class="lcp-in lcp-sel" [value]="fields().geoState" (change)="onGeoStateChange($event)" [attr.aria-invalid]="!!errors()['geoState']">
-                          <option value="" disabled>Select a state</option>
-                          @for (s of filterLookup('geoState', stateOptions, fields().geoState); track s) { <option [value]="s" [selected]="s === fields().geoState">{{ s }}</option> }
+                        <select id="geoState" class="lcp-in lcp-sel" [value]="fields().geoState" (change)="onGeoStateChange($event)" [disabled]="!stateRequired() || !geo.stateNames().length" [attr.aria-invalid]="!!errors()['geoState']">
+                          <option value="" disabled>{{ !fields().geoCountry ? 'Choose a country first' : (stateRequired() ? 'Select a state' : 'Not applicable') }}</option>
+                          @for (s of filterLookup('geoState', geo.stateNames(), fields().geoState); track s) { <option [value]="s" [selected]="s === fields().geoState">{{ s }}</option> }
                         </select>
                         @if (errors()['geoState']) { <p class="lcp-err">{{ errors()['geoState'] }}</p> }
                       </div>
@@ -237,7 +238,7 @@
                           <input id="geoCity-search" class="lcp-in lcp-search" type="search" autocomplete="off" placeholder="Search cities" [value]="lookupSearch()['geoCity'] || ''" (input)="onLookupSearch('geoCity', $event)" aria-controls="geoCity" />
                         }
                         <select id="geoCity" class="lcp-in lcp-sel" [value]="fields().geoCity" (change)="onGeoCityChange($event)" [disabled]="!approvedCities().length" [attr.aria-invalid]="!!errors()['geoCity']">
-                          <option value="" disabled>{{ fields().geoState ? (approvedCities().length ? 'Select a city' : 'No approved cities yet') : 'Choose a state first' }}</option>
+                          <option value="" disabled>{{ fields().geoState || !stateRequired() ? (approvedCities().length ? 'Select a city' : 'No approved cities yet') : 'Choose a state first' }}</option>
                           @for (city of filterLookup('geoCity', approvedCities(), fields().geoCity); track city) { <option [value]="city" [selected]="city === fields().geoCity">{{ city }}</option> }
                         </select>
                         @if (errors()['geoCity']) { <p class="lcp-err">{{ errors()['geoCity'] }}</p> }
@@ -264,18 +265,18 @@
                         <label class="lcp-l" for="leadSource">Lead source <b class="lcp-req" aria-hidden="true">*</b></label>
                         <select id="leadSource" class="lcp-in lcp-sel" [value]="fields().leadSource" (change)="onTextInput('leadSource', $event)" [attr.aria-invalid]="!!errors()['leadSource']">
                           <option value="" disabled>Select a source</option>
-                          @for (src of leadSourceOptions; track src) { <option [value]="src" [selected]="src === fields().leadSource">{{ src }}</option> }
+                          @for (src of leadSourceOptions(); track src.value) { <option [value]="src.value" [selected]="src.value === fields().leadSource">{{ src.label }}</option> }
                         </select>
                         @if (errors()['leadSource']) { <p class="lcp-err">{{ errors()['leadSource'] }}</p> }
                       </div>
                       <div class="lcp-f" [class.has-error]="errors()['campaign']">
-                        <label class="lcp-l" for="campaign">Campaign <span class="lcp-opt">Optional</span></label>
+                        <label class="lcp-l" for="campaign">Campaign <b class="lcp-req" aria-hidden="true">*</b></label>
                         @if (campaignDropdownOptions().length > 20) {
                           <label class="lc-sr-only" for="campaign-search">Search campaigns</label>
                           <input id="campaign-search" class="lcp-in lcp-search" type="search" autocomplete="off" placeholder="Search campaigns" [value]="lookupSearch()['campaign'] || ''" (input)="onLookupSearch('campaign', $event)" aria-controls="campaign" />
                         }
-                        <select id="campaign" class="lcp-in lcp-sel" [value]="fields().campaign" (change)="onTextInput('campaign', $event)">
-                          <option value="">No campaign</option>
+                        <select id="campaign" class="lcp-in lcp-sel" [value]="fields().campaign" (change)="onTextInput('campaign', $event)" [attr.aria-invalid]="!!errors()['campaign']">
+                          <option value="" disabled>{{ campaignDropdownOptions().length ? 'Select a campaign' : 'No active campaigns' }}</option>
                           @for (c of filterLookup('campaign', campaignDropdownOptions(), fields().campaign); track c.reference) {
                             <option [value]="c.label" [selected]="c.label === fields().campaign">{{ c.label }}{{ c.context ? ' — ' + c.context : '' }}</option>
                           }
@@ -354,8 +355,8 @@
                           <label class="lcp-l" for="consentChannel">Captured through <b class="lcp-req" aria-hidden="true">*</b></label>
                           <select id="consentChannel" class="lcp-in lcp-sel" [value]="fields().consent.channelRef" (change)="onConsentChannelChange($event)" [attr.aria-invalid]="!!errors()['channelRef']">
                             <option value="" disabled>Select a channel</option>
-                            @for (ch of filterLookup('consentChannel', channelOptions, fields().consent.channelRef); track ch.reference) {
-                              <option [value]="ch.reference" [selected]="ch.reference === fields().consent.channelRef">{{ ch.label }} &middot; {{ ch.reference }}</option>
+                            @for (ch of filterLookup('consentChannel', channelOptions(), fields().consent.channelRef); track ch.value) {
+                              <option [value]="ch.value" [selected]="ch.value === fields().consent.channelRef">{{ ch.label }}</option>
                             }
                           </select>
                           @if (errors()['channelRef']) { <p class="lcp-err">{{ errors()['channelRef'] }}</p> }
@@ -365,9 +366,9 @@
                           <label class="lcp-l" for="consentStateSelect">Consent state <b class="lcp-req" aria-hidden="true">*</b></label>
                           <select id="consentStateSelect" class="lcp-in lcp-sel" [value]="fields().consent.consentState" (change)="onConsentStateChange($event)" [attr.aria-invalid]="!!errors()['consentState']">
                             <option value="" disabled>{{ consentStateOptions().length ? 'Select a state' : 'No states loaded' }}</option>
-                            @for (st of filterLookup('consentStateSelect', consentStateOptions(), fields().consent.consentState); track st) {
-                              <option [value]="st" [selected]="st === fields().consent.consentState" [disabled]="st === 'Granted' && !fields().consent.evidenceFileName">
-                                {{ st }}{{ st === 'Granted' && !fields().consent.evidenceFileName ? ' — attach evidence first' : '' }}
+                            @for (st of filterLookup('consentStateSelect', consentStateOptions(), fields().consent.consentState); track st.value) {
+                              <option [value]="st.value" [selected]="st.value === fields().consent.consentState" [disabled]="st.value === 'Granted' && !fields().consent.evidenceFileName" [title]="st.description || ''">
+                                {{ st.label }}{{ st.value === 'Granted' && !fields().consent.evidenceFileName ? ' — attach evidence first' : '' }}
                               </option>
                             }
                           </select>
@@ -393,12 +394,6 @@
                                 <input type="file" class="lcp-file-input" accept=".pdf,.jpg,.jpeg,.png" (change)="onEvidenceFileSelected($event)" aria-label="Replace consent evidence" />
                               </label>
                             </div>
-                            <ol class="lcp-pipe" aria-label="Evidence processing">
-                              <li class="is-done">Uploaded</li>
-                              <li [class.is-done]="fields().consent.evidenceStatus !== 'uploading'">Scanned</li>
-                              <li [class.is-done]="fields().consent.evidenceStatus === 'classified' || fields().consent.evidenceStatus === 'linked'">Classified</li>
-                              <li [class.is-done]="fields().consent.evidenceStatus === 'linked'">Linked</li>
-                            </ol>
                           } @else {
                             <label class="lcp-drop-sm" aria-labelledby="evidenceLabel">
                               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-5 5 5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>
@@ -674,7 +669,7 @@
               <div class="lcp-cols">
                 <div class="lcp-cols-head"><span class="lcp-cap">Columns</span><span class="lcp-cap">Example</span></div>
                 <ol>
-                  @for (col of bulkColumns; track col.name) {
+                  @for (col of bulkColumns(); track col.name) {
                     <li>
                       <span class="lcp-col-name">{{ col.name }}@if (col.required) {<b class="lcp-req" title="Required">*</b>}</span>
                       <span class="lcp-col-eg" [title]="col.example">{{ col.example }}</span>
@@ -685,7 +680,7 @@
               </div>
 
               <ul class="lcp-rules">
-                <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>Mobile numbers without a prefix are saved as +91.</li>
+                <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>Mobile numbers without a prefix are saved as {{ serverDiallingCode() || 'the default prefix' }}.</li>
                 <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>Consent is captured later, per lead.</li>
                 <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>Rows with errors are skipped; the rest still import.</li>
               </ul>

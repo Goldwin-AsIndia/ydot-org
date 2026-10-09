@@ -29,15 +29,18 @@ import {
   CreateIntentRequest,
   CreateLeadRequest,
   DeduplicateResult,
+  DonLookupItem,
   DonReferenceData,
   Donor360Response,
   DonorDetail,
   DonorListItem,
+  DonorListSummary,
   DonorLookup,
   DonorMenuResponse,
   DonorSearchFilter,
   DuplicateReviewDetail,
   DuplicateReviewListResponse,
+  EscalateFollowUpRequest,
   EscalateVerificationRequest,
   FollowUp,
   FollowUpPlannerResponse,
@@ -50,12 +53,15 @@ import {
   LeadLookup,
   LeadWorkQueueFilter,
   LeadWorkQueueResponse,
+  LogCommunicationRequest,
   MergeDecisionRequest,
   QualifyLeadRequest,
   ReasonRequest,
   RescheduleFollowUpRequest,
   ScheduleFollowUpRequest,
+  ScoreLeadRequest,
   SendChallengeRequest,
+  UpdateCommunicationRequest,
   UpdateDonorRequest,
   UpdateLeadRequest,
   VerifyCodeRequest,
@@ -153,6 +159,19 @@ export class DonorApiService {
       .pipe(map((response) => response.data ?? []));
   }
 
+  /**
+   * The people a lead, a donor or a follow-up may be given to: active staff whose role works
+   * with leads and follow-ups. `value` is the user id.
+   *
+   * NOT THE PLATFORM'S PEOPLE DIRECTORY, which lists every active account in the organisation -
+   * donors with a portal login included. The server refuses an owner who is not on this list.
+   */
+  getAssignableOwners(): Observable<DonLookupItem[]> {
+    return this.http
+      .get<ApiResponse<DonLookupItem[]>>(`${this.baseUrl}/reference-data/owners`)
+      .pipe(map((response) => response.data ?? []));
+  }
+
   searchLeads(search?: string, maximumRows = 20): Observable<LeadLookup[]> {
     return this.http
       .get<ApiResponse<LeadLookup[]>>(`${this.baseUrl}/reference-data/leads`, {
@@ -171,6 +190,35 @@ export class DonorApiService {
         params: this.toParams(filter),
       })
       .pipe(map((response) => response.data!));
+  }
+
+  /**
+   * The Donor List's cards over the caller's whole scope - or, with `onlyMine`, over the donors
+   * whose relationship they own (My Donor List).
+   *
+   * COUNTED ON THE SERVER. The cards used to be worked out from the page of rows the browser had
+   * loaded, so every figure stopped at the page size and "needs attention" missed whoever was on
+   * page two.
+   */
+  getDonorSummary(onlyMine = false): Observable<DonorListSummary> {
+    return this.http
+      .get<ApiResponse<DonorListSummary>>(`${this.baseUrl}/summary`, {
+        params: this.toParams({ onlyMine: onlyMine || null }),
+      })
+      .pipe(map((response) => response.data!));
+  }
+
+  /**
+   * One donor's whole history as a CSV - gifts, conversations, follow-ups and ownership.
+   * Export History on the Donor List and on Donor 360. The export permission applies.
+   */
+  exportDonorHistory(donorId: string): Observable<{ blob: Blob; fileName: string }> {
+    return this.http
+      .get(`${this.baseUrl}/${donorId}/history/export`, {
+        responseType: 'blob',
+        observe: 'response',
+      })
+      .pipe(map((response) => this.toDownload(response, 'donor-history.csv')));
   }
 
   lookupDonors(search?: string, maximumRows = 20): Observable<DonorLookup[]> {
@@ -303,6 +351,21 @@ export class DonorApiService {
       .pipe(map((response) => response.data!));
   }
 
+  /**
+   * Export Leads: every lead the filter matches, not the page on screen. The server applies the
+   * same scope as the queue, so My Leads exports the caller's own leads and nobody else's.
+   */
+  exportLeads(filter: LeadWorkQueueFilter = {}): Observable<{ blob: Blob; fileName: string }> {
+    return this.http
+      .get(`${this.baseUrl}/lead-work-queue/export`, {
+        // Paging is dropped: the file is the whole filtered set.
+        params: this.toParams({ ...filter, page: null, pageSize: null }),
+        responseType: 'blob',
+        observe: 'response',
+      })
+      .pipe(map((response) => this.toDownload(response, 'leads.csv')));
+  }
+
   getLead(id: string): Observable<LeadDetail> {
     return this.http
       .get<ApiResponse<LeadDetail>>(`${this.baseUrl}/lead-work-queue/${id}`)
@@ -338,6 +401,18 @@ export class DonorApiService {
   qualifyLead(id: string, request: QualifyLeadRequest): Observable<LeadDetail> {
     return this.http
       .post<ApiResponse<LeadDetail>>(`${this.baseUrl}/lead-work-queue/${id}/qualify`, request)
+      .pipe(map((response) => response.data!));
+  }
+
+  /**
+   * Re-scores a lead - temperature and donation potential - with a recorded reason.
+   *
+   * NOT QUALIFY. Qualifying moves the lead's status; warming a lead from Cold to Warm after a good
+   * call does not, and routing it through Qualify used to do both.
+   */
+  scoreLead(id: string, request: ScoreLeadRequest): Observable<LeadDetail> {
+    return this.http
+      .post<ApiResponse<LeadDetail>>(`${this.baseUrl}/lead-work-queue/${id}/score`, request)
       .pipe(map((response) => response.data!));
   }
 
@@ -452,6 +527,51 @@ export class DonorApiService {
       .pipe(map((response) => response.data!));
   }
 
+  /**
+   * The timeline as a CSV, written by the server: every entry the caller may read, notes masked
+   * as on screen. Needs the export permission, and the export is logged.
+   */
+  exportCommunicationTimeline(
+    leadId: string | null,
+    donorId: string | null,
+  ): Observable<{ blob: Blob; fileName: string }> {
+    return this.http
+      .get(`${this.baseUrl}/communication-timeline/export`, {
+        params: this.toParams({ leadId, donorId }),
+        responseType: 'blob',
+        observe: 'response',
+      })
+      .pipe(map((response) => this.toDownload(response, 'communication-timeline.csv')));
+  }
+
+  /**
+   * Logs a communication against a lead or a donor - the manual entry the Fundraising Manager or
+   * the record's owner makes. Answers with the new entry's id; reload the timeline to show it.
+   *
+   * OUTGOING CONTACT IS CHECKED AGAINST CONSENT, as contactLead is.
+   */
+  logCommunication(request: LogCommunicationRequest): Observable<string> {
+    return this.http
+      .post<ApiResponse<string>>(`${this.baseUrl}/communication-timeline`, request)
+      .pipe(map((response) => response.data!));
+  }
+
+  /** Corrects an entry. Only its author, or somebody who works the whole organisation. */
+  updateCommunication(id: string, request: UpdateCommunicationRequest): Observable<string> {
+    return this.http
+      .put<ApiResponse<string>>(`${this.baseUrl}/communication-timeline/${id}`, request)
+      .pipe(map((response) => response.data!));
+  }
+
+  /** Marks an entry important, or clears the mark. */
+  flagCommunication(id: string, isImportant: boolean): Observable<string> {
+    return this.http
+      .post<ApiResponse<string>>(`${this.baseUrl}/communication-timeline/${id}/important`, {
+        isImportant,
+      })
+      .pipe(map((response) => response.data!));
+  }
+
   // =========================================================================================
   // Assignment board
   // =========================================================================================
@@ -464,10 +584,25 @@ export class DonorApiService {
       .pipe(map((response) => response.data!));
   }
 
-  /** The append-only ownership trail behind "Inspect history". */
+  /**
+   * The append-only ownership trail behind "Inspect history".
+   *
+   * THE ENDPOINT ANSWERS WITH THE LEAD AND ITS HISTORY TOGETHER ({ lead, history }). This used to
+   * hand that pair back as if it were the history, so `items` was undefined and the panel always
+   * said the lead had never been assigned.
+   */
   getAssignmentHistory(leadId: string): Observable<AssignmentHistory> {
     return this.http
-      .get<ApiResponse<AssignmentHistory>>(`${this.baseUrl}/assignment-board/${leadId}/history`)
+      .get<ApiResponse<AssignmentBoardLead>>(`${this.baseUrl}/assignment-board/${leadId}/history`)
+      .pipe(map((response) => response.data!.history));
+  }
+
+  /** A donor's ownership trail - the same shape, with the donor's id and number in the lead fields. */
+  getDonorOwnershipHistory(donorId: string): Observable<AssignmentHistory> {
+    return this.http
+      .get<ApiResponse<AssignmentHistory>>(
+        `${this.baseUrl}/assignment-board/donors/${donorId}/history`,
+      )
       .pipe(map((response) => response.data!));
   }
 
@@ -644,6 +779,23 @@ export class DonorApiService {
   cancelFollowUp(id: string, request: ReasonRequest): Observable<FollowUp> {
     return this.http
       .post<ApiResponse<FollowUp>>(`${this.baseUrl}/follow-up-planner/${id}/cancel-task`, request)
+      .pipe(map((response) => response.data!));
+  }
+
+  /** One follow-up with its history and what the caller may do to it. */
+  getFollowUp(id: string): Observable<FollowUp> {
+    return this.http
+      .get<ApiResponse<FollowUp>>(`${this.baseUrl}/follow-up-planner/${id}`)
+      .pipe(map((response) => response.data!));
+  }
+
+  /**
+   * Escalates a follow-up to somebody - recorded on the task and in its history.
+   * The screen used to keep escalations in the browser, so nobody else ever saw one.
+   */
+  escalateFollowUp(id: string, request: EscalateFollowUpRequest): Observable<FollowUp> {
+    return this.http
+      .post<ApiResponse<FollowUp>>(`${this.baseUrl}/follow-up-planner/${id}/escalate`, request)
       .pipe(map((response) => response.data!));
   }
 

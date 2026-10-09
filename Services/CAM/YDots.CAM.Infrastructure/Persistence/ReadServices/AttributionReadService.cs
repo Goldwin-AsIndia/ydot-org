@@ -139,21 +139,41 @@ public sealed class AttributionReadService(
     /// threefold, and that is the number somebody would use to decide where to spend next year.
     /// </summary>
     public async Task<AttributionSummaryResponse> GetSummaryAsync(
-        Guid? campaignId, AccessScope scope, CancellationToken cancellationToken)
+        Guid? campaignId,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        AccessScope scope,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scope);
 
         var narrowed = await NarrowCampaignAsync(campaignId, scope, cancellationToken);
 
-        // A LARGE PAGE, not everything. The breakdown is computed over the donations rather than
-        // aggregated in SQL because the grouping keys live on CAM's side of the join; the cap keeps
-        // that honest about its cost.
-        var (donations, _) = await financial.SearchAttributedDonationsAsync(
-            tenant.TenantId ?? Guid.Empty,
-            narrowed,
-            null, null, null, null, null,
-            1, 200,
-            cancellationToken);
+        // EVERY DONATION IN THE WINDOW, page by page. The breakdown is computed over the donations
+        // rather than aggregated in SQL because the grouping keys live on CAM's side of the join.
+        // It used to read the first 200 and stop, so a campaign past 200 gifts showed totals and
+        // channel shares for an arbitrary slice of them. The page cap below bounds the cost.
+        const int PageSize = 200;
+        const int MaxPages = 50;
+
+        var donations = new List<AttributedDonation>();
+
+        for (var page = 1; page <= MaxPages; page++)
+        {
+            var (items, totalCount) = await financial.SearchAttributedDonationsAsync(
+                tenant.TenantId ?? Guid.Empty,
+                narrowed,
+                null, null, fromUtc, toUtc, null,
+                page, PageSize,
+                cancellationToken);
+
+            donations.AddRange(items);
+
+            if (items.Count < PageSize || donations.Count >= totalCount)
+            {
+                break;
+            }
+        }
 
         var total = donations.Sum(donation => donation.Amount);
         var attributed = donations.Where(donation => donation.IsAttributed).ToList();

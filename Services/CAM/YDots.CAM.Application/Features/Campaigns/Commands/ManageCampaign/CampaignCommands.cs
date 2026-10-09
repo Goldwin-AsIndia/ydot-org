@@ -271,11 +271,14 @@ public sealed class CampaignCommandHandler(
             campaign.Status.ToString(),
             campaign.Version,
             message,
-            PermittedActions(campaign, outstanding.Count > 0, pendingClose is not null));
+            PermittedActions(
+                campaign, outstanding.Count > 0, pendingClose is not null,
+                pendingClose?.CanBeApprovedBy(currentUser.UserId, currentUser.IsTenantAdmin) ?? true));
     }
 
     private IReadOnlyList<string> PermittedActions(
-        Campaign campaign, bool hasOutstandingChecks, bool hasPendingClose) =>
+        Campaign campaign, bool hasOutstandingChecks, bool hasPendingClose, bool mayApproveClose = true) =>
         CampaignMappingConfig.PermittedActionsFor(
-            campaign, currentUser.UserId, currentUser.HasPermission, hasOutstandingChecks, hasPendingClose);
+            campaign, currentUser.UserId, currentUser.HasPermission, hasOutstandingChecks, hasPendingClose,
+            currentUser.IsTenantAdmin, mayApproveClose);
 }

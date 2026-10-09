@@ -31,6 +31,12 @@ public interface IDonorReadService
         CancellationToken cancellationToken);
 
     /// <summary>Unpaged rows for the controlled export, capped by the caller.</summary>
+    /// <summary>The Donor List's figures over the caller's scope. See DonorListSummaryResponse.</summary>
+    Task<DonorListSummaryResponse> GetSummaryAsync(
+        AccessScope scope,
+        Guid? ownerUserId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<DonorListItemResponse>> ExportRowsAsync(
         DonorSearchFilter query,
         int maximumRows,

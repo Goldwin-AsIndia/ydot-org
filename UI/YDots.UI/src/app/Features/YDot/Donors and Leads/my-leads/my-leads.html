@@ -49,15 +49,19 @@
               class="btn-icon">
               <use href="#ml-refresh" />
             </svg>Refresh</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="!canExport" (click)="exportSelected()"
+          @if (canExport) {
+          <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="exporting()" (click)="exportSelected()"
             title="Export leads"><svg class="btn-icon">
               <use href="#ml-download" />
             </svg>Export </button>
+          }
           <button type="button" class="btn btn-outline-primary btn-sm" (click)="requestOpenFollowUpQueue()"
             title="Open follow-up queue"><svg class="btn-icon">
               <use href="#ml-queue" />
             </svg>Follow-up Queue</button>
-                  <button type="button" class="btn btn-primary btn-sm" (click)="requestCreateLead()" title="Create lead"><i class="ri ri-add-line"></i> Create</button>
+          @if (canCreate) {
+          <button type="button" class="btn btn-primary btn-sm" (click)="requestCreateLead()" title="Create lead"><i class="ri ri-add-line"></i> Create</button>
+          }
 
         </ng-container>
       </app-page-header>
@@ -114,7 +118,7 @@
           </div>
           <label class="visually-hidden" for="temperatureFilter">Temperature</label><select id="temperatureFilter"
             class="form-select form-select-sm" [ngModel]="temperatureFilter()"
-            (ngModelChange)="updateTemperatureFilter($event)">@for (option of temperatureOptions; track option) {
+            (ngModelChange)="updateTemperatureFilter($event)">@for (option of temperatureOptions(); track option) {
             <option [value]="option">{{ option === 'All' ? 'All Temperatures' : option }}</option> }</select>
           <label class="visually-hidden" for="followUpFilter">Follow-up status</label><select id="followUpFilter"
             class="form-select form-select-sm" [ngModel]="followUpFilter()"
@@ -137,7 +141,7 @@
 
       @if (hasSelection() && canBulkAct) {
       <section class="bulk-bar" aria-label="Bulk actions"><strong>{{ selectedCount() }} selected</strong><button
-          type="button" class="btn btn-outline-secondary btn-sm" (click)="exportSelected()" [disabled]="!canExport"><svg
+          type="button" class="btn btn-outline-secondary btn-sm" (click)="exportSelected()" [disabled]="!canExport || exporting()"><svg
             class="btn-icon">
             <use href="#ml-download" />
           </svg>Export</button><button type="button" class="btn btn-outline-secondary btn-sm"

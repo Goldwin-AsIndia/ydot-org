@@ -407,13 +407,19 @@ public static class CampaignMappingConfig
     /// failing at the last step. It does NOT remove Activate for a Scheduled campaign: a
     /// scheduled campaign goes live on its start date whatever the checklist says, so hiding the
     /// button would only stop somebody bringing forward a launch that is going to happen anyway.
+    ///
+    /// <paramref name="callerIsTenantAdmin"/> lifts the independence condition and nothing else:
+    /// the Organisation Admin may approve its own campaigns, but still only from the state that
+    /// allows it and only with the permission it holds by GrantsAll.
     /// </summary>
     public static IReadOnlyList<string> PermittedActionsFor(
         Campaign campaign,
         Guid callerUserId,
         Func<string, bool> hasPermission,
         bool hasOutstandingChecks,
-        bool hasPendingCloseRequest)
+        bool hasPendingCloseRequest,
+        bool callerIsTenantAdmin = false,
+        bool callerMayApproveClose = true)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(hasPermission);
@@ -456,9 +462,18 @@ public static class CampaignMappingConfig
 
         if (campaign.Status == CampaignStatus.Submitted
             && hasPermission(PermissionCodes.CampaignsApprove)
-            && campaign.CanBeApprovedBy(callerUserId))
+            && campaign.CanBeApprovedBy(callerUserId, callerIsTenantAdmin))
         {
             actions.Add("Approve");
+        }
+
+        // REJECT IS THE OTHER HALF OF THE LAUNCH DECISION, offered beside Approve. It sends the
+        // campaign back to Draft with a reason - the readiness checklist's "Rejected" - through the
+        // same return-to-draft endpoint the readiness screen uses.
+        if (campaign.Status == CampaignStatus.Submitted
+            && hasPermission(PermissionCodes.ReadinessReturnToDraft))
+        {
+            actions.Add("Reject");
         }
 
         // A SCHEDULED CAMPAIGN OFFERS ACTIVATE EVEN WITH CHECKS OUTSTANDING, and an Approved one
@@ -490,12 +505,19 @@ public static class CampaignMappingConfig
             actions.Add("RequestClose");
         }
 
-        // The approver of a close request must not be the person who raised it. Whether THIS
-        // caller raised it is decided against the request row itself by the handler; the button
-        // is offered here whenever one is pending and the caller holds the permission.
+        // The approver of a close request must not be the person who raised it - the Organisation
+        // Admin excepted. <paramref name="callerMayApproveClose"/> carries that answer from the
+        // request row, so the button is not drawn for somebody the handler would then refuse.
         if (hasPendingCloseRequest && hasPermission(PermissionCodes.CampaignsApproveClose))
         {
-            actions.Add("ApproveClose");
+            if (callerMayApproveClose)
+            {
+                actions.Add("ApproveClose");
+            }
+
+            // Deciding a close request either way is one decision, so refusing it needs the same
+            // permission as approving it.
+            actions.Add("RejectClose");
         }
 
         return actions;

@@ -106,7 +106,31 @@ public sealed record CampaignReadinessResponse(
     /// </summary>
     IReadOnlyList<string> PermittedActions,
 
-    IReadOnlyList<ReadinessCheckListItemResponse> Items);
+    IReadOnlyList<ReadinessCheckListItemResponse> Items,
+
+    /// <summary>
+    /// The checklist's overall status: Pending until the Manager decides, then Approved or
+    /// Rejected. See <see cref="ReadinessDecisionResponse"/>.
+    /// </summary>
+    ReadinessDecisionResponse Decision);
+
+/// <summary>
+/// Where the checklist as a whole stands: <c>Pending</c>, <c>Approved</c> or <c>Rejected</c>.
+///
+/// THE CHECKLIST'S OWN FLOW, read from the campaign's launch decision rather than stored twice.
+/// Approving the launch is approving the checklist - it is refused while a required check has not
+/// passed - so a campaign that has been approved at any point (Scheduled, Active, Paused, Closing,
+/// Closed) reads Approved. A campaign sent back to Draft by a Manager reads Rejected, with the
+/// reason given, until it is requested again; everything else is waiting for a decision and reads
+/// Pending.
+/// </summary>
+public sealed record ReadinessDecisionResponse(
+    string Status,
+    ReadinessPersonResponse? RequestedBy,
+    DateTimeOffset? RequestedAtUtc,
+    ReadinessPersonResponse? DecidedBy,
+    DateTimeOffset? DecidedAtUtc,
+    string? Reason);
 
 /// <summary>One person, named, as the checklist and its popups show them.</summary>
 public sealed record ReadinessPersonResponse(Guid UserId, string? UserCode, string? DisplayName);
@@ -157,7 +181,14 @@ public sealed record ReadinessCheckListItemResponse(
     /// </summary>
     IReadOnlyList<ReadinessBlockerResponse> Blockers,
 
-    long Version);
+    long Version,
+
+    /// <summary>
+    /// What THIS caller may do to this check now - Edit, Pass, Fail, AddBlocker, ResolveBlocker,
+    /// Delete - by the same rules the detail endpoint and the handlers apply. On the row so the
+    /// checklist draws each row's menu from the server instead of guessing who the assignee is.
+    /// </summary>
+    IReadOnlyList<string> PermittedActions);
 
 /// <summary>One check in full, with its blockers.</summary>
 public sealed record ReadinessCheckDetailResponse(

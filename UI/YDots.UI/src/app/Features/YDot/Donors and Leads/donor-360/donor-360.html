@@ -73,8 +73,10 @@
                 aria-hidden="true"></i> Timeline</button>
             <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="!canFollowUp()" (click)="openFollowUpPlanner()"><i
                 class="ri-calendar-schedule-line" aria-hidden="true"></i> Schedule follow-up</button>
+            @if (canExportHistory()) { <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportHistory()"><i
+                class="ri-download-2-line" aria-hidden="true"></i> Export history</button> }
             <button type="button" class="btn btn-primary btn-sm" [disabled]="!canCreateIntent()"
-              (click)="openAction('create-intent')"><i class="ri-add-line" aria-hidden="true"></i> Create</button>
+              (click)="openAction('create-intent')"><i class="ri-add-line" aria-hidden="true"></i> Create donation intent</button>
           </div>
         </header>
 
@@ -82,15 +84,13 @@
         <dl class="dz-figs">
           <div class="dz-fig dz-fig--lead">
             <dt>Lifetime received</dt>
-            <dd><b class="dz-mono">{{ formatINR(lifetimeGiving()) }}</b><span>{{ totalDonationsCount() }} {{
+            <dd><b class="dz-mono">{{ money(lifetimeGiving()) }}</b><span>{{ totalDonationsCount() }} {{
                 totalDonationsCount() === 1 ? 'gift' : 'gifts' }}</span></dd>
           </div>
           <div class="dz-fig">
             <dt>Pledged</dt>
-            <dd><b class="dz-mono">{{ formatINR(pledgedAmount()) }}</b>@if (pledgedAmount()) { <span class="dz-meter"
-                aria-hidden="true"><i
-                  [style.width.%]="progressPercent() > 100 ? 100 : progressPercent()"></i></span><span>{{
-                progressPercent() }}% in</span> } @else { <span>None yet</span> }</dd>
+            <dd><b class="dz-mono">{{ money(pledgedAmount()) }}</b><span>{{ pledgedAmount() ? pendingPromisesCount() +
+                (pendingPromisesCount() === 1 ? ' promise open' : ' promises open') : 'None yet' }}</span></dd>
           </div>
           <div class="dz-fig">
             <dt>Promises pending</dt>
@@ -148,7 +148,7 @@
                 class="dz-s{{ s.tone }}" [style.flex-grow]="s.amount"></i> }</div>
             <ul class="dz-mix-key" aria-label="Money on record by stage">@for (s of stageMix(); track s.stage) { <li
                 class="dz-s{{ s.tone }}"><i aria-hidden="true"></i>{{ s.stage }}<b class="dz-mono">{{
-                  formatINR(s.amount) }}</b><span class="dz-mono">{{ s.share }}%</span></li> }</ul>
+                  money(s.amount) }}</b><span class="dz-mono">{{ s.share }}%</span></li> }</ul>
           </div>
           }
           <div class="dz-cols">
@@ -223,7 +223,7 @@
                       f.nextAction || f.followUpReference }}</span><span class="dz-next-meta">{{ f.dueAtUtc ?
                       (f.dueAtUtc | date:'shortTime') : 'No time' }} · {{ f.relationshipOwnerName || 'Unassigned'
                       }}</span></span>
-                  <button type="button" class="btn btn-outline-primary btn-sm" (click)="executeFollowUp(f.id)">Execute</button>
+                  @if (f.canExecute) { <button type="button" class="btn btn-outline-primary btn-sm" (click)="executeFollowUp(f.id)">Execute</button> }
                   } @else {
                   <span class="dz-date dz-date--off"><b>—</b></span>
                   <span class="dz-next-text"><span class="dz-cap">Next follow-up</span><span
@@ -237,7 +237,7 @@
                   <span class="dz-date dz-date--gold"><b>{{ dayOf(p.dueDate) }}</b><span>{{ monthOf(p.dueDate).split('
                       ')[0] }}</span></span>
                   <span class="dz-next-text"><span class="dz-cap">Promise due</span><span
-                      class="dz-next-what dz-mono">{{ formatINR(p.amount) }}</span><span class="dz-next-meta"><span
+                      class="dz-next-what dz-mono">{{ money(p.amount, p.currency) }}</span><span class="dz-next-meta"><span
                         class="dz-mono">{{ p.id }}</span> · {{ p.dueDate ? 'Due ' + p.dueDate : 'No due date'
                       }}</span></span>
                   } @else {
@@ -253,6 +253,8 @@
                       class="dz-next-meta">{{ d.classification }} · added {{ d.uploadedOn }}</span> } @else { <span
                       class="dz-next-meta">No documents uploaded.</span> }
                   </span>
+                  @if (documents().length) { <button type="button" class="dz-lnk" (click)="selectTab('documents')">View all<i
+                      class="ri-arrow-right-s-line" aria-hidden="true"></i></button> }
                 </li>
               </ul>
             </section>
@@ -271,19 +273,54 @@
                 @for (s of stageLedger().rows; track s.stage) {
                 <li class="dz-s{{ s.tone }}">
                   <span class="dz-stage-name"><i aria-hidden="true"></i>{{ s.stage }}</span>
-                  <b class="dz-mono">{{ formatINR(s.amount) }}</b>
+                  <b class="dz-mono">{{ money(s.amount) }}</b>
                   <span class="dz-stage-bar" aria-hidden="true"><i [style.width.%]="s.share"></i></span>
                   <span class="dz-stage-meta">{{ s.asOf ? 'As of ' + s.asOf : '—' }}<span class="dz-mono">{{ s.share
                       }}%</span></span>
                 </li>
                 }
               </ul>
-              <p class="dz-stage-total"><span>Total on record</span><b class="dz-mono">{{ formatINR(stageLedger().total)
+              <p class="dz-stage-total"><span>Received to date</span><b class="dz-mono">{{ money(stageLedger().total)
                   }}</b></p>
               } @else { <p class="dz-blank">No giving recorded yet.</p> }
             </aside>
 
             <div class="dz-don-main">
+              <section aria-labelledby="dz-gift-h">
+                <header class="dz-col-head">
+                  <h2 id="dz-gift-h" class="dz-h">Gifts<span class="dz-n">{{ filtered(gifts()).length }}</span></h2>
+                </header>
+                @if (gifts().length) {
+                <div class="dz-scroll">
+                  <table class="dz-table">
+                    <thead>
+                      <tr>
+                        <th>Reference</th>
+                        <th>Date</th>
+                        <th>Campaign</th>
+                        <th class="dz-num">Amount</th>
+                        <th class="dz-end">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (g of paged('gifts', gifts()); track g.id) {
+                      <tr>
+                        <td class="dz-mono">{{ g.reference }}</td>
+                        <td class="dz-muted">{{ g.date }}</td>
+                        <td>{{ g.campaign || '—' }}</td>
+                        <td class="dz-num dz-mono dz-strong">{{ money(g.amount, g.currency) }}@if (g.refunded > 0) { <span
+                            class="dz-muted"> · {{ money(g.refunded, g.currency) }} refunded</span> }</td>
+                        <td class="dz-end"><span class="dz-dot" [attr.data-ink]="badgeClass(g.status)"><i
+                              aria-hidden="true"></i>{{ g.status }}</span></td>
+                      </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                <ng-container *ngTemplateOutlet="pagination; context: { key: 'gifts', rows: gifts() }" />
+                } @else { <p class="dz-blank">No gifts received yet.</p> }
+              </section>
+
               <section aria-labelledby="dz-camp-h">
                 <header class="dz-col-head">
                   <h2 id="dz-camp-h" class="dz-h">Campaign history<span class="dz-n">{{
@@ -298,6 +335,7 @@
                         <th>Code</th>
                         <th>Came via</th>
                         <th>Converted</th>
+                        <th class="dz-num">Given</th>
                         <th class="dz-end">Status</th>
                       </tr>
                     </thead>
@@ -308,8 +346,10 @@
                         <td class="dz-mono dz-muted">{{ item.id }}</td>
                         <td class="dz-mono dz-muted">{{ item.role }}</td>
                         <td class="dz-muted">{{ item.date || '—' }}</td>
-                        <td class="dz-end"><span class="dz-dot" [attr.data-ink]="item.status ? 'green' : 'gray'"><i
-                              aria-hidden="true"></i>{{ item.status || 'Open' }}</span></td>
+                        <td class="dz-num dz-mono dz-strong">{{ item.amount > 0 ? money(item.amount) : '—' }}@if (item.gifts > 0) {
+                          <span class="dz-muted"> · {{ item.gifts }} {{ item.gifts === 1 ? 'gift' : 'gifts' }}</span> }</td>
+                        <td class="dz-end"><span class="dz-dot" [attr.data-ink]="item.status || item.gifts ? 'green' : 'gray'"><i
+                              aria-hidden="true"></i>{{ item.status || (item.gifts ? 'Gave' : 'No gift yet') }}</span></td>
                       </tr>
                       }
                     </tbody>
@@ -341,7 +381,7 @@
                       <tr>
                         <td class="dz-mono">{{ p.id }}</td>
                         <td class="dz-muted">{{ p.dueDate || 'No due date' }}</td>
-                        <td class="dz-num dz-mono dz-strong">{{ formatINR(p.amount) }}</td>
+                        <td class="dz-num dz-mono dz-strong">{{ money(p.amount, p.currency) }}</td>
                         <td class="dz-end"><span class="dz-dot" [attr.data-ink]="badgeClass(p.status)"><i
                               aria-hidden="true"></i>{{ p.status }}</span></td>
                       </tr>
@@ -379,8 +419,7 @@
               </thead>
               <tbody>
                 @for (f of paged('follow-ups', followUpRows()); track f.id) {
-                <tr [class.is-done]="f.status === 'Completed' || f.status === 'Cancelled'"
-                  [class.is-late]="f.status === 'Overdue'">
+                <tr [class.is-done]="!f.isOpen" [class.is-late]="f.isOverdue">
                   <td><span class="dz-due"><b class="dz-mono">{{ dayOf(f.due) }}</b><span>{{ monthOf(f.due) }}<em>{{
                           weekdayOf(f.due) }}</em></span></span></td>
                   <td class="dz-strong dz-wrap">{{ f.title }}</td>
@@ -389,10 +428,11 @@
                         aria-hidden="true"></i>{{ f.priority }}</span> } @else { <span class="dz-muted">—</span> }</td>
                   <td><span class="dz-dot" [attr.data-ink]="badgeClass(f.status)"><i aria-hidden="true"></i>{{ f.status
                       }}</span></td>
-                  <td class="dz-end">@if (f.status !== 'Completed' && f.status !== 'Cancelled') { <button type="button"
+                  <td class="dz-end">@if (!f.isOpen) { <span class="dz-closed"><i class="ri-check-line"
+                        aria-hidden="true"></i>Closed</span> } @else if (f.isMine) { <button type="button"
                       class="dz-btn dz-btn--xs" (click)="executeFollowUp(f.id)"><i class="ri-play-line"
-                        aria-hidden="true"></i> Execute</button> } @else { <span class="dz-closed"><i
-                        class="ri-check-line" aria-hidden="true"></i>Closed</span> }</td>
+                        aria-hidden="true"></i> Execute</button> } @else { <span class="dz-muted"
+                      title="Only the person a follow-up is assigned to can execute it">View only</span> }</td>
                 </tr>
                 }
               </tbody>
@@ -566,34 +606,6 @@
 <dialog #actionDialog class="action-dialog"
   [attr.aria-labelledby]="dialogTitleId()" (cancel)="closeAction()">
   @switch (activeAction()) {
-
-  @case ('follow-up') {
-  <form class="dialog-form" (ngSubmit)="submitFollowUp()">
-    <header class="dialog-header">
-      <h2 id="followup-title"><span aria-hidden="true">▣</span> Schedule follow-up</h2>
-      <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Close dialog" (click)="closeAction()"
-        title="Close dialog">✕</button>
-    </header>
-    <div class="dialog-body">
-      <label class="field">
-        <span class="field-label">Follow-up note</span>
-        <textarea rows="3" [ngModel]="followUpNote()" (ngModelChange)="followUpNote.set($any($event))"
-          name="followUpNote"></textarea>
-        @if (followUpErrors()['note']) { <span class="field-error">{{ followUpErrors()['note'] }}</span> }
-      </label>
-      <label class="field">
-        <span class="field-label">Due date</span>
-        <input type="date" [ngModel]="followUpDue()" (ngModelChange)="followUpDue.set($any($event))"
-          name="followUpDue" />
-        @if (followUpErrors()['due']) { <span class="field-error">{{ followUpErrors()['due'] }}</span> }
-      </label>
-    </div>
-    <footer class="dialog-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeAction()">✕ Cancel</button>
-      <button type="submit" class="btn btn-primary btn-sm">✓ Schedule</button>
-    </footer>
-  </form>
-  }
 
   @case ('create-intent') {
   <form class="dialog-form ci" (ngSubmit)="submitCreateIntent()" novalidate>

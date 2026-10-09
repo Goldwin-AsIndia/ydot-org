@@ -23,8 +23,76 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
         AccessScope scope,
         CancellationToken cancellationToken = default)
     {
-        var leads = ApplyScope(context.Leads.Include(lead => lead.Campaign), scope);
+        var ordered = Order(Filter(ApplyScope(context.Leads.Include(lead => lead.Campaign), scope), filter), filter);
+        var total = await ordered.CountAsync(cancellationToken);
 
+        var items = await ordered
+            .Skip(filter.Skip)
+            .Take(filter.PageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResponse<Lead>(items, total, filter.Page, filter.PageSize);
+    }
+
+    public async Task<IReadOnlyList<Lead>> ExportAsync(
+        LeadSearchFilter filter,
+        AccessScope scope,
+        int maximumRows,
+        CancellationToken cancellationToken = default) =>
+        await Order(Filter(ApplyScope(context.Leads.AsNoTracking().Include(lead => lead.Campaign), scope), filter), filter)
+            .Take(maximumRows)
+            .ToListAsync(cancellationToken);
+
+    public async Task<(int Unassigned, int Assigned, int DueSoon)> GetAssignmentCountsAsync(
+        Guid organisationId,
+        AccessScope scope,
+        DateTimeOffset dueFromUtc,
+        DateTimeOffset dueBeforeUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var leads = ApplyScope(context.Leads.Where(lead => lead.OrganisationId == organisationId), scope)
+            .Where(lead => !lead.IsDraft && lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted);
+
+        var counts = await leads
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Unassigned = group.Count(lead => lead.OwnerUserId == null),
+                Assigned = group.Count(lead => lead.OwnerUserId != null),
+                DueSoon = group.Count(lead =>
+                    lead.Status != LeadStatus.Closed
+                    && lead.Status != LeadStatus.Suppressed
+                    && lead.NextActionDueUtc >= dueFromUtc
+                    && lead.NextActionDueUtc < dueBeforeUtc)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return counts is null ? (0, 0, 0) : (counts.Unassigned, counts.Assigned, counts.DueSoon);
+    }
+
+    public Task<int> CountOwnedAsync(Guid organisationId, Guid userId, CancellationToken cancellationToken = default) =>
+        context.Leads.CountAsync(
+            lead => lead.OrganisationId == organisationId
+                    && lead.OwnerUserId == userId
+                    && !lead.IsDraft
+                    && lead.ConvertedDonorId == null
+                    && lead.Status != LeadStatus.Converted,
+            cancellationToken);
+
+    public async Task<IReadOnlyList<string>> GetSourcesAsync(
+        Guid organisationId,
+        AccessScope scope,
+        CancellationToken cancellationToken = default) =>
+        await ApplyScope(context.Leads.Where(lead => lead.OrganisationId == organisationId), scope)
+            .Where(lead => !lead.IsDraft && lead.Source != "")
+            .Select(lead => lead.Source)
+            .Distinct()
+            .OrderBy(source => source)
+            .ToListAsync(cancellationToken);
+
+    /// <summary>Every filter the queue applies, in one place so the page and the export agree.</summary>
+    private static IQueryable<Lead> Filter(IQueryable<Lead> leads, LeadSearchFilter filter)
+    {
         if (!filter.IncludeDrafts)
         {
             leads = leads.Where(lead => !lead.IsDraft);
@@ -38,6 +106,7 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
                 lead.LeadReference.ToLower().Contains(term)
                 || lead.FirstName.ToLower().Contains(term)
                 || (lead.LastName != null && lead.LastName.ToLower().Contains(term))
+                || (lead.DisplayName != null && lead.DisplayName.ToLower().Contains(term))
                 || (lead.EmailAddress != null && lead.EmailAddress.ToLower().Contains(term))
                 || (lead.MobileNumber != null && lead.MobileNumber.Contains(term)));
         }
@@ -82,6 +151,12 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
             leads = leads.Where(lead => lead.TeamCode == filter.TeamCode);
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.Source))
+        {
+            var source = filter.Source.Trim().ToLower();
+            leads = leads.Where(lead => lead.Source.ToLower() == source);
+        }
+
         if (filter.LastContactOutcome is not null)
         {
             leads = leads.Where(lead => lead.LastContactOutcome == filter.LastContactOutcome);
@@ -117,27 +192,69 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
                 : leads.Where(lead => lead.ConvertedDonorId == null);
         }
 
-        var total = await leads.CountAsync(cancellationToken);
+        if (filter.CreatedAfterUtc is not null)
+        {
+            leads = leads.Where(lead => lead.CreatedAtUtc >= filter.CreatedAfterUtc);
+        }
 
-        // Overdue work first, then whatever is due soonest. A lead with no due date sorts last
-        // rather than first, which is why the null check is part of the ordering.
-        // RECENTLY ADDED IS A DIFFERENT QUESTION FROM WHAT IS DUE. The default below is a work
-        // queue - overdue first, then soonest - and sorting that way would put a lead captured
-        // two minutes ago at the bottom, which is the opposite of what the tab is for.
-        var ordered = filter.NewestFirst == true
+        // THE FOLLOW-UP STATE, AS THE ROW STATES IT. A lead that has left the queue - converted,
+        // closed or suppressed - has no next contact whatever date is still on the record, which
+        // is the same rule LeadMappingConfig.IsWorked applies to the row.
+        if (filter.HasNextContact == true)
+        {
+            leads = leads.Where(lead =>
+                lead.NextActionDueUtc != null
+                && lead.ConvertedDonorId == null
+                && lead.Status != LeadStatus.Converted
+                && lead.Status != LeadStatus.Closed
+                && lead.Status != LeadStatus.Suppressed);
+
+            if (filter.NextContactFromUtc is not null)
+            {
+                leads = leads.Where(lead => lead.NextActionDueUtc >= filter.NextContactFromUtc);
+            }
+
+            if (filter.NextContactBeforeUtc is not null)
+            {
+                leads = leads.Where(lead => lead.NextActionDueUtc < filter.NextContactBeforeUtc);
+            }
+        }
+        else if (filter.HasNextContact == false)
+        {
+            leads = leads.Where(lead =>
+                lead.NextActionDueUtc == null
+                || lead.ConvertedDonorId != null
+                || lead.Status == LeadStatus.Converted
+                || lead.Status == LeadStatus.Closed
+                || lead.Status == LeadStatus.Suppressed);
+        }
+
+        // "Export selected". A list that names nothing valid matches nothing, rather than
+        // falling back to everything - asking for three leads must never produce the whole queue.
+        if (!string.IsNullOrWhiteSpace(filter.LeadIds))
+        {
+            var ids = filter.ParseLeadIds();
+            leads = leads.Where(lead => ids.Contains(lead.Id));
+        }
+
+        return leads;
+    }
+
+    /// <summary>
+    /// Overdue work first, then whatever is due soonest. A lead with no due date sorts last
+    /// rather than first, which is why the null check is part of the ordering.
+    ///
+    /// RECENTLY ADDED IS A DIFFERENT QUESTION FROM WHAT IS DUE. The default is a work queue -
+    /// overdue first, then soonest - and sorting that way would put a lead captured two minutes
+    /// ago at the bottom, which is the opposite of what the tab is for.
+    /// </summary>
+    private static IQueryable<Lead> Order(IQueryable<Lead> leads, LeadSearchFilter filter) =>
+        filter.NewestFirst == true
             ? leads.OrderByDescending(lead => lead.CreatedAtUtc)
             : leads
                 .OrderBy(lead => lead.NextActionDueUtc == null)
                 .ThenBy(lead => lead.NextActionDueUtc)
                 .ThenByDescending(lead => lead.CreatedAtUtc);
-
-        var items = await ordered
-            .Skip(filter.Skip)
-            .Take(filter.PageSize)
-            .ToListAsync(cancellationToken);
-
-        return new PagedResponse<Lead>(items, total, filter.Page, filter.PageSize);
-    }
 
     public Task<Lead?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         context.Leads.Include(lead => lead.Campaign).FirstOrDefaultAsync(lead => lead.Id == id, cancellationToken);
@@ -227,7 +344,38 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
         return counts.ToDictionary(entry => entry.OwnerUserId, entry => entry.Count);
     }
 
+    /// <summary>
+    /// Who may be given a lead: the people the directory says can take work, with the team each
+    /// one was last recorded against.
+    ///
+    /// ONLY PEOPLE WHO CAN TAKE WORK. This used to fold in every name ever recorded on a lead or an
+    /// assignment, so the pickers offered donor-portal accounts and former colleagues alike. Names
+    /// are folded in only when the directory cannot be read at all, so a database hiccup still
+    /// leaves the board something to show.
+    /// </summary>
     public async Task<IReadOnlyList<(Guid UserId, string Name, string? TeamCode)>> GetKnownOwnersAsync(
+        Guid organisationId,
+        CancellationToken cancellationToken = default)
+    {
+        var assignable = await people.GetAssignableAsync(organisationId, cancellationToken);
+        var everyone = await GetOwnerFilterOptionsAsync(organisationId, cancellationToken);
+
+        if (assignable.Count == 0)
+        {
+            return everyone;
+        }
+
+        var teams = everyone.ToDictionary(owner => owner.UserId, owner => owner.TeamCode);
+
+        return
+        [
+            .. assignable
+                .Select(person => (person.UserId, person.Name, teams.GetValueOrDefault(person.UserId)))
+                .OrderBy(owner => owner.Name, StringComparer.OrdinalIgnoreCase)
+        ];
+    }
+
+    public async Task<IReadOnlyList<(Guid UserId, string Name, string? TeamCode)>> GetOwnerFilterOptionsAsync(
         Guid organisationId,
         CancellationToken cancellationToken = default)
     {
@@ -272,12 +420,19 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
     public async Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(
         Guid organisationId,
         AccessScope scope,
+        Guid? ownerUserId = null,
         CancellationToken cancellationToken = default)
     {
         // The totals on the queue header have to obey the same scope as the rows themselves,
-        // otherwise the count would tell somebody about work they are not allowed to see.
+        // otherwise the count would tell somebody about work they are not allowed to see. My Leads
+        // passes its owner, so its pipeline counts its own leads rather than the organisation's.
         var leads = ApplyScope(context.Leads.Where(lead => lead.OrganisationId == organisationId), scope)
             .Where(lead => !lead.IsDraft);
+
+        if (ownerUserId is not null)
+        {
+            leads = leads.Where(lead => lead.OwnerUserId == ownerUserId);
+        }
 
         var counts = await leads
             .GroupBy(lead => lead.Status)
@@ -290,6 +445,10 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
     public async Task<LeadQueueSummaryResponse> GetQueueSummaryAsync(
         Guid organisationId,
         AccessScope scope,
+        Guid? ownerUserId,
+        DateTimeOffset now,
+        DateTimeOffset todayStartUtc,
+        DateTimeOffset todayEndUtc,
         CancellationToken cancellationToken = default)
     {
         // Same scope filter and the same "not a draft" rule as the rows, so a card can never
@@ -297,21 +456,48 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
         var leads = ApplyScope(context.Leads.Where(lead => lead.OrganisationId == organisationId), scope)
             .Where(lead => !lead.IsDraft);
 
-        // ONE QUERY FOR ALL SIX. GroupBy(1) collapses to a single row of aggregates, so the six
-        // cards cost one round trip rather than six counts over the same table.
-        var summary = await leads
+        if (ownerUserId is not null)
+        {
+            leads = leads.Where(lead => lead.OwnerUserId == ownerUserId);
+        }
+
+        var recentFrom = now.AddDays(-LeadSearchFilter.RecentlyAddedDays);
+
+        // ONE QUERY FOR THE LANES. GroupBy(1) collapses to a single row of aggregates, so the
+        // cards cost one round trip rather than a count each over the same table. Every lane but
+        // Converted counts the leads still in the queue.
+        var lanes = await leads
             .GroupBy(_ => 1)
-            .Select(group => new LeadQueueSummaryResponse(
-                group.Count(),
-                group.Count(lead => lead.OwnerUserId == null),
-                group.Count(lead => lead.OwnerUserId != null),
-                group.Count(lead => lead.Temperature == LeadTemperature.Hot),
-                group.Count(lead => lead.Status == LeadStatus.Converted || lead.ConvertedDonorId != null),
-                group.Count(lead => lead.DonationPotential == DonationPotential.High)))
+            .Select(group => new
+            {
+                Total = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted),
+                Unassigned = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.OwnerUserId == null),
+                Assigned = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.OwnerUserId != null),
+                Hot = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.Temperature == LeadTemperature.Hot),
+                Converted = group.Count(lead => lead.Status == LeadStatus.Converted || lead.ConvertedDonorId != null),
+                HighPotential = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.DonationPotential == DonationPotential.High),
+                Recent = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.CreatedAtUtc >= recentFrom),
+                Warm = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.Temperature == LeadTemperature.Warm),
+                Cold = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.Temperature == LeadTemperature.Cold)
+            })
             .FirstOrDefaultAsync(cancellationToken);
 
-        // An empty queue produces no group at all, and six zeroes is the honest answer.
-        return summary ?? new LeadQueueSummaryResponse(0, 0, 0, 0, 0, 0);
+        // The follow-ups these leads have open, against the organisation's day.
+        var leadIds = leads.Select(lead => lead.Id);
+        var open = context.FollowUpTasks.Where(task =>
+            task.LeadId != null
+            && leadIds.Contains(task.LeadId.Value)
+            && (task.Status == FollowUpStatus.Planned || task.Status == FollowUpStatus.Assigned || task.Status == FollowUpStatus.Rescheduled));
+
+        var dueToday = await open.CountAsync(task => task.DueAtUtc >= todayStartUtc && task.DueAtUtc < todayEndUtc, cancellationToken);
+        var overdue = await open.CountAsync(task => task.DueAtUtc < todayStartUtc, cancellationToken);
+
+        // An empty queue produces no group at all, and zeroes are the honest answer.
+        return lanes is null
+            ? new LeadQueueSummaryResponse(0, 0, 0, 0, 0, 0, 0, 0, 0, dueToday, overdue)
+            : new LeadQueueSummaryResponse(
+                lanes.Total, lanes.Unassigned, lanes.Assigned, lanes.Hot, lanes.Converted, lanes.HighPotential,
+                lanes.Recent, lanes.Warm, lanes.Cold, dueToday, overdue);
     }
 
     public void Add(Lead lead) => context.Leads.Add(lead);

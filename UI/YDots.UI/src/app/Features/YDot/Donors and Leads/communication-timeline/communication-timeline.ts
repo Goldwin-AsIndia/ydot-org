@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -12,72 +12,70 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Observable } from 'rxjs';
 import { DonorApiService } from '../../../../Service/donor-api.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
-import { CommunicationTimelineResponse } from '../../../../Shared/models/donor-contract.model';
+import {
+  CommunicationTimelineEntry,
+  CommunicationTimelineResponse,
+  DonLookupItem,
+} from '../../../../Shared/models/donor-contract.model';
+import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
+import { parseCsv } from '../../../../Shared/services/csv';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
-type CommunicationType =
-  | 'Call'
-  | 'Email'
-  | 'SMS'
-  | 'WhatsApp'
-  | 'Meeting'
-  | 'Visit'
-  | 'Event'
-  | 'Internal Note';
 
-type Temperature = 'Cold' | 'Warm' | 'Hot';
-type DonationPotential = 'Low' | 'Medium' | 'High';
-type CommunicationQuality = 'Poor' | 'Average' | 'Good' | 'Excellent';
-type EngagementLevel = 'Low' | 'Medium' | 'High';
-type FollowUpPriority = 'Low' | 'Medium' | 'High' | 'Critical';
-type RelationshipHealth = 'Healthy' | 'Needs Attention' | 'At Risk';
-type EngagementTrend = 'Improving' | 'Stable' | 'Declining';
-type CommunicationTrend = 'High Frequency' | 'Moderate Frequency' | 'Low Frequency';
+/**
+ * A channel, as the API names it: Call, Email, Sms, WhatsApp, Meeting, Visit or Note.
+ *
+ * THE SERVER'S VALUES, NOT THIS SCREEN'S OWN. The screen used to keep its own list - with "SMS",
+ * "Internal Note" and an "Event" the API has never had - and translate on the way out, which is
+ * how a logged meeting came to be recorded as an e-mail (the translation's default).
+ */
+type Channel = string;
 
-type Outcome =
-  | 'Connected'
-  | 'No Answer'
-  | 'Interested'
-  | 'Requested Callback'
-  | 'Meeting Scheduled'
-  | 'Meeting Completed'
-  | 'Requested Information'
-  | 'Donation Discussion'
-  | 'Not Interested'
-  | 'Wrong Contact';
+/** A lane above the journal: every entry, the starred ones, or one channel. */
+type Lane = 'All' | 'Important' | Channel;
 
 interface CommunicationRecord {
   id: string;
-  type: CommunicationType;
+  type: Channel;
   date: string;
   time: string;
   createdBy: string;
-  direction: 'Incoming' | 'Outgoing';
-  outcome: Outcome;
+
+  /** Outgoing | Incoming | Internal. */
+  direction: string;
+
+  /** The API's outcome value, e.g. CallbackRequested. `outcomeLabel` is what a person reads. */
+  outcome: string;
+  outcomeLabel: string;
   summary: string;
   notes?: string;
-  engagement: EngagementLevel;
-  quality?: CommunicationQuality;
+
+  /** The server withheld the notes from this caller; there is something there they may not read. */
+  notesMasked: boolean;
+
+  /** Low | Medium | High, or empty when whoever logged it did not say. */
+  engagement: string;
+  quality: string;
   important: boolean;
   attachment?: string;
-  followUpDate?: string;
-  followUpTime?: string;
-  followUpPriority?: FollowUpPriority;
-  followUpPurpose?: string;
-  followUpStatus?: 'Pending' | 'Completed' | 'Overdue';
+
+  /** The person who logged it, or somebody who works the whole organisation. */
+  canEdit: boolean;
+  version: number;
 }
 
 interface CommunicationForm {
-  type: CommunicationType;
+  type: Channel;
   date: string;
   time: string;
-  direction: 'Incoming' | 'Outgoing';
-  outcome: Outcome;
-  engagement: EngagementLevel;
-  quality: CommunicationQuality;
+  direction: string;
+  outcome: string;
+  engagement: string;
+  quality: string;
   summary: string;
   notes: string;
   attachmentName: string;
@@ -89,6 +87,29 @@ interface SuggestedAction {
   detail: string;
 }
 
+/**
+ * How the outcome picker lays the server's outcomes out: four kinds of result rather than one
+ * long row. The outcomes themselves, and their wording, are the server's - this only says which
+ * column each one sits in, and anything it does not name is shown under "Other".
+ */
+const OUTCOME_KINDS: readonly { label: string; hint: string; values: readonly string[] }[] = [
+  { label: 'Reached', hint: 'Contact was made', values: ['Reached', 'MeetingScheduled'] },
+  { label: 'Warm signals', hint: 'Moving towards a gift', values: ['Interested', 'DonationDiscussion', 'MeetingCompleted'] },
+  { label: 'Awaiting', hint: 'Needs another touch', values: ['NoAnswer', 'CallbackRequested', 'InformationRequested'] },
+  { label: 'Closed', hint: 'Stop or correct', values: ['NotInterested', 'WrongNumber', 'DoNotContact'] },
+];
+
+/** The lane headings: a channel in the plural. Falls back to the server's own label. */
+const LANE_LABELS: Record<string, string> = {
+  Call: 'Calls',
+  Email: 'Emails',
+  Sms: 'SMS',
+  WhatsApp: 'WhatsApp',
+  Meeting: 'Meetings',
+  Visit: 'Visits',
+  Note: 'Notes',
+};
+
 @Component({
   selector: 'app-communication-timeline',
   standalone: true,
@@ -99,20 +120,26 @@ interface SuggestedAction {
 export class CommunicationTimelineComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly location = inject(Location);
   private readonly api = inject(DonorApiService);
   private readonly toast = inject(ToastService);
+  private readonly tokens = inject(AuthTokenService);
 
   /**
    * The server's answer for this lead or donor.
    *
    * ONE CALL FILLS BOTH HALVES OF THE SCREEN - the profile card and the timeline beneath it -
-   * so the header can never describe one person while the conversations belong to another.
+   * so the header can never describe one person while the conversations belong to another. The
+   * same answer carries every list this screen offers a choice from, what the caller may do here,
+   * and the readings in the rail: health, trends, the next follow-up.
    */
   readonly timeline = signal<CommunicationTimelineResponse | null>(null);
   readonly loading = signal(false);
+  readonly saving = signal(false);
   readonly loadError = signal('');
   readonly donorId = signal(this.route.snapshot.queryParamMap.get('donorId'));
   readonly leadId = signal(this.route.snapshot.queryParamMap.get('leadId'));
+
   /**
    * The record this timeline belongs to.
    *
@@ -122,9 +149,18 @@ export class CommunicationTimelineComponent {
    */
   readonly recordId = computed(() => this.donorId() ?? this.leadId() ?? '');
 
+  /**
+   * Whether this is a donor's timeline. The server's word: a lead opened by its own id that has
+   * since converted is a donor now, whatever the address bar says.
+   */
+  readonly isDonor = computed(() => !!(this.timeline()?.donorId ?? this.donorId()));
+
+  /** A lead that is still a lead - the only record that carries a temperature and a potential. */
+  readonly isLead = computed(() => this.timeline()?.isLead === true);
+
   @Output() navigateToLeads = new EventEmitter<void>();
 
-  readonly activeTab = signal<'All' | CommunicationType | 'Important'>('All');
+  readonly activeTab = signal<Lane>('All');
   readonly isEntryDrawerOpen = signal(false);
   readonly isDetailDrawerOpen = signal(false);
   readonly isTemperatureModalOpen = signal(false);
@@ -139,13 +175,16 @@ export class CommunicationTimelineComponent {
   readonly formErrors = signal<string[]>([]);
   private readonly entrySheet = viewChild<ElementRef<HTMLElement>>('entrySheet');
 
-  readonly currentTemperature = signal<Temperature>('Warm');
-  readonly newTemperature = signal<Temperature>('Warm');
+  readonly currentTemperature = signal('');
+  readonly newTemperature = signal('');
   readonly temperatureReason = signal('');
 
-  readonly donationPotential = signal<DonationPotential>('Medium');
-  readonly newDonationPotential = signal<DonationPotential>('Medium');
+  readonly donationPotential = signal('');
+  readonly newDonationPotential = signal('');
   readonly donationPotentialReason = signal('');
+
+  /** The server asks for a reason of at least this many characters when a lead is re-scored. */
+  readonly scoreReasonMinimum = 10;
 
   readonly typeFilter = signal<string>('All');
   readonly directionFilter = signal<string>('All');
@@ -158,6 +197,23 @@ export class CommunicationTimelineComponent {
   readonly pageSize = signal(10);
   setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
 
+  // ===========================================================================================
+  // What the caller may do here - the server's verbs for this caller and this record
+  // ===========================================================================================
+
+  private readonly permitted = computed(() => this.timeline()?.permittedActions ?? []);
+
+  /** Log, edit and flag a communication. Withheld on a closed lead or an archived donor. */
+  readonly canLog = computed(() => this.permitted().includes('Contact'));
+
+  /** Change a lead's temperature and donation potential. */
+  readonly canScore = computed(() => this.permitted().includes('Score'));
+  readonly canSchedule = computed(() => this.permitted().includes('Schedule follow-up'));
+  readonly canShareDonationLink = computed(() => this.permitted().includes('Share donation link'));
+
+  /** The export is the server's and needs its permission; the button is hidden without it. */
+  readonly canExport = this.tokens.hasPermission('don.donors.export');
+
   /**
    * The profile beside the timeline.
    *
@@ -169,7 +225,8 @@ export class CommunicationTimelineComponent {
   readonly relationship = computed(() => {
     const data = this.timeline();
     return {
-      reference: data?.leadReference ?? data?.donorReference ?? '',
+      // The donor's number once there is a donor; the lead's reference until then.
+      reference: data?.donorReference ?? data?.leadReference ?? '',
       name: data?.displayName ?? '',
 
       // ALREADY MASKED, OR ALREADY NOT - `isContactMasked` says which, and the screen shows it
@@ -180,44 +237,22 @@ export class CommunicationTimelineComponent {
       source: data?.source ?? '',
       language: data?.preferredLanguage ?? '',
       owner: data?.ownerName ?? 'Unassigned',
-      preferredContactMethod: '',
-      preferredLanguage: data?.preferredLanguage ?? '',
-      bestContactTime: '',
       stage: data?.status ?? '',
-      qualificationReadiness: '',
-      readinessScore: data?.healthScore ?? 0,
     };
   });
 
-  readonly communicationTypes: CommunicationType[] = [
-    'Call',
-    'Email',
-    'SMS',
-    'WhatsApp',
-    'Meeting',
-    'Visit',
-    'Event',
-    'Internal Note',
-  ];
+  // ===========================================================================================
+  // The lists every selector draws from - all of them the server's
+  // ===========================================================================================
 
-  readonly outcomes: Outcome[] = [
-    'Connected',
-    'No Answer',
-    'Interested',
-    'Requested Callback',
-    'Meeting Scheduled',
-    'Meeting Completed',
-    'Requested Information',
-    'Donation Discussion',
-    'Not Interested',
-    'Wrong Contact',
-  ];
-
-  readonly temperatures: Temperature[] = ['Cold', 'Warm', 'Hot'];
-  readonly donationPotentials: DonationPotential[] = ['Low', 'Medium', 'High'];
-  readonly qualities: CommunicationQuality[] = ['Poor', 'Average', 'Good', 'Excellent'];
-  readonly engagementLevels: EngagementLevel[] = ['Low', 'Medium', 'High'];
-  readonly priorities: FollowUpPriority[] = ['Low', 'Medium', 'High', 'Critical'];
+  /** Channels: value = Call, Email, Sms, WhatsApp, Meeting, Visit, Note. */
+  readonly communicationTypes = computed<DonLookupItem[]>(() => this.timeline()?.interactionTypeOptions ?? []);
+  readonly outcomeOptions = computed<DonLookupItem[]>(() => this.timeline()?.outcomeOptions ?? []);
+  readonly directionOptions = computed<DonLookupItem[]>(() => this.timeline()?.directionOptions ?? []);
+  readonly temperatures = computed(() => (this.timeline()?.temperatureOptions ?? []).map((option) => option.value));
+  readonly donationPotentials = computed(() => (this.timeline()?.donationPotentialOptions ?? []).map((option) => option.value));
+  readonly qualities = computed(() => (this.timeline()?.qualityOptions ?? []).map((option) => option.value));
+  readonly engagementLevels = computed(() => (this.timeline()?.engagementOptions ?? []).map((option) => option.value));
 
   private readonly monthMap: Record<string, number> = {
     Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
@@ -233,7 +268,7 @@ export class CommunicationTimelineComponent {
    * The conversations, newest first.
    *
    * IT WAS A LITERAL ARRAY of four invented exchanges - "Ramesh confirmed interest in the Educate
-   * a Child campaign", "campaign-brochure.pdf" - seeded into `WorkflowStateService` on every
+   * a Child campaign", "campaign-brochure.pdf" - seeded into a shared in-browser store on every
    * construction, so every lead in every organisation had had the same four conversations.
    */
   readonly records = signal<CommunicationRecord[]>([]);
@@ -281,12 +316,18 @@ export class CommunicationTimelineComponent {
     this.api.getCommunicationTimeline(this.leadId(), this.donorId()).subscribe({
       next: (response) => {
         this.timeline.set(response);
-        this.records.set(response.entries.map((entry) => this.toRecord(entry)));
+        this.records.set(response.entries.map((entry) => this.toRecord(entry, response)));
 
-        this.currentTemperature.set(response.temperature as Temperature);
-        this.newTemperature.set(response.temperature as Temperature);
-        this.donationPotential.set(response.donationPotential as DonationPotential);
-        this.newDonationPotential.set(response.donationPotential as DonationPotential);
+        this.currentTemperature.set(response.temperature ?? '');
+        this.newTemperature.set(response.temperature ?? '');
+        this.donationPotential.set(response.donationPotential ?? '');
+        this.newDonationPotential.set(response.donationPotential ?? '');
+
+        // The detail drawer holds a copy of a row; keep it the server's after a reload.
+        const open = this.selectedCommunication();
+        if (open) {
+          this.selectedCommunication.set(this.records().find((record) => record.id === open.id) ?? null);
+        }
 
         this.loading.set(false);
       },
@@ -303,40 +344,42 @@ export class CommunicationTimelineComponent {
    *
    * THE DATE IS SPLIT FOR DISPLAY ONLY. The API stores one UTC instant; the timeline groups by
    * day and shows a time beside each line, so both are derived here rather than stored twice.
+   *
+   * ENGAGEMENT, QUALITY, THE STAR AND THE ATTACHMENT ARE THE ENTRY'S OWN. They were not stored at
+   * all, and this mapping filled the gap with constants - every conversation was "Medium"
+   * engagement and none was important - so the health and trend figures built on them described
+   * nothing.
    */
-  private toRecord(entry: import('../../../../Shared/models/donor-contract.model').CommunicationTimelineEntry): CommunicationRecord {
+  private toRecord(entry: CommunicationTimelineEntry, response: CommunicationTimelineResponse): CommunicationRecord {
     const occurred = new Date(entry.occurredAtUtc);
 
     return {
       id: entry.id,
-      type: this.toCommunicationType(entry.interactionType, entry.channel),
+      type: entry.interactionType,
       date: this.toDisplayDateFrom(occurred),
       time: occurred.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
       createdBy: entry.performedByName ?? '',
-      direction: entry.direction === 'Incoming' ? 'Incoming' : 'Outgoing',
-      outcome: entry.outcome as Outcome,
+      direction: entry.direction,
+      outcome: entry.outcome,
+      outcomeLabel: this.labelIn(response.outcomeOptions, entry.outcome),
       summary: entry.summary,
 
       // WITHHELD RATHER THAN BLANK. `isNotesMasked` is why there is nothing here, and the screen
       // says so instead of implying the conversation had no notes.
       notes: entry.notes ?? undefined,
-      engagement: 'Medium',
-      quality: undefined,
-      important: false,
+      notesMasked: entry.isNotesMasked,
+      engagement: entry.engagementLevel ?? '',
+      quality: entry.quality ?? '',
+      important: entry.isImportant,
+      attachment: entry.attachmentName ?? undefined,
+      canEdit: entry.canEdit,
+      version: entry.version,
     };
   }
 
-  private toCommunicationType(interactionType: string, channel: string | null): CommunicationType {
-    switch (channel ?? interactionType) {
-      case 'Call': return 'Call';
-      case 'Email': return 'Email';
-      case 'Sms':
-      case 'SMS': return 'SMS';
-      case 'WhatsApp': return 'WhatsApp';
-      case 'Meeting': return 'Meeting';
-      case 'Visit': return 'Visit';
-      default: return 'Internal Note';
-    }
+  private labelIn(options: readonly DonLookupItem[] | undefined, value: string): string {
+    if (value === 'NotContacted') return 'Not contacted';
+    return (options ?? []).find((option) => option.value === value)?.label ?? value;
   }
 
   private toDisplayDateFrom(value: Date): string {
@@ -345,7 +388,6 @@ export class CommunicationTimelineComponent {
   }
 
   readonly form = signal<CommunicationForm>(this.createEmptyForm('Call'));
-
 
   readonly filteredRecords = computed(() => {
     const from = this.dateFromFilter() ? this.parseDisplayDate(this.toDisplayDate(this.dateFromFilter())) : null;
@@ -375,8 +417,8 @@ export class CommunicationTimelineComponent {
       const recordDate = this.parseDisplayDate(record.date);
       const fromMatch = !from || !recordDate || recordDate.getTime() >= from.getTime();
       const toMatch = !to || !recordDate || recordDate.getTime() <= to.getTime();
-      const searchMatch = !query || [record.type, record.outcome, record.summary, record.notes,
-        record.createdBy, record.direction, record.followUpPurpose]
+      const searchMatch = !query || [this.channelLabel(record.type), record.outcomeLabel, record.summary, record.notes,
+        record.createdBy, record.direction]
         .some((value) => value?.toLocaleLowerCase().includes(query));
 
       return (
@@ -391,13 +433,6 @@ export class CommunicationTimelineComponent {
       );
     });
   });
-
-  readonly relationshipInitials = computed(() => this.relationship().name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || '—');
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredRecords().length / this.pageSize())));
   readonly paginatedRecords = computed(() => {
@@ -434,19 +469,18 @@ export class CommunicationTimelineComponent {
   /** Channel lanes above the journal; empty channels are left out unless selected. */
   readonly lanes = computed(() => {
     const list = this.records();
-    const count = (type: CommunicationType) => list.filter((record) => record.type === type).length;
-    const lanes: { id: 'All' | CommunicationType | 'Important'; label: string; count: number }[] = [
+    const count = (type: Channel) => list.filter((record) => record.type === type).length;
+
+    const lanes: { id: Lane; label: string; count: number }[] = [
       { id: 'All', label: 'All', count: list.length },
-      { id: 'Call', label: 'Calls', count: count('Call') },
-      { id: 'Email', label: 'Emails', count: count('Email') },
-      { id: 'SMS', label: 'SMS', count: count('SMS') },
-      { id: 'WhatsApp', label: 'WhatsApp', count: count('WhatsApp') },
-      { id: 'Meeting', label: 'Meetings', count: count('Meeting') },
-      { id: 'Visit', label: 'Visits', count: count('Visit') },
-      { id: 'Event', label: 'Events', count: count('Event') },
-      { id: 'Internal Note', label: 'Notes', count: count('Internal Note') },
+      ...this.communicationTypes().map((type) => ({
+        id: type.value,
+        label: LANE_LABELS[type.value] ?? type.label,
+        count: count(type.value),
+      })),
       { id: 'Important', label: 'Important', count: list.filter((record) => record.important).length },
     ];
+
     return lanes.filter((lane) => lane.id === 'All' || lane.id === 'Important' || lane.count > 0 || lane.id === this.activeTab());
   });
 
@@ -459,7 +493,7 @@ export class CommunicationTimelineComponent {
   readonly cadenceDays = 56;
   readonly cadence = computed(() => {
     const today = this.today();
-    const byDay = new Map<string, CommunicationType[]>();
+    const byDay = new Map<string, Channel[]>();
     for (const record of this.records()) {
       byDay.set(record.date, [...(byDay.get(record.date) ?? []), record.type]);
     }
@@ -472,29 +506,29 @@ export class CommunicationTimelineComponent {
     });
   });
   readonly cadenceActiveDays = computed(() => this.cadence().filter((day) => day.count > 0).length);
-  readonly cadenceStart = computed(() => this.cadence()[0]?.label ?? '');
 
-  /** One line under the drawer that reads back what is about to be saved. */
-  readonly entryRecap = computed(() => {
-    const value = this.form();
-    const when = value.date ? this.toDisplayDate(value.date) : 'no date';
-    return `${value.direction} ${this.channelNoun(value.type)} · ${value.outcome} · ${when}${value.time ? ' at ' + value.time : ''}`;
+  /** The server's outcomes, in the picker's four columns. See OUTCOME_KINDS. */
+  readonly outcomeGroups = computed(() => {
+    const options = this.outcomeOptions();
+    const groups = OUTCOME_KINDS.map((kind) => ({
+      label: kind.label,
+      hint: kind.hint,
+      items: options.filter((option) => kind.values.includes(option.value)),
+    }));
+
+    const placed = new Set(groups.flatMap((group) => group.items.map((item) => item.value)));
+    const other = options.filter((option) => !placed.has(option.value));
+    if (other.length) groups.push({ label: 'Other', hint: 'Other outcomes', items: other });
+
+    return groups.filter((group) => group.items.length > 0);
   });
-
-  /** The log screen's outcome picker, read as four kinds of result rather than one long row. */
-  readonly outcomeGroups: { label: string; hint: string; items: Outcome[] }[] = [
-    { label: 'Reached', hint: 'Contact was made', items: ['Connected', 'Meeting Scheduled'] },
-    { label: 'Warm signals', hint: 'Moving towards a gift', items: ['Interested', 'Donation Discussion', 'Meeting Completed'] },
-    { label: 'Awaiting', hint: 'Needs another touch', items: ['No Answer', 'Requested Callback', 'Requested Information'] },
-    { label: 'Closed', hint: 'Stop or correct', items: ['Not Interested', 'Wrong Contact'] },
-  ];
 
   /** The last few entries, shown beside the log screen so the person writing sees what came before. */
   readonly recentEntries = computed(() => this.records().filter((record) => record.id !== this.editingId()).slice(0, 5));
 
   /** How many entries each channel already has, printed under the channel tiles. */
   readonly channelCounts = computed(() => {
-    const counts: Partial<Record<CommunicationType, number>> = {};
+    const counts: Record<string, number> = {};
     for (const record of this.records()) counts[record.type] = (counts[record.type] ?? 0) + 1;
     return counts;
   });
@@ -569,6 +603,10 @@ export class CommunicationTimelineComponent {
     this.updateForm('summary', `${current}${joiner}${text}`.slice(0, 2000));
   }
 
+  // ===========================================================================================
+  // The figure strip and the rail
+  // ===========================================================================================
+
   readonly totalCommunications = computed(() => this.records().length);
 
   readonly callsCount = computed(
@@ -583,21 +621,28 @@ export class CommunicationTimelineComponent {
     () => this.records().filter((item) => item.type === 'Email').length,
   );
 
-  readonly interestedCount = computed(
-    () => this.records().filter((item) => item.outcome === 'Interested').length,
-  );
+  /** "Interested" outcomes on the whole record - the server's count. */
+  readonly interestedCount = computed(() => this.timeline()?.interestedCount ?? 0);
 
+  /** The latest entry that was contact - an internal note is not. */
+  private readonly lastContactRecord = computed(() => this.records().find((record) => record.type !== 'Note') ?? null);
+
+  /**
+   * When this person was last in contact - the server's instant, which also knows about a lead's
+   * contact recorded before the timeline kept entries.
+   */
   readonly lastContactDisplay = computed(() => {
-    const list = this.records();
-    if (!list.length) return 'No contact yet';
-    return this.formatRelativeDate(list[0].date);
+    const value = this.timeline()?.lastContactedAtUtc;
+    if (!value) return 'No contact yet';
+    return this.formatRelativeDate(this.toDisplayDateFrom(new Date(value)));
   });
 
   readonly lastContactMeta = computed(() => {
-    const record = this.records()[0];
-    if (!record) return 'No contact logged';
-    const type = record.type === 'Internal Note' ? 'Internal note' : record.type;
-    return `${record.date} · ${type}`;
+    const value = this.timeline()?.lastContactedAtUtc;
+    if (!value) return 'No contact logged';
+    const record = this.lastContactRecord();
+    const date = this.toDisplayDateFrom(new Date(value));
+    return record && record.date === date ? `${date} · ${this.channelLabel(record.type)}` : date;
   });
 
   readonly lastUpdatedDisplay = computed(() => this.records()[0]?.date ?? '—');
@@ -607,137 +652,89 @@ export class CommunicationTimelineComponent {
     return call ? `Last on ${call.date}` : 'No calls logged';
   });
 
-  readonly healthGaugeDashArray = computed(() => {
-    const circumference = 2 * Math.PI * 50;
-    const score = Math.max(0, Math.min(100, this.leadHealthScore()));
-    const filled = circumference * (score / 100);
-    return `${filled.toFixed(1)} ${(circumference - filled).toFixed(1)}`;
-  });
+  /**
+   * Health - the server's score for the lead, and its word for it.
+   *
+   * THIS SCREEN USED TO COMPUTE ITS OWN, from the entries it had loaded and a constant
+   * engagement level, so the same lead scored one number here and another in the queue. A donor
+   * who was never a lead has no score, and the figure says so rather than showing a zero.
+   */
+  readonly leadHealthScore = computed(() => this.timeline()?.healthScore ?? 0);
+  readonly healthDisplay = computed(() => (this.timeline()?.healthBand ? String(this.leadHealthScore()) : '—'));
+  readonly relationshipHealthStatus = computed(() => this.timeline()?.healthBand || 'Not scored');
+  readonly relationshipHealthReason = computed(() => (this.timeline()?.healthReasons ?? []).join(' · '));
 
-  readonly nextFollowUpRecord = computed(() => {
-    const pending = this.records()
-      .filter((record) => record.followUpDate && record.followUpStatus === 'Pending')
-      .map((record) => ({ record, parsed: this.parseDisplayDate(record.followUpDate as string) }))
-      .filter((entry): entry is { record: CommunicationRecord; parsed: Date } => entry.parsed !== null)
-      .sort((a, b) => a.parsed.getTime() - b.parsed.getTime());
+  /** Improving, Stable or Declining - from the engagement recorded on the entries. */
+  readonly engagementTrend = computed(() => this.timeline()?.engagementTrend || 'Stable');
 
-    return pending[0]?.record ?? null;
-  });
+  /** High, Moderate or Low frequency - from the gaps between conversations. */
+  readonly communicationTrend = computed(() => this.timeline()?.contactRhythm || '—');
 
-  readonly nextFollowUpDisplay = computed(() => {
-    const next = this.nextFollowUpRecord();
-    if (!next || !next.followUpDate) return 'None scheduled';
-    return this.formatRelativeDate(next.followUpDate);
-  });
-
-  readonly relationshipHealthStatus = computed<RelationshipHealth>(() => {
-    const list = this.records();
-    if (!list.length) return 'At Risk';
-    const last = this.parseDisplayDate(list[0].date);
-    if (!last) return 'Needs Attention';
-    const days = this.daysBetween(last, this.today());
-    if (days <= 7) return 'Healthy';
-    if (days <= 14) return 'Needs Attention';
-    return 'At Risk';
-  });
-
-  readonly relationshipHealthReason = computed(() => {
-    const list = this.records();
-    if (!list.length) return 'No communication logged yet.';
-    const last = this.parseDisplayDate(list[0].date);
-    if (!last) return '';
-    const days = this.daysBetween(last, this.today());
-    if (days <= 0) return 'Contacted today.';
-    if (days === 1) return 'Last contacted yesterday.';
-    return `No contact for ${days} days.`;
-  });
-
-  readonly leadHealthScore = computed(() => {
-    const list = this.records();
-    if (!list.length) return 0;
-
-    const engagementValue = (level: EngagementLevel) =>
-      level === 'High' ? 3 : level === 'Medium' ? 2 : 1;
-
-    const avgEngagement =
-      list.reduce((sum, r) => sum + engagementValue(r.engagement), 0) / list.length;
-
-    const positiveOutcomes = list.filter(
-      (r) => r.outcome === 'Interested' || r.outcome === 'Donation Discussion' || r.outcome === 'Meeting Completed',
-    ).length / list.length;
-
-    const importantRatio = list.filter((r) => r.important).length / list.length;
-
-    const last = this.parseDisplayDate(list[0].date);
-    const daysSince = last ? Math.max(0, this.daysBetween(last, this.today())) : 30;
-
-    const score = (avgEngagement / 3) * 50 + positiveOutcomes * 30 + importantRatio * 10 - Math.min(daysSince, 20);
-    return Math.max(0, Math.min(100, Math.round(score)));
-  });
-
-  readonly engagementTrend = computed<EngagementTrend>(() => {
-    const scores = this.records().map((r) =>
-      r.engagement === 'High' ? 3 : r.engagement === 'Medium' ? 2 : 1,
-    );
-    if (scores.length < 2) return 'Stable';
-
-    const midpoint = Math.ceil(scores.length / 2);
-    const recentAvg = scores.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
-    const olderAvg =
-      scores.slice(midpoint).reduce((a, b) => a + b, 0) / (scores.length - midpoint || 1);
-
-    if (recentAvg - olderAvg > 0.3) return 'Improving';
-    if (olderAvg - recentAvg > 0.3) return 'Declining';
-    return 'Stable';
-  });
-
-  readonly communicationTrend = computed<CommunicationTrend>(() => {
-    const list = this.records();
-    if (list.length < 2) return 'Low Frequency';
-
-    const earliest = this.parseDisplayDate(list[list.length - 1].date);
-    const latest = this.parseDisplayDate(list[0].date);
-    if (!earliest || !latest) return 'Moderate Frequency';
-
-    const span = Math.max(1, this.daysBetween(earliest, latest));
-    const avgGap = span / (list.length - 1);
-
-    if (avgGap <= 3) return 'High Frequency';
-    if (avgGap <= 7) return 'Moderate Frequency';
-    return 'Low Frequency';
-  });
-
+  /** Follow-ups completed, of all ever planned for this person. */
   readonly followUpCompletionRate = computed(() => {
-    const withFollowUp = this.records().filter((r) => r.followUpStatus);
-    if (!withFollowUp.length) return 0;
-    const completed = withFollowUp.filter((r) => r.followUpStatus === 'Completed').length;
-    return Math.round((completed / withFollowUp.length) * 100);
+    const data = this.timeline();
+    if (!data || !data.followUpCount) return 0;
+    return Math.round((data.followUpCompletedCount / data.followUpCount) * 100);
   });
 
+  /**
+   * The next step - the follow-up that is actually planned, when there is one.
+   *
+   * IT WAS A GUESS FROM THE LAST OUTCOME ("Interested" meant "Schedule Meeting"), shown as though
+   * somebody had decided it, on a screen that could not see the follow-ups already booked. The
+   * server names the next open follow-up, who holds it and when it is due.
+   */
   readonly suggestedAction = computed<SuggestedAction>(() => {
-    const latest = this.records()[0];
-    if (!latest) {
-      return { label: 'Log First Communication', detail: 'No communication history yet.' };
+    const data = this.timeline();
+
+    if (data?.nextFollowUpDueUtc) {
+      const due = new Date(data.nextFollowUpDueUtc);
+      const when = `${this.toDisplayDateFrom(due)}, ${due.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+      const who = data.nextFollowUpAssignedTo ? ` · ${data.nextFollowUpAssignedTo}` : '';
+      const reference = data.nextFollowUpReference ? `${data.nextFollowUpReference} · ` : '';
+      return {
+        label: data.nextFollowUpPurpose || 'Follow-up planned',
+        detail: `${reference}due ${when}${who}`,
+      };
     }
 
-    switch (latest.outcome) {
-      case 'Interested':
-        return { label: 'Schedule Meeting', detail: 'Lead confirmed interest during the last communication.' };
-      case 'Requested Information':
-        return { label: 'Send Proposal', detail: 'Lead asked for more information.' };
-      case 'Donation Discussion':
-        return { label: 'Follow-Up In 3 Days', detail: 'A donation discussion is in progress.' };
-      case 'Meeting Scheduled':
-        return { label: 'Prepare Meeting Brief', detail: 'A meeting has been scheduled with the lead.' };
-      case 'Not Interested':
-      case 'Wrong Contact':
-        return { label: 'Review Lead Status', detail: 'Recent outcome suggests low engagement.' };
-      default:
-        return { label: 'Log Next Communication', detail: 'Keep the conversation moving.' };
+    if (!this.records().length) {
+      return { label: 'No conversations yet', detail: 'Log the first communication, or schedule a follow-up.' };
     }
+
+    return { label: 'No follow-up is planned', detail: 'Schedule one to keep the conversation moving.' };
   });
 
-  openEntryDrawer(type: CommunicationType = 'Call'): void {
+  /**
+   * The donation link for this lead: the public form, bound to the lead's campaign and carrying
+   * the lead. A gift made through it converts the lead, and the donor keeps the lead's owner.
+   */
+  readonly donationLink = computed(() => {
+    const data = this.timeline();
+    if (!data?.leadId || !data.campaignId) return '';
+    return `${window.location.origin}/auth/donor-form?campaign=${data.campaignId}&lead=${data.leadId}`;
+  });
+
+  readonly linkCopied = signal(false);
+
+  async copyDonationLink(): Promise<void> {
+    const link = this.donationLink();
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      this.linkCopied.set(true);
+      window.setTimeout(() => this.linkCopied.set(false), 1500);
+    } catch {
+      this.toast.show('Not copied', 'Copy the link from the Record panel instead.', 'warning');
+    }
+  }
+
+  // ===========================================================================================
+  // Logging and editing
+  // ===========================================================================================
+
+  openEntryDrawer(type: Channel = 'Call'): void {
+    if (!this.canLog()) return;
     this.isFilterOpen.set(false);
     this.closeActionMenu();
     this.isDetailDrawerOpen.set(false);
@@ -749,6 +746,8 @@ export class CommunicationTimelineComponent {
   }
 
   editCommunication(record: CommunicationRecord): void {
+    if (!record.canEdit || !this.canLog()) return;
+
     this.editingId.set(record.id);
     this.formErrors.set([]);
 
@@ -759,7 +758,7 @@ export class CommunicationTimelineComponent {
       direction: record.direction,
       outcome: record.outcome,
       engagement: record.engagement,
-      quality: record.quality ?? 'Good',
+      quality: record.quality,
       summary: record.summary,
       notes: record.notes ?? '',
       attachmentName: record.attachment ?? '',
@@ -794,7 +793,21 @@ export class CommunicationTimelineComponent {
     this.updateForm('attachmentName', file ? file.name : '');
   }
 
+  /**
+   * Saves the entry - a new one, or a correction to one the caller logged.
+   *
+   * EVERYTHING ON THE FORM IS SENT, AND NOTHING IS KEPT HERE. This used to push the entry into a
+   * local array, then post a cut-down version to the lead's contact command: the date and time
+   * the person had entered were dropped (it was recorded as "now"), engagement, quality, the star
+   * and the attachment were dropped, a meeting or a visit went out as an e-mail, and for a donor
+   * nothing was sent at all - the screen showed the entry and refused it in the same breath.
+   *
+   * The server checks an outgoing call, e-mail, SMS or WhatsApp against the person's consent, and
+   * refuses a channel they have withdrawn.
+   */
   saveCommunication(): void {
+    if (this.saving()) return;
+
     const value = this.form();
     const errors = this.validateForm(value);
     this.formErrors.set(errors);
@@ -803,115 +816,85 @@ export class CommunicationTimelineComponent {
       return;
     }
 
-    const displayDate = this.toDisplayDate(value.date);
+    const data = this.timeline();
+    if (!data) return;
+
+    const occurred = new Date(`${value.date}T${value.time}:00`);
     const editingId = this.editingId();
+    const editing = editingId ? this.records().find((record) => record.id === editingId) : null;
 
-    if (editingId) {
-      this.records.update((records) =>
-        records.map((record) =>
-          record.id === editingId
-            ? {
-                ...record,
-                type: value.type,
-                date: displayDate,
-                time: value.time,
-                direction: value.direction,
-                outcome: value.outcome,
-                engagement: value.engagement,
-                quality: value.quality,
-                summary: value.summary.trim(),
-                notes: value.notes.trim() || undefined,
-                attachment: value.attachmentName || record.attachment,
-                important: value.important,
-              }
-            : record,
-        ),
-      );
-    } else {
-      const newRecord: CommunicationRecord = {
-        id: `COM-${Date.now()}`,
-        type: value.type,
-        date: displayDate,
-        time: value.time,
-        createdBy: this.relationship().owner,
-        direction: value.direction,
-        outcome: value.outcome,
-        engagement: value.engagement,
-        quality: value.quality,
-        summary: value.summary.trim(),
-        notes: value.notes.trim() || undefined,
-        important: value.important,
-        attachment: value.attachmentName || undefined,
-      };
+    const body = {
+      // A note is internal by nature; the two-way switch on the form is about contact.
+      direction: value.type === 'Note' ? 'Internal' : value.direction,
+      occurredAtUtc: occurred.toISOString(),
+      outcome: value.outcome,
+      summary: value.summary.trim(),
+      notes: value.notes.trim() || null,
+      engagementLevel: value.engagement || null,
+      quality: value.quality || null,
+      isImportant: value.important,
+      attachmentName: value.attachmentName || null,
+    };
 
-      this.records.update((records) => [newRecord, ...records]);
-    }
+    const request$: Observable<string> = editingId
+      ? this.api.updateCommunication(editingId, { ...body, expectedVersion: editing?.version ?? null })
+      : this.api.logCommunication({
+          // Against the donor once there is one; against the lead until then.
+          donorId: data.donorId ?? null,
+          leadId: data.donorId ? null : data.leadId,
+          interactionType: value.type,
+          ...body,
+        });
 
-    // RECORDED THROUGH THE LEAD'S CONTACT COMMAND, which is the same write the Lead Queue uses.
-    // That endpoint applies the consent rules - it refuses a channel the lead has withdrawn -
-    // and writes the audit entry, neither of which a local array could do.
-    const leadId = this.leadId();
-    if (!leadId) {
-      this.toast.show(
-        'Cannot record this',
-        'A conversation is recorded against a lead. Open this timeline from the Lead Queue to add one.',
-        'warning',
-      );
-      this.closeEntryDrawer();
-      return;
-    }
+    this.saving.set(true);
+    request$.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.closeEntryDrawer();
+        this.toast.show(
+          editingId ? 'Communication updated' : 'Communication recorded',
+          'The timeline has been updated.',
+          'success',
+        );
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
 
-    this.api
-      .contactLead(leadId, {
-        channel: this.toConsentChannel(value.type),
-        outcome: value.outcome,
-
-        // THE SUMMARY LEADS THE NOTE. `ContactLeadRequest` carries one free-text field, and the
-        // server uses the interaction's Name for the summary line, so both are sent together
-        // rather than dropping what the person typed in the summary box.
-        notes: [value.summary.trim(), value.notes.trim()].filter(Boolean).join(' — ') || null,
-      })
-      .subscribe({
-        next: () => {
-          this.closeEntryDrawer();
-          this.toast.show('Conversation recorded', 'The timeline has been updated.', 'success');
-          this.load();
-        },
-        error: (error: unknown) => {
-          this.toast.show('Not recorded', apiErrorMessage(error), 'error');
-          this.load();
-        },
-      });
-  }
-
-  /** The screen's own type names, mapped onto the consent channel the API records against. */
-  private toConsentChannel(type: CommunicationType): string {
-    switch (type) {
-      case 'Call': return 'PhoneCall';
-      case 'Email': return 'Email';
-      case 'SMS': return 'Sms';
-      case 'WhatsApp': return 'WhatsApp';
-      default: return 'Email';
-    }
+        // THE SERVER'S OWN SENTENCE. A consent refusal names the channel the person did not
+        // permit, and that is the whole value of the check.
+        this.formErrors.set([apiErrorMessage(error, 'The communication could not be saved.')]);
+      },
+    });
   }
 
   /**
-   * Flagging a line as important.
-   *
-   * IT IS THIS BROWSER'S FLAG ONLY, and now says so. The API has no "important" field on an
-   * interaction, and the old version wrote it into an in-memory store that made it look shared -
-   * a colleague opening the same timeline saw nothing flagged.
+   * Marks a line important, or clears the mark - for everybody who opens this timeline.
+   * It used to be a flag in this browser's memory only, gone on refresh.
    */
   toggleImportant(record: CommunicationRecord): void {
-    this.records.update((records) =>
-      records.map((item) =>
-        item.id === record.id ? { ...item, important: !item.important } : item,
-      ),
-    );
+    if (!this.canLog()) return;
     this.closeActionMenu();
+
+    const important = !record.important;
+
+    this.api.flagCommunication(record.id, important).subscribe({
+      next: () => {
+        this.records.update((records) =>
+          records.map((item) => (item.id === record.id ? { ...item, important, version: item.version + 1 } : item)));
+        const open = this.selectedCommunication();
+        if (open?.id === record.id) this.selectedCommunication.set({ ...open, important, version: open.version + 1 });
+      },
+      error: (error: unknown) => this.toast.show('Not saved', apiErrorMessage(error), 'error'),
+    });
   }
 
+  // ===========================================================================================
+  // Temperature and donation potential
+  // ===========================================================================================
+
   openTemperatureModal(): void {
+    if (!this.canScore()) return;
     this.newTemperature.set(this.currentTemperature());
     this.temperatureReason.set('');
     this.isTemperatureModalOpen.set(true);
@@ -923,35 +906,23 @@ export class CommunicationTimelineComponent {
   }
 
   /**
-   * Temperature and donation potential, saved through the lead's qualify command.
+   * Temperature and donation potential, saved through the lead's own scoring action.
    *
-   * THE REASON IS THE AUDIT ENTRY, which is why the dialog insists on one and why this is a
-   * server call rather than a signal update: "warm to hot" is a judgement somebody made, and the
-   * trail should record who and why.
+   * THEY WENT THROUGH "QUALIFY", which is a different decision: it moves the lead to the
+   * Qualified stage. So noting that a lead had cooled from Warm to Cold also qualified it - and
+   * the temperature itself was only written into the qualification note, never onto the lead.
+   *
+   * THE REASON IS THE AUDIT ENTRY, which is why the dialog insists on one.
    */
   saveTemperature(): void {
-    const reason = this.temperatureReason().trim();
-    const leadId = this.leadId();
-    if (!reason || !leadId) {
-      return;
-    }
-
-    this.api
-      .qualifyLead(leadId, {
-        qualificationNotes: `Temperature set to ${this.newTemperature()}. ${reason}`,
-        moveToNurture: false,
-      })
-      .subscribe({
-        next: () => {
-          this.isTemperatureModalOpen.set(false);
-          this.toast.show('Temperature updated', `Set to ${this.newTemperature()}.`, 'success');
-          this.load();
-        },
-        error: (error: unknown) => this.toast.show('Not updated', apiErrorMessage(error), 'error'),
-      });
+    this.saveScore(this.newTemperature(), this.donationPotential(), this.temperatureReason(), () => {
+      this.isTemperatureModalOpen.set(false);
+      this.toast.show('Temperature updated', `Set to ${this.newTemperature()}.`, 'success');
+    });
   }
 
   openDonationPotentialModal(): void {
+    if (!this.canScore()) return;
     this.newDonationPotential.set(this.donationPotential());
     this.donationPotentialReason.set('');
     this.isDonationPotentialModalOpen.set(true);
@@ -963,35 +934,48 @@ export class CommunicationTimelineComponent {
   }
 
   saveDonationPotential(): void {
-    const reason = this.donationPotentialReason().trim();
-    const leadId = this.leadId();
-    if (!reason || !leadId) {
+    this.saveScore(this.currentTemperature(), this.newDonationPotential(), this.donationPotentialReason(), () => {
+      this.isDonationPotentialModalOpen.set(false);
+      this.toast.show('Donation potential updated', `Set to ${this.newDonationPotential()}.`, 'success');
+    });
+  }
+
+  private saveScore(temperature: string, donationPotential: string, reason: string, done: () => void): void {
+    const leadId = this.timeline()?.leadId;
+    const text = reason.trim();
+
+    if (!leadId || text.length < this.scoreReasonMinimum || this.saving()) {
       return;
     }
 
-    this.api
-      .qualifyLead(leadId, {
-        qualificationNotes: `Donation potential set to ${this.newDonationPotential()}. ${reason}`,
-        moveToNurture: false,
-      })
-      .subscribe({
-        next: () => {
-          this.isDonationPotentialModalOpen.set(false);
-          this.toast.show('Donation potential updated', `Set to ${this.newDonationPotential()}.`, 'success');
-          this.load();
-        },
-        error: (error: unknown) => this.toast.show('Not updated', apiErrorMessage(error), 'error'),
-      });
-  }
-
-
-  openFollowUpPlanner(): void {
-    this.router.navigate(['/app/don/follow-up-planner'], {
-      queryParams: this.donorId()
-        ? { donorId: this.donorId(), mode: 'create' }
-        : { leadId: this.leadId(), mode: 'create' },
+    this.saving.set(true);
+    this.api.scoreLead(leadId, { temperature, donationPotential, reason: text }).subscribe({
+      next: () => {
+        this.saving.set(false);
+        done();
+        this.load();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.toast.show('Not updated', apiErrorMessage(error), 'error');
+      },
     });
   }
+
+  openFollowUpPlanner(): void {
+    const data = this.timeline();
+    const donorId = data?.donorId ?? this.donorId();
+
+    this.router.navigate(['/app/don/follow-up-planner'], {
+      queryParams: donorId
+        ? { donorId, mode: 'create' }
+        : { leadId: data?.leadId ?? this.leadId(), mode: 'create' },
+    });
+  }
+
+  // ===========================================================================================
+  // Export - the server's file
+  // ===========================================================================================
 
   openExportModal(): void {
     this.isExportModalOpen.set(true);
@@ -1001,31 +985,69 @@ export class CommunicationTimelineComponent {
     this.isExportModalOpen.set(false);
   }
 
+  readonly exporting = signal(false);
+
+  /**
+   * The whole timeline as a spreadsheet, written by the server.
+   *
+   * THE FILE WAS BUILT IN THE BROWSER, with no permission asked and no record that somebody had
+   * taken a copy of a person's conversations. The server's export needs `don.donors.export`,
+   * masks the notes exactly as the screen does, and logs it.
+   */
   exportAsExcel(): void {
-    this.downloadCsv();
     this.isExportModalOpen.set(false);
+    this.fetchExport(({ blob, fileName }) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    });
   }
 
   /**
-   * Prints a purpose-built report of the filtered entries, not the live page.
+   * A print-ready copy of the same export.
    *
-   * `window.print()` on the page itself captured whatever was on screen - the export popup
-   * (it is still in the DOM when the call runs, since the signal that closes it has not been
-   * rendered yet) and the app's sidebar and header with it. The report is written into a hidden
-   * iframe so the PDF holds only the timeline.
+   * WRITTEN INTO A HIDDEN IFRAME, not printed from the live page: `window.print()` on the page
+   * itself captured the export popup and the app's sidebar and header with it.
    */
   exportAsPdf(): void {
     this.isExportModalOpen.set(false);
+    this.fetchExport(({ blob }) => {
+      void blob.text().then((text) => this.printExport(parseCsv(text)));
+    });
+  }
 
+  private fetchExport(done: (file: { blob: Blob; fileName: string }) => void): void {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+
+    this.api.exportCommunicationTimeline(this.leadId(), this.donorId()).subscribe({
+      next: (file) => {
+        this.exporting.set(false);
+        done(file);
+      },
+      error: (error: unknown) => {
+        this.exporting.set(false);
+        this.toast.show('Not exported', apiErrorMessage(error, 'The timeline could not be exported.'), 'error');
+      },
+    });
+  }
+
+  private printExport(table: string[][]): void {
     const esc = (v: unknown): string =>
       String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const [headers = [], ...rows] = table;
     const rel = this.relationship();
-    const rows = this.filteredRecords()
-      .map(
-        (r) => `<tr><td>${esc(r.type)}</td><td>${esc(r.date)}<br><small>${esc(r.time)}</small></td>`
-          + `<td>${esc(r.direction)}</td><td>${esc(r.outcome)}</td><td>${esc(r.engagement)}</td>`
-          + `<td>${esc(r.createdBy)}</td><td>${esc(r.summary)}</td></tr>`,
-      )
+
+    // The columns that fit a page, by their headings in the server's file.
+    const wanted = ['Date', 'Type', 'Direction', 'Outcome', 'Engagement', 'Recorded by', 'Summary'];
+    const columns = wanted.map((name) => headers.indexOf(name)).filter((index) => index >= 0);
+
+    const head = columns.map((index) => `<th>${esc(headers[index])}</th>`).join('');
+    const body = rows
+      .map((row) => `<tr>${columns.map((index) => `<td>${esc(row[index])}</td>`).join('')}</tr>`)
       .join('');
 
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Communication timeline - ${esc(rel.reference)}</title>
@@ -1037,9 +1059,9 @@ export class CommunicationTimelineComponent {
   tr{page-break-inside:avoid}
 </style></head><body>
 <h1>Communication timeline - ${esc(rel.name || 'Communication record')}</h1>
-<p>${esc(rel.reference)} &middot; ${this.filteredRecords().length} entries &middot; Generated ${esc(new Date().toLocaleString())}</p>
-<table><thead><tr><th>Type</th><th>Date</th><th>Direction</th><th>Outcome</th><th>Engagement</th><th>Recorded by</th><th>Summary</th></tr></thead>
-<tbody>${rows || '<tr><td colspan="7">No entries match the current filters.</td></tr>'}</tbody></table>
+<p>${esc(rel.reference)} &middot; ${rows.length} entries &middot; Generated ${esc(new Date().toLocaleString())}</p>
+<table><thead><tr>${head}</tr></thead>
+<tbody>${body || `<tr><td colspan="${columns.length || 1}">No entries on this timeline.</td></tr>`}</tbody></table>
 </body></html>`;
 
     const frame = document.createElement('iframe');
@@ -1072,13 +1094,34 @@ export class CommunicationTimelineComponent {
     window.setTimeout(() => { this.load(); this.isRefreshing.set(false); }, 150);
   }
 
+  /**
+   * Back to wherever this timeline was opened from.
+   *
+   * IT ALWAYS WENT TO "MY LEADS" for a lead - a screen a Fundraising Manager, who arrives from
+   * the Lead Work Queue, does not have on their menu. The timeline is reached from five places;
+   * the way back is the way in. Opened cold (a bookmark, a new tab), it goes to the list the
+   * caller's role works from.
+   */
   handleOpenMyLeads(): void {
     this.navigateToLeads.emit();
-    if (this.donorId()) {
-      this.router.navigate(['/app/fundraising/relationships/donor-360'], { queryParams: { donorId: this.donorId(), tab: 'overview' } });
+
+    if (window.history.length > 1) {
+      this.location.back();
       return;
     }
-    this.router.navigate(['/app/fundraising/relationships/my-leads'], { queryParams: { leadId: this.leadId() } });
+
+    if (this.isDonor()) {
+      this.router.navigate(['/app/fundraising/relationships/donor-360'], {
+        queryParams: { donorId: this.timeline()?.donorId ?? this.donorId(), tab: 'overview' },
+      });
+      return;
+    }
+
+    this.router.navigate([
+      this.tokens.hasPermission('don.records.view-all')
+        ? '/app/fundraising/relationships/lead-work-queue'
+        : '/app/fundraising/relationships/my-leads',
+    ]);
   }
 
   toggleFilterPanel(): void {
@@ -1100,7 +1143,7 @@ export class CommunicationTimelineComponent {
     this.menuRecordId.set(null);
   }
 
-  setTab(tab: 'All' | CommunicationType | 'Important'): void {
+  setTab(tab: Lane): void {
     this.activeTab.set(tab);
     this.currentPage.set(1);
   }
@@ -1125,32 +1168,37 @@ export class CommunicationTimelineComponent {
     this.currentPage.set(1);
   }
 
+  /**
+   * The line's heading: what kind of contact it was and which way it went.
+   *
+   * IT WAS A FIXED PHRASE PER CHANNEL - every e-mail was "Campaign information sent", every
+   * meeting "Review meeting planned" - so the heading described an exchange that had not
+   * necessarily happened. Direction and channel are what the entry actually records.
+   */
   timelineTitle(record: CommunicationRecord): string {
-    switch (record.type) {
-      case 'Internal Note': return 'Internal note';
-      case 'Call': return 'Follow-up call';
-      case 'Email': return 'Campaign information sent';
-      case 'Meeting': return 'Review meeting planned';
-      case 'WhatsApp': return 'WhatsApp follow-up';
-      case 'SMS': return 'SMS follow-up';
-      case 'Visit': return 'Donor visit';
-      case 'Event': return 'Event follow-up';
-      default: return record.type;
-    }
+    if (record.type === 'Note' || record.direction === 'Internal') return this.channelLabel(record.type);
+    return `${record.direction} ${this.channelNoun(record.type)}`;
   }
 
   /** Lower-case key for the per-channel colour classes. */
-  channelKey(type: CommunicationType): string {
-    return type === 'Internal Note' ? 'note' : type.toLowerCase();
+  channelKey(type: Channel): string {
+    return type.toLowerCase();
   }
 
-  channelLabel(type: CommunicationType): string {
-    return type === 'Internal Note' ? 'Internal note' : type;
+  /** The server's label for a channel: "SMS", "Internal note". */
+  channelLabel(type: Channel): string {
+    return this.communicationTypes().find((option) => option.value === type)?.label ?? type;
   }
 
   /** The channel as it reads mid-sentence ("Outgoing call", "Incoming WhatsApp"). */
-  channelNoun(type: CommunicationType): string {
-    return type === 'SMS' || type === 'WhatsApp' ? type : this.channelLabel(type).toLowerCase();
+  channelNoun(type: Channel): string {
+    const label = this.channelLabel(type);
+    return type === 'Sms' || type === 'WhatsApp' ? label : label.toLowerCase();
+  }
+
+  /** The server's label for an outcome value on the form. */
+  outcomeLabel(value: string): string {
+    return this.labelIn(this.outcomeOptions(), value);
   }
 
   /** Fills the date and time with this moment. */
@@ -1158,19 +1206,6 @@ export class CommunicationTimelineComponent {
     const now = new Date();
     this.updateForm('date', this.getTodayIso());
     this.updateForm('time', `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
-  }
-
-  /** Sets the date to today or an earlier day (the log screen's quick picks). */
-  setDaysAgo(days: number): void {
-    const date = this.today();
-    date.setDate(date.getDate() - days);
-    this.updateForm('date', this.formatIso(date));
-  }
-
-  isDaysAgo(days: number): boolean {
-    const date = this.today();
-    date.setDate(date.getDate() - days);
-    return this.form().date === this.formatIso(date);
   }
 
   private relativeDay(date: Date): string {
@@ -1181,63 +1216,32 @@ export class CommunicationTimelineComponent {
     return '';
   }
 
-  communicationIcon(type: CommunicationType): string {
-    const icons: Record<CommunicationType, string> = {
-      Call: '☎',
-      Email: '✉',
-      SMS: '◌',
-      WhatsApp: '◉',
-      Meeting: '◫',
-      Visit: '⌂',
-      Event: '◆',
-      'Internal Note': '✎',
-    };
-
-    return icons[type];
-  }
-
-  outcomeClass(outcome: Outcome): string {
-    if (
-      outcome === 'Interested' ||
-      outcome === 'Meeting Completed' ||
-      outcome === 'Donation Discussion'
-    ) {
-      return 'status-success';
+  outcomeClass(outcome: string): string {
+    switch (outcome) {
+      case 'Interested':
+      case 'MeetingCompleted':
+      case 'DonationDiscussion':
+        return 'status-success';
+      case 'NoAnswer':
+      case 'CallbackRequested':
+      case 'InformationRequested':
+        return 'status-warning';
+      case 'NotInterested':
+      case 'WrongNumber':
+      case 'DoNotContact':
+        return 'status-danger';
+      default:
+        return 'status-neutral';
     }
+  }
 
-    if (
-      outcome === 'No Answer' ||
-      outcome === 'Requested Callback' ||
-      outcome === 'Requested Information'
-    ) {
-      return 'status-warning';
+  relationshipHealthClass(status: string): string {
+    switch (status) {
+      case 'Healthy': return 'health-healthy';
+      case 'Needs attention': return 'health-attention';
+      case 'At risk': return 'health-risk';
+      default: return '';
     }
-
-    if (outcome === 'Not Interested' || outcome === 'Wrong Contact') {
-      return 'status-danger';
-    }
-
-    return 'status-neutral';
-  }
-
-  temperatureClass(temperature: Temperature): string {
-    return `temperature-${temperature.toLowerCase()}`;
-  }
-
-  donationPotentialClass(value: DonationPotential): string {
-    return `potential-${value.toLowerCase()}`;
-  }
-
-  relationshipHealthClass(status: RelationshipHealth): string {
-    if (status === 'Healthy') return 'health-healthy';
-    if (status === 'Needs Attention') return 'health-attention';
-    return 'health-risk';
-  }
-
-  followUpStatusClass(status?: CommunicationRecord['followUpStatus']): string {
-    if (status === 'Completed') return 'status-success';
-    if (status === 'Overdue') return 'status-danger';
-    return 'status-warning';
   }
 
   getTodayIso(): string {
@@ -1254,30 +1258,9 @@ export class CommunicationTimelineComponent {
     }));
   }
 
-  private downloadCsv(): void {
-    const header = ['Type', 'Date', 'Time', 'Direction', 'Outcome', 'Engagement', 'Recorded By', 'Summary'];
-    const rows = this.filteredRecords().map((record) => [
-      record.type,
-      record.date,
-      record.time,
-      record.direction,
-      record.outcome,
-      record.engagement,
-      record.createdBy,
-      record.summary.replace(/"/g, '""'),
-    ]);
-
-    const csv = [header, ...rows]
-      .map((row) => row.map((cell) => `"${cell}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `communication-timeline-${this.relationship().reference}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  /** Picks a level, or clears it when the chosen one is pressed again: neither is required. */
+  toggleLevel(key: 'engagement' | 'quality', value: string): void {
+    this.updateForm(key, this.form()[key] === value ? '' : value);
   }
 
   private validateForm(value: CommunicationForm): string[] {
@@ -1291,6 +1274,8 @@ export class CommunicationTimelineComponent {
 
     if (!value.time) {
       errors.push('Communication time is required.');
+    } else if (value.date && new Date(`${value.date}T${value.time}:00`).getTime() > Date.now() + 60_000) {
+      errors.push('Communication time cannot be in the future.');
     }
 
     const summaryLength = value.summary.trim().length;
@@ -1307,15 +1292,19 @@ export class CommunicationTimelineComponent {
     return errors;
   }
 
-  private createEmptyForm(type: CommunicationType): CommunicationForm {
+  /**
+   * A blank entry. Engagement and quality start unset: they are the logger's judgement, and a
+   * pre-selected "Medium" and "Good" were being saved as though somebody had chosen them.
+   */
+  private createEmptyForm(type: Channel): CommunicationForm {
     return {
       type,
       date: this.getTodayIso(),
       time: '',
       direction: 'Outgoing',
-      outcome: 'Connected',
-      engagement: 'Medium',
-      quality: 'Good',
+      outcome: 'Reached',
+      engagement: '',
+      quality: '',
       summary: '',
       notes: '',
       attachmentName: '',

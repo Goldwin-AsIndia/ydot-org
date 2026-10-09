@@ -54,6 +54,17 @@ public sealed class CampaignSettings
     /// </summary>
     public int ActivationSweepMinutes { get; set; } = 15;
 
+    /// <summary>
+    /// The tracking asset types the screens offer when creating or filtering assets, by enum name.
+    ///
+    /// QR CODE AND LANDING PAGE BY DEFAULT. Short Link and UTM Link were withdrawn from the Tracking
+    /// Asset Manager as a product decision, and that decision lived as a two-entry list typed into
+    /// the screen. It is a setting here so the reference data can serve it: an Organisation that
+    /// wants the other two back changes configuration rather than the client. Assets of a type no
+    /// longer offered are untouched and still resolve.
+    /// </summary>
+    public IReadOnlyList<string> OfferedTrackingAssetTypes { get; set; } = ["QRCode", "LandingPage"];
+
     /// <summary>How long a campaign may run. Guards a typo that would schedule one for a decade.</summary>
     public int MaximumCampaignDurationDays { get; set; } = 1095;
 

@@ -62,4 +62,17 @@ public static class AuditActionCodes
     public const string FollowUpCompleted = "don.follow-up.mark-complete";
     public const string FollowUpRescheduled = "don.follow-up.reschedule";
     public const string FollowUpCancelled = "don.follow-up.cancel-task";
+    public const string FollowUpEscalated = "don.follow-up.escalate";
+
+    // ---- Communication timeline, lead scoring and donor ownership ------------------------------
+    public const string CommunicationLogged = "don.communication.log";
+    public const string CommunicationEdited = "don.communication.edit";
+    public const string CommunicationFlagged = "don.communication.flag-important";
+    public const string CommunicationsExported = "don.communication.export";
+    public const string LeadScored = "don.lead.score";
+    public const string LeadsExported = "don.lead.export";
+    public const string DonorHistoryExported = "don.donor.export-history";
+    public const string DonorOwnerAssigned = "don.donor.assign-owner";
+    public const string DonorOwnerReassigned = "don.donor.reassign-owner";
+    public const string DonorOwnersBulkRouted = "don.donor.bulk-route-owner";
 }

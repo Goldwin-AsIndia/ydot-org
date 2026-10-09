@@ -97,13 +97,13 @@
                         <small>{{ row.dueAtUtc ? (row.dueAtUtc | date: 'MMM') : 'TBC' }}</small>
                       </span>
                       <span class="fp-line-main">
-                        <span class="fp-line-name">{{ row.donorDisplayName || row.leadReference || row.donorReference || 'Unnamed record' }}</span>
+                        <span class="fp-line-name">{{ row.recordDisplayName || row.donorDisplayName || row.leadReference || row.donorReference || 'Unnamed record' }}</span>
                         <span class="fp-line-meta">
                           <span><i [class]="glyphFor(row.permittedChannel)" aria-hidden="true"></i>{{ row.permittedChannel }}</span>
                           @if (row.dueAtUtc) { <span class="fp-num">{{ row.dueAtUtc | date: 'EEE, HH:mm' }}</span> }
                         </span>
                       </span>
-                      <span class="fp-line-state" [attr.data-priority]="row.priority"><span class="fp-dot" aria-hidden="true"></span>{{ row.priority }}</span>
+                      <span class="fp-line-state" [attr.data-priority]="priorityTone(row.priority)"><span class="fp-dot" aria-hidden="true"></span>{{ row.priority }}</span>
                       <i class="ri-arrow-right-up-line fp-line-open" aria-hidden="true"></i>
                     </button>
                   </li>
@@ -182,7 +182,7 @@
                 <div class="fp-label-row"><span class="fp-label" id="fp-priority-l">Priority <span class="fp-req">*</span></span></div>
                 <div class="fp-seg" role="radiogroup" aria-labelledby="fp-priority-l">
                   @for (option of priorityOptions(); track option.value) {
-                    <button type="button" role="radio" class="fp-seg-b" [attr.data-priority]="option.value" [class.is-on]="priority() === option.value"
+                    <button type="button" role="radio" class="fp-seg-b" [attr.data-priority]="priorityTone(option.value)" [class.is-on]="priority() === option.value"
                             [attr.aria-checked]="priority() === option.value" (click)="priority.set(option.value)">
                       <span class="fp-dot" aria-hidden="true"></span>{{ option.label }}
                     </button>
@@ -205,16 +205,23 @@
                 }
               </div>
               @if (fieldMissing('followUpType')) { <p class="field-error">Choose how this follow-up will be made.</p> }
-              <p class="fp-consent" [attr.data-consent]="consentState()">
-                <i [class]="consentState() === 'clear' ? 'ri-shield-check-line' : consentState() === 'checking' ? 'ri-loader-4-line fp-spin' : 'ri-shield-cross-line'" aria-hidden="true"></i>
+              <p class="fp-consent" [attr.data-consent]="consentTone()">
+                <i [class]="consentState() === 'clear' ? 'ri-shield-check-line' : consentState() === 'checking' ? 'ri-loader-4-line fp-spin' : consentState() === 'caution' ? 'ri-shield-line' : 'ri-shield-cross-line'" aria-hidden="true"></i>
                 <span>
                   @switch (consentState()) {
                     @case ('checking') { Checking consent for {{ followUpType() || 'this channel' }}… }
                     @case ('blocked') { {{ consentWarning() }} }
+                    @case ('caution') { {{ consentWarning() }} }
                     @default { Consent for {{ followUpType() || 'this channel' }} is clear. It is checked again before any contact. }
                   }
                 </span>
               </p>
+              @if (consentState() === 'caution' && !existing()) {
+                <label class="fp-consent" [attr.data-consent]="consentTone()">
+                  <input type="checkbox" [checked]="consentAcknowledged()" (change)="consentAcknowledged.set($any($event.target).checked)" />
+                  <span>I have read this and will confirm permission before making contact.</span>
+                </label>
+              }
             </div>
           </div>
 
@@ -299,7 +306,7 @@
               <div><dt>For</dt><dd>{{ record().name }}</dd></div>
               <div><dt>Channel</dt><dd><i [class]="glyphFor(followUpType())" aria-hidden="true"></i>{{ followUpType() || '—' }}</dd></div>
               <div><dt>With</dt><dd>{{ ownerLabel() || 'Not assigned' }}</dd></div>
-              <div><dt>Priority</dt><dd class="fp-pr" [attr.data-priority]="priority()"><span class="fp-dot" aria-hidden="true"></span>{{ priority() || '—' }}</dd></div>
+              <div><dt>Priority</dt><dd class="fp-pr" [attr.data-priority]="priorityTone(priority())"><span class="fp-dot" aria-hidden="true"></span>{{ priority() || '—' }}</dd></div>
             </dl>
 
             <blockquote class="fp-quote" [class.is-empty]="!purpose().trim()">{{ purpose().trim() || 'The purpose appears here.' }}</blockquote>
@@ -351,7 +358,7 @@
         <div><dt>Owner</dt><dd>{{ ownerLabel() || record().owner || 'Unassigned' }}</dd></div>
         <div>
           <dt>Priority</dt>
-          <dd><span class="fp-was">{{ config.beforeAfter?.[0]?.before || '—' }}</span><i class="ri-arrow-right-line" aria-hidden="true"></i><span class="fp-status" [attr.data-priority]="priority()"><span class="fp-dot" aria-hidden="true"></span>{{ priority() || '—' }}</span></dd>
+          <dd><span class="fp-was">{{ config.beforeAfter?.[0]?.before || '—' }}</span><i class="ri-arrow-right-line" aria-hidden="true"></i><span class="fp-status" [attr.data-priority]="priorityTone(priority())"><span class="fp-dot" aria-hidden="true"></span>{{ priority() || '—' }}</span></dd>
         </div>
         <div>
           <dt>Due</dt>

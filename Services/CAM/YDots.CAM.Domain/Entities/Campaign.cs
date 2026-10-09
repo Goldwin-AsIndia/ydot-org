@@ -108,12 +108,15 @@ public class Campaign : TenantEntity, ICodedEntity
     /// somebody who created a campaign and had a colleague submit it would otherwise still be
     /// able to approve their own work.
     ///
-    /// IT ASKS NOTHING ABOUT THE CALLER'S ROLE, and that is the point. TENANT_ADMIN holds every
-    /// permission in the Organisation and is refused here exactly like everybody else, because
-    /// four-eyes is the one control the platform does not let a role grant its way past.
+    /// THE ORGANISATION ADMIN IS THE ONE EXCEPTION, by the Organisation's own instruction: it
+    /// holds every option on every campaign screen with no restriction, its own campaigns
+    /// included. Everybody else - a Campaign Manager deciding an Executive's work above all - is
+    /// held to the rule exactly as before, and the Manager's role no longer creates or submits
+    /// anything, so the two halves already belong to different people. The admin's approvals are
+    /// still audited like any other.
     /// </summary>
-    public bool CanBeApprovedBy(Guid userId) =>
-        CreatedByUserId != userId && SubmittedByUserId != userId;
+    public bool CanBeApprovedBy(Guid userId, bool isOrganisationAdministrator = false) =>
+        isOrganisationAdministrator || (CreatedByUserId != userId && SubmittedByUserId != userId);
 
     /// <summary>Only a Draft campaign may be edited freely or deleted.</summary>
     public bool IsDraft => Status == CampaignStatus.Draft;

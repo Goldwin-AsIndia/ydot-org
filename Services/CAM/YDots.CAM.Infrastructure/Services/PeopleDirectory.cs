@@ -169,6 +169,86 @@ public sealed class PeopleDirectory(
         return people;
     }
 
+    public async Task<IReadOnlyList<PersonSummary>> GetPeopleHoldingPermissionAsync(
+        Guid tenantId,
+        string permissionCode,
+        IReadOnlyCollection<Guid>? amongUserIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(permissionCode);
+
+        var people = new List<PersonSummary>();
+
+        if (tenantId == Guid.Empty || amongUserIds is { Count: 0 })
+        {
+            return people;
+        }
+
+        // THROUGH AN ACTIVE ROLE, the same way IAM puts the claim on a token: an active user, an
+        // active, unrevoked assignment inside its effective window, an active role - and either
+        // the role grants everything (the Organisation Admin) or it holds the code and does not
+        // deny it.
+        const string Sql = """
+            SELECT DISTINCT u.id,
+                   u.code,
+                   NULLIF(TRIM(COALESCE(NULLIF(TRIM(u.display_name), ''),
+                                        CONCAT_WS(' ', u.first_name, u.last_name))), '') AS name
+            FROM iam_users u
+            JOIN iam_user_roles ur ON ur.user_id = u.id
+            JOIN iam_roles r ON r.id = ur.role_id
+            WHERE u.tenant_id = @tenantId
+              AND u.status = 'Active'
+              AND ur.status = 'Active'
+              AND ur.revoked_at_utc IS NULL
+              AND (ur.effective_from_utc IS NULL OR ur.effective_from_utc <= now())
+              AND (ur.effective_to_utc IS NULL OR ur.effective_to_utc > now())
+              AND r.status = 'Active'
+              AND (@all OR u.id = ANY(@ids))
+              AND (r.grants_all_tenant_permissions
+                   OR EXISTS (SELECT 1
+                              FROM iam_role_permissions rp
+                              WHERE rp.role_id = r.id
+                                AND rp.permission_code = @code
+                                AND NOT rp.is_denied
+                                AND (rp.expires_at_utc IS NULL OR rp.expires_at_utc > now())))
+            ORDER BY name
+            """;
+
+        try
+        {
+            await using var command = await CreateCommandAsync(Sql, cancellationToken);
+
+            command.Parameters.Add(new NpgsqlParameter("tenantId", NpgsqlDbType.Uuid) { Value = tenantId });
+            command.Parameters.Add(new NpgsqlParameter("code", NpgsqlDbType.Varchar) { Value = permissionCode });
+            command.Parameters.Add(new NpgsqlParameter("all", NpgsqlDbType.Boolean) { Value = amongUserIds is null });
+            command.Parameters.Add(new NpgsqlParameter("ids", NpgsqlDbType.Array | NpgsqlDbType.Uuid)
+            {
+                Value = (amongUserIds ?? []).Distinct().ToArray()
+            });
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                people.Add(new PersonSummary(
+                    reader.GetGuid(0),
+                    reader.IsDBNull(1) ? null : reader.GetString(1).Trim(),
+                    reader.IsDBNull(2) ? null : reader.GetString(2)));
+            }
+        }
+        catch (NpgsqlException exception)
+        {
+            logger.LogError(
+                exception,
+                "Could not resolve the holders of {PermissionCode} for organisation {TenantId}.",
+                permissionCode, tenantId);
+
+            throw;
+        }
+
+        return people;
+    }
+
     /// <summary>
     /// A command on the DbContext's own connection, inside its transaction when there is one, so
     /// this check sees writes the same request has already made.

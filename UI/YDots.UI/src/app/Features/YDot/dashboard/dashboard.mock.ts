@@ -12,7 +12,10 @@
  * The shapes below match what the payment, campaign, donor, IAM and access-request services return, so
  * the dashboard code path is exactly the real one; only the source of the numbers differs.
  */
-export const DASHBOARD_MOCK_ENABLED = true;
+// OFF: the dashboard is the landing page for every role, and with this on it showed invented figures
+// (318 open leads where the organisation has 64; "No follow-ups waiting" to a DonorCare user with
+// three) as though they were the organisation's own. Turn it on only to look at the layout.
+export const DASHBOARD_MOCK_ENABLED = false;
 
 const money = (amount: number) => ({
   amount,
@@ -24,8 +27,8 @@ const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString
 const hoursAhead = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
 
 const donors = [
-  'Rahul Verma', 'Anita Desai', 'Vikram Singh', 'Meera Krishnan', 'Arjun Patel', 'Sana Khan',
-  'Dev Menon', 'Lata Rao', 'Karthik Iyer', 'Pooja Nair', 'Imran Sheikh', 'Divya Reddy',
+  'Rahul Varun', 'Anita Suresh', 'Vikram Anand', 'Meera Krishnan', 'Arjun Mohan', 'Sana Firoz',
+  'Dev Sanjay', 'Lata Ramesh', 'Karthik Vel', 'Pooja Dinesh', 'Imran Yusuf', 'Divya Prakash',
 ];
 const campaignNames = [
   'Blind-Stick Distribution', 'Education Support', 'Healthcare Aid', 'Women Empowerment', null,
@@ -138,12 +141,12 @@ export function buildDashboardMock() {
     sample: { items: donationSample(), totalCount: 211 },
     activity: {
       items: [
-        ['Anita Desai', 'approved an access request', 'Access request', 'AR-1042', 'Success', 0.4],
-        ['Rahul Menon', 'created a user', 'User', 'Sana Khan', 'Success', 1.2],
+        ['Anita Suresh', 'approved an access request', 'Access request', 'AR-1042', 'Success', 0.4],
+        ['Rahul Ganesh', 'created a user', 'User', 'Sana Firoz', 'Success', 1.2],
         ['System', 'processed a gateway event', 'Payment event', 'evt_9f2c1', 'Success', 2.1],
-        ['Dev Menon', 'signed in', 'Session', 'Chrome on Windows', 'Failed', 3.5],
-        ['Lata Rao', 'published a campaign', 'Campaign', 'Healthcare Aid', 'Success', 5.8],
-        ['Pradeesh Kumar', 'recorded a donation', 'Donation', 'DN-24096', 'Success', 7.3],
+        ['Dev Sanjay', 'signed in', 'Session', 'Chrome on Windows', 'Failed', 3.5],
+        ['Lata Ramesh', 'published a campaign', 'Campaign', 'Healthcare Aid', 'Success', 5.8],
+        ['Pradeesh Raj', 'recorded a donation', 'Donation', 'DN-24096', 'Success', 7.3],
         ['Meera Krishnan', 'assigned a lead', 'Lead', 'L-0412', 'Success', 9.6],
         ['System', 'issued 14 receipts', 'Receipt', 'Batch 118', 'Success', 12.0],
       ].map((e, i) => ({
@@ -160,12 +163,12 @@ export function buildDashboardMock() {
     followUps: {
       followUps: {
         items: [
-          ['Rahul Verma', 'Thank-you call after the Rs 50,000 gift', -26, 'phone'],
-          ['Anita Desai', 'Share the education impact report', 3, 'email'],
-          ['Karthik Iyer', 'Renewal conversation', 20, 'phone'],
+          ['Rahul Varun', 'Thank-you call after the Rs 50,000 gift', -26, 'phone'],
+          ['Anita Suresh', 'Share the education impact report', 3, 'email'],
+          ['Karthik Vel', 'Renewal conversation', 20, 'phone'],
           ['Lead L-0412', 'First contact', 28, 'whatsapp'],
-          ['Pooja Nair', 'Invite to the annual event', 52, 'email'],
-          ['Imran Sheikh', 'Confirm pledge instalment', 76, 'phone'],
+          ['Pooja Dinesh', 'Invite to the annual event', 52, 'email'],
+          ['Imran Yusuf', 'Confirm pledge instalment', 76, 'phone'],
         ].map((f, i) => ({
           id: `mock-f-${i}`,
           followUpReference: `F-${300 + i}`,
@@ -209,14 +212,14 @@ export function buildDashboardMock() {
     refunds: {
       items: [
         { caseReference: 'RF-118', donorName: 'Meera Krishnan', amount: money(1500), statusDescription: 'Requested' },
-        { caseReference: 'RF-119', donorName: 'Dev Menon', amount: money(4000), statusDescription: 'Approved' },
+        { caseReference: 'RF-119', donorName: 'Dev Sanjay', amount: money(4000), statusDescription: 'Approved' },
       ],
       totalCount: 3,
     },
     chargebacks: {
       items: [
-        { caseReference: 'CB-31', donorName: 'Arjun Patel', disputedAmount: money(7500), statusDescription: 'Evidence required', daysUntilEvidenceDue: -2, isOverdue: true },
-        { caseReference: 'CB-32', donorName: 'Sana Khan', disputedAmount: money(3200), statusDescription: 'Under review', daysUntilEvidenceDue: 6, isOverdue: false },
+        { caseReference: 'CB-31', donorName: 'Arjun Mohan', disputedAmount: money(7500), statusDescription: 'Evidence required', daysUntilEvidenceDue: -2, isOverdue: true },
+        { caseReference: 'CB-32', donorName: 'Sana Firoz', disputedAmount: money(3200), statusDescription: 'Under review', daysUntilEvidenceDue: 6, isOverdue: false },
       ],
       totalCount: 2,
     },

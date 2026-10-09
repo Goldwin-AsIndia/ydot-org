@@ -1,3 +1,4 @@
+using YDots.DON.Application.Common.Abstractions.Persistence;
 using Microsoft.Extensions.Logging;
 using YDots.DON.Application.Common.Abstractions.Security;
 using YDots.DON.Application.Common.Constants;
@@ -23,7 +24,16 @@ public sealed record DonorMenuResponse(
     IReadOnlyList<string> VisibleSensitiveFields,
     bool CanSeeSensitiveContact,
     bool CanSeeConfidentialEvidence,
-    bool CanExport);
+    bool CanExport,
+
+    // What the caller owns and has been given - what decides whether My Leads, My Donor List and
+    // the Follow-up Queue have anything in them.
+    int OwnedLeadCount,
+    int OwnedDonorCount,
+    int AssignedFollowUpCount,
+
+    /// <summary>True when the caller works the whole organisation rather than their own records.</summary>
+    bool SeesAllRecords);
 
 /// <summary>
 /// Builds the role-based menu.
@@ -38,20 +48,36 @@ public sealed record DonorMenuResponse(
 /// </summary>
 public sealed class GetDonorMenuQueryHandler(
     ICurrentUser currentUser,
+    ILeadRepository leadRepository,
+    IDonorRepository donorRepository,
+    IFollowUpRepository followUpRepository,
     ILogger<GetDonorMenuQueryHandler> logger)
 {
-    public Task<Result<DonorMenuResponse>> HandleAsync(
+    public async Task<Result<DonorMenuResponse>> HandleAsync(
         GetDonorMenuQuery query,
         CancellationToken cancellationToken = default)
     {
         _ = query;
-        _ = cancellationToken;
 
         logger.LogInformation("Getting donor navigation menu.");
 
         var permissions = currentUser.Permissions;
 
+        // WHAT THE CALLER OWNS DECIDES TWO OF THE ENTRIES. The role flow: "if DonorCare is
+        // assigned only follow-ups, not any leads or donors, then only the Follow-up Queue menu is
+        // shown to them". My Leads with no leads and My Donor List with no donors are empty pages,
+        // so they are withheld until there is something in them - for anybody, not only DonorCare.
+        var ownedLeads = await leadRepository.CountOwnedAsync(currentUser.OrganisationId, currentUser.UserId, cancellationToken);
+        var ownedDonors = await donorRepository.CountOwnedAsync(currentUser.OrganisationId, currentUser.UserId, cancellationToken);
+        var assignedFollowUps = await followUpRepository.CountAssignedOpenAsync(currentUser.OrganisationId, currentUser.UserId, cancellationToken);
+
         var items = MenuCatalogue.VisibleFor(permissions)
+            .Where(entry => entry.ScreenId switch
+            {
+                ScreenIds.MyLeads => ownedLeads > 0,
+                ScreenIds.MyDonorList => ownedDonors > 0,
+                _ => true
+            })
             .Select(entry => new MenuItemResponse(entry.ScreenId, entry.Label, entry.Route, entry.ViewPermission))
             .ToList();
 
@@ -69,10 +95,14 @@ public sealed class GetDonorMenuQueryHandler(
             visibleSensitiveFields,
             currentUser.HasPermission(PermissionCodes.DonorsViewSensitiveContact),
             currentUser.HasPermission(PermissionCodes.DonorsViewConfidentialEvidence),
-            currentUser.HasPermission(PermissionCodes.DonorsExport));
+            currentUser.HasPermission(PermissionCodes.DonorsExport),
+            ownedLeads,
+            ownedDonors,
+            assignedFollowUps,
+            currentUser.Scope.IsOrganisationWide);
 
         logger.LogInformation("Donor navigation menu loaded successfully. MenuItemCount: {MenuItemCount}", items.Count);
 
-        return Task.FromResult(Result.Success(response));
+        return Result.Success(response);
     }
 }

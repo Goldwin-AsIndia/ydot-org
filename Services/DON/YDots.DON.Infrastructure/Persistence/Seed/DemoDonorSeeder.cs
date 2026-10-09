@@ -164,6 +164,7 @@ public sealed class DemoDonorSeeder(
         var leads = AddLeads(batch, donors);
 
         AddStewardship(batch, donors);
+        AddLeadFollowUpAssignments(batch, leads);
         AddPromises(batch, donors);
         AddDocuments(batch, donors);
         AddDuplicateReview(batch, donors);
@@ -1015,6 +1016,53 @@ public sealed class DemoDonorSeeder(
     }
 
     /// <summary>
+    /// Follow-ups on leads given to somebody who does not own the lead - the role flow's example
+    /// of an Assigned User on an unassigned lead. The lead's owner is left exactly as it is.
+    /// </summary>
+    private void AddLeadFollowUpAssignments(Batch batch, IReadOnlyDictionary<string, Lead> leads)
+    {
+        foreach (var (seed, index) in (batch.Organisation.LeadFollowUps ?? []).Select((value, index) => (value, index)))
+        {
+            var lead = leads[seed.Lead];
+            var owner = batch.People[seed.Owner];
+            var dueAt = Due(batch.Now, seed.Due);
+            var createdAt = Moment(batch.Now, 1, $"{seed.Lead}|assigned-follow-up|{index}");
+
+            context.FollowUpTasks.Add(new FollowUpTask
+            {
+                Id = DemoIds.Of("follow-up", batch.Organisation.Subdomain, $"{seed.Lead}|assigned-follow-up|{index}"),
+                OrganisationId = batch.OrganisationId,
+                FollowUpReference = batch.FollowUps.Next(),
+                LeadId = lead.Id,
+                RelationshipOwnerUserId = owner.Id,
+                RelationshipOwnerName = owner.Name,
+                Purpose = seed.Purpose,
+                PermittedChannel = seed.Medium,
+                PreferredLanguage = lead.PreferredLanguage,
+                NextAction = seed.NextAction,
+                DueAtUtc = dueAt,
+                Priority = seed.Priority,
+                Status = seed.Status,
+
+                // The lead's consent is still pending, which is the case the planner asks about.
+                ConsentWarningAcknowledged = true,
+                ConsentNoticeVersion = _settings.CurrentNoticeVersion,
+                ConsentAcknowledgedAtUtc = createdAt,
+                CreatedAtUtc = createdAt,
+                CreatedByUserId = batch.People[batch.Organisation.Manager].Id,
+                Version = 1
+            });
+
+            // The lead's next contact is the follow-up that is now booked - its owner is unchanged.
+            if (lead.NextActionDueUtc is null || dueAt < lead.NextActionDueUtc)
+            {
+                lead.NextAction = seed.NextAction;
+                lead.NextActionDueUtc = dueAt;
+            }
+        }
+    }
+
+    /// <summary>
     /// The pledges, and the two totals this module can honestly state from them: what has been
     /// pledged, and how much of it is still outstanding. What has been RECEIVED is PAY's to say.
     /// </summary>
@@ -1340,6 +1388,7 @@ public sealed class DemoDonorSeeder(
         organisation.Donors.Select(donor => donor.Owner)
             .Concat(organisation.Leads.SelectMany(lead => new[] { lead.Owner, lead.PreviousOwner }))
             .Concat(organisation.Stewardship.Select(task => task.Owner))
+            .Concat((organisation.LeadFollowUps ?? []).Select(task => task.Owner))
             .Append(organisation.Administrator)
             .Append(organisation.Manager)
             .Where(name => name is not null)

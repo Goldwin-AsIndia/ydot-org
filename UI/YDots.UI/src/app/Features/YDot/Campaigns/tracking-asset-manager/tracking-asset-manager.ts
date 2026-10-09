@@ -14,6 +14,7 @@ import { ToastService } from '../../../../Shared/services/toast.service';
 import { CampaignApiService } from '../../../../Service/campaign-api.service';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
+import { nowLabel, viewerTimeZone } from '../../../../Shared/services/clock';
 /** One row of a CAM reference catalogue: the id the API takes, and the name a person reads. */
 interface CatalogueOption {
   readonly ref: string;
@@ -50,10 +51,14 @@ export class TrackingAssetManagerComponent {
   protected get owner(): string {
     return this.currentUser.current().name;
   }
-  protected readonly operatingTimeZone = 'Asia/Kolkata · IST (UTC+05:30)';
+  /** The viewer's own time zone - the one the active-window dates are interpreted in. */
+  protected readonly operatingTimeZone = viewerTimeZone();
 
   /** Last refresh — server-derived, read-only freshness evidence. */
-  protected readonly lastRefresh = signal('Today, 09:30 AM · IST');
+  /** The moment an action is being confirmed. It was the literal 'Today, 09:30 AM · IST'. */
+  protected lastRefresh(): string {
+    return nowLabel();
+  }
 
   /** The acting session's "user id" — reused for the segregation-of-duty rule. */
   protected readonly currentUserRef = computed(() => this.currentUser.reference());
@@ -98,9 +103,26 @@ export class TrackingAssetManagerComponent {
 
   // ================= Context and filters =================
 
-  /** Saved filter. */
+  /**
+   * Saved views: named settings of the filters below.
+   *
+   * THE PICKER CHANGED ITS OWN LABEL AND NOTHING ELSE. Choosing "QR destinations" or "Awaiting
+   * approval" left the table exactly as it was, because nothing read the selection. Each view now
+   * sets the asset-type and status filters, to values taken from CAM's own lists.
+   */
   protected readonly savedViews = ['All tracking assets (Default)', 'QR destinations', 'Awaiting approval'];
   protected readonly savedView = signal(this.savedViews[0]);
+
+  protected applySavedView(view: string): void {
+    this.savedView.set(view);
+
+    const qrCode = this.assetTypeCatalogue().find((label) => /^qr/i.test(label)) ?? '';
+    const submitted = this.statusCatalogue().find((label) => label === 'Submitted') ?? '';
+
+    this.assetTypeFilter.set(view === this.savedViews[1] ? qrCode : '');
+    this.statusFilter.set(view === this.savedViews[2] ? (submitted as AssetStatus) : '');
+    this.currentPage.set(1);
+  }
 
   /**
    * Fixed page size for pagination (records-per-page selector removed per design).
@@ -137,11 +159,13 @@ export class TrackingAssetManagerComponent {
     return ref ? this.campaignOf(ref).name || ref : '';
   });
 
-  /** Asset type — searchable controlled choice; effective approved catalogue. */
-  protected readonly assetTypeCatalogue: readonly string[] = [
-    'QR Code',
-    'Landing Page',
-  ];
+  /**
+   * Asset type — the types CAM currently offers, as CAM names them.
+   *
+   * FROM THE REFERENCE DATA. The two entries were typed in here; which types are on offer is a
+   * CAM setting now, served with the channels, sources and mediums.
+   */
+  protected readonly assetTypeCatalogue = signal<readonly string[]>([]);
   protected readonly assetTypeFilter = signal<string>('');
 
   /** Icon (one SVG path) and a one-line description for each asset-type tile on the create screen. */
@@ -220,6 +244,10 @@ export class TrackingAssetManagerComponent {
           reference.sources.filter((c) => c.isActive).map((c) => ({ ref: c.id, label: c.name })));
         this.mediumChoices.set(
           reference.mediums.filter((c) => c.isActive).map((c) => ({ ref: c.id, label: c.name })));
+
+        this.assetTypeCatalogue.set((reference.trackingAssetTypes ?? []).map((option) => option.label));
+        this.statusCatalogue.set(
+          (reference.trackingAssetStatuses ?? []).map((option) => option.label as AssetStatus));
       },
       error: () =>
         this.toast.show(
@@ -231,9 +259,13 @@ export class TrackingAssetManagerComponent {
 
   protected readonly channelFilter = signal<string>('');
 
-  /** Asset status — search-select using only current catalogue values. */
-  protected readonly statusCatalogue: readonly AssetStatus[] =
-    ['Draft', 'Submitted', 'Approved', 'Active', 'Submitted for disable', 'Inactive', 'Paused', 'Disabled'];
+  /**
+   * Asset status — CAM's own statuses, in lifecycle order.
+   *
+   * THE TYPED-IN LIST OFFERED 'Inactive' AND 'Paused' AS WELL, two words no asset on this screen
+   * is ever filed under by the server, so filtering by either always returned nothing.
+   */
+  protected readonly statusCatalogue = signal<readonly AssetStatus[]>([]);
   protected readonly statusFilter = signal<AssetStatus | ''>('');
 
   /** Active from / Active to — date range in the operating time zone. */

@@ -13,6 +13,7 @@ import { OrganisationContextService } from '../../../../Shared/services/organisa
 import { GeoMasterService } from '../../../../Shared/services/geo-master.service';
 import { MasterLookup } from '../../../../Shared/models/global-master.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { nowLabel, viewerTimeZone } from '../../../../Shared/services/clock';
 
 /**
  * One row of a controlled catalogue: the API identifier the server wants, and the text a
@@ -105,11 +106,24 @@ export class CampaignWizardComponent {
    */
   protected readonly liveEditStatus = signal<CampaignStatus | null>(null);
   /** Owner is captured as a field below; the header echoes the accountable owner. */
-  protected readonly operatingTimeZone = 'Asia/Kolkata · IST (UTC+05:30)';
+  protected readonly operatingTimeZone = viewerTimeZone();
   /** Freshness for the working configuration. */
   protected readonly lastSaved = signal<string | null>(null);
   /** Optimistic-lock token used for the conflict state. */
-  protected readonly concurrencyVersion = signal('Version 1');
+  /**
+   * The record's version as CAM holds it - the number a save is checked against.
+   *
+   * IT WAS A COUNTER THIS SCREEN KEPT FOR ITSELF, starting at "Version 1" and adding one per save
+   * in this browser, so it disagreed with the server from the second person's first edit.
+   */
+  protected readonly concurrencyVersion = computed(() => {
+    const ref = this.stableReference();
+
+    // Reading the record makes this re-run when the register reloads after a save.
+    const version = ref && this.store.get(ref) ? this.store.expectedVersion(ref) : 0;
+
+    return version > 0 ? `Version ${version}` : 'Not yet saved';
+  });
 
   /** Effective permissions decided server-side; the client mirrors the same decision. */
   protected readonly permissions = computed<CampaignWizardPermissions>(() => ({
@@ -1352,7 +1366,7 @@ export class CampaignWizardComponent {
       // THE NAME CHANGED WITH THE CATALOGUE. This read 'Campaign Manager', which no token
       // carries since the role set was cut to four - so the field was silently never set and
       // every campaign fell through to the fallback.
-      ...(role === 'Approver' ? { managerReference: this.user.reference() } : {}),
+      ...(role === 'Campaign Manager' ? { managerReference: this.user.reference() } : {}),
     };
     if (ref) {
       // The stable reference (store key) is never rewritten from an in-progress edit
@@ -1411,9 +1425,8 @@ export class CampaignWizardComponent {
 
       this.stableReference.set(ref);
       this.lifecycleState.set('Draft');
-      this.concurrencyVersion.update((v) => `Version ${Number(v.replace(/\D/g, '')) + 1}`);
-      this.draftVersion.set(`Draft v${this.concurrencyVersion().replace(/\D/g, '')} — saved`);
-      this.lastSaved.set('Today, just now · IST');
+      this.draftVersion.set('Draft — saved');
+      this.lastSaved.set(nowLabel());
       this.successRef.set(ref);
       this.toast.show('Draft saved', `Reference ${ref} saved.`, 'success');
       this.uiState.set('ready');
@@ -1561,7 +1574,7 @@ export class CampaignWizardComponent {
         // after a successful submit, so the one screen that had just sent the campaign for
         // approval was also the one screen still calling it a draft.
         this.lifecycleState.set('Submitted');
-        this.lastSaved.set('Today, just now · IST');
+        this.lastSaved.set(nowLabel());
         this.successRef.set(ref);
         this.toast.show('Submitted for approval', `${ref} is with its approver.`, 'success');
 

@@ -21,6 +21,12 @@ public sealed class DonorSearchFilter : PaginationRequest
 
     public Guid? RelationshipOwnerUserId { get; set; }
 
+    /// <summary>
+    /// My Donor List: only the donors whose relationship the caller owns. Resolved from the token,
+    /// so the browser cannot ask for somebody else's list by sending an id.
+    /// </summary>
+    public bool? OnlyMine { get; set; }
+
     /// <summary>Filter by an attached tag code, for example MAJOR_GIVER.</summary>
     public string? TagCode { get; set; }
 
