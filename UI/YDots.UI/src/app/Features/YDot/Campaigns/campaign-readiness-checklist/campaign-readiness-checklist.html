@@ -97,9 +97,9 @@
     </div>
 
     <div class="crc-hero-actions crc-overflow">
-      <button #crcActionsBtn type="button" class="btn btn-outline-secondary btn-sm" aria-haspopup="menu" [attr.aria-expanded]="actionsMenuOpen()" (click)="toggleActionsMenu()">
+      <button #crcActionsBtn type="button" class="btn btn-outline-secondary btn-sm " style="padding-left: 17px;" aria-haspopup="menu" [attr.aria-expanded]="actionsMenuOpen()" (click)="toggleActionsMenu()">
         Launch actions
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
       </button>
       @if (actionsMenuOpen()) {
         <div class="crc-menu crc-menu-wide" role="menu"
@@ -109,7 +109,7 @@
                but the campaign is not ready for stays, disabled, with the reason underneath.
                `capabilities()` answers the first question, `permissions()` (the server's
                permittedActions, which also encode status and the four-eyes rule) the second. -->
-          @if (capabilities().addCheck) {
+          <!-- @if (capabilities().addCheck) {
             <button type="button" role="menuitem" class="crc-menu-item"
                     [disabled]="!permissions().addCheck"
                     (click)="openAddCheckDrawer()">Create</button>
@@ -117,7 +117,7 @@
               <p class="crc-menu-why">Checks cannot be created once the campaign is Active.</p>
             }
             <div class="crc-menu-divider" role="separator"></div>
-          }
+          } -->
           @if (capabilities().requestApproval) {
             <button type="button" role="menuitem" class="crc-menu-item"
                     [disabled]="!permissions().requestApproval || !requestApprovalEligible()"
@@ -130,17 +130,17 @@
             <button type="button" role="menuitem" class="crc-menu-item"
                     [disabled]="!approveLaunchAllowed()"
                     (click)="openApproveDialog()">Approve launch</button>
-            @if (approveDisabledReason(); as why) {
+            <!-- @if (approveDisabledReason(); as why) {
               <p class="crc-menu-why">{{ why }}</p>
-            }
+            } -->
           }
           @if (capabilities().reject) {
             <button type="button" role="menuitem" class="crc-menu-item crc-menu-item-danger"
                     [disabled]="!rejectAllowed()"
                     (click)="openRejectDialog()">{{ rejectLabel() }}</button>
-            @if (rejectDisabledReason(); as why) {
+            <!-- @if (rejectDisabledReason(); as why) {
               <p class="crc-menu-why">{{ why }}</p>
-            }
+            } -->
           }
         </div>
       }
@@ -208,8 +208,8 @@
           <button type="button" class="btn btn-primary btn-sm" [disabled]="!permissions().addCheck"
                   [attr.title]="permissions().addCheck ? null : 'Checks cannot be created once the campaign is Active.'"
                   (click)="openAddCheckDrawer()">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-            Create check
+         <i class="ri-add-line" aria-hidden="true"></i>
+            Create
           </button>
         }
       </header>
@@ -272,46 +272,43 @@
 
               <div class="crc-check-actions" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
                 @if (rowHasActions(item)) {
-                <div class="crc-overflow">
-                  <button #crcChecklistBtn type="button" class="crc-icon-btn" aria-haspopup="menu"
-                          [attr.aria-expanded]="checklistRowMenuOpen() === item.id" aria-label="Check actions" title="Actions"
-                          (click)="toggleChecklistRowMenu(item.id)">
-                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
-                  </button>
-                  @if (checklistRowMenuOpen() === item.id) {
-                    <div class="crc-menu" role="menu"
-                         appClickOutside [clickOutsideExcept]="crcChecklistBtn" (appClickOutside)="closeChecklistRowMenu()">
-                      <!-- EACH VERB COMES FROM THE SERVER'S LIST FOR THIS CHECK AND THIS PERSON. It
-                           knows who the check is assigned to and whether that person can still
-                           record a verdict; a role that does not hold a verb never sees it. -->
-                      @if (rowAllows(item, 'Pass')) {
-                        <button type="button" role="menuitem" class="crc-menu-item"
-                                (click)="markChecklistPassed(item)">Mark as passed</button>
-                      }
-                      @if (rowAllows(item, 'Fail')) {
-                        <button type="button" role="menuitem" class="crc-menu-item"
-                                (click)="markChecklistFailed(item)">Mark as failed</button>
-                      }
-                      @if (capabilities().pass && item.status !== 'Passed' && item.ownerId
-                           && !rowAllows(item, 'Pass') && !rowAllows(item, 'Fail')) {
-                        <p class="crc-menu-why">Assigned to {{ ownerName(item.ownerId) }} — only they can pass or fail it.</p>
-                      }
-                      @if (rowAllows(item, 'Edit')) {
-                        <button type="button" role="menuitem" class="crc-menu-item"
-                                (click)="openEditCheckDrawer(item)">Edit</button>
-                      }
-                      @if (capabilities().deleteCheck) {
-                        <div class="crc-menu-divider" role="separator"></div>
-                        <button type="button" role="menuitem" class="crc-menu-item crc-menu-item-danger"
-                                [disabled]="!deleteCheckAllowed(item)"
-                                (click)="deleteChecklistItem(item)">Delete</button>
-                        @if (deleteCheckDisabledReason(item); as why) {
-                          <p class="crc-menu-why">{{ why }}</p>
-                        }
-                      }
-                    </div>
-                  }
-                </div>
+                  <!-- ROW ACTIONS AS INLINE ICONS (the list view's action column), NOT a three-dot
+                       menu. The same verbs, gated by the same server rules (permittedActions via
+                       rowAllows, capabilities) and handled by the same methods; the ghost look and
+                       each glyph's colour come from the shared list-row action layer
+                       (styles/ydot-list-actions.css: check=green, close=red, pencil=orange,
+                       bin=red). The reason a verb is absent (assigned to somebody else) rides on
+                       the cluster's tooltip instead of a greyed menu item. -->
+                  <div class="ydot-row-actions"
+                       [attr.title]="capabilities().pass && item.status !== 'Passed' && item.ownerId
+                                     && !rowAllows(item, 'Pass') && !rowAllows(item, 'Fail')
+                               ? ('Assigned to ' + ownerName(item.ownerId) + ' - only they can pass or fail it.') : null">
+                    @if (rowAllows(item, 'Pass')) {
+                      <button type="button" class="ydot-act" title="Mark as passed" aria-label="Mark as passed"
+                              (click)="markChecklistPassed(item)">
+                        <i class="ri-check-line" aria-hidden="true"></i>
+                      </button>
+                    }
+                    @if (rowAllows(item, 'Fail')) {
+                      <button type="button" class="ydot-act" title="Mark as failed" aria-label="Mark as failed"
+                              (click)="markChecklistFailed(item)">
+                        <i class="ri-close-line" aria-hidden="true"></i>
+                      </button>
+                    }
+                    @if (rowAllows(item, 'Edit')) {
+                      <button type="button" class="ydot-act" title="Edit" aria-label="Edit check"
+                              (click)="openEditCheckDrawer(item)">
+                        <i class="ri-edit-line" aria-hidden="true"></i>
+                      </button>
+                    }
+                    @if (capabilities().deleteCheck) {
+                      <button type="button" class="ydot-act" [disabled]="!deleteCheckAllowed(item)"
+                              [attr.title]="deleteCheckDisabledReason(item) || 'Delete'" aria-label="Delete check"
+                              (click)="deleteChecklistItem(item)">
+                        <i class="ri-delete-bin-line" aria-hidden="true"></i>
+                      </button>
+                    }
+                  </div>
                 }
               </div>
             </li>
@@ -553,9 +550,9 @@
       </dl>
       </div>
       <div class="crc-modal-actions">
-        <button type="button" class="crc-btn crc-btn-outline" (click)="closeViewCheck()">Close</button>
+        <button type="button" class="btn btn-secondary btn-sm" (click)="closeViewCheck()">Close</button>
         @if (rowAllows(vc, 'Edit')) {
-          <button type="button" class="crc-btn crc-btn-primary" (click)="editFromView(vc)">Edit</button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="editFromView(vc)">Edit</button>
         }
       </div>
     </div>

@@ -48,7 +48,7 @@ PREFIX = "[data-dg-host] "
 # ------------------------------------------------------------------------------------------------ registries
 SCRIMS = [
     ".ar-backdrop", ".modal-overlay", ".mc-modal-backdrop", ".oc-overlay",
-    ".msec-modal-backdrop", ".msec-backdrop", ".rx-overlay", ".modal-backdrop", ".dir-overlay",
+    ".msec-modal-backdrop", ".msec-backdrop", ".mfa-backdrop", ".rx-overlay", ".modal-backdrop", ".dir-overlay",
     ".up-backdrop", ".sec-modal-overlay", "app-communication-exception-queue .scrim",
     "app-sla-policy-calendar .overlay", "app-outbound-message-composer .overlay", ".panel-backdrop",
     ".drawer-overlay", ".drawer-backdrop", ".pr-modal-backdrop", ".pr-detail-backdrop", ".dialog-backdrop",
@@ -63,7 +63,7 @@ SCRIMS = [
 SCRIMS_COLOUR_ONLY = [".filter-modal-backdrop"]
 
 DIALOGS = [
-    ".ar-modal", ".bu-modal", ".modal-modern", ".mc-modal", ".msec-modal:not(.modal)",
+    ".ar-modal", ".bu-modal", ".modal-modern", ".mc-modal", ".msec-modal:not(.modal)", ".mfa-card",
     ".rx-modal", ".modal-content", ".dir-dialog", ".up-modal", ".sec-modal",
     ".modal:not(.d-block):not(.fade):not(.modal-split):not(:has(> .modal-dialog))",
     "app-payment-gateway-configuration .modal-dialog", ".pr-modal",

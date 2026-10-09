@@ -86,9 +86,11 @@
 </div>
 </div>
 
-        <!-- Enrol MFA / Change Password action card -->
+        <!-- Enrol MFA / Change Password action card.
+             Each half opens a pop-up, so each ends in a small "opens a window" icon, centred
+             on the right of the row, instead of an arrow; aria-haspopup tells assistive tech the same. -->
 <div class="msec-card msec-action-card">
-<button type="button" class="msec-action-section" (click)="enrolMfa()">
+<button type="button" class="msec-action-section" aria-haspopup="dialog" (click)="enrolMfa()">
 <span class="msec-icon-circle msec-action-icon"><i class="ri-fingerprint-line"></i></span>
 <div class="msec-action-body">
 <p class="msec-action-title">
@@ -96,17 +98,18 @@
 </p>
 <p class="msec-action-subtitle">Add an extra layer of security</p>
 </div>
-<span class="msec-action-arrow"><i class="ri-arrow-right-line"></i></span>
+<i class="ri-external-link-line msec-action-corner" aria-hidden="true"></i>
 </button>
 
           <span class="msec-info-divider"></span>
 
-          <button type="button" class="msec-action-section" (click)="openChangePassword()">
+          <button type="button" class="msec-action-section" aria-haspopup="dialog" (click)="openChangePassword()">
 <span class="msec-icon-circle msec-action-icon"><i class="ri-lock-password-line"></i></span>
 <div class="msec-action-body">
 <p class="msec-action-title">Change Password</p>
 <p class="msec-action-subtitle">Update your password regularly</p>
 </div>
+<i class="ri-external-link-line msec-action-corner" aria-hidden="true"></i>
 </button>
 </div>
 </div>
@@ -409,24 +412,68 @@
 <h6>MFA Methods</h6>
 <span class="msec-count-pill">{{ (data()?.mfaMethods ?? []).length }}</span>
 </div>
-<div class="msec-section-card__body">
-<div class="msec-mfa-grid">
-                @for (m of (data()?.mfaMethods ?? []); track m.id; let i = $index) {
-<div class="msec-mfa-card" [style.animation-delay]="(i*0.05)+'s'">
-<span class="msec-mfa-card__icon"><i class="{{ m.icon }}"></i></span>
-<strong class="msec-mfa-card__name">{{ m.method }}</strong>
-<span class="msec-mfa-card__status">{{ m.status }}</span>
-<span class="msec-muted-sm">Set up {{ m.enrolledOn }}</span>
-<button class="msec-btn-danger-ghost mt-2" [disabled]="busy()" (click)="removeMfaMethod(m)">
-<i class="ri-delete-bin-line"></i> Remove
+<div class="msec-section-card__body msec-section-card__body--flush">
+<!-- Grouped by status: active methods first, unfinished ("Awaiting confirmation") ones
+     below. Each group has a small header with its count; each row is icon · name
+     (· set-up date) · icon-only Remove. A long list scrolls inside the card.
+     Needs activeMfa() / pendingMfa() in the component (see the TS snippet). -->
+                @if ((data()?.mfaMethods ?? []).length > 0) {
+<div class="msec-mfa-groups">
+
+                  @if (activeMfa().length > 0) {
+<div class="msec-mfa-group">
+<div class="msec-mfa-group__head msec-mfa-group__head--ok">
+<span class="msec-mfa-group__dot"></span> Active
+<span class="msec-mfa-group__count">{{ activeMfa().length }}</span>
+</div>
+                    @for (m of activeMfa(); track m.id; let i = $index) {
+<div class="msec-mfa-item" [style.animation-delay]="(i*0.03)+'s'">
+<span class="msec-mfa-item__icon"><i class="{{ m.icon }}"></i></span>
+<span class="msec-mfa-item__text">
+<span class="msec-mfa-item__name" [title]="m.method">{{ m.method }}</span>
+                        @if (m.enrolledOn) {
+<span class="msec-mfa-item__date">Set up {{ m.enrolledOn }}</span>
+                        }
+</span>
+<button type="button" class="msec-mfa-item__remove" [disabled]="busy()" (click)="removeMfaMethod(m)"
+        [attr.aria-label]="'Remove ' + m.method" title="Remove">
+<i class="ri-delete-bin-line"></i>
 </button>
 </div>
-                } @empty {
-<p class="msec-muted-sm mb-0">
+                    }
+</div>
+                  }
+
+                  @if (pendingMfa().length > 0) {
+<div class="msec-mfa-group">
+<div class="msec-mfa-group__head msec-mfa-group__head--pending">
+<span class="msec-mfa-group__dot"></span> Awaiting confirmation
+<span class="msec-mfa-group__count">{{ pendingMfa().length }}</span>
+</div>
+                    @for (m of pendingMfa(); track m.id; let i = $index) {
+<div class="msec-mfa-item" [style.animation-delay]="(i*0.03)+'s'">
+<span class="msec-mfa-item__icon"><i class="{{ m.icon }}"></i></span>
+<span class="msec-mfa-item__text">
+<span class="msec-mfa-item__name" [title]="m.method">{{ m.method }}</span>
+                        @if (m.enrolledOn) {
+<span class="msec-mfa-item__date">Started {{ m.enrolledOn }}</span>
+                        }
+</span>
+<button type="button" class="msec-mfa-item__remove" [disabled]="busy()" (click)="removeMfaMethod(m)"
+        [attr.aria-label]="'Remove ' + m.method" title="Remove">
+<i class="ri-delete-bin-line"></i>
+</button>
+</div>
+                    }
+</div>
+                  }
+
+</div>
+                } @else {
+<p class="msec-muted-sm p-3 mb-0">
                       No second factor is set up. Anybody with your password can sign in as you.
 </p>
                 }
-</div>
 </div>
 </div>
 
@@ -473,6 +520,9 @@
   </div>
 </div>
 
+
+</main>
+
 <!-- Change Password Modal -->
 @if (showChangePassword()) {
 <div class="modal d-block msec-modal" tabindex="-1">
@@ -505,8 +555,8 @@
 </div>
 </div>
 <div class="msec-modal__footer">
-<button class="msec-btn-ghost" [disabled]="busy()" (click)="showChangePassword.set(false)">Cancel</button>
-<button class="msec-btn-solid" [disabled]="busy()" (click)="changePassword()">
+<button class="btn btn-outline-secondary btn-sm" [disabled]="busy()" (click)="showChangePassword.set(false)">Cancel</button>
+<button class="btn btn-primary btn-sm" [disabled]="busy()" (click)="changePassword()">
                 @if (busy()) { <span class="spinner-border spinner-border-sm me-1"></span> }
                 Change Password
 </button>
@@ -516,9 +566,6 @@
 </div>
 <div class="modal-backdrop fade show msec-backdrop"></div>
 }
-
-</main>
-
 
 <!-- ======================= BACKUP CODES ======================= -->
 @if (showRecoveryCodes()) {

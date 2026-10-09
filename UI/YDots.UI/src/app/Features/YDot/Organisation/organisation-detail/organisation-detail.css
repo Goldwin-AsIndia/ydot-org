@@ -2716,6 +2716,24 @@ textarea.og-input {
   text-underline-offset: 3px;
 }
 
+/* The chain glyph sits INSIDE the link (not as a sibling), so clicking either the glyph or the
+   host opens the address; re-states what .og-register-main > i gave it when it was a direct child.
+   inline-block (not flex): the rule above needs a block container for the ellipsis to truncate a
+   long host instead of letting it overflow the cell. */
+.og-host-link {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.og-host-link > i {
+  display: inline-block;
+  vertical-align: -0.15em;
+  margin-right: calc(10px * var(--ui-scale, 1));
+  font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+  color: var(--og-brand);
+}
+
 .og-copy.og-copy-inline {
   position: static;
   flex: none;

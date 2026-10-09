@@ -263,7 +263,8 @@
 .msec-info-action[disabled]{ color:var(--muted-light); cursor:not-allowed; }
 
 /* --- Action card: enrol MFA / change password ---
-   Mirrors .msec-info-card's row-split-by-divider layout, not stacked rows. */
+   Mirrors .msec-info-card's row-split-by-divider layout, not stacked rows.
+   Each half opens a pop-up and ends in a labelled button (.msec-action-cta). */
 .msec-action-card{
   display:flex;
   align-items:stretch;
@@ -306,23 +307,6 @@
   color:var(--muted);
   line-height:1.3;
   margin:0;
-}
-.msec-action-arrow{
-  width:calc(32px * var(--ui-scale, 1)); height:calc(32px * var(--ui-scale, 1));
-  border-radius:50%;
-  border:1px solid var(--border);
-  background:#fff;
-  color:var(--accent);
-  display:flex; align-items:center; justify-content:center;
-  flex:none;
-  font-size:calc(1.062rem * var(--ui-text-scale, 1)) !important;
-  margin-left:auto;
-  transition:background .15s ease, border-color .15s ease;
-}
-.msec-action-section:hover .msec-action-arrow{
-  background:var(--accent);
-  border-color:var(--accent);
-  color:#fff;
 }
 
 /* =========================================================================
@@ -892,7 +876,11 @@ font-size:calc(calc(23.6px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !imp
 
 /* ---------------------------------- Modal ---------------------------------- */
 .msec-modal{ z-index:1055; }
-.msec-backdrop{ background:hsl(140 11.1% 10.6% / .45); backdrop-filter:blur(2px); }
+/* The scrim colour + blur are owned by the shared dialog layer (styles/ydot-dialogs.css §1):
+   the app-standard tint with blur(var(--dg-blur)) saturate(120%) (6-7px) + the dg-fade in.
+   This screen used to override it with a flat dark-green wash + blur(2px), which won the cascade
+   and left the backdrop looking flat and barely blurred. Letting the shared rule govern makes
+   Change Password / Backup Codes look like every other pop-up in the app. */
 .msec-modal__content{
   border:none;
   border-radius:var(--radius-lg);
@@ -968,8 +956,7 @@ font-size:calc(calc(23.6px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !imp
 
 .msec-modal-backdrop{
   position:fixed; inset:0;
-  background:hsl(140 11.1% 10.6% / .45);
-  backdrop-filter:blur(2px);
+  /* colour + backdrop-filter come from the shared dialog scrim (ydot-dialogs.css §1) */
   display:flex; align-items:center; justify-content:center;
   z-index:1060;
   padding:calc(20px * var(--ui-scale, 1));
@@ -1369,7 +1356,6 @@ app-page-header.ph-host--card.ph-host--card.ph-host--card { background: transpar
 .msec-info-section, .msec-action-section{ gap:calc(10px * var(--ui-scale, 1)); }
 .msec-info-icon i, .msec-action-icon i{ font-size:calc(22px * var(--ui-scale, 1)) !important; }
 .msec-info-body{ gap:1px; }
-.msec-action-arrow{ width:calc(26px * var(--ui-scale, 1)); height:calc(26px * var(--ui-scale, 1)); }
 .msec-alert{ padding:calc(10px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); margin-bottom:calc(10px * var(--ui-scale, 1)); }
 
 .msec-grid{ gap:calc(12px * var(--ui-scale, 1)); margin-bottom:calc(12px * var(--ui-scale, 1)); }
@@ -1412,3 +1398,202 @@ app-page-header.ph-host--card.ph-host--card.ph-host--card { background: transpar
 .msec-activity-feed__row{ padding:calc(9px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); }
 .msec-session-row__icon{ width:calc(30px * var(--ui-scale, 1)); height:calc(30px * var(--ui-scale, 1)); }
 .msec-mfa-card{ padding:calc(10px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1)); }
+
+/* =========================================================================
+   Action card: corner icon instead of the round arrow (final word).
+   Enrol MFA and Change Password each open a pop-up, so each half shows a
+   small corner icon. Hovering the half tints it and colours the icon.
+   ========================================================================= */
+.msec-action-section{
+  padding:calc(8px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
+  margin:calc(-8px * var(--ui-scale, 1)) calc(-10px * var(--ui-scale, 1));
+  border-radius:calc(10px * var(--ui-scale, 1));
+  transition:background .15s ease;
+}
+.msec-action-section:hover{ background:var(--bg); }
+.msec-action-section:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+/* Small "opens a window" icon, sitting in the row as a flex item: pushed to the right
+   end and vertically centred with the icon and text. ri-external-link-line is not in
+   the per-glyph colour list above, so it stays muted and turns to the accent colour
+   when the half is hovered. */
+.msec-action-corner{
+  flex:none;
+  margin-left:auto;
+  align-self:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:calc(17px * var(--ui-scale, 1)) !important;
+  line-height:1;
+  color:var(--muted-light);
+  transition:color .15s ease;
+  pointer-events:none;
+}
+.msec-action-section:hover .msec-action-corner,
+.msec-action-section:focus-visible .msec-action-corner{ color:var(--accent); }
+
+@media (max-width:576px){
+  .msec-action-section{ margin:0; }
+}
+
+/* =========================================================================
+   MFA Methods: grouped by status (final word).
+   Active methods first, then "Awaiting confirmation". Each group has a small
+   header with a coloured dot and a count; each row is icon · name (· date) ·
+   icon-only Remove. A long list scrolls inside the card, and the group header
+   stays pinned while its rows scroll past.
+   (.msec-mfa-grid / .msec-mfa-card are still used by the Backup codes pop-up.)
+   ========================================================================= */
+.msec-mfa-groups{
+  max-height:calc(380px * var(--ui-scale, 1));
+  overflow-y:auto;
+}
+
+.msec-mfa-group + .msec-mfa-group{ border-top:1px solid var(--border); }
+
+.app-wrapper .msec-mfa-group__head{
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
+  position:sticky;
+  top:0;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  gap:calc(7px * var(--ui-scale, 1));
+  padding:calc(8px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  background:var(--card);
+  border-bottom:1px solid var(--border-soft);
+  font-family:var(--font-heading);
+  font-size:calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight:clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+.msec-mfa-group__head--ok{ color:var(--success); }
+.msec-mfa-group__head--pending{ color:#9a6212; }
+
+.msec-mfa-group__dot{
+  width:calc(7px * var(--ui-scale, 1));
+  height:calc(7px * var(--ui-scale, 1));
+  border-radius:50%;
+  background:currentColor;
+  flex:none;
+}
+
+.app-wrapper .msec-mfa-group__count{
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  margin-left:auto;
+  min-width:calc(22px * var(--ui-scale, 1));
+  height:calc(20px * var(--ui-scale, 1));
+  padding:0 calc(7px * var(--ui-scale, 1));
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  background:var(--bg);
+  border:1px solid var(--border);
+  color:var(--text);
+  font-family:var(--font-number);
+  font-size:calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+
+.msec-mfa-item{
+  display:flex;
+  align-items:center;
+  gap:calc(10px * var(--ui-scale, 1));
+  padding:calc(8px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  border-bottom:1px solid var(--border-soft);
+  animation:rowSlide .4s ease-out both;
+}
+.msec-mfa-group .msec-mfa-item:last-child{ border-bottom:none; }
+.msec-mfa-item:hover{ background:var(--bg); }
+
+.msec-mfa-item__icon{
+  flex:none;
+  width:calc(28px * var(--ui-scale, 1));
+  height:calc(28px * var(--ui-scale, 1));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid var(--border);
+  border-radius:calc(8px * var(--ui-scale, 1));
+}
+.msec-mfa-item__icon i{ font-size:calc(15px * var(--ui-scale, 1)) !important; line-height:1; }
+
+.msec-mfa-item__text{
+  flex:1;
+  min-width:0;
+  display:flex;
+  align-items:baseline;
+  gap:calc(8px * var(--ui-scale, 1));
+}
+
+.app-wrapper .msec-mfa-item__name{
+  --ui-text-scale: var(--rs-body); --fw-bias: var(--fwb-body);
+  min-width:0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-family:var(--font-body);
+  font-size:calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight:clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color:var(--text);
+}
+
+.app-wrapper .msec-mfa-item__date{
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  flex:none;
+  font-family:var(--font-number);
+  font-size:calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  color:var(--muted);
+  white-space:nowrap;
+}
+
+/* Icon-only Remove. ri-delete-bin-line is already red from the colour list above. */
+.msec-mfa-item__remove{
+  flex:none;
+  width:calc(28px * var(--ui-scale, 1));
+  height:calc(28px * var(--ui-scale, 1));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  border:1px solid transparent;
+  border-radius:calc(7px * var(--ui-scale, 1));
+  background:transparent;
+  cursor:pointer;
+  transition:background .15s ease, border-color .15s ease;
+}
+.msec-mfa-item__remove i{ font-size:calc(15px * var(--ui-scale, 1)) !important; line-height:1; }
+.msec-mfa-item__remove:hover{ background:var(--danger-soft); border-color:var(--danger-soft); }
+.msec-mfa-item__remove:focus-visible{ outline:2px solid var(--danger); outline-offset:1px; }
+.msec-mfa-item__remove:disabled{ opacity:.5; cursor:not-allowed; }
+
+.app-wrapper .msec-mfa-status{
+  --ui-text-scale: var(--rs-heading); --fw-bias: var(--fwb-heading);
+  display:inline-flex;
+  align-items:center;
+  gap:calc(5px * var(--ui-scale, 1));
+  padding:calc(2px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1));
+  border-radius:999px;
+  background:var(--success-soft);
+  color:var(--success);
+  font-family:var(--font-heading);
+  font-size:calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight:clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  white-space:nowrap;
+}
+.msec-mfa-status::before{
+  content:"";
+  width:calc(6px * var(--ui-scale, 1));
+  height:calc(6px * var(--ui-scale, 1));
+  border-radius:50%;
+  background:currentColor;
+}
+.app-wrapper .msec-mfa-status--pending{
+  background:var(--warn-soft);
+  color:#9a6212;
+}
+
+@media (max-width:576px){
+  /* Narrow screens: the date moves under the name. */
+  .msec-mfa-item__text{ flex-direction:column; align-items:flex-start; gap:1px; }
+}

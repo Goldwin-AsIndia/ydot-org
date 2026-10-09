@@ -782,8 +782,12 @@
             @for (domain of domains(); track domain.id) {
               <div class="og-register-row" role="row">
                 <span class="og-register-main" role="cell">
-                  <i class="ri-link"></i>
-                  <a class="og-host-link og-mono" [href]="'https://' + domain.hostName" target="_blank" rel="noopener">{{ domain.hostName }}</a>
+                  <!-- The glyph lives INSIDE the link so the whole unit (chain icon + host) opens
+                       the tenant's app in a new tab - http://<host>:6700/auth/sign-in; see
+                       hostHref(), which builds it (a bare https:// prefix opened a dead port). -->
+                  <a class="og-host-link og-mono" [href]="hostHref(domain.hostName)"
+                     [attr.title]="hostHref(domain.hostName)" target="_blank" rel="noopener"><i
+                     class="ri-link"></i>{{ domain.hostName }}</a>
                   <button type="button" class="og-copy og-copy-inline" [class.is-done]="copied() === 'host-' + domain.id"
                           [attr.aria-label]="'Copy ' + domain.hostName" [title]="copied() === 'host-' + domain.id ? 'Copied' : 'Copy'"
                           (click)="copyValue('host-' + domain.id, domain.hostName)">

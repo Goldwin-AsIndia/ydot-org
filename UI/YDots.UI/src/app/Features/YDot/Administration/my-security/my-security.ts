@@ -743,4 +743,19 @@ export class MySecurityComponent {
   editProfile(): void {
     this.router.navigate(['/app/administration/access/user-profile-and-access']);
   }
+
+
+  isPendingMfa(m: { status?: string | null }): boolean {
+  return (m.status ?? '').toLowerCase().includes('await');
+}
+ 
+readonly activeMfa = computed(() =>
+  (this.data()?.mfaMethods ?? []).filter(m => !this.isPendingMfa(m))
+);
+ 
+readonly pendingMfa = computed(() =>
+  (this.data()?.mfaMethods ?? []).filter(m => this.isPendingMfa(m))
+);
+
+
 }
