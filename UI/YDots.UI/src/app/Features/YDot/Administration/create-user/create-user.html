@@ -48,7 +48,7 @@
           <div><dt>Data scope</dt><dd>{{ dataScopeName() || '—' }}</dd></div>
         </dl>
         <div class="cu-done-actions">
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="createAnother()"><i class="ri-user-add-line" aria-hidden="true"></i> Create another</button>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="createAnother()"><i class="ri-user-add-line" aria-hidden="true"></i> Create another</button>
           <button type="button" class="btn btn-primary btn-sm" (click)="goBack()">Back <i class="ri-arrow-right-line" aria-hidden="true"></i></button>
         </div>
       </div>
@@ -117,7 +117,7 @@
         </ol>
         <div class="cu-band-progress" aria-label="Progress">
           <span class="cu-band-pct">{{ progressPct() }}<small>%</small></span>
-          <span class="cu-band-pct-sub">required details</span>
+          <span class="cu-band-pct-sub">profile complete</span>
         </div>
         <div class="cu-band-track" aria-hidden="true"><span [style.width.%]="progressPct()"></span></div>
       </nav>
@@ -629,8 +629,14 @@
         }
       </div>
 
-      <!-- Docked action bar -->
+      <!-- Docked action bar: Cancel stays on every step; Previous / Continue / final create
+           actions sit on the right. The pips (margin auto) keep themselves centred between them. -->
       <footer class="cu-footer">
+
+        <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="submitting()" (click)="onCancel()"
+                title="Discard this form and return to the user directory">
+          <i class="ri-close-line" aria-hidden="true"></i> Cancel
+        </button>
 
         <div class="cu-footer-pips" aria-hidden="true">
           @for (s of steps; track s; let i = $index) {
@@ -638,21 +644,23 @@
           }
         </div>
         @if (activeStep() !== 0) {
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="previousStep()">
+          <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="submitting()" (click)="previousStep()">
             <i class="ri-arrow-left-line" aria-hidden="true"></i> Previous
           </button>
         }
         @if (activeStep() < steps.length - 1) {
-          <button type="button" class="btn btn-primary btn-sm" (click)="nextStep()">
+          <button type="button" class="btn btn-primary btn-sm" [disabled]="submitting()" (click)="nextStep()">
             Continue to {{ steps[activeStep() + 1] }} <i class="ri-arrow-right-line" aria-hidden="true"></i>
           </button>
         } @else {
           <div class="cu-footer-final">
-            <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="submitting()" (click)="createWithoutInvite()">
-              <i class="ri-save-3-line" aria-hidden="true"></i> Create
+            <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="submitting()" (click)="createWithoutInvite()"
+                    title="Create the account now without sending the invitation e-mail">
+              <i class="ri-save-3-line" aria-hidden="true"></i> {{ submitting() ? 'Saving…' : 'Save as draft' }}
             </button>
-            <button type="button" class="btn btn-primary btn-sm" [disabled]="!canSubmit()" (click)="createAndInvite()">
-              <i class="ri-mail-send-line" aria-hidden="true"></i> {{ submitting() ? 'Creating…' : 'Create' }}
+            <button type="button" class="btn btn-primary btn-sm" [disabled]="!canSubmit() || submitting()" (click)="createAndInvite()"
+                    title="Create the account and e-mail the invitation link">
+              <i class="ri-mail-send-line" aria-hidden="true"></i> {{ submitting() ? 'Creating…' : 'Create & invite' }}
             </button>
           </div>
         }

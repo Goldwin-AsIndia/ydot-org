@@ -761,40 +761,61 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   }
 
   /**
-   * Share of the data-entry steps that are complete, for the stepper's progress line. The Review step
-   * has nothing to fill in, so it is not counted; a fully completed form reads 100%.
+   * Share of ALL user-fillable fields that have a value, for the stepper's progress line.
+   * Mandatory AND optional both move it: filling an optional field (middle name, designation,
+   * welcome message…) raises the percentage the same as filling a required one.
+   *
+   * System-defaulted fields (preferred language, time zone, access start date) and the
+   * send-invitation toggle are excluded — they already have values before the person types
+   * anything, so counting them would start a fresh form above 0% without any effort.
+   * The Review step has nothing to fill in, so it is not counted either.
    */
   progressPct(): number {
-    const checks = this.requiredChecks();
+    const checks = this.allFieldChecks();
     const done = checks.filter(Boolean).length;
+    if (checks.length === 0) { return 0; }
     return Math.round((done / checks.length) * 100);
   }
 
   /**
-   * One boolean per required answer, so the progress line moves with every field filled in
+   * One boolean per fillable field, so the progress line moves with every field filled in
    * rather than jumping a quarter at a time when a whole step happens to be complete.
+   * Business justification counts once it reaches its usable length (10+ characters).
    */
-  private requiredChecks(): boolean[] {
+  private allFieldChecks(): boolean[] {
     const f = this.form();
-    const checks = [
-      Boolean(f.accountCategory),
-      Boolean(f.firstName.trim()),
-      Boolean(f.lastName.trim()),
-      Boolean(f.displayName.trim()),
-      Boolean(f.email.trim()),
-      Boolean(f.username.trim()),
-      Boolean(f.engagementType),
-      Boolean(f.primaryRoleId),
-      Boolean(f.dataScopeType),
+    const filled = (value: unknown): boolean =>
+      typeof value === 'string' ? value.trim().length > 0 : Boolean(value);
+
+    return [
+      // Identity — every box on the step, not just the asterisked ones.
+      filled(f.accountCategory),
+      filled(f.title),
+      filled(f.firstName),
+      filled(f.middleName),
+      filled(f.lastName),
+      filled(f.displayName),
+      filled(f.preferredName),
+      filled(f.email),
+      filled(f.username),
+      filled(f.mobileCountryCode),
+      filled(f.mobileNumber),
+      filled(f.employeeNumber),
+      // Organisation.
+      filled(f.engagementType),
+      filled(f.organisationUnitId),
+      filled(f.departmentId),
+      filled(f.designation),
+      filled(f.workLocation),
+      // Access.
+      filled(f.primaryRoleId),
+      filled(f.dataScopeType),
+      filled(f.accessEndsAt),
       f.businessJustification.trim().length >= 10,
-      Boolean(f.mfaRequirement),
+      // Security.
+      filled(f.mfaRequirement),
+      filled(f.welcomeMessage),
     ];
-
-    if (this.employeeNumberRequired()) { checks.push(Boolean(f.employeeNumber.trim())); }
-    if (this.mobileRequired()) { checks.push(Boolean(f.mobileNumber.trim())); }
-    if (f.mobileNumber.trim()) { checks.push(Boolean(f.mobileCountryCode)); }
-
-    return checks;
   }
 
   isStepComplete(index: number): boolean {
@@ -1006,14 +1027,45 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   readonly showLeaveDialog = signal(false);
   private leaveDecision: ((leave: boolean) => void) | null = null;
 
+  /**
+   * Set only for the single navigation that follows a confirmed Cancel, so the pending-changes
+   * guard waves that navigation through instead of asking again. The next visit constructs a
+   * fresh component, so no reset is needed.
+   */
+  private cancelling = false;
+
   /** Anything typed, and not yet turned into a user. */
   hasUnsavedWork(): boolean {
     return !this.createdUser() && JSON.stringify(this.form()) !== this.pristine;
   }
 
+  /**
+   * Footer Cancel: with nothing typed it simply returns; with a half-filled form it reuses the
+   * same "leave without creating?" dialog as the route guard, then navigates once confirmed.
+   * Blocked while a create is in flight, matching the footer's disabled state, and while the
+   * leave dialog is already open (a guard-driven prompt owns it then).
+   */
+  onCancel(): void {
+    if (this.submitting() || this.showLeaveDialog()) {
+      return;
+    }
+
+    if (!this.hasUnsavedWork()) {
+      this.goBack();
+      return;
+    }
+
+    this.leaveDecision = (leave: boolean) => {
+      if (leave) {
+        this.goBackBypassingGuard();
+      }
+    };
+    this.showLeaveDialog.set(true);
+  }
+
   /** Called by the route guard: asks before throwing away a half-filled form. */
   canDeactivate(): boolean | Promise<boolean> {
-    if (!this.hasUnsavedWork()) {
+    if (this.cancelling || !this.hasUnsavedWork()) {
       return true;
     }
 
@@ -1025,8 +1077,11 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
   resolveLeave(leave: boolean): void {
     this.showLeaveDialog.set(false);
-    this.leaveDecision?.(leave);
+    const decision = this.leaveDecision;
     this.leaveDecision = null;
+    // Guard-driven leaves resolve the guard's promise (the router then navigates itself);
+    // Cancel-driven leaves navigate inside the callback set by `onCancel`.
+    decision?.(leave);
   }
 
   /** Closing the tab or reloading gets the browser's own prompt. */
@@ -1038,6 +1093,16 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   }
 
   goBack(): void {
+    void this.router.navigate(['/app/administration/access/user-directory']);
+  }
+
+  /**
+   * Navigation after a confirmed Cancel. The flag stays set until the router has left this
+   * screen, so `canDeactivate` waves that single navigation through instead of asking again.
+   * The next visit constructs a fresh component, so no reset is needed.
+   */
+  private goBackBypassingGuard(): void {
+    this.cancelling = true;
     void this.router.navigate(['/app/administration/access/user-directory']);
   }
 }

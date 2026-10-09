@@ -256,6 +256,45 @@ button:has(> .ri-forbid-2-line):focus-visible {
     color: #64748b !important; */
 } 
 
+/* ---- ICON MAP, group 2b: access-request row icons (same palette as above) ----
+   submit/send -> teal (same as mail-send) · approve/check -> green ·
+   reject/close -> red · return/back-arrow -> amber · cancel/close-circle -> slate.
+   Every different icon keeps its OWN colour. */
+button:has(> .ri-send-plane-line):hover:not(:disabled),
+button:has(> .ri-send-plane-line):focus-visible {
+  background: #e6f7f5 !important;
+  border-color: #0d9488 !important;
+  color: #0d9488 !important;
+}
+
+button:has(> .ri-check-line):hover:not(:disabled),
+button:has(> .ri-check-line):focus-visible {
+  background: #e7f7ef !important;
+  border-color: #12b76a !important;
+  color: #12a35f !important;
+}
+
+button:has(> .ri-close-line):hover:not(:disabled),
+button:has(> .ri-close-line):focus-visible {
+  background: #fdecec !important;
+  border-color: #e5484d !important;
+  color: #e5484d !important;
+}
+
+button:has(> .ri-arrow-go-back-line):hover:not(:disabled),
+button:has(> .ri-arrow-go-back-line):focus-visible {
+  background: #fff7e8 !important;
+  border-color: #f59e0b !important;
+  color: #d97706 !important;
+}
+
+button:has(> .ri-close-circle-line):hover:not(:disabled),
+button:has(> .ri-close-circle-line):focus-visible {
+  background: #f1f5f9 !important;
+  border-color: #64748b !important;
+  color: #64748b !important;
+}
+
 /* ---- ICON MAP, group 3: inline-<svg> rows match by button title ---- */
 /* Masters view/edit/delete (title="View[. name]" etc.) */
 button[title="View"] > svg,
@@ -375,6 +414,7 @@ button[title="View details"]:focus-visible > svg {
    ========================================================================================= */
 
 /* ---- Box: white bg + neutral border + fixed 40px ---- */
+.ar-act,
 .ud-act,
 .dn-act,
 .pq-act,
@@ -414,6 +454,7 @@ button[title="View details"]:focus-visible > svg {
    other pages, 900 = bold). Force 400 + antialiased so Donor/Leads glyphs match
    the rest of the app. Inline SVGs get a uniform 1.8 stroke. ---- */
 .ud-act > i,
+.ar-act > i,
 .dn-act > i,
 .pq-act > i,
 .dl-act > i,
@@ -480,7 +521,9 @@ button[title="View details"]:focus-visible > svg {
 }
 
 /* ---- Legacy class fallback (icon-map above wins where it matches) ----
-   View falls back to indigo; Edit falls back to orange (NOT indigo). */
+   View falls back to indigo; Edit falls back to orange (NOT indigo).
+   Access-request (.ar-act) also lands here, then its own icons re-tint above. */
+.ar-act:hover:not(:disabled),
 .ud-act.View:hover:not(:disabled),
 .dn-act:hover:not(:disabled),
 .pq-act:hover:not(:disabled),
@@ -593,6 +636,7 @@ button[title^="Activate "]:focus-visible {
 
 /* ---- Keyboard focus: visible indigo ring ---- */
 .ud-act:focus-visible,
+.ar-act:focus-visible,
 .dn-act:focus-visible,
 .pq-act:focus-visible,
 .dl-act:focus-visible,
