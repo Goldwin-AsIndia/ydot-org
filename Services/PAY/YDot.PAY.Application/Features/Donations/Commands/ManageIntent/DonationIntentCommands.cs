@@ -107,6 +107,18 @@ public sealed class DonationIntentCommandHandler(
         var tenantId = tenantContext.RequireTenantId();
         var now = clock.UtcNow;
 
+        // THE QR CODE OR LINK THE DONOR FOLLOWED, resolved to its asset and - for an offline QR
+        // code - the place it was put. It used to be stored as text and never resolved, so every
+        // gift that came in through a printed code reached the books with no asset and no place,
+        // and the Tracking Asset Manager showed nothing raised against any of them.
+        var attribution = await ResolveAttributionAsync(request, tenantId, cancellationToken);
+
+        if (attribution is not null && (request.CampaignId is null || request.CampaignId == Guid.Empty))
+        {
+            // A code names its campaign, so a donor who arrived on one need not choose it.
+            request = request with { CampaignId = attribution.CampaignId };
+        }
+
         // ==================================================================================
         // THE AMOUNT COMES FROM THE CAMPAIGN, NOT FROM THE BROWSER.
         //
@@ -166,7 +178,11 @@ public sealed class DonationIntentCommandHandler(
         // Two intents for one gift means two payment links, and a donor who pays both has given
         // twice - which is a refund case that need never have existed.
         var existing = await donations.FindOpenIntentAsync(
-            tenantId, normalisedEmail, request.Amount, cancellationToken);
+            tenantId,
+            normalisedEmail,
+            request.Amount,
+            request.CampaignId is { } chosen && chosen != Guid.Empty ? chosen : null,
+            cancellationToken);
 
         if (existing is not null)
         {
@@ -179,11 +195,26 @@ public sealed class DonationIntentCommandHandler(
             // handed the same intent - and without this it kept no lead, so the gift converted
             // nobody and the donor arrived with no owner. An intent that already names a lead
             // keeps it.
+            var changed = false;
+
             if (existing.LeadId is null && request.LeadReference is { } leadId && leadId != Guid.Empty)
             {
                 existing.LeadId = leadId;
                 existing.SourceType = DonationSourceType.FundraiserLead;
+                changed = true;
+            }
 
+            // AND SO DOES THE CODE THEY SCANNED, by the same reasoning: the gift they are about to
+            // pay is the one the QR code brought in. An intent already credited to a code keeps it.
+            if (existing.TrackingAssetId is null && attribution is not null
+                && existing.CampaignId == attribution.CampaignId)
+            {
+                ApplyAttribution(existing, attribution, request.TrackingReference);
+                changed = true;
+            }
+
+            if (changed)
+            {
                 await unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
@@ -205,10 +236,15 @@ public sealed class DonationIntentCommandHandler(
             tenantContext.BusinessUnitId,
             reference.Value!,
 
-            // Resolved by the middleware from the tracking reference it was given. Null when the
-            // donor arrived by a route that carries no tracking.
+            // Resolved above from the tracking reference. Null when the donor arrived by a route
+            // that carries no tracking, or by a code that cannot be credited.
             trackingAssetId: null,
             now);
+
+        if (attribution is not null)
+        {
+            ApplyAttribution(intent, attribution, request.TrackingReference);
+        }
 
         // WHO THIS IS, DECIDED NOW RATHER THAN NEVER.
         //
@@ -280,7 +316,9 @@ public sealed class DonationIntentCommandHandler(
                 intent.IntentReference,
                 Source = intent.SourceType.ToString(),
                 intent.CampaignId,
-                Amount = intent.Amount.ToString()
+                Amount = intent.Amount.ToString(),
+                intent.TrackingAssetId,
+                intent.TrackingPlaceName
             },
             cancellationToken);
 
@@ -295,6 +333,113 @@ public sealed class DonationIntentCommandHandler(
         return intent.ToResponse(campaignName: null, PermittedActions(intent, now)) with
         {
             RequiresSignIn = requiresSignIn
+        };
+    }
+
+    // =====================================================================================
+    // Attribution - section 27
+    // =====================================================================================
+
+    /// <summary>
+    /// The tracking asset a new donation is credited to, or null when it cannot be credited to one.
+    ///
+    /// THREE THINGS MUST HOLD, and failing any of them leaves the gift unattributed rather than
+    /// refused - nobody is turned away because of how they reached the form:
+    ///
+    ///   - the code belongs to THIS organisation. References are unique platform-wide, so a code
+    ///     from another charity's poster would otherwise credit this gift to that charity's asset;
+    ///   - the code is live: Active, or awaiting a disable decision, and inside its window. A
+    ///     poster whose run has ended must not go on crediting gifts to it;
+    ///   - the gift is for the code's own campaign. A donor who scanned one appeal's code and then
+    ///     chose another gave to that other appeal, not through this code.
+    /// </summary>
+    private async Task<TrackingAttribution?> ResolveAttributionAsync(
+        CreateDonationIntentRequest request, Guid tenantId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.TrackingReference))
+        {
+            return null;
+        }
+
+        var attribution = await campaigns.ResolveTrackingReferenceAsync(
+            request.TrackingReference, cancellationToken);
+
+        if (attribution is null)
+        {
+            logger.LogWarning(
+                "Tracking reference {TrackingReference} on a donation matches no tracking asset. "
+                + "The donation is not attributed.", request.TrackingReference);
+
+            return null;
+        }
+
+        if (attribution.TenantId != tenantId)
+        {
+            logger.LogWarning(
+                "Tracking reference {TrackingReference} belongs to another organisation. The "
+                + "donation is not attributed to it.", request.TrackingReference);
+
+            return null;
+        }
+
+        if (!attribution.IsActive)
+        {
+            logger.LogInformation(
+                "Tracking asset {TrackingAssetId} is not live, so the donation is not attributed "
+                + "to it.", attribution.TrackingAssetId);
+
+            return null;
+        }
+
+        if (request.CampaignId is { } campaignId && campaignId != Guid.Empty
+            && campaignId != attribution.CampaignId)
+        {
+            logger.LogInformation(
+                "A donation that arrived through tracking asset {TrackingAssetId} was given to a "
+                + "different campaign, so it is not attributed to the asset.",
+                attribution.TrackingAssetId);
+
+            return null;
+        }
+
+        return attribution;
+    }
+
+    /// <summary>
+    /// Credits an intent to the code it came through and, for an offline QR code, to its place.
+    ///
+    /// A LEAD LINK STAYS A LEAD LINK. The fundraiser who captured the lead is why the gift exists;
+    /// the code only says how the donor reached the form. Only the default - a plain direct link -
+    /// is replaced by what the code says it is.
+    /// </summary>
+    private static void ApplyAttribution(
+        DonationIntent intent, TrackingAttribution attribution, string? trackingReference)
+    {
+        intent.TrackingAssetId = attribution.TrackingAssetId;
+        intent.TrackingReference ??= string.IsNullOrWhiteSpace(trackingReference) ? null : trackingReference.Trim();
+        intent.TrackingAssetPlaceId = attribution.PlaceId;
+        intent.TrackingPlaceName = attribution.PlaceName;
+
+        if (intent.SourceType == DonationSourceType.DirectLink)
+        {
+            intent.SourceType = SourceTypeOf(attribution);
+        }
+    }
+
+    /// <summary>The donation source a tracking asset stands for: its type first, then its channel.</summary>
+    private static DonationSourceType SourceTypeOf(TrackingAttribution attribution)
+    {
+        if (string.Equals(attribution.AssetType, "QRCode", StringComparison.OrdinalIgnoreCase))
+        {
+            return DonationSourceType.QrCode;
+        }
+
+        return (attribution.ChannelCode ?? string.Empty).ToUpperInvariant() switch
+        {
+            "EMAIL" => DonationSourceType.Email,
+            "SOCIAL" or "MESSAGING" => DonationSourceType.Social,
+            "WEBSITE" or "SEARCH" => DonationSourceType.Website,
+            _ => DonationSourceType.CampaignLink
         };
     }
 

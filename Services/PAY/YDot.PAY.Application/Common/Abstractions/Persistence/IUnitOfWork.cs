@@ -22,4 +22,14 @@ public interface IUnitOfWork
     /// </summary>
     Task<TResult> ExecuteInTransactionAsync<TResult>(
         Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Forgets every row this unit of work has read or changed and not yet saved.
+    ///
+    /// FOR THE MOMENT AFTER A LOCK IS TAKEN. Rows read before another request committed are
+    /// stale: their versions no longer match the database, so writing them back fails, and a
+    /// re-query returns the stale copy instead of the committed one. Discarding them makes the
+    /// next read come from the database. Anything the caller still needs must be read again.
+    /// </summary>
+    void DiscardChanges();
 }

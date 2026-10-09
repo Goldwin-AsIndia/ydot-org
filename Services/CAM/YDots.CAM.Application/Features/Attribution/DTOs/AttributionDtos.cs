@@ -75,6 +75,9 @@ public sealed record AttributionListItemResponse
 
     public string TrackingReference { get; init; } = string.Empty;
 
+    /// <summary>The offline QR code's place the gift came through, when it came through one.</summary>
+    public string? PlaceName { get; init; }
+
     public TrackingAssetType? AssetType { get; init; }
 
     public string ChannelName { get; init; } = string.Empty;
@@ -140,6 +143,9 @@ public sealed record AttributionDetailResponse
     public Guid? TrackingAssetId { get; init; }
 
     public string TrackingReference { get; init; } = string.Empty;
+
+    /// <summary>The offline QR code's place the gift came through, when it came through one.</summary>
+    public string? PlaceName { get; init; }
 
     public TrackingAssetType? AssetType { get; init; }
 

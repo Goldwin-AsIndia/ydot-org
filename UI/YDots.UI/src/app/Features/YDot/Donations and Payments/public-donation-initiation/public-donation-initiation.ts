@@ -7,7 +7,6 @@ import { ToastService } from '../../../../Shared/services/toast.service';
 import { DataService } from '../../../../Service/data.service';
 import { PaymentApiService } from '../../../../Service/payment-api.service';
 import { CurrentUserService } from '../../../../Service/current-user.service';
-import { CampaignStoreService } from '../../../../Shared/services/campaign-store.service';
 import { GatewayCheckoutService } from '../../../../Shared/services/gateway-checkout.service';
 import { GeoMasterService } from '../../../../Shared/services/geo-master.service';
 import { MasterLookup } from '../../../../Shared/models/global-master.model';
@@ -66,12 +65,8 @@ interface ScopeOption {
   readonly context: string;
 
   /**
-   * The campaign's GUID, where the source of the option knows it.
-   *
-   * The API wants a Guid, and the only code-to-Guid translation was the AUTHENTICATED campaign
-   * register - which answers nothing for a caller with no session. The public campaigns endpoint
-   * returns the id on every row. Optional because the signed-in branch still resolves through
-   * the store.
+   * The campaign's GUID. The API wants a Guid, and the public campaigns endpoint returns the id
+   * on every row.
    */
   readonly apiId?: string | null;
 
@@ -111,13 +106,6 @@ interface PublicDonationInitiationConfig {
 }
 
 
-/**
- * The campaign states that may receive a donation.
- * Kept as one list so the two donation forms cannot drift apart about what "an approved
- * campaign" means.
- */
-const DonatableCampaignStatuses: readonly string[] = ['Approved', 'Scheduled', 'Active'];
-
 @Component({
   selector: 'app-public-donation-initiation',
   imports: [CommonModule, FormsModule],
@@ -134,25 +122,9 @@ export class PublicDonationInitiationComponent {
   private readonly injector = inject(Injector);
 
   /**
-   * The campaign store, resolved only for a signed-in caller.
-   *
-   * IT IS DELIBERATELY NOT A FIELD INJECTION. `CampaignStoreService` calls the authenticated CAM
-   * API in its own constructor and again every sixty seconds; injecting it on the donor-facing
-   * form meant a stranger with a QR code triggered a 401 on page load and another every minute.
-   */
-  private campaignStoreOrNull(): CampaignStoreService | null {
-    if (!this.isInternalView()) {
-      return null;
-    }
-    this.campaignStoreRef ??= this.injector.get(CampaignStoreService);
-    return this.campaignStoreRef;
-  }
-  private campaignStoreRef: CampaignStoreService | null = null;
-
-  /**
-   * The geo catalogue door, resolved only for a signed-in caller — same discipline as
-   * `campaignStoreOrNull` above. The lookups API is authenticated-but-permissionless, so an
-   * anonymous donor must never be the one to construct and call it.
+   * The geo catalogue door, resolved only for a signed-in caller. The lookups API is
+   * authenticated-but-permissionless, so an anonymous donor must never be the one to construct
+   * and call it.
    */
   private geoMastersOrNull(): GeoMasterService | null {
     if (!this.isInternalView()) {
@@ -173,7 +145,12 @@ export class PublicDonationInitiationComponent {
 
   /**
    * Whether this is the admin panel's view of the form rather than the donor's.
-   * A signed-in user can be offered the campaign picker, because CAM will answer them.
+   *
+   * IT NO LONGER DECIDES WHERE THE CAMPAIGNS COME FROM. It switched the picker to the
+   * authenticated campaign register, which answers only somebody holding the campaign-view
+   * permission - so a signed-in Donor, Fundraiser or DonorCare user opened this page to "No
+   * eligible campaign or appeal matches inside your scope". It still decides the address block
+   * and the identity prefill.
    */
   protected readonly isInternalView = computed(() => this.currentUser.reference() !== '');
 
@@ -203,38 +180,28 @@ export class PublicDonationInitiationComponent {
   });
 
   /**
-   * The campaigns a donation may be started against.
-   * Cancelled and Closed campaigns are filtered out because a gift cannot be attributed to one.
+   * The campaigns a donation may be started against: the appeals the organisation is taking
+   * gifts for now, from the public endpoint, for EVERY caller. The server applies the rule -
+   * Approved, Scheduled or Active, and inside the campaign's dates - so nothing is filtered here.
+   *
+   * A scanned code's campaign is added when the list does not carry it; see loadTrackingContext.
    */
   protected readonly campaignOptions = computed<readonly ScopeOption[]>(() => {
-    const store = this.campaignStoreOrNull();
+    const listed = this.publicCampaigns();
+    const scanned = this.trackingCampaign();
 
-    // ANONYMOUS: the public endpoint. See loadPublicCampaigns.
-    if (!store) {
-      return this.publicCampaigns().map((campaign) => ({
-        reference: campaign.code,
-        name: campaign.name,
-        context: 'Open for donations',
-        apiId: campaign.id,
-        amount: campaign.campaignAmount,
-        currencyCode: campaign.currencyCode,
-      }));
-    }
+    const campaigns = scanned && !listed.some((campaign) => campaign.id === scanned.id)
+      ? [...listed, scanned]
+      : listed;
 
-    return store
-      .all()
-      .filter((c) => DonatableCampaignStatuses.includes(c.status))
-      .map((c) => ({
-        reference: c.code,
-        name: c.name,
-        context: c.status,
-        apiId: store.apiId(c.code) ?? null,
-        amount: c.campaignAmount,
-
-        // The register's currency name reads "INR - Indian Rupee"; the ISO code is the half worth
-        // printing beside a figure.
-        currencyCode: (c.currencyName ?? '').split('—')[0].split('-')[0].trim() || undefined,
-      }));
+    return campaigns.map((campaign) => ({
+      reference: campaign.code,
+      name: campaign.name,
+      context: 'Open for donations',
+      apiId: campaign.id,
+      amount: campaign.campaignAmount,
+      currencyCode: campaign.currencyCode,
+    }));
   });
 
   // ===========================================================================================
@@ -878,8 +845,6 @@ export class PublicDonationInitiationComponent {
    * THE AMOUNT GOES AS A NUMBER, NOT AS PAISE - converting to minor units is the server's job.
    */
   private buildIntentRequest(): CreateDonationIntentRequest {
-    const campaignRef = this.selectedCampaign()?.reference ?? '';
-
     return {
       donorName: this.fullName().trim() || 'Donor',
       email: this.emailOrMobile().trim(),
@@ -887,11 +852,8 @@ export class PublicDonationInitiationComponent {
       amount: Number(this.donationAmount()),
       currencyCode: this.currency(),
 
-      // WHAT IS SELECTED ON SCREEN IS WHAT IS SENT; then the link's GUID; then the store.
-      campaignId:
-        this.selectedCampaign()?.apiId
-        ?? this.campaignIdFromLink()
-        ?? (campaignRef ? this.campaignStoreOrNull()?.apiId(campaignRef) ?? null : null),
+      // WHAT IS SELECTED ON SCREEN IS WHAT IS SENT; then the link's GUID.
+      campaignId: this.selectedCampaign()?.apiId ?? this.campaignIdFromLink() ?? null,
       trackingReference: this.trackingReference() || null,
       taxIdentifier: this.panOrTaxId().trim() || null,
       addressLine1: this.addressText().trim() || null,
@@ -1254,7 +1216,7 @@ export class PublicDonationInitiationComponent {
   constructor() {
     // THE LINK'S OWN REFERENCE, BEFORE ANYTHING ELSE.
     const params = this.route.snapshot.queryParamMap;
-    this.trackingReference.set(params.get('ref') ?? params.get('tracking') ?? '');
+    this.trackingReference.set((params.get('ref') ?? params.get('tracking') ?? '').trim());
 
     // A CAMPAIGN NAMED ON THE LINK BINDS THE PICKER AND LOCKS IT.
     const campaignParam = (params.get('campaign') ?? '').trim();
@@ -1276,6 +1238,10 @@ export class PublicDonationInitiationComponent {
     this.loadPublicCampaigns();
     this.loadConfig();
     this.loadCountriesForAddress();
+
+    if (this.trackingReference()) {
+      this.loadTrackingContext(this.trackingReference());
+    }
 
     // AND AGAIN ON EVERY LATER ARRIVAL.
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((current) => {
@@ -1321,15 +1287,52 @@ export class PublicDonationInitiationComponent {
     () => this.isInternalView() && this.currentUser.email() !== '',
   );
 
-  /** The appeals an anonymous donor may choose from. */
+  /** The appeals this organisation is taking gifts for, resolved from the page's host. */
   protected readonly publicCampaigns = signal<readonly PublicCampaignSummary[]>([]);
 
-  /** Loads the anonymous picker, for a visitor with no session. */
-  private loadPublicCampaigns(): void {
-    if (this.isInternalView()) {
-      return;
-    }
+  /**
+   * The campaign a scanned QR code or tracking link gives to, once the server has said. A code's
+   * URL names no campaign, so without this the donor had to find the appeal themselves.
+   */
+  protected readonly trackingCampaign = signal<PublicCampaignSummary | null>(null);
 
+  /**
+   * Asks what the code on the link gives to, and binds and locks that campaign - unless the link
+   * also names a campaign, or a reopened donation already has one. A code that cannot be read, or
+   * whose appeal is not taking gifts, leaves the picker open.
+   */
+  private loadTrackingContext(reference: string): void {
+    this.payments.getPublicTrackingContext(reference).subscribe({
+      next: (context) => {
+        this.trackingCampaign.set(context.campaign);
+
+        if (!context.campaign) {
+          this.pushActivity(
+            context.message ?? 'The appeal on this code is not taking donations; choose one below.',
+          );
+          return;
+        }
+
+        const scannedId = context.campaign.id;
+        const option = this.campaignOptions().find((candidate) => candidate.apiId === scannedId);
+
+        if (option && !this.campaignLockedByLink() && !this.selectedCampaign() && !this.intentReference()) {
+          this.selectedCampaign.set(option);
+          this.campaignPickerOpen.set(false);
+          this.campaignLockedByLink.set(true);
+          this.syncAmountToCampaign();
+        }
+
+        if (context.placeName) {
+          this.pushActivity('Arrived from the code at ' + context.placeName + '.');
+        }
+      },
+      error: () => this.pushActivity('The code on this link could not be read; choose the appeal below.'),
+    });
+  }
+
+  /** Loads the picker. A failure leaves it empty; a link naming a campaign still works. */
+  private loadPublicCampaigns(): void {
     this.payments.getPublicCampaigns().subscribe({
       next: (rows) => {
         this.publicCampaigns.set(rows);

@@ -146,6 +146,13 @@ public class PaymentDbContext(
     /// transactions, and a handler that calls another handler - applying a capture event calls
     /// receipt issuing, which opens its own - would otherwise throw. Joining the outer one keeps
     /// the whole operation atomic, which is what both callers actually wanted.
+    ///
+    /// A ROLLBACK ALSO EMPTIES THE CHANGE TRACKER. The rows written inside the transaction are
+    /// gone from the database but were still tracked here as saved or pending, so the caller's
+    /// next query or save acted on rows that did not exist. That is how a verification that lost
+    /// a race to record a donation went on to fail with "the association between 'DonationIntent'
+    /// and 'Donation' has been severed": its own rolled-back donation was still tracked when it
+    /// re-read the intent, and the re-read found the other request's donation instead.
     /// </summary>
     public async Task<TResult> ExecuteInTransactionAsync<TResult>(
         Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken = default)
@@ -170,10 +177,21 @@ public class PaymentDbContext(
         }
         catch
         {
-            await transaction.RollbackAsync(cancellationToken);
+            try
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+            }
+            finally
+            {
+                ChangeTracker.Clear();
+            }
+
             throw;
         }
     }
+
+    /// <inheritdoc />
+    public void DiscardChanges() => ChangeTracker.Clear();
 
     /// <summary>
     /// THE WRITE-SIDE HALF OF THE ISOLATION.

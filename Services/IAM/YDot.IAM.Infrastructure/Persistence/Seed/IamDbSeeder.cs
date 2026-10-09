@@ -24,7 +24,7 @@ namespace YDot.IAM.Infrastructure.Persistence.Seed;
 /// 2. Permissions           the global catalogue, from code
 /// 3. Menu definitions      the global navigation, from code
 /// 4. Platform role         SUPER_ADMIN ("Platform Admin"), TenantId null
-/// 5. Platform admins       the configured root account, then the named administrators
+/// 5. Platform Admin        the one configured account; any other platform account is retired
 /// 6. Sample Organisations  two Active, two Invited - see SampleOrganisationCatalogue
 /// 7. Their structure       departments and branches, Active Organisations only
 /// 8. Their people          administrator, staff and donors
@@ -67,7 +67,7 @@ public sealed class IamDbSeeder(
         await context.SaveChangesAsync(cancellationToken);
 
         var rootAdministrator = await SeedSuperAdminAsync(businessUnit, platformRole, cancellationToken);
-        await SeedPlatformAdministratorsAsync(businessUnit, platformRole, cancellationToken);
+        await RetireOtherPlatformAccountsAsync(rootAdministrator, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
 
         if (_seed.SeedSampleTenants)
@@ -136,6 +136,12 @@ public sealed class IamDbSeeder(
         logger.LogInformation("Seeding complete.");
     }
 
+    /// <summary>The mailbox the platform's own notices go to. See SeedSettings.PlatformContactEmail.</summary>
+    private string PlatformContactEmail =>
+        string.IsNullOrWhiteSpace(_seed.PlatformContactEmail)
+            ? _seed.SuperAdminEmail.Trim()
+            : _seed.PlatformContactEmail.Trim();
+
     /// <summary>The root platform entity: www.ngoplanet.com.</summary>
     private async Task<BusinessUnit> SeedBusinessUnitAsync(CancellationToken cancellationToken)
     {
@@ -156,8 +162,8 @@ public sealed class IamDbSeeder(
             LegalName = _seed.BusinessUnitName,
             RootDomain = _seed.RootDomain.ToLowerInvariant(),
             Status = BusinessUnitStatus.Active,
-            ContactEmail = _seed.SuperAdminEmail,
-            SupportEmail = _seed.SuperAdminEmail,
+            ContactEmail = PlatformContactEmail,
+            SupportEmail = PlatformContactEmail,
             TimeZone = "Asia/Kolkata",
             DefaultCurrency = "INR",
             DefaultCulture = "en-IN",
@@ -1268,17 +1274,33 @@ public sealed class IamDbSeeder(
     }
 
     /// <summary>
-    /// The global root user, returned so the Organisations seeded after it can name who
-    /// reviewed and approved them.
+    /// The Platform Admin - the one account at platform level - returned so the Organisations
+    /// seeded after it can name who reviewed and approved them.
     ///
     /// <c>TenantId</c> is NULL and stays null forever — that is the invariant the whole
     /// tenancy model rests on, and there is a check constraint enforcing it. They are not a
     /// member of any Organisation; they select one to operate in.
+    ///
+    /// ONE ACCOUNT, FOUND IN THIS ORDER. By its configured address. Failing that, a Platform Admin
+    /// seeded under an earlier configuration is the same account with new details: its address,
+    /// username and name move to the configured ones, and its password, stamp and sessions are
+    /// left alone. Only a database with no Platform Admin at all gets a new one. The lookup used
+    /// to be by address alone, and a changed address inserted a SECOND account beside the first -
+    /// same code, same username, and which one a sign-in reached was down to row order.
+    ///
+    /// A SYSTEM ACCOUNT, so its roles cannot be changed and it cannot be suspended or deactivated
+    /// from a screen. It is the only way into the platform, and locking it out would leave
+    /// nobody able to approve an Organisation.
     /// </summary>
     private async Task<User> SeedSuperAdminAsync(
         BusinessUnit businessUnit, Role platformRole, CancellationToken cancellationToken)
     {
-        var normalisedEmail = _seed.SuperAdminEmail.Trim().ToUpperInvariant();
+        var email = _seed.SuperAdminEmail.Trim().ToLowerInvariant();
+        var normalisedEmail = email.ToUpperInvariant();
+        var username = _seed.SuperAdminUsername.Trim().ToLowerInvariant();
+        var normalisedUsername = username.ToUpperInvariant();
+        var displayName = $"{_seed.SuperAdminFirstName} {_seed.SuperAdminLastName}".Trim();
+        var now = DateTimeOffset.UtcNow;
 
         var existing = await context.Users
             .IgnoreQueryFilters()
@@ -1288,20 +1310,22 @@ public sealed class IamDbSeeder(
 
         if (existing is not null)
         {
+            // A DATABASE SEEDED WHEN THE PLATFORM HAD TWO ACCOUNTS holds this person as the second
+            // one, without the protection. They are the Platform Admin now, so they get it.
+            if (!existing.IsSystemAccount)
+            {
+                existing.IsSystemAccount = true;
+                existing.UpdatedAtUtc = now;
+                existing.UpdatedByUserId = Guid.Empty;
+
+                logger.LogInformation(
+                    "{Username} is the Platform Admin and is now protected as the platform's system account.",
+                    existing.UserName);
+            }
+
             return existing;
         }
 
-        var now = DateTimeOffset.UtcNow;
-
-        // THE CONFIGURED ADDRESS CHANGED ON A DATABASE THAT ALREADY HAS ITS ROOT ACCOUNT. The
-        // lookup above is by address, so it answered "not there" and a SECOND root was inserted
-        // beside the first - same code, same username - because no unique index covers a row
-        // whose TenantId is null. Two accounts then answered to "superadmin" and which one a
-        // sign-in reached was down to row order. The root account is the platform's own identity
-        // and there is exactly one of it, so a new address is a change to that account.
-        //
-        // ONLY THE ADDRESS MOVES. The password, the stamp and every session are left as they
-        // are: a configuration value changing is not a reason to sign the administrator out.
         var root = await context.Users
             .IgnoreQueryFilters()
             .Where(user => user.TenantId == null && user.IsSystemAccount && user.IsSuperAdmin)
@@ -1310,33 +1334,59 @@ public sealed class IamDbSeeder(
 
         if (root is not null)
         {
-            var previous = root.Email;
+            var previous = $"{root.UserName} <{root.Email}>";
 
-            root.Email = _seed.SuperAdminEmail.Trim().ToLowerInvariant();
+            root.Email = email;
             root.NormalizedEmail = normalisedEmail;
+            root.FirstName = _seed.SuperAdminFirstName;
+            root.LastName = _seed.SuperAdminLastName;
+            root.DisplayName = displayName;
+
+            // The username moves too, unless another platform account already answers to it -
+            // two accounts with one username is the fault this method exists to prevent.
+            var usernameTaken = await context.Users
+                .IgnoreQueryFilters()
+                .AnyAsync(
+                    user => user.TenantId == null
+                            && user.Id != root.Id
+                            && user.NormalizedUserName == normalisedUsername,
+                    cancellationToken);
+
+            if (!usernameTaken)
+            {
+                root.UserName = username;
+                root.NormalizedUserName = normalisedUsername;
+            }
+
             root.UpdatedAtUtc = now;
             root.UpdatedByUserId = Guid.Empty;
 
             logger.LogWarning(
-                "SeedSettings:SuperAdminEmail no longer matches the root account, so its address was "
-                + "changed from {PreviousEmail} to {Email}. Nothing else about the account was touched.",
-                previous, root.Email);
+                "The Platform Admin settings no longer matched the Platform Admin account, so {Previous} "
+                + "became {Username} <{Email}>. Its password and sessions were not touched.{UsernameNote}",
+                previous, root.UserName, root.Email,
+                usernameTaken ? $" The username {username} is held by another platform account and was not moved." : string.Empty);
 
             return root;
         }
 
-        var superAdmin = new User
+        var platformAdmin = new User
         {
             TenantId = null,
             BusinessUnitId = businessUnit.Id,
-            Code = "SUPERADMIN",
+            Code = "PLT-001",
             FirstName = _seed.SuperAdminFirstName,
             LastName = _seed.SuperAdminLastName,
-            DisplayName = $"{_seed.SuperAdminFirstName} {_seed.SuperAdminLastName}".Trim(),
-            Email = _seed.SuperAdminEmail.Trim().ToLowerInvariant(),
+            DisplayName = displayName,
+            Email = email,
             NormalizedEmail = normalisedEmail,
-            UserName = _seed.SuperAdminUsername.Trim().ToLowerInvariant(),
-            NormalizedUserName = _seed.SuperAdminUsername.Trim().ToUpperInvariant(),
+            UserName = username,
+            NormalizedUserName = normalisedUsername,
+            Designation = string.IsNullOrWhiteSpace(_seed.SuperAdminDesignation)
+                ? null
+                : _seed.SuperAdminDesignation.Trim(),
+            PreferredCulture = "en-IN",
+            TimeZone = "Asia/Kolkata",
             EmailConfirmed = true,
             EmailConfirmedAtUtc = now,
             Status = UserStatus.Active,
@@ -1353,103 +1403,120 @@ public sealed class IamDbSeeder(
             CreatedByUserId = Guid.Empty
         };
 
+        if (!string.IsNullOrWhiteSpace(_seed.SuperAdminMobile))
+        {
+            platformAdmin.MobileCountryCode = "+91";
+            platformAdmin.MobileNumber = _seed.SuperAdminMobile.Trim();
+            platformAdmin.PhoneNumber = platformAdmin.ToE164();
+        }
+
         // A password only when one was configured. With none, the account exists but cannot be
         // signed into until a reset link is used - which is the correct production default.
         if (!string.IsNullOrWhiteSpace(_seed.SuperAdminPassword))
         {
-            superAdmin.PasswordHash = passwordHasher.Hash(_seed.SuperAdminPassword);
-            superAdmin.PasswordChangedAtUtc = now;
+            platformAdmin.PasswordHash = passwordHasher.Hash(_seed.SuperAdminPassword);
+            platformAdmin.PasswordChangedAtUtc = now;
 
             logger.LogWarning(
-                "The SuperAdmin account was seeded WITH a configured password. "
+                "The Platform Admin account was seeded WITH a configured password. "
                 + "Clear SeedSettings:SuperAdminPassword outside development.");
         }
         else
         {
             logger.LogInformation(
-                "The SuperAdmin account was seeded with no password. "
+                "The Platform Admin account was seeded with no password. "
                 + "Use forgot-password on the platform host to set one.");
         }
 
-        await context.Users.AddAsync(superAdmin, cancellationToken);
+        await context.Users.AddAsync(platformAdmin, cancellationToken);
 
-        await context.UserRoles.AddAsync(new UserRole
-        {
-            TenantId = null,
-            BusinessUnitId = businessUnit.Id,
-            UserId = superAdmin.Id,
-            RoleId = platformRole.Id,
-            Status = UserRoleAssignmentStatus.Active,
-            IsPrimary = true,
-            AssignedAtUtc = now,
-            AssignedByUserId = Guid.Empty,
-            EffectiveFromUtc = now,
-            Justification = "Platform root account.",
-            CreatedAtUtc = now,
-            CreatedByUserId = Guid.Empty
-        }, cancellationToken);
+        await context.UserRoles.AddAsync(
+            BuildAssignment(null, businessUnit.Id, platformAdmin.Id, platformRole.Id, now, "The Platform Admin."),
+            cancellationToken);
 
-        logger.LogInformation("Seeded the SuperAdmin account {Email}.", superAdmin.Email);
+        logger.LogInformation("Seeded the Platform Admin {Username} <{Email}>.", platformAdmin.UserName, platformAdmin.Email);
 
-        return superAdmin;
+        return platformAdmin;
     }
 
     /// <summary>
-    /// The named platform administrators from <see cref="SampleOrganisationCatalogue"/>.
+    /// Takes the platform away from every platform account except the Platform Admin.
     ///
-    /// PEOPLE, NOT SYSTEM ACCOUNTS. The root account above is the platform's own identity; these
-    /// hold the same role so the platform side of a demonstration has a named person on it, the
-    /// way an operations team would. They share the configured SuperAdmin password, and are
-    /// created without one when it is unset - exactly like the root.
+    /// THERE IS ONE PLATFORM ADMIN. A database seeded before that rule holds a second - the system
+    /// account "superadmin" beside the named administrator, or the other way round - and each
+    /// still signs in with every platform permission. Only this seeder creates accounts at
+    /// platform level, so anything there other than the Platform Admin is a leftover of an
+    /// earlier seed.
     ///
-    /// SAMPLE DATA, so it follows the sample-Organisation switch. Idempotent by address.
+    /// DEACTIVATED, NOT DELETED, like the system roles RetireUnknownSystemRolesAsync files away:
+    /// the Organisations it reviewed and approved still name it, and that history stays readable.
+    /// A deactivated account cannot sign in; its Platform Admin role is revoked as well and its
+    /// sessions ended. Its IsSuperAdmin flag stays, because it has to: every account at platform
+    /// level carries it (ck_iam_users_super_admin_has_no_tenant). To take the row away entirely,
+    /// delete it - nothing in the database refers to an account by key except its own rows.
     /// </summary>
-    private async Task SeedPlatformAdministratorsAsync(
-        BusinessUnit businessUnit, Role platformRole, CancellationToken cancellationToken)
+    private async Task RetireOtherPlatformAccountsAsync(User platformAdmin, CancellationToken cancellationToken)
     {
-        if (!_seed.SeedSampleTenants)
+        var others = await context.Users
+            .IgnoreQueryFilters()
+            .Where(user => user.TenantId == null
+                           && user.Id != platformAdmin.Id
+                           && user.Status != UserStatus.Deactivated)
+            .ToListAsync(cancellationToken);
+
+        if (others.Count == 0)
         {
             return;
         }
 
-        var present = (await context.Users
-                .IgnoreQueryFilters()
-                .Where(user => user.TenantId == null)
-                .Select(user => user.NormalizedEmail!)
-                .ToListAsync(cancellationToken))
-            .ToHashSet(StringComparer.Ordinal);
-
+        const string reason = "The platform has one Platform Admin, and this account is not it.";
         var now = DateTimeOffset.UtcNow;
-        var seeded = 0;
+        var ids = others.Select(user => user.Id).ToList();
 
-        foreach (var (person, index) in SampleOrganisationCatalogue.PlatformAdministrators
-                     .Select((person, index) => (person, index)))
+        foreach (var user in others)
         {
-            if (present.Contains(person.Email.Trim().ToUpperInvariant()))
-            {
-                continue;
-            }
-
-            var administrator = BuildUser(person, null, businessUnit.Id, $"PLT-{index + 1:D3}", now);
-
-            Activate(administrator, HashOrNull(_seed.SuperAdminPassword), now);
-            administrator.PrivilegeLevel = PrivilegeLevel.SuperAdmin;
-            administrator.IsSuperAdmin = true;
-            administrator.MfaRequirement = MfaRequirement.Optional;
-
-            await context.Users.AddAsync(administrator, cancellationToken);
-            await context.UserRoles.AddAsync(
-                BuildAssignment(null, businessUnit.Id, administrator.Id, platformRole.Id, now,
-                    "Named platform administrator."),
-                cancellationToken);
-
-            seeded++;
+            user.Status = UserStatus.Deactivated;
+            user.UpdatedAtUtc = now;
+            user.UpdatedByUserId = Guid.Empty;
         }
 
-        if (seeded > 0)
+        foreach (var assignment in await context.UserRoles
+                     .IgnoreQueryFilters()
+                     .Where(assignment => ids.Contains(assignment.UserId)
+                                          && assignment.Status != UserRoleAssignmentStatus.Revoked)
+                     .ToListAsync(cancellationToken))
         {
-            logger.LogInformation("Seeded {Count} named platform administrator(s).", seeded);
+            assignment.Status = UserRoleAssignmentStatus.Revoked;
+            assignment.EffectiveToUtc = now;
+            assignment.RevokedAtUtc = now;
+            assignment.RevokedByUserId = Guid.Empty;
+            assignment.RevocationReason = reason;
+            assignment.UpdatedAtUtc = now;
+            assignment.UpdatedByUserId = Guid.Empty;
         }
+
+        // Their sessions, and the refresh tokens that would rebuild them.
+        foreach (var session in await context.UserSessions
+                     .IgnoreQueryFilters()
+                     .Where(session => ids.Contains(session.UserId) && session.RevokedAtUtc == null)
+                     .ToListAsync(cancellationToken))
+        {
+            session.RevokedAtUtc = now;
+            session.RevocationReason = reason;
+        }
+
+        foreach (var token in await context.RefreshTokens
+                     .IgnoreQueryFilters()
+                     .Where(token => ids.Contains(token.UserId) && token.RevokedAtUtc == null)
+                     .ToListAsync(cancellationToken))
+        {
+            token.RevokedAtUtc = now;
+            token.RevocationReason = reason;
+        }
+
+        logger.LogWarning(
+            "Retired {Count} platform account(s) other than the Platform Admin {Username}: {Retired}.",
+            others.Count, platformAdmin.UserName, string.Join(", ", others.Select(user => user.UserName)));
     }
 
     /// <summary>

@@ -98,6 +98,10 @@ public sealed class CampaignDirectory(PaymentDbContext context, ILogger<Campaign
     /// THE JOINS ARE LEFT, not inner: a tracking asset whose channel row was later removed should
     /// still take a donation, attributed to its campaign with a blank channel. An inner join
     /// would make the whole link stop working and the donor would see nothing but an error.
+    ///
+    /// THE PLACE IS NAMED ONLY WHEN THERE IS EXACTLY ONE. The Tracking Asset Manager creates one
+    /// asset per place for an offline QR code, so its code identifies the place; an asset that
+    /// carries several places shares one code between them, and a scan of it cannot say which.
     /// </summary>
     public async Task<TrackingAttribution?> ResolveTrackingReferenceAsync(
         string trackingReference, CancellationToken cancellationToken)
@@ -120,12 +124,29 @@ public sealed class CampaignDirectory(PaymentDbContext context, ILogger<Campaign
                 asset.created_by_user_id,
                 asset.status,
                 asset.active_from,
-                asset.active_to
+                asset.active_to,
+                asset.asset_type,
+                channel.code,
+                campaign.code,
+                campaign.public_description,
+                places.place_count,
+                places.first_place_id,
+                places.first_place_name
             FROM cam_tracking_assets AS asset
             INNER JOIN cam_campaigns AS campaign ON campaign.id = asset.campaign_id
             LEFT JOIN cam_channels AS channel ON channel.id = asset.channel_id
             LEFT JOIN cam_sources AS source ON source.id = asset.source_id
             LEFT JOIN cam_mediums AS medium ON medium.id = asset.medium_id
+            LEFT JOIN LATERAL (
+                SELECT
+                    COUNT(*) OVER () AS place_count,
+                    place.id AS first_place_id,
+                    place.place_name AS first_place_name
+                FROM cam_tracking_asset_places AS place
+                WHERE place.tracking_asset_id = asset.id
+                ORDER BY place.created_at_utc, place.id
+                LIMIT 1
+            ) AS places ON TRUE
             WHERE asset.tracking_reference = @tracking_reference
             LIMIT 1
             """;
@@ -154,9 +175,17 @@ public sealed class CampaignDirectory(PaymentDbContext context, ILogger<Campaign
             // "Active" means BOTH approved-and-live AND inside its window. A poster whose run has
             // ended should not keep attributing gifts to a finished burst of activity, and a link
             // scheduled for next week should not work today.
-            var isActive = string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase)
-                           && activeFrom <= now
-                           && activeTo >= now;
+            //
+            // A PENDING DISABLE REQUEST IS STILL LIVE. CAM's own rule: until an approver decides
+            // the request, the printed code in the world is still the campaign's, so asking for it
+            // to be taken down must not on its own stop it crediting the gifts it brings in.
+            var isLiveStatus = string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase)
+                               || string.Equals(status, "DisableRequested", StringComparison.OrdinalIgnoreCase);
+
+            var isActive = isLiveStatus && activeFrom <= now && activeTo >= now;
+
+            var placeCount = reader.IsDBNull(16) ? 0L : reader.GetInt64(16);
+            var onlyPlace = placeCount == 1;
 
             return new TrackingAttribution(
                 TenantId: reader.GetGuid(1),
@@ -168,7 +197,13 @@ public sealed class CampaignDirectory(PaymentDbContext context, ILogger<Campaign
                 Source: reader.IsDBNull(6) ? null : reader.GetString(6),
                 Medium: reader.IsDBNull(7) ? null : reader.GetString(7),
                 OwnerUserId: reader.IsDBNull(8) ? null : reader.GetGuid(8),
-                IsActive: isActive);
+                IsActive: isActive,
+                AssetType: reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
+                ChannelCode: reader.IsDBNull(13) ? null : reader.GetString(13),
+                CampaignCode: reader.GetString(14),
+                CampaignDescription: reader.IsDBNull(15) ? null : reader.GetString(15),
+                PlaceId: onlyPlace && !reader.IsDBNull(17) ? reader.GetGuid(17) : null,
+                PlaceName: onlyPlace && !reader.IsDBNull(18) ? reader.GetString(18) : null);
         }
         catch (NpgsqlException exception)
         {

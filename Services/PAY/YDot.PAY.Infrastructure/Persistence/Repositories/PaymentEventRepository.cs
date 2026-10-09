@@ -28,6 +28,17 @@ public sealed class PaymentEventRepository(PaymentDbContext context) : IPaymentE
                 .ThenInclude(attempt => attempt!.DonationIntent)
             .FirstOrDefaultAsync(paymentEvent => paymentEvent.Id == id, cancellationToken);
 
+    public Task<Guid?> GetDonationIntentIdAsync(Guid paymentEventId, CancellationToken cancellationToken) =>
+        context.PaymentEvents
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(paymentEvent => paymentEvent.Id == paymentEventId)
+            .Select(paymentEvent => paymentEvent.DonationIntentId
+                                    ?? (paymentEvent.PaymentAttempt == null
+                                        ? null
+                                        : (Guid?)paymentEvent.PaymentAttempt.DonationIntentId))
+            .FirstOrDefaultAsync(cancellationToken);
+
     /// <summary>
     /// THE DUPLICATE-DELIVERY GUARD.
     ///

@@ -52,6 +52,25 @@ public class DonationIntent : TenantEntity
     public string? TrackingReference { get; set; }
 
     /// <summary>
+    /// The on-ground placement the QR code was printed for - the stall, the notice board, the
+    /// clinic van - when the tracking asset is an offline QR code with exactly one place.
+    ///
+    /// THIS IS WHAT ANSWERS "WHICH PLACE RAISED THE MONEY". The Tracking Asset Manager creates one
+    /// asset per place, so the asset already identifies the place; recording the place too keeps
+    /// that answer when an asset carries several places sharing one code (then this stays null,
+    /// because a scan cannot say which of them it came from). A CAM row, so not a foreign key -
+    /// see the TrackingAssetId note. The place's city, state and custom fields are read from CAM
+    /// by this id; a live asset's places cannot be edited, so they do not drift.
+    /// </summary>
+    public Guid? TrackingAssetPlaceId { get; set; }
+
+    /// <summary>
+    /// The place's name as it stood when the donor scanned, so a donation report can name the
+    /// place without reaching into another module's tables.
+    /// </summary>
+    public string? TrackingPlaceName { get; set; }
+
+    /// <summary>
     /// The DON lead this intent came from, where a fundraiser captured the donor first.
     ///
     /// Section 28: the lead history must not be lost. This is the link that lets a report say

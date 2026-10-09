@@ -100,6 +100,12 @@ public sealed class Donation : TenantEntity
 
     public Guid? TrackingAssetId { get; set; }
 
+    /// <summary>The offline QR code's placement. See <see cref="DonationIntent.TrackingAssetPlaceId"/>.</summary>
+    public Guid? TrackingAssetPlaceId { get; set; }
+
+    /// <summary>The placement's name as at the donation, for reports that group by place.</summary>
+    public string? TrackingPlaceName { get; set; }
+
     public Guid? LeadId { get; set; }
 
     public ICollection<Receipt> Receipts { get; set; } = [];

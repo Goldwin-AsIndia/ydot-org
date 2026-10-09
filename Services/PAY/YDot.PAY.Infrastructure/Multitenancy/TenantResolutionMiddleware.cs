@@ -406,9 +406,11 @@ public sealed class TenantResolutionMiddleware(
     /// campaign picker silently empty. A route added under /api/public/donations/ whose next
     /// segment is a literal has to be listed here, and the failure when it is not is quiet: the
     /// endpoint answers 200 with nothing in it.
+    ///
+    /// "tracking" - the QR code lookup - is eight ASCII letters as well.
     /// </summary>
     private static readonly HashSet<string> ActionSegments =
-        new(StringComparer.OrdinalIgnoreCase) { "initiate", "campaigns" };
+        new(StringComparer.OrdinalIgnoreCase) { "initiate", "campaigns", "tracking" };
 
     private static bool IsAction(string segment) => ActionSegments.Contains(segment);
 

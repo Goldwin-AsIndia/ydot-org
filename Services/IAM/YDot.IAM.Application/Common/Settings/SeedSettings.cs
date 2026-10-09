@@ -22,14 +22,36 @@ public sealed class SeedSettings
     /// <summary>The apex domain every Organisation subdomain hangs off.</summary>
     public string RootDomain { get; set; } = "ngoplanet.com";
 
-    // ---- SuperAdmin -----------------------------------------------------------------------
-    public string SuperAdminEmail { get; set; } = "rajat.sivan@gmail.com";
+    /// <summary>
+    /// Where the platform's own notices go - an Organisation waiting for review, for one. Written
+    /// to the business unit as its contact and support address when the unit is first created.
+    ///
+    /// SEPARATE FROM THE PLATFORM ADMIN'S ADDRESS, because it is a mailbox and not an account. It
+    /// used to be the same setting, so the root account's address had to be a real inbox. Blank
+    /// falls back to <see cref="SuperAdminEmail"/>.
+    /// </summary>
+    public string PlatformContactEmail { get; set; } = string.Empty;
 
-    public string SuperAdminUsername { get; set; } = "superadmin";
+    // ---- The Platform Admin ---------------------------------------------------------------
+    //
+    // THE ONE PLATFORM ADMIN. The platform has exactly one account at platform level, and these
+    // settings describe it. There used to be two - a system account called "superadmin" and a
+    // named administrator beside it - and the named one is now the only one: Vikram Anand, the
+    // platform operations lead. Changing these on a database that already has its Platform Admin
+    // changes that account; it never adds a second. See IamDbSeeder.SeedSuperAdminAsync.
+    public string SuperAdminEmail { get; set; } = "vikram.anand@ngoplanet.test";
 
-    public string SuperAdminFirstName { get; set; } = "Rajat";
+    public string SuperAdminUsername { get; set; } = "vikram.anand";
 
-    public string SuperAdminLastName { get; set; } = "Sivan";
+    public string SuperAdminFirstName { get; set; } = "Vikram";
+
+    public string SuperAdminLastName { get; set; } = "Anand";
+
+    /// <summary>Job title shown on the account. Optional.</summary>
+    public string SuperAdminDesignation { get; set; } = "Platform Operations Lead";
+
+    /// <summary>Ten subscriber digits; the country code is +91. Optional.</summary>
+    public string SuperAdminMobile { get; set; } = string.Empty;
 
     /// <summary>
     /// Development convenience only. In any real deployment leave this empty and the seeder
@@ -39,9 +61,8 @@ public sealed class SeedSettings
 
     // ---- Sample Organisations -------------------------------------------------------------
     /// <summary>
-    /// Creates the demonstration Organisations, their people and the named platform
-    /// administrators - all listed in <c>SampleOrganisationCatalogue</c> in the Infrastructure
-    /// seed folder.
+    /// Creates the demonstration Organisations and their people - listed in
+    /// <c>SampleOrganisationCatalogue</c> in the Infrastructure seed folder.
     /// </summary>
     public bool SeedSampleTenants { get; set; } = true;
 
@@ -69,9 +90,9 @@ public sealed class SeedSettings
     /// The password shared by every seeded Organisation account - administrators, staff and
     /// donors.
     ///
-    /// Separate from the SuperAdmin password on purpose: these are demonstration logins that
-    /// appear in a document, and the platform administrator's credential should not be the same
-    /// string as something written in a guide. Leave it empty and only the Organisation
+    /// Separate from the Platform Admin's password on purpose: these are demonstration logins
+    /// that appear in a document, and the platform's credential should not be the same string as
+    /// something written in a guide. Leave it empty and only the Organisation
     /// administrators are seeded, which is what any deployment that is not a demonstration
     /// should do.
     /// </summary>

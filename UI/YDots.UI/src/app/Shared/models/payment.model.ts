@@ -189,6 +189,24 @@ export interface PublicCampaignSummary {
   campaignAmount: number;
 }
 
+/**
+ * What a scanned QR code or followed tracking link gives to - `GET /public/donations/tracking/{ref}`.
+ *
+ * IT IS HOW A QR DONOR'S FORM KNOWS ITS CAMPAIGN. A code's URL carries only its reference, so
+ * without this the donor met an open picker and had to find the appeal themselves.
+ */
+export interface PublicTrackingContext {
+  trackingReference: string;
+  /** Whether a gift made now is credited to the code. False for a retired or out-of-window code. */
+  isLive: boolean;
+  /** The campaign the code gives to; null when that campaign is not taking gifts. */
+  campaign: PublicCampaignSummary | null;
+  /** The place an offline QR code was put, when it names one. */
+  placeName: string | null;
+  /** Why the code cannot take a gift, in words for the donor. Null when it can. */
+  message: string | null;
+}
+
 export interface CreateDonationIntentRequest {
   donorName: string;
   email: string;
@@ -404,6 +422,9 @@ export interface DonationIntentDetail {
   sourceDescription: string;
   trackingReference: string | null;
   trackingAssetId: string | null;
+  /** The offline QR code's place the donor scanned, and its name as at the scan. */
+  trackingAssetPlaceId: string | null;
+  trackingPlaceName: string | null;
   leadId: string | null;
   donorId: string | null;
   consentGiven: boolean;
@@ -513,6 +534,9 @@ export interface DonationDetail {
   sourceType: DonationSourceType;
   sourceDescription: string;
   trackingAssetId: string | null;
+  /** The offline QR code's place the gift came through, and its name as at the gift. */
+  trackingAssetPlaceId: string | null;
+  trackingPlaceName: string | null;
   leadId: string | null;
   isReceiptable: boolean;
   receipts: ReceiptSummary[];

@@ -120,6 +120,7 @@ public sealed class AttributionQueryHandler(
             Campaign = row.CampaignCode,
             CampaignName = row.CampaignName,
             TrackingReference = row.TrackingReference,
+            Place = row.PlaceName ?? string.Empty,
             Channel = row.ChannelName,
             Source = row.SourceName,
             Medium = row.MediumName,

@@ -10,6 +10,14 @@ public interface IPaymentEventRepository
     Task<PaymentEvent?> GetAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The donation intent an event concerns, read without tracking anything.
+    ///
+    /// It is what applying an event locks on, so it is read before the lock and must not leave
+    /// a tracked copy of the event behind to go stale while the lock is awaited.
+    /// </summary>
+    Task<Guid?> GetDonationIntentIdAsync(Guid paymentEventId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Whether this exact gateway event has already been stored.
     ///
     /// THE DUPLICATE-DELIVERY GUARD. Gateways retry webhooks, sometimes for days, and without

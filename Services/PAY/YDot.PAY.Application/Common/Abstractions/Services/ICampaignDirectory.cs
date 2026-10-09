@@ -128,8 +128,64 @@ public sealed record TrackingAttribution(
     /// <summary>The fundraiser whose link this is, where the asset belongs to a person.</summary>
     Guid? OwnerUserId,
 
-    /// <summary>False once the asset has been retired. A retired link must not take money.</summary>
-    bool IsActive);
+    /// <summary>
+    /// Whether the asset is Active and inside its own window right now. An asset that is not -
+    /// retired, or a poster whose run has ended - must not have gifts attributed to it.
+    /// </summary>
+    bool IsActive,
+
+    /// <summary>CAM's asset type as stored: QRCode, ShortLink, UTMLink or LandingPage.</summary>
+    string AssetType,
+
+    /// <summary>The channel's code, which is what rules key on (OFFLINE, EMAIL, SOCIAL...).</summary>
+    string? ChannelCode,
+
+    /// <summary>The campaign's code, for a donation form that shows the appeal it is bound to.</summary>
+    string CampaignCode,
+
+    /// <summary>The campaign's published description - public, like the rest of a campaign summary.</summary>
+    string? CampaignDescription,
+
+    /// <summary>
+    /// The asset's placement when it has exactly one - which is every offline QR code the Tracking
+    /// Asset Manager creates, one asset per place. Null when it has none, or several sharing one
+    /// code: a scan cannot tell those apart, and guessing would credit the wrong place.
+    /// </summary>
+    Guid? PlaceId,
+
+    /// <summary>That placement's name, under the same rule as <see cref="PlaceId"/>.</summary>
+    string? PlaceName)
+{
+    /// <summary>Whether this is a printed QR code placed on the ground - the case places exist for.</summary>
+    public bool IsOfflineQrCode =>
+        string.Equals(AssetType, "QRCode", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(ChannelCode, "OFFLINE", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>
+/// What a QR code or tracking link means to the donor who followed it.
+///
+/// PUBLIC BY CONSTRUCTION, like <see cref="PublicCampaignSummary"/>: the campaign is one the
+/// organisation is soliciting for and the place name is printed beside the code itself. No
+/// owner, no counts, no internal status.
+/// </summary>
+public sealed record PublicTrackingContext(
+    string TrackingReference,
+
+    /// <summary>
+    /// Whether a gift made now is credited to this code. False for a retired code, or one whose
+    /// window has not opened or has closed; the donor can still give to the campaign.
+    /// </summary>
+    bool IsLive,
+
+    /// <summary>The campaign this code gives to, or null when that campaign is not taking gifts.</summary>
+    PublicCampaignSummary? Campaign,
+
+    /// <summary>The place the code was put, when it names one. See <see cref="TrackingAttribution.PlaceName"/>.</summary>
+    string? PlaceName,
+
+    /// <summary>Why the code cannot take a gift, in words a donor can act on. Null when it can.</summary>
+    string? Message);
 
 /// <summary>Whether a campaign may take a donation, and why not when it may not.</summary>
 public sealed record CampaignDonationEligibility(

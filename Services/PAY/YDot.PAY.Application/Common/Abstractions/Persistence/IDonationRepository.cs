@@ -35,13 +35,30 @@ public interface IDonationRepository
     ///
     /// Used to spot a donor starting a second intent for the same gift - a double submit - so
     /// the existing one can be reused rather than a second payment link issued.
+    ///
+    /// THE SAME GIFT MEANS THE SAME CAMPAIGN. Matching on e-mail and amount alone handed a donor
+    /// giving the same figure to a second appeal the unpaid intent from the first - they paid,
+    /// and the money went to the appeal they had not chosen.
     /// </summary>
     Task<DonationIntent?> FindOpenIntentAsync(
-        Guid tenantId, string normalisedEmail, decimal amount, CancellationToken cancellationToken);
+        Guid tenantId, string normalisedEmail, decimal amount, Guid? campaignId,
+        CancellationToken cancellationToken);
 
     /// <summary>Intents whose payment link has lapsed, for the expiry sweep.</summary>
     Task<IReadOnlyList<DonationIntent>> GetExpiredIntentsAsync(
         DateTimeOffset asOf, int maximumRows, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Locks one intent's row until the current transaction ends.
+    ///
+    /// EVERYTHING THAT DECIDES A PAYMENT'S OUTCOME TAKES THIS FIRST. The checkout confirmation
+    /// and the result page's verification poll arrive for the same payment within milliseconds of
+    /// each other, and both used to read "captured, no donation yet" and both try to record it.
+    /// Holding the intent's row makes the second wait for the first to commit, so it reads the
+    /// donation instead of racing to insert another. Must be called inside
+    /// <see cref="IUnitOfWork.ExecuteInTransactionAsync"/>; outside one the lock ends at once.
+    /// </summary>
+    Task LockIntentAsync(Guid intentId, CancellationToken cancellationToken);
 
     // ---- Payment attempts ----------------------------------------------------------------
 

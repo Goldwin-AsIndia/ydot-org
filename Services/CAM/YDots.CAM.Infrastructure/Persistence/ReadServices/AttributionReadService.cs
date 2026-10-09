@@ -118,6 +118,7 @@ public sealed class AttributionReadService(
             CampaignStatus = campaign?.Status.ToString() ?? string.Empty,
             TrackingAssetId = donation.TrackingAssetId,
             TrackingReference = donation.TrackingReference,
+            PlaceName = donation.PlaceName,
             AssetType = asset?.AssetType,
             AssetDestination = asset?.Destination,
             ChannelName = donation.ChannelName,
@@ -307,6 +308,7 @@ public sealed class AttributionReadService(
                 CampaignName = donation.CampaignName,
                 TrackingAssetId = donation.TrackingAssetId,
                 TrackingReference = donation.TrackingReference,
+                PlaceName = donation.PlaceName,
                 AssetType = asset?.AssetType,
                 ChannelName = donation.ChannelName,
                 SourceName = donation.SourceName,
@@ -428,7 +430,12 @@ public sealed class AttributionReadService(
                     new("reference", "Tracking reference", donation.TrackingReference, true),
                     new("type", "Asset type", asset.AssetType.ToString(), false),
                     new("destination", "Destination", asset.Destination, true),
-                    new("status", "Asset status", asset.Status.ToString(), false)
+                    new("status", "Asset status", asset.Status.ToString(), false),
+
+                    // Where an offline QR code was put. Shown only when the gift recorded one.
+                    .. (string.IsNullOrWhiteSpace(donation.PlaceName)
+                        ? Array.Empty<AttributionTraceFieldResponse>()
+                        : [new("place", "Place", donation.PlaceName, false)])
                 ]));
 
             steps.Add(new AttributionTraceStepResponse(

@@ -54,12 +54,14 @@ public sealed class DonationRepository(PaymentDbContext context) : IDonationRepo
     /// narrow: only intents that can still be paid.
     /// </summary>
     public Task<DonationIntent?> FindOpenIntentAsync(
-        Guid tenantId, string normalisedEmail, decimal amount, CancellationToken cancellationToken) =>
+        Guid tenantId, string normalisedEmail, decimal amount, Guid? campaignId,
+        CancellationToken cancellationToken) =>
         context.DonationIntents
             .IgnoreQueryFilters()
             .Where(intent => intent.TenantId == tenantId)
             .Where(intent => intent.NormalisedEmail == normalisedEmail)
             .Where(intent => intent.Amount.Amount == amount)
+            .Where(intent => intent.CampaignId == campaignId)
             .Where(intent => intent.Status == DonationIntentStatus.Draft
                              || intent.Status == DonationIntentStatus.AwaitingPayment)
             .OrderByDescending(intent => intent.CreatedAtUtc)
@@ -83,6 +85,16 @@ public sealed class DonationRepository(PaymentDbContext context) : IDonationRepo
             .OrderBy(intent => intent.PaymentLinkExpiresAtUtc)
             .Take(maximumRows)
             .ToListAsync(cancellationToken);
+
+    /// <summary>
+    /// A row lock, not an advisory one: it is released with the transaction whatever happens,
+    /// and it also blocks a writer that bypasses this method and updates the row directly.
+    /// Unfiltered by Organisation because it reads nothing - the caller already holds the id.
+    /// </summary>
+    public async Task LockIntentAsync(Guid intentId, CancellationToken cancellationToken) =>
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM pay_donation_intents WHERE id = {intentId} FOR UPDATE",
+            cancellationToken);
 
     // ---- Payment attempts ----------------------------------------------------------------
 

@@ -101,7 +101,7 @@ public sealed class PaymentEventQueryHandler(
             return Result.Failure<OutcomeResponse>(Error.Concurrency());
         }
 
-        if (paymentEvent.Status == PaymentEventStatus.Processed)
+        if (paymentEvent.Status is PaymentEventStatus.Processed or PaymentEventStatus.Duplicate)
         {
             logger.LogWarning("Payment event {PaymentEventId} cannot be dismissed because it has already been processed.",
                 command.PaymentEventId);
