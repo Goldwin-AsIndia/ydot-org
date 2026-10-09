@@ -113,7 +113,9 @@ public sealed class DemoCampaignSeeder(
 
         if (existing.Any(campaign => campaignIds.Contains(campaign.Id)))
         {
-            return true;
+            // Seeded already. Still worth one look: a seed that ran before the geography master
+            // existed wrote its campaigns with no state or city - see RepairGeographyAsync.
+            return await RepairGeographyAsync(organisation, tenant.Id, cancellationToken);
         }
 
         var people = await ReadPeopleAsync(tenant.Id, cancellationToken);
@@ -150,6 +152,28 @@ public sealed class DemoCampaignSeeder(
         }
 
         var places = await ReadPlacesAsync(cancellationToken);
+
+        // THE GEOGRAPHY MASTER IS WAITED FOR LIKE EVERYTHING ELSE FROM IAM. On a fresh stack IAM
+        // seeds its states and cities a few seconds after the Organisations this method waits
+        // for, and a seed that ran in that gap wrote every campaign - and every offline QR code's
+        // places - with a country and a ZIP code but no state and no city. Once per Organisation
+        // meant it never looked again.
+        var missingCities = organisation.Campaigns
+            .Select(campaign => campaign.City)
+            .Where(city => !places.ContainsKey(city))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (missingCities.Count > 0)
+        {
+            logger.LogDebug(
+                "The demonstration campaigns for {Subdomain} are waiting for the geography master "
+                + "to hold: {Cities}.",
+                organisation.Subdomain, string.Join(", ", missingCities));
+
+            return false;
+        }
+
         var now = DateTimeOffset.UtcNow;
         var destination = ResolveDestination(organisation);
 
@@ -208,6 +232,90 @@ public sealed class DemoCampaignSeeder(
             written.Values.Select(campaign => campaign.Status).Distinct().Count(),
             written.Values.Sum(campaign => campaign.ReadinessChecks.Count),
             assetCount);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Gives the demonstration campaigns the state and city the catalogue names for them, and
+    /// their offline QR codes' places the campaign's - where a seed that ran too early left them
+    /// empty. False means the geography master cannot be read yet and the caller should ask again.
+    ///
+    /// WHAT WENT WRONG. A seed that ran in the seconds before IAM had written its states and
+    /// cities found none, and wrote every campaign with a country and a ZIP code only. Editing one
+    /// then demanded a State and City that were not there, and every place on the Tracking Asset
+    /// Manager read "From campaign" over an empty box, so no place could be reported by location.
+    ///
+    /// ONLY WHAT IS STILL EMPTY IS FILLED. A campaign somebody has since given a location keeps
+    /// it, and so does a place with one of its own. The ordinary save is used, so each repaired
+    /// row's version moves on and a screen holding the empty copy is told it changed.
+    /// </summary>
+    private async Task<bool> RepairGeographyAsync(
+        DemoOrganisation organisation, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var cityByCampaign = organisation.Campaigns.ToDictionary(
+            campaign => DemoIds.Of("campaign", organisation.Subdomain, campaign.Code),
+            campaign => campaign.City);
+
+        var campaignIds = cityByCampaign.Keys.ToList();
+
+        var unlocatedCampaigns = await context.Campaigns
+            .IgnoreQueryFilters()
+            .Where(campaign => campaign.TenantId == tenantId
+                               && campaignIds.Contains(campaign.Id)
+                               && (campaign.StateId == null || campaign.CityId == null))
+            .ToListAsync(cancellationToken);
+
+        var unlocatedPlaces = await context.TrackingAssetPlaces
+            .IgnoreQueryFilters()
+            .Where(place => (place.CityId == null || place.StateId == null)
+                            && campaignIds.Contains(place.TrackingAsset.CampaignId))
+            .Select(place => new { Place = place, place.TrackingAsset.CampaignId })
+            .ToListAsync(cancellationToken);
+
+        if (unlocatedCampaigns.Count == 0 && unlocatedPlaces.Count == 0)
+        {
+            return true;
+        }
+
+        var places = await ReadPlacesAsync(cancellationToken);
+
+        if (places.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var campaign in unlocatedCampaigns)
+        {
+            if (places.TryGetValue(cityByCampaign[campaign.Id], out var place))
+            {
+                campaign.StateId ??= place.StateId;
+                campaign.CityId ??= place.CityId;
+            }
+        }
+
+        // The campaigns' locations as they now stand - repaired above or already set - which is
+        // what a place takes when it has none of its own.
+        var located = await context.Campaigns
+            .IgnoreQueryFilters()
+            .Where(campaign => campaignIds.Contains(campaign.Id))
+            .ToDictionaryAsync(campaign => campaign.Id, cancellationToken);
+
+        foreach (var row in unlocatedPlaces)
+        {
+            if (located.TryGetValue(row.CampaignId, out var campaign))
+            {
+                row.Place.CityId ??= campaign.CityId;
+                row.Place.StateId ??= campaign.StateId;
+            }
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Gave {CampaignCount} demonstration campaign(s) and {PlaceCount} tracking asset place(s) "
+            + "in {Subdomain} the state and city the seed had left empty.",
+            unlocatedCampaigns.Count, unlocatedPlaces.Count, organisation.Subdomain);
 
         return true;
     }

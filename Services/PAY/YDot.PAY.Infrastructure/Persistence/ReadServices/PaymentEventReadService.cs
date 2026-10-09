@@ -207,7 +207,11 @@ public sealed class PaymentEventReadService(
             actions.Add("View");
         }
 
-        if (paymentEvent.Status is PaymentEventStatus.Processed or PaymentEventStatus.Dismissed)
+        // A DUPLICATE IS SETTLED TOO: its payment was recorded by the event it duplicates, and
+        // reprocessing it is refused as already applied.
+        if (paymentEvent.Status is PaymentEventStatus.Processed
+            or PaymentEventStatus.Duplicate
+            or PaymentEventStatus.Dismissed)
         {
             return actions;
         }

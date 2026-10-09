@@ -238,6 +238,10 @@ public sealed record DonationIntentDetailResponse(
     string SourceDescription,
     string? TrackingReference,
     Guid? TrackingAssetId,
+
+    /// <summary>The offline QR code's placement the donor scanned, and its name as at the scan.</summary>
+    Guid? TrackingAssetPlaceId,
+    string? TrackingPlaceName,
     Guid? LeadId,
     Guid? DonorId,
     bool ConsentGiven,

@@ -125,6 +125,8 @@ public sealed class DonationReadService(
             donation.SourceType,
             PaymentMappingConfig.Describe(donation.SourceType),
             donation.TrackingAssetId,
+            donation.TrackingAssetPlaceId,
+            donation.TrackingPlaceName,
             donation.LeadId,
             donation.IsReceiptable,
 

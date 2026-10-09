@@ -106,7 +106,7 @@ public sealed class TrackingAssetCommandHandler(
         var places = WithCampaignGeography(campaign, request.Places);
 
         var placementCheck = ValidatePlacements(
-            request.AssetType, context.Value!.ChannelCode, places);
+            request.AssetType, context.Value!.ChannelCode, places?.Count ?? 0);
 
         if (placementCheck.IsFailure)
         {
@@ -205,8 +205,13 @@ public sealed class TrackingAssetCommandHandler(
             ? request.Places
             : WithCampaignGeography(owningCampaign, request.Places);
 
+        // PLACES THE REQUEST LEAVES OUT ARE KEPT, so they are what gets checked. The edit form
+        // sends none, and checking an empty list refused every edit of an offline QR code with
+        // "needs at least one place" - for an asset that had one.
         var placementCheck = ValidatePlacements(
-            request.AssetType, context.Value!.ChannelCode, places);
+            request.AssetType,
+            context.Value!.ChannelCode,
+            places?.Count ?? asset.Places.Count);
 
         if (placementCheck.IsFailure)
         {
@@ -644,10 +649,9 @@ public sealed class TrackingAssetCommandHandler(
     private static Result ValidatePlacements(
         TrackingAssetType assetType,
         string channelCode,
-        IReadOnlyList<TrackingAssetPlaceRequest>? places)
+        int count)
     {
         var expectsPlacements = HasPlacements(assetType, channelCode);
-        var count = places?.Count ?? 0;
 
         if (expectsPlacements && count == 0)
         {

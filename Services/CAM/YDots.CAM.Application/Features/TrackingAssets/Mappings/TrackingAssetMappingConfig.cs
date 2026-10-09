@@ -43,7 +43,14 @@ public static class TrackingAssetMappingConfig
         return asset;
     }
 
-    /// <summary>Applies an update in place. Only reached for a Draft asset.</summary>
+    /// <summary>
+    /// Applies an update in place. Only reached for a Draft asset.
+    ///
+    /// PLACES LEFT OUT ARE LEFT ALONE. <c>Places = null</c> means the caller did not send them -
+    /// the Tracking Asset Manager's edit form does not show them - and it used to mean "remove
+    /// them all", so editing an offline QR code's dates wiped its places and was then refused for
+    /// having none. An empty list still removes them; that is a statement, not an omission.
+    /// </summary>
     public static void ApplyTo(this UpdateTrackingAssetRequest request, TrackingAsset asset)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -58,7 +65,10 @@ public static class TrackingAssetMappingConfig
         asset.ActiveFrom = request.ActiveFrom;
         asset.ActiveTo = request.ActiveTo;
 
-        ApplyPlaces(asset, request.Places);
+        if (request.Places is not null)
+        {
+            ApplyPlaces(asset, request.Places);
+        }
     }
 
     /// <summary>

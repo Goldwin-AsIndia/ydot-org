@@ -102,18 +102,9 @@ internal static class SampleOrganisationCatalogue
         public string DisplayName => $"{FirstName} {LastName}";
     }
 
-    /// <summary>
-    /// The named platform administrators, beside the root account SeedSettings configures.
-    ///
-    /// The root account is a system identity - "Platform Administrator", the address the
-    /// deployment is configured with. These are people: they hold SUPER_ADMIN like the root does,
-    /// sign in on the platform host, and share the configured SuperAdmin password.
-    /// </summary>
-    internal static readonly IReadOnlyList<SamplePerson> PlatformAdministrators =
-    [
-        new(RoleCodes.SuperAdmin, "Vikram", "Anand", "vikram.anand", "vikram.anand@ngoplanet.test",
-            "9845012876", "Platform Operations Lead", "NGP-0007", JoinedOn: On(2021, 4, 5))
-    ];
+    // THE PLATFORM ADMIN IS NOT LISTED HERE. There is one, and SeedSettings describes it - Vikram
+    // Anand in every configuration this repository ships. It used to be a system account
+    // ("superadmin") with Vikram listed here as a second, named administrator.
 
     internal static readonly IReadOnlyList<SampleOrganisation> Organisations =
     [

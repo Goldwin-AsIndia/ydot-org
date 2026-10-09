@@ -51,6 +51,12 @@ public sealed class DonationIntentConfiguration : IEntityTypeConfiguration<Donat
             .HasDatabaseName("ix_pay_donation_intents_lead")
             .HasFilter("lead_id IS NOT NULL");
 
+        // "How many people started a gift from this QR code?" - the scans that did not pay
+        // count here and nowhere else.
+        builder.HasIndex(intent => intent.TrackingAssetId)
+            .HasDatabaseName("ix_pay_donation_intents_tracking_asset")
+            .HasFilter("tracking_asset_id IS NOT NULL");
+
         builder.Property(intent => intent.IntentReference).HasMaxLength(64).IsRequired();
         builder.Property(intent => intent.DonorName).HasMaxLength(200).IsRequired();
         builder.Property(intent => intent.Email).HasMaxLength(320).IsRequired();
@@ -61,6 +67,9 @@ public sealed class DonationIntentConfiguration : IEntityTypeConfiguration<Donat
         builder.Property(intent => intent.AddressLine2).HasMaxLength(250);
         builder.Property(intent => intent.PostalCode).HasMaxLength(20);
         builder.Property(intent => intent.TrackingReference).HasMaxLength(64);
+
+        // CAM's own limit on a place name, so a snapshot can never be cut short.
+        builder.Property(intent => intent.TrackingPlaceName).HasMaxLength(200);
         builder.Property(intent => intent.PaymentLinkUrl).HasMaxLength(2000);
         builder.Property(intent => intent.ConsentVersion).HasMaxLength(50);
         builder.Property(intent => intent.PublicRecognitionName).HasMaxLength(200);
@@ -277,7 +286,18 @@ public sealed class DonationConfiguration : IEntityTypeConfiguration<Donation>
         builder.HasIndex(donation => new { donation.TenantId, donation.ReconciliationStatus })
             .HasDatabaseName("ix_pay_donations_tenant_reconciliation");
 
+        // What each tracking asset, and each offline QR code's place, has raised. The Tracking
+        // Asset Manager reads its per-asset totals with exactly this filter.
+        builder.HasIndex(donation => new { donation.TenantId, donation.TrackingAssetId })
+            .HasDatabaseName("ix_pay_donations_tenant_tracking_asset")
+            .HasFilter("tracking_asset_id IS NOT NULL");
+
+        builder.HasIndex(donation => new { donation.TenantId, donation.TrackingAssetPlaceId })
+            .HasDatabaseName("ix_pay_donations_tenant_tracking_place")
+            .HasFilter("tracking_asset_place_id IS NOT NULL");
+
         builder.Property(donation => donation.DonationReference).HasMaxLength(64).IsRequired();
+        builder.Property(donation => donation.TrackingPlaceName).HasMaxLength(200);
         builder.Property(donation => donation.DonorName).HasMaxLength(200).IsRequired();
         builder.Property(donation => donation.DonorEmail).HasMaxLength(320).IsRequired();
         builder.Property(donation => donation.DonorMobile).HasMaxLength(20);

@@ -472,6 +472,8 @@ public sealed class DonationCommandHandler(
             donation.SourceType,
             PaymentMappingConfig.Describe(donation.SourceType),
             donation.TrackingAssetId,
+            donation.TrackingAssetPlaceId,
+            donation.TrackingPlaceName,
             donation.LeadId,
             donation.IsReceiptable,
             [],

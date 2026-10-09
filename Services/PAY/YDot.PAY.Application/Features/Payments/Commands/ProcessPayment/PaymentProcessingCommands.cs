@@ -219,6 +219,13 @@ public sealed class PaymentProcessingCommandHandler(
     /// RUNS IN A TRANSACTION, because it reads the current state, decides, and writes - and two
     /// capture events for one payment arriving at once would otherwise both read "not yet paid"
     /// and both record a donation.
+    ///
+    /// WHAT FOLLOWS A RECORDED DONATION RUNS AFTER THE COMMIT. The donor, the lead conversion and
+    /// the receipt - rendered and e-mailed - used to run inside the transaction, which on
+    /// 9 October 2026 held it open for sixteen seconds, most of them spent on the mail server,
+    /// with the intent's row and the organisation's receipt counter locked throughout. Every one
+    /// of those steps is best-effort by design (see the class comment), so none of them needs the
+    /// donation's transaction: the gift is recorded when the commit lands, and they follow it.
     /// </summary>
     public async Task<Result<OutcomeResponse>> HandleAsync(
         ApplyPaymentEventCommand command, CancellationToken cancellationToken)
@@ -227,9 +234,11 @@ public sealed class PaymentProcessingCommandHandler(
 
         logger.LogInformation("Applying payment event {PaymentEventId}.", command.PaymentEventId);
 
+        AppliedEvent applied;
+
         try
         {
-            return await ApplyEventAsync(command.PaymentEventId, cancellationToken);
+            applied = await ApplyEventAsync(command.PaymentEventId, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -244,9 +253,10 @@ public sealed class PaymentProcessingCommandHandler(
             // printed the exception text - "An error occurred while saving the entity changes.
             // See the inner exception for details." - to somebody who had just given money.
             //
-            // THE TRANSACTION HAS ALREADY ROLLED BACK by the time this runs, which is what makes
-            // it safe: the event stays Pending and the queue can retry it, exactly as an
-            // unapplied event is meant to.
+            // THE TRANSACTION HAS ALREADY ROLLED BACK by the time this runs, and the change tracker
+            // was emptied with it, which is what makes it safe: the event stays Pending and the
+            // queue can retry it, exactly as an unapplied event is meant to, and nothing the
+            // failed attempt wrote is left behind for the caller's next save to trip over.
             //
             // THE INNER EXCEPTION IS WHAT GETS LOGGED. `DbUpdateException`'s own message says to
             // look at the inner one and carries nothing else; the provider's message underneath
@@ -263,28 +273,58 @@ public sealed class PaymentProcessingCommandHandler(
                 "This payment could not be recorded. It has been kept for reprocessing and needs "
                 + "attention - do not take a second payment."));
         }
+
+        if (applied.Recorded is not null)
+        {
+            await CompleteRecordedDonationAsync(applied.Recorded, cancellationToken);
+        }
+
+        return applied.Outcome;
     }
 
-    /// <summary>The body of <see cref="ApplyPaymentEventCommand"/>, inside its transaction.</summary>
-    private async Task<Result<OutcomeResponse>> ApplyEventAsync(
+    /// <summary>
+    /// The body of <see cref="ApplyPaymentEventCommand"/>, inside its transaction.
+    ///
+    /// THE INTENT IS LOCKED BEFORE ANYTHING IS DECIDED. The checkout confirmation and the result
+    /// page's verification poll for one payment arrive within milliseconds of each other. On
+    /// 9 October 2026 both read "captured, no donation yet", both inserted a donation, and the
+    /// loser failed on the unique index and answered the donor with a 500. Holding the intent's
+    /// row makes the second wait for the first to commit.
+    ///
+    /// WHAT THIS REQUEST READ BEFORE THE LOCK IS DISCARDED, because it may now be stale: the
+    /// event may have been applied, the attempt and intent moved on a version. Everything below
+    /// is read afresh, so the loser of the race sees the winner's donation and records a
+    /// duplicate instead of failing. Callers must have saved anything they want kept; none of the
+    /// three callers leaves work pending when it calls this.
+    /// </summary>
+    private async Task<AppliedEvent> ApplyEventAsync(
         Guid paymentEventId, CancellationToken cancellationToken)
     {
+        var intentId = await paymentEvents.GetDonationIntentIdAsync(paymentEventId, cancellationToken);
+
         return await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
+            if (intentId.HasValue)
+            {
+                await donations.LockIntentAsync(intentId.Value, token);
+            }
+
+            unitOfWork.DiscardChanges();
+
             var paymentEvent = await paymentEvents.GetAsync(paymentEventId, token);
 
             if (paymentEvent is null)
             {
                 logger.LogWarning("Payment event {PaymentEventId} was not found.", paymentEventId);
 
-                return Result.Failure<OutcomeResponse>(Error.NotFound("That payment event was not found."));
+                return AppliedEvent.Failed(Error.NotFound("That payment event was not found."));
             }
 
-            if (paymentEvent.Status == PaymentEventStatus.Processed)
+            if (paymentEvent.Status is PaymentEventStatus.Processed or PaymentEventStatus.Duplicate)
             {
                 logger.LogWarning("Payment event {PaymentEventId} has already been processed.", paymentEventId);
 
-                return Result.Failure<OutcomeResponse>(
+                return AppliedEvent.Failed(
                     Error.InvalidTransition("That payment event has already been applied."));
             }
 
@@ -293,7 +333,7 @@ public sealed class PaymentProcessingCommandHandler(
                 logger.LogWarning("Payment event {PaymentEventId} was rejected because its signature is not verified.",
                     paymentEventId);
 
-                return Result.Failure<OutcomeResponse>(Error.Forbidden(
+                return AppliedEvent.Failed(Error.Forbidden(
                     "This event's signature could not be verified, so it will not be applied."));
             }
 
@@ -317,7 +357,7 @@ public sealed class PaymentProcessingCommandHandler(
 
                 await unitOfWork.SaveChangesAsync(token);
 
-                return Result.Failure<OutcomeResponse>(Error.NotFound(
+                return AppliedEvent.Failed(Error.NotFound(
                     "No payment attempt matches this event."));
             }
 
@@ -333,29 +373,40 @@ public sealed class PaymentProcessingCommandHandler(
 
                 await unitOfWork.SaveChangesAsync(token);
 
-                return Result.Failure<OutcomeResponse>(Error.Dependency(
+                return AppliedEvent.Failed(Error.Dependency(
                     "That payment attempt is not linked to a donation."));
             }
 
-            var outcome = paymentEvent.EventType switch
+            Result<string> outcome;
+            RecordedDonation? recorded = null;
+
+            if (paymentEvent.EventType == PaymentEventType.Captured)
             {
-                PaymentEventType.Captured => await ApplyCaptureAsync(paymentEvent, attempt, intent, token),
+                var capture = await ApplyCaptureAsync(paymentEvent, attempt, intent, token);
 
-                PaymentEventType.Authorised => ApplyAuthorised(attempt),
+                outcome = capture.Outcome;
+                recorded = capture.Donation is null ? null : new RecordedDonation(intent, capture.Donation);
+            }
+            else
+            {
+                outcome = paymentEvent.EventType switch
+                {
+                    PaymentEventType.Authorised => ApplyAuthorised(attempt),
 
-                PaymentEventType.Failed => ApplyFailure(attempt, intent, paymentEvent),
+                    PaymentEventType.Failed => ApplyFailure(attempt, intent, paymentEvent),
 
-                PaymentEventType.Cancelled => ApplyCancelled(attempt, intent),
+                    PaymentEventType.Cancelled => ApplyCancelled(attempt, intent),
 
-                PaymentEventType.Expired => ApplyExpired(attempt, intent),
+                    PaymentEventType.Expired => ApplyExpired(attempt, intent),
 
-                PaymentEventType.Settled => await ApplySettlementAsync(intent, paymentEvent, token),
+                    PaymentEventType.Settled => await ApplySettlementAsync(intent, paymentEvent, token),
 
-                // Refunds and chargebacks arriving by webhook are recorded against the donation
-                // by their own handlers; here the event is simply marked seen so the queue does
-                // not hold it open.
-                _ => Result.Success("No action was required for this event type.")
-            };
+                    // Refunds and chargebacks arriving by webhook are recorded against the donation
+                    // by their own handlers; here the event is simply marked seen so the queue does
+                    // not hold it open.
+                    _ => Result.Success("No action was required for this event type.")
+                };
+            }
 
             paymentEvent.ProcessedAtUtc = clock.UtcNow;
 
@@ -366,7 +417,14 @@ public sealed class PaymentProcessingCommandHandler(
             }
             else
             {
-                paymentEvent.Status = PaymentEventStatus.Processed;
+                // A CAPTURE THAT FOUND ITS DONATION ALREADY RECORDED KEEPS "Duplicate". This line
+                // overwrote it with Processed, so the event queue's "Duplicate - already applied"
+                // could never appear and a redelivered capture read as if it had recorded money.
+                if (paymentEvent.Status != PaymentEventStatus.Duplicate)
+                {
+                    paymentEvent.Status = PaymentEventStatus.Processed;
+                }
+
                 paymentEvent.ProcessingError = null;
             }
 
@@ -395,15 +453,26 @@ public sealed class PaymentProcessingCommandHandler(
             }
 
             return outcome.IsFailure
-                ? Result.Failure<OutcomeResponse>(outcome.Error!)
-                : Result.Success(new OutcomeResponse(
-                    paymentEvent.Id,
-                    paymentEvent.Status.ToString(),
-                    paymentEvent.Version,
-                    outcome.Value!,
-                    []));
+                ? AppliedEvent.Failed(outcome.Error!)
+                : new AppliedEvent(
+                    Result.Success(new OutcomeResponse(
+                        paymentEvent.Id,
+                        paymentEvent.Status.ToString(),
+                        paymentEvent.Version,
+                        outcome.Value!,
+                        [])),
+                    recorded);
         }, cancellationToken);
     }
+
+    /// <summary>What applying one event decided, and the donation it recorded if it recorded one.</summary>
+    private sealed record AppliedEvent(Result<OutcomeResponse> Outcome, RecordedDonation? Recorded)
+    {
+        public static AppliedEvent Failed(Error error) => new(Result.Failure<OutcomeResponse>(error), null);
+    }
+
+    /// <summary>A donation that has just been committed, with the intent it came from.</summary>
+    private sealed record RecordedDonation(DonationIntent Intent, Donation Donation);
 
     /// <summary>
     /// The reason a write was refused, from the exception that actually knows it.
@@ -451,13 +520,14 @@ public sealed class PaymentProcessingCommandHandler(
     }
 
     /// <summary>
-    /// Money captured: sections 15 to 18 in one method.
+    /// Money captured: the donation itself, which is section 15's first step.
     ///
-    /// THE DONATION IS RECORDED FIRST. Everything after it - the donor, the account, the
-    /// invitation, the lead conversion, the receipt - is best-effort, because none of them is a
-    /// reason to lose a gift that has already been taken.
+    /// THE DONATION IS RECORDED FIRST AND ALONE. Everything after it - the donor, the account,
+    /// the invitation, the lead conversion, the receipt - is best-effort, because none of them is
+    /// a reason to lose a gift that has already been taken. They run once this transaction has
+    /// committed: the donation is handed back for <see cref="CompleteRecordedDonationAsync"/>.
     /// </summary>
-    private async Task<Result<string>> ApplyCaptureAsync(
+    private async Task<(Result<string> Outcome, Donation? Donation)> ApplyCaptureAsync(
         PaymentEvent paymentEvent,
         PaymentAttempt attempt,
         DonationIntent intent,
@@ -474,7 +544,7 @@ public sealed class PaymentProcessingCommandHandler(
             logger.LogInformation("Capture event for intent {IntentReference} ignored: donation {DonationReference} "
                 + "already exists.", intent.IntentReference, existing.DonationReference);
 
-            return Result.Success("This payment was already recorded.");
+            return (Result.Success("This payment was already recorded."), null);
         }
 
         var now = clock.UtcNow;
@@ -494,7 +564,7 @@ public sealed class PaymentProcessingCommandHandler(
 
         if (reference.IsFailure)
         {
-            return Result.Failure<string>(reference.Error!);
+            return (Result.Failure<string>(reference.Error!), null);
         }
 
         var donation = new Donation
@@ -527,8 +597,12 @@ public sealed class PaymentProcessingCommandHandler(
             ReconciliationStatus = ReconciliationStatus.Unreconciled,
 
             // Attribution, denormalised so donation reporting never joins back through the intent.
+            // The place is the on-ground placement an offline QR code was printed for - see
+            // DonationIntent.TrackingAssetPlaceId.
             SourceType = intent.SourceType,
             TrackingAssetId = intent.TrackingAssetId,
+            TrackingAssetPlaceId = intent.TrackingAssetPlaceId,
+            TrackingPlaceName = intent.TrackingPlaceName,
             LeadId = intent.LeadId
         };
 
@@ -544,21 +618,38 @@ public sealed class PaymentProcessingCommandHandler(
             donation.Id,
             donation.TenantId,
             AuditResult.Succeeded,
-            new { donation.DonationReference, intent.IntentReference, Amount = capturedAmount.ToString() },
+            new
+            {
+                donation.DonationReference,
+                intent.IntentReference,
+                Amount = capturedAmount.ToString(),
+                donation.TrackingAssetId,
+                donation.TrackingPlaceName
+            },
             cancellationToken);
 
-        // The money is now safe. Everything below is best-effort.
         await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        await EnsureDonorAsync(intent, donation, cancellationToken);
-        await ConvertLeadAsync(intent, donation, cancellationToken);
-        await IssueReceiptIfConfiguredAsync(donation, cancellationToken);
 
         logger.LogInformation(
             "Donation {DonationReference} recorded for organisation {TenantId} from intent "
             + "{IntentReference}.", donation.DonationReference, donation.TenantId, intent.IntentReference);
 
-        return Result.Success($"Donation {donation.DonationReference} recorded.");
+        return (Result.Success($"Donation {donation.DonationReference} recorded."), donation);
+    }
+
+    /// <summary>
+    /// Everything that follows a recorded donation: sections 15 to 18 after the money.
+    ///
+    /// RUN AFTER THE DONATION HAS COMMITTED, never inside its transaction - see the apply handler.
+    /// Each step swallows and logs its own failures, so the order here is the only contract: the
+    /// donor first, because the lead conversion and the receipt both read who the donor is.
+    /// </summary>
+    private async Task CompleteRecordedDonationAsync(
+        RecordedDonation recorded, CancellationToken cancellationToken)
+    {
+        await EnsureDonorAsync(recorded.Intent, recorded.Donation, cancellationToken);
+        await ConvertLeadAsync(recorded.Intent, recorded.Donation, cancellationToken);
+        await IssueReceiptIfConfiguredAsync(recorded.Donation, cancellationToken);
     }
 
     /// <summary>
@@ -709,6 +800,12 @@ public sealed class PaymentProcessingCommandHandler(
     ///
     /// The receipt itself is created here in draft and ISSUED by the receipt handler, so the
     /// numbering and the document rendering live in one place rather than two.
+    ///
+    /// THE NUMBER IS TAKEN IN ITS OWN SHORT TRANSACTION. The allocator locks the organisation's
+    /// counter row and refuses to run outside a transaction; this used to borrow the donation's,
+    /// which kept every other receipt of that organisation waiting while this one was rendered and
+    /// e-mailed. The lock now covers the number and the receipt row only. The campaign name is
+    /// resolved before it is taken, for the same reason.
     /// </summary>
     private async Task IssueReceiptIfConfiguredAsync(
         Donation donation, CancellationToken cancellationToken)
@@ -721,56 +818,11 @@ public sealed class PaymentProcessingCommandHandler(
         try
         {
             var financialYear = clock.FinancialYearFor(donation.DonatedAtUtc);
+            var campaignName = await ResolveCampaignNameAsync(donation, cancellationToken);
 
-            var sequence = await receipts.AllocateNextReceiptNumberAsync(
-                donation.TenantId, financialYear, cancellationToken);
-
-            var receipt = new Receipt
-            {
-                TenantId = donation.TenantId,
-                BusinessUnitId = donation.BusinessUnitId,
-                DonationId = donation.Id,
-                VersionNumber = 1,
-                ReceiptNumber =
-                    $"{_settings.ReceiptNumberPrefix}/{financialYear}/{sequence:00000}",
-                Status = ReceiptStatus.Issued,
-                DeliveryStatus = ReceiptDeliveryStatus.NotSent,
-                FinancialYear = financialYear,
-
-                // THE DONATION'S AMOUNT, COPIED. Assigning `donation.Amount` directly handed the
-                // Donation's own owned instance to the Receipt as well, which is the pairing EF
-                // named first in its warning and the one that failed the save.
-                Amount = donation.Amount.Copy(),
-                DonorName = donation.DonorName,
-                DonorEmail = donation.DonorEmail,
-                DonorAddress = donation.DonorAddress,
-                DonorTaxIdentifier = donation.DonorTaxIdentifier,
-
-                // THE CAMPAIGN THE GIFT WAS GIVEN TO, resolved once and snapshotted onto the
-                // receipt. It was never set at all, so every auto-issued receipt carried a null
-                // here - which is why the register and the Payments & Receipts page showed a
-                // dash in the campaign column for every successful donation, and why a printed
-                // receipt could not say what the money was for.
-                //
-                // A NAME, NOT AN ID, AND A SNAPSHOT. The receipt is a statement about a moment:
-                // a campaign renamed next year must not change what the donor's copy says.
-                CampaignOrFundName = await ResolveCampaignNameAsync(donation, cancellationToken),
-
-                IssuedAtUtc = clock.UtcNow
-            };
-
-            await receipts.AddAsync(receipt, cancellationToken);
-
-            await audit.WriteAnonymousAsync(
-                AuditActionCodes.ReceiptIssued,
-                nameof(Receipt),
-                receipt.Id,
-                donation.TenantId,
-                AuditResult.Succeeded,
-                new { receipt.ReceiptNumber, donation.DonationReference },
+            var receipt = await unitOfWork.ExecuteInTransactionAsync(
+                token => NumberReceiptAsync(donation, financialYear, campaignName, token),
                 cancellationToken);
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await RenderAndDeliverAsync(receipt, cancellationToken);
         }
@@ -781,6 +833,63 @@ public sealed class PaymentProcessingCommandHandler(
                 "The receipt for donation {DonationReference} could not be issued. The donation "
                 + "stands and this needs following up.", donation.DonationReference);
         }
+    }
+
+    /// <summary>Allocates the receipt number and writes the receipt. Runs inside a transaction.</summary>
+    private async Task<Receipt> NumberReceiptAsync(
+        Donation donation, string financialYear, string? campaignName, CancellationToken cancellationToken)
+    {
+        var sequence = await receipts.AllocateNextReceiptNumberAsync(
+            donation.TenantId, financialYear, cancellationToken);
+
+        var receipt = new Receipt
+        {
+            TenantId = donation.TenantId,
+            BusinessUnitId = donation.BusinessUnitId,
+            DonationId = donation.Id,
+            VersionNumber = 1,
+            ReceiptNumber =
+                $"{_settings.ReceiptNumberPrefix}/{financialYear}/{sequence:00000}",
+            Status = ReceiptStatus.Issued,
+            DeliveryStatus = ReceiptDeliveryStatus.NotSent,
+            FinancialYear = financialYear,
+
+            // THE DONATION'S AMOUNT, COPIED. Assigning `donation.Amount` directly handed the
+            // Donation's own owned instance to the Receipt as well, which is the pairing EF
+            // named first in its warning and the one that failed the save.
+            Amount = donation.Amount.Copy(),
+            DonorName = donation.DonorName,
+            DonorEmail = donation.DonorEmail,
+            DonorAddress = donation.DonorAddress,
+            DonorTaxIdentifier = donation.DonorTaxIdentifier,
+
+            // THE CAMPAIGN THE GIFT WAS GIVEN TO, resolved once and snapshotted onto the
+            // receipt. It was never set at all, so every auto-issued receipt carried a null
+            // here - which is why the register and the Payments & Receipts page showed a
+            // dash in the campaign column for every successful donation, and why a printed
+            // receipt could not say what the money was for.
+            //
+            // A NAME, NOT AN ID, AND A SNAPSHOT. The receipt is a statement about a moment:
+            // a campaign renamed next year must not change what the donor's copy says.
+            CampaignOrFundName = campaignName,
+
+            IssuedAtUtc = clock.UtcNow
+        };
+
+        await receipts.AddAsync(receipt, cancellationToken);
+
+        await audit.WriteAnonymousAsync(
+            AuditActionCodes.ReceiptIssued,
+            nameof(Receipt),
+            receipt.Id,
+            donation.TenantId,
+            AuditResult.Succeeded,
+            new { receipt.ReceiptNumber, donation.DonationReference },
+            cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return receipt;
     }
 
     /// <summary>
@@ -917,7 +1026,10 @@ public sealed class PaymentProcessingCommandHandler(
                 // entity stayed in the change tracker, so ApplyPaymentEventCommand's own save
                 // retried the same impossible UPDATE, threw again outside any catch, and rolled
                 // the transaction back. The receipt, the donation and the payment event all went
-                // with it, for a payment the gateway had already captured.
+                // with it, for a payment the gateway had already captured. (The receipt is now
+                // issued after the donation commits, so it can no longer take the donation with
+                // it - but an entity left failed in the tracker would still fail every later save
+                // in the same request.)
                 //
                 // `AddDeliveryAsync` puts it in the context as ADDED explicitly, which is how the
                 // receipt-administration handler this method mirrors has always done it. Every
@@ -1124,13 +1236,33 @@ public sealed class PaymentProcessingCommandHandler(
                 + "trying again - do not make a second payment."));
         }
 
-        attempt.GatewayReference = command.Request.PaymentReference;
-
         logger.LogInformation(
             "Checkout confirmation signature verified for intent {IntentReference}.",
             intent.IntentReference);
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        // WRITTEN UNDER THE INTENT'S LOCK, TO THE ATTEMPT AS IT IS NOW. The result page starts
+        // polling verification for this payment the moment the checkout closes, so another request
+        // is usually reading and writing this same attempt; a copy read before that request
+        // committed carries a stale version and its save would fail.
+        var attemptId = attempt.Id;
+        var intentId = intent.Id;
+        var paymentReference = command.Request.PaymentReference;
+
+        await unitOfWork.ExecuteInTransactionAsync(async token =>
+        {
+            await donations.LockIntentAsync(intentId, token);
+            unitOfWork.DiscardChanges();
+
+            var current = await donations.GetAttemptAsync(attemptId, token);
+
+            if (current is not null && current.GatewayReference != paymentReference)
+            {
+                current.GatewayReference = paymentReference;
+                await unitOfWork.SaveChangesAsync(token);
+            }
+
+            return true;
+        }, cancellationToken);
 
         // THE ORDINARY VERIFICATION PATH FROM HERE. It asks the provider, records the donation,
         // issues the receipt, converts the donor and sends the e-mail - none of which needs to
@@ -1227,114 +1359,159 @@ public sealed class PaymentProcessingCommandHandler(
                 + "Please try again shortly - do not make a second payment."));
         }
 
-        // The gateway is authoritative. If it says captured and we have no donation, the capture
-        // webhook was lost and this is where it gets put right.
-        if (verification.Status == PaymentAttemptStatus.Succeeded
-            && await donations.GetDonationByIntentAsync(intent.Id, cancellationToken) is null)
+        // WHAT THE GATEWAY SAID IS APPLIED UNDER THE INTENT'S LOCK, TO THE STATE AS IT IS NOW.
+        //
+        // The provider call above takes most of a second, and in that second the checkout
+        // confirmation for this same payment - or another poll from the result page - may well
+        // have recorded it. Deciding from what was read before the call is how two requests both
+        // concluded "captured, no donation" on 9 October 2026 and both tried to record it, and how
+        // a poll that lost that race wrote a stale attempt back and failed on its version.
+        var intentId = intent.Id;
+        var attemptId = attempt.Id;
+        var intentReference = intent.IntentReference;
+        var gatewayName = account.GatewayName;
+
+        var captureToApply = await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
-            logger.LogWarning(
-                "Verification found a captured payment with no recorded donation for intent "
-                + "{IntentReference}. Recording it now.", intent.IntentReference);
+            await donations.LockIntentAsync(intentId, token);
+            unitOfWork.DiscardChanges();
 
-            attempt.MethodType = verification.MethodType;
-            attempt.MaskedInstrument = verification.MaskedInstrument;
+            var current = await donations.GetAttemptAsync(attemptId, token);
 
-            // THE RECONSTRUCTED EVENT IS LOOKED UP BEFORE IT IS CREATED, exactly as the webhook
-            // path above looks up a redelivery before storing one.
-            //
-            // WHY IT HAS TO BE. `GatewayEventId` is deterministic here - "verify:{gateway
-            // reference}" - and (gateway_name, gateway_event_id) is UNIQUE. So the second
-            // verification of the same payment inserted a row the database had already, and
-            // SaveChangesAsync threw DbUpdateException from outside every try/catch on this path.
-            //
-            // A SECOND VERIFICATION IS THE NORMAL CASE, NOT AN EDGE ONE. The donor's result page
-            // polls this endpoint four times while a capture settles, Support & Retry offers a
-            // Verify button, and Safe Retry verifies before it re-pays. Any of those, on a
-            // payment whose donation had not been recorded, hit the duplicate - and the donor was
-            // shown "An error occurred while saving the entity changes. See the inner exception
-            // for details." on the page that was meant to confirm their gift.
-            var eventReference = $"verify:{attempt.GatewayReference}";
-
-            var reconstructed = await paymentEvents.FindByGatewayEventIdAsync(
-                account.GatewayName, eventReference, cancellationToken);
-
-            if (reconstructed is null)
+            if (current is null)
             {
-                reconstructed = new PaymentEvent
-                {
-                    TenantId = intent.TenantId,
-                    BusinessUnitId = intent.BusinessUnitId,
-                    PaymentAttemptId = attempt.Id,
-                    DonationIntentId = intent.Id,
-                    EventType = PaymentEventType.Captured,
-                    Status = PaymentEventStatus.Pending,
-                    GatewayName = account.GatewayName,
-
-                    // Marked as reconstructed, so the queue shows this came from verification
-                    // rather than from the provider - which matters when somebody asks why there
-                    // is no matching webhook.
-                    GatewayEventId = eventReference,
-
-                    GatewayReference = attempt.GatewayReference,
-
-                    // `CapturedAmount` is freshly built from the gateway response and owned by
-                    // nobody; `RequestedAmount` belongs to the attempt, so that branch is copied.
-                    Amount = verification.CapturedAmount ?? attempt.RequestedAmount.Copy(),
-                    OccurredAtUtc = verification.CapturedAtUtc ?? clock.UtcNow,
-                    ReceivedAtUtc = clock.UtcNow,
-                    SignatureVerified = true
-                };
-
-                await paymentEvents.AddAsync(reconstructed, cancellationToken);
-                await unitOfWork.SaveChangesAsync(cancellationToken);
+                return (Guid?)null;
             }
 
-            // AN EVENT THAT HAS ALREADY BEEN APPLIED IS NOT APPLIED AGAIN. Re-applying is refused
-            // by the handler anyway, but asking it to is how a retry turns into an error the
-            // caller has to interpret.
-            if (reconstructed.Status != PaymentEventStatus.Processed)
-            {
-                // THE OUTCOME IS READ AND LOGGED, NOT DISCARDED - the same treatment the webhook
-                // path gives it. This was `await HandleAsync(...)` with the Result thrown away, so
-                // a capture that could not be applied left the donation unrecorded and said
-                // nothing anywhere, and any exception from inside it escaped this method
-                // entirely and became a 500 on the donor's result page.
-                var applied = await HandleAsync(
-                    new ApplyPaymentEventCommand(reconstructed.Id), cancellationToken);
+            Guid? pendingCapture = null;
 
-                if (applied.IsFailure)
+            // The gateway is authoritative. If it says captured and we have no donation, the
+            // capture webhook was lost and this is where it gets put right.
+            if (verification.Status == PaymentAttemptStatus.Succeeded
+                && await donations.GetDonationByIntentAsync(intentId, token) is null)
+            {
+                logger.LogWarning(
+                    "Verification found a captured payment with no recorded donation for intent "
+                    + "{IntentReference}. Recording it now.", intentReference);
+
+                current.MethodType = verification.MethodType;
+                current.MaskedInstrument = verification.MaskedInstrument;
+
+                // THE RECONSTRUCTED EVENT IS LOOKED UP BEFORE IT IS CREATED, exactly as the
+                // webhook path above looks up a redelivery before storing one.
+                //
+                // WHY IT HAS TO BE. `GatewayEventId` is deterministic here - "verify:{gateway
+                // reference}" - and (gateway_name, gateway_event_id) is UNIQUE. A second
+                // verification of the same payment is the normal case, not an edge one: the
+                // donor's result page polls, Support & Retry offers Verify, and Safe Retry
+                // verifies before it re-pays. The lock is what makes the look-up safe - two
+                // verifications can no longer both miss the row and both insert it.
+                var eventReference = $"verify:{current.GatewayReference}";
+
+                var reconstructed = await paymentEvents.FindByGatewayEventIdAsync(
+                    gatewayName, eventReference, token);
+
+                if (reconstructed is null)
                 {
-                    logger.LogError(
-                        "The reconstructed capture {GatewayEventId} for intent {IntentReference} "
-                        + "was stored but could not be applied: {Message}",
-                        eventReference, intent.IntentReference, applied.Error!.Message);
+                    reconstructed = new PaymentEvent
+                    {
+                        TenantId = current.TenantId,
+                        BusinessUnitId = current.BusinessUnitId,
+                        PaymentAttemptId = current.Id,
+                        DonationIntentId = intentId,
+                        EventType = PaymentEventType.Captured,
+                        Status = PaymentEventStatus.Pending,
+                        GatewayName = gatewayName,
+
+                        // Marked as reconstructed, so the queue shows this came from verification
+                        // rather than from the provider - which matters when somebody asks why
+                        // there is no matching webhook.
+                        GatewayEventId = eventReference,
+
+                        GatewayReference = current.GatewayReference,
+
+                        // `CapturedAmount` is freshly built from the gateway response and owned by
+                        // nobody; `RequestedAmount` belongs to the attempt, so that is copied.
+                        Amount = verification.CapturedAmount ?? current.RequestedAmount.Copy(),
+                        OccurredAtUtc = verification.CapturedAtUtc ?? clock.UtcNow,
+                        ReceivedAtUtc = clock.UtcNow,
+                        SignatureVerified = true
+                    };
+
+                    await paymentEvents.AddAsync(reconstructed, token);
+                }
+
+                // AN EVENT THAT HAS ALREADY BEEN APPLIED IS NOT APPLIED AGAIN.
+                if (reconstructed.Status is not (PaymentEventStatus.Processed or PaymentEventStatus.Duplicate))
+                {
+                    pendingCapture = reconstructed.Id;
                 }
             }
+            else
+            {
+                // Assigning an unchanged value writes nothing, so a poll that only confirms what
+                // is already recorded does not touch the attempt.
+                current.Status = verification.Status;
+                current.GatewayResultCode = verification.ResultCode;
+                current.GatewayMessage = verification.Message;
+            }
 
-            intent = await donations.GetIntentAsync(intent.Id, cancellationToken) ?? intent;
-            attempt = await donations.GetAttemptAsync(attempt.Id, cancellationToken) ?? attempt;
-        }
-        else
+            await audit.WriteAnonymousAsync(
+                AuditActionCodes.PaymentVerified,
+                nameof(PaymentAttempt),
+                attemptId,
+                current.TenantId,
+                AuditResult.Succeeded,
+                new { IntentReference = intentReference, Outcome = verification.Status.ToString() },
+                token);
+
+            // THE RECONSTRUCTED EVENT IS COMMITTED BEFORE IT IS APPLIED, as a webhook is: if
+            // applying it fails, it is still on the queue to be reprocessed.
+            await unitOfWork.SaveChangesAsync(token);
+
+            return pendingCapture;
+        }, cancellationToken);
+
+        if (captureToApply is { } paymentEventId)
         {
-            attempt.Status = verification.Status;
-            attempt.GatewayResultCode = verification.ResultCode;
-            attempt.GatewayMessage = verification.Message;
+            // THE OUTCOME IS READ AND LOGGED, NOT DISCARDED - the same treatment the webhook path
+            // gives it. This was once `await HandleAsync(...)` with the Result thrown away, so a
+            // capture that could not be applied left the donation unrecorded and said nothing.
+            var applied = await HandleAsync(new ApplyPaymentEventCommand(paymentEventId), cancellationToken);
+
+            if (applied.IsFailure)
+            {
+                // A REQUEST THAT LOST THE RACE IS NOT A FAILURE. Another verification, or the
+                // checkout confirmation, applied this same event while this one waited for the
+                // lock; the donation exists and there is nothing for anybody to follow up.
+                unitOfWork.DiscardChanges();
+
+                if (await donations.GetDonationByIntentAsync(intentId, cancellationToken) is not null)
+                {
+                    logger.LogInformation(
+                        "The reconstructed capture for intent {IntentReference} was recorded by a "
+                        + "concurrent request.", intentReference);
+                }
+                else
+                {
+                    logger.LogError(
+                        "The reconstructed capture for intent {IntentReference} was stored but "
+                        + "could not be applied: {Message}", intentReference, applied.Error!.Message);
+                }
+            }
         }
 
-        await audit.WriteAnonymousAsync(
-            AuditActionCodes.PaymentVerified,
-            nameof(PaymentAttempt),
-            attempt.Id,
-            intent.TenantId,
-            AuditResult.Succeeded,
-            new { intent.IntentReference, Outcome = verification.Status.ToString() },
-            cancellationToken);
+        // THE ANSWER IS READ FROM THE DATABASE AS IT NOW STANDS, not from the copies read before
+        // the provider was asked: what the donor is told has to include a donation that another
+        // request recorded a moment ago.
+        unitOfWork.DiscardChanges();
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        intent = await donations.GetIntentAsync(intentId, cancellationToken) ?? intent;
+        attempt = await donations.GetAttemptAsync(attemptId, cancellationToken) ?? attempt;
 
         logger.LogInformation(
             "Payment verification completed for intent {IntentReference} with status {Status}.",
-            intent.IntentReference,
+            intentReference,
             verification.Status);
 
         return BuildVerificationResponse(intent, attempt, verification, cancellationToken);
@@ -1409,6 +1586,11 @@ public sealed class PaymentProcessingCommandHandler(
 
         if (latest is not null && latest.NeedsVerification)
         {
+            // THE REQUEST IS ON RECORD BEFORE VERIFICATION RUNS. Verification takes the intent's
+            // lock and re-reads everything, discarding whatever this request had not yet saved -
+            // which would otherwise include the audit row written above.
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var verified = await HandleAsync(
                 new VerifyPaymentCommand(new VerifyPaymentRequest(PaymentAttemptId: latest.Id)),
                 cancellationToken);

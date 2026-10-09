@@ -293,6 +293,8 @@ public sealed class DonationIntentReadService(
             PaymentMappingConfig.Describe(intent.SourceType),
             intent.TrackingReference,
             intent.TrackingAssetId,
+            intent.TrackingAssetPlaceId,
+            intent.TrackingPlaceName,
             intent.LeadId,
             intent.DonorId,
             intent.ConsentGiven,

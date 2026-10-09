@@ -41,6 +41,12 @@ public sealed record AttributedDonation
     /// <summary>The reference the donor's link or QR code carried. Empty on a direct gift.</summary>
     public string TrackingReference { get; init; } = string.Empty;
 
+    /// <summary>
+    /// The offline QR code's place the gift came through - the stall, the notice board - as named
+    /// when the donor scanned. Null for every other route in.
+    /// </summary>
+    public string? PlaceName { get; init; }
+
     public string ChannelName { get; init; } = string.Empty;
 
     public string SourceName { get; init; } = string.Empty;

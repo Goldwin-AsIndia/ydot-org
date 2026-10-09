@@ -1,11 +1,10 @@
 
 import { CommonModule } from '@angular/common';
-import { Component, Injector, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../../Finance/shared/toast.service';
-import { CampaignStoreService } from '../../../../../Shared/services/campaign-store.service';
 import { CurrentUserService } from '../../../../../Shared/services/current-user.service';
 import { DataService } from '../../../../../Service/data.service';
 import { PaymentApiService } from '../../../../../Service/payment-api.service';
@@ -63,17 +62,15 @@ interface ScopeOption {
    * no campaign at all.
    *
    * The public campaigns endpoint returns the id on every row and always did; the picker was
-   * throwing it away. Optional because the signed-in branch still resolves through the store.
+   * throwing it away.
    */
   readonly apiId?: string | null;
 
   /**
    * The campaign amount - the fixed figure this appeal is stated at.
    *
-   * IT TRAVELS WITH THE OPTION rather than being looked up when one is chosen, because the two
-   * sources this picker is fed from are different shapes and only one of them is reachable
-   * without a session. Carrying it here means the Campaign amount field fills the same way for an
-   * anonymous donor following a QR code and for a signed-in fundraiser choosing from the register.
+   * IT TRAVELS WITH THE OPTION rather than being looked up when one is chosen, so the Campaign
+   * amount field fills from the same answer that named the campaign, with nothing to resolve.
    *
    * ZERO OR UNDEFINED MEANS NOT STATED - a campaign created before the column existed - and the
    * field shows nothing rather than "0.00".
@@ -108,14 +105,6 @@ interface PublicDonationInitiationConfig {
 }
 
 
-/**
- * The campaign states that may receive a donation.
- *
- * See the note on `campaignOptions`. Kept as one list so the two donation forms cannot drift
- * apart about what "an approved campaign" means.
- */
-const DonatableCampaignStatuses: readonly string[] = ['Approved', 'Scheduled', 'Active'];
-
 @Component({
   selector: 'app-donorform',
  imports: [CommonModule, FormsModule],
@@ -128,41 +117,17 @@ export class DonorformComponent {
   private readonly dataService = inject(DataService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  private readonly injector = inject(Injector);
   private readonly currentUser = inject(CurrentUserService);
-
-  /**
-   * The campaign store, resolved ONLY for a signed-in caller.
-   *
-   * IT IS DELIBERATELY NOT A FIELD INJECTION ANY MORE. CampaignStoreService calls the
-   * authenticated campaign API in its own constructor and again every sixty seconds, so
-   * injecting it here meant a stranger who scanned a QR code triggered a 401 on page load and
-   * another every minute they spent reading the form - on the one screen in the application
-   * whose entire purpose is to serve somebody with no account. Resolving it lazily means the
-   * anonymous path never constructs it at all.
-   *
-   * AN ANONYMOUS DONOR LOSES NOTHING BY IT. Their campaign comes from the tracking reference in
-   * the link they followed, which the API resolves server-side against the right organisation -
-   * which is also the only way it could be resolved safely, since a list here would have to
-   * offer every organisation's campaigns to everybody.
-   */
-  private campaignStoreOrNull(): CampaignStoreService | null {
-    if (!this.isInternalView()) {
-      return null;
-    }
-
-    this.campaignStoreRef ??= this.injector.get(CampaignStoreService);
-    return this.campaignStoreRef;
-  }
-
-  private campaignStoreRef: CampaignStoreService | null = null;
 
   /**
    * Whether somebody signed in is looking at this form.
    *
-   * THE DIFFERENCE IS THE CAMPAIGN PICKER, not the fields. A fundraiser capturing a donation on
-   * a lead's behalf can be offered the campaign list because the campaign API will answer them;
-   * a donor arriving from a poster cannot.
+   * IT NO LONGER DECIDES WHERE THE CAMPAIGNS COME FROM. It used to switch the picker to the
+   * authenticated campaign register, which answers only somebody holding the campaign-view
+   * permission - so a signed-in DONOR, the person this form is for, was refused by the register
+   * and shown "No eligible campaign or appeal matches inside your scope". Everybody now gets the
+   * public list of appeals open for giving. What this still decides is the sign-in detour after
+   * submit: somebody already signed in is not sent to sign in.
    */
   protected readonly isInternalView = computed(() => this.currentUser.reference() !== '');
 
@@ -187,11 +152,10 @@ export class DonorformComponent {
   /**
    * The tracking reference from the QR code or link.
    *
-   * IT IS HOW AN ANONYMOUS DONOR GETS A CAMPAIGN, and how the platform knows which organisation
-   * the gift belongs to. Nobody signed in means no campaign list to choose from - the campaign
-   * register is authenticated - so the link itself carries the attribution and the API resolves
-   * it. A form opened with no reference and no session can still be submitted; the API then
-   * decides whether it has enough to place the donation.
+   * IT IS WHAT CREDITS THE GIFT TO THE CODE - and, for an offline QR code, to the place it was
+   * put. The server resolves it to the code's campaign (see loadTrackingContext, which binds that
+   * campaign here) and records the asset and the place on the donation. A form opened with no
+   * reference can still be submitted; the gift is then credited to no code.
    */
   protected readonly trackingReference = signal<string>('');
 
@@ -324,98 +288,96 @@ export class DonorformComponent {
   /**
    * The campaigns a donation may be started against.
    *
-   * EMPTY FOR AN ANONYMOUS DONOR, and that is correct rather than a gap - see
-   * campaignStoreOrNull above. Cancelled and Closed campaigns are filtered out because a gift
-   * cannot be attributed to one.
-   */
-  /**
-   * The campaigns a donation may be started against.
+   * ONE SOURCE FOR EVERYBODY: the appeals the organisation is taking gifts for now, from the
+   * public endpoint, which applies the rule server-side - Approved, Scheduled or Active, and
+   * inside the campaign's own dates. Draft, Submitted, Paused, Closing, Closed and Cancelled
+   * campaigns are never offered.
    *
-   * APPROVED AND OPEN ONLY. This filtered out Cancelled and Closed and admitted everything else,
-   * which meant Draft and Submitted campaigns - ones nobody has approved yet, and which may
-   * never run - were offered to donors as somewhere to send money. The three states admitted
-   * here are the ones that have passed approval and can still take a gift:
+   * THE SIGNED-IN BRANCH IS GONE, and with it the empty picker. A signed-in caller used to be
+   * given the authenticated campaign register instead, which answers only somebody holding the
+   * campaign-view permission - a Donor, a Fundraiser or DonorCare was refused and shown "No
+   * eligible campaign or appeal matches inside your scope".
    *
-   *   Approved   signed off, not yet started
-   *   Scheduled  signed off, with a start date set
-   *   Active     running now
-   *
-   * Paused and Closing are excluded as well as Draft, Submitted, Closed and Cancelled: a paused
-   * campaign has been stopped on purpose, and one that is closing is being wound up. Neither is
-   * somewhere to send new money.
+   * A SCANNED CODE'S CAMPAIGN IS ADDED when the list does not carry it - see loadTrackingContext.
    */
   protected readonly campaignOptions = computed<readonly ScopeOption[]>(() => {
-    const store = this.campaignStoreOrNull();
+    const listed = this.publicCampaigns();
+    const scanned = this.trackingCampaign();
 
-    // ANONYMOUS: the public endpoint, which is the case this form is built for. Every row it
-    // returns is already open for giving, so there is nothing further to filter - the server
-    // applied the same rule the branch below applies to the register.
-    if (!store) {
-      return this.publicCampaigns().map((campaign) => ({
-        reference: campaign.code,
-        name: campaign.name,
-        context: 'Open for donations',
+    const campaigns = scanned && !listed.some((campaign) => campaign.id === scanned.id)
+      ? [...listed, scanned]
+      : listed;
 
-        // THE ID TRAVELS WITH THE OPTION. See the note on ScopeOption.apiId - without it an
-        // anonymous donor's gift reaches the server with campaignId null.
-        apiId: campaign.id,
+    return campaigns.map((campaign) => ({
+      reference: campaign.code,
+      name: campaign.name,
+      context: 'Open for donations',
 
-        // AND SO DOES THE AMOUNT, so the Campaign amount field beside the picker fills from the
-        // same answer that named the campaign, with no second call and nothing to resolve.
-        amount: campaign.campaignAmount,
-        currencyCode: campaign.currencyCode,
-      }));
-    }
+      // THE ID TRAVELS WITH THE OPTION. See the note on ScopeOption.apiId - without it the
+      // donor's gift reaches the server with campaignId null.
+      apiId: campaign.id,
 
-    return store
-      .all()
-      .filter((c) => DonatableCampaignStatuses.includes(c.status))
-      .map((c) => ({
-        reference: c.code,
-        name: c.name,
-        context: c.status,
-
-        // CARRIED HERE TOO, so `?campaign=<guid>` resolves to a real option for a signed-in
-        // caller exactly as it does for an anonymous one - and therefore locks, rather than
-        // falling through to the id-only path that locked an empty picker.
-        apiId: store.apiId(c.code) ?? null,
-
-        amount: c.campaignAmount,
-
-        // The register's currency name reads "INR - Indian Rupee"; the ISO code is the half worth
-        // printing beside a figure.
-        currencyCode: (c.currencyName ?? '').split('—')[0].split('-')[0].trim() || undefined,
-      }));
+      // AND SO DOES THE AMOUNT, so the Campaign amount field beside the picker fills from the
+      // same answer that named the campaign, with no second call and nothing to resolve.
+      amount: campaign.campaignAmount,
+      currencyCode: campaign.currencyCode,
+    }));
   });
 
   /**
-   * The appeals an anonymous donor may choose from.
-   *
-   * WHY THERE ARE TWO SOURCES FOR ONE PICKER. A signed-in fundraiser has the campaign register,
-   * which carries status, dates and everything else a staff screen needs. A donor who scanned a
-   * QR code has no token, so the register answers them 401 - and the picker they were shown was
-   * therefore always empty, reading "No eligible campaign or appeal matches inside your scope"
-   * to somebody who has no scope at all and is simply trying to give money.
-   *
-   * The anonymous endpoint returns the same appeals filtered to the ones actually open for
-   * giving, resolved from the host rather than from anything the browser can choose.
+   * The appeals this organisation is taking gifts for, resolved from the page's host rather than
+   * from anything the browser can choose. See `campaignOptions`.
    */
   protected readonly publicCampaigns = signal<readonly PublicCampaignSummary[]>([]);
 
   /**
-   * Loads the anonymous picker, for a visitor with no session.
+   * The campaign the scanned QR code or tracking link gives to, once the server has said.
    *
-   * SIGNED-IN CALLERS SKIP IT. They have the register, which is richer and already loaded, and
-   * asking for both would show every campaign twice.
+   * A CODE'S URL NAMES NO CAMPAIGN - it carries its tracking reference and UTM tags - so a donor
+   * who scanned a poster met an open picker, had to find the appeal themselves, and could choose
+   * another; the gift was then credited to nothing. This binds and locks the code's campaign the
+   * way a link naming the campaign does, so the place the code was put is credited with the gift.
+   */
+  protected readonly trackingCampaign = signal<PublicCampaignSummary | null>(null);
+
+  /**
+   * Asks what the code on the link gives to, and binds that campaign.
+   *
+   * A LINK THAT ALSO NAMES A CAMPAIGN KEEPS ITS OWN, and a reopened donation keeps the one it was
+   * made for. A code that cannot be read, or whose appeal is not taking gifts, leaves the picker
+   * open - the donor can still give, and the server simply credits the gift to no code.
+   */
+  private loadTrackingContext(reference: string): void {
+    this.payments.getPublicTrackingContext(reference).subscribe({
+      next: (context) => {
+        this.trackingCampaign.set(context.campaign);
+
+        if (!context.campaign) {
+          this.pushActivity(
+            context.message ?? 'The appeal on this code is not taking donations; choose one below.',
+          );
+          return;
+        }
+
+        if (!this.campaignCodeFromLink() && !this.selectedCampaign() && !this.intentReference()) {
+          this.bindCampaignFromCode(context.campaign.id);
+        }
+
+        if (context.placeName) {
+          this.pushActivity('Arrived from the code at ' + context.placeName + '.');
+        }
+      },
+      error: () => this.pushActivity('The code on this link could not be read; choose the appeal below.'),
+    });
+  }
+
+  /**
+   * Loads the picker.
    *
    * A FAILURE LEAVES AN EMPTY PICKER AND NOTHING ELSE. A donor who arrived with a tracking
    * reference or a campaign on their link can still give without it.
    */
   private loadPublicCampaigns(): void {
-    if (this.isInternalView()) {
-      return;
-    }
-
     this.payments.getPublicCampaigns().subscribe({
       next: (rows) => {
         this.publicCampaigns.set(rows);
@@ -1044,8 +1006,6 @@ export class DonorformComponent {
    * tracking reference from the link resolves it server-side instead.
    */
   private buildIntentRequest(): CreateDonationIntentRequest {
-    const campaignRef = this.selectedCampaign()?.reference ?? '';
-
     return {
       donorName:
         this.donorType() === 'Organisation'
@@ -1065,11 +1025,7 @@ export class DonorformComponent {
       // unresolvable link leaves the donor free to choose. With the link's id first, somebody
       // who arrived on `?campaign=<unknown guid>` and then picked an appeal from the open
       // dropdown would have had their choice silently overridden by the dead id from the link.
-      // The store is last and answers only for a signed-in caller.
-      campaignId:
-        this.selectedCampaign()?.apiId
-        ?? this.campaignIdFromLink()
-        ?? (campaignRef ? this.campaignStoreOrNull()?.apiId(campaignRef) ?? null : null),
+      campaignId: this.selectedCampaign()?.apiId ?? this.campaignIdFromLink() ?? null,
       trackingReference: this.trackingReference() || null,
 
       // The lead the link was made for - see `leadIdFromLink`. Its presence is also what makes
@@ -1506,6 +1462,7 @@ export class DonorformComponent {
     this.campaignCodeFromLink.set('');
     this.campaignBoundFromLink.set(false);
     this.campaignIdFromLink.set(null);
+    this.trackingCampaign.set(null);
     this.donationAmount.set('');
     this.amountFromIntent.set(false);
     this.consentChecked.set(false);
@@ -1525,17 +1482,16 @@ export class DonorformComponent {
    *
    * TWO THINGS ARRIVE ON THE QUERY STRING AND THEY DO DIFFERENT JOBS.
    *
-   *   ref / tracking - the TRACKING REFERENCE. It is how an anonymous donor gets a campaign at
-   *     all, and it is also what tells the platform which organisation the gift belongs to. The
-   *     API resolves it; nothing here can, and nothing here should - a value the browser could
-   *     choose would let a stranger point a donation at any organisation on the platform.
+   *   ref / tracking - the TRACKING REFERENCE of a QR code or tracking link. The API resolves
+   *     it to the code's campaign, which is then bound and locked like a named campaign, and
+   *     credits the gift to the code and its place. Nothing here decides what it means - a value
+   *     the browser could choose would let a stranger point a donation at any organisation.
    *
    *   campaign - a campaign CODE, for a link built by the tracking asset manager that names one.
    *     Where it is present the picker is bound to it and locked, which is what the flow
    *     document asks for: "that campaign is auto-bound as the default on the donation form and
-   *     cannot be edited or changed by the donor". Where it is absent the picker stays open so a
-   *     signed-in fundraiser can choose - an anonymous donor sees no list, because the campaign
-   *     register is authenticated, and their campaign comes from the tracking reference instead.
+   *     cannot be edited or changed by the donor". Where neither it nor a code names one, the
+   *     picker stays open on the appeals the organisation is taking gifts for.
    *
    *   intent - an existing donation being continued, from the payments queue or from a result
    *     page that sent somebody back to pay.
@@ -1545,7 +1501,12 @@ export class DonorformComponent {
   private readLinkContext(): void {
     const params = this.route.snapshot.queryParamMap;
 
-    this.trackingReference.set(params.get('ref') ?? params.get('tracking') ?? '');
+    this.trackingReference.set((params.get('ref') ?? params.get('tracking') ?? '').trim());
+
+    // THE CODE NAMES ITS CAMPAIGN ONLY ON THE SERVER, so it is asked. See loadTrackingContext.
+    if (this.trackingReference()) {
+      this.loadTrackingContext(this.trackingReference());
+    }
 
     const lead = (params.get('lead') ?? '').trim();
     this.leadIdFromLink.set(DonorformComponent.isGuid(lead) ? lead : null);

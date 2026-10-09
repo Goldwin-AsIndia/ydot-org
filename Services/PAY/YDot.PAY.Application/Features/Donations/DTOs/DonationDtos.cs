@@ -76,6 +76,10 @@ public sealed record DonationDetailResponse(
     DonationSourceType SourceType,
     string SourceDescription,
     Guid? TrackingAssetId,
+
+    /// <summary>The offline QR code's placement the gift came through, and its name as at the gift.</summary>
+    Guid? TrackingAssetPlaceId,
+    string? TrackingPlaceName,
     Guid? LeadId,
     bool IsReceiptable,
     IReadOnlyList<ReceiptSummaryResponse> Receipts,

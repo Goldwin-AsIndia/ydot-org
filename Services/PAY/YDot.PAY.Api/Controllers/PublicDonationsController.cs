@@ -95,6 +95,67 @@ public sealed class PublicDonationsController(
     }
 
     /// <summary>
+    /// What a scanned QR code or followed tracking link gives to.
+    ///
+    /// WHY THE DONATION FORM NEEDS IT. A code's URL carries its tracking reference and nothing
+    /// that names the campaign, so a donor who scanned a poster reached a form with an open
+    /// campaign picker and had to find the appeal themselves - or chose a different one, and the
+    /// gift was never credited to the poster at all. This lets the form bind the code's campaign
+    /// and its amount, and lock the picker, exactly as a link naming the campaign does.
+    ///
+    /// ANOTHER ORGANISATION'S CODE IS NOT FOUND HERE. The reference is unique platform-wide, but
+    /// a page served on one charity's host answers only for that charity's codes; on a host that
+    /// names no organisation the code's own organisation is used, as the payment routes do.
+    ///
+    /// A CODE THAT IS NOT LIVE STILL NAMES ITS CAMPAIGN. A poster whose run has ended can still
+    /// bring a donor to an appeal that is open; the gift is simply not credited to the poster,
+    /// which is what <c>IsLive</c> tells the form.
+    /// </summary>
+    [HttpGet("tracking/{trackingReference}")]
+    [ProducesResponseType(typeof(ApiResponse<PublicTrackingContext>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTrackingContextAsync(
+        string trackingReference, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Public tracking reference lookup requested.");
+
+        var attribution = await campaigns.ResolveTrackingReferenceAsync(trackingReference, cancellationToken);
+
+        if (attribution is null
+            || (tenantContext.TenantId is { } tenantId && tenantId != attribution.TenantId))
+        {
+            logger.LogInformation("Public tracking reference lookup found no code for this organisation.");
+
+            return FromResult(Result.Failure<PublicTrackingContext>(
+                Error.NotFound("This donation code was not recognised.")));
+        }
+
+        var eligibility = await campaigns.GetDonationEligibilityAsync(
+            attribution.TenantId, attribution.CampaignId, cancellationToken);
+
+        var campaign = eligibility.CanAcceptDonations
+            ? new PublicCampaignSummary(
+                attribution.CampaignId,
+                attribution.CampaignCode,
+                attribution.CampaignName,
+                attribution.CampaignDescription,
+                eligibility.CurrencyCode ?? "INR",
+                eligibility.CampaignAmount)
+            : null;
+
+        logger.LogInformation(
+            "Public tracking reference lookup resolved asset {TrackingAssetId}. Live: {IsLive}.",
+            attribution.TrackingAssetId, attribution.IsActive);
+
+        return FromResult(Result.Success(new PublicTrackingContext(
+            trackingReference.Trim(),
+            attribution.IsActive,
+            campaign,
+            attribution.IsActive ? attribution.PlaceName : null,
+            campaign is null ? eligibility.Reason : null)));
+    }
+
+    /// <summary>
     /// Starts a donation. Section 11 and section 22's nine entry channels.
     ///
     /// ONE ENDPOINT FOR EVERY CHANNEL. A QR scan, a website button, an e-mail link and a

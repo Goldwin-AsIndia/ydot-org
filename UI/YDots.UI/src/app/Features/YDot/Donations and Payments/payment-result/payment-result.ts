@@ -210,6 +210,16 @@ export class PaymentResultComponent implements OnDestroy {
       },
 
       error: (error: unknown) => {
+        // ONE FAILED CHECK IS NOT THE LAST WORD EITHER. It is asked again on the same schedule as
+        // a pending answer: the first check usually lands while the checkout confirmation for
+        // the same payment is still recording it, and it used to stop at the first error and
+        // leave the donor reading "still confirming" over a server message for a gift that was
+        // recorded a moment later.
+        if (this.attempts < PaymentResultComponent.MaximumAttempts) {
+          this.timer = setTimeout(() => this.verify(), PaymentResultComponent.RetryDelayMs);
+          return;
+        }
+
         this.errorMessage.set(apiErrorMessage(error));
 
         // A FAILED CHECK IS NOT A FAILED PAYMENT, and must never be shown as one. If we could

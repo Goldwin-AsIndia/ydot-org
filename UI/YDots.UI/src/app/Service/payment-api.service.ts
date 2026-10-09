@@ -12,6 +12,7 @@ import {
   CorrectReceiptRequest,
   CreateDonationIntentRequest,
   PublicCampaignSummary,
+  PublicTrackingContext,
   CheckoutSession,
   ConfirmCheckoutRequest,
   CreateCheckoutSessionRequest,
@@ -122,6 +123,21 @@ export class PaymentApiService {
     return this.http
       .get<ApiResponse<PublicCampaignSummary[]>>(`${this.publicApi}/campaigns`)
       .pipe(map((response) => response.data ?? []));
+  }
+
+  /**
+   * What a scanned QR code or followed tracking link gives to: its campaign, whether a gift is
+   * credited to it now, and - for an offline QR code - the place it was put.
+   *
+   * ANONYMOUS, like the campaign list. The reference is unguessable and names one code; a page on
+   * one organisation's host is answered only for that organisation's codes.
+   */
+  getPublicTrackingContext(trackingReference: string): Observable<PublicTrackingContext> {
+    return this.http
+      .get<ApiResponse<PublicTrackingContext>>(
+        `${this.publicApi}/tracking/${encodeURIComponent(trackingReference)}`,
+      )
+      .pipe(map((response) => response.data!));
   }
 
   /**

@@ -266,7 +266,8 @@ public sealed class FinancialDirectory(
                 COALESCE(medium.name, ''),
                 donation.donor_name,
                 donation.donor_id,
-                COUNT(*) OVER () AS total_count
+                COUNT(*) OVER () AS total_count,
+                donation.tracking_place_name
             FROM pay_donations AS donation
             LEFT JOIN pay_donation_intents AS intent ON intent.id = donation.donation_intent_id
             LEFT JOIN cam_campaigns AS campaign ON campaign.id = donation.campaign_id
@@ -343,6 +344,7 @@ public sealed class FinancialDirectory(
                     MediumName = reader.GetString(12),
                     DonorName = reader.GetString(13),
                     DonorId = reader.IsDBNull(14) ? null : reader.GetGuid(14),
+                    PlaceName = reader.IsDBNull(16) ? null : reader.GetString(16),
 
                     // ATTRIBUTED MEANS TRACED TO AN ASSET, not merely assigned to a campaign. A
                     // gift recorded against a campaign by hand is attributed to nothing, and a
@@ -399,7 +401,8 @@ public sealed class FinancialDirectory(
                 COALESCE(source.name, ''),
                 COALESCE(medium.name, ''),
                 donation.donor_name,
-                donation.donor_id
+                donation.donor_id,
+                donation.tracking_place_name
             FROM pay_donations AS donation
             LEFT JOIN pay_donation_intents AS intent ON intent.id = donation.donation_intent_id
             LEFT JOIN cam_campaigns AS campaign ON campaign.id = donation.campaign_id
@@ -444,6 +447,7 @@ public sealed class FinancialDirectory(
                 MediumName = reader.GetString(12),
                 DonorName = reader.GetString(13),
                 DonorId = reader.IsDBNull(14) ? null : reader.GetGuid(14),
+                PlaceName = reader.IsDBNull(15) ? null : reader.GetString(15),
                 IsAttributed = trackingAsset is not null,
                 HasOpenCorrectionRequest = false
             };

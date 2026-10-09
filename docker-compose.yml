@@ -278,11 +278,21 @@ services:
       # ---- Seed ----------------------------------------------------------------------------
       SeedSettings__Enabled: "true"
       SeedSettings__RootDomain: "localhost"
-      SeedSettings__SuperAdminEmail: "${IAM_SUPERADMIN_EMAIL:-superadmin@ydot.local}"
-      SeedSettings__SuperAdminUsername: "superadmin"
-      SeedSettings__SuperAdminFirstName: "Platform"
-      SeedSettings__SuperAdminLastName: "Administrator"
+
+      # THE ONE PLATFORM ADMIN: Vikram Anand, who signs in on http://localhost:6700. There is no
+      # other account at platform level - the "superadmin" system account is gone, and the seeder
+      # retires any other platform account it finds on a database seeded before.
+      SeedSettings__SuperAdminEmail: "vikram.anand@ngoplanet.test"
+      SeedSettings__SuperAdminUsername: "vikram.anand"
+      SeedSettings__SuperAdminFirstName: "Vikram"
+      SeedSettings__SuperAdminLastName: "Anand"
+      SeedSettings__SuperAdminDesignation: "Platform Operations Lead"
+      SeedSettings__SuperAdminMobile: "9845012876"
       SeedSettings__SuperAdminPassword: "${IAM_SUPERADMIN_PASSWORD:-SuperAdmin@2026}"
+
+      # Where the platform's own notices go (an Organisation waiting for review). A mailbox, not
+      # an account. IAM_SUPERADMIN_EMAIL is the older name for it and is still read.
+      SeedSettings__PlatformContactEmail: "${IAM_PLATFORM_CONTACT_EMAIL:-${IAM_SUPERADMIN_EMAIL:-}}"
       SeedSettings__SeedSampleTenants: "true"
 
       # THE SEEDED ORGANISATIONS. Smile Foundation and HelpAge India are Active with nine staff and
@@ -300,7 +310,7 @@ services:
       SeedSettings__SampleOrganisationId: "${SAMPLE_ORGANISATION_ID:-9fb11890-a08e-4adc-95ca-8e4d71f4dd21}"
 
       # The password every seeded Organisation account shares - administrators, staff and donors.
-      # The platform administrators use SuperAdminPassword above. Leave this unset in anything
+      # The Platform Admin uses SuperAdminPassword above. Leave this unset in anything
       # that is not a demonstration and only the Organisation administrators are created.
       SeedSettings__RoleAccountPassword: "${IAM_ROLE_ACCOUNT_PASSWORD:-YDot@2026Demo}"
 

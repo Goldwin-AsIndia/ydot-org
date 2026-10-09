@@ -1109,7 +1109,12 @@ export class TrackingAssetManagerComponent {
    *
    * THE NAMES, NOT THE IDS. `CampaignRecord.city` and `.region` hold the API's Guids, because
    * that is what the create and update bodies require; the readable values live alongside them in
-   * `cityName` and `regionName`.
+   * `cityName` and `regionName`, both from the campaign's detail response.
+   *
+   * ONLY THE SERVER'S NAMES. The State box used to fall back to `regionLabel`, which is the
+   * wizard's field caption - the word "State" - so a campaign created in this session showed
+   * "State" as its state until the detail arrived. Until then the box is empty and reads
+   * "From campaign".
    */
   protected readonly placeLocation = computed<{ readonly city: string; readonly state: string }>(
     () => {
@@ -1117,7 +1122,7 @@ export class TrackingAssetManagerComponent {
 
       return {
         city: rec?.cityName ?? '',
-        state: rec?.regionName ?? rec?.regionLabel ?? '',
+        state: rec?.regionName ?? '',
       };
     },
   );
@@ -1128,24 +1133,25 @@ export class TrackingAssetManagerComponent {
     const sources = this.sourceChoices();
     const offered = channels.filter((c) => campaignChannels?.includes(c.ref));
 
-    // A QR code on a campaign that runs Offline is an on-ground asset (one QR per place), so that
-    // channel wins for a QR code; otherwise the campaign's first channel is used.
-    const offline = this.gAssetType() === 'QR Code'
-      ? offered.find((c) => c.label.toLowerCase() === 'offline')
-      : undefined;
-    this.gChannel.set(offline?.ref ?? offered[0]?.ref ?? channels[0]?.ref ?? '');
+    // THE CAMPAIGN'S FIRST CHANNEL, WHATEVER THE ASSET TYPE. A QR code used to take the campaign's
+    // Offline channel here ahead of the others, which is the asset type choosing the Medium - see
+    // `selectAssetType`.
+    this.gChannel.set(offered[0]?.ref ?? channels[0]?.ref ?? '');
     this.gSource.set(
       sources.find((c) => c.ref === source)?.ref ?? sources[0]?.ref ?? '');
   }
 
-  /** Picks the asset type; the channel follows (a QR code can become an on-ground asset). */
+  /**
+   * Picks the asset type, and nothing else.
+   *
+   * THE MEDIUM IS THE PERSON'S OWN CHOICE. Picking QR Code used to switch it to Offline whenever
+   * the campaign ran that channel, so the Places section opened on a Medium nobody had chosen and
+   * a QR code for any other Medium meant changing it back by hand. Any asset type goes with any
+   * Medium; choosing Offline is what brings the place cards up (`isOnGround`), and every other
+   * Medium keeps the single destination the other asset types have.
+   */
   protected selectAssetType(type: string): void {
     this.gAssetType.set(type);
-    const rec = this.campaignStore.get(this.gCampaign());
-    if (!rec || this.isEditing() || type !== 'QR Code') return;
-    const offline = this.channelChoices().find(
-      (c) => c.label.toLowerCase() === 'offline' && rec.channels?.includes(c.ref));
-    if (offline) this.gChannel.set(offline.ref);
   }
 
   /**
