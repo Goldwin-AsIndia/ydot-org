@@ -303,6 +303,33 @@ button, input, select, textarea { font: inherit; }
 }
 .pg-filter input[type='date'] { width: calc(140px * var(--s)); }
 
+/* Form actions live at the bottom (sticky card foot) — not in the top header. */
+.pg-formfoot {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: calc(12px * var(--s)) calc(16px * var(--s));
+  padding: calc(14px * var(--s)) var(--pg-pad);
+  position: sticky;
+  bottom: calc(12px * var(--s));
+  z-index: 5;
+  box-shadow: 0 calc(8px * var(--s)) calc(24px * var(--s)) rgba(22, 32, 27, .08);
+}
+
+.pg-formfoot__hint {
+  min-width: 0;
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.5 !important;
+  color: var(--pg-muted);
+}
+
+@media (max-width: 720px) {
+  .pg-formfoot { flex-direction: column; align-items: stretch; }
+  .pg-formfoot .pg-acts { justify-content: flex-end; }
+}
+
 /* ---------------------------------------------------------------- tables inside cards */
 .pg-tablewrap { min-width: 0; transition: opacity .2s ease; }
 .pg-tablewrap.is-loading { opacity: .55; }

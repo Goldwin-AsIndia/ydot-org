@@ -253,17 +253,6 @@
                 <h1 class="pg-title">{{ form().id ? 'Edit gateway' : 'New gateway' }}</h1>
                 <p class="pg-sub">The credentials the provider issued for this organisation's merchant account</p>
               </div>
-              <div class="pg-acts">
-                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelForm()">Cancel</button>
-                @if (form().id && canTest()) {
-                  <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="testing() !== null" (click)="test(form().existing!)">
-                    <i class="ri-plug-line" aria-hidden="true"></i> {{ testing() ? 'Testing…' : 'Test connection' }}
-                  </button>
-                }
-                <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="save()">
-                  <i class="ri-save-line" aria-hidden="true"></i> {{ saving() ? 'Saving…' : 'Save' }}
-                </button>
-              </div>
             </div>
           </header>
 
@@ -476,6 +465,22 @@
               </div>
             </section>
           </div>
+
+          <!-- Form actions live at the bottom (sticky) — not in the top header. -->
+          <footer class="pg-box pg-formfoot">
+            <span class="pg-formfoot__hint">Review the details above, then save or discard.</span>
+            <div class="pg-acts">
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelForm()"> <i class="ri-close-line" aria-hidden="true"></i>Cancel</button>
+              @if (form().id && canTest()) {
+                <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="testing() !== null" (click)="test(form().existing!)">
+                  <i class="ri-plug-line" aria-hidden="true"></i> {{ testing() ? 'Testing…' : 'Test connection' }}
+                </button>
+              }
+              <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="save()">
+                <i class="ri-save-line" aria-hidden="true"></i> {{ saving() ? 'Saving…' : 'Save' }}
+              </button>
+            </div>
+          </footer>
         }
 
         <!-- ============================== DETAIL ============================== -->
@@ -719,9 +724,20 @@
                   <span>To</span>
                   <input type="date" [ngModel]="auditTo()" (ngModelChange)="auditTo.set($event); applyAuditFilters()" />
                 </label>
-                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearAuditFilters()">Clear</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearAuditFilters()"> <i class="ri-refresh-line" aria-hidden="true"></i>Clear</button>
               }
-              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="auditVisible.set(!auditVisible())">{{ auditVisible() ? 'Hide' : 'Show' }}</button>
+           <button
+  type="button"
+  class="btn btn-outline-secondary btn-sm"
+  (click)="auditVisible.set(!auditVisible())">
+
+  <i
+    [class]="auditVisible() ? 'ri-eye-off-line' : 'ri-file-list-3-line'"
+    aria-hidden="true">
+  </i>
+
+  {{ auditVisible() ? 'Hide' : 'Show' }}
+</button>
             </div>
           </div>
 

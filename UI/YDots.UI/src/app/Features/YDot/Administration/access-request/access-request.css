@@ -764,72 +764,27 @@ code {
   border-color: #fed7aa;
 }
 
-/* Row actions — bordered icon buttons with a tone per action */
+/* Row actions — box/paint/size + hover + focus come from
+   styles/ydot-list-actions.css (ghost style). Only layout kept here. */
 .ar-actions {
-  display: flex;
+  display: inline-flex;
   justify-content: flex-end;
   align-items: center;
-  gap: calc(5px * var(--ui-scale, 1));
+  gap: 8px;
   white-space: nowrap;
 }
 
 .ar-act {
-  --t: var(--ar-ink-2);
-  --tb: var(--ar-soft);
-  width: calc(32px * var(--ui-scale, 1));
-  height: calc(32px * var(--ui-scale, 1));
-  display: grid;
+  display: inline-grid;
   place-items: center;
-  border: none;
-  border-radius: calc(9px * var(--ui-scale, 1));
-  background: transparent;
-  color:gray ;  
+  padding: 0;
   cursor: pointer;
-  transition: background-color .15s, border-color .15s, color .15s, transform .15s;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
-.ar-act i {
-  font-size:20px !important;
-}
-
-/* .ar-act:hover {
-  background: var(--tb);
-  border-color: var(--t);
-  transform: translateY(-1px);
-} */
-
-.ar-act:focus-visible {
-  outline: 2px solid var(--t);
-  outline-offset: 2px;
-}
-
-.ar-act--primary {
-  --t: var(--ar-p);
-  --tb: var(--ar-p-50);
-  color: var(--ar-p);
-  border-color: var(--ar-p-100);
-}
-
-.ar-act--ok {
-  /* --t: var(--ar-ok);
-  --tb: var(--ar-ok-50);
-  color: var(--ar-ok);
-  border-color: #c3e9d4; */
-}
-
-.ar-act--danger {
-  /* --t: var(--ar-red);
-  --tb: var(--ar-red-50);
-  color: var(--ar-red);
-  border-color: #f5cccc; */
-}
-
-.ar-act--warn {
-  /* --t: var(--ar-warn);
-  --tb: var(--ar-warn-50);
-  color: var(--ar-warn);
-  border-color: #f1dcb5; */
-}
+/* A disabled icon action is a deliberate signal (row is submitting / rule withheld):
+   keep it discoverable rather than puzzling. */
+.ar-act:disabled { cursor: not-allowed; opacity: .4; }
 
 .ar-other {
   display: inline-flex;
@@ -1448,6 +1403,54 @@ code {
   gap: calc(8px * var(--ui-scale, 1));
   padding: calc(14px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1));
   border-top: 1px solid var(--ar-line-soft);
+}
+
+/* Primary / danger / outline actions (Submit, Confirm, Create, Retry) — visible hover feedback.
+   Bootstrap's global :hover is subtle and easily overridden, so scope an explicit darker
+   hover here. Disabled buttons keep their muted look. */
+.ar-page .btn,
+.ar-backdrop .btn,
+.ar-modal-foot .btn {
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+}
+
+.ar-page .btn-primary:hover:not(:disabled),
+.ar-backdrop .btn-primary:hover:not(:disabled),
+.ar-modal-foot .btn-primary:hover:not(:disabled) {
+  background: #16453a;
+  border-color: #16453a;
+  color: #fff;
+}
+
+@supports (color: color-mix(in srgb, red, black)) {
+  .ar-page .btn-primary:hover:not(:disabled),
+  .ar-backdrop .btn-primary:hover:not(:disabled),
+  .ar-modal-foot .btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ar-p) 85%, black);
+    border-color: color-mix(in srgb, var(--ar-p) 85%, black);
+  }
+}
+
+.ar-page .btn-danger:hover:not(:disabled),
+.ar-backdrop .btn-danger:hover:not(:disabled),
+.ar-modal-foot .btn-danger:hover:not(:disabled) {
+  background: #991b1b;
+  border-color: #991b1b;
+  color: #fff;
+}
+
+.ar-page .btn-outline-secondary:hover:not(:disabled),
+.ar-backdrop .btn-outline-secondary:hover:not(:disabled),
+.ar-modal-foot .btn-outline-secondary:hover:not(:disabled) {
+  background: var(--ar-p-50);
+  border-color: var(--ar-p);
+  color: var(--ar-p);
+}
+
+.ar-page .btn:active:not(:disabled),
+.ar-backdrop .btn:active:not(:disabled),
+.ar-modal-foot .btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .ar-note {
