@@ -774,6 +774,51 @@ textarea:focus:not(:focus-visible),
   max-height: calc(640px * var(--ui-scale, 1));
 }
 
+/* ---- Toolbar: a button whose format is on at the caret (bold, list, alignment…) ---- */
+.rte-btn.is-on {
+  background: color-mix(in srgb, var(--pe-primary, var(--meadow)) 12%, #fff);
+  border-color: var(--pe-primary, var(--meadow));
+  color: var(--pe-primary, var(--meadow));
+}
+.rte-btn i {
+  font-size: calc(16px * var(--ui-scale, 1));
+  line-height: 1;
+}
+.rte-btn:focus-visible,
+.rte-select:focus-visible {
+  outline: 2px solid var(--pe-primary, var(--meadow));
+  outline-offset: 1px;
+}
+
+/* ---- Formatting inside the editors AND the Review read view.
+   The app's global type rules use !important, which can flatten <b>, <i>, <u> and <font>
+   back to body text - so the formatting the toolbar writes is pinned here explicitly. ---- */
+.rte-body b, .rte-body strong,
+.preview-readonly b, .preview-readonly strong { font-weight: 700 !important; }
+.rte-body i, .rte-body em,
+.preview-readonly i, .preview-readonly em { font-style: italic !important; }
+.rte-body u, .preview-readonly u { text-decoration: underline !important; }
+
+.rte-body font[size="1"], .preview-readonly font[size="1"] { font-size: 0.75em !important; }
+.rte-body font[size="2"], .preview-readonly font[size="2"] { font-size: 0.875em !important; }
+.rte-body font[size="3"], .preview-readonly font[size="3"] { font-size: 1em !important; }
+.rte-body font[size="4"], .preview-readonly font[size="4"] { font-size: 1.15em !important; }
+.rte-body font[size="5"], .preview-readonly font[size="5"] { font-size: 1.35em !important; }
+.rte-body font[size="6"], .preview-readonly font[size="6"] { font-size: 1.65em !important; }
+.rte-body font[size="7"], .preview-readonly font[size="7"] { font-size: 2em !important; }
+
+.rte-body font[face*="Inter"], .preview-readonly font[face*="Inter"] { font-family: Inter, system-ui, sans-serif !important; }
+.rte-body font[face*="Georgia"], .preview-readonly font[face*="Georgia"] { font-family: Georgia, "Times New Roman", serif !important; }
+.rte-body font[face*="Courier"], .preview-readonly font[face*="Courier"] { font-family: "Courier New", ui-monospace, monospace !important; }
+/* nested text inside a <font> takes its size/face rather than the forced body type */
+.rte-body font *, .preview-readonly font * { font-size: inherit !important; font-family: inherit !important; }
+
+.rte-body p, .rte-body div,
+.preview-readonly p, .preview-readonly div { margin: 0; }
+.preview-readonly ul { padding-left: calc(22px * var(--ui-scale, 1)); list-style: disc; }
+.preview-readonly ol { padding-left: calc(22px * var(--ui-scale, 1)); list-style: decimal; }
+.rte-body li, .preview-readonly li { margin: 0 0 calc(2px * var(--ui-scale, 1)); }
+
 /* ===== Lifecycle activation (Channels & Sources) ===== */
 .activation-modes {
   display: grid;

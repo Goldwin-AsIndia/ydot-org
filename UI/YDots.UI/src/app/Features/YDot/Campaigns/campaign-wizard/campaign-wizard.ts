@@ -841,16 +841,93 @@ export class CampaignWizardComponent {
     }
   }
 
-  /** Apply an inline formatting command to the selection inside the rich-text editor. */
-  protected applyFormat(editor: HTMLElement, command: string, value?: string): void {
+  /**
+   * Toolbar mousedown. Keeps the caret/selection inside the editor while a toolbar BUTTON is
+   * clicked (preventDefault stops the button taking focus).
+   *
+   * THE SELECTS WERE DEAD BEFORE THIS. The old handler called preventDefault on every mousedown
+   * in the toolbar, including the Font size / Font style / Line spacing <select>s - and a select
+   * whose mousedown is cancelled never opens its list. Selects are now left alone; the selection
+   * is still stashed first, so applyFormat restores it after the list closes.
+   */
+  protected onToolbarMouseDown(event: MouseEvent): void {
+    this.stashSelection();
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('select')) return;
+    event.preventDefault();
+  }
+
+  /**
+   * Apply a formatting command to the selection inside a rich-text editor.
+   *
+   * TAGS, NOT INLINE STYLES. This used to switch the browser to `styleWithCSS`, which writes
+   * bold / size / font / alignment as `style="…"` attributes. Angular's [innerHTML] sanitiser
+   * strips every `style` attribute, so all of that formatting silently disappeared the next time
+   * an editor was seeded - leaving the step and coming back, opening the Review preview, or
+   * loading a saved draft. Tag-based markup (<b>, <i>, <u>, <font size|face>, <ul>/<ol>) and the
+   * `align` attribute are on the sanitiser's allow-list, so they survive the round trip.
+   *
+   * `source` is the <select> that fired the command, if any: it is put back on its placeholder
+   * so choosing the same size or font twice in a row still fires a change.
+   */
+  protected applyFormat(editor: HTMLElement, command: string, value?: string, source?: EventTarget | null): void {
     this.restoreSelection(editor);
     try {
-      document.execCommand('styleWithCSS', false, 'true');
+      document.execCommand('styleWithCSS', false, 'false');
       document.execCommand(command, false, value);
     } catch {
       /* execCommand is unavailable in some hosts — the plain text is still captured on input. */
     }
+    this.normaliseFormatting(editor);
+    if (source instanceof HTMLSelectElement) source.selectedIndex = 0;
     this.syncEditor(editor);
+    this.refreshFormatState(editor);
+  }
+
+  /**
+   * Some browsers still write alignment as `style="text-align: …"` even with styleWithCSS off.
+   * Move it onto the `align` attribute (which the sanitiser keeps) and drop empty style attributes.
+   */
+  private normaliseFormatting(editor: HTMLElement): void {
+    editor.querySelectorAll<HTMLElement>('[style]').forEach((el) => {
+      const align = el.style.textAlign;
+      if (align) {
+        el.setAttribute('align', align === 'start' ? 'left' : align === 'end' ? 'right' : align);
+        el.style.removeProperty('text-align');
+      }
+      if (!(el.getAttribute('style') ?? '').trim()) el.removeAttribute('style');
+    });
+  }
+
+  /**
+   * Which toolbar buttons are "on" (bold, list, alignment…) for the caret in the active editor.
+   * Kept per editor id so the toolbar of a field you are NOT typing in never lights up.
+   */
+  private static readonly TOGGLE_COMMANDS = [
+    'bold', 'italic', 'underline',
+    'insertUnorderedList', 'insertOrderedList',
+    'justifyLeft', 'justifyCenter', 'justifyRight',
+  ] as const;
+  protected readonly formatState = signal<{ editorId: string | null; on: Record<string, boolean> }>({
+    editorId: null,
+    on: {},
+  });
+  protected refreshFormatState(editor: HTMLElement): void {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !editor.contains(sel.anchorNode)) return;
+    const on: Record<string, boolean> = {};
+    for (const cmd of CampaignWizardComponent.TOGGLE_COMMANDS) {
+      try {
+        on[cmd] = document.queryCommandState(cmd);
+      } catch {
+        on[cmd] = false;
+      }
+    }
+    this.formatState.set({ editorId: editor.id, on });
+  }
+  protected isFormatOn(editor: HTMLElement, command: string): boolean {
+    const state = this.formatState();
+    return state.editorId === editor.id && !!state.on[command];
   }
   /** Line spacing control — sets the editor's line-height (predictable across the whole field). */
   protected applyLineHeight(target: 'desc' | 'terms' | 'popup', value: string): void {
@@ -927,6 +1004,11 @@ export class CampaignWizardComponent {
 
   /** Mirror an editor's markup + plain text into the correct backing signals. */
   protected syncEditor(editor: HTMLElement): void {
+    // Emptied field: browsers leave a stray <br> / <div><br></div> behind, which kept the
+    // :empty placeholder from coming back. Clear it (unless the user just started a list).
+    if (!(editor.innerText ?? '').trim() && editor.innerHTML !== '' && !editor.querySelector('ul, ol')) {
+      editor.innerHTML = '';
+    }
     // Hard character cap: contenteditable ignores maxlength, so if this input pushed
     // the field past its limit, revert to the last in-range markup and keep the caret
     // at the end — the user simply cannot enter more than the limit.

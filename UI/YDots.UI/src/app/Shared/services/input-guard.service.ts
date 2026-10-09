@@ -123,6 +123,18 @@ export class InputGuardService {
     if (el.tagName === 'INPUT' && ['checkbox', 'radio', 'file', 'hidden', 'search', 'button', 'submit', 'range'].includes((el as HTMLInputElement).type)) return;
     if ((el as HTMLInputElement).readOnly || el.disabled || el.closest('[hidden]')) return;
 
+    // A combobox's text box is only the search field for the list beneath it, and the screen that
+    // owns the list does the validating (this is why labelText already refuses to read a star off a
+    // combobox's block). Its value is written by the framework the instant an option is chosen -
+    // no native input or change event ever fires - so a flag raised on focusout (value still empty
+    // at that moment) could only be cleared by refocusing the box. That is what painted the field
+    // red the moment an option was SELECTED. Leave comboboxes to the screen's own [aria-invalid] /
+    // .is-invalid binding, and drop any flag a focusout has already raised.
+    if (el.getAttribute('role') === 'combobox') {
+      el.classList.remove(InputGuardService.FLAG);
+      return;
+    }
+
     const text = this.labelText(el);
     const value = (el.value ?? '').trim();
     let bad = false;

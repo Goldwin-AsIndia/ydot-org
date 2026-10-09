@@ -496,39 +496,54 @@
                           class="rte-toolbar"
                           role="toolbar"
                           aria-label="Purpose formatting"
-                          (mousedown)="$event.preventDefault(); stashSelection()"
+                          (mousedown)="onToolbarMouseDown($event)"
                         >
-                          <button type="button" class="rte-btn" title="Bold" aria-label="Bold" (click)="applyFormat(purposeBody, 'bold')">
+                          <button type="button" class="rte-btn" title="Bold" aria-label="Bold" (click)="applyFormat(purposeBody, 'bold')"
+                            [class.is-on]="isFormatOn(purposeBody, 'bold')"
+                            [attr.aria-pressed]="isFormatOn(purposeBody, 'bold')">
                             <strong>B</strong>
                           </button>
-                          <button type="button" class="rte-btn" title="Italic" aria-label="Italic" (click)="applyFormat(purposeBody, 'italic')">
+                          <button type="button" class="rte-btn" title="Italic" aria-label="Italic" (click)="applyFormat(purposeBody, 'italic')"
+                            [class.is-on]="isFormatOn(purposeBody, 'italic')"
+                            [attr.aria-pressed]="isFormatOn(purposeBody, 'italic')">
                             <em>I</em>
                           </button>
-                          <button type="button" class="rte-btn" title="Underline" aria-label="Underline" (click)="applyFormat(purposeBody, 'underline')">
+                          <button type="button" class="rte-btn" title="Underline" aria-label="Underline" (click)="applyFormat(purposeBody, 'underline')"
+                            [class.is-on]="isFormatOn(purposeBody, 'underline')"
+                            [attr.aria-pressed]="isFormatOn(purposeBody, 'underline')">
                             <span style="text-decoration: underline">U</span>
                           </button>
                           <span class="rte-sep" aria-hidden="true"></span>
-                          <button type="button" class="rte-btn" title="Bulleted list" aria-label="Bulleted list" (click)="applyFormat(purposeBody, 'insertUnorderedList')">
+                          <button type="button" class="rte-btn" title="Bulleted list" aria-label="Bulleted list" (click)="applyFormat(purposeBody, 'insertUnorderedList')"
+                            [class.is-on]="isFormatOn(purposeBody, 'insertUnorderedList')"
+                            [attr.aria-pressed]="isFormatOn(purposeBody, 'insertUnorderedList')">
                             • List
                           </button>
-                          <button type="button" class="rte-btn" title="Numbered list" aria-label="Numbered list" (click)="applyFormat(purposeBody, 'insertOrderedList')">
+                          <button type="button" class="rte-btn" title="Numbered list" aria-label="Numbered list" (click)="applyFormat(purposeBody, 'insertOrderedList')"
+                            [class.is-on]="isFormatOn(purposeBody, 'insertOrderedList')"
+                            [attr.aria-pressed]="isFormatOn(purposeBody, 'insertOrderedList')">
                             1. List
                           </button>
                           <span class="rte-sep" aria-hidden="true"></span>
-                          <span class="rte-sep" aria-hidden="true"></span>
-                          <button type="button" class="rte-btn" title="Align left" aria-label="Align left" (click)="applyFormat(purposeBody, 'justifyLeft')">
-                            ⯇
+                          <button type="button" class="rte-btn" title="Align left" aria-label="Align left" (click)="applyFormat(purposeBody, 'justifyLeft')"
+                            [class.is-on]="isFormatOn(purposeBody, 'justifyLeft')"
+                            [attr.aria-pressed]="isFormatOn(purposeBody, 'justifyLeft')">
+                            <i class="ri-align-left" aria-hidden="true"></i>
                           </button>
-                          <button type="button" class="rte-btn" title="Align centre" aria-label="Align centre" (click)="applyFormat(purposeBody, 'justifyCenter')">
-                            ☰
+                          <button type="button" class="rte-btn" title="Align centre" aria-label="Align centre" (click)="applyFormat(purposeBody, 'justifyCenter')"
+                            [class.is-on]="isFormatOn(purposeBody, 'justifyCenter')"
+                            [attr.aria-pressed]="isFormatOn(purposeBody, 'justifyCenter')">
+                            <i class="ri-align-center" aria-hidden="true"></i>
                           </button>
-                          <button type="button" class="rte-btn" title="Align right" aria-label="Align right" (click)="applyFormat(purposeBody, 'justifyRight')">
-                            ⯈
+                          <button type="button" class="rte-btn" title="Align right" aria-label="Align right" (click)="applyFormat(purposeBody, 'justifyRight')"
+                            [class.is-on]="isFormatOn(purposeBody, 'justifyRight')"
+                            [attr.aria-pressed]="isFormatOn(purposeBody, 'justifyRight')">
+                            <i class="ri-align-right" aria-hidden="true"></i>
                           </button>
                           <span class="rte-sep" aria-hidden="true"></span>
                           <label class="rte-select-wrap">
                             <span class="rte-sr">Font size</span>
-                            <select class="rte-select" aria-label="Font size" (change)="applyFormat(purposeBody, 'fontSize', $any($event.target).value)">
+                            <select class="rte-select" aria-label="Font size" (change)="applyFormat(purposeBody, 'fontSize', $any($event.target).value, $event.target)">
                               <option value="" disabled selected>Size</option>
                               @for (s of fontSizes; track s.value) {
                                 <option [value]="s.value">{{ s.label }}</option>
@@ -554,6 +569,9 @@
                           "
                           [innerHTML]="purposeSeed()"
                           (input)="syncEditor(purposeBody)"
+                          (keyup)="refreshFormatState(purposeBody)"
+                          (mouseup)="refreshFormatState(purposeBody)"
+                          (focus)="refreshFormatState(purposeBody)"
                           (paste)="handlePaste($event, purposeBody)"
                           data-placeholder="Describe the controlled purpose of this campaign…"
                         ></div>
@@ -935,7 +953,7 @@
                           class="rte-toolbar"
                           role="toolbar"
                           aria-label="Text formatting"
-                          (mousedown)="$event.preventDefault(); stashSelection()"
+                          (mousedown)="onToolbarMouseDown($event)"
                         >
                           <button
                             type="button"
@@ -943,6 +961,8 @@
                             title="Bold"
                             aria-label="Bold"
                             (click)="applyFormat(descBody, 'bold')"
+                            [class.is-on]="isFormatOn(descBody, 'bold')"
+                            [attr.aria-pressed]="isFormatOn(descBody, 'bold')"
                           >
                             <strong>B</strong>
                           </button>
@@ -952,6 +972,8 @@
                             title="Italic"
                             aria-label="Italic"
                             (click)="applyFormat(descBody, 'italic')"
+                            [class.is-on]="isFormatOn(descBody, 'italic')"
+                            [attr.aria-pressed]="isFormatOn(descBody, 'italic')"
                           >
                             <em>I</em>
                           </button>
@@ -961,6 +983,8 @@
                             title="Underline"
                             aria-label="Underline"
                             (click)="applyFormat(descBody, 'underline')"
+                            [class.is-on]="isFormatOn(descBody, 'underline')"
+                            [attr.aria-pressed]="isFormatOn(descBody, 'underline')"
                           >
                             <span style="text-decoration: underline">U</span>
                           </button>
@@ -971,6 +995,8 @@
                             title="Bulleted list"
                             aria-label="Bulleted list"
                             (click)="applyFormat(descBody, 'insertUnorderedList')"
+                            [class.is-on]="isFormatOn(descBody, 'insertUnorderedList')"
+                            [attr.aria-pressed]="isFormatOn(descBody, 'insertUnorderedList')"
                           >
                             • List
                           </button>
@@ -980,6 +1006,8 @@
                             title="Numbered list"
                             aria-label="Numbered list"
                             (click)="applyFormat(descBody, 'insertOrderedList')"
+                            [class.is-on]="isFormatOn(descBody, 'insertOrderedList')"
+                            [attr.aria-pressed]="isFormatOn(descBody, 'insertOrderedList')"
                           >
                             1. List
                           </button>
@@ -990,8 +1018,10 @@
                             title="Align left"
                             aria-label="Align left"
                             (click)="applyFormat(descBody, 'justifyLeft')"
+                            [class.is-on]="isFormatOn(descBody, 'justifyLeft')"
+                            [attr.aria-pressed]="isFormatOn(descBody, 'justifyLeft')"
                           >
-                            ⯇
+                            <i class="ri-align-left" aria-hidden="true"></i>
                           </button>
                           <button
                             type="button"
@@ -999,8 +1029,10 @@
                             title="Align centre"
                             aria-label="Align centre"
                             (click)="applyFormat(descBody, 'justifyCenter')"
+                            [class.is-on]="isFormatOn(descBody, 'justifyCenter')"
+                            [attr.aria-pressed]="isFormatOn(descBody, 'justifyCenter')"
                           >
-                            ☰
+                            <i class="ri-align-center" aria-hidden="true"></i>
                           </button>
                           <button
                             type="button"
@@ -1008,8 +1040,10 @@
                             title="Align right"
                             aria-label="Align right"
                             (click)="applyFormat(descBody, 'justifyRight')"
+                            [class.is-on]="isFormatOn(descBody, 'justifyRight')"
+                            [attr.aria-pressed]="isFormatOn(descBody, 'justifyRight')"
                           >
-                            ⯈
+                            <i class="ri-align-right" aria-hidden="true"></i>
                           </button>
                           <span class="rte-sep" aria-hidden="true"></span>
                           <label class="rte-select-wrap">
@@ -1017,7 +1051,7 @@
                             <select
                               class="rte-select"
                               aria-label="Font size"
-                              (change)="applyFormat(descBody, 'fontSize', $any($event.target).value)"
+                              (change)="applyFormat(descBody, 'fontSize', $any($event.target).value, $event.target)"
                             >
                               <option value="" disabled selected>Size</option>
                               @for (s of fontSizes; track s.value) {
@@ -1030,7 +1064,7 @@
                             <select
                               class="rte-select"
                               aria-label="Font style"
-                              (change)="applyFormat(descBody, 'fontName', $any($event.target).value)"
+                              (change)="applyFormat(descBody, 'fontName', $any($event.target).value, $event.target)"
                             >
                               <option value="" disabled selected>Font</option>
                               @for (f of fontFamilies; track f.value) {
@@ -1076,6 +1110,9 @@
                           [style.lineHeight]="descLineHeight()"
                           [innerHTML]="descSeed()"
                           (input)="syncDescription(descBody)"
+                          (keyup)="refreshFormatState(descBody)"
+                          (mouseup)="refreshFormatState(descBody)"
+                          (focus)="refreshFormatState(descBody)"
                           (paste)="handlePaste($event, descBody)"
                           data-placeholder="Public-facing description (published only through a separately approved publication field)…"
                         ></div>
@@ -1113,7 +1150,7 @@
                           class="rte-toolbar"
                           role="toolbar"
                           aria-label="Terms and notice formatting"
-                          (mousedown)="$event.preventDefault(); stashSelection()"
+                          (mousedown)="onToolbarMouseDown($event)"
                         >
                           <button
                             type="button"
@@ -1121,6 +1158,8 @@
                             title="Bold"
                             aria-label="Bold"
                             (click)="applyFormat(termsBody, 'bold')"
+                            [class.is-on]="isFormatOn(termsBody, 'bold')"
+                            [attr.aria-pressed]="isFormatOn(termsBody, 'bold')"
                           >
                             <strong>B</strong>
                           </button>
@@ -1130,6 +1169,8 @@
                             title="Italic"
                             aria-label="Italic"
                             (click)="applyFormat(termsBody, 'italic')"
+                            [class.is-on]="isFormatOn(termsBody, 'italic')"
+                            [attr.aria-pressed]="isFormatOn(termsBody, 'italic')"
                           >
                             <em>I</em>
                           </button>
@@ -1139,6 +1180,8 @@
                             title="Underline"
                             aria-label="Underline"
                             (click)="applyFormat(termsBody, 'underline')"
+                            [class.is-on]="isFormatOn(termsBody, 'underline')"
+                            [attr.aria-pressed]="isFormatOn(termsBody, 'underline')"
                           >
                             <span style="text-decoration: underline">U</span>
                           </button>
@@ -1149,6 +1192,8 @@
                             title="Bulleted list"
                             aria-label="Bulleted list"
                             (click)="applyFormat(termsBody, 'insertUnorderedList')"
+                            [class.is-on]="isFormatOn(termsBody, 'insertUnorderedList')"
+                            [attr.aria-pressed]="isFormatOn(termsBody, 'insertUnorderedList')"
                           >
                             • List
                           </button>
@@ -1158,6 +1203,8 @@
                             title="Numbered list"
                             aria-label="Numbered list"
                             (click)="applyFormat(termsBody, 'insertOrderedList')"
+                            [class.is-on]="isFormatOn(termsBody, 'insertOrderedList')"
+                            [attr.aria-pressed]="isFormatOn(termsBody, 'insertOrderedList')"
                           >
                             1. List
                           </button>
@@ -1168,8 +1215,10 @@
                             title="Align left"
                             aria-label="Align left"
                             (click)="applyFormat(termsBody, 'justifyLeft')"
+                            [class.is-on]="isFormatOn(termsBody, 'justifyLeft')"
+                            [attr.aria-pressed]="isFormatOn(termsBody, 'justifyLeft')"
                           >
-                            ⯇
+                            <i class="ri-align-left" aria-hidden="true"></i>
                           </button>
                           <button
                             type="button"
@@ -1177,8 +1226,10 @@
                             title="Align centre"
                             aria-label="Align centre"
                             (click)="applyFormat(termsBody, 'justifyCenter')"
+                            [class.is-on]="isFormatOn(termsBody, 'justifyCenter')"
+                            [attr.aria-pressed]="isFormatOn(termsBody, 'justifyCenter')"
                           >
-                            ☰
+                            <i class="ri-align-center" aria-hidden="true"></i>
                           </button>
                           <button
                             type="button"
@@ -1186,8 +1237,10 @@
                             title="Align right"
                             aria-label="Align right"
                             (click)="applyFormat(termsBody, 'justifyRight')"
+                            [class.is-on]="isFormatOn(termsBody, 'justifyRight')"
+                            [attr.aria-pressed]="isFormatOn(termsBody, 'justifyRight')"
                           >
-                            ⯈
+                            <i class="ri-align-right" aria-hidden="true"></i>
                           </button>
                           <span class="rte-sep" aria-hidden="true"></span>
                           <label class="rte-select-wrap">
@@ -1195,7 +1248,7 @@
                             <select
                               class="rte-select"
                               aria-label="Font size"
-                              (change)="applyFormat(termsBody, 'fontSize', $any($event.target).value)"
+                              (change)="applyFormat(termsBody, 'fontSize', $any($event.target).value, $event.target)"
                             >
                               <option value="" disabled selected>Size</option>
                               @for (s of fontSizes; track s.value) {
@@ -1208,7 +1261,7 @@
                             <select
                               class="rte-select"
                               aria-label="Font style"
-                              (change)="applyFormat(termsBody, 'fontName', $any($event.target).value)"
+                              (change)="applyFormat(termsBody, 'fontName', $any($event.target).value, $event.target)"
                             >
                               <option value="" disabled selected>Font</option>
                               @for (f of fontFamilies; track f.value) {
@@ -1254,6 +1307,9 @@
                           [style.lineHeight]="termsLineHeight()"
                           [innerHTML]="termsSeed()"
                           (input)="syncEditor(termsBody)"
+                          (keyup)="refreshFormatState(termsBody)"
+                          (mouseup)="refreshFormatState(termsBody)"
+                          (focus)="refreshFormatState(termsBody)"
                           (paste)="handlePaste($event, termsBody)"
                           data-placeholder="Terms and notice — donor-facing terms, disclaimers and legal notices…"
                         ></div>
@@ -1588,7 +1644,7 @@
                     class="rte-toolbar"
                     role="toolbar"
                     aria-label="Text formatting"
-                    (mousedown)="$event.preventDefault(); stashSelection()"
+                    (mousedown)="onToolbarMouseDown($event)"
                   >
                     <button
                       type="button"
@@ -1596,6 +1652,8 @@
                       title="Bold"
                       aria-label="Bold"
                       (click)="applyFormat(previewBody, 'bold')"
+                            [class.is-on]="isFormatOn(previewBody, 'bold')"
+                            [attr.aria-pressed]="isFormatOn(previewBody, 'bold')"
                     >
                       <strong>B</strong>
                     </button>
@@ -1605,6 +1663,8 @@
                       title="Italic"
                       aria-label="Italic"
                       (click)="applyFormat(previewBody, 'italic')"
+                            [class.is-on]="isFormatOn(previewBody, 'italic')"
+                            [attr.aria-pressed]="isFormatOn(previewBody, 'italic')"
                     >
                       <em>I</em>
                     </button>
@@ -1614,6 +1674,8 @@
                       title="Underline"
                       aria-label="Underline"
                       (click)="applyFormat(previewBody, 'underline')"
+                            [class.is-on]="isFormatOn(previewBody, 'underline')"
+                            [attr.aria-pressed]="isFormatOn(previewBody, 'underline')"
                     >
                       <span style="text-decoration: underline">U</span>
                     </button>
@@ -1624,6 +1686,8 @@
                       title="Bulleted list"
                       aria-label="Bulleted list"
                       (click)="applyFormat(previewBody, 'insertUnorderedList')"
+                            [class.is-on]="isFormatOn(previewBody, 'insertUnorderedList')"
+                            [attr.aria-pressed]="isFormatOn(previewBody, 'insertUnorderedList')"
                     >
                       • List
                     </button>
@@ -1633,6 +1697,8 @@
                       title="Numbered list"
                       aria-label="Numbered list"
                       (click)="applyFormat(previewBody, 'insertOrderedList')"
+                            [class.is-on]="isFormatOn(previewBody, 'insertOrderedList')"
+                            [attr.aria-pressed]="isFormatOn(previewBody, 'insertOrderedList')"
                     >
                       1. List
                     </button>
@@ -1643,8 +1709,10 @@
                       title="Align left"
                       aria-label="Align left"
                       (click)="applyFormat(previewBody, 'justifyLeft')"
+                            [class.is-on]="isFormatOn(previewBody, 'justifyLeft')"
+                            [attr.aria-pressed]="isFormatOn(previewBody, 'justifyLeft')"
                     >
-                      ⯇
+                            <i class="ri-align-left" aria-hidden="true"></i>
                     </button>
                     <button
                       type="button"
@@ -1652,8 +1720,10 @@
                       title="Align centre"
                       aria-label="Align centre"
                       (click)="applyFormat(previewBody, 'justifyCenter')"
+                            [class.is-on]="isFormatOn(previewBody, 'justifyCenter')"
+                            [attr.aria-pressed]="isFormatOn(previewBody, 'justifyCenter')"
                     >
-                      ☰
+                            <i class="ri-align-center" aria-hidden="true"></i>
                     </button>
                     <button
                       type="button"
@@ -1661,8 +1731,10 @@
                       title="Align right"
                       aria-label="Align right"
                       (click)="applyFormat(previewBody, 'justifyRight')"
+                            [class.is-on]="isFormatOn(previewBody, 'justifyRight')"
+                            [attr.aria-pressed]="isFormatOn(previewBody, 'justifyRight')"
                     >
-                      ⯈
+                            <i class="ri-align-right" aria-hidden="true"></i>
                     </button>
                     <span class="rte-sep" aria-hidden="true"></span>
                     <label class="rte-select-wrap">
@@ -1670,7 +1742,7 @@
                       <select
                         class="rte-select"
                         aria-label="Font size"
-                        (change)="applyFormat(previewBody, 'fontSize', $any($event.target).value)"
+                        (change)="applyFormat(previewBody, 'fontSize', $any($event.target).value, $event.target)"
                       >
                         <option value="" disabled selected>Size</option>
                         @for (s of fontSizes; track s.value) {
@@ -1683,7 +1755,7 @@
                       <select
                         class="rte-select"
                         aria-label="Font style"
-                        (change)="applyFormat(previewBody, 'fontName', $any($event.target).value)"
+                        (change)="applyFormat(previewBody, 'fontName', $any($event.target).value, $event.target)"
                       >
                         <option value="" disabled selected>Font</option>
                         @for (f of fontFamilies; track f.value) {
@@ -1726,6 +1798,9 @@
                     [style.lineHeight]="popupLineHeight()"
                     [innerHTML]="popupSeed()"
                     (input)="syncEditor(previewBody)"
+                          (keyup)="refreshFormatState(previewBody)"
+                          (mouseup)="refreshFormatState(previewBody)"
+                          (focus)="refreshFormatState(previewBody)"
                     (paste)="handlePaste($event, previewBody)"
                   ></div>
                 </div>
