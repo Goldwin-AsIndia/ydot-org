@@ -568,15 +568,6 @@ export class CampaignReadinessChecklistComponent {
     return filter === 'all' ? items : items.filter((c) => this.checklistStatusClass(c.status) === filter);
   });
 
-  // ----- Row overflow menu: Delete / Edit / Pass·Completed -----
-  protected readonly checklistRowMenuOpen = signal<string | null>(null);
-  protected toggleChecklistRowMenu(id: string): void {
-    this.checklistRowMenuOpen.update((cur) => (cur === id ? null : id));
-  }
-  protected closeChecklistRowMenu(): void {
-    this.checklistRowMenuOpen.set(null);
-  }
-
   // ----- View a checklist item (read-only popup of what was captured on create) -----
   protected readonly viewCheck = signal<ReadinessCheck | null>(null);
   protected openViewCheck(check: ReadinessCheck): void {
@@ -597,7 +588,6 @@ export class CampaignReadinessChecklistComponent {
     this.addCheckDrawerOpen.set(true);
   }
   protected openEditCheckDrawer(check: ReadinessCheck): void {
-    this.closeChecklistRowMenu();
     this.editingCheck.set(check);
     this.addCheckDrawerOpen.set(true);
   }
@@ -649,13 +639,11 @@ export class CampaignReadinessChecklistComponent {
    * that had not moved. The card is the truth; the toast now says what the card is going to say.
    */
   protected markChecklistPassed(check: ReadinessCheck): void {
-    this.closeChecklistRowMenu();
     if (!this.rowAllows(check, 'Pass')) return;
     this.recordVerdict(check, 'Passed');
   }
   /** Row "Fail" — records that a check is not ready. A separate permission from passing it. */
   protected markChecklistFailed(check: ReadinessCheck): void {
-    this.closeChecklistRowMenu();
     if (!this.rowAllows(check, 'Fail')) return;
     this.recordVerdict(check, 'Failed');
   }
@@ -697,7 +685,6 @@ export class CampaignReadinessChecklistComponent {
    * it would destroy somebody's verdict along with the question.
    */
   protected deleteChecklistItem(check: ReadinessCheck): void {
-    this.closeChecklistRowMenu();
     if (!this.deleteCheckAllowed(check)) return;
 
     this.checklistStore.deleteCheck(this.campaignRef, check.id, (outcome) => {

@@ -963,6 +963,36 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * THE WEB ADDRESS AS A URL THE BROWSER CAN ACTUALLY OPEN (the register's link).
+   *
+   * The record holds a bare host - 'smilefoundation.localhost' - and by request the link opens the
+   * tenant's app the way it is reached in this stack: plain http on the UI's port (6700, the
+   * docker-compose mapping) landing on the sign-in screen -
+   *
+   *     http://smilefoundation.localhost:6700/auth/sign-in
+   *
+   * rather than a blind https:// prefix, which opens a port nothing listens on and dies with
+   * "can't be reached". The port and path mirror docker-compose.yml (UI = 6700:80) and the
+   * 'auth/sign-in' route in app.routes.ts; change them here if either moves. A host this page is
+   * itself served from keeps the page's own scheme and port (so a plain `ng serve` at 6701 still
+   * resolves), and any other host is a public address and takes https as it comes.
+   */
+  hostHref(host: string | null | undefined): string {
+    const value = (host ?? '').trim();
+    if (!value) return '';
+    if (/^[a-z][a-z\d+.-]*:\/\//i.test(value)) return value;
+
+    if (value === 'localhost' || value.endsWith('.localhost')) {
+      return `http://${value}:6700/auth/sign-in`;
+    }
+    const here = typeof window !== 'undefined' ? window.location : null;
+    if (here && here.hostname === value) {
+      return `${here.protocol}//${value}${here.port ? ':' + here.port : ''}/auth/sign-in`;
+    }
+    return `https://${value}`;
+  }
+
   /** A date-only input needs yyyy-MM-dd; the API sends a full instant. */
   private toDateInput(value: string | null | undefined): string {
     return value ? value.slice(0, 10) : '';

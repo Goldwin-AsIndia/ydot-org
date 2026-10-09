@@ -422,7 +422,11 @@
 .crc-check {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) calc(150px * var(--ui-scale, 1)) calc(96px * var(--ui-scale, 1)) calc(34px * var(--ui-scale, 1));
+  /* Last column is the row's action icon cluster (shared .ydot-row-actions, was a 34px three-dot
+     button). It is a CONSTANT width — room for the widest row (four 40px icons + 3x8px gaps) —
+     and the cluster is right-aligned inside it, so rows showing two verbs line up exactly with
+     rows showing four instead of each row's auto width dragging the columns apart. */
+  grid-template-columns: auto minmax(0, 1fr) calc(150px * var(--ui-scale, 1)) calc(96px * var(--ui-scale, 1)) 184px;
   align-items: center;
   gap: calc(16px * var(--ui-scale, 1));
   padding: calc(16px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
@@ -506,9 +510,28 @@
 .crc-status[data-status="fail"] { color: var(--fail); }
 .crc-status[data-status="pending"] { color: var(--pending); }
 
-.crc-check-actions { display: flex; justify-content: flex-end; }
+.crc-check-actions { display: flex; align-items: center; justify-content: flex-end; }
 
-/* Menus (page-header Launch actions and each check's actions) */
+/* ROW ACTION ICONS — pinned to the Campaign Register's size (the agreed reference): a FLAT 40px
+   box with an 18px glyph, not multiplied by --ui-scale, so they always read exactly like every
+   other list page's actions whatever the workspace scale is set to. The shared layer
+   (styles/ydot-list-actions.css) supplies the ghost paint and each glyph's hover colour. */
+.crc-check-actions .ydot-act {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 10px !important;
+}
+.crc-check-actions .ydot-act > i {
+  font-size: 18px !important;
+}
+/* Flat gap to match the flat icon boxes above — the column width (184px) counts on it. */
+.crc-check-actions .ydot-row-actions {
+  gap: 8px !important;
+}
+
+/* Menus (page-header Launch actions only now — each check's row shows its verbs as the shared
+   inline action icons instead of a three-dot menu) */
 .crc-overflow { position: relative; }
 .crc-menu {
   position: absolute;
@@ -840,7 +863,9 @@ select.crc-input { padding-right: calc(36px * var(--ui-scale, 1)); cursor: point
   .crc-skel-layout { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 991.98px) {
-  .crc-check { grid-template-columns: auto minmax(0, 1fr) auto; }
+  /* Same constant 184px action column as desktop (was `auto`, which let two-icon and four-icon
+     rows disagree about where the row ends). */
+  .crc-check { grid-template-columns: auto minmax(0, 1fr) 184px; }
   .crc-check-flags { grid-column: 2; grid-row: 2; justify-content: flex-start; }
   .crc-check > .crc-status { grid-column: 2; grid-row: 3; }
   .crc-check-actions { grid-column: 3; grid-row: 1; }

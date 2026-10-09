@@ -120,13 +120,33 @@
             <button type="button" class="cr-b cr-b--sm" (click)="setUiState('ready')">Return</button>
           </div>
         } @else if (uiState() === 'empty' || recordCount() === 0) {
-          <div class="cr-state">
-            <p><strong>No campaigns match this scope and filter.</strong> Adjust the search, status, owner or launch window.</p>
-            <button type="button" class="cr-b cr-b--sm" (click)="clearFilters()">Reset filters</button>
-            @if (createAllowed()) {
-              <button type="button" class="cr-b cr-b--sm cr-b--primary" (click)="openCreate()">New campaign</button>
-            }
-          </div>
+          <!-- Empty state. Two cases:
+               - filters are on and nothing matches -> say so and offer to clear them;
+               - no filters and still nothing -> the register is genuinely empty, invite a first campaign. -->
+          @if (activeFilterSummary().length) {
+            <div class="cr-empty" role="status">
+              <span class="cr-empty__mark" aria-hidden="true"><i class="ri-filter-off-line"></i></span>
+              <h3 class="cr-empty__title">No campaigns match these filters</h3>
+              <p class="cr-empty__text">Try a different search, owner or launch window, or clear the filters to see every campaign.</p>
+              <div class="cr-empty__acts">
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearFilters()"><i class="ri-close-circle-line" aria-hidden="true"></i> Clear filters</button>
+                @if (createAllowed()) {
+                  <button type="button" class="btn btn-primary btn-sm" (click)="openCreate()"><i class="ri-add-line" aria-hidden="true"></i> New campaign</button>
+                }
+              </div>
+            </div>
+          } @else {
+            <div class="cr-empty" role="status">
+              <span class="cr-empty__mark" aria-hidden="true"><i class="ri-megaphone-line"></i></span>
+              <h3 class="cr-empty__title">No campaigns yet</h3>
+              <p class="cr-empty__text">Campaigns you create or own will appear here, with their status, progress and launch dates.</p>
+              @if (createAllowed()) {
+                <div class="cr-empty__acts">
+                  <button type="button" class="cr-b cr-b--sm cr-b--primary" (click)="openCreate()"><i class="ri-add-line" aria-hidden="true"></i> Create your first campaign</button>
+                </div>
+              }
+            </div>
+          }
         } @else {
           <div class="cr-tablewrap">
             <table class="cr-table">
@@ -550,7 +570,7 @@
               <dt>Effective permission</dt>
               <dd class="mono">cam.campaign.approve</dd>
             </div>
-            <div>
+            <div> 
               <dt>Effective time</dt>
               <dd>{{ lastRefresh() }}</dd>
             </div>

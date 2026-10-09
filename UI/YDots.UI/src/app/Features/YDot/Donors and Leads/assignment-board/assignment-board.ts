@@ -689,7 +689,10 @@ export class AssignmentBoardComponent {
         )
       : null;
     this.pendingLeadId = null;
-    if (requested) this.selectPreview(requested);
+    // THE ROW IS PINNED ON THE BOARD, THE DRAWER STAYS CLOSED. Arriving from the queue used to
+    // slam the assign drawer open over the board; the lead is already on the page, and the drawer
+    // opens only when its row is actually clicked.
+    if (requested) this.previewRow.set(requested);
     else if (this.previewRow())
       this.previewRow.set(
         this.rows().find((r) => r.leadId === this.previewRow()?.leadId) ?? null,
