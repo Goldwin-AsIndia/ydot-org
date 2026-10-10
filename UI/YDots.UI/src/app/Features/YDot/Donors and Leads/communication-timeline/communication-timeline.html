@@ -36,6 +36,11 @@
                 aria-hidden="true">
                 <path d="M15 6l-6 6 6 6" />
               </svg>Back</button>
+            @if (canSchedule()) { <button class="btn btn-outline-secondary btn-sm" type="button" (click)="openFollowUpPlanner()"><svg viewBox="0 0 24 24"
+                aria-hidden="true">
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M3 10h18M8 3v4M16 3v4" />
+              </svg>Schedule follow-up</button> }
             @if (canExport) { <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="exporting()" (click)="openExportModal()"><svg viewBox="0 0 24 24"
                 aria-hidden="true">
                 <path d="M12 3v12M8 11l4 4 4-4M4 20h16" />
@@ -157,8 +162,7 @@
                   (ngModelChange)="importantOnly.set($event); currentPage.set(1)" /><span class="tl-switch"
                   aria-hidden="true"></span>Important only</label>
               <span class="tl-f-end">
-                <button class="tl-btn" type="button" (click)="resetFilters()">Reset</button>
-                <button class="tl-btn" type="button" (click)="isFilterOpen.set(false)">Done</button>
+                <button class="ydot-filter-reset" type="button" (click)="resetFilters()"><i class="ri-refresh-line" aria-hidden="true"></i> Reset</button>
               </span>
             </div>
             }
@@ -274,17 +278,6 @@
 
           <!-- STANDING RAIL -->
           <aside class="tl-side" aria-label="Relationship">
-            <section class="tl-part tl-next">
-              <p class="tl-cap">Next best step</p>
-              <b class="tl-next-what">{{ suggestedAction().label }}</b>
-              <span class="tl-next-why">{{ suggestedAction().detail }}</span>
-              @if (canSchedule()) { <button class="tl-btn tl-btn-full" type="button" (click)="openFollowUpPlanner()"><svg viewBox="0 0 24 24"
-                  aria-hidden="true">
-                  <rect x="3" y="5" width="18" height="16" rx="2" />
-                  <path d="M3 10h18M8 3v4M16 3v4" />
-                </svg>Schedule a follow-up</button> }
-            </section>
-
             @if (isLead()) {
             <section class="tl-part">
               <p class="tl-cap">Standing</p>
@@ -402,8 +395,14 @@
             }
           </ol>
           <span class="le-bar-end">
-            <button class="btn btn-outline-secondary btn-sm" type="button" (click)="closeEntryDrawer()">Cancel</button>
-            <button class="btn btn-primary btn-sm" type="button" [disabled]="saving()" (click)="saveCommunication()">Save</button>
+            <button class="btn btn-outline-secondary btn-sm le-act" type="button" (click)="closeEntryDrawer()"><svg viewBox="0 0 24 24"
+                aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg><span>Cancel</span></button>
+            <button class="btn btn-primary btn-sm le-act" type="button" [disabled]="saving()" (click)="saveCommunication()"><svg
+                viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m5 12.5 4.5 4.5L19 7.5" />
+              </svg><span>Save</span></button>
           </span>
           <span class="le-progress" aria-hidden="true"><i [style.width.%]="entryProgress()"></i></span>
         </header>
@@ -448,27 +447,48 @@
                 <div class="le-days" role="radiogroup" aria-label="Date">
                   @for (day of entryDayStrip(); track day.iso) {
                   <button type="button" role="radio" class="le-day" [attr.aria-checked]="form().date === day.iso"
-                    (click)="updateForm('date', day.iso)"><small>{{ day.weekday }}</small><b class="tl-mono">{{ day.day
+                    [disabled]="!!editingId()" (click)="updateForm('date', day.iso)"><small>{{ day.weekday }}</small><b class="tl-mono">{{ day.day
                       }}</b></button>
                   }
-                  <label class="le-day le-day-earlier" [class.is-on]="entryDateEarlier()">
+                  <label class="le-day le-day-earlier" [class.is-on]="entryDateEarlier()" [class.is-locked]="!!editingId()">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <rect x="3" y="5" width="18" height="16" rx="2" />
                       <path d="M3 10h18M8 3v4M16 3v4" />
                     </svg>
                     <small class="tl-mono">{{ entryDateEarlier() ? entryDay().day + ' ' + entryDay().month.slice(0, 3) :
                       'Earlier' }}</small>
-                    <input type="date" name="date" aria-label="Pick an earlier date"
+                    <input type="date" name="date" aria-label="Pick an earlier date" [disabled]="!!editingId()"
                       (click)="$any($event.target).showPicker?.()" [ngModel]="form().date" [attr.max]="getTodayIso()"
                       (ngModelChange)="updateForm('date', $event)" />
                   </label>
                 </div>
               </div>
               <div class="le-field">
-                <span class="le-label">Time<button type="button" class="le-link" (click)="setNow()">Use
-                    now</button></span>
-                <input class="le-input tl-mono" type="time" name="time" aria-label="Time" [ngModel]="form().time"
-                  (ngModelChange)="updateForm('time', $event)" />
+                <span class="le-label">Time <em>*</em>@if (!editingId()) {<button type="button" class="le-link" (click)="setNow()">Use
+                    now</button>}</span>
+                <div class="le-time" role="group" aria-label="Time" [class.is-invalid]="timeInvalid()"
+                  [class.is-locked]="!!editingId()">
+                  <select class="le-time-sel" aria-label="Hour" name="timeHour" [disabled]="!!editingId()"
+                    [ngModel]="timeParts().hour" (ngModelChange)="setTimePart('hour', $event)">
+                    <option [ngValue]="null" disabled>HH</option>
+                    @for (h of hourOptions; track h) { <option [ngValue]="h">{{ h < 10 ? '0' + h : h }}</option> }
+                  </select>
+                  <span class="le-time-colon" aria-hidden="true">:</span>
+                  <select class="le-time-sel" aria-label="Minute" name="timeMinute" [disabled]="!!editingId()"
+                    [ngModel]="timeParts().minute" (ngModelChange)="setTimePart('minute', $event)">
+                    <option [ngValue]="null" disabled>MM</option>
+                    @for (m of minuteOptions(); track m) { <option [ngValue]="m">{{ m < 10 ? '0' + m : m }}</option> }
+                  </select>
+                  <div class="le-meridiem" role="radiogroup" aria-label="AM or PM">
+                    <button type="button" role="radio" [class.on]="form().time && !timeParts().pm"
+                      [attr.aria-checked]="!!form().time && !timeParts().pm" [disabled]="!!editingId()"
+                      (click)="setTimePart('meridiem', 'AM')">AM</button>
+                    <button type="button" role="radio" [class.on]="form().time && timeParts().pm"
+                      [attr.aria-checked]="!!form().time && timeParts().pm" [disabled]="!!editingId()"
+                      (click)="setTimePart('meridiem', 'PM')">PM</button>
+                  </div>
+                </div>
+                @if (timeInvalid()) { <p class="le-error">Enter Time.</p> }
               </div>
               <div class="le-field">
                 <span class="le-label">Direction</span>
@@ -542,9 +562,10 @@
                   <span class="le-n tl-mono" [class.is-ok]="form().summary.trim().length >= 10">{{ form().summary.length
                     }}/2000</span>
                 </span>
-                <textarea #summaryBox id="leSummary" class="le-input" name="summary" rows="5" maxlength="2000"
+                <textarea #summaryBox id="leSummary" class="le-input" name="summary" [attr.aria-invalid]="summaryInvalid() ? 'true' : null" rows="5" maxlength="2000"
                   placeholder="What happened, what they said or asked for, and what happens next."
                   [ngModel]="form().summary" (ngModelChange)="updateForm('summary', $event)"></textarea>
+                @if (summaryInvalid()) { <p class="le-error">{{ form().summary.trim() ? 'Summary must be at least 10 characters.' : 'Enter Summary.' }}</p> }
               </div>
               <div class="le-field le-field-note">
                 <span class="le-label"><label for="leNotes"><svg viewBox="0 0 24 24" aria-hidden="true">
@@ -657,7 +678,6 @@
                 <li class="le-thread-first">No earlier conversations. This entry opens the timeline.</li>
                 }
               </ol>
-              <p class="le-next"><span>Suggested next</span><b>{{ suggestedAction().label }}</b></p>
             </section>
           </aside>
         </div>
@@ -708,7 +728,7 @@
 <aside class="ct-drawer" role="dialog" aria-modal="true" aria-label="Communication details">
   <div class="ct-drawer-header">
     <h2>{{ timelineTitle(record) }}</h2>
-    <button type="button" class="btn btn-outline-secondary btn-sm ct-drawer-close" (click)="closeDetails()"
+    <button type="button" class="ct-drawer-close" (click)="closeDetails()"
       aria-label="Close" title="Close">&times;</button>
   </div>
 

@@ -15,6 +15,7 @@ import { ConsentListItem } from '../../../../Shared/models/donor-contract.model'
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 type TabId = 'overview' | 'history' | 'actions';
 
 /**
@@ -29,6 +30,7 @@ type TabId = 'overview' | 'history' | 'actions';
 })
 export class ConsentPreferenceCentreComponent {
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(DonorApiService);
   private readonly toast = inject(ToastService);
@@ -348,7 +350,7 @@ export class ConsentPreferenceCentreComponent {
   }
 
   protected backToDonor(): void {
-    this.router.navigate(['/app/fundraising/relationships/donor-360'], { queryParams: { donorId: this.donorReference(), leadId: this.leadId() } });
+    this.navHistory.back(['/app/fundraising/relationships/donor-360'], { queryParams: { donorId: this.donorReference(), leadId: this.leadId() } });
   }
 
   protected onCancel(): void {

@@ -2002,8 +2002,11 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
   border-bottom: 1px solid var(--fq-line);
   background: var(--ov-band, var(--fq-well));
 }
-.fq-drawer-top { display: flex; align-items: flex-start; gap: calc(14px * var(--s)); }
-.fq-drawer-titles { flex: 1 1 auto; min-width: 0; padding-top: 2px; }
+.fq-drawer-top { display: flex; align-items: center; gap: calc(14px * var(--s)); }
+.fq-drawer-top .fq-channel.is-lg { flex: none; align-self: center; }
+.fq-drawer-titles { flex: 1 1 auto; min-width: 0; padding-top: 0; }
+.fq-drawer-titles .fq-eyebrow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .08em; }
+.fq-drawer-top .fq-close { align-self: center; margin: 0; }
 .fq-drawer-title {
   --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   margin: calc(6px * var(--s)) 0 0;
@@ -2017,6 +2020,7 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
 .fq-drawer-badges {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: calc(8px * var(--s));
   margin-top: calc(16px * var(--s));
 }
@@ -2613,3 +2617,13 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
 .fq-table th.fq-col-status {
   width: calc(150px * var(--s));
 }
+
+/* Drawer badges: one tidy row (Status, Priority, Due state) with even gaps */
+.fq-drawer-badges { flex-wrap: nowrap; gap: calc(16px * var(--s)); }
+.fq-drawer-badges > * { flex: 0 1 auto; min-width: 0; }
+.fq-drawer-badges .fq-prio-dot { box-shadow: none; }
+.fq-drawer-badges .fq-status::before { box-shadow: none; }
+.fq-drawer-badges .fq-prio, .fq-drawer-badges .fq-status, .fq-drawer-badges .fq-sla { gap: calc(6px * var(--s)); }
+
+/* Header actions: a clear gap between the icon and the word */
+.fq-hbtn { display: inline-flex !important; align-items: center; gap: calc(8px * var(--s)) !important; }

@@ -170,12 +170,12 @@
             <div class="filter-panel-label">Work queue</div>
             <div class="d-flex flex-wrap gap-4">
               <label class="check-pill">
-                <input type="radio" name="queueRadio" [checked]="workQueueFilter() === ''" (change)="workQueueFilter.set('')">
+                <input type="radio" name="queueRadio" [checked]="workQueueFilter() === ''" (change)="workQueueFilter.set(''); applyFilter()">
                 <span class="check-box"></span> All queues
               </label>
               @for (q of workQueueCatalogue; track q) {
                 <label class="check-pill">
-                  <input type="radio" name="queueRadio" [checked]="workQueueFilter() === q" (change)="workQueueFilter.set(q)">
+                  <input type="radio" name="queueRadio" [checked]="workQueueFilter() === q" (change)="workQueueFilter.set(q); applyFilter()">
                   <span class="check-box"></span> {{ q }}
                 </label>
               }
@@ -186,12 +186,12 @@
             <div class="filter-panel-label">Priority</div>
             <div class="d-flex flex-wrap gap-4">
               <label class="check-pill">
-                <input type="radio" name="priorityRadio" [checked]="priorityFilter() === ''" (change)="priorityFilter.set('')">
+                <input type="radio" name="priorityRadio" [checked]="priorityFilter() === ''" (change)="priorityFilter.set(''); applyFilter()">
                 <span class="check-box"></span> All priorities
               </label>
               @for (p of priorityOptions; track p) {
                 <label class="check-pill">
-                  <input type="radio" name="priorityRadio" [checked]="priorityFilter() === p" (change)="priorityFilter.set(p)">
+                  <input type="radio" name="priorityRadio" [checked]="priorityFilter() === p" (change)="priorityFilter.set(p); applyFilter()">
                   <span class="check-box"></span> {{ p }}
                 </label>
               }
@@ -202,7 +202,7 @@
             <div class="filter-panel-label">Owner</div>
             <div class="filter-chip-select mb-3">
               <i class="ri-user-line"></i>
-              <select [ngModel]="ownerFilter()" (ngModelChange)="ownerFilter.set($event)">
+              <select [ngModel]="ownerFilter()" (ngModelChange)="ownerFilter.set($event); applyFilter()">
                 @for (o of ownerOptions; track o.reference) {
                   <option [value]="o.reference">
                     {{ o.reference === 'USR-0000' ? 'All Owners' : o.name + ' · ' + o.reference }}
@@ -215,7 +215,7 @@
             <div class="filter-panel-label">Age</div>
             <div class="filter-chip-select mb-3">
               <i class="ri-time-line"></i>
-              <select [ngModel]="ageFilter()" (ngModelChange)="ageFilter.set($event)">
+              <select [ngModel]="ageFilter()" (ngModelChange)="ageFilter.set($event); applyFilter()">
                 @for (a of ageOptions; track a) {
                   <option [value]="a">{{ a }}</option>
                 }
@@ -226,7 +226,7 @@
             <div class="filter-panel-label">Campaign or period</div>
             <div class="filter-chip-select mb-3">
               <i class="ri-megaphone-line"></i>
-              <select [ngModel]="campaignFilter()" (ngModelChange)="campaignFilter.set($event)">
+              <select [ngModel]="campaignFilter()" (ngModelChange)="campaignFilter.set($event); applyFilter()">
                 @for (c of campaignOptions; track c.reference) {
                   <option [value]="c.reference">{{ c.label }}</option>
                 }
@@ -237,7 +237,7 @@
             <div class="filter-panel-label">Data scope</div>
             <div class="filter-chip-select">
               <i class="ri-global-line"></i>
-              <select [ngModel]="scopeFilter()" (ngModelChange)="scopeFilter.set($event)">
+              <select [ngModel]="scopeFilter()" (ngModelChange)="scopeFilter.set($event); applyFilter()">
                 @for (sc of scopeOptions; track sc) {
                   <option [value]="sc">{{ sc }}</option>
                 }
@@ -248,8 +248,7 @@
         </div>
 
         <div class="filter-panel-footer">
-          <button type="button" class="filter-reset-link" (click)="clearFilters()">Clear</button>
-          <label for="filterPanelToggle" class="btn btn-primary btn-sm px-4 mb-0" (click)="applyFilter()">Apply</label>
+          <button type="button" class="ydot-filter-reset" (click)="clearFilters()"><i class="ri-refresh-line" aria-hidden="true"></i> Reset</button>
         </div>
       </div>
     </div>

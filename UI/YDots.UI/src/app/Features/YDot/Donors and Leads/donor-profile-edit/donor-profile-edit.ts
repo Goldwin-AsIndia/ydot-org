@@ -7,6 +7,7 @@ import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { DonLookupItem, Donor360Response, DonorType } from '../../../../Shared/models/donor-contract.model';
 import { ToastService } from '../../../../Shared/services/toast.service';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 type EditState = 'loading' | 'ready' | 'no-access' | 'error' | 'empty';
 
 /**
@@ -28,6 +29,7 @@ type EditState = 'loading' | 'ready' | 'no-access' | 'error' | 'empty';
 })
 export class DonorProfileEditComponent {
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(DonorApiService);
   private readonly toast = inject(ToastService);
@@ -97,10 +99,6 @@ export class DonorProfileEditComponent {
     } else if (!this.organisationName().trim()) {
       e['organisationName'] = 'Enter Organisation name.';
     }
-    const email = this.email().trim();
-    if (!this.emailMasked() && email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      e['email'] = 'Enter a valid email address.';
-    }
     const phone = this.phone().trim();
     if (!this.phoneMasked() && phone && phone.replace(/\D/g, '').length < 7) {
       e['phone'] = 'Enter a valid phone number.';
@@ -119,7 +117,6 @@ export class DonorProfileEditComponent {
     if (this.donorType() !== d.donorType) out.push('Donor type');
     if (this.firstName().trim() !== (d.firstName ?? '') || this.lastName().trim() !== (d.lastName ?? '')) out.push('Name');
     if (this.organisationName().trim() !== (d.organisationName ?? '')) out.push('Organisation');
-    if (!this.emailMasked() && this.email().trim() !== (d.primaryEmail ?? '')) out.push('Email');
     if (!this.phoneMasked() && this.phone().trim() !== (d.primaryPhone ?? '')) out.push('Phone');
     if (this.language() !== (d.preferredLanguage ?? '')) out.push('Language');
     if (this.doNotContact() !== d.doNotContact) out.push('Do not contact');
@@ -201,7 +198,6 @@ export class DonorProfileEditComponent {
         lastName: person ? this.lastName().trim() || null : null,
         organisationName: person ? null : this.organisationName().trim(),
         // Masked values are left out so the server keeps the real ones.
-        ...(this.emailMasked() ? {} : { primaryEmail: this.email().trim() || null }),
         ...(this.phoneMasked() ? {} : { primaryPhone: this.phone().trim() || null }),
         preferredLanguage: this.language() || null,
         doNotContact: this.doNotContact(),
@@ -230,7 +226,7 @@ export class DonorProfileEditComponent {
 
   /** Back to Donor 360 for this donor. */
   private back(): void {
-    this.router.navigate(['/app/fundraising/relationships/donor-360'], {
+    this.navHistory.back(['/app/fundraising/relationships/donor-360'], {
       queryParams: { donorId: this.donorId() },
     });
   }

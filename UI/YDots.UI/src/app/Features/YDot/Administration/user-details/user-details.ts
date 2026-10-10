@@ -13,6 +13,7 @@ import {
 } from '../../../../Shared/models/iam-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 /** One role the person holds, as the table lists it. */
 interface RoleAssignmentRow {
   role: string;
@@ -43,6 +44,7 @@ interface RoleAssignmentRow {
 })
 export class UserDetailsComponent {
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly route = inject(ActivatedRoute);
   private readonly toast = inject(ToastService);
   private readonly api = inject(UserDirectoryApiService);
@@ -418,7 +420,7 @@ export class UserDetailsComponent {
   }
 
   goBack(): void {
-    this.router.navigate(['/app/administration/access/user-directory']);
+    this.navHistory.back(['/app/administration/access/user-directory']);
   }
 
   goToDashboard(): void {

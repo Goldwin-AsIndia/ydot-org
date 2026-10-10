@@ -18,6 +18,7 @@ import { AuthTokenService } from '../../../../Shared/services/auth-token.service
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 type Tab = 'profile' | 'documents' | 'review' | 'settings' | 'domains' | 'timeline';
 
 /**
@@ -52,6 +53,7 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
   private readonly api = inject(OrganisationApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly toast = inject(ToastService);
   private readonly tokens = inject(AuthTokenService);
 
@@ -618,7 +620,7 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
-    void this.router.navigate(['/app/administration/organisation/directory']);
+    this.navHistory.back(['/app/administration/organisation/directory']);
   }
 
   /** A date-only input needs yyyy-MM-dd; the API sends a full instant. */

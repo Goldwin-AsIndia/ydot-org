@@ -459,11 +459,6 @@
         </button>
       </header>
       <div class="ov-body">
-      <dl class="crc-review">
-        <div><dt>Affected record</dt><dd>{{ campaignName() }} · {{ campaignRef }}</dd></div>
-        <div><dt>Consequence</dt><dd>Lifecycle {{ lifecycleState() }} → {{ launchTarget() }}</dd></div>
-        <div><dt>Approver</dt><dd>{{ currentUserName() }}@if (currentUserCode()) { ({{ currentUserCode() }}) }</dd></div>
-      </dl>
       <div class="crc-field">
         <label class="crc-field-label" for="crc-approve-reason">Reason <span class="crc-req">*</span></label>
         <textarea id="crc-approve-reason" class="crc-input crc-textarea" rows="3" [class.is-invalid]="approveTouched() && !approveReasonValid()" [ngModel]="approveReason()" (ngModelChange)="approveReason.set($event)" placeholder="Record the launch decision"></textarea>
@@ -528,7 +523,6 @@
           <span class="crc-kicker-sep" aria-hidden="true">·</span> {{ vc.category }}
         </p>
         <h2 id="crc-view-title" class="crc-modal-title">{{ vc.name }}</h2>
-        @if (vc.description) { <p class="crc-modal-lead">{{ vc.description }}</p> }
         <button type="button" class="crc-modal-x" (click)="closeViewCheck()" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button>

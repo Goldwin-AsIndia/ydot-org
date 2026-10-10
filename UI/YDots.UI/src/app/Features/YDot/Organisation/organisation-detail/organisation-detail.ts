@@ -19,6 +19,7 @@ import { ToastService } from '../../../../Shared/services/toast.service';
 import { emailError, maxLengthError, nameError, phoneWithCodeError, postalCodeError, requiredError } from '../../../../Shared/validation/field-rules';
 import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 type Tab = 'profile' | 'documents' | 'review' | 'settings' | 'domains' | 'timeline';
 
 type SecurityNumberKey =
@@ -69,6 +70,7 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
   private readonly api = inject(OrganisationApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly toast = inject(ToastService);
   private readonly tokens = inject(AuthTokenService);
   private readonly enums = inject(EnumOptionsService);
@@ -945,7 +947,7 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
-    void this.router.navigate(['/app/administration/organisation/directory']);
+    this.navHistory.back(['/app/administration/organisation/directory']);
   }
 
   /** A status key as words for running text: 'underReview' -> 'under review'. */

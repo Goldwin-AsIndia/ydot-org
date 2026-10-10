@@ -18,6 +18,7 @@ import {
 } from '../../../../Shared/models/iam-contract.model';
 import { emailError, employeeNumberError, minLengthError, nameError, phoneWithCodeError, requiredError, textWithLettersError, usernameError } from '../../../../Shared/validation/field-rules';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 /** One row of a custom dropdown, normalised from whichever source the list comes from. */
 interface CuDdOption {
   value: string;
@@ -53,6 +54,7 @@ interface CuDdOption {
 })
 export class CreateUserComponent implements OnInit, HasPendingChanges {
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly toast = inject(ToastService);
   private readonly api = inject(UserAdminApiService);
   private readonly tokens = inject(AuthTokenService);
@@ -1093,7 +1095,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   }
 
   goBack(): void {
-    void this.router.navigate(['/app/administration/access/user-directory']);
+    this.navHistory.back(['/app/administration/access/user-directory']);
   }
 
   /**

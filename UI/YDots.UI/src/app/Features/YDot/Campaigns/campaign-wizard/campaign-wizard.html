@@ -489,9 +489,16 @@
 
                     <!-- Purpose — rich-text editor with character counter, 10–1,000 -->
                     <div class="field field-wide">
-                      <label class="field-label" for="f-purpose"
-                        >Purpose <span class="req" aria-hidden="true">*</span></label
-                      >
+                      <div class="field-label-row">
+                        <label class="field-label" for="f-purpose"
+                          >Purpose <span class="req" aria-hidden="true">*</span></label
+                        >
+                        <button type="button" class="field-preview-btn" (click)="openFieldPreview('purpose')"
+                          [disabled]="!hasFieldContent('purpose')"
+                          [title]="hasFieldContent('purpose') ? 'Preview' : 'Enter a purpose to preview'">
+                          <span aria-hidden="true">👁</span> Preview
+                        </button>
+                      </div>
 
                       <div class="rte-editor">
                         <div
@@ -552,6 +559,23 @@
                               }
                             </select>
                           </label>
+                          <label class="rte-select-wrap">
+                            <span class="rte-sr">Font style</span>
+                            <select class="rte-select" aria-label="Font style" (change)="applyFormat(purposeBody, 'fontName', $any($event.target).value, $event.target)">
+                              <option value="" disabled selected>Font</option>
+                              @for (f of fontFamilies; track f.value) {
+                                <option [value]="f.value">{{ f.label }}</option>
+                              }
+                            </select>
+                          </label>
+                          <label class="rte-select-wrap">
+                            <span class="rte-sr">Line spacing</span>
+                            <select class="rte-select" aria-label="Line spacing" [ngModel]="purposeLineHeight()" (ngModelChange)="applyLineHeight('purpose', $event)">
+                              @for (l of lineHeights; track l.value) {
+                                <option [value]="l.value">{{ l.label }}</option>
+                              }
+                            </select>
+                          </label>
                           <span class="rte-sep" aria-hidden="true"></span>
                           <button type="button" class="rte-btn" title="Clear formatting" aria-label="Clear formatting" (click)="applyFormat(purposeBody, 'removeFormat')">
                             Clear
@@ -569,6 +593,7 @@
                           [attr.aria-invalid]="
                             !purposeValid() && (purposeLen() > 0 || wasAttempted(0)) ? 'true' : null
                           "
+                          [style.lineHeight]="purposeLineHeight()"
                           [innerHTML]="purposeSeed()"
                           (input)="syncEditor(purposeBody)"
                           (keyup)="refreshFormatState(purposeBody)"
@@ -1511,20 +1536,6 @@
           <h3 class="cw-modal-title" id="submit-title">Submit campaign configuration</h3>
               </header>
               <div class="ov-body">
-              <dl class="review-list compact">
-                <div>
-                  <dt>Reference</dt>
-                  <dd class="mono">{{ stableReference() ?? 'CAMPWIZ-2025-0007' }}</dd>
-                </div>
-                <div>
-                  <dt>Resulting state</dt>
-                  <dd>{{ decisionReview().resultingState }}</dd>
-                </div>
-                <div>
-                  <dt>Effective permission</dt>
-                  <dd class="mono">cam.campaign-wizard.submit</dd>
-                </div>
-              </dl>
               </div>
               <div class="cw-modal-actions">
                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelSubmit()">
@@ -1555,20 +1566,6 @@
           <h3 class="cw-modal-title" id="delete-title">Confirm Delete unused draft</h3>
               </header>
               <div class="ov-body">
-              <dl class="review-list compact">
-                <div>
-                  <dt>Affected record</dt>
-                  <dd class="mono">{{ stableReference() ?? 'CAMPWIZ-2025-0007' }}</dd>
-                </div>
-                <div>
-                  <dt>Consequence</dt>
-                  <dd>The draft configuration is removed; linked history is retained.</dd>
-                </div>
-                <div>
-                  <dt>Effective time</dt>
-                  <dd>On confirmation · {{ operatingTimeZone }}</dd>
-                </div>
-              </dl>
               <div class="field">
                 <label class="field-label" for="del-reason"
                   >Reason <span class="req" aria-hidden="true">*</span></label

@@ -30,6 +30,7 @@ import { UserListItem, UserSearchFilter } from '../../../../Shared/models/user-d
 import { LookupItem } from '../../../../Shared/models/api-response.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 @Component({
   selector: 'app-bulk-user-administration',
   standalone: true,
@@ -47,6 +48,7 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
 export class BulkUserAdministrationComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly toast = inject(ToastService);
   private readonly api = inject(BulkUserAdminApiService);
   private readonly userApi = inject(UserDirectoryApiService);
@@ -893,6 +895,6 @@ export class BulkUserAdministrationComponent {
   }
 
   goBack(): void {
-    this.router.navigate(['/app/administration/access/user-directory']);
+    this.navHistory.back(['/app/administration/access/user-directory']);
   }
 }

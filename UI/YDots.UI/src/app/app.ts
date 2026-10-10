@@ -7,6 +7,7 @@ import { DateFieldPickerService } from './Shared/services/date-field-picker.serv
 import { InputGuardService } from './Shared/services/input-guard.service';
 import { DialogHostMarkerService } from './Shared/services/dialog-host-marker.service';
 import { PopupGuardService } from './Shared/services/popup-guard.service';
+import { NavigationHistoryService } from './Shared/services/navigation-history.service';
 
 @Component({
   selector: 'app-root',
@@ -26,6 +27,8 @@ export class App {
     inject(PopupGuardService).install();
     // Marks the screens the shared dialog design covers with one cheap attribute (keeps navigation fast).
     inject(DialogHostMarkerService).install();
+    // Remembers where each screen was opened from, so Back returns there.
+    inject(NavigationHistoryService).install();
   }
 
  

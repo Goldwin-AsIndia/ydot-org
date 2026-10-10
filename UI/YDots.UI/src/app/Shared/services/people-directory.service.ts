@@ -26,6 +26,8 @@ export interface PersonOption {
    * empty string - a blank second line rather than a duplicated reference.
    */
   readonly context: string;
+  /** The role(s) the person holds in the Organisation, as IAM names them - '' when none is known. */
+  readonly roleName: string;
   readonly isActive: boolean;
   readonly email?: string;
   readonly avatarUrl?: string;
@@ -90,6 +92,14 @@ export class PeopleDirectoryService {
    */
   readonly assignable = computed(() => this.people().filter((person) => person.isActive));
 
+  /**
+   * The people who may own a campaign: the Organisation's own staff - admin, managers and
+   * executives - and never a donor or a donor-care account. A donor has an account in the same
+   * Organisation but is not somebody a campaign can be made accountable to.
+   */
+  readonly staffAssignable = computed(() =>
+    this.assignable().filter((person) => !/donor/i.test(person.roleName)));
+
   constructor() {
     this.refresh();
     this.organisationScope.onOrganisationChange(() => this.reloadForOrganisation());
@@ -123,6 +133,7 @@ export class PeopleDirectoryService {
               // Printed straight into selectors, so never the id - see name() below.
               name: firstReadable([person.displayName, person.code], 'Unnamed user'),
               context: contextOf(person.roleName, person.unitName),
+              roleName: person.roleName ?? '',
 
               // The endpoint returns ACTIVE people only, so everyone it names can be given work.
               isActive: true,

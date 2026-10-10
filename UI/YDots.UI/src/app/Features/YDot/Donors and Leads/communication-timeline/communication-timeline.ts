@@ -26,6 +26,7 @@ import { parseCsv } from '../../../../Shared/services/csv';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 /**
  * A channel, as the API names it: Call, Email, Sms, WhatsApp, Meeting, Visit or Note.
  *
@@ -119,6 +120,7 @@ const LANE_LABELS: Record<string, string> = {
 })
 export class CommunicationTimelineComponent {
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly route = inject(ActivatedRoute);
   private readonly location = inject(Location);
   private readonly api = inject(DonorApiService);
@@ -173,6 +175,38 @@ export class CommunicationTimelineComponent {
   readonly editingId = signal<string | null>(null);
   readonly selectedCommunication = signal<CommunicationRecord | null>(null);
   readonly formErrors = signal<string[]>([]);
+
+  /** Set once Save is pressed, so a required field shows its error only after an attempt. */
+  readonly attempted = signal(false);
+  readonly timeInvalid = computed(() => this.attempted() && !this.form().time);
+  readonly summaryInvalid = computed(() => this.attempted() && this.form().summary.trim().length < 10);
+
+  // 12-hour time picker (hour : minute + AM/PM) over the stored 24-hour `HH:mm`, as on Campaigns.
+  readonly hourOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  readonly minuteOptions = computed(() => {
+    const base = Array.from({ length: 12 }, (_, i) => i * 5);
+    const cur = this.timeParts().minute;
+    return cur !== null && !base.includes(cur) ? [...base, cur].sort((a, b) => a - b) : base;
+  });
+  readonly timeParts = computed(() => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(this.form().time ?? '');
+    if (!m) return { hour: null as number | null, minute: null as number | null, pm: false };
+    const h = Number(m[1]);
+    return { hour: h % 12 === 0 ? 12 : h % 12, minute: Number(m[2]), pm: h >= 12 };
+  });
+
+  setTimePart(part: 'hour' | 'minute' | 'meridiem', raw: string | number): void {
+    if (this.editingId()) return;
+    const cur = this.timeParts();
+    let hour = cur.hour ?? 9;
+    let minute = cur.minute ?? 0;
+    let pm = cur.pm;
+    if (part === 'hour') hour = Number(raw);
+    else if (part === 'minute') minute = Number(raw);
+    else pm = raw === 'PM';
+    const h24 = (hour % 12) + (pm ? 12 : 0);
+    this.updateForm('time', `${String(h24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
+  }
   private readonly entrySheet = viewChild<ElementRef<HTMLElement>>('entrySheet');
 
   readonly currentTemperature = signal('');
@@ -741,6 +775,7 @@ export class CommunicationTimelineComponent {
     this.selectedCommunication.set(null);
     this.editingId.set(null);
     this.formErrors.set([]);
+    this.attempted.set(false);
     this.form.set(this.createEmptyForm(type));
     this.isEntryDrawerOpen.set(true);
   }
@@ -750,6 +785,7 @@ export class CommunicationTimelineComponent {
 
     this.editingId.set(record.id);
     this.formErrors.set([]);
+    this.attempted.set(false);
 
     this.form.set({
       type: record.type,
@@ -774,6 +810,7 @@ export class CommunicationTimelineComponent {
     this.isEntryDrawerOpen.set(false);
     this.editingId.set(null);
     this.formErrors.set([]);
+    this.attempted.set(false);
   }
 
   openDetails(record: CommunicationRecord): void {
@@ -810,7 +847,10 @@ export class CommunicationTimelineComponent {
 
     const value = this.form();
     const errors = this.validateForm(value);
-    this.formErrors.set(errors);
+    this.attempted.set(true);
+
+    // Required-field problems show on the fields themselves; the banner is for the server's word.
+    this.formErrors.set([]);
 
     if (errors.length) {
       return;
@@ -1105,19 +1145,14 @@ export class CommunicationTimelineComponent {
   handleOpenMyLeads(): void {
     this.navigateToLeads.emit();
 
-    if (window.history.length > 1) {
-      this.location.back();
-      return;
-    }
-
     if (this.isDonor()) {
-      this.router.navigate(['/app/fundraising/relationships/donor-360'], {
+      this.navHistory.back(['/app/fundraising/relationships/donor-360'], {
         queryParams: { donorId: this.timeline()?.donorId ?? this.donorId(), tab: 'overview' },
       });
       return;
     }
 
-    this.router.navigate([
+    this.navHistory.back([
       this.tokens.hasPermission('don.records.view-all')
         ? '/app/fundraising/relationships/lead-work-queue'
         : '/app/fundraising/relationships/my-leads',
@@ -1203,6 +1238,7 @@ export class CommunicationTimelineComponent {
 
   /** Fills the date and time with this moment. */
   setNow(): void {
+    if (this.editingId()) return;
     const now = new Date();
     this.updateForm('date', this.getTodayIso());
     this.updateForm('time', `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);

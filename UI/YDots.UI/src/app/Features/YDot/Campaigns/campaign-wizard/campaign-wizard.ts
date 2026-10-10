@@ -431,7 +431,7 @@ export class CampaignWizardComponent {
    * all.
    */
   protected readonly ownerCatalogue = computed<readonly EligibleRecord[]>(() =>
-    this.people.assignable().map((person) => ({
+    this.people.staffAssignable().map((person) => ({
       ref: person.reference,
       label: person.name,
       context: person.context,
@@ -819,6 +819,7 @@ export class CampaignWizardComponent {
   /** Per-field line height (applied to the whole editor for a predictable result). */
   protected readonly descLineHeight = signal('1.6');
   protected readonly termsLineHeight = signal('1.6');
+  protected readonly purposeLineHeight = signal('1.6');
 
   /**
    * Preserve the live selection/range across a toolbar click. Clicking a toolbar
@@ -937,8 +938,9 @@ export class CampaignWizardComponent {
     return state.editorId === editor.id && !!state.on[command];
   }
   /** Line spacing control — sets the editor's line-height (predictable across the whole field). */
-  protected applyLineHeight(target: 'desc' | 'terms' | 'popup', value: string): void {
+  protected applyLineHeight(target: 'desc' | 'terms' | 'purpose' | 'popup', value: string): void {
     if (target === 'desc') this.descLineHeight.set(value);
+    else if (target === 'purpose') this.purposeLineHeight.set(value);
     else if (target === 'terms') this.termsLineHeight.set(value);
     else this.popupLineHeight.set(value);
   }
@@ -948,7 +950,11 @@ export class CampaignWizardComponent {
   private editorMax(editor: HTMLElement): number {
     if (editor.id === 'f-terms') return this.termsNoticeMax;
     if (editor.id === 'f-preview-edit')
-      return this.previewField() === 'terms' ? this.termsNoticeMax : this.publicDescriptionMax;
+      return this.previewField() === 'terms'
+        ? this.termsNoticeMax
+        : this.previewField() === 'purpose'
+          ? this.purposeMax
+          : this.publicDescriptionMax;
     if (editor.id === 'f-public') return this.publicDescriptionMax;
     return this.purposeMax; // f-purpose caps at purposeMax
   }
@@ -1055,7 +1061,7 @@ export class CampaignWizardComponent {
   // than long inline blocks; the popup opens in read view first and reveals the
   // full formatting toolbar only once the user chooses Edit.
 
-  protected readonly previewField = signal<'description' | 'terms' | null>(null);
+  protected readonly previewField = signal<'description' | 'terms' | 'purpose' | null>(null);
   protected readonly previewEditing = signal(false);
   protected readonly popupSeed = signal('');
   protected readonly popupDraftHtml = signal('');
@@ -1063,21 +1069,27 @@ export class CampaignWizardComponent {
   protected readonly popupLineHeight = signal('1.6');
 
   protected readonly previewFieldLabel = computed(() =>
-    this.previewField() === 'terms' ? 'Terms and notice' : 'Public description',
+    this.previewField() === 'terms'
+      ? 'Terms and notice'
+      : this.previewField() === 'purpose'
+        ? 'Purpose'
+        : 'Public description',
   );
   /** Read-view content for the popup — always the committed (saved-in-form) markup. */
   protected readonly previewFieldHtml = computed(() =>
     this.previewField() === 'terms' ? this.termsNoticeHtml() || `<p>${this.termsNotice() || 'Nothing entered yet.'}</p>` :
+    this.previewField() === 'purpose' ? this.purposeHtml() || `<p>${this.purpose() || 'Nothing entered yet.'}</p>` :
       this.publicDescriptionHtml() || `<p>${this.publicDescription() || 'Nothing entered yet.'}</p>`,
   );
 
   /** Whether the given rich-text field currently holds any entered value. */
-  protected hasFieldContent(which: 'description' | 'terms'): boolean {
+  protected hasFieldContent(which: 'description' | 'terms' | 'purpose'): boolean {
+    if (which === 'purpose') return this.purpose().trim().length > 0;
     return which === 'terms'
       ? this.termsNotice().trim().length > 0
       : this.publicDescription().trim().length > 0;
   }
-  protected openFieldPreview(which: 'description' | 'terms'): void {
+  protected openFieldPreview(which: 'description' | 'terms' | 'purpose'): void {
     // Do not open the preview popup when nothing has been entered yet — the
     // preview is only meaningful once the field holds a value.
     if (!this.hasFieldContent(which)) return;
@@ -1092,10 +1104,24 @@ export class CampaignWizardComponent {
   protected startEditPreview(): void {
     const which = this.previewField();
     if (!which) return;
-    this.popupSeed.set(which === 'terms' ? this.termsNoticeHtml() : this.publicDescriptionHtml());
+    this.popupSeed.set(
+      which === 'terms'
+        ? this.termsNoticeHtml()
+        : which === 'purpose'
+          ? this.purposeHtml()
+          : this.publicDescriptionHtml(),
+    );
     this.popupDraftHtml.set(this.popupSeed());
-    this.popupDraftText.set(which === 'terms' ? this.termsNotice() : this.publicDescription());
-    this.popupLineHeight.set(which === 'terms' ? this.termsLineHeight() : this.descLineHeight());
+    this.popupDraftText.set(
+      which === 'terms' ? this.termsNotice() : which === 'purpose' ? this.purpose() : this.publicDescription(),
+    );
+    this.popupLineHeight.set(
+      which === 'terms'
+        ? this.termsLineHeight()
+        : which === 'purpose'
+          ? this.purposeLineHeight()
+          : this.descLineHeight(),
+    );
     this.previewEditing.set(true);
   }
   protected cancelEditPreview(): void {
@@ -1110,6 +1136,12 @@ export class CampaignWizardComponent {
       this.termsNoticeHtml.set(this.popupDraftHtml());
       this.termsNotice.set(this.popupDraftText());
       this.termsLineHeight.set(this.popupLineHeight());
+    } else if (which === 'purpose') {
+      this.purposeHtml.set(this.popupDraftHtml());
+      this.purpose.set(this.popupDraftText());
+      this.purposeLineHeight.set(this.popupLineHeight());
+      // The purpose editor is on screen while the popup is open - re-seed it so the saved markup shows.
+      this.purposeSeed.set(this.popupDraftHtml());
     } else {
       this.publicDescriptionHtml.set(this.popupDraftHtml());
       this.publicDescription.set(this.popupDraftText());
@@ -1519,7 +1551,9 @@ export class CampaignWizardComponent {
       this.successRef.set(ref);
       this.toast.show('Draft saved', `Reference ${ref} saved.`, 'success');
       this.uiState.set('ready');
-      this.router.navigate(['/app/fundraising/campaigns/campaign-register']);
+      this.router.navigate(['/app/fundraising/campaigns/campaign-register'], {
+        queryParams: { created: ref },
+      });
     });
   }
 
@@ -1763,6 +1797,7 @@ export class CampaignWizardComponent {
     this.purpose.set('');
     this.purposeHtml.set('');
     this.purposeSeed.set('');
+    this.purposeLineHeight.set('1.6');
     this.fundProgramme.set('');
     this.startDate.set('');
     this.endDate.set('');

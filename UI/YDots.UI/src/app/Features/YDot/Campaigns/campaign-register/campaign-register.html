@@ -163,7 +163,7 @@
               </thead>
               <tbody>
                 @for (r of pagedRecords(); track r.code) {
-                  <tr [class.is-ticked]="isSelected(r.code)" [attr.data-ink]="statusInk(r.status)">
+                  <tr [class.is-ticked]="isSelected(r.code)" [class.is-new]="r.code === highlightRef()" [attr.data-ink]="statusInk(r.status)">
                     <td class="cr-c-tick">
                       <input type="checkbox" class="cr-tick" [checked]="isSelected(r.code)" (change)="toggleRow(r.code)" [attr.aria-label]="'Tick ' + r.name" />
                     </td>
@@ -395,24 +395,6 @@
           <h2 id="cr-delete-title" class="cr-modal-title">Confirm Delete unused draft</h2>
           </header>
           <div class="ov-body">
-          <dl class="cr-kv">
-            <div>
-              <dt>Campaign</dt>
-              <dd>{{ deleteTarget()!.name }} · {{ deleteTarget()!.code }}</dd>
-            </div>
-            <div>
-              <dt>Consequence</dt>
-              <dd>Removes an unused draft with no downstream reference</dd>
-            </div>
-            <div>
-              <dt>Resulting state</dt>
-              <dd>Draft deleted · register total reduced by one</dd>
-            </div>
-            <div>
-              <dt>Effective time</dt>
-              <dd>{{ lastRefresh() }}</dd>
-            </div>
-          </dl>
           <div class="cr-field">
             <label class="cr-field-label" for="cr-delete-reason">Reason <span
                 class="cr-conf-tag">Required</span></label>

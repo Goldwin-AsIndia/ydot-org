@@ -115,6 +115,8 @@ public sealed class DemoCampaignSeeder(
         {
             // Seeded already. Still worth one look: a seed that ran before the geography master
             // existed wrote its campaigns with no state or city - see RepairGeographyAsync.
+            await RepairAssetTypesAsync(campaignIds, tenant.Id, cancellationToken);
+
             return await RepairGeographyAsync(organisation, tenant.Id, cancellationToken);
         }
 
@@ -234,6 +236,39 @@ public sealed class DemoCampaignSeeder(
             assetCount);
 
         return true;
+    }
+
+    /// <summary>
+    /// Turns the demonstration assets a first seed wrote as Short Links or UTM Links into Landing
+    /// Pages. Those two types are no longer offered (see CampaignSettings.OfferedTrackingAssetTypes),
+    /// so the register listed types nobody could create. Only the seeded campaigns' assets are touched.
+    /// </summary>
+    private async Task RepairAssetTypesAsync(
+        IReadOnlyList<Guid> campaignIds, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var legacy = await context.TrackingAssets
+            .IgnoreQueryFilters()
+            .Where(asset => asset.TenantId == tenantId
+                            && campaignIds.Contains(asset.CampaignId)
+                            && (asset.AssetType == TrackingAssetType.ShortLink
+                                || asset.AssetType == TrackingAssetType.UTMLink))
+            .ToListAsync(cancellationToken);
+
+        if (legacy.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var asset in legacy)
+        {
+            asset.AssetType = TrackingAssetType.LandingPage;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Changed {Count} demonstration tracking asset(s) from Short Link / UTM Link to Landing Page.",
+            legacy.Count);
     }
 
     /// <summary>

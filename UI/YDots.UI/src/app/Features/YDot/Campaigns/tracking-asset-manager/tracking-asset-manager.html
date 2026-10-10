@@ -118,10 +118,10 @@
 
           <!-- Channel -->
           <div class="tam-field">
-            <span class="tam-field-label">Channel</span>
+            <span class="tam-field-label">Medium</span>
             <div class="tam-combo" [class.is-open]="openMenu() === 'f-channel'" appClickOutside (appClickOutside)="onClickOutside('f-channel')">
               <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-channel')"
-                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-channel'" aria-label="Channel">
+                      role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-channel'" aria-label="Medium">
                 <span class="tam-combo-value" [class.tam-combo-ph]="!channelFilter()">{{ channelFilter() || 'All channels' }}</span>
                 <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
               </button>
@@ -315,7 +315,7 @@
                 </button>
               </th>
               <th scope="col" class="tam-col-type">Asset type</th>
-              <th scope="col" class="tam-col-channel">Channel</th>
+              <th scope="col" class="tam-col-channel">Medium</th>
               <th scope="col" class="tam-col-dest">Destination / URL</th>
               <th scope="col" class="tam-col-status">Status</th>
               <th scope="col" class="tam-col-num">Usage</th>
@@ -354,7 +354,7 @@
 
                 <td class="tam-col-type" data-label="Asset type">{{ r.assetType }}</td>
 
-                <td data-label="Channel">
+                <td data-label="Medium">
                   <span class="tam-channel"><span class="tam-dot" [class]="channelDotClass(r.channel)" aria-hidden="true"></span>{{ r.channel }}</span>
                 </td>
 
@@ -496,7 +496,7 @@
                 @if (missing('campaign')) { <p class="tam-field-hint tam-field-error">Enter Campaign.</p> }
               </div>
 
-              <!-- Medium (required) — the channel options; auto-filled from the campaign -->
+              <!-- Medium (required) — chosen by the person, never pre-filled from the campaign -->
               <div class="tam-field tam-c4 tam-fill-mid" [class.tam-field-invalid]="missing('channel')">
                 <label class="tam-field-label" for="g-channel">Medium <span class="tam-req">*</span></label>
                 <div class="tam-combo" [class.is-open]="openMenu() === 'g-channel'" appClickOutside (appClickOutside)="onClickOutside('g-channel')">
@@ -549,7 +549,7 @@
                     <span class="tam-label-aside">The page this link or QR code opens</span></label>
                   <input id="g-destination" type="text" class="tam-input" [ngModel]="gDestination()"
                          (ngModelChange)="gDestination.set($event)" placeholder="https://ydot.org/educate-a-child/donate" />
-                  @if (missing('destination')) { <p class="tam-field-hint tam-field-error">Enter Destination.</p> }
+                  @if (missing('destination')) { <p class="tam-field-hint tam-field-error">{{ gDestination().trim() ? destinationFormatMessage : 'Enter Destination URL.' }}</p> }
                 </div>
 
                 <!-- The address as typed, read back in the browser (nothing is fetched). -->
@@ -557,7 +557,7 @@
                   @if (destInfo(); as d) {
                     @if (d === 'invalid') {
                       <svg class="tam-readout-glyph is-bad" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
-                      <p class="tam-destinfo-msg is-bad">That doesn't look like a web address. Enter it in full, such as https://ydot.org/donate.</p>
+                      <p class="tam-destinfo-msg is-bad">{{ destinationFormatMessage }}</p>
                     } @else {
                       <svg class="tam-readout-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z"/></svg>
                       <div class="tam-destinfo-text">
@@ -646,7 +646,7 @@
                     }
                   </div>
                   <button type="button" class="tam-btn tam-btn-outline tam-btn-sm tam-add-place" (click)="addPlace()">+ Create</button>
-                  @if (missing('places')) { <p class="tam-field-hint tam-field-error">Enter at least one place name and destination.</p> }
+                  @if (missing('places')) { <p class="tam-field-hint tam-field-error">Enter at least one place name and a full web address beginning http:// or https://.</p> }
                 </div>
               }
 
@@ -860,6 +860,8 @@
             <div class="tam-generated-text">
               <code class="tam-generated-url">{{ a.generatedUrl || 'Issued on approval' }}</code>
             </div>
+            <!-- A Draft has no tracking link yet, so there is nothing to share, copy, open or download. -->
+            @if (a.assetStatus !== 'Draft') {
             <div class="tam-generated-actions">
                 <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="shareAsset(a)">
                   <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="m8.1 10.7 7.8-4.4M8.1 13.3l7.8 4.4"/></svg>
@@ -880,6 +882,7 @@
                   </button>
                 }
             </div>
+            }
             @if (shareStatus()) {
               <p class="tam-field-hint tam-generated-status" role="status">{{ shareStatus() }}</p>
             }
@@ -988,11 +991,6 @@
           </button>
         </header>
         <div class="ov-body">
-        <dl class="tam-kv">
-          <div><dt>Tracking reference</dt><dd>{{ approveTarget()!.trackingReference }}</dd></div>
-          <div><dt>Approval change</dt><dd>{{ approveTarget()!.approvalState }} → Approved</dd></div>
-          <div><dt>Resulting state</dt><dd>Active · tracking link issued</dd></div>
-        </dl>
         <div class="tam-field">
           <label class="tam-field-label" for="tam-approve-reason">Reason <span class="tam-req">*</span></label>
           <textarea id="tam-approve-reason" class="tam-input tam-textarea" rows="3"
@@ -1025,13 +1023,6 @@
           </button>
         </header>
         <div class="ov-body">
-        <dl class="tam-kv">
-          <div><dt>Tracking reference</dt><dd>{{ requestDisableTarget()!.trackingReference }}</dd></div>
-          <div><dt>Destination</dt><dd class="tam-break">{{ requestDisableTarget()!.destination }}</dd></div>
-          <div><dt>Status change</dt><dd>{{ requestDisableTarget()!.assetStatus }} &rarr; Submitted for disable</dd></div>
-          <div><dt>Consequence</dt><dd>None yet &mdash; an approver decides whether the asset comes down</dd></div>
-          <div><dt>Effective time</dt><dd>{{ lastRefresh() }}</dd></div>
-        </dl>
         <div class="tam-field">
           <label class="tam-field-label" for="tam-request-disable-reason">Reason <span class="tam-req">*</span></label>
           <textarea id="tam-request-disable-reason" class="tam-input tam-textarea" rows="3"
@@ -1064,12 +1055,6 @@
           </button>
         </header>
         <div class="ov-body">
-        <dl class="tam-kv">
-          <div><dt>Tracking reference</dt><dd>{{ disableTarget()!.trackingReference }}</dd></div>
-          <div><dt>Consequence</dt><dd>Stops new redirects and scans for this asset</dd></div>
-          <div><dt>Resulting state</dt><dd>Disabled · linked history preserved</dd></div>
-          <div><dt>Effective time</dt><dd>{{ lastRefresh() }}</dd></div>
-        </dl>
         <div class="tam-field">
           <label class="tam-field-label" for="tam-disable-reason">Reason <span class="tam-req">*</span></label>
           <textarea id="tam-disable-reason" class="tam-input tam-textarea" rows="3"
@@ -1102,12 +1087,6 @@
           </button>
         </header>
         <div class="ov-body">
-        <dl class="tam-kv">
-          <div><dt>Tracking reference</dt><dd>{{ deleteTarget()!.trackingReference }}</dd></div>
-          <div><dt>Consequence</dt><dd>Removes an unused draft with no downstream reference</dd></div>
-          <div><dt>Resulting state</dt><dd>Draft deleted · linked evidence retained</dd></div>
-          <div><dt>Effective time</dt><dd>{{ lastRefresh() }}</dd></div>
-        </dl>
         <div class="tam-field">
           <label class="tam-field-label" for="tam-delete-reason">Reason <span class="tam-req">*</span></label>
           <textarea id="tam-delete-reason" class="tam-input tam-textarea" rows="3"
@@ -1152,7 +1131,7 @@
             </thead>
             <tbody>
               <tr><th scope="row">Asset type</th>@for (a of compareAssets(); track a.trackingReference) { <td>{{ a.assetType }}</td> }</tr>
-              <tr><th scope="row">Channel</th>@for (a of compareAssets(); track a.trackingReference) { <td><span class="tam-channel"><span class="tam-dot" [class]="channelDotClass(a.channel)" aria-hidden="true"></span>{{ a.channel }}</span></td> }</tr>
+              <tr><th scope="row">Medium</th>@for (a of compareAssets(); track a.trackingReference) { <td><span class="tam-channel"><span class="tam-dot" [class]="channelDotClass(a.channel)" aria-hidden="true"></span>{{ a.channel }}</span></td> }</tr>
               <tr><th scope="row">Campaign</th>@for (a of compareAssets(); track a.trackingReference) { <td>{{ campaignOf(a.campaignRef).name }}</td> }</tr>
               <tr><th scope="row">Destination</th>@for (a of compareAssets(); track a.trackingReference) { <td class="tam-break">{{ a.destination }}</td> }</tr>
               <tr><th scope="row">Generated URL</th>@for (a of compareAssets(); track a.trackingReference) { <td class="tam-break">{{ a.generatedUrl }}</td> }</tr>
