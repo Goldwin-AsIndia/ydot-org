@@ -1241,42 +1241,6 @@
   color: #7a4ea3;
 }
 
-.cr-table-scroll {
-  overflow-x: auto;
-}
-
-.cr-compare-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.cr-compare-table th,
-.cr-compare-table td {
-  min-width: calc(150px * var(--s));
-  padding: calc(9px * var(--s)) calc(12px * var(--s));
-  border-bottom: 1px solid var(--cr-line-2);
-  text-align: left;
-  vertical-align: top;
-  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
-  color: var(--cr-ink);
-}
-
-.cr-compare-table thead th {
-  border-bottom: 1px solid var(--cr-line);
-  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  background: #ffffff;
-  color: var(--cr-ink);
-}
-
-.cr-compare-table tbody td:first-child {
-  font-size: calc(calc(11px * var(--s)) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--cr-muted);
-}
-
 .cr-owners-list {
   display: flex;
   flex-direction: column;
@@ -1392,4 +1356,53 @@
   justify-content: center;
   padding: 0;
   cursor: pointer;
+}
+
+/* ---- Row actions: glyph only, no background shape (this screen only) ---- */
+.cr-table .cr-row-acts .cr-act,
+.cr-table .cr-row-acts .cr-act:hover:not(:disabled),
+.cr-table .cr-row-acts .cr-act:focus-visible {
+  background: transparent !important;
+  border-color: transparent !important;
+  border-radius: calc(8px * var(--s)) !important;
+}
+
+/* "Actions" heading sits a little to the left, over the icons rather than on the table edge */
+.cr-table thead th.cr-c-act {
+  padding-right: calc(var(--cr-pad) + calc(16px * var(--s))) !important;
+}
+
+/* ---- Owner filter: fixed width, long names are cut with an ellipsis instead of stretching the bar ---- */
+.cr-fbox:not(.cr-fbox--range) {
+  flex: 0 0 auto;
+  width: calc(230px * var(--s));
+  max-width: 100%;
+}
+
+.cr-fbox>span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.cr-fbox:not(.cr-fbox--range) select {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* Owner filter: wide enough for "Name . USER-ID" in full. */
+.cr-fbox:not(.cr-fbox--range) {
+  width: auto;
+  max-width: min(100%, calc(460px * var(--s)));
+}
+.cr-fbox:not(.cr-fbox--range) select {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: calc(400px * var(--s));
+  text-overflow: clip;
 }

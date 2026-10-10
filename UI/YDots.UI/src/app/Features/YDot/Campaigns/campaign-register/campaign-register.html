@@ -1,7 +1,7 @@
 <!--
   Campaign Overview - "Campaign portfolio"
   Cards on the standard page container (the screen lines up with the top bar):
-    header card    kicker, display title, scope + count | Compare (n), Export, New campaign
+    header card    kicker, display title, scope + count | Export, New campaign
     stat cards     Campaigns, Live now, In the pipeline, Average progress
     campaigns card head: title + count | search, owner, launch window, clear
                    status tabs (All + every status with campaigns) - underlined, with counts
@@ -22,13 +22,6 @@
           <h1 class="cr-title">Campaign overview</h1>
         </div>
         <div class="cr-acts">
-          @if (permissions().view) {
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openCompare()" [disabled]="!compareAllowed()"
-                    [attr.title]="selectedCount() < 2 ? 'Tick at least two campaigns to compare' : null">
-    <!-- Compare / merge style -->
-<i class="ri-arrow-left-right-line"></i> Compare @if (selectedCount() > 0) { <span class="cr-b__n">{{ selectedCount() }}</span> }
-            </button>
-          }
           @if (permissions().export) {
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openExportDialog()" [disabled]="!exportAllowed()"><i class="ri-download-2-line"></i> Export</button>
           }
@@ -233,85 +226,6 @@
           </footer>
         }
       </section>
-
-      <!-- ============ COMPARE DIALOG ============ -->
-      @if (compareDialogOpen()) {
-      <div class="cr-modal-backdrop" (click)="closeCompare()">
-        <div class="cr-modal cr-modal-wide" role="dialog" aria-modal="true" aria-labelledby="cr-compare-title"
-          (click)="$event.stopPropagation()">
-          <header class="ov-head">
-          <!-- <button type="button" class="cr-modal-x" (click)="closeCompare()" aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-          </button> -->
-          <h2 id="cr-compare-title" class="cr-modal-title">Compare campaigns</h2>
-          <p class="cr-modal-lead">
-            Comparing {{ compareRecords().length }} selected campaigns from the current scope.
-          </p>
-          </header>
-          <div class="ov-body">
-          <div class="cr-table-scroll">
-            <table class="cr-table cr-compare-table">
-              <thead>
-                <tr>
-                  <th scope="col">Field</th>
-                  @for (r of compareRecords(); track r.code) {
-                  <th scope="col">
-                    {{ r.name }}<br /><span class="cr-code">{{ r.code }}</span>
-                  </th>
-                  }
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Status</td>
-                  @for (r of compareRecords(); track r.code) {
-                  <td>
-                    <span class="cr-status" [attr.data-ink]="statusInk(r.status)"><span class="cr-dot"></span>{{ r.status }}</span>
-                  </td>
-                  }
-                </tr>
-                <tr>
-                  <td>Owner</td>
-                  @for (r of compareRecords(); track r.code) {
-                  <td>{{ ownerOf(r.ownerReference).name }}</td>
-                  }
-                </tr>
-                <tr>
-                  <td>Launch Date</td>
-                  @for (r of compareRecords(); track r.code) {
-                  <td>{{ formatDate(r.startDate) }}</td>
-                  }
-                </tr>
-                <tr>
-                  <td>End Date</td>
-                  @for (r of compareRecords(); track r.code) {
-                  <td>{{ formatDate(r.endDate) }}</td>
-                  }
-                </tr>
-                <tr>
-                  <td>Progress</td>
-                  @for (r of compareRecords(); track r.code) {
-                  <td>{{ r.progress }}%</td>
-                  }
-                </tr>
-                <tr>
-                  <td>Purpose</td>
-                  @for (r of compareRecords(); track r.code) {
-                  <td>{{ r.purpose }}</td>
-                  }
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          </div>
-          <div class="cr-modal-actions">
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeCompare()">
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-      }
 
       <!-- ============ OWNERS POPUP — all owners of the campaign with basic details;
            the list scrolls inside itself when there are many ============ -->

@@ -136,7 +136,7 @@
           </div>
           <div class="fp-mast-acts">
             @if (!existing()) {
-              <button type="button" class="btn btn-primary btn-sm" (click)="leadId.set(null); donorId.set(null); followUpId.set(null)">
+              <button type="button" class="btn btn-primary btn-sm" (click)="changePerson()">
                 <i class="ri-user-shared-line" aria-hidden="true"></i> Change person
               </button>
             }
@@ -270,12 +270,13 @@
               </div>
               <div class="fp-field">
                 <div class="fp-label-row">
-                  <label for="outcome" class="fp-label">Expected outcome</label>
+                  <label for="outcome" class="fp-label">Expected outcome @if (!existing()) { <span class="fp-req">*</span> }</label>
                   <span class="fp-count fp-num">{{ expectedOutcome().length }}/500</span>
                 </div>
-                <textarea id="outcome" class="fp-input fp-textarea" rows="3" maxlength="500" [readOnly]="!!existing()"
+                <textarea id="outcome" [class.is-invalid]="fieldMissing('outcome')" class="fp-input fp-textarea" rows="3" maxlength="500" [readOnly]="!!existing()"
                           placeholder="e.g. Agree a date for a site visit"
                           [ngModel]="expectedOutcome()" (ngModelChange)="expectedOutcome.set($event)"></textarea>
+                @if (fieldMissing('outcome')) { <p class="field-error">Enter the expected outcome of this follow-up.</p> }
               </div>
             </div>
           </div>

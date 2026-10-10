@@ -338,7 +338,7 @@
             <ol class="fq-agenda">
               @for (item of agendaToday(); track item.followUpId) {
               <li>
-                <button type="button" class="fq-agenda-item" [class.is-done]="item.status === 'Completed'"
+                <button type="button" class="fq-agenda-item" [class.is-done]="item.status !== 'Pending' && item.status !== 'Rescheduled' && item.status !== 'Escalated'"
                   (click)="openPreview(item.followUpId)">
                   <span class="fq-agenda-time">{{ formatTime(item.time) || '—' }}</span>
                   <span class="fq-agenda-dot" aria-hidden="true"></span>
@@ -399,7 +399,7 @@
               <h2 id="fq-queue-title" class="fq-panel-title">{{ queueTitle() }}</h2>
               <span class="fq-qcount">{{ filteredFollowUps().length }}</span>
               <span class="fq-panel-sub">
-                {{ sortOrder() === 'oldest' ? 'Earliest' : 'Latest' }} first
+                {{ sortOrder() === 'status' ? 'By status' : sortOrder() === 'oldest' ? 'Earliest first' : 'Latest first' }}
                 @if (isNarrowed()) {
                 <span class="fq-sep" aria-hidden="true">&middot;</span>
                 <button type="button" class="fq-link" (click)="resetFilters()">Clear all</button>
@@ -424,6 +424,7 @@
                 <select id="fq-sort" [value]="sortOrder()" (change)="sortOrder.set($any($event.target).value)">
                   <option value="newest">Latest first</option>
                   <option value="oldest">Earliest first</option>
+                  <option value="status">Status</option>
                 </select>
               </label>
               <button type="button" class="fq-tool fq-filter-btn"
@@ -692,16 +693,17 @@
                         [checked]="allVisibleSelected()" (change)="toggleSelectAllVisible()" />
                     </th>
                     <th class="fq-col-record">Follow-up</th>
+                    <th class="fq-col-exec">Execution status</th>
                     <th class="fq-col-due">Due</th>
                     <th class="fq-col-owner">Assigned to</th>
                     <th class="fq-col-prio">Priority</th>
                     <th class="fq-col-status">Status</th>
-                    <th class="fq-col-actions"><span class="visually-hidden">Actions</span></th>
+                    <th class="fq-col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (f of pagedFollowUps(); track trackById($index, f); let i = $index, last = $last) {
-                  <tr [class.is-overdue]="isOverdue(f)" [class.is-selected]="isSelected(f.id)">
+                  <tr [class.is-overdue]="isOverdue(f)" [class.is-selected]="isSelected(f.id)" [class.is-fresh]="f.id === highlightId()">
                     <td class="fq-col-check">
                       <input type="checkbox" class="fq-check" [attr.aria-label]="'Select ' + f.recordName"
                         [checked]="isSelected(f.id)" (change)="toggleSelect(f.id)" />
@@ -734,6 +736,9 @@
                         Blocked{{ f.dependencyBlockedReason ? ': ' + f.dependencyBlockedReason : '' }}
                       </span>
                       }
+                    </td>
+                    <td class="fq-col-exec">
+                      @if (executionLabel(f); as label) { <span class="fq-exec">{{ label }}</span> } @else { <span class="fq-exec is-none">&mdash;</span> }
                     </td>
                     <td class="fq-col-due">
                       <span class="fq-due">
@@ -813,13 +818,6 @@
                               <use href="#fq-i-history" />
                             </svg>View history
                           </button>
-                          @if (canSchedule()) {
-                          <button type="button" role="menuitem" (click)="duplicateFollowUp(f.id); closeActionMenu()">
-                            <svg class="fq-i" aria-hidden="true">
-                              <use href="#fq-i-copy" />
-                            </svg>Duplicate
-                          </button>
-                          }
                           @if (can(f, 'Cancel')) {
                           <span class="fq-menu-rule" aria-hidden="true"></span>
                           <button type="button" role="menuitem" class="is-danger"
@@ -949,7 +947,10 @@
                   [class.is-today]="day.iso === today" [class.has-items]="day.items.length > 0"
                   [attr.aria-label]="formatDate(day.iso) + ', ' + day.items.length + ' follow-ups'"
                   (click)="onCalendarDayClick(day)">
-                  <span class="fq-cal-num">{{ day.dayNumber }}</span>
+                  <span class="fq-cal-top">
+                    <span class="fq-cal-num">{{ day.dayNumber }}</span>
+                    @if (day.items.length > 0) { <span class="fq-cal-count">{{ day.items.length }}</span> }
+                  </span>
                   <span class="fq-cal-items">
                     @for (item of day.items.slice(0, 2); track item.id) {
                     <span class="fq-cal-event" [class.is-late]="isOverdue(item)" [attr.data-type]="item.followUpType">
@@ -1024,8 +1025,8 @@
 
   <!-- ============================== DETAILS DRAWER ============================== -->
   @if (previewFollowUp(); as f) {
-  <button type="button" class="fq-scrim is-drawer" aria-label="Close details" title="Close details"
-    (click)="closePreview()"></button>
+  <button type="button" class="fq-scrim is-drawer" aria-label="Use the X at the top right to close" title="Use the X at the top right to close"
+    (click)="nudgeCloseButton()"></button>
   <aside class="fq-drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Follow-up ' + f.reference">
     <header class="fq-drawer-head">
       <div class="fq-drawer-top">
@@ -1038,7 +1039,7 @@
           <p class="fq-eyebrow">{{ f.followUpType }} &middot; {{ f.reference }}</p>
           <h2 class="fq-drawer-title">{{ f.recordName }}</h2>
         </div>
-        <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closePreview()">
+        <button type="button" class="fq-icon-btn fq-close" [class.is-nudge]="nudgeClose()" aria-label="Close" title="Close" (click)="closePreview()">
           <svg class="fq-i" aria-hidden="true">
             <use href="#fq-i-x" />
           </svg>

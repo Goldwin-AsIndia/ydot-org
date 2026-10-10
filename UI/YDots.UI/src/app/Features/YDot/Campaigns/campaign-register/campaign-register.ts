@@ -440,10 +440,6 @@ export class CampaignRegisterComponent {
   protected readonly filterAllowed = computed(
     () => this.permissions().view && !this.rangeInvalid() && this.uiState() !== 'no-access',
   );
-  /** Compare — any authorised state; needs at least two selected records. */
-  protected readonly compareAllowed = computed(
-    () => this.permissions().view && this.selectedCount() >= 2 && this.uiState() !== 'no-access',
-  );
   /** Export — any authorised state. */
   protected readonly exportAllowed = computed(() => this.permissions().export && this.uiState() !== 'no-access');
 
@@ -454,22 +450,6 @@ export class CampaignRegisterComponent {
       return;
     }
     this.router.navigate(['/app/fundraising/campaigns/campaign-wizard']);
-  }
-
-  // ----- Compare action -----
-  protected readonly compareDialogOpen = signal(false);
-  /** The selected records, read live from the shared store. */
-  protected readonly compareRecords = computed(() =>
-    this.records().filter((r) => this.selectedRefs().has(r.code)),
-  );
-  protected openCompare(): void {
-    if (!this.compareAllowed()) {
-      return;
-    }
-    this.compareDialogOpen.set(true);
-  }
-  protected closeCompare(): void {
-    this.compareDialogOpen.set(false);
   }
 
   // ----- Filter action -----

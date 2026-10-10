@@ -1735,97 +1735,154 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
 .fq-bcard-due.is-late { color: var(--fq-danger); }
 
 /* =====================================================================================================
-   Calendar view
+   Calendar view - a month of separate day cards: soft borders, a filled marker on today, event chips
+   colour-coded by channel (overdue in red), and a count in the corner of every busy day.
    ===================================================================================================== */
 .fq-cal {
-  padding: calc(12px * var(--s)) var(--fq-pad) var(--fq-pad);
+  padding: calc(18px * var(--s)) var(--fq-pad) var(--fq-pad);
 }
 .fq-cal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: calc(12px * var(--s));
-  margin-bottom: calc(10px * var(--s));
+  margin-bottom: calc(16px * var(--s));
 }
 .fq-cal-title {
   --ui-text-scale: var(--rs-title); --fw-bias: var(--fwb-title);
   margin: 0;
   font-family: var(--fq-display) !important;
-  font-size: calc(calc(15px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(22px * var(--s)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: -.01em;
   color: var(--fq-ink);
 }
-.fq-cal-nav { display: flex; align-items: center; gap: calc(4px * var(--s)); }
+/* Previous / Today / Next as one joined control. */
+.fq-cal-nav {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--fq-line);
+  border-radius: var(--fq-r-md);
+  background: #ffffff;
+  overflow: hidden;
+}
+.fq-cal-nav > * {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  height: calc(34px * var(--s));
+  min-width: calc(36px * var(--s));
+  box-shadow: none !important;
+}
+.fq-cal-nav > * + * { border-left: 1px solid var(--fq-line) !important; }
+.fq-cal-nav > *:hover { background: var(--fq-tint) !important; }
+.fq-cal-nav > .fq-btn { padding: 0 calc(14px * var(--s)); }
 .fq-cal-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid var(--fq-line);
-  border-radius: var(--fq-r-lg);
-  background: var(--fq-line);
+  gap: calc(8px * var(--s));
 }
 .fq-cal-dow {
-  padding: calc(7px * var(--s)) calc(10px * var(--s));
-  background: var(--fq-card);
+  padding: calc(2px * var(--s)) calc(4px * var(--s)) calc(4px * var(--s));
   color: var(--fq-muted);
   font-size: calc(var(--fq-t-xs) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
-  letter-spacing: .1em;
+  letter-spacing: .12em;
+  text-align: left;
   text-transform: uppercase;
 }
 .fq-cal-cell {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: calc(6px * var(--s));
+  gap: calc(8px * var(--s));
   min-width: 0;
-  min-height: calc(78px * var(--s));
-  padding: calc(6px * var(--s));
-  border: 0;
-  background: var(--fq-card);
+  min-height: calc(112px * var(--s));
+  padding: calc(9px * var(--s)) calc(9px * var(--s)) calc(10px * var(--s));
+  border: 1px solid var(--fq-line);
+  border-radius: var(--fq-r-lg);
+  background: #ffffff;
   color: var(--fq-ink);
   text-align: left;
   cursor: pointer;
-  transition: background-color .15s ease;
+  transition: border-color .15s ease, background-color .15s ease;
 }
-.fq-cal-cell:hover { background: color-mix(in srgb, var(--fq-accent) 4%, #ffffff); }
-.fq-cal-cell.is-out { background: color-mix(in srgb, var(--fq-well) 70%, #ffffff); }
+.fq-cal-cell:hover {
+  border-color: color-mix(in srgb, var(--fq-accent) 45%, var(--fq-line));
+  background: color-mix(in srgb, var(--fq-accent) 3%, #ffffff);
+}
+.fq-cal-cell:focus-visible { outline: 2px solid var(--fq-accent); outline-offset: 2px; }
+.fq-cal-cell.is-out {
+  border-color: var(--fq-line-soft);
+  background: color-mix(in srgb, var(--fq-well) 55%, #ffffff);
+}
 .fq-cal-cell.is-out .fq-cal-num { color: var(--fq-faint); }
+.fq-cal-cell.is-out .fq-cal-items { opacity: .6; }
+.fq-cal-cell.is-today {
+  border-color: var(--fq-accent);
+  background: color-mix(in srgb, var(--fq-accent) 5%, #ffffff);
+}
+.fq-cal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(6px * var(--s));
+}
 .fq-cal-num {
   --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
-  align-self: flex-start;
   display: inline-grid;
   place-items: center;
-  min-width: calc(22px * var(--s));
-  height: calc(22px * var(--s));
-  border-radius: 50%;
+  min-width: calc(26px * var(--s));
+  height: calc(26px * var(--s));
+  padding: 0 calc(4px * var(--s));
+  border-radius: calc(999px * var(--s));
   font-family: var(--fq-mono) !important;
-  font-size: calc(var(--fq-t-sm) * var(--ui-text-scale, 1)) !important;
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   line-height: 1 !important;
+  color: var(--fq-ink);
 }
-.fq-cal-cell.is-today .fq-cal-num { box-shadow: inset 0 0 0 1.5px var(--fq-accent); color: var(--fq-accent-deep); }
-.fq-cal-items { display: grid; gap: calc(3px * var(--s)); min-width: 0; }
+.fq-cal-cell.is-today .fq-cal-num {
+  background: var(--fq-accent);
+  color: #ffffff;
+}
+.fq-cal-count {
+  --ui-text-scale: var(--rs-number);
+  font-family: var(--fq-mono) !important;
+  font-size: calc(var(--fq-t-xs) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--fq-muted);
+}
+.fq-cal-items { display: grid; gap: calc(4px * var(--s)); min-width: 0; }
 .fq-cal-event {
+  --ev: var(--fq-accent);
   display: block;
-  padding: calc(3px * var(--s)) calc(7px * var(--s));
-  border-left: 2px solid var(--fq-accent);
-  border-radius: calc(5px * var(--s));
-  background: var(--fq-tint);
+  padding: calc(4px * var(--s)) calc(8px * var(--s));
+  border-left: 3px solid var(--ev);
+  border-radius: calc(6px * var(--s));
+  background: color-mix(in srgb, var(--ev) 9%, #ffffff);
   color: var(--fq-ink);
   font-size: calc(var(--fq-t-xs) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   line-height: 1.35 !important;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.fq-cal-event.is-late { border-left-color: var(--fq-danger); background: var(--fq-danger-soft); color: var(--fq-danger); }
+.fq-cal-event[data-type="Call"]     { --ev: var(--fq-ok); }
+.fq-cal-event[data-type="Email"]    { --ev: var(--fq-info); }
+.fq-cal-event[data-type="SMS"]      { --ev: var(--fq-violet); }
+.fq-cal-event[data-type="WhatsApp"] { --ev: #178a6b; }
+.fq-cal-event.is-late {
+  --ev: var(--fq-danger);
+  background: var(--fq-danger-soft);
+  color: var(--fq-danger);
+}
 .fq-cal-more {
-  padding-left: calc(7px * var(--s));
+  align-self: start;
+  padding: 0 calc(4px * var(--s));
   font-size: calc(var(--fq-t-xs) * var(--ui-text-scale, 1)) !important;
-  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
   color: var(--fq-accent);
 }
 
@@ -2359,7 +2416,9 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
   .fq-row-actions .fq-icon-btn:not(:last-of-type) { display: none; }
   .fq-blocked { max-width: 100%; margin-left: 0; }
 
-  .fq-cal-cell { min-height: calc(52px * var(--s)); padding: calc(4px * var(--s)); }
+  .fq-cal-grid { gap: calc(4px * var(--s)); }
+  .fq-cal-cell { min-height: calc(52px * var(--s)); padding: calc(4px * var(--s)); border-radius: var(--fq-r-sm); }
+  .fq-cal-count { display: none; }
   .fq-cal-event { display: none; }
   .fq-cal-cell.has-items .fq-cal-items::before {
     content: "";
@@ -2411,4 +2470,146 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
 }
 .fq-menu {
   z-index: 50;
+}
+/* =====================================================================================================
+   Pulse sheet alignment - Queue health and SLA monitor share one rhythm.
+   Each block is: heading row, a hero row of the same height, then (SLA only) its bar, with the three
+   small figures pinned to the foot. The hero rows are equal, so the ring + its figure in Queue health
+   and the figure in SLA monitor sit on the same line, and the foot rows line up across the sheet.
+   ===================================================================================================== */
+.fq-seg-block > .fq-block-head {
+  min-height: calc(24px * var(--s));
+}
+.fq-health-main,
+.fq-seg-block > .fq-block-lead {
+  min-height: calc(58px * var(--s));
+  align-items: center;
+}
+.fq-seg-block > .fq-block-lead {
+  align-content: center;
+}
+.fq-seg-block > .fq-block-lead .fq-block-figure {
+  font-size: calc(calc(28px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+.fq-health-main .fq-block-figure {
+  font-size: calc(calc(28px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+.fq-stack {
+  height: calc(8px * var(--s));
+  margin-top: calc(-2px * var(--s));
+}
+.fq-minis > div {
+  align-content: start;
+}
+
+/* =====================================================================================================
+   Side panel footer - Execute, then the secondary actions as ONE joined icon toolbar (reschedule,
+   reassign, escalate, history, cancel). Equal 42px cells split by hairlines, quiet until hovered; the
+   destructive one is red ink on a soft red wash, never a solid block.
+   ===================================================================================================== */
+.fq-drawer-foot {
+  gap: calc(12px * var(--s));
+}
+.fq-drawer-foot .fq-btn--primary {
+  min-height: calc(44px * var(--s));
+  border-radius: var(--fq-r-md);
+}
+.fq-drawer-tools {
+  flex: none;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--fq-line);
+  border-radius: calc(12px * var(--s));
+  background: #ffffff;
+  overflow: hidden;
+}
+.fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x) {
+  width: calc(44px * var(--s)) !important;
+  height: calc(44px * var(--s)) !important;
+  min-width: calc(44px * var(--s)) !important;
+  padding: 0 !important;
+  display: inline-grid !important;
+  place-items: center;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--fq-ink-2) !important;
+  transform: none !important;
+  transition: background-color .15s ease, color .15s ease;
+}
+.fq-drawer .fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x) + .fq-icon-btn.is-boxed {
+  border-left: 1px solid var(--fq-line) !important;
+}
+.fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x) > svg,
+.fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x) > i {
+  width: calc(18px * var(--s)) !important;
+  height: calc(18px * var(--s)) !important;
+  font-size: calc(18px * var(--s)) !important;
+  stroke-width: 1.7;
+}
+.fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x):hover:not(:disabled) {
+  background: var(--fq-tint) !important;
+  background-image: none !important;
+  color: var(--fq-accent-deep) !important;
+}
+.fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x).is-danger {
+  color: var(--fq-danger) !important;
+}
+.fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x).is-danger:hover:not(:disabled) {
+  background: var(--fq-danger-soft) !important;
+  background-image: none !important;
+  color: var(--fq-danger) !important;
+}
+.fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x):focus-visible {
+  outline: 2px solid var(--fq-accent) !important;
+  outline-offset: -2px !important;
+}
+
+
+/* The follow-up just completed: first in the list, tinted, with an accent edge. */
+.fq-table tbody tr.is-fresh td { background: color-mix(in srgb, var(--fq-ok) 9%, #ffffff) !important; }
+.fq-table tbody tr.is-fresh td:first-child { box-shadow: inset calc(3px * var(--s)) 0 0 var(--fq-ok); }
+
+/* The side panel's backdrop does not close it; the X pulses instead. */
+.fq-scrim.is-drawer { cursor: default; }
+.fq-drawer .fq-close.is-nudge { animation: fq-nudge .9s ease; }
+@keyframes fq-nudge {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+  20% { transform: scale(1.18); box-shadow: 0 0 0 calc(5px * var(--s)) color-mix(in srgb, var(--fq-danger) 28%, transparent); }
+  40% { transform: scale(1); }
+  60% { transform: scale(1.18); box-shadow: 0 0 0 calc(5px * var(--s)) color-mix(in srgb, var(--fq-danger) 28%, transparent); }
+}
+
+/* Queue health / SLA / age set the height of the overview. The agenda no longer stretches it (which left
+   an empty band inside the health block): it fills that height and scrolls if it has more to show. */
+@container fq-page (min-width: 1181px) {
+  .fq-agenda-card {
+    contain: size;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
+
+
+.fq-status[data-s="Partially completed"] { --st: var(--fq-warn);  --st-soft: var(--fq-warn-soft); }
+.fq-status[data-s="No response"]         { --st: var(--fq-slate); --st-soft: var(--fq-slate-soft); }
+
+.fq-table th.fq-col-exec { width: calc(150px * var(--s)); }
+.fq-exec { font-size: calc(var(--fq-t-sm) * var(--ui-text-scale, 1)) !important; color: var(--fq-ink-2); white-space: nowrap; }
+.fq-exec.is-none { color: var(--fq-faint); }
+@media (max-width: 767.98px) {
+  .fq-table tbody td.fq-col-exec { display: none; }
+}
+
+/* Equal columns: every data column (execution status, due, assigned to, priority, status) has the same width,
+   so the gaps between them are even; the follow-up column takes the rest. */
+.fq-table th.fq-col-exec,
+.fq-table th.fq-col-due,
+.fq-table th.fq-col-owner,
+.fq-table th.fq-col-prio,
+.fq-table th.fq-col-status {
+  width: calc(150px * var(--s));
 }

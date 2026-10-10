@@ -1,54 +1,70 @@
 <main class="app-wrapper">
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3">
-      <section class="dpe" aria-label="Edit donor profile">
-        <header class="dpe-top">
-          <button type="button" class="dpe-back" (click)="cancel()" aria-label="Back to Donor 360" title="Back to Donor 360">
-            <i class="ri-arrow-left-line" aria-hidden="true"></i>
-          </button>
-          <div class="dpe-title">
-            <span class="dpe-kicker">Donor 360<span class="dpe-slash" aria-hidden="true">/</span>Edit profile</span>
-            <h1>Edit profile</h1>
+      <div class="dpe-page">
+      <section class="dpe" aria-labelledby="dpe-title">
+
+        <!-- ================= MASTHEAD: back + title | donor facts ================= -->
+        <header class="dpe-mast">
+          <div class="dpe-mast-id">
+            <button type="button" class="dpe-back" (click)="cancel()" aria-label="Back to Donor 360" title="Back to Donor 360">
+              <i class="ri-arrow-left-line" aria-hidden="true"></i>
+            </button>
+            <div class="dpe-titles">
+              <span class="dpe-kicker">Donor 360<span class="dpe-slash" aria-hidden="true">/</span>Edit profile</span>
+              <h1 id="dpe-title">Edit profile</h1>
+            </div>
           </div>
           @if (donor(); as d) {
-            <dl class="dpe-id">
+            <dl class="dpe-facts">
               <div><dt>Donor</dt><dd>{{ d.displayName }}</dd></div>
               <div><dt>Reference</dt><dd class="dpe-mono">{{ d.donorNumber }}</dd></div>
-              <div><dt>Status</dt><dd>{{ d.status }}</dd></div>
+              <div><dt>Status</dt><dd><span class="dpe-statustext"><span class="dpe-dot" aria-hidden="true"></span>{{ d.status }}</span></dd></div>
             </dl>
           }
         </header>
 
         @switch (state()) {
           @case ('loading') {
-            <div class="dpe-state" role="status" aria-busy="true"><h2>Loading donor profile…</h2></div>
+            <div class="dpe-state" role="status" aria-busy="true">
+              <span class="dpe-state-g" aria-hidden="true"><i class="ri-loader-4-line"></i></span>
+              <div class="dpe-state-copy"><h2>Loading donor profile…</h2></div>
+            </div>
           }
           @case ('no-access') {
             <div class="dpe-state" role="alert">
-              <i class="ri-lock-line" aria-hidden="true"></i>
-              <h2>Access unavailable</h2>
-              <p>You do not have permission to edit this donor's profile.</p>
-              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()">Back</button>
+              <span class="dpe-state-g" aria-hidden="true"><i class="ri-lock-line"></i></span>
+              <div class="dpe-state-copy">
+                <h2>Access unavailable</h2>
+                <p>You do not have permission to edit this donor's profile.</p>
+              </div>
+              <button type="button" class="dpe-btn" (click)="cancel()">Back</button>
             </div>
           }
           @case ('empty') {
             <div class="dpe-state">
-              <h2>No donor selected</h2>
-              <p>Open a donor from the Donor List, then choose Edit profile.</p>
+              <span class="dpe-state-g" aria-hidden="true"><i class="ri-user-search-line"></i></span>
+              <div class="dpe-state-copy">
+                <h2>No donor selected</h2>
+                <p>Open a donor from the Donor List, then choose Edit profile.</p>
+              </div>
+              <button type="button" class="dpe-btn" (click)="cancel()">Back</button>
             </div>
           }
           @case ('error') {
-            <div class="dpe-state" role="alert">
-              <h2>The donor could not be loaded</h2>
-              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()">Back</button>
+            <div class="dpe-state is-error" role="alert">
+              <span class="dpe-state-g" aria-hidden="true"><i class="ri-error-warning-line"></i></span>
+              <div class="dpe-state-copy"><h2>The donor could not be loaded</h2></div>
+              <button type="button" class="dpe-btn" (click)="cancel()">Back</button>
             </div>
           }
           @case ('ready') {
             <form class="dpe-body" (ngSubmit)="save()" novalidate>
               <div class="dpe-main">
+
                 <!-- 01 Identity -->
-                <section class="dpe-card" aria-label="Identity">
-                  <h2 class="dpe-h"><span class="dpe-n">01</span>Identity</h2>
+                <section class="dpe-sec" aria-labelledby="dpe-h-identity">
+                  <h2 class="dpe-h" id="dpe-h-identity"><span class="dpe-n">01</span>Identity<span class="dpe-hint-line">Who the donor is</span></h2>
                   <div class="dpe-grid">
                     <div class="dpe-field dpe-wide">
                       <span class="dpe-label" id="dpe-type-l">Donor type</span>
@@ -88,14 +104,14 @@
                 </section>
 
                 <!-- 02 Contact -->
-                <section class="dpe-card" aria-label="Contact">
-                  <h2 class="dpe-h"><span class="dpe-n">02</span>Contact &amp; preferences</h2>
+                <section class="dpe-sec" aria-labelledby="dpe-h-contact">
+                  <h2 class="dpe-h" id="dpe-h-contact"><span class="dpe-n">02</span>Contact &amp; preferences<span class="dpe-hint-line">How we reach them</span></h2>
                   <div class="dpe-grid">
                     <div class="dpe-field" [class.dpe-invalid]="submitted() && errors()['email']">
                       <label class="dpe-label" for="dpe-email">Email</label>
                       @if (emailMasked()) {
                         <input id="dpe-email" type="text" disabled value="Hidden for your access level" />
-                        <p class="dpe-hint">Masked by the server — it stays as it is.</p>
+                        <p class="dpe-hint"><i class="ri-lock-line" aria-hidden="true"></i> Masked by the server — it stays as it is.</p>
                       } @else {
                         <input id="dpe-email" type="email" autocomplete="off" [ngModel]="email()"
                           (ngModelChange)="email.set($event)" name="email"
@@ -107,7 +123,7 @@
                       <label class="dpe-label" for="dpe-phone">Phone</label>
                       @if (phoneMasked()) {
                         <input id="dpe-phone" type="text" disabled value="Hidden for your access level" />
-                        <p class="dpe-hint">Masked by the server — it stays as it is.</p>
+                        <p class="dpe-hint"><i class="ri-lock-line" aria-hidden="true"></i> Masked by the server — it stays as it is.</p>
                       } @else {
                         <input id="dpe-phone" type="tel" autocomplete="off" [ngModel]="phone()"
                           (ngModelChange)="phone.set($event)" name="phone"
@@ -124,19 +140,19 @@
                     </div>
                     <div class="dpe-field">
                       <span class="dpe-label" id="dpe-dnc-l">Contact permission</span>
-                      <label class="dpe-switch">
+                      <label class="dpe-switch" [class.is-off-limits]="doNotContact()">
                         <input type="checkbox" [ngModel]="doNotContact()" (ngModelChange)="doNotContact.set($event)"
                           name="doNotContact" aria-labelledby="dpe-dnc-l" />
                         <span class="dpe-switch-ui" aria-hidden="true"></span>
-                        <span>{{ doNotContact() ? 'Do not contact' : 'May be contacted' }}</span>
+                        <span class="dpe-switch-t">{{ doNotContact() ? 'Do not contact' : 'May be contacted' }}</span>
                       </label>
                     </div>
                   </div>
                 </section>
 
                 <!-- 03 Relationship -->
-                <section class="dpe-card" aria-label="Relationship">
-                  <h2 class="dpe-h"><span class="dpe-n">03</span>Relationship owner</h2>
+                <section class="dpe-sec" aria-labelledby="dpe-h-owner">
+                  <h2 class="dpe-h" id="dpe-h-owner"><span class="dpe-n">03</span>Relationship owner<span class="dpe-hint-line">Who looks after the donor</span></h2>
                   <div class="dpe-grid">
                     <div class="dpe-field dpe-wide">
                       <label class="dpe-label" for="dpe-owner">Owner</label>
@@ -160,11 +176,11 @@
 
               <!-- Review & save rail -->
               <aside class="dpe-rail" aria-label="Review and save">
-                <section class="dpe-card dpe-sticky">
-                  <h2 class="dpe-h">Review changes</h2>
+                <div class="dpe-sticky">
+                  <h2 class="dpe-h dpe-h--rail"><span class="dpe-n"><i class="ri-draft-line" aria-hidden="true"></i></span>Review changes</h2>
                   @if (changedLabels().length) {
                     <ul class="dpe-changes">
-                      @for (c of changedLabels(); track c) { <li>{{ c }}</li> }
+                      @for (c of changedLabels(); track c) { <li><i class="ri-check-line" aria-hidden="true"></i>{{ c }}</li> }
                     </ul>
                   } @else {
                     <p class="dpe-hint">Nothing changed yet.</p>
@@ -175,12 +191,14 @@
                       <label class="dpe-label" for="dpe-reason">Reason for change <span class="dpe-req">*</span></label>
                       <span class="dpe-count" [class.ok]="reasonCount() >= reasonMin">{{ reasonCount() }} / {{ reasonMin }} min</span>
                     </div>
-                    <textarea id="dpe-reason" rows="4" [ngModel]="reason()" (ngModelChange)="reason.set($event)"
+                    <textarea id="dpe-reason" rows="5" [ngModel]="reason()" (ngModelChange)="reason.set($event)"
                       name="reason" [attr.maxlength]="reasonMax"
                       placeholder="Why is this profile being corrected? This is kept in the audit trail."
                       [attr.aria-invalid]="submitted() && errors()['reason'] ? true : null"></textarea>
                     @if (submitted() && errors()['reason']) { <p class="dpe-err">{{ errors()['reason'] }}</p> }
                   </div>
+
+                  <p class="dpe-audit"><i class="ri-shield-check-line" aria-hidden="true"></i>Saved as an audited correction on the donor's record.</p>
 
                   <div class="dpe-actions">
                     <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()" [disabled]="saving()">Cancel</button>
@@ -188,12 +206,13 @@
                       {{ saving() ? 'Saving…' : 'Save' }}
                     </button>
                   </div>
-                </section>
+                </div>
               </aside>
             </form>
           }
         }
       </section>
+      </div>
     </div>
   </div>
 </main>

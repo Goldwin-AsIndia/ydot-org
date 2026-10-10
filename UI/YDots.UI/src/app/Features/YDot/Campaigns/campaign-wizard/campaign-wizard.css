@@ -1033,25 +1033,48 @@ textarea:focus:not(:focus-visible),
 }
 
 /* ===== View/edit popup for Public description & Terms and notice =====
-   Portrait (narrow) and anchored to the top of the screen, not centred. */
+   Centred on the screen, tall enough to read, only the body scrolls. */
 .cw-modal.cw-modal-lg {
-  max-width: calc(560px * var(--ui-scale, 1));
+  max-width: calc(720px * var(--ui-scale, 1));
   width: 92vw;
-  align-self: flex-start;
-  margin-top: calc(24px * var(--ui-scale, 1));
-  max-height: calc(100vh - calc(48px * var(--ui-scale, 1)));
+  height: min(86vh, calc(760px * var(--ui-scale, 1))) !important;
+  max-height: min(86vh, calc(760px * var(--ui-scale, 1))) !important;
+  align-self: center;
+  margin: 0;
+}
+
+.cw-modal.cw-modal-lg .cw-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--ui-scale, 1));
 }
 
 .preview-readonly {
-  max-height: 68vh;
+  flex: 1 1 auto;
+  min-height: calc(200px * var(--ui-scale, 1));
   overflow-y: auto;
-  padding: calc(14px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  padding: calc(16px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
   border: 1px solid var(--border);
   border-radius: calc(10px * var(--ui-scale, 1));
-  background: var(--row-alt);
+  background: #fff;
+  color: var(--ink);
   font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  line-height: 1.6;
-  margin-bottom: calc(6px * var(--ui-scale, 1));
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.cw-modal.cw-modal-lg .cw-preview-body .rte-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cw-modal.cw-modal-lg .cw-preview-body .rte-body-lg {
+  flex: 1 1 auto;
+  min-height: calc(260px * var(--ui-scale, 1));
+  max-height: none;
+  overflow-y: auto;
 }
 
 .preview-readonly :is(ul, ol) {
@@ -2065,7 +2088,6 @@ textarea {
 }
 
 .readonly-panel,
-.preview-readonly,
 .preview-field-btn {
   border-color: var(--border);
   background: color-mix(in srgb, var(--theme-surface-tint, #eef1ef) 55%, #ffffff);
@@ -2359,7 +2381,7 @@ textarea {
 }
 
 .control.rte-body-lg {
-  min-height: calc(340px * var(--ui-scale, 1));
+  min-height: calc(260px * var(--ui-scale, 1));
 }
 
 /* ===== Review & Launch — band, figures, equal-height panels ===== */

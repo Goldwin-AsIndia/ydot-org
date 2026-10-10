@@ -248,13 +248,36 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
     /// overdue first, then soonest - and sorting that way would put a lead captured two minutes
     /// ago at the bottom, which is the opposite of what the tab is for.
     /// </summary>
-    private static IQueryable<Lead> Order(IQueryable<Lead> leads, LeadSearchFilter filter) =>
-        filter.NewestFirst == true
-            ? leads.OrderByDescending(lead => lead.CreatedAtUtc)
-            : leads
-                .OrderBy(lead => lead.NextActionDueUtc == null)
-                .ThenBy(lead => lead.NextActionDueUtc)
-                .ThenByDescending(lead => lead.CreatedAtUtc);
+    private static IQueryable<Lead> Order(IQueryable<Lead> leads, LeadSearchFilter filter)
+    {
+        if (filter.NewestFirst == true)
+        {
+            return leads.OrderByDescending(lead => lead.CreatedAtUtc);
+        }
+
+        // An explicit order from the queue's Sort control. Only these four expressions are
+        // honoured; anything else falls through to the work-queue order below.
+        switch ((filter.Sort ?? string.Empty).Trim().ToLowerInvariant())
+        {
+            case "createdatutc asc":
+                return leads.OrderBy(lead => lead.CreatedAtUtc);
+            case "createdatutc desc":
+                return leads.OrderByDescending(lead => lead.CreatedAtUtc);
+            case "name asc":
+                return leads
+                    .OrderBy(lead => lead.DisplayName ?? lead.FirstName)
+                    .ThenBy(lead => lead.CreatedAtUtc);
+            case "name desc":
+                return leads
+                    .OrderByDescending(lead => lead.DisplayName ?? lead.FirstName)
+                    .ThenByDescending(lead => lead.CreatedAtUtc);
+        }
+
+        return leads
+            .OrderBy(lead => lead.NextActionDueUtc == null)
+            .ThenBy(lead => lead.NextActionDueUtc)
+            .ThenByDescending(lead => lead.CreatedAtUtc);
+    }
 
     public Task<Lead?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         context.Leads.Include(lead => lead.Campaign).FirstOrDefaultAsync(lead => lead.Id == id, cancellationToken);

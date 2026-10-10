@@ -23,6 +23,7 @@ import {
 import { toSignal } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, Router } from "@angular/router";
 import {
+  AbstractControl,
   FormBuilder,
   ReactiveFormsModule,
   ValidationErrors,
@@ -1083,11 +1084,9 @@ export class FollowUpExecutionComponent implements OnInit {
   }
 
   backToQueue(): void {
-    this.router.navigate(["/app/fundraising/relationships/follow-up-queue"], {
-      queryParams: {
-        followUpId: this.followUpId(),
-      },
-    });
+    // THE LIST, NOT A PANEL. Passing the follow-up's id made the queue open its side panel on
+    // return - one nobody had opened.
+    this.router.navigate(["/app/fundraising/relationships/follow-up-queue"]);
   }
 
   cancel(): void {
@@ -1105,11 +1104,85 @@ export class FollowUpExecutionComponent implements OnInit {
     this.completeFollowUp();
   }
 
+  /**
+   * Set once Complete has been pressed. From then on every required field that is still empty is
+   * drawn in red - including the tile / scale groups and the next follow-up fields, which are not
+   * form-control inputs a `touched` flag would have reached.
+   */
+  readonly attempted = signal(false);
+
+  /** A required control that is empty or invalid, once it was touched or Complete was tried. */
+  bad(control: AbstractControl): boolean {
+    return control.invalid && (control.touched || this.attempted());
+  }
+
+  /** A required next follow-up field that is empty - only while "Plan another contact" is on. */
+  nextBad(name: "type" | "date" | "time" | "priority" | "purpose" | "owner"): boolean {
+    if (!this.attempted() || !this.nextFollowUpEnabled()) return false;
+    return !String(this.nextFollowUpForm.controls[name].value ?? "").trim();
+  }
+
+  /** The reason for a temperature change is required once the temperature has been changed. */
+  temperatureReasonBad(): boolean {
+    return (
+      this.attempted() &&
+      this.temperatureChanged() &&
+      this.temperatureForm.controls["reasonForChange"].value.trim().length < SCORE_REASON_MINIMUM
+    );
+  }
+
+  /** The labels of every required field that is empty, for the message above the form. */
+  private missingFields(): string[] {
+    const x = this.executionForm.controls;
+    const missing: string[] = [];
+    if (this.executionChannel.invalid) missing.push("How the contact was made");
+    if (x["actualContactDate"].hasError("required")) missing.push("Executed date");
+    if (x["actualContactTime"].invalid) missing.push("Executed time");
+    if (x["executionStatus"].invalid) missing.push("Execution status");
+    if (x["completionReason"].invalid) missing.push("Completion reason");
+    if (x["outcome"].invalid) missing.push("Outcome");
+    if (x["engagementLevel"].invalid) missing.push("Engagement level");
+    if (x["communicationQuality"].invalid) missing.push("Communication quality");
+    if (x["completionNotes"].invalid) missing.push("Execution notes (20 to 2,000 characters)");
+    if (this.temperatureReasonBad()) missing.push("Reason for the temperature change");
+    if (this.dispositionForm.invalid) missing.push("Disposition");
+    if (this.nextFollowUpEnabled()) {
+      const next: ["type" | "date" | "time" | "priority" | "purpose" | "owner", string][] = [
+        ["type", "Next follow-up type"],
+        ["priority", "Next follow-up priority"],
+        ["date", "Next follow-up date"],
+        ["time", "Next follow-up time"],
+        ["owner", "Next follow-up assigned user"],
+        ["purpose", "Next follow-up instructions"],
+      ];
+      for (const [name, label] of next) if (this.nextBad(name)) missing.push(label);
+    }
+    return missing;
+  }
+
   private validateBeforeComplete(): boolean {
     this.formError.set(null);
 
     if (!this.canExecute()) {
       this.formError.set(this.viewOnlyReason() || "This follow-up cannot be executed.");
+      return false;
+    }
+
+    // EVERYTHING IS CHECKED AT ONCE and every empty required field turns red together, instead of
+    // the first problem stopping the check and the rest staying plain.
+    this.attempted.set(true);
+    this.executionChannel.markAsTouched();
+    this.executionForm.markAllAsTouched();
+    this.dispositionForm.markAllAsTouched();
+    if (this.nextFollowUpEnabled()) this.nextFollowUpForm.markAllAsTouched();
+    const missing = this.missingFields();
+    if (missing.length) {
+      this.formError.set(`Please complete: ${missing.join(", ")}.`);
+      queueMicrotask(() =>
+        document
+          .querySelector(".xr-page .is-invalid, .xr-page .ng-invalid.ng-touched")
+          ?.scrollIntoView({ block: "center", behavior: "smooth" }),
+      );
       return false;
     }
 
@@ -1290,14 +1363,10 @@ export class FollowUpExecutionComponent implements OnInit {
             );
           }
 
-          this.router.navigate(
-            ["/app/fundraising/relationships/follow-up-queue"],
-            {
-              queryParams: {
-                followUpId: result.nextFollowUpId ?? this.followUpId(),
-              },
-            },
-          );
+          // Back to the queue list; no side panel. The completed follow-up is shown first, highlighted.
+          this.router.navigate(["/app/fundraising/relationships/follow-up-queue"], {
+            queryParams: { highlightId: this.followUpId() },
+          });
         },
         error: (error: unknown) => {
           this.formError.set(apiErrorMessage(error, "The follow-up could not be completed."));

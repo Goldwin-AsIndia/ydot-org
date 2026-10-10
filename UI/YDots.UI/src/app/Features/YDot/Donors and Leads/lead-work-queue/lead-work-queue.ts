@@ -241,6 +241,11 @@ export class LeadWorkQueueComponent {
         this.ownerFilter.set(value);
         break;
     }
+
+    // A CHOICE IN THE PANEL TAKES EFFECT AT ONCE. It used to wait for "Apply filters", so choosing
+    // a temperature or an owner appeared to do nothing until a second button was found and pressed.
+    this.pageIndex.set(1);
+    this.load();
   }
 
   protected onPreviewBackdrop(event: MouseEvent): void {
@@ -297,6 +302,27 @@ export class LeadWorkQueueComponent {
   protected readonly ownerFilter = signal<string>('');
   protected readonly showFilters = signal(false);
 
+  /**
+   * How the queue is ordered. THE SERVER ORDERS IT, because the grid is paged: sorting the rows on
+   * screen would only reorder one page. The default is the work-queue order (next contact due
+   * soonest) - which puts a lead captured a moment ago, with no contact planned yet, at the very
+   * end - so "Newest first" is the way to find it.
+   */
+  protected readonly sortOptions = [
+    { value: 'due', label: 'Next contact due' },
+    { value: 'newest', label: 'Newest first' },
+    { value: 'oldest', label: 'Oldest first' },
+    { value: 'name-asc', label: 'Name A to Z' },
+    { value: 'name-desc', label: 'Name Z to A' },
+  ] as const;
+  protected readonly sortOrder = signal<string>('due');
+
+  protected setSortOrder(value: string): void {
+    this.sortOrder.set(value);
+    this.pageIndex.set(1);
+    this.load();
+  }
+
   // Paging. The server pages the queue; these are the page asked for and its size.
   protected readonly pageSizes = [10, 20, 30, 40, 50] as const;
   protected readonly pageIndex = signal(1);
@@ -341,10 +367,12 @@ export class LeadWorkQueueComponent {
     });
 
     // Coming back from Lead Capture. The reference is the API's, not one this browser minted,
-    // so the row it opens is the row that was actually saved.
+    // so the row it opens is the row that was actually saved. The newest lead has no contact
+    // planned, so in the default order it would sit on the last page: show newest first.
     const createdLeadId = this.route.snapshot.queryParamMap.get('createdLeadId');
     if (createdLeadId) {
       this.openAfterLoad = createdLeadId;
+      this.sortOrder.set('newest');
     }
     this.load();
   }
@@ -395,6 +423,22 @@ export class LeadWorkQueueComponent {
       filter.assignmentState = 'Unassigned';
     } else if (owner && owner !== 'All') {
       filter.ownerUserId = owner;
+    }
+
+    // The chosen order. (The Recently Added lane has its own: newest first.)
+    switch (this.sortOrder()) {
+      case 'newest':
+        filter.newestFirst = true;
+        break;
+      case 'oldest':
+        filter.sort = 'createdAtUtc asc';
+        break;
+      case 'name-asc':
+        filter.sort = 'name asc';
+        break;
+      case 'name-desc':
+        filter.sort = 'name desc';
+        break;
     }
 
     switch (this.savedView() as SavedView) {

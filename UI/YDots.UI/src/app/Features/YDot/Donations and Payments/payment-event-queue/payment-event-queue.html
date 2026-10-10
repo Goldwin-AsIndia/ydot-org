@@ -247,7 +247,8 @@
             </thead>
             <tbody>
               @for (r of pagedRecords(); track r.eventReference) {
-                <tr >
+                <tr class="pr-row-open" tabindex="0" (click)="inspect(r.eventReference)" (keydown.enter)="inspect(r.eventReference)"
+                    [attr.aria-label]="'Open details for ' + r.eventReference">
                   <!-- <td class="pr-cell-plus d-none d-xl-table-cell">
                     <button type="button" class="plus-icon" (click)="openRowPopup(r); $event.stopPropagation()"
                             [attr.aria-label]="'View details for ' + r.eventReference" title="View details">

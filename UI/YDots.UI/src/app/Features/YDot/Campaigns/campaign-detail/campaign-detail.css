@@ -573,11 +573,13 @@ textarea:focus-visible,
    sets the reading width, a per-kind icon tile and the prose styling. */
 .cd-modal.cd-modal-readmore {
   width: calc(100vw - calc(32px * var(--ui-scale, 1)));
-  max-width: calc(600px * var(--ui-scale, 1));
+  max-width: calc(780px * var(--ui-scale, 1));
+  min-height: min(50vh, calc(380px * var(--ui-scale, 1)));
+  max-height: min(84vh, calc(780px * var(--ui-scale, 1))) !important;
 }
-/* Doubled class: outranks the overlay layer's `box-shadow: none !important` on every dialog. */
+/* Flat like the rest of the app: the border from the overlay layer, no drop shadow. */
 .cd-modal.cd-modal-readmore.cd-modal-readmore {
-  box-shadow: 0 calc(24px * var(--ui-scale, 1)) calc(60px * var(--ui-scale, 1)) calc(-18px * var(--ui-scale, 1)) rgba(16, 24, 20, 0.35), 0 2px calc(8px * var(--ui-scale, 1)) rgba(16, 24, 20, 0.08) !important;
+  box-shadow: none !important;
 }
 .cd-modal.cd-modal-readmore > .ov-head::before {
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 5h16M4 10h16M4 15h10M4 20h7'/%3E%3C/svg%3E") center / calc(21px * var(--ui-scale, 1)) calc(21px * var(--ui-scale, 1)) no-repeat,
@@ -594,42 +596,32 @@ textarea:focus-visible,
   text-overflow: ellipsis;
   display: block !important;
 }
+/* The text sits straight on the white dialog: no inner box, larger type, long line spacing. */
+.cd-modal.cd-modal-readmore > .ov-body.ov-body {
+  padding: calc(22px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1)) calc(28px * var(--ui-scale, 1));
+}
 .cd-readmore-body {
   position: relative;
-  padding: calc(20px * var(--ui-scale, 1)) calc(22px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
-  border: 1px solid var(--ov-line, #e6e8eb);
-  border-radius: calc(16px * var(--ui-scale, 1));
-  background: linear-gradient(180deg, var(--ov-sheet, #fafbfa) 0%, #fff 70%);
-  color: var(--ov-ink, #1c2a24);
-  font-size: calc(calc(14.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
-  line-height: 1.75;
+  padding: 0 calc(10px * var(--ui-scale, 1)) 0 0;
+  color: #1c2a24;
+  font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  line-height: 1.85;
   overflow-wrap: anywhere;
-}
-/* Thin accent rule down the left edge, inset from the rounded corners. */
-.cd-readmore-body::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: calc(18px * var(--ui-scale, 1));
-  bottom: calc(18px * var(--ui-scale, 1));
-  width: calc(3px * var(--ui-scale, 1));
-  border-radius: 0 calc(3px * var(--ui-scale, 1)) calc(3px * var(--ui-scale, 1)) 0;
-  background: linear-gradient(180deg, var(--ov-accent, #07565b), color-mix(in srgb, var(--ov-accent, #07565b) 30%, transparent));
 }
 .cd-readmore-body ::ng-deep :first-child { margin-top: 0; }
 .cd-readmore-body ::ng-deep :last-child { margin-bottom: 0; }
-.cd-readmore-body ::ng-deep p { margin: 0 0 calc(12px * var(--ui-scale, 1)); }
+.cd-readmore-body ::ng-deep p { margin: 0 0 calc(16px * var(--ui-scale, 1)); }
 .cd-readmore-body ::ng-deep :is(h1, h2, h3, h4) {
   margin: calc(18px * var(--ui-scale, 1)) 0 calc(8px * var(--ui-scale, 1));
-  font-size: calc(calc(15px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
   font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
   color: var(--ov-ink, #1c2a24);
 }
 .cd-readmore-body ::ng-deep :is(ul, ol) {
-  margin: 0 0 calc(12px * var(--ui-scale, 1));
+  margin: 0 0 calc(16px * var(--ui-scale, 1));
   padding-left: calc(22px * var(--ui-scale, 1));
 }
-.cd-readmore-body ::ng-deep li { margin-bottom: calc(4px * var(--ui-scale, 1)); }
+.cd-readmore-body ::ng-deep li { margin-bottom: calc(6px * var(--ui-scale, 1)); }
 .cd-readmore-body ::ng-deep li::marker { color: var(--ov-accent, #07565b); }
 .cd-readmore-body ::ng-deep strong { color: var(--ov-ink, #1c2a24); }
 .cd-readmore-body ::ng-deep a { color: var(--ov-accent, #07565b); text-underline-offset: 2px; }
@@ -3353,6 +3345,24 @@ color-mix(in srgb, var(--primary) 22%, white);
 
 /* Actions: one 36u height; solid = primary, the rest outlined on white */
 .cd-fol-acts { display: flex; align-items: center; flex-wrap: wrap; gap: calc(8px * var(--ui-scale, 1)); margin-left: auto; }
+/* Header buttons: a clear gap between the icon and its label; Delete draft reads in solid white on a deep red. */
+.cd-fol-acts .btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: calc(7px * var(--ui-scale, 1));
+  white-space: nowrap;
+}
+.cd-fol-acts .btn.btn-danger,
+.cd-fol-acts .btn.btn-danger:hover:not(:disabled) {
+  background: #b42318 !important;
+  border-color: #912018 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  letter-spacing: .01em;
+}
+.cd-fol-acts .btn.btn-danger:hover:not(:disabled) { background: #912018 !important; }
+.cd-fol-acts .btn.btn-danger svg { color: #ffffff; stroke: currentColor; }
 .cd-act {
   display: inline-flex;
   align-items: center;

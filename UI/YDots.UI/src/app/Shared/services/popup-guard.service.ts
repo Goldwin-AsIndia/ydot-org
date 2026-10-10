@@ -118,7 +118,9 @@ export class PopupGuardService {
     const style = getComputedStyle(el);
     if (style.position !== 'fixed' && style.position !== 'absolute') return false;
     const box = el.getBoundingClientRect();
-    return box.width >= window.innerWidth * 0.9 && box.height >= window.innerHeight * 0.9;
+    // A scrim beside an off-canvas drawer stops at the drawer's edge, so it may be well under the full width;
+    // it still spans the full height. (A panel must sit next to it, see panelFor, so nothing else matches.)
+    return box.width >= window.innerWidth * 0.4 && box.height >= window.innerHeight * 0.9;
   }
 
   private panelFor(backdrop: HTMLElement): HTMLElement | null {

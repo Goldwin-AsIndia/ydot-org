@@ -1838,3 +1838,58 @@ textarea:focus-visible,
   .pr-tile1:hover { transform: none; }
   .pr-tile1:hover::before { animation: none; }
 }
+
+/* =====================================================================================================
+   Totals: compact cards. A smaller figure and a square glyph (it was 64 x 40, so it overflowed its own
+   circle and sat off-centre); the row of five keeps its width, the cards lose their height.
+   ===================================================================================================== */
+.pr-totals {
+  gap: calc(12px * var(--ui-scale, 1));
+  margin-bottom: calc(16px * var(--ui-scale, 1));
+}
+.pr-tile1 {
+  padding: calc(13px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  gap: calc(10px * var(--ui-scale, 1));
+  min-height: 0;
+}
+.pr-tile1 .pr-tile-icon {
+  width: calc(40px * var(--ui-scale, 1));
+  height: calc(40px * var(--ui-scale, 1));
+}
+.pr-tile1 .pr-tile-icon svg {
+  width: calc(26px * var(--ui-scale, 1)) !important;
+  height: calc(26px * var(--ui-scale, 1)) !important;
+  flex: none;
+  display: block;
+  margin: 0;
+}
+.pr-tile1 .pr-tile-body {
+  gap: calc(2px * var(--ui-scale, 1));
+  padding-top: 0;
+}
+.pr-tile1 .pr-tile-value {
+  font-size: calc(calc(24px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.1 !important;
+}
+.pr-tile1 .pr-tile-note {
+  margin-top: 0;
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+}
+.pr-tile1 .pr-tile-wave {
+  height: calc(30px * var(--ui-scale, 1));
+}
+.pr-tile1:hover .pr-tile-icon {
+  transform: scale(1.06);
+}
+
+/* =====================================================================================================
+   Table: the first column no longer sits against the card's edge; whole rows open their details.
+   ===================================================================================================== */
+.pr-table thead th:first-child,
+.pr-table tbody td:first-child {
+  padding-left: calc(28px * var(--ui-scale, 1)) !important;
+}
+.pr-table tbody tr.pr-row-open:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}

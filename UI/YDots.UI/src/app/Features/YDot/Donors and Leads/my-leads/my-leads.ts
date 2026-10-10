@@ -7,7 +7,6 @@ import { DonorApiService } from '../../../../Service/donor-api.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { LeadListItem, LeadWorkQueueResponse } from '../../../../Shared/models/donor-contract.model';
-import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 import { fetchPages } from '../../../../Shared/services/paging';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
@@ -145,7 +144,7 @@ type FilterValue = 'All' | string;
 @Component({
   selector: 'app-my-leads',
   standalone: true,
-  imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
+  imports: [RowsPerPage, CommonModule, FormsModule],
 templateUrl: './my-leads.html',
 styleUrl: './my-leads.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -433,6 +432,24 @@ export class MyLeadsComponent {
     return this.sourceLeads().find((l) => l.reference === ref) ?? null;
   });
 
+  /** True when anything narrows the list - drives the Reset link. */
+  readonly hasActiveFilters = computed(
+    () =>
+      !!this.searchTerm().trim() ||
+      this.stageFilter() !== 'All' ||
+      this.temperatureFilter() !== 'All' ||
+      this.followUpFilter() !== 'All',
+  );
+
+  /** Which summary figure the current filters correspond to, so it can read as selected. */
+  readonly activeFigure = computed<string>(() => {
+    const temperature = this.temperatureFilter();
+    const followUp = this.followUpFilter();
+    if (temperature !== 'All' && followUp === 'All') return temperature;
+    if (followUp !== 'All' && temperature === 'All') return followUp;
+    return temperature === 'All' && followUp === 'All' && this.stageFilter() === 'All' ? 'all' : '';
+  });
+
   readonly selectedCount = computed(() => this.selectedRefs().size);
   readonly hasSelection = computed(() => this.selectedCount() > 0);
 
@@ -458,6 +475,31 @@ export class MyLeadsComponent {
         return 'badge-completed';
       default:
         return 'badge-upcoming';
+    }
+  }
+
+  /** Health score band for the meter colour. */
+  healthBand(score: number): 'high' | 'mid' | 'low' {
+    return score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low';
+  }
+
+  /** The tone of a lead's next follow-up, for colouring its date line. */
+  dueTone(lead: LeadItem): 'late' | 'today' | 'soon' | 'none' {
+    switch (lead.followUpStatus) {
+      case 'Overdue': return 'late';
+      case 'Due': return 'today';
+      case 'Upcoming': return 'soon';
+      default: return 'none';
+    }
+  }
+
+  /** A summary figure acts as a shortcut filter: temperature or follow-up state, or everything. */
+  pickFigure(kind: string): void {
+    this.resetFilters(false);
+    if (kind === 'Hot' || kind === 'Warm' || kind === 'Cold') {
+      this.temperatureFilter.set(kind);
+    } else if (kind === 'Due' || kind === 'Overdue') {
+      this.followUpFilter.set(kind);
     }
   }
 

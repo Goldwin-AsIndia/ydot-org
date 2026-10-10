@@ -9,7 +9,8 @@ import {
 import { ActivatedRoute, Router } from "@angular/router";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { forkJoin, catchError, map, of, tap } from "rxjs";
+import { forkJoin, catchError, distinctUntilChanged, map, of, tap } from "rxjs";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { DonorApiService } from "../../../../Service/donor-api.service";
 import { apiErrorMessage } from "../../../../Shared/models/api-response.model";
 import {
@@ -47,9 +48,17 @@ export type Priority = string;
 export type FollowUpStatus =
   | "Pending"
   | "Completed"
+  | "Partially completed"
+  | "No response"
   | "Cancelled"
   | "Escalated"
   | "Rescheduled";
+/** Executed or cancelled - no longer work to do. */
+export const isClosedStatus = (status: string): boolean =>
+  status === "Completed" ||
+  status === "Partially completed" ||
+  status === "No response" ||
+  status === "Cancelled";
 export type DependencyStatus = "Ready" | "Blocked";
 export type SlaStatus = "On Time" | "Approaching" | "Breached";
 export type QueueView = "grid" | "kanban" | "calendar";
@@ -298,6 +307,8 @@ export class FollowUpQueueComponent {
   readonly statusOptions: FollowUpStatus[] = [
     "Pending",
     "Completed",
+    "Partially completed",
+    "No response",
     "Cancelled",
     "Rescheduled",
     "Escalated",
@@ -371,7 +382,25 @@ export class FollowUpQueueComponent {
   );
 
   constructor() {
-    this.load();
+    // THE ADDRESS DECIDES WHOSE FOLLOW-UPS THIS IS, EVERY TIME IT CHANGES. Opening the queue from a
+    // lead or a donor (`?leadId=`) and then from the menu (no query) is the same route, so Angular
+    // keeps this component alive: the old person stayed in the list until the screen was
+    // rebuilt. Reload whenever the person named in the address changes (and once at the start).
+    this.route.queryParamMap
+      .pipe(
+        map((params) => `${params.get("donorId") ?? ""}|${params.get("leadId") ?? ""}`),
+        distinctUntilChanged(),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => {
+        this.recordFilterId.set(
+          this.route.snapshot.queryParamMap.get("donorId") ??
+            this.route.snapshot.queryParamMap.get("leadId"),
+        );
+        // A different list: a panel left open on the old one does not carry over.
+        this.previewId.set(null);
+        this.load();
+      });
   }
 
   readonly loading = signal(false);
@@ -427,11 +456,27 @@ export class FollowUpQueueComponent {
         const ids = new Set(items.map((item) => item.id));
         this.selectedIds.update((current) => new Set([...current].filter((id) => ids.has(id))));
 
+        // A follow-up named in the address (just scheduled, or opened from elsewhere) opens its
+        // panel ONCE. The address is then cleaned, so a refresh or a trip back to this screen
+        // shows the list, not a panel nobody asked for.
         const requestedId = this.route.snapshot.queryParamMap.get("followUpId");
-        if (requestedId && this.followUps().some((item) => item.id === requestedId)) {
-          this.previewId.set(requestedId);
-          if (this.route.snapshot.queryParamMap.get("action") === "reschedule") {
-            queueMicrotask(() => this.openReschedule(requestedId));
+        const highlighted = this.route.snapshot.queryParamMap.get("highlightId");
+        if (highlighted) this.highlightId.set(highlighted);
+        const wantsReschedule = this.route.snapshot.queryParamMap.get("action") === "reschedule";
+        if (requestedId || highlighted) {
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { followUpId: null, action: null, highlightId: null },
+            queryParamsHandling: "merge",
+            replaceUrl: true,
+          });
+        }
+        if (requestedId) {
+          if (this.followUps().some((item) => item.id === requestedId)) {
+            this.previewId.set(requestedId);
+            if (wantsReschedule) {
+              queueMicrotask(() => this.openReschedule(requestedId));
+            }
           }
         }
       },
@@ -532,9 +577,27 @@ export class FollowUpQueueComponent {
     };
   }
 
+  /** What the executor recorded - "Partially completed", "No response" - or empty before execution. */
+  executionLabel(f: FollowUp): string {
+    return (f.executionStatus || "").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase()).replace(/ ([A-Z])/g, (m, c) => " " + c.toLowerCase());
+  }
+
   /** The server's state as this screen's status word. See FollowUpStatus. */
   private toStatus(item: ApiFollowUp): FollowUpStatus {
-    if (item.status === "Completed") return "Completed";
+    // THE SERVER CLOSES EVERY EXECUTED FOLLOW-UP AS "Completed" and keeps what the executor chose
+    // (Completed, Partially completed, No response, Cancelled) in `executionStatus`. The list shows
+    // that choice - it used to read "Completed" whatever was selected on the execution screen.
+    if (item.status === "Completed") {
+      switch (item.executionStatus) {
+        case "PartiallyCompleted":
+          return "Partially completed";
+        case "NoResponse":
+          return "No response";
+        case "Cancelled":
+          return "Cancelled";
+      }
+      return "Completed";
+    }
     if (item.status === "Cancelled") return "Cancelled";
     if (item.escalatedAtUtc) return "Escalated";
     return item.status === "Rescheduled" ? "Rescheduled" : "Pending";
@@ -648,17 +711,54 @@ export class FollowUpQueueComponent {
 
   setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
   readonly sortOrder = signal("newest");
-  readonly sortedFollowUps = computed(() =>
-    [...this.filteredFollowUps()].sort((a, b) => {
+
+  /** The follow-up just completed: it is shown first and highlighted until the page is left. */
+  readonly highlightId = signal<string | null>(null);
+
+  private static readonly STATUS_RANK: Record<string, number> = {
+    Pending: 0,
+    Rescheduled: 1,
+    Escalated: 2,
+    Completed: 3,
+    "Partially completed": 4,
+    "No response": 5,
+    Cancelled: 6,
+  };
+
+  readonly sortedFollowUps = computed(() => {
+    const pinned = this.highlightId();
+    const mode = this.sortOrder();
+    return [...this.filteredFollowUps()].sort((a, b) => {
+      if (pinned) {
+        if (a.id === pinned && b.id !== pinned) return -1;
+        if (b.id === pinned && a.id !== pinned) return 1;
+      }
+      // A follow-up with no due date goes to the END in every order. Its key was "T", which sorts
+      // AFTER every real date - so "Latest first" (descending) put all of them on top, and those are
+      // mostly the cancelled ones.
+      const undated = (f: FollowUp) => !f.scheduledDate;
+      if (undated(a) !== undated(b)) return undated(a) ? 1 : -1;
       const order = `${a.scheduledDate}T${a.scheduledTime}`.localeCompare(
         `${b.scheduledDate}T${b.scheduledTime}`,
       );
-      return (
-        (this.sortOrder() === "oldest" ? order : -order) ||
-        a.id.localeCompare(b.id)
-      );
-    }),
-  );
+      if (mode === "status") {
+        const rank =
+          (FollowUpQueueComponent.STATUS_RANK[a.status] ?? 9) -
+          (FollowUpQueueComponent.STATUS_RANK[b.status] ?? 9);
+        return rank || -order || a.id.localeCompare(b.id);
+      }
+      return (mode === "oldest" ? order : -order) || a.id.localeCompare(b.id);
+    });
+  });
+
+  /** Set when the side panel's backdrop is clicked: the X pulses to say that is the way out. */
+  readonly nudgeClose = signal(false);
+  private nudgeTimer: any = null;
+  nudgeCloseButton() {
+    this.nudgeClose.set(true);
+    if (this.nudgeTimer) clearTimeout(this.nudgeTimer);
+    this.nudgeTimer = setTimeout(() => this.nudgeClose.set(false), 900);
+  }
   readonly currentPage = linkedSignal({
     source: this.sortedFollowUps,
     computation: () => 1,
@@ -736,7 +836,7 @@ export class FollowUpQueueComponent {
       {
         key: "completed",
         label: "Completed",
-        items: list.filter((f) => f.status === "Completed"),
+        items: list.filter((f) => isClosedStatus(f.status) && f.status !== "Cancelled"),
       },
     ];
   });
@@ -808,10 +908,10 @@ export class FollowUpQueueComponent {
   );
 
   readonly agendaDone = computed(
-    () => this.agendaItems().filter((a) => a.status === "Completed").length,
+    () => this.agendaItems().filter((a) => isClosedStatus(a.status)).length,
   );
   readonly agendaLeft = computed(
-    () => this.agendaItems().filter((a) => a.status !== "Completed").length,
+    () => this.agendaItems().filter((a) => !isClosedStatus(a.status)).length,
   );
 
   /** Rows the agenda card shows in total: today first, then what is coming up, so the card is always full. */
@@ -1542,9 +1642,7 @@ export class FollowUpQueueComponent {
       this.closeActionMenu();
       return;
     }
-    if (this.previewId()) {
-      this.closePreview();
-    }
+    // The side panel closes only from its own X.
   }
 
   @HostListener("document:click")
@@ -1554,12 +1652,6 @@ export class FollowUpQueueComponent {
 
   openHistory(id: string) {
     this.activeModal.set({ kind: "history", ids: [id] });
-  }
-
-  duplicateFollowUp(id: string) {
-    this.router.navigate(["/app/don/follow-up-planner"], {
-      queryParams: { mode: "duplicate", sourceId: id },
-    });
   }
 
   onStripDateClick(iso: string) {

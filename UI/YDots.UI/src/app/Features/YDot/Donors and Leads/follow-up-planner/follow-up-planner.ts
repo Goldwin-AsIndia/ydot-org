@@ -109,7 +109,7 @@ export class FollowUpPlannerComponent {
   protected readonly validationMessage = signal<string | null>(null);
 
   /** True for a required field that is empty, once Save / Reschedule has been tried (the banner is up). */
-  protected fieldMissing(field: 'followUpType' | 'owner' | 'date' | 'time' | 'priority' | 'purpose'): boolean {
+  protected fieldMissing(field: 'followUpType' | 'owner' | 'date' | 'time' | 'priority' | 'purpose' | 'outcome'): boolean {
     if (this.validationMessage() === null) return false;
     switch (field) {
       case 'followUpType': return !this.followUpType().trim();
@@ -118,6 +118,9 @@ export class FollowUpPlannerComponent {
       case 'time': return !this.scheduledTime();
       case 'priority': return !this.priority().trim();
       case 'purpose': return !this.purpose().trim();
+      // The API refuses a new follow-up with no expected outcome ("Enter Next action."), so it is
+      // required here too - but only while scheduling; an existing one is read-only.
+      case 'outcome': return !this.existing() && !this.expectedOutcome().trim();
     }
   }
 
@@ -194,13 +197,59 @@ export class FollowUpPlannerComponent {
     this.load();
   }
   protected selectRecord(item: ApiFollowUp): void {
+    this.openedFromPicker.set(true);
     this.followUpId.set(item.id);
     this.leadId.set(item.leadId);
     this.donorId.set(item.donorId);
     this.load();
   }
+  /**
+   * True once the form was reached from this screen's own "New follow-up" list (Plan on a lead or
+   * donor, or one of the already-scheduled rows). Back and Discard then return to that list, not
+   * to the queue the list itself was opened from.
+   */
+  private readonly openedFromPicker = signal(false);
+
   protected cancelPlanner(): void {
+    if (this.openedFromPicker() && this.hasRecord()) {
+      this.changePerson();
+      return;
+    }
     this.router.navigate(['/app/fundraising/relationships/follow-up-queue']);
+  }
+
+  /** Change person: clears the person and the form and shows the New follow-up list again. */
+  protected changePerson(): void {
+    this.leadId.set(null);
+    this.donorId.set(null);
+    this.followUpId.set(null);
+    this.existing.set(null);
+    this.record.set({
+      name: '—',
+      reference: '',
+      email: '—',
+      phone: '—',
+      owner: 'Unassigned',
+      ownerUserId: null,
+      language: '',
+    });
+    this.owner.set('');
+    this.purpose.set('');
+    this.expectedOutcome.set('');
+    this.scheduledDate.set('');
+    this.scheduledTime.set('');
+    this.consentAcknowledged.set(false);
+    this.consentWarning.set('');
+    this.validationMessage.set(null);
+    this.openedFromPicker.set(true);
+    this.pickerPrimed = false;
+    this.page.set(1);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { mode: 'create' },
+      replaceUrl: true,
+    });
+    this.load();
   }
 
   /**
@@ -217,6 +266,10 @@ export class FollowUpPlannerComponent {
   })();
 
   protected discardPlanner(): void {
+    if (this.openedFromPicker()) {
+      this.changePerson();
+      return;
+    }
     if (this.openedFrom) {
       this.router.navigateByUrl(this.openedFrom);
       return;
@@ -538,12 +591,15 @@ export class FollowUpPlannerComponent {
         !this.scheduledTime() ||
         !this.priority().trim() ||
         (actionId === 'scheduleFollowUp' &&
-          (!this.followUpType().trim() || !this.owner().trim() || !this.purpose().trim()));
+          (!this.followUpType().trim() ||
+            !this.owner().trim() ||
+            !this.purpose().trim() ||
+            !this.expectedOutcome().trim()));
       if (missing) {
         this.validationMessage.set(
           actionId === 'reschedule'
             ? 'Complete date, time, and priority before rescheduling.'
-            : 'Complete follow-up type, date, time, priority, purpose, and owner before saving.',
+            : 'Complete follow-up type, date, time, priority, purpose, expected outcome, and owner before saving.',
         );
         return;
       }
@@ -677,11 +733,7 @@ export class FollowUpPlannerComponent {
 
     // THE DOCUMENT'S DESTINATION: scheduling from the planner lands in the Follow-Up Queue.
     this.router.navigate(['/app/fundraising/relationships/follow-up-queue'], {
-      queryParams: {
-        followUpId: this.followUpId(),
-        leadId: this.resolvedLeadId(),
-        donorId: this.resolvedDonorId(),
-      },
+      // No parameters: the full list, and no side panel opened.
     });
   }
 
@@ -771,6 +823,7 @@ export class FollowUpPlannerComponent {
   /** Hands the chosen person to the planner form, and keeps the address bar in step with it. */
   protected choosePerson(person: { id: string }): void {
     const isLead = this.pickerKind() === 'lead';
+    this.openedFromPicker.set(true);
     this.followUpId.set(null);
     this.existing.set(null);
     this.leadId.set(isLead ? person.id : null);

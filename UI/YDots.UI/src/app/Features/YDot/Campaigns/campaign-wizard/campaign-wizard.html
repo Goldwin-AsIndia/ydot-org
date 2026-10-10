@@ -1627,7 +1627,9 @@
 
               @if (!previewEditing()) {
                 <!-- READ VIEW -->
-                <div class="preview-readonly" [innerHTML]="previewFieldHtml()"></div>
+                <div class="ov-body cw-preview-body">
+                  <div class="preview-readonly" [innerHTML]="previewFieldHtml()"></div>
+                </div>
                 <div class="cw-modal-actions">
                   <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeFieldPreview()">
                     <span aria-hidden="true">✕</span> Close
@@ -1639,6 +1641,7 @@
               } @else {
                 <!-- EDIT VIEW — full formatting toolbar (bold / italic / underline / bullet / numbered /
                justify / font size / font style / line spacing), same mousedown-preventDefault fix -->
+                <div class="ov-body cw-preview-body">
                 <div class="rte-editor">
                   <div
                     class="rte-toolbar"
@@ -1817,6 +1820,7 @@
                     >
                   </div>
                 }
+                </div>
                 <div class="cw-modal-actions">
                   <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEditPreview()">
                     <span aria-hidden="true">✕</span> Cancel

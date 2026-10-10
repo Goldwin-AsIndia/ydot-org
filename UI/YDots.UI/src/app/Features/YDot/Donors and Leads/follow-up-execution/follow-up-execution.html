@@ -91,7 +91,7 @@
               <div class="xr-sec">
                 <div class="xr-sec-head"><span class="xr-no">01</span><h3>The contact</h3><p>How and when you actually reached them.</p></div>
                 <span class="xr-label" id="xr-channel-l">How the contact was made <span class="xr-req">*</span></span>
-                <div class="xr-tiles" role="radiogroup" aria-labelledby="xr-channel-l">
+                <div class="xr-tiles" [class.is-invalid]="bad(executionChannel)" role="radiogroup" aria-labelledby="xr-channel-l">
                   @for (opt of followUpTypeOptions(); track opt.value) {
                     <button type="button" role="radio" class="xr-tile" [class.is-on]="executionChannel.value === opt.value" [attr.aria-checked]="executionChannel.value === opt.value" [disabled]="!canExecute()" (click)="pick(executionChannel, opt.value)">
                       <i [class]="glyphFor(opt.value)" aria-hidden="true"></i><span>{{ opt.label }}</span>
@@ -102,13 +102,14 @@
                   <div class="xr-field">
                     <label class="xr-label" for="actualContactDate">Executed date <span class="xr-req">*</span></label>
                     <input id="actualContactDate" type="date" formControlName="actualContactDate" class="xr-input xr-num" required
-                           [class.is-invalid]="executionForm.controls.actualContactDate.invalid && executionForm.controls.actualContactDate.touched"
-                           [attr.aria-invalid]="executionForm.controls.actualContactDate.invalid && executionForm.controls.actualContactDate.touched" />
+                           [class.is-invalid]="bad(executionForm.controls.actualContactDate)"
+                           [attr.aria-invalid]="bad(executionForm.controls.actualContactDate)" />
                     @if (executionForm.controls.actualContactDate.hasError('futureDate')) { <p class="xr-error">Future dates are not allowed.</p> }
                   </div>
                   <div class="xr-field">
                     <label class="xr-label" for="actualContactTime">Executed time <span class="xr-req">*</span></label>
-                    <input id="actualContactTime" type="time" formControlName="actualContactTime" class="xr-input xr-num" required />
+                    <input id="actualContactTime" type="time" formControlName="actualContactTime" class="xr-input xr-num" required
+                           [class.is-invalid]="bad(executionForm.controls.actualContactTime)" />
                   </div>
                 </div>
               </div>
@@ -119,14 +120,16 @@
                 <div class="xr-grid-3">
                   <div class="xr-field">
                     <label class="xr-label" for="executionStatus">Execution status <span class="xr-req">*</span></label>
-                    <select id="executionStatus" formControlName="executionStatus" class="xr-input xr-select" required>
+                    <select id="executionStatus" formControlName="executionStatus" class="xr-input xr-select" required
+                            [class.is-invalid]="bad(executionForm.controls.executionStatus)">
                       <option [ngValue]="null" disabled>Select status</option>
                       @for (opt of executionStatusOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
                     </select>
                   </div>
                   <div class="xr-field">
                     <label class="xr-label" for="completionReason">Completion reason <span class="xr-req">*</span></label>
-                    <select id="completionReason" formControlName="completionReason" class="xr-input xr-select" required>
+                    <select id="completionReason" formControlName="completionReason" class="xr-input xr-select" required
+                            [class.is-invalid]="bad(executionForm.controls.completionReason)">
                       <option [ngValue]="null" disabled>Select reason</option>
                       @for (opt of completionReasonOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
                     </select>
@@ -134,7 +137,7 @@
                   <div class="xr-field">
                     <label class="xr-label" for="outcome">Outcome <span class="xr-req">*</span></label>
                     <select id="outcome" formControlName="outcome" class="xr-input xr-select" required
-                            [class.is-invalid]="executionForm.controls.outcome.invalid && executionForm.controls.outcome.touched">
+                            [class.is-invalid]="bad(executionForm.controls.outcome)">
                       <option [ngValue]="null" disabled>Select outcome</option>
                       @for (opt of outcomeOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
                     </select>
@@ -151,7 +154,7 @@
                 <div class="xr-grid-2">
                   <div class="xr-field">
                     <span class="xr-label" id="engagement-level-label">Engagement level <span class="xr-req">*</span></span>
-                    <div class="xr-scale" role="radiogroup" aria-labelledby="engagement-level-label">
+                    <div class="xr-scale" [class.is-invalid]="bad(executionForm.controls.engagementLevel)" role="radiogroup" aria-labelledby="engagement-level-label">
                       @for (opt of engagementLevelOptions(); track opt; let i = $index) {
                         <label class="xr-scale-opt" [class.is-on]="executionForm.controls.engagementLevel.value === opt" [attr.data-step]="i">
                           <input type="radio" name="engagementLevel" formControlName="engagementLevel" [value]="opt" />
@@ -163,7 +166,7 @@
                   </div>
                   <div class="xr-field">
                     <span class="xr-label" id="quality-l">Communication quality <span class="xr-req">*</span></span>
-                    <div class="xr-scale" role="radiogroup" aria-labelledby="quality-l">
+                    <div class="xr-scale" [class.is-invalid]="bad(executionForm.controls.communicationQuality)" role="radiogroup" aria-labelledby="quality-l">
                       @for (opt of communicationQualityOptions(); track opt) {
                         <button type="button" role="radio" class="xr-scale-opt" [class.is-on]="executionForm.controls.communicationQuality.value === opt"
                                 [attr.aria-checked]="executionForm.controls.communicationQuality.value === opt" [disabled]="!canExecute()" (click)="pick(executionForm.controls.communicationQuality, opt)">{{ opt }}</button>
@@ -180,10 +183,10 @@
                   <label class="xr-label" for="completionNotes">Execution notes <span class="xr-req">*</span></label>
                   <textarea id="completionNotes" formControlName="completionNotes" class="xr-input xr-textarea" rows="4" required
                             placeholder="Record the conversation, the outcome and the agreed next steps."
-                            [class.is-invalid]="executionForm.controls.completionNotes.invalid && executionForm.controls.completionNotes.touched"
+                            [class.is-invalid]="bad(executionForm.controls.completionNotes)"
                             aria-describedby="completionNotes-count"></textarea>
                   <div class="xr-field-foot">
-                    @if (executionForm.controls.completionNotes.invalid && executionForm.controls.completionNotes.touched) {
+                    @if (bad(executionForm.controls.completionNotes)) {
                       <p class="xr-error">Execution notes are required (at least 20 characters).</p>
                     } @else { <span class="xr-hint">At least 20 characters.</span> }
                     <span id="completionNotes-count" class="xr-count xr-num" [class.is-ok]="executionForm.controls.completionNotes.value.length >= 20">{{ executionForm.controls.completionNotes.value.length }}/2000</span>
@@ -208,7 +211,7 @@
                   </select>
                   @if (temperatureChanged()) {
                     <input type="text" class="xr-input" [formControl]="temperatureForm.controls.reasonForChange" placeholder="Reason for the change (10 characters or more)" required
-                           [class.is-invalid]="temperatureForm.controls.reasonForChange.invalid" aria-label="Reason for the temperature change" />
+                           [class.is-invalid]="temperatureReasonBad()" aria-label="Reason for the temperature change" />
                   }
                 </div>
                 }
@@ -219,7 +222,8 @@
                 </div>
                 <div class="xr-field">
                   <label class="xr-label" for="disposition">Disposition <span class="xr-req">*</span> <span class="xr-now">outcome of this record</span></label>
-                  <select id="disposition" [formControl]="dispositionForm.controls.disposition" class="xr-input xr-select" required>
+                  <select id="disposition" [formControl]="dispositionForm.controls.disposition" class="xr-input xr-select" required
+                          [class.is-invalid]="bad(dispositionForm.controls.disposition)">
                     <option [ngValue]="null" disabled>Select disposition</option>
                     @for (opt of dispositionOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
                   </select>
@@ -282,33 +286,33 @@
                 <div class="xr-grid-2 xr-next-grid">
                   <div class="xr-field">
                     <label class="xr-label" for="nfuType">Type <span class="xr-req">*</span></label>
-                    <select id="nfuType" formControlName="type" class="xr-input xr-select">
+                    <select id="nfuType" formControlName="type" class="xr-input xr-select" [class.is-invalid]="nextBad('type')">
                       <option [ngValue]="null" disabled>Select type</option>
                       @for (opt of nextChannelOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
                     </select>
                   </div>
                   <div class="xr-field">
                     <label class="xr-label" for="nfuPriority">Priority <span class="xr-req">*</span></label>
-                    <select id="nfuPriority" formControlName="priority" class="xr-input xr-select">
+                    <select id="nfuPriority" formControlName="priority" class="xr-input xr-select" [class.is-invalid]="nextBad('priority')">
                       <option [ngValue]="null" disabled>Select priority</option>
                       @for (opt of priorityOptions(); track opt) { <option [value]="opt">{{ opt }}</option> }
                     </select>
                   </div>
                   <div class="xr-field">
                     <label class="xr-label" for="nfuDate">Date <span class="xr-req">*</span></label>
-                    <input id="nfuDate" type="date" formControlName="date" class="xr-input xr-num" />
+                    <input id="nfuDate" type="date" formControlName="date" class="xr-input xr-num" [class.is-invalid]="nextBad('date')" />
                   </div>
                   <div class="xr-field">
                     <label class="xr-label" for="nfuTime">Time <span class="xr-req">*</span></label>
-                    <input id="nfuTime" type="time" formControlName="time" class="xr-input xr-num" />
+                    <input id="nfuTime" type="time" formControlName="time" class="xr-input xr-num" [class.is-invalid]="nextBad('time')" />
                   </div>
                   <div class="xr-field xr-span-2">
                     <label class="xr-label" for="nfuOwner">Assigned user <span class="xr-req">*</span></label>
                     @if (ownerOptions().length > 20) {
-                      <input id="nfuOwner" type="text" formControlName="owner" class="xr-input" list="nfuOwner-options" placeholder="Search users" required autocomplete="off" />
+                      <input id="nfuOwner" type="text" formControlName="owner" class="xr-input" list="nfuOwner-options" placeholder="Search users" required autocomplete="off" [class.is-invalid]="nextBad('owner')" />
                       <datalist id="nfuOwner-options">@for (owner of ownerOptions(); track owner.value) { <option [value]="owner.label"></option> }</datalist>
                     } @else {
-                      <select id="nfuOwner" formControlName="owner" class="xr-input xr-select" required>
+                      <select id="nfuOwner" formControlName="owner" class="xr-input xr-select" required [class.is-invalid]="nextBad('owner')">
                         <option value="" disabled>Select user</option>
                         @for (owner of ownerOptions(); track owner.value) { <option [value]="owner.label">{{ owner.label }}</option> }
                       </select>
@@ -316,7 +320,7 @@
                   </div>
                   <div class="xr-field xr-span-2">
                     <label class="xr-label" for="nfuPurpose">Instructions <span class="xr-req">*</span></label>
-                    <textarea id="nfuPurpose" formControlName="purpose" class="xr-input xr-textarea xr-textarea--sm" rows="2" maxlength="500"></textarea>
+                    <textarea id="nfuPurpose" formControlName="purpose" class="xr-input xr-textarea xr-textarea--sm" rows="2" maxlength="500" [class.is-invalid]="nextBad('purpose')"></textarea>
                   </div>
                   @if (nextConsentCaution()) {
                     <div class="xr-field xr-span-2">
