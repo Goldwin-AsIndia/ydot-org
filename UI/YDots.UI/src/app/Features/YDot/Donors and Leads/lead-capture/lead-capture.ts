@@ -24,6 +24,7 @@ import {
 } from '../../../../Shared/models/donor-contract.model';
 
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 export interface MobileNumberEntry {
   readonly id: string;
   value: string;
@@ -230,6 +231,7 @@ export class LeadCaptureComponent {
   }
 
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly api = inject(DonorApiService);
   private readonly toast = inject(ToastService);
 
@@ -1594,7 +1596,7 @@ export class LeadCaptureComponent {
   }
 
   protected cancelForm(): void {
-    this.router.navigate(['/app/fundraising/relationships/lead-work-queue']);
+    this.navHistory.back(['/app/fundraising/relationships/lead-work-queue']);
   }
 
   protected startOver(): void {

@@ -18,6 +18,7 @@ import {
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 type TabId = 'overview' | 'history' | 'actions';
 
 /** Extended, page-local workflow states beyond the shared ready/success UiState. */
@@ -52,6 +53,7 @@ interface ResultPanel {
 })
 export class DonorIdentityVerificationComponent {
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(DonorApiService);
   private readonly toast = inject(ToastService);
@@ -748,7 +750,7 @@ export class DonorIdentityVerificationComponent {
   }
 
   protected backToDonor(): void {
-    this.router.navigate(['/app/fundraising/relationships/donor-360'], {
+    this.navHistory.back(['/app/fundraising/relationships/donor-360'], {
       queryParams: { donorId: this.donorReference(), leadId: this.leadId() },
     });
   }

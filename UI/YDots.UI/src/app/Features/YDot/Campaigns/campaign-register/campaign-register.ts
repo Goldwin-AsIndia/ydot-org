@@ -308,7 +308,10 @@ export class CampaignRegisterComponent {
       if (status && r.status !== status) {
         return false;
       }
-      if (owner !== ALL_OWNERS_REFERENCE && r.ownerReference !== owner) {
+      // ANY OF THE CAMPAIGN'S OWNERS MATCHES. A campaign can have several owners, and this compared
+      // only the primary one, so picking a second or third owner returned nothing.
+      if (owner !== ALL_OWNERS_REFERENCE && !this.ownersOf(r).some((o) => o.reference === owner)
+          && r.ownerReference !== owner) {
         return false;
       }
       if (start && r.startDate && new Date(r.startDate) < start) {
@@ -325,7 +328,13 @@ export class CampaignRegisterComponent {
 
     const col = this.sortColumn();
     const dir = this.sortDirection() === 'asc' ? 1 : -1;
+    const fresh = this.highlightRef();
     return [...rows].sort((a, b) => {
+      // THE CAMPAIGN JUST CREATED LISTS FIRST, whatever the sort - it is highlighted too.
+      if (fresh) {
+        if (a.code === fresh && b.code !== fresh) return -1;
+        if (b.code === fresh && a.code !== fresh) return 1;
+      }
       const av = a[col];
       const bv = b[col];
       if (typeof av === 'number' && typeof bv === 'number') {
@@ -334,6 +343,9 @@ export class CampaignRegisterComponent {
       return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
     });
   });
+
+  /** The campaign the wizard has just created (?created=ref): pinned to the top and highlighted. */
+  protected readonly highlightRef = signal<string>('');
 
   /**
    * The status lanes across the portfolio band: every status that has a campaign (or is the one
@@ -829,6 +841,7 @@ export class CampaignRegisterComponent {
     const created = this.route.snapshot.queryParamMap.get('created');
     if (created) {
       this.lastActionReference.set(created);
+      this.highlightRef.set(created);
       this.toast.show('Campaign saved', `Draft ${created} was created.`, 'success');
     }
 

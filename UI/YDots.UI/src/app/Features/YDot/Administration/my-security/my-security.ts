@@ -13,6 +13,7 @@ import {
 } from '../../../../Shared/models/iam-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 /** One session, as the page lists it. */
 interface SessionView {
   id: string;
@@ -75,6 +76,7 @@ interface ActivityView {
 })
 export class MySecurityComponent {
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly toast = inject(ToastService);
   private readonly api = inject(SecurityApiService);
 
@@ -737,7 +739,7 @@ export class MySecurityComponent {
   }
 
   goBack(): void {
-    this.router.navigate(['/app/administration/access/user-directory']);
+    this.navHistory.back(['/app/administration/access/user-directory']);
   }
 
   editProfile(): void {

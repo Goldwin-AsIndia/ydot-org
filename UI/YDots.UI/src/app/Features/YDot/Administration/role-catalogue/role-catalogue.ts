@@ -20,6 +20,7 @@ import {
   RoleSearchFilter,
 } from '../../../../Shared/models/role-catalogue-api.model';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 /** One permission, as the detail panel lists it. */
 interface RolePermissionView {
   code: string;
@@ -163,6 +164,7 @@ export class RxPortalDirective implements OnInit, OnDestroy {
 })
 export class RoleCatalogueComponent {
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly toast = inject(ToastService);
   private readonly api = inject(RoleCatalogueApiService);
   private readonly tokens = inject(AuthTokenService);
@@ -1768,6 +1770,6 @@ export class RoleCatalogueComponent {
   }
 
   goBack(): void {
-    this.router.navigate(['/app/administration/access/user-directory']);
+    this.navHistory.back(['/app/administration/access/user-directory']);
   }
 }

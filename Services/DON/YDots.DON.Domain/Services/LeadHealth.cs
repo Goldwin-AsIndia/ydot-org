@@ -73,6 +73,22 @@ public static class LeadHealth
         };
     }
 
+    /// <summary>
+    /// How the latest logged conversation went. Moves the score up or down by up to 15, so the
+    /// reading follows the communication log: an interested reply lifts it, a refusal drops it.
+    /// </summary>
+    private static int OutcomePoints(ContactOutcome outcome) =>
+        outcome switch
+        {
+            ContactOutcome.Interested or ContactOutcome.MeetingScheduled
+                or ContactOutcome.MeetingCompleted or ContactOutcome.DonationDiscussion => 10,
+            ContactOutcome.InformationRequested or ContactOutcome.CallbackRequested => 5,
+            ContactOutcome.NoAnswer => -5,
+            ContactOutcome.NotInterested or ContactOutcome.WrongNumber => -15,
+            ContactOutcome.DoNotContact => -15,
+            _ => 0
+        };
+
     /// <summary>Whether we can reach them at all, and whether they said we may. Worth up to 10.</summary>
     private static int ReachabilityPoints(Lead lead)
     {
@@ -99,7 +115,8 @@ public static class LeadHealth
         var total = StagePoints(lead.Status)
             + TemperaturePoints(lead.Temperature)
             + RecencyPoints(lead.LastContactedAtUtc, now)
-            + ReachabilityPoints(lead);
+            + ReachabilityPoints(lead)
+            + OutcomePoints(lead.LastContactOutcome);
 
         return Math.Clamp(total, 0, 100);
     }

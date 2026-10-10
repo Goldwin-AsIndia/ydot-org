@@ -348,7 +348,7 @@ export class TrackingAssetManagerComponent {
       chips.push({ key: 'assetType', label: `Asset type: ${this.assetTypeFilter()}` });
     }
     if (this.channelFilter()) {
-      chips.push({ key: 'channel', label: `Channel: ${this.channelFilter()}` });
+      chips.push({ key: 'channel', label: `Medium: ${this.channelFilter()}` });
     }
     if (this.statusFilter()) {
       chips.push({ key: 'status', label: `Asset status: ${this.statusFilter()}` });
@@ -608,7 +608,7 @@ export class TrackingAssetManagerComponent {
   /** Download the filtered asset set as CSV — the card header's Export action. */
   protected exportCsv(): void {
     const header = [
-      'Tracking reference', 'Asset type', 'Channel', 'Campaign', 'Destination',
+      'Tracking reference', 'Asset type', 'Medium', 'Campaign', 'Destination',
       'Generated URL', 'Status', 'Approval', 'Usage',
     ];
     const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
@@ -708,7 +708,7 @@ export class TrackingAssetManagerComponent {
     const lines = [
       `Tracking reference: ${asset.trackingReference}`,
       `Asset type: ${asset.assetType}`,
-      `Channel: ${asset.channel}`,
+      `Medium: ${asset.channel}`,
       asset.place ? `Place: ${asset.place}` : null,
       asset.placeCity ? `City: ${asset.placeCity}` : null,
       asset.placeState ? `State: ${asset.placeState}` : null,
@@ -1075,10 +1075,10 @@ export class TrackingAssetManagerComponent {
     const rec = this.campaignStore.get(ref);
     if (!rec) return;
 
-    // CHANNEL AND SOURCE ARE NO LONGER ASKED FOR. The API still needs both, so they are taken
-    // from what the campaign was set up with (its first channel and source), falling back to the
-    // first active row of the catalogue when the campaign carries none.
-    this.deriveChannelAndSource(rec.channels, rec.sources?.[0]);
+    // THE SOURCE IS NOT ASKED FOR. The API still needs it, so it is taken from what the campaign
+    // was set up with (its first source), falling back to the first active catalogue row. The
+    // MEDIUM IS NOT FILLED IN: it is the person's own choice, so it stays empty until picked.
+    this.deriveChannelAndSource(rec.sources?.[0]);
 
     // THE WINDOW STARTS AS THE CAMPAIGN'S OWN. It stays editable, but only inside the campaign's
     // dates (see `campaignStart` / `campaignEnd`, bound to the date fields' min and max).
@@ -1128,15 +1128,11 @@ export class TrackingAssetManagerComponent {
   );
 
   /** The ids the create call needs for channel and source, resolved from the campaign. */
-  private deriveChannelAndSource(campaignChannels?: readonly string[], source?: string): void {
-    const channels = this.channelChoices();
+  private deriveChannelAndSource(source?: string): void {
     const sources = this.sourceChoices();
-    const offered = channels.filter((c) => campaignChannels?.includes(c.ref));
 
-    // THE CAMPAIGN'S FIRST CHANNEL, WHATEVER THE ASSET TYPE. A QR code used to take the campaign's
-    // Offline channel here ahead of the others, which is the asset type choosing the Medium - see
-    // `selectAssetType`.
-    this.gChannel.set(offered[0]?.ref ?? channels[0]?.ref ?? '');
+    // NO MEDIUM HERE. Selecting a campaign used to pre-select its first channel as the Medium, so
+    // the field showed a value nobody had chosen. Only the source the API needs is resolved.
     this.gSource.set(
       sources.find((c) => c.ref === source)?.ref ?? sources[0]?.ref ?? '');
   }
@@ -1276,8 +1272,30 @@ export class TrackingAssetManagerComponent {
   }
   /** At least one named place with a destination is required for an on-ground asset. */
   protected readonly placesValid = computed(
-    () => !this.isOnGround() || this.gPlaces().some((p) => p.label.trim() && p.destination.trim()),
+    () =>
+      !this.isOnGround() ||
+      (this.gPlaces().some((p) => p.label.trim() && this.isWebAddress(p.destination)) &&
+        this.gPlaces().every((p) => !p.destination.trim() || this.isWebAddress(p.destination))),
   );
+
+  /** A full web address - the scheme is required, exactly as the API requires it. */
+  protected isWebAddress(raw: string): boolean {
+    const value = raw.trim();
+    if (!/^https?:\/\//i.test(value)) return false;
+    try {
+      const u = new URL(value);
+      return u.hostname.includes('.') && value.length <= 2000;
+    } catch {
+      return false;
+    }
+  }
+  protected readonly destinationFormatMessage =
+    'Enter a full web address beginning http:// or https://, for example https://ydot.org/donate.';
+  /** Why the Destination URL cannot be used, or '' when it is fine (or still empty). */
+  protected readonly destinationFormatError = computed(() => {
+    const raw = this.gDestination().trim();
+    return raw && !this.isWebAddress(raw) ? this.destinationFormatMessage : '';
+  });
 
   // ----- Live preview inside the Generate popup — shows the QR / link before it's created ----
   /** True once there's enough information to preview something (asset type + at least one destination). */
@@ -1344,7 +1362,7 @@ export class TrackingAssetManagerComponent {
       case 'assetType':
         return !this.gAssetType();
       case 'destination':
-        return !this.isOnGround() && !this.gDestination().trim();
+        return !this.isOnGround() && (!this.gDestination().trim() || !!this.destinationFormatError());
       case 'places':
         return this.isOnGround() && !this.placesValid();
       case 'campaign':
@@ -1379,8 +1397,9 @@ export class TrackingAssetManagerComponent {
   >(() => {
     const raw = this.gDestination().trim();
     if (!raw) return null;
+    if (!this.isWebAddress(raw)) return 'invalid';
     try {
-      const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`);
+      const u = new URL(raw);
       if ((u.protocol !== 'https:' && u.protocol !== 'http:') || !u.hostname.includes('.')) return 'invalid';
       return { host: u.hostname.replace(/^www\./, ''), href: u.toString(), secure: u.protocol === 'https:', params: [...u.searchParams.keys()].length };
     } catch {
@@ -1450,10 +1469,18 @@ export class TrackingAssetManagerComponent {
     if (this.missing('assetType')) errs.push({ key: 'g-assetType', label: 'Enter Asset type.' });
     if (this.missing('campaign')) errs.push({ key: 'g-campaign', label: 'Enter Campaign.' });
     if (this.missing('channel')) errs.push({ key: 'g-channel', label: 'Enter Medium.' });
-    if (this.missing('destination')) errs.push({ key: 'g-destination', label: 'Enter Destination.' });
-    if (this.missing('places')) errs.push({ key: 'g-places', label: 'Enter at least one place name and destination.' });
-    if (this.gCampaign() && (!this.gChannel() || !this.gSource()))
-      errs.push({ key: 'g-campaign', label: 'The channel and source lists could not be loaded. Reload the page.' });
+    if (this.missing('destination'))
+      errs.push({
+        key: 'g-destination',
+        label: this.gDestination().trim() ? this.destinationFormatMessage : 'Enter Destination URL.',
+      });
+    if (this.missing('places'))
+      errs.push({
+        key: 'g-places',
+        label: 'Enter at least one place name and a full web address beginning http:// or https://.',
+      });
+    if (this.gCampaign() && !this.gSource())
+      errs.push({ key: 'g-campaign', label: 'The source list could not be loaded. Reload the page.' });
     if (this.missing('activeFrom')) errs.push({ key: 'g-activeFrom', label: 'Enter Active from.' });
     if (this.gRangeInvalid())
       errs.push({ key: 'g-activeTo', label: 'Review Active to. The value does not meet the stated format or range.' });

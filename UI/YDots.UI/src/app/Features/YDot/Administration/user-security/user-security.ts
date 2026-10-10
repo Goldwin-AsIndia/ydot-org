@@ -15,6 +15,7 @@ import {
 } from '../../../../Shared/models/iam-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 /** What the confirm dialog is about to do. */
 type SecurityAction =
   | 'requirePasswordReset'
@@ -69,6 +70,7 @@ interface TrustedDeviceRow {
 export class UserSecurityComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly route = inject(ActivatedRoute);
   private readonly toast = inject(ToastService);
   private readonly api = inject(SecurityApiService);
@@ -650,10 +652,10 @@ export class UserSecurityComponent {
 
   goBack(): void {
     if (this.userReference()) {
-      this.router.navigate(
+      this.navHistory.back(
         ['/app/administration/access/user-profile-and-access', this.userReference()]);
     } else {
-      this.router.navigate(['/app/administration/access/user-directory']);
+      this.navHistory.back(['/app/administration/access/user-directory']);
     }
   }
 }

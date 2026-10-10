@@ -1180,6 +1180,24 @@ export class FollowUpQueueComponent {
     if (set.has(value)) set.delete(value);
     else set.add(value);
     this.draftFilters.set(draft);
+    this.commitDraft();
+  }
+
+  /** A choice in the panel takes effect at once; there is no separate Apply step. */
+  private commitDraft() {
+    this.activeFilters.set(this.cloneFilters(this.draftFilters()));
+    this.activeSavedViewId.set(null);
+    this.scrollToResults();
+  }
+
+  /** On the board and calendar the results sit below the filter panel; bring them into view. */
+  private scrollToResults() {
+    if (this.viewMode() === "grid") return;
+    setTimeout(() => {
+      document
+        .querySelector(".fq-board, .fq-cal")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
   }
 
   setDraftOwner(v: string) {
@@ -1187,24 +1205,28 @@ export class FollowUpQueueComponent {
       ...this.cloneFilters(f),
       owner: v || null,
     }));
+    this.commitDraft();
   }
   setDraftCampaign(v: string) {
     this.draftFilters.update((f) => ({
       ...this.cloneFilters(f),
       campaign: v || null,
     }));
+    this.commitDraft();
   }
   setDraftDateFrom(v: string) {
     this.draftFilters.update((f) => ({
       ...this.cloneFilters(f),
       dateFrom: v || null,
     }));
+    this.commitDraft();
   }
   setDraftDateTo(v: string) {
     this.draftFilters.update((f) => ({
       ...this.cloneFilters(f),
       dateTo: v || null,
     }));
+    this.commitDraft();
   }
 
   applyFilters() {
@@ -1222,6 +1244,7 @@ export class FollowUpQueueComponent {
     this.activeSavedViewId.set(null);
     this.searchTerm.set("");
     this.showToast("Filters reset");
+    this.scrollToResults();
   }
 
   applySavedView(view: SavedView) {

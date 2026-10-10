@@ -13,6 +13,7 @@ import {
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { DocumentSubmissionsComponent } from '../../../../Shared/document-submissions/document-submissions';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 type Decision = 'none' | 'approve' | 'reject' | 'suspend' | 'reactivate' | 'archive';
 
 /**
@@ -50,6 +51,7 @@ export class RegistrationVerificationComponent implements OnInit, OnDestroy {
   private readonly api = inject(OrganisationApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly toast = inject(ToastService);
 
   private readonly destroy$ = new Subject<void>();
@@ -192,7 +194,7 @@ export class RegistrationVerificationComponent implements OnInit, OnDestroy {
   }
 
   backToQueue(): void {
-    void this.router.navigate(['/app/administration/organisation/registration-verification']);
+    this.navHistory.back(['/app/administration/organisation/registration-verification']);
   }
 
   // =========================================================================================

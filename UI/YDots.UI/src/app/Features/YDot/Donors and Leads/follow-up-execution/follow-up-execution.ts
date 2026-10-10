@@ -50,6 +50,7 @@ import {
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 import { ToastService } from "../../../../Shared/services/toast.service";
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 // ---------------------------------------------------------------------------
 // Domain models
 // ---------------------------------------------------------------------------
@@ -579,6 +580,7 @@ function noFutureDateValidator(): ValidatorFn {
 export class FollowUpExecutionComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly fb = inject(FormBuilder);
   private readonly executionService = inject(FollowUpExecutionService);
   private readonly toast = inject(ToastService);
@@ -1089,8 +1091,13 @@ export class FollowUpExecutionComponent implements OnInit {
     this.router.navigate(["/app/fundraising/relationships/follow-up-queue"]);
   }
 
+  /** Back to the screen this follow-up was opened from (queue, My Leads, a timeline ...). */
+  goBack(): void {
+    this.navHistory.back(["/app/fundraising/relationships/follow-up-queue"]);
+  }
+
   cancel(): void {
-    this.backToQueue();
+    this.goBack();
   }
 
   // ---- Complete ---------------------------------------------------------------

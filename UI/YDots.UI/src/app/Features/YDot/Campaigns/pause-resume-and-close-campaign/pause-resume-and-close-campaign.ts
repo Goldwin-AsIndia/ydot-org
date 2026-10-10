@@ -700,8 +700,11 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
     this.errorOrder.set([]);
     this.typedConfirmValue.set('');
     this.showConfirmDialog.set(false);
+    // LOCAL DATE, not toISOString(): that is the UTC date, which is yesterday for anybody east of
+    // Greenwich in the early hours.
     const today = new Date();
-    this.effectiveDate.set(today.toISOString().slice(0, 10));
+    this.effectiveDate.set(
+      `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`);
     this.effectiveTime.set(today.toTimeString().slice(0, 5));
   }
 
@@ -802,32 +805,25 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
       order.push(key);
     };
 
-    // Effective time.
-    if (!this.effectiveDate() || !this.effectiveTime()) {
-      addError('effectiveDate', 'Enter Effective time.');
-    } else {
-      const chosen = new Date(`${this.effectiveDate()}T${this.effectiveTime()}`);
-      const oneYearOut = new Date();
-      oneYearOut.setFullYear(oneYearOut.getFullYear() + 1);
-      if (Number.isNaN(chosen.getTime()) || chosen > oneYearOut) {
-        addError('effectiveDate', 'Review Effective time. The value does not meet the stated format or range.');
-      }
-    }
+    // There is no Effective time field: a lifecycle change takes effect when it is confirmed, so
+    // the date and time are stamped from the clock when the panel opens (see openActionPanel).
 
     // Confidential + conditional textareas — error copy uses field LABELS only, never the entered
     // (confidential) content, so nothing leaks to a non-scoped surface.
-    const checkText = (need: boolean, key: string, label: string, value: string) => {
+    const checkText = (need: boolean, key: string, label: string, value: string, max = 2000) => {
       if (!need) {
         return;
       }
       const len = value.trim().length;
       if (len === 0) {
         addError(key, `Enter ${label}.`);
-      } else if (len < 10 || len > 2000) {
-        addError(key, `Review ${label}. The value does not meet the stated format or range.`);
+      } else if (len < 10 || len > max) {
+        addError(key, `${label} must be between 10 and ${max.toLocaleString('en-IN')} characters.`);
       }
     };
-    checkText(action.requiresReasonCategory, 'reasonCategory', 'Reason category', this.reasonCategory());
+    // THE SERVER CAPS A REASON CATEGORY AT 100 CHARACTERS (CampaignLifecycleRequestValidator). The
+    // box allowed 2,000, so a longer reason passed this check and was then refused by the API.
+    checkText(action.requiresReasonCategory, 'reasonCategory', 'Reason category', this.reasonCategory(), 100);
     checkText(action.requiresDetailedReason, 'detailedReason', 'Detailed reason', this.detailedReason());
     checkText(action.requiresCommunicationImpact, 'communicationImpact', 'Communication impact', this.communicationImpact());
     checkText(action.requiresClosureSummary, 'closureSummary', 'Closure summary', this.closureSummary());

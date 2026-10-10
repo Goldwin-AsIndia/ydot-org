@@ -102,7 +102,7 @@
         <div class="banner banner-success d-flex align-items-center gap-2 mb-2" role="alert">
           <span class="fw-bold">✓</span>
           <div class="flex-grow-1">
-            <strong>Saved successfully.</strong> Reference {{ o.reference }}; state {{ o.state }}; effective {{ o.effectiveTime }}.
+            <strong>Saved successfully.</strong> Reference {{ o.reference }}; state {{ o.state }}.
             <span class="text-muted">Next: {{ o.nextAction }} · {{ o.accountableOwner }} · {{ o.remainingDependency }}</span>
           </div>
           <button class="banner-btn" type="button" (click)="dismissOutcome()">Continue</button>
@@ -200,25 +200,13 @@
             </div>
           }
           <div class="action-panel-body">
-            <p class="prc-panel-lead">{{ action.description }}</p>
-            <div class="mb-3">
-              <label class="form-label" for="field-effectiveDate">Effective time</label>
-              <div class="d-flex gap-2">
-                <input id="field-effectiveDate" type="date" class="form-control form-control-sm"
-                  [ngModel]="effectiveDate()" (ngModelChange)="effectiveDate.set($event)" />
-                <input type="time" class="form-control form-control-sm"
-                  [ngModel]="effectiveTime()" (ngModelChange)="effectiveTime.set($event)" />
-              </div>
-              <small class="field-hint">Interpreted as {{ effectiveDateTimeLabel() }}</small>
-              @if (errors()['effectiveDate']) { <div class="field-error mt-1">{{ errors()['effectiveDate'] }}</div> }
-            </div>
             @if (action.requiresReasonCategory) {
               <div class="mb-3">
                 <label class="form-label" for="field-reasonCategory">Reason category</label>
-                <textarea id="field-reasonCategory" class="form-control form-control-sm" rows="2" maxlength="2000"
+                <textarea id="field-reasonCategory" class="form-control form-control-sm" rows="2" maxlength="100"
                   placeholder="Explain why this change is needed…"
                   [ngModel]="reasonCategory()" (ngModelChange)="reasonCategory.set($event)"></textarea>
-                <small class="field-hint">{{ reasonCategory().length }} / 2,000</small>
+                <small class="field-hint">{{ reasonCategory().length }} / 100 · minimum 10 characters</small>
                 @if (errors()['reasonCategory']) { <div class="field-error mt-1">{{ errors()['reasonCategory'] }}</div> }
               </div>
             }
@@ -279,7 +267,6 @@
         <div class="prc-modal" role="alertdialog" aria-modal="true" [attr.aria-label]="action.confirmVerb">
           <header class="ov-head">
             <h6 class="prc-modal-title">{{ action.confirmVerb }}</h6>
-            <p class="prc-modal-lead">Review before committing.</p>
           </header>
           <div class="ov-body">
           <div class="confirm-summary mb-2">
@@ -303,8 +290,7 @@
                 }
               }
             </div>
-            <div class="confirm-row"><span class="label">Time</span><span class="value">{{ effectiveDateTimeLabel() }}</span></div>
-          </div>
+                      </div>
           @if (action.typedConfirm) {
             <div class="mb-2">
               <label class="form-label" for="typed-confirm">Type <strong>{{ confirmToken() }}</strong></label>

@@ -14,6 +14,7 @@ import {
 } from '../../../../Shared/models/donor-contract.model';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 
+import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 type PlannerUiState = 'ready' | 'loading' | 'success' | 'error' | 'empty';
 
 /**
@@ -29,6 +30,7 @@ type PlannerUiState = 'ready' | 'loading' | 'success' | 'error' | 'empty';
 })
 export class FollowUpPlannerComponent {
   private readonly router = inject(Router);
+  private readonly navHistory = inject(NavigationHistoryService);
   private readonly route = inject(ActivatedRoute);
     private readonly api = inject(DonorApiService);
   private readonly toast = inject(ToastService);
@@ -215,7 +217,7 @@ export class FollowUpPlannerComponent {
       this.changePerson();
       return;
     }
-    this.router.navigate(['/app/fundraising/relationships/follow-up-queue']);
+    this.navHistory.back(['/app/fundraising/relationships/follow-up-queue']);
   }
 
   /** Change person: clears the person and the form and shows the New follow-up list again. */

@@ -20,7 +20,7 @@
             <p class="xr-muted">The follow-up record could not be retrieved. Check your connection and try again.</p>
           </div>
           <div class="xr-row-acts">
-            <button type="button" class="xr-btn" (click)="backToQueue()" [disabled]="saving()"><i class="ri-arrow-left-line" aria-hidden="true"></i> Return to queue</button>
+            <button type="button" class="xr-btn" (click)="goBack()" [disabled]="saving()"><i class="ri-arrow-left-line" aria-hidden="true"></i> Return to queue</button>
             <button type="button" class="xr-btn xr-btn--primary" (click)="retryLoad()" [disabled]="saving()"><i class="ri-refresh-line" aria-hidden="true"></i> Reload</button>
           </div>
         </section>
@@ -30,7 +30,7 @@
 
         <app-page-header class="page-header" screen="follow-up-execution" title="Follow-up execution" subtitle="Record what happened and complete a scheduled follow-up for a lead or donor.">
           <!-- <span meta class="ph-chip">{{ data.followUp.followUpId || followUpId() || 'Follow-up' }}</span> -->
-          <button actions type="button" class="ph-btn ph-btn--ghost" (click)="backToQueue()" [disabled]="saving()">
+          <button actions type="button" class="ph-btn ph-btn--ghost" (click)="goBack()" [disabled]="saving()">
             <i class="ri-arrow-left-line" aria-hidden="true"></i> Back
           </button>
         </app-page-header>
@@ -397,7 +397,7 @@
 
         <!-- ===================================== ACTION BAR ===================================== -->
         <div class="xr-bar">
-          <button type="button" class="xr-link" [disabled]="saving()" (click)="backToQueue()"><i class="ri-arrow-left-line" aria-hidden="true"></i> Back</button>
+          <button type="button" class="xr-link" [disabled]="saving()" (click)="goBack()"><i class="ri-arrow-left-line" aria-hidden="true"></i> Back</button>
           <span class="xr-bar-note"><i class="ri-information-line" aria-hidden="true"></i>{{ !canExecute() ? viewOnlyReason() : nextFollowUpEnabled() ? 'Completing also schedules the next follow-up.' : 'Completing records the conversation on the timeline.' }}</span>
           <button type="button" class="xr-btn" (click)="cancel()" [disabled]="saving()">Cancel</button>
           @if (canExecute()) {

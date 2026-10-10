@@ -107,17 +107,10 @@
                 <section class="dpe-sec" aria-labelledby="dpe-h-contact">
                   <h2 class="dpe-h" id="dpe-h-contact"><span class="dpe-n">02</span>Contact &amp; preferences<span class="dpe-hint-line">How we reach them</span></h2>
                   <div class="dpe-grid">
-                    <div class="dpe-field" [class.dpe-invalid]="submitted() && errors()['email']">
+                    <div class="dpe-field">
                       <label class="dpe-label" for="dpe-email">Email</label>
-                      @if (emailMasked()) {
-                        <input id="dpe-email" type="text" disabled value="Hidden for your access level" />
-                        <p class="dpe-hint"><i class="ri-lock-line" aria-hidden="true"></i> Masked by the server — it stays as it is.</p>
-                      } @else {
-                        <input id="dpe-email" type="email" autocomplete="off" [ngModel]="email()"
-                          (ngModelChange)="email.set($event)" name="email"
-                          [attr.aria-invalid]="submitted() && errors()['email'] ? true : null" />
-                        @if (submitted() && errors()['email']) { <p class="dpe-err">{{ errors()['email'] }}</p> }
-                      }
+                      <input id="dpe-email" type="text" disabled [value]="emailMasked() ? 'Hidden for your access level' : email()" />
+                      <p class="dpe-hint"><i class="ri-lock-line" aria-hidden="true"></i> The email address cannot be changed.</p>
                     </div>
                     <div class="dpe-field" [class.dpe-invalid]="submitted() && errors()['phone']">
                       <label class="dpe-label" for="dpe-phone">Phone</label>
