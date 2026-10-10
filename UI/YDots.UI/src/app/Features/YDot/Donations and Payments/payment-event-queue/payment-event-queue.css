@@ -882,7 +882,77 @@ textarea:focus-visible,
 .pr-table-empty {
   text-align: center;
   color: var(--pr-muted);
-  padding: calc(28px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) !important;
+  padding: 0 !important;
+  border-bottom: 0 !important;
+}
+
+/* ---------- Empty state: shown in the table body when nothing matches ---------- */
+.pr-empty-row,
+.pr-empty-row:hover,
+.pr-empty-row > td { background: transparent !important; cursor: default; }
+
+.pr-empty {
+  --pe-accent: var(--primary, var(--pr-meadow));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: calc(52px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1)) calc(56px * var(--ui-scale, 1));
+}
+
+/* Illustration — receipt card under a magnifier with a cross: "searched, found nothing". */
+.pr-empty-art {
+  width: calc(170px * var(--ui-scale, 1));
+  height: auto;
+  margin-bottom: calc(20px * var(--ui-scale, 1));
+  overflow: visible;
+}
+.pr-empty-art .pe-shadow    { fill: color-mix(in srgb, var(--pe-accent) 10%, transparent); }
+.pr-empty-art .pe-card-back { fill: color-mix(in srgb, var(--pe-accent) 12%, #ffffff); }
+.pr-empty-art .pe-card      { fill: #ffffff; stroke: color-mix(in srgb, var(--pe-accent) 28%, #ffffff); stroke-width: 1.5; }
+.pr-empty-art .pe-head      { fill: color-mix(in srgb, var(--pe-accent) 85%, #ffffff); }
+.pr-empty-art .pe-line      { fill: color-mix(in srgb, var(--pe-accent) 45%, #ffffff); }
+.pr-empty-art .pe-line.soft { fill: color-mix(in srgb, var(--pe-accent) 16%, #ffffff); }
+.pr-empty-art .pe-lens      { fill: #ffffff; stroke: var(--pe-accent); stroke-width: 4; }
+.pr-empty-art .pe-x         { stroke: #d0675c; stroke-width: 3.5; stroke-linecap: round; fill: none; }
+.pr-empty-art .pe-handle    { stroke: var(--pe-accent); stroke-width: 6; stroke-linecap: round; fill: none; }
+.pr-empty-art .pe-dot       { fill: color-mix(in srgb, var(--pe-accent) 35%, #ffffff); }
+.pr-empty-art .pe-spark     { stroke: color-mix(in srgb, var(--pe-accent) 45%, #ffffff); stroke-width: 2; stroke-linecap: round; }
+
+.pr-empty-title {
+  margin: 0 0 calc(8px * var(--ui-scale, 1));
+  font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900);
+  line-height: 1.3;
+  color: var(--pr-ink);
+  text-transform: none;
+  letter-spacing: -0.1px;
+}
+.pr-empty-body {
+  margin: 0 auto;
+  max-width: calc(460px * var(--ui-scale, 1));
+  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  line-height: 1.6;
+  color: var(--pr-muted);
+  white-space: normal;
+}
+.pr-empty-body strong { color: var(--pr-ink-2); font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900); }
+.pr-empty-term {
+  display: inline-block;
+  max-width: calc(220px * var(--ui-scale, 1));
+  vertical-align: bottom;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--pr-ink-2);
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+}
+.pr-empty-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: calc(10px * var(--ui-scale, 1));
+  margin-top: calc(22px * var(--ui-scale, 1));
 }
 
 /* STATUS CELLS render as icons with spoken labels, after the reference image */

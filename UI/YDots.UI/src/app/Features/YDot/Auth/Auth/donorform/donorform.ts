@@ -1,4 +1,3 @@
-
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -9,6 +8,8 @@ import { CurrentUserService } from '../../../../../Shared/services/current-user.
 import { DataService } from '../../../../../Service/data.service';
 import { PaymentApiService } from '../../../../../Service/payment-api.service';
 import { GatewayCheckoutService } from '../../../../../Shared/services/gateway-checkout.service';
+import { GeoMasterService } from '../../../../../Shared/services/geo-master.service';
+import { MasterLookup } from '../../../../../Shared/models/global-master.model';
 import {
   DonationRoutes,
   destinationAfterPayment,
@@ -715,15 +716,111 @@ export class DonorformComponent {
     return this.geographyCatalogue().find((g) => g.reference === reference)?.label ?? '';
   }
 
+  // ==========================================================================================
+  // Address — Country → State → City, the same master-data cascade as the Public Donation
+  // Initiation page: countries load once, a country loads its states, a state its cities.
+  // ==========================================================================================
   /**
-   * City, state and country — optional free text, captured exactly as entered and
-   * carried on the intent's second address line. The API's cityId / stateId /
-   * countryId are master-data GUIDs, and resolving them is the server's job; a
-   * public donor's typed words travel as address text, not as guessed ids.
+   * The geo catalogue (countries / states / cities) — the same GeoMasterService the Public
+   * Donation Initiation page uses. CALLED FOR EVERY VISITOR of this form, signed in or not:
+   * the donor form has no "internal view" switch of its own, and gating it on
+   * isInternalView() left the three dropdowns empty here. If the lookups API refuses the
+   * caller, the error handlers below simply leave the list empty.
    */
-  protected readonly city = signal('');
-  protected readonly state = signal('');
-  protected readonly country = signal('');
+  private readonly geoMasters = inject(GeoMasterService);
+  private geoMastersOrNull(): GeoMasterService | null {
+    return this.geoMasters;
+  }
+
+  protected readonly countryCatalogue = signal<readonly CatalogueOption[]>([]);
+  protected readonly stateCatalogue = signal<readonly CatalogueOption[]>([]);
+  protected readonly cityCatalogue = signal<readonly CatalogueOption[]>([]);
+  protected readonly countryId = signal('');
+  protected readonly stateId = signal('');
+  protected readonly cityId = signal('');
+
+  protected countryLabel(reference: string): string {
+    return this.countryCatalogue().find((c) => c.reference === reference)?.label ?? '';
+  }
+  protected stateLabel(reference: string): string {
+    return this.stateCatalogue().find((s) => s.reference === reference)?.label ?? '';
+  }
+  protected cityLabel(reference: string): string {
+    return this.cityCatalogue().find((c) => c.reference === reference)?.label ?? '';
+  }
+
+  /** Search text typed inside each address dropdown (country lists are long). */
+  protected readonly countryQuery = signal('');
+  protected readonly stateQuery = signal('');
+  protected readonly cityQuery = signal('');
+
+  protected readonly countryResults = computed(() => this.filterOptions(this.countryCatalogue(), this.countryQuery()));
+  protected readonly stateResults = computed(() => this.filterOptions(this.stateCatalogue(), this.stateQuery()));
+  protected readonly cityResults = computed(() => this.filterOptions(this.cityCatalogue(), this.cityQuery()));
+
+  private filterOptions(options: readonly CatalogueOption[], query: string): readonly CatalogueOption[] {
+    const q = query.trim().toLowerCase();
+    return q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
+  }
+
+  /** A master lookup row as a picker option — active rows only, ids carried as references. */
+  private toMasterOptions(rows: readonly MasterLookup[]): readonly CatalogueOption[] {
+    return rows
+      .filter((row) => row.status === 'active')
+      .map((row) => ({ reference: row.id, label: row.name }));
+  }
+
+  /** Loads the country catalogue once, when the form opens. */
+  protected loadCountriesForAddress(): void {
+    const masters = this.geoMastersOrNull();
+    if (!masters || this.countryCatalogue().length > 0) {
+      return;
+    }
+    masters.getCountries().subscribe({
+      next: (rows) => this.countryCatalogue.set(this.toMasterOptions(rows)),
+      error: () => this.countryCatalogue.set([]),
+    });
+  }
+
+  /** A country names its states; changing it clears the state and city picks. */
+  protected onAddressCountryChange(reference: string): void {
+    if (reference === this.countryId()) {
+      return;
+    }
+    this.countryId.set(reference);
+    this.stateId.set('');
+    this.cityId.set('');
+    this.stateCatalogue.set([]);
+    this.cityCatalogue.set([]);
+
+    const masters = this.geoMastersOrNull();
+    if (!masters || !reference) {
+      return;
+    }
+    masters.getStates(reference).subscribe({
+      next: (rows) => this.stateCatalogue.set(this.toMasterOptions(rows)),
+      error: () => this.stateCatalogue.set([]),
+    });
+  }
+
+  /** A state names its cities; changing it clears the city pick. */
+  protected onAddressStateChange(reference: string): void {
+    if (reference === this.stateId()) {
+      return;
+    }
+    this.stateId.set(reference);
+    this.cityId.set('');
+    this.cityCatalogue.set([]);
+
+    const masters = this.geoMastersOrNull();
+    if (!masters || !reference) {
+      return;
+    }
+    masters.getCities(reference).subscribe({
+      next: (rows) => this.cityCatalogue.set(this.toMasterOptions(rows)),
+      error: () => this.cityCatalogue.set([]),
+    });
+  }
 
   /**
    * Anonymous donation — checkbox; Optional (NEW FIELD). Drives the public
@@ -1034,15 +1131,20 @@ export class DonorformComponent {
       ...(this.leadIdFromLink() ? { sourceType: 'fundraiserLead' as const } : {}),
       taxIdentifier: this.panOrTaxId().trim() || null,
       addressLine1: this.addressText().trim() || null,
-      // CITY / STATE / COUNTRY TRAVEL AS ADDRESS TEXT. The intent's city/state/country
-      // columns take master-data ids this form cannot resolve for an anonymous donor,
-      // so the typed values are preserved on the second line, comma-joined, exactly as
-      // the donor entered them. The approved geography pick, where one was made, comes
-      // after them.
+      // City, State and Country ride on addressLine2 comma-joined (as on the Public Donation
+      // Initiation page), and their master-data ids travel alongside.
       addressLine2:
-        [this.city().trim(), this.state().trim(), this.country().trim()].filter(Boolean).join(', ')
-        || this.geographyLabel(this.geography())
-        || null,
+        [
+          this.cityLabel(this.cityId()),
+          this.stateLabel(this.stateId()),
+          this.countryLabel(this.countryId()),
+        ]
+          .filter(Boolean)
+          .join(', ') || this.geographyLabel(this.geography()) || null,
+
+      countryId: this.countryId() || null,
+      stateId: this.stateId() || null,
+      cityId: this.cityId() || null,
 
       // Consent is captured BEFORE the intent exists, so it travels with the creation rather
       // than being written over it afterwards.
@@ -1418,6 +1520,7 @@ export class DonorformComponent {
     this.readLinkContext();
     this.loadPublicCampaigns();
     this.loadConfig();
+    this.loadCountriesForAddress();
 
     // AND AGAIN ON EVERY LATER ARRIVAL. A lead sent back to this form after paying reaches this
     // route with no `intent`, and where the component is not rebuilt the finished gift would

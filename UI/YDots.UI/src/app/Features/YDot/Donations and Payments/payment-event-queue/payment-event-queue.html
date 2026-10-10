@@ -199,13 +199,79 @@
 
       <!-- EMPTY -->
       @else if (uiState() === 'empty') {
-        <div class="pr-state-block">
-          <p class="pr-state-title">No payments or receipts match this scope and filter.</p>
-          <p class="pr-state-body">Zero results come from the current filters, not a global zero. Adjust the search or status, or reset filters to continue.</p>
-          <div class="pr-state-actions">
-            <button type="button" class="pr-btn pr-btn-outline pr-btn-sm" (click)="clearFilters()">Reset filters</button>
-          </div>
-        </div>
+        <table class="pr-table">
+            <thead>
+              <tr>
+                <!-- <th scope="col" class="pr-col-event "></th> -->
+
+                <th scope="col" class="pr-col-event">Event / Receipt ref</th>
+                <th scope="col" class="pr-col-center d-none d-xxl-table-cell">Donor name</th>
+                <th scope="col" class="pr-col-center d-none d-xl-table-cell">Email</th>
+                <th scope="col" class="pr-col-center d-none d-xs-table-cell">Campaign</th>
+                <th scope="col" class="pr-col-center d-none d-xxl-table-cell">Amount</th>
+                <th scope="col" class="pr-col-center d-none d-xxl-table-cell">Payment status</th>
+                <th scope="col" class="pr-col-center d-none d-xxl-table-cell">Received at</th>
+                <th scope="col" class="pr-col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="pr-empty-row">
+                <td colspan="8" class="pr-table-empty">
+                  <div class="pr-empty" role="status" aria-live="polite">
+                    <svg class="pr-empty-art" viewBox="0 0 160 120" aria-hidden="true">
+                      <ellipse class="pe-shadow" cx="80" cy="108" rx="52" ry="6"/>
+                      <rect class="pe-card-back" x="40" y="18" width="70" height="82" rx="8" transform="rotate(-8 75 59)"/>
+                      <rect class="pe-card" x="48" y="14" width="70" height="86" rx="8"/>
+                      <rect class="pe-head" x="48" y="14" width="70" height="16" rx="8"/>
+                      <rect class="pe-head" x="48" y="22" width="70" height="8"/>
+                      <rect class="pe-line" x="58" y="40" width="40" height="5" rx="2.5"/>
+                      <rect class="pe-line soft" x="58" y="51" width="50" height="5" rx="2.5"/>
+                      <rect class="pe-line soft" x="58" y="62" width="32" height="5" rx="2.5"/>
+                      <rect class="pe-line soft" x="58" y="73" width="44" height="5" rx="2.5"/>
+                      <circle class="pe-lens" cx="112" cy="78" r="17"/>
+                      <path class="pe-x" d="m106 72 12 12M118 72l-12 12"/>
+                      <path class="pe-handle" d="m124 90 12 12"/>
+                      <circle class="pe-dot" cx="30" cy="34" r="3"/>
+                      <circle class="pe-dot" cx="138" cy="30" r="2.5"/>
+                      <path class="pe-spark" d="M136 52v8M132 56h8"/>
+                    </svg>
+
+                    <h3 class="pr-empty-title">
+                      @if (paymentStatusFilter()) {
+                        No {{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }} payments found
+                      } @else if (searchTerm()) {
+                        No matching payments found
+                      } @else {
+                        No payments or receipts yet
+                      }
+                    </h3>
+
+                    <p class="pr-empty-body">
+                      @if (searchTerm()) {
+                        We couldn’t find anything for <span class="pr-empty-term">“{{ searchTerm() }}”</span>@if (paymentStatusFilter()) { in <strong>{{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }}</strong> payments}.
+                        Check the spelling or try a different search.
+                      } @else if (paymentStatusFilter()) {
+                        There are no <strong>{{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }}</strong> payments in your current scope. Try another status to see more records.
+                      } @else {
+                        Payments and receipts will appear here as soon as donations come in.
+                      }
+                    </p>
+
+                    @if (paymentStatusFilter() || searchTerm()) {
+                      <div class="pr-empty-actions">
+                        @if (searchTerm() && paymentStatusFilter()) {
+                          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSearchChange('')">Clear search</button>
+                        }
+                        <button type="button" class="btn btn-primary btn-sm" (click)="clearFilters()">
+                          {{ searchTerm() && paymentStatusFilter() ? 'Clear all filters' : 'Clear filter' }}
+                        </button>
+                      </div>
+                    }
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
       }
 
       <!-- NO ACCESS -->
@@ -296,12 +362,67 @@
                   </td>
                 </tr>
               } @empty {
-                <tr><td colspan="9" class="pr-table-empty">No payments or receipts match this scope and filter.</td></tr>
+                <tr class="pr-empty-row">
+                  <td colspan="8" class="pr-table-empty">
+                    <div class="pr-empty" role="status" aria-live="polite">
+                      <svg class="pr-empty-art" viewBox="0 0 160 120" aria-hidden="true">
+                        <ellipse class="pe-shadow" cx="80" cy="108" rx="52" ry="6"/>
+                        <rect class="pe-card-back" x="40" y="18" width="70" height="82" rx="8" transform="rotate(-8 75 59)"/>
+                        <rect class="pe-card" x="48" y="14" width="70" height="86" rx="8"/>
+                        <rect class="pe-head" x="48" y="14" width="70" height="16" rx="8"/>
+                        <rect class="pe-head" x="48" y="22" width="70" height="8"/>
+                        <rect class="pe-line" x="58" y="40" width="40" height="5" rx="2.5"/>
+                        <rect class="pe-line soft" x="58" y="51" width="50" height="5" rx="2.5"/>
+                        <rect class="pe-line soft" x="58" y="62" width="32" height="5" rx="2.5"/>
+                        <rect class="pe-line soft" x="58" y="73" width="44" height="5" rx="2.5"/>
+                        <circle class="pe-lens" cx="112" cy="78" r="17"/>
+                        <path class="pe-x" d="m106 72 12 12M118 72l-12 12"/>
+                        <path class="pe-handle" d="m124 90 12 12"/>
+                        <circle class="pe-dot" cx="30" cy="34" r="3"/>
+                        <circle class="pe-dot" cx="138" cy="30" r="2.5"/>
+                        <path class="pe-spark" d="M136 52v8M132 56h8"/>
+                      </svg>
+
+                      <h3 class="pr-empty-title">
+                        @if (paymentStatusFilter()) {
+                          No {{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }} payments found
+                        } @else if (searchTerm()) {
+                          No matching payments found
+                        } @else {
+                          No payments or receipts yet
+                        }
+                      </h3>
+
+                      <p class="pr-empty-body">
+                        @if (searchTerm()) {
+                          We couldn’t find anything for <span class="pr-empty-term">“{{ searchTerm() }}”</span>@if (paymentStatusFilter()) { in <strong>{{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }}</strong> payments}.
+                          Check the spelling or try a different search.
+                        } @else if (paymentStatusFilter()) {
+                          There are no <strong>{{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }}</strong> payments in your current scope. Try another status to see more records.
+                        } @else {
+                          Payments and receipts will appear here as soon as donations come in.
+                        }
+                      </p>
+
+                      @if (paymentStatusFilter() || searchTerm()) {
+                        <div class="pr-empty-actions">
+                          @if (searchTerm() && paymentStatusFilter()) {
+                            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSearchChange('')">Clear search</button>
+                          }
+                          <button type="button" class="btn btn-primary btn-sm" (click)="clearFilters()">
+                            {{ searchTerm() && paymentStatusFilter() ? 'Clear all filters' : 'Clear filter' }}
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  </td>
+                </tr>
               }
             </tbody>
           </table>
         </div>
 
+        @if (totalRecords() > 0) {
         <div class="pr-table-footer">
           <span class="pr-showing">Showing {{ pageStart() }}–{{ pageEnd() }} of {{ totalRecords() }} <app-rows-per-page style="margin-left:14px" [value]="pageSize()" (changed)="setPageSize($event)" /></span>
           <nav class="pr-pagination" aria-label="Pagination">
@@ -313,6 +434,7 @@
             <button type="button" class="pr-page-btn" aria-label="Next page" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">›</button>
           </nav>
         </div>
+        }
       }
     </section>
 

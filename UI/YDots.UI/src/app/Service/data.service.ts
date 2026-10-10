@@ -88,7 +88,7 @@ export class DataService {
       // "Public donation initiation" with the subtitle below - the component's defaults already
       // said exactly that, and these three values were quietly replacing them at runtime with a
       // different title, a truncated time zone and a consent version that names no policy.
-      pageTitle: 'Public donation initiation',
+      pageTitle: 'Donation Initiation ',
       pageSubtitle: 'Collect minimum identity, amount and consent before creating a unique intent.',
 
       // THE FULL ZONE, as both figures print it. "IST" alone does not say which offset applies,
