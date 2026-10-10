@@ -11,7 +11,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { debounceTime, Subject, Subscription } from 'rxjs';
@@ -143,7 +143,7 @@ type SavedView = (typeof SAVED_VIEWS)[number];
   selector: 'app-lead-work-queue',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RowsPerPage, CommonModule, FormsModule, RouterLink],
+  imports: [RowsPerPage, CommonModule, FormsModule],
   templateUrl: './lead-work-queue.html',
   styleUrl: './lead-work-queue.css',
 })
