@@ -268,10 +268,17 @@ export class CampaignWizardComponent {
   // characters maximum (no fixed prefix). ---
   protected readonly campaignCodeMax = 20;
   protected readonly campaignCode = signal('');
-  protected setCampaignCode(value: string): void {
-    // No whitespace — a code is a compact identifier, not a phrase, and a stray space is
-    // rarely intentional (a leading one especially, since it's invisible in the field).
-    this.campaignCode.set(value.replace(/\s+/g, '').toUpperCase().slice(0, this.campaignCodeMax));
+  protected setCampaignCode(value: string, el?: HTMLInputElement): void {
+    // Letters, digits, hyphen and underscore only — a code is a compact identifier, not a phrase.
+    const clean = value.replace(/[^A-Za-z0-9_-]/g, '').toUpperCase().slice(0, this.campaignCodeMax);
+    this.campaignCode.set(clean);
+    if (el && el.value !== clean) el.value = clean;
+  }
+  /** Names hold letters and spaces only: digits and special characters are dropped as they are typed. */
+  protected setCampaignName(value: string, el?: HTMLInputElement): void {
+    const clean = value.replace(/[^\p{L}\p{M} ]/gu, '');
+    this.campaignName.set(clean);
+    if (el && el.value !== clean) el.value = clean;
   }
 
   // --- Campaign amount — the fixed figure the campaign is stated at. ---
@@ -1512,6 +1519,7 @@ export class CampaignWizardComponent {
       this.successRef.set(ref);
       this.toast.show('Draft saved', `Reference ${ref} saved.`, 'success');
       this.uiState.set('ready');
+      this.router.navigate(['/app/fundraising/campaigns/campaign-register']);
     });
   }
 

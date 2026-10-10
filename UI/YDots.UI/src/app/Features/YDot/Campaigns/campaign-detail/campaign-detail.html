@@ -304,9 +304,14 @@
 
                 <div class="fk-overview-divider" aria-hidden="true"></div>
 
-                <p class="fk-overview-desc">
-                  {{ purpose() }}
+                <p class="fk-overview-desc fk-overview-desc--clamp">
+                  {{ purposePreview() }}
                 </p>
+                @if (purposeIsLong()) {
+                <div class="fk-overview-more">
+                  <button type="button" class="fk-read-more" (click)="openReadMore('purpose')">Read more →</button>
+                </div>
+                }
 
                 @if (hasPublicDescription() || hasTermsNotice()) {
                 <div class="fk-overview-more">
@@ -604,8 +609,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
           </button>
           <h2 class="cd-modal-title" id="cd-op-title">Confirm {{ proposedTransition()?.label }}</h2>
-          <p class="cd-modal-lead">Review the affected record, consequence, reason and effective time. This decision
-            requires explicit confirmation.</p>
           </header>
           <div class="ov-body">
 
@@ -673,7 +676,7 @@
       @if (closeBoxOpen()) {
       <div class="cd-modal-backdrop" (click)="cancelCloseRequest()" (keydown.escape)="cancelCloseRequest()">
         <div class="cd-modal cd-modal-close" role="dialog" aria-modal="true"
-          aria-labelledby="cd-close-title" aria-describedby="cd-close-lead"
+          aria-labelledby="cd-close-title"
           (click)="$event.stopPropagation()">
           <header class="ov-head">
             <button type="button" class="cd-modal-x" (click)="cancelCloseRequest()" aria-label="Close"
@@ -682,15 +685,6 @@
             </button>
             <p class="cd-modal-kicker">{{ campaignName() }}</p>
             <h2 class="cd-modal-title" id="cd-close-title">{{ closeBoxMode() === 'reject' ? 'Reject the close request' : 'Request to close this campaign' }}</h2>
-            <p class="cd-modal-lead" id="cd-close-lead">
-              @if (closeBoxMode() === 'reject') {
-              The close request is refused and the campaign goes back to running as it was. Whoever asked
-              for the close sees your reason.
-              } @else {
-              The campaign moves to Closing and stops taking new activity. It is closed only after a
-              Campaign Manager approves the close.
-              }
-            </p>
           </header>
 
           <div class="ov-body">
@@ -748,7 +742,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
           </button>
           <h2 class="cd-modal-title" id="cd-del-title">Delete this draft?</h2>
-          <p class="cd-modal-lead">This permanently removes the draft campaign. This cannot be undone.</p>
           </header>
           <div class="ov-body">
           <dl class="cd-facts cd-modal-facts">
@@ -774,7 +767,7 @@
       @if (readMoreField()) {
       <div class="cd-modal-backdrop" (click)="closeReadMore()">
         <div class="cd-modal cd-modal-readmore" [class.cd-readmore--terms]="readMoreField() === 'terms'"
-          role="dialog" aria-modal="true" aria-labelledby="cd-readmore-title" aria-describedby="cd-readmore-lead"
+          role="dialog" aria-modal="true" aria-labelledby="cd-readmore-title"
           (click)="$event.stopPropagation()">
           <header class="ov-head">
             <button type="button" class="cd-modal-x" (click)="closeReadMore()" aria-label="Close">
@@ -782,9 +775,6 @@
             </button>
             <p class="cd-modal-kicker">{{ campaignName() }}</p>
             <h2 class="cd-modal-title" id="cd-readmore-title">{{ readMoreTitle() }}</h2>
-            <p class="cd-modal-lead" id="cd-readmore-lead">
-              {{ readMoreField() === 'terms' ? 'The terms and notices donors see before they give.' : 'How this campaign is presented to donors on public pages.' }}
-            </p>
           </header>
           <div class="ov-body">
             <article class="cd-readmore-body" [innerHTML]="readMoreHtml()"></article>

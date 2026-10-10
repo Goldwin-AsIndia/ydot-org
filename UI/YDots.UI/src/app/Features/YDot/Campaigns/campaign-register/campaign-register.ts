@@ -511,7 +511,7 @@ export class CampaignRegisterComponent {
   protected canEdit(record: CampaignRecord): boolean {
     return (
       this.permissions().edit &&
-      ['Draft', 'Submitted', 'Approved', 'Scheduled', 'Active'].includes(record.status)
+      ['Draft', 'Approved', 'Scheduled', 'Active'].includes(record.status)
     );
   }
   protected openEdit(record: CampaignRecord): void {

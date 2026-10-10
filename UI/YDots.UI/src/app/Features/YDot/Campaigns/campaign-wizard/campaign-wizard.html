@@ -222,6 +222,7 @@
                         >Campaign name <span class="req" aria-hidden="true">*</span></label
                       >
                       <input
+                        #nameInput
                         id="f-name"
                         type="text"
                         class="control"
@@ -230,7 +231,7 @@
                         [disabled]="identityLocked()"
                         placeholder="Enter the campaign name…"
                         [ngModel]="campaignName()"
-                        (ngModelChange)="campaignName.set($event)"
+                        (ngModelChange)="setCampaignName($event, nameInput)"
                         [attr.aria-invalid]="
                           wasAttempted(0) && !campaignNameValid() ? 'true' : null
                         "
@@ -247,6 +248,7 @@
                         >Campaign code <span class="req" aria-hidden="true">*</span></label
                       >
                       <input
+                        #codeInput
                         id="f-code"
                         type="text"
                         class="control mono"
@@ -254,7 +256,7 @@
                         [attr.maxlength]="campaignCodeMax"
                         [disabled]="identityLocked()"
                         [ngModel]="campaignCode()"
-                        (ngModelChange)="setCampaignCode($event)"
+                        (ngModelChange)="setCampaignCode($event, codeInput)"
                         [attr.aria-invalid]="wasAttempted(0) && !campaignCode().trim() ? 'true' : null"
                         placeholder="e.g. EDU2025"
                       />
@@ -1507,10 +1509,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
           </button> -->
           <h3 class="cw-modal-title" id="submit-title">Submit campaign configuration</h3>
-              <p class="cw-modal-lead">
-                Review the configuration before submit. This executes idempotently and will show the
-                stable reference, committed result, any pending dependency and the safe next action.
-              </p>
               </header>
               <div class="ov-body">
               <dl class="review-list compact">
@@ -1555,11 +1553,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
           </button>
           <h3 class="cw-modal-title" id="delete-title">Confirm Delete unused draft</h3>
-              <p class="cw-modal-lead">
-                Review the affected record, consequence, reason and effective time. Linked history
-                is preserved; only this unused draft with no downstream reference is removed. This
-                requires explicit confirmation.
-              </p>
               </header>
               <div class="ov-body">
               <dl class="review-list compact">

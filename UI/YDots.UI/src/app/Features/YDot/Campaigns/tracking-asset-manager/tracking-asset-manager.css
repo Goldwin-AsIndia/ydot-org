@@ -350,7 +350,7 @@
   padding: 0 calc(14px * var(--ui-scale, 1)) 0 calc(38px * var(--ui-scale, 1));
   border: 1px solid var(--tam-field-line);
   border-radius: calc(11px * var(--ui-scale, 1));
-  background: var(--tam-tint-2);
+  background: #ffffff;
   color: var(--tam-ink);
   font: inherit;
   font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.964) * var(--ui-text-scale, 1)) !important;
@@ -371,8 +371,13 @@
 
 /* ---------- Filter bar ---------- */
 .tam-filterbar {
+  /* Above the table that follows it: the reveal animation leaves this block its own stacking
+     context, so without a z-index the open dropdown lists slide under the table header. */
+  position: relative;
+  z-index: 30;
   padding: calc(20px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1));
-  background: var(--tam-tint);
+  background: #ffffff;
+  border-top: 1px solid var(--tam-line);
   border-bottom: 1px solid var(--tam-line);
   animation: tam-reveal .22s var(--tam-ease) both;
 }
@@ -400,7 +405,7 @@
   border-top: 1px dashed var(--tam-line);
 }
 .tam-filterbar-foot .tam-field-hint { margin: 0; }
-.tam-filterbar-actions { display: flex; gap: calc(8px * var(--ui-scale, 1)); }
+.tam-filterbar-actions { display: flex; gap: calc(8px * var(--ui-scale, 1)); margin-left: auto; }
 
 .tam-range {
   display: grid;
@@ -1262,7 +1267,7 @@
 .tam-dx-dest-value span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tam-dx-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.4fr;
+  grid-template-columns: minmax(0, 1fr);
   margin: 0;
 }
 .tam-dx-grid > .tam-dx-cell + .tam-dx-cell { border-left: 1px solid var(--tam-line-soft); }
@@ -2284,3 +2289,7 @@
   align-items: center;
   gap: calc(6px * var(--ui-scale, 1));
 }
+/* Reset sits on the Data scope row of the filter bar. */
+.tam-scope-row { display: flex; align-items: center; gap: calc(8px * var(--ui-scale, 1)); }
+.tam-scope-row .tam-scope-value { flex: 1 1 auto; min-width: 0; }
+.tam-scope-row .btn { flex: none; }

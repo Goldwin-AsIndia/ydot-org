@@ -22,6 +22,7 @@ export const POPUP_PANEL_SELECTORS: string[] = [
   '.gs-modal',
   '.lead-offcanvas',
   '.mc-modal',
+  '.mfa-card',
   '.modal-content',
   '.modal-modern',
   '.modal:not(.d-block):not(.fade):not(.modal-split):not(:has(> .modal-dialog))',

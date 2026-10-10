@@ -582,6 +582,16 @@
   box-shadow: 0 0 0 calc(3px * var(--ui-scale, 1)) var(--accent-ring);
 }
 .pf-control.has-error { border-color: var(--error); }
+/* The global invalid-field ring must land on the control box, not on the inner input (it showed as two vertical lines). */
+.pf-control .pf-input[aria-invalid="true"],
+.pf-control .pf-input[aria-invalid="true"]:focus,
+.pf-control .pf-input.ng-invalid.ng-touched,
+.pf-control .pf-input.ng-invalid.ng-touched:focus {
+  box-shadow: none !important;
+  border: 0 !important;
+  outline: none !important;
+}
+.pf-control.has-error:focus-within { border-color: var(--error); box-shadow: 0 0 0 calc(3px * var(--ui-scale, 1)) var(--ydot-invalid-ring, rgba(220, 38, 38, .15)); }
 .pf-control:has(> .pf-input:disabled):not(.is-locked) { border-style: dashed; }
 
 /* Read-only values from the account: a dashed outline and a lock, never a grey fill. */

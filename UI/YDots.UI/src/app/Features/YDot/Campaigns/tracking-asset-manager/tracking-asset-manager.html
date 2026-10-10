@@ -89,21 +89,6 @@
                  [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event); currentPage.set(1)"
                  aria-label="Search tracking assets" />
         </label>
-        <div class="tam-combo tam-view-select" [class.is-open]="openMenu() === 'f-saved'" appClickOutside (appClickOutside)="onClickOutside('f-saved')">
-          <button type="button" class="tam-combo-btn" (click)="toggleMenu('f-saved')"
-                  role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="openMenu() === 'f-saved'" aria-label="Saved view">
-            <svg class="tam-combo-lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
-            <span class="tam-combo-value">{{ savedView() }}</span>
-            <svg class="tam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          @if (openMenu() === 'f-saved') {
-            <ul class="tam-combo-list tam-combo-list-end" role="listbox">
-              @for (v of savedViews; track v) {
-                <li role="option" [attr.aria-selected]="savedView() === v"><button type="button" class="tam-combo-option" [class.is-selected]="savedView() === v" (click)="applySavedView(v); closeMenu()">{{ v }}</button></li>
-              }
-            </ul>
-          }
-        </div>
       </div>
     </header>
 
@@ -175,32 +160,30 @@
           <div class="tam-field tam-field-range" [class.tam-field-invalid]="rangeInvalid()">
             <span class="tam-field-label">Active between</span>
             <div class="tam-range">
-              <input type="date" class="tam-input" [ngModel]="rangeStart()" (ngModelChange)="rangeStart.set($event)" aria-label="Active from date" (click)="openDatePicker($event)" />
+              <input type="date" class="tam-input" [ngModel]="rangeStart()" (ngModelChange)="rangeStart.set($event); currentPage.set(1)" aria-label="Active from date" (click)="openDatePicker($event)" />
               <span class="tam-range-sep" aria-hidden="true">–</span>
-              <input type="date" class="tam-input" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event)" aria-label="Active to date" (click)="openDatePicker($event)" />
+              <input type="date" class="tam-input" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event); currentPage.set(1)" aria-label="Active to date" (click)="openDatePicker($event)" />
             </div>
           </div>
 
           <!-- Data scope — the actor's effective scope (one organisation, read-only) -->
           <div class="tam-field">
             <span class="tam-field-label">Data scope</span>
-            <span class="tam-scope-value" [attr.title]="scopeFilter()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
-              {{ scopeFilter() }}
-            </span>
+            <div class="tam-scope-row">
+              <span class="tam-scope-value" [attr.title]="scopeFilter()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
+                {{ scopeFilter() }}
+              </span>
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearFilters()"><i class="ri ri-refresh-line"></i> Reset</button>
+            </div>
           </div>
         </div>
 
-        <div class="tam-filterbar-foot">
-          <p class="tam-field-hint" [class.tam-field-error]="rangeInvalid()" role="status">
-            @if (rangeInvalid()) { Review the date range — the end date is before the start date. }
-            @else { {{ interpretedRange() }} }
-          </p>
-          <div class="tam-filterbar-actions">
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearFilters()"><i class="ri ri-refresh-line"></i> Reset</button>
-            <button type="button" class="btn btn-primary btn-sm" (click)="applyFilter()" [disabled]="!filterAllowed()"><i class="ri ri-filter-line"></i> Apply</button>
+        @if (rangeInvalid()) {
+          <div class="tam-filterbar-foot">
+            <p class="tam-field-hint tam-field-error" role="status">Review the date range — the end date is before the start date.</p>
           </div>
-        </div>
+        }
       </div>
     }
 
@@ -467,13 +450,13 @@
                a read-back line, so the pair ends level) - with the live preview beside them, as tall
                as 01-03 together - then 04 Attribution across the full width
          foot  ruled action line in the foot of the sheet -->
-  <div class="tam-make" role="region" aria-labelledby="tam-make-title">
+  <div class="tam-make" role="region" aria-labelledby="tam-make-title" data-cal-compact>
     <header class="tam-make-top">
       <button type="button" class="tam-make-back" (click)="cancelGenerate()" aria-label="Back to tracking assets" title="Back to tracking assets">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
       </button>
       <div class="tam-make-name">
-        <span class="tam-make-kicker">Tracking asset manager<span class="tam-make-slash" aria-hidden="true">/</span>{{ isEditing() ? editingRef() : 'New asset' }}</span>
+
         <h1 id="tam-make-title" class="tam-make-h">{{ isEditing() ? 'Edit tracking asset' : 'Create tracking asset' }}</h1>
       </div>
     </header>
@@ -944,9 +927,7 @@
               </span>
             </div>
             <dl class="tam-dx-grid">
-              <div class="tam-dx-cell"><dt class="tam-dx-label">Source</dt><dd class="tam-dx-value">{{ a.source || '—' }}</dd></div>
               <div class="tam-dx-cell"><dt class="tam-dx-label">Medium</dt><dd class="tam-dx-value">{{ a.medium || '—' }}</dd></div>
-              <div class="tam-dx-cell"><dt class="tam-dx-label">Content tag</dt><dd class="tam-dx-value">{{ a.contentTag || '—' }}</dd></div>
             </dl>
           </div>
         </section>
@@ -1002,8 +983,6 @@
         <header class="ov-head">
           <p class="tam-modal-kicker">Approval · {{ approveTarget()!.trackingReference }}</p>
           <h2 id="tam-approve-title" class="tam-modal-title">Approve and activate asset</h2>
-          <p class="tam-modal-lead">Approving records independent authority and makes the asset Active, issuing its tracking
-            link. Review the record, consequence and effective time.</p>
           <button type="button" class="tam-modal-x" (click)="cancelApprove()" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
           </button>
@@ -1012,8 +991,6 @@
         <dl class="tam-kv">
           <div><dt>Tracking reference</dt><dd>{{ approveTarget()!.trackingReference }}</dd></div>
           <div><dt>Approval change</dt><dd>{{ approveTarget()!.approvalState }} → Approved</dd></div>
-          <div><dt>Authority</dt><dd>Authorised independent approver</dd></div>
-          <div><dt>Effective version</dt><dd>v-current · {{ lastRefresh() }}</dd></div>
           <div><dt>Resulting state</dt><dd>Active · tracking link issued</dd></div>
         </dl>
         <div class="tam-field">
@@ -1043,8 +1020,6 @@
         <header class="ov-head ov-head--danger">
           <p class="tam-modal-kicker">Take down · {{ requestDisableTarget()!.trackingReference }}</p>
           <h2 id="tam-request-disable-title" class="tam-modal-title">Request disable</h2>
-          <p class="tam-modal-lead">Ask an approver to take this asset down. It stays live until the request is decided;
-            the tracking reference and history are preserved either way.</p>
           <button type="button" class="tam-modal-x" (click)="cancelRequestDisable()" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
           </button>
@@ -1084,7 +1059,6 @@
         <header class="ov-head ov-head--danger">
           <p class="tam-modal-kicker">Take down · {{ disableTarget()!.trackingReference }}</p>
           <h2 id="tam-disable-title" class="tam-modal-title">{{ disableTarget()!.assetStatus === 'Submitted for disable' ? 'Approve disable request' : 'Disable tracking asset' }}</h2>
-          <p class="tam-modal-lead">New scans and redirects stop. Linked history is preserved and the tracking reference is retained.</p>
           <button type="button" class="tam-modal-x" (click)="cancelDisable()" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
           </button>
@@ -1123,7 +1097,6 @@
         <header class="ov-head ov-head--danger">
           <p class="tam-modal-kicker">Delete · {{ deleteTarget()!.trackingReference }}</p>
           <h2 id="tam-delete-title" class="tam-modal-title">Delete unused draft</h2>
-          <p class="tam-modal-lead">Available only for a draft with no downstream reference. Required history is preserved.</p>
           <button type="button" class="tam-modal-x" (click)="cancelDelete()" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
           </button>
@@ -1162,7 +1135,6 @@
         <header class="ov-head">
           <p class="tam-modal-kicker">Side by side</p>
           <h2 id="tam-compare-title" class="tam-modal-title">Compare assets</h2>
-          <p class="tam-modal-lead">{{ compareAssets().length }} assets. Every field is read from the shared store.</p>
           <button type="button" class="tam-modal-x" (click)="closeCompare()" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
           </button>

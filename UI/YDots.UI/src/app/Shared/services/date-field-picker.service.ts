@@ -115,6 +115,9 @@ export class DateFieldPickerService {
 
     const panel = this.doc.createElement('div');
     panel.className = 'ydp';
+    // Screens that mark a region data-cal-compact (the create-asset page, the readiness off-canvas) get the
+    // small calendar that opens right under / over its own field instead of the full-size one.
+    if (el.closest('[data-cal-compact]')) panel.classList.add('ydp--compact');
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', 'Choose a date');
     // A calendar is a tool, not a form pop-up: it closes on pick / outside click, so the pop-up guard must not add an X.
@@ -161,9 +164,19 @@ export class DateFieldPickerService {
     const vh = window.innerHeight;
     const gap = 6;
     // ABOVE THE FIELD, so the calendar never covers the date it is editing. Below only when
-    // there is no room above (a field at the very top of the window).
+    // there is no room above (a field at the very top of the window). The compact calendar goes the
+    // other way round: under its field first, over it when the window ends before the calendar does.
     let top = r.top - gap - h;
     let left = r.left;
+    if (panel.classList.contains('ydp--compact')) {
+      top = r.bottom + gap;
+      if (top + h > vh - 8) top = r.top - gap - h;
+      if (top < 8) top = Math.max(8, vh - h - 8);
+      if (left + w > vw - 8) left = Math.max(8, r.right - w);
+      panel.style.top = `${Math.round(top)}px`;
+      panel.style.left = `${Math.round(left)}px`;
+      return;
+    }
     if (top < 8) {
       top = r.bottom + gap;
       if (top + h > vh - 8) {

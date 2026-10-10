@@ -305,7 +305,8 @@ export class PopupGuardService {
   }
 
   private isDismiss(b: HTMLElement): boolean {
-    const text = (b.textContent ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+    // A leading ✕ / × glyph ("✕ Close") is decoration, not part of the label.
+    const text = (b.textContent ?? '').replace(/\s+/g, ' ').replace(/^[✕×✖✗]\s*/, '').trim().toLowerCase();
     if (!DISMISS_LABELS.has(text)) return false;
     // "Done" on a calendar or picker applies a choice; it does not close a pop-up.
     if (b.closest('[class*="calendar"], [class*="-cal"], [class*="cal-"], [class*="cal__"], [class*="picker"], [class*="dp-"]')) return false;

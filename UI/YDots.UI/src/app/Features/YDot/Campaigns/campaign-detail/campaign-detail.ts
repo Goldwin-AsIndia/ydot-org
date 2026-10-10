@@ -394,6 +394,16 @@ export class CampaignDetailComponent {
   // ================= Read-only fields =================
   /** Purpose — read-only. */
   protected readonly purpose = computed(() => this.liveRecord()?.purpose ?? '');
+  /** Longer purpose text is cut in the overview card and opens in full from "Read more". */
+  protected readonly purposeIsLong = computed(() => this.purpose().trim().length > 160);
+  protected readonly purposePreview = computed(() => {
+    const t = this.purpose().trim();
+    return t.length > 160 ? `${t.slice(0, 160).trimEnd()}…` : t;
+  });
+  protected readonly purposeHtml = computed(() => {
+    const esc = this.purpose().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<p>${esc}</p>`;
+  });
 
   /** Date range — read-only. Empty until the record arrives; `formatDate` prints a dash for that. */
   protected readonly launchDate = computed(() => this.liveRecord()?.startDate || '');
@@ -1528,16 +1538,22 @@ export class CampaignDetailComponent {
   );
 
   /** "Read more" popup — Public description and Terms & notice open the full rendered content. */
-  protected readonly readMoreField = signal<'description' | 'terms' | null>(null);
-  protected openReadMore(which: 'description' | 'terms'): void {
-    if (which === 'terms' ? !this.hasTermsNotice() : !this.hasPublicDescription()) return;
+  protected readonly readMoreField = signal<'description' | 'terms' | 'purpose' | null>(null);
+  protected openReadMore(which: 'description' | 'terms' | 'purpose'): void {
+    if (which === 'purpose' ? !this.purposeIsLong() : which === 'terms' ? !this.hasTermsNotice() : !this.hasPublicDescription()) return;
     this.readMoreField.set(which);
   }
   protected closeReadMore(): void {
     this.readMoreField.set(null);
   }
-  protected readonly readMoreTitle = computed(() => (this.readMoreField() === 'terms' ? 'Terms and notice' : 'Public description'));
-  protected readonly readMoreHtml = computed(() => (this.readMoreField() === 'terms' ? this.termsNoticeHtml() : this.publicDescriptionHtml()));
+  protected readonly readMoreTitle = computed(() => {
+    const f = this.readMoreField();
+    return f === 'terms' ? 'Terms and notice' : f === 'purpose' ? 'Purpose' : 'Public description';
+  });
+  protected readonly readMoreHtml = computed(() => {
+    const f = this.readMoreField();
+    return f === 'terms' ? this.termsNoticeHtml() : f === 'purpose' ? this.purposeHtml() : this.publicDescriptionHtml();
+  });
   /** Word count and reading time for the popup footer, counted on the visible text (tags stripped). */
   protected readonly readMoreWordCount = computed(() => {
     const text = String(this.readMoreHtml() ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
