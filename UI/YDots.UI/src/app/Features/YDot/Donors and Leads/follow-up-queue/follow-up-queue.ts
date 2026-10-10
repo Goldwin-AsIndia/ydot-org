@@ -2,9 +2,11 @@ import {
   Component,
   HostListener,
   computed,
+  effect,
   inject,
   linkedSignal,
   signal,
+  untracked,
 } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { CommonModule } from "@angular/common";
@@ -286,6 +288,89 @@ function emptyFilters(): GeneralFilters {
   };
 }
 
+/**
+ * The execution screen writes the uploaded file names as the last line of the notes -
+ * "Attachments: a.pdf, b.png" - because the server keeps the notes but not `attachmentName`
+ * (TS-138). This splits that line off: the notes to show, and the file names.
+ */
+function splitAttachmentLine(text: string): { text: string; files: string[] } {
+  const match = /\n*\s*Attachments:\s*(.+)\s*$/.exec(text ?? "");
+  if (!match) return { text: (text ?? "").trim(), files: [] };
+  return { text: text.slice(0, match.index).trim(), files: splitFileNames(match[1]) };
+}
+
+/** Everything the execution screen records, as the queue's side panel shows it. */
+export interface ExecutionReport {
+  channel: string;
+  executedAt: string;
+  executedBy: string;
+  executionStatus: string;
+  completionReason: string;
+  outcome: string;
+  engagement: string;
+  quality: string;
+  notes: string;
+  internalNotes: string;
+  temperature: string;
+  disposition: string;
+  files: string[];
+}
+
+/**
+ * Split the stored `attachmentName` text back into file names (TS-138).
+ *
+ * A FILE NAME CAN HOLD A COMMA. "ChatGPT Image Sep 5, 2026, 11_34_56 PM.pdf" split on every comma
+ * came out as three "files" - "ChatGPT Image Sep 5", "2026", "11_34_56 PM.pdf". So the text is read
+ * name by name up to each file extension the upload accepts, and the separator after it ("," or
+ * "|" or ";"). Text with no recognisable extension falls back to a plain comma split.
+ */
+function splitFileNames(text: string): string[] {
+  const byExtension = [
+    ...text.matchAll(/\s*(.+?\.(?:pdf|docx?|png|jpe?g|xlsx?|csv|txt))(?=\s*(?:[,|;]|$))[\s,|;]*/gi),
+  ].map((m) => m[1].trim());
+  if (byExtension.length) return byExtension.filter(Boolean);
+  return text.split(/[,|;]/).map((part) => part.trim()).filter(Boolean);
+}
+
+/**
+ * The file names attached to a follow-up (TS-138). The API has carried them in different shapes:
+ * an `attachments` array of names or of `{ name | fileName }` objects, and - what the execution
+ * screen sends on completion - one comma-separated `attachmentName` (also read from the newest
+ * execution / interaction the row carries, if any). Duplicates are dropped.
+ */
+function attachmentNames(item: ApiFollowUp): string[] {
+  const raw = item as unknown as Record<string, unknown>;
+  const names: string[] = [];
+  const add = (value: unknown) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach(add);
+    } else if (typeof value === "string") {
+      splitFileNames(value).forEach((n) => names.push(n));
+    } else if (typeof value === "object") {
+      const o = value as Record<string, unknown>;
+      add(o["name"] ?? o["fileName"] ?? o["originalFileName"] ?? o["attachmentName"]);
+    }
+  };
+  add(raw["attachments"]);
+  add(raw["attachmentNames"]);
+  add(raw["attachmentName"]);
+  add(raw["completionAttachmentName"]);
+  const execution = (raw["execution"] ?? raw["lastExecution"] ?? raw["lastInteraction"]) as
+    | Record<string, unknown>
+    | undefined;
+  if (execution) {
+    add(execution["attachments"]);
+    add(execution["attachmentName"]);
+  }
+  return [...new Set(names)];
+}
+
+/** TS-136 reschedule messages. */
+const RESCHEDULE_PAST_DATE = "Choose today or a later date";
+const RESCHEDULE_PAST_TIME = "Choose a time later than now";
+const RESCHEDULE_UNCHANGED = "Pick a new date or time to reschedule";
+
 @Component({
   selector: "app-follow-up-queue",
   standalone: true,
@@ -388,8 +473,15 @@ export class FollowUpQueueComponent {
     // rebuilt. Reload whenever the person named in the address changes (and once at the start).
     this.route.queryParamMap
       .pipe(
-        map((params) => `${params.get("donorId") ?? ""}|${params.get("leadId") ?? ""}`),
-        distinctUntilChanged(),
+        map((params) => ({
+          person: `${params.get("donorId") ?? ""}|${params.get("leadId") ?? ""}`,
+          // BACK FROM EXECUTION / ESCALATION (TS-128). The execution screen returns naming the
+          // follow-up it just changed. If Angular kept this screen alive the counts were never
+          // re-read, so the Escalated tile stayed where it was: a returning id reloads too. The
+          // address clean-up that follows (id removed, same person) does not.
+          returning: params.get("highlightId") ?? params.get("followUpId"),
+        })),
+        distinctUntilChanged((prev, next) => prev.person === next.person && !next.returning),
         takeUntilDestroyed(),
       )
       .subscribe(() => {
@@ -442,6 +534,9 @@ export class FollowUpQueueComponent {
         const response = first!;
 
         this.followUps.set(items.map((item) => this.toQueueRow(item)));
+        // Fresh rows: files fetched for a panel earlier may have changed.
+        this.drawerFilesAsked.clear();
+        this.drawerReports.set({});
         this.ownerOptions.set(response.ownerOptions);
         this.summary.set(response.summary);
         this.queueActions.set(response.permittedActions ?? []);
@@ -450,6 +545,9 @@ export class FollowUpQueueComponent {
           (response.channelOptions ?? []).map((option) => this.toFollowUpType(option.value)),
         );
         this.priorityOptions.set((response.priorityOptions ?? []).map((option) => option.value));
+        // The words the execution screen offered, so the panel prints "Information requested"
+        // rather than the stored value "InformationRequested".
+        this.rememberLabels(response as unknown as Record<string, unknown>);
         this.loading.set(false);
 
         // A selection can outlive the rows it was made on.
@@ -472,7 +570,16 @@ export class FollowUpQueueComponent {
           });
         }
         if (requestedId) {
-          if (this.followUps().some((item) => item.id === requestedId)) {
+          const requested = this.followUps().find((item) => item.id === requestedId);
+
+          // BACK FROM EXECUTION IS NOT A REQUEST TO SEE THE DETAILS. The execution screen returns
+          // here naming the follow-up it just closed; opening its side panel on arrival put a
+          // panel nobody asked for over the queue (TS-133). A follow-up that is no longer open is
+          // highlighted in the list instead, and only an OPEN one - just scheduled, or opened from
+          // elsewhere to be worked on - still opens its panel.
+          if (requested && !requested.isOpen) {
+            this.highlightId.set(requestedId);
+          } else if (requested) {
             this.previewId.set(requestedId);
             if (wantsReschedule) {
               queueMicrotask(() => this.openReschedule(requestedId));
@@ -545,10 +652,17 @@ export class FollowUpQueueComponent {
       purpose: item.purpose ?? "",
       expectedOutcome: item.nextAction ?? "",
       successCriteria: "",
-      lastCommunicationOutcome: item.completionOutcome ?? undefined,
+      // The executor's notes without the "Attachments:" line the execution screen adds (TS-138).
+      lastCommunicationOutcome: splitAttachmentLine(item.completionOutcome ?? "").text || undefined,
       reminderSettings: "",
       notes: item.isNotesMasked ? "" : (item.notes ?? ""),
-      attachments: [],
+      // THE FILES UPLOADED AT EXECUTION. They were stored on the task at completion but the row
+      // dropped them, so the detail panel's Attachments section never drew anything (BUG-106).
+      // TS-138: the execution screen records the file names in `attachmentName` (comma-separated)
+      // on the completed task; read that as well as an `attachments` list, whichever the API sends.
+      attachments: [
+        ...new Set([...attachmentNames(item), ...splitAttachmentLine(item.completionOutcome ?? "").files]),
+      ],
 
       // WHAT HAPPENED TO IT, AND WHO DID IT - the server's trail, newest first.
       history: (item.history ?? []).map((entry) => ({
@@ -697,7 +811,11 @@ export class FollowUpQueueComponent {
         // Assigned to the caller and still to be done - the server's own "assigned to me".
         return f.isMine && f.isOpen;
       case "escalated":
-        return f.isOpen && f.escalated;
+        // THE TILE'S OWN RULE, APPLIED TO ROWS. The Escalated figure counts a task escalated by
+        // the Escalate action (still open) AND one executed with "Escalated" as its completion
+        // reason or disposition - otherwise the tile and the list it filters disagree. See
+        // SupportingRepositories.GetSummaryAsync on the server.
+        return this.isEscalated(f);
       case "calls":
         return f.followUpType === "Call";
       case "completedToday":
@@ -935,7 +1053,29 @@ export class FollowUpQueueComponent {
   readonly kpiDueToday = computed(() => this.summary()?.dueToday ?? 0);
   readonly kpiUpcoming = computed(() => this.summary()?.upcoming ?? 0);
   readonly kpiCompletedToday = computed(() => this.summary()?.completedToday ?? 0);
-  readonly kpiEscalated = computed(() => this.summary()?.escalated ?? 0);
+  /**
+   * ESCALATED (TS-128): counted from the rows with the same rule the Escalated filter uses - a
+   * follow-up escalated with the Escalate action that is still open, OR one executed with
+   * "Escalated" as its status, reason or disposition. The server's summary only counted the first
+   * kind, so executing a follow-up as escalated left the tile unchanged. Every page of the queue is
+   * loaded, so the rows are the whole scope; the summary is the fallback before they arrive.
+   */
+  readonly kpiEscalated = computed(() => {
+    const rows = this.followUps();
+    if (!rows.length) return this.summary()?.escalated ?? 0;
+    return rows.filter((f) => this.isEscalated(f)).length;
+  });
+
+  /** One rule for "escalated", shared by the tile and the filter. */
+  isEscalated(f: FollowUp): boolean {
+    const says = (v: string | undefined | null) => /escalat/i.test(v ?? "");
+    return (
+      (f.isOpen && f.escalated) ||
+      says(f.executionStatus) ||
+      says(f.completionReason) ||
+      says(f.disposition)
+    );
+  }
   readonly kpiCompletionRate = computed(() => this.summary()?.completionRatePercent ?? 0);
 
   readonly slaBreakdown = computed(() => {
@@ -947,14 +1087,25 @@ export class FollowUpQueueComponent {
     };
   });
 
+  /**
+   * PENDING BY AGE (TS-127): open follow-ups that are NOT overdue, by how many days remain until
+   * they are due - 0–3d is due today up to three days out. Overdue work used to be counted here
+   * too (its "age" was clamped to 0, so it landed in 0–3d), which made the chart disagree with
+   * the Overdue figure next to it. Overdue has its own tile and column; follow-ups with no due
+   * date are left out because they have no age to show.
+   */
   readonly agingBuckets = computed(() => {
     const buckets = { b0: 0, b1: 0, b2: 0, b3: 0 };
-    const now = new Date(TODAY_ISO + "T00:00:00").getTime();
+    const today = new Date(this.todayIso() + "T00:00:00").getTime();
     this.followUps()
-      .filter((f) => f.isOpen)
+      .filter((f) => f.isOpen && !f.isOverdue && f.dueState !== "Overdue" && !!f.scheduledDate)
       .forEach((f) => {
-        const scheduled = new Date(f.scheduledDate + "T00:00:00").getTime();
-        const days = Math.max(0, Math.round((now - scheduled) / 86400000));
+        const due = new Date(f.scheduledDate + "T00:00:00").getTime();
+        if (Number.isNaN(due)) return;
+        const days = Math.round((due - today) / 86400000);
+        // A due date already behind us is overdue even if the server's flag has not caught up
+        // yet (it is worked out when the list is read) - it belongs to the Overdue tile, not here.
+        if (days < 0) return;
         if (days <= 3) buckets.b0++;
         else if (days <= 7) buckets.b1++;
         else if (days <= 15) buckets.b2++;
@@ -962,6 +1113,12 @@ export class FollowUpQueueComponent {
       });
     return buckets;
   });
+
+  /** Today's date as yyyy-mm-dd, read fresh (the module constant goes stale past midnight). */
+  todayIso(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
 
   readonly activeFilterCount = computed(() => {
     const f = this.activeFilters();
@@ -1113,10 +1270,10 @@ export class FollowUpQueueComponent {
     const b = this.agingBuckets();
     const max = Math.max(1, b.b0, b.b1, b.b2, b.b3);
     return [
-      { label: "0–3d", value: b.b0, tone: "ok" },
+      { label: "0–3d", value: b.b0, tone: "hot" },
       { label: "4–7d", value: b.b1, tone: "warn" },
-      { label: "8–15d", value: b.b2, tone: "hot" },
-      { label: "15d+", value: b.b3, tone: "danger" },
+      { label: "8–15d", value: b.b2, tone: "ok" },
+      { label: "15d+", value: b.b3, tone: "ok" },
     ].map((c) => ({ ...c, height: (c.value / max) * 100 }));
   });
 
@@ -1214,17 +1371,32 @@ export class FollowUpQueueComponent {
     }));
     this.commitDraft();
   }
+  /**
+   * DUE BETWEEN (TS-122): the "to" date can never fall before the "from" date. The inputs carry
+   * min/max so the picker greys the wrong days out, and a typed date that breaks the rule is
+   * refused here: a later "from" clears an earlier "to", an earlier "to" is rejected.
+   */
   setDraftDateFrom(v: string) {
+    const from = v || null;
+    const to = this.draftFilters().dateTo;
     this.draftFilters.update((f) => ({
       ...this.cloneFilters(f),
-      dateFrom: v || null,
+      dateFrom: from,
+      dateTo: from && to && to < from ? null : f.dateTo,
     }));
     this.commitDraft();
   }
-  setDraftDateTo(v: string) {
+  setDraftDateTo(v: string, input?: HTMLInputElement) {
+    const to = v || null;
+    const from = this.draftFilters().dateFrom;
+    if (to && from && to < from) {
+      if (input) input.value = this.draftFilters().dateTo ?? "";
+      this.showToast("The end date cannot be before the start date");
+      return;
+    }
     this.draftFilters.update((f) => ({
       ...this.cloneFilters(f),
-      dateTo: v || null,
+      dateTo: to,
     }));
     this.commitDraft();
   }
@@ -1309,15 +1481,228 @@ export class FollowUpQueueComponent {
   openPreview(id: string) {
     this.previewId.set(id);
   }
+
+  // ---- Drawer: execution report + attachments (TS-138) ----------------------
+  /**
+   * WHAT WAS RECORDED ON THE EXECUTION SCREEN, SHOWN IN THE PANEL. Executing a follow-up records
+   * how and when contact was made, the execution status, completion reason, outcome, engagement,
+   * communication quality, the notes, the disposition and the files - but the panel showed only a
+   * line or two of it, and no documents (the list rows leave most of it out). When a closed
+   * follow-up opens, the panel asks for the follow-up itself and for the record's communication
+   * timeline (the completion is written there as an interaction) and lays the whole report out.
+   */
+  readonly drawerReports = signal<Record<string, Partial<ExecutionReport>>>({});
+  readonly drawerFilesLoading = signal<string | null>(null);
+  private readonly drawerFilesAsked = new Set<string>();
+  private readonly lookupLabels = new Map<string, string>();
+
+  private readonly loadDrawerDetailsOnOpen = effect(() => {
+    const f = this.previewFollowUp();
+    if (!f) return;
+    untracked(() => this.loadDrawerDetails(f));
+  });
+
+  /** The panel's execution report: the row's own fields, completed by what was fetched for it. */
+  reportFor(f: FollowUp): ExecutionReport {
+    const fetched = this.drawerReports()[f.id] ?? {};
+    const pick = (...values: (string | undefined)[]) => values.find((v) => !!v && v.trim()) ?? "";
+    return {
+      channel: this.labelOf(pick(fetched.channel)),
+      executedAt: pick(fetched.executedAt),
+      executedBy: pick(fetched.executedBy, f.assignedTo),
+      executionStatus: this.labelOf(pick(f.executionStatus, fetched.executionStatus)),
+      completionReason: this.labelOf(pick(f.completionReason, fetched.completionReason)),
+      outcome: this.labelOf(pick(fetched.outcome)),
+      engagement: this.labelOf(pick(fetched.engagement)),
+      quality: this.labelOf(pick(fetched.quality)),
+      notes: pick(f.lastCommunicationOutcome, fetched.notes),
+      internalNotes: pick(fetched.internalNotes),
+      temperature: this.labelOf(pick(fetched.temperature)),
+      disposition: this.labelOf(pick(f.disposition, fetched.disposition)),
+      files: f.attachments.length ? f.attachments : (fetched.files ?? []),
+    };
+  }
+
+  /** The documents uploaded at execution. */
+  filesFor(f: FollowUp): string[] {
+    return this.reportFor(f).files;
+  }
+
+  /** "Tue, 14 Oct 2026, 02:30 PM" for the executed date and time. */
+  formatExecutedAt(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString("en-GB", {
+      weekday: "short", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true,
+    });
+  }
+
+  /** A stored value as the words the execution screen showed for it. */
+  private labelOf(value: string): string {
+    if (!value) return "";
+    return (
+      this.lookupLabels.get(value) ??
+      value.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/ ([A-Z])(?=[a-z])/g, (_m, c: string) => " " + c.toLowerCase())
+    );
+  }
+
+  /** Every `{ value, label }` list a response carries, remembered for labelOf. */
+  private rememberLabels(source: Record<string, unknown> | null): void {
+    if (!source) return;
+    for (const [key, list] of Object.entries(source)) {
+      if (!key.endsWith("Options") || !Array.isArray(list)) continue;
+      for (const o of list as { value?: unknown; label?: unknown }[]) {
+        if (typeof o?.value === "string" && typeof o?.label === "string" && o.label) {
+          this.lookupLabels.set(o.value, o.label);
+        }
+      }
+    }
+  }
+
+  private loadDrawerDetails(f: FollowUp): void {
+    if (f.isOpen || this.drawerFilesAsked.has(f.id)) return;
+    this.drawerFilesAsked.add(f.id);
+    this.drawerFilesLoading.set(f.id);
+
+    const leadId = f.recordType === "Lead" ? (f.recordId ?? null) : null;
+    const donorId = f.recordType === "Donor" ? (f.recordId ?? null) : null;
+
+    forkJoin({
+      detail: this.api.getFollowUp(f.id).pipe(catchError(() => of(null))),
+      timeline: f.recordId
+        ? this.api.getCommunicationTimeline(leadId, donorId).pipe(catchError(() => of(null)))
+        : of(null),
+    }).subscribe(({ detail, timeline }) => {
+      const d = (detail ?? {}) as unknown as Record<string, unknown>;
+      const t = (timeline ?? {}) as unknown as Record<string, unknown>;
+      this.rememberLabels(t);
+
+      // The completion's own entry on the timeline: linked by the follow-up's id or reference,
+      // or - when the API links neither - the entry whose summary is the executor's notes.
+      const entries = (Array.isArray(t["entries"]) ? t["entries"] : []) as Record<string, unknown>[];
+      const entry =
+        entries.find(
+          (e) =>
+            e["followUpId"] === f.id ||
+            e["followUpReference"] === f.reference ||
+            (!!f.lastCommunicationOutcome &&
+              typeof e["summary"] === "string" &&
+              splitAttachmentLine(e["summary"]).text === f.lastCommunicationOutcome),
+        ) ?? {};
+
+      const text = (...values: unknown[]) =>
+        (values.find((v) => typeof v === "string" && v.trim()) as string | undefined) ?? "";
+
+      const files = new Set<string>(detail ? attachmentNames(detail) : []);
+      attachmentNames(entry as unknown as ApiFollowUp).forEach((n) => files.add(n));
+      // The "Attachments:" line on the completion's notes, wherever the notes came back.
+      [d["completionOutcome"], entry["summary"]].forEach((v) => {
+        if (typeof v === "string") splitAttachmentLine(v).files.forEach((n) => files.add(n));
+      });
+
+      const report: Partial<ExecutionReport> = {
+        channel: text(d["interactionType"], d["completionInteractionType"], entry["interactionType"]),
+        executedAt: text(d["completedAtUtc"], entry["occurredAtUtc"]),
+        executedBy: text(d["completedByName"], entry["actorName"], entry["recordedByName"]),
+        executionStatus: text(d["executionStatus"]),
+        completionReason: text(d["completionReason"]),
+        outcome: text(d["outcome"], d["completionOutcomeCode"], entry["outcome"]),
+        engagement: text(d["engagementLevel"], entry["engagementLevel"], entry["engagement"]),
+        quality: text(d["quality"], d["communicationQuality"], entry["quality"]),
+        notes: splitAttachmentLine(text(d["completionOutcome"], entry["summary"])).text,
+        internalNotes: text(d["completionNotes"], entry["notes"]),
+        temperature: text(d["newTemperature"], entry["temperature"], entry["newTemperature"]),
+        disposition: text(d["disposition"]),
+        files: [...files],
+      };
+
+      this.drawerReports.update((all) => ({ ...all, [f.id]: report }));
+      if (this.drawerFilesLoading() === f.id) this.drawerFilesLoading.set(null);
+    });
+  }
   closePreview() {
     this.previewId.set(null);
   }
+
+  /**
+   * RESCHEDULE RULES (TS-136): the new date cannot be in the past, a time today cannot be earlier
+   * than now, and a single follow-up has to actually move - saving the same date and time was
+   * accepted and did nothing. Empty means the dialog may save.
+   */
+  readonly rescheduleProblem = computed(() => this.rescheduleCheck().message);
+
+  /**
+   * The rule that failed and the field it belongs to - "date", "time", or "both" when the new
+   * date and time are the same as the current ones.
+   */
+  private readonly rescheduleCheck = computed<{ message: string; field: "date" | "time" | "both" | null }>(() => {
+    const message = this.rescheduleRule();
+    if (!message) return { message: "", field: null };
+    if (message === RESCHEDULE_UNCHANGED) return { message, field: "both" };
+    return { message, field: message === RESCHEDULE_PAST_TIME ? "time" : "date" };
+  });
+
+  /**
+   * POPUP OPENS QUIET. The dialog is filled with the follow-up's current date and time, and the
+   * "same date and time" rule used to fire the moment it opened - an error before the person had
+   * done anything. A message now shows only once a field has been changed (a past date or time
+   * they picked) or Save has been pressed (which is when "pick a new date or time" applies).
+   */
+  readonly rescheduleEdited = signal(false);
+  readonly rescheduleAttempted = signal(false);
+
+  /** The message under the fields, or "" while the dialog has nothing to say yet. */
+  readonly rescheduleError = computed(() => {
+    const { message, field } = this.rescheduleCheck();
+    if (!message) return "";
+    if (this.rescheduleAttempted()) return message;
+    return this.rescheduleEdited() && field !== "both" ? message : "";
+  });
+
+  /** Which input to outline in red. */
+  rescheduleInvalid(input: "date" | "time"): boolean {
+    if (!this.rescheduleError()) return false;
+    const field = this.rescheduleCheck().field;
+    return field === input;
+  }
+
+  setRescheduleDate(value: string) {
+    this.rescheduleDate.set(value);
+    this.rescheduleEdited.set(true);
+  }
+
+  setRescheduleTime(value: string) {
+    this.rescheduleTime.set(value);
+    this.rescheduleEdited.set(true);
+  }
+
+  private readonly rescheduleRule = computed(() => {
+    const date = this.rescheduleDate();
+    const time = this.rescheduleTime();
+    if (!date) return "";
+    const today = this.todayIso();
+    if (date < today) return RESCHEDULE_PAST_DATE;
+    if (date === today && time) {
+      const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+      if (to24h(time) < nowMinutes) return RESCHEDULE_PAST_TIME;
+    }
+    const modal = this.activeModal();
+    if (modal?.kind === "reschedule" && modal.ids.length === 1) {
+      const current = this.followUpById(modal.ids[0]);
+      if (current && current.scheduledDate === date && (current.scheduledTime ?? "") === time) {
+        return RESCHEDULE_UNCHANGED;
+      }
+    }
+    return "";
+  });
 
   openReschedule(id: string) {
     const f = this.followUps().find((x) => x.id === id);
     this.rescheduleDate.set(f?.scheduledDate ?? "");
     this.rescheduleTime.set(f?.scheduledTime ?? "");
     this.rescheduleReason.set("");
+    this.rescheduleEdited.set(false);
+    this.rescheduleAttempted.set(false);
     this.activeModal.set({ kind: "reschedule", ids: [id] });
   }
     openBulkReschedule() {
@@ -1326,6 +1711,8 @@ export class FollowUpQueueComponent {
     this.rescheduleDate.set("");
     this.rescheduleTime.set("");
     this.rescheduleReason.set("");
+    this.rescheduleEdited.set(false);
+    this.rescheduleAttempted.set(false);
     this.activeModal.set({ kind: "reschedule", ids });
   }
 
@@ -1372,6 +1759,9 @@ export class FollowUpQueueComponent {
     if (!modal || !this.rescheduleDate()) {
       return;
     }
+    // Save shows the message under the fields (no toast) and stops.
+    this.rescheduleAttempted.set(true);
+    if (this.rescheduleProblem()) return;
 
     const dueAtUtc = this.toDueUtc(
       this.rescheduleDate(),

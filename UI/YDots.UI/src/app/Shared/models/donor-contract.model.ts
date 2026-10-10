@@ -1208,6 +1208,8 @@ export interface FollowUp {
   executionStatus: string | null;
   completionReason: string | null;
   disposition: string | null;
+  /** File names uploaded when the follow-up was executed. Empty when nothing was attached. */
+  attachments?: string[];
 }
 
 /** One line of a follow-up's history, newest first. */

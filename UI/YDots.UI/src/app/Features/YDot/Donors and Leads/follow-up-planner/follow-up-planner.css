@@ -827,3 +827,28 @@ dialog.fp-dialog[data-tone='danger'] .fp-ring-g { border-color: color-mix(in srg
   .fp-stub::after { top: auto; right: calc(14px * var(--s)); bottom: 0; left: calc(14px * var(--s)); border-top: 1.5px dashed var(--fp-line); border-left: 0; }
   .fp-ticket-rows { grid-template-columns: 1fr; }
 }
+
+/* ---- TS-134: required fields that are empty after Schedule is pressed ---- */
+.fp-input.is-invalid,
+.fp-input.is-invalid:focus { border-color: var(--fp-danger); border-style: solid; }
+.fp-input.is-invalid:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--fp-danger) 12%, transparent); }
+.fp-seg.is-invalid { border-color: var(--fp-danger); }
+.fp-channels.is-invalid .fp-channel { border-color: color-mix(in srgb, var(--fp-danger) 55%, #ffffff); }
+.field-error {
+  display: flex;
+  align-items: center;
+  gap: calc(5px * var(--s));
+  margin: calc(6px * var(--s)) 0 0;
+  color: var(--fp-danger);
+  font-size: calc(calc(12px * var(--fs)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.35 !important;
+}
+.field-error::before {
+  content: "";
+  flex: none;
+  width: calc(5px * var(--s));
+  height: calc(5px * var(--s));
+  border-radius: 50%;
+  background: currentColor;
+}

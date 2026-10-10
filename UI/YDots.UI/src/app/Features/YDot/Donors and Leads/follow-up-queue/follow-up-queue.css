@@ -2544,7 +2544,7 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
   transform: none !important;
   transition: background-color .15s ease, color .15s ease;
 }
-.fq-drawer .fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x) + .fq-icon-btn.is-boxed {
+.fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x) + .fq-icon-btn.is-boxed {
   border-left: 1px solid var(--fq-line) !important;
 }
 .fq-drawer .fq-drawer-tools .fq-icon-btn.is-boxed:not(#fq-x) > svg,
@@ -2619,7 +2619,7 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
 }
 
 /* Drawer badges: one tidy row (Status, Priority, Due state) with even gaps */
-.fq-drawer-badges { flex-wrap: nowrap; gap: calc(16px * var(--s)); }
+.fq-drawer-badges { flex-wrap: wrap; gap: calc(8px * var(--s)) calc(16px * var(--s)); }
 .fq-drawer-badges > * { flex: 0 1 auto; min-width: 0; }
 .fq-drawer-badges .fq-prio-dot { box-shadow: none; }
 .fq-drawer-badges .fq-status::before { box-shadow: none; }
@@ -2627,3 +2627,67 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
 
 /* Header actions: a clear gap between the icon and the word */
 .fq-hbtn { display: inline-flex !important; align-items: center; gap: calc(8px * var(--s)) !important; }
+
+
+/* =====================================================================================================
+   TS-133 - side panel alignment
+   - The footer keeps Execute (or the "executed" note) on the left and the tool group pinned right,
+     on one centred row, whatever the panel holds.
+   - Facts: the three cells share one top line and their values truncate instead of pushing height.
+   - Badges wrap onto a second line rather than overflowing the panel on long statuses.
+   ===================================================================================================== */
+.fq-drawer { box-sizing: border-box; max-height: 100dvh; }
+.fq-drawer *, .fq-drawer *::before, .fq-drawer *::after { box-sizing: border-box; }
+.fq-drawer-head, .fq-drawer-foot { flex: none; }
+.fq-drawer-body { min-height: 0; }
+
+.fq-drawer-foot { justify-content: space-between; flex-wrap: nowrap; }
+.fq-drawer-foot .fq-btn--grow { flex: 1 1 auto; min-width: 0; justify-content: center; }
+.fq-drawer-foot .fq-drawer-tools { margin-left: auto; }
+.fq-drawer-done {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8px * var(--s));
+  min-height: calc(44px * var(--s));
+  padding: 0 calc(14px * var(--s));
+  border-radius: var(--fq-r-md);
+  background: var(--fq-ok-soft);
+  color: var(--fq-ok);
+  font-size: calc(var(--fq-t-sm) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  white-space: nowrap;
+}
+.fq-drawer-done .fq-i { width: calc(18px * var(--s)); height: calc(18px * var(--s)); flex: none; }
+
+.fq-facts { align-items: stretch; }
+.fq-fact { align-content: start; }
+.fq-fact-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.fq-sheet > div { align-items: baseline; }
+
+.fq-drawer-head{
+    flex-direction: column;
+    align-items: flex-start !important;
+    justify-content: flex-start;
+    gap: 0 !important;
+}
+
+/* TS-136 - reschedule rule message, and the date input it refers to */
+.fq-field-error {
+  margin: calc(-4px * var(--s)) 0 calc(10px * var(--s));
+  font-size: calc(var(--fq-t-sm) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  color: var(--fq-danger);
+}
+#resched-date[aria-invalid="true"] { border-color: var(--fq-danger) !important; }
+
+/* TS-130 - an open follow-up the viewer may not execute: a quiet note instead of a dead button */
+.fq-drawer-done.is-muted {
+  background: var(--fq-well, #f4f5f4);
+  color: var(--fq-muted);
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  white-space: normal;
+  line-height: 1.35;
+}

@@ -422,7 +422,15 @@ export class FollowUpExecutionService {
       switchMap(() =>
         this.api.completeFollowUp(payload.followUp.followUpId, {
           // The executor's account of what happened - the line the timeline shows.
-          completionOutcome: execution.completionNotes.trim(),
+          // TS-138: the file names also travel on the notes line ("Attachments: a.pdf, b.png").
+          // The server keeps and returns the notes everywhere (queue rows, timeline), while it
+          // drops `attachmentName` from what it reads back - so this is how the queue's panel
+          // can show the documents. `attachmentName` is still sent for when the API returns it.
+          completionOutcome: withAttachmentLine(
+            execution.completionNotes.trim(),
+            payload.attachments.map((file) => file.name),
+            2000,
+          ),
           completedAtUtc: occurredAt,
           expectedVersion: payload.followUp.version,
           outcome: execution.outcome,
@@ -431,7 +439,9 @@ export class FollowUpExecutionService {
           notes: execution.internalNotes?.trim() || null,
           engagementLevel: execution.engagementLevel,
           quality: execution.communicationQuality,
-          attachmentName: payload.attachments.map((file) => file.name).join(", ").slice(0, 260) || null,
+          // Whole names only (TS-138): cutting the text at 260 characters used to leave the last
+          // name half-written, without its extension, so the queue could not read it back.
+          attachmentName: joinFileNames(payload.attachments.map((file) => file.name), 260),
           executionStatus: execution.executionStatus,
           completionReason: execution.completionReason,
           disposition: payload.disposition,
@@ -508,6 +518,27 @@ export class FollowUpExecutionService {
   }
 }
 
+/** File names joined with ", ", keeping only the names that fit whole within `max` characters. */
+function joinFileNames(names: string[], max: number): string | null {
+  let text = "";
+  for (const name of names) {
+    const next = text ? `${text}, ${name}` : name;
+    if (next.length > max) break;
+    text = next;
+  }
+  return text || null;
+}
+
+/** The notes, followed by an "Attachments:" line naming the files that fit within `max`. */
+function withAttachmentLine(notes: string, names: string[], max: number): string {
+  const room = max - notes.length - ATTACHMENT_LINE_PREFIX.length - 2;
+  const list = room > 0 ? joinFileNames(names, room) : null;
+  return list ? `${notes}\n\n${ATTACHMENT_LINE_PREFIX}${list}` : notes;
+}
+
+/** Shared with the follow-up queue, which reads the line back. */
+const ATTACHMENT_LINE_PREFIX = "Attachments: ";
+
 /** A consent channel as a person reads it. */
 function channelLabel(channel: string): string {
   switch (channel) {
@@ -567,6 +598,36 @@ function noFutureDateValidator(): ValidatorFn {
     today.setHours(23, 59, 59, 999);
     return selected.getTime() > today.getTime() ? { futureDate: true } : null;
   };
+}
+
+/** The required next follow-up fields. */
+type NextField = "type" | "date" | "time" | "priority" | "purpose" | "owner";
+
+/** TS-132: the inline message under each empty next follow-up field. */
+const NEXT_FIELD_ERRORS: Record<NextField, string> = {
+  type: "Select a follow-up type.",
+  priority: "Select a priority.",
+  date: "Select a date.",
+  time: "Select a time.",
+  owner: "Select the user to assign.",
+  purpose: "Enter instructions for the next follow-up.",
+};
+
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** "14:30" -> "02:30 PM" */
+function timeLabel(value: string): string {
+  const [h, m] = value.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return value;
+  const suffix = h < 12 ? "AM" : "PM";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${String(hour).padStart(2, "0")}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
 @Component({
@@ -963,6 +1024,13 @@ export class FollowUpExecutionComponent implements OnInit {
       return;
     }
 
+    // THE SAME FILE TWICE IS ONE FILE. Picking it again used to add another row each time (the
+    // TS-138 test attached one PDF five times), and the queue showed the name once anyway.
+    if (this.attachments().some((a) => a.name === file.name && a.sizeLabel === this.formatBytes(file.size))) {
+      this.attachmentError.set(`"${file.name}" is already attached.`);
+      return;
+    }
+
     this.attachmentError.set(null);
     const attachment: Attachment = {
       id: `ATT-${Date.now()}`,
@@ -1025,8 +1093,11 @@ export class FollowUpExecutionComponent implements OnInit {
           this.closeEscalationModal();
           this.toast.show("Escalated", `The follow-up was escalated to ${owner.label}.`, "success");
 
-          // It is somebody else's now: back to the queue, where it shows as escalated.
-          this.backToQueue();
+          // It is somebody else's now: back to the queue, where it shows as escalated. The row is
+          // highlighted and the queue reloads its counts, so the Escalated tile moves (TS-128).
+          this.router.navigate(["/app/fundraising/relationships/follow-up-queue"], {
+            queryParams: { highlightId: this.followUpId() },
+          });
         },
         error: (error: unknown) => this.formError.set(apiErrorMessage(error)),
       });
@@ -1124,9 +1195,169 @@ export class FollowUpExecutionComponent implements OnInit {
   }
 
   /** A required next follow-up field that is empty - only while "Plan another contact" is on. */
-  nextBad(name: "type" | "date" | "time" | "priority" | "purpose" | "owner"): boolean {
-    if (!this.attempted() || !this.nextFollowUpEnabled()) return false;
-    return !String(this.nextFollowUpForm.controls[name].value ?? "").trim();
+  nextBad(name: NextField): boolean {
+    if (!this.nextFollowUpEnabled()) return false;
+    const control = this.nextFollowUpForm.controls[name];
+    // TS-132: a field the person opened and left empty says so straight away, like every other
+    // required field on the page - not only after Complete was pressed.
+    if (!this.attempted() && !control.touched) return false;
+    return !String(control.value ?? "").trim();
+  }
+
+  /** The message under an empty next follow-up field (TS-132: standard inline error). */
+  nextError(name: NextField): string {
+    return NEXT_FIELD_ERRORS[name];
+  }
+
+  /**
+   * The chosen next follow-up instant has already passed. The API refuses a due date in the past
+   * ("Choose a future date and time"), so the time picker has to say so BEFORE the save: without
+   * this the follow-up completes, the next one fails, and the screen reports a half-finished job.
+   */
+  nextTimeInPast(): boolean {
+    if (!this.nextFollowUpEnabled()) return false;
+    const date = this.nextFollowUpForm.controls["date"].value;
+    const time = this.nextFollowUpForm.controls["time"].value;
+    if (!date || !time) return false;
+    const due = new Date(`${date}T${time}`).getTime();
+    return Number.isFinite(due) && due <= Date.now();
+  }
+
+  // ---- Next follow-up pickers (TS-132) --------------------------------------
+  // The browser's own select / date / time controls looked different on every machine and the
+  // time one opened a native spinner. These are the same custom dropdowns used across the CRM:
+  // a <details> panel that writes into the reactive form control and marks it touched.
+
+  /** Choose a value for a next follow-up field and close its panel. */
+  pickNext(name: NextField, value: string, panel?: HTMLDetailsElement): void {
+    const control = this.nextFollowUpForm.controls[name];
+    control.setValue(value as never);
+    control.markAsDirty();
+    control.markAsTouched();
+    if (panel) panel.open = false;
+  }
+
+  /** A panel closed without a choice still counts as visited, so its error can show. */
+  touchNext(name: NextField, panel: HTMLDetailsElement): void {
+    if (!panel.open) this.nextFollowUpForm.controls[name].markAsTouched();
+  }
+
+  /** The label shown on a closed dropdown. */
+  nextChannelLabel(): string {
+    const value = this.nextFollowUpForm.controls["type"].value;
+    return this.nextChannelOptions().find((o) => o.value === value)?.label ?? "";
+  }
+
+  /** The owner search inside the Assigned user panel. */
+  readonly nextOwnerQuery = signal("");
+  nextOwnerResults(): DonLookupItem[] {
+    const q = this.nextOwnerQuery().trim().toLowerCase();
+    const all = this.ownerOptions();
+    return q ? all.filter((o) => o.label.toLowerCase().includes(q)) : all;
+  }
+
+  /** Date picker: the month on show, as the first of that month. */
+  readonly nextCalMonth = signal(startOfMonth(new Date()));
+
+  readonly nextCalTitle = computed(() =>
+    this.nextCalMonth().toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+  );
+
+  readonly nextCalWeekdays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+  /** Six weeks of days, Monday first. Days before today cannot be chosen. */
+  readonly nextCalDays = computed(() => {
+    const first = this.nextCalMonth();
+    const offset = (first.getDay() + 6) % 7;
+    const start = new Date(first.getFullYear(), first.getMonth(), 1 - offset);
+    const today = isoDate(new Date());
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const iso = isoDate(d);
+      return {
+        iso,
+        day: d.getDate(),
+        inMonth: d.getMonth() === first.getMonth(),
+        isToday: iso === today,
+        disabled: iso < today,
+      };
+    });
+  });
+
+  /** Can the calendar go back? Not before the current month. */
+  canGoPrevMonth(): boolean {
+    return this.nextCalMonth().getTime() > startOfMonth(new Date()).getTime();
+  }
+
+  shiftNextMonth(step: number): void {
+    const m = this.nextCalMonth();
+    this.nextCalMonth.set(new Date(m.getFullYear(), m.getMonth() + step, 1));
+  }
+
+  /** Open the calendar on the chosen month (or this month). */
+  syncNextCalendar(panel: HTMLDetailsElement): void {
+    if (!panel.open) {
+      this.touchNext("date", panel);
+      return;
+    }
+    const value = this.nextFollowUpForm.controls["date"].value;
+    const chosen = value ? new Date(`${value}T00:00:00`) : new Date();
+    this.nextCalMonth.set(startOfMonth(Number.isNaN(chosen.getTime()) ? new Date() : chosen));
+  }
+
+  /** Pick a day; a time already chosen that is now in the past is cleared. */
+  pickNextDate(iso: string, panel: HTMLDetailsElement): void {
+    this.pickNext("date", iso, panel);
+    const time = this.nextFollowUpForm.controls["time"].value;
+    if (time && this.isPastSlot(iso, time)) this.nextFollowUpForm.controls["time"].setValue("");
+  }
+
+  pickNextToday(panel: HTMLDetailsElement): void {
+    this.pickNextDate(isoDate(new Date()), panel);
+  }
+
+  /** "Tue, 14 Oct 2026" for the closed date field. */
+  nextDateLabel(): string {
+    const value = this.nextFollowUpForm.controls["date"].value;
+    if (!value) return "";
+    const d = new Date(`${value}T00:00:00`);
+    return Number.isNaN(d.getTime())
+      ? value
+      : d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+  }
+
+  /** Every quarter hour, 24-hour value with a 12-hour label. */
+  readonly nextTimeSlots = Array.from({ length: 96 }, (_, i) => {
+    const h = Math.floor(i / 4);
+    const m = (i % 4) * 15;
+    const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    return { value, label: timeLabel(value) };
+  });
+
+  /** A slot that has already passed on the chosen day. */
+  isPastSlot(date: string, time: string): boolean {
+    if (!date || date !== isoDate(new Date())) return false;
+    const due = new Date(`${date}T${time}`).getTime();
+    return Number.isFinite(due) && due <= Date.now();
+  }
+
+  nextTimeLabel(): string {
+    const value = this.nextFollowUpForm.controls["time"].value;
+    return value ? timeLabel(value) : "";
+  }
+
+  /** Bring the chosen (or next available) slot into view when the time panel opens. */
+  scrollTimeIntoView(panel: HTMLDetailsElement): void {
+    if (!panel.open) {
+      this.touchNext("time", panel);
+      return;
+    }
+    queueMicrotask(() => {
+      const target =
+        panel.querySelector<HTMLElement>(".xr-dd-opt.is-on") ??
+        panel.querySelector<HTMLElement>(".xr-dd-opt:not(:disabled)");
+      target?.scrollIntoView({ block: "center" });
+    });
   }
 
   /** The reason for a temperature change is required once the temperature has been changed. */
@@ -1253,6 +1484,17 @@ export class FollowUpExecutionComponent implements OnInit {
     ) {
       this.formError.set(
         "Complete all next follow-up fields, or turn the toggle off.",
+      );
+      return false;
+    }
+
+    // THE TIME PICKER'S OWN RULE. A date and time already past would be refused by the server,
+    // so it is caught here - inline on the field above and in the message - rather than after
+    // the follow-up has already been completed.
+    if (this.nextFollowUpEnabled() && this.nextTimeInPast()) {
+      this.formError.set("The next follow-up time cannot be in the past. Choose a later time.");
+      queueMicrotask(() =>
+        document.getElementById("nfuTime")?.scrollIntoView({ block: "center", behavior: "smooth" }),
       );
       return false;
     }

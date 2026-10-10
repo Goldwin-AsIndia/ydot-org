@@ -180,7 +180,7 @@
               </div>
               <div class="fp-field">
                 <div class="fp-label-row"><span class="fp-label" id="fp-priority-l">Priority <span class="fp-req">*</span></span></div>
-                <div class="fp-seg" role="radiogroup" aria-labelledby="fp-priority-l">
+                <div class="fp-seg" role="radiogroup" aria-labelledby="fp-priority-l" [class.is-invalid]="fieldMissing('priority')">
                   @for (option of priorityOptions(); track option.value) {
                     <button type="button" role="radio" class="fp-seg-b" [attr.data-priority]="priorityTone(option.value)" [class.is-on]="priority() === option.value"
                             [attr.aria-checked]="priority() === option.value" (click)="priority.set(option.value)">
@@ -188,6 +188,7 @@
                     </button>
                   }
                 </div>
+                @if (fieldMissing('priority')) { <p class="field-error">Select a priority.</p> }
               </div>
             </div>
           </div>
@@ -195,7 +196,7 @@
           <div class="fp-row">
             <div class="fp-gutter"><span class="fp-no">02</span><h3>Channel</h3></div>
             <div class="fp-ctl">
-              <div class="fp-channels" role="radiogroup" aria-label="Follow-up type">
+              <div class="fp-channels" role="radiogroup" aria-label="Follow-up type" [class.is-invalid]="fieldMissing('followUpType')">
                 @for (option of channelOptions(); track option.value) {
                   <button type="button" role="radio" class="fp-channel" [class.is-on]="followUpType() === option.value" [disabled]="!!existing()"
                           [attr.aria-checked]="followUpType() === option.value" (click)="followUpType.set(option.value); checkConsent()">
@@ -270,10 +271,10 @@
               </div>
               <div class="fp-field">
                 <div class="fp-label-row">
-                  <label for="outcome" class="fp-label">Expected outcome @if (!existing()) { <span class="fp-req">*</span> }</label>
+                  <label for="outcome" class="fp-label">Expected outcome @if (!existing()) {<span class="fp-req" aria-hidden="true"> *</span><span class="visually-hidden"> (required)</span>}</label>
                   <span class="fp-count fp-num">{{ expectedOutcome().length }}/500</span>
                 </div>
-                <textarea id="outcome" [class.is-invalid]="fieldMissing('outcome')" class="fp-input fp-textarea" rows="3" maxlength="500" [readOnly]="!!existing()"
+                <textarea id="outcome" [class.is-invalid]="fieldMissing('outcome')" [required]="!existing()" [attr.aria-invalid]="fieldMissing('outcome')" class="fp-input fp-textarea" rows="3" maxlength="500" [readOnly]="!!existing()"
                           placeholder="e.g. Agree a date for a site visit"
                           [ngModel]="expectedOutcome()" (ngModelChange)="expectedOutcome.set($event)"></textarea>
                 @if (fieldMissing('outcome')) { <p class="field-error">Enter the expected outcome of this follow-up.</p> }
@@ -349,7 +350,6 @@
         <div>
           <p class="fp-eyebrow">{{ config.affectedRecord }}</p>
           <h2 id="fp-confirm-title">{{ config.title }}</h2>
-          <p class="fp-muted">{{ config.message }}</p>
         </div>
         <button type="button" class="fp-round" title="Close" aria-label="Close" [disabled]="saving()" (click)="onCancel()"><i class="ri-close-line" aria-hidden="true"></i></button>
       </header>

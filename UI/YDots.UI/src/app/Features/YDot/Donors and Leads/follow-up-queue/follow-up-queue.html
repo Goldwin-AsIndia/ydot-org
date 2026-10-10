@@ -567,12 +567,15 @@
                   placeholder="Search owners…" [value]="ownerSearch()"
                   (input)="ownerSearch.set($any($event.target).value)" />
                 }
-                <select id="fq-owner" class="fq-input" [value]="draftFilters().owner ?? ''"
+                <!-- TS-122: the chosen option is marked [selected] on the option itself. [value] on the
+                     <select> alone was lost whenever the option list re-rendered (panel reopened,
+                     list filtered), so the box fell back to "All owners" while the filter stayed on. -->
+                <select id="fq-owner" class="fq-input"
                   (change)="setDraftOwner($any($event.target).value)">
-                  <option value="">All owners</option>
+                  <option value="" [selected]="!draftFilters().owner">All owners</option>
                   @for (o of matchingOptions(owners(), ownerSearch(), draftFilters().owner ?? ''); track
                   trackByString($index, o)) {
-                  <option [value]="o">{{ o }}</option>
+                  <option [value]="o" [selected]="o === draftFilters().owner">{{ o }}</option>
                   }
                 </select>
               </div>
@@ -584,12 +587,12 @@
                   placeholder="Search campaigns…" [value]="campaignSearch()"
                   (input)="campaignSearch.set($any($event.target).value)" />
                 }
-                <select id="fq-campaign" class="fq-input" [value]="draftFilters().campaign ?? ''"
+                <select id="fq-campaign" class="fq-input"
                   (change)="setDraftCampaign($any($event.target).value)">
-                  <option value="">All campaigns</option>
+                  <option value="" [selected]="!draftFilters().campaign">All campaigns</option>
                   @for (c of matchingOptions(campaigns(), campaignSearch(), draftFilters().campaign ?? ''); track
                   trackByString($index, c)) {
-                  <option [value]="c">{{ c }}</option>
+                  <option [value]="c" [selected]="c === draftFilters().campaign">{{ c }}</option>
                   }
                 </select>
               </div>
@@ -599,11 +602,13 @@
                 <div class="fq-daterange">
                   <label class="visually-hidden" for="fq-date-from">From</label>
                   <input id="fq-date-from" type="date" class="fq-input" [value]="draftFilters().dateFrom ?? ''"
+                    [attr.max]="draftFilters().dateTo || null"
                     (change)="setDraftDateFrom($any($event.target).value)" />
                   <span class="fq-daterange-sep" aria-hidden="true">to</span>
                   <label class="visually-hidden" for="fq-date-to">To</label>
                   <input id="fq-date-to" type="date" class="fq-input" [value]="draftFilters().dateTo ?? ''"
-                    (change)="setDraftDateTo($any($event.target).value)" />
+                    [attr.min]="draftFilters().dateFrom || null"
+                    (change)="setDraftDateTo($any($event.target).value, $any($event.target))" />
                 </div>
               </div>
             </div>
@@ -759,6 +764,8 @@
                     </td>
                     <td class="fq-col-actions">
                       <div class="fq-row-actions">
+                        <!-- TS-130: no Execute permission on this row, no Execute icon. -->
+                        @if (can(f, 'Execute')) {
                         <button type="button" class="fq-icon-btn is-go"
                           [disabled]="!canExecute(f)"
                           [attr.aria-label]="'Execute ' + f.reference"
@@ -768,6 +775,7 @@
                             <use href="#fq-i-play" />
                           </svg>
                         </button>
+                        }
                         @if (can(f, 'Reschedule')) {
                         <button type="button" class="fq-icon-btn" title="Reschedule"
                           [attr.aria-label]="'Reschedule ' + f.reference" (click)="openReschedule(f.id)">
@@ -1077,6 +1085,81 @@
         </div>
       </div>
 
+      <!-- EXECUTION REPORT: every field filled on the Follow-up execution screen, in its order -
+           01 contact, 02 result, 03 notes, 04 relationship update, then the attachments. -->
+      @if (!f.isOpen && f.status !== 'Cancelled') {
+      @if (reportFor(f); as r) {
+      <section class="fq-dsection">
+        <h3 class="fq-dsection-title">Execution &middot; the contact</h3>
+        <dl class="fq-sheet">
+          <div>
+            <dt>How the contact was made</dt>
+            <dd>{{ r.channel || (drawerFilesLoading() === f.id ? 'Loading…' : '—') }}</dd>
+          </div>
+          <div>
+            <dt>Executed on</dt>
+            <dd class="fq-num">{{ r.executedAt ? formatExecutedAt(r.executedAt) : (drawerFilesLoading() === f.id ? 'Loading…' : '—') }}</dd>
+          </div>
+          <div>
+            <dt>Executed by</dt>
+            <dd>{{ r.executedBy || '—' }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="fq-dsection">
+        <h3 class="fq-dsection-title">Execution &middot; the result</h3>
+        <dl class="fq-sheet">
+          <div>
+            <dt>Execution status</dt>
+            <dd>{{ r.executionStatus || '—' }}</dd>
+          </div>
+          <div>
+            <dt>Completion reason</dt>
+            <dd>{{ r.completionReason || '—' }}</dd>
+          </div>
+          <div>
+            <dt>Outcome</dt>
+            <dd>{{ r.outcome || (drawerFilesLoading() === f.id ? 'Loading…' : '—') }}</dd>
+          </div>
+          <div>
+            <dt>Engagement level</dt>
+            <dd>{{ r.engagement || (drawerFilesLoading() === f.id ? 'Loading…' : '—') }}</dd>
+          </div>
+          <div>
+            <dt>Communication quality</dt>
+            <dd>{{ r.quality || (drawerFilesLoading() === f.id ? 'Loading…' : '—') }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="fq-dsection">
+        <h3 class="fq-dsection-title">Execution notes</h3>
+        <p class="fq-note">{{ r.notes || '—' }}</p>
+        @if (r.internalNotes) {
+        <h3 class="fq-dsection-title">Internal notes</h3>
+        <p class="fq-note">{{ r.internalNotes }}</p>
+        }
+      </section>
+
+      <section class="fq-dsection">
+        <h3 class="fq-dsection-title">Relationship update</h3>
+        <dl class="fq-sheet">
+          @if (r.temperature) {
+          <div>
+            <dt>Temperature</dt>
+            <dd>{{ r.temperature }}</dd>
+          </div>
+          }
+          <div>
+            <dt>Disposition</dt>
+            <dd>{{ r.disposition || '—' }}</dd>
+          </div>
+        </dl>
+      </section>
+      }
+      }
+
       <section class="fq-dsection">
         <h3 class="fq-dsection-title">Purpose &amp; outcome</h3>
         <dl class="fq-sheet">
@@ -1092,24 +1175,6 @@
           <div>
             <dt>Success criteria</dt>
             <dd>{{ f.successCriteria }}</dd>
-          </div>
-          }
-          @if (f.lastCommunicationOutcome) {
-          <div>
-            <dt>Recorded outcome</dt>
-            <dd>{{ f.lastCommunicationOutcome }}</dd>
-          </div>
-          }
-          @if (f.executionStatus) {
-          <div>
-            <dt>Execution</dt>
-            <dd>{{ f.executionStatus }}{{ f.completionReason ? ' · ' + f.completionReason : '' }}</dd>
-          </div>
-          }
-          @if (f.disposition) {
-          <div>
-            <dt>Disposition</dt>
-            <dd>{{ f.disposition }}</dd>
           </div>
           }
         </dl>
@@ -1189,21 +1254,30 @@
       </section>
       }
 
-      @if (f.attachments.length > 0) {
+      <!-- TS-138: the files uploaded at execution - from the row, or fetched when the panel opens. -->
+      @if (filesFor(f).length > 0) {
       <section class="fq-dsection">
         <h3 class="fq-dsection-title">Attachments</h3>
         <div class="fq-files">
-          @for (a of f.attachments; track a) {
+          @for (a of filesFor(f); track a) {
           <span class="fq-file"><svg class="fq-i" aria-hidden="true">
               <use href="#fq-i-clip" />
             </svg>{{ a }}</span>
           }
         </div>
       </section>
+      } @else if (drawerFilesLoading() === f.id) {
+      <section class="fq-dsection">
+        <h3 class="fq-dsection-title">Attachments</h3>
+        <p class="fq-note">Loading attachments…</p>
+      </section>
       }
     </div>
 
     <footer class="fq-drawer-foot">
+      <!-- An executed or cancelled follow-up has nothing left to execute: say so, instead of a
+           dead Execute button that pushed the toolbar out of line. -->
+      @if (f.isOpen && can(f, 'Execute')) {
       <button type="button" class="fq-btn fq-btn--primary fq-btn--grow" [disabled]="!canExecute(f)"
         [title]="executeHint(f)" (click)="executeFollowUp(f)">
         <svg class="fq-i" aria-hidden="true">
@@ -1211,6 +1285,16 @@
         </svg>
         Execute follow-up
       </button>
+      } @else if (f.isOpen) {
+      <span class="fq-drawer-done is-muted">{{ executeHint(f) }}</span>
+      } @else {
+      <span class="fq-drawer-done">
+        <svg class="fq-i" aria-hidden="true">
+          <use href="#fq-i-check-circle" />
+        </svg>
+        {{ f.status === 'Cancelled' ? 'Follow-up cancelled' : 'Follow-up executed' }}
+      </span>
+      }
       <div class="fq-drawer-tools">
         @if (can(f, 'Reschedule')) {
         <button type="button" class="fq-icon-btn is-boxed" title="Reschedule" aria-label="Reschedule"
@@ -1282,14 +1366,19 @@
         <div class="fq-field">
           <label for="resched-date">New date</label>
           <input id="resched-date" type="date" class="fq-input" [value]="rescheduleDate()"
-            (change)="rescheduleDate.set($any($event.target).value)" />
+            [attr.min]="todayIso()" [attr.aria-invalid]="rescheduleInvalid('date')"
+            (change)="setRescheduleDate($any($event.target).value)" />
         </div>
         <div class="fq-field">
           <label for="resched-time">New time</label>
           <input id="resched-time" type="time" class="fq-input" [value]="rescheduleTime()"
-            (change)="rescheduleTime.set($any($event.target).value)" />
+            [attr.aria-invalid]="rescheduleInvalid('time')"
+            (change)="setRescheduleTime($any($event.target).value)" />
         </div>
       </div>
+      @if (rescheduleError()) {
+      <p class="fq-field-error" role="alert">{{ rescheduleError() }}</p>
+      }
       <div class="fq-field">
         <label for="resched-reason">Reason <span class="fq-optional">optional</span></label>
         <input id="resched-reason" type="text" class="fq-input" placeholder="Why is this moving?"
@@ -1298,7 +1387,7 @@
     </div>
     <footer class="fq-modal-foot">
       <button type="button" class="fq-btn fq-btn--quiet" (click)="closeModal()">Cancel</button>
-      <button type="button" class="fq-btn fq-btn--primary" [disabled]="!rescheduleDate() || !rescheduleTime()"
+      <button type="button" class="fq-btn fq-btn--primary" [disabled]="!rescheduleDate() || !rescheduleTime() || !!rescheduleError()"
         (click)="confirmReschedule()">Save</button>
     </footer>
   </div>

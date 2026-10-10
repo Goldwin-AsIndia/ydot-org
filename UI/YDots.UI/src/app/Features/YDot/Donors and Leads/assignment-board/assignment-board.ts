@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, computed, ElementRef, HostListener, inject, signal } from "@angular/core";
+import { Component, computed, DestroyRef, ElementRef, HostListener, inject, signal } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FormsModule } from "@angular/forms";
 import {
@@ -925,7 +925,7 @@ export class AssignmentBoardComponent {
   protected removeFilterChip(key: string): void {
         this.exitSelectionMode();
     if (key === "pinned") this.pinnedLeadIds.set([]);
-    if (key === "search") this.searchTerm.set("");
+    if (key === "search") { this.cancelPendingSearch(); this.searchTerm.set(""); }
     if (key === "owner") this.ownerFilter.set("");
     if (key === "saved") this.savedFilter.set("All leads");
     if (key === "campaign") this.campaignFilter.set("All");
@@ -942,6 +942,7 @@ export class AssignmentBoardComponent {
     // the person back to Leads.
     this.exitSelectionMode();
     this.pinnedLeadIds.set([]);
+    this.cancelPendingSearch();
     this.searchTerm.set("");
     this.ownerFilter.set("");
     this.dropdownSearch.set({});
@@ -1677,6 +1678,45 @@ export class AssignmentBoardComponent {
   );
 
   protected readonly searchTerm = signal("");
+
+  /**
+   * SEARCH AS YOU TYPE. The box used to query only on Enter, so typing did nothing and clearing
+   * it left the old, filtered rows on screen. Every keystroke now updates the term and re-queries
+   * after a short pause (so a fast typist sends one request, not ten); emptying the box - by
+   * backspace or the field's own clear "x" - re-queries straight away and brings every record back.
+   * Enter still searches immediately.
+   */
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly searchDelayMs = 350;
+
+  protected onSearchInput(value: string): void {
+    this.searchTerm.set(value ?? "");
+    this.cancelPendingSearch();
+
+    if (!this.searchTerm().trim()) {
+      this.onFilterChanged();
+      return;
+    }
+    this.searchTimer = setTimeout(() => {
+      this.searchTimer = null;
+      this.onFilterChanged();
+    }, this.searchDelayMs);
+  }
+
+  /** Enter: search now, without waiting for the pause. */
+  protected submitSearch(): void {
+    this.cancelPendingSearch();
+    this.onFilterChanged();
+  }
+
+  private cancelPendingSearch(): void {
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+      this.searchTimer = null;
+    }
+  }
+
+  private readonly searchCleanup = inject(DestroyRef).onDestroy(() => this.cancelPendingSearch());
   protected readonly ownerFilter = signal("");
   protected readonly dropdownSearch = signal<Partial<Record<string, string>>>(
     {},

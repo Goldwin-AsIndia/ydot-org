@@ -30,7 +30,7 @@
 
         <app-page-header class="page-header" screen="follow-up-execution" title="Follow-up execution" subtitle="Record what happened and complete a scheduled follow-up for a lead or donor.">
           <!-- <span meta class="ph-chip">{{ data.followUp.followUpId || followUpId() || 'Follow-up' }}</span> -->
-          <button actions type="button" class="ph-btn ph-btn--ghost" (click)="goBack()" [disabled]="saving()">
+          <button actions type="button" class="btn btn-outline-secondary btn-sm" (click)="goBack()" [disabled]="saving()">
             <i class="ri-arrow-left-line" aria-hidden="true"></i> Back
           </button>
         </app-page-header>
@@ -284,43 +284,169 @@
               </div>
               @if (nextFollowUpEnabled()) {
                 <div class="xr-grid-2 xr-next-grid">
+                  <!-- TS-132: custom dropdowns / pickers instead of the browser's select, date and time
+                       controls, and a standard message under every required field left empty. -->
                   <div class="xr-field">
-                    <label class="xr-label" for="nfuType">Type <span class="xr-req">*</span></label>
-                    <select id="nfuType" formControlName="type" class="xr-input xr-select" [class.is-invalid]="nextBad('type')">
-                      <option [ngValue]="null" disabled>Select type</option>
-                      @for (opt of nextChannelOptions(); track opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
-                    </select>
+                    <span class="xr-label" id="nfuTypeLabel">Type <span class="xr-req">*</span></span>
+                    <details #ddType class="xr-dd" (toggle)="touchNext('type', ddType)"
+                      (focusout)="ddType.open = ddType.contains($any($event).relatedTarget)">
+                      <summary id="nfuType" class="xr-input xr-dd-trigger" [class.is-invalid]="nextBad('type')"
+                        aria-labelledby="nfuTypeLabel" [attr.aria-invalid]="nextBad('type')">
+                        <span [class.xr-dd-ph]="!nextChannelLabel()">{{ nextChannelLabel() || 'Select type' }}</span>
+                        <i class="ri-arrow-down-s-line xr-dd-caret" aria-hidden="true"></i>
+                      </summary>
+                      <div class="xr-dd-panel" role="listbox" aria-labelledby="nfuTypeLabel">
+                        @for (opt of nextChannelOptions(); track opt.value) {
+                          <button type="button" class="xr-dd-opt" role="option"
+                            [class.is-on]="nextFollowUpForm.controls.type.value === opt.value"
+                            [attr.aria-selected]="nextFollowUpForm.controls.type.value === opt.value"
+                            (click)="pickNext('type', opt.value, ddType)">
+                            <span>{{ opt.label }}</span>
+                            @if (nextFollowUpForm.controls.type.value === opt.value) { <i class="ri-check-line" aria-hidden="true"></i> }
+                          </button>
+                        } @empty {
+                          <p class="xr-dd-empty">No types available.</p>
+                        }
+                      </div>
+                    </details>
+                    @if (nextBad('type')) { <p class="xr-error">{{ nextError('type') }}</p> }
                   </div>
+
                   <div class="xr-field">
-                    <label class="xr-label" for="nfuPriority">Priority <span class="xr-req">*</span></label>
-                    <select id="nfuPriority" formControlName="priority" class="xr-input xr-select" [class.is-invalid]="nextBad('priority')">
-                      <option [ngValue]="null" disabled>Select priority</option>
-                      @for (opt of priorityOptions(); track opt) { <option [value]="opt">{{ opt }}</option> }
-                    </select>
+                    <span class="xr-label" id="nfuPriorityLabel">Priority <span class="xr-req">*</span></span>
+                    <details #ddPriority class="xr-dd" (toggle)="touchNext('priority', ddPriority)"
+                      (focusout)="ddPriority.open = ddPriority.contains($any($event).relatedTarget)">
+                      <summary id="nfuPriority" class="xr-input xr-dd-trigger" [class.is-invalid]="nextBad('priority')"
+                        aria-labelledby="nfuPriorityLabel" [attr.aria-invalid]="nextBad('priority')">
+                        @if (nextFollowUpForm.controls.priority.value; as p) {
+                          <span class="xr-dd-val"><span class="xr-dot" [attr.data-priority]="priorityKey(p)" aria-hidden="true"></span>{{ p }}</span>
+                        } @else {
+                          <span class="xr-dd-ph">Select priority</span>
+                        }
+                        <i class="ri-arrow-down-s-line xr-dd-caret" aria-hidden="true"></i>
+                      </summary>
+                      <div class="xr-dd-panel" role="listbox" aria-labelledby="nfuPriorityLabel">
+                        @for (opt of priorityOptions(); track opt) {
+                          <button type="button" class="xr-dd-opt" role="option"
+                            [class.is-on]="nextFollowUpForm.controls.priority.value === opt"
+                            [attr.aria-selected]="nextFollowUpForm.controls.priority.value === opt"
+                            (click)="pickNext('priority', opt, ddPriority)">
+                            <span class="xr-dd-val"><span class="xr-dot" [attr.data-priority]="priorityKey(opt)" aria-hidden="true"></span>{{ opt }}</span>
+                            @if (nextFollowUpForm.controls.priority.value === opt) { <i class="ri-check-line" aria-hidden="true"></i> }
+                          </button>
+                        } @empty {
+                          <p class="xr-dd-empty">No priorities available.</p>
+                        }
+                      </div>
+                    </details>
+                    @if (nextBad('priority')) { <p class="xr-error">{{ nextError('priority') }}</p> }
                   </div>
+
                   <div class="xr-field">
-                    <label class="xr-label" for="nfuDate">Date <span class="xr-req">*</span></label>
-                    <input id="nfuDate" type="date" formControlName="date" class="xr-input xr-num" [class.is-invalid]="nextBad('date')" />
+                    <span class="xr-label" id="nfuDateLabel">Date <span class="xr-req">*</span></span>
+                    <details #ddDate class="xr-dd" (toggle)="syncNextCalendar(ddDate)"
+                      (focusout)="ddDate.open = ddDate.contains($any($event).relatedTarget)">
+                      <summary id="nfuDate" class="xr-input xr-dd-trigger" [class.is-invalid]="nextBad('date')"
+                        aria-labelledby="nfuDateLabel" [attr.aria-invalid]="nextBad('date')">
+                        <span [class.xr-dd-ph]="!nextDateLabel()">{{ nextDateLabel() || 'Select date' }}</span>
+                        <i class="ri-calendar-line xr-dd-caret" aria-hidden="true"></i>
+                      </summary>
+                      <div class="xr-dd-panel xr-cal" aria-labelledby="nfuDateLabel">
+                        <div class="xr-cal-head">
+                          <button type="button" class="xr-cal-nav" aria-label="Previous month" [disabled]="!canGoPrevMonth()" (click)="shiftNextMonth(-1)">
+                            <i class="ri-arrow-left-s-line" aria-hidden="true"></i>
+                          </button>
+                          <span class="xr-cal-title">{{ nextCalTitle() }}</span>
+                          <button type="button" class="xr-cal-nav" aria-label="Next month" (click)="shiftNextMonth(1)">
+                            <i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+                          </button>
+                        </div>
+                        <div class="xr-cal-grid">
+                          @for (w of nextCalWeekdays; track w) { <span class="xr-cal-wd">{{ w }}</span> }
+                          @for (d of nextCalDays(); track d.iso) {
+                            <button type="button" class="xr-cal-day"
+                              [class.is-out]="!d.inMonth" [class.is-today]="d.isToday"
+                              [class.is-on]="nextFollowUpForm.controls.date.value === d.iso"
+                              [disabled]="d.disabled" [attr.aria-label]="d.iso"
+                              (click)="pickNextDate(d.iso, ddDate)">{{ d.day }}</button>
+                          }
+                        </div>
+                        <div class="xr-cal-foot">
+                          <button type="button" class="xr-cal-link" (click)="pickNextToday(ddDate)">Today</button>
+                        </div>
+                      </div>
+                    </details>
+                    @if (nextBad('date')) { <p class="xr-error">{{ nextError('date') }}</p> }
                   </div>
+
                   <div class="xr-field">
-                    <label class="xr-label" for="nfuTime">Time <span class="xr-req">*</span></label>
-                    <input id="nfuTime" type="time" formControlName="time" class="xr-input xr-num" [class.is-invalid]="nextBad('time')" />
-                  </div>
-                  <div class="xr-field xr-span-2">
-                    <label class="xr-label" for="nfuOwner">Assigned user <span class="xr-req">*</span></label>
-                    @if (ownerOptions().length > 20) {
-                      <input id="nfuOwner" type="text" formControlName="owner" class="xr-input" list="nfuOwner-options" placeholder="Search users" required autocomplete="off" [class.is-invalid]="nextBad('owner')" />
-                      <datalist id="nfuOwner-options">@for (owner of ownerOptions(); track owner.value) { <option [value]="owner.label"></option> }</datalist>
-                    } @else {
-                      <select id="nfuOwner" formControlName="owner" class="xr-input xr-select" required [class.is-invalid]="nextBad('owner')">
-                        <option value="" disabled>Select user</option>
-                        @for (owner of ownerOptions(); track owner.value) { <option [value]="owner.label">{{ owner.label }}</option> }
-                      </select>
+                    <span class="xr-label" id="nfuTimeLabel">Time <span class="xr-req">*</span></span>
+                    <details #ddTime class="xr-dd" (toggle)="scrollTimeIntoView(ddTime)"
+                      (focusout)="ddTime.open = ddTime.contains($any($event).relatedTarget)">
+                      <summary id="nfuTime" class="xr-input xr-dd-trigger" [class.is-invalid]="nextBad('time') || nextTimeInPast()"
+                        aria-labelledby="nfuTimeLabel" [attr.aria-invalid]="nextBad('time') || nextTimeInPast()">
+                        <span [class.xr-dd-ph]="!nextTimeLabel()">{{ nextTimeLabel() || 'Select time' }}</span>
+                        <i class="ri-time-line xr-dd-caret" aria-hidden="true"></i>
+                      </summary>
+                      <div class="xr-dd-panel xr-dd-panel--time" role="listbox" aria-labelledby="nfuTimeLabel">
+                        @for (slot of nextTimeSlots; track slot.value) {
+                          <button type="button" class="xr-dd-opt" role="option"
+                            [class.is-on]="nextFollowUpForm.controls.time.value === slot.value"
+                            [attr.aria-selected]="nextFollowUpForm.controls.time.value === slot.value"
+                            [disabled]="isPastSlot(nextFollowUpForm.controls.date.value, slot.value)"
+                            (click)="pickNext('time', slot.value, ddTime)">
+                            <span class="xr-num">{{ slot.label }}</span>
+                          </button>
+                        }
+                      </div>
+                    </details>
+                    @if (nextBad('time')) {
+                      <p class="xr-error">{{ nextError('time') }}</p>
+                    } @else if (nextTimeInPast()) {
+                      <p class="xr-error">Choose a time later than now.</p>
                     }
                   </div>
+
+                  <div class="xr-field xr-span-2">
+                    <span class="xr-label" id="nfuOwnerLabel">Assigned user <span class="xr-req">*</span></span>
+                    <details #ddOwner class="xr-dd" (toggle)="touchNext('owner', ddOwner); nextOwnerQuery.set('')"
+                      (focusout)="ddOwner.open = ddOwner.contains($any($event).relatedTarget)">
+                      <summary id="nfuOwner" class="xr-input xr-dd-trigger" [class.is-invalid]="nextBad('owner')"
+                        aria-labelledby="nfuOwnerLabel" [attr.aria-invalid]="nextBad('owner')">
+                        <span [class.xr-dd-ph]="!nextFollowUpForm.controls.owner.value">{{ nextFollowUpForm.controls.owner.value || 'Select user' }}</span>
+                        <i class="ri-arrow-down-s-line xr-dd-caret" aria-hidden="true"></i>
+                      </summary>
+                      <div class="xr-dd-panel" aria-labelledby="nfuOwnerLabel">
+                        @if (ownerOptions().length > 8) {
+                          <div class="xr-dd-search">
+                            <i class="ri-search-line" aria-hidden="true"></i>
+                            <input type="text" placeholder="Search users" autocomplete="off" aria-label="Search users"
+                              [value]="nextOwnerQuery()" (input)="nextOwnerQuery.set($any($event.target).value)" />
+                          </div>
+                        }
+                        <div role="listbox" aria-labelledby="nfuOwnerLabel">
+                          @for (owner of nextOwnerResults(); track owner.value) {
+                            <button type="button" class="xr-dd-opt" role="option"
+                              [class.is-on]="nextFollowUpForm.controls.owner.value === owner.label"
+                              [attr.aria-selected]="nextFollowUpForm.controls.owner.value === owner.label"
+                              (click)="pickNext('owner', owner.label, ddOwner)">
+                              <span>{{ owner.label }}</span>
+                              @if (nextFollowUpForm.controls.owner.value === owner.label) { <i class="ri-check-line" aria-hidden="true"></i> }
+                            </button>
+                          } @empty {
+                            <p class="xr-dd-empty">No users match.</p>
+                          }
+                        </div>
+                      </div>
+                    </details>
+                    @if (nextBad('owner')) { <p class="xr-error">{{ nextError('owner') }}</p> }
+                  </div>
+
                   <div class="xr-field xr-span-2">
                     <label class="xr-label" for="nfuPurpose">Instructions <span class="xr-req">*</span></label>
-                    <textarea id="nfuPurpose" formControlName="purpose" class="xr-input xr-textarea xr-textarea--sm" rows="2" maxlength="500" [class.is-invalid]="nextBad('purpose')"></textarea>
+                    <textarea id="nfuPurpose" formControlName="purpose" class="xr-input xr-textarea xr-textarea--sm" rows="2" maxlength="500"
+                      placeholder="What should happen on the next contact?" [class.is-invalid]="nextBad('purpose')"></textarea>
+                    @if (nextBad('purpose')) { <p class="xr-error">{{ nextError('purpose') }}</p> }
                   </div>
                   @if (nextConsentCaution()) {
                     <div class="xr-field xr-span-2">
@@ -399,12 +525,12 @@
         <div class="xr-bar">
           <button type="button" class="xr-link" [disabled]="saving()" (click)="goBack()"><i class="ri-arrow-left-line" aria-hidden="true"></i> Back</button>
           <span class="xr-bar-note"><i class="ri-information-line" aria-hidden="true"></i>{{ !canExecute() ? viewOnlyReason() : nextFollowUpEnabled() ? 'Completing also schedules the next follow-up.' : 'Completing records the conversation on the timeline.' }}</span>
-          <button type="button" class="xr-btn" (click)="cancel()" [disabled]="saving()">Cancel</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()" [disabled]="saving()"><i class="ri-close-line" aria-hidden="true"></i> Cancel</button>
           @if (canExecute()) {
             @if (nextFollowUpEnabled()) {
-              <button type="button" class="xr-btn xr-btn--primary" [disabled]="saving()" (click)="completeAndCreateFollowUp()"><i class="ri-calendar-check-line" aria-hidden="true"></i> @if (saving()) { Completing… } @else { Complete and schedule next }</button>
+              <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="completeAndCreateFollowUp()"><i class="ri-calendar-check-line" aria-hidden="true"></i> @if (saving()) { Completing… } @else { Complete and schedule next }</button>
             } @else {
-              <button type="button" class="xr-btn xr-btn--primary" [disabled]="saving()" (click)="completeFollowUp()"><i class="ri-check-double-line" aria-hidden="true"></i> @if (saving()) { Completing… } @else { Complete follow-up }</button>
+              <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="completeFollowUp()"><i class="ri-check-double-line" aria-hidden="true"></i> @if (saving()) { Completing… } @else { Complete follow-up }</button>
             }
           }
         </div>

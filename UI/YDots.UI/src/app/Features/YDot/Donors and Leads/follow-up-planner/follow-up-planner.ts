@@ -110,9 +110,21 @@ export class FollowUpPlannerComponent {
   protected readonly expectedOutcome = signal('');
   protected readonly validationMessage = signal<string | null>(null);
 
-  /** True for a required field that is empty, once Save / Reschedule has been tried (the banner is up). */
+  /**
+   * Set when Schedule / Reschedule is pressed with a required field empty (TS-134). From then on
+   * every empty required field - Expected outcome included - is outlined in red with its own
+   * message under it, and each message clears as soon as that field is filled in. It used to hang
+   * off the banner text, so a consent message could hide the field errors and the Expected outcome
+   * gap was only named in the banner.
+   */
+  protected readonly attempted = signal<'scheduleFollowUp' | 'reschedule' | null>(null);
+
+  /** True for a required field that is empty, once Save / Reschedule has been tried. */
   protected fieldMissing(field: 'followUpType' | 'owner' | 'date' | 'time' | 'priority' | 'purpose' | 'outcome'): boolean {
-    if (this.validationMessage() === null) return false;
+    const tried = this.attempted();
+    if (tried === null) return false;
+    // Rescheduling only changes the date, time and priority.
+    if (tried === 'reschedule' && !['date', 'time', 'priority'].includes(field)) return false;
     switch (field) {
       case 'followUpType': return !this.followUpType().trim();
       case 'owner': return !this.owner().trim();
@@ -243,6 +255,7 @@ export class FollowUpPlannerComponent {
     this.consentAcknowledged.set(false);
     this.consentWarning.set('');
     this.validationMessage.set(null);
+    this.attempted.set(null);
     this.openedFromPicker.set(true);
     this.pickerPrimed = false;
     this.page.set(1);
@@ -597,7 +610,14 @@ export class FollowUpPlannerComponent {
             !this.owner().trim() ||
             !this.purpose().trim() ||
             !this.expectedOutcome().trim()));
+      this.attempted.set(missing ? (actionId as 'scheduleFollowUp' | 'reschedule') : null);
       if (missing) {
+        // Take the person to the first field that needs them.
+        queueMicrotask(() =>
+          document
+            .querySelector<HTMLElement>('.fp-form .is-invalid')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+        );
         this.validationMessage.set(
           actionId === 'reschedule'
             ? 'Complete date, time, and priority before rescheduling.'
@@ -835,6 +855,7 @@ export class FollowUpPlannerComponent {
     this.scheduledDate.set('');
     this.scheduledTime.set('');
     this.validationMessage.set(null);
+    this.attempted.set(null);
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { leadId: this.leadId(), donorId: this.donorId(), mode: 'create' },

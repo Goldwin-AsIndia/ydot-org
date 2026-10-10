@@ -88,11 +88,11 @@
                 </div>
                 }
 
-                <form class="ab-find" role="search" aria-label="Search records" (ngSubmit)="onFilterChanged()">
+                <form class="ab-find" role="search" aria-label="Search records" (ngSubmit)="submitSearch()">
                   <label class="ab-search">
                     <i class="ri-search-line" aria-hidden="true"></i>
                     <input type="search" name="search" placeholder="Name, code, e-mail or phone"
-                      [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" aria-label="Search records" />
+                      [ngModel]="searchTerm()" (ngModelChange)="onSearchInput($event)" aria-label="Search records" />
                   </label>
                   <button type="button" class="btn btn-outline-secondary btn-sm" [class.is-on]="filtersOpen() || panelFilterCount() > 0"
                     (click)="toggleFilters()" [attr.aria-expanded]="filtersOpen()" aria-controls="ab-filters">
