@@ -858,7 +858,18 @@
               </span>
             }
             <div class="tam-generated-text">
-              <code class="tam-generated-url">{{ a.generatedUrl || 'Issued on approval' }}</code>
+              <span class="tam-dx-label">{{ a.isQr ? 'Encoded link' : 'Tracking link' }}</span>
+              @if (a.generatedUrl) {
+                <code class="tam-generated-url">{{ a.generatedUrl }}</code>
+              } @else {
+                <!-- A Draft has no link yet: say so plainly, instead of an empty white box with a
+                     single line floating in the middle of it. -->
+                <p class="tam-generated-pending">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                  Issued on approval
+                </p>
+                <p class="tam-generated-hint">The tracking link{{ a.isQr ? ' and QR code go' : ' goes' }} live once this asset is approved and activated.</p>
+              }
             </div>
             <!-- A Draft has no tracking link yet, so there is nothing to share, copy, open or download. -->
             @if (a.assetStatus !== 'Draft') {
@@ -952,7 +963,7 @@
       <footer class="tam-detail-foot">
         <div class="tam-detail-actions">
           @if (canEverEdit()) {
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestEdit(a)" [disabled]="!editAllowed(a)" [title]="editAllowed(a) ? '' : editDisabledReason(a)">Edit</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestEdit(a)" [disabled]="!editAllowed(a)" [title]="editAllowed(a) ? '' : editDisabledReason(a)"> <i class="ri-pencil-line"></i>Edit</button>
           }
           @if (pendingApproval(a); as kind) {
             <button type="button" class="btn btn-primary btn-sm" (click)="onApprove(a)" [title]="pendingApprovalTip(a)">

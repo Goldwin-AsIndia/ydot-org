@@ -110,7 +110,7 @@
   scrollbar-width: thin;
 }
 .crcx-section { padding: calc(22px * var(--ui-scale, 1)) 0 calc(4px * var(--ui-scale, 1)); }
-.crcx-section + .crcx-section { border-top: 1px solid var(--crcx-line-soft); }
+/* .crcx-section + .crcx-section { border-top: 1px solid var(--crcx-line-soft); } */
 .crcx-section-title {
   display: flex;
   align-items: center;
@@ -150,7 +150,7 @@
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
   color: var(--crcx-ink);
 }
-.crcx-req { color: var(--crcx-danger); font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); }
+.crcx-req { color: var(--crcx-ink); font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900); }
 .crcx-optional { font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.786) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900); color: var(--crcx-faint); }
 .crcx-input {
   width: 100%;
@@ -346,10 +346,95 @@
   .crcx-foot-note { text-align: center; }
 }
 
-/* Header-to-first-section gap: the body's own top padding plus the section's was ~30px. */
-.crcx-body { padding-top: 0; }
-.crcx-section:first-child { padding-top: calc(14px * var(--ui-scale, 1)); }
-.crcx-head { padding-bottom: calc(16px * var(--ui-scale, 1)); }
+/* =========================================================================
+   BUG-025 - header, top space, category icon, scroll
+   ========================================================================= */
+/* !important on purpose: the drawer CHROME comes from the global styles/ydot-overlays.css,
+   which pads the header/body and lets the drawer itself scroll. Without these the global
+   rules win and the fixes below never show - which is why BUG-025 came back. */
 
-/* Category: full field width, with the shared dropdown arrow sitting where the Owner caret does. */
-.crcx-select.crcx-input { width: 100% !important; padding: 0 calc(12px * var(--ui-scale, 1)) 0 calc(14px * var(--ui-scale, 1)); }
+/* Header: eyebrow + title only. No ::before / ::after extras, no subtitle. */
+.crcx-drawer .crcx-head {
+  padding: calc(14px * var(--ui-scale, 1)) calc(60px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) var(--crcx-pad) !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+}
+.crcx-drawer .crcx-head::before,
+.crcx-drawer .crcx-head::after { content: none !important; display: none !important; }
+.crcx-drawer .crcx-subtitle,
+.crcx-drawer .crcx-head > p:not(.crcx-eyebrow) { display: none !important; }
+.crcx-drawer .crcx-eyebrow { margin: 0 0 calc(4px * var(--ui-scale, 1)) !important; }
+.crcx-drawer .crcx-title { margin: 0 !important; }
+.crcx-drawer .crcx-close {
+  top: 50% !important;
+  right: calc(14px * var(--ui-scale, 1)) !important;
+  transform: translateY(-50%) !important;
+}
+
+/* Header-to-first-section gap: one small step (14px), nothing stacked on top of it. */
+.crcx-drawer .crcx-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 var(--crcx-pad) calc(20px * var(--ui-scale, 1)) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+.crcx-drawer .crcx-section:first-child { padding-top: calc(14px * var(--ui-scale, 1)) !important; margin-top: 0 !important; }
+.crcx-drawer .crcx-section { padding-bottom: calc(4px * var(--ui-scale, 1)) !important; }
+.crcx-drawer .crcx-section + .crcx-section { padding-top: calc(16px * var(--ui-scale, 1)) !important; }
+.crcx-drawer .crcx-section-title { margin: 0 0 calc(12px * var(--ui-scale, 1)) !important; }
+
+/* ONE scroll bar: the drawer shell never scrolls, only .crcx-body does. */
+.crcx-drawer {
+  /* height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important; */
+  /* overflow: hidden !important; */
+}
+.crcx-drawer .crcx-head,
+.crcx-drawer .crcx-foot { flex: none !important; overflow: hidden !important; }
+
+/* Category: full row like the other text fields; caret centred and inset like Owner's. */
+.crcx-combo-trigger {
+  min-height: calc(42px * var(--ui-scale, 1));
+  padding: 0 calc(12px * var(--ui-scale, 1)) 0 calc(14px * var(--ui-scale, 1)) !important;
+}
+.crcx-combo-trigger .crcx-caret {
+  align-self: center;
+  display: block;
+  margin: 0;
+  width: calc(16px * var(--ui-scale, 1));
+  height: calc(16px * var(--ui-scale, 1));
+}
+
+/* =========================================================================
+   TS-040 / BUG-027 - required-field behaviour = campaign create
+   Red ONLY after Create/Save (.is-invalid). Focus/blur never paints red, even if a
+   global rule targets .ng-touched.ng-invalid, :invalid or :user-invalid.
+   ========================================================================= */
+.crcx-input:not(.is-invalid),
+.crcx-input.ng-touched:not(.is-invalid),
+.crcx-input:invalid:not(.is-invalid),
+.crcx-input:user-invalid:not(.is-invalid) {
+  border-color: var(--crcx-field-line) !important;
+  background-color: #ffffff !important;
+  box-shadow: none !important;
+}
+.crcx-input:not(.is-invalid):hover:not(:focus) { border-color: color-mix(in srgb, var(--crcx-accent) 40%, #cfd6d2) !important; }
+.crcx-input:not(.is-invalid):focus {
+  border-color: var(--crcx-accent) !important;
+  outline: calc(3px * var(--ui-scale, 1)) solid color-mix(in srgb, var(--crcx-accent) 16%, transparent) !important;
+  outline-offset: 0;
+}
+
+.crcx-input.is-invalid,
+.crcx-combo-trigger.is-invalid {
+  border-color: var(--crcx-danger) !important;
+  background: #fffafa !important;
+}
+.crcx-input.is-invalid:focus,
+.crcx-combo-trigger.is-invalid.is-open {
+  outline: calc(3px * var(--ui-scale, 1)) solid color-mix(in srgb, var(--crcx-danger) 14%, transparent) !important;
+  outline-offset: 0;
+}

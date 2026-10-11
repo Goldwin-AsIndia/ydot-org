@@ -212,6 +212,46 @@ export class CampaignRegisterComponent {
     return !!s && !!e && new Date(e) < new Date(s);
   });
 
+  /**
+   * BUG-003 (TS-005): the Launch "To" date used to accept a day earlier than the "From" date —
+   * an impossible window that only surfaced afterwards as a warning banner.
+   *
+   * The inputs now carry `min` / `max` constraints drawn from each other, so the native picker
+   * refuses the out-of-range day. These handlers are the second line of defence for anything
+   * typed straight into the field: an out-of-order value is REFUSED and the previous, valid
+   * value is kept, rather than an impossible range being stored.
+   */
+  protected onRangeStartChange(value: string, input?: HTMLInputElement): void {
+    const end = this.rangeEnd();
+    if (value && end && value > end) {
+      // PUT THE KEPT VALUE BACK IN THE BOX. Refusing only in the signal left the rejected date
+      // showing in the input, so the tester saw it "selected" (BUG-003).
+      if (input) input.value = this.rangeStart();
+      this.toast.show(
+        'Launch window unchanged',
+        'The From date cannot be later than the To date. Change the To date first.',
+        'warning');
+      return;
+    }
+    this.rangeStart.set(value);
+    this.currentPage.set(1);
+  }
+
+  protected onRangeEndChange(value: string, input?: HTMLInputElement): void {
+    const start = this.rangeStart();
+    if (value && start && value < start) {
+      // PUT THE KEPT VALUE BACK IN THE BOX (BUG-003): 2 Oct → 29 Sep is refused AND undone.
+      if (input) input.value = this.rangeEnd();
+      this.toast.show(
+        'Launch window unchanged',
+        'The To date cannot be earlier than the From date.',
+        'warning');
+      return;
+    }
+    this.rangeEnd.set(value);
+    this.currentPage.set(1);
+  }
+
   /** Count of active filters beyond the always-present search (drives the "More Filters" badge). */
   protected readonly moreFiltersCount = computed(() => {
     let n = 0;
@@ -283,9 +323,37 @@ export class CampaignRegisterComponent {
     this.store.refresh();
   }
 
-  /** Committed sort — column + direction. */
-  protected readonly sortColumn = signal<keyof CampaignRecord>('startDate');
+  /**
+   * Committed sort — column + direction.
+   *
+   * '' IS THE DEFAULT: NEWEST CREATED FIRST (BUG-048 / TS-075). The register used to open sorted
+   * by Launch date, newest launch first, so a campaign created today with a launch date next
+   * month - or one launching sooner than an older campaign - landed somewhere down the list, and
+   * on page 2 once the register grew. A person who has just created a campaign expects to see it
+   * at the top. A column header click still sorts by that column as before.
+   */
+  protected readonly sortColumn = signal<keyof CampaignRecord | ''>('');
   protected readonly sortDirection = signal<SortDirection>('desc');
+
+  /**
+   * How recently a campaign was created, as a number to sort on (bigger = newer).
+   *
+   * Uses the record's creation timestamp when the API sends one. Without it, the campaign code's
+   * running number stands in (CAMP-2026-0012 was created after CAMP-2026-0011), which is the
+   * order the server issues them in.
+   */
+  private createdRank(record: CampaignRecord): number {
+    const r = record as unknown as Record<string, unknown>;
+    for (const key of ['createdAtUtc', 'createdAt', 'createdOn', 'createdDate', 'createdUtc']) {
+      const value = r[key];
+      if (typeof value === 'string' && value) {
+        const time = Date.parse(value);
+        if (!Number.isNaN(time)) return time;
+      }
+    }
+    const digits = (record.code ?? '').replace(/\D/g, '');
+    return digits ? Number(digits.slice(-15)) : 0;
+  }
 
   /** The filtered, sorted record set for the current scope and filters. */
   protected readonly visibleRecords = computed(() => {
@@ -334,6 +402,10 @@ export class CampaignRegisterComponent {
       if (fresh) {
         if (a.code === fresh && b.code !== fresh) return -1;
         if (b.code === fresh && a.code !== fresh) return 1;
+      }
+      if (!col) {
+        // Default order: newest created first.
+        return this.createdRank(b) - this.createdRank(a) || String(b.code).localeCompare(String(a.code));
       }
       const av = a[col];
       const bv = b[col];
@@ -644,6 +716,74 @@ export class CampaignRegisterComponent {
     );
   }
 
+  // ----- Activate (BUG-052 / TS-082) -----
+  /**
+   * A MANUAL-ACTIVATION CAMPAIGN COULD NOT BE ACTIVATED FROM HERE. Approving a campaign set to
+   * "Manual" activation leaves it Approved / Scheduled - by design it waits for a person to switch
+   * it on - but the register offered no Activate action at all, so a campaign approved for today
+   * just sat there. Activate is now a row action for an Approved or Scheduled campaign whose start
+   * date has arrived, for a caller the server allows to activate (its per-row `permittedActions`,
+   * or the activate permission when the list row does not carry them).
+   */
+  protected canActivate(record: CampaignRecord): boolean {
+    if (record.status !== 'Approved' && record.status !== 'Scheduled') return false;
+    const actions = (record as { permittedActions?: readonly string[] }).permittedActions;
+    const allowed = actions?.length
+      ? actions.includes('Activate')
+      : this.user.hasPermission('cam.campaigns.activate');
+    return allowed && this.startHasArrived(record);
+  }
+
+  /** True when the campaign's start date is today or earlier (no start date counts as arrived). */
+  private startHasArrived(record: CampaignRecord): boolean {
+    if (!record.startDate) return true;
+    const start = new Date(record.startDate);
+    if (Number.isNaN(start.getTime())) return true;
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    return start.getTime() <= today.getTime();
+  }
+
+  protected readonly activateDialogOpen = signal(false);
+  protected readonly activateTarget = signal<CampaignRecord | null>(null);
+  protected readonly activating = signal(false);
+
+  protected requestActivate(record: CampaignRecord): void {
+    if (!this.canActivate(record)) return;
+    this.closeRowMenu();
+    this.activateTarget.set(record);
+    this.activateDialogOpen.set(true);
+  }
+  protected cancelActivate(): void {
+    if (this.activating()) return;
+    this.activateDialogOpen.set(false);
+    this.activateTarget.set(null);
+  }
+  /** Activate through the shared store - the same call Campaign detail makes - and wait for it. */
+  protected confirmActivate(): void {
+    const record = this.activateTarget();
+    if (!record || this.activating()) return;
+    this.activating.set(true);
+    this.store.activate(record.code, (result: { readonly applied: boolean; readonly error?: string }) => {
+      this.activating.set(false);
+      if (!result.applied) {
+        this.toast.show(
+          'Campaign not activated',
+          result.error ?? `${record.code} could not be activated.`,
+          'error',
+        );
+        return;
+      }
+      // Show the new state at once, then let the reload bring the server's own.
+      this.store.applyStatus(record.code, 'Active');
+      this.store.reload(record.code);
+      this.lastActionReference.set(record.code);
+      this.activateDialogOpen.set(false);
+      this.activateTarget.set(null);
+      this.toast.show('Campaign activated', `${record.code} is now Active.`, 'success');
+    });
+  }
+
   // ----- Approve dialog (row action; approved by Super Admin or Campaign Manager) -----
   protected readonly approveDialogOpen = signal(false);
   protected readonly approveTarget = signal<CampaignRecord | null>(null);
@@ -673,7 +813,17 @@ export class CampaignRegisterComponent {
         );
         return;
       }
-      this.toast.show('Campaign approved', `${record.code} was approved.`, 'success');
+      // A MANUAL campaign whose start date has arrived does not switch itself on - say what is
+      // next, rather than leaving the approver to wonder why it is not live (BUG-052).
+      const fresh = this.store.get(record.code) ?? record;
+      const manual = (fresh as { activationMode?: string }).activationMode !== 'auto';
+      this.toast.show(
+        'Campaign approved',
+        manual && this.startHasArrived(fresh)
+          ? `${record.code} was approved. It is set to manual activation - use Activate to make it live.`
+          : `${record.code} was approved.`,
+        'success',
+      );
     });
     this.approveDialogOpen.set(false);
     this.approveTarget.set(null);
@@ -842,7 +992,13 @@ export class CampaignRegisterComponent {
     if (created) {
       this.lastActionReference.set(created);
       this.highlightRef.set(created);
+      // The new row must be visible: page 1, default (newest first) order, no filter hiding it.
+      this.currentPage.set(1);
+      this.sortColumn.set('');
+      this.sortDirection.set('desc');
       this.toast.show('Campaign saved', `Draft ${created} was created.`, 'success');
+      // The list may still be loading when we arrive - make sure the new campaign is fetched.
+      this.store.reload(created);
     }
 
     // No access must hide the record, fields, counts, actions and search — never a
@@ -975,7 +1131,8 @@ export class CampaignRegisterComponent {
     }
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
-  protected sortLabel(key: keyof CampaignRecord): string {
+  protected sortLabel(key: keyof CampaignRecord | ''): string {
+    if (!key) return 'Newest first';
     return this.columns.find((c) => c.key === key)?.label ?? String(key);
   }
 

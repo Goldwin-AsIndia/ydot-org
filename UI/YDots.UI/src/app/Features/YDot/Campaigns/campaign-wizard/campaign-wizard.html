@@ -1501,7 +1501,7 @@
                       <i class="ri-send-plane-line"></i> Submit 
                     </button>
                   } @else if (!isLastStep()) {
-                    <button type="button" class="btn btn-primary btn-sm" (click)="nextStep()">
+                    <button type="button" class="btn btn-primary btn-sm" style="padding-left: 16px;padding-right: 13px;" (click)="nextStep()">
                       Next Step <i class="ri-arrow-right-line"></i>
                     </button>
                   }
@@ -1535,7 +1535,28 @@
           </button> -->
           <h3 class="cw-modal-title" id="submit-title">Submit campaign configuration</h3>
               </header>
-              <div class="ov-body">
+              <!-- The body was empty: the dialog asked to confirm without saying what would be
+                   sent. It now recaps the campaign being submitted and what happens next. -->
+              <div class="ov-body cw-submit-body">
+                <p class="cw-submit-lead">
+                  You are submitting <strong>{{ campaignName().trim() || 'Untitled campaign' }}</strong> for approval.
+                  Check the details below, then confirm.
+                </p>
+                <dl class="cw-submit-list">
+                  <div><dt>Campaign code</dt><dd class="mono">{{ campaignCode() || '—' }}</dd></div>
+                  <div><dt>Fund / programme</dt><dd>{{ fundProgramme().trim() || '—' }}</dd></div>
+                  <div><dt>Owner</dt><dd>{{ ownersLabel() }}</dd></div>
+                  <div><dt>Campaign amount</dt><dd class="mono">{{ campaignAmountLabel() }}</dd></div>
+                  <div><dt>Target</dt><dd class="mono">{{ targetAmountLabel() }}</dd></div>
+                  <div><dt>Runs</dt><dd>{{ interpretDate(startDate()) }} &ndash; {{ interpretDate(endDate()) }}</dd></div>
+                  <div><dt>Location</dt><dd>{{ submitLocationLabel() || '—' }}</dd></div>
+                  <div><dt>Activation</dt><dd>{{ activationMode() === 'auto' ? 'Automatic on the start date' : 'Manual' }}</dd></div>
+                </dl>
+                <p class="cw-submit-note">
+                  <i class="ri-information-line" aria-hidden="true"></i>
+                  After you confirm, the campaign goes to its approver and can no longer be edited as a draft.
+                  A Super Admin's submission is approved straight away and moves to Scheduled.
+                </p>
               </div>
               <div class="cw-modal-actions">
                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelSubmit()">

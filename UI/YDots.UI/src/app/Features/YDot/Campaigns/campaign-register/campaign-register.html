@@ -52,9 +52,14 @@
             </label>
             <div class="cr-fbox cr-fbox--range" [class.is-invalid]="rangeInvalid()" [attr.title]="interpretedRange()">
               <span>Launch</span>
-              <input type="date" [ngModel]="rangeStart()" (ngModelChange)="rangeStart.set($event); currentPage.set(1)" aria-label="Launch from" />
+              <!-- BUG-003: [value] + (change) with the element itself, so a refused date can be put
+                   back on screen. With ngModel the refused value stayed visible in the box (the
+                   signal never changed, so nothing redrew it) - it looked accepted. -->
+              <input #launchFrom type="date" [value]="rangeStart()" (change)="onRangeStartChange(launchFrom.value, launchFrom)"
+                     [attr.max]="rangeEnd() || null" aria-label="Launch from" />
               <i aria-hidden="true">–</i>
-              <input type="date" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event); currentPage.set(1)" aria-label="Launch to" />
+              <input #launchTo type="date" [value]="rangeEnd()" (change)="onRangeEndChange(launchTo.value, launchTo)"
+                     [attr.min]="rangeStart() || null" aria-label="Launch to" />
             </div>
             @if (activeFilterSummary().length) {
               <button type="button" class="cr-b cr-b--sm" (click)="clearFilters()">Clear filters</button>
@@ -198,6 +203,9 @@
                         <button type="button" class="cr-act" title="Readiness checklist" aria-label="Readiness checklist" (click)="openReadiness(r)"><i class="ri-checkbox-multiple-line" aria-hidden="true"></i></button>
                         @if (canApprove(r)) {
                           <button type="button" class="cr-act cr-act--ok" title="Approve" aria-label="Approve" (click)="requestApprove(r)"><i class="ri-check-double-line" aria-hidden="true"></i></button>
+                        }
+                        @if (canActivate(r)) {
+                          <button type="button" class="cr-act cr-act--ok" title="Activate" aria-label="Activate" (click)="requestActivate(r)"><i class="ri-play-circle-line" aria-hidden="true"></i></button>
                         }
                         @if (canDeleteDraft(r)) {
                           <button type="button" class="cr-act cr-act--bad" title="Delete unused draft" aria-label="Delete unused draft" (click)="requestDeleteDraft(r)"><i class="ri-delete-bin-6-line" aria-hidden="true"></i></button>
@@ -415,6 +423,49 @@
             <button type="button" class="cr-btn cr-btn-danger" (click)="confirmDelete()"
               [disabled]="!deleteReasonValid()">
               Delete draft
+            </button>
+          </div>
+        </div>
+      </div>
+      }
+
+      <!-- ============ ACTIVATE DIALOG (BUG-052) — switch on an approved manual-activation campaign ============ -->
+      @if (activateDialogOpen() && activateTarget(); as target) {
+      <div class="cr-modal-backdrop" (click)="cancelActivate()">
+        <div class="cr-modal" role="dialog" aria-modal="true" aria-labelledby="cr-activate-title"
+          (click)="$event.stopPropagation()">
+          <header class="ov-head">
+          <button type="button" class="cr-modal-x" (click)="cancelActivate()" aria-label="Close" [disabled]="activating()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+          <h2 id="cr-activate-title" class="cr-modal-title">Activate campaign</h2>
+          </header>
+          <div class="ov-body">
+          <dl class="cr-kv">
+            <div>
+              <dt>Campaign</dt>
+              <dd>{{ target.name }} · {{ target.code }}</dd>
+            </div>
+            <div>
+              <dt>Before</dt>
+              <dd>{{ target.status }}</dd>
+            </div>
+            <div>
+              <dt>After</dt>
+              <dd>Active — it starts taking donations now</dd>
+            </div>
+            <div>
+              <dt>Runs</dt>
+              <dd>{{ formatDate(target.startDate) }} – {{ formatDate(target.endDate) }}</dd>
+            </div>
+          </dl>
+          </div>
+          <div class="cr-modal-actions">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelActivate()" [disabled]="activating()">
+              Cancel
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="confirmActivate()" [disabled]="activating()">
+              {{ activating() ? 'Activating…' : 'Activate' }}
             </button>
           </div>
         </div>

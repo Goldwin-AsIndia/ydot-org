@@ -2293,3 +2293,70 @@
 .tam-scope-row { display: flex; align-items: center; gap: calc(8px * var(--ui-scale, 1)); }
 .tam-scope-row .tam-scope-value { flex: 1 1 auto; min-width: 0; }
 .tam-scope-row .btn { flex: none; }
+
+/* =========================================================
+   DETAIL DRAWER ALIGNMENT (bug: fields and buttons not aligned)
+   - QR card: the text column sits at the top beside the QR, with a label, instead of a tall
+     empty box with one line floating in its middle.
+   - Footer: one row - take-down links on the left, Edit / Approve on the right - instead of a
+     lone Edit button and a second dashed row underneath.
+   - Header: title, meta and close button share one alignment line.
+   ========================================================= */
+.tam-generated-main { align-items: flex-start; }
+.tam-generated-text { align-self: stretch; justify-content: flex-start; gap: calc(8px * var(--ui-scale, 1)); padding-top: calc(2px * var(--ui-scale, 1)); }
+.tam-generated-text > .tam-dx-label { margin: 0; }
+.tam-generated-url { flex: none; }
+.tam-generated-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8px * var(--ui-scale, 1));
+  align-self: flex-start;
+  margin: 0;
+  padding: calc(7px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
+  border: 1px dashed var(--tam-line);
+  border-radius: calc(10px * var(--ui-scale, 1));
+  background: #ffffff;
+  color: var(--tam-ink);
+  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.929) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900);
+}
+.tam-generated-pending svg { flex: none; width: calc(16px * var(--ui-scale, 1)); height: calc(16px * var(--ui-scale, 1)); color: var(--tam-accent); }
+.tam-generated-hint {
+  margin: 0;
+  max-width: calc(320px * var(--ui-scale, 1));
+  color: var(--tam-muted);
+  font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 0.857) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.5;
+}
+
+.tam-detail-head .tam-detail-close { top: 50%; transform: translateY(-50%); }
+.tam-detail-meta { gap: calc(8px * var(--ui-scale, 1)); }
+
+.tam-detail-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: calc(10px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  min-height: calc(64px * var(--ui-scale, 1));
+}
+.tam-detail-foot > .tam-detail-why { flex: 1 1 100%; margin: 0; }
+.tam-detail-foot > .tam-detail-danger {
+  order: 0;
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+  gap: calc(4px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+}
+.tam-detail-foot > .tam-detail-actions { order: 1; margin-left: auto; }
+.tam-detail-actions:empty { display: none; }
+.tam-detail-danger-label { padding-right: calc(4px * var(--ui-scale, 1)); line-height: 1; }
+.tam-danger-link { line-height: 1.2; }
+
+@media (max-width: 480px) {
+  .tam-generated-main { flex-direction: column; align-items: center; }
+  .tam-generated-text { align-items: center; text-align: center; }
+  .tam-generated-pending { align-self: center; }
+  .tam-detail-foot > .tam-detail-actions { flex: 1 1 100%; margin-left: 0; }
+  .tam-detail-foot > .tam-detail-actions .btn { flex: 1 1 0; }
+}
