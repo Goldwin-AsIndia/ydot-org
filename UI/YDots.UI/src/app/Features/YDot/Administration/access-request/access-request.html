@@ -315,7 +315,7 @@
       <div class="ar-modal-body" (scroll)="dpField.set(null)">
         <div class="ar-form">
 
-          <!-- Request type: the server's four; fixed once raised -->
+          <!-- Request type: the server's list (Role assignment only); fixed once raised -->
           <div class="ar-field">
             <label class="ar-field-lbl">Request type <em class="ar-req">*</em></label>
             <div class="ar-dd" [class.is-open]="openDd() === 'requestType'" [class.is-invalid]="!!newReqError('requestType')" (click)="$event.stopPropagation()">
@@ -340,11 +340,11 @@
             @if (newReqError('requestType')) { <div class="invalid-feedback d-block">{{ newReqError('requestType') }}</div> }
           </div>
 
-          <!-- User (searchable); fixed once raised -->
+          <!-- User (searchable); fixed once raised, and fixed to the caller for someone who may only ask for themselves -->
           <div class="ar-field">
             <label class="ar-field-lbl">User <em class="ar-req">*</em></label>
             <div class="ar-dd" [class.is-open]="openDd() === 'user'" [class.is-invalid]="!!newReqError('userId')" (click)="$event.stopPropagation()">
-              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [disabled]="!!editing()" (click)="toggleDd('user')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'user'">
+              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [disabled]="!!editing() || !mayRequestForOthers()" (click)="toggleDd('user')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'user'">
                 <i class="ri-user-line ar-dd-lead" aria-hidden="true"></i>
                 @if (selectedUser(); as u) {
                   <span class="ar-dd-value">{{ u.displayName }} <small>· {{ u.orgUnit || u.reference }}</small></span>

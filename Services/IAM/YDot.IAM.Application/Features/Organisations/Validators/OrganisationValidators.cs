@@ -1,6 +1,9 @@
 ﻿using FluentValidation;
+using Microsoft.Extensions.Options;
+using YDot.IAM.Application.Common.Settings;
 using YDot.IAM.Application.Common.Validation;
 using YDot.IAM.Application.Features.Organisations.DTOs;
+using YDot.IAM.Application.Features.Organisations.Mappings;
 using YDot.IAM.Domain.ValueObjects;
 
 namespace YDot.IAM.Application.Features.Organisations.Validators;
@@ -227,36 +230,42 @@ public sealed class CheckSubdomainRequestValidator : AbstractValidator<CheckSubd
 public sealed class UpdateOrganisationSettingsRequestValidator
     : AbstractValidator<UpdateOrganisationSettingsRequest>
 {
-    public UpdateOrganisationSettingsRequestValidator()
+    public UpdateOrganisationSettingsRequestValidator(IOptions<SecuritySettings> securityOptions)
     {
+        ArgumentNullException.ThrowIfNull(securityOptions);
+
+        // THE PLATFORM POLICY'S RANGES, not ranges of this validator's own. These were 3-10
+        // attempts, 1-1440 lockout minutes, 8-64 characters and 5-480 idle minutes while the
+        // handler clamped to the platform policy, so a value inside these bounds but outside the
+        // policy was "saved" as something else without a word. Refusing it says why.
+        var limits = OrganisationSecurityLimits.From(securityOptions.Value);
+
         RuleFor(request => request.ExpectedVersion).GreaterThan(0);
 
-        // Bounds only. The handler CLAMPS against the platform floor, so an Organisation can
-        // tighten but never loosen - these ranges just catch nonsense before it gets there.
         RuleFor(request => request.MaximumFailedAccessAttempts)
-            .InclusiveBetween(3, 10)
+            .InclusiveBetween(limits.MaximumFailedAccessAttempts.Minimum, limits.MaximumFailedAccessAttempts.Maximum)
             .When(request => request.MaximumFailedAccessAttempts.HasValue)
-            .WithMessage("Allow between 3 and 10 failed attempts.");
+            .WithMessage($"Allow between {limits.MaximumFailedAccessAttempts.Minimum} and {limits.MaximumFailedAccessAttempts.Maximum} failed attempts.");
 
         RuleFor(request => request.LockoutDurationMinutes)
-            .InclusiveBetween(1, 1440)
+            .InclusiveBetween(limits.LockoutDurationMinutes.Minimum, limits.LockoutDurationMinutes.Maximum)
             .When(request => request.LockoutDurationMinutes.HasValue)
-            .WithMessage("Lockout must be between 1 minute and 24 hours.");
+            .WithMessage($"Lockout must be between {limits.LockoutDurationMinutes.Minimum} and {limits.LockoutDurationMinutes.Maximum} minutes.");
 
         RuleFor(request => request.PasswordMinimumLength)
-            .InclusiveBetween(8, 64)
+            .InclusiveBetween(limits.PasswordMinimumLength.Minimum, limits.PasswordMinimumLength.Maximum)
             .When(request => request.PasswordMinimumLength.HasValue)
-            .WithMessage("Require between 8 and 64 characters.");
+            .WithMessage($"Require between {limits.PasswordMinimumLength.Minimum} and {limits.PasswordMinimumLength.Maximum} characters.");
 
         RuleFor(request => request.PasswordExpiryDays)
-            .InclusiveBetween(0, 365)
+            .InclusiveBetween(limits.PasswordExpiryDays.Minimum, limits.PasswordExpiryDays.Maximum)
             .When(request => request.PasswordExpiryDays.HasValue)
-            .WithMessage("Password expiry must be between 0 (never) and 365 days.");
+            .WithMessage($"Password expiry must be between {limits.PasswordExpiryDays.Minimum} (never) and {limits.PasswordExpiryDays.Maximum} days.");
 
         RuleFor(request => request.SessionIdleTimeoutMinutes)
-            .InclusiveBetween(5, 480)
+            .InclusiveBetween(limits.SessionIdleTimeoutMinutes.Minimum, limits.SessionIdleTimeoutMinutes.Maximum)
             .When(request => request.SessionIdleTimeoutMinutes.HasValue)
-            .WithMessage("Idle timeout must be between 5 minutes and 8 hours.");
+            .WithMessage($"Idle sign-out must be between {limits.SessionIdleTimeoutMinutes.Minimum} and {limits.SessionIdleTimeoutMinutes.Maximum} minutes.");
     }
 }
 

@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using YDot.IAM.Application.Common.Abstractions.Persistence;
 using YDot.IAM.Application.Common.Abstractions.Security;
 using YDot.IAM.Application.Common.Abstractions.Services;
 using YDot.IAM.Application.Common.Constants;
 using YDot.IAM.Application.Common.Results;
 using YDot.IAM.Application.Common.Services;
+using YDot.IAM.Application.Common.Settings;
 using YDot.IAM.Application.DTOs;
 using YDot.IAM.Application.Features.Authentication.DTOs;
 using YDot.IAM.Domain.Entities;
@@ -48,6 +50,7 @@ public sealed class TokenCommandHandler(
     ITenantContext tenantContext,
     IDateTimeProvider clock,
     IUnitOfWork unitOfWork,
+    IOptions<SecuritySettings> securityOptions,
     ILogger<TokenCommandHandler> logger)
 {
     public async Task<Result<TokenResponse>> HandleAsync(
@@ -223,7 +226,12 @@ public sealed class TokenCommandHandler(
             : null;
 
         var businessUnit = await businessUnits.GetDefaultAsync(cancellationToken);
-        var idleMinutes = tenant?.SessionIdleTimeoutMinutes ?? 30;
+        // THE ORGANISATION'S IDLE WINDOW, never longer than the platform's. The browser reads
+        // idleTimeoutMinutes from here to decide when to ask for the password again, so this is
+        // what makes the Settings page's "Idle sign-out" do anything. At platform scope there is
+        // no Organisation, and the platform value applies.
+        var platformIdleMinutes = securityOptions.Value.SessionIdleTimeoutMinutes;
+        var idleMinutes = Math.Min(tenant?.SessionIdleTimeoutMinutes ?? platformIdleMinutes, platformIdleMinutes);
         var idleDeadline = session.LastActivityAtUtc.AddMinutes(idleMinutes);
         var secondsRemaining = (int)Math.Max(0, (idleDeadline - now).TotalSeconds);
 

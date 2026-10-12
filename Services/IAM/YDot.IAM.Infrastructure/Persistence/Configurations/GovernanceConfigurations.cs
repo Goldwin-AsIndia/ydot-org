@@ -56,10 +56,12 @@ public sealed class AccessRequestConfiguration : IEntityTypeConfiguration<Access
                 "length(business_justification) >= 10");
 
             // MAKER AND CHECKER, enforced by the database. A handler bug cannot produce a row
-            // where somebody approved their own request.
+            // where somebody approved their own request - unless the row says it was the
+            // Organisation Admin doing so, the one exemption the organisation allows.
             table.HasCheckConstraint(
                 "ck_iam_access_requests_independent_approver",
-                "decided_by_user_id IS NULL OR decided_by_user_id <> requested_by_user_id");
+                "decided_by_user_id IS NULL OR decided_by_user_id <> requested_by_user_id "
+                + "OR self_decided_by_organisation_admin");
 
             table.HasCheckConstraint(
                 "ck_iam_access_requests_window",

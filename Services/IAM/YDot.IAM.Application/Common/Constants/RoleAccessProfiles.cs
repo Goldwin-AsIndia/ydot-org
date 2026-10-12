@@ -306,6 +306,29 @@ public static class RoleAccessProfiles
     ];
 
     /// <summary>
+    /// Asking for access, and following the request: the only IAM codes a working role holds.
+    ///
+    /// EVERY STAFF ROLE RAISES ITS OWN REQUESTS - a Campaign Executive asking for Campaign Manager,
+    /// a Fundraiser Executive asking for a permission for a week - and the Organisation Admin
+    /// decides them. So the four working roles hold view, create, submit and withdraw, and none of
+    /// approve, reject or export. IAM narrows such a requester to the requests they raised or that
+    /// concern them, and to requests for themselves (see AccessRequestCommandHandler).
+    ///
+    /// DONOR AND DONORCARE HOLD NONE OF IT. Neither is an organisation role in this sense - one is
+    /// a member of the public, the other works the records assigned to them - so neither is
+    /// offered the Access Requests screen.
+    ///
+    /// DECLARED ABOVE THE PROFILES THAT USE IT, because static initialisers run in text order.
+    /// </summary>
+    private static IReadOnlyList<string> AccessRequestRequester { get; } =
+    [
+        PermissionCodes.AccessRequestsView,
+        PermissionCodes.AccessRequestsCreate,
+        PermissionCodes.AccessRequestsSubmit,
+        PermissionCodes.AccessRequestsWithdraw
+    ];
+
+    /// <summary>
     /// Grants a system role USED TO HOLD and must no longer, per role code.
     ///
     /// WHY THIS LIST HAS TO EXIST. <c>ReconcileSystemRolePermissionsAsync</c> only ever ADDS the
@@ -414,6 +437,7 @@ public static class RoleAccessProfiles
     [
         .. ExecutiveOf(CampaignModule)
             .Concat(CampaignReadsFromPayments)
+            .Concat(AccessRequestRequester)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
     ];
@@ -431,6 +455,7 @@ public static class RoleAccessProfiles
     [
         .. ManagerOf(CampaignModule)
             .Concat(CampaignReadsFromPayments)
+            .Concat(AccessRequestRequester)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
     ];
@@ -439,12 +464,24 @@ public static class RoleAccessProfiles
     /// FUNDRAISER EXECUTIVE: captures and submits leads and donors, records donation intents, and
     /// works leads, donors and follow-ups - and approves, closes or cancels no record.
     /// </summary>
-    public static IReadOnlyList<string> FundraiserExecutive { get; } = ExecutiveOf(DonorModule);
+    public static IReadOnlyList<string> FundraiserExecutive { get; } =
+    [
+        .. ExecutiveOf(DonorModule)
+            .Concat(AccessRequestRequester)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+    ];
 
     /// <summary>
     /// FUNDRAISING MANAGER: approves donor records, closes leads, cancels identity checks and
     /// decides duplicates, and works leads, donors and follow-ups alongside the team - and creates
     /// no lead, donor or donation intent.
     /// </summary>
-    public static IReadOnlyList<string> FundraisingManager { get; } = ManagerOf(DonorModule);
+    public static IReadOnlyList<string> FundraisingManager { get; } =
+    [
+        .. ManagerOf(DonorModule)
+            .Concat(AccessRequestRequester)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+    ];
 }

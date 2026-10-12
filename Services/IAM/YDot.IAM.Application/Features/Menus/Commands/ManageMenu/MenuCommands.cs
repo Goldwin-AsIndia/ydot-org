@@ -597,8 +597,8 @@ public sealed class MenuCommandHandler(
     /// <summary>
     /// An Organisation switching nodes on and off.
     ///
-    /// A mandatory node cannot be switched off — the dashboard and My Security have to remain
-    /// reachable, or somebody signs in and has nowhere to go. Nor can the section a mandatory
+    /// A mandatory node cannot be switched off — the dashboard has to remain reachable, or
+    /// somebody signs in and has nowhere to go. Nor can the section a mandatory
     /// node sits under, because a heading that disappears takes its children with it.
     ///
     /// THE CASCADE IS APPLIED HERE, not merely described. It was documented on this method and

@@ -10,6 +10,7 @@ import {
   CreateAccessRequestRequest,
   DecideAccessRequestRequest,
   ReturnAccessRequestRequest,
+  RoleLookupResponse,
   SubmitAccessRequestRequest,
   UpdateAccessRequestRequest,
   WithdrawAccessRequestRequest,
@@ -99,6 +100,17 @@ export class AccessRequestApiService {
           reference: response.headers.get('X-Export-Reference') ?? '',
         };
       }));
+  }
+
+  /**
+   * The roles a request may ask for. Its own endpoint under the permission to raise a request,
+   * because the role catalogue's lookup needs `iam.roles.view` and the people who ask for access
+   * - every working staff role - do not hold it.
+   */
+  requestableRoles(): Observable<RoleLookupResponse[]> {
+    return this.http
+      .get<ApiResponse<RoleLookupResponse[]>>(`${this.baseUrl}/requestable-roles`)
+      .pipe(map((response) => response.data ?? []));
   }
 
   get(id: string): Observable<AccessRequestDetailResponse> {

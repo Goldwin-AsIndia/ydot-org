@@ -163,7 +163,6 @@ public sealed class UserReadService(
             user.MobileCountryCode,
             UserMappingConfig.MaskMobile(user.MobileNumber, canSeeSensitiveContact),
             user.MobileConfirmed,
-            user.EngagementType,
             user.DepartmentId,
             user.Department?.Name,
             user.OrganisationUnitId,

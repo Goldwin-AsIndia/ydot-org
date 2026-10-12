@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using YDot.IAM.Application.Common.Abstractions.Persistence;
 using YDot.IAM.Application.Common.Abstractions.Security;
+using YDot.IAM.Application.Common.Constants;
 using YDot.IAM.Application.Common.Models;
 using YDot.IAM.Application.DTOs;
 using YDot.IAM.Application.Features.Roles.DTOs;
@@ -240,6 +241,11 @@ public sealed class RoleReadService(
                                 var implicitly = grantsAll && !permission.IsPlatformOnly;
                                 var isDenied = denied.Contains(permission.Id);
 
+                                // A role row naming one of these grants nothing - access is
+                                // resolved from the blanket grant alone - so the matrix does not
+                                // claim otherwise.
+                                var adminOnly = PermissionCodes.IsOrganisationAdminOnly(permission.Code);
+
                                 return new PermissionMatrixItemResponse(
                                     permission.Id,
                                     permission.Code,
@@ -248,9 +254,11 @@ public sealed class RoleReadService(
                                     permission.Action,
                                     permission.IsSensitive,
                                     // Deny wins, exactly as it does when access is resolved.
-                                    IsGranted: !isDenied && (granted.Contains(permission.Id) || implicitly),
+                                    IsGranted: !isDenied
+                                               && (implicitly || (granted.Contains(permission.Id) && !adminOnly)),
                                     IsDenied: isDenied,
-                                    IsImplicitlyGranted: implicitly);
+                                    IsImplicitlyGranted: implicitly,
+                                    IsOrganisationAdminOnly: adminOnly);
                             })
                         ]))
                     .ToList();

@@ -136,9 +136,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     mobileCountryCode: '',
     mobileNumber: '',
     employeeNumber: '',
-    // On the Identity step, where "Account type" used to be: it decides whether the employee
-    // number on the same step is required, so the two now sit together.
-    engagementType: '',
 
     // Organisation
     organisationUnitId: '',
@@ -188,7 +185,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   private static readonly FIELD_STEP: Record<string, number> = {
     title: 0, firstName: 0, middleName: 0, lastName: 0, displayName: 0,
     preferredName: 0, email: 0, username: 0, alternateEmail: 0,
-    mobileCountryCode: 0, mobileNumber: 0, employeeNumber: 0, engagementType: 0,
+    mobileCountryCode: 0, mobileNumber: 0, employeeNumber: 0,
 
     organisationId: 1, organisationUnitId: 1, departmentId: 1,
     designation: 1, managerUserId: 1, workLocation: 1, preferredLanguage: 1, timeZoneId: 1,
@@ -217,7 +214,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
   /** Element ids, to move focus to the first invalid field. */
   private static readonly FIELD_ID: Record<string, string> = {
-    engagementType: 'cuEngagement', firstName: 'cuFirst', lastName: 'cuLast', displayName: 'cuDisplay',
+    firstName: 'cuFirst', lastName: 'cuLast', displayName: 'cuDisplay',
     preferredName: 'cuPreferred', email: 'cuEmail', username: 'cuUsername', mobileCountryCode: 'cuCode',
     mobileNumber: 'cuMobile', employeeNumber: 'cuEmployee', designation: 'cuDesignation',
     workLocation: 'cuLocation', businessJustification: 'cuJustification',
@@ -235,7 +232,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   private static readonly FIELD_LABEL: Record<string, string> = {
     firstName: 'First name', lastName: 'Last name', displayName: 'Display name',
     preferredName: 'Preferred name', email: 'Login e-mail', username: 'Username', mobileCountryCode: 'Country code',
-    mobileNumber: 'Mobile', employeeNumber: 'Employee or volunteer number', engagementType: 'Engagement',
+    mobileNumber: 'Mobile', employeeNumber: 'Employee or volunteer number',
     workLocation: 'Work location',
     primaryRoleId: 'Primary role', dataScopeType: 'Data scope', mfaRequirement: 'Two-step verification',
     businessJustification: 'Business justification',
@@ -243,7 +240,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
   /** The fields each step checks, in screen order. */
   private static readonly STEP_FIELDS: string[][] = [
-    ['engagementType', 'firstName', 'lastName', 'displayName', 'preferredName', 'email', 'username',
+    ['firstName', 'lastName', 'displayName', 'preferredName', 'email', 'username',
       'mobileCountryCode', 'mobileNumber', 'employeeNumber'],
     ['designation', 'workLocation'],
     ['primaryRoleId', 'dataScopeType', 'businessJustification'],
@@ -269,12 +266,12 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
       case 'mobileNumber':
         return f.mobileNumber.trim() && !f.mobileCountryCode
           ? null
-          : phoneWithCodeError('Mobile', f.mobileCountryCode, f.mobileNumber, { required: this.mobileRequired() });
+          : phoneWithCodeError('Mobile', f.mobileCountryCode, f.mobileNumber, { required: false });
+      // Optional for everybody since the engagement type was removed - the server agrees.
       case 'employeeNumber':
-        return employeeNumberError('Employee or volunteer number', f.employeeNumber, this.employeeNumberRequired());
+        return employeeNumberError('Employee or volunteer number', f.employeeNumber, false);
       case 'designation': return textWithLettersError('Designation', f.designation, { required: false, max: 120 });
       case 'workLocation': return textWithLettersError('Work location', f.workLocation, { required: false, max: 200 });
-      case 'engagementType': return requiredError('Engagement', f.engagementType);
       case 'primaryRoleId': return f.primaryRoleId ? null : 'Choose a primary role.';
       case 'dataScopeType': return requiredError('Data scope', f.dataScopeType);
       case 'mfaRequirement': return requiredError('Two-step verification', f.mfaRequirement);
@@ -305,7 +302,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   //
   // TWO SOURCES, AND THE DISTINCTION MATTERS. Reference data is this ORGANISATION'S records -
   // its roles, departments, units and managers, each a GUID. The enum payload is the PRODUCT'S
-  // fixed vocabulary - account categories, engagement types - each a stable name. Reading one
+  // fixed vocabulary - data scopes, two-step requirements - each a stable name. Reading one
   // from the other is how a dropdown ends up permanently empty.
   readonly organisationUnits = computed<LookupItem[]>(() => this.view()?.organisationUnits ?? []);
   readonly departments = computed<LookupItem[]>(() => this.view()?.departments ?? []);
@@ -348,8 +345,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     return this.dataScopeTypes().find((scope) => String(scope.value) === chosen)?.label ?? chosen;
   });
   readonly managers = computed<LookupItem[]>(() => this.view()?.managers ?? []);
-
-  readonly engagementTypes = computed<EnumOption[]>(() => this.enums()?.engagementTypes ?? []);
 
   /**
    * The data scopes this form can actually grant.
@@ -422,36 +417,10 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   });
 
   // ---- Step validity ---------------------------------------------------------------------------
-
-  /**
-   * Fields that become mandatory for the chosen account category.
-   *
-   * MIRRORS THE SERVER'S VALIDATOR, and is a courtesy rather than a control: the API refuses a
-   * create that breaks the same rule, so the worst this can do if it drifts is let somebody
-   * press Create and be told one step later. It is written out here rather than fetched because
-   * the rule is two lines long, and an endpoint whose whole payload is "employees need a staff
-   * number" is more moving parts than the rule deserves.
-   *
-   * The rule: SALARIED STAFF (full-time or part-time) have a staff number, because payroll and
-   * the directory both key on it. A contractor, volunteer, intern or external party does not.
-   * It used to need "Account type: Employee" as well; the account type was removed, because the
-   * engagement already says it and the role says the rest.
-   */
-  readonly conditionalFields = computed<string[]>(() => {
-    // CASE-INSENSITIVE: the form holds the server's own enum value ("FullTime").
-    const engagement = this.form().engagementType?.toLowerCase();
-    const isSalaried = engagement === 'fulltime' || engagement === 'parttime';
-
-    return isSalaried ? ['employeeNumber'] : [];
-  });
-
-  readonly employeeNumberRequired = computed(() =>
-    this.conditionalFields().some((field) => field.toLowerCase().includes('employee')),
-  );
-
-  readonly mobileRequired = computed(() =>
-    this.conditionalFields().some((field) => field.toLowerCase().includes('mobile')),
-  );
+  //
+  // NO FIELD IS CONDITIONALLY REQUIRED ANY MORE. The employee number used to be required for
+  // full-time and part-time staff, keyed on the Engagement dropdown; Engagement was removed, and
+  // the number is optional for everybody - on the server as well as here.
 
   readonly identityComplete = computed(() =>
     CreateUserComponent.STEP_FIELDS[0].every((field) => this.localError(field) === null),
@@ -597,7 +566,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     return {
       title: this.titles().map((t) => ({ value: t, label: t })),
       mobileCountryCode: this.countryCodes().map((c) => ({ value: c, label: c })),
-      engagementType: fromEnum(this.engagementTypes()),
       organisationUnitId: fromLookup(this.organisationUnits()),
       departmentId: fromLookup(this.departments()),
       // VALUE is the culture code, because users.preferred_language stores exactly that.
@@ -837,7 +805,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
     return [
       // Identity — every box on the step, not just the asterisked ones.
-      filled(f.engagementType),
       filled(f.title),
       filled(f.firstName),
       filled(f.middleName),
@@ -941,7 +908,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
       mobileCountryCode: f.mobileNumber ? f.mobileCountryCode : null,
       mobileNumber: f.mobileNumber || null,
 
-      engagementType: f.engagementType as CreateUserRequest['engagementType'],
       organisationUnitId: f.organisationUnitId || null,
       departmentId: f.departmentId || null,
       designation: f.designation || null,

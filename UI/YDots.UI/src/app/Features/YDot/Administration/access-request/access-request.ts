@@ -7,7 +7,6 @@ import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { AccessRequestApiService, AccessRequestSearchFilter } from '../../../../Service/access-request-api.service';
 import { UserDirectoryApiService } from '../../../../Service/user-directory-api.service';
-import { RoleCatalogueApiService } from '../../../../Service/role-catalogue-api.service';
 import { UserAdminApiService } from '../../../../Service/user-admin-api.service';
 import { IamAdminApiService } from '../../../../Service/iam-admin-api.service';
 import {
@@ -113,7 +112,6 @@ export class AccessRequestComponent {
   private readonly toast = inject(ToastService);
   private readonly api = inject(AccessRequestApiService);
   private readonly userApi = inject(UserDirectoryApiService);
-  private readonly roleApi = inject(RoleCatalogueApiService);
   private readonly userAdminApi = inject(UserAdminApiService);
   private readonly files = inject(IamAdminApiService);
   private readonly tokens = inject(AuthTokenService);
@@ -125,6 +123,13 @@ export class AccessRequestComponent {
   /** Raising a request. The server checks the same permission on POST. */
   readonly canCreate = computed(() => this.tokens.hasPermission('iam.access-requests.create'));
 
+  /**
+   * Raising a request for somebody else. The server allows it only to a caller who decides
+   * requests; everybody else - every working staff role - asks for themselves, so the User box
+   * is filled with the caller and fixed.
+   */
+  readonly mayRequestForOthers = computed(() => this.tokens.hasPermission('iam.access-requests.approve'));
+
   /** Exporting the queue. Its own permission, like every export; the export is audited. */
   readonly canExport = computed(() => this.tokens.hasPermission('iam.access-requests.export'));
 
@@ -134,7 +139,7 @@ export class AccessRequestComponent {
   readonly requestTypeOptions = signal<ApiEnumOption[]>([]);
   readonly scopeTypeOptions = signal<ApiEnumOption[]>([]);
 
-  /** Active organisation roles, from `/roles/lookup`. */
+  /** Active organisation roles, from `/governance/access-requests/requestable-roles`. */
   readonly availableRoles = signal<LookupItem[]>([]);
 
   /** Permissions an organisation role may carry, for a single-permission request. Loaded on first use. */
@@ -307,13 +312,15 @@ export class AccessRequestComponent {
   retry(): void { this.loadData(); }
 
   /**
-   * The roles that can be asked for: active organisation roles, from `/roles/lookup`.
+   * The roles that can be asked for: active organisation roles, from the access request
+   * endpoint rather than `/roles/lookup`, which needs `iam.roles.view` - a role administrator's
+   * code that the people asking for access do not hold.
    *
    * A role that holds every permission by flag reports a count of zero rows, so it says "All
    * permissions" rather than "0 permissions" - the same convention as the role catalogue.
    */
   private loadRoleCatalogue(): void {
-    this.roleApi.getRoleLookup().subscribe({
+    this.api.requestableRoles().subscribe({
       next: (roles) => {
         this.availableRoles.set(roles.map((role) => {
           const reach = (role as { grantsAllTenantPermissions?: boolean }).grantsAllTenantPermissions === true
@@ -496,7 +503,17 @@ export class AccessRequestComponent {
 
   selectedUser(): { id: string; reference: string; displayName: string; orgUnit: string } | undefined {
     const id = this.newRequestForm().userId;
-    return this.userOptions().find(u => u.id === id);
+    const listed = this.userOptions().find(u => u.id === id);
+    if (listed || !id) {
+      return listed;
+    }
+
+    // The caller, before the people directory has answered (or if it could not): the box must
+    // still name who a self-service request is for.
+    const me = this.tokens.user();
+    return me?.id === id
+      ? { id, reference: me.code ?? '', displayName: me.displayName ?? '', orgUnit: '' }
+      : undefined;
   }
 
   initials(name: string | null | undefined): string {
@@ -757,7 +774,17 @@ export class AccessRequestComponent {
 
   openNewRequest(): void {
     this.editing.set(null);
-    this.resetDialog({ ...EMPTY_FORM });
+
+    // The server offers one request type today - Role assignment - so it starts chosen rather
+    // than leaving a one-item list to be picked by hand.
+    const types = this.requestTypeOptions();
+
+    // Asking for yourself, unless you are somebody who decides requests - see mayRequestForOthers.
+    this.resetDialog({
+      ...EMPTY_FORM,
+      requestType: types.length === 1 ? types[0].value : '',
+      userId: this.mayRequestForOthers() ? '' : (this.tokens.user()?.id ?? ''),
+    });
   }
 
   /**

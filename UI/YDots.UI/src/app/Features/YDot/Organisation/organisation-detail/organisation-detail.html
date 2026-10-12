@@ -58,6 +58,11 @@
               </a>
             }
           }
+          @if (isSettingsPage() && showSecurityTab() && canViewPaymentGateways()) {
+            <a routerLink="/app/configuration/payment/gateways" class="btn btn-outline-secondary btn-sm">
+              <i class="ri-bank-card-line"></i> Payment gateways
+            </a>
+          }
           @if (!isSettingsPage() && tab() === 'profile' && canEditProfile() && !editing()) {
             <button type="button" class="btn btn-primary btn-sm" (click)="startEditing()">
               <i class="ri-edit-line"></i> Edit
@@ -700,7 +705,7 @@
             <p>Lock out repeated failures and sign out idle sessions.</p>
           </div>
           <div class="og-num-grid">
-            @for (f of signInLimits; track f.key) {
+            @for (f of signInLimits(); track f.key) {
               <ng-container [ngTemplateOutlet]="numTile" [ngTemplateOutletContext]="{ $implicit: f }"></ng-container>
             }
           </div>
@@ -712,7 +717,7 @@
             <p>Length and rotation for every account.</p>
           </div>
           <div class="og-num-grid">
-            @for (f of passwordRules; track f.key) {
+            @for (f of passwordRules(); track f.key) {
               <ng-container [ngTemplateOutlet]="numTile" [ngTemplateOutletContext]="{ $implicit: f }"></ng-container>
             }
           </div>

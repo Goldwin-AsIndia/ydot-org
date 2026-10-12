@@ -202,7 +202,6 @@ public sealed class IdentityAccountService(
                 MobileCountryCode: mobileCountryCode,
                 MobileNumber: mobileNumber,
                 RoleCodes: [_settings.DonorRoleCode],
-                EngagementType: _settings.DonorEngagementType,
 
                 // The invitation names the donation so the donor recognises what they are
                 // activating. An unexplained account invitation from a charity is one people
@@ -430,7 +429,6 @@ public sealed class IdentityAccountService(
         string? MobileCountryCode,
         string? MobileNumber,
         IReadOnlyList<string> RoleCodes,
-        string EngagementType,
         string InvitationMessage,
         bool SendInvitation);
 

@@ -1,8 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using YDot.IAM.Application.Common.Abstractions.Persistence;
 using YDot.IAM.Application.Common.Abstractions.Security;
 using YDot.IAM.Application.Common.Abstractions.Services;
 using YDot.IAM.Application.Common.Models;
+using YDot.IAM.Application.Common.Settings;
 using YDot.IAM.Application.DTOs;
 using YDot.IAM.Application.Features.Organisations.DTOs;
 using YDot.IAM.Application.Features.Organisations.Mappings;
@@ -26,7 +28,8 @@ namespace YDot.IAM.Infrastructure.Persistence.ReadServices;
 public sealed class OrganisationReadService(
     IamDbContext context,
     ITenantContext tenantContext,
-    IDateTimeProvider clock) : IOrganisationReadService
+    IDateTimeProvider clock,
+    IOptions<SecuritySettings> securityOptions) : IOrganisationReadService
 {
     public async Task<PagedResponse<OrganisationListItemResponse>> SearchAsync(
         TenantSearchFilter filter, CancellationToken cancellationToken)
@@ -345,7 +348,8 @@ public sealed class OrganisationReadService(
                 .ThenByDescending(document => document.UploadedAtUtc)],
             [.. tenant.StatusHistory.OrderByDescending(history => history.OccurredAtUtc)],
             now,
-            includeInternalNotes);
+            includeInternalNotes,
+            OrganisationSecurityLimits.From(securityOptions.Value));
     }
 
     /// <summary>Sorting from a closed set, for the same reason as the user directory.</summary>

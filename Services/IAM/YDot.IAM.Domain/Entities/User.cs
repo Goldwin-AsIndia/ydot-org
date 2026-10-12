@@ -188,9 +188,10 @@ public class User : IdentityUser<Guid>, IAuditable, ITenantScoped
 
     public DateTimeOffset? LastSignedInAtUtc { get; set; }
 
-    // ---- Engagement -----------------------------------------------------------------------------
-
-    public EngagementType EngagementType { get; set; } = EngagementType.FullTime;
+    // ---- Employment dates ------------------------------------------------------------------------
+    //
+    // There is no engagement type any more (full-time, contract, volunteer...). It was removed by
+    // request with its column; the roles a person holds say what kind of account it is.
 
     public DateTimeOffset? JoinedOn { get; set; }
 

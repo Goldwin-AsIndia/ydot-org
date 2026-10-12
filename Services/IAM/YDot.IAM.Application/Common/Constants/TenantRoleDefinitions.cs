@@ -35,8 +35,8 @@ public static class TenantRoleDefinitions
     ///
     /// <paramref name="MenuScope"/> is the part of the sidebar the role is MAPPED to: each code
     /// named, everything beneath it and the headings above it. Null maps the whole Organisation
-    /// catalogue; an empty list maps nothing beyond the mandatory nodes - the dashboard and My
-    /// Security - which every role keeps. It is what the seeder writes into the Menu
+    /// catalogue; an empty list maps nothing beyond the mandatory node - the dashboard - which every
+    /// role keeps. It is what the seeder writes into the Menu
     /// Configuration grid, and like every row there it can only ever hide a screen: a node inside
     /// the scope still needs the permission its screen requires.
     /// </summary>
@@ -53,6 +53,14 @@ public static class TenantRoleDefinitions
 
     /// <summary>The Campaigns branch: Campaign Overview and Tracking Asset Manager.</summary>
     private const string CampaignMenus = "FR_CAMPAIGNS";
+
+    /// <summary>
+    /// Access Requests, under Access and Identity: where a member of staff asks for
+    /// a role or a permission and follows the answer. Every working staff role is mapped to it;
+    /// Donor and DonorCare are not, because neither is an organisation role in that sense - see
+    /// RoleAccessProfiles.AccessRequestRequester.
+    /// </summary>
+    private const string AccessRequestMenus = "ADMIN_ACCESS_REQUESTS";
 
     /// <summary>
     /// The fundraising team's Donors and Leads menus, per the role flow: Lead Work Queue, Donor
@@ -107,7 +115,7 @@ public static class TenantRoleDefinitions
             Priority: 80,
             PermissionCodes: RoleAccessProfiles.CampaignManager,
             IsPrivileged: true,
-            MenuScope: [CampaignMenus]),
+            MenuScope: [CampaignMenus, AccessRequestMenus]),
 
         // ============ FUNDRAISING MANAGER ===================================================
         new(
@@ -118,7 +126,7 @@ public static class TenantRoleDefinitions
             Priority: 80,
             PermissionCodes: RoleAccessProfiles.FundraisingManager,
             IsPrivileged: true,
-            MenuScope: DonorAndLeadMenus),
+            MenuScope: [.. DonorAndLeadMenus, AccessRequestMenus]),
 
         // ============ CAMPAIGN EXECUTIVE ====================================================
         //
@@ -134,7 +142,7 @@ public static class TenantRoleDefinitions
             Priority: 60,
             PermissionCodes: RoleAccessProfiles.CampaignExecutive,
             IsDefault: true,
-            MenuScope: [CampaignMenus]),
+            MenuScope: [CampaignMenus, AccessRequestMenus]),
 
         // ============ FUNDRAISER EXECUTIVE ==================================================
         new(
@@ -144,7 +152,7 @@ public static class TenantRoleDefinitions
             + "consent and follow-ups, and keeps donor records up to date. Approves nothing.",
             Priority: 60,
             PermissionCodes: RoleAccessProfiles.FundraiserExecutive,
-            MenuScope: DonorAndLeadMenus),
+            MenuScope: [.. DonorAndLeadMenus, AccessRequestMenus]),
 
         // ============ DONORCARE =============================================================
         //

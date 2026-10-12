@@ -253,7 +253,13 @@ public sealed record OrganisationDetailResponse(
     /// Organisation's to edit. Empty means the profile is closed to edits entirely, which is
     /// the case while a submission is with a reviewer and after archival.
     /// </summary>
-    IReadOnlyList<string> EditableProfileFields);
+    IReadOnlyList<string> EditableProfileFields,
+
+    /// <summary>
+    /// What each security setting may be set to in this deployment. The settings form draws its
+    /// ranges from here, so it offers exactly what a save will accept.
+    /// </summary>
+    OrganisationSecurityLimitsResponse SecurityLimits);
 
 /// <summary>A host name that reaches this Organisation.</summary>
 public sealed record OrganisationDomainResponse(
@@ -422,3 +428,23 @@ public sealed record UpdateOrganisationSettingsRequest(
     int? PasswordMinimumLength = null,
     int? PasswordExpiryDays = null,
     int? SessionIdleTimeoutMinutes = null);
+
+/// <summary>The values one security setting may take, both ends included.</summary>
+public sealed record SecuritySettingRangeResponse(int Minimum, int Maximum);
+
+/// <summary>
+/// The range of every numeric Organisation security setting, worked out from the platform
+/// policy (<c>SecuritySettings</c>) rather than written into the screen.
+///
+/// WHY THE SERVER SAYS IT. The settings form carried its own ranges - 3 to 10 failed attempts,
+/// 5 to 480 idle minutes - while the save clamped every value to the platform policy, so an
+/// administrator who chose 60 idle minutes was told "Settings saved" and then shown 30. The
+/// validator, the save and the form now read the one definition in
+/// <c>OrganisationSecurityLimits</c>.
+/// </summary>
+public sealed record OrganisationSecurityLimitsResponse(
+    SecuritySettingRangeResponse MaximumFailedAccessAttempts,
+    SecuritySettingRangeResponse LockoutDurationMinutes,
+    SecuritySettingRangeResponse PasswordMinimumLength,
+    SecuritySettingRangeResponse PasswordExpiryDays,
+    SecuritySettingRangeResponse SessionIdleTimeoutMinutes);

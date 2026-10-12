@@ -81,7 +81,6 @@ public sealed class ReferenceDataQueryHandler(
     /// </summary>
     private static EnumOptionsResponse BuildEnumOptions() => new(
         Describe<UserStatus>(),
-        Describe<EngagementType>(),
         Describe<MfaRequirement>(),
         // The security pages' own words, from the one place they are kept.
         Describe<MfaMethodType>(UserMappingConfig.DescribeMfaMethod),
@@ -94,7 +93,12 @@ public sealed class ReferenceDataQueryHandler(
         Describe<DataScopeType>(GovernanceMappingConfig.DescribeScopeType),
         Describe<TenantStatus>(),
         Describe<TenantDocumentType>(),
-        Describe<AccessRequestType>(),
+        // Only what can be raised - the Request type dropdown offers exactly this list.
+        [
+            .. Describe<AccessRequestType>()
+                .Where(option => GovernanceMappingConfig.RequestableTypes
+                    .Any(type => type.ToString() == option.Value))
+        ],
         Describe<AccessRequestStatus>(),
         Describe<AccessReviewStatus>(),
         Describe<AccessReviewDecision>(),
@@ -187,7 +191,6 @@ public sealed record EnumOption(
 /// <summary>Every enum the client renders as a dropdown.</summary>
 public sealed record EnumOptionsResponse(
     IReadOnlyList<EnumOption> UserStatuses,
-    IReadOnlyList<EnumOption> EngagementTypes,
     IReadOnlyList<EnumOption> MfaRequirements,
     IReadOnlyList<EnumOption> MfaMethodTypes,
     IReadOnlyList<EnumOption> RoleStatuses,
@@ -196,7 +199,9 @@ public sealed record EnumOptionsResponse(
     IReadOnlyList<EnumOption> DataScopeTypes,
     IReadOnlyList<EnumOption> OrganisationStatuses,
     IReadOnlyList<EnumOption> DocumentTypes,
+    /// <summary>The kinds of request that can be raised: role assignment only.</summary>
     IReadOnlyList<EnumOption> AccessRequestTypes,
+
     IReadOnlyList<EnumOption> AccessRequestStatuses,
     IReadOnlyList<EnumOption> AccessReviewStatuses,
     IReadOnlyList<EnumOption> AccessReviewDecisions,

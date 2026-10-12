@@ -1016,6 +1016,16 @@ export class UserProfileComponent {
     });
   }
   viewSecurity(): void { this.router.navigate(['/app/administration/users', this.userReference(), 'security']); }
+
+  /**
+   * Access Preview for the person on screen. The screen has no sidebar entry; this is its way in,
+   * and it opens on this person. Offered to whoever passes the screen's own guard.
+   */
+  readonly canPreviewAccess = computed(() => !!this.userId() && this.tokens.hasPermission('iam.permissions.view'));
+
+  previewAccess(): void {
+    void this.router.navigate(['/app/administration/access/access-preview'], { queryParams: { user: this.userId() } });
+  }
   viewLoginIdentifierChange(): void {
     this.router.navigate(['/app/administration/users', this.userReference(), 'login-identifier-change']);
   }

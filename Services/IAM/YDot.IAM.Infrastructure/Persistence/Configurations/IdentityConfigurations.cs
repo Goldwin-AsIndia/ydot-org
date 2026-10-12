@@ -108,7 +108,6 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(user => user.Status).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(user => user.MfaRequirement).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(user => user.PrivilegeLevel).HasConversion<string>().HasMaxLength(80).IsRequired();
-        builder.Property(user => user.EngagementType).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(user => user.CredentialSetupMethod).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(user => user.LastLoginClientType).HasConversion<string>().HasMaxLength(40).IsRequired();
 

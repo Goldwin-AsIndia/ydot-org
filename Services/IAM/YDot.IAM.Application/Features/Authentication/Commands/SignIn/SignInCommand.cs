@@ -376,13 +376,26 @@ public sealed class SignInCommandHandler(
 
         ApplyLoginCapture(user, client, request, now);
 
+        // PASSWORD EXPIRY IS ENFORCED HERE, where every successful sign-in ends - password and
+        // MFA alike. The Organisation's "Password expires after" setting was saved and shown and
+        // never read, so a password set years ago went on working whatever it said. An expired
+        // password now takes the same road as an administrator's temporary one: the person is
+        // signed in, and sent to change it before anything else.
+        var passwordExpired = !user.MustChangePassword && IsPasswordExpired(user, tenant, now);
+        if (passwordExpired)
+        {
+            user.MustChangePassword = true;
+
+            logger.LogInformation("Password expired; a change is required before continuing. {UserId}", user.Id);
+        }
+
         await RecordAttemptAsync(
             user, identifier, businessUnit.Id, tenant?.Id, SignInOutcome.Succeeded,
             client, request, now, 0, 0, false, cancellationToken, tokens.SessionId);
 
         await audit.WriteAsync(
             AuditActionCodes.SignInSucceeded, nameof(User), user.Id, user.DisplayName,
-            new { TenantId = tenant?.Id, Scope = scope.ToString(), request.ClientType },
+            new { TenantId = tenant?.Id, Scope = scope.ToString(), request.ClientType, PasswordExpired = passwordExpired },
             cancellationToken: cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -394,9 +407,14 @@ public sealed class SignInCommandHandler(
         // they change it. The client routes straight to the change-password screen.
         if (user.MustChangePassword)
         {
-            return Result.Success(AuthenticationMappingConfig.ToPasswordChangeRequiredResponse(
-                tokens, sessions.BuildUserResponse(user, access),
-                sessions.BuildTenantResponse(tenant, businessUnit, scope, isTenantMode: false)));
+            return Result.Success(passwordExpired
+                ? AuthenticationMappingConfig.ToPasswordChangeRequiredResponse(
+                    tokens, sessions.BuildUserResponse(user, access),
+                    sessions.BuildTenantResponse(tenant, businessUnit, scope, isTenantMode: false),
+                    "Your password has expired. Choose a new one to continue.")
+                : AuthenticationMappingConfig.ToPasswordChangeRequiredResponse(
+                    tokens, sessions.BuildUserResponse(user, access),
+                    sessions.BuildTenantResponse(tenant, businessUnit, scope, isTenantMode: false)));
         }
 
         return Result.Success(AuthenticationMappingConfig.ToSuccessResponse(
@@ -404,6 +422,29 @@ public sealed class SignInCommandHandler(
             sessions.BuildUserResponse(user, access),
             sessions.BuildTenantResponse(tenant, businessUnit, scope,
                 isTenantMode: scope == AccessScopeType.Global && tenant is not null)));
+    }
+
+    /// <summary>
+    /// Whether the person's password is older than the expiry period allows.
+    ///
+    /// THE SHORTER OF THE TWO PERIODS WINS, ignoring zero, which means "never": the Organisation
+    /// may tighten the platform policy and not loosen it, as with every other setting. A password
+    /// never changed since the account was created is as old as the account.
+    /// </summary>
+    private bool IsPasswordExpired(User user, Tenant? tenant, DateTimeOffset now)
+    {
+        var periods = new[] { tenant?.PasswordExpiryDays ?? 0, _security.PasswordExpiryDays }
+            .Where(days => days > 0)
+            .ToList();
+
+        if (periods.Count == 0)
+        {
+            return false;
+        }
+
+        var setAt = user.PasswordChangedAtUtc ?? user.CreatedAtUtc;
+
+        return setAt.AddDays(periods.Min()) <= now;
     }
 
     /// <summary>

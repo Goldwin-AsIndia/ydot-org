@@ -1,6 +1,7 @@
 using FluentValidation;
 using YDot.IAM.Application.Common.Validation;
 using YDot.IAM.Application.Features.Governance.DTOs;
+using YDot.IAM.Application.Features.Governance.Mappings;
 using YDot.IAM.Application.Features.Menus.DTOs;
 using YDot.IAM.Application.Features.Roles.DTOs;
 using YDot.IAM.Application.Features.Users.DTOs;
@@ -54,14 +55,9 @@ public sealed class CreateUserRequestValidator : AbstractValidator<CreateUserReq
             .When(request => request.AccessStartsAtUtc.HasValue && request.AccessEndsAtUtc.HasValue)
             .WithMessage("The access end date must be after the start date.");
 
-        // A salaried member of staff carries a staff number; a contractor, volunteer, intern or
-        // external party (a donor account is External) does not. This used to be keyed on the
-        // account category as well, which was removed: the engagement already says it.
-        RuleFor(request => request.EmployeeNumber)
-            .NotEmpty()
-            .When(request => request.EngagementType is EngagementType.FullTime or EngagementType.PartTime)
-            .WithMessage("An employee number is required for full-time and part-time staff.");
-
+        // THE EMPLOYEE NUMBER IS OPTIONAL FOR EVERYBODY. It used to be required for full-time and
+        // part-time staff, keyed on the engagement type - which has been removed, so nothing on the
+        // record says any more who is salaried.
         RuleForEach(request => request.RoleCodes).MaximumLength(64);
 
         RuleFor(request => request.InvitationMessage).MaximumLength(1000);
@@ -511,6 +507,11 @@ public sealed class CreateAccessRequestRequestValidator : AbstractValidator<Crea
     public CreateAccessRequestRequestValidator()
     {
         RuleFor(request => request.RequestedForUserId).NotEmpty();
+
+        // Role assignment is the only kind that can be raised - see RequestableTypes.
+        RuleFor(request => request.RequestType)
+            .Must(type => GovernanceMappingConfig.RequestableTypes.Contains(type))
+            .WithMessage("Only a role assignment can be requested.");
 
         // The justification is the whole point of the record, so a token one is refused.
         RuleFor(request => request.BusinessJustification)

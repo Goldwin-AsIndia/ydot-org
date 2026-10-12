@@ -18,8 +18,24 @@ public sealed record AccessRequestViewer(
     bool CanEdit,
     bool CanSubmit,
     bool CanDecide,
-    bool CanWithdraw)
+    bool CanWithdraw,
+    bool IsOrganisationAdmin = false)
 {
+    /// <summary>
+    /// Whether the caller sees every request in the Organisation, rather than only the ones they
+    /// raised or that are for them.
+    ///
+    /// A DECIDER HAS TO, because the queue is where they decide. Anybody else - a member of staff
+    /// who may only ask - has no business reading a colleague's justification for wanting a role.
+    /// </summary>
+    public bool SeesAll => CanDecide;
+
+    /// <summary>
+    /// Whether the caller may raise a request for somebody other than themselves. The same rule
+    /// as <see cref="SeesAll"/>: asking on another person's behalf is an administrator's act.
+    /// </summary>
+    public bool MayRequestForOthers => CanDecide;
+
     /// <summary>The caller, with the four permissions the access request endpoints are gated on.</summary>
     public static AccessRequestViewer From(ICurrentUser currentUser)
     {
@@ -30,7 +46,24 @@ public sealed record AccessRequestViewer(
             CanEdit: currentUser.HasPermission(PermissionCodes.AccessRequestsCreate),
             CanSubmit: currentUser.HasPermission(PermissionCodes.AccessRequestsSubmit),
             CanDecide: currentUser.HasPermission(PermissionCodes.AccessRequestsApprove),
-            CanWithdraw: currentUser.HasPermission(PermissionCodes.AccessRequestsWithdraw));
+            CanWithdraw: currentUser.HasPermission(PermissionCodes.AccessRequestsWithdraw),
+            IsOrganisationAdmin: IsOrganisationAdminOf(currentUser));
+    }
+
+    /// <summary>
+    /// Whether the caller holds the Organisation Admin role, whom the organisation puts above the
+    /// maker-and-checker rule ("there is no restriction for Tenant Admin").
+    ///
+    /// THE ROLE, NOT THE FLAG ALONE. <c>is_tenant_admin</c> marks only the administrator the
+    /// Organisation was created with; a colleague given the role later carries its code in the
+    /// token's roles instead, and is just as much the Organisation Admin.
+    /// </summary>
+    public static bool IsOrganisationAdminOf(ICurrentUser currentUser)
+    {
+        ArgumentNullException.ThrowIfNull(currentUser);
+
+        return currentUser.IsTenantAdmin
+               || currentUser.Roles.Contains(RoleCodes.TenantAdmin, StringComparer.Ordinal);
     }
 }
 
@@ -51,6 +84,10 @@ public static class GovernanceMappingConfig
     /// caller's permissions, and who the caller is to the request. The person who raised it may
     /// edit, submit or withdraw it but must never decide it; the person it is for must not decide
     /// it either; everybody else decides it only if they hold the permission.
+    ///
+    /// EXCEPT THE ORGANISATION ADMIN, who decides any submitted request - one they raised, and one
+    /// for their own access, included. The organisation's rule is that its administrator works
+    /// without restriction, so the maker-and-checker exclusion binds everybody else.
     ///
     /// A request that was SENT BACK follows a draft's rules: its requester corrects it and submits
     /// it again under the same number.
@@ -93,17 +130,20 @@ public static class GovernanceMappingConfig
 
                 break;
 
-            case AccessRequestStatus.Submitted when isOwnRequest:
-                if (viewer.CanWithdraw)
+            // A submitted request: its requester may withdraw it, and whoever may decide it is
+            // offered the decision - for the Organisation Admin that includes their own request
+            // (see CanDecide), so both can appear on one row, Withdraw first.
+            case AccessRequestStatus.Submitted:
+                if (isOwnRequest && viewer.CanWithdraw)
                 {
                     actions.Add("Withdraw");
                 }
 
-                break;
+                if (CanDecide(status, requestedByUserId, requestedForUserId, viewer))
+                {
+                    actions.AddRange(["Approve", "Reject", "Return"]);
+                }
 
-            case AccessRequestStatus.Submitted
-                when CanDecide(status, requestedByUserId, requestedForUserId, viewer):
-                actions.AddRange(["Approve", "Reject", "Return"]);
                 break;
         }
 
@@ -113,7 +153,8 @@ public static class GovernanceMappingConfig
     /// <summary>
     /// Whether the caller may approve, reject or send back a request.
     ///
-    /// Maker and checker: the requester and the subject are both excluded, whatever they hold.
+    /// Maker and checker: the requester and the subject are both excluded, whatever they hold -
+    /// unless they are the Organisation Admin, who is not restricted.
     /// </summary>
     public static bool CanDecide(
         AccessRequestStatus status, Guid requestedByUserId, Guid requestedForUserId, AccessRequestViewer viewer)
@@ -122,8 +163,8 @@ public static class GovernanceMappingConfig
 
         return status == AccessRequestStatus.Submitted
                && viewer.CanDecide
-               && requestedByUserId != viewer.UserId
-               && requestedForUserId != viewer.UserId;
+               && (viewer.IsOrganisationAdmin
+                   || (requestedByUserId != viewer.UserId && requestedForUserId != viewer.UserId));
     }
 
     /// <summary>Whether the caller may withdraw a request: its requester, before it is decided.</summary>
@@ -149,6 +190,11 @@ public static class GovernanceMappingConfig
         ArgumentNullException.ThrowIfNull(viewer);
 
         if (status != AccessRequestStatus.Submitted)
+        {
+            return null;
+        }
+
+        if (viewer.IsOrganisationAdmin && viewer.CanDecide)
         {
             return null;
         }
@@ -264,6 +310,20 @@ public static class GovernanceMappingConfig
         DataScopeType.ExplicitRecord => "Named records",
         _ => Humanise(scopeType.ToString())
     };
+
+    /// <summary>
+    /// The kinds of access request a person may RAISE, which is what the Request type dropdown
+    /// offers: a role, and nothing else, by the organisation's decision. A person asks to hold a
+    /// role; what that role grants is decided on the Roles screen, not request by request.
+    ///
+    /// The other three kinds stay in the enum, and a request of one of them would still be shown
+    /// and decided, because the type is a stored column. They can no longer be created or edited
+    /// into - see CreateAccessRequestRequestValidator.
+    /// </summary>
+    public static IReadOnlyList<AccessRequestType> RequestableTypes { get; } =
+    [
+        AccessRequestType.RoleAssignment
+    ];
 
     /// <summary>What an access review state allows.</summary>
     public static IReadOnlyList<string> PermittedActionsFor(AccessReview review, Guid callerId)

@@ -47,8 +47,6 @@ export type DataScopeType = 'organisation' | 'geography' | 'campaign' | 'warehou
 
 export type DocumentSubmissionDecision = 'approve' | 'reject' | 'requestReupload';
 
-export type EngagementType = 'fullTime' | 'partTime' | 'contract' | 'volunteer' | 'intern' | 'external';
-
 export type GeographicRegion = 'asia' | 'europe' | 'northAmerica' | 'southAmerica' | 'africa' | 'oceania' | 'middleEast' | 'antarctica';
 
 export type InvitationType = 'tenantAdmin' | 'tenantUser' | 'donorPortal';
@@ -1306,7 +1304,6 @@ export interface CreateUserRequest {
   employeeNumber?: string | null;
   mobileCountryCode?: string | null;
   mobileNumber?: string | null;
-  engagementType?: EngagementType;
   departmentId?: string | null;
   organisationUnitId?: string | null;
   designation?: string | null;
@@ -1631,7 +1628,6 @@ export interface EnumOption {
 
 export interface EnumOptionsResponse {
   userStatuses?: EnumOption[] | null;
-  engagementTypes?: EnumOption[] | null;
   mfaRequirements?: EnumOption[] | null;
   mfaMethodTypes?: EnumOption[] | null;
   roleStatuses?: EnumOption[] | null;
@@ -2126,6 +2122,7 @@ export interface OrganisationDetailResponse {
    * restrict anything", which the screen treats as the whole form.
    */
   editableProfileFields?: string[] | null;
+  securityLimits?: OrganisationSecurityLimitsResponse;
 }
 
 export interface OrganisationDetailResponseApiResponse {
@@ -2249,6 +2246,14 @@ export interface OrganisationListItemResponsePagedResponseApiResponse {
   errorCode?: string | null;
   errors?: ValidationError[] | null;
   correlationId?: string | null;
+}
+
+export interface OrganisationSecurityLimitsResponse {
+  maximumFailedAccessAttempts?: SecuritySettingRangeResponse;
+  lockoutDurationMinutes?: SecuritySettingRangeResponse;
+  passwordMinimumLength?: SecuritySettingRangeResponse;
+  passwordExpiryDays?: SecuritySettingRangeResponse;
+  sessionIdleTimeoutMinutes?: SecuritySettingRangeResponse;
 }
 
 export interface OrganisationStatisticsResponse {
@@ -2605,6 +2610,7 @@ export interface PermissionMatrixItemResponse {
   isGranted?: boolean;
   isDenied?: boolean;
   isImplicitlyGranted?: boolean;
+  isOrganisationAdminOnly?: boolean;
 }
 
 export interface PermissionMatrixResponse {
@@ -2975,6 +2981,7 @@ export interface RoleLookupResponse {
   isPrivileged?: boolean;
   isDefaultRole?: boolean;
   permissionCount?: number;
+  grantsAllTenantPermissions?: boolean;
 }
 
 export interface RoleLookupResponseIReadOnlyListApiResponse {
@@ -3105,6 +3112,11 @@ export interface SecurityRecommendationResponse {
   message?: string | null;
   action?: string | null;
   actionLabel?: string | null;
+}
+
+export interface SecuritySettingRangeResponse {
+  minimum?: number;
+  maximum?: number;
 }
 
 export interface SelectTenantRequest {
@@ -3812,7 +3824,6 @@ export interface UpdateUserRequest {
   employeeNumber?: string | null;
   mobileCountryCode?: string | null;
   mobileNumber?: string | null;
-  engagementType?: EngagementType;
   departmentId?: string | null;
   organisationUnitId?: string | null;
   designation?: string | null;
@@ -3922,7 +3933,6 @@ export interface UserDetailResponse {
   mobileCountryCode?: string | null;
   mobileNumber?: string | null;
   mobileConfirmed?: boolean;
-  engagementType?: EngagementType;
   departmentId?: string | null;
   departmentName?: string | null;
   organisationUnitId?: string | null;

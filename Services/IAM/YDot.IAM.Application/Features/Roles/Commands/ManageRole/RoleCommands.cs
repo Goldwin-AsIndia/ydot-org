@@ -720,6 +720,21 @@ public sealed class RoleCommandHandler(
                 + string.Join(", ", platformCodes)));
         }
 
+        // THE MASTERS CODES BELONG TO THE ORGANISATION ADMIN ALONE, who holds them by its blanket
+        // grant. Refused rather than dropped, for the reason above. Denying one is still allowed:
+        // it takes nothing from anybody. See PermissionCodes.OrganisationAdminOnly.
+        var adminOnlyCodes = grantedCodes
+            .Where(PermissionCodes.IsOrganisationAdminOnly)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (adminOnlyCodes.Count > 0)
+        {
+            logger.LogWarning("Role permission assignment rejected because Organisation-Admin-only permissions were requested. RoleId {RoleId}, Count {Count}.", role.Id, adminOnlyCodes.Count);
+            return Result.Failure(Error.Forbidden(
+                "The Masters permissions belong to the Organisation Admin only and cannot be given "
+                + "to another role: " + string.Join(", ", adminOnlyCodes)));
+        }
+
         var assignable = await permissions.GetTenantAssignableAsync(cancellationToken);
         var byCode = assignable.ToDictionary(permission => permission.Code, StringComparer.Ordinal);
 

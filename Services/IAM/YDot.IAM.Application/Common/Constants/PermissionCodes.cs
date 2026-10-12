@@ -179,6 +179,10 @@ public static class PermissionCodes
     /// lets it touch a platform row: <c>GlobalMasterEntity.IsPlatformRow</c> is checked in
     /// every write handler and refuses the edit for anybody but SuperAdmin, whatever
     /// permissions the caller holds.
+    ///
+    /// BUT ONLY THE ORGANISATION ADMIN HOLDS THEM inside an Organisation - see
+    /// <see cref="OrganisationAdminOnly"/>. The Masters menu belongs to the Organisation Admin
+    /// and the Platform Admin and to no other role.
     /// </summary>
     public static class GlobalMaster
     {
@@ -372,6 +376,28 @@ public static class PermissionCodes
 
     /// <summary>Every code this service knows about, Tenant and platform together.</summary>
     public static IReadOnlyList<string> All => [.. AllTenant, .. Platform.All];
+
+    /// <summary>
+    /// Tenant codes that ONLY the Organisation Admin holds: no other role, and no person by a
+    /// direct grant. The global masters - the whole Masters menu - by the organisation's rule
+    /// that Masters belongs to the Organisation Admin and the Platform Admin alone.
+    ///
+    /// HOW THE RULE HOLDS. The Organisation Admin holds these by <c>GrantsAllTenantPermissions</c>
+    /// and the Platform Admin by its flag; neither needs a row. Everywhere else they are refused
+    /// or ignored:
+    ///
+    ///   EffectiveAccessService   never takes one from a role row or a direct claim, so a row
+    ///                            that somehow exists grants nothing and no token carries it
+    ///   RoleCommandHandler       refuses to grant one to a role, with a message that says why
+    ///   Permission matrix        marks them, so the Roles screen does not offer them
+    ///
+    /// Denying one on a role stays allowed - it takes nothing away from anybody who has it.
+    /// </summary>
+    public static readonly IReadOnlySet<string> OrganisationAdminOnly =
+        GlobalMaster.All.ToHashSet(StringComparer.Ordinal);
+
+    public static bool IsOrganisationAdminOnly(string permissionCode) =>
+        OrganisationAdminOnly.Contains(permissionCode);
 
     public static bool IsSensitive(string permissionCode) =>
         Sensitive.Contains(permissionCode, StringComparer.Ordinal);

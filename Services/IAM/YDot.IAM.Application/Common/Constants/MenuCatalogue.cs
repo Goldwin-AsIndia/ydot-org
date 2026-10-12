@@ -103,45 +103,70 @@ public static class MenuCatalogue
             "/app/platform/audit", "shield", PermissionCodes.Platform.PlatformAuditView,
             50, IsPlatformOnly: true),
 
-        // ============ Administration (IAM) =====================================================
+        // ============ Access and Identity (IAM) ==================================================
         //
-        // THE HEADING CARRIES NO PERMISSION, and that is deliberate. It used to require
-        // IAM.View, which quietly defeated the one node underneath it that is meant to be
-        // universal: ADMIN_MY_SECURITY is marked IsMandatory with no permission of its own,
-        // because everybody must be able to change their own password and manage their second
-        // factor. But a child whose parent was filtered out is never reached by BuildTree, so
-        // the parent's gate hid it anyway - and DONOR_PORTAL_USER, the one seeded role without
-        // IAM.View, had no way to reach My Security at all.
+        // ONE MAIN MENU, FIVE SCREENS, NO GROUPS. This branch used to be "Administration" holding
+        // two groups - Access and Identity (User Directory, Roles and Permissions, Menu
+        // Configuration) and Access Governance (Access Requests, Audit Trail). Access Requests and
+        // Audit Trail were moved into Access and Identity by request, which left Administration
+        // wrapping a single group, so the group became the main menu and its screens hang straight
+        // off it - the shape Organisation and Masters already have. The order follows the work:
+        // the people, the roles they hold, what each role sees, asking for more, and the record.
         //
-        // Dropping the gate costs nothing, because every OTHER child names its own permission
-        // and filter 8 removes the heading entirely when none of them survives. A grouping
-        // header should never be stricter than its most permissive child.
-        new(Administration, "Administration", null, MenuLevel.Menu, "IAM",
-            null, "settings", null, 30),
+        // THE CODE STAYS ADMINISTRATION, so every Organisation's existing mapping row and override
+        // on the heading carries over; only its name and icon changed. ADMIN_ACCESS and
+        // ADMIN_GOVERNANCE, the two groups, are no longer in the catalogue and the start-up
+        // reconciliation retires them.
+        //
+        // THE HEADING CARRIES NO PERMISSION, and that is deliberate. A grouping header should
+        // never be stricter than its most permissive child: every child names its own permission
+        // and filter 8 removes the heading entirely when none of them survives. It matters here
+        // more than anywhere - the working roles reach exactly one screen of this branch, Access
+        // Requests, and a heading asking for iam.users.view (as the old Access and Identity group
+        // did) would hide it from every one of them.
+        new(Administration, "Access and Identity", null, MenuLevel.Menu, "IAM",
+            null, "users", null, 30),
 
-        // ---- Access and identity -------------------------------------------------------------
-        new("ADMIN_ACCESS", "Access and Identity", Administration, MenuLevel.SubMenu, "IAM",
-            null, "users", PermissionCodes.UsersView, 10),
+        // FIVE ADMINISTRATION SCREENS HAVE COME OFF THE SIDEBAR, by request: Invite or Create
+        // User, User Profile and Access, Access Preview, My Security and the Configuration branch
+        // (Payment Gateways). The test is the one the Fundraising nodes below use - "is there
+        // already a way in" - and each of the five has one:
+        //
+        //   Invite or Create User    User Directory, the Invite button
+        //   User Profile and Access  User Directory (a row), and Profile in the top-bar menu
+        //   Access Preview           User Profile and Access, the Access preview button
+        //   My Security              My Security in the top-bar menu, which every role keeps
+        //   Payment Gateways         Organisation Settings, the Payment gateways button
+        //
+        // WITHDRAWN, NOT DELETED. The routes, the screens, their permissions and the API behind
+        // them are untouched; the start-up reconciliation retires each definition and drops the
+        // row from every Organisation that already holds it. Restoring one is restoring its line:
+        // Each restored line sits straight under the main menu now that the groups are gone, and
+        // takes a DisplayOrder that does not collide with the five below:
+        //   new("ADMIN_CREATE_USER", "Invite or Create User", Administration, MenuLevel.SubMenu, "IAM",
+        //       "/app/administration/access/create-user", "user-plus", PermissionCodes.UsersCreate, 15),
+        //   new("ADMIN_USER_PROFILE", "User Profile and Access", Administration, MenuLevel.SubMenu, "IAM",
+        //       "/app/administration/access/user-profile-and-access", "user", PermissionCodes.UsersView, 16),
+        //   new("ADMIN_ACCESS_PREVIEW", "Access Preview", Administration, MenuLevel.SubMenu, "IAM",
+        //       "/app/administration/access/access-preview", "eye", PermissionCodes.PermissionsView, 45),
+        //   new("ADMIN_CONFIGURATION", "Configuration", Administration, MenuLevel.SubMenu, "IAM",
+        //       null, "settings", PermissionCodes.PaymentGatewaysView, 60),
+        //   new("ADMIN_PAYMENT_GATEWAYS", "Payment Gateways", "ADMIN_CONFIGURATION", MenuLevel.ChildSubMenu, "IAM",
+        //       "/app/configuration/payment/gateways", "credit-card", PermissionCodes.PaymentGatewaysView, 10),
+        //   new("ADMIN_MY_SECURITY", "My Security", Administration, MenuLevel.SubMenu, "IAM",
+        //       "/app/administration/access/my-security", "lock", null, 70, IsMandatory: true),
 
-        new("ADMIN_USER_DIRECTORY", "User Directory", "ADMIN_ACCESS", MenuLevel.ChildSubMenu, "IAM",
+        new("ADMIN_USER_DIRECTORY", "User Directory", Administration, MenuLevel.SubMenu, "IAM",
             "/app/administration/access/user-directory", "list",
             PermissionCodes.UsersView, 10),
 
-        new("ADMIN_CREATE_USER", "Invite or Create User", "ADMIN_ACCESS", MenuLevel.ChildSubMenu, "IAM",
-            "/app/administration/access/create-user", "user-plus",
-            PermissionCodes.UsersCreate, 20),
-
-        new("ADMIN_USER_PROFILE", "User Profile and Access", "ADMIN_ACCESS", MenuLevel.ChildSubMenu, "IAM",
-            "/app/administration/access/user-profile-and-access", "user",
-            PermissionCodes.UsersView, 30),
-
-        new("ADMIN_ROLE_CATALOGUE", "Roles and Permissions", "ADMIN_ACCESS", MenuLevel.ChildSubMenu, "IAM",
+        new("ADMIN_ROLE_CATALOGUE", "Roles and Permissions", Administration, MenuLevel.SubMenu, "IAM",
             "/app/administration/access/role-and-permission-catalogue", "shield",
-            PermissionCodes.RolesView, 40),
+            PermissionCodes.RolesView, 20),
 
-        new("ADMIN_MENU_MAPPING", "Menu Configuration", "ADMIN_ACCESS", MenuLevel.ChildSubMenu, "IAM",
+        new("ADMIN_MENU_MAPPING", "Menu Configuration", Administration, MenuLevel.SubMenu, "IAM",
             "/app/administration/access/menu-configuration", "sliders",
-            PermissionCodes.MenusView, 50),
+            PermissionCodes.MenusView, 30),
 
         // BULK USER ADMINISTRATION IS DELIBERATELY ABSENT FROM THIS CATALOGUE.
         //
@@ -159,13 +184,11 @@ public static class MenuCatalogue
         // RESTORING IT IS ONE ENTRY. Add the node back with code ADMIN_BULK_USERS and the seeder
         // un-retires the row it already has, mappings and Organisation overrides intact.
 
-        // ---- Governance ------------------------------------------------------------------------
-        new("ADMIN_GOVERNANCE", "Access Governance", Administration, MenuLevel.SubMenu, "IAM",
-            null, "clipboard", PermissionCodes.AccessRequestsView, 20),
-
-        new("ADMIN_ACCESS_REQUESTS", "Access Requests", "ADMIN_GOVERNANCE", MenuLevel.ChildSubMenu, "IAM",
+        // Every working staff role is mapped to this one screen of the branch - see
+        // TenantRoleDefinitions.AccessRequestMenus.
+        new("ADMIN_ACCESS_REQUESTS", "Access Requests", Administration, MenuLevel.SubMenu, "IAM",
             "/app/administration/access/access-request-and-approval", "inbox",
-            PermissionCodes.AccessRequestsView, 10),
+            PermissionCodes.AccessRequestsView, 40),
 
         // ACCESS REVIEWS IS DELIBERATELY ABSENT FROM THIS CATALOGUE.
         //
@@ -178,38 +201,10 @@ public static class MenuCatalogue
         //
         // RESTORING IT IS ONE ENTRY. Add the node back with code ADMIN_ACCESS_REVIEWS and the
         // seeder un-retires the row it already has, mappings and Organisation overrides intact -
-        // see the note on the retirement pass in IamDbSeeder.SeedMenuDefinitionsAsync.
-        //
-        // Sort order 30 is left on Access Preview rather than closed up, so the gap is visible to
-        // whoever reads this next and a restored Access Reviews lands back in its old place.
-        new("ADMIN_ACCESS_PREVIEW", "Access Preview", "ADMIN_GOVERNANCE", MenuLevel.ChildSubMenu, "IAM",
-            "/app/administration/access/access-preview", "eye",
-            PermissionCodes.PermissionsView, 30),
-
-        new("ADMIN_AUDIT", "Audit Trail", "ADMIN_GOVERNANCE", MenuLevel.ChildSubMenu, "IAM",
-            "/app/administration/audit", "file-text", PermissionCodes.AuditView, 40),
-
-        // ---- Configuration -------------------------------------------------------------------------
-        //
-        // THE PARENT CARRIES THE VIEW CODE OF ITS ONLY CHILD, deliberately. A grouping header with
-        // a null permission appears in every sidebar and expands onto a single item nobody in that
-        // sidebar may open - which is worse than not showing the branch at all, because the person
-        // raises a ticket about a broken screen instead of asking for access.
-        //
-        // ONLY SUPER_ADMIN AND TENANT_ADMIN EVER SEE THIS. `iam.payment-gateways.view` is in
-        // RoleAccessProfiles.AdministratorOnlyCodes, so no working role holds any of it.
-        new("ADMIN_CONFIGURATION", "Configuration", Administration, MenuLevel.SubMenu, "IAM",
-            null, "settings", PermissionCodes.PaymentGatewaysView, 30),
-
-        // Where the money goes. See PermissionCodes for why this is an administrator's screen.
-        new("ADMIN_PAYMENT_GATEWAYS", "Payment Gateways", "ADMIN_CONFIGURATION",
-            MenuLevel.ChildSubMenu, "IAM",
-            "/app/configuration/payment/gateways", "credit-card",
-            PermissionCodes.PaymentGatewaysView, 10),
-
-        // ---- My account. Mandatory: everybody needs somewhere to manage their own security. ----
-        new("ADMIN_MY_SECURITY", "My Security", Administration, MenuLevel.SubMenu, "IAM",
-            "/app/administration/access/my-security", "lock", null, 40, IsMandatory: true),
+        // see the note on the retirement pass in IamDbSeeder.SeedMenuDefinitionsAsync. Its parent
+        // is now Administration, as for every screen in this branch.
+        new("ADMIN_AUDIT", "Audit Trail", Administration, MenuLevel.SubMenu, "IAM",
+            "/app/administration/audit", "file-text", PermissionCodes.AuditView, 50),
 
         // ============ Organisation (the Tenant own profile) =======================================
         new(Organisation, "Organisation", null, MenuLevel.Menu, "IAM",
@@ -536,6 +531,11 @@ public static class MenuCatalogue
         // branch appeared in every sidebar including a Volunteer's - and then answered 403 on
         // the click, because the endpoints behind them do check. A menu that offers a screen
         // the caller cannot open is worse than no menu at all.
+        //
+        // ONLY THE ORGANISATION ADMIN AND THE PLATFORM ADMIN SEE THIS BRANCH, by rule. The
+        // permission gate is what enforces it: the gm.* codes are Organisation-Admin-only
+        // (PermissionCodes.OrganisationAdminOnly), so no other role can hold GM.View and the
+        // menu builder drops the whole branch for everybody else.
         new(Masters, "Masters", null, MenuLevel.Menu, "GM",
             null, "database", PermissionCodes.GlobalMaster.Section, 100),
 

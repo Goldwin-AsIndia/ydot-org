@@ -561,10 +561,11 @@ public sealed class OrganisationLifecycleCommandHandler(
     /// <summary>
     /// The Organisation security policy.
     ///
-    /// AN ORGANISATION MAY TIGHTEN, NOT LOOSEN. Every value is clamped against the platform
-    /// floor, so "manage your own settings" cannot become a way to disable lockout or drop the
-    /// password length to four. The clamp is silent rather than an error: the caller asked for
-    /// something weaker and got the floor, which is the safe reading.
+    /// AN ORGANISATION MAY TIGHTEN, NOT LOOSEN. Every value is clamped to the range in
+    /// <see cref="OrganisationSecurityLimits"/>, so "manage your own settings" cannot become a way
+    /// to disable lockout or drop the password length to four. The request validator refuses a
+    /// value outside the same ranges first, with a message, so the clamp only ever acts for a
+    /// caller that skipped validation.
     /// </summary>
     public async Task<Result<OutcomeResponse>> HandleAsync(
         UpdateOrganisationSettingsCommand command, CancellationToken cancellationToken)
@@ -589,38 +590,39 @@ public sealed class OrganisationLifecycleCommandHandler(
             tenant.DefaultMfaRequirement = request.DefaultMfaRequirement.Value;
         }
 
+        // Which end of each range is the platform value follows from which way is stricter - fewer
+        // attempts, a longer lockout, a longer password, a shorter idle window.
+        var limits = OrganisationSecurityLimits.From(_security);
+
         if (request.MaximumFailedAccessAttempts.HasValue)
         {
-            // Fewer attempts is stricter, so the platform value is the CEILING here.
-            tenant.MaximumFailedAccessAttempts = Math.Clamp(
-                request.MaximumFailedAccessAttempts.Value, 3, _security.MaximumFailedAccessAttempts);
+            tenant.MaximumFailedAccessAttempts =
+                limits.MaximumFailedAccessAttempts.Clamp(request.MaximumFailedAccessAttempts.Value);
         }
 
         if (request.LockoutDurationMinutes.HasValue)
         {
-            // A longer lockout is stricter, so the platform value is the FLOOR.
-            tenant.LockoutDurationMinutes = Math.Max(
-                _security.LockoutMinutes, request.LockoutDurationMinutes.Value);
+            tenant.LockoutDurationMinutes = limits.LockoutDurationMinutes.Clamp(request.LockoutDurationMinutes.Value);
         }
 
         if (request.PasswordMinimumLength.HasValue)
         {
-            tenant.PasswordMinimumLength = Math.Clamp(
-                request.PasswordMinimumLength.Value, _security.PasswordMinimumLength, 64);
+            tenant.PasswordMinimumLength = limits.PasswordMinimumLength.Clamp(request.PasswordMinimumLength.Value);
         }
 
         if (request.PasswordExpiryDays.HasValue)
         {
-            tenant.PasswordExpiryDays = Math.Max(0, request.PasswordExpiryDays.Value);
+            tenant.PasswordExpiryDays = limits.PasswordExpiryDays.Clamp(request.PasswordExpiryDays.Value);
         }
 
         if (request.SessionIdleTimeoutMinutes.HasValue)
         {
-            // A shorter idle timeout is stricter, so the platform value is the ceiling.
-            tenant.SessionIdleTimeoutMinutes = Math.Clamp(
-                request.SessionIdleTimeoutMinutes.Value, 5, _security.SessionIdleTimeoutMinutes);
+            tenant.SessionIdleTimeoutMinutes =
+                limits.SessionIdleTimeoutMinutes.Clamp(request.SessionIdleTimeoutMinutes.Value);
         }
 
+        // Every setting on the page is in the audit row. Password expiry was saved and left out,
+        // so a change to it could not be traced to anybody.
         await audit.WriteAsync(
             AuditActionCodes.TenantUpdated, nameof(Tenant), tenant.Id, tenant.Name,
             new
@@ -629,6 +631,7 @@ public sealed class OrganisationLifecycleCommandHandler(
                 tenant.MaximumFailedAccessAttempts,
                 tenant.LockoutDurationMinutes,
                 tenant.PasswordMinimumLength,
+                tenant.PasswordExpiryDays,
                 tenant.SessionIdleTimeoutMinutes
             },
             cancellationToken: cancellationToken);

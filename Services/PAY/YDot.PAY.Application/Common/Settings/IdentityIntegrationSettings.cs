@@ -58,12 +58,6 @@ public sealed class IdentityIntegrationSettings
     public string DonorRoleCode { get; set; } = "DONOR";
 
     /// <summary>
-    /// How a donor is engaged by the Organisation, in IAM's vocabulary. External: not staff, so
-    /// IAM asks for no employee number.
-    /// </summary>
-    public string DonorEngagementType { get; set; } = "External";
-
-    /// <summary>
     /// The dialling code to put in front of a donor's mobile number when they did not give one.
     ///
     /// IT IS REQUIRED BY IAM AND WAS NEVER SENT. IAM validates the mobile as E.164 and rejects a

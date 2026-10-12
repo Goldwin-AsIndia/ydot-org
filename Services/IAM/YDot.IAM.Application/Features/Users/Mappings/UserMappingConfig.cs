@@ -79,12 +79,6 @@ public static class UserMappingConfig
             user.MobileConfirmed = false;
         }
 
-        if (request.EngagementType.HasValue && request.EngagementType != user.EngagementType)
-        {
-            user.EngagementType = request.EngagementType.Value;
-            changed.Add(nameof(User.EngagementType));
-        }
-
         if (request.DepartmentId.HasValue && request.DepartmentId != user.DepartmentId)
         {
             user.DepartmentId = request.DepartmentId;

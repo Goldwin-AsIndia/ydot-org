@@ -99,11 +99,16 @@ public static class AuthenticationMappingConfig
             LockoutMinutesRemaining: null,
             Message: "Select an organisation to continue.");
 
-    /// <summary>Signed in on a temporary password, and blocked until it is changed.</summary>
+    /// <summary>
+    /// Signed in on a temporary or expired password, and blocked until it is changed.
+    /// <paramref name="message"/> says which, so the person is not told "temporary" about the
+    /// password they have used for months.
+    /// </summary>
     public static SignInResponse ToPasswordChangeRequiredResponse(
         TokenResponse tokens,
         AuthenticatedUserResponse user,
-        TenantContextResponse tenant) =>
+        TenantContextResponse tenant,
+        string message = "You must change your password before continuing.") =>
         new(
             SignInResultStatus.PasswordChangeRequired,
             tokens.AccessToken,
@@ -122,7 +127,7 @@ public static class AuthenticationMappingConfig
             PasswordResetToken: null,
             AttemptsRemaining: null,
             LockoutMinutesRemaining: null,
-            Message: "You must change your password before continuing.");
+            Message: message);
 
     public static TenantOptionResponse ToTenantOption(this Tenant tenant) =>
         new(

@@ -55,8 +55,16 @@ public class AccessRequest : TenantEntity
 
     public DateTimeOffset? DecidedAtUtc { get; set; }
 
-    /// <summary>Must differ from the requester.</summary>
+    /// <summary>Must differ from the requester, unless <see cref="SelfDecidedByOrganisationAdmin"/>.</summary>
     public Guid? DecidedByUserId { get; set; }
+
+    /// <summary>
+    /// True when the Organisation Admin decided a request they raised, or one for their own
+    /// access - the one case the maker-and-checker rule allows, because the organisation puts its
+    /// administrator above it. Recorded on the row so the database constraint can tell that case
+    /// from a mistake, and so an auditor reading the request sees it was decided that way.
+    /// </summary>
+    public bool SelfDecidedByOrganisationAdmin { get; set; }
 
     public string? DecisionNotes { get; set; }
 

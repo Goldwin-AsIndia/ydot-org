@@ -1,7 +1,7 @@
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { UserDirectoryApiService } from '../../../../Service/user-directory-api.service';
 import { UserSearchFilter } from '../../../../Shared/models/user-directory.model';
@@ -94,6 +94,7 @@ export class AccessPreviewComponent {
   private readonly api = inject(UserDirectoryApiService);
   private readonly toast = inject(ToastService);
   private readonly enums = inject(EnumOptionsService);
+  private readonly route = inject(ActivatedRoute);
 
   // ---- The picker ---------------------------------------------------------------------------
 
@@ -160,6 +161,13 @@ export class AccessPreviewComponent {
   private readonly scopeTypes = signal<ApiEnumOption[]>([]);
 
   constructor() {
+    // Opened from a person's profile (`?user=<id>`): start on them rather than on whoever the
+    // directory lists first. The screen has no sidebar entry, so that is the usual way in.
+    const requested = this.route.snapshot.queryParamMap.get('user');
+    if (requested) {
+      this.selectPerson(requested);
+    }
+
     this.loadPeople();
 
     // The matrix columns and the scope words are the server's own lists. A failure leaves the

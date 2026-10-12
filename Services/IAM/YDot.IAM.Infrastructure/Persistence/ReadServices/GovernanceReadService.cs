@@ -22,11 +22,22 @@ public sealed class GovernanceReadService(
     ///
     /// ONE PLACE, used by the queue, the figures above it and the export, so the three can never
     /// describe different sets of requests.
+    ///
+    /// AND WHOSE REQUESTS THE CALLER MAY SEE AT ALL is decided here too. Somebody who decides
+    /// requests sees the Organisation's queue; anybody else - a member of staff who may only ask -
+    /// sees the requests they raised and the ones that are for them, and nobody else's reasons.
     /// </summary>
     private IQueryable<Domain.Entities.AccessRequest> Filtered(
-        AccessRequestSearchFilter filter, Guid currentUserId)
+        AccessRequestSearchFilter filter, AccessRequestViewer viewer)
     {
+        var currentUserId = viewer.UserId;
         var query = context.AccessRequests.AsNoTracking();
+
+        if (!viewer.SeesAll)
+        {
+            query = query.Where(request =>
+                request.RequestedByUserId == currentUserId || request.RequestedForUserId == currentUserId);
+        }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -76,13 +87,16 @@ public sealed class GovernanceReadService(
         }
 
         // "Waiting on me" excludes the caller own requests, because maker and checker have to
-        // be different people and offering somebody their own request to approve is noise.
+        // be different people and offering somebody their own request to approve is noise. The
+        // Organisation Admin decides their own too, so theirs stay in - see CanDecide.
         if (filter.AwaitingMyDecision == true)
         {
-            query = query.Where(request =>
-                request.Status == AccessRequestStatus.Submitted
-                && request.RequestedByUserId != currentUserId
-                && request.RequestedForUserId != currentUserId);
+            query = viewer.IsOrganisationAdmin
+                ? query.Where(request => request.Status == AccessRequestStatus.Submitted)
+                : query.Where(request =>
+                    request.Status == AccessRequestStatus.Submitted
+                    && request.RequestedByUserId != currentUserId
+                    && request.RequestedForUserId != currentUserId);
         }
 
         if (filter.RaisedByMe == true)
@@ -109,7 +123,7 @@ public sealed class GovernanceReadService(
         ArgumentNullException.ThrowIfNull(filter);
         ArgumentNullException.ThrowIfNull(viewer);
 
-        var query = Filtered(filter, viewer.UserId);
+        var query = Filtered(filter, viewer);
 
         var total = await query.CountAsync(cancellationToken);
 
@@ -202,7 +216,7 @@ public sealed class GovernanceReadService(
         ArgumentNullException.ThrowIfNull(filter);
         ArgumentNullException.ThrowIfNull(viewer);
 
-        var query = Filtered(filter, viewer.UserId);
+        var query = Filtered(filter, viewer);
 
         var counts = await query
             .GroupBy(request => request.Status)
@@ -252,7 +266,7 @@ public sealed class GovernanceReadService(
         ArgumentNullException.ThrowIfNull(filter);
         ArgumentNullException.ThrowIfNull(viewer);
 
-        var rows = await Filtered(filter, viewer.UserId)
+        var rows = await Filtered(filter, viewer)
             .OrderByDescending(request => request.SubmittedAtUtc ?? request.CreatedAtUtc)
             .ThenByDescending(request => request.RequestNumber)
             .Take(Math.Max(1, maximumRows))
@@ -321,6 +335,15 @@ public sealed class GovernanceReadService(
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (request?.RequestedForUser is null)
+        {
+            return null;
+        }
+
+        // The same reach as the queue: a requester who cannot decide opens their own requests and
+        // the ones for them, and is told nothing exists about anybody else's.
+        if (!viewer.SeesAll
+            && request.RequestedByUserId != viewer.UserId
+            && request.RequestedForUserId != viewer.UserId)
         {
             return null;
         }

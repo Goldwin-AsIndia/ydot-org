@@ -168,19 +168,9 @@
               <div><h3 class="cu-group-title">Account &amp; name</h3><p class="cu-group-desc">How the person appears across the directory.</p></div>
             </div>
             <div class="cu-grid">
-              <!-- Engagement sits where "Account type" was: roles now say what kind of account this
-                   is, and the engagement decides whether the employee number below is required. -->
-              <div class="s3">
-                <label class="cu-label" for="cuEngagement">Engagement <span class="cu-req" aria-hidden="true">*</span></label>
-                <ng-container *ngTemplateOutlet="cuDd; context: {
-                  key: 'engagementType', id: 'cuEngagement', icon: 'ri-briefcase-4-line',
-                  placeholder: 'Select engagement', allowEmpty: false, invalid: isFieldInvalid('engagementType') }"></ng-container>
-                @if (errorFor('engagementType')) {
-                  <div class="invalid-feedback d-block">{{ errorFor('engagementType') }}</div>
-                }
-              </div>
-
-              <div class="s3">
+              <!-- Engagement (full-time, contract, volunteer...) was removed by request; the roles
+                   say what kind of account this is. Title and the two names share its row. -->
+              <div class="s4">
                 <label class="cu-label" for="cuTitle">Title</label>
                 <ng-container *ngTemplateOutlet="cuDd; context: {
                   key: 'title', id: 'cuTitle', icon: 'ri-honour-line',
@@ -190,7 +180,7 @@
                 }
               </div>
 
-              <div class="s3">
+              <div class="s4">
                 <label class="cu-label" for="cuFirst">First name <span class="cu-req" aria-hidden="true">*</span></label>
                 <div class="cu-field">
                   <i class="ri-user-line cu-field-icon" aria-hidden="true"></i>
@@ -205,7 +195,7 @@
                 }
               </div>
 
-              <div class="s3">
+              <div class="s4">
                 <label class="cu-label" for="cuLast">Last name <span class="cu-req" aria-hidden="true">*</span></label>
                 <div class="cu-field">
                   <i class="ri-user-2-line cu-field-icon" aria-hidden="true"></i>
@@ -309,7 +299,7 @@
           <div class="cu-group">
             <div class="cu-group-aside">
               <!-- <i class="ri-contacts-book-line cu-group-glyph" aria-hidden="true"></i> -->
-              <div><h3 class="cu-group-title">Contact &amp; reference</h3><p class="cu-group-desc">Which of these are required depends on the engagement.</p></div>
+              <div><h3 class="cu-group-title">Contact &amp; reference</h3><p class="cu-group-desc">Both are optional; a mobile number needs its country code.</p></div>
             </div>
             <div class="cu-grid">
               <!-- A list, not a text box: the API requires the international form (+91). -->
@@ -323,11 +313,8 @@
                 }
               </div>
 
-              <!-- Whether these are required depends on the engagement; the server applies the same rule. -->
               <div class="s3">
-                <label class="cu-label" for="cuMobile">
-                  Mobile @if (mobileRequired()) { <span class="cu-req" aria-hidden="true">*</span> }
-                </label>
+                <label class="cu-label" for="cuMobile">Mobile</label>
                 <div class="cu-field">
                   <i class="ri-smartphone-line cu-field-icon" aria-hidden="true"></i>
                   <input id="cuMobile" type="tel" inputmode="numeric" maxlength="15" class="form-control" placeholder="Enter mobile number"
@@ -341,9 +328,7 @@
               </div>
 
               <div class="s6">
-                <label class="cu-label" for="cuEmployee">
-                  Employee or volunteer number @if (employeeNumberRequired()) { <span class="cu-req" aria-hidden="true">*</span> }
-                </label>
+                <label class="cu-label" for="cuEmployee">Employee or volunteer number</label>
                 <div class="cu-field">
                   <i class="ri-hashtag cu-field-icon" aria-hidden="true"></i>
                   <input id="cuEmployee" class="form-control" placeholder="Enter employee or volunteer number"
@@ -354,13 +339,7 @@
                 @if (errorFor('employeeNumber')) {
                   <div class="invalid-feedback d-block">{{ errorFor('employeeNumber') }}</div>
                 }
-                <small class="cu-hint">
-                  @if (employeeNumberRequired()) {
-                    Required for full-time and part-time staff.
-                  } @else {
-                    Needed for full-time and part-time staff only.
-                  }
-                </small>
+                <small class="cu-hint">Optional. The staff or volunteer reference your organisation uses.</small>
               </div>
             </div>
           </div>
@@ -579,7 +558,6 @@
                 <div><dt>Preferred name</dt><dd>{{ form().preferredName || 'Same as display name' }}</dd></div>
                 <div><dt>Login e-mail</dt><dd>{{ form().email || '—' }}</dd></div>
                 <div><dt>Username</dt><dd>{{ form().username || '—' }}</dd></div>
-                <div><dt>Engagement</dt><dd>{{ ddLabel('engagementType', '—') }}</dd></div>
               </dl>
             </article>
             <article class="cu-rv">

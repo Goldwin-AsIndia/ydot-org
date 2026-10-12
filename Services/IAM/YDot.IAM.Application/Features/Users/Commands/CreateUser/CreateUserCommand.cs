@@ -348,7 +348,6 @@ public sealed class CreateUserCommandHandler(
             EmailConfirmed = false,
             MobileCountryCode = request.MobileCountryCode?.Trim(),
             MobileNumber = request.MobileNumber?.Trim(),
-            EngagementType = request.EngagementType,
             DepartmentId = request.DepartmentId,
             OrganisationUnitId = request.OrganisationUnitId,
             Designation = request.Designation?.Trim(),

@@ -135,6 +135,10 @@ namespace YDot.IAM.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("scope_value");
 
+                    b.Property<bool>("SelfDecidedByOrganisationAdmin")
+                        .HasColumnType("boolean")
+                        .HasColumnName("self_decided_by_organisation_admin");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -189,7 +193,7 @@ namespace YDot.IAM.Infrastructure.Migrations
 
                     b.ToTable("iam_access_requests", null, t =>
                         {
-                            t.HasCheckConstraint("ck_iam_access_requests_independent_approver", "decided_by_user_id IS NULL OR decided_by_user_id <> requested_by_user_id");
+                            t.HasCheckConstraint("ck_iam_access_requests_independent_approver", "decided_by_user_id IS NULL OR decided_by_user_id <> requested_by_user_id OR self_decided_by_organisation_admin");
 
                             t.HasCheckConstraint("ck_iam_access_requests_justification_length", "length(business_justification) >= 10");
 
@@ -5113,12 +5117,6 @@ namespace YDot.IAM.Infrastructure.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("employee_number");
-
-                    b.Property<string>("EngagementType")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("engagement_type");
 
                     b.Property<DateTimeOffset?>("ExitedOn")
                         .HasColumnType("timestamp with time zone")

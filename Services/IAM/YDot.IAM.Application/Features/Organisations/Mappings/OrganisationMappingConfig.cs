@@ -149,7 +149,8 @@ public static class OrganisationMappingConfig
         IReadOnlyList<TenantDocument> documents,
         IReadOnlyList<TenantStatusHistory> timeline,
         DateTimeOffset asOf,
-        bool includeInternalNotes)
+        bool includeInternalNotes,
+        OrganisationSecurityLimitsResponse securityLimits)
     {
         var outstanding = OutstandingProfileFields(tenant);
 
@@ -226,7 +227,8 @@ public static class OrganisationMappingConfig
             PermittedActionsFor(tenant),
             outstanding,
             outstanding.Count == 0,
-            EditableProfileFieldsFor(tenant));
+            EditableProfileFieldsFor(tenant),
+            securityLimits);
     }
 
     public static OrganisationDomainResponse ToDomainResponse(this TenantDomain domain) =>

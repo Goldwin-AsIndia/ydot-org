@@ -131,7 +131,11 @@ public sealed class EffectiveAccessService(
                 .Select(grant => new { grant.PermissionCode, grant.IsDenied, grant.RoleId })
                 .ToListAsync(cancellationToken);
 
-        foreach (var grant in grants.Where(item => !item.IsDenied))
+        // THE ORGANISATION ADMIN'S OWN CODES COME FROM THE BLANKET GRANT ONLY. A role row or a
+        // direct claim naming one - the Masters codes - grants nothing, so no role but the
+        // Organisation Admin ever sees the Masters menu. See PermissionCodes.OrganisationAdminOnly.
+        foreach (var grant in grants.Where(item =>
+                     !item.IsDenied && !PermissionCodes.IsOrganisationAdminOnly(item.PermissionCode)))
         {
             permissionCodes.Add(grant.PermissionCode);
         }
@@ -145,7 +149,9 @@ public sealed class EffectiveAccessService(
             .ToListAsync(cancellationToken);
 
         foreach (var claim in claims.Where(item =>
-                     item.ClaimType == ClaimTypeNames.Permission && !string.IsNullOrWhiteSpace(item.ClaimValue)))
+                     item.ClaimType == ClaimTypeNames.Permission
+                     && !string.IsNullOrWhiteSpace(item.ClaimValue)
+                     && !PermissionCodes.IsOrganisationAdminOnly(item.ClaimValue)))
         {
             permissionCodes.Add(claim.ClaimValue!);
         }
@@ -274,7 +280,10 @@ public sealed class EffectiveAccessService(
                 .Select(grant => new { grant.PermissionCode, grant.IsDenied })
                 .ToListAsync(cancellationToken);
 
-        foreach (var grant in proposedGrants.Where(item => !item.IsDenied))
+        // The same rule as ResolveAsync: an Organisation-Admin-only code comes from the blanket
+        // grant or not at all.
+        foreach (var grant in proposedGrants.Where(item =>
+                     !item.IsDenied && !PermissionCodes.IsOrganisationAdminOnly(item.PermissionCode)))
         {
             after.Add(grant.PermissionCode);
         }
@@ -287,7 +296,8 @@ public sealed class EffectiveAccessService(
             .Select(claim => claim.ClaimValue)
             .ToListAsync(cancellationToken);
 
-        foreach (var code in directClaims.Where(value => !string.IsNullOrWhiteSpace(value)))
+        foreach (var code in directClaims.Where(value =>
+                     !string.IsNullOrWhiteSpace(value) && !PermissionCodes.IsOrganisationAdminOnly(value)))
         {
             after.Add(code!);
         }

@@ -266,4 +266,10 @@ public sealed record PermissionMatrixItemResponse(
     /// True when the role carries this only because it grants everything. The checkbox is
     /// shown ticked and disabled, so nobody tries to untick something that is not a row.
     /// </summary>
-    bool IsImplicitlyGranted);
+    bool IsImplicitlyGranted,
+
+    /// <summary>
+    /// True for a code only the Organisation Admin holds - the Masters codes. No other role can
+    /// be given one, so the Roles screen does not offer it.
+    /// </summary>
+    bool IsOrganisationAdminOnly = false);

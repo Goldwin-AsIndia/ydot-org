@@ -39,6 +39,32 @@ interface SecurityNumberField {
 }
 
 /**
+ * One numeric security setting, with the range the server allows for it.
+ *
+ * A range the server has not sent (an older API) is left open, so the box still works and the
+ * server's own check is the one that answers.
+ */
+function securityField(
+  key: SecurityNumberKey,
+  id: string,
+  icon: string,
+  label: string,
+  unit: string,
+  step: number,
+  range: { minimum?: number; maximum?: number } | null | undefined,
+  hint?: string,
+): SecurityNumberField {
+  const min = range?.minimum ?? 0;
+  const max = range?.maximum ?? Number.MAX_SAFE_INTEGER;
+  const known = range?.minimum !== undefined && range?.maximum !== undefined;
+
+  return {
+    key, id, icon, label, unit, step, min, max,
+    hint: hint ?? (known ? `Between ${min} and ${max}` : ''),
+  };
+}
+
+/**
  * One Organisation: its profile, its documents, its settings, its history.
  *
  * ONE COMPONENT, TWO AUDIENCES — AND THE DIFFERENCE IS THE URL
@@ -154,22 +180,44 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** The numeric security settings, drawn as stepper rows - one list per settings group. */
-  readonly signInLimits: SecurityNumberField[] = [
-    { key: 'maximumFailedAccessAttempts', id: 's-attempts', icon: 'ri-shield-keyhole-line',
-      label: 'Failed sign-ins before lockout', hint: 'Between 3 and 10', unit: 'tries', min: 3, max: 10, step: 1 },
-    { key: 'lockoutDurationMinutes', id: 's-lockout', icon: 'ri-lock-2-line',
-      label: 'Lockout duration', hint: 'Between 5 and 120', unit: 'min', min: 5, max: 120, step: 5 },
-    { key: 'sessionIdleTimeoutMinutes', id: 's-idle', icon: 'ri-timer-line',
-      label: 'Idle sign-out', hint: 'Between 5 and 480', unit: 'min', min: 5, max: 480, step: 5 },
-  ];
+  /**
+   * The numeric security settings, drawn as stepper rows - one list per settings group.
+   *
+   * THE RANGES ARE THE SERVER'S (`securityLimits` on the organisation). They were written here -
+   * 3 to 10 failed attempts, 5 to 480 idle minutes - while the save clamped every value to the
+   * platform policy, so choosing 60 idle minutes said "Settings saved" and then showed 30. The
+   * steppers, the hints and the checks below now offer exactly what a save accepts.
+   */
+  readonly signInLimits = computed<SecurityNumberField[]>(() => {
+    const limits = this.organisation()?.securityLimits;
 
-  readonly passwordRules: SecurityNumberField[] = [
-    { key: 'passwordMinimumLength', id: 's-password', icon: 'ri-text-spacing',
-      label: 'Minimum password length', hint: 'Between 8 and 64', unit: 'chars', min: 8, max: 64, step: 1 },
-    { key: 'passwordExpiryDays', id: 's-expiry', icon: 'ri-calendar-schedule-line',
-      label: 'Password expires after', hint: '0 means passwords never expire', unit: 'days', min: 0, max: 365, step: 15 },
-  ];
+    return [
+      securityField('maximumFailedAccessAttempts', 's-attempts', 'ri-shield-keyhole-line',
+        'Failed sign-ins before lockout', 'tries', 1, limits?.maximumFailedAccessAttempts),
+      securityField('lockoutDurationMinutes', 's-lockout', 'ri-lock-2-line',
+        'Lockout duration', 'min', 5, limits?.lockoutDurationMinutes),
+      securityField('sessionIdleTimeoutMinutes', 's-idle', 'ri-timer-line',
+        'Idle sign-out', 'min', 5, limits?.sessionIdleTimeoutMinutes),
+    ];
+  });
+
+  readonly passwordRules = computed<SecurityNumberField[]>(() => {
+    const limits = this.organisation()?.securityLimits;
+
+    return [
+      securityField('passwordMinimumLength', 's-password', 'ri-text-spacing',
+        'Minimum password length', 'chars', 1, limits?.passwordMinimumLength),
+      securityField('passwordExpiryDays', 's-expiry', 'ri-calendar-schedule-line',
+        'Password expires after', 'days', 15, limits?.passwordExpiryDays,
+        '0 means passwords never expire'),
+    ];
+  });
+
+  /**
+   * Payment Gateways is reached from here now that it has no sidebar entry: it is the other
+   * half of how this organisation is set up, and the same administrator works both.
+   */
+  readonly canViewPaymentGateways = computed(() => this.tokens.hasPermission('iam.payment-gateways.view'));
 
   readonly submitNotes = signal('');
 
@@ -413,7 +461,7 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
       this.profileTouched.update((current) => new Set(current).add(profile));
     }
     if (id.startsWith('s-')) {
-      const field = [...this.signInLimits, ...this.passwordRules].find((f) => f.id === id);
+      const field = [...this.signInLimits(), ...this.passwordRules()].find((f) => f.id === id);
       if (field) this.touchSetting(field.key);
     }
   }
@@ -664,8 +712,10 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  /** The message under a numeric setting: shown once the box was left or Save was pressed. */
+  /** The message under a numeric setting: the server's own, else ours once the box was left or Save was pressed. */
   settingError(field: SecurityNumberField): string | null {
+    const server = Object.entries(this.fieldErrors()).find(([key]) => key.toLowerCase() === field.key.toLowerCase());
+    if (server) return server[1];
     return this.settingsTried() || this.settingsTouched().has(field.key) ? this.settingRuleError(field) : null;
   }
 
@@ -856,7 +906,8 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
     }
 
     this.settingsTried.set(true);
-    const failing = [...this.signInLimits, ...this.passwordRules].find((field) => this.settingRuleError(field) !== null);
+    this.fieldErrors.set({});
+    const failing = [...this.signInLimits(), ...this.passwordRules()].find((field) => this.settingRuleError(field) !== null);
     if (failing) {
       this.errorMessage.set('');
       setTimeout(() => (document.getElementById(failing.id) as HTMLElement | null)?.focus());

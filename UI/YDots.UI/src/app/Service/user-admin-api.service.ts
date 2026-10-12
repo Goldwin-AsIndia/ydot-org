@@ -50,8 +50,8 @@ export class UserAdminApiService {
   }
 
   /**
-   * The enumerations the form renders as dropdowns — account categories, engagement types,
-   * MFA requirements, and so on — with their display labels.
+   * The enumerations the form renders as dropdowns — data scopes, MFA requirements, and so
+   * on — with their display labels.
    *
    * Served from the API rather than duplicated in TypeScript, so adding a status to the domain
    * makes it appear in the UI without an Angular change.

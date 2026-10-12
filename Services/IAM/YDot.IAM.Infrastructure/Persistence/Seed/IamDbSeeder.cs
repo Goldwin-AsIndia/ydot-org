@@ -844,7 +844,7 @@ public sealed class IamDbSeeder(
     /// WHAT IT WRITES IS THE ROLE'S MENU SCOPE, filtered by what the role may do. A node is
     /// visible when it lies inside the scope <see cref="TenantRoleDefinitions"/> gives the role -
     /// the named branch, everything beneath it and the headings above it, plus the mandatory
-    /// dashboard and My Security - AND the role holds the permission its screen requires. That
+    /// dashboard - AND the role holds the permission its screen requires. That
     /// is what keeps a Campaign Executive's sidebar to Campaigns although the role also reads
     /// donations, and what gives DonorCare its own three Donors and Leads menus and no others.
     ///
@@ -2153,7 +2153,6 @@ public sealed class IamDbSeeder(
             MobileCountryCode = "+91",
             MobileNumber = person.Mobile,
             Designation = person.Designation,
-            EngagementType = person.Engagement,
             JoinedOn = person.JoinedOn,
             PreferredCulture = "en-IN",
             TimeZone = "Asia/Kolkata",

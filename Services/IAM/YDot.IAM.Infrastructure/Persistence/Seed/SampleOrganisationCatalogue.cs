@@ -95,8 +95,7 @@ internal static class SampleOrganisationCatalogue
         string? DepartmentCode = null,
         string? UnitCode = null,
         string? ManagerUsername = null,
-        DateTimeOffset? JoinedOn = null,
-        EngagementType Engagement = EngagementType.FullTime)
+        DateTimeOffset? JoinedOn = null)
     {
         public string DisplayName => $"{FirstName} {LastName}";
     }
@@ -410,8 +409,7 @@ internal static class SampleOrganisationCatalogue
         var username = $"{firstName}.{lastName}".ToLowerInvariant();
 
         return new SamplePerson(
-            RoleCodes.Donor, firstName, lastName, username, $"{username}@mail.test", mobile,
-            Engagement: EngagementType.External);
+            RoleCodes.Donor, firstName, lastName, username, $"{username}@mail.test", mobile);
     }
 
     private static DateTimeOffset On(int year, int month, int day) =>

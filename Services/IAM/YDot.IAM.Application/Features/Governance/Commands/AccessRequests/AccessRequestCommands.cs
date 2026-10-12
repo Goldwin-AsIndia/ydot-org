@@ -40,7 +40,12 @@ public sealed record ReturnAccessRequestCommand(Guid Id, ReturnAccessRequestRequ
 ///
 /// FIRST, MAKER AND CHECKER ARE DIFFERENT PEOPLE. The approver may not be the requester, and
 /// may not be the subject. That is checked here rather than only on the screen, because a
-/// screen check protects a screen and this method is what actually grants the access.
+/// screen check protects a screen and this method is what actually grants the access. The
+/// Organisation Admin is the one exception: the organisation's rule is that its administrator
+/// works without restriction, so they decide any request, their own included.
+///
+/// (AND A REQUESTER WHO CANNOT DECIDE ASKS ONLY FOR THEMSELVES. Every working staff role may
+/// raise requests; asking on somebody else's behalf stays with whoever decides them.)
 ///
 /// SECOND, APPROVAL WRITES THE REAL THING. It does not set a flag for somebody to action
 /// later — it creates the <see cref="UserRole"/> or <see cref="UserDataScope"/> row and
@@ -81,6 +86,16 @@ public sealed class AccessRequestCommandHandler(
         }
 
         var tenantId = tenantContext.RequireTenantId();
+
+        // A member of staff who may only ask asks for themselves. Raising a request for a colleague
+        // - and choosing what they are given - is the decider's work, so it stays with them.
+        if (!AccessRequestViewer.From(currentUser).MayRequestForOthers
+            && request.RequestedForUserId != currentUser.UserId)
+        {
+            logger.LogWarning("Access request for another person refused: the caller cannot decide requests.");
+            return Result.Failure<OutcomeResponse>(Error.Forbidden(
+                "You can request access for yourself only. Ask an Organisation Admin to raise a request for someone else."));
+        }
 
         var subject = await users.GetByIdAsync(request.RequestedForUserId, cancellationToken);
         if (subject is null)
@@ -379,13 +394,19 @@ public sealed class AccessRequestCommandHandler(
         //
         // The approver may be neither the requester nor the subject. SuperAdmin is not exempt:
         // a root user approving their own request is exactly the pattern an auditor looks for.
-        if (accessRequest.RequestedByUserId == currentUser.UserId)
+        //
+        // THE ORGANISATION ADMIN IS, by the organisation's own rule that its administrator works
+        // without restriction. The decision is still on the audit trail under their name, beside
+        // the request they raised, so the pattern stays visible to anybody who reviews it.
+        var isOrganisationAdmin = AccessRequestViewer.IsOrganisationAdminOf(currentUser);
+
+        if (!isOrganisationAdmin && accessRequest.RequestedByUserId == currentUser.UserId)
         {
             return Result.Failure<OutcomeResponse>(Error.SegregationOfDuties(
                 "You cannot decide a request that you raised."));
         }
 
-        if (accessRequest.RequestedForUserId == currentUser.UserId)
+        if (!isOrganisationAdmin && accessRequest.RequestedForUserId == currentUser.UserId)
         {
             return Result.Failure<OutcomeResponse>(Error.SegregationOfDuties(
                 "You cannot decide a request for your own access."));
@@ -402,6 +423,12 @@ public sealed class AccessRequestCommandHandler(
         accessRequest.DecidedAtUtc = now;
         accessRequest.DecidedByUserId = currentUser.UserId;
         accessRequest.DecisionNotes = request.Notes;
+
+        // Written down whenever the exemption is what allowed the decision, so the row and the
+        // audit entry both say so (and the database constraint accepts it).
+        var selfDecided = accessRequest.RequestedByUserId == currentUser.UserId
+                          || accessRequest.RequestedForUserId == currentUser.UserId;
+        accessRequest.SelfDecidedByOrganisationAdmin = selfDecided;
 
         // The approver may grant less than was asked for.
         if (request.AccessEndsAtUtc.HasValue)
@@ -423,7 +450,7 @@ public sealed class AccessRequestCommandHandler(
         await audit.WriteAsync(
             request.Approved ? AuditActionCodes.AccessRequestApproved : AuditActionCodes.AccessRequestRejected,
             nameof(AccessRequest), accessRequest.Id, accessRequest.RequestNumber,
-            new { request.Approved, request.Notes, accessRequest.RequestedForUserId },
+            new { request.Approved, request.Notes, accessRequest.RequestedForUserId, SelfDecidedByOrganisationAdmin = selfDecided },
             request.Notes, cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -482,8 +509,11 @@ public sealed class AccessRequestCommandHandler(
         }
 
         // The same independence rule that governs a decision. Returning your own request would
-        // let it be kept alive indefinitely without anybody independent ever seeing it.
-        if (accessRequest.RequestedByUserId == currentUser.UserId)
+        // let it be kept alive indefinitely without anybody independent ever seeing it. The
+        // Organisation Admin is exempt here exactly as from a decision.
+        var isOrganisationAdmin = AccessRequestViewer.IsOrganisationAdminOf(currentUser);
+
+        if (!isOrganisationAdmin && accessRequest.RequestedByUserId == currentUser.UserId)
         {
             return Result.Failure<OutcomeResponse>(Error.Forbidden(
                 "You cannot send your own request back. Withdraw it and raise a new one."));
@@ -491,7 +521,7 @@ public sealed class AccessRequestCommandHandler(
 
         // The person the access is for is excluded too, as from a decision. Sending a request
         // about your own access back is a way of steering it.
-        if (accessRequest.RequestedForUserId == currentUser.UserId)
+        if (!isOrganisationAdmin && accessRequest.RequestedForUserId == currentUser.UserId)
         {
             return Result.Failure<OutcomeResponse>(Error.SegregationOfDuties(
                 "You cannot send back a request for your own access."));

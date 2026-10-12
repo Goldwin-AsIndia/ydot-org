@@ -215,10 +215,9 @@ public sealed class MenuBuilderService(
     /// Organisation filter removed anything. The result was a sidebar offering Fundraising to
     /// a body nobody has yet agreed to do business with.
     ///
-    /// MY SECURITY STAYS, because a person must always be able to change their own password
-    /// and manage their second factor, whatever their Organisation status is. Its parent
-    /// heading has to be listed too or filter 7 would drop the heading and take the child
-    /// with it.
+    /// MY SECURITY IS NOT LISTED, because it is no longer a sidebar node: it opens from the
+    /// top-bar profile menu, which is drawn whatever the Organisation status is, so a person can
+    /// still change their own password and manage their second factor during onboarding.
     ///
     /// The codes are the ones declared in <c>MenuCatalogue</c>. A node added there is invisible
     /// during onboarding unless it is named here, which is the safe direction to fail.
@@ -228,8 +227,6 @@ public sealed class MenuBuilderService(
         {
             "ORGANISATION",       // the heading
             "ORG_PROFILE",        // profile, documents, submit for approval
-            "ADMINISTRATION",     // the heading, for the one child below
-            "ADMIN_MY_SECURITY",
         };
 
     /// <summary>Filters 2 through 7 for one node.</summary>

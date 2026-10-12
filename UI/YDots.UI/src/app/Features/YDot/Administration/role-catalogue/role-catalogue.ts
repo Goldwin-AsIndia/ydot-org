@@ -1060,7 +1060,7 @@ export class RoleCatalogueComponent {
         this.selectedPermissionCodes.set(this.permissionChoices().map((p) => p.code));
         this.toast.show(
           'Every permission selected',
-          `${role.name} grants everything without a list, so the copy starts with all ${this.permissionChoices().length} permissions that exist today. Remove what it should not have.`,
+          `${role.name} grants everything without a list, so the copy starts with all ${this.permissionChoices().length} permissions another role can hold (Masters stays with the Organisation Admin). Remove what it should not have.`,
           'info');
       });
     }
@@ -1140,13 +1140,17 @@ export class RoleCatalogueComponent {
     return this.selectedIncompatibleRoleIds().includes(id);
   }
 
-  /** Every permission in the matrix, flattened. */
+  /**
+   * Every permission in the matrix a created role may hold, flattened. The Masters codes are left
+   * out: they belong to the Organisation Admin alone and the server refuses them for any other role.
+   */
   readonly permissionChoices = computed(() => {
     const choices: { code: string; name: string; description: string; isSensitive: boolean }[] = [];
 
     for (const module of this.permissionMatrix()?.modules ?? []) {
       for (const group of module.groups ?? []) {
         for (const permission of group.permissions ?? []) {
+          if (permission.isOrganisationAdminOnly === true) continue;
           choices.push({
             code: permission.code ?? '',
             name: permission.name ?? permission.code ?? '',
@@ -1338,6 +1342,8 @@ export class RoleCatalogueComponent {
       .map((module) => {
         const items = (module.groups ?? [])
           .flatMap((group) => group.permissions ?? [])
+          // The Masters codes belong to the Organisation Admin alone; the server refuses them for any other role.
+          .filter((permission) => permission.isOrganisationAdminOnly !== true)
           .map((permission) => {
             const code = permission.code ?? '';
             return {

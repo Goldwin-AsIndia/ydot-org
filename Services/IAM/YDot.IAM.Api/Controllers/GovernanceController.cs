@@ -8,6 +8,8 @@ using YDot.IAM.Application.Features.Governance.Commands.AccessRequests;
 using YDot.IAM.Application.Features.Governance.Commands.AccessReviews;
 using YDot.IAM.Application.Features.Governance.DTOs;
 using YDot.IAM.Application.Features.Governance.Queries.GovernanceQueries;
+using YDot.IAM.Application.Features.Roles.DTOs;
+using YDot.IAM.Application.Features.Roles.Queries.RoleQueries;
 using YDot.IAM.Application.Features.Users.DTOs;
 using YDot.IAM.Infrastructure.Authorization;
 
@@ -32,6 +34,7 @@ public sealed class GovernanceController(
     AccessRequestCommandHandler accessRequests,
     AccessReviewCommandHandler accessReviews,
     GovernanceQueryHandler queries,
+    RoleQueryHandler roleQueries,
     ILogger<GovernanceController> logger) : ApiControllerBase
 {
     // =================================================================================
@@ -99,6 +102,29 @@ public sealed class GovernanceController(
             logger.LogInformation("Access request export completed successfully.");
 
         return FileFromResult(result);
+    }
+
+    /// <summary>
+    /// The roles a request may ask for: the Organisation's active roles, for the role picker on
+    /// the access request form.
+    ///
+    /// ITS OWN ENDPOINT, under the permission to RAISE a request, because <c>/roles/lookup</c>
+    /// needs <c>iam.roles.view</c> - a role administrator's code - and every working staff role
+    /// asks for access without being one. The answer is the same list that lookup returns.
+    /// </summary>
+    [HttpGet("access-requests/requestable-roles")]
+    [HasPermission(PermissionCodes.AccessRequestsCreate)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<RoleLookupResponse>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRequestableRolesAsync(CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Getting the roles an access request may ask for.");
+
+        var result = await roleQueries.HandleAsync(new LookupRolesQuery(), cancellationToken);
+
+        if (result.IsFailure)
+            logger.LogWarning("Requestable role lookup failed.");
+
+        return FromResult(result);
     }
 
     /// <summary>
