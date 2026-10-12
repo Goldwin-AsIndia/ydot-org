@@ -260,7 +260,7 @@ public sealed class CampaignDirectory(PaymentDbContext context, ILogger<Campaign
             FROM cam_campaigns AS campaign
             LEFT JOIN gm_currencies AS currency ON currency.id = campaign.currency_id
             WHERE campaign.tenant_id = @tenant_id
-              AND campaign.status IN ('Approved', 'Scheduled', 'Active')
+              AND campaign.status = 'Active'
               AND campaign.start_date <= @today
               AND campaign.end_date >= @today
             ORDER BY campaign.name

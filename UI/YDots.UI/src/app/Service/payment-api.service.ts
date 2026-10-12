@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
+import { MasterLookup } from '../Shared/models/global-master.model';
 import { environment } from '../../environments/environment';
 import { ApiResponse, OutcomeResponse, PagedResponse } from '../Shared/models/api-response.model';
 import {
@@ -123,6 +124,46 @@ export class PaymentApiService {
     return this.http
       .get<ApiResponse<PublicCampaignSummary[]>>(`${this.publicApi}/campaigns`)
       .pipe(map((response) => response.data ?? []));
+  }
+
+  /**
+   * The address masters for the anonymous donation form. The identity lookups need a login, which
+   * a donor does not have, so these are served by the public donation API. Nothing here throws;
+   * a failed read leaves the dropdown empty.
+   */
+  getPublicCountries(): Observable<MasterLookup[]> {
+    return this.publicGeo('geo/countries');
+  }
+
+  /** Active currencies as `{ reference: code, label: "INR - Indian Rupee" }`. */
+  getPublicCurrencies(): Observable<{ reference: string; label: string }[]> {
+    return this.publicGeo('geo/currencies').pipe(
+      map((rows) => rows.map((row) => ({ reference: row.code, label: `${row.code} - ${row.name}` }))),
+    );
+  }
+
+  getPublicStates(countryId: string): Observable<MasterLookup[]> {
+    return this.publicGeo('geo/states', { countryId });
+  }
+
+  getPublicCities(stateProvinceId: string): Observable<MasterLookup[]> {
+    return this.publicGeo('geo/cities', { stateProvinceId });
+  }
+
+  private publicGeo(path: string, params?: Record<string, string>): Observable<MasterLookup[]> {
+    return this.http
+      .get<ApiResponse<{ id: string; code: string; name: string }[]>>(`${this.publicApi}/${path}`, { params })
+      .pipe(
+        map((response) =>
+          (response.data ?? []).map((row) => ({
+            ...row,
+            status: 'active' as MasterLookup['status'],
+            isPlatformRow: true,
+            sortOrder: 0,
+          })),
+        ),
+        catchError(() => of<MasterLookup[]>([])),
+      );
   }
 
   /**

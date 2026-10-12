@@ -961,6 +961,10 @@ export class TrackingAssetManagerComponent {
     if (this.pendingApproval(asset) === 'disable') this.requestDisable(asset);
     else this.requestApprove(asset);
   }
+  /** A Submitted row (activation or disable awaiting a decision) offers only the approve icon. */
+  protected isSubmittedRow(asset: TrackingAsset): boolean {
+    return asset.assetStatus === 'Submitted' || asset.assetStatus === 'Submitted for disable';
+  }
   /** One short line for the detail panel: what state the asset is waiting in, whoever is reading. */
   protected awaitingNote(asset: TrackingAsset | null): string {
     if (!asset) return '';

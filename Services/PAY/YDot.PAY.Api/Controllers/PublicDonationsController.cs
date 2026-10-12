@@ -47,6 +47,7 @@ public sealed class PublicDonationsController(
     DonationQueryHandler queries,
     PaymentProcessingCommandHandler payments,
     ICampaignDirectory campaigns,
+    IPublicGeoDirectory geo,
     ITenantContext tenantContext,
     ILogger<PublicDonationsController> logger) : ApiControllerBase
 {
@@ -93,6 +94,37 @@ public sealed class PublicDonationsController(
 
         return Ok(ApiResponse<IReadOnlyList<PublicCampaignSummary>>.Ok(rows));
     }
+
+    /// <summary>
+    /// The active countries, for the address block. Anonymous, because the identity lookups need a
+    /// token and a donor has none. The platform's rows plus the host organisation's own.
+    /// </summary>
+    [HttpGet("geo/countries")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PublicGeoOption>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCountriesAsync(CancellationToken cancellationToken) =>
+        Ok(ApiResponse<IReadOnlyList<PublicGeoOption>>.Ok(
+            await geo.GetCountriesAsync(tenantContext.TenantId ?? Guid.Empty, cancellationToken)));
+
+    /// <summary>The active currencies, for the donation form's currency picker.</summary>
+    [HttpGet("geo/currencies")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PublicGeoOption>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCurrenciesAsync(CancellationToken cancellationToken) =>
+        Ok(ApiResponse<IReadOnlyList<PublicGeoOption>>.Ok(
+            await geo.GetCurrenciesAsync(tenantContext.TenantId ?? Guid.Empty, cancellationToken)));
+
+    /// <summary>The active states beneath one country.</summary>
+    [HttpGet("geo/states")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PublicGeoOption>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetStatesAsync([FromQuery] Guid countryId, CancellationToken cancellationToken) =>
+        Ok(ApiResponse<IReadOnlyList<PublicGeoOption>>.Ok(
+            await geo.GetStatesAsync(tenantContext.TenantId ?? Guid.Empty, countryId, cancellationToken)));
+
+    /// <summary>The active cities beneath one state.</summary>
+    [HttpGet("geo/cities")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PublicGeoOption>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCitiesAsync([FromQuery] Guid stateProvinceId, CancellationToken cancellationToken) =>
+        Ok(ApiResponse<IReadOnlyList<PublicGeoOption>>.Ok(
+            await geo.GetCitiesAsync(tenantContext.TenantId ?? Guid.Empty, stateProvinceId, cancellationToken)));
 
     /// <summary>
     /// What a scanned QR code or followed tracking link gives to.

@@ -394,13 +394,13 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/></svg>
                       </button>
                     }
-                    @if (canEverEdit()) {
+                    @if (canEverEdit() && !isSubmittedRow(r)) {
                       <button type="button" class="tam-icon-action" (click)="requestEdit(r)" [disabled]="!editAllowed(r)"
                               [attr.title]="editAllowed(r) ? 'Edit' : editDisabledReason(r)" aria-label="Edit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>
                       </button>
                     }
-                    @if (canEverDisableOrRequest()) {
+                    @if (canEverDisableOrRequest() && !isSubmittedRow(r)) {
                       <button type="button" class="tam-icon-action tam-icon-action--danger" (click)="onRowDisable(r)" [disabled]="!rowDisableEnabled(r)"
                               [attr.title]="rowDisableEnabled(r) ? disableMenuLabel() : rowDisableTitle(r)" [attr.aria-label]="disableMenuLabel()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>
@@ -799,7 +799,7 @@
       <button type="button" class="btn btn-outline-secondary btn-sm" (click)="confirmGenerate('Draft')"><i class="ri ri-draft-line"></i>Draft</button>
       <button type="button" class="btn btn-primary btn-sm" (click)="confirmGenerate('Submitted')">
         <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-        Activate
+        Submit
       </button>
     </footer>
   </div>

@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, Injector, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Observable } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../../../Shared/services/toast.service';
@@ -450,16 +451,30 @@ export class PublicDonationInitiationComponent {
       .map((row) => ({ reference: row.id, label: row.name }));
   }
 
-  /** Loads the country catalogue once, for the internal view only (see geoMastersOrNull). */
+  /** Loads the country catalogue once. Signed-in callers use the identity lookups; donors the public ones. */
   protected loadCountriesForAddress(): void {
-    const masters = this.geoMastersOrNull();
-    if (!masters || this.countryCatalogue().length > 0) {
+    if (this.countryCatalogue().length > 0) {
       return;
     }
-    masters.getCountries().subscribe({
+    this.countriesSource().subscribe({
       next: (rows) => this.countryCatalogue.set(this.toMasterOptions(rows)),
       error: () => this.countryCatalogue.set([]),
     });
+  }
+
+  private countriesSource(): Observable<readonly MasterLookup[]> {
+    const masters = this.geoMastersOrNull();
+    return masters ? masters.getCountries() : this.payments.getPublicCountries();
+  }
+
+  private statesSource(countryId: string): Observable<readonly MasterLookup[]> {
+    const masters = this.geoMastersOrNull();
+    return masters ? masters.getStates(countryId) : this.payments.getPublicStates(countryId);
+  }
+
+  private citiesSource(stateId: string): Observable<readonly MasterLookup[]> {
+    const masters = this.geoMastersOrNull();
+    return masters ? masters.getCities(stateId) : this.payments.getPublicCities(stateId);
   }
 
   /**
@@ -473,11 +488,10 @@ export class PublicDonationInitiationComponent {
     this.stateCatalogue.set([]);
     this.cityCatalogue.set([]);
 
-    const masters = this.geoMastersOrNull();
-    if (!masters || !reference) {
+    if (!reference) {
       return;
     }
-    masters.getStates(reference).subscribe({
+    this.statesSource(reference).subscribe({
       next: (rows) => this.stateCatalogue.set(this.toMasterOptions(rows)),
       error: () => this.stateCatalogue.set([]),
     });
@@ -488,11 +502,10 @@ export class PublicDonationInitiationComponent {
     this.cityId.set('');
     this.cityCatalogue.set([]);
 
-    const masters = this.geoMastersOrNull();
-    if (!masters || !reference) {
+    if (!reference) {
       return;
     }
-    masters.getCities(reference).subscribe({
+    this.citiesSource(reference).subscribe({
       next: (rows) => this.cityCatalogue.set(this.toMasterOptions(rows)),
       error: () => this.cityCatalogue.set([]),
     });
@@ -786,8 +799,8 @@ export class PublicDonationInitiationComponent {
         message: 'Review PAN or tax identifier. The value does not meet the stated format or range.',
       });
     }
-    // THE ADDRESS BLOCK, REQUIRED FOR STAFF ENTERING A DONATION ON A DONOR'S BEHALF.
-    if (this.isInternalView()) {
+    // THE ADDRESS BLOCK IS REQUIRED FOR EVERY DONOR, as its asterisks say.
+    {
       if (!this.addressText().trim()) {
         errors.push({ field: 'addressLine1', label: 'Address line 1', message: 'Enter Address line 1.' });
       }
@@ -1362,6 +1375,11 @@ export class PublicDonationInitiationComponent {
     }
   }
 
+  /** The currency picker comes from the currency master, not from a list typed into the page. */
+  private loadCurrencies(): void {
+    this.payments.getPublicCurrencies().subscribe((rows) => this.currencyCatalogue.set(rows));
+  }
+
   private loadConfig(): void {
     this.uiState.set('loading');
     this.dataService.getPublicDonationInitiationData().subscribe({
@@ -1370,7 +1388,7 @@ export class PublicDonationInitiationComponent {
         this.pageSubtitle.set(config.pageSubtitle);
         this.operatingTimeZone.set(config.operatingTimeZone);
         this.consentPolicyVersion.set(config.consentPolicyVersion);
-        this.currencyCatalogue.set(config.currencies);
+        this.loadCurrencies();
         this.geographyCatalogue.set(config.geographies);
         this.permissions.set(config.permissions);
         this.maxDonationAmount.set(config.maxDonationAmount);

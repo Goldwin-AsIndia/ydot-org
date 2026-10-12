@@ -121,6 +121,7 @@ public static class DependencyInjection
         // created alongside a donation commits with it.
         services.AddScoped<IDonorDirectory, DonorDirectory>();
         services.AddScoped<ICampaignDirectory, CampaignDirectory>();
+        services.AddScoped<IPublicGeoDirectory, PublicGeoDirectory>();
 
         // The Organisation's own host, so a receipt links to the charity the donor gave to
         // rather than to the platform's front door. Reads IAM's domain table over the shared
