@@ -97,7 +97,7 @@
     </div>
 
     <div class="crc-hero-actions crc-overflow">
-      <button #crcActionsBtn type="button" class="btn btn-outline-secondary btn-sm " style="padding-left: 17px;" aria-haspopup="menu" [attr.aria-expanded]="actionsMenuOpen()" (click)="toggleActionsMenu()">
+      <button #crcActionsBtn type="button" class="btn btn-outline-secondary btn-sm " style="padding-left: 16px;padding-right: 13px;padding-bottom: 6px;" aria-haspopup="menu" [attr.aria-expanded]="actionsMenuOpen()" (click)="toggleActionsMenu()">
         Launch actions
         <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
       </button>
@@ -461,17 +461,17 @@
       <div class="ov-body">
       <div class="crc-field">
         <label class="crc-field-label" for="crc-approve-reason">Reason <span class="crc-req">*</span></label>
-        <textarea id="crc-approve-reason" class="crc-input crc-textarea" rows="3" [class.is-invalid]="approveTouched() && !approveReasonValid()" [ngModel]="approveReason()" (ngModelChange)="approveReason.set($event)" placeholder="Record the launch decision"></textarea>
+        <textarea id="crc-approve-reason" class="crc-input crc-textarea" rows="3" [class.is-invalid]="approveTouched() && !approveReasonValid()" [attr.aria-invalid]="approveTouched() && !approveReasonValid()" [ngModel]="approveReason()" (ngModelChange)="approveReason.set($event)" placeholder="Record the launch decision"></textarea>
         <div class="crc-field-foot">
           <span>Minimum {{ approveReasonMin }} characters</span>
           <span class="crc-charcount" [class.crc-bad]="approveTouched() && !approveReasonValid()">{{ approveReasonCount() }} / {{ approveReasonMax }}</span>
         </div>
-        @if (approveTouched() && !approveReasonValid()) { <span class="crc-field-error">Review Reason. The value does not meet the stated format or range.</span> }
+        @if (approveTouched() && approveReasonError()) { <span class="crc-field-error" role="alert">{{ approveReasonError() }}</span> }
       </div>
       </div>
       <div class="crc-modal-actions">
         <button type="button" class="crc-btn crc-btn-outline" (click)="cancelApprove()">Cancel</button>
-        <button type="button" class="crc-btn crc-btn-danger" [disabled]="!approveReasonValid()" (click)="confirmApprove()">Approve launch</button>
+        <button type="button" class="crc-btn crc-btn-danger" (click)="confirmApprove()">Approve launch</button>
       </div>
     </div>
   </div>
@@ -497,17 +497,17 @@
       </dl>
       <div class="crc-field">
         <label class="crc-field-label" for="crc-reject-reason">Reason <span class="crc-req">*</span></label>
-        <textarea id="crc-reject-reason" class="crc-input crc-textarea" rows="3" [class.is-invalid]="rejectTouched() && !rejectReasonValid()" [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)" placeholder="Say what has to change before this can launch"></textarea>
+        <textarea id="crc-reject-reason" class="crc-input crc-textarea" rows="3" [class.is-invalid]="rejectTouched() && !rejectReasonValid()" [attr.aria-invalid]="rejectTouched() && !rejectReasonValid()" [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)" placeholder="Say what has to change before this can launch"></textarea>
         <div class="crc-field-foot">
           <span>Minimum {{ approveReasonMin }} characters</span>
           <span class="crc-charcount" [class.crc-bad]="rejectTouched() && !rejectReasonValid()">{{ rejectReasonCount() }} / {{ approveReasonMax }}</span>
         </div>
-        @if (rejectTouched() && !rejectReasonValid()) { <span class="crc-field-error">Enter a reason of at least {{ approveReasonMin }} characters.</span> }
+        @if (rejectTouched() && rejectReasonError()) { <span class="crc-field-error" role="alert">{{ rejectReasonError() }}</span> }
       </div>
       </div>
       <div class="crc-modal-actions">
         <button type="button" class="crc-btn crc-btn-outline" (click)="cancelReject()">Cancel</button>
-        <button type="button" class="crc-btn crc-btn-danger" [disabled]="!rejectReasonValid()" (click)="confirmReject()">{{ rejectLabel() }}</button>
+        <button type="button" class="crc-btn crc-btn-danger" (click)="confirmReject()">{{ rejectLabel() }}</button>
       </div>
     </div>
   </div>

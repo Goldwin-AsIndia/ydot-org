@@ -20,17 +20,42 @@
           <label class="crcx-label" for="crcx-c-name">Check name <span class="crcx-req">*</span></label>
           <input id="crcx-c-name" class="crcx-input" type="text" placeholder="e.g. Donation page copy approved"
                  [class.is-invalid]="submitted() && !cNameValid()"
+                 [attr.aria-invalid]="submitted() && !cNameValid()"
                  [ngModel]="cName()" (ngModelChange)="cName.set($event)" />
-          @if (submitted() && !cNameValid()) { <span class="crcx-error">Enter a check name.</span> }
+          @if (submitted() && !cNameValid()) { <span class="crcx-error" role="alert">Check name is required.</span> }
         </div>
 
-        <div class="crcx-field">
+        <div class="crcx-field crcx-col-2">
           <label class="crcx-label" for="crcx-c-cat">Category <span class="crcx-req">*</span></label>
-          <select id="crcx-c-cat" class="crcx-input crcx-select" [class.is-invalid]="submitted() && !cCategoryValid()" [ngModel]="cCategory()" (ngModelChange)="cCategory.set($event)">
-            <option value="" disabled>Select a category…</option>
-            @for (o of categories(); track o.value) { <option [value]="o.value">{{ o.label }}</option> }
-          </select>
-          @if (submitted() && !cCategoryValid()) { <span class="crcx-error">Select a category.</span> }
+          <div class="crcx-combo">
+            <button #catBtn id="crcx-c-cat" type="button" class="crcx-combo-trigger"
+                    [class.is-open]="categoryComboOpen()"
+                    [class.is-invalid]="submitted() && !cCategoryValid()"
+                    [attr.aria-invalid]="submitted() && !cCategoryValid()"
+                    aria-haspopup="listbox" [attr.aria-expanded]="categoryComboOpen()"
+                    (click)="categoryComboOpen.set(!categoryComboOpen())">
+              <span class="crcx-combo-value" [class.crcx-placeholder]="!categoryLabel()">{{ categoryLabel() || 'Select a category…' }}</span>
+              <svg class="crcx-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            @if (categoryComboOpen()) {
+              <div class="crcx-pop" appClickOutside [clickOutsideExcept]="catBtn" (appClickOutside)="categoryComboOpen.set(false)">
+                <ul class="crcx-pop-list" role="listbox">
+                  @for (o of categories(); track o.value) {
+                    <li>
+                      <button type="button" class="crcx-pop-opt" role="option"
+                              [class.is-selected]="o.value === cCategory()" [attr.aria-selected]="o.value === cCategory()"
+                              (click)="selectCategory(o.value)">
+                        <span class="crcx-opt-main">{{ o.label }}</span>
+                      </button>
+                    </li>
+                  } @empty {
+                    <li class="crcx-pop-empty">No categories available.</li>
+                  }
+                </ul>
+              </div>
+            }
+          </div>
+          @if (submitted() && !cCategoryValid()) { <span class="crcx-error" role="alert">Category is required.</span> }
         </div>
 
         <div class="crcx-field crcx-col-2">
@@ -41,8 +66,8 @@
 
         <div class="crcx-field crcx-col-2">
           <label class="crcx-label" for="crcx-c-success">Success criteria <span class="crcx-req">*</span></label>
-          <textarea id="crcx-c-success" class="crcx-input crcx-textarea" [class.is-invalid]="submitted() && !cSuccessValid()" [ngModel]="cSuccessCriteria()" (ngModelChange)="cSuccessCriteria.set($event)" placeholder="What condition marks this check as met?"></textarea>
-          @if (submitted() && !cSuccessValid()) { <span class="crcx-error">Enter the success criteria.</span> }
+          <textarea id="crcx-c-success" class="crcx-input crcx-textarea" [class.is-invalid]="submitted() && !cSuccessValid()" [attr.aria-invalid]="submitted() && !cSuccessValid()" [ngModel]="cSuccessCriteria()" (ngModelChange)="cSuccessCriteria.set($event)" placeholder="What condition marks this check as met?"></textarea>
+          @if (submitted() && !cSuccessValid()) { <span class="crcx-error" role="alert">Success criteria is required.</span> }
         </div>
       </div>
     </section>
@@ -121,7 +146,7 @@
     <span class="crcx-foot-note"><span class="crcx-req">*</span> Required fields</span>
     <div class="crcx-foot-actions">
       <button type="button" class="btn btn-outline-secondary btn-sm" (click)="attemptClose()">Cancel</button>
-      <button type="button" class="btn btn-primary btn-sm" [disabled]="!checkValid()" (click)="addCheck()"><i class="ri-save-line" aria-hidden="true"></i> {{ isEditMode() ? 'Save' : 'Create' }}</button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="addCheck()"><i class="ri-save-line" aria-hidden="true"></i> {{ isEditMode() ? 'Save' : 'Create' }}</button>
     </div>
   </footer>
 </aside>

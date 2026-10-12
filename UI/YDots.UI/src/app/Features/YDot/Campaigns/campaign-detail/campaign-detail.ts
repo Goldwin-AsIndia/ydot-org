@@ -131,6 +131,14 @@ interface CalEvent {
 /** A row of the tabbed table, with the calendar day it belongs to. */
 type DatedRow = HistoryRow & { dayKey?: string | null };
 
+/** BUG-016: the statuses a campaign may be edited in - matches the Campaign Register's rule. */
+const CampaignDetailEditRule = {
+  statuses: ['Draft', 'Approved', 'Scheduled', 'Active'] as readonly string[],
+  editable(status: string | null | undefined): boolean {
+    return !!status && this.statuses.includes(status);
+  },
+};
+
 @Component({
   selector: 'app-campaign-detail',
   imports: [CommonModule, FormsModule],
@@ -364,16 +372,32 @@ export class CampaignDetailComponent {
   protected readonly exportAllowed = computed(
     () => (this.allows('Export') || this.permissions().export) && this.uiState() !== 'no-access',
   );
-  /** Edit is offered for a Draft, Submitted, Scheduled or Active campaign (the server decides) — opens the Campaign Wizard pre-filled with this record. */
-  protected readonly canEdit = computed(() => this.allows('Edit') && this.uiState() !== 'no-access');
+  /**
+   * The statuses a campaign can be edited in - the same list the Campaign Register uses.
+   *
+   * BUG-016 (TS-025): a SUBMITTED campaign showed Edit here. It is with its approver, and changing
+   * it now would mean approving something other than what was submitted; the register already
+   * hides Edit on Submitted rows, so the two screens disagreed. The server's `permittedActions`
+   * still has the final say - this only stops the button appearing where it never should.
+   */
+  /** Edit - opens the Campaign Wizard pre-filled with this record. */
+  protected readonly canEdit = computed(
+    () =>
+      this.allows('Edit') &&
+      CampaignDetailEditRule.editable(this.status()) &&
+      this.uiState() !== 'no-access',
+  );
   /** Tooltip for the overview's edit icon — says why it is unavailable when it is. */
   protected readonly editHint = computed(() => {
     if (this.canEdit()) {
       return 'Edit campaign';
     }
     const status = this.status();
-    return !['Draft', 'Submitted', 'Approved', 'Scheduled', 'Active'].includes(status)
-      ? `Only a Draft, Submitted, Scheduled or Active campaign can be edited. This one is ${status}.`
+    if (status === 'Submitted') {
+      return 'A submitted campaign is with its approver and cannot be edited until it is approved or sent back.';
+    }
+    return !CampaignDetailEditRule.editable(status)
+      ? `Only a Draft, Approved, Scheduled or Active campaign can be edited. This one is ${status}.`
       : 'You do not have permission to edit this campaign.';
   });
   protected openEdit(): void {
@@ -778,6 +802,19 @@ export class CampaignDetailComponent {
         })),
     );
 
+    // The channel ring's fallback: each counted gift's source, readable ("QrCode" -> "Qr code").
+    this.donationChannels.set(
+      all
+        .filter((d) => d.status !== 'refunded' && d.status !== 'chargedBack' && d.status !== 'voided')
+        .map((d) => ({
+          channel:
+            String((d.sourceType as string | null) || 'Direct')
+              .replace(/([a-z])([A-Z])/g, '$1 $2')
+              .replace(/^./, (c) => c.toUpperCase()) || 'Direct',
+          at: d.donatedAtUtc,
+        })),
+    );
+
     // Each donor's FIRST gift to this campaign: the Donors tab lists who started giving on a day.
     const firstByDonor = new Map<string, DonationListItem>();
 
@@ -1151,11 +1188,12 @@ export class CampaignDetailComponent {
       return;
     }
 
-    const from = new Date();
-    from.setFullYear(from.getFullYear() - 1);
-
     this.attributionError.set(null);
 
+    // THE WINDOW IS THE PANEL'S OWN PICK (BUG: "Donation by channel" showed static data). The pill
+    // read "Last 12 Months ▾" and did nothing; it now chooses the window and the summary is re-read.
+    // "All time" asks from 1 Jan 2000 - the summary's window always has a start.
+    const from = this.mixFromDate() ?? new Date(2000, 0, 1);
     this.campaignApi.getAttributionSummary(campaignId, { fromUtc: from.toISOString() }).subscribe({
       next: (summary) => this.attribution.set(summary),
       error: (error: unknown) => {
@@ -1183,30 +1221,87 @@ export class CampaignDetailComponent {
    */
   protected readonly donorMix = computed(() => {
     const summary = this.attribution();
+    let rows: { label: string; count: number }[] = [];
 
-    if (!summary || summary.totalDonations <= 0) {
-      return [] as { label: string; display: string; pct: number; color: string }[];
+    if (summary && summary.totalDonations > 0) {
+      rows = (summary.byChannel ?? [])
+        .filter((row) => row.donationCount > 0)
+        .map((row) => ({ label: row.label || 'Unnamed channel', count: row.donationCount }));
+
+      if (summary.unattributedDonations > 0) {
+        rows.push({ label: 'Not traced to a channel', count: summary.unattributedDonations });
+      }
+    } else {
+      // THE CAMPAIGN'S OWN DONATIONS WHEN CAM HAS TRACED NONE. The ring read "no donations" (or
+      // the reader saw the same figures every time) on a campaign the payments service shows gifts
+      // for, because only CAM's attribution was asked. The payments read already on this page
+      // carries each gift's source, so the ring falls back to that - still real data, by channel.
+      const from = this.mixFromDate();
+      const counts = new Map<string, number>();
+      for (const gift of this.donationChannels()) {
+        if (from && gift.at && new Date(gift.at) < from) continue;
+        counts.set(gift.channel, (counts.get(gift.channel) ?? 0) + 1);
+      }
+      rows = [...counts.entries()]
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count);
     }
 
-    const rows = (summary.byChannel ?? [])
-      .filter((row) => row.donationCount > 0)
-      .map((row) => ({ label: row.label || 'Unnamed channel', count: row.donationCount }));
-
-    if (summary.unattributedDonations > 0) {
-      rows.push({ label: 'Not traced to a channel', count: summary.unattributedDonations });
+    const total = rows.reduce((sum, row) => sum + row.count, 0);
+    if (total <= 0) {
+      return [] as { label: string; display: string; pct: number; color: string; count: number }[];
     }
 
     return rows.map((row, index) => ({
       label: row.label,
+      count: row.count,
       display: row.count.toLocaleString('en-IN'),
-      pct: Math.round((row.count / summary.totalDonations) * 1000) / 10,
+      pct: Math.round((row.count / total) * 1000) / 10,
       color: CampaignDetailComponent.MIX_COLOURS[index % CampaignDetailComponent.MIX_COLOURS.length],
     }));
   });
 
+  /** The ring's centre figure: the donations it is actually drawing. */
   protected readonly donorMixTotalLabel = computed(() =>
-    (this.attribution()?.totalDonations ?? 0).toLocaleString('en-IN'),
+    this.donorMix().reduce((sum, row) => sum + row.count, 0).toLocaleString('en-IN'),
   );
+
+  /** Where the ring's figures come from, for the small note under it. */
+  protected readonly donorMixSource = computed(() =>
+    (this.attribution()?.totalDonations ?? 0) > 0 ? 'Traced by tracking assets' : 'From recorded donations',
+  );
+
+  // ----- The panel's window: the pill is a real choice now -----
+  protected readonly mixPeriods = [
+    { months: 1, label: 'Last 30 days' },
+    { months: 3, label: 'Last 3 months' },
+    { months: 6, label: 'Last 6 months' },
+    { months: 12, label: 'Last 12 months' },
+    { months: 0, label: 'All time' },
+  ] as const;
+  protected readonly mixPeriod = signal<number>(12);
+  protected readonly mixPeriodLabel = computed(
+    () => this.mixPeriods.find((p) => p.months === this.mixPeriod())?.label ?? 'Last 12 months',
+  );
+
+  /** The start of the chosen window, or null for all time. */
+  private mixFromDate(): Date | null {
+    const months = this.mixPeriod();
+    if (!months) return null;
+    const from = new Date();
+    from.setMonth(from.getMonth() - months);
+    return from;
+  }
+
+  protected setMixPeriod(months: number, panel?: HTMLDetailsElement): void {
+    if (panel) panel.open = false;
+    if (this.mixPeriod() === months) return;
+    this.mixPeriod.set(months);
+    this.loadAttribution();
+  }
+
+  /** Each counted gift's channel (its source) and date, from the payments read. */
+  private readonly donationChannels = signal<readonly { channel: string; at: string }[]>([]);
 
   protected readonly donorMixDonut = computed(() => this.donutSegments(this.donorMix()));
 

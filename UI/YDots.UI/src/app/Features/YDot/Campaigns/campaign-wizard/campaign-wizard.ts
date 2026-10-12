@@ -1329,15 +1329,90 @@ export class CampaignWizardComponent {
       this.uiState() !== 'no-access',
   );
 
-  /** Plain text as editor markup: escaped, with line breaks kept. */
+  /**
+   * Plain text as editor markup: escaped, with line breaks kept - and LISTS REBUILT (BUG-012).
+   * Lines starting "• " / "- " / "* " become a bulleted list and lines starting "1. " / "1) "
+   * a numbered one, so a purpose saved as text reopens in the editor with its lists intact.
+   */
   private textToHtml(text: string | undefined): string {
     if (!text) return '';
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .split('\n')
-      .join('<br>');
+    const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const bullet = /^\s*[\u2022\-*]\s+(.*)$/;
+    const number = /^\s*\d+[.)]\s+(.*)$/;
+    const out: string[] = [];
+    let list: 'ul' | 'ol' | null = null;
+    const close = () => {
+      if (list) out.push(`</${list}>`);
+      list = null;
+    };
+    for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
+      const b = bullet.exec(line);
+      const n = b ? null : number.exec(line);
+      const kind: 'ul' | 'ol' | null = b ? 'ul' : n ? 'ol' : null;
+      if (kind) {
+        if (list !== kind) {
+          close();
+          out.push(`<${kind}>`);
+          list = kind;
+        }
+        out.push(`<li>${esc((b ?? n)![1])}</li>`);
+      } else {
+        close();
+        out.push(line.trim() ? `<div>${esc(line)}</div>` : '<div><br></div>');
+      }
+    }
+    close();
+    return out.join('');
+  }
+
+  /**
+   * Editor markup as plain text that KEEPS ITS LISTS (BUG-012): each bulleted item becomes a
+   * "• " line and each numbered item a "1. " line. `innerText` used to be saved, which drops the
+   * list markers, so a purpose written with bullets came back from the draft as bare lines.
+   */
+  private htmlToListText(html: string): string {
+    if (!html) return '';
+    const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+    const root = doc.body.firstElementChild;
+    if (!root) return '';
+    let out = '';
+    const newline = () => {
+      if (out && !out.endsWith('\n')) out += '\n';
+    };
+    const visit = (node: Node): void => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        out += node.textContent ?? '';
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      const el = node as HTMLElement;
+      const tag = el.tagName;
+      if (tag === 'BR') {
+        out += '\n';
+        return;
+      }
+      if (tag === 'UL' || tag === 'OL') {
+        let index = 0;
+        el.childNodes.forEach((child) => {
+          if ((child as HTMLElement).tagName === 'LI') {
+            index++;
+            newline();
+            out += tag === 'UL' ? '\u2022 ' : `${index}. `;
+            child.childNodes.forEach(visit);
+            newline();
+          } else {
+            visit(child);
+          }
+        });
+        return;
+      }
+      const block = tag === 'P' || tag === 'DIV' || tag === 'BLOCKQUOTE' || /^H[1-6]$/.test(tag);
+      if (block) newline();
+      el.childNodes.forEach(visit);
+      if (block) newline();
+    };
+    root.childNodes.forEach(visit);
+    return out.replace(/\n{3,}/g, '\n\n').trim();
   }
 
   /** Populate every wizard field from an existing store record, and mark it as the
@@ -1359,8 +1434,14 @@ export class CampaignWizardComponent {
     this.targetAmount.set(
       record.targetAmount && record.targetAmount > 0 ? String(record.targetAmount) : '',
     );
+    // BUG-012: the purpose came back as plain text and was poured into the editor as-is, so
+    // its lists were gone; and the editor was never re-seeded after the draft arrived, so it
+    // could open blank or stale. The formatted markup is used when the API returns it,
+    // otherwise the lists are rebuilt from the saved "• " / "1. " lines.
+    const storedPurposeHtml = (record as { purposeHtml?: string }).purposeHtml;
     this.purpose.set(record.purpose ?? '');
-    this.purposeHtml.set(record.purpose ?? '');
+    this.purposeHtml.set(storedPurposeHtml || this.textToHtml(record.purpose));
+    this.purposeSeed.set(this.purposeHtml());
     this.fundProgramme.set(record.fundProgramme ?? '');
     const ownerRefs =
       record.ownerReferences && record.ownerReferences.length
@@ -1442,7 +1523,10 @@ export class CampaignWizardComponent {
     const role = this.user.role();
     const fields = {
       name: name || 'Untitled campaign',
-      purpose: this.purpose(),
+      // BUG-012: saved with its list markers ("• item", "1. item") rather than `innerText`, which
+      // dropped them; the full markup travels as purposeHtml, as the public description's does.
+      purpose: this.purposeHtml() ? this.htmlToListText(this.purposeHtml()) : this.purpose(),
+      purposeHtml: this.purposeHtml() || undefined,
       status,
       ...(ownerRef ? { ownerReference: ownerRef } : {}),
       ownerReferences: ownerRefs.length ? ownerRefs : undefined,
@@ -1584,6 +1668,13 @@ export class CampaignWizardComponent {
 
   // ----- Submit -----
   protected readonly submitDialogOpen = signal(false);
+
+  /** "Chennai, Tamil Nadu, India" for the submit confirmation's recap. */
+  protected readonly submitLocationLabel = computed(() =>
+    [this.selectedCityLabel(), this.selectedRegionLabel(), this.selectedCountryLabel()]
+      .filter((part) => !!part && part !== '—')
+      .join(', '),
+  );
   /**
    * Opens the submit confirmation, or explains why it will not.
    *

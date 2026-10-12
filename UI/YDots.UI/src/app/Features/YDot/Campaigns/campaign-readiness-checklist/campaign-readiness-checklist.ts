@@ -817,6 +817,17 @@ export class CampaignReadinessChecklistComponent {
     const len = this.approveReason().trim().length;
     return len >= this.approveReasonMin && len <= this.approveReasonMax;
   });
+  /** Same wording as the campaign wizard: shown under the field after Approve is clicked. */
+  protected readonly approveReasonError = computed(() => this.reasonError(this.approveReason()));
+
+  /** The required-reason message shared by the approve and reject dialogs. */
+  private reasonError(value: string): string {
+    const len = (value ?? '').trim().length;
+    if (!len) return 'Reason is required.';
+    if (len < this.approveReasonMin) return `Reason must be at least ${this.approveReasonMin} characters.`;
+    if (len > this.approveReasonMax) return `Reason must be ${this.approveReasonMax} characters or fewer.`;
+    return '';
+  }
 
   /** The launch lifecycle target from the current state. */
   private nextLaunchState(current: CampaignStatus): CampaignStatus | null {
@@ -961,6 +972,7 @@ export class CampaignReadinessChecklistComponent {
     const len = this.rejectReason().trim().length;
     return len >= this.approveReasonMin && len <= this.approveReasonMax;
   });
+  protected readonly rejectReasonError = computed(() => this.reasonError(this.rejectReason()));
 
   /** "Reject launch" while a decision is pending; "Return to draft" once it has been approved. */
   protected readonly rejectLabel = computed(() =>

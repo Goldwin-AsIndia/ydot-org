@@ -217,41 +217,37 @@
             <tbody>
               <tr class="pr-empty-row">
                 <td colspan="8" class="pr-table-empty">
+                  <!-- Empty state, after the Campaign Register's: an icon tile, a title that names what
+                       was looked for, one line of help, and Clear filters when something is applied. -->
                   <div class="pr-empty" role="status" aria-live="polite">
-                    <svg class="pr-empty-art" viewBox="0 0 160 120" aria-hidden="true">
-                      <ellipse class="pe-shadow" cx="80" cy="108" rx="52" ry="6"/>
-                      <rect class="pe-card-back" x="40" y="18" width="70" height="82" rx="8" transform="rotate(-8 75 59)"/>
-                      <rect class="pe-card" x="48" y="14" width="70" height="86" rx="8"/>
-                      <rect class="pe-head" x="48" y="14" width="70" height="16" rx="8"/>
-                      <rect class="pe-head" x="48" y="22" width="70" height="8"/>
-                      <rect class="pe-line" x="58" y="40" width="40" height="5" rx="2.5"/>
-                      <rect class="pe-line soft" x="58" y="51" width="50" height="5" rx="2.5"/>
-                      <rect class="pe-line soft" x="58" y="62" width="32" height="5" rx="2.5"/>
-                      <rect class="pe-line soft" x="58" y="73" width="44" height="5" rx="2.5"/>
-                      <circle class="pe-lens" cx="112" cy="78" r="17"/>
-                      <path class="pe-x" d="m106 72 12 12M118 72l-12 12"/>
-                      <path class="pe-handle" d="m124 90 12 12"/>
-                      <circle class="pe-dot" cx="30" cy="34" r="3"/>
-                      <circle class="pe-dot" cx="138" cy="30" r="2.5"/>
-                      <path class="pe-spark" d="M136 52v8M132 56h8"/>
-                    </svg>
+                    <span class="pr-empty-icon" aria-hidden="true">
+                      @if (paymentStatusFilter()) {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.01 3H2l8 9.46V19l4 2v-8.54l.9-1.06"/><path d="m22 3-5 5"/><path d="m17 3 5 5"/></svg>
+                      } @else if (searchTerm()) {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h4"/><path d="M13.5 2.5v4.5a1 1 0 0 0 1 1h4.5"/><path d="M13.5 2.5 19 8v2"/><path d="M8 11h4M8 14.5h2.5"/><circle cx="16.5" cy="16.5" r="3.6"/><path d="m19.2 19.2 2.3 2.3"/></svg>
+                      } @else {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M15.5 8H10a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8.5"/><path d="M12 6.5v11"/></svg>
+                      }
+                    </span>
 
                     <h3 class="pr-empty-title">
-                      @if (paymentStatusFilter()) {
-                        No {{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }} payments found
-                      } @else if (searchTerm()) {
-                        No matching payments found
+                      @if (paymentStatusFilter() || searchTerm()) {
+                        No payments match these filters
                       } @else {
                         No payments or receipts yet
                       }
                     </h3>
 
                     <p class="pr-empty-body">
-                      @if (searchTerm()) {
-                        We couldn’t find anything for <span class="pr-empty-term">“{{ searchTerm() }}”</span>@if (paymentStatusFilter()) { in <strong>{{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }}</strong> payments}.
-                        Check the spelling or try a different search.
+                      @if (searchTerm() && paymentStatusFilter()) {
+                        Nothing found for <span class="pr-empty-term">“{{ searchTerm() }}”</span> in {{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }} payments.
+                        Try a different search or status, or clear the filters to see every payment.
+                      } @else if (searchTerm()) {
+                        Nothing found for <span class="pr-empty-term">“{{ searchTerm() }}”</span>.
+                        Try a different reference, donor name, email or campaign, or clear the search.
                       } @else if (paymentStatusFilter()) {
-                        There are no <strong>{{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }}</strong> payments in your current scope. Try another status to see more records.
+                        There are no {{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }} payments in your scope.
+                        Try another status, or clear the filters to see every payment.
                       } @else {
                         Payments and receipts will appear here as soon as donations come in.
                       }
@@ -259,11 +255,9 @@
 
                     @if (paymentStatusFilter() || searchTerm()) {
                       <div class="pr-empty-actions">
-                        @if (searchTerm() && paymentStatusFilter()) {
-                          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSearchChange('')">Clear search</button>
-                        }
-                        <button type="button" class="btn btn-primary btn-sm" (click)="clearFilters()">
-                          {{ searchTerm() && paymentStatusFilter() ? 'Clear all filters' : 'Clear filter' }}
+                        <button type="button" class="btn btn-primary btn-sm pr-empty-btn" (click)="clearFilters()">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                          {{ searchTerm() && !paymentStatusFilter() ? 'Clear search' : 'Clear filters' }}
                         </button>
                       </div>
                     }
@@ -364,41 +358,37 @@
               } @empty {
                 <tr class="pr-empty-row">
                   <td colspan="8" class="pr-table-empty">
+                    <!-- Empty state, after the Campaign Register's: an icon tile, a title that names what
+                         was looked for, one line of help, and Clear filters when something is applied. -->
                     <div class="pr-empty" role="status" aria-live="polite">
-                      <svg class="pr-empty-art" viewBox="0 0 160 120" aria-hidden="true">
-                        <ellipse class="pe-shadow" cx="80" cy="108" rx="52" ry="6"/>
-                        <rect class="pe-card-back" x="40" y="18" width="70" height="82" rx="8" transform="rotate(-8 75 59)"/>
-                        <rect class="pe-card" x="48" y="14" width="70" height="86" rx="8"/>
-                        <rect class="pe-head" x="48" y="14" width="70" height="16" rx="8"/>
-                        <rect class="pe-head" x="48" y="22" width="70" height="8"/>
-                        <rect class="pe-line" x="58" y="40" width="40" height="5" rx="2.5"/>
-                        <rect class="pe-line soft" x="58" y="51" width="50" height="5" rx="2.5"/>
-                        <rect class="pe-line soft" x="58" y="62" width="32" height="5" rx="2.5"/>
-                        <rect class="pe-line soft" x="58" y="73" width="44" height="5" rx="2.5"/>
-                        <circle class="pe-lens" cx="112" cy="78" r="17"/>
-                        <path class="pe-x" d="m106 72 12 12M118 72l-12 12"/>
-                        <path class="pe-handle" d="m124 90 12 12"/>
-                        <circle class="pe-dot" cx="30" cy="34" r="3"/>
-                        <circle class="pe-dot" cx="138" cy="30" r="2.5"/>
-                        <path class="pe-spark" d="M136 52v8M132 56h8"/>
-                      </svg>
+                      <span class="pr-empty-icon" aria-hidden="true">
+                        @if (paymentStatusFilter()) {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.01 3H2l8 9.46V19l4 2v-8.54l.9-1.06"/><path d="m22 3-5 5"/><path d="m17 3 5 5"/></svg>
+                        } @else if (searchTerm()) {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h4"/><path d="M13.5 2.5v4.5a1 1 0 0 0 1 1h4.5"/><path d="M13.5 2.5 19 8v2"/><path d="M8 11h4M8 14.5h2.5"/><circle cx="16.5" cy="16.5" r="3.6"/><path d="m19.2 19.2 2.3 2.3"/></svg>
+                        } @else {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M15.5 8H10a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8.5"/><path d="M12 6.5v11"/></svg>
+                        }
+                      </span>
 
                       <h3 class="pr-empty-title">
-                        @if (paymentStatusFilter()) {
-                          No {{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }} payments found
-                        } @else if (searchTerm()) {
-                          No matching payments found
+                        @if (paymentStatusFilter() || searchTerm()) {
+                          No payments match these filters
                         } @else {
                           No payments or receipts yet
                         }
                       </h3>
 
                       <p class="pr-empty-body">
-                        @if (searchTerm()) {
-                          We couldn’t find anything for <span class="pr-empty-term">“{{ searchTerm() }}”</span>@if (paymentStatusFilter()) { in <strong>{{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }}</strong> payments}.
-                          Check the spelling or try a different search.
+                        @if (searchTerm() && paymentStatusFilter()) {
+                          Nothing found for <span class="pr-empty-term">“{{ searchTerm() }}”</span> in {{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }} payments.
+                          Try a different search or status, or clear the filters to see every payment.
+                        } @else if (searchTerm()) {
+                          Nothing found for <span class="pr-empty-term">“{{ searchTerm() }}”</span>.
+                          Try a different reference, donor name, email or campaign, or clear the search.
                         } @else if (paymentStatusFilter()) {
-                          There are no <strong>{{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }}</strong> payments in your current scope. Try another status to see more records.
+                          There are no {{ (paymentStatusFilter() === 'Fail' ? 'failed' : paymentStatusFilter() === 'Success' ? 'successful' : paymentStatusFilter().toLowerCase()) }} payments in your scope.
+                          Try another status, or clear the filters to see every payment.
                         } @else {
                           Payments and receipts will appear here as soon as donations come in.
                         }
@@ -406,11 +396,9 @@
 
                       @if (paymentStatusFilter() || searchTerm()) {
                         <div class="pr-empty-actions">
-                          @if (searchTerm() && paymentStatusFilter()) {
-                            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSearchChange('')">Clear search</button>
-                          }
-                          <button type="button" class="btn btn-primary btn-sm" (click)="clearFilters()">
-                            {{ searchTerm() && paymentStatusFilter() ? 'Clear all filters' : 'Clear filter' }}
+                          <button type="button" class="btn btn-outline-primary btn-sm pr-empty-btn" (click)="clearFilters()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                            {{ searchTerm() && !paymentStatusFilter() ? 'Clear search' : 'Clear filters' }}
                           </button>
                         </div>
                       }

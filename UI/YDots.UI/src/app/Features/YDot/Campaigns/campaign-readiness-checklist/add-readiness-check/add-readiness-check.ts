@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
+import { Component, DestroyRef, ElementRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ClickOutsideDirective } from '../../../../../Shared/directives/click-outside';
@@ -121,7 +121,56 @@ export class AddReadinessCheckComponent {
     ]);
   }
 
+  // ================= One scroll bar (BUG-025) =================
+  // The page behind kept its own scroll bar beside the drawer's body, so two were visible.
+  // While the drawer is open the page is locked; the drawer body is the only thing that scrolls.
+  private readonly document = inject(DOCUMENT);
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  /**
+   * Locks EVERY scroll container behind the drawer, not just <body>.
+   *
+   * THE APP SCROLLS INSIDE ITS LAYOUT (main.app-wrapper / .page-wrapper), not the document, so
+   * locking <body> alone left the page's own bar showing beside the drawer's - the "two scroll
+   * bars" in BUG-025. This walks up from the drawer, hides overflow on each ancestor that can
+   * scroll, and puts every one back exactly as it was when the drawer closes.
+   */
+  private lockPageScroll(): void {
+    const view = this.document.defaultView;
+    const locked: { el: HTMLElement; overflow: string; overflowY: string }[] = [];
+
+    const lock = (el: HTMLElement): void => {
+      locked.push({ el, overflow: el.style.overflow, overflowY: el.style.overflowY });
+      el.style.overflow = 'hidden';
+      el.style.overflowY = 'hidden';
+    };
+
+    lock(this.document.documentElement);
+    lock(this.document.body);
+
+    // After first render the host is attached, so its ancestors can be read.
+    setTimeout(() => {
+      let el = this.host.nativeElement.parentElement;
+      while (el && el !== this.document.body) {
+        const style = view?.getComputedStyle(el);
+        if (style && /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight) {
+          lock(el);
+        }
+        el = el.parentElement;
+      }
+    });
+
+    inject(DestroyRef).onDestroy(() => {
+      for (const { el, overflow, overflowY } of locked) {
+        el.style.overflow = overflow;
+        el.style.overflowY = overflowY;
+      }
+    });
+  }
+
   constructor() {
+    this.lockPageScroll();
     this.loadCategories();
     // Signal inputs aren't guaranteed to be bound yet inside the constructor body, so the
     // pre-fill reads `editing()` from a reactive effect instead — it fires once Angular has
@@ -179,7 +228,22 @@ export class AddReadinessCheckComponent {
     this.ownerComboOpen.set(false);
   }
 
+  // ================= Category dropdown (custom, not a native select) =================
+  protected readonly categoryComboOpen = signal(false);
+  protected readonly categoryLabel = computed(() => {
+    const value = this.cCategory();
+    if (!value) return '';
+    return this.categories().find((o) => o.value === value)?.label ?? String(value);
+  });
+  protected selectCategory(value: ReadinessCheckCategory): void {
+    this.cCategory.set(value);
+    this.categoryComboOpen.set(false);
+  }
+
   // ================= Validation =================
+  // SAME AS CAMPAIGN CREATE: nothing is red until Create/Save is clicked. Then every empty
+  // required field shows a red border AND a message under it, and each clears on its own as
+  // soon as it is filled. The button is never disabled - a disabled button gives no reason.
   protected readonly cNameValid = computed(() => this.cName().trim().length > 0);
   protected readonly cCategoryValid = computed(() => this.cCategory() !== '');
   protected readonly cSuccessValid = computed(() => this.cSuccessCriteria().trim().length > 0);
@@ -193,7 +257,10 @@ export class AddReadinessCheckComponent {
   // ================= Add check =================
   protected addCheck(): void {
     this.submitted.set(true);
-    if (!this.checkValid()) return;
+    if (!this.checkValid()) {
+      this.focusFirstInvalid();
+      return;
+    }
     const existing = this.editing();
     const built: ReadinessCheck = {
       id: existing?.id ?? `CHK-${Date.now()}-${Math.round(Math.random() * 1e4)}`,
@@ -218,6 +285,18 @@ export class AddReadinessCheckComponent {
     };
     this.added.emit(built);
     this.closed.emit();
+  }
+
+  /** Puts the cursor in the first field that needs attention, like the campaign wizard. */
+  private focusFirstInvalid(): void {
+    const id = !this.cNameValid()
+      ? 'crcx-c-name'
+      : !this.cCategoryValid()
+        ? 'crcx-c-cat'
+        : !this.cSuccessValid()
+          ? 'crcx-c-success'
+          : '';
+    if (id) setTimeout(() => this.document.getElementById(id)?.focus(), 0);
   }
 
   // ================= Unsaved-changes guard =================

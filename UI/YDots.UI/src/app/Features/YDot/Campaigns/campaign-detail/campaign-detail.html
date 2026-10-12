@@ -330,11 +330,21 @@
               <article class="fk-panel cd-mix-panel">
                 <div class="cd-mix-head">
                   <p class="cd-mix-title">Donations by Channel</p>
-                  <span class="fk-period-pill">Last 12 Months <span aria-hidden="true">▾</span></span>
+                  <!-- The window is a real choice now (it was a static label): changing it re-reads
+                       the breakdown. Custom dropdown, like the rest of the CRM. -->
+                  <details #mixDd class="cd-mix-period" (focusout)="mixDd.open = mixDd.contains($any($event).relatedTarget)">
+                    <summary class="fk-period-pill" aria-label="Donations window">{{ mixPeriodLabel() }} <span aria-hidden="true">▾</span></summary>
+                    <div class="cd-mix-period-menu" role="listbox" aria-label="Donations window">
+                      @for (p of mixPeriods; track p.months) {
+                      <button type="button" role="option" class="cd-mix-period-opt" [class.is-on]="mixPeriod() === p.months"
+                        [attr.aria-selected]="mixPeriod() === p.months" (click)="setMixPeriod(p.months, mixDd)">{{ p.label }}</button>
+                      }
+                    </div>
+                  </details>
                 </div>
 
                 @if (!donorMix().length) {
-                <p class="cd-state-note">{{ attributionError() || 'No donations in the last twelve months to break down by channel.' }}</p>
+                <p class="cd-state-note">{{ attributionError() || 'No donations in ' + mixPeriodLabel().toLowerCase() + ' to break down by channel.' }}</p>
                 } @else {
                 <div class="cd-mix-body">
                   <div class="cd-mix-ring">
@@ -365,6 +375,7 @@
                       <span class="cd-mix-name">Total donations</span>
                       <strong class="cd-mix-count">{{ donorMixTotalLabel() }}</strong>
                     </li>
+                    <li class="cd-mix-source">{{ donorMixSource() }} · {{ mixPeriodLabel() }}</li>
                   </ul>
                 </div>
                 }
