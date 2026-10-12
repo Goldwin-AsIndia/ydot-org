@@ -154,14 +154,14 @@
                 </button>
 
                 @if (campaignPickerOpen()) {
-                  <div class="pf-pop" role="listbox" aria-label="Eligible campaigns or appeals in scope">
+                  <div class="pf-pop" role="listbox" [class.is-up]="campaignPickerUp()" aria-label="Eligible campaigns or appeals in scope">
                     <label class="pf-pop-search">
                       <i class="ri-search-line" aria-hidden="true"></i>
                       <input type="search" placeholder="Search campaigns or appeals…" autocomplete="off"
                              [ngModel]="campaignQuery()" (ngModelChange)="campaignQuery.set($event)"
                              name="campaignQuery" aria-label="Search campaigns or appeals" />
                     </label>
-                    <div class="pf-pop-list">
+                    <div class="pf-pop-list" [style.max-height.px]="campaignListMax()">
                       @for (c of campaignResults(); track c.reference) {
                         <button type="button" class="pf-pop-option" role="option"
                                 [class.is-selected]="selectedCampaign()?.reference === c.reference"
@@ -194,7 +194,8 @@
               <div class="pf-gift-head">
                 <span class="pf-label">Your gift</span>
                 <span class="pf-currency-label" id="lbl-currency">Paid in <span class="pf-req">*</span></span>
-                <div class="dd is-compact" [class.is-open]="openDropdown() === 'currency'">
+                <div class="dd is-compact" [class.is-open]="openDropdown() === 'currency'"
+                     [class.is-up]="openDropdown() === 'currency' && dropdownUp()">
                   <button type="button" id="fld-currency" class="dd-trigger"
                           [disabled]="formLocked() || campaignAmount() !== null"
                           [class.has-error]="!currency() && uiState() === 'validation'"
@@ -374,7 +375,8 @@
 
               <div class="pf-field">
                 <span class="pf-label" id="lbl-country">Country <span class="pf-req">*</span></span>
-                <div class="dd" [class.is-open]="openDropdown() === 'country'">
+                <div class="dd" [class.is-open]="openDropdown() === 'country'"
+                     [class.is-up]="openDropdown() === 'country' && dropdownUp()">
                   <button type="button" id="fld-country" class="dd-trigger"
                           [disabled]="formLocked()"
                           [class.has-error]="!countryId() && uiState() === 'validation'"
@@ -398,7 +400,8 @@
 
               <div class="pf-field">
                 <span class="pf-label" id="lbl-state">State <span class="pf-req">*</span></span>
-                <div class="dd" [class.is-open]="openDropdown() === 'state'">
+                <div class="dd" [class.is-open]="openDropdown() === 'state'"
+                     [class.is-up]="openDropdown() === 'state' && dropdownUp()">
                   <button type="button" id="fld-state" class="dd-trigger"
                           [disabled]="formLocked()"
                           [class.has-error]="!stateId() && uiState() === 'validation'"
@@ -422,7 +425,8 @@
 
               <div class="pf-field">
                 <span class="pf-label" id="lbl-city">City <span class="pf-req">*</span></span>
-                <div class="dd" [class.is-open]="openDropdown() === 'city'">
+                <div class="dd" [class.is-open]="openDropdown() === 'city'"
+                     [class.is-up]="openDropdown() === 'city' && dropdownUp()">
                   <button type="button" id="fld-city" class="dd-trigger"
                           [disabled]="formLocked()"
                           [class.has-error]="!cityId() && uiState() === 'validation'"
@@ -520,7 +524,7 @@
        One list markup for every custom dropdown on the page. Only one dropdown is open at a
        time, so `dropdownOptions()` already holds the open one's (filtered) options. -->
   <ng-template #ddPanel let-key let-selected="selected" let-empty="empty">
-    <div class="dd-pop">
+    <div class="dd-pop" [class.is-up]="dropdownUp()">
       @if (dropdownSearchable()) {
         <div class="dd-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -531,7 +535,7 @@
                  (keydown.enter)="$event.preventDefault(); pickFirstDropdownMatch()" />
         </div>
       }
-      <ul class="dd-list" role="listbox">
+      <ul class="dd-list" role="listbox" [style.max-height.px]="dropdownListMax()">
         @for (option of dropdownOptions(); track option.reference) {
           <li role="option" class="dd-option"
               [class.is-selected]="option.reference === selected"

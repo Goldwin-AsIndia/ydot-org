@@ -3391,3 +3391,121 @@ textarea.og-input {
   bottom: calc(100% + calc(3px * var(--ui-scale, 1)) - calc(4px * var(--ui-scale, 1)));
 }
 
+
+
+/* =====================================================================================================
+   PHONE PASS (2026-10-12) — keep this block LAST so it wins over the rules above.
+   - Header facts: the three facts were one nowrap line that ran off the right edge. They now sit in
+     three equal columns, label over value, the value cut with an ellipsis if it is long.
+   - Header actions: full width, buttons share it.
+   - Tabs: five labelled tabs do not fit a phone. Every tab keeps its icon; only the ACTIVE tab shows
+     its word, so all five stay on screen with nothing to scroll (the same idea as the wizard steps).
+   - Ledger values, links and e-mails wrap instead of pushing the sheet wider.
+   - Action bars: the note on its own line, the buttons sharing the width under it.
+   ===================================================================================================== */
+@media (max-width: 767px) {
+
+  /* ---------- header ---------- */
+  .og-hero-top { gap: calc(12px * var(--ui-scale, 1)); }
+  .og-hero-title { overflow-wrap: anywhere; }
+  .og-hero-meta { gap: calc(4px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); }
+  .og-hero-meta span { min-width: 0; overflow-wrap: anywhere; }
+  .og-hero-actions { width: 100%; justify-content: stretch; }
+  .og-hero-actions > .btn,
+  .og-hero-actions > .og-btn { flex: 1 1 0; justify-content: center; }
+
+  /* facts: three columns, label over value */
+  .og-hero .og-facts,
+  .og-hero:not(:has(.og-tabs)) .og-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-column: 1;
+    gap: 0;
+    padding: calc(10px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+    flex-wrap: nowrap;
+  }
+  .og-hero .og-facts .og-fact {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: calc(2px * var(--ui-scale, 1));
+    min-width: 0;
+    padding: 0 calc(10px * var(--ui-scale, 1));
+    white-space: normal;
+    border-top: 0;
+  }
+  .og-hero .og-facts .og-fact:first-child { padding-left: 0; }
+  .og-hero .og-facts .og-fact dd {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* tabs: icons for all, the word for the active one */
+  .og-hero .og-tabs.og-tabs-card {
+    display: flex;
+    gap: 0;
+    padding: 0 calc(6px * var(--ui-scale, 1));
+    overflow: hidden;
+  }
+  .og-hero .og-tabs-card .og-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    gap: 0;
+    padding-inline: calc(6px * var(--ui-scale, 1));
+    font-size: 0 !important;
+  }
+  .og-hero .og-tabs-card .og-tab i { font-size: calc(18px * var(--ui-scale, 1)) !important; }
+  .og-hero .og-tabs-card .og-tab .og-tab-count {
+    margin-left: calc(4px * var(--ui-scale, 1));
+    font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  }
+  .og-hero .og-tabs-card .og-tab .og-tab-warn { margin-left: calc(3px * var(--ui-scale, 1)); font-size: calc(13px * var(--ui-scale, 1)) !important; }
+  .og-hero .og-tabs-card .og-tab.is-active {
+    flex: 2 1 auto;
+    gap: calc(6px * var(--ui-scale, 1));
+    font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+    white-space: nowrap;
+  }
+
+  /* ---------- profile view ---------- */
+  .og-ledger dd { max-width: 70%; overflow-wrap: anywhere; }
+  .og-ledger-link { overflow-wrap: anywhere; }
+
+  /* ---------- profile edit ---------- */
+  .og-form-head { padding: calc(12px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); }
+  .og-form-btns { width: 100%; }
+
+  /* ---------- action bars (edit + security) ---------- */
+  .og-actionbar { flex-direction: column; align-items: stretch; gap: calc(10px * var(--ui-scale, 1)); }
+  .og-actionbar-btns { display: flex; gap: calc(8px * var(--ui-scale, 1)); }
+  .og-actionbar-btns > .btn { flex: 1 1 0; justify-content: center; }
+  .og-actionbar > .btn { width: 100%; justify-content: center; }
+
+  /* ---------- security settings ---------- */
+  .og-num { flex-basis: 100%; }
+  .og-num-row { flex-wrap: wrap; row-gap: calc(10px * var(--ui-scale, 1)); }
+  .og-num-text { flex: 1 1 calc(160px * var(--ui-scale, 1)); min-width: 0; }
+
+  /* ---------- review & submit ---------- */
+  .og-dispatch-send > .btn { width: 100%; justify-content: center; }
+}
+
+/* Small phones: the facts lose their dividers' side padding so the values keep room. */
+@media (max-width: 400px) {
+  .og-hero .og-facts .og-fact { padding: 0 calc(6px * var(--ui-scale, 1)); }
+  .og-hero .og-facts .og-fact:first-child { padding-left: 0; }
+}
+
+/* Narrow sheet: the address/about block sat 18px further in than the two ledgers above it, and its
+   top hairline ran from the ledgers' edge, so the line looked cut off from the text under it. The
+   column's own 18px padding (from .og-sheet-col) was being added on top of its 18px margin. Keep the
+   margin, drop the side padding, and give back the gap above the address. */
+@container og-sheet (max-width: 620px) {
+  .og-sheet-grid > .og-sheet-col-last {
+    margin: calc(4px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1)) 0;
+    padding: calc(16px * var(--ui-scale, 1)) 0 0;
+  }
+}

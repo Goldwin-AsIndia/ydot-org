@@ -1350,9 +1350,16 @@
     display: none;
   }
 
-  .cr-box__foot {
-    flex-direction: column;
-    align-items: flex-start;
+
+}
+
+/* STATUS COLUMN, MOBILE ONLY. The body cells already carry Bootstrap's d-none d-md-table-cell (hidden
+   below md), but the header cell comes from the generic columns loop with no visibility class - so the
+   STATUS heading stayed put while its cells were gone, overlapping the Campaign heading. Hide the whole
+   column (th + td, one .cr-c-status selector matches both) below md, the same breakpoint the td uses. */
+@media (max-width: 767.98px) {
+  .cr-table .cr-c-status {
+    display: none;
   }
 }
 
@@ -1413,4 +1420,175 @@
   width: auto;
   max-width: calc(400px * var(--s));
   text-overflow: clip;
+}
+
+
+@media (max-width: 421px) {
+   .cr-box__foot {
+    flex-direction: column;
+    align-items:center;
+  }
+}
+
+
+/* =====================================================================================================
+   PHONE PASS (2026-10-12) — keep this block LAST so it wins over the rules above.
+   Filters stay on the page (no sheet, no toggle), stacked as three slim full-width lines:
+       [ Search name or code                         ]
+       [ OWNER | All owners                        v ]
+       [ LAUNCH | dd-mm-yyyy  –  dd-mm-yyyy          ]
+                                       Clear filters
+   Rows: one card per campaign -
+       [tick] Campaign name ................ ● Status
+              CODE · purpose
+              ███████████░░░░░░░  64%
+              Owner name               Launch 12 Mar 2026
+       ─────────────────────────────────────────────────
+        👁   ✎   ☑   ✔   ▶   🗑     (one quiet, equal-width icon strip)
+   ===================================================================================================== */
+
+/* Narrow card (tablet): row icons a size down so the actions column stops crowding the name. */
+@container cr (max-width: 820px) {
+  .cr-table .cr-c-act { width: calc(156px * var(--s)); }
+  .cr-table .cr-row-acts { gap: calc(2px * var(--s)); padding: calc(2px * var(--s)) 0; }
+  .cr-table .cr-row-acts .cr-act {
+    width: calc(32px * var(--s)) !important;
+    height: calc(32px * var(--s)) !important;
+    min-width: calc(32px * var(--s)) !important;
+  }
+  .cr-table .cr-row-acts .cr-act > i { font-size: calc(17px * var(--s)) !important; }
+  .cr-table thead th.cr-c-act { padding-right: var(--cr-pad) !important; }
+}
+
+@container cr (max-width: 600px) {
+
+  /* ---------- header card ---------- */
+  .cr-hero { padding: calc(14px * var(--s)) var(--cr-pad); gap: calc(12px * var(--s)); }
+  .cr-title { font-size: calc(calc(21px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .cr-acts { width: 100%; }
+  .cr-acts > .btn { flex: 1 1 0; justify-content: center; }
+
+  /* ---------- filters: three slim lines, always visible ---------- */
+  .cr-box__head { padding: calc(12px * var(--s)) var(--cr-pad); row-gap: calc(10px * var(--s)); }
+  .cr-tools {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: calc(8px * var(--s));
+    width: 100%;
+    margin-left: 0;
+  }
+  .cr-search { width: 100%; }
+  .cr-search input { width: 100%; height: calc(38px * var(--s)); }
+
+  .cr-tools > .cr-fbox,
+  .cr-tools > .cr-fbox:not(.cr-fbox--range) {
+    display: flex;
+    width: 100%;
+    max-width: none;
+    height: calc(38px * var(--s));
+  }
+  .cr-tools > .cr-fbox > span {
+    flex: none;
+    width: calc(72px * var(--s));
+    justify-content: flex-start;
+    padding: 0 calc(10px * var(--s));
+    font-size: calc(calc(10px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  }
+  .cr-tools > .cr-fbox:not(.cr-fbox--range) select {
+    flex: 1 1 auto;
+    width: 0;
+    max-width: none;
+    text-overflow: ellipsis;
+  }
+  .cr-tools > .cr-fbox--range input[type='date'] {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    padding: 0 calc(6px * var(--s));
+    font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  }
+  .cr-tools > .cr-fbox--range > i { flex: none; padding: 0 calc(2px * var(--s)); }
+  .cr-tools > .cr-b { justify-self: end; }
+  .cr-warn { padding: calc(6px * var(--s)) var(--cr-pad); }
+
+  /* ---------- rows: one card per campaign ---------- */
+  .cr-table,
+  .cr-table tbody { display: block; width: 100%; }
+  .cr-table thead { display: none; }
+  .cr-table tbody tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: calc(10px * var(--s));
+    row-gap: calc(8px * var(--s));
+    align-items: center;
+    padding: calc(14px * var(--s)) var(--cr-pad) 0;
+    border-bottom: 1px solid var(--cr-line);
+  }
+  .cr-table tbody tr:last-child { border-bottom: 0; }
+  .cr-table tbody tr:hover td { background: transparent; }
+  .cr-table tbody tr.is-new { background: color-mix(in srgb, var(--cr-acc) 8%, #fff); }
+  .cr-table tbody tr.is-ticked { background: color-mix(in srgb, var(--cr-acc) 5%, #fff); }
+  .cr-table tbody tr.is-new td,
+  .cr-table tbody tr.is-ticked td { background: transparent; box-shadow: none !important; }
+
+  .cr-table tbody td {
+    height: auto;
+    padding: 0 !important;
+    border: 0;
+    overflow: visible;
+    white-space: normal;
+  }
+
+  /* tick | name (+ code line) | status */
+  .cr-table tbody td.cr-c-tick { display: block; grid-column: 1; grid-row: 1 / span 2; align-self: start; width: auto; padding-top: calc(3px * var(--s)) !important; }
+  .cr-table tbody td.cr-c-name { display: block; grid-column: 2; grid-row: 1 / span 2; align-self: start; }
+  .cr-name { white-space: normal; overflow-wrap: anywhere; font-size: calc(calc(15px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .cr-two small { white-space: normal; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+  .cr-table tbody td.cr-c-status.d-none,
+  .cr-table tbody td.cr-c-status { display: block !important; grid-column: 3; grid-row: 1; align-self: start; width: auto; }
+  .cr-status { font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important; color: var(--ink); }
+
+  /* progress, full width */
+  .cr-table tbody td.cr-c-progress { display: block; grid-column: 2 / -1; grid-row: 3; width: auto; }
+  .cr-prog { flex-direction: row-reverse; align-items: center; gap: calc(10px * var(--s)); padding-right: 0; }
+  .cr-prog b { flex: none; min-width: calc(38px * var(--s)); text-align: right; }
+  .cr-prog__rule { flex: 1 1 auto; height: calc(5px * var(--s)); }
+
+  /* owner | launch */
+  .cr-table tbody td.cr-c-ownerReference { display: block; grid-column: 2; grid-row: 4; width: auto; min-width: 0; }
+  .cr-owner { font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; color: var(--cr-muted); }
+  .cr-table tbody td.cr-c-startDate { display: block; grid-column: 3; grid-row: 4; width: auto; text-align: right; color: var(--cr-muted); font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .cr-table tbody td.cr-c-startDate::before { content: 'Launch '; font-family: var(--cr-sans); }
+  .cr-table tbody td.cr-c-endDate { display: none; }
+
+  /* a quiet, equal-width icon strip */
+  .cr-table tbody td.cr-c-act {
+    display: block;
+    grid-column: 1 / -1;
+    grid-row: 5;
+    width: auto;
+    margin: calc(4px * var(--s)) calc(-1 * var(--cr-pad)) 0;
+    border-top: 1px dashed var(--cr-line-2);
+    text-align: left;
+  }
+  .cr-table .cr-row-acts { display: flex; width: 100%; gap: 0; padding: 0; }
+  .cr-table .cr-row-acts .cr-act {
+    flex: 1 1 0;
+    width: auto !important;
+    min-width: 0 !important;
+    height: calc(40px * var(--s)) !important;
+    border-radius: 0 !important;
+  }
+  .cr-table .cr-row-acts .cr-act + .cr-act { border-left: 1px solid var(--cr-line-2) !important; }
+  .cr-table .cr-row-acts .cr-act > i { font-size: calc(17px * var(--s)) !important; }
+
+  /* ---------- foot ---------- */
+  .cr-box__foot { flex-direction: column; align-items: stretch; gap: calc(10px * var(--s)); }
+  .cr-pager__text { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: calc(6px * var(--s)); }
+  .cr-pager__text app-rows-per-page { margin-left: 0 !important; }
+  .cr-pages { justify-content: center; }
+
+  /* ---------- dialogs ---------- */
+  .cr-modal-backdrop { padding: calc(12px * var(--s)); }
+  .cr-modal-actions > * { flex: 1 1 0; justify-content: center; }
 }

@@ -1127,3 +1127,87 @@
   .pf-pop, .dd-pop { animation: none; }
   .pf-cause-btn, .pf-control, .dd-trigger, .dd-chev, .pf-rail-line > span, .pf-pay, .pf-consent { transition: none; }
 }
+
+/* ============================================================================
+   9 · DROP-UP PANELS
+   When there is no room under a picker (Country / State / City near the foot of a phone screen),
+   the component sets .is-up and the panel opens ABOVE its trigger instead of off the screen.
+   The list's height is capped by the component to the room on that side.
+   ============================================================================ */
+@keyframes dd-pop-up {
+  from { opacity: 0; transform: translateY(calc(6 * var(--u))); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.dd-pop.is-up,
+.pf-pop.is-up {
+  top: auto;
+  bottom: calc(100% + calc(8 * var(--u)));
+  box-shadow: 0 calc(-14 * var(--u)) calc(36 * var(--u)) rgba(20, 32, 28, .10);
+  animation-name: dd-pop-up;
+}
+/* Dropping up, the search box sits next to the trigger: put it at the panel's foot. */
+.dd-pop.is-up { display: flex; flex-direction: column-reverse; }
+.dd-pop.is-up .dd-search { margin: calc(6 * var(--u)) 0 0; border-bottom: 0; border-top: 1px solid var(--line); }
+.pf-pop.is-up { display: flex; flex-direction: column-reverse; }
+.pf-pop.is-up .pf-pop-search { border-bottom: 0; border-top: 1px solid var(--line); }
+
+/* ============================================================================
+   10 · PHONE PASS (2026-10-12) — keep this block LAST so it wins over the rules above.
+   - Masthead: title a size down; the three-step rail keeps its three columns, step states stay.
+   - Gift: "Paid in" + currency drop under the label instead of squeezing it.
+   - Fields and pickers: 46px tall touch targets; options a little taller.
+   - Confirm: the pay button is full width and tall, label left, amount and arrow right.
+   - Notices and the welcome-back dialog: buttons full width.
+   ============================================================================ */
+@media (max-width: 640px) {
+  .pdi-page { padding: calc(10 * var(--u)) calc(10 * var(--u)) calc(28 * var(--u)); }
+  .pf-folio { border-radius: calc(16 * var(--u)); }
+
+  /* masthead */
+  .pf-mast { padding: calc(16 * var(--u)) calc(16 * var(--u)) calc(14 * var(--u)); gap: calc(12 * var(--u)); }
+  .pf-mast::after { left: calc(16 * var(--u)); }
+  .pf-title { font-size: calc(calc(21 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pf-rail { gap: calc(10 * var(--u)); }
+  .pf-rail li { row-gap: calc(2 * var(--u)); }
+  .pf-rail-name { flex-basis: 100%; }
+
+  /* pledge leaf */
+  .pf-pledge { padding: calc(16 * var(--u)); gap: calc(18 * var(--u)); }
+  .pf-gift-head { flex-wrap: wrap; row-gap: calc(8 * var(--u)); }
+  .pf-gift-head .pf-label { flex: 1 1 100%; }
+  .pf-gift-head .dd.is-compact { flex: 1 1 auto; }
+  .dd.is-compact .dd-pop { left: 0; right: 0; min-width: 0; }
+  .pf-figure-num { font-size: calc(calc(32 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pf-cause-btn { padding: calc(10 * var(--u)) calc(12 * var(--u)); gap: calc(10 * var(--u)); }
+  .pf-cause-mark { width: calc(34 * var(--u)); height: calc(34 * var(--u)); }
+
+  /* details */
+  .pf-details { padding: 0 calc(16 * var(--u)); }
+  .pf-sec { padding: calc(18 * var(--u)) 0; }
+  .pf-grid { gap: calc(14 * var(--u)); }
+  .pf-control,
+  .dd-trigger { min-height: calc(46 * var(--u)); }
+  .dd-option { padding: calc(12 * var(--u)) calc(12 * var(--u)); }
+
+  /* confirm & pay */
+  .pf-confirm-body { grid-template-columns: minmax(0, 1fr); }
+  .pf-confirm-body > .btn {
+    grid-column: 1;
+    width: 100%;
+    min-height: calc(50 * var(--u));
+    display: flex;
+    align-items: center;
+    gap: calc(8 * var(--u));
+    padding: 0 calc(16 * var(--u));
+    border-radius: calc(12 * var(--u));
+  }
+  .pf-confirm-body > .btn .pf-pay-amt { margin-left: auto; }
+  .pf-trust { flex-direction: column; gap: calc(8 * var(--u)); }
+
+  /* notices + dialog */
+  .pf-notice-title { font-size: calc(calc(21 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pf-notice-actions { width: 100%; }
+  .pf-notice-actions .pf-btn { flex: 1 1 100%; }
+  .pdi-identity-actions { justify-items: stretch; }
+  .pdi-identity-actions .btn { width: 100%; justify-content: center; }
+}

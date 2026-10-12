@@ -887,3 +887,103 @@ select.crc-input { padding-right: calc(36px * var(--ui-scale, 1)); cursor: point
 @media (prefers-reduced-motion: reduce) {
   .crc-menu, .crc-ring-value, .crc-meter-seg { animation: none; transition: none; }
 }
+
+/* =========================================================
+   9. PHONE PASS (2026-10-12) — keep this block LAST so it wins over the rules above.
+   - Docket: smaller title, meta line without hairlines, Launch actions full width (menu spans it),
+     tally figures a size down.
+   - Status tabs: one swipeable line, full width (no two-line wrap inside the tinted pill).
+   - Check rows: the fixed 184px action column is dropped. Each row reads
+       mark | name + meta
+            | Required/Optional ........ status
+            | action icons (36px)
+     so the name gets the whole width.
+   - Launch rail: smaller ring beside the verdict.
+   - Dialogs: open from the bottom, scroll inside, buttons share the width.
+   ========================================================= */
+@media (max-width: 767.98px) {
+
+  /* ---------- docket ---------- */
+  .crc-docket { padding: calc(14px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); row-gap: calc(12px * var(--ui-scale, 1)); }
+  .crc-docket-title { font-size: calc(calc(18px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; white-space: normal; overflow-wrap: anywhere; }
+  .crc-docket-meta { gap: calc(6px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); }
+  .crc-docket-meta > li + li::before { display: none; }
+  .crc-docket .crc-hero-actions { justify-self: stretch; width: 100%; }
+  .crc-docket .crc-hero-actions > .btn { width: 100%; justify-content: space-between; }
+  .crc-docket .crc-hero-actions .crc-menu { left: 0; right: 0; min-width: 0; }
+  .crc-tally-fig { font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important; }
+  .crc-tally-cell { padding: 0 calc(12px * var(--ui-scale, 1)); }
+  .crc-tally-cell:nth-child(odd) { padding-left: 0; }
+
+  /* ---------- panel head + tabs ---------- */
+  .crc-panel-head { padding: calc(16px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); gap: calc(10px * var(--ui-scale, 1)); }
+  .crc-panel-title { font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 1.143) * var(--ui-text-scale, 1)) !important; }
+  .crc-tabs {
+    flex-wrap: nowrap;
+    width: auto;
+    max-width: none;
+    margin-inline: calc(16px * var(--ui-scale, 1));
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .crc-tabs::-webkit-scrollbar { display: none; }
+  .crc-tab { flex: 1 0 auto; justify-content: center; padding: 0 calc(12px * var(--ui-scale, 1)); white-space: nowrap; }
+
+  /* ---------- check rows ---------- */
+  .crc-check-list { margin-top: calc(12px * var(--ui-scale, 1)); }
+  .crc-check {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: calc(8px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
+    align-items: center;
+    padding: calc(14px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1));
+  }
+  .crc-check-mark { grid-column: 1; grid-row: 1; align-self: start; padding-top: calc(1px * var(--ui-scale, 1)); }
+  .crc-check-mark svg { width: calc(22px * var(--ui-scale, 1)); height: calc(22px * var(--ui-scale, 1)); }
+  .crc-check-main { grid-column: 2 / -1; grid-row: 1; }
+  .crc-check-flags { grid-column: 2; grid-row: 2; justify-content: flex-start; }
+  .crc-check > .crc-status { grid-column: 3; grid-row: 2; justify-self: end; }
+  .crc-check-actions { grid-column: 2 / -1; grid-row: 3; justify-content: flex-start; }
+  .crc-check-actions:not(:has(.ydot-row-actions)) { display: none; }
+  .crc-check-actions .ydot-act { width: 36px !important; height: 36px !important; min-width: 36px !important; border-radius: 9px !important; }
+  .crc-check-actions .ydot-act > i { font-size: 17px !important; }
+  .crc-check-actions .ydot-row-actions { gap: 6px !important; }
+  .crc-check-meta > span:not(.crc-meta-sep) { white-space: normal; }
+
+  /* ---------- empty states ---------- */
+  .crc-empty { margin: calc(12px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); padding: calc(28px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); }
+
+  /* ---------- launch rail ---------- */
+  .crc-launch-body { flex-direction: row; align-items: center; gap: calc(16px * var(--ui-scale, 1)); padding: calc(10px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)) calc(16px * var(--ui-scale, 1)); }
+  .crc-ring { width: calc(88px * var(--ui-scale, 1)); height: calc(88px * var(--ui-scale, 1)); }
+  .crc-ring-pct { font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 1.571) * var(--ui-text-scale, 1)) !important; }
+  .crc-ring-cap { margin-top: calc(3px * var(--ui-scale, 1)); }
+  .crc-meter { margin-inline: calc(16px * var(--ui-scale, 1)); padding: calc(14px * var(--ui-scale, 1)) 0 calc(16px * var(--ui-scale, 1)); }
+  .crc-meter-legend dd { font-size: calc(calc(var(--fs-base, calc(14px * var(--ui-scale, 1))) * 1.143) * var(--ui-text-scale, 1)) !important; }
+
+  /* ---------- dialogs: from the bottom, scroll inside ---------- */
+  .crc-modal-backdrop { align-items: flex-end; padding: calc(8px * var(--ui-scale, 1)) 0 0; }
+  .crc-modal {
+    max-width: none;
+    max-height: calc(100dvh - calc(8px * var(--ui-scale, 1)));
+    overflow-y: auto;
+    animation: crc-sheet .24s var(--crc-ease) both;
+  }
+  .crc-modal-actions { display: flex; gap: calc(8px * var(--ui-scale, 1)); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .crc-modal-actions > * { flex: 1 1 0; }
+  .crc-review > div { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .crc-review dd { overflow-wrap: anywhere; }
+}
+
+/* Very narrow phones: the ring sits above the verdict. */
+@media (max-width: 380px) {
+  .crc-launch-body { flex-direction: column; align-items: flex-start; }
+  .crc-tab { padding: 0 calc(10px * var(--ui-scale, 1)); }
+}
+
+@keyframes crc-sheet {
+  from { opacity: 0; translate: 0 calc(24px * var(--ui-scale, 1)); }
+  to   { opacity: 1; translate: 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crc-modal { animation: none !important; }
+}

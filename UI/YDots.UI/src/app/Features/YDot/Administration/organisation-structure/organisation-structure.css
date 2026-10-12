@@ -905,3 +905,144 @@
 }
 .os-hero .os-hero-eyebrow.ydot-kicker::before { display: none; }
 .os-hero-text { gap: 3px; }
+
+
+/* =====================================================================================================
+   PHONE PASS (append-only; keep LAST so it wins the cascade)
+   - Header: title left, Create on the right of the title row; the figures as an even 3-up grid
+     (number over label) instead of a wrapping line of pairs with broken dividers.
+   - Table: no sideways scroll. Each row becomes a card -
+         Name / description ........................ status
+         [CODE]   Head (or city)              N people
+         - - - - - - - - - - - - - - - - - - - - - - - -
+         [ view ]        [ edit ]        [ remove ]
+   ===================================================================================================== */
+@media (max-width: 600px) {
+
+  /* ---------- header ---------- */
+  .os-hero {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    row-gap: 10px;
+    padding: 14px 14px 12px;
+    border-radius: 14px;
+  }
+  .os-hero-id { grid-column: 1; grid-row: 1; align-self: center; }
+  .os-hero-title { font-size: calc(21px * var(--ui-text-scale, 1)); overflow-wrap: anywhere; }
+  .os-hero .os-hero-eyebrow.ydot-kicker { font-size: calc(9.5px * var(--ui-text-scale, 1)) !important; letter-spacing: .1em; flex-wrap: wrap; }
+  .os-hero-top > .btn {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    white-space: nowrap;
+  }
+  .os-hero .os-stats {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--os-line-2);
+  }
+  .os-hero .os-stats .os-stat,
+  .os-hero .os-stats .os-stat:first-child {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    padding: 6px 10px;
+    border-left: 1px solid var(--os-line-2);
+    white-space: normal;
+  }
+  .os-hero .os-stats .os-stat:nth-child(3n + 1) { border-left: 0; padding-left: 0; }
+  .os-hero .os-stats .os-stat:nth-child(n + 4) { border-top: 1px solid var(--os-line-2); }
+  .os-hero .os-stats .os-stat dt { font-size: calc(11.5px * var(--ui-text-scale, 1)) !important; line-height: 1.25; white-space: normal; }
+  .os-hero .os-stats .os-stat dd { font-size: calc(18px * var(--ui-text-scale, 1)) !important; }
+
+  /* ---------- table -> cards (no horizontal scroll) ---------- */
+  .os-card { border-radius: 14px; }
+  .os-table-wrap { overflow: visible; }
+  .os-table, .os-table tbody { display: block; width: 100%; }
+  .os-table thead { display: none; }
+  .os-table tbody tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'name name status'
+      'code head people'
+      'acts acts acts';
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 8px;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--os-line-2);
+  }
+  .os-table tbody tr:last-child { border-bottom: 0; }
+  .os-table tbody tr:hover td { background: none; }
+  .os-table td,
+  .os-table td:first-child,
+  .os-table td:not(:first-child) {
+    display: block;
+    min-width: 0;
+    padding: 0 !important;
+    border: 0;
+    text-align: left !important;
+    width: auto;
+  }
+  .os-table td:nth-child(1) { grid-area: name; }
+  .os-table td:nth-child(2) { grid-area: code; }
+  .os-table td:nth-child(3) { grid-area: head; overflow: hidden; }
+  .os-table td:nth-child(4) { grid-area: people; text-align: right !important; white-space: nowrap; }
+  .os-table td.os-col-status { grid-area: status; width: auto; align-self: start; text-align: right !important; }
+  .os-table td.os-td-actions { grid-area: acts; }
+
+  /* child rows: a small inset instead of the desktop indent */
+  .os-table tr.os-child td:first-child { padding-left: 14px !important; }
+
+  .os-name { min-width: 0; gap: 8px; }
+  .os-name-main { font-size: calc(15px * var(--ui-text-scale, 1)) !important; overflow-wrap: anywhere; }
+  .os-name-sub { max-width: 100%; font-size: calc(12.5px * var(--ui-text-scale, 1)) !important; }
+  .os-code { font-size: calc(12px * var(--ui-text-scale, 1)) !important; padding: 2px 8px; }
+  .os-table .os-person { justify-content: flex-start; min-width: 0; max-width: 100%; }
+  .os-person span:last-child { font-size: calc(13.5px * var(--ui-text-scale, 1)) !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .os-person-mono { flex: none; width: 24px; height: 24px; }
+  .os-none, .os-cell-main { font-size: calc(13.5px * var(--ui-text-scale, 1)) !important; }
+  .os-cell-sub { font-size: calc(12px * var(--ui-text-scale, 1)) !important; }
+  .os-count { font-size: calc(14px * var(--ui-text-scale, 1)) !important; }
+  .os-count::before { content: 'People '; font-family: var(--font-body, inherit); font-weight: 500; color: var(--os-muted); font-size: calc(12px * var(--ui-text-scale, 1)); }  /* label, so 1 / 0 / many all read right */
+  .os-table td:nth-child(4) .os-cell-sub { display: inline; margin: 0 0 0 6px; }
+  .os-status { width: 24px; height: 24px; }
+  .os-status i { font-size: calc(19px * var(--ui-text-scale, 1)) !important; }
+
+  /* actions: equal-width strip with a dashed rule above */
+  .os-table .os-actions,
+  .os-table .os-confirm {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    padding-top: 8px;
+    border-top: 1px dashed var(--os-line);
+  }
+  .os-table .os-actions > .btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 34px !important;
+    padding: 0 !important;
+    display: inline-grid !important;
+    place-items: center;
+    border: 1px solid var(--os-line) !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+  }
+  .os-table .os-actions > .btn i { font-size: calc(16px * var(--ui-text-scale, 1)) !important; line-height: 1; }
+  .os-table .os-actions > .btn:disabled { opacity: .45; }
+  .os-table .os-confirm > .btn { height: 34px; }
+}

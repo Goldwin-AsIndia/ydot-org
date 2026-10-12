@@ -314,11 +314,11 @@
                   <svg class="tam-sort-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 9 4-4 4 4"/><path d="m8 15 4 4 4-4"/></svg>
                 </button>
               </th>
-              <th scope="col" class="tam-col-type">Asset type</th>
-              <th scope="col" class="tam-col-channel">Medium</th>
+              <th scope="col" class="tam-col-type  d-none d-xl-table-cell">Asset type</th>
+              <th scope="col" class="tam-col-channel d-none d-xl-table-cell">Medium</th>
               <th scope="col" class="tam-col-dest">Destination / URL</th>
               <th scope="col" class="tam-col-status">Status</th>
-              <th scope="col" class="tam-col-num">Usage</th>
+              <th scope="col" class="tam-col-num d-none d-xl-table-cell">Usage</th>
               <th scope="col" class="tam-col-actions">Actions</th>
             </tr>
           </thead>
@@ -328,7 +328,7 @@
                   [class.tam-row-compare-picked]="compareMode() && compareRefs().includes(r.trackingReference)"
                   (click)="compareMode() ? toggleCompareSelection(r.trackingReference) : selectAsset(r.trackingReference)">
                 <!-- Tracking reference (stable, read-only) + Campaign context -->
-                <td class="tam-cell-asset" data-label="Asset">
+                <td class="tam-cell-asset " data-label="Asset">
                   <div class="tam-asset-id">
                     <span class="tam-asset-glyph" [attr.data-kind]="assetIconKey(r.assetType, r.isQr)" aria-hidden="true">
                       @switch (assetIconKey(r.assetType, r.isQr)) {
@@ -352,9 +352,9 @@
                   </div>
                 </td>
 
-                <td class="tam-col-type" data-label="Asset type">{{ r.assetType }}</td>
+                <td class="tam-col-type  d-none d-xl-table-cell" data-label="Asset type">{{ r.assetType }}</td>
 
-                <td data-label="Medium">
+                <td class="d-none d-xl-table-cell" data-label="Medium">
                   <span class="tam-channel"><span class="tam-dot" [class]="channelDotClass(r.channel)" aria-hidden="true"></span>{{ r.channel }}</span>
                 </td>
 
@@ -381,7 +381,7 @@
                   <span class="tam-badge" [class]="statusClass(r.assetStatus)">{{ r.assetStatus }}</span>
                 </td>
 
-                <td class="tam-col-num tam-usage" data-label="Usage">{{ formatUsage(r.usageCount) }}</td>
+                <td class="tam-col-num tam-usage  d-none d-xl-table-cell" data-label="Usage">{{ formatUsage(r.usageCount) }}</td>
 
                 <!-- Row actions: shown as icons right in the row, no menu to open. Each icon carries its
                      own name as a tooltip and an aria-label; a disallowed action stays visible but

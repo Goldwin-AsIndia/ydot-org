@@ -1965,3 +1965,127 @@ textarea:focus-visible,
   outline: 2px solid var(--primary);
   outline-offset: -2px;
 }
+@media (max-width: 581px) {
+  .pr-table-footer {
+    justify-content:center ;
+  }
+  .pr-totals{
+         display: flex !important;
+        flex-direction: column;
+  }
+}
+
+
+
+/* =====================================================================================================
+   PAYMENT DETAILS PANEL — sized to its content (2026-10-12)
+   The panel used to be pinned top: 0 AND bottom: 0, so it was always as tall as the screen and
+   everything under "Continue payment" was empty white. It is now a floating card: it grows with what
+   it holds and stops at the screen's height (then the body scrolls). On phones it is a bottom sheet.
+   ===================================================================================================== */
+.pr-detail {
+  top: calc(16px * var(--ui-scale, 1));
+  right: calc(16px * var(--ui-scale, 1));
+  bottom: auto;
+  height: auto;
+  max-height: calc(100dvh - calc(32px * var(--ui-scale, 1)));
+  width: min(calc(480px * var(--ui-scale, 1)), calc(100vw - calc(32px * var(--ui-scale, 1))));
+  border: 1px solid var(--pr-border);
+  border-radius: calc(18px * var(--ui-scale, 1));
+  overflow: hidden;
+}
+.pr-detail-head { flex: none; }
+.pr-detail-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(24px * var(--ui-scale, 1));
+}
+/* No action for this payment: no empty gap under the last field. */
+.pr-detail-actions:not(:has(*)) { display: none; }
+
+@keyframes pr-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* =====================================================================================================
+   PHONE PASS (2026-10-12) — keep this block LAST so it wins over the rules above.
+   - Totals: Total amount across the top, the four counts 2 x 2 under it (was five tall tiles stacked).
+   - Receipt history head: title, then search and status filter full width under it.
+   - Footer: range + rows-per-page on one line, page buttons centred under it.
+   - Payment details: a bottom sheet with a grab handle, as tall as its content, buttons full width.
+   ===================================================================================================== */
+@media (max-width: 767.98px) {
+
+  /* ---------- totals ---------- */
+  .pr-totals {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: calc(10px * var(--ui-scale, 1));
+    margin-bottom: calc(14px * var(--ui-scale, 1));
+  }
+  .pr-totals > .pr-tile1 { min-width: 0; padding: calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); gap: calc(8px * var(--ui-scale, 1)); }
+  .pr-totals > .pr-tile-gold { grid-column: 1 / -1; order: -1; }
+  .pr-tile1 .pr-tile-body { min-width: 0; }
+  .pr-tile1 .pr-tile-value { overflow-wrap: anywhere; }
+
+  /* ---------- receipt history head ---------- */
+  .pr-history-head { padding: calc(14px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); row-gap: calc(10px * var(--ui-scale, 1)); }
+  .pr-history-spacer { display: none; }
+  .pr-filter-grid { flex: 1 1 100%; grid-template-columns: minmax(0, 1fr); gap: calc(10px * var(--ui-scale, 1)); }
+
+  /* ---------- table ---------- */
+  .pr-table thead th:first-child,
+  .pr-table tbody td:first-child { padding-left: calc(14px * var(--ui-scale, 1)) !important; }
+  .pr-event-ref,
+  .pr-event-sub { overflow-wrap: anywhere; }
+
+  /* ---------- footer ---------- */
+  .pr-table-footer { flex-direction: column; align-items: stretch; padding: calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); }
+  .pr-showing { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: calc(8px * var(--ui-scale, 1)); }
+  .pr-showing app-rows-per-page { margin-left: 0 !important; }
+  .pr-pagination { display: flex; flex-wrap: wrap; justify-content: center; }
+
+  /* ---------- payment details: bottom sheet ---------- */
+  .pr-detail {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 88dvh;
+    border: 0;
+    border-top: 1px solid var(--pr-border);
+    border-radius: calc(20px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) 0 0;
+    animation: pr-sheet-up .32s cubic-bezier(.22, .9, .35, 1) both;
+  }
+  .pr-detail::before {
+    content: '';
+    position: absolute;
+    top: calc(8px * var(--ui-scale, 1));
+    left: 50%;
+    width: calc(40px * var(--ui-scale, 1));
+    height: calc(4px * var(--ui-scale, 1));
+    border-radius: 999px;
+    background: var(--pr-border);
+    transform: translateX(-50%);
+  }
+  .pr-detail-head { padding: calc(22px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1)); }
+  .pr-detail-title { font-size: calc(calc(20px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)); }
+  .pr-detail-body { padding: calc(12px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1)) calc(calc(18px * var(--ui-scale, 1)) + env(safe-area-inset-bottom, 0px)); }
+  .pr-kv { gap: calc(12px * var(--ui-scale, 1)); }
+  .pr-kv > div { grid-template-columns: minmax(0, 42%) minmax(0, 1fr); }
+  .pr-kv dd { overflow-wrap: anywhere; }
+  .pr-detail-actions { margin-top: calc(20px * var(--ui-scale, 1)); }
+  .pr-detail-actions .btn { width: 100%; min-height: calc(44px * var(--ui-scale, 1)); }
+
+  /* ---------- dialogs ---------- */
+  .pr-modal-backdrop { padding: calc(12px * var(--ui-scale, 1)); }
+  .pr-modal-actions .pr-btn { flex: 1 1 0; }
+}
+
+@media (max-width: 767.98px) and (prefers-reduced-motion: reduce) {
+  .pr-detail { animation: none !important; }
+}

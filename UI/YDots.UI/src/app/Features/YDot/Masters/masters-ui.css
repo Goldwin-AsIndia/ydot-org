@@ -57,6 +57,13 @@
   display: grid;
   gap: var(--gm-gap);
   min-width: 0;
+  /* ONE 1180px COLUMN FOR EVERY MASTERS SCREEN. Wider than that the page centres itself inside the
+     shell's gutters; narrower it simply fills the content area (responsive, no second breakpoint).
+     styles.css used to force max-width: none on this class - .gm-page was taken out of that list
+     so this cap can apply. */
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
 }
 
 .sr-only,
@@ -882,6 +889,23 @@ td.gm-empty-cell {
   to { opacity: 1; transform: none; }
 }
 
+/* The scrim the details panel drags in with it. It is in every template beside the aside, but it only
+   SHOWS below 1180px (Responsive section), where the panel is an off-canvas drawer over the table;
+   above that width the panel is the workspace's second column and needs no scrim. */
+.gm-aside-backdrop {
+  display: none;
+}
+
+@keyframes gm-drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+
+@keyframes gm-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .gm-aside-head {
   position: relative;
   display: flex;
@@ -1397,11 +1421,40 @@ td.gm-empty-cell {
     min-height: 0;
   }
 
+  /* THE VIEW PANEL OPENS AS AN OFF-CANVAS DRAWER at this width: the table keeps the whole card and
+     the details panel slides in from the right edge of the window over it, behind a scrim that
+     closes it on click (the X and Close buttons still work too).
+
+     Layering mirrors rwn-offcanvas: scrim 1040 / sheet 1050 - above the app's top bar (1001) so the
+     drawer covers it, but below the shared confirm-modal layer (1060) so Activate / Deactivate /
+     Delete pop-ups still render on top of an open panel (Country keeps its panel open while a modal
+     opens; City, State and Currency close it first). */
+  .gm-aside-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    background: var(--ov-scrim, rgb(15 23 42 / 0.5));
+    -webkit-backdrop-filter: blur(6px) saturate(115%);
+    backdrop-filter: blur(6px) saturate(115%);
+    animation: gm-scrim-in .2s ease both;
+  }
+
   .gm-aside {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    z-index: 1050;
+    width: min(var(--gm-aside-w), 100%);
     height: auto;
     min-height: 0;
-    max-height: calc(640px * var(--ui-scale, 1));
-    order: -1;
+    max-height: none;
+    border: 0;
+    border-left: 1px solid var(--gm-line);
+    border-radius: 0;
+    animation: gm-drawer-in .3s var(--gm-ease) both;
   }
 }
 
@@ -1452,6 +1505,7 @@ td.gm-empty-cell {
 
 @media (prefers-reduced-motion: reduce) {
   .gm-aside,
+  .gm-aside-backdrop,
   .gm-dialog,
   .gm-toast,
   .gm-overlay,

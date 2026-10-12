@@ -559,3 +559,178 @@ legend.lcp-l { margin-bottom: calc(5px * var(--u)); }
 .lc-button-icon { width: calc(14px * var(--u)) !important; height: calc(14px * var(--u)) !important; }
 .lc-confirm-details > div { display: flex; gap: calc(10px * var(--u)); }
 .lc-confirm-details dt { color: var(--muted); }
+
+
+/* ==============================================================================================
+   CAMPAIGN PICKER (section 04) - popover list replacing the native <select>
+   The trigger keeps the .lcp-in .lcp-sel look (same 38px field, same caret). The list is a popover
+   anchored to the trigger: it opens BELOW, and flips ABOVE when there is not enough room below
+   (position-try-fallbacks: flip-block). The search box sits inside the list, so the field lines up
+   with Lead source. Browsers without anchor positioning show the list centred on screen instead.
+   ============================================================================================== */
+.lcp-pick {
+  anchor-name: --lcp-campaign;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.lcp-pick.is-empty { color: #a3adba; }
+.lcp-pick[aria-invalid="true"] { border-color: var(--bad); }
+
+.lcp-pick-pop {
+  /* fallback (no anchor positioning): the UA centres the popover; give it a sensible size */
+  width: min(calc(420px * var(--u)), calc(100vw - 32px));
+  max-height: min(calc(340px * var(--u)), calc(100dvh - 32px));
+  margin: auto;
+  padding: calc(6px * var(--u));
+  border: 1px solid var(--line);
+  border-radius: calc(12px * var(--u));
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 12px 32px rgba(16, 24, 40, .14);
+  overflow: hidden;
+}
+.lcp-pick-pop:popover-open { display: flex; flex-direction: column; gap: calc(6px * var(--u)); }
+
+@supports (anchor-name: --a) {
+  .lcp-pick-pop {
+    position: fixed;
+    position-anchor: --lcp-campaign;
+    inset: auto;
+    top: anchor(bottom);
+    left: anchor(left);
+    width: anchor-size(width);
+    min-width: calc(220px * var(--u));
+    margin: calc(6px * var(--u)) 0;
+    max-height: min(calc(320px * var(--u)), 50dvh);
+    position-try-fallbacks: flip-block;   /* no room below -> open above the field */
+  }
+}
+
+.lcp-pick-search { flex: none; height: calc(36px * var(--u)); }
+.lcp-pick-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 2px; }
+.lcp-pick-opt {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  padding: calc(8px * var(--u)) calc(10px * var(--u));
+  border: 0;
+  border-radius: calc(8px * var(--u));
+  background: none;
+  color: var(--ink-2);
+  text-align: left;
+  cursor: pointer;
+}
+.lcp-pick-opt > * { pointer-events: none; }   /* the click target is always the button (it carries the value) */
+.lcp-pick-opt:hover, .lcp-pick-opt:focus-visible { background: hsl(calc(var(--theme-hue) + 10) 20% 96%); outline: none; }
+.lcp-pick-opt.is-on { background: hsl(calc(var(--theme-hue) + 3) 45% 34% / .10); color: var(--theme); }
+.lcp-pick-l {
+  font-size: calc(calc(13.5px * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3 !important;
+  overflow-wrap: anywhere;
+}
+.lcp-pick-opt.is-on .lcp-pick-l { font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; }
+.lcp-pick-c { font-size: calc(calc(11.5px * var(--u)) * var(--ui-text-scale, 1)) !important; color: var(--muted); line-height: 1.3 !important; }
+.lcp-pick-empty { padding: calc(12px * var(--u)); text-align: center; font-size: calc(calc(12.5px * var(--u)) * var(--ui-text-scale, 1)) !important; color: var(--muted); }
+
+
+/* ==============================================================================================
+   PHONE PASS (append-only; keep LAST so it wins the cascade)
+   ============================================================================================== */
+@container lcp (max-width: 600px) {
+  .lcp-sheet { --gut: calc(14px * var(--u)); }
+
+  /* masthead: title, then the two modes as two equal tabs */
+  .lcp-mast { flex-direction: column; align-items: stretch; gap: calc(4px * var(--u)); padding-top: calc(14px * var(--u)); }
+  .lcp-mast-id { padding-bottom: calc(6px * var(--u)); }
+  .lcp-title { font-size: calc(calc(20px * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .lcp-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+  .lcp-mode { justify-content: center; gap: calc(8px * var(--u)); padding: calc(8px * var(--u)) calc(4px * var(--u)) calc(10px * var(--u)); }
+  .lcp-mode svg { width: calc(18px * var(--u)) !important; height: calc(18px * var(--u)) !important; }
+  .lcp-mode small { display: none; }
+
+  .lcp-note { margin-inline: var(--gut); }
+
+  /* sections */
+  .lcp-sec { padding: calc(14px * var(--u)) var(--gut) calc(16px * var(--u)); }
+  .lcp-sec-head > .lcp-svc, .lcp-sec-head > .lcp-switch { margin-left: 0; flex-basis: 100%; }
+  .lcp-sec-head > p::before { display: none; }
+  .lcp-sec-head > p { flex-basis: 100%; }
+
+  /* field text: same size as the labels' weight class - not the oversized 16px */
+  .lcp-in, .lcp-pick { font-size: calc(calc(13.5px * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .lcp-in::placeholder { font-size: inherit; }
+  .lcp-area { height: auto; line-height: 1.45 !important; }
+  .lcp-search { height: calc(34px * var(--u)); font-size: calc(calc(13px * var(--u)) * var(--ui-text-scale, 1)) !important; }
+
+  .lcp-seg label { font-size: calc(calc(12.5px * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .lcp-when { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+  .lcp-dnc { align-items: flex-start; }
+
+  /* action bar: note on its own line, the two buttons share the width */
+  .lcp-bar {
+    gap: calc(8px * var(--u));
+    padding: calc(10px * var(--u)) var(--gut) calc(calc(10px * var(--u)) + env(safe-area-inset-bottom, 0px));
+  }
+  .lcp-bar-note:empty { display: none; }
+  .lcp-bar > .lcp-bar-note { flex-basis: 100%; }
+  .lcp-bar-acts { width: 100%; margin-left: 0; }
+  .lcp-bar-acts > .btn { flex: 1 1 0; min-width: 0; height: calc(40px * var(--u)); display: inline-flex; align-items: center; justify-content: center; gap: calc(6px * var(--u)); }
+
+  /* ---------- bulk upload ---------- */
+  .lcp-bulk-main { padding: calc(14px * var(--u)) var(--gut) calc(18px * var(--u)); gap: calc(12px * var(--u)); }
+  .lcp-well { flex-direction: column; text-align: center; gap: calc(10px * var(--u)); padding: calc(20px * var(--u)) calc(14px * var(--u)); }
+  .lcp-attached { flex-wrap: wrap; gap: calc(10px * var(--u)); }
+  .lcp-result { flex-wrap: wrap; }
+  .lcp-result-acts { flex-basis: 100%; padding-left: 0; }
+  .lcp-result-acts > * { flex: 1 1 auto; }
+  .lcp-ask { flex-direction: column; gap: calc(8px * var(--u)); }
+  .lcp-ask-acts > * { flex: 1 1 auto; }
+
+  .lcp-ledger-head { flex-direction: column; align-items: stretch; gap: calc(10px * var(--u)); }
+  .lcp-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lcp-figs > div { padding: 0 calc(10px * var(--u)); text-align: left; }
+  .lcp-figs > div:first-child { padding-left: 0; }
+
+  /* review ledger rows: stacked cards  (row no · name ........ status / mobile / e-mail / source) */
+  .lcp-table-wrap { overflow: visible; }
+  .lcp-table thead { display: none; }
+  .lcp-table, .lcp-table tbody { display: block; width: 100%; }
+  .lcp-table tbody tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'no name status' '. mob mob' '. mail mail' '. src src';
+    column-gap: calc(10px * var(--u));
+    row-gap: calc(2px * var(--u));
+    padding: calc(10px * var(--u)) 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .lcp-table tbody td { display: block; padding: 0 !important; border: 0; min-width: 0; }
+  .lcp-table tbody tr:hover td { background: none; }
+  .lcp-table tbody td:nth-child(1) { grid-area: no; width: auto; }
+  .lcp-table tbody td:nth-child(2) { grid-area: name; }
+  .lcp-table tbody td:nth-child(3) { grid-area: mob; }
+  .lcp-table tbody td:nth-child(4) { grid-area: mail; color: var(--muted); }
+  .lcp-table tbody td:nth-child(5) { grid-area: src; color: var(--muted); font-size: calc(calc(12px * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .lcp-table tbody td:nth-child(6) { grid-area: status; text-align: right; }
+  .lcp-table tbody td.lcp-empty { grid-column: 1 / -1; }
+  .lcp-table tbody tr:has(> .lcp-empty) { display: block; }
+  .lcp-why { max-width: calc(140px * var(--u)); margin-left: auto; }
+
+  .lcp-ledger-foot { flex-direction: column; align-items: stretch; gap: calc(10px * var(--u)); }
+  .lcp-ledger-acts { margin-left: 0; }
+  .lcp-ledger-acts .lcp-go { flex: 1 1 auto; }
+
+  .lcp-manifest { padding: calc(16px * var(--u)) var(--gut) calc(20px * var(--u)); }
+}
+
+/* the popover lives in the top layer, outside the container - on a phone it is a touch taller */
+@media (max-width: 600px) {
+  @supports (anchor-name: --a) {
+    .lcp-pick-pop { max-height: min(360px, 55dvh); }
+  }
+  .lcp-pick-opt { padding: 10px 12px; }
+}

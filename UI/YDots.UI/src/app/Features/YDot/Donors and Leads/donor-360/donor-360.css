@@ -199,7 +199,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 /* donations */
 .dz-don{display:grid;grid-template-columns:minmax(calc(250px * var(--u)),calc(300px * var(--u))) minmax(0,1fr)}
 .dz-stages{min-width:0;padding-right:calc(22px * var(--u));border-right:1px solid var(--line-soft)}
-.dz-don-main{min-width:0;display:grid;align-content:start;gap:calc(18px * var(--u));padding-left:calc(22px * var(--u))}
+/* single minmax(0,1fr) track + min-width:0 children: wide tables scroll inside .dz-scroll instead of pushing past the card */
+.dz-don-main{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:calc(18px * var(--u));padding-left:calc(22px * var(--u))}
+.dz-don-main>section{min-width:0}
 .dz-stage-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:calc(4px * var(--u)) calc(10px * var(--u));padding:calc(9px * var(--u)) 0;border-bottom:1px dashed var(--line-soft)}
 .dz-stage-name{display:inline-flex;align-items:center;gap:calc(7px * var(--u));color:var(--ink);font-size:calc(calc(13px * var(--u)) * var(--ui-text-scale, 1))!important;font-weight:clamp(100, calc(500 + var(--fw-bias, 0)), 900)!important}
 .dz-stage-name i{width:calc(7px * var(--u));height:calc(7px * var(--u));border-radius:50%;background:var(--st)}
@@ -305,6 +307,64 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   .dz-cols>.dz-col:nth-child(3) .dz-next{display:block}
   .dz-tools{width:100%}
   .dz-search{flex:1;width:auto}
+}
+
+/* ── Phone: card width ≤ 600px ─────────────────────────────────────────────────────────────────────
+   Tables turn into stacked rows: .dz-c-title (row title, top-left) + .dz-c-tag (status, top-right),
+   every other cell is a "label ……… value" line using its data-label. Masthead actions become a
+   2-column grid with the primary action full-width on top. ── */
+@container dz (max-width: 600px){
+  .dz{--pad:calc(14px * var(--u))}
+
+  /* masthead */
+  .dz-mast{padding-top:calc(14px * var(--u))}
+  .dz-name{font-size:calc(calc(19px * var(--u)) * var(--ui-text-scale, 1))!important}
+  .dz-facts{display:grid;gap:calc(6px * var(--u))}
+  .dz-acts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .dz-acts .btn{width:100%}
+  .dz-acts .btn-primary{grid-column:1/-1;order:-1}
+
+  /* figures */
+  .dz-fig{padding:calc(9px * var(--u)) calc(12px * var(--u))}
+  .dz-fig b{font-size:calc(calc(16px * var(--u)) * var(--ui-text-scale, 1))!important}
+
+  /* tabs + tools */
+  .dz-tabs{gap:calc(20px * var(--u))}
+  .dz-tools{flex-wrap:wrap}
+  .dz-search{flex:1;min-width:calc(150px * var(--u));width:auto}
+  .dz-body{padding-top:calc(14px * var(--u))}
+  .dz-col-head{flex-wrap:wrap}
+  .dz-col-note{white-space:normal}
+
+  /* tables → stacked rows */
+  .dz-scroll{overflow:visible}
+  .dz-table,.dz-table tbody{display:block;width:100%}
+  .dz-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .dz-table tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:calc(5px * var(--u)) calc(12px * var(--u));padding:calc(12px * var(--u)) 0;border-bottom:1px solid var(--line-soft)}
+  .dz-table tbody tr:hover td{background:transparent}
+  .dz .dz-table td{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:calc(12px * var(--u));min-width:0;padding:0!important;border:0;white-space:normal;text-align:right!important;overflow-wrap:anywhere}
+  .dz .dz-table td[data-label]::before{content:attr(data-label);flex:none;text-align:left;color:var(--faint);font-family:var(--font-other);font-size:calc(calc(11.5px * var(--u)) * var(--ui-text-scale, 1));font-weight:500}
+  .dz .dz-table td:not([data-label]){display:block;text-align:left!important}
+  .dz .dz-table td.dz-c-title{grid-column:1;grid-row:1;color:var(--ink)!important;font-size:calc(calc(13.5px * var(--u)) * var(--ui-text-scale, 1))!important;font-weight:clamp(100, calc(600 + var(--fw-bias, 0)), 900)!important}
+  .dz .dz-table td.dz-c-tag{grid-column:2;grid-row:1;text-align:right!important}
+  .dz .dz-table td.dz-wrap[data-label]{display:grid;gap:calc(2px * var(--u));text-align:left!important}
+  .dz-file{max-width:100%}
+  .dz-agenda tr.is-late{padding-left:calc(10px * var(--u));box-shadow:inset 3px 0 0 var(--bad)}
+
+  /* follow-up views: full width, swipe if needed */
+  .dz-views{display:flex;width:100%;overflow-x:auto;scrollbar-width:none}
+  .dz-view{flex:1 0 auto;justify-content:center}
+
+  /* overview "coming up" */
+  .dz-next li{grid-template-columns:calc(36px * var(--u)) minmax(0,1fr) auto;gap:calc(10px * var(--u))}
+
+  /* activity chronicle: actor drops under the action */
+  .dz-chron::before{left:calc(58px * var(--u))}
+  .dz-chron-row{grid-template-columns:calc(48px * var(--u)) calc(22px * var(--u)) minmax(0,1fr);padding:calc(4px * var(--u)) 0}
+  .dz-chron-what{padding:calc(4px * var(--u)) 0 0}
+  .dz-chron-who{grid-column:3;padding:0 0 calc(4px * var(--u));font-size:calc(calc(11.5px * var(--u)) * var(--ui-text-scale, 1))!important}
+
+  .dz-pager{justify-content:space-between}
 }
 
 /* ── Record a pledge: "Promissory note" ─────────────────────────────────────────────────────────────

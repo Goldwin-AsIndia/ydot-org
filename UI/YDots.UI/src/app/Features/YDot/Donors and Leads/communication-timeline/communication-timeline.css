@@ -385,10 +385,12 @@ label:focus-within>.tl-switch {
   gap: calc(8px * var(--u));
   flex: none;
 }
-.tl-acts svg{
+
+.tl-acts svg {
   width: calc(14px * var(--u)) !important;
   height: calc(16px * var(--u)) !important;
 }
+
 /* figure strip: equal cells split by hairlines (grid gap on a hairline-coloured ground) */
 .tl-strip {
   display: grid;
@@ -1970,7 +1972,7 @@ textarea.le-input {
   font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
   outline: 1.5px solid var(--theme);
   outline-offset: -1.5px;
-      border-radius: 10px;
+  border-radius: 10px;
 }
 
 .le-seg svg {
@@ -2451,7 +2453,7 @@ textarea.le-input {
 
 @container le (max-width: 1060px) {
   .le-band-when {
-    grid-template-columns: auto auto;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   }
 
   .le-band-when>.le-field:first-child {
@@ -2544,29 +2546,414 @@ textarea.le-input {
 }
 
 /* Cancel / Save: icon, a clear gap, then the label */
-.le-act { display: inline-flex; align-items: center; gap: calc(8px * var(--u)); }
-.le-act svg { width: calc(15px * var(--u)); height: calc(15px * var(--u)); flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.le-act {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8px * var(--u));
+}
+
+.le-act svg {
+  width: calc(15px * var(--u));
+  height: calc(15px * var(--u));
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* Time picker - the Campaigns design: HH : MM and an AM/PM switch in one box */
-.le-time { display: inline-flex; align-items: center; gap: calc(2px * var(--u)); height: calc(40px * var(--u)); padding: 0 calc(6px * var(--u)) 0 calc(8px * var(--u)); border: 1px solid var(--rule); border-radius: calc(8px * var(--u)); background: #fff; }
-.le-time:focus-within { border-color: var(--theme-2); }
-.le-time.is-invalid { border-color: var(--bad); }
-.le-time.is-locked { background: #f4f6f5; }
-.le-time-sel { appearance: none; -webkit-appearance: none; width: calc(36px * var(--u)); padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 600; text-align: center; text-align-last: center; font-variant-numeric: tabular-nums; cursor: pointer; outline: 0; }
-.le-time-sel:disabled { cursor: not-allowed; opacity: .7; }
-.le-time-colon { font-weight: 700; color: var(--faint); }
-.le-meridiem { display: inline-flex; margin-left: calc(6px * var(--u)); padding: 2px; border-radius: calc(7px * var(--u)); background: #eef2f0; }
-.le-meridiem button { height: calc(24px * var(--u)); padding: 0 calc(8px * var(--u)); border: 0; border-radius: calc(5px * var(--u)); background: transparent; color: var(--faint); font: inherit; font-size: calc(11.5px * var(--u)) !important; font-weight: 700; letter-spacing: .04em; cursor: pointer; }
-.le-meridiem button.on { background: #fff; color: var(--theme-2); }
-.le-meridiem button:disabled { cursor: not-allowed; }
+.le-time {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(2px * var(--u));
+  height: calc(40px * var(--u));
+  padding: 0 calc(6px * var(--u)) 0 calc(8px * var(--u));
+  border: 1px solid var(--rule);
+  border-radius: calc(8px * var(--u));
+  background: #fff;
+}
+
+.le-time:focus-within {
+  border-color: var(--theme-2);
+}
+
+.le-time.is-invalid {
+  border-color: var(--bad);
+}
+
+.le-time.is-locked {
+  background: #f4f6f5;
+}
+
+.le-time-sel {
+  appearance: none;
+  -webkit-appearance: none;
+  width: calc(36px * var(--u));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  text-align-last: center;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  outline: 0;
+}
+
+.le-time-sel:disabled {
+  cursor: not-allowed;
+  opacity: .7;
+}
+
+.le-time-colon {
+  font-weight: 700;
+  color: var(--faint);
+}
+
+.le-meridiem {
+  display: inline-flex;
+  margin-left: calc(6px * var(--u));
+  padding: 2px;
+  border-radius: calc(7px * var(--u));
+  background: #eef2f0;
+}
+
+.le-meridiem button {
+  height: calc(24px * var(--u));
+  padding: 0 calc(8px * var(--u));
+  border: 0;
+  border-radius: calc(5px * var(--u));
+  background: transparent;
+  color: var(--faint);
+  font: inherit;
+  font-size: calc(11.5px * var(--u)) !important;
+  font-weight: 700;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+
+.le-meridiem button.on {
+  background: #fff;
+  color: var(--theme-2);
+}
+
+.le-meridiem button:disabled {
+  cursor: not-allowed;
+}
 
 /* required-field errors, as on the campaign form */
-.le-error { margin: calc(6px * var(--u)) 0 0; font-size: calc(calc(12px * var(--u)) * var(--ui-text-scale, 1)) !important; font-weight: 600; color: var(--bad); }
-.le-input[aria-invalid="true"] { border-color: var(--bad) !important; }
+.le-error {
+  margin: calc(6px * var(--u)) 0 0;
+  font-size: calc(calc(12px * var(--u)) * var(--ui-text-scale, 1)) !important;
+  font-weight: 600;
+  color: var(--bad);
+}
+
+.le-input[aria-invalid="true"] {
+  border-color: var(--bad) !important;
+}
 
 /* a logged entry's day is fixed */
-.le-day:disabled, .le-day-earlier.is-locked { opacity: .6; cursor: not-allowed; pointer-events: none; }
+.le-day:disabled,
+.le-day-earlier.is-locked {
+  opacity: .6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
 /* detail drawer close: a plain, centred X */
-.ct-drawer-close { display: inline-grid; place-items: center; flex: none; width: calc(32px * var(--u)); height: calc(32px * var(--u)); padding: 0; border: 1px solid var(--rule); border-radius: calc(8px * var(--u)); background: #fff; color: var(--ink); font-size: calc(20px * var(--u)) !important; line-height: 1 !important; cursor: pointer; }
-.ct-drawer-close:hover { background: #f4f6f5; }
+.ct-drawer-close {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: calc(32px * var(--u));
+  height: calc(32px * var(--u));
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: calc(8px * var(--u));
+  background: #fff;
+  color: var(--ink);
+  font-size: calc(20px * var(--u)) !important;
+  line-height: 1 !important;
+  cursor: pointer;
+}
+
+.ct-drawer-close:hover {
+  background: #f4f6f5;
+}
+
+
+
+/* ==============================================================================================
+   MOBILE — tap-first phone layout (container ≤640 / ≤480; log sheet ≤560; gutters ≤576vw).
+   The head stacks with the primary action full width above the secondary row; the ledger bar
+   becomes scrollable channel tabs over a full-width search + Filters row; filters go fluid;
+   controls grow to real touch targets (36–44px); the footer wraps. Module style rules hold:
+   no shadows, no dark fills — outlines, rules and type only. Mirrored in handoff src (build.py).
+   ============================================================================================== */
+@container tl (max-width: 640px) {
+  /* head: identity on top, actions underneath as thumb-sized buttons */
+  .tl-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: calc(12px * var(--u));
+    padding: calc(14px * var(--u)) calc(14px * var(--u)) calc(12px * var(--u));
+  }
+
+  .tl-name {
+    font-size: calc(calc(18px * var(--u)) * var(--ui-text-scale, 1)) !important;
+    overflow-wrap: anywhere;
+  }
+
+  .tl-reach {
+    gap: calc(4px * var(--u)) calc(12px * var(--u));
+  }
+
+  .tl-reach>span {
+    overflow-wrap: anywhere;
+  }
+
+  .tl-acts {
+    width: 100%;
+    gap: calc(8px * var(--u));
+  }
+
+  .tl-acts>.btn {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(6px * var(--u));
+    min-height: calc(38px * var(--u));
+    padding: 0 calc(10px * var(--u));
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Log communication leads full width; Back / Schedule / Export share the row beneath */
+  .tl-acts>.btn-primary {
+    order: -1;
+    flex-basis: 100%;
+    min-height: calc(42px * var(--u));
+  }
+
+  /* figure strip: two even columns, tighter cells */
+  .tl-fig {
+    padding: calc(8px * var(--u)) calc(12px * var(--u));
+  }
+
+  /* ledger bar: channel tabs on their own scrollable row, search + Filters below */
+  .tl-bar {
+    gap: calc(8px * var(--u));
+    padding: calc(4px * var(--u)) calc(14px * var(--u)) calc(8px * var(--u));
+  }
+
+  .tl-lanes {
+    flex: 1 1 100%;
+    min-height: calc(42px * var(--u));
+    gap: calc(16px * var(--u));
+    border-bottom: 1px solid var(--line);
+    overscroll-behavior-x: contain;
+  }
+
+  .tl-lane {
+    min-height: calc(42px * var(--u));
+  }
+
+  .tl-tools {
+    flex: 1 1 100%;
+  }
+
+  .tl-search {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    height: calc(38px * var(--u));
+  }
+
+  /* ≥16px stops iOS zooming the page when a field takes focus */
+  .tl-search input {
+    font-size: calc(16px * var(--u)) !important;
+  }
+
+  .tl-btn,
+  .tl-primary {
+    height: calc(38px * var(--u));
+  }
+
+  /* filters: fluid, full-width controls */
+  .tl-filters {
+    gap: calc(10px * var(--u));
+    padding: calc(10px * var(--u)) calc(14px * var(--u));
+  }
+
+  .tl-f {
+    flex: 1 1 calc(140px * var(--u));
+  }
+
+  .tl-f select,
+  .tl-f input {
+    width: 100%;
+    min-width: 0;
+    height: calc(38px * var(--u));
+    font-size: calc(16px * var(--u)) !important;
+  }
+
+  .tl-toggle {
+    height: calc(38px * var(--u));
+  }
+
+  /* ledger rows: date chip above, roomier text, 36px row buttons */
+  .tl-date {
+    padding: calc(10px * var(--u)) calc(14px * var(--u)) 0;
+  }
+
+  .tl-entry {
+    gap: calc(8px * var(--u));
+    padding: calc(10px * var(--u)) calc(14px * var(--u)) calc(10px * var(--u)) calc(4px * var(--u));
+  }
+
+  .tl-ib {
+    width: calc(36px * var(--u));
+    height: calc(36px * var(--u));
+  }
+
+  .tl-ib svg {
+    width: calc(16px * var(--u)) !important;
+    height: calc(16px * var(--u)) !important;
+  }
+
+  .tl-row-acts {
+    gap: calc(8px * var(--u));
+    margin-top: calc(2px * var(--u));
+  }
+
+  .tl-empty-acts {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* footer wraps: counts first, pager right-aligned beneath when needed */
+  .tl-foot {
+    flex-wrap: wrap;
+    row-gap: calc(6px * var(--u));
+    min-height: 0;
+    padding: calc(8px * var(--u)) calc(14px * var(--u));
+  }
+
+  .tl-foot>.tl-pager,
+  .tl-foot>.tl-end {
+    margin-left: auto;
+  }
+
+  .tl-pg {
+    min-width: calc(36px * var(--u));
+    height: calc(36px * var(--u));
+  }
+
+  /* standing rail: single column, scales wrap instead of overflowing */
+  .tl-side {
+    padding: calc(2px * var(--u)) calc(14px * var(--u)) calc(10px * var(--u));
+  }
+
+  .tl-scale {
+    flex-wrap: wrap;
+    gap: calc(8px * var(--u)) calc(10px * var(--u));
+  }
+
+  .tl-alert {
+    margin: calc(10px * var(--u)) calc(14px * var(--u)) 0;
+  }
+
+  .tl-quiet,
+  .tl-empty {
+    padding-inline: calc(14px * var(--u));
+  }
+}
+@container tl (max-width: 480px) {
+  .tl-name {
+    font-size: calc(calc(17px * var(--u)) * var(--ui-text-scale, 1)) !important;
+  }
+
+  .tl-fig dd b {
+    font-size: calc(calc(18px * var(--u)) * var(--ui-text-scale, 1)) !important;
+  }
+
+  .tl-date b {
+    font-size: calc(calc(17px * var(--u)) * var(--ui-text-scale, 1)) !important;
+  }
+
+  /* bigger still where thumbs do all the work */
+  .tl-acts>.btn {
+    min-height: calc(40px * var(--u));
+  }
+
+  .tl-acts>.btn-primary {
+    min-height: calc(44px * var(--u));
+  }
+}
+
+/* Log communication on a phone: title row, then Cancel / Save as a full-width pair */
+@container le (max-width: 560px) {
+  .le-bar {
+    gap: calc(8px * var(--u));
+    padding: calc(8px * var(--u)) calc(12px * var(--u));
+  }
+
+  .le-title h1 {
+    font-size: calc(calc(16px * var(--u)) * var(--ui-text-scale, 1)) !important;
+  }
+
+  .le-for {
+    white-space: normal;
+  }
+
+  .le-back {
+    height: calc(38px * var(--u));
+  }
+
+  .le-bar-end {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .le-bar-end .le-act {
+    flex: 1;
+    min-height: calc(40px * var(--u));
+    justify-content: center;
+  }
+
+  .le-alert {
+    margin: calc(12px * var(--u)) calc(14px * var(--u)) 0;
+  }
+
+  .le-band {
+    padding: calc(12px * var(--u)) calc(14px * var(--u));
+  }
+
+  .le-foot {
+    padding: calc(10px * var(--u)) calc(14px * var(--u));
+  }
+
+  .le-side {
+    padding-inline: calc(14px * var(--u));
+  }
+
+  .le-input,
+  .le-time-sel {
+    font-size: calc(16px * var(--u)) !important;
+  }
+}
+
+/* Page gutters come from Bootstrap px-4 (!important), so the phone override matches it */
+@media (max-width: 575.98px) {
+  .container-fluid {
+    padding-left: calc(10px * var(--u)) !important;
+    padding-right: calc(10px * var(--u)) !important;
+  }
+}
+

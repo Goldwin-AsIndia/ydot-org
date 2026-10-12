@@ -1596,3 +1596,178 @@ button.dn-col[data-sort='asc']::after { opacity: 1; transform: rotate(225deg) tr
   .dn-bar > .dn-toolbar { flex: 1 1 100%; margin-left: 0; padding-top: calc(4px * var(--s)); padding-bottom: calc(12px * var(--s)); }
   .dn-bar > .dn-toolbar .dn-search { flex: 1 1 auto; width: auto; }
 }
+
+
+/* =====================================================================================================
+   PAGER - "1–10 of 61 + rows" on the LEFT, page numbers on the RIGHT, at every width
+   ===================================================================================================== */
+.dn-pager { justify-content: space-between !important; }
+.dn-pager > .dn-pages { margin-left: auto; }
+
+
+/* =====================================================================================================
+   PHONE PASS (append-only; keep LAST so it wins the cascade)
+   ===================================================================================================== */
+
+/* ---------- page header: Refresh + Export sit on the RIGHT (no blank space beside them) ----------
+   The buttons are projected into app-page-header's actions slot; :has() finds that slot element. */
+@media (max-width: 600px) {
+  :host ::ng-deep app-page-header *:has(> .dn-anchor),
+  :host ::ng-deep app-page-header *:has(> button[aria-label='Refresh donor list']) {
+    display: flex !important;
+    flex-wrap: nowrap;
+    justify-content: flex-end !important;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-left: auto !important;
+  }
+  .btn[aria-label='Refresh donor list'] { margin-left: auto; }
+  .btn[aria-label='Refresh donor list'],
+  .dn-anchor > .btn {
+    height: 36px;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .container-fluid.px-4 { padding-left: 12px !important; padding-right: 12px !important; }
+}
+
+@container dn (max-width: 600px) {
+
+  .dn-summary,
+  .dn-register { --dn-pad: calc(14px * var(--s)); }
+
+  /* ---------- summary figures ---------- */
+  .dn-fig { padding: calc(12px * var(--s)) calc(14px * var(--s)); gap: calc(6px * var(--s)); }
+  .dn-fig dt { font-size: calc(calc(10px * var(--s)) * var(--ui-text-scale, 1)) !important; gap: calc(6px * var(--s)); }
+  .dn-fig dt i { font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important; margin-top: 1px; }
+  .dn-fig-v { font-size: calc(calc(20px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .dn-fig-s { white-space: normal; font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .dn-fig-s b { font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+
+  /* ---------- needs attention: one aligned list - count | label | tick ---------- */
+  .dn-attn { display: block; padding: 0; }
+  .dn-attn-cap { display: flex; padding: calc(12px * var(--s)) var(--dn-pad) calc(4px * var(--s)) !important; }
+  .dn-attn-list { display: block; }
+  .dn-attn-list > li + li { border-left: 0; border-top: 1px solid var(--dn-line-2); }
+  .dn-attn-row {
+    display: grid;
+    grid-template-columns: calc(34px * var(--s)) minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: calc(10px * var(--s));
+    height: calc(44px * var(--s));
+    padding: 0 var(--dn-pad) !important;
+  }
+  .dn-attn-c { min-width: 0; text-align: left; font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .dn-attn-l { font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .dn-attn-row > i { margin-left: 0; font-size: calc(calc(14px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+
+  /* ---------- register head: "Donors" left, Table | Cards right ---------- */
+  .dn-reg-head { flex-direction: row; align-items: center; padding: calc(16px * var(--s)) var(--dn-pad) calc(12px * var(--s)); }
+  .dn-reg-title h2 { margin: 0; font-size: calc(calc(20px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .dn-switch-b { height: calc(30px * var(--s)); padding: 0 calc(10px * var(--s)); }
+
+  /* ---------- status tabs wrap (no hidden sideways scroll) ---------- */
+  .dn-bar { padding: 0 var(--dn-pad); gap: 0; }
+  .dn-bar > .dn-tabs { flex-wrap: wrap; gap: 0 calc(18px * var(--s)); overflow: visible; }
+  .dn-bar > .dn-tabs .dn-tab-b { padding: calc(10px * var(--s)) 0; }
+  .dn-tab-b > span:first-child { font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+
+  /* ---------- toolbar: search, then Sort | direction | Filters on one row ---------- */
+  .dn-bar > .dn-toolbar { flex-wrap: wrap; gap: calc(8px * var(--s)); padding: calc(10px * var(--s)) 0 calc(12px * var(--s)) !important; }
+  .dn-bar > .dn-toolbar .dn-search,
+  .dn-search { flex: 1 1 100% !important; width: 100% !important; height: calc(38px * var(--s)); border-radius: calc(10px * var(--s)); }
+  .dn-search input { font-size: calc(calc(13.5px * var(--s)) * var(--ui-text-scale, 1)) !important; text-overflow: ellipsis; }
+  .dn-toolbar-r { display: grid; grid-template-columns: minmax(0, 1fr) calc(40px * var(--s)) minmax(0, 1fr); gap: calc(8px * var(--s)); width: 100%; }
+  .dn-toolbar-r > .btn {
+    width: 100%;
+    min-width: 0;
+    height: calc(38px * var(--s));
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: calc(6px * var(--s));
+    padding: 0 calc(8px * var(--s)) !important;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .dn-toolbar-r > label.btn select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+
+  .dn-filters { padding-left: var(--dn-pad); padding-right: var(--dn-pad); }
+  .dn-applied { padding-left: var(--dn-pad); padding-right: var(--dn-pad); flex-wrap: wrap; }
+
+  /* ---------- table rows as cards: actions move to a strip at the bottom, so nothing overlaps the name ---------- */
+  /* column caption: select-all + "Donor" only (the Sort control above does the other columns) */
+  .dn-cols { flex-wrap: nowrap; padding: calc(8px * var(--s)) var(--dn-pad); gap: calc(12px * var(--s)); min-height: calc(38px * var(--s)); }
+  .dn-cols > .dn-col ~ .dn-col { display: none !important; }
+  .dn-row {
+    grid-template-columns: calc(20px * var(--s)) minmax(0, 1fr) auto;
+    grid-template-areas:
+      'check who  who'
+      '.     camp camp'
+      '.     gift life'
+      '.     st   st'
+      'acts  acts acts';
+    column-gap: calc(12px * var(--s));
+    row-gap: calc(8px * var(--s));
+    min-height: 0;
+    padding: calc(12px * var(--s)) var(--dn-pad) calc(10px * var(--s));
+  }
+  .dn-row > .dn-check { padding-top: calc(2px * var(--s)); }
+  .dn-row .dn-who { min-width: 0; }
+  .dn-name > span { font-size: calc(calc(14.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .dn-who-meta { flex-wrap: wrap; row-gap: calc(4px * var(--s)); }
+  .dn-alt-contact { display: block; }
+  .dn-camp { gap: calc(2px * var(--s)) calc(12px * var(--s)) !important; }
+  .dn-gift { align-items: flex-start; text-align: left; gap: calc(2px * var(--s)); }
+  .dn-life { align-items: flex-end; text-align: right; gap: calc(4px * var(--s)); }
+
+  /* standing: small glyphs, wrapping on one line */
+  .dn-standing:not(.dn-standing--row) { gap: calc(4px * var(--s)) calc(14px * var(--s)) !important; }
+  .dn-st { gap: calc(5px * var(--s)); }
+  .dn-st > i { font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important; line-height: 1 !important; }
+  .dn-st > span { font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+
+  /* action strip: every action, equal width, 34px - with a dashed rule above */
+  .dn-row .dn-acts {
+    grid-area: acts;
+    display: grid !important;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: calc(8px * var(--s));
+    min-height: 0;
+    margin-top: calc(2px * var(--s));
+    padding: calc(8px * var(--s)) 0 0;
+    border-top: 1px dashed var(--dn-line);
+    align-self: stretch;
+  }
+  .dn-row .dn-acts > .dn-act,
+  .dn-row .dn-acts > .dn-act:nth-child(2),
+  .dn-row .dn-acts > .dn-act:nth-child(3) { display: grid !important; }
+  .dn-row .dn-acts > .dn-anchor { position: relative; display: block; min-width: 0; }
+  .dn-row .dn-acts .dn-act {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: calc(34px * var(--s)) !important;
+    padding: 0 !important;
+    border: 1px solid var(--dn-line) !important;
+    border-radius: calc(8px * var(--s)) !important;
+    background: #ffffff !important;
+  }
+  .dn-row .dn-acts .dn-act i { font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)) !important; line-height: 1 !important; }
+  .dn-row .dn-anchor .dn-menu--row { right: 0; left: auto; min-width: min(calc(250px * var(--s)), calc(100vw - 40px)); }
+
+  /* cards view */
+  .dn-tile-foot .dn-act { width: calc(34px * var(--s)) !important; height: calc(34px * var(--s)) !important; }
+  .dn-tile-foot .dn-act i { font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .dn-mono--md { width: calc(40px * var(--s)); height: calc(40px * var(--s)); font-size: calc(calc(14px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+
+  /* ---------- pager ---------- */
+  /* phone: range + rows centred on one line, page numbers centred under it (desktop keeps left / right) */
+  .dn-pager { justify-content: center !important; gap: calc(8px * var(--s)); padding: calc(12px * var(--s)) var(--dn-pad); }
+  .dn-pager-l { width: 100%; justify-content: center; flex-wrap: wrap; gap: calc(6px * var(--s)) calc(10px * var(--s)); }
+  .dn-pager > .dn-pages { width: 100%; margin-left: 0; justify-content: center; gap: calc(2px * var(--s)); }
+  .dn-pg, .dn-step { min-width: calc(32px * var(--s)); height: calc(32px * var(--s)); padding: 0 calc(6px * var(--s)); }
+}

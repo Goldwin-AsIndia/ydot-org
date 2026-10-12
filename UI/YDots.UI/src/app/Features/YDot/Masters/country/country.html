@@ -211,6 +211,7 @@
             <!-- Details -->
             @if (showViewPanel()) {
               @if (selectedCountry(); as sc) {
+                <div class="gm-aside-backdrop" aria-hidden="true" (click)="closeViewPanel()"></div>
                 <aside class="gm-aside" [attr.aria-label]="'Details for ' + sc.countryName">
                   <header class="gm-aside-head">
                     <span class="gm-avatar lg is-flag" aria-hidden="true">@if (sc.iso2 && !missingFlags.has(sc.iso2.toLowerCase())) {<img class="gm-flag" [src]="'assets/images/flag/' + sc.iso2.toLowerCase() + '.svg'" alt="" (error)="missingFlags.add(sc.iso2.toLowerCase())">} @else { {{ sc.flagEmoji || flagEmoji(sc.iso2) }} }</span>

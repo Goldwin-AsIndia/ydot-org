@@ -1390,3 +1390,183 @@
    the header). Sections that follow each other keep their spacing around the divider. */
 .org-doc-section { padding-top: 0; }
 .org-doc-section + .org-doc-section { padding-top: calc(24px * var(--ui-scale, 1)); }
+
+
+/* =====================================================================================================
+   PHONE PASS (append-only; keep LAST so it wins the cascade)
+   - Header: kicker + title on the left, Create pinned to the TOP-RIGHT corner of the header card.
+     (.od-hero comes from Shared/styles/page-hero.css, so these rules carry !important.)
+   - Counters: compact 2-up tiles with room to breathe - small glyph beside the label, the number
+     under it, the caption dropped; Awaiting review keeps its toggle look.
+   - Toolbar: search full width, then Status | Clear | view toggle on one row.
+   - Card view: lighter cards (smaller padding and ordinal, actions side by side).
+   - Table view: no sideways scroll - each row becomes a card.
+   ===================================================================================================== */
+@media (max-width: 600px) {
+
+  .container-fluid.px-4 { padding-left: 12px !important; padding-right: 12px !important; }
+
+  /* ---------- header: Create in the top-right corner ---------- */
+  .od-hero { padding: 14px !important; border-radius: 14px !important; }
+  .od-hero-top {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    padding: 0 !important;
+  }
+  .od-hero-id, .od-hero-text { min-width: 0; flex: 1 1 auto; }
+  .od-hero-top .ydot-kicker { font-size: 9.5px !important; letter-spacing: .1em !important; }
+  .od-title { font-size: 21px !important; line-height: 1.2 !important; overflow-wrap: anywhere; }
+  .od-hero-top > .btn {
+    flex: none;
+    align-self: flex-start;
+    margin: 0 0 0 auto !important;
+    height: 36px;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px !important;
+    white-space: nowrap;
+  }
+
+  /* ---------- counters: compact, breathable 2-up tiles ---------- */
+  .od-stats {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: 14px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+  }
+  .od-stat {
+    display: grid !important;
+    grid-template-columns: 26px minmax(0, 1fr) !important;
+    align-items: center !important;
+    column-gap: 8px !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 10px 12px !important;
+    border: 1px solid #eceee9 !important;
+    border-radius: 12px !important;
+    text-align: left !important;
+  }
+  .od-stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .od-stat-icon {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 0 !important;
+    border-radius: 8px !important;
+    display: grid !important;
+    place-items: center !important;
+    align-self: start;
+    margin: 0 !important;
+  }
+  .od-stat-icon i { font-size: 14px !important; line-height: 1 !important; }
+  .od-stat-body { display: flex !important; flex-direction: column !important; gap: 2px !important; min-width: 0 !important; }
+  .od-stat-label {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    letter-spacing: .04em !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .od-stat-value { font-size: 18px !important; line-height: 1.15 !important; }
+  .od-stat-cap { display: none !important; }
+  /* the toggle tile still says what it does when it is on */
+  .od-stat.is-toggle.is-on .od-stat-cap { display: block !important; font-size: 10.5px !important; line-height: 1.25 !important; }
+
+  /* ---------- toolbar ---------- */
+  .org-list-toolbar { flex-wrap: wrap; gap: 8px; padding: 10px; border-radius: 12px; }
+  .org-tb-search { flex: 1 1 100%; min-width: 0; }
+  .org-tb-search input { height: 38px; }
+  .org-tb-select { flex: 1 1 auto; min-width: 0; height: 38px; }
+  .org-tb-end { margin-left: 0; }
+  .org-view-toggle { padding: 3px; }
+  .org-view-toggle-btn { width: 32px; height: 32px; }
+
+  /* ---------- card view ---------- */
+  .org-org-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .org-org-card { padding: 14px !important; border-radius: 14px; }
+  .org-org-card::after { width: 110px; height: 110px; }
+  .org-org-card-num { font-size: 26px !important; }
+  .org-org-card-name { margin-top: 8px; font-size: 16px; overflow-wrap: anywhere; }
+  .org-org-card-info { margin-top: 10px; gap: 6px; }
+  .org-org-card-info-row { font-size: 12.5px; }
+  .org-org-card-info-row i { font-size: 13px !important; }
+  .org-org-card-flag { margin-top: 10px; }
+  .org-org-card-actions { flex-direction: row; gap: 8px; margin-top: 12px; padding-top: 12px; }
+  .org-org-card-actions .org-btn { flex: 1 1 0; min-width: 0; min-height: 36px; padding: 0 10px; }
+
+  /* ---------- table view -> cards (no horizontal scroll) ---------- */
+  .dl-card { border-radius: 14px; }
+  .dl-table-wrap { overflow: visible; }
+  .dl-table, .dl-table tbody { display: block; width: 100%; }
+  .dl-table thead { display: none; }
+  .dl-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'name   status'
+      'web    web'
+      'admin  people'
+      'date   date'
+      'acts   acts';
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 6px;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid #eff1f3;
+  }
+  .dl-table tbody tr:last-child { border-bottom: 0; }
+  .dl-table tbody tr:hover td { background: none; }
+  .dl-table td { display: block; min-width: 0; padding: 0 !important; border: 0; text-align: left !important; width: auto !important; }
+  .dl-table td:nth-child(1) { grid-area: name; }
+  .dl-table td:nth-child(2) { grid-area: web; }
+  .dl-table td:nth-child(3) { grid-area: admin; overflow: hidden; }
+  .dl-table td:nth-child(4) { grid-area: people; text-align: right !important; white-space: nowrap; }
+  .dl-table td.dl-col-status { grid-area: status; align-self: start; }
+  .dl-table td.dl-col-status .dl-status-cell { justify-content: flex-end; }
+  .dl-table td.dl-date { grid-area: date; color: #6b7682; font-size: 12.5px !important; }
+  .dl-table td.dl-date::before { content: 'Created '; color: #9aa3ad; }
+  .dl-table td.dl-td-actions { grid-area: acts; }
+
+  .dl-name { min-width: 0; }
+  .dl-name-main { font-size: 15px !important; overflow-wrap: anywhere; }
+  .dl-code { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; font-size: 12px !important; }
+  .dl-person { max-width: 100%; }
+  .dl-person-text { font-size: 13px !important; }
+  .dl-count::before { content: 'People '; font-family: var(--font-body, inherit); font-weight: 500; color: #6b7682; font-size: 12px; }
+  .dl-flag { font-size: 11px !important; }
+
+  .dl-table .dl-actions {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    padding-top: 8px;
+    border-top: 1px dashed #e7e9ec;
+  }
+  .dl-table .dl-act {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 34px !important;
+    padding: 0 !important;
+    display: inline-grid !important;
+    place-items: center;
+    border: 1px solid #e7e9ec !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+  }
+  .dl-table .dl-act i { font-size: 16px !important; line-height: 1; }
+
+  /* ---------- pager ---------- */
+  .org-pager { flex-wrap: nowrap; gap: 8px; }
+  .org-pager .org-btn { flex: 1 1 0; min-width: 0; }
+}

@@ -2590,3 +2590,335 @@ textarea {
     padding-left: 0;
   }
 }
+
+/* =====================================================================================================
+   PHONE PASS (2026-10-12) — keep this block LAST so it wins over the rules above.
+   - Bottom step bar: ONE row. Previous shrinks to an arrow; the other buttons share the width.
+     The page gets bottom room so the fixed bar never covers the last field.
+   - Rich-text toolbar: one swipeable row instead of three or four wrapped rows.
+   - Reminder: days and time each take the full width.
+   - Review & launch: the four figures sit 2 x 2; label/value rows stack.
+   - Dialogs open from the bottom and scroll inside; action buttons share the width.
+   ===================================================================================================== */
+@media (max-width: 720px) {
+
+  /* ---------- room for the fixed bottom bar ---------- */
+  .wizard-body { padding-bottom: calc(calc(84px * var(--ui-scale, 1)) + env(safe-area-inset-bottom, 0px)); }
+
+  /* ---------- bottom step bar: one row ---------- */
+  .step-nav {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: calc(8px * var(--ui-scale, 1));
+    padding: calc(10px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1)) calc(calc(10px * var(--ui-scale, 1)) + env(safe-area-inset-bottom, 0px));
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    flex-wrap: nowrap;
+  }
+  .step-nav > span:empty { display: none; }
+  .step-nav > span:empty + .step-nav-right { grid-column: 1 / -1; }
+  /* Previous: arrow only (the word stays for screen readers). */
+  .step-nav > .btn {
+    flex: none;
+    width: calc(42px * var(--ui-scale, 1));
+    min-width: calc(42px * var(--ui-scale, 1));
+    height: calc(40px * var(--ui-scale, 1));
+    padding: 0 !important;
+    gap: 0 !important;
+    font-size: 0 !important;
+    justify-content: center;
+  }
+  .step-nav > .btn > i { font-size: calc(18px * var(--ui-scale, 1)) !important; }
+  .step-nav-right,
+  .step-nav .step-nav-right {
+    display: flex !important;
+    flex-wrap: nowrap;
+    gap: calc(8px * var(--ui-scale, 1));
+    width: auto;
+    min-width: 0;
+  }
+  .step-nav-right > .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    height: calc(40px * var(--ui-scale, 1));
+    padding: 0 calc(8px * var(--ui-scale, 1)) !important;
+    gap: calc(5px * var(--ui-scale, 1));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ---------- step card ---------- */
+  .work-card-sub { line-height: 1.45; }
+
+  /* ---------- rich-text toolbar: everything visible, no sideways scroll ----------
+     The formatting buttons (B I U, lists, alignment, Clear) fill the first row(s), stretching to
+     the full width; the three pickers (Size, Font, Spacing) share one row of their own underneath.
+     The separators are dropped - the rows do that job. */
+  .rte-toolbar {
+    flex-wrap: wrap;
+    gap: calc(6px * var(--ui-scale, 1));
+    padding: calc(8px * var(--ui-scale, 1));
+  }
+  .rte-toolbar > .rte-sep { display: none; }
+  .rte-toolbar > .rte-btn {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: calc(38px * var(--ui-scale, 1));
+    height: calc(36px * var(--ui-scale, 1));
+    padding: 0 calc(8px * var(--ui-scale, 1));
+  }
+  .rte-toolbar > .rte-select-wrap {
+    order: 2;
+    flex: 1 1 calc(33.333% - calc(6px * var(--ui-scale, 1)));
+    min-width: 0;
+    display: flex;
+  }
+  .rte-toolbar > .rte-select-wrap > .rte-select {
+    width: 100%;
+    min-width: 0;
+    height: calc(36px * var(--ui-scale, 1));
+  }
+  .control.rte-body { min-height: calc(150px * var(--ui-scale, 1)); }
+  .control.rte-body-lg { min-height: calc(200px * var(--ui-scale, 1)); }
+  .counter-row { row-gap: calc(4px * var(--ui-scale, 1)); }
+
+  /* ---------- owner chips ---------- */
+  .owner-chip { max-width: 100%; }
+  .owner-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------- reminder: full-width fields ---------- */
+  .reminder-days { flex-direction: column; gap: calc(14px * var(--ui-scale, 1)); }
+  .reminder-days .field { max-width: none; width: 100%; }
+  .time-picker { display: flex; width: 100%; }
+  .time-picker .time-select { flex: 1 1 0; min-width: 0; }
+
+  /* ---------- review & launch ---------- */
+  .lb-top { flex-direction: column; align-items: stretch; padding: calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); }
+  /* .lb-id is `flex: 1 1 320px` for the desktop row; in this column that 320px became its HEIGHT
+     and left an empty band above the figures. Size it to its content instead. */
+  .lb-id { flex: none; }
+  .lb-meta { flex-wrap: wrap; row-gap: calc(4px * var(--ui-scale, 1)); }
+  .lb-figures {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: calc(10px * var(--ui-scale, 1)) 0;
+    padding-top: calc(10px * var(--ui-scale, 1));
+    border-top: 1px solid var(--border);
+  }
+  .lb-figures > div,
+  .lb-figures > div:first-child,
+  .lb-figures > div:last-child { min-width: 0; padding: 0 calc(12px * var(--ui-scale, 1)); }
+  .lb-figures > div:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .lb-figures dd { white-space: normal; overflow-wrap: anywhere; }
+  .lb-list > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: calc(2px * var(--ui-scale, 1));
+    padding: calc(10px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+  }
+  .lb-panel-head { padding-inline: calc(14px * var(--ui-scale, 1)); }
+  .lb-prose { padding: calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)); }
+
+  /* ---------- dialogs: from the bottom, scroll inside ---------- */
+  .cw-modal-backdrop { align-items: flex-end; padding: calc(8px * var(--ui-scale, 1)) 0 0; }
+  .cw-modal,
+  .cw-modal.cw-modal-lg {
+    max-width: none;
+    max-height: calc(100dvh - calc(8px * var(--ui-scale, 1)));
+    padding: calc(20px * var(--ui-scale, 1)) calc(18px * var(--ui-scale, 1)) calc(calc(16px * var(--ui-scale, 1)) + env(safe-area-inset-bottom, 0px));
+    border-radius: calc(20px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) 0 0;
+    animation: cw-sheet .24s ease both;
+  }
+  .cw-modal-actions { gap: calc(8px * var(--ui-scale, 1)); }
+  .cw-modal-actions .btn { flex: 1 1 0; justify-content: center; }
+
+  /* ---------- state blocks ---------- */
+  .state-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(8px * var(--ui-scale, 1)); }
+  .state-actions .btn { width: 100%; justify-content: center; }
+}
+
+/* Narrow phones: dialog buttons stack (the 420px rule above), and so do state actions. */
+@media (max-width: 420px) {
+  .cw-modal-actions .btn { flex: none; }
+  .state-actions { grid-template-columns: minmax(0, 1fr); }
+}
+
+@keyframes cw-sheet {
+  from { opacity: 0; transform: translateY(calc(24px * var(--ui-scale, 1))); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cw-modal { animation: none !important; }
+}
+/* =====================================================================================================
+   PHONE PASS 2 — Public description / Terms & notice popup (view + EDIT), and dialog buttons.
+   - The popup was pinned to 86vh with `!important` and was not a flex column, so on a phone the
+     wrapped toolbar + editor + counter + buttons did not fit: the editor showed only half and the
+     whole sheet scrolled. Now it is a full-height sheet: title fixed on top, buttons fixed at the
+     bottom, and the editor takes all the room in between and scrolls inside itself.
+   - Dialog buttons no longer stretch to the full width (or stack one per row on narrow phones):
+     they sit right-aligned at a normal size.
+   ===================================================================================================== */
+@media (max-width: 720px) {
+  .cw-modal.cw-modal-lg {
+    display: flex;
+    flex-direction: column;
+    width: 100% !important;
+    max-width: none !important;
+    height: calc(100dvh - calc(12px * var(--ui-scale, 1))) !important;
+    max-height: calc(100dvh - calc(12px * var(--ui-scale, 1))) !important;
+    padding: calc(16px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) calc(calc(12px * var(--ui-scale, 1)) + env(safe-area-inset-bottom, 0px)) !important;
+    overflow: hidden !important;
+  }
+  .cw-modal.cw-modal-lg > .ov-head { flex: none; }
+  .cw-modal.cw-modal-lg .cw-modal-title { font-size: calc(18px * var(--ui-scale, 1)); margin-bottom: calc(10px * var(--ui-scale, 1)); }
+
+  /* body: takes the remaining height; the editor fills it */
+  .cw-modal.cw-modal-lg .cw-preview-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: calc(8px * var(--ui-scale, 1));
+    overflow: hidden;
+  }
+  .cw-modal.cw-modal-lg .preview-readonly {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: calc(14px * var(--ui-scale, 1));
+  }
+  .cw-modal.cw-modal-lg .cw-preview-body .rte-editor {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
+  }
+  .cw-modal.cw-modal-lg .cw-preview-body .rte-toolbar { flex: none; }
+  .cw-modal.cw-modal-lg .cw-preview-body .rte-body-lg {
+    flex: 1 1 auto;
+    min-height: calc(180px * var(--ui-scale, 1)) !important;
+    max-height: none !important;
+    overflow-y: auto;
+  }
+  .cw-modal.cw-modal-lg .counter-row { flex: none; }
+
+  /* compact toolbar inside the popup: buttons keep their own width, pickers share one row */
+  .cw-modal.cw-modal-lg .rte-toolbar { gap: calc(4px * var(--ui-scale, 1)); padding: calc(6px * var(--ui-scale, 1)); }
+  .cw-modal.cw-modal-lg .rte-toolbar > .rte-btn {
+    flex: 0 0 auto;
+    min-width: calc(34px * var(--ui-scale, 1));
+    height: calc(32px * var(--ui-scale, 1));
+  }
+  /* a zero-height line break so the three pickers always share their own row */
+  .cw-modal.cw-modal-lg .rte-toolbar::before { content: ''; order: 2; flex: 0 0 100%; height: 0; }
+  .cw-modal.cw-modal-lg .rte-toolbar > .rte-select-wrap { order: 3; flex: 1 1 0; min-width: 0; }
+  .cw-modal.cw-modal-lg .rte-toolbar > .rte-select-wrap > .rte-select { height: calc(32px * var(--ui-scale, 1)); }
+
+  /* long pasted words / links / wide pasted content never push the editor wider than the screen */
+  .rte-body,
+  .preview-readonly,
+  .lb-prose { overflow-wrap: anywhere; word-break: break-word; }
+  .rte-body *,
+  .preview-readonly *,
+  .lb-prose * { max-width: 100%; box-sizing: border-box; white-space: normal !important; }
+  .rte-body :is(img, table, video, iframe),
+  .preview-readonly :is(img, table, video, iframe) { height: auto; }
+  .rte-editor, .field, .field-grid { min-width: 0; }
+
+  /* dialog buttons: normal size, side by side, right-aligned */
+  .cw-modal-actions,
+  .cw-modal.cw-modal-lg .cw-modal-actions {
+    flex: none;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: calc(8px * var(--ui-scale, 1));
+    margin-top: calc(12px * var(--ui-scale, 1));
+  }
+  .cw-modal-actions .btn {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: calc(96px * var(--ui-scale, 1));
+    height: calc(38px * var(--ui-scale, 1));
+    padding: 0 calc(16px * var(--ui-scale, 1)) !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(6px * var(--ui-scale, 1));
+  }
+}
+
+/* =====================================================================================================
+   PHONE PASS 3 — Stepper.
+   Before: one squeezed row; only the current step kept its title and that title was cut with "…",
+   so the band read as half a sentence. Now every step gets an equal column: the marker on top, the
+   full title underneath (wraps to two lines), and the connecting line runs from marker to marker.
+   ===================================================================================================== */
+@media (max-width: 720px) {
+  .stepper-track {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 0;
+    padding: calc(14px * var(--ui-scale, 1)) calc(4px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
+  }
+  .step,
+  .step:last-child {
+    position: relative;
+    display: block;
+    flex: none;
+    min-width: 0;
+  }
+  .step-btn,
+  .step.active .step-btn {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(7px * var(--ui-scale, 1));
+    width: 100%;
+    min-width: 0;
+    padding: 0 calc(3px * var(--ui-scale, 1)) !important;
+    border: 0;
+    border-radius: calc(10px * var(--ui-scale, 1));
+    background: transparent !important;
+  }
+  .step-marker {
+    width: calc(32px * var(--ui-scale, 1));
+    height: calc(32px * var(--ui-scale, 1));
+    font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  }
+  .step-marker svg { width: calc(15px * var(--ui-scale, 1)); height: calc(15px * var(--ui-scale, 1)); }
+  .step.active .step-marker {
+    box-shadow: 0 0 0 calc(3px * var(--ui-scale, 1)) #ffffff, 0 0 0 calc(5px * var(--ui-scale, 1)) var(--st-halo);
+  }
+  /* every title visible, centred, up to two lines - never cut with "…" */
+  .step .step-title,
+  .step:not(.active) .step-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: normal;
+    text-overflow: clip;
+    text-align: center;
+    font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+    line-height: 1.25;
+    letter-spacing: 0;
+  }
+  /* connector: from the right edge of this marker to the left edge of the next one */
+  .step-line {
+    position: absolute;
+    top: calc(calc(16px * var(--ui-scale, 1)) - calc(1.5px * var(--ui-scale, 1)));
+    left: calc(50% + calc(22px * var(--ui-scale, 1)));
+    right: calc(-50% + calc(22px * var(--ui-scale, 1)));
+    width: auto;
+    min-width: 0;
+    margin: 0;
+  }
+}

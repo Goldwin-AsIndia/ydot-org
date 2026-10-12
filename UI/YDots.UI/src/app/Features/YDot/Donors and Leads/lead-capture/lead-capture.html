@@ -271,16 +271,35 @@
                       </div>
                       <div class="lcp-f" [class.has-error]="errors()['campaign']">
                         <label class="lcp-l" for="campaign">Campaign <b class="lcp-req" aria-hidden="true">*</b></label>
-                        @if (campaignDropdownOptions().length > 20) {
-                          <label class="lc-sr-only" for="campaign-search">Search campaigns</label>
-                          <input id="campaign-search" class="lcp-in lcp-search" type="search" autocomplete="off" placeholder="Search campaigns" [value]="lookupSearch()['campaign'] || ''" (input)="onLookupSearch('campaign', $event)" aria-controls="campaign" />
-                        }
-                        <select id="campaign" class="lcp-in lcp-sel" [value]="fields().campaign" (change)="onTextInput('campaign', $event)" [attr.aria-invalid]="!!errors()['campaign']">
-                          <option value="" disabled>{{ campaignDropdownOptions().length ? 'Select a campaign' : 'No active campaigns' }}</option>
-                          @for (c of filterLookup('campaign', campaignDropdownOptions(), fields().campaign); track c.reference) {
-                            <option [value]="c.label" [selected]="c.label === fields().campaign">{{ c.label }}{{ c.context ? ' — ' + c.context : '' }}</option>
+                        <!-- Campaign picker: a popover list instead of a native <select>, so it can open ABOVE the field
+                             when there is no room below (CSS anchor positioning + flip), and the search box lives inside
+                             the list - the field stays the same height as Lead source beside it. No TS change: picking an
+                             option calls the same onTextInput('campaign', $event) with the option button as the target. -->
+                        <button type="button" id="campaign" class="lcp-in lcp-sel lcp-pick" popovertarget="lcp-campaign-pop"
+                          [class.is-empty]="!fields().campaign" [attr.aria-invalid]="!!errors()['campaign']"
+                          aria-haspopup="listbox" [title]="fields().campaign || ''">
+                          {{ fields().campaign || (campaignDropdownOptions().length ? 'Select a campaign' : 'No active campaigns') }}
+                        </button>
+                        <div id="lcp-campaign-pop" class="lcp-pick-pop" popover="auto">
+                          @if (campaignDropdownOptions().length > 20) {
+                            <label class="lc-sr-only" for="campaign-search">Search campaigns</label>
+                            <input id="campaign-search" class="lcp-in lcp-search lcp-pick-search" type="search" autocomplete="off" placeholder="Search campaigns" autofocus
+                              [value]="lookupSearch()['campaign'] || ''" (input)="onLookupSearch('campaign', $event)" />
                           }
-                        </select>
+                          <div class="lcp-pick-list" role="listbox" aria-label="Campaign">
+                            @for (c of filterLookup('campaign', campaignDropdownOptions(), fields().campaign); track c.reference) {
+                              <button type="button" class="lcp-pick-opt" role="option" [value]="c.label"
+                                [class.is-on]="c.label === fields().campaign" [attr.aria-selected]="c.label === fields().campaign"
+                                popovertarget="lcp-campaign-pop" popovertargetaction="hide"
+                                (click)="onTextInput('campaign', $event)">
+                                <span class="lcp-pick-l">{{ c.label }}</span>
+                                @if (c.context) { <span class="lcp-pick-c">{{ c.context }}</span> }
+                              </button>
+                            } @empty {
+                              <p class="lcp-pick-empty">{{ campaignDropdownOptions().length ? 'No campaigns match' : 'No active campaigns' }}</p>
+                            }
+                          </div>
+                        </div>
                         @if (errors()['campaign']) { <p class="lcp-err">{{ errors()['campaign'] }}</p> }
                       </div>
                       <div class="lcp-f lcp-span-all" [class.has-error]="errors()['sourceDetails']">

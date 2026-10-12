@@ -307,8 +307,19 @@ export class PublicDonationInitiationComponent {
       return;
     }
     this.closeDropdown();
+
+    if (!this.campaignPickerOpen()) {
+      const placement = this.placePanel(
+        this.hostEl.nativeElement.querySelector<HTMLElement>('#fld-campaign'),
+        PublicDonationInitiationComponent.CampaignListIdeal,
+      );
+      this.campaignPickerUp.set(placement.up);
+      this.campaignListMax.set(placement.max);
+    }
+
     this.campaignPickerOpen.update((v) => !v);
   }
+
 
   protected readonly fullName = signal('');
 
@@ -603,6 +614,53 @@ export class PublicDonationInitiationComponent {
   protected readonly openDropdown = signal<DropdownKey | null>(null);
   protected readonly dropdownQuery = signal('');
 
+  /**
+   * TRUE WHEN THE OPEN LIST DROPS UPWARDS. Measured when a dropdown opens: if there is not room
+   * for the list under its trigger (the Country, State and City pickers sit near the foot of a
+   * phone screen) and there is more room above, the panel opens above the trigger instead of
+   * running off the bottom of the screen.
+   */
+  protected readonly dropdownUp = signal(false);
+
+  /** The open list's height cap in px, so it always fits the side it opened on. */
+  protected readonly dropdownListMax = signal<number | null>(null);
+
+  /** The same two answers for the campaign picker. */
+  protected readonly campaignPickerUp = signal(false);
+  protected readonly campaignListMax = signal<number | null>(null);
+
+  /** Ideal list heights (the CSS caps), and the room the panel needs around its list. */
+  private static readonly ListIdeal = 280;
+  private static readonly CampaignListIdeal = 320;
+  private static readonly ListMin = 140;
+  private static readonly PanelChrome = 72;
+  private static readonly ViewportGap = 12;
+
+  /**
+   * Decides whether a panel opened from `trigger` should drop up, and how tall its list may be.
+   * Opens downwards whenever the ideal list fits below; otherwise takes whichever side has more
+   * room, and caps the list to that room.
+   */
+  private placePanel(trigger: HTMLElement | null, ideal: number): { up: boolean; max: number | null } {
+    if (!trigger || typeof window === 'undefined') {
+      return { up: false, max: null };
+    }
+
+    const rect = trigger.getBoundingClientRect();
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const gap = PublicDonationInitiationComponent.ViewportGap;
+    const chrome = PublicDonationInitiationComponent.PanelChrome;
+
+    const below = viewportHeight - rect.bottom - gap - chrome;
+    const above = rect.top - gap - chrome;
+
+    const up = below < ideal && above > below;
+    const room = up ? above : below;
+    const max = Math.max(PublicDonationInitiationComponent.ListMin, Math.min(ideal, Math.floor(room)));
+
+    return { up, max };
+  }
+
   /** The full option list behind a dropdown. */
   private dropdownSource(key: DropdownKey | null): readonly CatalogueOption[] {
     switch (key) {
@@ -633,6 +691,14 @@ export class PublicDonationInitiationComponent {
     }
     this.campaignPickerOpen.set(false);
     this.dropdownQuery.set('');
+
+    const placement = this.placePanel(
+      this.hostEl.nativeElement.querySelector<HTMLElement>(`#fld-${key}`),
+      PublicDonationInitiationComponent.ListIdeal,
+    );
+    this.dropdownUp.set(placement.up);
+    this.dropdownListMax.set(placement.max);
+
     this.openDropdown.set(key);
 
     // Focus the search box once it renders.
@@ -644,6 +710,8 @@ export class PublicDonationInitiationComponent {
   protected closeDropdown(): void {
     this.openDropdown.set(null);
     this.dropdownQuery.set('');
+    this.dropdownUp.set(false);
+    this.dropdownListMax.set(null);
   }
 
   /** Writes the picked value through the SAME handlers the native selects used. */
