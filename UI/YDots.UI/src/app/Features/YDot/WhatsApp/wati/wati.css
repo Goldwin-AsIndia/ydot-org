@@ -237,3 +237,295 @@
 
 .cn-h--sub { margin-bottom: calc(8 * var(--u)) !important; font-size: calc(var(--t-lg) * var(--ui-text-scale, 1)) !important; }
 .wt-fun-tools app-wa-select { min-width: calc(180 * var(--u)); }
+
+
+/* =====================================================================================================
+   PHONE PASS (<= 600px)
+   - Card edges line up with the breadcrumb; inner padding (--pad) drops to 14px.
+   - Hero: title, then the three figures as compact 3-up tiles. Tabs: two equal halves.
+   - Send: templates one per line, values one per line, the preview and Send button tighter; the
+     recipient checks wrap as chips, search full width, "All checks" + Select all / Clear on one line.
+   - Recipient table -> one card per number: tick | number, then Country / WhatsApp / From check /
+     Checked as small labelled figures. Tap the card to tick it (as before).
+   - Report: funnel 2 x 2 with Pending / Failed under it; the two filters side by side; status
+     chips wrap; search full width; Export full width.
+   - Message table (was 1180px wide) -> one card per message: number + country | status, then
+     Template / Broadcast / WhatsApp check / Read?, then Sent / Delivered / Read / Replied 4-up,
+     and the failure (only when there is one). No sideways scroll.
+   ===================================================================================================== */
+@media (max-width: 600px) {
+  .container-fluid.px-4:has(> .wt) { padding-left: 0 !important; padding-right: 0 !important; overflow-x: clip; }
+}
+
+@container wt (max-width: 600px) {
+  .wt > * { --pad: 14px; }
+  .cn-sheet { border-radius: 12px; }
+
+  /* ---- hero ---- */
+  .cn-hero { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px !important; }
+  .cn-title { font-size: 22px !important; line-height: 1.2 !important; }
+  .cn-stats { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0; width: 100%; }
+  .cn-stat { min-width: 0; padding: 8px !important; border-left: 1px solid var(--line-soft); text-align: left; }
+  .cn-stat:first-child { border-left: 0; padding-left: 0 !important; }
+  .cn-stat dt { font-size: 9.5px !important; letter-spacing: .06em; line-height: 1.3 !important; white-space: normal; }
+  .cn-stat dd { font-size: 20px !important; line-height: 1.2 !important; overflow-wrap: anywhere; }
+
+  /* ---- nav ---- */
+  .cn-nav { gap: 8px; }
+  .cn-tabs { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .cn-tab { justify-content: center; min-width: 0; padding-left: 4px !important; padding-right: 4px !important; font-size: 13px !important; white-space: nowrap; }
+  .wt-from { width: 100%; margin: 0; text-align: center; font-size: 12px !important; }
+  .cn-alert { font-size: 12.5px !important; }
+
+  /* ---- send: message panel ---- */
+  .wt-compose, .wt-row2 { gap: 12px; }
+  .wt-row2 { grid-template-columns: minmax(0, 1fr) !important; }
+  .wt-panel { padding-top: 14px; }
+  .wt-message { padding: 14px !important; }
+  .wt-head { gap: 2px 10px; }
+  .wt-head .cn-h { margin-bottom: 6px !important; font-size: 15px !important; }
+  .cn-h--sub { font-size: 14px !important; }
+  .wt-head--next { margin-top: 14px; padding-top: 12px; }
+  .wt-no { font-size: 14px !important; }
+  .wt-count { font-size: 12px !important; }
+  .wt-count b { font-size: 16px !important; }
+  .wt-templates { grid-template-columns: minmax(0, 1fr) !important; gap: 8px; }
+  .wt-tpl { padding: 10px 12px; }
+  .wt-tpl-top b { font-size: 13.5px !important; }
+  .wt-tpl code { font-size: 11.5px !important; overflow-wrap: anywhere; }
+  .wt-field { flex-direction: column; align-items: stretch; gap: 6px; }
+  .wt-field .cn-link { align-self: flex-start; white-space: normal; font-size: 12.5px !important; text-align: left; }
+  .wt-input, .wt-select { height: 40px; font-size: 13.5px !important; }
+  .wt-values { grid-template-columns: minmax(0, 1fr) !important; gap: 10px; }
+  .wt-value code { font-size: 12.5px !important; }
+  .wt-error { margin-top: 10px !important; font-size: 12.5px !important; }
+
+  /* ---- send: preview + button ---- */
+  .wt-side { gap: 12px; padding: 14px !important; }
+  .wt-chat { padding: 12px 10px; }
+  .wt-bubble { max-width: 100%; padding: 10px 12px 6px; font-size: 13px !important; }
+  .wt-sum div { padding: 7px 0; }
+  .wt-sum dt, .wt-sum dd { font-size: 13px !important; }
+  .wt-sum dd { white-space: normal; overflow-wrap: anywhere; }
+  .wt-sum dd.cn-serif { font-size: 18px !important; }
+  .wt-todo { font-size: 12.5px !important; }
+  .wt-go { height: 42px; display: inline-flex !important; align-items: center; justify-content: center; gap: 6px; font-size: 13.5px !important; }
+  .wt-fine { font-size: 11.5px !important; line-height: 1.5 !important; }
+  .wt-none { padding: 36px 16px; }
+  .wt-none > i { font-size: 38px !important; }
+
+  /* ---- send: recipients ---- */
+  .wt-rec-tools { flex-direction: column; align-items: stretch; gap: 10px; padding: 0 14px 12px; }
+  .wt-batches { gap: 6px; margin: 0; padding: 0; }
+  .wt-batches li { min-width: 0; max-width: 100%; }
+  .wt-batch { max-width: 100%; padding: 6px 12px 6px 8px; gap: 8px; }
+  .wt-batch-text { min-width: 0; }
+  .wt-batch-text b { font-size: 12.5px !important; overflow-wrap: anywhere; }
+  .wt-pick-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin: 0; }
+  .wt-pick-tools .cn-search { grid-column: 1 / -1; width: 100% !important; height: 38px; }
+  .wt-pick-tools app-wa-select { min-width: 0; }
+  .wt-pick-links { gap: 14px; align-items: center; font-size: 12.5px !important; }
+
+  /* ---- shared card-table base ---- */
+  .cn-scroll, .wt-tablewrap { overflow: visible !important; }
+  .cn-table, .cn-table > tbody { display: block !important; width: 100%; min-width: 0 !important; }
+  .cn-table > thead { display: none; }
+  .cn-table > tbody > tr {
+    display: grid;
+    gap: 8px 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .cn-table > tbody > tr > td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    max-width: none !important;
+    padding: 0 !important;
+    border: 0 !important;
+    text-align: left !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    font-size: 13px !important;
+  }
+  .cn-table > tbody > tr > td small { white-space: normal !important; }
+  .cn-table td[data-l]::before,
+  .cn-table > tbody > tr > td::before {
+    font-family: var(--sans, inherit);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* recipients: tick | Number / Country | WhatsApp / From check | Checked */
+  .wt-pick > tbody > tr {
+    grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "cb num  num"
+      ".  ctry wa"
+      ".  from when";
+  }
+  .wt-pick > tbody > tr > td:nth-child(1) { grid-area: cb; width: auto !important; padding-top: 2px !important; }
+  .wt-pick > tbody > tr > td:nth-child(2) { grid-area: num; font-size: 14px !important; font-weight: 600; }
+  .wt-pick > tbody > tr > td:nth-child(3) { grid-area: ctry; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+  .wt-pick > tbody > tr > td:nth-child(3)::before { content: 'Country'; flex-basis: 100%; }
+  .wt-pick > tbody > tr > td:nth-child(4) { grid-area: wa; }
+  .wt-pick > tbody > tr > td:nth-child(4)::before { content: 'WhatsApp'; }
+  .wt-pick > tbody > tr > td:nth-child(5) { grid-area: from; }
+  .wt-pick > tbody > tr > td:nth-child(5)::before { content: 'From check'; }
+  .wt-pick > tbody > tr > td:nth-child(6) { grid-area: when; }
+  .wt-pick > tbody > tr > td:nth-child(6)::before { content: 'Checked'; }
+  .wt-pick .cn-row.is-chosen { background: var(--tint); }
+  .wt-pick .cn-row.is-chosen > td { background: transparent !important; }
+  .wt-cb input, .cn-table input[type='checkbox'] { width: 18px; height: 18px; }
+
+  .cn-empty { padding-left: 14px !important; padding-right: 14px !important; font-size: 13px !important; }
+  :host ::ng-deep app-wa-pager > * { flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+  /* ---- report: funnel ---- */
+  .wt-funnel { padding: 14px !important; }
+  .wt-fun-head { flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 12px; }
+  .wt-fun-head .cn-h { font-size: 15px !important; }
+  .wt-fun-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .wt-fun-tools app-wa-select { min-width: 0 !important; }
+  .wt-live { grid-column: 1 / -1; font-size: 12px !important; }
+  .wt-fun { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0; row-gap: 0 !important; margin: 0; padding: 0; }
+  .wt-stage { gap: 4px; padding: 10px 12px !important; border-left: 1px solid var(--line-soft); border-top: 1px solid var(--line-soft); }
+  .wt-stage:nth-child(odd) { padding-left: 0 !important; border-left: 0; }
+  .wt-stage:nth-child(-n + 2) { border-top: 0; padding-top: 0 !important; }
+  .wt-stage-label { font-size: 9.5px !important; letter-spacing: .08em; gap: 6px; }
+  .wt-stage-fig { font-size: 20px !important; gap: 6px; }
+  .wt-stage-fig small { font-size: 11.5px !important; }
+  .wt-stage--side {
+    grid-column: 1 / -1;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 16px;
+    padding: 12px 0 0 !important;
+    border-left: 0 !important;
+    border-top: 1px solid var(--line-soft) !important;
+  }
+  .wt-stage--side > small { grid-column: 1 / -1; font-size: 11.5px !important; }
+  .wt-side-row b { font-size: 16px !important; }
+  .wt-side-row .wt-st { font-size: 13px !important; }
+  .wt-stage--read .wt-stage-label i { display: inline; font-size: inherit !important; line-height: 1 !important; color: var(--ok); }
+
+  /* ---- report: toolbar ---- */
+  .cn-bar-tools { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 14px !important; }
+  .cn-filters { flex-wrap: wrap; overflow: visible !important; gap: 6px; }
+  .cn-filter { font-size: 12.5px !important; }
+  .cn-bar-tools .cn-search { width: 100% !important; height: 38px; }
+  .cn-search input { font-size: 13px !important; }
+  .cn-bar-tools > .btn { height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+  /* ---- report: messages as cards ---- */
+  .wt-report > tbody > tr {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas:
+      "num  num  num  st"
+      "tpl  tpl  bc   bc"
+      "wa   wa   rd   rd"
+      "sent dlv  read rep"
+      "fail fail fail fail";
+    cursor: pointer;
+  }
+  .wt-report > tbody > tr > td:nth-child(1)  { grid-area: num; font-size: 14px !important; }
+  .wt-report > tbody > tr > td:first-child,
+  .wt-report > tbody > tr > td:last-child { padding: 0 !important; }
+  .wt-report > tbody > tr > td:nth-child(1) small { font-size: 12px !important; color: var(--muted); }
+  .wt-report > tbody > tr > td:nth-child(2)  { grid-area: wa; }
+  .wt-report > tbody > tr > td:nth-child(2)::before  { content: 'WhatsApp check'; }
+  .wt-report > tbody > tr > td:nth-child(3)  { grid-area: tpl; }
+  .wt-report > tbody > tr > td:nth-child(3)::before  { content: 'Template'; }
+  .wt-report > tbody > tr > td:nth-child(3) small { font-size: 11px !important; color: var(--muted); }
+  .wt-report > tbody > tr > td:nth-child(4)  { grid-area: bc; }
+  .wt-report > tbody > tr > td:nth-child(4)::before  { content: 'Broadcast'; }
+  .wt-report > tbody > tr > td:nth-child(5)  { grid-area: st; align-items: flex-end; text-align: right !important; }
+  .wt-report > tbody > tr > td:nth-child(5) .wt-st { white-space: normal; font-size: 12px !important; }
+  .wt-report > tbody > tr > td:nth-child(6)  { grid-area: sent; }
+  .wt-report > tbody > tr > td:nth-child(6)::before  { content: 'Sent'; }
+  .wt-report > tbody > tr > td:nth-child(7)  { grid-area: dlv; }
+  .wt-report > tbody > tr > td:nth-child(7)::before  { content: 'Delivered'; }
+  .wt-report > tbody > tr > td:nth-child(8)  { grid-area: read; }
+  .wt-report > tbody > tr > td:nth-child(8)::before  { content: 'Read'; }
+  .wt-report > tbody > tr > td:nth-child(9)  { grid-area: rep; }
+  .wt-report > tbody > tr > td:nth-child(9)::before  { content: 'Replied'; }
+  .wt-report > tbody > tr > td:nth-child(10) { grid-area: rd; }
+  .wt-report > tbody > tr > td:nth-child(10)::before { content: 'Read?'; }
+  .wt-report > tbody > tr > td:nth-child(11) { grid-area: fail; }
+  .wt-report > tbody > tr > td:nth-child(11)::before { content: 'Failure'; }
+  .wt-report > tbody > tr > td.wt-fail:has(> .wt-dash) { display: none; }
+  .wt-report > tbody > tr > td:nth-child(n + 6):nth-child(-n + 9) { padding: 8px 0 0 !important; border-top: 1px dashed var(--line) !important; }
+  .wt-when { white-space: normal; }
+  .wt-when .cn-num { font-size: 12.5px !important; }
+  .wt-when small { font-size: 10.5px !important; color: var(--muted); }
+  .wt-zone { font-size: 11.5px !important; text-align: center; }
+  .wt-empty-act { padding-bottom: 24px; }
+}
+
+/* the confirm pop-up and the detail drawer sit outside the .wt container, so they key off the screen */
+@media (max-width: 600px) {
+  .wt-detail { gap: 12px; }
+  .wt-journey { gap: 12px; }
+  .wt-j-text b { font-size: 13px !important; }
+  .wt-confirm-msg { padding: 10px 12px; font-size: 13px !important; }
+  .wt-bubble--flat { font-size: 13px !important; }
+  .wt-bubble--in { margin-left: 16px !important; }
+}
+
+
+/* =====================================================================================================
+   BUTTON FIX (all widths) - "Check numbers" / "Send a message" link buttons
+   They are <a class="btn"> links: the shared styles gave them a pill radius and no room between the
+   icon and the words. They now match every other button: 8px corners, icon and label centred with a
+   6px gap, the same height and padding.
+   ===================================================================================================== */
+.wt a.btn,
+.wt-none .btn,
+.wt-empty-act .btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px !important;
+  border-radius: 8px !important;
+  line-height: 1 !important;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.wt a.btn > i,
+.wt-none .btn > i,
+.wt-empty-act .btn > i {
+  flex: none;
+  margin: 0 !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+
+
+/* =====================================================================================================
+   SELECT HEIGHT FIX - the compact pickers (All broadcasts / All templates / All checks)
+   The compact app-wa-select was shorter than the search boxes and buttons beside it. Its trigger now
+   matches them: 36px tall on every screen (38px on a phone), text centred on the line. Options inside
+   an open list are left as they are.
+   ===================================================================================================== */
+:host ::ng-deep .wt app-wa-select :is(button, select, [role='combobox']):not([role='option']):not(:is([role='listbox'], [role='menu'], ul, ol) *) {
+  min-height: 36px !important;
+  height: auto !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  line-height: 1.2 !important;
+}
+@media (max-width: 600px) {
+  :host ::ng-deep .wt app-wa-select :is(button, select, [role='combobox']):not([role='option']):not(:is([role='listbox'], [role='menu'], ul, ol) *) {
+    min-height: 38px !important;
+  }
+}

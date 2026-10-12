@@ -2859,3 +2859,228 @@
   padding: calc(16px * var(--s)) calc(20px * var(--s)) calc(16px * var(--s)) calc(24px * var(--s));
 }
 .mc-deck-row > .ydot-head { gap: calc(5px * var(--s)); }
+
+
+/* =====================================================================================================
+   PHONE PASS (<= 600px)
+   - The deck lines up with the breadcrumb; title on its own line, the two modes as equal halves, the
+     role picker and search full width, Export | Create as equal buttons, the four figures as 2 x 2 tiles.
+   - Menus list: two compact columns, names wrap to two lines instead of being cut.
+   - Banner: smaller title and background numeral; switch on one line, actions on the next.
+   - Submenu lanes: smaller numeral, tools left / switch right on their own line, page rows tightened.
+   - Save bar: full width at the foot, Discard | Save equal. Edit sheet and delete pop-up fitted.
+   ===================================================================================================== */
+@media (max-width: 600px) {
+  :host { overflow-x: clip; }
+  .container-fluid.px-4:has(> .mc-page) { padding-left: 0 !important; padding-right: 0 !important; }
+
+  /* save bar */
+  .mc-save-dock { bottom: 10px; padding: 0 10px; }
+  .mc-save {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "n text text" "n no yes";
+    gap: 8px 10px;
+    width: 100%;
+    padding: 10px;
+    border-radius: 12px !important;
+  }
+  .mc-save-n { grid-area: n; align-self: start; min-width: 32px; height: 32px; font-size: 13px !important; }
+  .mc-save-text { grid-area: text; padding: 0; }
+  .mc-save-text b { font-size: 13.5px !important; }
+  .mc-save-text small { font-size: 11.5px !important; line-height: 1.35 !important; }
+  .mc-save > .btn { height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 0; }
+  .mc-save > .btn-outline-secondary { grid-area: no; }
+  .mc-save > .btn-primary { grid-area: yes; }
+
+  /* edit / create sheet */
+  .mcs { width: 100vw; }
+  .mcs-head { padding-top: 12px; padding-bottom: 12px; gap: 6px; }
+  .mcs-title { font-size: 18px !important; overflow-wrap: anywhere; }
+  .mcs-trail { flex-wrap: wrap; font-size: 12px !important; }
+  .mcs-look { padding: 8px 10px; }
+  .mcs-look-row { flex-wrap: wrap; }
+  .mcs-look-route { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .mcs-body { padding-top: 12px; padding-bottom: 16px; gap: 10px; }
+  .mcs-sec { padding: 12px; }
+  .mcs-sec-head { flex-wrap: wrap; gap: 8px 10px; }
+  .mcs-sec-title { font-size: 14.5px !important; }
+  .mcs-sec-sub { font-size: 12px !important; }
+  .mcs-lock { margin-left: 0; flex-basis: 100%; }
+  .mcs-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .mcs-input, .mcs .dd-val-main, .mcs-stepper input { font-size: 13.5px !important; }
+  .mcs .dd-menu { min-width: 0; }
+  .mcs .dd-opt { flex-wrap: wrap; }
+  .mcs .dd-opt-code { flex-basis: 100%; text-align: start; }
+  .mcs-foot { padding-top: 10px; padding-bottom: 10px; gap: 8px; }
+  .mcs-foot-hint { font-size: 11.5px !important; }
+  .mcs-foot > .btn { flex: 1 1 0; min-width: 0; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+  /* delete pop-up */
+  .mc-modal-backdrop { padding: 12px; }
+  .mc-modal-tip { padding: 10px 12px; font-size: 12.5px !important; }
+}
+
+@container mc (max-width: 600px) {
+  .mc-page { gap: 10px; }
+
+  /* ---- deck ---- */
+  .mc-deck { border-radius: 14px; }
+  .mc-deck > .mc-deck-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px !important;
+  }
+  .mc-deck-row > .ydot-head { padding: 0 !important; border-right: 0 !important; }
+  .mc-title { font-size: 18px !important; white-space: normal; }
+
+  .mc-modes { width: 100%; }
+  .mc-mode { flex: 1 1 0; min-width: 0; justify-content: center; gap: 6px; padding: 7px 6px !important; }
+  .mc-mode-glyph { font-size: 15px !important; }
+  .mc-mode-name { font-size: 13px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .mc-deck-tools { flex: none; flex-wrap: wrap !important; gap: 8px; width: 100%; }
+  .mc-deck-tools .dd--role,
+  .mc-deck-tools .mc-search { flex: 1 1 100% !important; width: 100% !important; min-width: 0 !important; }
+  .mc-deck-tools .dd--role .dd-trigger,
+  .mc-deck-tools .mc-search { height: 36px !important; }
+  .mc-deck-tools .dd--role .dd-menu { width: 100%; min-width: 0; }
+  .mc-search input { font-size: 13px !important; }
+  .mc-deck-tools > .btn {
+    flex: 1 1 0 !important;
+    min-width: 0;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+  }
+
+  .mc-stats { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mc-stat {
+    display: flex !important;
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 3px !important;
+    padding: 9px 12px !important;
+    border-left: 0 !important;
+    border-top: 1px solid var(--mc-line-soft) !important;
+    text-align: left;
+  }
+  .mc-stat:nth-child(even) { border-left: 1px solid var(--mc-line-soft) !important; }
+  .mc-stat dt { font-size: 9.5px !important; letter-spacing: .06em; white-space: normal; line-height: 1.3 !important; }
+  .mc-stat dd { justify-content: flex-start; gap: 5px; flex-wrap: wrap; max-width: 100%; }
+  .mc-stat-v { font-size: 17px !important; }
+  .mc-stat-v--text { font-size: 14px !important; white-space: normal; overflow-wrap: anywhere; }
+  .mc-stat-of { font-size: 11.5px !important; white-space: normal; }
+
+  .mc-alert { padding: 10px 12px; gap: 10px; border-radius: 12px; }
+  .mc-alert-text { font-size: 12.5px !important; }
+  .mc-state { padding: 36px 16px; border-radius: 14px; }
+  .mc-state-title { font-size: 16px !important; }
+  .mc-state-sub { font-size: 12.5px !important; }
+
+  /* ---- menus list ---- */
+  .mc-layout { gap: 10px; }
+  .mc-rail { padding: 12px 8px 8px; border-radius: 14px; }
+  .mc-rail-head { margin: 0 6px 6px; padding-bottom: 10px; }
+  .mc-rail-title { font-size: 16px !important; }
+  .mc-rail-sub { font-size: 11.5px !important; }
+  .mc-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 6px; }
+  .mc-item { gap: 8px; padding: 8px 8px 8px 10px; align-items: center; }
+  .mc-item-glyph { width: 16px; font-size: 15px !important; }
+  .mc-item-name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 12.5px !important;
+    line-height: 1.25 !important;
+  }
+  .mc-item-meta { font-size: 11px !important; }
+  .mc-item-meta--off { font-size: 10.5px !important; }
+
+  /* ---- banner ---- */
+  .mc-banner { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 10px 12px; }
+  .mc-banner-mark { right: 10px; bottom: -6px; font-size: 44px !important; }
+  .mc-banner-text { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .mc-banner-title-row { gap: 4px 8px; }
+  .mc-banner-title { font-size: 18px !important; }
+  .mc-banner-facts { gap: 6px; max-width: 100%; }
+  .mc-fact { font-size: 12.5px !important; }
+  .mc-code { font-size: 11px !important; }
+  .mc-mark { font-size: 10px !important; }
+  .mc-mark--warn, .mc-mark--red { font-size: 11.5px !important; }
+  .mc-banner-side {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--mc-line);
+  }
+  .mc-banner-side > .mc-toggle,
+  .mc-banner-side > .mc-required { align-self: flex-start; }
+  .mc-toggle-text { font-size: 12.5px !important; white-space: normal; }
+  .mc-banner .mc-actions { justify-content: flex-start; gap: 6px; }
+  .mc-banner .mc-act { height: 32px; padding: 0 10px; font-size: 12.5px !important; }
+  .mc-banner-side > .mc-act { align-self: flex-start; height: 32px; }
+
+  /* ---- submenu lanes ---- */
+  .mc-lanes { gap: 8px; }
+  .mc-lane { border-radius: 12px; }
+  .mc-lane-head,
+  .mc-lane.has-pages .mc-lane-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    padding: 12px !important;
+  }
+  .mc-lane-no { padding-right: 10px; font-size: 18px !important; }
+  .mc-lane-title { font-size: 15px !important; overflow-wrap: anywhere; }
+  .mc-lane-meta { gap: 2px 10px; font-size: 11.5px !important; }
+  .mc-lane-meta .mc-path, .mc-lane-meta .mc-perm { font-size: 11px !important; }
+  .mc-lane-side {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--mc-line-soft);
+  }
+  .mc-lane-caret { grid-column: 3; grid-row: 1; width: 24px; height: 24px; font-size: 15px !important; }
+  .mc-actions--quiet { padding-right: 0; border-right: 0; gap: 2px; }
+  .mc-toggle--sm .mc-toggle-text { min-width: 0; font-size: 12px !important; }
+
+  /* pages */
+  .mc-reg-head { display: none; }
+  .mc-row {
+    grid-template-columns: 30px minmax(0, 1fr) auto !important;
+    grid-template-areas: "no page switch" ". perm tools" !important;
+    align-items: center;
+    row-gap: 5px;
+    padding: 10px 12px !important;
+  }
+  .mc-page[data-mode="roles"] .mc-row { grid-template-areas: "no page switch" ". perm perm" !important; }
+  .mc-row-no { grid-area: no; font-size: 11px !important; }
+  .mc-row-page { grid-area: page; }
+  .mc-row-perm { grid-area: perm; }
+  .mc-row-tools { grid-area: tools; justify-self: end; opacity: 1; gap: 2px; }
+  .mc-row-page { align-self: start; }
+  .mc-row-tools:empty { display: none; }
+  .mc-row-switch { grid-area: switch; align-self: start; padding-top: 2px; }
+  .mc-row-name { font-size: 13.5px !important; overflow-wrap: anywhere; }
+  .mc-row-note { font-size: 11.5px !important; }
+  .mc-path, .mc-perm { font-size: 11px !important; }
+
+  .mc-lanes-empty { padding: 26px 16px; border-radius: 12px; font-size: 13px !important; text-align: center; }
+
+  /* ---- live preview ---- */
+  .mc-work { gap: 10px; }
+  .mc-phone { padding: 10px 8px; border-radius: 14px; }
+  .mc-phone-brand { font-size: 14.5px !important; padding-bottom: 8px; }
+  .mc-pv-top { padding: 7px 8px; font-size: 12.5px !important; }
+  .mc-pv-child { font-size: 12px !important; }
+  .mc-preview-note { font-size: 11.5px !important; }
+}

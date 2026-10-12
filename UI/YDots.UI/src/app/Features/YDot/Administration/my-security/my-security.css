@@ -1597,3 +1597,92 @@ app-page-header.ph-host--card.ph-host--card.ph-host--card { background: transpar
   /* Narrow screens: the date moves under the name. */
   .msec-mfa-item__text{ flex-direction:column; align-items:flex-start; gap:1px; }
 }
+
+/* =========================================================================
+   PHONE PASS (append-only; keep LAST so it wins the cascade)
+   - Top cards: Password | Recovery side by side, and Enrol MFA | Change password side by side,
+     as compact halves split by a hairline (they used to stack into four tall rows).
+   - Panels and section cards: 14px gutters, smaller glyphs, gauge a little shorter.
+   - Shortcuts / sessions / devices / activity: tighter rows; Revoke / Forget drop under the
+     text instead of squeezing it.
+   ========================================================================= */
+@media (max-width:600px){
+
+  .msec-page{ padding:0 calc(10px * var(--ui-scale, 1)); margin-bottom:calc(20px * var(--ui-scale, 1)); }
+
+  /* ---------- top cards: two compact halves each ---------- */
+  .msec-top-row{ gap:calc(10px * var(--ui-scale, 1)); margin-bottom:calc(12px * var(--ui-scale, 1)); }
+  .msec-info-card,
+  .msec-action-card{
+    flex-direction:row !important;
+    gap:calc(12px * var(--ui-scale, 1)) !important;
+    padding:calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) !important;
+  }
+  .msec-info-divider{ width:1px !important; height:auto !important; align-self:stretch; }
+  .msec-info-section,
+  .msec-action-section{
+    position:relative;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:calc(6px * var(--ui-scale, 1));
+    margin:0 !important;
+  }
+  .msec-info-icon i,
+  .msec-action-icon i{ font-size:calc(22px * var(--ui-text-scale, 1)) !important; }
+  .msec-info-label{ font-size:calc(0.78rem * var(--ui-text-scale, 1)) !important; }
+  .msec-info-value{ font-size:calc(1rem * var(--ui-text-scale, 1)) !important; overflow-wrap:anywhere; }
+  .msec-info-sub{ font-size:calc(0.78rem * var(--ui-text-scale, 1)) !important; }
+  .msec-info-action{ font-size:calc(0.8rem * var(--ui-text-scale, 1)) !important; text-align:left; }
+  .msec-action-title{ font-size:calc(0.92rem * var(--ui-text-scale, 1)) !important; line-height:1.25; }
+  .msec-action-subtitle{ font-size:calc(0.78rem * var(--ui-text-scale, 1)) !important; }
+  .msec-action-corner{ position:absolute; top:0; right:0; }
+
+  /* ---------- three panels ---------- */
+  .msec-grid{ gap:calc(12px * var(--ui-scale, 1)) !important; }
+  .msec-grid .msec-panel__header{ padding:calc(14px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1)) !important; }
+  .msec-grid .msec-panel__header h6{ font-size:calc(1.05rem * var(--ui-text-scale, 1)) !important; }
+  .msec-grid .msec-panel__body{ padding:0 calc(14px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) !important; }
+  .msec-edit-btn--head{ font-size:calc(0.85rem * var(--ui-text-scale, 1)) !important; }
+
+  .msec-ao-row{ padding:calc(9px * var(--ui-scale, 1)) 0 !important; }
+  .msec-ao-row dt i{ width:calc(28px * var(--ui-scale, 1)); height:calc(28px * var(--ui-scale, 1)); font-size:calc(1rem * var(--ui-text-scale, 1)) !important; border-radius:calc(8px * var(--ui-scale, 1)); }
+  .msec-ao-row dd{ padding-left:calc(40px * var(--ui-scale, 1)) !important; font-size:calc(0.95rem * var(--ui-text-scale, 1)) !important; }
+  .msec-tip-strip{ gap:calc(10px * var(--ui-scale, 1)); }
+
+  .msec-gauge svg{ height:calc(140px * var(--ui-scale, 1)); }
+  .msec-gauge-footer{ grid-template-columns:1fr 1fr !important; gap:calc(8px * var(--ui-scale, 1)) !important; }
+  .msec-gauge-stat{ padding:calc(9px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1)); column-gap:calc(8px * var(--ui-scale, 1)); }
+  .msec-gauge-stat .msec-gauge-stat__icon,
+  .msec-gauge-stat__icon{ width:calc(28px * var(--ui-scale, 1)) !important; height:calc(28px * var(--ui-scale, 1)) !important; font-size:calc(1.25rem * var(--ui-text-scale, 1)) !important; }
+  .msec-gauge-stat__label{ font-size:calc(0.78rem * var(--ui-text-scale, 1)) !important; }
+  .msec-gauge-stat__value{ font-size:calc(0.82rem * var(--ui-text-scale, 1)) !important; }
+
+  .msec-shortcut-row{ min-height:calc(58px * var(--ui-scale, 1)) !important; padding:calc(10px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1)) !important; gap:calc(12px * var(--ui-scale, 1)) !important; margin:0 calc(-8px * var(--ui-scale, 1)) !important; width:calc(100% + 16px * var(--ui-scale, 1)) !important; }
+  .msec-shortcut-row + .msec-shortcut-row::before{ left:calc(56px * var(--ui-scale, 1)); }
+  .msec-shortcut-icon{ width:calc(36px * var(--ui-scale, 1)) !important; height:calc(36px * var(--ui-scale, 1)) !important; }
+  .msec-shortcut-icon i{ font-size:calc(18px * var(--ui-scale, 1)) !important; }
+  .msec-shortcut-title{ font-size:calc(0.95rem * var(--ui-text-scale, 1)) !important; }
+  .msec-shortcut-subtitle{ font-size:calc(0.8rem * var(--ui-text-scale, 1)) !important; }
+
+  /* ---------- lower section cards ---------- */
+  .msec-lower-grid{ gap:calc(12px * var(--ui-scale, 1)) !important; }
+  .msec-section-card__header{ padding:calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) !important; }
+  .msec-section-card__body{ padding:calc(12px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) !important; }
+  .msec-section-card__body--flush{ padding:calc(4px * var(--ui-scale, 1)) 0 !important; }
+
+  .msec-list__row,
+  .msec-activity-feed__row{ padding:calc(10px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) !important; gap:calc(10px * var(--ui-scale, 1)) !important; }
+  .msec-session-row{ flex-wrap:wrap; }
+  .msec-session-row__info{ flex:1 1 calc(100% - 50px); }
+  .msec-session-row__info strong{ font-size:calc(0.95rem * var(--ui-text-scale, 1)) !important; overflow-wrap:anywhere; }
+  .msec-session-row .msec-btn-danger-ghost{ margin-left:calc(40px * var(--ui-scale, 1)); }
+  .msec-mono, .msec-muted-sm{ overflow-wrap:anywhere; }
+
+  .msec-btn-solid{ width:100%; justify-content:center; }
+}
+
+/* very narrow phones: the top halves stack again */
+@media (max-width:360px){
+  .msec-info-card, .msec-action-card{ flex-direction:column !important; }
+  .msec-info-divider{ width:100% !important; height:1px !important; }
+}

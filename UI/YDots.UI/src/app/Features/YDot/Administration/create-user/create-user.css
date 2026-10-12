@@ -1334,3 +1334,189 @@
 .cu-page-head { background: transparent; border: none; }
 app-page-header ::ng-deep .ph--card { background: transparent !important; border: none; padding-top: 0 !important; }
 app-page-header.ph-host--card.ph-host--card.ph-host--card { background: transparent !important; padding-top: 0 !important; }
+
+
+/* =====================================================================================================
+   PHONE PASS (<= 600px)
+   - The sheet lines up with the breadcrumb (no side padding on the page wrapper).
+   - Stepper: four compact columns, a numbered tile over each step name (names wrap to two lines, never
+     cut); the percentage sits on one small line under them; the progress track stays at the band's foot.
+   - Step heading, groups and fields tightened; fonts back to normal phone sizes (13.5px fields).
+   - Country code + mobile share a row, as do the two access dates.
+   - Review cards stack with tighter padding; the action bar puts the main action full width on top and
+     Cancel / Previous side by side under it.
+   - Confirmation: hero and outcome stacked, facts one per line, the two actions equal width.
+   ===================================================================================================== */
+@media (max-width: 600px) {
+  :host { overflow-x: clip; }
+  .container-fluid.px-4 { padding-left: 0 !important; padding-right: 0 !important; }
+
+  .cu-state { padding: 40px 16px; border-radius: 14px; }
+  .cu-state-title { font-size: 16px !important; }
+
+  /* ---- confirmation ---- */
+  .cu-done { border-radius: 14px; }
+  .cu-done-hero { padding: 20px 16px; }
+  .cu-done-seal { margin-bottom: 12px; }
+  .cu-done-mono { width: 56px; height: 56px; border-radius: 16px; font-size: 20px !important; }
+  .cu-done-tick { width: 24px; height: 24px; right: -6px; bottom: -6px; border-width: 2px; font-size: 13px; }
+  .cu-done-kicker { font-size: 10.5px !important; }
+  .cu-done-title { font-size: 19px !important; line-height: 1.25 !important; }
+  .cu-done-facts { grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 14px; padding-top: 12px; }
+  .cu-done-facts dd { font-size: 13.5px !important; }
+  .cu-done-actions { align-self: stretch; gap: 8px; padding-top: 18px; }
+  .cu-done-actions > .btn { flex: 1 1 0; min-width: 0; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+  .cu-done-body { padding: 16px; }
+  .cu-outcome { padding: 14px; border-radius: 12px; }
+  .cu-outcome-title { font-size: 15.5px !important; margin-bottom: 10px; }
+  .cu-outcome-text, .cu-timeline li { font-size: 13px !important; }
+  .cu-timeline li { padding: 0 0 12px 34px; }
+  .cu-timeline li::before { width: 22px; height: 22px; font-size: 11px; border-radius: 6px; }
+  .cu-timeline li:not(:last-child)::after { left: 10px; top: 26px; }
+  .cu-assure { margin-top: 12px; padding: 10px 12px; font-size: 12.5px !important; border-radius: 12px; }
+}
+
+@container cu-sheet (max-width: 600px) {
+  /* ---- stepper band ---- */
+  .cu-band {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 12px 10px 14px !important;
+  }
+  .cu-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .cu-step-btn {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 4px;
+    border-radius: 10px;
+    text-align: center;
+  }
+  .cu-step-dot {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    font-size: 12px !important;
+  }
+  .cu-step.done .cu-step-dot { font-size: 15px !important; }
+  .cu-step-dot i { font-size: 15px !important; }
+  .cu-step-text { align-items: center; padding: 0; width: 100%; }
+  .cu-step-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 11.5px !important;
+    line-height: 1.25 !important;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+  }
+  .cu-step-desc { display: none; }
+
+  .cu-band-progress {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+  }
+  .cu-band-pct { font-size: 17px !important; }
+  .cu-band-pct-sub { margin: 0; font-size: 10px !important; }
+
+  /* ---- step heading ---- */
+  .cu-head { padding: 12px 14px !important; }
+  .cu-head-kicker { font-size: 10.5px !important; letter-spacing: .1em; }
+  .cu-head-title { font-size: 18px !important; line-height: 1.25 !important; }
+
+  .cu-error { margin: 12px 14px 0 !important; padding: 10px 12px; border-radius: 12px; }
+  .cu-error-head { font-size: 13px !important; }
+  .cu-error-list { padding-left: 20px; font-size: 12.5px !important; }
+
+  /* ---- groups + fields ---- */
+  .cu-body { padding: 0 14px 14px !important; }
+  .cu-group { gap: 10px; padding: 16px 0; }
+  .cu-group-aside { gap: 8px; }
+  .cu-group-glyph { font-size: 18px !important; padding-top: 1px; }
+  .cu-group-title { font-size: 14.5px !important; }
+  .cu-group-desc { margin-top: 2px; font-size: 12px !important; line-height: 1.45 !important; }
+
+  .cu-grid { gap: 12px 10px; }
+  .cu-grid > .s3, .cu-grid > .s4, .cu-grid > .s6 { grid-column: 1 / -1; }
+  /* country code + mobile on one row */
+  .cu-grid > .s3:has(#cuCode) { grid-column: span 5; }
+  .cu-grid > .s3:has(#cuMobile) { grid-column: span 7; }
+  /* the two access dates on one row */
+  .cu-grid > .s4:has(#cuStart),
+  .cu-grid > .s4:has(#cuEnd) { grid-column: span 6; }
+
+  .cu-label { margin-bottom: 5px; font-size: 12px !important; line-height: 16px !important; }
+  .cu-hint, .invalid-feedback { margin-top: 4px; font-size: 11.5px !important; }
+
+  .cu-field-icon { left: 11px; font-size: 16px !important; }
+  .cu-field .form-control,
+  .cu-dd-trigger {
+    height: 38px;
+    padding-left: 36px;
+    border-radius: 10px;
+    font-size: 13.5px !important;
+  }
+  .cu-dd-trigger { padding-right: 10px; }
+  .cu-dd-value { font-size: 13.5px !important; }
+  .cu-field textarea.form-control { height: auto; min-height: 96px; padding-top: 10px; }
+  .cu-field--area .cu-field-icon { top: 11px; }
+  .cu-field input[type="date"].form-control { padding-right: 8px; }
+
+  .cu-dd-menu { min-width: 0; border-radius: 12px; }
+  .cu-dd-list { max-height: min(240px, 45vh); }
+  .cu-dd-search input { height: 34px; }
+  .cu-dd-option { min-height: 36px; font-size: 13px !important; }
+
+  .cu-check { padding: 8px 10px; font-size: 12.5px !important; border-radius: 10px; }
+  .cu-check-try { margin-left: 0; flex-basis: 100%; font-size: 12px !important; }
+
+  /* ---- review ---- */
+  .cu-review { gap: 10px; padding-top: 14px; }
+  .cu-rv { border-radius: 12px; }
+  .cu-rv-head { gap: 8px; padding: 10px 12px; }
+  .cu-rv-title { font-size: 15px !important; }
+  .cu-rv-edit { padding: 3px 9px; font-size: 11.5px !important; }
+  .cu-rv-list { padding: 2px 12px 6px; }
+  .cu-rv-list > div { padding: 8px 0; }
+  .cu-rv-list dt { font-size: 10px !important; }
+  .cu-rv-list dd { font-size: 13.5px !important; }
+  .cu-review-foot { gap: 10px; margin-top: 10px; }
+  .cu-rv-just { padding: 10px 12px; }
+  .cu-rv-just-text { font-size: 13.5px !important; line-height: 1.5 !important; }
+  .cu-assure { margin-top: 12px; padding: 10px 12px; font-size: 12.5px !important; border-radius: 12px; }
+  .cu-assure > i { font-size: 16px; }
+
+  /* ---- action bar: main action on top, Cancel / Previous under it ---- */
+  .cu-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 14px !important;
+  }
+  .cu-footer-pips { display: none; }
+  .cu-footer > .btn,
+  .cu-footer-final > .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px !important;
+  }
+  .cu-footer > .btn-primary,
+  .cu-footer-final {
+    order: -1;
+    flex: 1 1 100%;
+  }
+  .cu-footer-final { display: flex; flex-wrap: nowrap; gap: 8px; }
+}
