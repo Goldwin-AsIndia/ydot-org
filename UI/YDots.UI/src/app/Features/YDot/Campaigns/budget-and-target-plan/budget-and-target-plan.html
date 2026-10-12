@@ -527,13 +527,9 @@
                     <li>Affected record: <strong>{{ plan.reference }}</strong>, version <strong>{{ plan.version }}</strong>.</li>
                     <li>Consequence: this version becomes the current Approved plan; any previously approved version is superseded (kept in history) and only this version is counted toward totals.</li>
                   </ul>
-                  @if (isSelfApproval()) {
-                    <div class="alert alert-danger mb-0">{{ selfApprovalMessage() }}</div>
-                  } @else {
-                    <label class="form-label small fw-semibold">Approval reason <span class="text-danger">*</span></label>
-                    <textarea class="form-control" rows="3" placeholder="Record the basis for this approval decision…"
-                              [ngModel]="approveReason()" (ngModelChange)="approveReason.set($event)"></textarea>
-                  }
+                  <label class="form-label small fw-semibold">Approval reason <span class="text-danger">*</span></label>
+                  <textarea class="form-control" rows="3" placeholder="Record the basis for this approval decision…"
+                            [ngModel]="approveReason()" (ngModelChange)="approveReason.set($event)"></textarea>
                 }
               }
             }
@@ -576,7 +572,7 @@
               }
               @if (actionMode() === 'approve') {
                 <button class="btn btn-primary btn-sm" (click)="confirmApprove()"
-                        [disabled]="actionSubmitting() || isSelfApproval() || !approveReason().trim()">
+                        [disabled]="actionSubmitting() || !approveReason().trim()">
                   @if (actionSubmitting()) { <span class="spinner-border spinner-border-sm me-1"></span> }
                   <i class="ri-check-double-line me-1"></i> Approve
                 </button>

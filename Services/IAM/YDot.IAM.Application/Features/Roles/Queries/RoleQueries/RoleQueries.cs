@@ -170,17 +170,25 @@ public sealed class RoleQueryHandler(
 
             logger.LogInformation("Retrieved role export page {Page} of {TotalPages}. RowCount {RowCount}.", filter.Page, page.TotalPages, page.Items.Count);
 
+            // THE CATALOGUE'S OWN WORDS. The type went out as the code's enum name ("Tenant"),
+            // the owning function, priority and default flag not at all - so the file and the
+            // screen it was exported from described the same roles differently.
             rows.AddRange(page.Items.Select(role => new RoleExportRow(
                 role.Code,
                 role.Name,
                 role.Description,
-                role.RoleType.ToString(),
+                role.RoleTypeDisplay,
+                role.DisplayTag,
                 role.StatusDisplay,
-                role.IsSystemRole ? "Yes" : "No",
-                role.IsPrivileged ? "Yes" : "No",
-                role.GrantsAllTenantPermissions ? "Yes" : "No",
+                role.IsSystemRole,
+                role.IsPrivileged,
+                role.IsDefaultRole,
+                role.GrantsAllTenantPermissions,
+                role.Priority,
                 role.PermissionCount,
-                role.MemberCount)));
+                role.MemberCount,
+                role.Version,
+                role.UpdatedAtUtc)));
 
             filter.Page++;
         }
@@ -189,9 +197,25 @@ public sealed class RoleQueryHandler(
         var reference = tokenHasher.GenerateReference("EXP");
         var file = exports.ToCsv(rows, "roles", reference);
 
+        // Its own action code: recorded as "role updated", an export read as a change to a role
+        // nobody had touched.
         await audit.WriteAsync(
-            AuditActionCodes.RoleUpdated, nameof(Role), null, null,
-            new { Action = "Exported", RowCount = rows.Count, Reference = reference },
+            AuditActionCodes.RoleExported, nameof(Role), null, null,
+            new
+            {
+                RowCount = rows.Count,
+                Reference = reference,
+                Filter = new
+                {
+                    filter.Search,
+                    filter.Status,
+                    filter.RoleType,
+                    filter.IsSystemRole,
+                    filter.IsPrivileged,
+                    filter.PermissionCode,
+                    filter.DisplayTag
+                }
+            },
             cancellationToken: cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -202,15 +226,23 @@ public sealed class RoleQueryHandler(
     }
 }
 
-/// <summary>One row of a role-catalogue export.</summary>
+/// <summary>
+/// One row of a role-catalogue export. The property names are the column headings
+/// (humanised), so they are named as the catalogue screen labels its columns.
+/// </summary>
 public sealed record RoleExportRow(
     string Code,
     string Name,
-    string? Description,
+    string? Purpose,
     string RoleType,
+    string? OwningFunction,
     string Status,
-    string IsSystemRole,
-    string IsPrivileged,
-    string GrantsAllPermissions,
-    int PermissionCount,
-    int MemberCount);
+    bool BuiltIn,
+    bool Privileged,
+    bool GivenToEverybody,
+    bool GrantsAllPermissions,
+    int Priority,
+    int Permissions,
+    int People,
+    long Version,
+    DateTimeOffset? LastChangedUtc);

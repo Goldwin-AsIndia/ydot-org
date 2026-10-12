@@ -81,6 +81,29 @@ public sealed class AuditEventsController(
         return FromResult(result);
     }
 
+    /// <summary>
+    /// The cards, outcome chart and heatmap above the trail: counted over every event the filter
+    /// matches, with the heatmap placed by the viewer's clock (<c>timeZone</c>, an IANA name).
+    /// The same query string as the search.
+    /// </summary>
+    [HttpGet("summary")]
+    [HasPermission(PermissionCodes.AuditView)]
+    [ProducesResponseType(typeof(ApiResponse<AuditSummaryResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSummaryAsync(
+        [FromQuery] AuditEventSearchFilter filter, CancellationToken cancellationToken)
+    {
+        logger.LogDebug("Summarising audit events.");
+
+        var result = await queries.HandleAsync(new GetAuditSummaryQuery(filter), cancellationToken);
+
+        if (result.IsFailure)
+        {
+            logger.LogWarning("Audit event summary failed.");
+        }
+
+        return FromResult(result);
+    }
+
     [HttpGet("{id:guid}")]
     [HasPermission(PermissionCodes.AuditView)]
     [ProducesResponseType(typeof(ApiResponse<AuditEventResponse>), StatusCodes.Status200OK)]

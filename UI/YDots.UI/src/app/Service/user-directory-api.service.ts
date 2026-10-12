@@ -6,6 +6,7 @@ import { ApiResponse, OutcomeResponse, PagedResponse } from '../Shared/models/ap
 import { apiEnumValue } from '../Shared/models/enum-option.model';
 import { isGuid } from '../Shared/models/identifier';
 import {
+  CreateUserResponse,
   EnumOption,
   ReferenceDataResponse,
   UserAccessPreviewResponse,
@@ -102,8 +103,9 @@ export class UserDirectoryApiService {
           // id/code/name. Converted here, once, rather than at every binding in the template.
           statusOptions: this.toLookups(enums?.userStatuses),
           invitationStatusOptions: this.toLookups(enums?.userStatuses),
-          accountCategoryOptions: this.toLookups(enums?.accountCategories),
           dataScopeTypeOptions: this.toLookups(enums?.dataScopeTypes),
+          // Stored text: value and label are the same word ("Dr").
+          titleOptions: (enums?.personTitles ?? []).map((option) => String(option.value ?? '')).filter(Boolean),
 
           // These are the Organisation's own records and are already LookupItems.
           organisationUnitOptions: reference.organisationUnits ?? [],
@@ -238,8 +240,8 @@ export class UserDirectoryApiService {
    * and every root user who had not yet picked an Organisation, were told they had no permission
    * to change their own display name.
    *
-   * The endpoint takes five fields and no more. Department, manager, account category, access
-   * window and MFA requirement are administrative decisions about a person's place in the
+   * The endpoint takes five fields and no more. Department, manager, access window and MFA
+   * requirement are administrative decisions about a person's place in the
    * organisation, and are not on the request at all.
    */
   updateMyProfile(request: UpdateMyProfileRequest): Observable<OutcomeResponse> {
@@ -321,10 +323,17 @@ export class UserDirectoryApiService {
     return this.action(id, 'force-sign-out', request);
   }
 
-  /** Re-sends an invitation that lapsed or never arrived. */
-  resendInvitation(id: string, message?: string): Observable<OutcomeResponse> {
+  /**
+   * Re-sends an invitation that lapsed or never arrived.
+   *
+   * THE ANSWER IS THE ACCOUNT, NOT AN OUTCOME MESSAGE. It was typed as `OutcomeResponse`, so the
+   * screen read a `message` the endpoint never sends and always said "re-sent" - even when the
+   * relay refused the e-mail. `invitationSent` is what the relay actually did, and
+   * `deliveryMessage` says it in a sentence.
+   */
+  resendInvitation(id: string, message?: string): Observable<CreateUserResponse> {
     return this.http
-      .post<ApiResponse<OutcomeResponse>>(
+      .post<ApiResponse<CreateUserResponse>>(
         `${this.usersUrl}/${id}/resend-invitation`, { userId: id, message })
       .pipe(map((response) => response.data!));
   }
@@ -442,6 +451,7 @@ export class UserDirectoryApiService {
     if (filter.search) { parts.push(`matching "${filter.search}"`); }
     if (filter.status) { parts.push(String(filter.status).toLowerCase()); }
     if (filter.departmentId) { parts.push('in one department'); }
+    if (filter.roleId) { parts.push('holding one role'); }
     if (filter.organisationUnitId) { parts.push('in one office'); }
 
     return parts.length > 0 ? `Showing people ${parts.join(', ')}.` : 'Showing everybody.';

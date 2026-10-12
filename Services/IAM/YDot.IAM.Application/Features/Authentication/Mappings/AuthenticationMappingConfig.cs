@@ -249,17 +249,14 @@ public static class AuthenticationMappingConfig
             invitationType, expiresAtUtc,
             RequiresOrganisationProfile: false,
             Message: message,
-            Username: null, AccountCategory: null, Department: null, OrganisationUnit: null,
+            Username: null, Department: null, OrganisationUnit: null,
             Designation: null, InvitedRoleSummary: null,
             AccessStartsAtUtc: null, AccessEndsAtUtc: null,
             security.PasswordMinimumLength, security.PasswordMaximumLength,
             security.PasswordRequireUppercase, security.PasswordRequireLowercase,
             security.PasswordRequireDigit, security.PasswordRequireNonAlphanumeric,
             MfaMandatory: false,
-            AllowedMfaMethods: [],
-
-            // A dead link never reaches the enrolment step, so it needs no dialling prefixes.
-            DialingCodes: []);
+            AllowedMfaMethods: []);
     }
 
     public static InvitationPreviewResponse ToPreviewResponse(
@@ -271,8 +268,7 @@ public static class AuthenticationMappingConfig
         SecuritySettings security,
         string? roleSummary = null,
         string? departmentName = null,
-        string? organisationUnitName = null,
-        IReadOnlyList<string>? dialingCodes = null)
+        string? organisationUnitName = null)
     {
         ArgumentNullException.ThrowIfNull(invitation);
         ArgumentNullException.ThrowIfNull(user);
@@ -308,7 +304,6 @@ public static class AuthenticationMappingConfig
                 && tenant is not null && tenant.IsOnboarding,
             Message: null,
             user.UserName,
-            user.AccountCategory.ToString(),
             departmentName,
             organisationUnitName,
             user.Designation,
@@ -325,21 +320,51 @@ public static class AuthenticationMappingConfig
 
             // Security keys are not implemented yet, so offering one would be a dead end on the
             // screen. The list is what a person can actually finish enrolling today.
-            AllowedMfaMethods: [MfaMethodType.AuthenticatorApp, MfaMethodType.Email, MfaMethodType.Sms],
-
-            DialingCodes: dialingCodes ?? []);
+            AllowedMfaMethods: [MfaMethodType.AuthenticatorApp, MfaMethodType.Email]);
     }
 
     /// <summary>The password rules, so the client strength meter matches what the server accepts.</summary>
-    public static PasswordPolicyResponse ToPolicyResponse(this SecuritySettings settings, int? tenantMinimum = null) =>
-        new(
-            Math.Max(settings.PasswordMinimumLength, tenantMinimum ?? 0),
+    public static PasswordPolicyResponse ToPolicyResponse(this SecuritySettings settings, int? tenantMinimum = null)
+    {
+        var minimum = Math.Max(settings.PasswordMinimumLength, tenantMinimum ?? 0);
+
+        var rules = new List<string> { $"At least {minimum} characters (at most {settings.PasswordMaximumLength})" };
+
+        if (settings.PasswordRequireUppercase)
+        {
+            rules.Add("An upper-case letter");
+        }
+
+        if (settings.PasswordRequireLowercase)
+        {
+            rules.Add("A lower-case letter");
+        }
+
+        if (settings.PasswordRequireDigit)
+        {
+            rules.Add("A digit");
+        }
+
+        if (settings.PasswordRequireNonAlphanumeric)
+        {
+            rules.Add("A symbol, such as ! @ # $");
+        }
+
+        if (settings.PasswordHistoryCount > 0)
+        {
+            rules.Add($"Different from your last {settings.PasswordHistoryCount} passwords");
+        }
+
+        return new PasswordPolicyResponse(
+            minimum,
             settings.PasswordMaximumLength,
             settings.PasswordRequireUppercase,
             settings.PasswordRequireLowercase,
             settings.PasswordRequireDigit,
             settings.PasswordRequireNonAlphanumeric,
-            settings.PasswordHistoryCount);
+            settings.PasswordHistoryCount,
+            rules);
+    }
 
     private static string DescribeUnavailability(TenantStatus status) => status switch
     {

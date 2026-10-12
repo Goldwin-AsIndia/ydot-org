@@ -20,8 +20,14 @@ namespace YDot.IAM.Application.Common.Abstractions.Services;
 /// </summary>
 public interface INotificationService
 {
-    /// <summary>Invitation with the activation link. Used for TenantAdmin and ordinary users alike.</summary>
-    Task SendInvitationAsync(
+    /// <summary>
+    /// Invitation with the activation link. Used for TenantAdmin and ordinary users alike.
+    ///
+    /// RETURNS WHETHER THE RELAY ACCEPTED IT - still without throwing. The create and re-send
+    /// screens used to say "e-mailed" whenever an invitation row existed, including every time
+    /// the relay refused the login.
+    /// </summary>
+    Task<bool> SendInvitationAsync(
         User user, UserInvitation invitation, Tenant? tenant, BusinessUnit businessUnit,
         string activationUrl, CancellationToken cancellationToken);
 
@@ -35,8 +41,15 @@ public interface INotificationService
         User user, Tenant? tenant, BusinessUnit businessUnit, string? ipAddress,
         CancellationToken cancellationToken);
 
-    /// <summary>One-time code for sign-in, enrolment or step-up.</summary>
-    Task SendMfaCodeAsync(
+    /// <summary>
+    /// One-time code for sign-in, enrolment or step-up.
+    ///
+    /// RETURNS WHETHER THE CODE IS ON ITS WAY - still without throwing. True when the relay
+    /// accepted it, or when mail is switched off and the code was written to the log for
+    /// development. False when mail is on and the relay refused or could not be reached: the
+    /// screen must not then tell somebody to check for a code that is never coming.
+    /// </summary>
+    Task<bool> SendMfaCodeAsync(
         User user, Tenant? tenant, BusinessUnit businessUnit, string code,
         DateTimeOffset expiresAtUtc, CancellationToken cancellationToken);
 

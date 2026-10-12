@@ -624,24 +624,12 @@ export class CampaignRegisterComponent {
   }
 
   /**
-   * Approve is offered for a Submitted campaign to anybody holding `cam.campaigns.approve` -
-   * TENANT_ADMIN and APPROVER - but never to the person who created it.
-   *
-   * THE ROLE NAMES IN THIS COMMENT USED TO BE Super Admin, Campaign Manager and Campaign Owner.
-   * The last two no longer exist: the catalogue is TENANT_ADMIN, INITIATOR and APPROVER, and an
-   * INITIATOR is defined by holding no approval at all.
-   *
-   * THIS IS HALF THE SEGREGATION RULE and the server enforces the other half. The creator is
-   * excluded here; the SUBMITTER is excluded server-side too, and the browser has no trustworthy
-   * way to know who that was. A row that slips through is refused with a clear message rather
-   * than silently approved.
+   * Approve is offered for a Submitted campaign to anybody holding `cam.campaigns.approve` - a
+   * Campaign Manager or the Organisation Admin - including the person who created or submitted
+   * it: a person holding Campaign Executive and Campaign Manager approves their own request.
    */
   protected canApprove(record: CampaignRecord): boolean {
-    return (
-      this.user.hasPermission('cam.campaigns.approve') &&
-      record.status === 'Submitted' &&
-      (record.createdByRef !== this.user.reference() || this.user.isOrganisationAdmin())
-    );
+    return this.user.hasPermission('cam.campaigns.approve') && record.status === 'Submitted';
   }
 
   // ----- Approve dialog (row action; approved by Super Admin or Campaign Manager) -----

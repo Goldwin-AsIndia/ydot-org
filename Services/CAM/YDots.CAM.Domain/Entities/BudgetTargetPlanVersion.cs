@@ -11,9 +11,10 @@ namespace YDots.CAM.Domain.Entities;
 /// agreement after the fact. Only a Draft version can be edited, and only because a draft has not
 /// been agreed to by anybody yet.
 ///
-/// SEGREGATION OF DUTIES IS RECORDED, NOT ASSUMED. <see cref="SubmittedByUserId"/> and
-/// <see cref="ApprovedByUserId"/> are both stored so the rule that they must differ can be checked
-/// against the record rather than against whatever the requesting client claims.
+/// WHO SUBMITTED AND WHO APPROVED ARE BOTH RECORDED. <see cref="SubmittedByUserId"/> and
+/// <see cref="ApprovedByUserId"/> are stored on the version itself, so who took each step is read
+/// from the record rather than from whatever the requesting client claims. They may be the same
+/// person when that person's roles hold both the submit and the approve permission.
 /// </summary>
 public sealed class BudgetTargetPlanVersion : AuditEntity
 {

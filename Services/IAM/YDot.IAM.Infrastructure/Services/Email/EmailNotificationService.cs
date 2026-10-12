@@ -38,10 +38,10 @@ public sealed class EmailNotificationService(
 {
     private readonly EmailSettings _settings = emailOptions.Value;
 
-    public Task SendInvitationAsync(
+    public Task<bool> SendInvitationAsync(
         User user, UserInvitation invitation, Tenant? tenant, BusinessUnit businessUnit,
         string activationUrl, CancellationToken cancellationToken) =>
-        SendAsync(
+        TrySendAsync(
             renderer.Invitation(user, tenant, businessUnit, activationUrl,
                 invitation.ExpiresAtUtc, invitation.Message),
             "invitation", activationUrl, cancellationToken);
@@ -60,14 +60,21 @@ public sealed class EmailNotificationService(
             renderer.PasswordChanged(user, tenant, businessUnit, ipAddress),
             "password-changed", null, cancellationToken);
 
-    public Task SendMfaCodeAsync(
+    public async Task<bool> SendMfaCodeAsync(
         User user, Tenant? tenant, BusinessUnit businessUnit, string code,
-        DateTimeOffset expiresAtUtc, CancellationToken cancellationToken) =>
-        SendAsync(
+        DateTimeOffset expiresAtUtc, CancellationToken cancellationToken)
+    {
+        var sent = await TrySendAsync(
             renderer.MfaCode(user, tenant, businessUnit, code, expiresAtUtc),
             // The code itself is logged when the relay is off, because otherwise the MFA flow
             // is impossible to walk in development.
             "mfa-code", code, cancellationToken);
+
+        // Mail switched off counts as delivered: the code is in the log, which is how this flow
+        // is walked in development. PAY's receipts follow the same rule. Only a relay that was
+        // asked and did not take the message is a failure the person needs to hear about.
+        return sent || !_settings.Enabled;
+    }
 
     public Task SendEmailConfirmationAsync(
         User user, Tenant? tenant, BusinessUnit businessUnit, string confirmUrl,
@@ -170,7 +177,15 @@ public sealed class EmailNotificationService(
     /// flow — never when mail is actually being sent, because a live activation link in a log
     /// file is a live activation link for anybody who can read logs.
     /// </summary>
-    private async Task SendAsync(
+    private Task SendAsync(
+        EmailMessage message, string kind, string? loggableLink, CancellationToken cancellationToken) =>
+        TrySendAsync(message, kind, loggableLink, cancellationToken);
+
+    /// <summary>
+    /// <see cref="SendAsync"/>, reporting whether the relay accepted the message. False when
+    /// mail is off, there is no recipient or sender, or every attempt failed. Never throws.
+    /// </summary>
+    private async Task<bool> TrySendAsync(
         EmailMessage message, string kind, string? loggableLink, CancellationToken cancellationToken)
     {
         if (!_settings.Enabled)
@@ -179,13 +194,13 @@ public sealed class EmailNotificationService(
                 "E-mail is disabled. Would have sent {Kind} to {Recipient} with subject {Subject}. Link: {Link}",
                 kind, message.To, message.Subject, loggableLink ?? "(none)");
 
-            return;
+            return false;
         }
 
         if (string.IsNullOrWhiteSpace(message.To))
         {
             logger.LogWarning("Skipped a {Kind} message because it had no recipient.", kind);
-            return;
+            return false;
         }
 
         var recipient = string.IsNullOrWhiteSpace(_settings.RedirectAllToAddress)
@@ -213,7 +228,7 @@ public sealed class EmailNotificationService(
                 + "at {Relay} - it cannot be inferred from the SMTP username {Username}.",
                 kind, recipient, _settings.SmtpHost, _settings.SmtpUsername);
 
-            return;
+            return false;
         }
 
         for (var attempt = 1; attempt <= Math.Max(1, _settings.MaximumRetries); attempt++)
@@ -229,9 +244,13 @@ public sealed class EmailNotificationService(
                     kind, recipient, subject, _settings.SmtpHost,
                     string.IsNullOrWhiteSpace(providerReference) ? "(none)" : providerReference);
 
-                return;
+                return true;
             }
-            catch (EmailTransportException exception)
+            // Anything but the caller giving up. The transport wraps the failures it knows about
+            // in EmailTransportException; this also catches the ones it does not, because the
+            // promise at the top of this class is only worth something if it holds for those too.
+            catch (Exception exception) when (exception is not OperationCanceledException
+                                              || !cancellationToken.IsCancellationRequested)
             {
                 var isLastAttempt = attempt >= Math.Max(1, _settings.MaximumRetries);
 
@@ -248,12 +267,14 @@ public sealed class EmailNotificationService(
                 {
                     // Swallowed on purpose. See the note at the top of this class: a delivery
                     // failure must never undo the operation that has already been committed.
-                    return;
+                    return false;
                 }
 
                 // A short linear back-off. A transient relay failure usually clears in seconds.
                 await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
             }
         }
+
+        return false;
     }
 }

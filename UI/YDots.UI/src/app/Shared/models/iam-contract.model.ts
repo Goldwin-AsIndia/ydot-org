@@ -67,7 +67,7 @@ export type MenuStatus = 'draft' | 'active' | 'hidden' | 'retired';
 
 export type MfaMethodStatus = 'pending' | 'active' | 'revoked';
 
-export type MfaMethodType = 'authenticatorApp' | 'sms' | 'email' | 'securityKey';
+export type MfaMethodType = 'authenticatorApp' | 'email' | 'securityKey';
 
 export type MfaRequirement = 'inherited' | 'required' | 'optional';
 
@@ -106,8 +106,6 @@ export type TenantDocumentType = 'registrationCertificate' | 'taxExemptionCertif
 export type TenantDomainType = 'subdomain' | 'customDomain' | 'alias';
 
 export type TenantStatus = 'invited' | 'invitationAccepted' | 'profileIncomplete' | 'submitted' | 'underReview' | 'rejected' | 'resubmitted' | 'approved' | 'active' | 'suspended' | 'archived';
-
-export type UserAccountCategory = 'employee' | 'volunteer' | 'partner' | 'auditor' | 'support' | 'donorPortal';
 
 export type UserRoleAssignmentStatus = 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
 
@@ -191,6 +189,15 @@ export interface AccessRequestDetailResponse {
   segregationOfDutiesConflicts?: string[] | null;
   canDecide?: boolean;
   permittedActions?: string[] | null;
+  scopeTypeDisplay?: string | null;
+  permissionName?: string | null;
+  returnReason?: string | null;
+  returnedAtUtc?: string | null;
+  returnedByName?: string | null;
+  returnCount?: number;
+  expiresAtUtc?: string | null;
+  canCancel?: boolean;
+  cannotDecideReason?: string | null;
 }
 
 export interface AccessRequestDetailResponseApiResponse {
@@ -225,6 +232,10 @@ export interface AccessRequestListItemResponse {
   version?: number;
   scopeType?: DataScopeType;
   scopeValue?: string | null;
+  scopeTypeDisplay?: string | null;
+  permissionName?: string | null;
+  permittedActions?: string[] | null;
+  cannotDecideReason?: string | null;
 }
 
 export interface AccessRequestListItemResponsePagedResponse {
@@ -240,6 +251,32 @@ export interface AccessRequestListItemResponsePagedResponse {
 export interface AccessRequestListItemResponsePagedResponseApiResponse {
   success?: boolean;
   data?: AccessRequestListItemResponsePagedResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface AccessRequestStatusCount {
+  status?: AccessRequestStatus;
+  statusDisplay?: string | null;
+  count?: number;
+}
+
+export interface AccessRequestSummaryResponse {
+  total?: number;
+  approved?: number;
+  pending?: number;
+  rejected?: number;
+  usersInvolved?: number;
+  mostActiveUserName?: string | null;
+  mostActiveUserRequestCount?: number;
+  byStatus?: AccessRequestStatusCount[] | null;
+}
+
+export interface AccessRequestSummaryResponseApiResponse {
+  success?: boolean;
+  data?: AccessRequestSummaryResponse;
   message?: string | null;
   errorCode?: string | null;
   errors?: ValidationError[] | null;
@@ -443,6 +480,13 @@ export interface AssignUserRolesRequest {
   effectiveToUtc?: string | null;
 }
 
+export interface AuditActorActivity {
+  actorUserId?: string | null;
+  displayName?: string | null;
+  eventCount?: number;
+  sharePercent?: number;
+}
+
 export interface AuditEventResponse {
   id?: string;
   tenantId?: string | null;
@@ -468,6 +512,9 @@ export interface AuditEventResponse {
   isSensitive?: boolean;
   requestPath?: string | null;
   metadata?: string | null;
+  clientTypeDisplay?: string | null;
+  actorScopeDisplay?: string | null;
+  resultDescription?: string | null;
 }
 
 export interface AuditEventResponseApiResponse {
@@ -507,6 +554,54 @@ export interface AuditEventResponsePagedResponseApiResponse {
   correlationId?: string | null;
 }
 
+export interface AuditHeatmapBand {
+  label?: string | null;
+  rangeLabel?: string | null;
+  counts?: number[] | null;
+}
+
+export interface AuditHeatmapResponse {
+  dayLabels?: string[] | null;
+  bands?: AuditHeatmapBand[] | null;
+  maxCount?: number;
+}
+
+export interface AuditOutcomeCount {
+  result?: AuditResult;
+  label?: string | null;
+  description?: string | null;
+  count?: number;
+  percent?: number;
+}
+
+export interface AuditSummaryResponse {
+  totalCount?: number;
+  outcomes?: AuditOutcomeCount[] | null;
+  unsuccessfulCount?: number;
+  succeededPercent?: number;
+  unsuccessfulPercent?: number;
+  distinctActorCount?: number;
+  mostActiveActor?: AuditActorActivity;
+  heatmap?: AuditHeatmapResponse;
+  busiestTimeRange?: string | null;
+  targetTypes?: AuditTargetTypeCount[] | null;
+  timeZone?: string | null;
+}
+
+export interface AuditSummaryResponseApiResponse {
+  success?: boolean;
+  data?: AuditSummaryResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface AuditTargetTypeCount {
+  targetType?: string | null;
+  count?: number;
+}
+
 export interface AuthenticatedUserResponse {
   id?: string;
   code?: string | null;
@@ -530,8 +625,6 @@ export interface AuthenticatedUserResponse {
 export interface BeginInvitationMfaEnrolmentRequest {
   token?: string | null;
   methodType?: MfaMethodType;
-  mobileCountryCode?: string | null;
-  mobileNumber?: string | null;
   label?: string | null;
 }
 
@@ -1213,7 +1306,6 @@ export interface CreateUserRequest {
   employeeNumber?: string | null;
   mobileCountryCode?: string | null;
   mobileNumber?: string | null;
-  accountCategory?: UserAccountCategory;
   engagementType?: EngagementType;
   departmentId?: string | null;
   organisationUnitId?: string | null;
@@ -1234,6 +1326,7 @@ export interface CreateUserRequest {
   preferredCulture?: string | null;
   timeZone?: string | null;
   justification?: string | null;
+  roleCodes?: string[] | null;
 }
 
 export interface CreateUserResponse {
@@ -1246,6 +1339,8 @@ export interface CreateUserResponse {
   invitationExpiresAtUtc?: string | null;
   activationUrl?: string | null;
   version?: number;
+  invitationCreated?: boolean;
+  deliveryMessage?: string | null;
 }
 
 export interface CreateUserResponseApiResponse {
@@ -1531,11 +1626,11 @@ export interface EnumOption {
   value?: string | null;
   label?: string | null;
   ordinal?: number;
+  description?: string | null;
 }
 
 export interface EnumOptionsResponse {
   userStatuses?: EnumOption[] | null;
-  accountCategories?: EnumOption[] | null;
   engagementTypes?: EnumOption[] | null;
   mfaRequirements?: EnumOption[] | null;
   mfaMethodTypes?: EnumOption[] | null;
@@ -1558,6 +1653,7 @@ export interface EnumOptionsResponse {
   auditResults?: EnumOption[] | null;
   /** Stored text rather than enum members: value and label are the same label. */
   organisationTypes?: EnumOption[] | null;
+  personTitles?: EnumOption[] | null;
 }
 
 export interface EnumOptionsResponseApiResponse {
@@ -1654,7 +1750,6 @@ export interface InvitationPreviewResponse {
   requiresOrganisationProfile?: boolean;
   message?: string | null;
   username?: string | null;
-  accountCategory?: string | null;
   department?: string | null;
   organisationUnit?: string | null;
   designation?: string | null;
@@ -1669,14 +1764,6 @@ export interface InvitationPreviewResponse {
   passwordRequireNonAlphanumeric?: boolean;
   mfaMandatory?: boolean;
   allowedMfaMethods?: MfaMethodType[] | null;
-  /**
-   * Dialling prefixes for the mobile number on the SMS/WhatsApp enrolment step.
-   *
-   * They arrive with the preview because the activation screen is anonymous and cannot call
-   * the authenticated `/masters/lookups/countries` endpoint — doing so answered 401 and the
-   * interceptor redirected the whole screen to sign-in.
-   */
-  dialingCodes?: string[] | null;
 }
 
 export interface InvitationPreviewResponseApiResponse {
@@ -1931,6 +2018,9 @@ export interface MfaMethodResponse {
   status?: MfaMethodStatus;
   verifiedAtUtc?: string | null;
   lastUsedAtUtc?: string | null;
+  methodTypeDisplay?: string | null;
+  statusDisplay?: string | null;
+  createdAtUtc?: string | null;
 }
 
 export interface NavigationResponse {
@@ -2286,6 +2376,7 @@ export interface PasswordPolicyResponse {
   requireDigit?: boolean;
   requireNonAlphanumeric?: boolean;
   historyCount?: number;
+  rules?: string[] | null;
 }
 
 export interface PasswordPolicyResponseApiResponse {
@@ -2664,6 +2755,7 @@ export interface ReferenceDataResponse {
   currentTenantName?: string | null;
   isSuperAdmin?: boolean;
   isTenantAdmin?: boolean;
+  organisationMfaRequirement?: MfaRequirement;
 }
 
 export interface ReferenceDataResponseApiResponse {
@@ -2784,6 +2876,7 @@ export interface RoleDetailResponse {
   name?: string | null;
   description?: string | null;
   roleType?: RoleType;
+  roleTypeDisplay?: string | null;
   status?: RoleStatus;
   statusDisplay?: string | null;
   isSystemRole?: boolean;
@@ -2840,6 +2933,7 @@ export interface RoleListItemResponse {
   name?: string | null;
   description?: string | null;
   roleType?: RoleType;
+  roleTypeDisplay?: string | null;
   status?: RoleStatus;
   statusDisplay?: string | null;
   isSystemRole?: boolean;
@@ -2991,6 +3085,28 @@ export interface SaveProtectedDraftResponseApiResponse {
   correlationId?: string | null;
 }
 
+export interface SecurityCheckResponse {
+  key?: string | null;
+  label?: string | null;
+  isMet?: boolean;
+  status?: string | null;
+}
+
+export interface SecurityPostureResponse {
+  score?: number;
+  maximumScore?: number;
+  level?: string | null;
+  summary?: string | null;
+  checks?: SecurityCheckResponse[] | null;
+}
+
+export interface SecurityRecommendationResponse {
+  title?: string | null;
+  message?: string | null;
+  action?: string | null;
+  actionLabel?: string | null;
+}
+
 export interface SelectTenantRequest {
   tenantId?: string;
 }
@@ -3050,6 +3166,8 @@ export interface SignInAttemptResponse {
   location?: string | null;
   attemptsRemaining?: number;
   triggeredLockout?: boolean;
+  clientTypeDisplay?: string | null;
+  headline?: string | null;
 }
 
 export interface SignInRequest {
@@ -3483,6 +3601,7 @@ export interface TrustedDeviceResponse {
   expiresAtUtc?: string;
   lastSeenAtUtc?: string | null;
   isExpired?: boolean;
+  clientTypeDisplay?: string | null;
 }
 
 export interface UnlockUserRequest {
@@ -3496,6 +3615,10 @@ export interface UpdateAccessRequestRequest {
   roleId?: string | null;
   accessStartsAtUtc?: string | null;
   accessEndsAtUtc?: string | null;
+  permissionCode?: string | null;
+  scopeType?: DataScopeType;
+  scopeValue?: string | null;
+  removeAccessEndDate?: boolean;
 }
 
 export interface UpdateCityRequest {
@@ -3689,7 +3812,6 @@ export interface UpdateUserRequest {
   employeeNumber?: string | null;
   mobileCountryCode?: string | null;
   mobileNumber?: string | null;
-  accountCategory?: UserAccountCategory;
   engagementType?: EngagementType;
   departmentId?: string | null;
   organisationUnitId?: string | null;
@@ -3780,6 +3902,7 @@ export interface UserDataScopeResponse {
   grantedAtUtc?: string;
   effectiveFromUtc?: string;
   effectiveToUtc?: string | null;
+  scopeTypeDisplay?: string | null;
 }
 
 export interface UserDetailResponse {
@@ -3799,7 +3922,6 @@ export interface UserDetailResponse {
   mobileCountryCode?: string | null;
   mobileNumber?: string | null;
   mobileConfirmed?: boolean;
-  accountCategory?: UserAccountCategory;
   engagementType?: EngagementType;
   departmentId?: string | null;
   departmentName?: string | null;
@@ -3848,6 +3970,8 @@ export interface UserDetailResponse {
   title?: string | null;
   preferredName?: string | null;
   workLocation?: string | null;
+  isMfaEffectivelyRequired?: boolean;
+  organisationMfaRequirement?: MfaRequirement;
 }
 
 export interface UserDetailResponseApiResponse {
@@ -3868,11 +3992,11 @@ export interface UserListItemResponse {
   id?: string;
   code?: string | null;
   displayName?: string | null;
+  preferredName?: string | null;
   email?: string | null;
   username?: string | null;
   status?: UserStatus;
   statusDisplay?: string | null;
-  accountCategory?: UserAccountCategory;
   departmentName?: string | null;
   organisationUnitName?: string | null;
   designation?: string | null;
@@ -3957,6 +4081,10 @@ export interface UserSecurityResponse {
   trustedDevices?: TrustedDeviceResponse[] | null;
   mfaMethods?: MfaMethodResponse[] | null;
   recentAttempts?: SignInAttemptResponse[] | null;
+  mfaRequirementDisplay?: string | null;
+  posture?: SecurityPostureResponse;
+  recommendation?: SecurityRecommendationResponse;
+  canGenerateRecoveryCodes?: boolean;
 }
 
 export interface UserSecurityResponseApiResponse {
@@ -3984,6 +4112,7 @@ export interface UserSessionResponse {
   isCurrent?: boolean;
   operatingTenantId?: string | null;
   operatingTenantName?: string | null;
+  clientTypeDisplay?: string | null;
 }
 
 export interface UserStatisticsResponse {

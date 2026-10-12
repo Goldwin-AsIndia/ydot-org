@@ -108,7 +108,7 @@
                 <span class="apv-t">
                   @if (access()?.isSuperAdmin) { It is a platform SuperAdmin, whose authority comes from a flag rather than granted permissions. }
                   @else { It holds a role that grants every permission in this organisation. }
-                  The ticks below are what is recorded, which is not the whole of what this account can reach.
+                  Every tick below comes from that, not from permissions granted one by one, so removing a single permission from a role will not change it.
                 </span>
               </div>
             </div>
@@ -310,7 +310,7 @@
                         @if (scope.isEffective) { <i class="ri-check-line" aria-hidden="true"></i> }
                       </span>
                       <span class="apv-check-body">
-                        <span class="apv-check-kind">{{ scopeLabel(scope.scopeType) }}</span>
+                        <span class="apv-check-kind">{{ scopeLabel(scope) }}</span>
                         <span class="apv-check-name">{{ scope.displayLabel || scope.scopeValue || 'All' }}</span>
                         <span class="apv-check-meta">{{ formatDate(scope.effectiveFromUtc) }} → {{ scope.effectiveToUtc ? formatDate(scope.effectiveToUtc) : 'no end' }}</span>
                       </span>

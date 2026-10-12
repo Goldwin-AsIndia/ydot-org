@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 import { ApiResponse, OutcomeResponse, PagedResponse } from '../Shared/models/api-response.model';
 import {
   AuditEventResponse,
+  AuditSummaryResponse,
   ConfigureTenantMenuRequest,
   CreateDepartmentRequest,
   CreateMenuDefinitionRequest,
@@ -37,6 +38,9 @@ export interface AuditSearchFilter {
   toUtc?: string;
   page?: number;
   pageSize?: number;
+
+  /** The viewer's IANA zone, so the summary's heatmap is counted on the viewer's clock. */
+  timeZone?: string;
 }
 
 /**
@@ -106,6 +110,32 @@ export class IamAdminApiService {
     return this.http
       .put<ApiResponse<OutcomeResponse>>(`${this.base}/menus/role-mapping/${roleId}`, request)
       .pipe(map((response) => response.data!));
+  }
+
+  /**
+   * Menu Configuration as a CSV file: the organisation's menu, or one role's view of it.
+   *
+   * THE SERVER BUILDS THE FILE from the same two reads the screen draws and the same search
+   * text, names it, and records the export in the audit trail under the reference it returns.
+   */
+  exportMenuConfiguration(options: { roleId?: string | null; search?: string | null }):
+    Observable<{ blob: Blob; fileName: string; reference: string }> {
+    let params = new HttpParams();
+    if (options.roleId) params = params.set('roleId', options.roleId);
+    if (options.search?.trim()) params = params.set('search', options.search.trim());
+
+    return this.http
+      .get(`${this.base}/menus/configuration/export`, { params, responseType: 'blob', observe: 'response' })
+      .pipe(map((response) => {
+        const disposition = response.headers.get('Content-Disposition') ?? '';
+        const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+
+        return {
+          blob: response.body ?? new Blob(),
+          fileName: match ? decodeURIComponent(match[1]) : 'menu-configuration.csv',
+          reference: response.headers.get('X-Export-Reference') ?? '',
+        };
+      }));
   }
 
   /**
@@ -298,6 +328,20 @@ export class IamAdminApiService {
       .pipe(map((response) => response.data!));
   }
 
+  /**
+   * The cards, outcome chart and heatmap above the trail, counted by the server over every event
+   * the filter matches - not over the page of rows the browser happens to hold.
+   */
+  getAuditSummary(filter: AuditSearchFilter): Observable<AuditSummaryResponse> {
+    const { page: _page, pageSize: _pageSize, ...criteria } = filter;
+
+    return this.http
+      .get<ApiResponse<AuditSummaryResponse>>(`${this.base}/audit-events/summary`, {
+        params: this.toParams(criteria),
+      })
+      .pipe(map((response) => response.data!));
+  }
+
   getAuditEvent(id: string): Observable<AuditEventResponse> {
     return this.http
       .get<ApiResponse<AuditEventResponse>>(`${this.base}/audit-events/${id}`)
@@ -319,11 +363,23 @@ export class IamAdminApiService {
    * The export is itself audited, including the filter used — an unusual export is exactly the
    * kind of thing a later investigation needs to see.
    */
-  exportAuditEvents(filter: AuditSearchFilter): Observable<Blob> {
-    return this.http.get(`${this.base}/audit-events/export`, {
-      params: this.toParams(filter),
-      responseType: 'blob',
-    });
+  exportAuditEvents(filter: AuditSearchFilter): Observable<{ blob: Blob; fileName: string; reference: string }> {
+    const { page: _page, pageSize: _pageSize, timeZone: _timeZone, ...criteria } = filter;
+
+    // THE SERVER NAMES THE FILE and records the export under the reference in the header, so the
+    // screen can quote it - the same as the role and menu exports.
+    return this.http
+      .get(`${this.base}/audit-events/export`, { params: this.toParams(criteria), responseType: 'blob', observe: 'response' })
+      .pipe(map((response) => {
+        const disposition = response.headers.get('Content-Disposition') ?? '';
+        const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+
+        return {
+          blob: response.body ?? new Blob(),
+          fileName: match ? decodeURIComponent(match[1]) : 'audit-trail.csv',
+          reference: response.headers.get('X-Export-Reference') ?? '',
+        };
+      }));
   }
 
   /**

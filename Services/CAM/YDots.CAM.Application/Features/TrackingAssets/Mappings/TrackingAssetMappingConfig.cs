@@ -324,13 +324,12 @@ public static class TrackingAssetMappingConfig
     /// <summary>
     /// What the caller may do to this asset next.
     ///
-    /// The same three-part rule the campaign version uses: the state allows it, the caller holds
-    /// the permission, and for Approve the caller is independent of whoever created or submitted
-    /// it.
+    /// The same two-part rule the campaign version uses: the state allows it and the caller holds
+    /// the permission. Whoever created or submitted the asset may approve it if they hold
+    /// <c>cam.tracking-assets.approve</c> too.
     /// </summary>
     public static IReadOnlyList<string> PermittedActionsFor(
-        TrackingAsset asset, Guid callerUserId, Func<string, bool> hasPermission,
-        bool callerIsTenantAdmin = false)
+        TrackingAsset asset, Func<string, bool> hasPermission)
     {
         ArgumentNullException.ThrowIfNull(asset);
         ArgumentNullException.ThrowIfNull(hasPermission);
@@ -369,8 +368,7 @@ public static class TrackingAssetMappingConfig
         }
 
         if (asset.Status == TrackingAssetStatus.Submitted
-            && hasPermission(PermissionCodes.TrackingAssetsApprove)
-            && asset.CanBeApprovedBy(callerUserId, callerIsTenantAdmin))
+            && hasPermission(PermissionCodes.TrackingAssetsApprove))
         {
             actions.Add("Approve");
         }

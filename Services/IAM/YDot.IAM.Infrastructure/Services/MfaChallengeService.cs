@@ -52,6 +52,15 @@ public sealed class MfaChallengeService(
             ? await security.GetMfaMethodAsync(mfaMethodId.Value, cancellationToken)
             : await security.GetPrimaryMfaMethodAsync(user.Id, cancellationToken);
 
+        // A NAMED METHOD THAT CANNOT BE FOUND IS AN ERROR, NOT A HINT. Falling through to the
+        // guess below once answered an e-mail enrolment with an authenticator challenge: no code
+        // was sent, and the screen still said one had been.
+        if (mfaMethodId.HasValue && (method is null || method.UserId != user.Id))
+        {
+            return Result.Failure<MfaChallengeResponse>(
+                Error.NotFound("That verification method was not found."));
+        }
+
         // No enrolled method, but the account has an authenticator secret: fall back to a TOTP
         // challenge, which needs no delivery at all.
         var methodType = method?.MethodType
@@ -104,11 +113,9 @@ public sealed class MfaChallengeService(
 
         await security.AddChallengeAsync(challenge, cancellationToken);
 
-        if (plaintextCode is not null)
-        {
-            await notifications.SendMfaCodeAsync(
-                user, tenant, businessUnit, plaintextCode, expiresAt, cancellationToken);
-        }
+        var codeWasSent = plaintextCode is not null
+                          && await notifications.SendMfaCodeAsync(
+                              user, tenant, businessUnit, plaintextCode, expiresAt, cancellationToken);
 
         var available = await security.GetMfaMethodsAsync(user.Id, cancellationToken);
 
@@ -128,8 +135,33 @@ public sealed class MfaChallengeService(
             // would let a single stolen sheet of codes authorise privileged actions.
             RecoveryCodeAccepted: purpose == MfaChallengePurpose.SignIn
                                   && user.RecoveryCodesRemaining > 0,
-            CodeWasSent: plaintextCode is not null,
-            Instruction: BuildInstruction(methodType, maskedDestination, expiresAt, now)));
+            CodeWasSent: codeWasSent,
+            Instruction: plaintextCode is not null && !codeWasSent
+                ? "We could not send your code just now. Wait a minute and ask for a new one."
+                : BuildInstruction(methodType, maskedDestination, expiresAt, now)));
+    }
+
+    /// <summary>
+    /// Checks a code against the newest open challenge of one purpose.
+    ///
+    /// Through <see cref="VerifyAsync"/>, because that is where the attempt ceiling, the expiry and
+    /// the single-use rule live. When a method is named, the challenge must be the one issued for
+    /// it, so the code mailed for one enrolment cannot confirm a different one.
+    /// </summary>
+    public async Task<Result<MfaVerificationResult>> VerifyOutstandingCodeAsync(
+        Guid userId, MfaChallengePurpose purpose, Guid? methodId, string code,
+        CancellationToken cancellationToken)
+    {
+        var outstanding = await security.GetLatestChallengeAsync(
+            userId, purpose, clock.UtcNow, cancellationToken);
+
+        if (outstanding is null || (methodId.HasValue && outstanding.MfaMethodId != methodId))
+        {
+            return Result.Failure<MfaVerificationResult>(
+                Error.TokenExpired("That code has expired. Request a new one."));
+        }
+
+        return await VerifyAsync(outstanding.ChallengeToken, code, purpose, cancellationToken);
     }
 
     public async Task<Result<MfaVerificationResult>> VerifyAsync(
@@ -357,11 +389,6 @@ public sealed class MfaChallengeService(
                 ? $"We have e-mailed you a code. It expires in {minutes} minute(s)."
                 : $"We have e-mailed a code to {maskedDestination}. It expires in {minutes} minute(s).",
 
-            MfaMethodType.Sms => string.IsNullOrWhiteSpace(maskedDestination)
-                ? $"We have sent you a code by text message. It expires in {minutes} minute(s)."
-                : $"We have sent a code by text message to {maskedDestination}. "
-                  + $"It expires in {minutes} minute(s).",
-
             MfaMethodType.SecurityKey =>
                 "Insert your security key and follow the prompt from your browser.",
 
@@ -372,7 +399,6 @@ public sealed class MfaChallengeService(
     private static string? BuildMaskedDestination(User user, MfaMethodType methodType) => methodType switch
     {
         MfaMethodType.Email => EmailValue.TryParse(user.Email)?.Masked(),
-        MfaMethodType.Sms => MobileNumberValue.TryParse(user.MobileCountryCode, user.MobileNumber)?.Masked(),
         MfaMethodType.AuthenticatorApp => "Authenticator app",
         MfaMethodType.SecurityKey => "Security key",
         _ => null

@@ -21,15 +21,16 @@
       @if (!loading() && !loadFailed()) {
         <div class="rx-head__mix" role="group" aria-label="Roles by status">
           <span class="rx-head__label">Status mix</span>
+          <!-- One segment and one key entry per state the server names, in its order and words. -->
           <div class="rx-head__bar" aria-hidden="true">
-            @if (catalogueFigures().active) { <i class="is-active" [style.flex-grow]="catalogueFigures().active"></i> }
-            @if (catalogueFigures().draft) { <i class="is-draft" [style.flex-grow]="catalogueFigures().draft"></i> }
-            @if (catalogueFigures().retired) { <i class="is-retired" [style.flex-grow]="catalogueFigures().retired"></i> }
+            @for (item of statusBreakdown(); track item.status) {
+              @if (item.count) { <i [ngClass]="'is-' + statusBucket(item.status)" [style.flex-grow]="item.count"></i> }
+            }
           </div>
           <ul class="rx-head__key">
-            <li><span class="rx-dot rx-dot--active" aria-hidden="true"></span>In use <b>{{ catalogueFigures().active }}</b></li>
-            <li><span class="rx-dot rx-dot--draft" aria-hidden="true"></span>Drafts <b>{{ catalogueFigures().draft }}</b></li>
-            <li><span class="rx-dot rx-dot--retired" aria-hidden="true"></span>Retired <b>{{ catalogueFigures().retired }}</b></li>
+            @for (item of statusBreakdown(); track item.status) {
+              <li><span class="rx-dot" [ngClass]="'rx-dot--' + statusBucket(item.status)" aria-hidden="true"></span>{{ item.label }} <b>{{ item.count }}</b></li>
+            }
           </ul>
         </div>
 
@@ -102,7 +103,7 @@
             <div class="rx-search">
               <i class="ri-search-line" aria-hidden="true"></i>
               <label for="roleSearchInput" class="visually-hidden">Search roles</label>
-              <input id="roleSearchInput" type="text" placeholder="Search by role name or code"
+              <input id="roleSearchInput" type="text" placeholder="Search by role name, code or purpose"
                      [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)">
               @if (searchQuery()) {
                 <button type="button" class="rx-search__clear" aria-label="Clear search" (click)="searchQuery.set('')">
@@ -114,11 +115,22 @@
             <input type="checkbox" id="filterPanelToggle" class="rx-hidden-toggle" hidden>
             <label for="filterPanelToggle" class="btn btn-outline-secondary btn-sm">
               <i class="ri-filter-3-line" aria-hidden="true"></i> Filters
-              @if (filterType() || filterFunction()) { <span class="rx-filter-dot" aria-label="Filters active"></span> }
+              @if (panelFiltersActive()) { <span class="rx-filter-dot" aria-label="Filters active"></span> }
             </label>
 
-            <!-- Filter popover -->
-            <div class="rx-fpanel" role="dialog" aria-label="Filters">
+            <!-- Export: the server builds the CSV from the filter the table is showing. -->
+            @if (canExportRoles()) {
+              <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="exporting()" (click)="exportRoles()">
+                @if (exporting()) { <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> }
+                @else { <i class="ri-download-2-line" aria-hidden="true"></i> }
+                Export
+              </button>
+            }
+
+            <!-- Filter popover. A tool panel, so it opts out of the shared pop-up guard
+                 (data-popup-free): the guard did not recognise the close label below as a close
+                 control, drew a second X over it, and that X had nothing to press. -->
+            <div class="rx-fpanel" role="dialog" aria-label="Filters" data-popup-free>
               <div class="rx-fpanel__head">
                 <div>
                   <div class="rx-fpanel__title">Filters</div>
@@ -127,13 +139,31 @@
                 <label for="filterPanelToggle" class="rx-x" aria-label="Close filters"><i class="ri-close-line" aria-hidden="true"></i></label>
               </div>
               <div class="rx-fpanel__body">
+                <!-- Role type: the server's types and labels, for the types this catalogue holds. -->
                 <div class="rx-fgroup">
                   <div class="rx-fgroup__label">Role type</div>
                   <div class="rx-pills">
                     <button type="button" class="rx-pill" [class.rx-pill--on]="filterType() === ''" (click)="filterType.set('')">All types</button>
-                    @for (type of data()?.roleTypeOptions ?? []; track type.id) {
-                      <button type="button" class="rx-pill" [class.rx-pill--on]="filterType() === type.id" (click)="filterType.set(type.id ?? '')">{{ type.name }}</button>
+                    @for (type of roleTypeChoices(); track type.value) {
+                      <button type="button" class="rx-pill" [class.rx-pill--on]="filterType() === type.value" (click)="filterType.set(type.value)">{{ type.label }}</button>
                     }
+                  </div>
+                </div>
+                <!-- Privilege and origin: the two yes/no facts every role carries. -->
+                <div class="rx-fgroup">
+                  <div class="rx-fgroup__label">Privilege</div>
+                  <div class="rx-pills">
+                    <button type="button" class="rx-pill" [class.rx-pill--on]="filterPrivilege() === ''" (click)="filterPrivilege.set('')">All</button>
+                    <button type="button" class="rx-pill" [class.rx-pill--on]="filterPrivilege() === 'true'" (click)="filterPrivilege.set('true')">Privileged</button>
+                    <button type="button" class="rx-pill" [class.rx-pill--on]="filterPrivilege() === 'false'" (click)="filterPrivilege.set('false')">Standard</button>
+                  </div>
+                </div>
+                <div class="rx-fgroup">
+                  <div class="rx-fgroup__label">Origin</div>
+                  <div class="rx-pills">
+                    <button type="button" class="rx-pill" [class.rx-pill--on]="filterOrigin() === ''" (click)="filterOrigin.set('')">All</button>
+                    <button type="button" class="rx-pill" [class.rx-pill--on]="filterOrigin() === 'true'" (click)="filterOrigin.set('true')">Built in</button>
+                    <button type="button" class="rx-pill" [class.rx-pill--on]="filterOrigin() === 'false'" (click)="filterOrigin.set('false')">Created here</button>
                   </div>
                 </div>
                 <div class="rx-fgroup">
@@ -180,7 +210,7 @@
             <button class="rx-link" type="button" (click)="clearFilters()">Clear filters</button>
           </div>
         } @else {
-          <table class="rx-table">
+          <table class="rx-table" [attr.aria-busy]="filtering()">
             <thead>
               <tr>
                 <th scope="col">Role</th>
@@ -203,8 +233,9 @@
                         <span class="rx-role__name">{{ role.roleName }}</span>
                         <span class="rx-role__code">{{ role.roleCode }}</span>
                       </span>
-                      @if (role.isPrivileged) { <span class="rx-note" title="Every assignment of this role is reviewed">Privileged</span> }
-                      @if (role.isSystemRole) { <span class="rx-note" title="Comes with the platform. It cannot be renamed, retired or deleted.">Built in</span> }
+                      @if (role.isPrivileged) { <span class="rx-note" title="Marked as sensitive: access requests for it are flagged, and sensitive-only access reviews include it.">Privileged</span> }
+                      @if (role.isSystemRole) { <span class="rx-note" title="Comes with the platform. It cannot be renamed, deactivated or deleted.">Built in</span> }
+                      @if (role.isDefaultRole) { <span class="rx-note" title="Given to a new person when no role is chosen for them.">Default</span> }
                     </div>
                   </td>
                   <td>{{ role.roleType || '—' }}</td>
@@ -215,7 +246,7 @@
                     </span>
                   </td>
                   <td class="is-num">{{ role.assignedUserCount }}</td>
-                  <td class="is-num">{{ role.permissionCount }}</td>
+                  <td class="is-num">{{ role.grantsAllPermissions ? 'All' : role.permissionCount }}</td>
                   <td class="rx-muted">{{ role.effectiveDate }}</td>
                   <td class="rx-row__chev">
                     <button type="button" class="rx-x" [attr.aria-expanded]="detailRole()?.id === role.id"
@@ -237,21 +268,23 @@
                             <h2 class="rx-detail__name" id="roleDetailTitle">{{ d.name }}</h2>
                             <p class="rx-detail__purpose">{{ d.purpose || 'No description has been written for this role yet.' }}</p>
                             <ul class="rx-facts">
-                              <li><i [class]="d.isPrivileged ? 'ri-shield-keyhole-line' : 'ri-shield-line'" aria-hidden="true"></i>{{ d.isPrivileged ? 'Privileged — every assignment is reviewed' : 'Standard — assigned without extra review' }}</li>
-                              @if (d.isDefaultRole) { <li><i class="ri-group-line" aria-hidden="true"></i>Given to every new person</li> }
+                              <li><i [class]="d.isPrivileged ? 'ri-shield-keyhole-line' : 'ri-shield-line'" aria-hidden="true"></i>{{ d.isPrivileged ? 'Privileged — flagged as sensitive in access requests and reviews' : 'Standard — not flagged for extra review' }}</li>
+                              @if (d.isDefaultRole) { <li><i class="ri-group-line" aria-hidden="true"></i>Default role — given to a new person when no role is chosen</li> }
                               @if (d.grantsAllPermissions) { <li><i class="ri-key-2-line" aria-hidden="true"></i>Grants every permission</li> }
-                              @if (d.isSystemRole) { <li><i class="ri-lock-2-line" aria-hidden="true"></i>Built in — cannot be renamed, retired or deleted</li> }
+                              @if (d.isSystemRole) { <li><i class="ri-lock-2-line" aria-hidden="true"></i>Built in — cannot be renamed, deactivated or deleted</li> }
                             </ul>
                           </div>
+                          <!-- Each button is drawn when the server's permittedActions for this role
+                               allows the action and the signed-in person holds its permission. -->
                           <div class="rx-detail__actions">
                             @if (d.canActivate) {
-                              <button class="btn btn-primary btn-sm" type="button" [disabled]="submitting()" (click)="submitRole(d)">
-                                <i class="ri-check-double-line" aria-hidden="true"></i> Put into use
+                              <button class="btn btn-primary btn-sm" type="button" [disabled]="submitting()" (click)="activateRole(d)">
+                                <i class="ri-check-double-line" aria-hidden="true"></i> Activate
                               </button>
                             }
-                            @if (d.canRetire) {
-                              <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="submitting()" (click)="retireRole(d)">
-                                <i class="ri-archive-line" aria-hidden="true"></i> Retire
+                            @if (d.canDeactivate) {
+                              <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="submitting()" (click)="deactivateRole(d)">
+                                <i class="ri-archive-line" aria-hidden="true"></i> Deactivate
                               </button>
                             }
                             @if (d.canEdit) {
@@ -264,15 +297,13 @@
                                 <i class="ri-file-copy-line" aria-hidden="true"></i> Clone
                               </button>
                             }
-                            @if (selectedItem(); as item) {
-                              <button type="button" class="btn btn-primary btn-sm" (click)="openCompareModal(item)">
-                                <i class="ri-arrow-left-right-line" aria-hidden="true"></i> Compare
+                            <button type="button" class="btn btn-primary btn-sm" (click)="openCompareModal(d)">
+                              <i class="ri-arrow-left-right-line" aria-hidden="true"></i> Compare
+                            </button>
+                            @if (d.canDelete) {
+                              <button type="button" class="btn btn-danger btn-sm" (click)="openDeleteRoleModal(d)">
+                                <i class="ri-delete-bin-line" aria-hidden="true"></i> Delete
                               </button>
-                              @if (item.canDelete) {
-                                <button type="button" class="btn btn-danger btn-sm" (click)="openDeleteRoleModal(item)">
-                                  <i class="ri-delete-bin-line" aria-hidden="true"></i> Delete
-                                </button>
-                              }
                             }
                           </div>
                         </div>
@@ -280,7 +311,7 @@
                         <!-- Underlined tabs -->
                         <div class="rx-dtabs" role="tablist">
                           <button type="button" role="tab" class="rx-tab" [class.is-on]="detailTab() === 'perms'" [attr.aria-selected]="detailTab() === 'perms'" (click)="detailTab.set('perms')">
-                            Permissions <span class="rx-tab__n">{{ permStats().granted }}</span>
+                            Permissions <span class="rx-tab__n">{{ d.grantsAllPermissions ? 'All' : permStats().granted }}</span>
                           </button>
                           <button type="button" role="tab" class="rx-tab" [class.is-on]="detailTab() === 'sod'" [attr.aria-selected]="detailTab() === 'sod'" (click)="detailTab.set('sod')">
                             Cannot be combined with <span class="rx-tab__n">{{ d.incompatibleRoles.length }}</span>
@@ -357,17 +388,26 @@
                           </div>
                         } @else if (detailTab() === 'perms') {
                           <div class="rx-ptools">
-                            <p class="rx-ptools__text">
-                              <b>{{ permStats().granted }}</b> allowed
-                              @if (permStats().denied) { · <b>{{ permStats().denied }}</b> blocked }
-                              @if (permStats().sensitive) { · <b>{{ permStats().sensitive }}</b> sensitive }
-                            </p>
+                            <!-- A role that grants everything (the API's grantsAllTenantPermissions) holds no
+                                 list, so its counts are all zero. Printed as counts it read "0 allowed" on the
+                                 one role that allows everything. -->
+                            @if (d.grantsAllPermissions) {
+                              <p class="rx-ptools__text"><b>Every permission</b> in the organisation is allowed</p>
+                            } @else {
+                              <p class="rx-ptools__text">
+                                <b>{{ permStats().granted }}</b> allowed
+                                @if (permStats().denied) { · <b>{{ permStats().denied }}</b> blocked }
+                                @if (permStats().sensitive) { · <b>{{ permStats().sensitive }}</b> sensitive }
+                              </p>
+                            }
                             <div class="rx-ptools__right">
-                              <div class="rx-search rx-search--sm">
-                                <i class="ri-search-line" aria-hidden="true"></i>
-                                <input type="text" placeholder="Find a permission" aria-label="Find a permission"
-                                       [value]="permFilter()" (input)="permFilter.set($any($event.target).value)">
-                              </div>
+                              @if (!d.grantsAllPermissions) {
+                                <div class="rx-search rx-search--sm">
+                                  <i class="ri-search-line" aria-hidden="true"></i>
+                                  <input type="text" placeholder="Find a permission" aria-label="Find a permission"
+                                         [value]="permFilter()" (input)="permFilter.set($any($event.target).value)">
+                                </div>
+                              }
                               @if (detailPermGroups().length) {
                                 <button type="button" class="rx-link" (click)="toggleAllGroups()">{{ allGroupsOpen() ? 'Hide all names' : 'Show all names' }}</button>
                               }
@@ -436,7 +476,11 @@
                             </p>
                           } @else {
                             <div class="rx-empty">
-                              <p>{{ permFilter() ? 'No permission matches "' + permFilter() + '".' : 'This role has no permissions yet.' }}</p>
+                              @if (d.grantsAllPermissions) {
+                                <p>This role grants every permission the organisation has, including any added later. There is no list to show or change.</p>
+                              } @else {
+                                <p>{{ permFilter() ? 'No permission matches "' + permFilter() + '".' : 'This role has no permissions yet.' }}</p>
+                              }
                             </div>
                           }
                         }
@@ -444,7 +488,7 @@
                         <!-- ---- Segregation of duties ---- -->
                         @if (detailTab() === 'sod') {
                           <div class="rx-ptools">
-                            <p class="rx-ptools__text">A person holding <b>{{ d.name }}</b> cannot also be given these roles.</p>
+                            <p class="rx-ptools__text">Roles that should not be held together with <b>{{ d.name }}</b>, and what happens when somebody tries.</p>
                             @if (!showConflictForm() && canManageConflicts()) {
                               <button type="button" class="rx-btn rx-btn--line rx-btn--sm" (click)="openConflictForm()" [disabled]="conflictCandidates().length === 0">
                                 <i class="ri-add-line" aria-hidden="true"></i> Create
@@ -463,7 +507,7 @@
                                     <td class="rx-rules__role">{{ conflict.name }}</td>
                                     <td>
                                       <span class="rx-enf" [class.is-block]="conflict.isBlocking">
-                                        <i [class]="conflict.isBlocking ? 'ri-forbid-2-line' : 'ri-flag-2-line'" aria-hidden="true"></i>{{ conflict.isBlocking ? 'Not allowed' : 'Allowed, but flagged for review' }}
+                                        <i [class]="conflict.isBlocking ? 'ri-forbid-2-line' : 'ri-flag-2-line'" aria-hidden="true"></i>{{ conflict.isBlocking ? 'Not allowed' : 'Allowed, shown as a warning' }}
                                       </span>
                                     </td>
                                     <td class="rx-muted">{{ conflict.reason || '—' }}</td>
@@ -525,7 +569,7 @@
                                     <button type="button" class="rx-choice__card" [class.rx-choice__card--on]="!conflictForm().isBlocking"
                                             (click)="conflictForm.set({ ...conflictForm(), isBlocking: false })">
                                       <i class="ri-flag-2-line" aria-hidden="true"></i>
-                                      <span><b>Flag it</b><small>Allow, but mark for review</small></span>
+                                      <span><b>Flag it</b><small>Allow, and show a warning</small></span>
                                     </button>
                                   </div>
                                 </div>
@@ -557,12 +601,13 @@
                             <div><dt>Role type</dt><dd>{{ d.roleType || '—' }}</dd></div>
                             <div><dt>Owning function</dt><dd>{{ d.owningFunction || '—' }}</dd></div>
                             <div><dt>Status</dt><dd>{{ d.approvalState }}</dd></div>
-                            <div><dt>Privilege</dt><dd>{{ d.privilegeLevel }}</dd></div>
-                            <div><dt>Given to every new person</dt><dd>{{ d.isDefaultRole ? 'Yes' : 'No' }}</dd></div>
+                            <div><dt>Privilege</dt><dd>{{ d.isPrivileged ? 'Privileged' : 'Standard' }}</dd></div>
+                            <div><dt>Built in</dt><dd>{{ d.isSystemRole ? 'Yes' : 'No' }}</dd></div>
+                            <div><dt>Given to everybody (default role)</dt><dd>{{ d.isDefaultRole ? 'Yes' : 'No' }}</dd></div>
                             <div><dt>People with this role</dt><dd>{{ d.assignedUserCount }}</dd></div>
                             <div><dt>Menus they can see</dt><dd>{{ d.visibleMenuCount }}</dd></div>
-                            <div><dt>Priority (lower comes first)</dt><dd>{{ d.priority }}</dd></div>
-                            <div><dt>Version</dt><dd>{{ d.roleVersion }}</dd></div>
+                            <div><dt>Priority (higher comes first)</dt><dd>{{ d.priority }}</dd></div>
+                            <div><dt>Version</dt><dd>{{ d.version }}</dd></div>
                             <div><dt>Created</dt><dd>{{ d.createdAt }}</dd></div>
                             <div><dt>Last changed</dt><dd>{{ d.updatedAt }}</dd></div>
                           </dl>
@@ -599,7 +644,8 @@
           <div class="rx-oc__name" [class.rx-oc__name--empty]="!createRoleForm().name">{{ createRoleForm().name || 'Untitled role' }}</div>
           <div class="rx-oc__meta">
             <span class="rx-oc__code">{{ createRoleForm().code || 'ROLE_CODE' }}</span>
-            <span class="rx-flag rx-flag--amber">Draft</span>
+            <!-- The state in the server's word: the role's own while editing, Draft for a new one. -->
+            <span class="rx-flag rx-flag--amber">{{ editingRoleId() ? editingStatusLabel() : statusLabel('draft') }}</span>
             @if (createRoleForm().isPrivileged) { <span class="rx-flag rx-flag--purple">Privileged</span> }
             @if (selectedPermissionCodes().length) { <span class="rx-flag">{{ selectedPermissionCodes().length }} permissions</span> }
           </div>
@@ -620,6 +666,7 @@
             <div class="rx-field">
               <label class="rx-label" for="roleNameInput">Role name <span class="rx-req">*</span></label>
               <input id="roleNameInput" type="text" class="rx-input" maxlength="120" (blur)="touchRole('name')" placeholder="e.g. Donation Manager" [class.is-invalid]="!!roleErr('name')"
+                     [disabled]="editingSystemRole()" title="{{ editingSystemRole() ? 'A built-in role keeps its name.' : '' }}"
                      [ngModel]="createRoleForm().name" (ngModelChange)="createRoleForm.set({...createRoleForm(), name: $event})">
               @if (roleErr('name')) { <div class="invalid-feedback d-block">{{ roleErr('name') }}</div> }
             </div>
@@ -645,7 +692,7 @@
         <div class="rx-step__num">2</div>
         <div class="rx-step__main">
           <div class="rx-step__title">Classification</div>
-          <div class="rx-step__sub">How the role is reviewed and who gets it.</div>
+          <div class="rx-step__sub">How the role is flagged, who gets it by default and where it is listed.</div>
 
           <div class="rx-field">
             <span class="rx-label">Privilege level <span class="rx-req">*</span></span>
@@ -653,12 +700,12 @@
               <button type="button" class="rx-choice__card" [class.rx-choice__card--on]="createRoleForm().isPrivileged === false"
                       (click)="createRoleForm.set({...createRoleForm(), isPrivileged: false})">
                 <i class="ri-shield-line" aria-hidden="true"></i>
-                <span><b>Standard</b><small>Assigned without extra review</small></span>
+                <span><b>Standard</b><small>Not flagged for extra review</small></span>
               </button>
               <button type="button" class="rx-choice__card" [class.rx-choice__card--on]="createRoleForm().isPrivileged === true"
                       (click)="createRoleForm.set({...createRoleForm(), isPrivileged: true})">
                 <i class="ri-shield-keyhole-line" aria-hidden="true"></i>
-                <span><b>Privileged</b><small>Every assignment is reviewed</small></span>
+                <span><b>Privileged</b><small>Flagged as sensitive in requests and reviews</small></span>
               </button>
             </div>
             @if (roleErr('isPrivileged')) { <div class="invalid-feedback d-block">{{ roleErr('isPrivileged') }}</div> }
@@ -675,10 +722,20 @@
               <button type="button" class="rx-choice__card" [class.rx-choice__card--on]="createRoleForm().isDefaultRole === true"
                       (click)="createRoleForm.set({...createRoleForm(), isDefaultRole: true})">
                 <i class="ri-group-line" aria-hidden="true"></i>
-                <span><b>Yes</b><small>Every new person gets it</small></span>
+                <span><b>Yes</b><small>New people get it when no role is chosen</small></span>
               </button>
             </div>
             @if (roleErr('isDefaultRole')) { <div class="invalid-feedback d-block">{{ roleErr('isDefaultRole') }}</div> }
+            <!-- One default per organisation. Which role holds it now comes from the catalogue. -->
+            @if (createRoleForm().isDefaultRole === true) {
+              @if (currentDefaultRole(); as current) {
+                @if (current.id !== editingRoleId()) {
+                  <small class="rx-hint">One role can be the default. This one takes over from {{ current.name }} once it is active.</small>
+                }
+              } @else {
+                <small class="rx-hint">One role can be the default. This one becomes it once it is active.</small>
+              }
+            }
           </div>
 
           <div class="rx-grid2">
@@ -691,16 +748,18 @@
                        (ngModelChange)="createRoleForm.set({...createRoleForm(), priority: +$event || 0})">
                 <button type="button" aria-label="Increase" (click)="stepPriority(10)"><i class="ri-add-line" aria-hidden="true"></i></button>
               </div>
-              <small class="rx-hint">Lower comes first.</small>
+              @if (roleErr('priority')) { <div class="invalid-feedback d-block">{{ roleErr('priority') }}</div> }
+              @else { <small class="rx-hint">Higher comes first in role lists and pickers.</small> }
             </div>
 
-            <!-- Owning function: free text with suggestions (no catalogue on the server). -->
+            <!-- Owning function: free text, with the functions the catalogue's roles already use
+                 offered as suggestions. The server keeps 40 characters. -->
             <div class="rx-field">
               <label class="rx-label" for="owningFunctionInput">Owning function</label>
               <div class="rx-dd" [class.rx-dd--open]="openDd() === 'owning'" (click)="$event.stopPropagation()">
                 <div class="rx-combo">
                   <i class="ri-briefcase-4-line rx-dd__lead" aria-hidden="true"></i>
-                  <input id="owningFunctionInput" type="text" placeholder="e.g. Fundraising" maxlength="80" autocomplete="off"
+                  <input id="owningFunctionInput" type="text" placeholder="e.g. Fundraising" [attr.maxlength]="maxOwningFunction" autocomplete="off"
                          [ngModel]="createRoleForm().displayTag"
                          (ngModelChange)="setOwningFunction($event)"
                          (focus)="openDd.set('owning')">
@@ -716,6 +775,7 @@
                   </div>
                 }
               </div>
+              @if (roleErr('displayTag')) { <div class="invalid-feedback d-block">{{ roleErr('displayTag') }}</div> }
             </div>
           </div>
         </div>
@@ -828,6 +888,20 @@
               }
             </div>
           </div>
+
+          <!-- Why they cannot be combined: asked once roles are picked, and recorded on each
+               rule. It is what a person refused the combination is shown. -->
+          @if (selectedIncompatibleRoleIds().length > 0) {
+            <div class="rx-field">
+              <label class="rx-label" for="incompatReasonInput">Why they cannot be combined <span class="rx-req">*</span></label>
+              <textarea id="incompatReasonInput" class="rx-input" rows="2" maxlength="1000"
+                        placeholder="e.g. The person who raises a payment must not also approve it."
+                        [class.is-invalid]="!!roleErr('incompatReason')" (blur)="touchRole('incompatReason')"
+                        [ngModel]="incompatReason()" (ngModelChange)="incompatReason.set($event)"></textarea>
+              @if (roleErr('incompatReason')) { <div class="invalid-feedback d-block">{{ roleErr('incompatReason') }}</div> }
+              @else { <small class="rx-hint">Saved as "Not allowed" rules. Shown to anyone who is refused the combination.</small> }
+            </div>
+          }
         </div>
       </section>
       }
@@ -858,7 +932,7 @@
       <div class="rx-modal__top">
         <span class="rx-ring"><i class="ri-arrow-left-right-line" aria-hidden="true"></i></span>
         <h5 class="rx-modal__title" id="compareModalTitle">Compare roles</h5>
-        <p class="rx-modal__sub">See which permissions the two roles share and where they differ.</p>
+        <p class="rx-modal__sub">See which permissions the two roles both allow and where they differ. Hover a permission for its code.</p>
       </div>
 
       <div class="rx-modal__body">
@@ -866,8 +940,8 @@
           <div class="rx-vs__card">
             <span class="rx-vs__label">Base role</span>
             <div class="rx-vs__role">
-              <span class="rx-dd__av rx-dd__av--lg" [ngStyle]="avatarStyle(role.roleName)">{{ role.roleName | slice:0:1 }}</span>
-              <span><b>{{ role.roleName }}</b><small>{{ role.roleCode }}</small></span>
+              <span class="rx-dd__av rx-dd__av--lg" [ngStyle]="avatarStyle(role.name)">{{ role.name | slice:0:1 }}</span>
+              <span><b>{{ role.name }}</b><small>{{ role.code }}</small></span>
             </div>
           </div>
 
@@ -919,21 +993,21 @@
         @if (compareResult(); as result) {
           <div class="rx-cmp">
             <div class="rx-cmp__col rx-cmp__col--left">
-              <div class="rx-cmp__head"><b>{{ result.onlyInLeft.length }}</b><span>Only in {{ role.roleName }}</span></div>
+              <div class="rx-cmp__head"><b>{{ result.onlyInLeft.length }}</b><span>Only in {{ role.name }}</span></div>
               <div class="rx-cmp__list">
-                @for (c of result.onlyInLeft; track c) { <code>{{ c }}</code> } @empty { <em>Nothing</em> }
+                @for (c of result.onlyInLeft; track c.code) { <code [title]="c.code">{{ c.name }}</code> } @empty { <em>Nothing</em> }
               </div>
             </div>
             <div class="rx-cmp__col rx-cmp__col--both">
               <div class="rx-cmp__head"><b>{{ result.inBoth.length }}</b><span>In both</span></div>
               <div class="rx-cmp__list">
-                @for (c of result.inBoth; track c) { <code>{{ c }}</code> } @empty { <em>Nothing</em> }
+                @for (c of result.inBoth; track c.code) { <code [title]="c.code">{{ c.name }}</code> } @empty { <em>Nothing</em> }
               </div>
             </div>
             <div class="rx-cmp__col rx-cmp__col--right">
               <div class="rx-cmp__head"><b>{{ result.onlyInRight.length }}</b><span>Only in {{ compareRoleLabel() }}</span></div>
               <div class="rx-cmp__list">
-                @for (c of result.onlyInRight; track c) { <code>{{ c }}</code> } @empty { <em>Nothing</em> }
+                @for (c of result.onlyInRight; track c.code) { <code [title]="c.code">{{ c.name }}</code> } @empty { <em>Nothing</em> }
               </div>
             </div>
           </div>
@@ -952,7 +1026,8 @@
 }
 
 <!-- =====================================================================
-     DELETE DRAFT — popup
+     DELETE ROLE — popup
+     Offered when the server lists Delete for the role: not built in, and never held by anybody.
      ===================================================================== -->
 @if (showDeleteRoleModal() && actionRole(); as role) {
   <div class="rx-modal-wrap" (click)="closeDeleteRoleModal()">
@@ -961,13 +1036,13 @@
 
       <div class="rx-modal__top">
         <span class="rx-ring rx-ring--danger"><i class="ri-delete-bin-line" aria-hidden="true"></i></span>
-        <h5 class="rx-modal__title" id="deleteModalTitle">Delete this draft?</h5>
-        <p class="rx-modal__sub"><b>{{ role.roleName }}</b> ({{ role.roleCode }}) will be removed permanently. This cannot be undone.</p>
+        <h5 class="rx-modal__title" id="deleteModalTitle">Delete this role?</h5>
+        <p class="rx-modal__sub"><b>{{ role.name }}</b> ({{ role.code }}) will be removed permanently, with its permissions and any "cannot be combined with" rules that name it. This cannot be undone.</p>
       </div>
 
       <div class="rx-modal__body">
         <label class="rx-label" for="deleteReasonInput">Reason <span class="rx-req">*</span></label>
-        <textarea id="deleteReasonInput" class="rx-input" rows="3" maxlength="1000" placeholder="Why is this draft being deleted?"
+        <textarea id="deleteReasonInput" class="rx-input" rows="3" maxlength="1000" placeholder="Why is this role being deleted?"
                   [class.rx-input--err]="!!deleteError()"
                   [ngModel]="deleteReason()" (ngModelChange)="deleteReason.set($event)"
                   [attr.aria-invalid]="!!deleteError()" [attr.aria-describedby]="deleteError() ? 'deleteReasonError' : null"></textarea>
@@ -982,7 +1057,7 @@
       </div>
 
       <div class="rx-modal__foot">
-        <button class="rx-btn rx-btn--ghost" type="button" (click)="closeDeleteRoleModal()">Keep draft</button>
+        <button class="rx-btn rx-btn--ghost" type="button" (click)="closeDeleteRoleModal()">Keep role</button>
         <button class="rx-btn rx-btn--danger" type="button" [disabled]="submitting()" (click)="confirmDeleteRole()">
           @if (submitting()) { <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> }
           @else { <i class="ri-delete-bin-line" aria-hidden="true"></i> }
@@ -994,8 +1069,8 @@
 }
 
 <!-- =====================================================================
-     PUT INTO USE / RETIRE — popup
-     Both are asked first and both take a reason. Retiring takes a role's permissions from
+     ACTIVATE / DEACTIVATE — popup
+     Both are asked first and both take a reason. Deactivating takes a role's permissions from
      everybody who holds it, and what is typed here is the reason the audit trail records.
      Same shell as the delete popup above.
      ===================================================================== -->
@@ -1006,16 +1081,16 @@
 
       <div class="rx-modal__top">
         <span class="rx-ring" [class.rx-ring--danger]="change.target === 'inactive'"><i [class]="change.target === 'active' ? 'ri-check-double-line' : 'ri-archive-line'" aria-hidden="true"></i></span>
-        <h5 class="rx-modal__title" id="statusModalTitle">{{ change.target === 'active' ? 'Put this role into use?' : 'Retire this role?' }}</h5>
+        <h5 class="rx-modal__title" id="statusModalTitle">{{ change.target === 'active' ? 'Activate this role?' : 'Deactivate this role?' }}</h5>
         <p class="rx-modal__sub">
           <b>{{ change.name }}</b> ({{ change.code }})
           @if (change.target === 'inactive') {
             @if (change.holders > 0) {
-              stops giving its permissions to the {{ change.holders }} {{ change.holders === 1 ? 'person who holds' : 'people who hold' }} it, straight away. They keep the role, so putting it back into use returns their access.
+              stops giving its permissions to the {{ change.holders }} {{ change.holders === 1 ? 'person who holds' : 'people who hold' }} it. Anybody signed in now keeps them until their session is next renewed. They keep the role, so activating it again returns their access.
             } @else {
               can no longer be given to anybody. Nobody holds it at the moment.
             }
-          } @else if (change.wasRetired && change.holders > 0) {
+          } @else if (change.wasInactive && change.holders > 0) {
             can be given to people again, and the {{ change.holders }} {{ change.holders === 1 ? 'person who still holds it gets' : 'people who still hold it get' }} its permissions back.
           } @else {
             becomes available to give to people, with the permissions it carries.
@@ -1026,7 +1101,7 @@
       <div class="rx-modal__body">
         <label class="rx-label" for="statusReasonInput">Reason <span class="rx-req">*</span></label>
         <textarea id="statusReasonInput" class="rx-input" rows="3" maxlength="1000"
-                  [placeholder]="change.target === 'active' ? 'Why is this role being put into use?' : 'Why is this role being retired?'"
+                  [placeholder]="change.target === 'active' ? 'Why is this role being activated?' : 'Why is this role being deactivated?'"
                   [class.rx-input--err]="!!statusError()"
                   [ngModel]="statusReason()" (ngModelChange)="statusReason.set($event)"
                   [attr.aria-invalid]="!!statusError()" [attr.aria-describedby]="statusError() ? 'statusReasonError' : null"></textarea>
@@ -1045,7 +1120,7 @@
         <button class="rx-btn" [ngClass]="change.target === 'active' ? 'rx-btn--primary' : 'rx-btn--danger'" type="button" [disabled]="submitting()" (click)="confirmStatusChange()">
           @if (submitting()) { <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> }
           @else { <i [class]="change.target === 'active' ? 'ri-check-double-line' : 'ri-archive-line'" aria-hidden="true"></i> }
-          {{ change.target === 'active' ? 'Put into use' : 'Retire role' }}
+          {{ change.target === 'active' ? 'Activate' : 'Deactivate' }}
         </button>
       </div>
     </div>

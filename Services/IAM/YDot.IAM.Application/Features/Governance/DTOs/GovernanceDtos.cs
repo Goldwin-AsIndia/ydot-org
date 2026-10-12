@@ -29,13 +29,24 @@ public sealed record CreateAccessRequestRequest(
     /// <summary>Submits straight away rather than leaving it as a draft.</summary>
     bool SubmitImmediately = true);
 
-/// <summary>Editing a draft request.</summary>
+/// <summary>
+/// Editing a draft, or a request that was sent back.
+///
+/// A field left null is left as it is. The two flags exist because null cannot also mean "remove":
+/// an end date or a scope that was typed by mistake has to be removable.
+/// </summary>
 public sealed record UpdateAccessRequestRequest(
     long ExpectedVersion,
     string? BusinessJustification = null,
     Guid? RoleId = null,
     DateTimeOffset? AccessStartsAtUtc = null,
-    DateTimeOffset? AccessEndsAtUtc = null);
+    DateTimeOffset? AccessEndsAtUtc = null,
+    string? PermissionCode = null,
+    DataScopeType? ScopeType = null,
+    string? ScopeValue = null,
+
+    /// <summary>Removes the end date, making the request one for permanent access.</summary>
+    bool RemoveAccessEndDate = false);
 
 /// <summary>Submitting a draft for a decision.</summary>
 public sealed record SubmitAccessRequestRequest(long ExpectedVersion, string? Comment = null);
@@ -182,7 +193,72 @@ public sealed record AccessRequestListItemResponse(
     /// shown a scope nobody had asked for.
     /// </summary>
     DataScopeType? ScopeType = null,
-    string? ScopeValue = null);
+    string? ScopeValue = null,
+
+    /// <summary>The scope type in the words the reference data uses for it.</summary>
+    string? ScopeTypeDisplay = null,
+
+    /// <summary>The permission's name, when the request is for a single permission.</summary>
+    string? PermissionName = null,
+
+    /// <summary>
+    /// What THIS caller may do with THIS request: View, Edit, Submit, Withdraw, Approve, Reject,
+    /// Return. Worked out from the state, the caller's permissions and the independence rule, so
+    /// the queue draws its buttons from here and offers nothing the API would refuse.
+    /// </summary>
+    IReadOnlyList<string>? PermittedActions = null,
+
+    /// <summary>Why the caller may not decide a request that is waiting. Null when they may.</summary>
+    string? CannotDecideReason = null);
+
+/// <summary>
+/// The figures above the access request queue, for the same filter the queue is showing.
+///
+/// COUNTED BY THE SERVER, over every matching request. The screen used to count the rows it had
+/// been given, which is a count of one page as soon as the queue is paged.
+/// </summary>
+public sealed record AccessRequestSummaryResponse(
+    int Total,
+    int Approved,
+
+    /// <summary>Waiting on somebody: submitted for a decision, or sent back to the requester.</summary>
+    int Pending,
+
+    int Rejected,
+
+    /// <summary>How many different people the matching requests are for.</summary>
+    int UsersInvolved,
+
+    /// <summary>The person with the most matching requests raised for them. Null when there are none.</summary>
+    string? MostActiveUserName,
+
+    int MostActiveUserRequestCount,
+
+    /// <summary>Every status with its count, zero included, in the order the status filter lists them.</summary>
+    IReadOnlyList<AccessRequestStatusCount> ByStatus);
+
+/// <summary>One status and how many matching requests are in it.</summary>
+public sealed record AccessRequestStatusCount(AccessRequestStatus Status, string StatusDisplay, int Count);
+
+/// <summary>One row of a CSV export of the access request queue.</summary>
+public sealed record AccessRequestExportRow(
+    string RequestNumber,
+    string RequestType,
+    string RequestedFor,
+    string RequestedBy,
+    string? Role,
+    string? Permission,
+    string? ScopeType,
+    string? ScopeValue,
+    string Status,
+    bool Sensitive,
+    DateTimeOffset? SubmittedAtUtc,
+    DateTimeOffset AccessStartsAtUtc,
+    DateTimeOffset? AccessEndsAtUtc,
+    DateTimeOffset? DecidedAtUtc,
+    string? DecidedBy,
+    string? DecisionNotes,
+    string BusinessJustification);
 
 /// <summary>A request with everything a decision needs.</summary>
 public sealed record AccessRequestDetailResponse(
@@ -222,7 +298,30 @@ public sealed record AccessRequestDetailResponse(
 
     IReadOnlyList<string> SegregationOfDutiesConflicts,
     bool CanDecide,
-    IReadOnlyList<string> PermittedActions);
+    IReadOnlyList<string> PermittedActions,
+
+    /// <summary>The scope type in the words the reference data uses for it.</summary>
+    string? ScopeTypeDisplay = null,
+
+    /// <summary>The permission's name, when the request is for a single permission.</summary>
+    string? PermissionName = null,
+
+    /// <summary>What the approver asked for when sending the request back, and who and when.</summary>
+    string? ReturnReason = null,
+    DateTimeOffset? ReturnedAtUtc = null,
+    string? ReturnedByName = null,
+
+    /// <summary>How many times the request has been sent back.</summary>
+    int ReturnCount = 0,
+
+    /// <summary>When an undecided request lapses.</summary>
+    DateTimeOffset? ExpiresAtUtc = null,
+
+    /// <summary>True for the person who raised the request, while it is still undecided.</summary>
+    bool CanCancel = false,
+
+    /// <summary>Why the caller may not decide a request that is waiting. Null when they may.</summary>
+    string? CannotDecideReason = null);
 
 /// <summary>One row of the review queue.</summary>
 public sealed record AccessReviewListItemResponse(

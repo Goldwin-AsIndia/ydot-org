@@ -231,8 +231,17 @@ public sealed class SecurityRepository(IamDbContext context) : ISecurityReposito
             .ThenBy(method => method.MethodType)
             .ToListAsync(cancellationToken);
 
-    public Task<MfaMethod?> GetMfaMethodAsync(Guid methodId, CancellationToken cancellationToken) =>
-        context.MfaMethods
+    /// <summary>
+    /// One method by id, INCLUDING one added earlier in this unit of work and not yet saved.
+    ///
+    /// The enrolment service stages a method and issues its first code before anything is
+    /// committed. A database-only lookup could not see that method, so the challenge service fell
+    /// back to guessing the factor - and for anybody who had tried an authenticator first it
+    /// guessed "authenticator", sent no e-mail at all, and told them to check their inbox.
+    /// </summary>
+    public async Task<MfaMethod?> GetMfaMethodAsync(Guid methodId, CancellationToken cancellationToken) =>
+        context.MfaMethods.Local.FirstOrDefault(method => method.Id == methodId)
+        ?? await context.MfaMethods
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(method => method.Id == methodId, cancellationToken);
 

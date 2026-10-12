@@ -38,8 +38,8 @@
           <div class="at-hero__figure">
             <span class="at-hero__value">{{ statsTotal() }}</span>
             <span class="at-hero__unit">
-              @if (isTruncatedForStats()) {
-                most recent of {{ totalCount() }}
+              @if (hasFilters()) {
+                matching the filters
               } @else {
                 all-time activities
               }
@@ -73,7 +73,7 @@
         <div class="at-metric">
           <div class="at-eyebrow">
             <i class="ri-close-circle-line at-glyph at-glyph--fail"></i>
-            <span class="at-eyebrow__text">Failed</span>
+            <span class="at-eyebrow__text">{{ unsuccessfulLabel() }}</span>
           </div>
           <span class="at-metric__value">{{ failedCount() }}</span>
           <span class="at-metric__caption">
@@ -117,10 +117,6 @@
           and passwords, tokens and secrets are removed before it is stored.
           @if (!canSeeDetail()) {
             Your account can see what happened, but not the contents of each change.
-          }
-          @if (isTruncatedForStats()) {
-            Figures above reflect the {{ statsTotal() }} most recent matching events, out of
-            {{ totalCount() }} in total.
           }
         </span>
       </footer> -->
@@ -443,13 +439,13 @@
 
                         <td>
                           <span class="d-block">{{ event.actorDisplayName | readableId: 'System' }}</span>
-                          @if (event.actorScope === 'global') {
+                          @if (event.actorScopeDisplay) {
                             <!--
                               Worth calling out: a platform administrator acting inside an
                               organisation is a different kind of event from one of that
-                              organisation's own people doing the same thing.
+                              organisation's own people doing the same thing. The words are the server's.
                             -->
-                            <small class="text-muted">Platform administrator</small>
+                            <small class="text-muted">{{ event.actorScopeDisplay }}</small>
                           }
                         </td>
 
@@ -521,7 +517,7 @@
                                 <div class="at-rec__fact">
                                   <span class="at-rec__cap"><i class="ri-map-pin-line"></i>From</span>
                                   <span class="at-rec__val at-rec__mono">{{ event.ipAddress || '—' }}</span>
-                                  <span class="at-rec__sub"><i class="{{ clientIcon(event.clientType) }}"></i>{{ clientLabel(event.clientType) }}</span>
+                                  <span class="at-rec__sub"><i class="{{ clientIcon(event.clientType) }}"></i>{{ event.clientTypeDisplay }}</span>
                                 </div>
 
                                 <div class="at-rec__fact">
@@ -629,7 +625,7 @@
                     </div>
                   </div>
 
-                  <!-- Succeeded / Failed, each in the same shade as its segment. -->
+                  <!-- Every outcome the server counted, each in the same shade as its segment. -->
                   <ul class="audit-type-legend flex-grow-1">
                     @for (t of outcomeBreakdown(); track t.label) {
                       <li>
@@ -665,23 +661,23 @@
                   <div class="audit-heatmap">
                     <div class="audit-heatmap-body">
                       <div class="audit-heatmap-labels">
-                        @for (label of timeLabels; track label) {
+                        @for (label of timeLabels(); track label) {
                           <span class="audit-heatmap-time">{{ label }}</span>
                         }
                       </div>
                       <div class="audit-heatmap-grid">
                         @for (row of heatmap(); track $index) {
-                          @for (count of row; track $index) {
+                          @for (count of row.counts; track $index; let day = $index) {
                             <div class="audit-heatmap-cell"
                                  [style.background-color]="'rgba(55, 195, 126, ' + heatCellOpacity(count) + ')'"
-                                 [title]="count + ' event' + (count === 1 ? '' : 's')">
+                                 [title]="(dayLabels()[day] || '') + ', ' + row.range + ': ' + count + ' event' + (count === 1 ? '' : 's')">
                             </div>
                           }
                         }
                       </div>
                     </div>
                     <div class="audit-heatmap-days">
-                      @for (label of dayLabels; track label) {
+                      @for (label of dayLabels(); track label) {
                         <span>{{ label }}</span>
                       }
                     </div>

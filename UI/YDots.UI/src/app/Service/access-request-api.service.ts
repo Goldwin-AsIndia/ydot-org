@@ -6,6 +6,7 @@ import { ApiResponse, OutcomeResponse, PagedResponse } from '../Shared/models/ap
 import {
   AccessRequestDetailResponse,
   AccessRequestListItemResponse,
+  AccessRequestSummaryResponse,
   CreateAccessRequestRequest,
   DecideAccessRequestRequest,
   ReturnAccessRequestRequest,
@@ -65,6 +66,41 @@ export class AccessRequestApiService {
    * independence rule, so the buttons the screen renders and the rules the API enforces cannot
    * drift apart.
    */
+  /**
+   * The figures above the queue - totals by status, the people involved, the busiest one -
+   * counted by the server over every request the same filter matches, not over the page shown.
+   */
+  summary(filter: AccessRequestSearchFilter): Observable<AccessRequestSummaryResponse> {
+    const { page: _page, pageSize: _pageSize, ...criteria } = filter;
+
+    return this.http
+      .get<ApiResponse<AccessRequestSummaryResponse>>(`${this.baseUrl}/summary`, {
+        params: this.toParams(criteria),
+      })
+      .pipe(map((response) => response.data!));
+  }
+
+  /**
+   * The queue as a CSV file, for the same filter. The server builds and names the file, and
+   * records the export in the audit trail under the reference it returns in a header.
+   */
+  export(filter: AccessRequestSearchFilter): Observable<{ blob: Blob; fileName: string; reference: string }> {
+    const { page: _page, pageSize: _pageSize, ...criteria } = filter;
+
+    return this.http
+      .get(`${this.baseUrl}/export`, { params: this.toParams(criteria), responseType: 'blob', observe: 'response' })
+      .pipe(map((response) => {
+        const disposition = response.headers.get('Content-Disposition') ?? '';
+        const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+
+        return {
+          blob: response.body ?? new Blob(),
+          fileName: match ? decodeURIComponent(match[1]) : 'access-requests.csv',
+          reference: response.headers.get('X-Export-Reference') ?? '',
+        };
+      }));
+  }
+
   get(id: string): Observable<AccessRequestDetailResponse> {
     return this.http
       .get<ApiResponse<AccessRequestDetailResponse>>(`${this.baseUrl}/${id}`)

@@ -14,6 +14,8 @@ using YDots.CAM.Application.Features.Attribution.Commands.ManageAttribution;
 using YDots.CAM.Application.Features.Attribution.Queries.AttributionQueries;
 using YDots.CAM.Application.Features.BudgetTargetPlans.Commands.ManageBudgetPlan;
 using YDots.CAM.Application.Features.BudgetTargetPlans.Queries.BudgetPlanQueries;
+using YDots.CAM.Application.Features.WhatsApp.Commands;
+using YDots.CAM.Application.Features.WhatsApp.Queries;
 
 namespace YDots.CAM.Application.ServiceContainer;
 
@@ -50,6 +52,7 @@ public static class DependencyInjection
         services.Configure<CampaignSettings>(configuration.GetSection(CampaignSettings.SectionName));
         services.Configure<ClientAppSettings>(configuration.GetSection(ClientAppSettings.SectionName));
         services.Configure<SeedSettings>(configuration.GetSection(SeedSettings.SectionName));
+        services.Configure<WhatsAppIntegrationSettings>(configuration.GetSection(WhatsAppIntegrationSettings.SectionName));
 
         // ---- FluentValidation ---------------------------------------------------------------
         //
@@ -80,6 +83,10 @@ public static class DependencyInjection
         services.AddScoped<AttributionQueryHandler>();
 
         services.AddScoped<ReferenceDataQueryHandler>();
+
+        // ---- WhatsApp outreach: CheckNumber.ai + WATI, carried out by the YDot.Integration worker ----
+        services.AddScoped<WhatsAppQueryHandler>();
+        services.AddScoped<WhatsAppCommandHandler>();
 
         return services;
     }

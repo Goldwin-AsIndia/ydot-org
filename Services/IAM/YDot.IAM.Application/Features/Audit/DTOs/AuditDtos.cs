@@ -39,7 +39,81 @@ public sealed record AuditEventResponse(
     string? RequestPath,
 
     /// <summary>Redacted detail. Null when the caller lacks the view-sensitive permission.</summary>
-    string? Metadata);
+    string? Metadata,
+
+    /// <summary>The kind of client in words: "Web browser", "Mobile app".</summary>
+    string? ClientTypeDisplay = null,
+
+    /// <summary>
+    /// Who the actor was acting as, when that is worth saying: "Platform administrator" for a
+    /// platform account working inside an Organisation, null for the Organisation's own people.
+    /// </summary>
+    string? ActorScopeDisplay = null,
+
+    /// <summary>What the outcome means: "Refused by a permission check".</summary>
+    string? ResultDescription = null);
+
+/// <summary>
+/// The figures, chart and heatmap above the audit trail, for the trail's own filter.
+///
+/// COUNTED BY THE SERVER OVER EVERY MATCHING EVENT. The screen used to work these out from the
+/// first hundred rows it had fetched, so on any busy Organisation every card described "the last
+/// hundred events" while reading as a total.
+/// </summary>
+public sealed record AuditSummaryResponse(
+    int TotalCount,
+
+    /// <summary>Every outcome, zero included, in the order the outcome filter lists them.</summary>
+    IReadOnlyList<AuditOutcomeCount> Outcomes,
+
+    /// <summary>Events that did not succeed: denied and failed together.</summary>
+    int UnsuccessfulCount,
+
+    int SucceededPercent,
+    int UnsuccessfulPercent,
+
+    /// <summary>Distinct people and services that acted, a system action counting as one.</summary>
+    int DistinctActorCount,
+
+    AuditActorActivity? MostActiveActor,
+
+    AuditHeatmapResponse Heatmap,
+
+    /// <summary>The busiest band of the day across the week, or null when nothing happened.</summary>
+    string? BusiestTimeRange,
+
+    /// <summary>The record types the matching events touch, with how many each.</summary>
+    IReadOnlyList<AuditTargetTypeCount> TargetTypes,
+
+    /// <summary>The time zone the heatmap was counted in.</summary>
+    string TimeZone);
+
+/// <summary>One outcome and how many matching events had it.</summary>
+public sealed record AuditOutcomeCount(
+    AuditResult Result,
+    string Label,
+    string Description,
+    int Count,
+    int Percent);
+
+/// <summary>The busiest actor among the matching events.</summary>
+public sealed record AuditActorActivity(
+    Guid? ActorUserId,
+    string DisplayName,
+    int EventCount,
+    int SharePercent);
+
+/// <summary>Matching events by day of the week (columns) and band of the day (rows).</summary>
+public sealed record AuditHeatmapResponse(
+    IReadOnlyList<string> DayLabels,
+    IReadOnlyList<AuditHeatmapBand> Bands,
+    int MaxCount);
+
+/// <summary>One band of the day: its axis label, its full range, and a count per day, Monday first.</summary>
+public sealed record AuditHeatmapBand(string Label, string RangeLabel, IReadOnlyList<int> Counts);
+
+/// <summary>One record type and how many matching events touch it.</summary>
+public sealed record AuditTargetTypeCount(string TargetType, int Count);
 
 /// <summary>
 /// One row of a CSV export of the trail.

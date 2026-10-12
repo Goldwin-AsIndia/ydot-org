@@ -62,7 +62,11 @@
             <ol class="cu-timeline">
               <li><span class="cu-t">An invitation has been e-mailed to <strong>{{ created.email }}</strong>.</span></li>
               <li><span class="cu-t">The link opens the activation page, where they confirm their details.</span></li>
-              <li><span class="cu-t">They set a password, and may add two-step verification — that part is optional.</span></li>
+              @if (mfaEffectivelyRequired()) {
+                <li><span class="cu-t">They set a password and <strong>must</strong> set up two-step verification before the account activates.</span></li>
+              } @else {
+                <li><span class="cu-t">They set a password, and may add two-step verification — that part is optional.</span></li>
+              }
               <li><span class="cu-t">Once activated, the directory shows them as <strong>Active</strong>, with MFA reading <strong>Enrolled</strong> if they added a second factor.</span></li>
             </ol>
           </div>
@@ -71,8 +75,9 @@
             <div class="cu-outcome-title"><i class="ri-mail-close-line" aria-hidden="true"></i> The account exists, but the e-mail did not go out</div>
             <p class="cu-outcome-text">
               <strong>{{ created.displayName }}</strong> was created and the invitation is recorded as <strong>Pending</strong>,
-              so nothing is lost. The mail relay refused the message, which usually means its credentials or its sender
-              address need attention.
+              so nothing is lost.
+              <!-- The server's own reason: a refused relay login, or mail switched off. -->
+              {{ created.deliveryMessage || 'The mail relay refused the message, which usually means its credentials or its sender address need attention.' }}
             </p>
             <p class="cu-outcome-text">
               Once that is sorted, use <strong>Send invitation</strong> on the directory row to deliver it.
@@ -163,13 +168,15 @@
               <div><h3 class="cu-group-title">Account &amp; name</h3><p class="cu-group-desc">How the person appears across the directory.</p></div>
             </div>
             <div class="cu-grid">
+              <!-- Engagement sits where "Account type" was: roles now say what kind of account this
+                   is, and the engagement decides whether the employee number below is required. -->
               <div class="s3">
-                <label class="cu-label" for="cuCategory">Account type <span class="cu-req" aria-hidden="true">*</span></label>
+                <label class="cu-label" for="cuEngagement">Engagement <span class="cu-req" aria-hidden="true">*</span></label>
                 <ng-container *ngTemplateOutlet="cuDd; context: {
-                  key: 'accountCategory', id: 'cuCategory', icon: 'ri-briefcase-line',
-                  placeholder: 'Select account type', allowEmpty: false, invalid: isFieldInvalid('accountCategory') }"></ng-container>
-                @if (errorFor('accountCategory')) {
-                  <div class="invalid-feedback d-block">{{ errorFor('accountCategory') }}</div>
+                  key: 'engagementType', id: 'cuEngagement', icon: 'ri-briefcase-4-line',
+                  placeholder: 'Select engagement', allowEmpty: false, invalid: isFieldInvalid('engagementType') }"></ng-container>
+                @if (errorFor('engagementType')) {
+                  <div class="invalid-feedback d-block">{{ errorFor('engagementType') }}</div>
                 }
               </div>
 
@@ -302,7 +309,7 @@
           <div class="cu-group">
             <div class="cu-group-aside">
               <!-- <i class="ri-contacts-book-line cu-group-glyph" aria-hidden="true"></i> -->
-              <div><h3 class="cu-group-title">Contact &amp; reference</h3><p class="cu-group-desc">Which of these are required depends on the account type.</p></div>
+              <div><h3 class="cu-group-title">Contact &amp; reference</h3><p class="cu-group-desc">Which of these are required depends on the engagement.</p></div>
             </div>
             <div class="cu-grid">
               <!-- A list, not a text box: the API requires the international form (+91). -->
@@ -316,7 +323,7 @@
                 }
               </div>
 
-              <!-- Whether these are required depends on the account type, and the server says which. -->
+              <!-- Whether these are required depends on the engagement; the server applies the same rule. -->
               <div class="s3">
                 <label class="cu-label" for="cuMobile">
                   Mobile @if (mobileRequired()) { <span class="cu-req" aria-hidden="true">*</span> }
@@ -349,9 +356,9 @@
                 }
                 <small class="cu-hint">
                   @if (employeeNumberRequired()) {
-                    Required for a {{ form().accountCategory }} account.
+                    Required for full-time and part-time staff.
                   } @else {
-                    Needed for salaried employee accounts only.
+                    Needed for full-time and part-time staff only.
                   }
                 </small>
               </div>
@@ -367,17 +374,7 @@
               <div><h3 class="cu-group-title">Placement</h3><p class="cu-group-desc">The unit and department decide which records they reach.</p></div>
             </div>
             <div class="cu-grid">
-              <div class="s4">
-                <label class="cu-label" for="cuEngagement">Engagement <span class="cu-req" aria-hidden="true">*</span></label>
-                <ng-container *ngTemplateOutlet="cuDd; context: {
-                  key: 'engagementType', id: 'cuEngagement', icon: 'ri-briefcase-4-line',
-                  placeholder: 'Select engagement', allowEmpty: false, invalid: isFieldInvalid('engagementType') }"></ng-container>
-                @if (errorFor('engagementType')) {
-                  <div class="invalid-feedback d-block">{{ errorFor('engagementType') }}</div>
-                }
-              </div>
-
-              <div class="s4">
+              <div class="s6">
                 <label class="cu-label" for="cuUnit">Organisation unit</label>
                 <ng-container *ngTemplateOutlet="cuDd; context: {
                   key: 'organisationUnitId', id: 'cuUnit', icon: 'ri-building-2-line',
@@ -390,7 +387,7 @@
                 }
               </div>
 
-              <div class="s4">
+              <div class="s6">
                 <label class="cu-label" for="cuDept">Department</label>
                 <ng-container *ngTemplateOutlet="cuDd; context: {
                   key: 'departmentId', id: 'cuDept', icon: 'ri-community-line',
@@ -494,6 +491,7 @@
                 @if (errorFor('dataScopeType')) {
                   <div class="invalid-feedback d-block">{{ errorFor('dataScopeType') }}</div>
                 }
+                <small class="cu-hint">{{ dataScopeHint() }}</small>
               </div>
             </div>
           </div>
@@ -532,7 +530,13 @@
                   <div class="invalid-feedback d-block">{{ errorFor('mfaRequirement') }}</div>
                 }
                 <small class="cu-hint">
-                  <strong>Required</strong> means they must set up a second factor during activation.
+                  @if (mfaEffectivelyRequired()) {
+                    They <strong>must</strong> set up a second factor during activation; the account cannot be activated without one.
+                  } @else if (form().mfaRequirement) {
+                    A second factor is optional for this account.
+                  } @else {
+                    <strong>Required</strong> means they must set up a second factor during activation.
+                  }
                 </small>
               </div>
             </div>
@@ -571,10 +575,11 @@
                 <button type="button" class="cu-rv-edit" (click)="goToStep(0)"><i class="ri-edit-line" aria-hidden="true"></i> Edit</button>
               </header>
               <dl class="cu-rv-list">
-                <div><dt>Name</dt><dd>{{ form().displayName || '—' }}</dd></div>
+                <div><dt>Display name</dt><dd>{{ form().displayName || '—' }}</dd></div>
+                <div><dt>Preferred name</dt><dd>{{ form().preferredName || 'Same as display name' }}</dd></div>
                 <div><dt>Login e-mail</dt><dd>{{ form().email || '—' }}</dd></div>
                 <div><dt>Username</dt><dd>{{ form().username || '—' }}</dd></div>
-                <div><dt>Account type</dt><dd>{{ ddLabel('accountCategory', '—') }}</dd></div>
+                <div><dt>Engagement</dt><dd>{{ ddLabel('engagementType', '—') }}</dd></div>
               </dl>
             </article>
             <article class="cu-rv">
@@ -583,10 +588,10 @@
                 <button type="button" class="cu-rv-edit" (click)="goToStep(1)"><i class="ri-edit-line" aria-hidden="true"></i> Edit</button>
               </header>
               <dl class="cu-rv-list">
-                <div><dt>Engagement</dt><dd>{{ ddLabel('engagementType', '—') }}</dd></div>
                 <div><dt>Organisation unit</dt><dd>{{ ddLabel('organisationUnitId', 'Not set') }}</dd></div>
                 <div><dt>Department</dt><dd>{{ ddLabel('departmentId', 'Not set') }}</dd></div>
                 <div><dt>Designation</dt><dd>{{ form().designation || '—' }}</dd></div>
+                <div><dt>Work location</dt><dd>{{ form().workLocation || '—' }}</dd></div>
               </dl>
             </article>
             <!-- THE TWO FIELDS THAT DECIDE WHAT THE ACCOUNT CAN DO lead this card. -->

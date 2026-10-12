@@ -281,6 +281,43 @@ public sealed class GovernanceRepository(IamDbContext context) : IGovernanceRepo
     public async Task AddAccessRequestAsync(AccessRequest request, CancellationToken cancellationToken) =>
         await context.AccessRequests.AddAsync(request, cancellationToken);
 
+    public Task<string?> FindOpenDuplicateRequestAsync(
+        Guid requestedForUserId,
+        Guid? roleId,
+        string? permissionCode,
+        DataScopeType? scopeType,
+        string? scopeValue,
+        Guid? excludeId,
+        CancellationToken cancellationToken)
+    {
+        var open = context.AccessRequests
+            .AsNoTracking()
+            .Where(request => request.RequestedForUserId == requestedForUserId
+                              && (request.Status == AccessRequestStatus.Draft
+                                  || request.Status == AccessRequestStatus.Submitted
+                                  || request.Status == AccessRequestStatus.Returned));
+
+        if (excludeId.HasValue)
+        {
+            open = open.Where(request => request.Id != excludeId.Value);
+        }
+
+        // The same access means the same role, or the same single permission, or the same scope.
+        open = roleId.HasValue
+            ? open.Where(request => request.RoleId == roleId.Value)
+            : !string.IsNullOrWhiteSpace(permissionCode)
+                ? open.Where(request => request.RoleId == null && request.PermissionCode == permissionCode)
+                : open.Where(request => request.RoleId == null
+                                        && request.PermissionCode == null
+                                        && request.ScopeType == scopeType
+                                        && request.ScopeValue == scopeValue);
+
+        return open
+            .OrderBy(request => request.RequestNumber)
+            .Select(request => request.RequestNumber)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     /// <summary>Lapses requests nobody acted on, so the queue does not fill with stale rows.</summary>
     public async Task<int> ExpireOverdueRequestsAsync(DateTimeOffset asOf, CancellationToken cancellationToken)
     {

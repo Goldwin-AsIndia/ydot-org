@@ -184,7 +184,6 @@ public sealed class CreateOrganisationCommandHandler(
             NormalizedUserName = username.ToUpperInvariant(),
             EmailConfirmed = false,
             Status = UserStatus.Invited,
-            AccountCategory = UserAccountCategory.Employee,
             PrivilegeLevel = PrivilegeLevel.TenantAdmin,
             IsTenantAdmin = true,
             IsSuperAdmin = false,

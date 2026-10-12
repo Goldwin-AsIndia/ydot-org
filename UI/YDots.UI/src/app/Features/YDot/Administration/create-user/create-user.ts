@@ -85,13 +85,13 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   ];
 
   /**
-   * Honorifics for the Title dropdown.
+   * Honorifics for the Title dropdown, from `/reference-data` (`enums.personTitles`).
    *
-   * Saved on the user record as `title`. The platform keeps no catalogue of honorifics, so the
-   * list lives here; every entry passes the server's name rule. Rendered as a dropdown, as the
-   * design asks, rather than a free-text box that invites "Dr." and "Mr " into the same column.
+   * Saved on the user record as `title`. This was a literal array here while every edit dialog
+   * took free text; the server now owns the list, so both offer the same words.
    */
-  readonly titles = ['Mr', 'Ms', 'Mrs', 'Mx', 'Dr', 'Prof'];
+  readonly titles = computed<string[]>(() =>
+    (this.enums()?.personTitles ?? []).map((option) => String(option.value ?? '')).filter(Boolean));
 
   readonly submitted = signal(false);
 
@@ -109,6 +109,8 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     email: string;
     requestedInvite: boolean;
     invitationStatus: string;
+    /** The server's own sentence about the e-mail, shown as-is when it did not go out. */
+    deliveryMessage: string;
   } | null>(null);
 
   /** True only when the relay actually accepted the invitation. */
@@ -123,7 +125,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   // ---- The form ------------------------------------------------------------------------------
   readonly form = signal({
     // Identity
-    accountCategory: '',
     title: '',
     firstName: '',
     middleName: '',
@@ -135,9 +136,11 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     mobileCountryCode: '',
     mobileNumber: '',
     employeeNumber: '',
+    // On the Identity step, where "Account type" used to be: it decides whether the employee
+    // number on the same step is required, so the two now sit together.
+    engagementType: '',
 
     // Organisation
-    engagementType: '',
     organisationUnitId: '',
     departmentId: '',
     designation: '',
@@ -183,11 +186,11 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
    * Without this they land on Review, told to fix a field that is three steps back.
    */
   private static readonly FIELD_STEP: Record<string, number> = {
-    accountCategory: 0, title: 0, firstName: 0, middleName: 0, lastName: 0, displayName: 0,
+    title: 0, firstName: 0, middleName: 0, lastName: 0, displayName: 0,
     preferredName: 0, email: 0, username: 0, alternateEmail: 0,
-    mobileCountryCode: 0, mobileNumber: 0, employeeNumber: 0,
+    mobileCountryCode: 0, mobileNumber: 0, employeeNumber: 0, engagementType: 0,
 
-    engagementType: 1, organisationId: 1, organisationUnitId: 1, departmentId: 1,
+    organisationId: 1, organisationUnitId: 1, departmentId: 1,
     designation: 1, managerUserId: 1, workLocation: 1, preferredLanguage: 1, timeZoneId: 1,
 
     primaryRoleId: 2, additionalRoleIds: 2, dataScopeType: 2, dataScopes: 2,
@@ -214,7 +217,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
   /** Element ids, to move focus to the first invalid field. */
   private static readonly FIELD_ID: Record<string, string> = {
-    accountCategory: 'cuCategory', firstName: 'cuFirst', lastName: 'cuLast', displayName: 'cuDisplay',
+    engagementType: 'cuEngagement', firstName: 'cuFirst', lastName: 'cuLast', displayName: 'cuDisplay',
     preferredName: 'cuPreferred', email: 'cuEmail', username: 'cuUsername', mobileCountryCode: 'cuCode',
     mobileNumber: 'cuMobile', employeeNumber: 'cuEmployee', designation: 'cuDesignation',
     workLocation: 'cuLocation', businessJustification: 'cuJustification',
@@ -230,7 +233,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
   /** Display names of the fields, for the "fix these" summary. */
   private static readonly FIELD_LABEL: Record<string, string> = {
-    accountCategory: 'Account type', firstName: 'First name', lastName: 'Last name', displayName: 'Display name',
+    firstName: 'First name', lastName: 'Last name', displayName: 'Display name',
     preferredName: 'Preferred name', email: 'Login e-mail', username: 'Username', mobileCountryCode: 'Country code',
     mobileNumber: 'Mobile', employeeNumber: 'Employee or volunteer number', engagementType: 'Engagement',
     workLocation: 'Work location',
@@ -240,9 +243,9 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
   /** The fields each step checks, in screen order. */
   private static readonly STEP_FIELDS: string[][] = [
-    ['accountCategory', 'firstName', 'lastName', 'displayName', 'preferredName', 'email', 'username',
+    ['engagementType', 'firstName', 'lastName', 'displayName', 'preferredName', 'email', 'username',
       'mobileCountryCode', 'mobileNumber', 'employeeNumber'],
-    ['engagementType', 'designation', 'workLocation'],
+    ['designation', 'workLocation'],
     ['primaryRoleId', 'dataScopeType', 'businessJustification'],
     ['mfaRequirement'],
   ];
@@ -255,7 +258,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     const f = this.form();
 
     switch (field) {
-      case 'accountCategory': return requiredError('Account type', f.accountCategory);
       case 'firstName': return nameError('First name', f.firstName, true, 80);
       case 'lastName': return nameError('Last name', f.lastName, true, 80);
       case 'displayName': return nameError('Display name', f.displayName, true, 160);
@@ -347,7 +349,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   });
   readonly managers = computed<LookupItem[]>(() => this.view()?.managers ?? []);
 
-  readonly accountCategories = computed<EnumOption[]>(() => this.enums()?.accountCategories ?? []);
   readonly engagementTypes = computed<EnumOption[]>(() => this.enums()?.engagementTypes ?? []);
 
   /**
@@ -365,7 +366,50 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
   private static readonly GRANTABLE_SCOPES = ['organisation', 'assignment'];
 
-  readonly mfaRequirements = computed<EnumOption[]>(() => this.enums()?.mfaRequirements ?? []);
+  /**
+   * The two-step choices, with "Inherited" saying what it inherits.
+   *
+   * On its own "Inherited" told the administrator nothing: it means "whatever the Organisation's
+   * default is", and that default (`organisationMfaRequirement` on the reference data) decides
+   * whether the person is made to set up a second factor during activation.
+   */
+  readonly mfaRequirements = computed<EnumOption[]>(() => {
+    const options = this.enums()?.mfaRequirements ?? [];
+    const organisation = this.organisationMfaLabel();
+
+    return options.map((option) =>
+      String(option.value ?? '').toLowerCase() === 'inherited' && organisation
+        ? { ...option, label: `${option.label} (organisation default: ${organisation})` }
+        : option);
+  });
+
+  /** The Organisation's default requirement, by its display label ("Optional", "Required"). */
+  readonly organisationMfaLabel = computed(() => {
+    const value = String(this.view()?.organisationMfaRequirement ?? '').toLowerCase();
+    const match = (this.enums()?.mfaRequirements ?? [])
+      .find((option) => String(option.value ?? '').toLowerCase() === value);
+    return match?.label ?? '';
+  });
+
+  /**
+   * Whether the person will HAVE to set up a second factor - the chosen requirement, with
+   * Inherited resolved against the Organisation default. The server enforces the same rule at
+   * activation (`AcceptInvitationCommand`), so the screen can promise it.
+   */
+  readonly mfaEffectivelyRequired = computed(() => {
+    const chosen = this.form().mfaRequirement.toLowerCase();
+    const organisation = String(this.view()?.organisationMfaRequirement ?? '').toLowerCase();
+    return chosen === 'required' || (chosen === 'inherited' && organisation === 'required');
+  });
+
+  /** What each data scope does, in a sentence, for the hint under the field. */
+  readonly dataScopeHint = computed(() => {
+    switch (this.form().dataScopeType.toLowerCase()) {
+      case 'organisation': return 'Everything in this organisation that their role allows.';
+      case 'assignment': return 'Only what is theirs: campaigns they created or own, leads and donors assigned to them, donations they took.';
+      default: return 'Narrower scopes (a campaign, a queue) are granted later through an access request.';
+    }
+  });
 
   readonly initials = computed(() => {
     const name = this.form().displayName.trim();
@@ -388,26 +432,17 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
    * the rule is two lines long, and an endpoint whose whole payload is "employees need a staff
    * number" is more moving parts than the rule deserves.
    *
-   * The rule: an EMPLOYEE has a staff number, because payroll and the directory both key on it.
-   * A volunteer, a contractor or an external party does not.
+   * The rule: SALARIED STAFF (full-time or part-time) have a staff number, because payroll and
+   * the directory both key on it. A contractor, volunteer, intern or external party does not.
+   * It used to need "Account type: Employee" as well; the account type was removed, because the
+   * engagement already says it and the role says the rest.
    */
   readonly conditionalFields = computed<string[]>(() => {
-    const form = this.form();
-
-    // CASE-INSENSITIVE, AND IT HAS TO BE. The form holds the server's own enum value, which is
-    // "Employee" with a capital E - this compared it against lower-case "employee", so the test
-    // was never true and the field was never marked required. The server, meanwhile, refuses the
-    // create without it. The person filled in the form, saw no asterisk and no validation, and
-    // was rejected on submit for a field nothing had asked them for.
-    const isEmployee = form.accountCategory?.toLowerCase() === 'employee';
-
-    // The server narrows it further: a staff number is expected of full and part-time employees,
-    // not of somebody on a contract, an internship or an external engagement. Mirrored here so
-    // the form asks for exactly what the API will insist on - no more, and no less.
-    const engagement = form.engagementType?.toLowerCase();
+    // CASE-INSENSITIVE: the form holds the server's own enum value ("FullTime").
+    const engagement = this.form().engagementType?.toLowerCase();
     const isSalaried = engagement === 'fulltime' || engagement === 'parttime';
 
-    return isEmployee && isSalaried ? ['employeeNumber'] : [];
+    return isSalaried ? ['employeeNumber'] : [];
   });
 
   readonly employeeNumberRequired = computed(() =>
@@ -560,8 +595,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     const fromLookup = (list: LookupItem[]) => list.map((o) => ({ value: text(o.id), label: text(o.name) }));
 
     return {
-      accountCategory: fromEnum(this.accountCategories()),
-      title: this.titles.map((t) => ({ value: t, label: t })),
+      title: this.titles().map((t) => ({ value: t, label: t })),
       mobileCountryCode: this.countryCodes().map((c) => ({ value: c, label: c })),
       engagementType: fromEnum(this.engagementTypes()),
       organisationUnitId: fromLookup(this.organisationUnits()),
@@ -637,14 +671,26 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     this.openDd.set(null);
   }
 
-  /** Fills the display name from the first and last name, until somebody edits it themselves. */
+  /** The display name this form last filled in by itself, so it knows when it may refill it. */
+  private suggestedDisplayName = '';
+
+  /**
+   * Fills the display name from the first and last name, until somebody edits it themselves.
+   *
+   * IT KEEPS FOLLOWING THE NAME FIELDS while the display name is still the one it suggested. It
+   * used to fill only an EMPTY box - and leaving First name fills it, so tabbing on to Last name
+   * left the display name as the first name alone ("Kavya" for Kavya Raman).
+   */
   onNameChanged(): void {
     const f = this.form();
     const suggested = [f.firstName.trim(), f.lastName.trim()].filter(Boolean).join(' ');
+    const current = f.displayName.trim();
 
-    if (suggested && !f.displayName.trim()) {
+    if (suggested && (!current || current === this.suggestedDisplayName) && current !== suggested) {
       this.update('displayName', suggested);
     }
+
+    this.suggestedDisplayName = suggested;
   }
 
   /** Suggests a username from the e-mail, which is what most people would type anyway. */
@@ -791,7 +837,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
     return [
       // Identity — every box on the step, not just the asterisked ones.
-      filled(f.accountCategory),
+      filled(f.engagementType),
       filled(f.title),
       filled(f.firstName),
       filled(f.middleName),
@@ -804,7 +850,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
       filled(f.mobileNumber),
       filled(f.employeeNumber),
       // Organisation.
-      filled(f.engagementType),
       filled(f.organisationUnitId),
       filled(f.departmentId),
       filled(f.designation),
@@ -896,7 +941,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
       mobileCountryCode: f.mobileNumber ? f.mobileCountryCode : null,
       mobileNumber: f.mobileNumber || null,
 
-      accountCategory: f.accountCategory as CreateUserRequest['accountCategory'],
       engagementType: f.engagementType as CreateUserRequest['engagementType'],
       organisationUnitId: f.organisationUnitId || null,
       departmentId: f.departmentId || null,
@@ -940,6 +984,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
           email: user.email ?? '',
           requestedInvite: sendInvitation,
           invitationStatus: user.invitationSent ? 'Sent' : 'NotSent',
+          deliveryMessage: user.deliveryMessage ?? '',
         });
 
         // `invitationSent` reports what actually happened, not what was asked for. Delivery can
@@ -953,7 +998,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
             ? `${user.displayName} was created. No invitation was sent yet.`
             : delivered
               ? `${user.displayName} has been e-mailed an invitation link.`
-              : `${user.displayName} was created, but the invitation e-mail could not be sent.`,
+              : user.deliveryMessage || `${user.displayName} was created, but the invitation e-mail could not be sent.`,
           delivered || !sendInvitation ? 'success' : 'warning',
         );
       },

@@ -120,7 +120,7 @@ services:
   # ===============================================================================================
 
   ydot-iam:
-    image: ramya2000/ydot-iam:9.3.4
+    image: sivan67906/ydot-iam:10.1.2
     build:
       context: .
       dockerfile: Services/IAM/YDot.IAM.Api/Dockerfile
@@ -348,7 +348,7 @@ services:
   # ===============================================================================================
 
   ydot-cam:
-    image: ramya2000/ydot-cam:9.3.4
+    image: sivan67906/ydot-cam:10.1.1
     build:
       context: .
       dockerfile: Services/CAM/YDots.CAM.API/Dockerfile
@@ -404,9 +404,31 @@ services:
       ClientAppSettings__AllowedOrigins__0: "http://localhost:6700"
       ClientAppSettings__AllowedOrigins__1: "http://localhost:6701"
 
+      # ---- WhatsApp outreach: CheckNumber.ai + WATI ---------------------------------------------
+      #
+      # CAM DOES NOT CALL EITHER SERVICE AND HOLDS NEITHER KEY. The YDot.Integration worker does
+      # the work (its own repository, its own compose file and its own .env). CAM only writes an
+      # uploaded number list into the worker's inbox and reads the int_* tables the worker keeps
+      # in this same database.
+      #
+      # DataRoot IS THE FOLDER THE TWO SHARE - the ydot-integration-data volume below, which the
+      # worker mounts as /app/data. Leave it blank and the WhatsApp pages still show every job the
+      # worker has run, but an upload is refused with a sentence saying why.
+      WhatsAppIntegration__Enabled: "true"
+      WhatsAppIntegration__DataRoot: "/var/ydot/integration"
+
       Seq__ServerUrl: "http://seq:5341"
     ports:
       - "6704:8080"
+    volumes:
+      # Shared with the YDot.Integration worker, which reaches it by its full name,
+      # ydot_ydot-integration-data (declared external in the worker's own compose file).
+      #
+      # RUNNING THE WORKER FROM SOURCE INSTEAD (dotnet run, Visual Studio)? It then keeps its files
+      # in a folder on this machine, not in the volume. Set WHATSAPP_INTEGRATION_DATA in .env to
+      # that folder - for example D:/Permaspace/Ydot-Goldwin-Latest_Wati/YDot.Integration/data -
+      # and this line becomes a bind mount of it, so both sides still see the same inbox.
+      - ${WHATSAPP_INTEGRATION_DATA:-ydot-integration-data}:/var/ydot/integration
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
       interval: 15s
@@ -422,7 +444,7 @@ services:
   # ===============================================================================================
 
   ydot-don:
-    image: ramya2000/ydot-don:9.3.4
+    image: sivan67906/ydot-don:10.1.1
     build:
       context: .
       dockerfile: Services/DON/YDots.DON.Api/Dockerfile
@@ -477,7 +499,7 @@ services:
   # ===============================================================================================
 
   ydot-pay:
-    image: ramya2000/ydot-pay:9.3.4
+    image: sivan67906/ydot-pay:10.1.2
     build:
       context: .
       dockerfile: Services/PAY/YDot.PAY.Api/Dockerfile
@@ -688,7 +710,7 @@ services:
   # ===============================================================================================
 
   ydot-ui:
-    image: ramya2000/ydot-ui:9.3.4
+    image: sivan67906/ydot-ui:10.1.2
     build:
       context: UI/YDots.UI
       dockerfile: Dockerfile
@@ -747,3 +769,7 @@ volumes:
   ydot-minio-data:
   ydot-pay-receipts:
   ydot-seq-data:
+
+  # The YDot.Integration worker's data folder: the inbox CAM drops uploaded number lists into, and
+  # the stored originals, CheckNumber.ai archives and completed outputs CAM serves as downloads.
+  ydot-integration-data:

@@ -29,8 +29,9 @@ public interface IRoleRepository
     void Remove(Role role);
 
     /// <summary>
-    /// How many people hold this role. A role with holders cannot be deleted — it is
-    /// deactivated instead, so the historical assignments keep resolving.
+    /// How many assignments this role has EVER had - revoked and expired ones included. A role
+    /// that has been held cannot be deleted: it is deactivated instead, so the historical
+    /// assignments keep resolving (and the database refuses the delete while they exist).
     /// </summary>
     Task<int> CountAssignmentsAsync(Guid roleId, CancellationToken cancellationToken);
 
@@ -75,6 +76,13 @@ public interface IRoleRepository
     /// </summary>
     Task<IReadOnlyList<RoleIncompatibility>> GetIncompatibilitiesAsync(
         IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every rule naming this role, in either direction and whether active or not - what has to
+    /// go before the role itself can be deleted.
+    /// </summary>
+    Task<IReadOnlyList<RoleIncompatibility>> GetIncompatibilitiesNamingAsync(
+        Guid roleId, CancellationToken cancellationToken);
 
     Task AddIncompatibilityAsync(RoleIncompatibility incompatibility, CancellationToken cancellationToken);
 

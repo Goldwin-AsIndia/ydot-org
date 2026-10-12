@@ -1,15 +1,18 @@
 import {
   Component, DestroyRef, Directive, ElementRef, HostListener, OnDestroy, OnInit,
-  computed, effect, inject, signal,
+  computed, inject, signal,
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import {
+  Observable, Subject, catchError, combineLatest, debounceTime, forkJoin, of, shareReplay, startWith, switchMap, tap,
+} from 'rxjs';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { codeError, textWithLettersError } from '../../../../Shared/validation/field-rules';
-import { RoleCatalogueApiService } from '../../../../Service/role-catalogue-api.service';
+import { ComparedPermission, RoleCatalogueApiService } from '../../../../Service/role-catalogue-api.service';
 import { PermissionMatrixResponse } from '../../../../Shared/models/iam-contract.model';
 import {
   CreateRoleRequest,
@@ -26,19 +29,21 @@ interface RolePermissionView {
   code: string;
   name: string;
   isSensitive: boolean;
-  /** view / create / edit / submit / approve / operate / export - drives the action strip. */
+  /** The verb the permission carries, as the server names it - which matrix column it lights. */
   action: string;
   /** The module's readable name, as the server names it everywhere else. */
   moduleName: string;
 }
 
-/** One action on a module card: lit when the role grants it, struck when it denies it. */
+/** One action on a module row: lit when the role grants it, struck when it denies it. */
 interface ActionKeyView {
   key: string;
   label: string;
-  short: string;
   state: 'granted' | 'denied' | 'none';
 }
+
+/** A yes/no filter with a third position for "do not filter". */
+type FlagFilter = '' | 'true' | 'false';
 
 /** One segregation-of-duties rule, as the detail panel lists it. */
 interface RoleConflictView {
@@ -67,11 +72,14 @@ interface RoleDetailView {
   name: string;
   code: string;
   purpose: string;
+  /** The role type in the server's words (`roleTypeDisplay`). */
   roleType: string;
   owningFunction: string;
+  /** The state's value, for the rules that depend on it. */
+  status: string;
+  /** The state in the server's words (`statusDisplay`). */
   approvalState: string;
-  privilegeLevel: string;
-  isPrivileged: boolean | null;
+  isPrivileged: boolean;
   isDefaultRole: boolean;
   isSystemRole: boolean;
   grantsAllPermissions: boolean;
@@ -81,45 +89,45 @@ interface RoleDetailView {
   excludedPermissions: RolePermissionView[];
   incompatibleRoles: RoleConflictView[];
   visibleMenuCount: number;
-  roleVersion: number;
   createdAt: string;
   updatedAt: string;
   canActivate: boolean;
-  canRetire: boolean;
+  canDeactivate: boolean;
   canEdit: boolean;
+  canDelete: boolean;
   version: number;
 }
 
+/**
+ * One row of the table. Everything on it is a field of the server's row or its own label for
+ * one: the row used to carry a dozen more that no column showed, several of them sentences
+ * written here ("Whole organisation", "None") standing in for data the API does not hold.
+ */
 interface RoleItemView {
-  status: string;
-  canActivate: boolean;
-  canRetire: boolean;
-  canDelete: boolean;
   id: string;
-  reference: string;
   roleName: string;
   roleCode: string;
-  purpose: string;
+  /** The role type in the server's words (`roleTypeDisplay`). */
   roleType: string;
   owningFunction: string;
-  permissionBundle: string;
-  excludedPermissions: string;
-  defaultScopeType: string;
-  incompatibleRoles: string;
-  assignmentPrerequisites: string;
-  maximumDuration: string;
-  reviewInterval: string;
-  privilegeClassification: string;
-  roleVersion: string;
+  status: string;
+  /** The state in the server's words (`statusDisplay`). */
   approvalState: string;
-  approvalStateClass: string;
   assignedUserCount: number;
+  permissionCount: number;
+  /** True for the role that allows everything without a list, whose count is therefore 0. */
+  grantsAllPermissions: boolean;
   effectiveDate: string;
-  retirementReason: string;
   isSystemRole: boolean;
   isPrivileged: boolean;
   isDefaultRole: boolean;
-  permissionCount: number;
+}
+
+/** The role a dialog is acting on: what it has to name, and the version it expects. */
+interface RoleRef {
+  id: string;
+  name: string;
+  code: string;
   version: number;
 }
 
@@ -179,26 +187,64 @@ export class RoleCatalogueComponent {
   // only decide what is DRAWN: the API checks the same codes again on every call.
   // =========================================================================================
   readonly canCreateRole = computed(() => this.tokens.hasPermission('iam.roles.create'));
+  readonly canExportRoles = computed(() => this.tokens.hasPermission('iam.roles.export'));
   readonly canManageConflicts = computed(() => this.tokens.hasPermission('iam.roles.manage-incompatibility'));
   private readonly mayEditRoles = computed(() => this.tokens.hasPermission('iam.roles.edit'));
   private readonly mayDeleteRoles = computed(() => this.tokens.hasPermission('iam.roles.delete'));
   private readonly mayActivateRoles = computed(() => this.tokens.hasPermission('iam.roles.activate'));
-  private readonly mayRetireRoles = computed(() => this.tokens.hasPermission('iam.roles.deactivate'));
+  private readonly mayDeactivateRoles = computed(() => this.tokens.hasPermission('iam.roles.deactivate'));
   private readonly mayAssignPermissions = computed(() => this.tokens.hasPermission('iam.roles.assign-permissions'));
 
+  /** The whole catalogue and its vocabularies: what the masthead counts and the filters offer. */
   data = signal<RoleCatalogueResponse | null>(null);
-  detailCache = new Map<string, RoleDetail>();
   loading = signal(true);
   loadFailed = signal(false);
   submitting = signal(false);
   errorMessage = signal('');
 
+  // =========================================================================================
+  // Filters.
+  //
+  // THE SERVER FILTERS. Each control below is one parameter of `GET /roles`; the table prints
+  // what that request returns and Export sends the same parameters, so the file always holds
+  // the rows on screen. The filtering used to be done here, over the whole catalogue, with
+  // rules that had drifted from the API's: it searched two fields where the server searches
+  // three, and there was no way to export what had been filtered.
+  // =========================================================================================
   searchQuery = signal('');
   filterStatus = signal('');
   filterType = signal('');
   filterFunction = signal('');
+  /** Privileged roles only, standard roles only, or either. */
+  filterPrivilege = signal<FlagFilter>('');
+  /** Built-in roles only, roles created here only, or either. */
+  filterOrigin = signal<FlagFilter>('');
 
-  filteredRoles = signal<RoleItemView[]>([]);
+  /** What the controls hold, as the API's query parameters. An unset control sends nothing. */
+  readonly activeFilter = computed<RoleSearchFilter>(() => ({
+    search: this.searchQuery().trim() || undefined,
+    status: this.filterStatus() || undefined,
+    roleType: this.filterType() || undefined,
+    displayTag: this.filterFunction() || undefined,
+    isPrivileged: this.filterPrivilege() === '' ? undefined : this.filterPrivilege() === 'true',
+    isSystemRole: this.filterOrigin() === '' ? undefined : this.filterOrigin() === 'true',
+  }));
+
+  /** True while the filter panel (not the tabs or the search box) is narrowing the list. */
+  readonly panelFiltersActive = computed(() =>
+    !!(this.filterType() || this.filterFunction() || this.filterPrivilege() || this.filterOrigin()));
+
+  /** The roles the server returned for the filter; null while nothing is being filtered. */
+  private readonly matchedRoles = signal<RoleListItem[] | null>(null);
+  /** True while a filtered list is on its way. */
+  readonly filtering = signal(false);
+  /** Asks for the filtered list again after a role changes. */
+  private readonly refreshRows$ = new Subject<void>();
+
+  readonly filteredRoles = computed<RoleItemView[]>(() =>
+    (this.matchedRoles() ?? this.data()?.roles ?? []).map((role) => this.toRoleItemView(role)));
+
+  exporting = signal(false);
 
   /**
    * The owning functions to offer, taken from the roles the API returned.
@@ -216,68 +262,64 @@ export class RoleCatalogueComponent {
       .filter((tag) => tag.length > 0))]
     .sort((left, right) => left.localeCompare(right)));
 
-  // ===== Stats used by the top summary cards + status tabs =====
+  /**
+   * The role types to offer: the server's, narrowed to the types this catalogue holds.
+   *
+   * An Organisation's catalogue only ever holds Organisation roles - the API keeps platform and
+   * template roles out of it - so offering those two would be offering filters that can never
+   * match. The label is the server's, the same one each row prints.
+   */
+  readonly roleTypeChoices = computed(() => {
+    const held = new Set<string>((this.data()?.roles ?? []).map((role) => role.roleType ?? ''));
+    return (this.data()?.roleTypeOptions ?? []).filter((option) => held.has(option.value));
+  });
+
+  // ===== Stats used by the masthead + status tabs =====
   roleCounts = computed(() => ({
     total: (this.data()?.roles ?? []).length,
   }));
 
-  // ===== Count of built-in/system roles =====
-  systemRoleCount = computed(() => (this.data()?.roles ?? []).filter(r => r.isSystemRole).length);
-
   /**
-   * The state tabs and stat cards: one entry per state present in the data.
+   * The state tabs and the masthead's status mix: one entry per state the SERVER names, in its
+   * order, each with how many roles are in it.
    *
-   * `status` is the raw value the filter compares, `label` is what the tab prints.
+   * `status` is the value the filter sends, `label` is the server's word for it. The tabs used
+   * to be built from whatever states the rows happened to be in, ordered by a list typed here,
+   * while the masthead beside them printed three more labels of its own - so one screen called
+   * the same state Active, In use and (for its opposite) both Inactive and Retired.
    */
   statusBreakdown = computed(() => {
-    const items = this.data()?.roles ?? [];
-    const counts = new Map<string, { label: string; count: number }>();
+    const roles = this.data()?.roles ?? [];
+    const countOf = (status: string) => roles.filter((role) => role.status === status).length;
 
-    for (const r of items) {
-      const status = r.status ?? 'unknown';
-      const label = r.statusDisplay ?? r.status ?? 'Unknown';
-      const existing = counts.get(status);
+    const served = (this.data()?.statusOptions ?? []).map((option) => ({
+      status: option.value,
+      label: option.label,
+      count: countOf(option.value),
+    }));
 
-      counts.set(status, { label, count: (existing?.count ?? 0) + 1 });
-    }
+    // A state the option list does not name still gets its tab, worded as its rows word it.
+    const known = new Set(served.map((entry) => entry.status));
+    const unnamed = [...new Map(roles
+      .filter((role) => !!role.status && !known.has(role.status))
+      .map((role): [string, string] => [role.status!, role.statusDisplay ?? role.status!])).entries()]
+      .map(([status, label]) => ({ status, label, count: countOf(status) }));
 
-    // Stable, readable order: the states people care about first, then anything else.
-    const priority: Record<string, number> = { active: 0, draft: 1, inactive: 2 };
-
-    return Array.from(counts.entries())
-      .map(([status, entry]) => ({ status, label: entry.label, count: entry.count }))
-      .sort((a, b) =>
-        (priority[a.status] ?? 99) - (priority[b.status] ?? 99) || a.label.localeCompare(b.label));
+    return [...served, ...unnamed];
   });
 
-  // Maps any approvalState string to a consistent visual bucket.
+  /** The server's word for a state, or the value itself until the vocabulary has loaded. */
+  statusLabel(status: string): string {
+    return (this.data()?.statusOptions ?? []).find((option) => option.value === status)?.label ?? status;
+  }
+
+  /** Which of the screen's four status colours a state is drawn in. Colour only - never wording. */
   statusBucket(status: string): 'active' | 'draft' | 'retired' | 'default' {
     const s = (status ?? '').toLowerCase();
-    if (s === 'active' || s === 'approved') return 'active';
-    if (s === 'draft' || s === 'pending') return 'draft';
-    if (s === 'retired' || s === 'inactive' || s === 'rejected') return 'retired';
+    if (s === 'active') return 'active';
+    if (s === 'draft') return 'draft';
+    if (s === 'inactive') return 'retired';
     return 'default';
-  }
-
-  statCardClass(status: string): string {
-    return `stat-${this.statusBucket(status)}`;
-  }
-
-  statusTabClass(status: string): string {
-    return `tab-${this.statusBucket(status)}-state`;
-  }
-
-  statusBadgeClass(status: string): string {
-    return `status-${this.statusBucket(status)}`;
-  }
-
-  statusIcon(status: string): string {
-    switch (this.statusBucket(status)) {
-      case 'active': return 'ri-shield-check-line';
-      case 'draft': return 'ri-draft-line';
-      case 'retired': return 'ri-archive-line';
-      default: return 'ri-shield-line';
-    }
   }
 
   /**
@@ -303,16 +345,28 @@ export class RoleCatalogueComponent {
       code: codeError('Role code', code, { max: 50 }),
       description: textWithLettersError('Purpose', f.description, { min: 10, max: 500 }),
       isPrivileged: f.isPrivileged === null ? 'Choose a privilege level.' : null,
-      isDefaultRole: f.isDefaultRole === null ? 'Choose whether everybody gets this role.' : null,
+      isDefaultRole: f.isDefaultRole === null ? 'Choose whether new people get this role by default.' : null,
       // The server takes 0 to 999. The stepper used to stop at 9999 and the box takes anything
       // typed, so a value the API would refuse reached it and came back as a bare error.
       priority: Number.isInteger(f.priority) && f.priority >= 0 && f.priority <= RoleCatalogueComponent.MAX_PRIORITY
         ? null
         : `Priority must be a whole number from 0 to ${RoleCatalogueComponent.MAX_PRIORITY}.`,
+      // The server keeps 40 characters. The box took 80, so a longer name was typed in full and
+      // refused on save.
+      displayTag: f.displayTag.trim().length > RoleCatalogueComponent.MAX_OWNING_FUNCTION
+        ? `Owning function can be at most ${RoleCatalogueComponent.MAX_OWNING_FUNCTION} characters.`
+        : null,
+      // Asked only when roles were picked: the reason is what a person refused the combination
+      // is shown, so it has to be the administrator's and not a sentence of this screen's.
+      incompatReason: this.selectedIncompatibleRoleIds().length > 0 && !this.incompatReason().trim()
+        ? 'Say why these roles cannot be held together.'
+        : null,
     };
   }
 
   private static readonly MAX_PRIORITY = 999;
+  static readonly MAX_OWNING_FUNCTION = 40;
+  readonly maxOwningFunction = RoleCatalogueComponent.MAX_OWNING_FUNCTION;
 
   /** The message under a create-role field, or null while it is fine (or untouched). */
   roleErr(field: string): string | null {
@@ -328,7 +382,10 @@ export class RoleCatalogueComponent {
     }
   }
 
-  private static readonly ROLE_IDS: Record<string, string> = { name: 'roleNameInput', code: 'roleCodeInput', description: 'rolePurposeInput' };
+  private static readonly ROLE_IDS: Record<string, string> = {
+    name: 'roleNameInput', code: 'roleCodeInput', description: 'rolePurposeInput',
+    displayTag: 'owningFunctionInput', incompatReason: 'incompatReasonInput',
+  };
 
   createRoleForm = signal({
     name: '',
@@ -349,11 +406,10 @@ export class RoleCatalogueComponent {
   /** The permission matrix, loaded when the editor opens. */
   readonly permissionMatrix = signal<PermissionMatrixResponse | null>(null);
   selectedIncompatibleRoleIds = signal<string[]>([]);
-  permissionDropdownOpen = signal(false);
-  incompatibleDropdownOpen = signal(false);
+  /** Why the roles picked above cannot be held with the new one. Recorded on each rule. */
+  readonly incompatReason = signal('');
 
   // ===== Role Detail =====
-  showDetailModal = signal(false);
   detailRole = signal<RoleDetail | null>(null);
 
   /** The open role, shaped for the detail panel. */
@@ -375,12 +431,13 @@ export class RoleCatalogueComponent {
     });
 
     const status = detail.status ?? '';
-    const isSystemRole = detail.isSystemRole === true;
 
-    // WHAT THE RECORD'S STATE ALLOWS IS THE SERVER'S ANSWER (`permittedActions`), not a second
-    // copy of its rules kept here. The copy had drifted: it offered "Put into use" for a draft
-    // only, so a retired role could never be brought back, and it offered Edit on a retired
-    // role, which the server does not.
+    // WHAT THE RECORD'S STATE ALLOWS IS THE SERVER'S ANSWER (`permittedActions`), and nothing
+    // else. Each button is that answer AND the permission its endpoint asks for. Three of them
+    // used to carry a rule of this screen's as well - "not for a built-in role", "only a draft
+    // can be deleted" - which the API did not have, so the two disagreed: the screen hid Edit on
+    // roles the server would save, and offered Delete on roles the server could not delete.
+    // The rules for built-in roles are the server's now, and it sends them here like the rest.
     const allows = (action: string) => (detail.permittedActions ?? []).includes(action);
 
     return {
@@ -388,10 +445,10 @@ export class RoleCatalogueComponent {
       name: detail.name ?? '',
       code: detail.code ?? '',
       purpose: detail.description ?? '',
-      roleType: this.roleTypeLabel(detail.roleType),
+      roleType: detail.roleTypeDisplay ?? '',
       owningFunction: detail.displayTag ?? '',
+      status,
       approvalState: detail.statusDisplay ?? status,
-      privilegeLevel: detail.isPrivileged ? 'Privileged' : 'Standard',
       isPrivileged: detail.isPrivileged === true,
       isDefaultRole: detail.isDefaultRole === true,
       isSystemRole: detail.isSystemRole === true,
@@ -407,48 +464,31 @@ export class RoleCatalogueComponent {
         .filter((permission) => permission.isDenied === true)
         .map(toPermissionView),
 
-      incompatibleRoles: (detail.incompatibilities ?? []).map((conflict) => ({
-        id: conflict.id ?? '',
-        conflictingRoleId: conflict.conflictingRoleId ?? '',
-        name: conflict.conflictingRoleName ?? '',
-        reason: conflict.reason ?? '',
-        isBlocking: conflict.isBlocking === true,
-      })),
+      // THE OTHER ROLE OF THE PAIR, whichever way round the rule was recorded. A rule is stored
+      // once and the API returns it for both roles, so on the role named second the
+      // "conflicting" one is this role itself - which is what this list used to print there.
+      incompatibleRoles: (detail.incompatibilities ?? []).map((conflict) => {
+        const namedSecond = conflict.conflictingRoleId === detail.id;
+
+        return {
+          id: conflict.id ?? '',
+          conflictingRoleId: (namedSecond ? conflict.roleId : conflict.conflictingRoleId) ?? '',
+          name: (namedSecond ? conflict.roleName : conflict.conflictingRoleName) ?? '',
+          reason: conflict.reason ?? '',
+          isBlocking: conflict.isBlocking === true,
+        };
+      }),
 
       visibleMenuCount: (detail.visibleMenuIds ?? []).length,
-      roleVersion: detail.version ?? 0,
       createdAt: detail.createdAtUtc ? this.formatDate(detail.createdAtUtc) : '—',
       updatedAt: detail.updatedAtUtc ? this.formatDate(detail.updatedAtUtc) : '—',
 
-      // A built-in role keeps its name, its code and its place in the catalogue: it is not
-      // renamed, retired or put back from this screen. What it GRANTS can be changed - see
-      // `canEditPermissions`.
-      canActivate: allows('Activate') && !isSystemRole && this.mayActivateRoles(),
-      canRetire: allows('Deactivate') && !isSystemRole && this.mayRetireRoles(),
-      canEdit: allows('Edit') && !isSystemRole && this.mayEditRoles(),
+      canActivate: allows('Activate') && this.mayActivateRoles(),
+      canDeactivate: allows('Deactivate') && this.mayDeactivateRoles(),
+      canEdit: allows('Edit') && this.mayEditRoles(),
+      canDelete: allows('Delete') && this.mayDeleteRoles(),
       version: detail.version ?? 0,
     };
-  });
-
-  /** The role type in the words the screen uses. */
-  private roleTypeLabel(roleType: string | undefined): string {
-    switch (roleType) {
-      case 'platform': return 'Platform';
-      case 'tenant': return 'Organisation';
-      case 'template': return 'Template';
-      default: return roleType ?? '';
-    }
-  }
-
-  /**
-   * The open role as a list row — what Compare and Delete take. Looked up across ALL roles, not
-   * just the filtered ones, so the detail actions keep working when a filter hides the row.
-   */
-  readonly selectedItem = computed<RoleItemView | null>(() => {
-    const id = this.detailRole()?.id;
-    if (!id) return null;
-    const row = (this.data()?.roles ?? []).find((r) => r.id === id);
-    return row ? this.toRoleItemView(row) : null;
   });
 
   /** Up to two initials for the live preview in the create panel. */
@@ -616,16 +656,18 @@ export class RoleCatalogueComponent {
   // platform does not have, and none for Global Masters or Platform, which showed up as "GM" and
   // "PLATFORM".
 
-  /** The seven verbs a permission can carry, in the order the action strip prints them. */
-  private static readonly ACTIONS: { key: string; label: string; short: string }[] = [
-    { key: 'view', label: 'View', short: 'V' },
-    { key: 'create', label: 'Create', short: 'C' },
-    { key: 'edit', label: 'Edit', short: 'E' },
-    { key: 'submit', label: 'Submit', short: 'S' },
-    { key: 'approve', label: 'Approve', short: 'A' },
-    { key: 'operate', label: 'Operate', short: 'O' },
-    { key: 'export', label: 'Export', short: 'X' },
-  ];
+  /**
+   * The matrix's columns: the verbs a permission can carry, in the server's order and words
+   * (`permissionActions` from `/reference-data/enums`).
+   *
+   * The seven were typed here, so an eighth added on the server would have had permissions and
+   * no column to show them in.
+   */
+  private readonly actionColumns = computed(() =>
+    (this.data()?.permissionActions ?? []).map((option) => ({
+      key: option.value.toLowerCase(),
+      label: option.label,
+    })));
 
   readonly permFilter = signal('');
 
@@ -646,10 +688,13 @@ export class RoleCatalogueComponent {
       const key = (row.code.split('.')[0] || 'other').toLowerCase();
       groups.set(key, [...(groups.get(key) ?? []), row]);
     }
+
+    const columns = this.actionColumns();
+
     return [...groups.entries()]
       .map(([key, items]) => {
         const denied = items.filter((i) => i.denied).length;
-        const actions: ActionKeyView[] = RoleCatalogueComponent.ACTIONS.map((a) => {
+        const actions: ActionKeyView[] = columns.map((a) => {
           const hits = items.filter((i) => i.action === a.key);
           const state: ActionKeyView['state'] = hits.some((i) => !i.denied)
             ? 'granted'
@@ -698,79 +743,58 @@ export class RoleCatalogueComponent {
     return groups.length > 0 && groups.every((g) => this.openGroups().includes(g.key));
   });
 
-  // ---- Catalogue masthead figures and the grouped role index ------------------------------
+  // ---- Catalogue masthead figures -----------------------------------------------------------
+  //
+  // Counted over the whole catalogue as the API returned it. The share of roles in each state
+  // is `statusBreakdown`, which is worded and ordered by the server.
   readonly catalogueFigures = computed(() => {
     const roles = this.data()?.roles ?? [];
-    const total = roles.length || 1;
-    const share = (status: string) =>
-      Math.round((roles.filter((r) => this.statusBucket(r.status ?? '') === status).length / total) * 100);
     return {
       total: roles.length,
-      active: roles.filter((r) => r.status === 'active').length,
-      draft: roles.filter((r) => r.status === 'draft').length,
-      retired: roles.filter((r) => this.statusBucket(r.status ?? '') === 'retired').length,
       privileged: roles.filter((r) => r.isPrivileged).length,
       system: roles.filter((r) => r.isSystemRole).length,
       holders: roles.reduce((sum, r) => sum + (r.memberCount ?? 0), 0),
       staffed: roles.filter((r) => (r.memberCount ?? 0) > 0).length,
       permissions: roles.reduce((sum, r) => sum + (r.permissionCount ?? 0), 0),
-      shares: { active: share('active'), draft: share('draft'), retired: share('retired'), other: share('default') },
     };
   });
 
-  /** The catalogue's state ring: one arc per state on a circle of radius 52. */
-  readonly stateRing = computed(() => {
-    const f = this.catalogueFigures();
-    const total = f.total || 1;
-    const circumference = 2 * Math.PI * 52;
-    let run = 0;
-    return [
-      { key: 'active', label: 'In use', count: f.active },
-      { key: 'draft', label: 'Draft', count: f.draft },
-      { key: 'retired', label: 'Retired', count: f.retired },
-    ].map((seg) => {
-      const length = (seg.count / total) * circumference;
-      const arc = { ...seg, dash: `${length} ${circumference - length}`, offset: -run };
-      run += length;
-      return arc;
-    });
+  /** The role that is the Organisation's default now, for the create panel's note. */
+  readonly currentDefaultRole = computed(() => {
+    const role = (this.data()?.roles ?? []).find((r) => r.isDefaultRole === true && r.status === 'active');
+    return role ? { id: role.id ?? '', name: role.name ?? role.code ?? '' } : null;
   });
-
-  /** Share of this role's module actions that are granted, 0-100, for the module bars. */
-  moduleShare(granted: number, total: number): number {
-    return total ? Math.round((granted / total) * 100) : 0;
-  }
-
-  /** The filtered roles, sectioned by state in the same order as the status segments. */
-  readonly roleSections = computed(() => {
-    const labels = new Map(this.statusBreakdown().map((s) => [s.status, s.label]));
-    const order = this.statusBreakdown().map((s) => s.status);
-    const sections = new Map<string, RoleItemView[]>();
-    for (const role of this.filteredRoles()) {
-      sections.set(role.status, [...(sections.get(role.status) ?? []), role]);
-    }
-    return [...sections.entries()]
-      .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
-      .map(([status, roles]) => ({ status, label: labels.get(status) ?? status, roles }));
-  });
-
-  /** The widest permission count in the catalogue - scales each index row's bar. */
-  readonly maxPermissionCount = computed(() =>
-    Math.max(1, ...(this.data()?.roles ?? []).map((r) => r.permissionCount ?? 0)));
 
   // ===== Compare & Delete Modal =====
   showCompareModal = signal(false);
   showDeleteRoleModal = signal(false);
-  actionRole = signal<RoleItemView | null>(null);
+  actionRole = signal<RoleRef | null>(null);
   deleteReason = signal('');
   deleteError = signal('');
   compareRoleId = signal('');
   comparing = signal(false);
-  compareResult = signal<{ onlyInLeft: string[]; onlyInRight: string[]; inBoth: string[] } | null>(null);
+  compareResult = signal<{
+    onlyInLeft: ComparedPermission[];
+    onlyInRight: ComparedPermission[];
+    inBoth: ComparedPermission[];
+  } | null>(null);
 
   constructor() {
     this.loadData();
-    effect(() => { this.applyFilters(); });
+
+    // The filtered list. Asked for again whenever a control changes (after a pause, so typing
+    // in the search box is one request and not one per letter) and whenever a role changes.
+    // `switchMap` drops the answer to a question that has since been replaced.
+    combineLatest([
+      toObservable(this.activeFilter).pipe(debounceTime(RoleCatalogueComponent.FILTER_PAUSE_MS)),
+      this.refreshRows$.pipe(startWith(undefined)),
+    ]).pipe(
+      switchMap(([filter]) => this.fetchMatchedRoles(filter)),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((roles) => {
+      this.matchedRoles.set(roles);
+      this.filtering.set(false);
+    });
 
     // A floating menu is fixed to the screen, so any scroll other than its own list
     // (the page, the dialog body, the drawer body) would leave it behind. Close it instead.
@@ -789,123 +813,119 @@ export class RoleCatalogueComponent {
     this.loading.set(true);
     this.loadFailed.set(false);
 
-    // The whole catalogue: search, the state tabs and every count on the masthead run in the
-    // browser, so a first page standing in for the catalogue would undercount all of them.
+    // The whole catalogue, with the vocabularies: what the masthead counts, what the tabs and
+    // the filter panel offer, and the roles every picker on the screen chooses from.
     this.api.getCatalogue().subscribe({
       next: (res) => {
         this.data.set(res);
         this.loading.set(false);
-        this.applyFilters();
       },
       error: (error: Error) => {
         this.loading.set(false);
         this.loadFailed.set(true);
         this.errorMessage.set(error.message);
-        this.toast.show('Error', 'Failed to load role catalogue.', 'error');
+        this.toast.show('Could not load the roles', error.message, 'error');
       },
     });
   }
 
-  /** Re-reads the list quietly, so counts update without the page flashing its loader. */
+  /**
+   * Re-reads the catalogue and the filtered list after a role changes - quietly, so the counts
+   * and the rows update without the page flashing its loader or closing the open role.
+   */
   private reloadCatalogue(): void {
     this.api.getCatalogue().subscribe({
-      next: (res) => { this.data.set(res); this.applyFilters(); },
+      next: (res) => this.data.set(res),
+      error: (error: Error) => this.toast.show('Could not refresh the roles', error.message, 'error'),
     });
+    this.refreshRows$.next();
   }
 
   retry(): void { this.loadData(); }
 
-  applyFilters(): void {
-    const all = this.data()?.roles ?? [];
-    const q = this.searchQuery().toLowerCase();
-    const s = this.filterStatus();
-    const t = this.filterType();
-    const f = this.filterFunction();
-    let result = all;
-    if (q) {
-      result = result.filter((r) =>
-        (r.name ?? '').toLowerCase().includes(q)
-        || (r.code ?? '').toLowerCase().includes(q));
-    }
-    if (s) result = result.filter((r) => r.status === s);
-    if (t) result = result.filter((r) => r.roleType === t);
-    if (f) result = result.filter((r) => (r.displayTag ?? '').trim() === f);
+  /** How long the controls must be still before the filtered list is asked for. */
+  private static readonly FILTER_PAUSE_MS = 250;
 
-    this.filteredRoles.set(result.map(r => this.toRoleItemView(r)));
+  /**
+   * The roles for a filter, from the server. With no control set the catalogue already holds
+   * the answer, so nothing is asked and `null` says "show the catalogue".
+   */
+  private fetchMatchedRoles(filter: RoleSearchFilter): Observable<RoleListItem[] | null> {
+    if (Object.values(filter).every((value) => value === undefined)) {
+      return of(null);
+    }
+
+    this.filtering.set(true);
+
+    return this.api.searchAll(filter).pipe(
+      catchError((error: Error) => {
+        this.toast.show('Could not filter the roles', error.message, 'error');
+        return of<RoleListItem[]>([]);
+      }));
   }
 
   clearFilters(): void {
-    this.searchQuery.set(''); this.filterStatus.set(''); this.filterType.set(''); this.filterFunction.set('');
+    this.searchQuery.set('');
+    this.filterStatus.set('');
+    this.filterType.set('');
+    this.filterFunction.set('');
+    this.filterPrivilege.set('');
+    this.filterOrigin.set('');
+  }
+
+  // ===== EXPORT =====
+
+  /**
+   * Downloads the roles on screen as CSV.
+   *
+   * THE SERVER BUILDS THE FILE from the same filter the table sent, names it, and records the
+   * export in the audit trail under the reference shown in the confirmation.
+   */
+  exportRoles(): void {
+    this.exporting.set(true);
+
+    this.api.export(this.activeFilter()).subscribe({
+      next: (file) => {
+        this.exporting.set(false);
+
+        const url = URL.createObjectURL(file.blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        this.toast.show(
+          'Export ready',
+          file.reference ? `${file.fileName} was downloaded. Reference ${file.reference}.` : `${file.fileName} was downloaded.`,
+          'success');
+      },
+      error: (error: Error) => {
+        this.exporting.set(false);
+        this.toast.show('Export failed', error.message, 'error');
+      },
+    });
   }
 
   private toRoleItemView(r: RoleListItem): RoleItemView {
-    const detail = this.detailCache.get(r.id ?? '');
-
-    const permissions = (detail?.permissions ?? []);
-    const granted = permissions.filter((permission) => permission.isDenied !== true);
-    const denied = permissions.filter((permission) => permission.isDenied === true);
-
-    const status = r.status ?? '';
-
     return {
-      status,
-      canActivate: status !== 'active' && r.isSystemRole !== true && this.mayActivateRoles(),
-      canRetire: status === 'active' && r.isSystemRole !== true && this.mayRetireRoles(),
-
-      // Only a draft can be removed outright; once a role has been in use, retiring applies.
-      // Nobody may hold it either - the server refuses that delete, so the button is not drawn.
-      canDelete: status === 'draft' && r.isSystemRole !== true && (r.memberCount ?? 0) === 0
-        && this.mayDeleteRoles(),
-
       id: r.id ?? '',
-      reference: r.code ?? '',
       roleName: r.name ?? '',
       roleCode: r.code ?? '',
-      purpose: r.description ?? detail?.description ?? '',
-      roleType: this.roleTypeLabel(r.roleType),
+      roleType: r.roleTypeDisplay ?? '',
       owningFunction: r.displayTag ?? '',
-
-      permissionBundle: granted.length > 0
-        ? granted.map((permission) => permission.permissionCode).join(', ')
-        : `${r.permissionCount ?? 0} permission(s)`,
-
-      excludedPermissions: denied.length > 0
-        ? denied.map((permission) => permission.permissionCode).join(', ')
-        : 'None',
-
-      defaultScopeType: 'Whole organisation',
-
-      incompatibleRoles: (detail?.incompatibilities ?? []).length > 0
-        ? (detail?.incompatibilities ?? [])
-            .map((item) => item.conflictingRoleName)
-            .join(', ')
-        : 'None',
-
-      assignmentPrerequisites: 'None',
-      maximumDuration: '',
-      reviewInterval: '',
-      privilegeClassification: r.isPrivileged ? 'Privileged' : 'Standard',
-      roleVersion: `v${r.version ?? 0}`,
+      status: r.status ?? '',
       approvalState: r.statusDisplay ?? r.status ?? '',
-      approvalStateClass: this.approvalStateClass(r.status ?? ''),
       assignedUserCount: r.memberCount ?? 0,
+      permissionCount: r.permissionCount ?? 0,
+      grantsAllPermissions: r.grantsAllTenantPermissions === true,
       effectiveDate: r.updatedAtUtc ? this.formatDate(r.updatedAtUtc) : '—',
-      retirementReason: '',
       isSystemRole: r.isSystemRole === true,
       isPrivileged: r.isPrivileged === true,
       isDefaultRole: r.isDefaultRole === true,
-      permissionCount: r.permissionCount ?? granted.length,
-      version: r.version ?? 0,
     };
-  }
-
-  private approvalStateClass(state: string): string {
-    switch (state) {
-      case 'active': return 'bg-success-subtle text-success';
-      case 'draft': return 'bg-warning-subtle text-warning';
-      case 'inactive': return 'bg-secondary-subtle text-secondary';
-      default: return 'bg-secondary-subtle text-secondary';
-    }
   }
 
   private formatDate(value: string): string {
@@ -933,39 +953,65 @@ export class RoleCatalogueComponent {
     this.selectedPermissionCodes.set([]);
     this.selectedDeniedCodes.set([]);
     this.selectedIncompatibleRoleIds.set([]);
-    this.permissionDropdownOpen.set(false);
-    this.incompatibleDropdownOpen.set(false);
+    this.incompatReason.set('');
     this.permMode.set('grant');
     this.permQuery.set('');
     this.incompatQuery.set('');
     this.closeDd();
     this.errorMessage.set('');
+    this.editingSystemRole.set(false);
     this.showCreateModal.set(true);
 
     // The matrix is fetched when the editor opens rather than with the catalogue.
-    if (!this.permissionMatrix()) {
-      this.api.getPermissionMatrix().subscribe({
-        next: (matrix) => this.permissionMatrix.set(matrix),
-        error: (error: Error) =>
-          this.toast.show('Permissions unavailable', error.message, 'error'),
-      });
-    }
+    this.loadPermissionMatrix().subscribe();
   }
+
+  /**
+   * The permission matrix - every permission an Organisation role can carry, by module - read
+   * from the API once and kept for as long as the screen is open.
+   */
+  private loadPermissionMatrix(): Observable<PermissionMatrixResponse | null> {
+    const loaded = this.permissionMatrix();
+    if (loaded) {
+      return of(loaded);
+    }
+
+    // One request however many callers ask while it is on its way.
+    this.matrixRequest$ ??= this.api.getPermissionMatrix().pipe(
+      tap((matrix) => this.permissionMatrix.set(matrix)),
+      catchError((error: Error) => {
+        this.matrixRequest$ = undefined;
+        this.toast.show('Permissions unavailable', error.message, 'error');
+        return of(null);
+      }),
+      shareReplay({ bufferSize: 1, refCount: false }));
+
+    return this.matrixRequest$;
+  }
+
+  private matrixRequest$?: Observable<PermissionMatrixResponse | null>;
 
   closeCreateModal(): void {
     this.closeDd();
     this.showCreateModal.set(false);
     this.editingRoleId.set('');
+    this.editingSystemRole.set(false);
   }
 
   /** The role the drawer is editing; empty while it is creating a new one. */
   readonly editingRoleId = signal('');
+  /** True while the drawer is editing a built-in role, whose name the server keeps as it is. */
+  readonly editingSystemRole = signal(false);
+  /** The state of the role being edited, in the server's word, for the drawer's heading. */
+  readonly editingStatusLabel = signal('');
   private editingVersion = 0;
 
   /** Opens the drawer on an existing role's name, purpose, classification and priority. */
   openEditRole(role: RoleDetailView): void {
     this.openCreateModal();
     this.editingRoleId.set(role.id);
+    this.editingSystemRole.set(role.isSystemRole);
+    this.editingStatusLabel.set(role.approvalState);
     this.editingVersion = role.version;
     this.createRoleForm.set({
       name: role.name,
@@ -973,12 +1019,17 @@ export class RoleCatalogueComponent {
       description: role.purpose,
       displayTag: role.owningFunction,
       priority: role.priority,
-      isPrivileged: role.isPrivileged === true,
+      isPrivileged: role.isPrivileged,
       isDefaultRole: role.isDefaultRole,
     });
   }
 
-  /** Opens the drawer as a new draft that starts as a copy of this role. */
+  /**
+   * Opens the drawer as a new draft that starts as a copy of this role: its purpose, owning
+   * function, priority and privilege level, what it allows and blocks, and the roles it cannot
+   * be combined with. The name and code are suggestions to change, and the copy is never the
+   * default role - one Organisation has one default.
+   */
   cloneRole(role: RoleDetailView): void {
     this.openCreateModal();
     this.createRoleForm.set({
@@ -987,13 +1038,32 @@ export class RoleCatalogueComponent {
       description: role.purpose,
       displayTag: role.owningFunction,
       priority: role.priority,
-      isPrivileged: role.isPrivileged === true,
+      isPrivileged: role.isPrivileged,
       isDefaultRole: false,
     });
     this.selectedPermissionCodes.set(role.permissionBundle.map((p) => p.code));
     this.selectedDeniedCodes.set(role.excludedPermissions.map((p) => p.code));
     this.selectedIncompatibleRoleIds.set(
       role.incompatibleRoles.map((c) => c.conflictingRoleId).filter((id) => !!id));
+
+    // One reason is recorded for the copy's rules. When the original's rules all give the same
+    // one it is carried over; otherwise it is left for the administrator to write.
+    const reasons = [...new Set(role.incompatibleRoles.map((c) => c.reason.trim()).filter(Boolean))];
+    this.incompatReason.set(reasons.length === 1 ? reasons[0] : '');
+
+    // A ROLE THAT GRANTS EVERYTHING HAS NO LIST TO COPY - the grant is a flag on the role, which
+    // only the built-in administrator role carries and no created role can. Its copy used to
+    // come out holding nothing at all. It now starts with every permission the API offers,
+    // listed one by one, which is the nearest thing a created role can be.
+    if (role.grantsAllPermissions) {
+      this.loadPermissionMatrix().subscribe(() => {
+        this.selectedPermissionCodes.set(this.permissionChoices().map((p) => p.code));
+        this.toast.show(
+          'Every permission selected',
+          `${role.name} grants everything without a list, so the copy starts with all ${this.permissionChoices().length} permissions that exist today. Remove what it should not have.`,
+          'info');
+      });
+    }
   }
 
   private saveRoleEdits(id: string): void {
@@ -1025,14 +1095,6 @@ export class RoleCatalogueComponent {
 
   createDraftRole(): void {
     this.openCreateModal();
-  }
-
-  togglePermissionDropdown(): void {
-    this.permissionDropdownOpen.set(!this.permissionDropdownOpen());
-  }
-
-  toggleIncompatibleDropdown(): void {
-    this.incompatibleDropdownOpen.set(!this.incompatibleDropdownOpen());
   }
 
   togglePermission(code: string): void {
@@ -1078,23 +1140,6 @@ export class RoleCatalogueComponent {
     return this.selectedIncompatibleRoleIds().includes(id);
   }
 
-  /** The permissions currently ticked, by name. */
-  selectedPermissionLabels(): string {
-    const byCode = new Map<string, string>();
-
-    for (const module of this.permissionMatrix()?.modules ?? []) {
-      for (const group of module.groups ?? []) {
-        for (const permission of group.permissions ?? []) {
-          byCode.set(permission.code ?? '', permission.name ?? permission.code ?? '');
-        }
-      }
-    }
-
-    return this.selectedPermissionCodes()
-      .map((code) => byCode.get(code) ?? code)
-      .join(', ');
-  }
-
   /** Every permission in the matrix, flattened. */
   readonly permissionChoices = computed(() => {
     const choices: { code: string; name: string; description: string; isSensitive: boolean }[] = [];
@@ -1116,20 +1161,13 @@ export class RoleCatalogueComponent {
     return choices;
   });
 
-  selectedIncompatibleRoleLabels(): string {
-    const roles = this.data()?.roles ?? [];
-    return this.selectedIncompatibleRoleIds()
-      .map(id => roles.find(r => r.id === id)?.name ?? id)
-      .join(', ');
-  }
-
   confirmCreateRole(): void {
     const form = this.createRoleForm();
 
     this.roleSubmitted.set(true);
     const labels: Record<string, string> = {
       name: 'Role name', code: 'Role code', description: 'Purpose', isPrivileged: 'Privilege level', isDefaultRole: 'Given to everybody',
-      priority: 'Priority',
+      priority: 'Priority', displayTag: 'Owning function', incompatReason: 'Why the roles cannot be combined',
     };
     const failing = Object.entries(this.roleRuleErrors()).filter(([, message]) => message !== null);
     if (failing.length > 0) {
@@ -1166,10 +1204,7 @@ export class RoleCatalogueComponent {
     };
 
     this.api.createRole(request).subscribe({
-      next: (role) => {
-        this.detailCache.set(role.id ?? '', role);
-        this.recordConflicts(role.id ?? '', role.name ?? form.name);
-      },
+      next: (role) => this.recordConflicts(role),
       error: (error: Error) => {
         this.submitting.set(false);
         this.errorMessage.set(error.message);
@@ -1178,20 +1213,29 @@ export class RoleCatalogueComponent {
     });
   }
 
-  /** Records the roles the new one must not be held alongside. */
-  private recordConflicts(roleId: string, roleName: string): void {
+  /**
+   * Records the roles the new one must not be held alongside, then shows the new role.
+   *
+   * THE REASON IS THE ONE TYPED IN THE PANEL. Each rule used to be saved with a sentence of this
+   * screen's - "Recorded when the role was created." - and the reason is what a person refused
+   * the combination is shown, so it told them nothing about why.
+   */
+  private recordConflicts(created: RoleDetail): void {
+    const roleId = created.id ?? '';
+    const roleName = created.name ?? this.createRoleForm().name;
     const conflictIds = this.selectedIncompatibleRoleIds();
+    const reason = this.incompatReason().trim();
 
     const finish = (conflictError?: string) => {
       this.submitting.set(false);
       this.showCreateModal.set(false);
 
-      // Open the role that was just created, so the detail pane shows it straight away.
-      const created = this.detailCache.get(roleId);
-      if (created) {
-        this.detailRole.set(created);
-        this.showDetailModal.set(true);
-      }
+      // The new draft is shown open, so no filter may be hiding its row.
+      this.clearFilters();
+      this.permFilter.set('');
+      this.openGroups.set([]);
+      this.detailTab.set('perms');
+      this.detailRole.set(created);
 
       if (conflictError) {
         this.toast.show(
@@ -1202,7 +1246,12 @@ export class RoleCatalogueComponent {
         this.toast.show('Role created', `${roleName} has been created as a draft.`, 'success');
       }
 
-      this.loadData();
+      // Read again: the rules were added after the role was returned.
+      if (conflictIds.length > 0 && roleId) {
+        this.refreshOpenRole(roleId);
+      }
+
+      this.reloadCatalogue();
     };
 
     if (!roleId || conflictIds.length === 0) {
@@ -1212,12 +1261,7 @@ export class RoleCatalogueComponent {
 
     forkJoin(
       conflictIds.map((conflictingRoleId) =>
-        this.api.addIncompatibility({
-          roleId,
-          conflictingRoleId,
-          reason: 'Recorded when the role was created.',
-          isBlocking: true,
-        })),
+        this.api.addIncompatibility({ roleId, conflictingRoleId, reason, isBlocking: true })),
     ).subscribe({
       next: () => finish(),
       error: (error: Error) => finish(error.message),
@@ -1225,25 +1269,21 @@ export class RoleCatalogueComponent {
   }
 
   // ===== ROLE DETAIL =====
+
+  /**
+   * Opens a role beneath its row, read from the API each time.
+   *
+   * NOT KEPT FROM THE LAST TIME IT WAS OPEN. What the buttons offer is the server's answer for
+   * the role as it is now - who holds it, what state it is in - and a copy from earlier in the
+   * visit could offer a delete the server has since stopped allowing.
+   */
   openDetail(role: RoleItemView): void {
     this.permFilter.set('');
     this.openGroups.set([]);
-    const cached = this.detailCache.get((role.id ?? ''));
-    if (cached) {
-      this.detailRole.set(cached);
-      this.showDetailModal.set(true);
-      return;
-    }
 
-    this.api.getRole((role.id ?? '')).subscribe({
-      next: (detail) => {
-        this.detailCache.set(detail.id ?? '', detail);
-        this.detailRole.set(detail);
-        this.showDetailModal.set(true);
-      },
-      error: (error: Error) => {
-        this.toast.show('Load Failed', error.message, 'error');
-      },
+    this.api.getRole(role.id).subscribe({
+      next: (detail) => this.detailRole.set(detail),
+      error: (error: Error) => this.toast.show('Could not open the role', error.message, 'error'),
     });
   }
 
@@ -1262,7 +1302,6 @@ export class RoleCatalogueComponent {
   }
 
   closeDetail(): void {
-    this.showDetailModal.set(false);
     this.detailRole.set(null);
     this.resetConflictForm();
     this.cancelPermEdit();
@@ -1352,12 +1391,7 @@ export class RoleCatalogueComponent {
     this.permReason.set('');
     this.permEditing.set(true);
 
-    if (!this.permissionMatrix()) {
-      this.api.getPermissionMatrix().subscribe({
-        next: (matrix) => this.permissionMatrix.set(matrix),
-        error: (error: Error) => this.toast.show('Permissions unavailable', error.message, 'error'),
-      });
-    }
+    this.loadPermissionMatrix().subscribe();
   }
 
   cancelPermEdit(): void {
@@ -1519,11 +1553,14 @@ export class RoleCatalogueComponent {
       isBlocking: form.isBlocking,
     }).subscribe({
       next: () => {
+        // WHAT THE SERVER DOES WITH EACH KIND. A blocking rule is checked wherever a role is
+        // granted. A flagged one is recorded and shown on both roles and nothing more - this
+        // used to promise it would be "flagged for review", and no review looks at it.
         this.toast.show(
           'Rule recorded',
           form.isBlocking
             ? 'The combination will now be refused when somebody tries to grant it.'
-            : 'The combination will now be flagged for review.',
+            : 'The combination stays allowed. The rule is shown on both roles as a warning.',
           'success');
 
         this.resetConflictForm();
@@ -1562,23 +1599,27 @@ export class RoleCatalogueComponent {
     });
   }
 
-  /** Re-reads the open role after a rule changes. The cache is evicted first. */
+  /** Re-reads the open role after it changes, unless another role has been opened meanwhile. */
   private refreshOpenRole(roleId: string): void {
-    this.detailCache.delete(roleId);
-
     this.api.getRole(roleId).subscribe({
       next: (detail) => {
-        this.detailCache.set(detail.id ?? '', detail);
-        this.detailRole.set(detail);
+        if (this.detailRole()?.id === detail.id) {
+          this.detailRole.set(detail);
+        }
       },
       error: (error: Error) => this.toast.show('Reload failed', error.message, 'error'),
     });
   }
 
+  /** The open role as a dialog names it. */
+  private toRoleRef(role: RoleDetailView): RoleRef {
+    return { id: role.id, name: role.name, code: role.code, version: role.version };
+  }
+
   // ===== COMPARE =====
-  openCompareModal(role: RoleItemView): void {
+  openCompareModal(role: RoleDetailView): void {
     this.closeDd();
-    this.actionRole.set(role);
+    this.actionRole.set(this.toRoleRef(role));
     this.compareRoleId.set('');
     this.compareResult.set(null);
     this.showCompareModal.set(true);
@@ -1621,10 +1662,16 @@ export class RoleCatalogueComponent {
     });
   }
 
-  // ===== DELETE DRAFT =====
-  openDeleteRoleModal(role: RoleItemView): void {
+  // ===== DELETE =====
+  //
+  // WHICH ROLES CAN BE DELETED IS THE SERVER'S RULE (`Delete` in `permittedActions`): one that
+  // is not built in and that nobody has ever held, whatever state it is in. This screen had its
+  // own - "a draft that nobody holds now" - which offered Delete on a draft whose holders had
+  // been removed, where the API then failed, and hid it on a role put into use by mistake and
+  // never given to anybody, which the API will delete.
+  openDeleteRoleModal(role: RoleDetailView): void {
     if (!role.canDelete) return;
-    this.actionRole.set(role);
+    this.actionRole.set(this.toRoleRef(role));
     this.deleteReason.set('');
     this.deleteError.set('');
     this.showDeleteRoleModal.set(true);
@@ -1642,23 +1689,23 @@ export class RoleCatalogueComponent {
     if (!target) return;
 
     const reason = this.deleteReason().trim();
-    if (reason.length < 10) {
-      this.deleteError.set('Deletion reason must be at least 10 characters.');
+    if (reason.length < RoleCatalogueComponent.MIN_REASON) {
+      this.deleteError.set(`The reason must be at least ${RoleCatalogueComponent.MIN_REASON} characters.`);
       return;
     }
 
     this.submitting.set(true);
     this.errorMessage.set('');
 
-    this.api.deleteDraftRole(target.id, target.version, reason).subscribe({
+    this.api.deleteRole(target.id, { expectedVersion: target.version, reason }).subscribe({
       next: () => {
         this.submitting.set(false);
         this.closeDeleteRoleModal();
         if (this.detailRole()?.id === target.id) {
-          this.detailRole.set(null);
+          this.closeDetail();
         }
-        this.toast.show('Role Deleted', `Role ${target.roleCode} was permanently deleted.`, 'success');
-        this.loadData();
+        this.toast.show('Role deleted', `${target.name} (${target.code}) was permanently deleted.`, 'success');
+        this.reloadCatalogue();
       },
       error: (error: Error) => {
         this.submitting.set(false);
@@ -1669,11 +1716,15 @@ export class RoleCatalogueComponent {
 
   // ===== ROLE ACTIONS =====
   //
-  // ASKED FIRST, AND THE REASON IS THE ADMINISTRATOR'S. Retire used to act on the click: one
-  // press took a role's permissions from everybody who held it, with nothing to confirm and no
-  // way back from this screen. Both actions also wrote a sentence of this file's into the audit
-  // trail as the reason - "Role is no longer required." against every role ever retired - which
-  // records that something happened and nothing about why.
+  // ASKED FIRST, AND THE REASON IS THE ADMINISTRATOR'S. Deactivating used to act on the click:
+  // one press took a role's permissions from everybody who held it, with nothing to confirm and
+  // no way back from this screen. Both actions also wrote a sentence of this file's into the
+  // audit trail as the reason - "Role is no longer required." against every role ever
+  // deactivated - which records that something happened and nothing about why.
+  //
+  // NAMED AS THE SERVER NAMES THEM. The buttons said "Put into use" and "Retire" while the
+  // state they produce is printed, in the server's words, as Active and Inactive, and the
+  // permissions that allow them are iam.roles.activate and iam.roles.deactivate.
 
   /** The status change waiting to be confirmed, or null while the dialog is closed. */
   readonly statusChange = signal<{
@@ -1683,34 +1734,32 @@ export class RoleCatalogueComponent {
     version: number;
     holders: number;
     target: 'active' | 'inactive';
-    /** True when the role was retired before, so its holders get their permissions back. */
-    wasRetired: boolean;
+    /** True when the role was deactivated before, so its holders get their permissions back. */
+    wasInactive: boolean;
   } | null>(null);
 
   readonly statusReason = signal('');
   readonly statusError = signal('');
 
-  submitRole(role: RoleItemView | RoleDetailView): void {
+  activateRole(role: RoleDetailView): void {
     this.openStatusChange(role, 'active');
   }
 
-  retireRole(role: RoleItemView | RoleDetailView): void {
+  deactivateRole(role: RoleDetailView): void {
     this.openStatusChange(role, 'inactive');
   }
 
-  private openStatusChange(role: RoleItemView | RoleDetailView, target: 'active' | 'inactive'): void {
-    const listed = (this.data()?.roles ?? []).find((item) => item.id === role.id);
-
+  private openStatusChange(role: RoleDetailView, target: 'active' | 'inactive'): void {
     this.statusReason.set('');
     this.statusError.set('');
     this.statusChange.set({
-      id: role.id ?? '',
-      name: this.roleDisplayName(role),
-      code: 'roleCode' in role ? role.roleCode : role.code,
-      version: role.version ?? 0,
-      holders: role.assignedUserCount ?? 0,
+      id: role.id,
+      name: role.name,
+      code: role.code,
+      version: role.version,
+      holders: role.assignedUserCount,
       target,
-      wasRetired: listed?.status === 'inactive',
+      wasInactive: role.status === 'inactive',
     });
   }
 
@@ -1725,8 +1774,8 @@ export class RoleCatalogueComponent {
     if (!change) return;
 
     const reason = this.statusReason().trim();
-    if (reason.length < 10) {
-      this.statusError.set('The reason must be at least 10 characters.');
+    if (reason.length < RoleCatalogueComponent.MIN_REASON) {
+      this.statusError.set(`The reason must be at least ${RoleCatalogueComponent.MIN_REASON} characters.`);
       return;
     }
 
@@ -1736,20 +1785,20 @@ export class RoleCatalogueComponent {
     this.statusError.set('');
 
     (activating
-      ? this.api.submitRole(change.id, change.version, reason)
-      : this.api.retireRole(change.id, change.version, reason)
+      ? this.api.activateRole(change.id, change.version, reason)
+      : this.api.deactivateRole(change.id, change.version, reason)
     ).subscribe({
       next: () => {
         this.submitting.set(false);
         this.closeStatusChange();
-        this.detailCache.delete(change.id);
 
+        // The new state in the server's word for it, as the table will print it.
         this.toast.show(
-          activating ? 'Role activated' : 'Role retired',
-          activating ? `${change.name} is now in use.` : `${change.name} has been retired.`,
+          activating ? 'Role activated' : 'Role deactivated',
+          `${change.name} is now ${this.statusLabel(change.target)}.`,
           activating ? 'success' : 'info');
         this.refreshIfOpen(change.id);
-        this.loadData();
+        this.reloadCatalogue();
       },
       error: (error: Error) => {
         this.submitting.set(false);
@@ -1758,15 +1807,14 @@ export class RoleCatalogueComponent {
     });
   }
 
+  /** The shortest reason the API accepts for a status change or a delete. */
+  private static readonly MIN_REASON = 10;
+
   /** Re-reads the role if it is the one open in the detail pane. */
   private refreshIfOpen(roleId: string): void {
     if (roleId && this.detailRole()?.id === roleId) {
       this.refreshOpenRole(roleId);
     }
-  }
-
-  private roleDisplayName(role: RoleItemView | RoleDetailView): string {
-    return 'roleName' in role ? role.roleName : role.name;
   }
 
   goBack(): void {

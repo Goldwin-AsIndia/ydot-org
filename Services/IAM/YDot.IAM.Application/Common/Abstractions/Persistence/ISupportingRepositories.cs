@@ -1,5 +1,6 @@
 using YDot.IAM.Application.Common.Models;
 using YDot.IAM.Domain.Entities;
+using YDot.IAM.Domain.Enums;
 
 namespace YDot.IAM.Application.Common.Abstractions.Persistence;
 
@@ -134,6 +135,22 @@ public interface IGovernanceRepository
     Task<string> NextRequestNumberAsync(Guid tenantId, CancellationToken cancellationToken);
 
     Task AddAccessRequestAsync(AccessRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The number of a request that is still open - a draft, waiting for a decision, or sent
+    /// back - for the same person and the same access. Null when there is none.
+    ///
+    /// Two open requests for one grant split the approver's attention and, approved twice, write
+    /// the same grant twice. <paramref name="excludeId"/> leaves out the request being edited.
+    /// </summary>
+    Task<string?> FindOpenDuplicateRequestAsync(
+        Guid requestedForUserId,
+        Guid? roleId,
+        string? permissionCode,
+        DataScopeType? scopeType,
+        string? scopeValue,
+        Guid? excludeId,
+        CancellationToken cancellationToken);
 
     Task<int> ExpireOverdueRequestsAsync(DateTimeOffset asOf, CancellationToken cancellationToken);
 

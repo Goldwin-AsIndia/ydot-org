@@ -348,7 +348,6 @@ public sealed class CreateUserCommandHandler(
             EmailConfirmed = false,
             MobileCountryCode = request.MobileCountryCode?.Trim(),
             MobileNumber = request.MobileNumber?.Trim(),
-            AccountCategory = request.AccountCategory,
             EngagementType = request.EngagementType,
             DepartmentId = request.DepartmentId,
             OrganisationUnitId = request.OrganisationUnitId,
@@ -392,12 +391,16 @@ public sealed class CreateUserCommandHandler(
         var justification = Optional(request.Justification);
 
         var assigned = await AssignRolesAsync(
-            user, tenant, request.RoleIds, request.AccountCategory, justification, now, cancellationToken);
+            user, tenant, request.RoleIds, request.RoleCodes, justification, now, cancellationToken);
         if (assigned.IsFailure)
         {
             logger.LogWarning("User creation failed during role assignment. UserId {UserId}, TenantId {TenantId}.", user.Id, tenantId);
             return Result.Failure<CreateUserResponse>(assigned.Error!);
         }
+
+        // The role the invitation names: the first one asked for, by id or by code. Null when
+        // none was named and the Organisation default was given instead.
+        var initialRoleId = assigned.Value!.FirstOrDefault()?.Id;
 
         // ---- Narrowing scopes ---------------------------------------------------------------------
         foreach (var scope in request.DataScopes ?? [])
@@ -418,7 +421,14 @@ public sealed class CreateUserCommandHandler(
                 UserId = user.Id,
                 ScopeType = scope.ScopeType,
                 ScopeValue = scopeValue,
-                DisplayLabel = scope.DisplayLabel,
+                // The two value-less types name no record, so their value is an id nobody can
+                // read; without a label the profile showed "Data scope: 6f0751e3-…".
+                DisplayLabel = Optional(scope.DisplayLabel) ?? scope.ScopeType switch
+                {
+                    DataScopeType.Organisation => "Whole organisation",
+                    DataScopeType.Assignment => "Assigned records only",
+                    _ => null
+                },
                 GrantedAtUtc = now,
                 GrantedByUserId = currentUser.UserId,
                 EffectiveFromUtc = now,
@@ -443,7 +453,7 @@ public sealed class CreateUserCommandHandler(
                 Email = email.Value,
                 NormalizedEmail = email.Value.ToUpperInvariant(),
                 InvitationType = InvitationType.TenantUser,
-                InitialRoleId = request.RoleIds is { Count: > 0 } roleIds ? roleIds[0] : null,
+                InitialRoleId = initialRoleId,
                 TokenHash = tokenHasher.Hash(plaintextToken),
                 Reference = tokenHasher.GenerateReference("INV"),
                 ExpiresAtUtc = now.AddDays(_security.InvitationExpiryDays),
@@ -464,8 +474,7 @@ public sealed class CreateUserCommandHandler(
             {
                 user.Code,
                 Email = email.Value,
-                user.AccountCategory,
-                RoleCount = request.RoleIds?.Count ?? 0,
+                RoleCount = (request.RoleIds?.Count ?? 0) + (request.RoleCodes?.Count ?? 0),
                 DataScopeCount = request.DataScopes?.Count ?? 0,
                 request.SendInvitation
             },
@@ -486,27 +495,34 @@ public sealed class CreateUserCommandHandler(
         // Sent after the commit. A mail relay failure must not undo a user who has already
         // been created; the invitation can simply be re-sent.
         string? activationUrl = null;
+        var delivered = false;
         if (invitation is not null && plaintextToken is not null)
         {
             logger.LogInformation("Sending user invitation after user creation commit. UserId {UserId}, InvitationId {InvitationId}.", user.Id, invitation.Id);
             activationUrl = BuildActivationUrl(invitation.InvitationHostName!, plaintextToken);
 
-            await notifications.SendInvitationAsync(
+            delivered = await notifications.SendInvitationAsync(
                 user, invitation, tenant, businessUnit, activationUrl, cancellationToken);
         }
 
-        logger.LogInformation("User created successfully. UserId {UserId}, TenantId {TenantId}, Status {Status}, InvitationCreated {InvitationCreated}.", user.Id, tenantId, user.Status, invitation is not null);
+        logger.LogInformation("User created successfully. UserId {UserId}, TenantId {TenantId}, Status {Status}, InvitationCreated {InvitationCreated}, InvitationDelivered {InvitationDelivered}.", user.Id, tenantId, user.Status, invitation is not null, delivered);
 
+        // INVITATION SENT MEANS THE RELAY ACCEPTED IT. It used to be "an invitation row exists",
+        // so a relay that refused the login still produced "has been e-mailed an invitation
+        // link" on the screen while the person waited for nothing. The row exists either way and
+        // the directory's Send invitation re-sends it.
         return Result.Success(new CreateUserResponse(
             user.Id,
             user.Code,
             user.DisplayName,
             user.Email!,
             user.Status,
-            invitation is not null,
+            delivered,
             invitation?.ExpiresAtUtc,
             _email.Enabled ? null : activationUrl,
-            user.Version));
+            user.Version,
+            InvitationCreated: invitation is not null,
+            DeliveryMessage: DescribeDelivery(invitation is not null, delivered)));
     }
 
     public async Task<Result<CreateUserResponse>> HandleAsync(
@@ -612,15 +628,17 @@ public sealed class CreateUserCommandHandler(
 
         var activationUrl = BuildActivationUrl(hostName, plaintextToken);
 
-        await notifications.SendInvitationAsync(
+        var delivered = await notifications.SendInvitationAsync(
             user, invitation, tenant, businessUnit, activationUrl, cancellationToken);
 
-        logger.LogInformation("User invitation resent successfully. UserId {UserId}, InvitationId {InvitationId}, ResendCount {ResendCount}.", user.Id, invitation.Id, invitation.ResendCount);
+        logger.LogInformation("User invitation resent. UserId {UserId}, InvitationId {InvitationId}, ResendCount {ResendCount}, Delivered {Delivered}.", user.Id, invitation.Id, invitation.ResendCount, delivered);
 
         return Result.Success(new CreateUserResponse(
             user.Id, user.Code, user.DisplayName, user.Email!, user.Status,
-            InvitationSent: true, invitation.ExpiresAtUtc,
-            _email.Enabled ? null : activationUrl, user.Version));
+            InvitationSent: delivered, invitation.ExpiresAtUtc,
+            _email.Enabled ? null : activationUrl, user.Version,
+            InvitationCreated: true,
+            DeliveryMessage: DescribeDelivery(invitationCreated: true, delivered)));
     }
 
     /// <summary>
@@ -671,7 +689,9 @@ public sealed class CreateUserCommandHandler(
 
         return Result.Success(new CreateUserResponse(
             user.Id, user.Code, user.DisplayName, user.Email!, user.Status,
-            InvitationSent: false, null, null, user.Version));
+            InvitationSent: false, null, null, user.Version,
+            InvitationCreated: false,
+            DeliveryMessage: "The invitation was withdrawn. Its link no longer works."));
     }
 
     /// <summary>
@@ -681,76 +701,82 @@ public sealed class CreateUserCommandHandler(
     /// somebody tries to create it rather than at the next audit.
     /// </summary>
     /// <summary>
-    /// Gives the new account its roles, or works out which one it should have.
+    /// Gives the new account its roles: the ones named, by id or by code, or the Organisation
+    /// default when none was named.
     ///
-    /// THE FALLBACK IS THE INTERESTING PART. It takes the account CATEGORY because the answer to
-    /// "what should an account with no roles get" is not the same for staff and for a donor, and
-    /// the category is the only thing on the request that distinguishes them.
+    /// THE ROLE IS WHAT SAYS WHAT KIND OF ACCOUNT THIS IS. There used to be a separate account
+    /// category, and the only thing it ever decided was this fallback: a "DonorPortal" account
+    /// with no roles got DONOR rather than the staff default. A donor account is now simply one
+    /// created with the DONOR role - PAY names it by code, because it cannot know the role's id
+    /// in each Organisation - so the category had nothing left to do and was removed.
+    ///
+    /// Returns the roles granted, first (primary) first.
     /// </summary>
-    private async Task<Result> AssignRolesAsync(
+    private async Task<Result<IReadOnlyList<Role>>> AssignRolesAsync(
         User user,
         Tenant tenant,
         IReadOnlyList<Guid>? roleIds,
-        UserAccountCategory accountCategory,
+        IReadOnlyList<string>? roleCodes,
         string? justification,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var requested = roleIds is { Count: > 0 }
-            ? await roles.GetManyAsync(roleIds, cancellationToken)
-            : [];
+        var requested = new List<Role>();
 
-        if (roleIds is { Count: > 0 } && requested.Count != roleIds.Count)
+        if (roleIds is { Count: > 0 })
         {
-            logger.LogWarning("User role assignment failed because one or more requested roles were not found. UserId {UserId}, RequestedRoleCount {RequestedRoleCount}, FoundRoleCount {FoundRoleCount}.", user.Id, roleIds.Count, requested.Count);
-            return Result.Failure(Error.Validation(
-                "One or more of those roles was not found in this organisation.",
-                [new ValidationError("RoleIds", "Choose roles from this organisation.")]));
+            var byId = await roles.GetManyAsync(roleIds, cancellationToken);
+
+            if (byId.Count != roleIds.Count)
+            {
+                logger.LogWarning("User role assignment failed because one or more requested roles were not found. UserId {UserId}, RequestedRoleCount {RequestedRoleCount}, FoundRoleCount {FoundRoleCount}.", user.Id, roleIds.Count, byId.Count);
+                return Result.Failure<IReadOnlyList<Role>>(Error.Validation(
+                    "One or more of those roles was not found in this organisation.",
+                    [new ValidationError("RoleIds", "Choose roles from this organisation.")]));
+            }
+
+            // In the order asked for, so the first one named is the primary role.
+            requested.AddRange(roleIds.Select(id => byId.First(role => role.Id == id)));
         }
 
-        // Fall back to a role, so a new user is not created able to sign in and see nothing —
-        // which reads as a broken account rather than a missing role.
-        //
-        // WHICH ROLE DEPENDS ON WHAT KIND OF ACCOUNT THIS IS, and it did not used to. Every
-        // account with no roles fell through to the Organisation's DEFAULT role - a staff role,
-        // CAMPAIGN_EXECUTIVE today and a maker across every module when this was written - and
-        // the donor portal creates exactly such an account. A lead who scanned a QR code, paid,
-        // and activated the invitation in their e-mail was therefore given staff rights. Nobody
-        // chose that. It is what "the default role" means when the account being created is not
-        // a member of staff.
-        //
-        // A DonorPortal account gets DONOR: their own giving, and nothing else.
-        //
-        // IF DONOR IS MISSING THE ACCOUNT GETS NOTHING, and that is the right way to fail. The
-        // seeder creates the role in every Organisation, so its absence means a database that
-        // has not been reconciled — and on that database an account with no roles sees an empty
-        // application, which somebody reports, whereas an account quietly holding a staff role
-        // is a member of the public inside the staff screens and nobody finds out.
+        foreach (var code in (roleCodes ?? []).Where(code => !string.IsNullOrWhiteSpace(code)))
+        {
+            var role = await roles.GetByCodeAsync(code.Trim(), tenant.Id, cancellationToken);
+
+            // A NAMED ROLE THAT IS MISSING REFUSES THE CREATE. Falling through to the default
+            // role instead is how a donor account once ended up holding staff rights.
+            if (role is null)
+            {
+                logger.LogWarning("User role assignment failed because role code {RoleCode} does not exist in Organisation {TenantId}. UserId {UserId}.", code, tenant.Id, user.Id);
+                return Result.Failure<IReadOnlyList<Role>>(Error.Validation(
+                    $"The role {code.Trim()} does not exist in this organisation.",
+                    [new ValidationError("RoleCodes", "Choose roles from this organisation.")]));
+            }
+
+            if (requested.All(existing => existing.Id != role.Id))
+            {
+                requested.Add(role);
+            }
+        }
+
+        var named = requested.Count > 0;
+
+        // Fall back to the Organisation default, so a new user is not created able to sign in
+        // and see nothing - which reads as a broken account rather than a missing role. Only when
+        // NO role was named: a caller that named one gets that one or a refusal, never a guess.
         if (requested.Count == 0)
         {
-            var fallback = accountCategory == UserAccountCategory.DonorPortal
-                ? await roles.GetByCodeAsync(RoleCodes.Donor, tenant.Id, cancellationToken)
-                : await roles.GetDefaultRoleAsync(tenant.Id, cancellationToken);
+            var fallback = await roles.GetDefaultRoleAsync(tenant.Id, cancellationToken);
 
             if (fallback is not null)
             {
-                requested = [fallback];
-            }
-            else if (accountCategory == UserAccountCategory.DonorPortal)
-            {
-                logger.LogWarning(
-                    "The {RoleCode} role does not exist in Organisation {TenantId}, so donor "
-                    + "account {UserId} was created with no role at all. It will sign in and see "
-                    + "nothing until the role seeder has run.",
-                    RoleCodes.Donor,
-                    tenant.Id,
-                    user.Id);
+                requested.Add(fallback);
             }
         }
 
         if (requested.Count == 0)
         {
-            return Result.Success();
+            return Result.Success<IReadOnlyList<Role>>([]);
         }
 
         var conflicts = await roles.GetIncompatibilitiesAsync(
@@ -765,7 +791,7 @@ public sealed class CreateUserCommandHandler(
         if (blocking.Count > 0)
         {
             logger.LogWarning("User role assignment rejected due to segregation-of-duties rules. UserId {UserId}, ConflictCount {ConflictCount}.", user.Id, blocking.Count);
-            return Result.Failure(Error.SegregationOfDuties(
+            return Result.Failure<IReadOnlyList<Role>>(Error.SegregationOfDuties(
                 "Those roles cannot be held together: " +
                 string.Join("; ", blocking.Select(rule => rule.Reason))));
         }
@@ -792,8 +818,17 @@ public sealed class CreateUserCommandHandler(
 
         logger.LogInformation("User roles assigned successfully. UserId {UserId}, RoleCount {RoleCount}.", user.Id, requested.Count);
 
-        return Result.Success();
+        // The roles that were NAMED, for the invitation; the default is not "what they were
+        // invited as".
+        return Result.Success<IReadOnlyList<Role>>(named ? requested : []);
     }
+
+    /// <summary>One sentence on what happened to the invitation e-mail, for the screen to show.</summary>
+    private string DescribeDelivery(bool invitationCreated, bool delivered) =>
+        !invitationCreated ? "No invitation was sent. The account stays a draft until one is."
+        : delivered ? "The invitation e-mail was accepted by the mail relay."
+        : !_email.Enabled ? "E-mail is switched off on this server, so the invitation was not sent."
+        : "The mail relay refused the e-mail, which usually means its login or sender address needs attention.";
 
     /// <summary>A trimmed value, or null when nothing but whitespace was sent.</summary>
     private static string? Optional(string? value) =>

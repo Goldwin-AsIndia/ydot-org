@@ -93,6 +93,13 @@ public static class PermissionCodes
     /// </summary>
     public const string MenusManageStructure = "iam.menus.manage-structure";
 
+    /// <summary>
+    /// Downloading Menu Configuration as a spreadsheet: the Organisation's menu, or one role's
+    /// view of it. Its own code, like every other export, because a file leaves the audit trail's
+    /// sight the moment it is saved - the export is recorded, and who may do it is a decision.
+    /// </summary>
+    public const string MenusExport = "iam.menus.export";
+
     // ---- User security, devices and sessions --------------------------------------------------
     public const string UserSecurityView = "iam.user-security.view";
     public const string UserSecurityRevokeSession = "iam.user-security.revoke-session";
@@ -107,6 +114,13 @@ public static class PermissionCodes
     public const string AccessRequestsApprove = "iam.access-requests.approve";
     public const string AccessRequestsReject = "iam.access-requests.reject";
     public const string AccessRequestsWithdraw = "iam.access-requests.withdraw";
+
+    /// <summary>
+    /// Downloading the access request queue as a spreadsheet. Its own code, like every export:
+    /// the file carries who asked for which access and why, and it leaves the audit trail's sight
+    /// the moment it is saved.
+    /// </summary>
+    public const string AccessRequestsExport = "iam.access-requests.export";
 
     // ---- Access reviews -------------------------------------------------------------------------
     public const string AccessReviewsView = "iam.access-reviews.view";
@@ -307,10 +321,10 @@ public static class PermissionCodes
         UsersChangeLoginIdentifier, UsersViewSensitiveContact,
         RolesCreate, RolesEdit, RolesDelete, RolesAssignPermissions, RolesAssignUsers,
         PermissionsAssign, PermissionsRevoke,
-        MenusConfigure, MenusMapRoles, MenusManageStructure,
+        MenusConfigure, MenusMapRoles, MenusManageStructure, MenusExport,
         UserSecurityRevokeSession, UserSecurityRevokeDevice, UserSecurityResetMfa,
         UserSecurityForceSignOut,
-        AccessRequestsApprove, AccessRequestsReject,
+        AccessRequestsApprove, AccessRequestsReject, AccessRequestsExport,
         AccessReviewsDecide, AccessReviewsCancel, AccessReviewsExport,
         AuditExport, AuditViewSensitive,
         OrganisationEdit, OrganisationSubmit, OrganisationManageSettings,
@@ -334,11 +348,11 @@ public static class PermissionCodes
         RolesView, RolesCreate, RolesEdit, RolesDelete, RolesActivate, RolesDeactivate,
         RolesAssignPermissions, RolesAssignUsers, RolesManageIncompatibility, RolesExport,
         PermissionsView, PermissionsAssign, PermissionsRevoke, PermissionsExport,
-        MenusView, MenusConfigure, MenusMapRoles, MenusManageStructure,
+        MenusView, MenusConfigure, MenusMapRoles, MenusManageStructure, MenusExport,
         UserSecurityView, UserSecurityRevokeSession, UserSecurityRevokeDevice, UserSecurityResetMfa,
         UserSecurityForceSignOut,
         AccessRequestsView, AccessRequestsCreate, AccessRequestsSubmit, AccessRequestsApprove,
-        AccessRequestsReject, AccessRequestsWithdraw,
+        AccessRequestsReject, AccessRequestsWithdraw, AccessRequestsExport,
         AccessReviewsView, AccessReviewsCreate, AccessReviewsDecide, AccessReviewsCancel,
         AccessReviewsExport,
         AuditView, AuditExport, AuditViewSensitive,

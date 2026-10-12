@@ -158,8 +158,7 @@ public sealed class TrackingAssetCommandHandler(
             campaign.Code, campaign.Name,
             context.Value.ChannelName, context.Value.SourceName, context.Value.MediumName,
             clock.UtcNow,
-            TrackingAssetMappingConfig.PermittedActionsFor(
-                asset, currentUser.UserId, currentUser.HasPermission, currentUser.IsTenantAdmin));
+            TrackingAssetMappingConfig.PermittedActionsFor(asset, currentUser.HasPermission));
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -306,22 +305,7 @@ public sealed class TrackingAssetCommandHandler(
                 $"Only a Submitted tracking asset can be approved. This one is {asset.Status}."));
         }
 
-        // The same independence rule campaigns use. Recorded as a DENIED audit row rather than
-        // simply refused: an attempt to approve one's own work is what a later review looks for.
-        if (!asset.CanBeApprovedBy(currentUser.UserId, currentUser.IsTenantAdmin))
-        {
-            logger.LogWarning("Tracking asset {AssetId} approval denied by segregation-of-duties rules.", asset.Id);
-            await audit.WriteAsync(
-                TrackingAssetAuditActionCodes.Approved, nameof(TrackingAsset), asset.Id,
-                AuditResult.Denied, "Attempted to approve an asset they created or submitted.",
-                cancellationToken);
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            return Result.Failure<OutcomeResponse>(Error.SegregationOfDuties(
-                "You cannot approve a tracking asset you created or submitted."));
-        }
-
+        // No test of who created or submitted it: the permission decides, as for campaigns.
         asset.Status = TrackingAssetStatus.Approved;
         asset.ApprovedByUserId = currentUser.UserId;
         asset.ApprovedAtUtc = clock.UtcNow;
@@ -768,8 +752,7 @@ public sealed class TrackingAssetCommandHandler(
             asset.Status.ToString(),
             asset.Version,
             message,
-            TrackingAssetMappingConfig.PermittedActionsFor(
-                asset, currentUser.UserId, currentUser.HasPermission, currentUser.IsTenantAdmin));
+            TrackingAssetMappingConfig.PermittedActionsFor(asset, currentUser.HasPermission));
 
     /// <summary>The channel, source and medium resolved together, with their codes and names.</summary>
     private sealed record ReferenceContext(

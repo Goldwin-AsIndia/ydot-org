@@ -12,6 +12,9 @@ import { UserDetail } from '../../../../Shared/models/user-directory.model';
 import { MfaMethodType, UserSecurityResponse } from '../../../../Shared/models/iam-contract.model';
 import { LayoutService } from '../../../../Service/layout-service';
 import { dialCodeError, employeeNumberError, minLengthError, nameError, phoneWithCodeError, textWithLettersError } from '../../../../Shared/validation/field-rules';
+import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
+import { UserAdminApiService } from '../../../../Service/user-admin-api.service';
+import { describeDataScopes, describeMfa, showsPreferredName } from '../../../../Shared/models/user-display';
 
 /** One enrolled factor, as the Security tab lists it. */
 interface MfaMethodView {
@@ -37,7 +40,25 @@ export class UserProfileComponent {
   private readonly securityApi = inject(SecurityApiService);
   private readonly tokens = inject(AuthTokenService);
   private readonly layoutService = inject(LayoutService);
+  private readonly referenceApi = inject(UserAdminApiService);
   data = signal<UserProfileData | null>(null);
+
+  /**
+   * What the Edit dialog's pickers offer, all from the server: titles from
+   * `/reference-data/enums` (open to every signed-in person, so My profile works too), dialling
+   * codes, languages and time zones from the GlobalMaster catalogue. They were free-text boxes,
+   * which let "UTC", "english" and "Dr." into columns that hold codes.
+   */
+  protected readonly geo = createGeoCascade();
+  readonly titleOptions = signal<string[]>([]);
+  readonly dialCodeOptions = computed<string[]>(() => [
+    ...new Set(this.geo.countries().map((country) => country.phoneCountryCode).filter((code): code is string => !!code)),
+  ]);
+
+  /** The options plus the stored value when it is not among them, so opening Edit never drops it. */
+  withCurrent(options: readonly string[], current: string): string[] {
+    return current && !options.includes(current) ? [current, ...options] : [...options];
+  }
 
   /**
    * The record exactly as the server sent it.
@@ -270,7 +291,10 @@ export class UserProfileComponent {
    * designation and no department.
    */
   readonly headerSummary = computed(() =>
-    [this.data()?.designation, this.data()?.department, this.data()?.reference]
+    [
+      this.data()?.preferredName ? `Goes by ${this.data()?.preferredName}` : '',
+      this.data()?.designation, this.data()?.department, this.data()?.reference,
+    ]
       .filter((part) => !!part).join(' · '));
 
   /** Two letters for the monogram on the profile cover. */
@@ -429,6 +453,10 @@ export class UserProfileComponent {
     const d = this.data();
     return [
       { label: 'Reference', icon: 'ri-hashtag', value: d?.reference || '', mono: true },
+      // BOTH NAMES. The display name is what every list and e-mail uses; the preferred name is
+      // what the person likes to be called. The profile showed neither as a fact.
+      { label: 'Display name', icon: 'ri-account-box-line', value: d?.displayName || '', mono: false },
+      { label: 'Preferred name', icon: 'ri-user-smile-line', value: d?.preferredName || '', mono: false },
       { label: 'Employee ID', icon: 'ri-profile-line', value: d?.employeeId || '', mono: true },
       { label: 'Username', icon: 'ri-at-line', value: d?.username || '', mono: false },
       { label: 'Email', icon: 'ri-mail-line', value: d?.loginEmail || '', mono: false },
@@ -505,6 +533,13 @@ export class UserProfileComponent {
     this.userReference.set(routeRef || (this.tokens.user()?.code ?? ''));
 
     this.loadData();
+
+    // Titles for the Edit dialog. A failure leaves the stored title as the only choice.
+    this.referenceApi.getEnumOptions().subscribe({
+      next: (enums) => this.titleOptions.set(
+        (enums.personTitles ?? []).map((option) => String(option.value ?? '')).filter(Boolean)),
+      error: () => this.titleOptions.set([]),
+    });
   }
 
   /**
@@ -630,11 +665,9 @@ export class UserProfileComponent {
     const roles = detail.roles ?? [];
     const scopes = detail.dataScopes ?? [];
 
-    // Written once and reused for both the summary line and each role's scope column.
-    const scopeSummary = scopes
-      .map((scope) => scope.displayLabel || scope.scopeValue || scope.scopeType)
-      .filter(Boolean)
-      .join(', ');
+    // Written once and reused for both the summary line and each role's scope column. The
+    // value-less scopes (Organisation, Assignment) are named by type: their stored value is an id.
+    const scopeSummary = describeDataScopes(scopes);
 
     const profileData: UserProfileData = {
       reference: detail.code ?? '',
@@ -647,7 +680,9 @@ export class UserProfileComponent {
         .filter(Boolean).join(' ').trim(),
       password: '',
       employeeId: detail.employeeNumber ?? '',
-      accountCategory: detail.accountCategory ?? '',
+      preferredName: showsPreferredName(detail) ? (detail.preferredName ?? '').trim() : '',
+      primaryRole: roles.find((role) => role.isPrimary)?.roleName ?? roles[0]?.roleName ?? '',
+      mfaPolicy: describeMfa(detail),
       accountStatus: detail.statusDisplay ?? detail.status ?? '',
       accountStatusClass:
         detail.status === 'active' ? 'bg-success'
@@ -672,7 +707,7 @@ export class UserProfileComponent {
       roleAssignments: roles.map((role) => ({
         role: role.roleName ?? role.roleCode ?? '',
         assignmentType: role.isPrimary ? 'Primary assignment' : 'Direct assignment',
-        scope: scopeSummary || 'Whole organisation',
+        scope: scopeSummary,
 
         // The server counts the permissions each role carries, so the screen does not have to
         // load the role to say how much it grants.
@@ -680,7 +715,7 @@ export class UserProfileComponent {
         term: role.effectiveToUtc ? 'Temporary' : 'Permanent',
       })),
 
-      dataScopes: scopeSummary || 'Whole organisation',
+      dataScopes: scopeSummary,
       accessStartDate: detail.accessStartsAtUtc
         ? new Date(detail.accessStartsAtUtc).toLocaleDateString()
         : '',
@@ -987,8 +1022,13 @@ export class UserProfileComponent {
 
   // ==================== MFA Enable/Disable ====================
 
+  /** "Enrolled" / "Required · not set up" / "Not enrolled" - with the policy resolved. */
   getMfaStatusLabel(): string {
-    return this.mfaEnabled() ? 'Enabled' : 'Not Enabled';
+    if (this.mfaEnabled()) {
+      return 'Enrolled';
+    }
+
+    return this.detail()?.isMfaEffectivelyRequired ? 'Required · not set up' : 'Not enrolled';
   }
 
   getMfaStatusClass(): string {
@@ -1040,8 +1080,11 @@ export class UserProfileComponent {
         mfaRequirement: 'required',
         reason,
       }).subscribe({
+        // THE WORDING MATCHES WHAT THE SERVER DOES. It said "will be asked at their next
+        // sign-in", but sign-in only challenges accounts that already have a factor; the
+        // requirement is enforced when an invitation is accepted, and shown on the record.
         next: () => done(
-          `${detail.displayName} will be asked to set up two-step verification at their next sign-in.`),
+          `Two-step verification is now required for ${detail.displayName}. If they have no second factor yet, they set one up from My Security.`),
         error: failed,
       });
       return;
@@ -1125,7 +1168,6 @@ export class UserProfileComponent {
   private mfaMethodLabel(methodType: MfaMethodType | undefined): string {
     switch (methodType) {
       case 'authenticatorApp': return 'Authenticator app';
-      case 'sms': return 'Text message';
       case 'email': return 'E-mail';
       case 'securityKey': return 'Security key';
       default: return 'Verification method';
@@ -1135,7 +1177,6 @@ export class UserProfileComponent {
   private mfaMethodIcon(methodType: MfaMethodType | undefined): string {
     switch (methodType) {
       case 'authenticatorApp': return 'ri-smartphone-line';
-      case 'sms': return 'ri-message-3-line';
       case 'email': return 'ri-mail-line';
       case 'securityKey': return 'ri-key-2-line';
       default: return 'ri-shield-keyhole-line';

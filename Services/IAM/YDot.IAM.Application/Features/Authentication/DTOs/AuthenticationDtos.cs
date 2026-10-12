@@ -164,7 +164,7 @@ public sealed record VerifyMfaRequest(
     string? DeviceIdentifier = null,
     ClientType ClientType = ClientType.Web);
 
-/// <summary>Asks for a fresh code, for example after switching from SMS to e-mail.</summary>
+/// <summary>Asks for a fresh code, for example after switching to another enrolled method.</summary>
 public sealed record ResendMfaChallengeRequest(string ChallengeToken, Guid? MfaMethodId = null);
 
 /// <summary>The challenge as the screen needs to render it.</summary>
@@ -301,7 +301,6 @@ public sealed record InvitationPreviewResponse(
     /// wrong job should be able to see that before they accept.
     /// </summary>
     string? Username,
-    string? AccountCategory,
     string? Department,
     string? OrganisationUnit,
     string? Designation,
@@ -331,19 +330,7 @@ public sealed record InvitationPreviewResponse(
     bool MfaMandatory,
 
     /// <summary>The factors this Organisation permits, in the order to offer them.</summary>
-    IReadOnlyList<MfaMethodType> AllowedMfaMethods,
-
-    /// <summary>
-    /// Dialling prefixes for the mobile number on the SMS/WhatsApp enrolment step.
-    ///
-    /// THEY TRAVEL WITH THE PREVIEW BECAUSE THE ACTIVATION SCREEN IS ANONYMOUS. It used to
-    /// fetch them from <c>/masters/lookups/countries</c>, which is gated on ActiveUserOnly —
-    /// a person part-way through activation has no session, so that call answered 401, the
-    /// interceptor tried to renew a session that did not exist, and the whole screen was
-    /// redirected to sign-in. The catalogue is the right source; an authenticated route to it
-    /// is not available here, and this reply already carries the rest of what the screen needs.
-    /// </summary>
-    IReadOnlyList<string> DialingCodes);
+    IReadOnlyList<MfaMethodType> AllowedMfaMethods);
 
 /// <summary>
 /// Accepting an invitation: choose a password and activate.
@@ -416,8 +403,6 @@ public sealed record AcceptInvitationResponse(
 public sealed record BeginInvitationMfaEnrolmentRequest(
     string Token,
     MfaMethodType MethodType,
-    string? MobileCountryCode = null,
-    string? MobileNumber = null,
     string? Label = null);
 
 /// <summary>Proves the factor enrolled during activation actually works.</summary>
@@ -594,7 +579,13 @@ public sealed record PasswordPolicyResponse(
     bool RequireLowercase,
     bool RequireDigit,
     bool RequireNonAlphanumeric,
-    int HistoryCount);
+    int HistoryCount,
+
+    /// <summary>
+    /// The rules as the lines a password form lists under its field, written from the same
+    /// settings the server enforces - history included, which no form used to mention.
+    /// </summary>
+    IReadOnlyList<string>? Rules = null);
 
 // =====================================================================================
 // Re-authentication and session timeout — IAM-AUTH-07

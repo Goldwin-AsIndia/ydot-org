@@ -13,7 +13,7 @@
           <button type="button" role="tab" class="ud-ledger-tab" [class.is-on]="activeTab() === tab.key"
                   [attr.aria-selected]="activeTab() === tab.key" (click)="selectTab(tab.key)">
             @if (tab.key !== 'all') { <span class="ud-dot" [attr.data-status]="tab.key" aria-hidden="true"></span> }
-            <span class="ud-t">{{ tab.label }}</span>
+            <span class="ud-t">{{ tabLabel(tab) }}</span>
             <span class="ud-ledger-n">{{ shownCounts()[tab.key] }}</span>
           </button>
         }
@@ -58,8 +58,8 @@
         <div class="ud-filters-grid">
           <div>
             <ng-container *ngTemplateOutlet="ddFilter; context: {
-              key: 'accountCategory', label: 'Account type', placeholder: 'All account types',
-              options: categoryOptions(), icon: 'ri-shield-user-line' }"></ng-container>
+              key: 'departmentId', label: 'Department', placeholder: 'All departments',
+              options: departmentOptions(), icon: 'ri-community-line' }"></ng-container>
           </div>
           <div>
             <ng-container *ngTemplateOutlet="ddFilter; context: {
@@ -156,7 +156,7 @@
 
               <div class="ud-who">
                 <span class="ud-who-text">
-                  <button type="button" class="ud-name" (click)="focusUser(user)" [attr.aria-pressed]="focusedId() === user.id">{{ user.displayName }}</button>
+                  <button type="button" class="ud-name" (click)="focusUser(user)" [attr.aria-pressed]="focusedId() === user.id">{{ user.displayName }}@if (showsPreferredName(user)) {<span class="ud-pref" title="Preferred name"> · {{ user.preferredName }}</span>}</button>
                   <span class="ud-mail">{{ user.email }}</span>
                 </span>
               </div>
@@ -202,6 +202,7 @@
         <header class="ud-dos-head">
           <div class="ud-dos-id">
             <h2 class="ud-dos-name">{{ u.displayName }}</h2>
+            @if (showsPreferredName(u)) { <span class="ud-dos-mail">Goes by {{ u.preferredName }}</span> }
             <span class="ud-dos-mail">{{ u.email }}</span>
             <span class="ud-dos-flags">
               <!-- <span class="ud-status"><span class="ud-dot" [attr.data-status]="u.status" aria-hidden="true"></span>{{ u.statusDisplay || u.status }}</span> -->
@@ -229,7 +230,8 @@
             <dl class="ud-dos-facts">
               <div><dt>Reference</dt><dd class="ud-num">{{ d.code || '—' }}</dd></div>
               <div><dt>Username</dt><dd>{{ d.username || '—' }}</dd></div>
-              <div><dt>Account type</dt><dd class="ud-cap">{{ d.accountCategory || '—' }}</dd></div>
+              <div><dt>Display name</dt><dd>{{ d.displayName || '—' }}</dd></div>
+              <div><dt>Preferred name</dt><dd>{{ d.preferredName || '—' }}</dd></div>
               <div><dt>Mobile</dt><dd>{{ d.mobileNumber ? d.mobileCountryCode + ' ' + d.mobileNumber : '—' }}</dd></div>
             </dl>
 
@@ -245,6 +247,7 @@
             <dl class="ud-dos-facts">
               <div><dt>Invitation</dt><dd>{{ invitationLabel(d) }}</dd></div>
               <div><dt>Second factor</dt><dd>{{ mfaRequirementLabel(d) }}</dd></div>
+              <div><dt>Data scope</dt><dd>{{ describeDataScopes(d.dataScopes) }}</dd></div>
               <div><dt>Access window</dt><dd>{{ d.accessStartsAtUtc ? (d.accessStartsAtUtc | date: 'dd MMM yyyy') : '—' }} – {{ d.accessEndsAtUtc ? (d.accessEndsAtUtc | date: 'dd MMM yyyy') : 'open' }}</dd></div>
               <div><dt>Last sign-in</dt><dd>{{ d.lastLoginAtUtc ? (d.lastLoginAtUtc | date: 'dd MMM yyyy, HH:mm') : 'Never' }}</dd></div>
             </dl>
@@ -365,7 +368,8 @@
             <dl class="dir-kv-list">
               <div class="dir-kv-row"><dt>Reference</dt><dd class="ud-mono">{{ d.code || '—' }}</dd></div>
               <div class="dir-kv-row"><dt>Username</dt><dd>{{ d.username || '—' }}</dd></div>
-              <div class="dir-kv-row"><dt>Account type</dt><dd>{{ d.accountCategory || '—' }}</dd></div>
+              <div class="dir-kv-row"><dt>Display name</dt><dd>{{ d.displayName || '—' }}</dd></div>
+              <div class="dir-kv-row"><dt>Preferred name</dt><dd>{{ d.preferredName || '—' }}</dd></div>
               <div class="dir-kv-row"><dt>Mobile</dt><dd>{{ d.mobileNumber ? d.mobileCountryCode + ' ' + d.mobileNumber : '—' }}</dd></div>
             </dl>
           </section>
@@ -384,6 +388,7 @@
             <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-shield-keyhole-line"></i></span>Access</h6>
             <dl class="dir-kv-list">
               <div class="dir-kv-row"><dt>Second factor</dt><dd>{{ mfaRequirementLabel(d) }}</dd></div>
+              <div class="dir-kv-row"><dt>Data scope</dt><dd>{{ describeDataScopes(d.dataScopes) }}</dd></div>
               <div class="dir-kv-row"><dt>Invitation</dt><dd>{{ invitationLabel(d) }}</dd></div>
               <div class="dir-kv-row"><dt>Access starts</dt><dd>{{ d.accessStartsAtUtc ? (d.accessStartsAtUtc | date: 'mediumDate') : '—' }}</dd></div>
               <div class="dir-kv-row"><dt>Access ends</dt><dd>{{ d.accessEndsAtUtc ? (d.accessEndsAtUtc | date: 'mediumDate') : 'No end date' }}</dd></div>
@@ -468,8 +473,13 @@
             <div class="dir-form-grid">
               <div class="dir-f-span-2">
                 <label class="dir-f-label" for="edTitle">Title</label>
-                <input id="edTitle" class="dir-f-control" placeholder="Mr / Ms / Dr" [value]="editForm().title"
-                       (input)="updateEditField('title', $any($event.target).value)">
+                <select id="edTitle" class="dir-f-control" [value]="editForm().title"
+                        (change)="updateEditField('title', $any($event.target).value)">
+                  <option value="">None</option>
+                  @for (title of withCurrent(titleOptions(), editForm().title); track title) {
+                    <option [value]="title" [selected]="title === editForm().title">{{ title }}</option>
+                  }
+                </select>
               </div>
               <div class="dir-f-span-4">
                 <label class="dir-f-label" for="edFirst">First name <span class="dir-req">*</span></label>
@@ -509,8 +519,13 @@
             <div class="dir-form-grid">
               <div class="dir-f-span-2">
                 <label class="dir-f-label" for="edCode">Country code</label>
-                <input id="edCode" class="dir-f-control" [class.is-invalid]="!!editError('mobileCountryCode')" data-input="dial" maxlength="5" placeholder="+91" [value]="editForm().mobileCountryCode"
-                       (input)="updateEditField('mobileCountryCode', $any($event.target).value)" (blur)="touchEdit('mobileCountryCode')">
+                <select id="edCode" class="dir-f-control" [class.is-invalid]="!!editError('mobileCountryCode')" [value]="editForm().mobileCountryCode"
+                        (change)="updateEditField('mobileCountryCode', $any($event.target).value); touchEdit('mobileCountryCode')">
+                  <option value="">Code</option>
+                  @for (code of withCurrent(dialCodeOptions(), editForm().mobileCountryCode); track code) {
+                    <option [value]="code" [selected]="code === editForm().mobileCountryCode">{{ code }}</option>
+                  }
+                </select>
                 @if (editError('mobileCountryCode')) { <div class="invalid-feedback d-block">{{ editError('mobileCountryCode') }}</div> }
               </div>
               <div class="dir-f-span-4">
@@ -550,13 +565,25 @@
             <div class="dir-form-grid">
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edLanguage">Preferred language</label>
-                <input id="edLanguage" class="dir-f-control" [value]="editForm().preferredLanguage"
-                       (input)="updateEditField('preferredLanguage', $any($event.target).value)">
+                <!-- The value is the culture code, which is what users.preferred_language stores. -->
+                <select id="edLanguage" class="dir-f-control" [value]="editForm().preferredLanguage"
+                        (change)="updateEditField('preferredLanguage', $any($event.target).value)">
+                  <option value="">Organisation default</option>
+                  @for (language of geo.languages(); track language.id) {
+                    <option [value]="language.cultureCode" [selected]="language.cultureCode === editForm().preferredLanguage">{{ language.displayLabel }}</option>
+                  }
+                </select>
               </div>
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edTimeZone">Time zone</label>
-                <input id="edTimeZone" class="dir-f-control" [value]="editForm().timeZoneId"
-                       (input)="updateEditField('timeZoneId', $any($event.target).value)">
+                <!-- The value is the IANA key, which is what users.time_zone stores. -->
+                <select id="edTimeZone" class="dir-f-control" [value]="editForm().timeZoneId"
+                        (change)="updateEditField('timeZoneId', $any($event.target).value)">
+                  <option value="">Organisation default</option>
+                  @for (zone of geo.timeZones(); track zone.id) {
+                    <option [value]="zone.ianaKey" [selected]="zone.ianaKey === editForm().timeZoneId">{{ zone.name }}</option>
+                  }
+                </select>
               </div>
             </div>
           </section>

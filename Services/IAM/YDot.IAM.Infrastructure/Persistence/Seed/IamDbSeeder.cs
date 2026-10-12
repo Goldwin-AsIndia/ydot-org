@@ -564,14 +564,11 @@ public sealed class IamDbSeeder(
     /// <summary>
     /// The segregation-of-duties rules every Organisation gets.
     ///
-    /// NONE AT PRESENT, and that follows from the role catalogue rather than being an oversight.
-    /// The one rule this list held - nobody holds INITIATOR and APPROVER at once - existed because
-    /// those two were the maker and the checker for EVERY module, so one person holding both could
-    /// decide their own work anywhere. The Managers that replaced APPROVER are maker and checker
-    /// by design, and the four-eyes rule moved onto the record: CAM refuses an approval from
-    /// whoever created or submitted the campaign, the asset or the budget version. A blocking rule
-    /// between an Executive and their Manager would refuse a combination the Manager already
-    /// holds on its own.
+    /// NONE, ON PURPOSE. The one rule this list held - nobody holds INITIATOR and APPROVER at once -
+    /// went with those roles. The Organisation's rule now is that roles combine as a union with no
+    /// conflict between them: a person may hold a module's Executive AND Manager roles, and then
+    /// raises and approves the same request. A blocking rule between an Executive and their
+    /// Manager here would contradict that, so none is recorded.
     ///
     /// THE MECHANISM STAYS. <c>CheckSegregationOfDutiesAsync</c> runs on every path that grants a
     /// role, and the only way to record a rule through the product is the Create Draft Role
@@ -939,9 +936,16 @@ public sealed class IamDbSeeder(
             definition => ResolveMenuScope(definition.MenuScope, mappable),
             StringComparer.Ordinal);
 
+        // Who owns each Organisation's own node, for the two rules below.
+        var owners = await context.MenuDefinitions
+            .Where(menu => menu.OwnerTenantId != null)
+            .Select(menu => new { menu.Id, OwnerTenantId = menu.OwnerTenantId!.Value })
+            .ToDictionaryAsync(menu => menu.Id, menu => menu.OwnerTenantId, cancellationToken);
+
         var now = DateTimeOffset.UtcNow;
         var added = 0;
         var corrected = 0;
+        var foreign = 0;
 
         foreach (var role in roles)
         {
@@ -953,11 +957,27 @@ public sealed class IamDbSeeder(
                 ? existing
                 : [];
 
+            // ANOTHER ORGANISATION'S OWN NODE IS NOT THIS ROLE'S TO BE MAPPED TO. This loop used
+            // to walk every node in the table, so each restart wrote a row for every role in every
+            // Organisation against every node any Organisation had added for itself - and the save
+            // on the mapping screen did the same. Rows already written that way mean nothing and
+            // are removed.
+            foreach (var row in already.Values
+                         .Where(row => owners.TryGetValue(row.MenuDefinitionId, out var owner)
+                                       && owner != role.TenantId)
+                         .ToList())
+            {
+                context.RoleMenus.Remove(row);
+                already.Remove(row.MenuDefinitionId);
+                foreign++;
+            }
+
             // A system role the blueprint no longer defines is mapped by permission alone. It is
             // deactivated by RetireUnknownSystemRolesAsync anyway; this only keeps its grid honest.
             var scope = scopes.GetValueOrDefault(role.NormalizedCode);
 
-            foreach (var node in mappable)
+            foreach (var node in mappable.Where(node => node.OwnerTenantId is null
+                                                        || node.OwnerTenantId == role.TenantId))
             {
                 var isMapped = scope is null || scope.Contains(node.Id);
 
@@ -1010,12 +1030,13 @@ public sealed class IamDbSeeder(
             }
         }
 
-        if (added > 0 || corrected > 0)
+        if (added > 0 || corrected > 0 || foreign > 0)
         {
             logger.LogInformation(
-                "Reconciled role menu mapping: {Added} row(s) added and {Corrected} seeded row(s) "
-                + "brought in line across {RoleCount} role(s) and {NodeCount} navigable node(s).",
-                added, corrected, roles.Count, mappable.Count);
+                "Reconciled role menu mapping: {Added} row(s) added, {Corrected} seeded row(s) "
+                + "brought in line and {Foreign} row(s) naming another Organisation's node removed "
+                + "across {RoleCount} role(s) and {NodeCount} navigable node(s).",
+                added, corrected, foreign, roles.Count, mappable.Count);
         }
     }
 
@@ -1152,13 +1173,17 @@ public sealed class IamDbSeeder(
         var definitions = await context.MenuDefinitions.ToListAsync(cancellationToken);
 
         // What an Organisation should hold: everything enabled by default that is not the
-        // platform-only branch.
-        var shouldHold = definitions
+        // platform-only branch - of the platform's nodes and its OWN, never another
+        // Organisation's. See the note in the loop.
+        var defaults = definitions
             .Where(definition => !definition.IsPlatformOnly
                                  && definition.IsEnabledByDefault
                                  && definition.Status != MenuStatus.Retired)
-            .Select(definition => definition.Id)
-            .ToHashSet();
+            .ToList();
+
+        var ownerOf = definitions
+            .Where(definition => definition.OwnerTenantId != null)
+            .ToDictionary(definition => definition.Id, definition => definition.OwnerTenantId!.Value);
 
         var tenants = await context.Tenants
             .IgnoreQueryFilters()
@@ -1185,8 +1210,21 @@ public sealed class IamDbSeeder(
                 continue;
             }
 
-            foreach (var menu in held.Where(menu => menu.IsSystemGenerated
-                                                    && !shouldHold.Contains(menu.MenuDefinitionId)))
+            // ANOTHER ORGANISATION'S OWN NODE IS NOT THIS ONE'S TO HOLD. The default set used to
+            // be every enabled node in the table, so each restart gave every Organisation a row
+            // for every node any other Organisation had added for itself. Those rows - and any a
+            // configuration save wrote the same way - mean nothing here, so they go whoever wrote
+            // them.
+            var shouldHold = defaults
+                .Where(definition => definition.OwnerTenantId is null
+                                     || definition.OwnerTenantId == tenant.Id)
+                .Select(definition => definition.Id)
+                .ToHashSet();
+
+            foreach (var menu in held.Where(menu => (ownerOf.TryGetValue(menu.MenuDefinitionId, out var owner)
+                                                     && owner != tenant.Id)
+                                                    || (menu.IsSystemGenerated
+                                                        && !shouldHold.Contains(menu.MenuDefinitionId))))
             {
                 context.TenantMenus.Remove(menu);
                 removed++;
@@ -1390,7 +1428,6 @@ public sealed class IamDbSeeder(
             EmailConfirmed = true,
             EmailConfirmedAtUtc = now,
             Status = UserStatus.Active,
-            AccountCategory = UserAccountCategory.Employee,
             PrivilegeLevel = PrivilegeLevel.SuperAdmin,
             IsSuperAdmin = true,
             IsTenantAdmin = false,
@@ -2116,7 +2153,6 @@ public sealed class IamDbSeeder(
             MobileCountryCode = "+91",
             MobileNumber = person.Mobile,
             Designation = person.Designation,
-            AccountCategory = person.Category,
             EngagementType = person.Engagement,
             JoinedOn = person.JoinedOn,
             PreferredCulture = "en-IN",

@@ -1,4 +1,10 @@
-/** Shared shapes for the CheckNumber and Wati screens. Everything here lives in the browser for now. */
+/**
+ * Shared shapes for the CheckNumber and Wati screens.
+ *
+ * The upload under review (`UploadAnalysis`) is worked out in the browser, so the person sees what the
+ * file holds before anything is sent. Everything else - jobs, results, recipients, messages - comes from
+ * the Campaign service, which reads what the YDot.Integration worker recorded.
+ */
 
 export type WaResult = 'yes' | 'no' | 'unknown';
 
@@ -45,7 +51,7 @@ export interface UploadAnalysis {
   readonly fileName: string;
   readonly fileSize: number;
   readonly kind: FileKind;
-  /** The file itself, kept so it can be downloaded again from the job. */
+  /** The file itself: it is what gets uploaded when the check is started. */
   readonly file: File;
   readonly sheets: SheetSummary[];
   readonly totalRows: number;
@@ -67,13 +73,33 @@ export interface ResultRow {
   readonly status: 'checked' | 'unverified' | 'saved';
 }
 
+/** One moment of a job, as its timeline shows it. */
+export interface JobTimelineStep {
+  readonly label: string;
+  readonly at: string | null;
+  readonly state: 'done' | 'bad' | 'wait';
+}
+
+/** Which downloads the server can give for a job right now. */
+export interface JobDownloads {
+  readonly original: boolean;
+  readonly submitted: boolean;
+  readonly results: boolean;
+  readonly raw: boolean;
+  readonly invalid: boolean;
+}
+
 export interface CheckJob {
+  /** The job number, as shown on screen and used in the address bar (INT-20261010-000001). */
   id: string;
+  /** The job's id on the server. Empty while an upload is still waiting for the worker to pick it up. */
+  key: string;
   fileName: string;
   fileSize: number;
   kind: FileKind;
   sheetCount: number;
   status: JobStatus;
+  /** The CheckNumber.ai task id; empty when every number was answered from saved results. */
   taskId: string;
   createdAt: string;
   finishedAt: string | null;
@@ -89,22 +115,35 @@ export interface CheckJob {
   invalid: number;
   estimatedCost: number;
   actualCost: number;
+  /** The currency CheckNumber.ai charges in (USD). */
+  currency: string;
   /** "Success" or "Failed" with the reason, as the report header shows it. */
   outcome: 'Success' | 'Failed' | 'Cancelled' | 'Pending';
   reason: string;
   errorCode: string | null;
   sharedToWati: number;
+  /** The check finished, but something after it did not (for example WATI refused the messages). */
+  hasErrors: boolean;
+  /** The worker would accept "retry" for this job now. */
+  canRetry: boolean;
+  /** The worker would accept "stop" for this job now. */
+  canCancel: boolean;
+  watiSent: number;
+  watiFailed: number;
+  watiSkipped: number;
+  campaignName: string | null;
+  uploadedBy: string | null;
+  /** The report rows; loaded when the job's page or report is opened. */
   results: ResultRow[];
   invalidLines: InvalidLine[];
-  /** Rows of the original upload, for the "submitted numbers" download. */
-  submittedNumbers: string[];
-  /** The upload itself; absent once the page has been reloaded. */
-  original?: File | null;
-  /** Sample data seeded for first use. */
-  sample?: boolean;
+  /** True once `results` and `invalidLines` hold what the server has. */
+  detailLoaded: boolean;
+  /** The job's real timeline, from the worker's step log; empty until the detail is loaded. */
+  timeline: JobTimelineStep[];
+  downloads: JobDownloads;
 }
 
-/** One number the system has an answer for. The registry is what makes the duplicate check possible. */
+/** One number the organisation can message: on WhatsApp, with the check that found it. */
 export interface RegistryEntry {
   readonly number: string;
   readonly iso: string;
@@ -112,8 +151,10 @@ export interface RegistryEntry {
   readonly whatsapp: WaResult;
   readonly note: string;
   readonly checkedAt: string;
+  /** The job number of the newest check that included this number. */
   readonly jobId: string;
-  /** True once a Yes number has been handed to Wati. */
+  /** That check's file name. */
+  readonly fileName: string;
   readonly sharedToWati: boolean;
 }
 
@@ -124,7 +165,8 @@ export type DeliveryStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'REPLIE
 export interface WatiTemplate {
   readonly name: string;
   readonly label: string;
-  readonly category: 'Utility' | 'Marketing';
+  /** WATI's category: Marketing, Utility or Authentication. */
+  readonly category: string;
   readonly body: string;
   readonly variables: readonly string[];
   readonly defaults: Readonly<Record<string, string>>;
@@ -152,10 +194,6 @@ export interface WatiMessage {
   failedCode: string | null;
   failedReason: string | null;
   replyText: string | null;
-  /** When the next status change is due (simulated delivery). */
-  nextAt: number | null;
-  /** The fate this message is scripted to reach, fixed at send time. */
-  fate: 'DELIVERED' | 'READ' | 'REPLIED' | 'FAILED';
 }
 
 export interface WatiBroadcast {
@@ -165,4 +203,29 @@ export interface WatiBroadcast {
   readonly templateLabel: string;
   readonly createdAt: string;
   readonly recipients: number;
+}
+
+/** The integration worker's state and settings, as the Campaign service reports them. */
+export interface WhatsAppOverview {
+  /** False when the worker has never been set up for this database. */
+  readonly available: boolean;
+  readonly workerOnline: boolean;
+  readonly workerLastSeen: string | null;
+  readonly checkNumberReady: boolean;
+  readonly watiReady: boolean;
+  /** What CheckNumber.ai charges for one number, in `currency`. */
+  readonly pricePerNumber: number;
+  /** The least CheckNumber.ai charges for one task, however few numbers it holds. */
+  readonly minimumCharge: number;
+  readonly currency: string;
+  readonly maxRecipientsPerJob: number;
+  /** The template an automatic send uses (Wati:DefaultTemplateName); the Wati page pre-selects it. */
+  readonly defaultTemplateName: string | null;
+  readonly allowListActive: boolean;
+  readonly allowListSize: number;
+  readonly numbersVerified: number;
+  readonly onWhatsApp: number;
+  readonly jobsRun: number;
+  readonly messagesSent: number;
+  readonly readRate: number;
 }

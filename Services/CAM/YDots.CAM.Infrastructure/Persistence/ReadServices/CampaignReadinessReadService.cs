@@ -91,8 +91,7 @@ public sealed class CampaignReadinessReadService(
             checks,
             clock.TodayUtc,
             ReadinessMappingConfig.CampaignActionsFor(
-                campaign, currentUser.UserId, currentUser.HasPermission,
-                currentUser.IsTenantAdmin, checklistAllowsLaunch),
+                campaign, currentUser.HasPermission, checklistAllowsLaunch),
             resolved,
             ReadinessMappingConfig.DecisionFor(campaign, lifecycle, resolved),
             check => ReadinessMappingConfig.PermittedActionsFor(

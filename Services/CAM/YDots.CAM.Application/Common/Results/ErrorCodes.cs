@@ -31,9 +31,6 @@ public static class ErrorCodes
 
     // ---- Campaign specific -----------------------------------------------------------------
 
-    /// <summary>The caller created or submitted the thing they are trying to approve.</summary>
-    public const string SegregationOfDutiesViolation = "SEGREGATION_OF_DUTIES_VIOLATION";
-
     /// <summary>A required readiness check has not passed, so the campaign cannot launch.</summary>
     public const string ReadinessIncomplete = "READINESS_INCOMPLETE";
 

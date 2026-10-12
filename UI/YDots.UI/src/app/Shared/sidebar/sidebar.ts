@@ -190,12 +190,20 @@ export class SidebarComponent implements OnDestroy {
   /**
    * Adds CheckNumber and Wati directly below Dashboard.
    *
-   * CLIENT-SIDE ENTRIES, and the only two: these screens run on in-browser data and have no
-   * server menu node yet, so they are placed here. When the menu catalogue gains them, the
-   * `already` check below stops this from adding a second copy.
+   * CLIENT-SIDE ENTRIES, and the only two: these screens have no server menu node yet, so they are
+   * placed here. When the menu catalogue gains them, the `already` check below stops this from
+   * adding a second copy.
+   *
+   * SHOWN ONLY TO PEOPLE THE API WILL ANSWER. Both screens read the Campaign service, which needs
+   * 'cam.campaigns.view' and an organisation to work in - so a role without it (and a Platform Admin
+   * who has not entered an organisation) is not offered a link that would only open "access denied".
    */
   private withWhatsApp(nodes: MenuNode[]): MenuNode[] {
     if (nodes.length === 0 || nodes.some((n) => n.route === SidebarComponent.CHECK_NUMBER_ROUTE)) {
+      return nodes;
+    }
+    const insideOrganisation = !this.tokens.isSuperAdmin() || this.tokens.isActingInOrganisation();
+    if (!insideOrganisation || !this.tokens.hasAnyPermission('cam.campaigns.view')) {
       return nodes;
     }
     const entry = (code: string, name: string, route: string, icon: string): MenuNode => ({

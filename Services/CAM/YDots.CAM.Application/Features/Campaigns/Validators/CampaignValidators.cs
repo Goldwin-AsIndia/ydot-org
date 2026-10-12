@@ -79,7 +79,7 @@ internal static class CampaignOwnerRules
 ///
 /// FluentValidation runs in the pipeline before the handler, so a handler now only ever sees a
 /// request that is structurally sound and can concentrate on the questions only it can answer -
-/// does this code already exist, is this transition legal, is this caller independent.
+/// does this code already exist, and is this transition legal.
 ///
 /// THE MAXIMUM DURATION COMES FROM SETTINGS rather than a literal, so an Organisation running
 /// a decade-long endowment appeal is a configuration change rather than a code change.

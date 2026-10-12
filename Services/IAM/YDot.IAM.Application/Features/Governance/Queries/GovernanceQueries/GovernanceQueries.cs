@@ -5,11 +5,14 @@ using YDot.IAM.Application.Common.Abstractions.Services;
 using YDot.IAM.Application.Common.Constants;
 using YDot.IAM.Application.Common.Models;
 using YDot.IAM.Application.Common.Results;
+using YDot.IAM.Application.Common.Services;
 using YDot.IAM.Application.DTOs;
 using YDot.IAM.Application.Features.Audit.DTOs;
 using YDot.IAM.Application.Features.Governance.DTOs;
+using YDot.IAM.Application.Features.Governance.Mappings;
 using YDot.IAM.Application.Features.Users.DTOs;
 using YDot.IAM.Domain.Entities;
+using YDot.IAM.Domain.Enums;
 
 namespace YDot.IAM.Application.Features.Governance.Queries.GovernanceQueries;
 
@@ -18,6 +21,12 @@ public sealed record SearchAccessRequestsQuery(AccessRequestSearchFilter Filter)
 
 /// <summary>One access request in full.</summary>
 public sealed record GetAccessRequestQuery(Guid Id);
+
+/// <summary>The figures above the access request queue, for the queue's own filter.</summary>
+public sealed record GetAccessRequestSummaryQuery(AccessRequestSearchFilter Filter);
+
+/// <summary>CSV export of the access request queue.</summary>
+public sealed record ExportAccessRequestsQuery(AccessRequestSearchFilter Filter);
 
 /// <summary>The access review queue.</summary>
 public sealed record SearchAccessReviewsQuery(AccessReviewSearchFilter Filter);
@@ -58,6 +67,9 @@ public sealed record ExportAuditEventsQuery(AuditEventSearchFilter Filter);
 /// <summary>The record types present in this Organisation's trail, for the filter dropdown.</summary>
 public sealed record GetAuditTargetTypesQuery;
 
+/// <summary>The cards, outcome chart and heatmap above the audit trail.</summary>
+public sealed record GetAuditSummaryQuery(AuditEventSearchFilter Filter);
+
 /// <summary>
 /// The read side of governance, bulk jobs and the audit trail.
 ///
@@ -74,17 +86,80 @@ public sealed class GovernanceQueryHandler(
     IAuditService audit,
     ICurrentUser currentUser,
     IUnitOfWork unitOfWork,
+    IEffectiveAccessService effectiveAccess,
     ILogger<GovernanceQueryHandler> logger)
 {
+    /// <summary>
+    /// The most rows one access request export carries. The queue of one Organisation is far
+    /// smaller; the ceiling is there so one click can never pull an unbounded table into memory.
+    /// </summary>
+    private const int AccessRequestExportCeiling = 20_000;
+
     public async Task<Result<PagedResponse<AccessRequestListItemResponse>>> HandleAsync(
         SearchAccessRequestsQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
 
         logger.LogInformation("Searching access requests.");
-        var result = await governanceRead.SearchRequestsAsync(query.Filter, currentUser.UserId, cancellationToken);
+        var result = await governanceRead.SearchRequestsAsync(
+            query.Filter, AccessRequestViewer.From(currentUser), cancellationToken);
         logger.LogInformation("Access requests retrieved. TotalCount: {TotalCount}.", result.TotalCount);
         return Result.Success(result);
+    }
+
+    /// <summary>
+    /// The cards above the queue: counted over every request the filter matches, not over the
+    /// page on screen.
+    /// </summary>
+    public async Task<Result<AccessRequestSummaryResponse>> HandleAsync(
+        GetAccessRequestSummaryQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        logger.LogInformation("Summarising access requests.");
+        var result = await governanceRead.GetRequestSummaryAsync(
+            query.Filter, AccessRequestViewer.From(currentUser), cancellationToken);
+        logger.LogInformation("Access request summary retrieved. Total: {Total}.", result.Total);
+        return Result.Success(result);
+    }
+
+    /// <summary>
+    /// Exports the access request queue for the filter on screen.
+    ///
+    /// AUDITED, like every export: a copy of who asked for which access, and why, leaving the
+    /// building is exactly what a later review needs to be able to find. The reference on the
+    /// file is the one written into the audit row.
+    /// </summary>
+    public async Task<Result<ExportFile>> HandleAsync(
+        ExportAccessRequestsQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        logger.LogInformation("Starting access request export.");
+
+        var rows = await governanceRead.GetRequestExportRowsAsync(
+            query.Filter, AccessRequestViewer.From(currentUser), AccessRequestExportCeiling, cancellationToken);
+
+        var reference = tokenHasher.GenerateReference("EXP");
+        var file = exports.ToCsv(rows, "access-requests", reference);
+
+        await audit.WriteAsync(
+            AuditActionCodes.AccessRequestsExported, nameof(AccessRequest), null, null,
+            new
+            {
+                Action = "Exported",
+                RowCount = rows.Count,
+                Reference = reference,
+                query.Filter.Search,
+                query.Filter.Status,
+                query.Filter.RequestType
+            },
+            cancellationToken: cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Access request export completed. RowCount: {RowCount}.", rows.Count);
+        return Result.Success(file);
     }
 
     public async Task<Result<AccessRequestDetailResponse>> HandleAsync(
@@ -93,12 +168,30 @@ public sealed class GovernanceQueryHandler(
         ArgumentNullException.ThrowIfNull(query);
 
         logger.LogInformation("Retrieving access request. RequestId: {RequestId}.", query.Id);
-        var detail = await governanceRead.GetRequestAsync(query.Id, cancellationToken);
+        var detail = await governanceRead.GetRequestAsync(
+            query.Id, AccessRequestViewer.From(currentUser), cancellationToken);
         if (detail is null)
         {
             logger.LogWarning("Access request not found. RequestId: {RequestId}.", query.Id);
             return Result.Failure<AccessRequestDetailResponse>(Error.NotFound("That request was not found."));
         }
+
+        // WHAT APPROVING WOULD COLLIDE WITH, said before anybody presses Approve. The handler
+        // checks the same rules at decision time and refuses; showing them here means an approver
+        // learns it from the request rather than from a refusal. Only a role request still waiting
+        // can conflict - a decided one has already been checked or refused.
+        if (detail.RoleId is { } roleId
+            && detail.Status is AccessRequestStatus.Submitted or AccessRequestStatus.Draft or AccessRequestStatus.Returned)
+        {
+            var conflicts = await effectiveAccess.CheckSegregationOfDutiesAsync(
+                detail.RequestedForUserId, [roleId], cancellationToken);
+
+            if (conflicts.Count > 0)
+            {
+                detail = detail with { SegregationOfDutiesConflicts = conflicts };
+            }
+        }
+
         logger.LogInformation("Access request retrieved. RequestId: {RequestId}.", query.Id);
         return Result.Success(detail);
     }
@@ -229,6 +322,24 @@ public sealed class GovernanceQueryHandler(
         return Result.Success(result);
     }
 
+    /// <summary>
+    /// The audit trail's summary, counted over every matching event and graded by the same
+    /// permission as the list: without the sensitive-detail permission the sensitive rows are no
+    /// more counted than they are shown.
+    /// </summary>
+    public async Task<Result<AuditSummaryResponse>> HandleAsync(
+        GetAuditSummaryQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        var canSeeSensitive = currentUser.HasPermission(PermissionCodes.AuditViewSensitive);
+
+        logger.LogInformation("Summarising audit events. CanSeeSensitive: {CanSeeSensitive}.", canSeeSensitive);
+        var result = await auditRead.GetSummaryAsync(query.Filter, canSeeSensitive, cancellationToken);
+        logger.LogInformation("Audit summary retrieved. TotalCount: {TotalCount}.", result.TotalCount);
+        return Result.Success(result);
+    }
+
     public async Task<Result<PagedResponse<AuditEventResponse>>> HandleAsync(
         SearchAuditEventsQuery query, CancellationToken cancellationToken)
     {
@@ -301,14 +412,14 @@ public sealed class GovernanceQueryHandler(
                 item.OccurredAtUtc.ToString("u", System.Globalization.CultureInfo.InvariantCulture),
                 item.TenantName,
                 item.ActorDisplayName,
-                item.ActorScope.ToString(),
+                item.ActorScopeDisplay ?? "Organisation",
                 item.ActionCode,
                 item.TargetType,
                 item.TargetDisplayName,
                 item.ResultDisplay,
                 item.Reason,
                 item.IpAddress,
-                item.ClientType.ToString(),
+                item.ClientTypeDisplay ?? item.ClientType.ToString(),
                 AuditExportRow.ShortReference(item.CorrelationId))));
 
             filter.Page++;

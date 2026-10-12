@@ -14,8 +14,6 @@ public sealed class UserSearchFilter : PaginationRequest
 {
     public UserStatus? Status { get; set; }
 
-    public UserAccountCategory? AccountCategory { get; set; }
-
     public Guid? DepartmentId { get; set; }
 
     public Guid? OrganisationUnitId { get; set; }

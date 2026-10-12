@@ -25,11 +25,12 @@ namespace YDot.IAM.Application.Common.Constants;
 ///   Fundraiser Executive  Executive half of DON
 ///   Fundraising Manager   Manager half of DON
 ///
-/// IT USED TO BE "MANAGER = EXECUTIVE + APPROVALS". A Manager could create a campaign, submit it,
-/// pass its readiness checks and then be refused the approval only by the record-level four-eyes
-/// rule. The organisation asked for the two halves to belong to different people outright, so a
-/// Manager no longer holds the maker's verbs and an Executive no longer holds the checker's.
-/// The Organisation Admin holds both, by <c>GrantsAllTenantPermissions</c>.
+/// IT USED TO BE "MANAGER = EXECUTIVE + APPROVALS". The organisation asked for the two halves to
+/// belong to different ROLES, so a Manager no longer holds the maker's verbs and an Executive no
+/// longer holds the checker's. A PERSON may still hold both roles, and then holds both halves:
+/// access is the union of a person's roles, and CAM and DON no longer refuse an approval because
+/// the approver raised the request. The Organisation Admin holds both, by
+/// <c>GrantsAllTenantPermissions</c>.
 ///
 /// THE PIVOT IS <c>PermissionAction</c>, not the verb in the code. CAM, DON and PAY declare their
 /// action in <see cref="ModulePermissionCatalogue"/>: Create and Submit are the Executive's, Approve
@@ -321,9 +322,13 @@ public static class RoleAccessProfiles
     /// half of its module, so the other half is listed against it: the Managers lose the
     /// Executive-only codes they held as "maker + checker", and the Fundraiser Executive loses the
     /// closing and cancelling verbs it held as the maker. The Campaign Executive held none of the
-    /// Manager-only codes; its entry keeps it that way. Somebody who needs both halves is given
-    /// the Organisation Admin role or a role the Organisation builds for itself - a built-in
-    /// working role is kept to its half on every start.
+    /// Manager-only codes; its entry keeps it that way. A built-in working role is kept to its
+    /// half on every start.
+    ///
+    /// SOMEBODY WHO NEEDS BOTH HALVES IS GIVEN BOTH ROLES. A person's access is the union of their
+    /// roles (<c>EffectiveAccessService</c>), so Executive + Manager holds every code of the
+    /// module, and CAM and DON let that person approve a request they raised themselves. This
+    /// list narrows a ROLE; it never narrows a PERSON who holds more than one.
     /// </summary>
     public static IReadOnlyDictionary<string, IReadOnlyList<string>> WithdrawnGrants { get; } =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)

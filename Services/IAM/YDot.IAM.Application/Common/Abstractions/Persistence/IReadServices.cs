@@ -2,6 +2,7 @@ using YDot.IAM.Application.Common.Models;
 using YDot.IAM.Application.DTOs;
 using YDot.IAM.Application.Features.Audit.DTOs;
 using YDot.IAM.Application.Features.Governance.DTOs;
+using YDot.IAM.Application.Features.Governance.Mappings;
 using YDot.IAM.Application.Features.Organisations.DTOs;
 using YDot.IAM.Application.Features.Roles.DTOs;
 using YDot.IAM.Application.Features.Users.DTOs;
@@ -115,15 +116,37 @@ public interface IAuditReadService
     /// filter that returns nothing. Both failures are silent.
     /// </summary>
     Task<IReadOnlyList<string>> GetTargetTypesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The figures above the trail, over every event the filter matches - the same filter and the
+    /// same sensitivity rule as the search, so the cards and the list describe the same events.
+    /// </summary>
+    Task<AuditSummaryResponse> GetSummaryAsync(
+        AuditEventSearchFilter filter, bool canSeeSensitive, CancellationToken cancellationToken);
 }
 
 /// <summary>Read side for access requests, reviews and identifier changes.</summary>
 public interface IGovernanceReadService
 {
     Task<PagedResponse<AccessRequestListItemResponse>> SearchRequestsAsync(
-        AccessRequestSearchFilter filter, Guid currentUserId, CancellationToken cancellationToken);
+        AccessRequestSearchFilter filter, AccessRequestViewer viewer, CancellationToken cancellationToken);
 
-    Task<AccessRequestDetailResponse?> GetRequestAsync(Guid id, CancellationToken cancellationToken);
+    Task<AccessRequestDetailResponse?> GetRequestAsync(
+        Guid id, AccessRequestViewer viewer, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The figures above the queue, counted over EVERY request the filter matches.
+    ///
+    /// The same filter as the search and no paging, so the cards and the list they sit above
+    /// always describe the same set.
+    /// </summary>
+    Task<AccessRequestSummaryResponse> GetRequestSummaryAsync(
+        AccessRequestSearchFilter filter, AccessRequestViewer viewer, CancellationToken cancellationToken);
+
+    /// <summary>The requests the filter matches, as export rows, newest first, up to a ceiling.</summary>
+    Task<IReadOnlyList<AccessRequestExportRow>> GetRequestExportRowsAsync(
+        AccessRequestSearchFilter filter, AccessRequestViewer viewer, int maximumRows,
+        CancellationToken cancellationToken);
 
     Task<PagedResponse<AccessReviewListItemResponse>> SearchReviewsAsync(
         AccessReviewSearchFilter filter, Guid currentUserId, CancellationToken cancellationToken);

@@ -107,6 +107,29 @@ public sealed class MenusController(
     }
 
     /// <summary>
+    /// The Menu Configuration screen as a CSV file: this Organisation's menu, or - with
+    /// <paramref name="roleId"/> - what that role is shown. <paramref name="search"/> is the
+    /// screen's search box, so the file holds the rows on screen. Audited; the reference is in
+    /// the X-Export-Reference header.
+    /// </summary>
+    [HttpGet("configuration/export")]
+    [HasPermission(PermissionCodes.MenusExport)]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportConfigurationAsync(
+        [FromQuery] Guid? roleId, [FromQuery] string? search, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Exporting menu configuration. RoleId: {RoleId}", roleId);
+
+        var result = await queries.HandleAsync(
+            new ExportMenuConfigurationQuery(roleId, search), cancellationToken);
+
+        if (result.IsFailure)
+            logger.LogWarning("Menu configuration export failed. RoleId: {RoleId}", roleId);
+
+        return FileFromResult(result);
+    }
+
+    /// <summary>
     /// Turns navigation nodes on or off for this Organisation, and re-orders them.
     ///
     /// Disabling a parent disables its children — leaving a reachable child under a hidden

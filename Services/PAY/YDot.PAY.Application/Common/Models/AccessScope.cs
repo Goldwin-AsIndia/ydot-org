@@ -8,8 +8,9 @@ namespace YDot.PAY.Application.Common.Models;
 ///
 /// THERE ARE NOW TWO KINDS OF NARROWING AND THEY ARE NOT INTERCHANGEABLE:
 ///
-///   <see cref="IsOwnRecordsOnly"/>     records this USER created. A member of staff whose data
-///                                     scope says "own" sees the donations they took.
+///   <see cref="IsOwnRecordsOnly"/>     records this USER created. A member of staff given a
+///                                     narrowing data scope ("Assignment") sees the donations
+///                                     they took.
 ///   <see cref="IsDonorSelfService"/>   records about this DONOR. Somebody who gave.
 ///
 /// USING THE FIRST FOR A DONOR WOULD SHOW THEM NOTHING, which is the trap worth naming. A
@@ -50,9 +51,19 @@ public sealed record AccessScope(
 {
     public static readonly AccessScope Empty = new(Guid.Empty, Guid.Empty, []);
 
-    /// <summary>Records this USER created. See the note on the class about donors.</summary>
+    /// <summary>
+    /// Records this USER created. See the note on the class about donors.
+    ///
+    /// READ IN THE FORMAT IAM ISSUES, "{ScopeType}:{ScopeValue}" - "Assignment:{their id}" for a
+    /// user created with "What they are assigned". This tested for the literal "own", which IAM
+    /// has never issued, so the scope narrowed nothing here. Same rule as DON: no scope, or an
+    /// Organisation scope, is the whole Organisation; anything else narrows, failing closed.
+    /// </summary>
     public bool IsOwnRecordsOnly =>
-        DataScopes.Contains("own", StringComparer.OrdinalIgnoreCase);
+        DataScopes.Count > 0 && !DataScopes.Any(IsOrganisationScope);
+
+    private static bool IsOrganisationScope(string claim) =>
+        claim.Split(':', 2)[0].Trim().Equals("Organisation", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Whether the donor filter can actually be applied.

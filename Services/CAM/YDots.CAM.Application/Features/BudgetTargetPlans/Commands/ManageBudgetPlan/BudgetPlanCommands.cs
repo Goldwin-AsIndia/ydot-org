@@ -41,9 +41,10 @@ public sealed record RejectBudgetPlanVersionCommand(Guid VersionId, BudgetPlanDe
 ///     asking "what were we working to in August?" gets an answer.
 ///   - ONLY A DRAFT MAY BE EDITED. Everything else is a record of a decision, and editing those in
 ///     place would rewrite an agreement after the fact.
-///   - THE SUBMITTER CANNOT APPROVE. Not a formality: a budget is where an organisation commits its
-///     money, and one person doing both ends is exactly the control an auditor looks for. Checked
-///     against the stored submitter, not against anything the request claims.
+///   - APPROVAL IS A STEP OF ITS OWN, decided by permission. Whoever holds
+///     <c>cam.budget-plans.approve</c> may approve a submitted version - including the person who
+///     submitted it, when their roles carry both halves. The version records who submitted it and
+///     who approved it, and the audit log keeps both.
 ///   - APPROVING SUPERSEDES. The previously approved version moves to Superseded in the same
 ///     transaction, so there is never a moment when two versions of one plan both count.
 /// </summary>
@@ -366,8 +367,7 @@ public sealed class BudgetPlanCommandHandler(
     /// <summary>
     /// Approves a submitted version.
     ///
-    /// THE SUBMITTER CANNOT APPROVE, and the previously approved version is superseded in the same
-    /// transaction. Doing the supersede separately - or leaving it to a background job - would open
+    /// The previously approved version is superseded in the same transaction. Doing the supersede separately - or leaving it to a background job - would open
     /// a window in which a campaign's committed budget was the sum of two versions of the same plan.
     /// </summary>
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -403,17 +403,6 @@ public sealed class BudgetPlanCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
                 $"Only a Submitted version can be approved. Version v{version.VersionNumber} is "
                 + $"{version.ApprovalState}."));
-        }
-
-        // The Organisation Admin is exempt, as it is from every independence rule in CAM.
-        if (version.SubmittedByUserId == currentUser.UserId && !currentUser.IsTenantAdmin)
-        {
-            logger.LogWarning(
-                "Budget plan version {BudgetPlanVersionId} approval rejected due to segregation of duties.",
-                version.Id);
-
-            return Result.Failure<OutcomeResponse>(Error.SegregationOfDuties(
-                "You submitted this version, so it needs somebody else to approve it."));
         }
 
         // The version being replaced. Moved to Superseded rather than deleted: the figures a
@@ -509,16 +498,6 @@ public sealed class BudgetPlanCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
                 $"Only a Submitted version can be rejected. Version v{version.VersionNumber} is "
                 + $"{version.ApprovalState}."));
-        }
-
-        if (version.SubmittedByUserId == currentUser.UserId && !currentUser.IsTenantAdmin)
-        {
-            logger.LogWarning(
-                "Budget plan version {BudgetPlanVersionId} rejection rejected due to segregation of duties.",
-                version.Id);
-
-            return Result.Failure<OutcomeResponse>(Error.SegregationOfDuties(
-                "You submitted this version, so somebody else has to decide on it."));
         }
 
         version.ApprovalState = PlanApprovalState.Rejected;
@@ -632,12 +611,7 @@ public sealed class BudgetPlanCommandHandler(
             actions.Add("Submit");
         }
 
-        // THE SUBMITTER IS EXCLUDED HERE TOO, not only in the handler. Drawing an Approve button
-        // for the person who submitted it and then refusing the click is worse than not drawing it:
-        // it looks like a fault rather than a control.
-        var isSubmitter = version.SubmittedByUserId == currentUser.UserId;
-
-        if (version.ApprovalState == PlanApprovalState.Submitted && !isSubmitter)
+        if (version.ApprovalState == PlanApprovalState.Submitted)
         {
             if (currentUser.HasPermission(PermissionCodes.BudgetPlansApprove))
             {

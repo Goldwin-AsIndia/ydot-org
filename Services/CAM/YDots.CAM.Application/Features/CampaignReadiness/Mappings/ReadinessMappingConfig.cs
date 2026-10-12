@@ -398,27 +398,17 @@ public static class ReadinessMappingConfig
     /// The campaign-level Actions menu on the readiness screen: AddCheck, RequestApproval,
     /// ApproveLaunch, ReturnToDraft.
     ///
-    /// AN ORGANISATION ADMINISTRATOR NEVER GETS "REQUEST APPROVAL". They hold every permission in
-    /// the Organisation, including the approval, so asking them to raise a request means asking
-    /// them to raise a request they are themselves the approver for - and the platform then
-    /// refuses it, correctly, as one person doing both halves. The menu they should see has
-    /// Approve launch on it and not the request.
-    ///
-    /// THE RULE IS "CAN THIS CALLER APPROVE", NOT "IS THIS CALLER AN ADMIN". Expressed that way it
-    /// covers APPROVER too - a checker looking at somebody else's submitted campaign has no use
-    /// for a Request approval button either - and it degrades correctly for anyone else: an
-    /// INITIATOR holds submit and not approve, so they see Request approval and no Approve
-    /// launch, which is the whole point of the split.
+    /// EACH ITEM FOLLOWS ITS PERMISSION AND NOTHING ELSE. A Campaign Executive sees Request
+    /// approval, a Campaign Manager sees Approve launch, and somebody holding both roles - or the
+    /// Organisation Admin - sees both, and may approve the campaign they themselves submitted.
     ///
     /// APPROVE LAUNCH IS GATED ON <c>cam.campaigns.approve</c>, not on a readiness-specific code.
-    /// It IS campaign approval, reached from a different screen, and giving it a second code was
-    /// what once let somebody refused on the campaigns endpoint approve the same campaign here.
+    /// It IS campaign approval, reached from a different screen, and giving it a second code
+    /// would let the two screens disagree about who may approve.
     /// </summary>
     public static IReadOnlyList<string> CampaignActionsFor(
         Campaign campaign,
-        Guid callerUserId,
         Func<string, bool> hasPermission,
-        bool callerIsTenantAdmin = false,
         bool checklistAllowsLaunch = true)
     {
         ArgumentNullException.ThrowIfNull(campaign);
@@ -441,11 +431,9 @@ public static class ReadinessMappingConfig
             actions.Add("AddCheck");
         }
 
-        // REQUEST APPROVAL IS THE EXECUTIVE'S, and the Organisation Admin's. It used to be withheld
-        // from anybody who could also approve, on the grounds that they would then be refused their
-        // own approval - but the Campaign Manager no longer holds `cam.campaigns.submit` at all, and
-        // the Organisation Admin is exempt from that refusal, so the only person this test still
-        // stopped was the administrator, who is meant to have every option.
+        // REQUEST APPROVAL FOLLOWS `cam.campaigns.submit` ALONE. It used to be withheld from anybody
+        // who could also approve, because they would then have been refused their own approval;
+        // that refusal is gone, so a person who holds both permissions is offered both steps.
         if (campaign.Status == CampaignStatus.Draft && hasPermission(PermissionCodes.CampaignsSubmit))
         {
             actions.Add("RequestApproval");
@@ -456,8 +444,7 @@ public static class ReadinessMappingConfig
         // button that answers 422.
         if (campaign.Status == CampaignStatus.Submitted
             && checklistAllowsLaunch
-            && hasPermission(PermissionCodes.CampaignsApprove)
-            && campaign.CanBeApprovedBy(callerUserId, callerIsTenantAdmin))
+            && hasPermission(PermissionCodes.CampaignsApprove))
         {
             actions.Add("ApproveLaunch");
         }

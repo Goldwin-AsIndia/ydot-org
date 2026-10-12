@@ -159,10 +159,10 @@ public static class ModulePermissionCatalogue
         new("cam.tracking-assets.activate", "Activate tracking assets", "CAM", "TrackingAssets", PermissionAction.Operate),
 
         // THE DISABLE PAIR. Taking a live asset down stops a PRINTED QR code resolving, so the
-        // person who made the asset asks and somebody else decides - the same maker-checker split
-        // the campaign close already has. Request is a Submit, which keeps it out of the checker;
-        // the decision is an Operate named in PostApprovalOperations, which keeps it out of the
-        // maker.
+        // request and the decision belong to different roles - the same Executive / Manager split
+        // the campaign close already has. Request is a Submit, which keeps it out of the Manager
+        // role; the decision is an Operate named in PostApprovalOperations, which keeps it out of
+        // the Executive role. Somebody holding both roles holds both halves.
         new("cam.tracking-assets.request-disable", "Request a tracking asset disable", "CAM", "TrackingAssets", PermissionAction.Submit),
         new("cam.tracking-assets.deactivate", "Approve a tracking asset disable", "CAM", "TrackingAssets", PermissionAction.Operate, IsSensitive: true),
 

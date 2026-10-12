@@ -211,9 +211,17 @@ public sealed class LoginIdentifierChangeCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // What the person is told about the code. Taken from the challenge, which knows where the
+        // code really went, rather than a fixed sentence that named the wrong address.
+        string? verificationInstruction = null;
+
         if (businessUnit is not null)
         {
-            // The code goes to the NEW address, proving the person can receive there.
+            // The code goes where every other code for this account goes: the address ALREADY ON
+            // FILE, or the authenticator when that is the primary factor. The step list above
+            // says "the new address", but the challenge service has only ever sent to the account's
+            // own address, and the screen tells the person to look there. Until that design is
+            // settled this says what actually happens.
             if (request.IsEmailChange)
             {
                 var challenge = await mfa.IssueAsync(
@@ -223,6 +231,7 @@ public sealed class LoginIdentifierChangeCommandHandler(
                 if (challenge.IsSuccess)
                 {
                     logger.LogInformation("Verification challenge issued for login identifier change request {RequestId}.", changeRequest.Id);
+                    verificationInstruction = challenge.Value!.Instruction;
                     changeRequest.VerificationChallengeId = null;
                     await unitOfWork.SaveChangesAsync(cancellationToken);
                 }
@@ -249,7 +258,8 @@ public sealed class LoginIdentifierChangeCommandHandler(
             changeRequest.Status.ToString(),
             changeRequest.Version,
             request.IsEmailChange
-                ? "We have sent a verification code to the new address. The current address has also been told."
+                ? $"{verificationInstruction ?? "A verification code could not be issued."} "
+                  + "The current address has also been told about the change."
                 : requiresApproval
                     ? "The request is waiting for approval."
                     : "The request is approved and ready to apply.",
@@ -296,14 +306,22 @@ public sealed class LoginIdentifierChangeCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.UserNotFound());
         }
 
-        // The code is verified against the authenticator when one is enrolled, or against the
-        // challenge that was mailed to the new address.
-        var verified = mfa.VerifyAuthenticatorCode(user, command.Request.Code);
+        // The code is checked against the challenge issued when the change was raised - the one
+        // e-mailed to the address on file, or the authenticator's when that is the primary factor.
+        // It used to be checked against the authenticator alone, so an e-mailed code could never
+        // verify. The authenticator is still accepted once that challenge has lapsed.
+        var outcome = await mfa.VerifyOutstandingCodeAsync(
+            user.Id, MfaChallengePurpose.LoginIdentifierChange, null,
+            command.Request.Code, cancellationToken);
 
-        if (!verified)
+        if (outcome.IsFailure && !mfa.VerifyAuthenticatorCode(user, command.Request.Code))
         {
             logger.LogWarning("Login identifier change verification failed for request {RequestId}.", changeRequest.Id);
-            return Result.Failure<OutcomeResponse>(Error.MfaFailed(0));
+
+            // Saved, so the wrong guess counts against the challenge's attempt ceiling.
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            return Result.Failure<OutcomeResponse>(outcome.Error ?? Error.MfaCodeIncorrect());
         }
 
         changeRequest.VerifiedAtUtc = now;

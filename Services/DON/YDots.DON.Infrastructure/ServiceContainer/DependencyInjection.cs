@@ -92,7 +92,6 @@ public static class DependencyInjection
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, SameOrganisationHandler>();
-        services.AddScoped<IAuthorizationHandler, SegregationOfDutiesHandler>();
 
         // ---- Seeder ------------------------------------------------------------------------------------
         //
@@ -123,9 +122,6 @@ public static class DependencyInjection
 
         options.AddPolicy(PolicyNames.SameOrganisation, policy =>
             policy.RequireAuthenticatedUser().AddRequirements(new SameOrganisationRequirement()));
-
-        options.AddPolicy(PolicyNames.IndependentApprover, policy =>
-            policy.RequireAuthenticatedUser().AddRequirements(new SegregationOfDutiesRequirement("id")));
 
         return options;
     }

@@ -134,7 +134,6 @@ export function nextRouteFor(response: SignInResponse): string {
 export const MFA_METHOD_LABELS: Record<MfaMethodType, string> = {
   authenticatorApp: 'Authenticator application',
   email: 'E-mail one-time code',
-  sms: 'Text message',
   securityKey: 'Security key',
 };
 
@@ -145,5 +144,5 @@ export const MFA_METHOD_LABELS: Record<MfaMethodType, string> = {
  * offering the button anyway invites people to click it and wonder why nothing arrives.
  */
 export function methodSendsCode(method: MfaMethodType | null | undefined): boolean {
-  return method === 'email' || method === 'sms';
+  return method === 'email';
 }

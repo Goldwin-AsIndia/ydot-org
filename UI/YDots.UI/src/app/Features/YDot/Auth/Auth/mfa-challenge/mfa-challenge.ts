@@ -176,7 +176,7 @@ export class MfaChallengeComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Pasting the whole code from a password manager or an SMS should just work. */
+  /** Pasting the whole code from a password manager or an e-mail should just work. */
   onPaste(event: ClipboardEvent): void {
     const pasted = (event.clipboardData?.getData('text') ?? '').replace(/\D/g, '');
     if (pasted.length < 6) {
@@ -247,7 +247,7 @@ export class MfaChallengeComponent implements OnInit, OnDestroy {
       });
   }
 
-  /** Only offered for e-mail and SMS: an authenticator app has nothing to resend. */
+  /** Only offered for e-mail: an authenticator app has nothing to resend. */
   resendCode(): void {
     const challenge = this.challenge();
     if (!challenge || this.isAuthenticatorApp()) {

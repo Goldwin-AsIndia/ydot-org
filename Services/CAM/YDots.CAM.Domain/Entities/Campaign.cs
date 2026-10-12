@@ -100,24 +100,6 @@ public class Campaign : TenantEntity, ICodedEntity
 
     public ICollection<CampaignReadinessCheck> ReadinessChecks { get; set; } = [];
 
-    /// <summary>
-    /// Whether this caller is independent enough to approve the campaign.
-    ///
-    /// The rule from section 5.2 of the module brief, expressed once on the entity rather than
-    /// re-derived in each of the approval handlers. Creator and submitter are BOTH excluded:
-    /// somebody who created a campaign and had a colleague submit it would otherwise still be
-    /// able to approve their own work.
-    ///
-    /// THE ORGANISATION ADMIN IS THE ONE EXCEPTION, by the Organisation's own instruction: it
-    /// holds every option on every campaign screen with no restriction, its own campaigns
-    /// included. Everybody else - a Campaign Manager deciding an Executive's work above all - is
-    /// held to the rule exactly as before, and the Manager's role no longer creates or submits
-    /// anything, so the two halves already belong to different people. The admin's approvals are
-    /// still audited like any other.
-    /// </summary>
-    public bool CanBeApprovedBy(Guid userId, bool isOrganisationAdministrator = false) =>
-        isOrganisationAdministrator || (CreatedByUserId != userId && SubmittedByUserId != userId);
-
     /// <summary>Only a Draft campaign may be edited freely or deleted.</summary>
     public bool IsDraft => Status == CampaignStatus.Draft;
 

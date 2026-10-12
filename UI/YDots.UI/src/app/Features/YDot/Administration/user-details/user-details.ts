@@ -83,7 +83,8 @@ export class UserDetailsComponent {
   /** Joined with a filter so a person with no designation or department does not read " ·  · USR-0007". */
   readonly headerSummary = computed(() => {
     const person = this.user();
-    return [person?.designation, person?.department, person?.reference].filter(part => !!part).join(' · ');
+    return [person?.preferredName ? `Goes by ${person.preferredName}` : '', person?.designation, person?.department, person?.reference]
+      .filter(part => !!part).join(' · ');
   });
 
   readonly user = computed(() => {
@@ -104,16 +105,19 @@ export class UserDetailsComponent {
         ? `${person.mobileCountryCode ?? ''} ${person.mobileNumber}`.trim()
         : '—',
       employeeId: person.employeeNumber ?? '—',
-      accountCategory: person.accountCategory ?? '—',
+      // The role stands where the account category used to: it is what says what kind of
+      // account this is.
+      primaryRole: (person.roles ?? []).find((role) => role.isPrimary)?.roleName ?? (person.roles ?? [])[0]?.roleName ?? '',
+      preferredName: (person.preferredName ?? '').trim() !== (person.displayName ?? '').trim()
+        ? (person.preferredName ?? '').trim() : '',
       organisationUnit: person.organisationUnitName ?? '—',
       department: person.departmentName ?? '—',
       designation: person.designation ?? '—',
       manager: person.managerName ?? '—',
 
-      // There is no work-location column on a person here. The organisation unit is the
-      // nearest fact the system actually holds, and saying so beats an empty cell that reads
-      // as data that failed to load.
-      workLocation: person.organisationUnitName ?? '—',
+      // The person's own work location now that the record keeps one; the unit stood in for it
+      // while it did not.
+      workLocation: person.workLocation || person.organisationUnitName || '—',
 
       preferredLanguage: person.preferredCulture ?? '—',
       timeZone: person.timeZone ?? '—',

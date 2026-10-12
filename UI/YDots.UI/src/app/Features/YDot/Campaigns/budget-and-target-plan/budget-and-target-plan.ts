@@ -518,15 +518,6 @@ export class BudgetTargetPlanComponent {
     return !!r && this.store.displayVersion(r).versionNumber !== this.loadedVersion();
   }
 
-  /** True when the current approver is the version's submitter (segregation-of-duties block). */
-  protected isSelfApproval(): boolean {
-    const p = this.selectedPlan();
-    return !!p && !!p.submittedByRef && p.submittedByRef === this.currentUserRef();
-  }
-  protected selfApprovalMessage(): string {
-    return `This value cannot be approved by its submitter (${this.currentUserName()}). An independent approver who did not submit this version must decide.`;
-  }
-
   // ---- Confirm handlers ----
   /** Allocate / Revise submit. */
   protected saveForm(): void {
@@ -620,7 +611,7 @@ export class BudgetTargetPlanComponent {
     // screen could show its dependency-failure state, which meant that plan could never actually be
     // submitted - and every other failure was invisible. Real failures now drive that state.
     this.store.submit(plan.reference, plan.versionNumber).subscribe({
-      next: (result) => this.completeSuccess(result, 'Submitted', 'Await independent approval'),
+      next: (result) => this.completeSuccess(result, 'Submitted', 'Await approval'),
       error: (error) => this.reportFailure(error, 'The version could not be submitted.'),
     });
   }
@@ -628,15 +619,13 @@ export class BudgetTargetPlanComponent {
   /**
    * Approves the selected version.
    *
-   * THE SELF-APPROVAL CHECK IS STILL HERE, and it is still not what enforces the rule. The server
-   * refuses an approval by the person who submitted the version, checked against the stored
-   * submitter rather than against anything this browser claims. This check is what stops the button
-   * being offered in the first place - the refusal would otherwise look like a fault.
+   * THE APPROVE PERMISSION IS THE WHOLE TEST. The person who submitted the version may approve it
+   * too when their roles carry both halves; the server records who did each.
    */
   protected confirmApprove(): void {
     const plan = this.selectedPlan();
 
-    if (!plan || !this.permissions().approve || this.isSelfApproval()) {
+    if (!plan || !this.permissions().approve) {
       return;
     }
 
@@ -677,7 +666,7 @@ export class BudgetTargetPlanComponent {
     this.actionSubmitting.set(true);
 
     this.store.submit(plan.reference, plan.versionNumber).subscribe({
-      next: (result) => this.completeSuccess(result, 'Submitted', 'Await independent approval'),
+      next: (result) => this.completeSuccess(result, 'Submitted', 'Await approval'),
       error: (error) => this.reportFailure(error, 'The version could not be submitted.'),
     });
   }

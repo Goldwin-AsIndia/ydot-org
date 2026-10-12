@@ -5,6 +5,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
 import { IamAdminApiService } from '../../../../Service/iam-admin-api.service';
 import { IconPickerComponent } from '../../../../Shared/components/icon-picker/icon-picker';
 import { apiErrorCode, apiErrorMessage, apiFieldErrors } from '../../../../Shared/models/api-response.model';
+import { ApiEnumOption, enumLabel } from '../../../../Shared/models/enum-option.model';
 import { appRouteError, codeError, lettersAndSpacesError } from '../../../../Shared/validation/field-rules';
 import {
   CreateMenuDefinitionRequest,
@@ -16,6 +17,7 @@ import {
   UpdateMenuDefinitionRequest,
 } from '../../../../Shared/models/iam-contract.model';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
+import { EnumOptionsService } from '../../../../Shared/services/enum-options.service';
 import { NavigationService } from '../../../../Shared/services/navigation.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 
@@ -42,6 +44,8 @@ interface Draft {
   route: string;
   permission: string;
   order: string;
+  /** The module a new top-level menu belongs to. Below the top level the parent's is used. */
+  module: string;
   opensInNewTab: boolean;
 }
 
@@ -89,6 +93,7 @@ interface Draft {
 })
 export class MenuConfigurationComponent implements OnInit, OnDestroy {
   private readonly api = inject(IamAdminApiService);
+  private readonly enums = inject(EnumOptionsService);
   private readonly navigation = inject(NavigationService);
   private readonly tokens = inject(AuthTokenService);
   private readonly toast = inject(ToastService);
@@ -124,6 +129,16 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   readonly canConfigure = computed(() => this.tokens.hasAnyPermission('iam.menus.configure'));
   readonly canMapRoles = computed(() => this.tokens.hasAnyPermission('iam.menus.map-roles'));
+  readonly canExport = computed(() => this.tokens.hasAnyPermission('iam.menus.export'));
+
+  /** True while the server builds the export file. */
+  readonly exporting = signal(false);
+
+  /** The organisation being configured, as the configuration read names it - for the preview. */
+  readonly organisationName = signal('');
+
+  /** Menu, Sub menu, Child sub menu - in the server's words (`/reference-data/enums`). */
+  readonly levelOptions = signal<ApiEnumOption[]>([]);
 
   // ---- The tree -----------------------------------------------------------------------------
 
@@ -157,6 +172,16 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
   private roleNodesById: Record<string, RoleMenuNodeResponse> = {};
   readonly landingMenuId = signal<string | null>(null);
 
+  /**
+   * The landing page as stored, so a change to it alone counts as unsaved.
+   *
+   * IT DID NOT, AND THAT HID TWO DEFECTS. Choosing another landing page drew no save bar, so the
+   * choice could not be saved unless some switch was flipped as well; and Discard put the
+   * switches back but not the landing page - so "hide the landing page, Discard, hide something
+   * else, Save" stored the role with no landing page at all.
+   */
+  private readonly savedLandingMenuId = signal<string | null>(null);
+
   // ---- Inspector ----------------------------------------------------------------------------
 
   readonly draft = signal<Draft | null>(null);
@@ -174,7 +199,8 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
   );
 
   readonly hasMappingChanges = computed(
-    () => JSON.stringify(this.mapped()) !== JSON.stringify(this.savedMapped()),
+    () => JSON.stringify(this.mapped()) !== JSON.stringify(this.savedMapped())
+      || this.landingMenuId() !== this.savedLandingMenuId(),
   );
 
   readonly enabledCount = computed(
@@ -183,7 +209,64 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   readonly totalCount = computed(() => Object.keys(this.enabled()).length);
 
-  readonly mappedCount = computed(() => Object.values(this.mapped()).filter(Boolean).length);
+  /**
+   * The items a member of the chosen role will actually be shown, given every switch on screen.
+   *
+   * A SWITCH IS ONE DECISION; THE SIDEBAR IS THE OVERLAP OF ALL OF THEM. The preview, the counts
+   * and the rail used to follow the role-mapping switch alone, so the Donor role "showed"
+   * Communications and Supply - mapped, but switched off for the organisation - and a heading
+   * whose permission the role lacks. The sidebar the donor then got had neither. This applies
+   * the server's own rules (MenuBuilderService): mapped, the role holds the permission, the
+   * organisation has it on, the heading above is shown, and a heading needs something under it.
+   */
+  readonly shownIds = computed<ReadonlySet<string>>(() => {
+    const shown = new Set<string>();
+
+    if (this.mode() !== 'roles' || !this.selectedRoleId()) {
+      return shown;
+    }
+
+    const mapped = this.mapped();
+    const enabled = this.enabled();
+
+    const decide = (node: TenantMenuNodeResponse, parentShown: boolean): boolean => {
+      const id = node.menuDefinitionId ?? '';
+      const own = parentShown
+        && mapped[id] === true
+        && this.isPermitted(id)
+        && (node.isMandatory === true || enabled[id] === true);
+
+      let anyChild = false;
+      for (const child of node.children ?? []) {
+        anyChild = decide(child, own) || anyChild;
+      }
+
+      const result = own && (!!node.route || anyChild);
+      if (result) {
+        shown.add(id);
+      }
+
+      return result;
+    };
+
+    for (const root of this.nodes()) {
+      decide(root, true);
+    }
+
+    return shown;
+  });
+
+  /** Whether a member of the chosen role will see this item. See `shownIds`. */
+  isShown(id: string): boolean {
+    return this.shownIds().has(id);
+  }
+
+  /** On in the current view: in use for the organisation, or shown to the chosen role. */
+  isOn(id: string): boolean {
+    return this.mode() === 'roles' ? this.isShown(id) : this.isEnabled(id);
+  }
+
+  readonly mappedCount = computed(() => this.shownIds().size);
 
   readonly selectedRoleName = computed(
     () => this.roles().find((role) => role.id === this.selectedRoleId())?.name ?? '',
@@ -300,7 +383,11 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     return out;
   });
 
-  readonly customisedCount = computed(() => this.allNodes().filter((node) => this.hasOverride(node)).length);
+  /** Renamed or given another icon for this organisation - the stat's own words. A move alone is not counted. */
+  readonly customisedCount = computed(() => this.allNodes().filter((node) => {
+    const override = node.menuDefinitionId ? this.overrides()[node.menuDefinitionId] : undefined;
+    return !!override?.displayNameOverride || !!override?.iconOverride;
+  }).length);
   readonly ownedCount = computed(() => this.allNodes().filter((node) => node.isOrganisationOwned).length);
 
   readonly landingName = computed(() => {
@@ -315,7 +402,8 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
       const now = this.mapped();
       const before = this.savedMapped();
       const ids = new Set([...Object.keys(now), ...Object.keys(before)]);
-      return [...ids].filter((id) => !!now[id] !== !!before[id]).length;
+      const landingChanged = this.landingMenuId() !== this.savedLandingMenuId() ? 1 : 0;
+      return [...ids].filter((id) => !!now[id] !== !!before[id]).length + landingChanged;
     }
     const enabled = this.enabled();
     const savedEnabled = this.savedEnabled();
@@ -403,7 +491,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   /** "on / total" for a card's own items (the card itself excluded). */
   cardOnCount(node: TenantMenuNodeResponse): number {
-    return this.descendantIds(node).filter((id) => (this.mode() === 'roles' ? this.isMapped(id) : this.isEnabled(id))).length;
+    return this.descendantIds(node).filter((id) => this.isOn(id)).length;
   }
 
   cardTotal(node: TenantMenuNodeResponse): number {
@@ -427,7 +515,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   /** How many top-level menus are on (organisation) or shown (roles), for the index header. */
   sectionsOnCount(): number {
-    return this.sections().filter((row) => (this.mode() === 'roles' ? this.isMapped(row.id) : this.isEnabled(row.id))).length;
+    return this.sections().filter((row) => this.isOn(row.id)).length;
   }
 
   /** "n items · m on" (organisation) or "m of n shown" (roles), for the rail. */
@@ -437,7 +525,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
       return node.route ? 'Single page' : 'Empty heading';
     }
     if (this.mode() === 'roles') {
-      return `${ids.filter((id) => this.isMapped(id)).length} of ${ids.length} shown`;
+      return `${ids.filter((id) => this.isShown(id)).length} of ${ids.length} shown`;
     }
     return `${ids.length} item${ids.length === 1 ? '' : 's'} · ${ids.filter((id) => this.isEnabled(id)).length} on`;
   }
@@ -448,7 +536,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     if (ids.length === 0) {
       return 0;
     }
-    const on = ids.filter((id) => (this.mode() === 'roles' ? this.isMapped(id) : this.isEnabled(id))).length;
+    const on = ids.filter((id) => this.isOn(id)).length;
     return Math.round((on / ids.length) * 100);
   }
 
@@ -474,6 +562,13 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.load();
+
+    // The level words the editor and its header print. A failure costs only the wording: the
+    // value itself is shown instead, and nothing else on the screen depends on it.
+    this.enums
+      .options('menuLevels')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({ next: (options) => this.levelOptions.set(options), error: () => undefined });
   }
 
   ngOnDestroy(): void {
@@ -481,7 +576,19 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  load(): void {
+  /**
+   * Reads the tree, the roles and the permission list.
+   *
+   * `keepPending` IS FOR THE RELOAD AFTER AN EDIT. Adding, editing or deleting one item reloads
+   * the tree, and that reload used to replace every switch on screen with the stored value - so
+   * somebody who had switched three items off, then added a fourth, lost the three without a
+   * word: the save bar simply vanished. The unsaved switches and overrides are carried across
+   * the reload for every item still there; `drop` names items whose own edit has just replaced
+   * what was pending for them.
+   */
+  load(options: { keepPending?: boolean; drop?: readonly string[] } = {}): void {
+    const pending = options.keepPending ? this.pendingConfiguration(options.drop ?? []) : null;
+
     this.loading.set(true);
     this.loadFailed.set(false);
 
@@ -497,6 +604,10 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
           this.nodes.set(nodes);
           this.readTree(nodes);
+          if (pending) {
+            this.restorePending(pending);
+          }
+          this.organisationName.set(configuration.tenantName ?? '');
           this.roles.set(roles);
           this.permissionOptions.set(permissions);
           this.loading.set(false);
@@ -557,6 +668,60 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     this.enabled.set({ ...enabled });
     this.savedOverrides.set(overrides);
     this.overrides.set(structuredClone(overrides));
+  }
+
+  /** What differs from the stored configuration right now, item by item. See `load`. */
+  private pendingConfiguration(drop: readonly string[]): {
+    enabled: Record<string, boolean>;
+    overrides: Record<string, TenantMenuItemRequest>;
+  } {
+    const enabled: Record<string, boolean> = {};
+    const overrides: Record<string, TenantMenuItemRequest> = {};
+    const savedEnabled = this.savedEnabled();
+    const savedOverrides = this.savedOverrides();
+
+    for (const [id, value] of Object.entries(this.enabled())) {
+      if (!drop.includes(id) && value !== savedEnabled[id]) {
+        enabled[id] = value;
+      }
+    }
+
+    for (const [id, value] of Object.entries(this.overrides())) {
+      if (!drop.includes(id) && JSON.stringify(value) !== JSON.stringify(savedOverrides[id] ?? null)) {
+        overrides[id] = value;
+      }
+    }
+
+    return { enabled, overrides };
+  }
+
+  /** Puts unsaved switches and overrides back over a freshly read tree, for items still in it. */
+  private restorePending(pending: {
+    enabled: Record<string, boolean>;
+    overrides: Record<string, TenantMenuItemRequest>;
+  }): void {
+    const present = (id: string) => this.byId[id] !== undefined;
+
+    this.enabled.update((current) => {
+      const next = { ...current };
+      for (const [id, value] of Object.entries(pending.enabled)) {
+        if (present(id)) next[id] = value;
+      }
+      return next;
+    });
+
+    this.overrides.update((current) => {
+      const next = { ...current };
+      for (const [id, value] of Object.entries(pending.overrides)) {
+        if (present(id)) next[id] = { ...value, isEnabled: this.isEnabled(id) };
+      }
+      return next;
+    });
+
+    // A pending move has to show as moved again.
+    if (Object.keys(pending.overrides).length > 0) {
+      this.nodes.set(this.sortTree(this.nodes()));
+    }
   }
 
   // ===========================================================================================
@@ -655,6 +820,16 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   pickPermission(code: string): void {
     this.permDdOpen.set(false);
+
+    // A new top-level menu with no module yet takes the module of the permission guarding it -
+    // the likeliest answer, and still only a suggestion the person can change.
+    const draft = this.draft();
+    const module = this.permissionOptions().find((option) => option.code === code)?.moduleCode;
+    if (draft?.kind === 'create' && draft.level === 'menu' && !draft.module && module) {
+      this.patchDraft({ permission: code, module });
+      return;
+    }
+
     this.patchDraft({ permission: code });
   }
 
@@ -667,13 +842,15 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
   onDocumentClick(): void {
     this.roleDdOpen.set(false);
     this.permDdOpen.set(false);
+    this.moduleDdOpen.set(false);
   }
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
-    if (this.roleDdOpen() || this.permDdOpen()) {
+    if (this.roleDdOpen() || this.permDdOpen() || this.moduleDdOpen()) {
       this.roleDdOpen.set(false);
       this.permDdOpen.set(false);
+      this.moduleDdOpen.set(false);
       return;
     }
     if (this.confirmingDelete()) {
@@ -745,6 +922,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     this.savedMapped.set({});
     this.roleNodesById = {};
     this.landingMenuId.set(null);
+    this.savedLandingMenuId.set(null);
     this.errorMessage.set('');
     this.staleData.set(false);
 
@@ -781,6 +959,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
           this.savedMapped.set(visible);
           this.mapped.set({ ...visible });
           this.landingMenuId.set(mapping.landingMenuId ?? null);
+          this.savedLandingMenuId.set(mapping.landingMenuId ?? null);
           this.roleVersion.set(role.version ?? 0);
           this.loadingRoleMapping.set(false);
         },
@@ -840,6 +1019,14 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     }
 
     this.mapped.update((current) => ({ ...current, ...updates }));
+
+    // A landing page the role no longer has is refused by the save ("The landing page must be
+    // one of the visible menu items"), so hiding it clears it rather than leaving a save that
+    // cannot succeed.
+    const landing = this.landingMenuId();
+    if (landing && !this.isMapped(landing)) {
+      this.landingMenuId.set(null);
+    }
   }
 
   setLanding(id: string): void {
@@ -920,6 +1107,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
         next: (outcome) => {
           this.saving.set(false);
           this.savedMapped.set({ ...this.mapped() });
+          this.savedLandingMenuId.set(this.landingMenuId());
 
           this.toast.show(
             'Mapping saved',
@@ -946,6 +1134,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   cancelMapping(): void {
     this.mapped.set({ ...this.savedMapped() });
+    this.landingMenuId.set(this.savedLandingMenuId());
     this.errorMessage.set('');
     this.staleData.set(false);
   }
@@ -989,17 +1178,33 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     return node.resolvedName || node.catalogueName || node.code || 'Untitled';
   }
 
+  /** A level in the server's words (`/reference-data/enums`), the value itself until they load. */
   levelLabel(level: MenuLevel | null | undefined): string {
-    switch (level) {
-      case 'menu':
-        return 'Menu';
-      case 'subMenu':
-        return 'Submenu';
-      case 'childSubMenu':
-        return 'Child submenu';
-      default:
-        return '';
-    }
+    return enumLabel(this.levelOptions(), level);
+  }
+
+  /**
+   * The modules a new top-level menu can belong to: every module the organisation's menu already
+   * uses, as the configuration read reports them.
+   *
+   * THE SCREEN SENT "IAM" FOR EVERY NEW ITEM, whatever it was. Below the top level the server now
+   * files a new item under its parent's module, so this list is only asked for a new top-level
+   * menu - the one place where there is no parent to follow.
+   */
+  readonly moduleOptions = computed<string[]>(() =>
+    [...new Set(this.allNodes().map((node) => (node.moduleCode ?? '').trim()).filter(Boolean))].sort());
+
+  readonly moduleDdOpen = signal(false);
+
+  toggleModuleDd(): void {
+    this.roleDdOpen.set(false);
+    this.permDdOpen.set(false);
+    this.moduleDdOpen.update((open) => !open);
+  }
+
+  pickModule(code: string): void {
+    this.moduleDdOpen.set(false);
+    this.patchDraft({ module: code });
   }
 
   /** The level a child of this node would occupy, or null when it can have none. */
@@ -1026,6 +1231,12 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
     const override = this.overrides()[id];
 
+    // AN ITEM THE ORGANISATION OWNS IS EDITED AT SOURCE, SO THE EDITOR OPENS ON ITS OWN VALUES.
+    // It used to open every item on the organisation's override row, which for an owned item is
+    // empty: the name box was blank, the icon read "No icon" and the position "Auto" - and
+    // pressing Save then wrote the empty icon back over the real one.
+    const owned = node.isOrganisationOwned === true;
+
     this.draftTried.set(false);
     this.draftTouched.set(new Set());
     this.draftServerErrors.set({});
@@ -1035,11 +1246,14 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
       parentId: node.parentMenuDefinitionId ?? null,
       level: node.level ?? 'menu',
       code: node.code ?? '',
-      name: override?.displayNameOverride ?? '',
-      icon: override?.iconOverride ?? null,
+      name: owned ? (node.catalogueName ?? '') : (override?.displayNameOverride ?? ''),
+      icon: owned ? (node.resolvedIcon ?? null) : (override?.iconOverride ?? null),
       route: node.route ?? '',
       permission: node.requiredPermissionCode ?? '',
-      order: override?.displayOrderOverride?.toString() ?? '',
+      order: owned
+        ? String(override?.displayOrderOverride ?? node.resolvedOrder ?? '')
+        : (override?.displayOrderOverride?.toString() ?? ''),
+      module: node.moduleCode ?? '',
       opensInNewTab: false,
     });
   }
@@ -1065,6 +1279,9 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
       route: '',
       permission: '',
       order: '',
+      // Below the top level the server files the item under its parent's module; this is only
+      // what the request names, kept honest.
+      module: parent?.moduleCode ?? '',
       opensInNewTab: false,
     });
   }
@@ -1159,7 +1376,9 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     const creating = d.kind === 'create';
     const order = d.order.trim();
     return {
-      name: lettersAndSpacesError('Display name', d.name, { required: creating, max: 160 }),
+      // An owned item's name IS its name - there is no product name behind it to fall back to.
+      name: lettersAndSpacesError('Display name', d.name, { required: this.draftIsOwned(), max: 160 }),
+      module: creating && d.level === 'menu' && !d.module ? 'Choose the module this menu belongs to.' : null,
       code: creating ? codeError('Code', d.code, { allowHyphen: true, max: 50 }) : null,
       // A platform item's route is locked, so only a route the person can actually edit is judged.
       route: creating || this.draftIsOwned() ? appRouteError('Route', d.route) : null,
@@ -1185,7 +1404,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     }
   }
 
-  private static readonly DRAFT_IDS: Record<string, string> = { name: 'ocName', code: 'ocCode', route: 'ocRoute', order: 'ocOrder' };
+  private static readonly DRAFT_IDS: Record<string, string> = { name: 'ocName', code: 'ocCode', module: 'ocModule', route: 'ocRoute', order: 'ocOrder' };
 
   private focusDraftField(field: string): void {
     const id = MenuConfigurationComponent.DRAFT_IDS[field];
@@ -1324,11 +1543,15 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
   }
 
   private createNode(draft: Draft): void {
+    const parent = draft.parentId ? this.byId[draft.parentId] : undefined;
+
     const request: CreateMenuDefinitionRequest = {
       code: draft.code.trim().toUpperCase(),
       name: draft.name.trim(),
       level: draft.level,
-      moduleCode: 'IAM',
+      // The parent's module below the top level (the server applies the same rule); the one the
+      // person chose for a new top-level menu.
+      moduleCode: parent?.moduleCode ?? draft.module,
       parentMenuId: draft.parentId,
       route: draft.route.trim() || null,
       icon: draft.icon || null,
@@ -1351,7 +1574,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
           this.draft.set(null);
           this.toast.show('Menu item added', `${request.name} is now in the menu.`, 'success');
           this.refreshOwnSidebar();
-          this.load();
+          this.load({ keepPending: true });
         },
         error: (error: unknown) => {
           this.savingNode.set(false);
@@ -1371,14 +1594,17 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
     const order = draft.order.trim();
 
+    // AN EMPTY STRING CLEARS, NULL LEAVES ALONE. That is the request's contract, and this sent
+    // null for an emptied field - so clearing the permission, the route or the icon saved,
+    // reported success and kept the old value. "Opens in a new tab" is not on this form, so it
+    // is not sent at all rather than sent as "no".
     const request: UpdateMenuDefinitionRequest = {
       expectedVersion: node.version ?? 0,
       name: draft.name.trim() || node.catalogueName || '',
-      route: draft.route.trim() || null,
-      icon: draft.icon || null,
-      requiredPermissionCode: draft.permission || null,
+      route: draft.route.trim(),
+      icon: draft.icon ?? '',
+      requiredPermissionCode: draft.permission,
       displayOrder: order === '' ? null : Number(order),
-      opensInNewTab: draft.opensInNewTab,
     };
 
     this.savingNode.set(true);
@@ -1392,7 +1618,8 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
           this.draft.set(null);
           this.toast.show('Menu item updated', 'The change has been saved.', 'success');
           this.refreshOwnSidebar();
-          this.load();
+          // A position typed here replaces any unsaved move of the same item.
+          this.load({ keepPending: true, drop: order === '' ? [] : [draft.id!] });
         },
         error: (error: unknown) => {
           this.savingNode.set(false);
@@ -1431,7 +1658,7 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
           this.draft.set(null);
           this.toast.show('Menu item removed', `${this.resolvedName(node)} is gone.`, 'success');
           this.refreshOwnSidebar();
-          this.load();
+          this.load({ keepPending: true });
         },
         error: (error: unknown) => {
           this.savingNode.set(false);
@@ -1478,24 +1705,41 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const aOrder = this.effectiveOrder(a);
-    const bOrder = this.effectiveOrder(b);
+    // SIBLINGS SHARING A POSITION ARE NUMBERED FIRST. Swapping two equal numbers changes
+    // nothing - the pair still sorts by name - so the arrow did nothing visible while the save
+    // bar claimed two unsaved changes. Every item an organisation adds starts at 0, so this was
+    // the ordinary case for its own items. The siblings are renumbered 10, 20, 30... in the
+    // order on screen, and then the two swap.
+    const orders = new Map(ordered.map((node) => [node.menuDefinitionId ?? '', this.effectiveOrder(node)]));
+    const tied = new Set(orders.values()).size < orders.size;
 
-    this.overrides.update((current) => ({
-      ...current,
-      [aId]: {
-        ...(current[aId] ?? { menuDefinitionId: aId }),
-        menuDefinitionId: aId,
-        isEnabled: this.isEnabled(aId),
-        displayOrderOverride: bOrder,
-      },
-      [bId]: {
-        ...(current[bId] ?? { menuDefinitionId: bId }),
-        menuDefinitionId: bId,
-        isEnabled: this.isEnabled(bId),
-        displayOrderOverride: aOrder,
-      },
-    }));
+    if (tied) {
+      ordered.forEach((node, position) => orders.set(node.menuDefinitionId ?? '', (position + 1) * 10));
+    }
+
+    const aOrder = orders.get(aId)!;
+    const bOrder = orders.get(bId)!;
+    orders.set(aId, bOrder);
+    orders.set(bId, aOrder);
+
+    this.overrides.update((current) => {
+      const next = { ...current };
+
+      for (const [id, order] of orders) {
+        if (!id || (id !== aId && id !== bId && !tied)) {
+          continue;
+        }
+
+        next[id] = {
+          ...(current[id] ?? { menuDefinitionId: id }),
+          menuDefinitionId: id,
+          isEnabled: this.isEnabled(id),
+          displayOrderOverride: order,
+        };
+      }
+
+      return next;
+    });
 
     // Re-sorted in place so the row visibly moves; the tree itself is only rebuilt on save.
     this.nodes.set(this.sortTree(this.nodes()));
@@ -1561,5 +1805,56 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
 
   trackRow(_index: number, row: Row): string {
     return row.id;
+  }
+
+  // ---- Export -------------------------------------------------------------------------------
+
+  /**
+   * Downloads what is on screen as CSV: the organisation's menu, or - in Role visibility - the
+   * chosen role's view of it, narrowed by the search box either way.
+   *
+   * THE SERVER BUILDS THE FILE from the same reads this screen draws, so the file and the screen
+   * cannot disagree, and records the export in the audit trail under the reference in the toast.
+   * What is saved is exported: unsaved switches are not in it, and the toast says so.
+   */
+  exportView(): void {
+    if (this.exporting() || (this.mode() === 'roles' && !this.selectedRoleId())) {
+      return;
+    }
+
+    this.exporting.set(true);
+
+    this.api
+      .exportMenuConfiguration({
+        roleId: this.mode() === 'roles' ? this.selectedRoleId() : null,
+        search: this.search(),
+      })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (file) => {
+          this.exporting.set(false);
+
+          const url = URL.createObjectURL(file.blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = file.fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+
+          const unsaved = this.mode() === 'roles' ? this.hasMappingChanges() : this.hasConfigurationChanges();
+
+          this.toast.show(
+            'Export ready',
+            `${file.fileName} was downloaded${file.reference ? `. Reference ${file.reference}` : ''}.`
+              + (unsaved ? ' It holds the saved menu - your unsaved changes are not in it.' : ''),
+            'success');
+        },
+        error: (error: unknown) => {
+          this.exporting.set(false);
+          this.toast.show('Export failed', apiErrorMessage(error, 'The menu could not be exported.'), 'error');
+        },
+      });
   }
 }

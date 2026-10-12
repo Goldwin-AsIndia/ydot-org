@@ -79,12 +79,6 @@ public static class UserMappingConfig
             user.MobileConfirmed = false;
         }
 
-        if (request.AccountCategory.HasValue && request.AccountCategory != user.AccountCategory)
-        {
-            user.AccountCategory = request.AccountCategory.Value;
-            changed.Add(nameof(User.AccountCategory));
-        }
-
         if (request.EngagementType.HasValue && request.EngagementType != user.EngagementType)
         {
             user.EngagementType = request.EngagementType.Value;
@@ -248,6 +242,143 @@ public static class UserMappingConfig
     };
 
     /// <summary>Human wording for a sign-in outcome, for the recent-activity list.</summary>
+    /// <summary>
+    /// The kind of client in words: the session list, the sign-in feed, the audit trail and the
+    /// reference data all say the same thing. Each screen used to keep its own list - one said
+    /// "Browser", another "Web app", and the reference data said "Web".
+    /// </summary>
+    public static string DescribeClientType(ClientType clientType) => clientType switch
+    {
+        ClientType.Web => "Web browser",
+        ClientType.Mobile => "Mobile app",
+        ClientType.Desktop => "Desktop app",
+        ClientType.Api => "API client",
+        _ => "Unknown device"
+    };
+
+    /// <summary>A second factor's kind in words, for the security pages and the reference data.</summary>
+    public static string DescribeMfaMethod(MfaMethodType methodType) => methodType switch
+    {
+        MfaMethodType.AuthenticatorApp => "Authenticator app",
+        MfaMethodType.Email => "E-mail",
+        MfaMethodType.SecurityKey => "Security key",
+        _ => "Verification method"
+    };
+
+    /// <summary>Where an enrolled factor stands, in the words the security page uses.</summary>
+    public static string DescribeMfaStatus(MfaMethodStatus status) => status switch
+    {
+        MfaMethodStatus.Pending => "Awaiting confirmation",
+        MfaMethodStatus.Active => "Active",
+        MfaMethodStatus.Revoked => "Removed",
+        _ => status.ToString()
+    };
+
+    /// <summary>
+    /// The second-factor requirement in one line: required or optional, and whether a factor is
+    /// enrolled. "Inherited" is resolved against the Organisation, which is what it means.
+    /// </summary>
+    public static string DescribeMfaRequirement(bool isRequired, bool isInherited, bool isEnrolled)
+    {
+        var policy = (isRequired ? "Required" : "Optional") + (isInherited ? " (organisation default)" : string.Empty);
+
+        return isEnrolled
+            ? $"{policy} · enrolled"
+            : isRequired ? $"{policy} · not yet set up" : $"{policy} · not set up";
+    }
+
+    /// <summary>
+    /// How well an account is protected: four checks, each of which can genuinely fail.
+    ///
+    /// Password: set, not under a forced-change order, and not locked out. Two-step verification:
+    /// at least one CONFIRMED factor - an enrolment still awaiting its code protects nothing.
+    /// Backup codes: some left. Sessions: signed in on one device at most, so a session somewhere
+    /// the person does not recognise shows up as something to review.
+    /// </summary>
+    public static SecurityPostureResponse DescribeSecurityPosture(
+        bool passwordHealthy, bool hasConfirmedFactor, int recoveryCodesRemaining, int liveSessionCount)
+    {
+        var sessionsOk = liveSessionCount <= 1;
+
+        SecurityCheckResponse[] checks =
+        [
+            new("mfa", "MFA", hasConfirmedFactor, hasConfirmedFactor ? "Enabled" : "Not enabled"),
+            new("password", "Password", passwordHealthy, passwordHealthy ? "Good" : "Needs attention"),
+            new("recovery", "Recovery", recoveryCodesRemaining > 0,
+                recoveryCodesRemaining > 0 ? $"{recoveryCodesRemaining} left" : "No codes left"),
+            new("sessions", "Devices", sessionsOk, sessionsOk ? "Secure" : "Review")
+        ];
+
+        var score = checks.Count(check => check.IsMet);
+
+        var level = score switch
+        {
+            4 => "Excellent",
+            3 => "Strong",
+            2 => "Good",
+            1 => "Fair",
+            _ => "Weak"
+        };
+
+        return new SecurityPostureResponse(
+            score,
+            checks.Length,
+            level,
+            score >= 3 ? "Great job! Keep it up." : "A few more steps will make your account safer.",
+            checks);
+    }
+
+    /// <summary>
+    /// The one thing most worth doing next, in the order that matters: a forced password change,
+    /// then a second factor, then backup codes for it, then sessions to review.
+    /// </summary>
+    public static SecurityRecommendationResponse RecommendNextStep(
+        bool mustChangePassword, bool hasConfirmedFactor, int recoveryCodesRemaining, int liveSessionCount)
+    {
+        if (mustChangePassword)
+        {
+            return new SecurityRecommendationResponse(
+                "Change your password",
+                "A new password is required. Choose one now rather than at your next sign-in.",
+                "ChangePassword", "Change now");
+        }
+
+        if (!hasConfirmedFactor)
+        {
+            return new SecurityRecommendationResponse(
+                "Security tip",
+                "Enable MFA to add an extra layer of security to your account.",
+                "EnrolMfa", "Enable now");
+        }
+
+        if (recoveryCodesRemaining == 0)
+        {
+            return new SecurityRecommendationResponse(
+                "Security tip",
+                "Generate backup codes so you can still sign in if you lose your second factor.",
+                "GenerateRecoveryCodes", "Generate now");
+        }
+
+        if (liveSessionCount > 1)
+        {
+            return new SecurityRecommendationResponse(
+                "Security tip",
+                $"You are signed in on {liveSessionCount} devices. End any session you do not recognise.",
+                "ReviewSessions", "Review now");
+        }
+
+        return new SecurityRecommendationResponse(
+            "Security tip",
+            "Your account is well protected. Review this page from time to time.",
+            null, null);
+    }
+
+    /// <summary>The headline of one sign-in attempt in the activity feed.</summary>
+    public static string DescribeAttempt(SignInOutcome outcome, bool succeeded, bool triggeredLockout) =>
+        succeeded ? "Signed in"
+        : triggeredLockout ? "Account locked after too many attempts"
+        : DescribeOutcome(outcome);
+
     public static string DescribeOutcome(SignInOutcome outcome) => outcome switch
     {
         SignInOutcome.Succeeded => "Signed in",

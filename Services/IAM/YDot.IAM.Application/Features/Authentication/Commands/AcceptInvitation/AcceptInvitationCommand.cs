@@ -10,7 +10,6 @@ using YDot.IAM.Application.Common.Settings;
 using YDot.IAM.Application.Features.Authentication.DTOs;
 using YDot.IAM.Application.Features.Authentication.Mappings;
 using YDot.IAM.Application.DTOs;
-using YDot.IAM.Domain.ValueObjects;
 using YDot.IAM.Domain.Entities;
 using YDot.IAM.Domain.Enums;
 
@@ -66,7 +65,6 @@ public sealed class AcceptInvitationCommandHandler(
     IMfaChallengeService mfa,
     IMfaEnrolmentService enrolment,
     IOrganisationStructureRepository orgStructure,
-    IGlobalMasterReadService globalMasters,
     ISessionTokenService sessions,
     IEffectiveAccessService effectiveAccess,
     INotificationService notifications,
@@ -159,6 +157,25 @@ public sealed class AcceptInvitationCommandHandler(
             return Result.Failure<AcceptInvitationResponse>(
                 Error.WeakPassword("That password does not meet the requirements.",
                     [.. policyFailures.Select(message => new ValidationError(nameof(request.Password), message))]));
+        }
+
+        // ---- Two-step verification, when it is required ------------------------------------------------
+        //
+        // ENFORCED HERE, NOT ONLY ON THE SCREEN. The activation page keeps the second factor
+        // switched on when the invitation says it is mandatory, but this handler activated the
+        // account regardless and merely answered RequiresMfaEnrolment: true, which no client
+        // read. A request that skipped the step got an active account with no factor - and
+        // sign-in only challenges accounts that have one, so "Required" was never asked for.
+        // The factor is confirmed earlier in the same flow, against the invitation token, so a
+        // person who followed the page has one by now.
+        if (user.IsMfaRequired(tenant?.DefaultMfaRequirement ?? MfaRequirement.Optional) && !user.MfaEnabled)
+        {
+            logger.LogWarning("Invitation acceptance refused because user {UserId} must enrol a second factor first", user.Id);
+
+            return Result.Failure<AcceptInvitationResponse>(
+                Error.Validation(
+                    "This account requires two-step verification. Set up and confirm a second factor before activating.",
+                    [new ValidationError("Mfa", "Set up and confirm a second factor first.")]));
         }
 
         // ---- Activate the account ---------------------------------------------------------------------
@@ -260,10 +277,6 @@ public sealed class AcceptInvitationCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Delivery failure must not undo an activation that has already been committed.
-        await notifications.SendWelcomeAsync(
-            user, tenant, businessUnit, BuildSignInUrl(tenant, businessUnit), cancellationToken);
-
         var mfaRequired = user.IsMfaRequired(tenant?.DefaultMfaRequirement ?? MfaRequirement.Optional);
 
         // ---- Backup codes -------------------------------------------------------------------
@@ -282,6 +295,13 @@ public sealed class AcceptInvitationCommandHandler(
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
+
+        // LAST, after every write. Delivery failure must not undo an activation that has already
+        // been committed - and it did: the relay could not be reached, the exception escaped, and
+        // the person was shown an error for an account that was in fact active, before their
+        // recovery codes had even been saved.
+        await notifications.SendWelcomeAsync(
+            user, tenant, businessUnit, BuildSignInUrl(tenant, businessUnit), cancellationToken);
 
         logger.LogInformation("Invitation accepted successfully for user {UserId}, tenant {TenantId}, invitation type {InvitationType}, profile required {RequiresProfile}, MFA enrolled {MfaEnrolled}", user.Id, user.TenantId, invitation.InvitationType, requiresProfile, user.MfaEnabled);
 
@@ -363,45 +383,11 @@ public sealed class AcceptInvitationCommandHandler(
             ? await orgStructure.GetUnitAsync(user.OrganisationUnitId.Value, cancellationToken)
             : null;
 
-        // The dialling prefixes for the mobile number on the SMS enrolment step, taken from the
-        // country catalogue rather than a literal list, and sent WITH the preview because this
-        // screen is anonymous: it has no session with which to call the lookup endpoint itself.
-        // Countries are ITenantScoped, so the platform catalogue (TenantId null) is visible even
-        // though no Organisation is resolved on an anonymous request.
-        var dialingCodes = await GetDialingCodesAsync(cancellationToken);
-
         logger.LogInformation("Invitation preview loaded for invitation {InvitationId}, tenant {TenantId}", invitation.Id, invitation.TenantId);
 
         return Result.Success(AuthenticationMappingConfig.ToPreviewResponse(
             invitation, user, tenant, businessUnit, clock.UtcNow, _security,
-            roleSummary, department?.Name, unit?.Name, dialingCodes));
-    }
-
-    /// <summary>
-    /// Distinct dialling prefixes from the country catalogue, in country sort order.
-    ///
-    /// Never throws. A catalogue that cannot be read leaves the picker empty and the person
-    /// types the number themselves — the same "degrade rather than break" rule the lookup
-    /// service applies, and far better than failing the whole preview over a dropdown.
-    /// </summary>
-    private async Task<IReadOnlyList<string>> GetDialingCodesAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            var countries = await globalMasters.LookupCountriesAsync(cancellationToken);
-
-            return countries
-                .Select(country => country.PhoneCountryCode)
-                .Where(code => !string.IsNullOrWhiteSpace(code))
-                .Select(code => code!.Trim())
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
-        }
-        catch (InvalidOperationException)
-        {
-            logger.LogWarning("Unable to load country dialing codes for invitation preview");
-            return [];
-        }
+            roleSummary, department?.Name, unit?.Name));
     }
 
     /// <summary>
@@ -461,29 +447,6 @@ public sealed class AcceptInvitationCommandHandler(
         }
 
         var (_, user, tenant, businessUnit) = context.Value;
-
-        // A mobile number typed on the activation screen is stored before the SMS enrolment can
-        // use it. Without this the enrolment refuses a number the person has just supplied,
-        // which reads as the form ignoring them.
-        if (command.Request.MethodType == MfaMethodType.Sms
-            && !string.IsNullOrWhiteSpace(command.Request.MobileNumber))
-        {
-            var mobile = MobileNumberValue.TryParse(
-                command.Request.MobileCountryCode, command.Request.MobileNumber);
-
-            if (mobile is null)
-            {
-                logger.LogWarning("Invitation MFA enrolment failed because the supplied mobile number was invalid for user {UserId}", user.Id);
-
-                return Result.Failure<MfaEnrolmentResponse>(
-                    Error.Validation("That mobile number is not valid.",
-                        [new ValidationError(nameof(command.Request.MobileNumber),
-                            "Enter a valid mobile number.")]));
-            }
-
-            user.MobileCountryCode = mobile.CountryCode;
-            user.MobileNumber = mobile.Number;
-        }
 
         var result = await enrolment.BeginAsync(
             user, tenant, businessUnit, command.Request.MethodType,

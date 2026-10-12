@@ -8,7 +8,6 @@ import { AuthTokenService } from '../../../../Shared/services/auth-token.service
 import {
   ClientType,
   MfaMethodType,
-  SignInAttemptResponse,
   UserSecurityResponse,
 } from '../../../../Shared/models/iam-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
@@ -30,7 +29,12 @@ interface MfaMethodView {
   id: string;
   method: string;
   icon: string;
+
+  /** The server's status value ("active", "pending") and its words. */
+  statusValue: string;
   status: string;
+
+  /** When it was confirmed - or, while it awaits confirmation, when it was started. */
   enrolledOn: string;
 }
 
@@ -142,7 +146,8 @@ export class MySecurityComponent {
       passwordLastChangedTime: model.passwordChangedAtUtc
         ? this.formatTime(model.passwordChangedAtUtc)
         : '',
-      mfaRequirement: this.mfaRequirementLabel(model),
+      // The server's sentence, which resolves "inherited" against the Organisation's policy.
+      mfaRequirement: model.mfaRequirementDisplay ?? '—',
       recoveryCodesRemaining: model.recoveryCodesRemaining ?? 0,
       isLockedOut: model.isLockedOut === true,
       mustChangePassword: model.mustChangePassword === true,
@@ -160,52 +165,47 @@ export class MySecurityComponent {
   });
 
   // =========================================================================================
-  // The Security Level pipeline.
+  // The Security Level gauge, its four checks and the tip - all the server's.
   //
-  // Two of its four steps used to be marked complete in the template with a fixed CSS class,
-  // so they showed a tick for everybody whatever the account's actual state. These are the
-  // tests that replace them, and each one can genuinely fail.
+  // They were worked out here, and the two-step check counted an enrolment nobody had confirmed
+  // as "Enabled". IAM now scores the account from the factors the sign-in actually challenges,
+  // and this page draws what it says.
   // =========================================================================================
 
-  /**
-   * A password counts as healthy when it exists, is not under a forced-change order, and the
-   * account is not locked out.
-   *
-   * "Password Set" is trivially true of every account that can sign in, so on its own it was a
-   * step that could never fail. Read this way it answers something worth knowing.
-   */
-  readonly passwordHealthy = computed(() => {
-    const model = this.security();
+  readonly posture = computed(() => this.security()?.posture ?? null);
 
-    return model !== null
-      && model.mustChangePassword !== true
-      && model.isLockedOut !== true;
-  });
+  readonly securityScore = computed(() => this.posture()?.score ?? 0);
+  readonly securityMaximum = computed(() => this.posture()?.maximumScore ?? 0);
 
-  /**
-   * True when the only live session is the one being read right now.
-   *
-   * THE OLD TEST WAS "at least one session exists", which is true of anybody looking at the
-   * page — so the step ticked itself for every visitor and told them nothing. What a person
-   * actually wants to know here is whether they are signed in somewhere they do not recognise.
-   */
-  readonly onlyThisDevice = computed(() => {
-    const sessions = this.activeSessions();
-    return sessions.length > 0 && sessions.every((session) => session.isCurrent);
-  });
+  /** The four checks under the gauge: MFA, password, recovery codes, devices. */
+  readonly securityChecks = computed(() => this.posture()?.checks ?? []);
 
-  /** How many of the four steps are satisfied. Shown beside the pipeline heading. */
-  readonly securityScore = computed(() =>
-    [
-      this.passwordHealthy(),
-      this.mfaMethods().length > 0,
-      this.onlyThisDevice(),
-      (this.security()?.recoveryCodesRemaining ?? 0) > 0,
-    ].filter(Boolean).length);
+  /** The next step the server suggests, and the action that takes it. */
+  readonly recommendation = computed(() => this.security()?.recommendation ?? null);
 
-  /** Backup codes need a factor to back up; the server refuses otherwise. */
-  readonly canGenerateRecoveryCodes = computed(() =>
-    this.security()?.mfaEnabled === true && this.mfaMethods().length > 0);
+  /** Backup codes need a confirmed factor to back up; the server says whether there is one. */
+  readonly canGenerateRecoveryCodes = computed(() => this.security()?.canGenerateRecoveryCodes === true);
+
+  /** The icon beside each check. Presentation only: the label and status are the server's. */
+  checkIcon(key: string | null | undefined): string {
+    switch (key) {
+      case 'mfa': return 'ri-link';
+      case 'password': return 'ri-lock-2-line';
+      case 'recovery': return 'ri-refresh-line';
+      case 'sessions': return 'ri-device-line';
+      default: return 'ri-shield-check-line';
+    }
+  }
+
+  /** Takes the step the tip recommends. */
+  followRecommendation(): void {
+    switch (this.recommendation()?.action) {
+      case 'EnrolMfa': this.enrolMfa(); break;
+      case 'GenerateRecoveryCodes': this.generateRecoveryCodes(); break;
+      case 'ReviewSessions': this.scrollToSection('sessions-section'); break;
+      case 'ChangePassword': this.openChangePassword(); break;
+    }
+  }
 
 /**
    * The semicircular gauge is one continuous arc (viewBox "0 0 220 130", a dome sweeping
@@ -220,31 +220,21 @@ export class MySecurityComponent {
   readonly gaugeArcLength = 90 * Math.PI;
 
   /** How much of the arc length the achieved score should reveal. */
-  readonly gaugeFilledLength = computed(() => (this.securityScore() / 4) * this.gaugeArcLength);
+  readonly gaugeFilledLength = computed(() =>
+    this.securityMaximum() > 0 ? (this.securityScore() / this.securityMaximum()) * this.gaugeArcLength : 0);
 
   /** `stroke-dasharray` for the filled arc: reveal the achieved length, hide the rest. */
   readonly gaugeDashArray = computed(() =>
     `${this.gaugeFilledLength()} ${this.gaugeArcLength}`);
 
-  readonly securityLevelLabel = computed(() => {
-    switch (this.securityScore()) {
-      case 4: return 'Excellent';
-      case 3: return 'Strong';
-      case 2: return 'Good';
-      case 1: return 'Fair';
-      default: return 'Weak';
-    }
-  });
+  readonly securityLevelLabel = computed(() => this.posture()?.level ?? '');
 
-  readonly securityLevelTip = computed(() =>
-    this.securityScore() >= 3
-      ? 'Great job! Keep it up.'
-      : 'A few more steps will make your account safer.');
+  readonly securityLevelTip = computed(() => this.posture()?.summary ?? '');
 
   readonly activeSessions = computed<SessionView[]>(() =>
     (this.security()?.activeSessions ?? []).map((session) => ({
       id: session.id ?? '',
-      device: session.deviceName ?? this.clientTypeLabel(session.clientType),
+      device: session.deviceName ?? session.clientTypeDisplay ?? '—',
 
       // Reads "Chrome on Windows". These two columns were empty on every session row until the
       // server started stamping them — the read side had always projected them, but nothing
@@ -262,19 +252,30 @@ export class MySecurityComponent {
     (this.security()?.mfaMethods ?? [])
       // Revoked factors are history, not a list of what protects the account today.
       .filter((method) => method.status !== 'revoked')
-      .map((method) => ({
-        id: method.id ?? '',
-        method: this.mfaMethodLabel(method.methodType)
-          + (method.maskedDestination ? ` · ${method.maskedDestination}` : ''),
-        icon: this.mfaMethodIcon(method.methodType),
-        status: method.status === 'pending' ? 'Awaiting confirmation' : 'Active',
-        enrolledOn: method.verifiedAtUtc ? this.formatDateTime(method.verifiedAtUtc) : '—',
-      })));
+      .map((method) => {
+        // A factor still waiting for its first code has no confirmation date; the date it was
+        // started is the one worth showing, and it was printed as nothing.
+        const when = method.status === 'pending' ? method.createdAtUtc : method.verifiedAtUtc;
+
+        return {
+          id: method.id ?? '',
+          // The kind, the name the person gave it ("Phone"), and where codes go - each when set.
+          method: [
+            method.methodTypeDisplay ?? '—',
+            method.label,
+            method.maskedDestination !== method.methodTypeDisplay ? method.maskedDestination : null,
+          ].filter(Boolean).join(' · '),
+          icon: this.mfaMethodIcon(method.methodType),
+          statusValue: method.status ?? '',
+          status: method.statusDisplay ?? '',
+          enrolledOn: when ? this.formatDateTime(when) : '',
+        };
+      }));
 
   readonly trustedDevices = computed<TrustedDeviceView[]>(() =>
     (this.security()?.trustedDevices ?? []).map((device) => ({
       id: device.id ?? '',
-      device: device.deviceName ?? this.clientTypeLabel(device.clientType),
+      device: device.deviceName ?? device.clientTypeDisplay ?? '—',
       type: [device.browser, device.operatingSystem].filter(Boolean).join(' on ') || '—',
       trustedOn: device.trustedAtUtc ? this.formatDateTime(device.trustedAtUtc) : '—',
       expiresOn: device.expiresAtUtc ? this.formatDateTime(device.expiresAtUtc) : '—',
@@ -294,7 +295,8 @@ export class MySecurityComponent {
       // The row was tracked by its timestamp, which two attempts a second apart share - and
       // Angular throws on a duplicate track key rather than merely rendering it oddly.
       id: attempt.id ?? `${attempt.attemptedAtUtc}-${attempt.ipAddress ?? ''}`,
-      event: this.attemptTitle(attempt),
+      // The server's headline: "Signed in", "Wrong password", or the lockout it caused.
+      event: attempt.headline ?? attempt.outcomeDisplay ?? '—',
       details: [
         attempt.browser && attempt.operatingSystem
           ? `${attempt.browser} on ${attempt.operatingSystem}`
@@ -375,11 +377,16 @@ export class MySecurityComponent {
   // Password
   // =========================================================================================
 
-  /** The rules the server will apply (organisation minimum included); defaults match the platform floor. */
-  readonly passwordPolicy = signal({
-    minimumLength: 10, maximumLength: 128,
-    requireUppercase: true, requireLowercase: true, requireDigit: true, requireNonAlphanumeric: true,
-  });
+  /**
+   * The rules the server will apply, organisation minimum included - fetched when the dialog
+   * opens. Null until then: the form checks nothing it has not been told, and the server checks
+   * everything regardless. It used to start from a copy of the platform defaults typed here.
+   */
+  readonly passwordPolicy = signal<{
+    minimumLength: number; maximumLength: number;
+    requireUppercase: boolean; requireLowercase: boolean; requireDigit: boolean; requireNonAlphanumeric: boolean;
+    rules: string[];
+  } | null>(null);
 
   /** Set once Change Password has been pressed; until then only fields already left show messages. */
   readonly passwordTried = signal(false);
@@ -403,36 +410,31 @@ export class MySecurityComponent {
 
     this.api.getPasswordPolicy().subscribe({
       next: (raw) => {
-        const read = (key: string, fallback: boolean): boolean =>
-          typeof raw[key] === 'boolean' ? (raw[key] as boolean) : fallback;
-        const current = this.passwordPolicy();
+        const flag = (key: string): boolean => raw[key] === true;
+        const number = (key: string): number => (typeof raw[key] === 'number' ? (raw[key] as number) : 0);
         this.passwordPolicy.set({
-          minimumLength: typeof raw['minimumLength'] === 'number' ? (raw['minimumLength'] as number) : current.minimumLength,
-          maximumLength: typeof raw['maximumLength'] === 'number' ? (raw['maximumLength'] as number) : current.maximumLength,
-          requireUppercase: read('requireUppercase', current.requireUppercase),
-          requireLowercase: read('requireLowercase', current.requireLowercase),
-          requireDigit: read('requireDigit', current.requireDigit),
-          requireNonAlphanumeric: read('requireNonAlphanumeric', current.requireNonAlphanumeric),
+          minimumLength: number('minimumLength'),
+          maximumLength: number('maximumLength'),
+          requireUppercase: flag('requireUppercase'),
+          requireLowercase: flag('requireLowercase'),
+          requireDigit: flag('requireDigit'),
+          requireNonAlphanumeric: flag('requireNonAlphanumeric'),
+          rules: Array.isArray(raw['rules']) ? (raw['rules'] as string[]) : [],
         });
       },
-      // The server still enforces the rules; the form just states the platform defaults.
+      // The server still enforces the rules; the form only lists them when it has them.
       error: () => undefined,
     });
   }
 
-  /** The rules, as the lines shown under the new-password field. */
-  readonly passwordRules = computed(() => {
-    const p = this.passwordPolicy();
-    const rules = [`At least ${p.minimumLength} characters (at most ${p.maximumLength})`];
-    if (p.requireUppercase) rules.push('An upper-case letter');
-    if (p.requireLowercase) rules.push('A lower-case letter');
-    if (p.requireDigit) rules.push('A digit');
-    if (p.requireNonAlphanumeric) rules.push('A symbol, such as ! @ # $');
-    return rules;
-  });
+  /** The rules, as the lines shown under the new-password field - written by the server. */
+  readonly passwordRules = computed(() => this.passwordPolicy()?.rules ?? []);
 
   private passwordRuleErrors(): Record<string, string | null> {
-    const p = this.passwordPolicy();
+    const p = this.passwordPolicy() ?? {
+      minimumLength: 0, maximumLength: Number.MAX_SAFE_INTEGER,
+      requireUppercase: false, requireLowercase: false, requireDigit: false, requireNonAlphanumeric: false, rules: [],
+    };
     const current = this.currentPassword();
     const next = this.newPassword();
     const confirm = this.confirmPassword();
@@ -646,41 +648,12 @@ export class MySecurityComponent {
   // Wording
   // =========================================================================================
 
-  private mfaRequirementLabel(model: UserSecurityResponse): string {
-    if (model.isMfaEffectivelyRequired) {
-      return model.mfaEnabled ? 'Required · enrolled' : 'Required · not yet set up';
-    }
-
-    return model.mfaEnabled ? 'Optional · enrolled' : 'Optional · not set up';
-  }
-
-  private mfaMethodLabel(methodType: MfaMethodType | undefined): string {
-    switch (methodType) {
-      case 'authenticatorApp': return 'Authenticator app';
-      case 'sms': return 'Text message';
-      case 'email': return 'E-mail';
-      case 'securityKey': return 'Security key';
-      default: return 'Verification method';
-    }
-  }
-
   private mfaMethodIcon(methodType: MfaMethodType | undefined): string {
     switch (methodType) {
       case 'authenticatorApp': return 'ri-smartphone-line';
-      case 'sms': return 'ri-message-2-line';
       case 'email': return 'ri-mail-line';
       case 'securityKey': return 'ri-key-2-line';
       default: return 'ri-shield-keyhole-line';
-    }
-  }
-
-  private clientTypeLabel(clientType: ClientType | undefined): string {
-    switch (clientType) {
-      case 'web': return 'Browser';
-      case 'mobile': return 'Mobile app';
-      case 'desktop': return 'Desktop app';
-      case 'api': return 'API client';
-      default: return 'Unknown device';
     }
   }
 
@@ -699,18 +672,6 @@ export class MySecurityComponent {
       case 'api': return 'ri-terminal-box-line';
       default: return 'ri-question-line';
     }
-  }
-
-  private attemptTitle(attempt: SignInAttemptResponse): string {
-    if (attempt.succeeded) {
-      return 'Signed in';
-    }
-
-    if (attempt.triggeredLockout) {
-      return 'Account locked after too many attempts';
-    }
-
-    return attempt.outcomeDisplay ?? 'Sign-in failed';
   }
 
   private formatDateTime(value: string): string {
@@ -747,8 +708,9 @@ export class MySecurityComponent {
   }
 
 
-  isPendingMfa(m: { status?: string | null }): boolean {
-  return (m.status ?? '').toLowerCase().includes('await');
+  /** Awaiting its first code - by the server's status value, not by the words it is shown in. */
+  isPendingMfa(m: { statusValue?: string | null }): boolean {
+  return m.statusValue === 'pending';
 }
  
 readonly activeMfa = computed(() =>

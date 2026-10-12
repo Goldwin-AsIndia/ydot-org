@@ -2,11 +2,14 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { CampaignApiService } from '../../../../Service/campaign-api.service';
+import { JobFileKind } from '../../../../Service/whatsapp-api.service';
 import { FileProblem, MAX_FILE_BYTES, formatBytes } from '../file-extract';
 import { WaPagerComponent } from '../wa-pager/wa-pager';
-import { COST_PER_CHECK, WhatsAppStore } from '../whatsapp-store.service';
-import { CheckJob, JobStatus, ResultRow, UploadAnalysis, WaResult } from '../whatsapp.models';
-import { count, duration, localDateTime, localDateTimeFull, rupees, saveFile, timeZoneLabel, toCsv } from '../wa-format';
+import { WaOption, WaSelectComponent } from '../wa-select/wa-select';
+import { WhatsAppStore } from '../whatsapp-store.service';
+import { CheckJob, JobStatus, JobTimelineStep, ResultRow, UploadAnalysis, WaResult } from '../whatsapp.models';
+import { count, duration, localDateTime, localDateTimeFull, money, timeZoneLabel, unitPrice } from '../wa-format';
 
 type View = 'new' | 'jobs' | 'job';
 type ReviewTab = 'fresh' | 'known' | 'duplicates' | 'invalid';
@@ -16,35 +19,45 @@ type JobFilter = 'all' | JobStatus;
 const REPORT_LABEL: Record<WaResult, string> = { yes: 'Yes', no: 'No', unknown: 'Unknown' };
 const RESULT_LABEL: Record<WaResult, string> = { yes: 'Valid', no: 'Invalid', unknown: 'Unverified' };
 
+/** The "no campaign" choice of the campaign picker. */
+const NO_CAMPAIGN = 'none';
+
 /**
  * CheckNumber: upload a list, see what it holds, check which numbers are on WhatsApp, read the report.
  *
  * One component, three views picked by the route: the new-check flow (upload -> review -> live check), the job
  * history, and one job's report. The upload under review and the running job live in `WhatsAppStore`, so
  * moving between views never loses either.
+ *
+ * THE CHECK ITSELF RUNS ON THE SERVER. Starting one uploads the file to the Campaign service, which hands
+ * it to the YDot.Integration worker; this screen then follows the job the worker creates. Leaving the page -
+ * or closing the browser - does not stop it.
  */
 @Component({
   selector: 'app-check-number',
-  imports: [RouterLink, WaPagerComponent, NgTemplateOutlet],
+  imports: [RouterLink, WaPagerComponent, WaSelectComponent, NgTemplateOutlet],
   templateUrl: './check-number.html',
   styleUrls: ['../wa-shared.css', './check-number.css'],
 })
 export class CheckNumberComponent {
   protected readonly store = inject(WhatsAppStore);
+  private readonly campaigns = inject(CampaignApiService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly maxMb = MAX_FILE_BYTES / (1024 * 1024);
-  protected readonly costPer = COST_PER_CHECK;
   protected readonly zone = timeZoneLabel();
   protected readonly bytes = formatBytes;
   protected readonly n = count;
-  protected readonly money = rupees;
   protected readonly dt = localDateTime;
   protected readonly dtFull = localDateTimeFull;
   protected readonly resultLabel = RESULT_LABEL;
   protected readonly enabledLabel = REPORT_LABEL;
+
+  /** Costs are shown in the currency CheckNumber.ai charges in, as the worker reports it. */
+  protected readonly currency = computed(() => this.store.overview()?.currency ?? 'USD');
+  protected readonly money = (value: number): string => money(value, this.currency());
 
   private readonly params = toSignal(this.route.paramMap, { initialValue: this.route.snapshot.paramMap });
   protected readonly view = signal<View>((this.route.snapshot.data['view'] as View) ?? 'new');
@@ -53,13 +66,52 @@ export class CheckNumberComponent {
   /** True when the person has just arrived from a finished check. */
   protected readonly justFinished = computed(() => this.query().get('done') === '1');
 
+  // ------------------------------------------------------------------ hero
+  protected readonly verified = computed(() => this.store.overview()?.numbersVerified ?? 0);
+  protected readonly onWhatsApp = computed(() => this.store.overview()?.onWhatsApp ?? 0);
+  protected readonly jobsRun = computed(() => this.store.overview()?.jobsRun ?? this.store.jobs().length);
+
+  /** What the foot of the jobs list says about the service doing the work. */
+  protected readonly workerLine = computed(() => {
+    const overview = this.store.overview();
+    if (!overview) return '';
+    if (!overview.available) return 'The integration worker has not been set up for this database yet, so checks cannot run.';
+    if (!overview.workerOnline) {
+      return overview.workerLastSeen
+        ? `The integration worker is not running (last seen ${localDateTime(overview.workerLastSeen)}). Uploads are kept and checked when it is back.`
+        : 'The integration worker is not running. Uploads are kept and checked when it starts.';
+    }
+    return `Checks are run by the integration worker · ${unitPrice(overview.pricePerNumber, overview.currency)} per number, at least ${money(overview.minimumCharge, overview.currency)} per check.`;
+  });
+
+  /**
+   * What a check costs, said under the estimate.
+   *
+   * THIS LINE USED TO READ "Numbers that can't be verified are not charged", which is not how
+   * CheckNumber.ai bills: it charges for every number submitted, verified or not, with a floor per
+   * check. The only numbers that cost nothing are the ones answered from saved results.
+   */
+  protected readonly chargeNote = computed(() => {
+    const overview = this.store.overview();
+    if (!overview || overview.pricePerNumber <= 0) return 'Numbers answered from saved results are not charged.';
+    return `CheckNumber.ai charges ${unitPrice(overview.pricePerNumber, overview.currency)} for every number submitted, at least ${money(overview.minimumCharge, overview.currency)} per check. Saved results are free.`;
+  });
+
   // ------------------------------------------------------------------ upload
   protected readonly reading = signal<string | null>(null);
   protected readonly problem = signal<string | null>(null);
   protected readonly dragging = signal(false);
   protected readonly recheck = signal(false);
+  /** True while the file is on its way to the server. */
+  protected readonly starting = signal(false);
+  /** Something worth telling the person that is not a failure (for example "this file was already checked"). */
+  protected readonly notice = signal<string | null>(null);
+  /** Why the last action on a job (retry, stop, download) did not work. */
+  protected readonly actionProblem = signal<string | null>(null);
 
-  protected readonly verified = computed(() => Object.keys(this.store.registry()).length);
+  /** The campaign this list is for; it links the check - and the messages that follow - to that campaign. */
+  protected readonly campaignId = signal<string>(NO_CAMPAIGN);
+  protected readonly campaignOptions = signal<WaOption[]>([{ value: NO_CAMPAIGN, label: 'No campaign' }]);
 
   protected readonly draft = this.store.draft;
   /** True once the person has pressed Next on the upload step; a file alone never moves the stepper on. */
@@ -83,7 +135,7 @@ export class CheckNumberComponent {
     if (!d) return 0;
     return d.fresh.length + (this.recheck() ? d.alreadyChecked.length : 0);
   });
-  protected readonly estimate = computed(() => Math.round(this.toCheck() * COST_PER_CHECK * 100) / 100);
+  protected readonly estimate = computed(() => this.store.estimate(this.toCheck()));
 
   protected readonly knownYes = computed(() => this.draft()?.alreadyChecked.filter((k) => k.result === 'yes').length ?? 0);
   protected readonly knownNo = computed(() => (this.draft()?.alreadyChecked.length ?? 0) - this.knownYes());
@@ -111,20 +163,17 @@ export class CheckNumberComponent {
   protected readonly running = computed(() => !!this.store.activeJob());
   protected readonly percent = computed(() => {
     const job = this.current();
-    return job && job.submitted > 0 ? Math.min(100, Math.floor((job.processed / job.submitted) * 100)) : 0;
+    if (!job) return 0;
+    if (job.submitted === 0) return this.running() ? 0 : 100;
+    return Math.min(100, Math.floor((job.processed / job.submitted) * 100));
   });
   protected readonly ringOffset = computed(() => 2 * Math.PI * 54 * (1 - this.percent() / 100));
   /** Answers received in this run, leaving out the saved results that were in the job from the start. */
   protected readonly live = computed(() => {
     const job = this.current();
     if (!job) return { yes: 0, no: 0 };
-    let savedYes = 0;
-    let savedNo = 0;
-    for (let i = 0; i < job.saved; i++) {
-      if (job.results[i].whatsapp === 'yes') savedYes++;
-      else savedNo++;
-    }
-    return { yes: job.yes - savedYes, no: job.no - savedNo };
+    const saved = this.store.runSaved();
+    return { yes: Math.max(0, job.yes - saved.yes), no: Math.max(0, job.no - saved.no) };
   });
   protected readonly remaining = computed(() => {
     const job = this.current();
@@ -160,7 +209,7 @@ export class CheckNumberComponent {
     const filter = this.jobFilter();
     const q = this.jobQuery().trim().toLowerCase();
     return this.store.jobs().filter(
-      (j) => (filter === 'all' || j.status === filter) && (!q || j.id.toLowerCase().includes(q) || j.fileName.toLowerCase().includes(q) || j.taskId.includes(q)),
+      (j) => (filter === 'all' || j.status === filter) && (!q || j.id.toLowerCase().includes(q) || j.fileName.toLowerCase().includes(q) || j.taskId.toLowerCase().includes(q)),
     );
   });
   protected readonly jobSlice = computed(() => {
@@ -176,6 +225,8 @@ export class CheckNumberComponent {
   protected readonly reportPage = signal(1);
   protected readonly reportSize = signal(25);
   protected readonly copied = signal(false);
+  /** True while the job named in the address bar is being fetched, so "not here" is not shown too early. */
+  protected readonly opening = signal(false);
 
   protected readonly reportCounts = computed(() => {
     const job = this.job();
@@ -218,19 +269,21 @@ export class CheckNumberComponent {
       unknown: job ? (job.unknown / total) * 100 : 0,
     };
   });
-  protected readonly timeline = computed(() => {
+  /**
+   * The job's timeline: the worker's own step log once it has been read, and before that the three
+   * moments the list already knows (created, finished or still waiting).
+   */
+  protected readonly timeline = computed<JobTimelineStep[]>(() => {
     const job = this.job();
     if (!job) return [];
-    const steps: { label: string; at: string | null; state: 'done' | 'bad' | 'wait' }[] = [
-      { label: 'File uploaded and read', at: job.createdAt, state: 'done' },
-      { label: 'Submitted to CheckNumber.ai', at: job.createdAt, state: 'done' },
-    ];
+    if (job.timeline.length > 0) return job.timeline;
+
+    const steps: JobTimelineStep[] = [{ label: 'File received', at: job.createdAt, state: 'done' }];
     if (job.status === 'failed') {
       steps.push({ label: 'Failed', at: job.finishedAt, state: 'bad' });
     } else if (job.status === 'cancelled') {
-      steps.push({ label: 'Stopped by you', at: job.finishedAt, state: 'bad' });
+      steps.push({ label: 'Stopped', at: job.finishedAt, state: 'bad' });
     } else if (job.status === 'completed') {
-      steps.push({ label: 'Results received', at: job.finishedAt, state: 'done' });
       steps.push({ label: job.sharedToWati > 0 ? `${count(job.sharedToWati)} valid numbers shared to Wati` : 'No new numbers to share', at: job.finishedAt, state: 'done' });
     } else {
       steps.push({ label: 'Waiting for results', at: null, state: 'wait' });
@@ -247,13 +300,20 @@ export class CheckNumberComponent {
   private watching: string | null = this.store.activeJobId();
 
   constructor() {
+    // The "verifying" line settles on the newest real answer once the result file has been read. While
+    // a check is still running there is no answer yet, so it shows the placeholder and "Looking up...".
     effect(() => {
       const latest = this.store.feed()[0];
-      if (latest && latest.number !== this.scanTarget) {
-        this.scanTarget = latest.number;
-        this.scanAnswer = latest.whatsapp;
-        this.scanResolved = 1;
-      }
+      untracked(() => {
+        if (!latest) {
+          this.scanTarget = '';
+          this.scan.set({ text: '+91 ··········', result: null });
+        } else if (latest.number !== this.scanTarget) {
+          this.scanTarget = latest.number;
+          this.scanAnswer = latest.whatsapp;
+          this.scanResolved = 1;
+        }
+      });
     });
     const scanTimer = setInterval(() => this.tickScan(), 45);
     this.destroyRef.onDestroy(() => clearInterval(scanTimer));
@@ -263,14 +323,28 @@ export class CheckNumberComponent {
     effect(() => { this.jobFilter(); this.jobQuery(); untracked(() => this.jobPage.set(1)); });
     effect(() => { this.reportTab(); this.reportQuery(); this.jobId(); untracked(() => this.reportPage.set(1)); });
 
-    // When the job being watched finishes, move to its report.
+    // When the job being watched finishes, stay on the live step until the person presses Next.
+    // (A stand-in for an upload that was refused has been removed by then; there is nothing to show.)
     effect(() => {
       const id = this.store.activeJobId();
       untracked(() => {
-        if (this.watching && !id && this.view() === 'new') {
+        if (this.watching && !id && this.view() === 'new' && this.store.job(this.watching)) {
           this.finishedId.set(this.watching);
         }
         this.watching = id;
+      });
+    });
+
+    // Opening a job's page reads that job - its timeline, its report and its downloads - from the server.
+    effect(() => {
+      const id = this.jobId();
+      const view = this.view();
+      untracked(() => {
+        this.actionProblem.set(null);
+        if (view === 'job' && id) {
+          this.opening.set(true);
+          void this.store.openJob(id).finally(() => this.opening.set(false));
+        }
       });
     });
 
@@ -281,12 +355,28 @@ export class CheckNumberComponent {
         this.finishedId.set(null);
         this.reported.set(false);
       }
+      // The list is read again each time it is opened: a check may have finished meanwhile.
+      if (view === 'jobs') {
+        void this.store.refresh();
+      }
+    });
+
+    // The campaigns a list can be uploaded for. Without them the picker simply offers "No campaign".
+    this.campaigns.lookupCampaigns().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (list) => this.campaignOptions.set([
+        { value: NO_CAMPAIGN, label: 'No campaign', hint: 'Not linked to a campaign' },
+        ...list.map((c) => ({ value: c.id, label: c.name, hint: c.code })),
+      ]),
+      error: () => undefined,
     });
   }
 
   private tickScan(): void {
     const target = this.scanTarget;
-    if (!target || !this.store.activeJobId()) {
+    if (!target || this.running()) {
+      return;
+    }
+    if (this.scanResolved >= target.length && this.scan().result !== null) {
       return;
     }
     this.scanResolved = Math.min(target.length, this.scanResolved + 3);
@@ -320,6 +410,7 @@ export class CheckNumberComponent {
 
   private async take(file: File): Promise<void> {
     this.problem.set(null);
+    this.notice.set(null);
     this.reading.set(file.name);
     try {
       // A short pause so the reading state is seen even for tiny files, rather than flashing.
@@ -347,6 +438,7 @@ export class CheckNumberComponent {
   protected done(): void {
     this.finishedId.set(null);
     this.reported.set(false);
+    this.notice.set(null);
     void this.router.navigate(['/app/whatsapp/check-number/jobs']);
   }
 
@@ -355,24 +447,52 @@ export class CheckNumberComponent {
     this.store.setDraft(null);
     this.problem.set(null);
     this.recheck.set(false);
+    this.campaignId.set(NO_CAMPAIGN);
   }
 
   protected canStart(d: UploadAnalysis): boolean {
     return d.fresh.length > 0 || d.alreadyChecked.length > 0;
   }
 
-  protected start(): void {
+  /** Uploads the reviewed file. The check then runs on the server, whether or not this page stays open. */
+  protected async start(): Promise<void> {
     const d = this.draft();
-    if (!d || !this.canStart(d)) return;
-    this.reviewing.set(false);
+    if (!d || !this.canStart(d) || this.starting()) return;
+
+    this.problem.set(null);
+    this.notice.set(null);
     this.reported.set(false);
-    const id = this.store.startJob(d, this.recheck());
-    this.finishedId.set(this.store.activeJobId() ? null : id);
+    this.finishedId.set(null);
+    this.starting.set(true);
+
+    const campaign = this.campaignId() === NO_CAMPAIGN ? null : this.campaignId();
+    try {
+      const outcome = await this.store.startJob(d, this.recheck(), campaign);
+      this.reviewing.set(false);
+      this.campaignId.set(NO_CAMPAIGN);
+      if (outcome.duplicate) {
+        // The file was processed before: its job already holds the answers.
+        this.notice.set(outcome.notice);
+        this.finishedId.set(outcome.jobId);
+      }
+    } catch (error) {
+      // The upload was refused; the review stays open so the person can change the file and try again.
+      this.reviewing.set(true);
+      this.problem.set(error instanceof Error ? error.message : 'The file could not be uploaded. Please try again.');
+    } finally {
+      this.starting.set(false);
+    }
   }
 
-  protected stop(): void {
+  protected async stop(): Promise<void> {
     const id = this.store.activeJobId();
-    if (id) this.store.cancel(id);
+    if (!id) return;
+    this.actionProblem.set(null);
+    try {
+      await this.store.cancel(id);
+    } catch (error) {
+      this.actionProblem.set(error instanceof Error ? error.message : 'The check could not be stopped.');
+    }
   }
 
   protected setReviewTab(tab: ReviewTab): void {
@@ -389,10 +509,15 @@ export class CheckNumberComponent {
     void this.router.navigate(['/app/whatsapp/check-number/jobs', job.id]);
   }
 
-  protected resume(job: CheckJob): void {
-    this.store.resume(job.id);
-    if (this.store.activeJobId() === job.id) {
-      void this.router.navigate(['/app/whatsapp/check-number']);
+  protected async resume(job: CheckJob): Promise<void> {
+    this.actionProblem.set(null);
+    try {
+      await this.store.resume(job.id);
+      if (this.store.activeJobId() === job.id) {
+        void this.router.navigate(['/app/whatsapp/check-number']);
+      }
+    } catch (error) {
+      this.actionProblem.set(error instanceof Error ? error.message : 'The check could not be retried.');
     }
   }
 
@@ -428,62 +553,13 @@ export class CheckNumberComponent {
 
   // ---- downloads
 
-  protected download(job: CheckJob, kind: 'original' | 'submitted' | 'results' | 'raw' | 'invalid'): void {
-    const base = job.id;
-    switch (kind) {
-      case 'original':
-        if (job.original) {
-          saveFile(job.fileName, job.original, job.original.type || 'application/octet-stream');
-        }
-        break;
-      case 'submitted':
-        saveFile(`${base}-submitted-numbers.txt`, job.submittedNumbers.join('\r\n'), 'text/plain;charset=utf-8');
-        break;
-      case 'results':
-        saveFile(
-          `${base}-results.csv`,
-          '﻿' + toCsv(
-            ['Number', 'Country', 'WhatsApp enabled', 'Result', 'Note', 'Status'],
-            job.results.map((r) => [r.number, r.country, REPORT_LABEL[r.whatsapp], RESULT_LABEL[r.whatsapp], r.note, r.status === 'saved' ? 'Saved result' : r.status === 'unverified' ? 'Unverified' : 'Checked']),
-          ),
-          'text/csv;charset=utf-8',
-        );
-        break;
-      case 'raw':
-        saveFile(
-          `checknumber-ai-raw-${job.taskId}.json`,
-          JSON.stringify(
-            {
-              task_id: job.taskId,
-              status: job.status,
-              created_at: job.createdAt,
-              finished_at: job.finishedAt,
-              error: job.errorCode,
-              total: job.submitted,
-              data: job.results.filter((r) => r.status !== 'saved').map((r) => ({
-                number: r.number,
-                whatsapp: r.whatsapp,
-                message: r.note,
-              })),
-            },
-            null,
-            2,
-          ),
-          'application/json',
-        );
-        break;
-      case 'invalid':
-        saveFile(
-          `${base}-invalid-lines.csv`,
-          '﻿' + toCsv(['Sheet', 'Line', 'Value', 'Reason'], job.invalidLines.map((l) => [l.sheet, l.line, l.raw, l.reason])),
-          'text/csv;charset=utf-8',
-        );
-        break;
+  /** Every download comes from the server: the stored original, the worker's output, CheckNumber.ai's own archive. */
+  protected async download(job: CheckJob, kind: JobFileKind): Promise<void> {
+    this.actionProblem.set(null);
+    try {
+      await this.store.download(job, kind);
+    } catch (error) {
+      this.actionProblem.set(error instanceof Error ? error.message : 'That file could not be downloaded.');
     }
-  }
-
-  protected resetDemo(): void {
-    this.store.resetAll();
-    void this.router.navigate(['/app/whatsapp/check-number/jobs']);
   }
 }

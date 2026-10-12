@@ -74,6 +74,18 @@
           }
         </div>
 
+        <!-- Export: the server builds the CSV from what is on screen - this organisation's menu, or the
+             chosen role's view of it - narrowed by the search box. -->
+        @if (canExport()) {
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportView()"
+                  [disabled]="exporting() || loading() || (mode() === 'roles' && !selectedRoleId())"
+                  [title]="mode() === 'roles' && !selectedRoleId() ? 'Choose a role first' : 'Download what is on screen as a CSV file'">
+            @if (exporting()) { <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> }
+            @else { <i class="ri-download-2-line" aria-hidden="true"></i> }
+            Export
+          </button>
+        }
+
         @if (canManageStructure()) {
           <button type="button" class="btn btn-primary btn-sm" (click)="openCreator(null)">
             <i class="ri-add-line" aria-hidden="true"></i> Create
@@ -132,7 +144,7 @@
     <div class="mc-state">
       <i class="ri-shield-user-line" aria-hidden="true"></i>
       <div class="mc-state-title">Pick a role to start</div>
-      <div class="mc-state-sub">Use “Viewing as” above to choose a role, then switch items on or off for its members.</div>
+      <div class="mc-state-sub">Choose a role in the role picker above, then switch items on or off for its members.</div>
     </div>
   } @else if (mode() === 'roles' && loadingRoleMapping()) {
     <div class="mc-state"><i class="ri-loader-4-line mc-spin" aria-hidden="true"></i><div class="mc-state-title">Loading {{ selectedRoleName() }}…</div></div>
@@ -155,7 +167,7 @@
 
     <ol class="mc-list">
       @for (row of sections(); track row.id) {
-        @let off = mode() === 'organisation' ? !isEnabled(row.id) : !isMapped(row.id);
+        @let off = !isOn(row.id);
         <li>
           <button type="button" class="mc-item" [class.is-active]="activeSection()?.id === row.id" [class.is-off]="off"
                   [attr.title]="pendingName(row.node) + ' · ' + sectionSummary(row.node)"
@@ -181,7 +193,7 @@
       @if (activeSection(); as sec) {
 
         <!-- The menu itself -->
-        <header class="mc-banner" [class.is-off]="mode() === 'organisation' ? !isEnabled(sec.id) : !isMapped(sec.id)">
+        <header class="mc-banner" [class.is-off]="!isOn(sec.id)">
           <span class="mc-banner-mark" aria-hidden="true">{{ sectionIndex().toString().padStart(2, '0') }}</span>
           <div class="mc-banner-text">
             <div class="mc-banner-title-row">
@@ -189,6 +201,8 @@
               @if (sec.node.isOrganisationOwned) { <span class="mc-mark mc-mark--own">Yours</span> }
               @if (hasOverride(sec.node)) { <span class="mc-mark mc-mark--edit">Edited</span> }
               @if (mode() === 'roles' && landingMenuId() === sec.id) { <span class="mc-mark mc-mark--home">Landing page</span> }
+              @if (mode() === 'roles' && !sec.node.isMandatory && !isEnabled(sec.id)) { <span class="mc-mark mc-mark--warn" title="Switched off for this organisation. The mapping is kept."><i class="ri-eye-off-line" aria-hidden="true"></i>Off for organisation</span> }
+              @if (mode() === 'roles' && !isPermitted(sec.id)) { <span class="mc-mark mc-mark--red" title="This role lacks the permission this item needs."><i class="ri-forbid-2-line" aria-hidden="true"></i>Role lacks permission</span> }
             </div>
             <div class="mc-banner-facts">
               <span class="mc-fact"><i class="ri-stack-line" aria-hidden="true"></i><span class="mc-t">{{ sectionSummary(sec.node) }}</span></span>
@@ -231,10 +245,11 @@
                         (click)="toggleMapped(sec.id)" [attr.aria-label]="'Show ' + pendingName(sec.node) + ' to ' + selectedRoleName()">
                   <span class="mc-switch-knob" aria-hidden="true"></span>
                 </button>
-                <span class="mc-toggle-text">{{ isMapped(sec.id) ? 'Shown to ' + selectedRoleName() : 'Hidden from ' + selectedRoleName() }}</span>
+                <span class="mc-toggle-text">{{ !isMapped(sec.id) ? 'Hidden from ' + selectedRoleName() : isShown(sec.id) ? 'Shown to ' + selectedRoleName() : 'Mapped, not shown' }}</span>
               </label>
               @if (sec.node.route) {
                 <button type="button" class="mc-act" [class.is-on]="landingMenuId() === sec.id" (click)="setLanding(sec.id)"
+                        [disabled]="!canMapRoles() || !isMapped(sec.id)"
                         [attr.aria-pressed]="landingMenuId() === sec.id" title="Where this role lands after signing in.">
                   <i [class]="landingMenuId() === sec.id ? 'ri-home-4-fill' : 'ri-home-4-line'" aria-hidden="true"></i>
                   <span class="mc-t">{{ landingMenuId() === sec.id ? 'Landing page' : 'Make landing page' }}</span>
@@ -249,7 +264,7 @@
           @for (sub of subItems(); track sub.id; let i = $index) {
             @let pages = childrenOf(sub.node);
             @let open = pages.length > 0 && isLaneOpen(sub.id);
-            <article class="mc-lane" [class.is-off]="mode() === 'organisation' ? !isEnabled(sub.id) : !isMapped(sub.id)"
+            <article class="mc-lane" [class.is-off]="!isOn(sub.id)"
                      [class.is-editing]="draft()?.id === sub.id" [class.is-open]="open" [class.has-pages]="pages.length > 0">
               <header class="mc-lane-head" (click)="toggleLane(sub, $event)">
                 <span class="mc-lane-no" aria-hidden="true">{{ (i + 1).toString().padStart(2, '0') }}</span>
@@ -303,7 +318,7 @@
                     }
                   } @else {
                     <label class="mc-toggle mc-toggle--sm">
-                      <span class="mc-toggle-text">{{ isMapped(sub.id) ? 'Shown' : 'Hidden' }}</span>
+                      <span class="mc-toggle-text">{{ !isMapped(sub.id) ? 'Hidden' : isShown(sub.id) ? 'Shown' : 'Mapped, not shown' }}</span>
                       <button type="button" role="switch" class="mc-switch" [class.is-on]="isMapped(sub.id)"
                               [attr.aria-checked]="isMapped(sub.id)" [disabled]="!canMapRoles() || !isPermitted(sub.id)"
                               (click)="toggleMapped(sub.id)" [attr.aria-label]="'Show ' + pendingName(sub.node) + ' to ' + selectedRoleName()">
@@ -331,7 +346,7 @@
                     <span class="mc-t mc-reg-end">{{ mode() === 'roles' ? 'Shown' : 'In use' }}</span>
                   </div>
                   @for (leaf of pages; track leaf.id; let j = $index) {
-                    <div class="mc-row" role="listitem" [class.is-off]="mode() === 'organisation' ? !isEnabled(leaf.id) : !isMapped(leaf.id)"
+                    <div class="mc-row" role="listitem" [class.is-off]="!isOn(leaf.id)"
                          [class.is-editing]="draft()?.id === leaf.id">
                       <span class="mc-row-no" aria-hidden="true">{{ i + 1 }}.{{ j + 1 }}</span>
 
@@ -408,9 +423,9 @@
     <!-- Live sidebar preview -->
     <aside class="mc-preview" aria-label="Sidebar preview">
       <div class="mc-phone">
-        <div class="mc-phone-brand"><span class="mc-phone-dot" aria-hidden="true"></span><span class="mc-t">YDot</span></div>
+        <div class="mc-phone-brand"><span class="mc-phone-dot" aria-hidden="true"></span><span class="mc-t">{{ organisationName() }}</span></div>
         @for (row of sections(); track row.id) {
-          @if (mode() === 'organisation' ? isEnabled(row.id) : isMapped(row.id)) {
+          @if (isOn(row.id)) {
             <div class="mc-pv-item" [class.is-active]="activeSection()?.id === row.id">
               <button type="button" class="mc-pv-top" (click)="selectSection(row.id)">
                 @if (iconClassFor(row.node)) { <i [class]="iconClassFor(row.node)" aria-hidden="true"></i> } @else { <i class="ri-layout-grid-line" aria-hidden="true"></i> }
@@ -420,7 +435,7 @@
               @if (activeSection()?.id === row.id) {
                 <div class="mc-pv-children">
                   @for (child of row.node.children ?? []; track child.menuDefinitionId) {
-                    @if (mode() === 'organisation' ? isEnabled(child.menuDefinitionId ?? '') : isMapped(child.menuDefinitionId ?? '')) {
+                    @if (isOn(child.menuDefinitionId ?? '')) {
                       <span class="mc-pv-child">{{ pendingName(child) }}</span>
                     }
                   }
@@ -451,7 +466,7 @@
         <b>Unsaved change{{ pendingCount() === 1 ? '' : 's' }}</b>
         <small>
           @if (mode() === 'organisation') { Nothing is stored until you save. }
-          @else { {{ mappedCount() }} item(s) will be visible to {{ selectedRoleName() }}. }
+          @else { {{ mappedCount() }} item(s) will be shown to {{ selectedRoleName() }}. }
         </small>
       </div>
       @if (mode() === 'organisation') {
@@ -521,7 +536,7 @@
         </div>
         <div class="mcs-grid">
           <div class="mcs-field">
-            <label class="mcs-lbl" for="ocName">Display name @if (d.kind === 'create') { <em class="mcs-req">*</em> }</label>
+            <label class="mcs-lbl" for="ocName">Display name @if (draftIsOwned()) { <em class="mcs-req">*</em> }</label>
             <input id="ocName" type="text" class="mcs-input" maxlength="160" (blur)="touchDraft('name')" [class.is-invalid]="!!draftError('name')"
                    [placeholder]="draftIsOwned() ? 'e.g. Monthly reports' : (draftNode()?.catalogueName ?? 'Name')"
                    [ngModel]="d.name" (ngModelChange)="patchDraft({ name: $event })" />
@@ -538,6 +553,36 @@
             </div>
           }
         </div>
+        @if (d.kind === 'create' && d.level === 'menu') {
+          <!-- Only a new top-level menu is asked: anything below it belongs to its parent's module. -->
+          <div class="mcs-field">
+            <span class="mcs-lbl">Module <em class="mcs-req">*</em></span>
+            <div class="dd" [class.is-open]="moduleDdOpen()" (click)="$event.stopPropagation()">
+              <button type="button" id="ocModule" class="dd-trigger" aria-haspopup="listbox" [attr.aria-expanded]="moduleDdOpen()"
+                      [class.is-invalid]="!!draftError('module')" (click)="toggleModuleDd()">
+                <i class="ri-stack-line dd-lead" aria-hidden="true"></i>
+                @if (d.module) { <span class="dd-val-main">{{ d.module }}</span> }
+                @else { <span class="dd-val-main is-empty">Choose a module</span> }
+                <i class="ri-arrow-down-s-line dd-chev" aria-hidden="true"></i>
+              </button>
+              @if (moduleDdOpen()) {
+                <div class="dd-menu" role="listbox" aria-label="Modules">
+                  <div class="dd-list">
+                    @for (module of moduleOptions(); track module) {
+                      <button type="button" class="dd-opt" role="option" [class.is-on]="d.module === module"
+                              [attr.aria-selected]="d.module === module" (click)="pickModule(module)">
+                        <span class="dd-opt-name">{{ module }}</span>
+                        @if (d.module === module) { <i class="ri-check-line dd-tick" aria-hidden="true"></i> }
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+            <span class="mcs-help">The product area this menu belongs to. Items added under it take the same module.</span>
+            @if (draftError('module')) { <span class="mcs-help invalid-feedback d-block">{{ draftError('module') }}</span> }
+          </div>
+        }
       </section>
 
       <!-- 2 · Placement & access -->

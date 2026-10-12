@@ -56,6 +56,52 @@ public sealed class GovernanceController(
     }
 
     /// <summary>
+    /// The figures above the queue: totals by status, the people involved and the busiest one,
+    /// counted over every request the filter matches.
+    ///
+    /// The same query string as the search, so the cards and the list beneath them always
+    /// describe the same requests. Declared before the {id:guid} route, as the literal segment
+    /// should be.
+    /// </summary>
+    [HttpGet("access-requests/summary")]
+    [HasPermission(PermissionCodes.AccessRequestsView)]
+    [ProducesResponseType(typeof(ApiResponse<AccessRequestSummaryResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAccessRequestSummaryAsync(
+        [FromQuery] AccessRequestSearchFilter filter, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Summarising access requests.");
+
+        var result = await queries.HandleAsync(new GetAccessRequestSummaryQuery(filter), cancellationToken);
+
+        if (result.IsFailure)
+            logger.LogWarning("Access request summary failed.");
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// The queue as a CSV file, for the same filter. The export is itself audited, and the
+    /// reference written into the audit row comes back in <c>X-Export-Reference</c>.
+    /// </summary>
+    [HttpGet("access-requests/export")]
+    [HasPermission(PermissionCodes.AccessRequestsExport)]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportAccessRequestsAsync(
+        [FromQuery] AccessRequestSearchFilter filter, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Exporting access requests.");
+
+        var result = await queries.HandleAsync(new ExportAccessRequestsQuery(filter), cancellationToken);
+
+        if (result.IsFailure)
+            logger.LogWarning("Access request export failed.");
+        else
+            logger.LogInformation("Access request export completed successfully.");
+
+        return FileFromResult(result);
+    }
+
+    /// <summary>
     /// One access request, with the actions THIS caller may take on it.
     ///
     /// PermittedActions is computed server-side from the state, the caller permissions and the

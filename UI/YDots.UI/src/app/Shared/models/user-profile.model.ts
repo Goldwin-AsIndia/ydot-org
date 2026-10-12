@@ -23,7 +23,12 @@ export interface UserProfileData {
   mobileNumber: string;
   password: string;
   employeeId: string;
-  accountCategory: string;
+  /** What the person likes to be called; empty when not set. */
+  preferredName: string;
+  /** The role marked primary - what "Account type" used to stand in for. */
+  primaryRole: string;
+  /** The second-factor policy in words, with "Inherited" resolved. */
+  mfaPolicy: string;
   accountStatus: string;
   accountStatusClass: string;
   invitationStatus: string;

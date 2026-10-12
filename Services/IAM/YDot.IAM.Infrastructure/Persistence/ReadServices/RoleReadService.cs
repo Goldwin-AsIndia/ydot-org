@@ -77,6 +77,13 @@ public sealed class RoleReadService(
                     grant.PermissionCode == filter.PermissionCode && !grant.IsDenied));
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.DisplayTag))
+        {
+            var tag = filter.DisplayTag.Trim().ToLowerInvariant();
+
+            query = query.Where(role => role.DisplayTag != null && role.DisplayTag.Trim().ToLower() == tag);
+        }
+
         var total = await query.CountAsync(cancellationToken);
 
         var rows = await ApplySort(query, filter.Sort)
@@ -118,6 +125,10 @@ public sealed class RoleReadService(
                               && assignment.Status == UserRoleAssignmentStatus.Active,
                 cancellationToken);
 
+        // Revoked and expired assignments too: they decide whether Delete is offered.
+        var assignmentCount = await context.UserRoles
+            .CountAsync(assignment => assignment.RoleId == roleId, cancellationToken);
+
         // Rules naming this role in EITHER direction, because the relationship is symmetric.
         var incompatibilities = await context.RoleIncompatibilities
             .AsNoTracking()
@@ -143,7 +154,8 @@ public sealed class RoleReadService(
                     rule.Reason, rule.IsBlocking, rule.IsActive))
             ],
             [.. role.RoleMenus.Where(mapping => mapping.IsVisible).Select(mapping => mapping.MenuDefinitionId)],
-            memberCount);
+            memberCount,
+            assignmentCount);
     }
 
     public async Task<IReadOnlyList<RoleLookupResponse>> LookupAsync(CancellationToken cancellationToken) =>
@@ -158,7 +170,8 @@ public sealed class RoleReadService(
                 role.Status,
                 role.IsPrivileged,
                 role.IsDefaultRole,
-                role.RolePermissions.Count(grant => !grant.IsDenied)))
+                role.RolePermissions.Count(grant => !grant.IsDenied),
+                role.GrantsAllTenantPermissions))
             .ToListAsync(cancellationToken);
 
     /// <summary>

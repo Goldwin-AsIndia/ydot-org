@@ -435,11 +435,18 @@ public sealed class ReceiptCommandHandler(
                 receipt.ReceiptNumber);
         }
 
-        return BuildOutcome(
-            receipt,
-            delivery.Succeeded
-                ? "Receipt sent."
-                : $"The receipt could not be sent: {delivery.FailureReason}");
+        // A FAILED DELIVERY IS ANSWERED AS A FAILURE. It was a 200 whose envelope said "Receipt
+        // re-sent.", so the screen told staff a copy had gone to the donor when the relay had
+        // refused it or could not be reached. The attempt is recorded above either way, so the
+        // register and the undelivered queue were already right; this stops the reply
+        // contradicting them.
+        if (!delivery.Succeeded)
+        {
+            return Result.Failure<OutcomeResponse>(Error.Dependency(
+                $"The receipt could not be sent: {delivery.FailureReason}"));
+        }
+
+        return BuildOutcome(receipt, "Receipt sent.");
     }
 
     // =====================================================================================

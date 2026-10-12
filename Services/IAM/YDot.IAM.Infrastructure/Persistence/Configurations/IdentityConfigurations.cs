@@ -106,7 +106,6 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         // Enums are stored as readable text, not integers. A DBA reading iam_users should
         // not have to consult a C# file to learn what status 3 means.
         builder.Property(user => user.Status).HasConversion<string>().HasMaxLength(80).IsRequired();
-        builder.Property(user => user.AccountCategory).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(user => user.MfaRequirement).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(user => user.PrivilegeLevel).HasConversion<string>().HasMaxLength(80).IsRequired();
         builder.Property(user => user.EngagementType).HasConversion<string>().HasMaxLength(80).IsRequired();

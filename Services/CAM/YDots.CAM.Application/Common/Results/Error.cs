@@ -65,14 +65,6 @@ public sealed record Error(string Code, string Message, int StatusCode, IReadOnl
 
     // ---- Campaign specific ---------------------------------------------------------------------
 
-    /// <summary>
-    /// The segregation-of-duties refusal from section 5.2 of the module brief: a Campaign
-    /// Manager may not approve a campaign they personally created or submitted.
-    /// </summary>
-    public static Error SegregationOfDuties(string message =
-        "You cannot approve something you created or submitted. Ask a colleague to review it.") =>
-        new(ErrorCodes.SegregationOfDutiesViolation, message, 409);
-
     public static Error ReadinessIncomplete(string message, IReadOnlyList<ValidationError>? errors = null) =>
         new(ErrorCodes.ReadinessIncomplete, message, 409, errors);
 

@@ -11,6 +11,8 @@ import {
   UserAccessPreviewResponse,
 } from '../../../../Shared/models/iam-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { EnumOptionsService } from '../../../../Shared/services/enum-options.service';
+import { ApiEnumOption, enumLabel } from '../../../../Shared/models/enum-option.model';
 
 /** One person in the picker. Lean on purpose: the picker is a search, not a directory. */
 interface PersonOption {
@@ -22,24 +24,10 @@ interface PersonOption {
 }
 
 /**
- * A module's worth of permissions, ready to render.
- *
- * The API answers grouped by module AND group; the screen groups by module and shows the groups
- * as rows inside it, because "what can this person do in Payments" is the question somebody
- * actually asks and a flat list of two hundred codes cannot answer it.
+ * An action a permission can carry: one of the server's `PermissionAction` values ("view",
+ * "approve"…), as `/reference-data/enums` lists them.
  */
-interface ModuleSection {
-  moduleCode: string;
-  groups: { groupCode: string; permissions: PermissionSummaryResponse[] }[];
-  grantedCount: number;
-  sensitiveCount: number;
-}
-
-/**
- * The seven actions a permission can carry - the server's own list (`PermissionAction`), and the
- * same seven the Roles and Permissions matrix uses.
- */
-type ActionKey = 'view' | 'create' | 'edit' | 'submit' | 'approve' | 'operate' | 'export';
+type ActionKey = string;
 
 /**
  * One matrix cell.
@@ -105,6 +93,7 @@ type CodeFilter = 'all' | 'granted' | 'sensitive';
 export class AccessPreviewComponent {
   private readonly api = inject(UserDirectoryApiService);
   private readonly toast = inject(ToastService);
+  private readonly enums = inject(EnumOptionsService);
 
   // ---- The picker ---------------------------------------------------------------------------
 
@@ -167,14 +156,22 @@ export class AccessPreviewComponent {
   /** Which module panels are open. Everything starts closed: the totals are the headline. */
   readonly openModules = signal<Set<string>>(new Set());
 
-  /** Hide the codes this person does NOT have, which is the default and the useful view. */
-  readonly grantedOnly = signal(true);
-
-  /** Show only the codes that carry an enhanced audit row. */
-  readonly sensitiveOnly = signal(false);
+  /** The server's data scope types, for the scope list's labels. */
+  private readonly scopeTypes = signal<ApiEnumOption[]>([]);
 
   constructor() {
     this.loadPeople();
+
+    // The matrix columns and the scope words are the server's own lists. A failure leaves the
+    // matrix without columns rather than with a set this screen made up.
+    this.enums.options('permissionActions').subscribe({
+      next: (options) => this.actionColumns.set(options.map((option) => ({ key: option.value, label: option.label }))),
+      error: () => this.actionColumns.set([]),
+    });
+    this.enums.options('dataScopeTypes').subscribe({
+      next: (options) => this.scopeTypes.set(options),
+      error: () => this.scopeTypes.set([]),
+    });
   }
 
   // =============================================================================================
@@ -328,55 +325,17 @@ export class AccessPreviewComponent {
   readonly isBlanketGrant = computed(() =>
     this.access()?.isSuperAdmin === true || this.access()?.hasAllTenantPermissions === true);
 
-  readonly modules = computed<ModuleSection[]>(() => {
-    const groups = this.access()?.permissionGroups ?? [];
-    const byModule = new Map<string, ModuleSection>();
-
-    for (const group of groups) {
-      const moduleCode = group.moduleCode ?? 'OTHER';
-      const permissions = this.applyFilters(group.permissions ?? []);
-
-      if (permissions.length === 0) {
-        continue;
-      }
-
-      const section = byModule.get(moduleCode) ?? {
-        moduleCode,
-        groups: [],
-        grantedCount: 0,
-        sensitiveCount: 0,
-      };
-
-      section.groups.push({ groupCode: group.groupCode ?? 'General', permissions });
-      section.grantedCount += permissions.filter((item) => item.isGranted === true).length;
-      section.sensitiveCount += permissions.filter(
-        (item) => item.isSensitive === true && item.isGranted === true).length;
-
-      byModule.set(moduleCode, section);
-    }
-
-    return [...byModule.values()].sort((a, b) => a.moduleCode.localeCompare(b.moduleCode));
-  });
-
   // ---- The matrix: modules down, verbs across --------------------------------------------------
 
   /**
-   * The columns, in the order the Roles and Permissions matrix prints the same seven.
+   * The columns: the server's `PermissionAction` values, in the server's order, with its labels,
+   * from `/reference-data/enums`.
    *
-   * THESE ARE THE SERVER'S ACTIONS. The headings used to be View, Create, Edit, Manage, Approve,
-   * Export and Delete, with each permission dropped under one by matching words in its code -
-   * a vocabulary the platform does not have. "Operate" is where the working actions sit that
-   * are none of the other six: activate, assign, cancel, delete, suspend and the rest.
+   * FETCHED, NOT TYPED HERE. They were a literal list of seven - right today, and silently wrong
+   * the day the server adds an action. "Operate" is where the working actions sit that are none
+   * of the other six: activate, assign, cancel, delete, suspend and the rest.
    */
-  readonly actionColumns: { key: ActionKey; label: string }[] = [
-    { key: 'view', label: 'View' },
-    { key: 'create', label: 'Create' },
-    { key: 'edit', label: 'Edit' },
-    { key: 'submit', label: 'Submit' },
-    { key: 'approve', label: 'Approve' },
-    { key: 'operate', label: 'Operate' },
-    { key: 'export', label: 'Export' },
-  ];
+  readonly actionColumns = signal<{ key: ActionKey; label: string }[]>([]);
 
   /**
    * Built from every code, not the filtered list: "available, not granted" is only visible when the
@@ -424,14 +383,6 @@ export class AccessPreviewComponent {
     return row.cells[key] ?? { state: 'na', granted: 0, total: 0 };
   }
 
-  cellTitle(row: MatrixRow, column: { key: ActionKey; label: string }): string {
-    const c = this.cell(row, column.key);
-    const where = `${this.moduleLabel(row.moduleCode)} · ${column.label}`;
-    if (c.state === 'na') { return `${where}: not applicable`; }
-    if (c.state === 'off') { return `${where}: available, not granted (${c.total})`; }
-    return `${where}: ${c.granted} of ${c.total} granted${c.state === 'sens' ? ' · includes sensitive' : ''}`;
-  }
-
   // ---- The checkbox matrix ---------------------------------------------------------------------
 
   /**
@@ -443,8 +394,8 @@ export class AccessPreviewComponent {
    */
   private readonly matrixColumnList = computed<{ key: MatrixColumnKey; label: string }[]>(() =>
     this.matrix().some((row) => row.otherCount > 0)
-      ? [...this.actionColumns, { key: 'other', label: 'Other' }]
-      : this.actionColumns);
+      ? [...this.actionColumns(), { key: 'other', label: 'Other' }]
+      : this.actionColumns());
 
   get matrixColumns(): { key: MatrixColumnKey; label: string }[] {
     return this.matrixColumnList();
@@ -537,10 +488,13 @@ export class AccessPreviewComponent {
     this.matrix().reduce((sum, row) => sum + row.permissions.length, 0));
 
   private emptyRow(moduleCode: string): MatrixRow {
-    const blank = (): MatrixCell => ({ state: 'na', granted: 0, total: 0 });
+    const cells: Record<ActionKey, MatrixCell> = {};
+    for (const column of this.actionColumns()) {
+      cells[column.key] = { state: 'na', granted: 0, total: 0 };
+    }
     return {
       moduleCode,
-      cells: { view: blank(), create: blank(), edit: blank(), submit: blank(), approve: blank(), operate: blank(), export: blank() },
+      cells,
       permissions: [],
       grantedCount: 0,
       sensitiveCount: 0,
@@ -561,11 +515,12 @@ export class AccessPreviewComponent {
    */
   private actionOf(permission: PermissionSummaryResponse): ActionKey | null {
     const action = permission.action;
-    return action && AccessPreviewComponent.KNOWN_ACTIONS.has(action) ? action : null;
+    return action && this.knownActions().has(action) ? action : null;
   }
 
-  private static readonly KNOWN_ACTIONS: ReadonlySet<string> = new Set<ActionKey>(
-    ['view', 'create', 'edit', 'submit', 'approve', 'operate', 'export']);
+  /** The actions the server listed, for telling a known one from one this screen has not seen. */
+  private readonly knownActions = computed<ReadonlySet<string>>(() =>
+    new Set(this.actionColumns().map((column) => column.key)));
 
   /** Share of the granted permissions that are sensitive, 0-100, for the meter in the summary. */
   readonly sensitiveShare = computed(() => {
@@ -588,20 +543,6 @@ export class AccessPreviewComponent {
     return person.roleSummary.split(',')[0]?.trim() || 'No role';
   }
 
-  private applyFilters(permissions: PermissionSummaryResponse[]): PermissionSummaryResponse[] {
-    let result = permissions;
-
-    if (this.grantedOnly()) {
-      result = result.filter((item) => item.isGranted === true);
-    }
-
-    if (this.sensitiveOnly()) {
-      result = result.filter((item) => item.isSensitive === true);
-    }
-
-    return result;
-  }
-
   toggleModule(moduleCode: string): void {
     const open = new Set(this.openModules());
 
@@ -616,10 +557,6 @@ export class AccessPreviewComponent {
 
   isModuleOpen(moduleCode: string): boolean {
     return this.openModules().has(moduleCode);
-  }
-
-  expandAll(): void {
-    this.openModules.set(new Set(this.modules().map((item) => item.moduleCode)));
   }
 
   collapseAll(): void {
@@ -670,18 +607,12 @@ export class AccessPreviewComponent {
     return icons[moduleCode] ?? 'ri-apps-line';
   }
 
-  scopeLabel(scopeType?: string | null): string {
-    const labels: Record<string, string> = {
-      organisation: 'Whole organisation',
-      geography: 'A place',
-      campaign: 'A campaign',
-      warehouse: 'A warehouse',
-      queue: 'A work queue',
-      assignment: 'What they are assigned',
-      explicitRecord: 'Named records only',
-    };
-
-    return labels[scopeType ?? ''] ?? scopeType ?? '—';
+  /**
+   * A data scope's type in words: the server's own, on the scope row, falling back to the
+   * reference data's label. It was a list of seven phrases typed here that no other screen used.
+   */
+  scopeLabel(scope: { scopeType?: string | null; scopeTypeDisplay?: string | null }): string {
+    return scope.scopeTypeDisplay || enumLabel(this.scopeTypes(), scope.scopeType) || '—';
   }
 
   formatDate(value?: string | null): string {

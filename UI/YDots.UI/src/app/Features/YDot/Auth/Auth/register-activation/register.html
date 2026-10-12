@@ -73,7 +73,7 @@
       }
 
       <!-- ===================================================================================
-           STEP 1 — Your details (read-only) + Cancel and edit
+           STEP 1 — Your details (read-only)
            =================================================================================== -->
       @else if (step() === 'details') {
         <div class="mb-5">
@@ -99,8 +99,8 @@
               <div class="detail-value">{{ invitation()?.email }}</div>
             </div>
             <div class="col-sm-6">
-              <div class="detail-label">Account type</div>
-              <div class="detail-value">{{ invitation()?.accountCategory }}</div>
+              <div class="detail-label">Two-step verification</div>
+              <div class="detail-value">{{ mfaMandatory() ? 'Required by your organisation' : 'Optional' }}</div>
             </div>
             <div class="col-sm-6">
               <div class="detail-label">Organisation unit</div>
@@ -142,13 +142,8 @@
           <span>This invitation expires on <strong>{{ invitation()?.expiresAtUtc | date: 'medium' }}</strong>.</span>
         </div>
 
-        <button type="button" class="btn btn-primary w-100 mb-2" (click)="goToPassword()">
+        <button type="button" class="btn btn-primary w-100" (click)="goToPassword()">
           These details are correct — continue
-        </button>
-
-        <!-- The route back when something on the record is wrong. -->
-        <button type="button" class="btn btn-outline-secondary w-100" (click)="openCancelDialog()">
-          <i class="ri-edit-line me-1"></i> Cancel and edit — something is wrong here
         </button>
       }
 
@@ -291,8 +286,7 @@
                       [class.selected]="selectedMethod() === method"
                       (click)="chooseMethod(method)">
                 <span class="method-icon flex-shrink-0">
-                  <i [class]="method === 'authenticatorApp' ? 'ri-smartphone-line'
-                            : method === 'email' ? 'ri-mail-line' : 'ri-message-3-line'"></i>
+                  <i [class]="method === 'authenticatorApp' ? 'ri-smartphone-line' : 'ri-mail-line'"></i>
                 </span>
                 <span class="flex-grow-1">
                   <span class="d-block fw-semibold">{{ methodLabel(method) }}</span>
@@ -304,22 +298,6 @@
               </button>
             }
           </div>
-
-          <!-- Mobile number, when SMS is chosen -->
-          @if (needsMobileNumber() && !setup()) {
-            <div class="mb-4">
-              <label class="form-label" for="mobileNumber">Mobile number <span class="ydot-req">*</span></label>
-              <div class="input-group">
-                <select class="form-select flex-grow-0" style="width: 6.5rem;" [(ngModel)]="mobileCountryCode" name="mobileCountryCode">
-                    <option value="" disabled>Select Code</option>
-                  @for (code of countryCodes(); track code) { <option [value]="code">{{ code }}</option> }
-                </select>
-                <input #mobileInput id="mobileNumber" type="tel" inputmode="numeric" maxlength="15" class="form-control" placeholder="98765 43210"
-                       [(ngModel)]="mobileNumber" name="mobileNumber"
-                       (keydown.enter)="onMobileEnter($event)">
-              </div>
-            </div>
-          }
 
           <!-- Start setup -->
           @if (!setup()) {
@@ -377,7 +355,7 @@
                 </p>
               </div>
             } @else {
-              <!-- E-mail or SMS: a code was sent, so just say so. -->
+              <!-- E-mail: a code was sent, so just say so. -->
               <div class="setup-panel rounded-3 border p-4 mb-3">
                 <div class="d-flex align-items-start gap-2">
                   <i class="ri-mail-send-line mt-1 text-primary"></i>
@@ -508,24 +486,3 @@
     </div>
   </div>
 </div>
-
-<!-- =====================================================================================
-     "Cancel and edit" dialog
-     ===================================================================================== -->
-<app-popup [open]="showCancelDialog()" kicker="Invitation" title="What needs to change?"
-           icon="ri-edit-line" (closed)="closeCancelDialog()">
-  <div class="yp-field">
-    <label class="yp-label" for="reg-cancel-reason">What is wrong</label>
-    <textarea id="reg-cancel-reason" rows="4"
-              placeholder="For example: my role should be Finance Officer, not Volunteer."
-              [(ngModel)]="cancelReason"
-              name="cancelReason"
-              (keydown)="onCancelReasonEnter($event)"></textarea>
-  </div>
-  <ng-container popupActions>
-    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeCancelDialog()">Keep going</button>
-    <button #cancelSendBtn type="button" class="btn btn-primary btn-sm auth-submit-btn" [disabled]="!canCancelActivation() || submitting()" (click)="confirmCancel()">
-      {{ submitting() ? 'Sending…' : 'Send and exit' }}
-    </button>
-  </ng-container>
-</app-popup>

@@ -146,20 +146,13 @@ public sealed class CampaignLifecycleCommandHandler(
         // NO AUTO-APPROVAL HERE, FOR ANYBODY - INCLUDING A PLATFORM ADMINISTRATOR.
         //
         // This block used to promote a super admin's submission straight to Approved, stamping the
-        // same user id into SubmittedByUserId and ApprovedByUserId with an identical timestamp. It
-        // was one person completing both halves of an approval, which is the single rule this
-        // platform says cannot be granted away, and it was reachable by the one account that
-        // operates in every organisation and is scrutinised least.
+        // same user id into SubmittedByUserId and ApprovedByUserId with an identical timestamp, so
+        // the launch decision was never taken as a step of its own and never audited as one.
         //
-        // It was also inconsistent with its own neighbours: approve-close, tracking assets, donor
-        // records and refund cases all refuse the same super admin with
-        // SEGREGATION_OF_DUTIES_VIOLATION. Only campaign submission granted the exemption, so it
-        // read as an oversight rather than a policy.
-        //
-        // A platform administrator can still approve a campaign - just not one they submitted
-        // themselves, exactly like everybody else. The CampaignSettings flag that switched this on
-        // has been removed rather than defaulted to false, because a setting that can reinstate the
-        // hole is itself the hole.
+        // Submitting and approving stay two actions. Somebody who holds both permissions - a
+        // Campaign Executive who is also a Campaign Manager, or the Organisation Admin - may take
+        // both, but takes the second deliberately, and the audit log records each. The
+        // CampaignSettings flag that switched auto-approval on has been removed.
         //
         // THE MESSAGE NAMES WHO IT WENT TO. A submission is routed at the Organisation's approval
         // authority - TENANT_ADMIN, and anybody holding APPROVER - and the person who pressed
@@ -205,23 +198,10 @@ public sealed class CampaignLifecycleCommandHandler(
                 $"Only a Submitted campaign can be approved. This one is {campaign.Status}."));
         }
 
-        // THE SEGREGATION-OF-DUTIES CHECK. It is recorded as a DENIED audit row rather than
-        // simply refused, because an attempt to approve one's own work is exactly the pattern a
-        // later review wants to see.
-        if (!campaign.CanBeApprovedBy(currentUser.UserId, currentUser.IsTenantAdmin))
-        {
-            logger.LogWarning("User {UserId} attempted to approve campaign {CampaignId} they created or submitted.", currentUser.UserId, campaign.Id);
-
-            await audit.WriteAsync(
-                AuditActionCodes.CampaignApproved, nameof(Campaign), campaign.Id,
-                AuditResult.Denied, "Attempted to approve a campaign they created or submitted.",
-                cancellationToken);
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            return Result.Failure<OutcomeResponse>(Error.SegregationOfDuties(
-                "You cannot approve a campaign you created or submitted. Ask a colleague to review it."));
-        }
+        // NO TEST OF WHO CREATED OR SUBMITTED IT. A person's roles combine as the union of their
+        // permissions, so somebody holding Campaign Executive AND Campaign Manager may raise a
+        // campaign and approve it themselves: holding `cam.campaigns.approve` is the whole test.
+        // Approval is still its own step, and the audit log names who submitted and who approved.
 
         var today = clock.TodayUtc;
 
@@ -594,22 +574,8 @@ public sealed class CampaignLifecycleCommandHandler(
                 "There is no pending close request for this campaign."));
         }
 
-        // The independence rule again, this time against the REQUEST rather than the campaign:
-        // whoever raised the close cannot be the one who approves it.
-        if (!closeRequest.CanBeApprovedBy(currentUser.UserId, currentUser.IsTenantAdmin))
-        {
-            logger.LogWarning("User {UserId} attempted to approve their own close request for campaign {CampaignId}.", currentUser.UserId, campaign.Id);
-
-            await audit.WriteAsync(
-                AuditActionCodes.CampaignCloseApproved, nameof(Campaign), campaign.Id,
-                AuditResult.Denied, "Attempted to approve their own close request.", cancellationToken);
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            return Result.Failure<OutcomeResponse>(Error.SegregationOfDuties(
-                "You cannot approve a close request you raised. Ask a colleague to review it."));
-        }
-
+        // Whoever raised the close request may also approve it, by the same union-of-roles rule
+        // as the launch approval: the permission decides, not who asked.
         var now = clock.UtcNow;
 
         closeRequest.ActionStatus = CampaignLifecycleActionStatus.Completed;
@@ -837,8 +803,6 @@ public sealed class CampaignLifecycleCommandHandler(
             campaign.Version,
             message,
             CampaignMappingConfig.PermittedActionsFor(
-                campaign, currentUser.UserId, currentUser.HasPermission,
-                outstanding.Count > 0, pendingClose is not null, currentUser.IsTenantAdmin,
-                pendingClose?.CanBeApprovedBy(currentUser.UserId, currentUser.IsTenantAdmin) ?? true));
+                campaign, currentUser.HasPermission, outstanding.Count > 0, pendingClose is not null));
     }
 }

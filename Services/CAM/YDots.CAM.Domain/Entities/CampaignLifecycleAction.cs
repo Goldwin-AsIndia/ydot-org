@@ -39,11 +39,4 @@ public class CampaignLifecycleAction : AuditEntity
     public DateTimeOffset? ApprovedAtUtc { get; set; }
 
     public Campaign Campaign { get; set; } = default!;
-
-    /// <summary>
-    /// The same independence rule campaigns and tracking assets use, with the same exception for
-    /// the Organisation Admin. See <see cref="Campaign.CanBeApprovedBy"/>.
-    /// </summary>
-    public bool CanBeApprovedBy(Guid userId, bool isOrganisationAdministrator = false) =>
-        isOrganisationAdministrator || (RequestedByUserId != userId && CreatedByUserId != userId);
 }

@@ -129,6 +129,68 @@ public sealed class MenuCommandHandler(
                 "You do not have permission to change this organisation's menu items."));
     }
 
+    /// <summary>
+    /// Whether a node may be guarded by this permission.
+    ///
+    /// AN ORGANISATION'S OWN NODE MAY ONLY NAME A PERMISSION SOMEBODY IN IT CAN HOLD. A platform
+    /// code - <c>platform.audit.view</c> and the like - is held by the Platform Admin alone, so an
+    /// Organisation item guarded by one was saved, reported success, and then appeared in nobody's
+    /// sidebar: not the members', and not even the administrator who made it, because the
+    /// Organisation Admin's "every permission" means every TENANT permission. The mapping screen
+    /// still showed it as permitted to that role, so the item looked configured and was
+    /// unreachable - the hardest kind of fault to find. A retired code is refused for the same
+    /// reason: nobody can be given it any more.
+    ///
+    /// The platform catalogue keeps its old rule - the code must exist - because a platform node
+    /// may legitimately be guarded by a platform permission.
+    /// </summary>
+    private async Task<Result> ValidateRequiredPermissionAsync(
+        string? permissionCode, Guid? ownerTenantId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(permissionCode))
+        {
+            return Result.Success();
+        }
+
+        var code = permissionCode.Trim();
+        var permission = await permissions.GetByCodeAsync(code, cancellationToken);
+
+        if (permission is null)
+        {
+            logger.LogWarning("Menu node rejected because the required permission was not found. PermissionCode: {PermissionCode}.", code);
+            return Result.Failure(Error.Validation(
+                "That permission code was not recognised.",
+                [new ValidationError(nameof(CreateMenuDefinitionRequest.RequiredPermissionCode),
+                    $"Unknown permission: {code}")]));
+        }
+
+        if (ownerTenantId is not null && (permission.IsPlatformOnly || !permission.IsAssignable))
+        {
+            logger.LogWarning("Menu node rejected because an organisation item named a permission no member can hold. PermissionCode: {PermissionCode}.", code);
+            return Result.Failure(Error.Validation(
+                "That permission cannot guard an organisation's menu item.",
+                [new ValidationError(nameof(CreateMenuDefinitionRequest.RequiredPermissionCode),
+                    permission.IsPlatformOnly
+                        ? $"{code} belongs to the Platform Admin, so nobody in this organisation could ever see the item."
+                        : $"{code} has been retired, so nobody can be given it.")]));
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// The catalogue as one Organisation sees it: the platform's nodes and its own.
+    ///
+    /// THE CATALOGUE READ IS UNSCOPED - one query for a tree that is mostly shared - so every
+    /// write that walks it has to narrow it first. Without this a save from one Organisation
+    /// could name a node another Organisation owns and have a row written against it, and a
+    /// node marked mandatory in one Organisation stopped every other Organisation switching off
+    /// the section it sat under.
+    /// </summary>
+    private static List<MenuDefinition> ScopeToOrganisation(
+        IEnumerable<MenuDefinition> catalogue, Guid tenantId) =>
+        [.. catalogue.Where(node => node.OwnerTenantId is null || node.OwnerTenantId == tenantId)];
+
     public async Task<Result<MenuDefinitionResponse>> HandleAsync(
         CreateMenuDefinitionCommand command, CancellationToken cancellationToken)
     {
@@ -147,6 +209,27 @@ public sealed class MenuCommandHandler(
         }
 
         var ownerTenantId = owner.Value;
+
+        // AN ORGANISATION'S OWN NODE IS AN ORDINARY ONE. Both flags below belong to the product,
+        // and both did damage when an Organisation set them on a node of its own:
+        //
+        //   Platform-only hid the node from the Organisation's own configuration screen, which
+        //   lists no platform nodes - so it could be neither seen, switched off nor deleted.
+        //
+        //   Mandatory made the node undeletable and, because the mandatory rule was applied
+        //   across the whole catalogue, stopped EVERY other Organisation switching off the
+        //   section it sat under. One charity could pin a menu open in every other charity.
+        if (ownerTenantId is not null && (request.IsPlatformOnly || request.IsMandatory))
+        {
+            logger.LogWarning("Menu definition creation rejected because an organisation item asked for a product-only flag.");
+            return Result.Failure<MenuDefinitionResponse>(Error.Validation(
+                "An organisation's own menu item cannot be platform-only or always on.",
+                [new ValidationError(
+                    request.IsPlatformOnly
+                        ? nameof(request.IsPlatformOnly)
+                        : nameof(request.IsMandatory),
+                    "Only items the product ships can be platform-only or always on.")]));
+        }
 
         var code = CodeValue.TryParse(request.Code)?.Value;
         if (string.IsNullOrWhiteSpace(code))
@@ -169,9 +252,11 @@ public sealed class MenuCommandHandler(
 
         // The tree is three deep by design. Deeper would work structurally but the theme has
         // no design for a fourth level, so it is refused here rather than rendered badly.
+        MenuDefinition? parent = null;
+
         if (request.ParentMenuId.HasValue)
         {
-            var parent = await menus.GetDefinitionAsync(request.ParentMenuId.Value, cancellationToken);
+            parent = await menus.GetDefinitionAsync(request.ParentMenuId.Value, cancellationToken);
             if (parent is null)
             {
                 logger.LogWarning("Menu definition creation rejected because the parent was not found. ParentMenuId: {ParentMenuId}.", request.ParentMenuId);
@@ -182,7 +267,12 @@ public sealed class MenuCommandHandler(
             // A NODE MAY HANG BENEATH THE PLATFORM'S TREE, NEVER BENEATH ANOTHER ORGANISATION'S.
             // Adding "Our Reports" under the shipped Fundraising menu is the ordinary case and
             // has to work; reaching into a different charity's tree is not a case at all.
-            if (parent.OwnerTenantId is not null && parent.OwnerTenantId != ownerTenantId)
+            //
+            // Nor beneath the platform-only branch or a retired node: an Organisation's
+            // navigation never renders either, so a child there could never be seen.
+            if ((parent.OwnerTenantId is not null && parent.OwnerTenantId != ownerTenantId)
+                || (ownerTenantId is not null
+                    && (parent.IsPlatformOnly || parent.Status == MenuStatus.Retired)))
             {
                 return Result.Failure<MenuDefinitionResponse>(
                     Error.NotFound("That parent menu was not found."));
@@ -214,18 +304,20 @@ public sealed class MenuCommandHandler(
 
         // A node guarded by a permission nobody can hold is invisible forever, which looks
         // exactly like a bug. Refused rather than saved.
-        if (!string.IsNullOrWhiteSpace(request.RequiredPermissionCode))
+        var permitted = await ValidateRequiredPermissionAsync(
+            request.RequiredPermissionCode, ownerTenantId, cancellationToken);
+        if (permitted.IsFailure)
         {
-            var permission = await permissions.GetByCodeAsync(request.RequiredPermissionCode, cancellationToken);
-            if (permission is null)
-            {
-                logger.LogWarning("Menu definition creation rejected because the required permission was not found. PermissionCode: {PermissionCode}.", request.RequiredPermissionCode);
-                return Result.Failure<MenuDefinitionResponse>(Error.Validation(
-                    "That permission code was not recognised.",
-                    [new ValidationError(nameof(request.RequiredPermissionCode),
-                        $"Unknown permission: {request.RequiredPermissionCode}")]));
-            }
+            return Result.Failure<MenuDefinitionResponse>(permitted.Error!);
         }
+
+        // AN ORGANISATION'S CHILD NODE BELONGS TO ITS PARENT'S MODULE. The screen used to send
+        // "IAM" for everything, so "Our Reports" added under Fundraising was filed under identity
+        // management. The parent is the one fact that cannot be wrong about it. The platform
+        // catalogue keeps choosing freely: its Fundraising heading is CAM with a DON branch.
+        var moduleCode = ownerTenantId is not null && parent is not null
+            ? parent.ModuleCode
+            : request.ModuleCode.Trim().ToUpperInvariant();
 
         var definition = new MenuDefinition
         {
@@ -234,7 +326,7 @@ public sealed class MenuCommandHandler(
             Description = request.Description?.Trim(),
             ParentMenuId = request.ParentMenuId,
             Level = request.Level,
-            ModuleCode = request.ModuleCode.Trim().ToUpperInvariant(),
+            ModuleCode = moduleCode,
             Route = request.Route?.Trim(),
             Icon = request.Icon?.Trim(),
             RequiredPermissionCode = request.RequiredPermissionCode?.Trim(),
@@ -329,11 +421,11 @@ public sealed class MenuCommandHandler(
                 ? null
                 : request.RequiredPermissionCode.Trim();
 
-            if (code is not null && await permissions.GetByCodeAsync(code, cancellationToken) is null)
+            var permitted = await ValidateRequiredPermissionAsync(
+                code, definition.OwnerTenantId, cancellationToken);
+            if (permitted.IsFailure)
             {
-                return Result.Failure<OutcomeResponse>(Error.Validation(
-                    "That permission code was not recognised.",
-                    [new ValidationError(nameof(request.RequiredPermissionCode), $"Unknown permission: {code}")]));
+                return Result.Failure<OutcomeResponse>(permitted.Error!);
             }
 
             definition.RequiredPermissionCode = code;
@@ -342,6 +434,20 @@ public sealed class MenuCommandHandler(
         if (request.DisplayOrder.HasValue)
         {
             definition.DisplayOrder = request.DisplayOrder.Value;
+
+            // AN ORGANISATION'S OWN NODE HAS ONE POSITION, AND THIS IS IT. Moving it with the
+            // arrows on the configuration screen writes an override row beside it, and an
+            // override outranks the node's own order - so a Position typed into the editor
+            // afterwards saved, reported success and changed nothing on screen. The person
+            // stating the position outright is the newer decision, so the override goes.
+            if (definition.OwnerTenantId is { } ownerTenantId)
+            {
+                var setting = await menus.GetTenantMenuAsync(ownerTenantId, definition.Id, cancellationToken);
+                if (setting is not null)
+                {
+                    setting.DisplayOrderOverride = null;
+                }
+            }
         }
 
         if (request.Status.HasValue)
@@ -523,7 +629,10 @@ public sealed class MenuCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.TenantNotFound());
         }
 
-        var catalogue = await menus.GetCatalogueAsync(cancellationToken);
+        // THE PLATFORM'S NODES AND THIS ORGANISATION'S OWN - see ScopeToOrganisation. An item
+        // naming another Organisation's node is skipped as unknown, and that Organisation's
+        // mandatory nodes no longer pin anything open here.
+        var catalogue = ScopeToOrganisation(await menus.GetCatalogueAsync(cancellationToken), tenantId);
         var byId = catalogue.ToDictionary(node => node.Id);
 
         // ONE QUERY, NOT ONE PER NODE. This read the row for each item inside the loop, which
@@ -701,7 +810,12 @@ public sealed class MenuCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.Concurrency());
         }
 
-        var catalogue = await menus.GetCatalogueAsync(cancellationToken);
+        var tenantId = role.TenantId ?? tenantContext.RequireTenantId();
+
+        // THE ROLE'S OWN ORGANISATION DECIDES THE SET, as it does on the read side. This walked
+        // the whole catalogue, so saving one role wrote a hidden row against every node every
+        // other Organisation had added for itself.
+        var catalogue = ScopeToOrganisation(await menus.GetCatalogueAsync(cancellationToken), tenantId);
         var byId = catalogue.ToDictionary(node => node.Id);
 
         // What this role can actually reach, so a pointless mapping is not written.
@@ -714,8 +828,6 @@ public sealed class MenuCommandHandler(
 
         var existing = await menus.GetRoleMenusAsync(role.Id, cancellationToken);
         menus.RemoveRoleMenus(existing);
-
-        var tenantId = role.TenantId ?? tenantContext.RequireTenantId();
 
         var requested = (request.VisibleMenuIds ?? []).Distinct().ToHashSet();
 

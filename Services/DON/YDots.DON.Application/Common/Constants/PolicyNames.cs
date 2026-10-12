@@ -15,9 +15,6 @@ public static class PolicyNames
     /// <summary>Data scope: the caller must carry an organisation claim before any query runs.</summary>
     public const string SameOrganisation = "SameOrganisation";
 
-    /// <summary>Segregation of duties: an approver may never approve a record they created.</summary>
-    public const string IndependentApprover = "IndependentApprover";
-
     /// <summary>Builds the dynamic policy name for a permission code.</summary>
     public static string ForPermission(string permissionCode) => PermissionPrefix + permissionCode;
 }

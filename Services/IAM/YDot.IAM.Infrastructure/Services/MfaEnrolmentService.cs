@@ -77,26 +77,11 @@ public sealed class MfaEnrolmentService(
                 break;
             }
 
-            case MfaMethodType.Sms:
-            {
-                var mobile = MobileNumberValue.TryParse(user.MobileCountryCode, user.MobileNumber);
-
-                if (mobile is null)
-                {
-                    return Result.Failure<MfaEnrolmentResponse>(
-                        Error.Validation("This account has no mobile number to send codes to.",
-                            [new ValidationError("MobileNumber", "Add a mobile number first.")]));
-                }
-
-                maskedDestination = mobile.Masked();
-                break;
-            }
-
             case MfaMethodType.SecurityKey:
             default:
                 return Result.Failure<MfaEnrolmentResponse>(
                     Error.Validation("Security keys are not available yet.",
-                        [new ValidationError("MethodType", "Choose an authenticator app, e-mail or SMS.")]));
+                        [new ValidationError("MethodType", "Choose an authenticator app or e-mail.")]));
         }
 
         var method = new MfaMethod
@@ -133,10 +118,26 @@ public sealed class MfaEnrolmentService(
 
         // A delivered factor gets a code straight away, so the person can confirm without a
         // second click. An authenticator has nothing to send — the device makes the code.
-        if (methodType is MfaMethodType.Email or MfaMethodType.Sms)
+        //
+        // THE OUTCOME IS READ. It used to be discarded, so a code that was never sent still
+        // answered "We have sent a code" and left somebody watching an empty inbox. Failing here
+        // also means the caller saves nothing: no half-made method is left behind.
+        if (methodType == MfaMethodType.Email)
         {
-            await challenges.IssueAsync(
+            var issued = await challenges.IssueAsync(
                 user, tenant, businessUnit, MfaChallengePurpose.Enrolment, method.Id, cancellationToken);
+
+            if (issued.IsFailure)
+            {
+                return Result.Failure<MfaEnrolmentResponse>(issued.Error!);
+            }
+
+            if (!issued.Value!.CodeWasSent)
+            {
+                return Result.Failure<MfaEnrolmentResponse>(Error.Dependency(
+                    $"We could not e-mail a code to {maskedDestination ?? "your address"} just now. "
+                    + "Wait a minute and try again, or choose the authenticator app."));
+            }
         }
 
         return Result.Success(new MfaEnrolmentResponse(
@@ -176,11 +177,15 @@ public sealed class MfaEnrolmentService(
                 Error.InvalidTransition("That verification method has been removed."));
         }
 
-        var verified = method.MethodType == MfaMethodType.AuthenticatorApp
+        // Null when the code is right; otherwise the reason, with the real attempts remaining.
+        var failure = method.MethodType == MfaMethodType.AuthenticatorApp
             ? !string.IsNullOrWhiteSpace(method.SecretHash) && totp.VerifyCode(method.SecretHash, code)
-            : await VerifyDeliveredCodeAsync(user.Id, code, cancellationToken);
+                ? null
+                : Error.MfaCodeIncorrect()
+            : (await challenges.VerifyOutstandingCodeAsync(
+                user.Id, MfaChallengePurpose.Enrolment, method.Id, code, cancellationToken)).Error;
 
-        if (!verified)
+        if (failure is not null)
         {
             await audit.WriteAnonymousAsync(
                 AuditActionCodes.MfaFailed, nameof(MfaMethod), method.Id,
@@ -189,7 +194,7 @@ public sealed class MfaEnrolmentService(
                 new { Context = "Enrolment" },
                 cancellationToken);
 
-            return Result.Failure<MfaMethod>(Error.MfaFailed(0));
+            return Result.Failure<MfaMethod>(failure);
         }
 
         method.Status = MfaMethodStatus.Active;
@@ -218,29 +223,5 @@ public sealed class MfaEnrolmentService(
             cancellationToken);
 
         return Result.Success(method);
-    }
-
-    /// <summary>
-    /// Verifies the code sent for a delivered factor.
-    ///
-    /// It goes through the challenge service rather than comparing hashes here, because that is
-    /// where the attempt ceiling, the expiry and the single-use rule live. Checking the hash
-    /// directly would work and would quietly discard all three.
-    /// </summary>
-    private async Task<bool> VerifyDeliveredCodeAsync(
-        Guid userId, string code, CancellationToken cancellationToken)
-    {
-        var outstanding = await security.GetLatestChallengeAsync(
-            userId, MfaChallengePurpose.Enrolment, clock.UtcNow, cancellationToken);
-
-        if (outstanding is null)
-        {
-            return false;
-        }
-
-        var verification = await challenges.VerifyAsync(
-            outstanding.ChallengeToken, code, MfaChallengePurpose.Enrolment, cancellationToken);
-
-        return verification.IsSuccess;
     }
 }

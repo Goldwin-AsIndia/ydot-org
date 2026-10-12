@@ -2,13 +2,15 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, forkJoin, map } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { EnumOptionsService } from '../Shared/services/enum-options.service';
 import { fetchAllPages } from '../Shared/services/paging';
 import {
   ApiResponse,
-  LookupItem,
   OutcomeResponse,
   PagedResponse,
 } from '../Shared/models/api-response.model';
+import { toApiEnumOptions } from '../Shared/models/enum-option.model';
+import { RoleCatalogueResponse, RoleSearchFilter } from '../Shared/models/role-catalogue-api.model';
 import {
   AssignRoleClaimsRequest,
   AssignRolePermissionsRequest,
@@ -25,32 +27,28 @@ import {
   UpdateRoleRequest,
 } from '../Shared/models/iam-contract.model';
 
-/** The catalogue as the screen works from it: rows plus its filter vocabularies. */
-export interface RoleCatalogueView {
-  roles: RoleListItemResponse[];
-  totalCount: number;
-  statusOptions: LookupItem[];
-  roleTypeOptions: LookupItem[];
+/** One permission in a comparison: the code that identifies it and the name a person reads. */
+export interface ComparedPermission {
+  code: string;
+  name: string;
 }
 
-/** Two roles and the difference between what they grant. */
+/** Two roles and the difference between what they allow. */
 export interface RoleComparison {
   left: RoleDetailResponse;
   right: RoleDetailResponse;
-  onlyInLeft: string[];
-  onlyInRight: string[];
-  inBoth: string[];
+  onlyInLeft: ComparedPermission[];
+  onlyInRight: ComparedPermission[];
+  inBoth: ComparedPermission[];
 }
 
-/** What the role catalogue can be narrowed by. Mirrors the API's query parameters. */
-export interface RoleSearchFilter {
-  search?: string;
-  status?: string;
-  roleType?: string;
-  privilegedOnly?: boolean;
-  page?: number;
-  pageSize?: number;
-  sort?: string;
+/** A role export as the browser receives it. */
+export interface RoleExportFile {
+  blob: Blob;
+  /** The server's name for the file, which carries the time it was taken. */
+  fileName: string;
+  /** The reference the audit trail records the export under. */
+  reference: string;
 }
 
 /**
@@ -71,6 +69,7 @@ export interface RoleSearchFilter {
 @Injectable({ providedIn: 'root' })
 export class RoleCatalogueApiService {
   private readonly http = inject(HttpClient);
+  private readonly enums = inject(EnumOptionsService);
   private readonly baseUrl = `${environment.apiBaseUrl}/roles`;
   private readonly permissionsUrl = `${environment.apiBaseUrl}/permissions`;
 
@@ -122,12 +121,29 @@ export class RoleCatalogueApiService {
       .pipe(map((response) => response.data!));
   }
 
-  /** Exports the catalogue to CSV. Audited server-side, filter included. */
-  export(filter: RoleSearchFilter): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/export`, {
-      params: this.toParams(filter),
-      responseType: 'blob',
-    });
+  /**
+   * Exports the catalogue to CSV: the roles the filter selects, built by the server.
+   *
+   * THE SAME FILTER THE TABLE SENT, so the file holds the rows on screen. The server names the
+   * file and audits the export under the reference it returns.
+   */
+  export(filter: RoleSearchFilter): Observable<RoleExportFile> {
+    return this.http
+      .get(`${this.baseUrl}/export`, {
+        params: this.toParams({ ...filter, page: undefined, pageSize: undefined }),
+        responseType: 'blob',
+        observe: 'response',
+      })
+      .pipe(map((response) => {
+        const disposition = response.headers.get('Content-Disposition') ?? '';
+        const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+
+        return {
+          blob: response.body ?? new Blob(),
+          fileName: match ? decodeURIComponent(match[1]) : 'roles.csv',
+          reference: response.headers.get('X-Export-Reference') ?? '',
+        };
+      }));
   }
 
   // =========================================================================================
@@ -208,24 +224,38 @@ export class RoleCatalogueApiService {
       .pipe(map((response) => response.data!));
   }
 
-  // ---- The vocabulary the role screen uses ---------------------------------------------------
+  // ---- The catalogue as the role screen reads it ----------------------------------------------
 
   /**
-   * The catalogue, shaped for the screen: EVERY role matching the filter, plus its vocabularies.
+   * Every role the filter selects - all of its pages.
    *
-   * The screen searches, filters and counts in the browser, so it needs the whole list. It used
-   * to take one page of "100" - the server's ceiling - and treat it as the catalogue, so the
-   * 101st role and every count past it silently went missing. The vocabularies are the domain's
-   * own - three statuses and three role types - so they are named here rather than fetched from an
-   * endpoint whose whole payload would be six words.
+   * THE SERVER DOES THE FILTERING. The screen sends what its tabs, search box and filter panel
+   * hold and prints what comes back, so the table, the export and anybody calling the API with
+   * the same parameters see the same roles. The API caps a page at 100 rows, hence the paging.
    */
-  getCatalogue(filter: RoleSearchFilter = {}): Observable<RoleCatalogueView> {
-    return fetchAllPages((page, pageSize) => this.search({ ...filter, page, pageSize })).pipe(
-      map((roles) => ({
+  searchAll(filter: RoleSearchFilter = {}): Observable<RoleListItemResponse[]> {
+    return fetchAllPages((page, pageSize) => this.search({ ...filter, page, pageSize }));
+  }
+
+  /**
+   * The whole catalogue plus the vocabularies the screen is drawn from.
+   *
+   * THE VOCABULARIES ARE THE SERVER'S (`/reference-data/enums`): the role states and types the
+   * filters offer, and the permission verbs the matrix has columns for. They were literal lists
+   * here - three states called Draft, In use and Retired while every row said Active or
+   * Inactive - and a value added on the server could never have been filtered for.
+   */
+  getCatalogue(): Observable<RoleCatalogueResponse> {
+    return forkJoin({
+      roles: this.searchAll(),
+      enums: this.enums.getAll(),
+    }).pipe(
+      map(({ roles, enums }) => ({
         roles,
         totalCount: roles.length,
-        statusOptions: RoleCatalogueApiService.STATUS_OPTIONS,
-        roleTypeOptions: RoleCatalogueApiService.ROLE_TYPE_OPTIONS,
+        statusOptions: toApiEnumOptions(enums.roleStatuses),
+        roleTypeOptions: toApiEnumOptions(enums.roleTypes),
+        permissionActions: toApiEnumOptions(enums.permissionActions),
       })),
     );
   }
@@ -243,21 +273,30 @@ export class RoleCatalogueApiService {
       right: this.getRole(rightRoleId),
     }).pipe(
       map(({ left, right }) => {
-        const codesOf = (role: RoleDetailResponse) =>
-          new Set((role.permissions ?? [])
-            .filter((permission) => permission.isDenied !== true)
-            .map((permission) => permission.permissionCode ?? '')
-            .filter(Boolean));
+        // What each role ALLOWS, by code, with the name the server gives the permission.
+        const allowedBy = (role: RoleDetailResponse) =>
+          new Map((role.permissions ?? [])
+            .filter((permission) => permission.isDenied !== true && !!permission.permissionCode)
+            .map((permission): [string, string] => [
+              permission.permissionCode!,
+              permission.permissionName ?? permission.permissionCode!,
+            ]));
 
-        const leftCodes = codesOf(left);
-        const rightCodes = codesOf(right);
+        const leftAllowed = allowedBy(left);
+        const rightAllowed = allowedBy(right);
+
+        const pick = (from: Map<string, string>, keep: (code: string) => boolean): ComparedPermission[] =>
+          [...from.entries()]
+            .filter(([code]) => keep(code))
+            .map(([code, name]) => ({ code, name }))
+            .sort((a, b) => a.name.localeCompare(b.name));
 
         return {
           left,
           right,
-          onlyInLeft: [...leftCodes].filter((code) => !rightCodes.has(code)).sort(),
-          onlyInRight: [...rightCodes].filter((code) => !leftCodes.has(code)).sort(),
-          inBoth: [...leftCodes].filter((code) => rightCodes.has(code)).sort(),
+          onlyInLeft: pick(leftAllowed, (code) => !rightAllowed.has(code)),
+          onlyInRight: pick(rightAllowed, (code) => !leftAllowed.has(code)),
+          inBoth: pick(leftAllowed, (code) => rightAllowed.has(code)),
         };
       }),
     );
@@ -269,46 +308,21 @@ export class RoleCatalogueApiService {
    * There is no separate approval workflow for a role: a role IS its permissions, and the
    * approval that matters is the one on the permissions themselves. Draft and active are the
    * two states that mean anything — draft is being built, active is in use.
+   *
+   * THE REASON IS THE ADMINISTRATOR'S. It defaulted to a sentence written here, which is what
+   * the audit trail then recorded as the reason for every activation that did not give one.
    */
-  submitRole = (id: string, expectedVersion: number, reason = 'Ready for use.') =>
+  activateRole = (id: string, expectedVersion: number, reason: string) =>
     this.changeStatus(id, { status: 'active', expectedVersion, reason });
 
   /**
-   * Retiring a role.
+   * Deactivating a role.
    *
    * Inactive rather than deleted, whenever anybody has ever held it: the assignment history has
    * to stay explicable, and a dangling role id in an audit row explains nothing.
    */
-  retireRole = (id: string, expectedVersion: number, reason: string) =>
+  deactivateRole = (id: string, expectedVersion: number, reason: string) =>
     this.changeStatus(id, { status: 'inactive', expectedVersion, reason });
-
-  /** Removing a draft nobody has ever held. */
-  deleteDraftRole = (id: string, expectedVersion: number, reason: string) =>
-    this.deleteRole(id, { expectedVersion, reason });
-
-  /**
-   * The three states a role can be in.
-   *
-   * Named here because they are the domain's own vocabulary — a new one would mean new server
-   * behaviour rather than a new row in a table.
-   */
-  private static readonly STATUS_OPTIONS: LookupItem[] = [
-    { id: 'draft', code: 'draft', name: 'Draft', isActive: true },
-    { id: 'active', code: 'active', name: 'In use', isActive: true },
-    { id: 'inactive', code: 'inactive', name: 'Retired', isActive: true },
-  ];
-
-  /**
-   * The server's `RoleType`: tenant, template, platform.
-   *
-   * THERE IS NO "custom" ROLE TYPE. The filter offered one, which matched nothing whatever the
-   * catalogue held, and had no entry for the template roles that do exist.
-   */
-  private static readonly ROLE_TYPE_OPTIONS: LookupItem[] = [
-    { id: 'tenant', code: 'tenant', name: 'Organisation', isActive: true },
-    { id: 'template', code: 'template', name: 'Template', isActive: true },
-    { id: 'platform', code: 'platform', name: 'Platform', isActive: true },
-  ];
 
   private toParams(filter: RoleSearchFilter): HttpParams {
     let params = new HttpParams();

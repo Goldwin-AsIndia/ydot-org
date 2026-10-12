@@ -11,8 +11,8 @@
     </div>
     <dl class="cn-stats">
       <div class="cn-stat"><dt>Numbers verified</dt><dd class="cn-serif">{{ n(verified()) }}</dd></div>
-      <div class="cn-stat"><dt>On WhatsApp</dt><dd class="cn-serif">{{ n(store.pool().length) }}<small>ready in Wati</small></dd></div>
-      <div class="cn-stat"><dt>Jobs run</dt><dd class="cn-serif">{{ n(jobCounts().all) }}</dd></div>
+      <div class="cn-stat"><dt>On WhatsApp</dt><dd class="cn-serif">{{ n(onWhatsApp()) }}<small>ready in Wati</small></dd></div>
+      <div class="cn-stat"><dt>Jobs run</dt><dd class="cn-serif">{{ n(jobsRun()) }}</dd></div>
     </dl>
   </header>
 
@@ -114,6 +114,12 @@
               <span><b>This file can’t be used.</b> {{ message }}</span>
             </p>
           }
+          @if (store.problem(); as message) {
+            <p class="cn-alert cn-alert--bad" role="alert">
+              <i class="ph-duotone ph-warning-circle" aria-hidden="true"></i>
+              <span>{{ message }}</span>
+            </p>
+          }
         </div>
 
         <aside class="cn-flow" aria-label="What happens next">
@@ -153,16 +159,18 @@
             <div><dt>Estimated cost</dt><dd class="cn-serif">{{ money(estimate()) }}</dd></div>
           </dl>
           <div class="cn-summary-act">
-            <button type="button" class="btn btn-primary btn-sm" [disabled]="!canStart(d)" (click)="start()">
+            <button type="button" class="btn btn-primary btn-sm" [disabled]="!canStart(d) || starting()" (click)="start()">
               <i class="ph-duotone ph-lightning" aria-hidden="true"></i>
-              @if (toCheck() > 0) { Start check } @else { Build report }
+              @if (starting()) { Uploading… } @else if (toCheck() > 0) { Start check } @else { Build report }
             </button>
             <button type="button" class="cn-link" (click)="discard()">Cancel</button>
           </div>
-          @if (!canStart(d)) {
+          @if (problem(); as message) {
+            <p class="cn-alert cn-alert--bad cn-summary-warn" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span><b>The check was not started.</b> {{ message }}</span></p>
+          } @else if (!canStart(d)) {
             <p class="cn-alert cn-alert--bad cn-summary-warn" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>No valid numbers were found. Check the “Invalid lines” tab, or upload another file.</span></p>
           } @else {
-            <small class="cn-summary-fine">Numbers that can’t be verified are not charged.</small>
+            <small class="cn-summary-fine">{{ chargeNote() }}</small>
           }
         </aside>
 
@@ -178,6 +186,7 @@
                 <b>{{ n(d.totalRows) }}</b> rows read
               </p>
             </div>
+            <app-wa-select compact label="No campaign" [options]="campaignOptions()" [value]="campaignId()" (valueChange)="campaignId.set($event)" />
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="discard()">
               <i class="ph-duotone ph-arrow-u-up-left" aria-hidden="true"></i> Change file
             </button>
@@ -362,7 +371,7 @@
             </div>
           </div>
 
-          <p class="cn-eyebrow"><span class="cn-live-dot" aria-hidden="true"></span> {{ running() ? 'Checking WhatsApp' : run.status === 'completed' ? 'Check complete' : 'Check stopped' }}</p>
+          <p class="cn-eyebrow"><span class="cn-live-dot" aria-hidden="true"></span> {{ running() ? (run.status === 'queued' ? 'Waiting to start' : 'Checking WhatsApp') : run.status === 'completed' ? 'Check complete' : 'Check stopped' }}</p>
           <h2 class="cn-live-title cn-serif">{{ run.fileName }}</h2>
 
           <div class="cn-scan" aria-hidden="true">
@@ -397,14 +406,16 @@
 
           <div class="cn-live-foot">
             <p class="cn-task">
-              Task ID <code class="cn-num">{{ run.taskId }}</code>
-              <button type="button" class="cn-mini" (click)="copyTask(run.taskId)" aria-label="Copy task ID">
-                <i class="ph-duotone" [class.ph-copy-simple]="!copied()" [class.ph-check]="copied()" aria-hidden="true"></i>
-                {{ copied() ? 'Copied' : 'Copy' }}
-              </button>
+              Task ID <code class="cn-num">{{ run.taskId || '—' }}</code>
+              @if (run.taskId) {
+                <button type="button" class="cn-mini" (click)="copyTask(run.taskId)" aria-label="Copy task ID">
+                  <i class="ph-duotone" [class.ph-copy-simple]="!copied()" [class.ph-check]="copied()" aria-hidden="true"></i>
+                  {{ copied() ? 'Copied' : 'Copy' }}
+                </button>
+              }
             </p>
             @if (running()) {
-              <button type="button" class="btn btn-danger btn-sm" (click)="stop()">
+              <button type="button" class="btn btn-danger btn-sm" [disabled]="!run.canCancel" (click)="stop()">
                 <i class="ph-duotone ph-stop-circle" aria-hidden="true"></i> Stop check
               </button>
             } @else {
@@ -428,10 +439,13 @@
                 }
               </li>
             } @empty {
-              <li class="cn-feed-empty">Waiting for the first answers…</li>
+              <li class="cn-feed-empty">{{ running() ? 'CheckNumber.ai answers the whole list at once — the answers appear here when it has finished.' : 'No answers were returned.' }}</li>
             }
           </ul>
-          <p class="cn-feed-note">{{ running() ? 'Valid numbers reach Wati the moment the check finishes. You can leave this page — the check keeps running.' : 'The check has ended. Press Next to open the report.' }}</p>
+          <p class="cn-feed-note">{{ running() ? (run.reason || 'Valid numbers reach Wati the moment the check finishes') + '. You can leave this page — the check keeps running.' : run.outcome === 'Success' && !run.hasErrors ? 'The check has ended. Press Next to open the report.' : (run.reason || 'The check has ended.') + ' Press Next to open the report.' }}</p>
+          @if (actionProblem(); as message) {
+            <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+          }
         </aside>
       </div>
     }
@@ -451,6 +465,12 @@
             <div class="cn-t cn-t--unk"><b class="cn-serif">{{ n(j.unknown) }}</b><span class="cn-res cn-res--unk"><i class="ph-duotone ph-question" aria-hidden="true"></i>Unverified</span></div>
           </div>
         </div>
+        @if (notice(); as message) {
+          <div class="cn-inset"><p class="cn-alert cn-alert--info" role="status">
+            <i class="ph-duotone ph-clock-counter-clockwise" aria-hidden="true"></i>
+            <span>{{ message }}</span>
+          </p></div>
+        }
         <div class="cn-ready-act">
           <button type="button" class="btn btn-primary btn-sm" (click)="done()">
             <i class="ph-duotone ph-check" aria-hidden="true"></i> Done
@@ -481,8 +501,11 @@
         </a>
       </div>
 
+      @if (store.problem(); as message) {
+        <div class="cn-inset"><p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p></div>
+      }
       @if (jobRows().length === 0) {
-        <p class="cn-empty">No jobs match. Start a new check to see it here.</p>
+        <p class="cn-empty">{{ store.loading() ? 'Loading jobs…' : store.jobs().length === 0 ? 'No checks have been run yet. Start a new check to see it here.' : 'No jobs match.' }}</p>
       } @else {
         <div class="cn-scroll">
         <table class="cn-table">
@@ -521,10 +544,9 @@
                       (pageChange)="jobPage.set($event)" (sizeChange)="jobSize.set($event); jobPage.set(1)" />
       }
     </div>
-    <p class="cn-foot">
-      Starter jobs were added so this page is not empty.
-      <button type="button" class="cn-link" (click)="resetDemo()">Reset to starter data</button>
-    </p>
+    @if (workerLine(); as line) {
+      <p class="cn-foot">{{ line }}</p>
+    }
   }
 
   <!-- ================================================================ ONE JOB -->
@@ -544,9 +566,9 @@
             </p>
           </div>
           <div class="cn-jhead-end">
-            @if (j.status === 'failed' || j.status === 'cancelled') {
+            @if (j.canRetry) {
               <button type="button" class="btn btn-primary btn-sm" (click)="resume(j)" [disabled]="!!store.activeJobId()">
-                <i class="ph-duotone ph-arrow-clockwise" aria-hidden="true"></i> {{ j.status === 'failed' ? 'Retry job' : 'Resume job' }}
+                <i class="ph-duotone ph-arrow-clockwise" aria-hidden="true"></i> {{ j.status === 'cancelled' ? 'Resume job' : 'Retry job' }}
               </button>
             }
             @if (j.status === 'running') {
@@ -557,6 +579,10 @@
             }
           </div>
         </header>
+
+        @if (actionProblem(); as message) {
+          <div class="cn-inset"><p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p></div>
+        }
 
         @if (justFinished() && j.status === 'completed') {
           <div class="cn-inset"><p class="cn-alert cn-alert--ok" role="status">
@@ -578,8 +604,8 @@
               <span class="cn-stack-unk" [style.width.%]="split().unknown"></span>
             </span>
           </div>
-          <p class="cn-reason" [class.cn-reason--bad]="j.outcome === 'Failed'" [class.cn-reason--warn]="j.outcome === 'Cancelled'">
-            <b>{{ j.outcome === 'Success' ? 'Why it succeeded' : j.outcome === 'Failed' ? 'Why it failed' : j.outcome === 'Cancelled' ? 'Why it stopped' : 'Status' }}</b>
+          <p class="cn-reason" [class.cn-reason--bad]="j.outcome === 'Failed'" [class.cn-reason--warn]="j.outcome === 'Cancelled' || j.hasErrors">
+            <b>{{ j.outcome === 'Success' ? (j.hasErrors ? 'Completed with errors' : 'Why it succeeded') : j.outcome === 'Failed' ? 'Why it failed' : j.outcome === 'Cancelled' ? 'Why it stopped' : 'Status' }}</b>
             <span>{{ j.reason || '—' }}</span>
             @if (j.errorCode) { <code class="cn-num">{{ j.errorCode }}</code> }
           </p>
@@ -592,11 +618,15 @@
           <div class="cn-fact">
             <dt>Task ID</dt>
             <dd class="cn-task-row">
-              <code class="cn-num">{{ j.taskId }}</code>
-              <button type="button" class="cn-mini" (click)="copyTask(j.taskId)" aria-label="Copy task ID">
-                <i class="ph-duotone" [class.ph-copy-simple]="!copied()" [class.ph-check]="copied()" aria-hidden="true"></i>
-                {{ copied() ? 'Copied' : 'Copy' }}
-              </button>
+              <code class="cn-num">{{ j.taskId || '—' }}</code>
+              @if (j.taskId) {
+                <button type="button" class="cn-mini" (click)="copyTask(j.taskId)" aria-label="Copy task ID">
+                  <i class="ph-duotone" [class.ph-copy-simple]="!copied()" [class.ph-check]="copied()" aria-hidden="true"></i>
+                  {{ copied() ? 'Copied' : 'Copy' }}
+                </button>
+              } @else {
+                <small>Nothing was sent to CheckNumber.ai</small>
+              }
             </dd>
           </div>
           <div class="cn-fact">
@@ -626,16 +656,21 @@
             }
           </ol>
           <ul class="cn-dlrow" aria-label="Downloads">
-            <li><button type="button" class="cn-mini" [disabled]="!j.original" (click)="download(j, 'original')"><i class="ph-duotone ph-file-arrow-down" aria-hidden="true"></i>Original file</button></li>
-            <li><button type="button" class="cn-mini" [disabled]="j.submittedNumbers.length === 0" (click)="download(j, 'submitted')"><i class="ph-duotone ph-list-numbers" aria-hidden="true"></i>Submitted numbers · {{ n(j.submittedNumbers.length) }}</button></li>
-            <li><button type="button" class="cn-mini" [disabled]="j.results.length === 0" (click)="download(j, 'results')"><i class="ph-duotone ph-file-csv" aria-hidden="true"></i>Results CSV · {{ n(j.results.length) }}</button></li>
-            <li><button type="button" class="cn-mini" (click)="download(j, 'raw')"><i class="ph-duotone ph-brackets-curly" aria-hidden="true"></i>CheckNumber.ai raw files</button></li>
-            <li><button type="button" class="cn-mini" [disabled]="j.invalidLines.length === 0" (click)="download(j, 'invalid')"><i class="ph-duotone ph-warning-diamond" aria-hidden="true"></i>Invalid lines · {{ n(j.invalidLines.length) }}</button></li>
+            <li><button type="button" class="cn-mini" [disabled]="!j.downloads.original" (click)="download(j, 'original')"><i class="ph-duotone ph-file-arrow-down" aria-hidden="true"></i>Original file</button></li>
+            <li><button type="button" class="cn-mini" [disabled]="!j.downloads.submitted" (click)="download(j, 'submitted')"><i class="ph-duotone ph-list-numbers" aria-hidden="true"></i>Submitted numbers · {{ n(j.submitted) }}</button></li>
+            <li><button type="button" class="cn-mini" [disabled]="!j.downloads.results" (click)="download(j, 'results')"><i class="ph-duotone ph-file-csv" aria-hidden="true"></i>Results CSV · {{ n(j.results.length) }}</button></li>
+            <li><button type="button" class="cn-mini" [disabled]="!j.downloads.raw" (click)="download(j, 'raw')"><i class="ph-duotone ph-brackets-curly" aria-hidden="true"></i>CheckNumber.ai raw files</button></li>
+            <li><button type="button" class="cn-mini" [disabled]="!j.downloads.invalid" (click)="download(j, 'invalid')"><i class="ph-duotone ph-warning-diamond" aria-hidden="true"></i>Invalid lines · {{ n(j.invalid) }}</button></li>
           </ul>
         </div>
       </section>
 
       <ng-container *ngTemplateOutlet="reportTpl; context: { $implicit: j }" />
+    } @else if (opening() || store.loading()) {
+      <div class="cn-sheet cn-missing">
+        <i class="ph-duotone ph-circle-notch cn-spinning" aria-hidden="true"></i>
+        <h2 class="cn-h">Loading the job…</h2>
+      </div>
     } @else {
       <div class="cn-sheet cn-missing">
         <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>

@@ -6,6 +6,8 @@ using YDot.IAM.Application.DTOs;
 using YDot.IAM.Application.Features.Audit.DTOs;
 using YDot.IAM.Application.Features.Governance.Mappings;
 using YDot.IAM.Application.Features.Users.DTOs;
+using YDot.IAM.Application.Features.Users.Mappings;
+using YDot.IAM.Domain.Enums;
 using YDot.IAM.Infrastructure.Persistence;
 
 namespace YDot.IAM.Infrastructure.Persistence.ReadServices;
@@ -43,11 +45,14 @@ public sealed class AuditReadService(IamDbContext context, ITenantContext tenant
             ? query.Where(item => item.TenantId == tenantId)
             : query;
 
-    public async Task<PagedResponse<AuditEventResponse>> SearchAsync(
-        AuditEventSearchFilter filter, bool canSeeSensitive, CancellationToken cancellationToken)
+    /// <summary>
+    /// The events a filter selects, under the caller's sensitivity rule.
+    ///
+    /// ONE PLACE for the list, the export and the summary, so the cards above the trail and the
+    /// rows beneath them always describe the same events.
+    /// </summary>
+    private IQueryable<Domain.Entities.AuditEvent> Filtered(AuditEventSearchFilter filter, bool canSeeSensitive)
     {
-        ArgumentNullException.ThrowIfNull(filter);
-
         var query = ScopedToTenant(context.AuditEvents.AsNoTracking());
 
         // Sensitive rows are excluded entirely without the permission, rather than returned
@@ -116,6 +121,16 @@ public sealed class AuditReadService(IamDbContext context, ITenantContext tenant
             query = query.Where(item => item.OccurredAtUtc <= filter.ToUtc.Value);
         }
 
+        return query;
+    }
+
+    public async Task<PagedResponse<AuditEventResponse>> SearchAsync(
+        AuditEventSearchFilter filter, bool canSeeSensitive, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        var query = Filtered(filter, canSeeSensitive);
+
         var total = await query.CountAsync(cancellationToken);
 
         var rows = await query
@@ -138,6 +153,180 @@ public sealed class AuditReadService(IamDbContext context, ITenantContext tenant
             cancellationToken);
 
         return new PagedResponse<AuditEventResponse>(items, total, filter.Page, filter.PageSize);
+    }
+
+    /// <summary>The heatmap's four bands of the day, six hours each, in the order they are drawn.</summary>
+    private static readonly (string Label, string Range)[] HeatmapBands =
+    [
+        ("12 AM", "12 AM – 6 AM"),
+        ("6 AM", "6 AM – 12 PM"),
+        ("12 PM", "12 PM – 6 PM"),
+        ("6 PM", "6 PM – 12 AM")
+    ];
+
+    private static readonly string[] HeatmapDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    public async Task<AuditSummaryResponse> GetSummaryAsync(
+        AuditEventSearchFilter filter, bool canSeeSensitive, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        var query = Filtered(filter, canSeeSensitive);
+        var zone = ResolveTimeZone(filter.TimeZone);
+
+        // ---- Outcomes ------------------------------------------------------------------------
+        var byResult = await query
+            .GroupBy(item => item.Result)
+            .Select(group => new { Result = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.Result, item => item.Count, cancellationToken);
+
+        var total = byResult.Values.Sum();
+
+        static int Percent(int part, int whole) =>
+            whole == 0 ? 0 : (int)Math.Round(part * 100d / whole, MidpointRounding.AwayFromZero);
+
+        var outcomes = Enum.GetValues<AuditResult>()
+            .Select(result => new AuditOutcomeCount(
+                result,
+                GovernanceMappingConfig.DescribeAuditResult(result),
+                GovernanceMappingConfig.ExplainAuditResult(result),
+                byResult.GetValueOrDefault(result),
+                Percent(byResult.GetValueOrDefault(result), total)))
+            .ToList();
+
+        var succeeded = byResult.GetValueOrDefault(AuditResult.Succeeded);
+        var succeededPercent = Percent(succeeded, total);
+
+        // ---- Who acted ----------------------------------------------------------------------------
+        // Grouped in the database by id and recorded name, then joined here: an actor is their id
+        // when they have one, the recorded name when not, and "the system" when neither.
+        var actorGroups = await query
+            .GroupBy(item => new { item.ActorUserId, item.ActorDisplayName })
+            .Select(group => new { group.Key.ActorUserId, group.Key.ActorDisplayName, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+
+        var actors = actorGroups
+            .GroupBy(item => item.ActorUserId?.ToString() ?? item.ActorDisplayName ?? "system", StringComparer.Ordinal)
+            .Select(group => new
+            {
+                group.First().ActorUserId,
+                Name = group.Select(item => item.ActorDisplayName).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)),
+                Count = group.Sum(item => item.Count)
+            })
+            .OrderByDescending(item => item.Count)
+            .ThenBy(item => item.Name, StringComparer.Ordinal)
+            .ToList();
+
+        AuditActorActivity? mostActive = null;
+
+        if (actors.Count > 0)
+        {
+            var top = actors[0];
+            var name = top.Name;
+
+            // A row written before the actor's name was recorded carries the id alone; the same
+            // lookup the list uses puts the name back.
+            if (string.IsNullOrWhiteSpace(name) && top.ActorUserId is { } actorId)
+            {
+                var names = await AuditRecordNames.ResolveAsync(context, [actorId], cancellationToken);
+                name = names.GetValueOrDefault(actorId);
+            }
+            else if (!string.IsNullOrWhiteSpace(name))
+            {
+                var ids = AuditRecordNames.IdsIn([name]);
+                if (ids.Count > 0)
+                {
+                    name = AuditRecordNames.Rewrite(name, await AuditRecordNames.ResolveAsync(context, ids, cancellationToken));
+                }
+            }
+
+            mostActive = new AuditActorActivity(
+                top.ActorUserId,
+                string.IsNullOrWhiteSpace(name) ? "System" : name,
+                top.Count,
+                Percent(top.Count, total));
+        }
+
+        // ---- When: day of the week by band of the day, on the viewer's clock ---------------------
+        //
+        // COUNTED IN THE DATABASE, after converting each instant to the viewer's zone there, so
+        // the grid is right for an Organisation of any size and a 9 AM sign-in in Delhi lands in
+        // the morning band rather than the UTC one.
+        var cells = await query
+            .Select(item => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(item.OccurredAtUtc.UtcDateTime, zone))
+            .GroupBy(local => new { local.DayOfWeek, Band = local.Hour / 6 })
+            .Select(group => new { group.Key.DayOfWeek, group.Key.Band, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+
+        var grid = new int[HeatmapBands.Length, HeatmapDays.Length];
+
+        foreach (var cell in cells)
+        {
+            var mondayFirst = ((int)cell.DayOfWeek + 6) % 7;
+            var band = Math.Clamp(cell.Band, 0, HeatmapBands.Length - 1);
+            grid[band, mondayFirst] += cell.Count;
+        }
+
+        var bands = HeatmapBands
+            .Select((band, row) => new AuditHeatmapBand(
+                band.Label,
+                band.Range,
+                [.. Enumerable.Range(0, HeatmapDays.Length).Select(day => grid[row, day])]))
+            .ToList();
+
+        var bandTotals = bands.Select(band => band.Counts.Sum()).ToList();
+        var busiestBand = bandTotals.Count == 0 ? -1 : bandTotals.IndexOf(bandTotals.Max());
+
+        // ---- What it touched ------------------------------------------------------------------------
+        var targetTypes = await query
+            .Where(item => item.TargetType != null && item.TargetType != "")
+            .GroupBy(item => item.TargetType)
+            .Select(group => new AuditTargetTypeCount(group.Key, group.Count()))
+            .ToListAsync(cancellationToken);
+
+        return new AuditSummaryResponse(
+            total,
+            outcomes,
+            total - succeeded,
+            succeededPercent,
+            total == 0 ? 0 : 100 - succeededPercent,
+            actors.Count,
+            mostActive,
+            new AuditHeatmapResponse(
+                HeatmapDays,
+                bands,
+                bands.SelectMany(band => band.Counts).DefaultIfEmpty(0).Max()),
+            busiestBand >= 0 && bandTotals[busiestBand] > 0 ? HeatmapBands[busiestBand].Range : null,
+            [.. targetTypes.OrderBy(item => item.TargetType, StringComparer.Ordinal)],
+            zone);
+    }
+
+    /// <summary>
+    /// The zone to count the heatmap in: the viewer's, when it is a zone this server and the
+    /// database both know, and UTC otherwise. A name is checked against the server's zone list
+    /// before it goes anywhere near a query.
+    /// </summary>
+    private static string ResolveTimeZone(string? requested)
+    {
+        if (string.IsNullOrWhiteSpace(requested))
+        {
+            return "UTC";
+        }
+
+        var name = requested.Trim();
+
+        if (name.Length > 64 || !TimeZoneInfo.TryFindSystemTimeZoneById(name, out _))
+        {
+            return "UTC";
+        }
+
+        // A Windows zone name is not one the database knows; translate it to IANA.
+        if (!name.Contains('/', StringComparison.Ordinal) && !string.Equals(name, "UTC", StringComparison.Ordinal))
+        {
+            return TimeZoneInfo.TryConvertWindowsIdToIanaId(name, out var iana) ? iana : "UTC";
+        }
+
+        return name;
     }
 
     /// <summary>
@@ -256,8 +445,7 @@ public sealed class AuditReadService(IamDbContext context, ITenantContext tenant
             auditEvent.ActorDisplayName,
             auditEvent.ActorScope,
             auditEvent.ActionCode,
-            GovernanceMappingConfig.Humanise(
-                auditEvent.ActionCode.Split('.').LastOrDefault() ?? auditEvent.ActionCode),
+            GovernanceMappingConfig.DescribeAuditAction(auditEvent.ActionCode),
             auditEvent.TargetType,
             auditEvent.TargetId,
             auditEvent.TargetDisplayName,
@@ -274,7 +462,10 @@ public sealed class AuditReadService(IamDbContext context, ITenantContext tenant
             auditEvent.RequestPath,
             // The metadata is already redacted on the way in. Withholding it without the
             // permission is a second, coarser layer on top of that.
-            canSeeSensitive ? auditEvent.Metadata : null);
+            canSeeSensitive ? auditEvent.Metadata : null,
+            UserMappingConfig.DescribeClientType(auditEvent.ClientType),
+            auditEvent.ActorScope == AccessScopeType.Global ? "Platform administrator" : null,
+            GovernanceMappingConfig.ExplainAuditResult(auditEvent.Result));
 }
 
 /// <summary>Read side for bulk user administration jobs.</summary>

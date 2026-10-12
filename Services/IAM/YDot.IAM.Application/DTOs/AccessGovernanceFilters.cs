@@ -21,6 +21,9 @@ public sealed class AccessRequestSearchFilter : PaginationRequest
     /// <summary>Only those the current caller may decide, excluding their own requests.</summary>
     public bool? AwaitingMyDecision { get; set; }
 
+    /// <summary>Only the requests the current caller raised, whoever they are for.</summary>
+    public bool? RaisedByMe { get; set; }
+
     public DateTimeOffset? SubmittedFromUtc { get; set; }
 
     public DateTimeOffset? SubmittedToUtc { get; set; }

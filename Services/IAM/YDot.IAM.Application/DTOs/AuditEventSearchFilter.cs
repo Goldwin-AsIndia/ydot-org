@@ -24,4 +24,11 @@ public sealed class AuditEventSearchFilter : PaginationRequest
     public DateTimeOffset? FromUtc { get; set; }
 
     public DateTimeOffset? ToUtc { get; set; }
+
+    /// <summary>
+    /// The viewer's IANA time zone ("Asia/Kolkata"), used by the summary to place each event on
+    /// the heatmap by the viewer's own clock. The search and the export ignore it. An unknown
+    /// zone falls back to UTC.
+    /// </summary>
+    public string? TimeZone { get; set; }
 }

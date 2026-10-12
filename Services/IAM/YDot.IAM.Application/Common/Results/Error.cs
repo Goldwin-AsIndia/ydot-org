@@ -108,6 +108,14 @@ public sealed record Error(string Code, string Message, int StatusCode, IReadOnl
                 : "That code is not correct and no attempts remain. Request a new code.",
             401);
 
+    /// <summary>
+    /// A wrong code where no attempt ceiling applies: an authenticator code is checked against
+    /// the secret, not a challenge, so there is nothing to run out of. <see cref="MfaFailed"/>
+    /// with zero told people on the activation screen "no attempts remain" after one typo.
+    /// </summary>
+    public static Error MfaCodeIncorrect() =>
+        new(ErrorCodes.MfaFailed, "That code is not correct. Check it and try again.", 401);
+
     public static Error MfaNotEnrolled(string message = "No verification method is enrolled for this account.") =>
         new(ErrorCodes.MfaNotEnrolled, message, 400);
 

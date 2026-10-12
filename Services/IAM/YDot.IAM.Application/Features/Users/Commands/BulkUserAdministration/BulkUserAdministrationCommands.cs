@@ -40,6 +40,7 @@ public sealed class BulkUserAdministrationCommandHandler(
     IBulkOperationRepository operations,
     IUserRepository users,
     IRoleRepository roles,
+    IEffectiveAccessService effectiveAccess,
     ISessionTokenService sessions,
     IAuditService audit,
     ITenantContext tenantContext,
@@ -96,6 +97,16 @@ public sealed class BulkUserAdministrationCommandHandler(
                 logger.LogWarning("Bulk user operation creation failed because the requested role was not found. RoleId {RoleId}.", request.RoleId);
                 return Result.Failure<OutcomeResponse>(
                     Error.NotFound("That role was not found in this organisation."));
+            }
+
+            // A draft or deactivated role grants nothing - the effective-access resolver ignores
+            // it - so the job would report success and change nobody's access.
+            if (request.ActionType == BulkActionType.AssignRole && !role.IsAssignable)
+            {
+                logger.LogWarning("Bulk user operation creation failed because RoleId {RoleId} is not active.", request.RoleId);
+                return Result.Failure<OutcomeResponse>(
+                    Error.Validation("That role is not active, so it cannot be assigned.",
+                        [new ValidationError(nameof(request.RoleId), "Choose an active role.")]));
             }
         }
 
@@ -157,7 +168,8 @@ public sealed class BulkUserAdministrationCommandHandler(
             {
                 item.SourceIdentifier = subject.Email ?? subject.Code;
 
-                var failure = ValidateRow(subject, request.ActionType, now);
+                var failure = ValidateRow(subject, request.ActionType, now)
+                    ?? await CheckRoleConflictsAsync(subject, request.ActionType, request.RoleId, cancellationToken);
 
                 item.IsValid = failure is null;
                 item.ValidationMessage = failure;
@@ -328,7 +340,8 @@ public sealed class BulkUserAdministrationCommandHandler(
             // Re-checked at APPLY time, not only at validation time. The account may have
             // changed in between, and applying a stale decision is how a suspended user gets
             // quietly reactivated.
-            var failure = ValidateRow(subject, operation.ActionType, now);
+            var failure = ValidateRow(subject, operation.ActionType, now)
+                ?? await CheckRoleConflictsAsync(subject, operation.ActionType, parameters.RoleId, cancellationToken);
 
             if (failure is not null)
             {
@@ -443,6 +456,13 @@ public sealed class BulkUserAdministrationCommandHandler(
 
             case BulkActionType.AssignRole when parameters.RoleId.HasValue:
                 {
+                    // The role may have been deactivated since the job was validated.
+                    var role = await roles.GetByIdAsync(parameters.RoleId.Value, cancellationToken);
+                    if (role is not { IsAssignable: true })
+                    {
+                        throw new InvalidOperationException("That role is no longer active.");
+                    }
+
                     var existing = await roles.GetActiveAssignmentAsync(
                         subject.Id, parameters.RoleId.Value, cancellationToken);
 
@@ -540,6 +560,28 @@ public sealed class BulkUserAdministrationCommandHandler(
     /// Run at validation AND at apply time, so a change made in between is caught rather than
     /// applied blindly.
     /// </summary>
+    /// <summary>
+    /// For an Assign role row: null when the person may hold the role beside the ones they
+    /// already have, otherwise the segregation-of-duties rules that forbid it.
+    ///
+    /// THE SAME CHECK every other path that grants a role makes. Bulk assignment skipped it, so
+    /// a combination the role catalogue records as "Not allowed" could be handed to a whole
+    /// team in one job.
+    /// </summary>
+    private async Task<string?> CheckRoleConflictsAsync(
+        User subject, BulkActionType action, Guid? roleId, CancellationToken cancellationToken)
+    {
+        if (action != BulkActionType.AssignRole || !roleId.HasValue)
+        {
+            return null;
+        }
+
+        var conflicts = await effectiveAccess.CheckSegregationOfDutiesAsync(
+            subject.Id, [roleId.Value], cancellationToken);
+
+        return conflicts.Count == 0 ? null : string.Join("; ", conflicts);
+    }
+
     private string? ValidateRow(User subject, BulkActionType action, DateTimeOffset now)
     {
         if (subject.IsSystemAccount)

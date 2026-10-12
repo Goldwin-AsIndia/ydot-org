@@ -88,10 +88,7 @@ public sealed class RoleRepository(IamDbContext context) : IRoleRepository
 
     /// <summary>How many people currently hold this role. Only LIVE assignments count.</summary>
     public Task<int> CountAssignmentsAsync(Guid roleId, CancellationToken cancellationToken) =>
-        context.UserRoles.CountAsync(
-            assignment => assignment.RoleId == roleId
-                          && assignment.Status == UserRoleAssignmentStatus.Active,
-            cancellationToken);
+        context.UserRoles.CountAsync(assignment => assignment.RoleId == roleId, cancellationToken);
 
     public async Task<IReadOnlyList<RolePermission>> GetRolePermissionsAsync(
         Guid roleId, CancellationToken cancellationToken) =>
@@ -179,6 +176,12 @@ public sealed class RoleRepository(IamDbContext context) : IRoleRepository
             .Where(rule => roleIds.Contains(rule.RoleId) || roleIds.Contains(rule.ConflictingRoleId))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<RoleIncompatibility>> GetIncompatibilitiesNamingAsync(
+        Guid roleId, CancellationToken cancellationToken) =>
+        await context.RoleIncompatibilities
+            .Where(rule => rule.RoleId == roleId || rule.ConflictingRoleId == roleId)
+            .ToListAsync(cancellationToken);
 
     public async Task AddIncompatibilityAsync(
         RoleIncompatibility incompatibility, CancellationToken cancellationToken) =>

@@ -1,5 +1,7 @@
 ﻿using YDot.IAM.Application.Common.Abstractions.Persistence;
 using YDot.IAM.Application.Common.Abstractions.Security;
+using YDot.IAM.Application.Common.Abstractions.Services;
+using YDot.IAM.Application.Common.Constants;
 using YDot.IAM.Application.Common.Models;
 using Microsoft.Extensions.Logging;
 using YDot.IAM.Application.Common.Results;
@@ -45,6 +47,16 @@ public sealed record GetTenantMenuConfigurationQuery;
 public sealed record GetRoleMenuMappingQuery(Guid RoleId);
 
 /// <summary>
+/// Menu Configuration as a spreadsheet: the Organisation's menu, or - with a role - what that
+/// role is shown.
+///
+/// THE SAME SEARCH AS THE SCREEN. <c>Search</c> is the text in the screen's search box and
+/// matches the same five fields, keeping the headings above a match, so the file holds the rows
+/// that were on screen when Export was pressed.
+/// </summary>
+public sealed record ExportMenuConfigurationQuery(Guid? RoleId = null, string? Search = null);
+
+/// <summary>
 /// The read side of the navigation.
 ///
 /// <see cref="GetNavigationQuery"/> is called once by the client shell after sign-in and again
@@ -60,6 +72,10 @@ public sealed class NavigationQueryHandler(
     ITenantRepository tenants,
     ITenantContext tenantContext,
     ICurrentUser currentUser,
+    IExportService exports,
+    ITokenHasher tokenHasher,
+    IAuditService audit,
+    IUnitOfWork unitOfWork,
     ILogger<NavigationQueryHandler> logger)
 {
     public async Task<Result<NavigationResponse>> HandleAsync(
@@ -97,7 +113,15 @@ public sealed class NavigationQueryHandler(
 
         logger.LogInformation("Retrieving menu permission codes.");
 
-        var all = await permissions.GetAllAsync(cancellationToken);
+        // INSIDE AN ORGANISATION, ONLY WHAT SOMEBODY THERE CAN HOLD. The picker offered all
+        // twenty platform codes to an Organisation building its own menu, and choosing one saved
+        // an item that nobody in the Organisation - its administrator included - could ever be
+        // shown. Retired codes went the same way. The platform catalogue screen, which runs with
+        // no Organisation selected, still gets the full list: a platform node may be guarded by
+        // a platform permission.
+        var all = tenantContext.HasTenant
+            ? await permissions.GetTenantAssignableAsync(cancellationToken)
+            : await permissions.GetAllAsync(cancellationToken);
 
         logger.LogInformation("Menu permission codes retrieved. Count: {Count}.", all.Count);
 
@@ -302,6 +326,202 @@ public sealed class NavigationQueryHandler(
             BuildMappingTree(configurable, mappingsById, overridesById, held, parentId: null)));
     }
 
+    /// <summary>
+    /// Menu Configuration as a CSV file.
+    ///
+    /// BUILT FROM THE SCREEN'S OWN TWO READS, not from a third query of its own. The rows are the
+    /// configuration tree the "This organisation" view draws, and with a role, the mapping that
+    /// "Role visibility" draws for it - so the file and the screen cannot disagree about a name,
+    /// an order or a switch.
+    ///
+    /// "SHOWN TO ROLE" IS THE ANSWER THE SIDEBAR WILL GIVE, not the state of one switch. A node a
+    /// role is mapped to still stays out of its members' sidebar when the role lacks the
+    /// permission, when the Organisation has switched it off, when the heading above it is hidden,
+    /// or when it is a heading left with nothing under it. Those are the rules MenuBuilderService
+    /// applies, and the column applies them too.
+    ///
+    /// AUDITED, like every export: a file leaves the audit trail's sight the moment it is saved.
+    /// </summary>
+    public async Task<Result<ExportFile>> HandleAsync(
+        ExportMenuConfigurationQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        logger.LogInformation("Exporting menu configuration. RoleId: {RoleId}.", query.RoleId);
+
+        var configuration = await HandleAsync(new GetTenantMenuConfigurationQuery(), cancellationToken);
+        if (configuration.IsFailure)
+        {
+            return Result.Failure<ExportFile>(configuration.Error!);
+        }
+
+        var organisation = configuration.Value!;
+        var term = query.Search?.Trim() ?? string.Empty;
+        var reference = tokenHasher.GenerateReference("EXP");
+
+        // Depth-first, in the order the screen and the sidebar list them, each node with the
+        // names of the headings above it.
+        var walk = new List<(TenantMenuNodeResponse Node, string Path)>();
+
+        void Walk(IReadOnlyList<TenantMenuNodeResponse> nodes, string? parentPath)
+        {
+            foreach (var node in nodes)
+            {
+                if (!MatchesSearch(node, term))
+                {
+                    continue;
+                }
+
+                var path = parentPath is null ? node.ResolvedName : $"{parentPath} > {node.ResolvedName}";
+                walk.Add((node, path));
+                Walk(node.Children, path);
+            }
+        }
+
+        Walk(organisation.Nodes, null);
+
+        ExportFile file;
+        int rowCount;
+        string? roleName = null;
+
+        if (query.RoleId is { } roleId)
+        {
+            var mapping = await HandleAsync(new GetRoleMenuMappingQuery(roleId), cancellationToken);
+            if (mapping.IsFailure)
+            {
+                return Result.Failure<ExportFile>(mapping.Error!);
+            }
+
+            var roleMapping = mapping.Value!;
+            roleName = roleMapping.RoleName;
+
+            var byId = new Dictionary<Guid, RoleMenuNodeResponse>();
+            var shown = new HashSet<Guid>();
+
+            void Index(IReadOnlyList<RoleMenuNodeResponse> nodes)
+            {
+                foreach (var node in nodes)
+                {
+                    byId[node.MenuDefinitionId] = node;
+                    Index(node.Children);
+                }
+            }
+
+            // A node is shown when its own three conditions hold and its parent is shown; a
+            // heading also needs something under it shown. Children are decided first so the
+            // heading can ask.
+            bool Decide(RoleMenuNodeResponse node, bool parentShown)
+            {
+                var own = parentShown && node.IsVisible && node.IsPermitted && node.IsEnabledForOrganisation;
+                var anyChild = false;
+
+                foreach (var child in node.Children)
+                {
+                    anyChild |= Decide(child, own);
+                }
+
+                var result = own && (!string.IsNullOrWhiteSpace(node.Route) || anyChild);
+                if (result)
+                {
+                    shown.Add(node.MenuDefinitionId);
+                }
+
+                return result;
+            }
+
+            Index(roleMapping.Nodes);
+            foreach (var root in roleMapping.Nodes)
+            {
+                Decide(root, parentShown: true);
+            }
+
+            var rows = walk
+                .Where(entry => byId.ContainsKey(entry.Node.MenuDefinitionId))
+                .Select(entry =>
+                {
+                    var node = byId[entry.Node.MenuDefinitionId];
+                    return new RoleMenuExportRow(
+                        roleMapping.RoleName,
+                        LevelLabel(entry.Node.Level),
+                        entry.Path,
+                        entry.Node.Code,
+                        entry.Node.ResolvedName,
+                        entry.Node.Route,
+                        entry.Node.RequiredPermissionCode,
+                        node.IsVisible,
+                        node.IsPermitted,
+                        node.IsEnabledForOrganisation,
+                        shown.Contains(node.MenuDefinitionId),
+                        roleMapping.LandingMenuId == node.MenuDefinitionId);
+                })
+                .ToList();
+
+            file = exports.ToCsv(rows, "menu-visibility", reference);
+            rowCount = rows.Count;
+        }
+        else
+        {
+            var rows = walk
+                .Select(entry => new MenuConfigurationExportRow(
+                    LevelLabel(entry.Node.Level),
+                    entry.Path,
+                    entry.Node.Code,
+                    entry.Node.ResolvedName,
+                    entry.Node.CatalogueName,
+                    entry.Node.ModuleCode,
+                    entry.Node.Route,
+                    entry.Node.RequiredPermissionCode,
+                    entry.Node.IsEnabled || entry.Node.IsMandatory,
+                    entry.Node.IsMandatory,
+                    entry.Node.IsOrganisationOwned,
+                    !string.IsNullOrWhiteSpace(entry.Node.DisplayNameOverride),
+                    !string.IsNullOrWhiteSpace(entry.Node.IconOverride),
+                    entry.Node.ResolvedIcon,
+                    entry.Node.ResolvedOrder))
+                .ToList();
+
+            file = exports.ToCsv(rows, "menu-configuration", reference);
+            rowCount = rows.Count;
+        }
+
+        await audit.WriteAsync(
+            AuditActionCodes.MenuExported, "Tenant", organisation.TenantId, organisation.TenantName,
+            new { RowCount = rowCount, Reference = reference, query.RoleId, Role = roleName, query.Search },
+            cancellationToken: cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Menu configuration export completed. RowCount: {RowCount}, Reference: {Reference}.", rowCount, reference);
+
+        return Result.Success(file);
+    }
+
+    /// <summary>
+    /// The screen's search: name, product name, code, route or permission, keeping a heading when
+    /// anything under it matches.
+    /// </summary>
+    private static bool MatchesSearch(TenantMenuNodeResponse node, string term)
+    {
+        if (term.Length == 0)
+        {
+            return true;
+        }
+
+        string?[] fields = [node.ResolvedName, node.CatalogueName, node.Code, node.Route, node.RequiredPermissionCode];
+
+        return fields.Any(field => field?.Contains(term, StringComparison.OrdinalIgnoreCase) == true)
+               || node.Children.Any(child => MatchesSearch(child, term));
+    }
+
+    /// <summary>The level in the words <c>/reference-data/enums</c> serves for it.</summary>
+    private static string LevelLabel(MenuLevel level) => level switch
+    {
+        MenuLevel.Menu => "Menu",
+        MenuLevel.SubMenu => "Sub menu",
+        MenuLevel.ChildSubMenu => "Child sub menu",
+        _ => level.ToString()
+    };
+
     private static List<MenuDefinitionResponse> BuildDefinitionTree(
         IReadOnlyList<Domain.Entities.MenuDefinition> nodes,
         IReadOnlyDictionary<Guid, string> namesById,
@@ -437,3 +657,39 @@ public sealed class NavigationQueryHandler(
         ];
     }
 }
+
+/// <summary>
+/// One row of the "This organisation" export. The property names are the column headings
+/// (humanised), so they read as the screen labels them.
+/// </summary>
+public sealed record MenuConfigurationExportRow(
+    string Level,
+    string Path,
+    string Code,
+    string Name,
+    string ProductName,
+    string Module,
+    string? Route,
+    string? RequiredPermission,
+    bool InUse,
+    bool AlwaysOn,
+    bool AddedByOrganisation,
+    bool Renamed,
+    bool IconChanged,
+    string? Icon,
+    int Position);
+
+/// <summary>One row of the "Role visibility" export, for one role.</summary>
+public sealed record RoleMenuExportRow(
+    string Role,
+    string Level,
+    string Path,
+    string Code,
+    string Name,
+    string? Route,
+    string? RequiredPermission,
+    bool MappedToRole,
+    bool RoleHoldsPermission,
+    bool OnForOrganisation,
+    bool ShownToRole,
+    bool LandingPage);

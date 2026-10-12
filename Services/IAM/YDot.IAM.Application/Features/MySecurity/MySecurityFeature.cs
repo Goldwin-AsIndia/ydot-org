@@ -156,27 +156,11 @@ public sealed class MySecurityFeatureHandler(
                     break;
                 }
 
-            case MfaMethodType.Sms:
-                {
-                    var mobile = MobileNumberValue.TryParse(user.MobileCountryCode, user.MobileNumber);
-
-                    if (mobile is null)
-                    {
-                        logger.LogWarning("MFA SMS enrolment failed because the current user has no valid mobile number. UserId: {UserId}.", user.Id);
-                        return Result.Failure<MfaEnrolmentResponse>(
-                            Error.Validation("This account has no mobile number to send codes to.",
-                                [new ValidationError("MobileNumber", "Add a mobile number first.")]));
-                    }
-
-                    maskedDestination = mobile.Masked();
-                    break;
-                }
-
             case MfaMethodType.SecurityKey:
                 logger.LogWarning("MFA enrolment rejected because security keys are not available. UserId: {UserId}.", user.Id);
                 return Result.Failure<MfaEnrolmentResponse>(
                     Error.Validation("Security keys are not available yet.",
-                        [new ValidationError("MethodType", "Choose an authenticator app, e-mail or SMS.")]));
+                        [new ValidationError("MethodType", "Choose an authenticator app or e-mail.")]));
         }
 
         var method = new MfaMethod
@@ -207,14 +191,27 @@ public sealed class MySecurityFeatureHandler(
             AuditActionCodes.MfaEnrolled, nameof(MfaMethod), method.Id, user.DisplayName,
             new { command.MethodType, Status = "Pending" }, cancellationToken: cancellationToken);
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
         // A delivered factor gets a code straight away, so the person can confirm immediately.
-        if (command.MethodType is MfaMethodType.Email or MfaMethodType.Sms)
+        //
+        // ISSUED BEFORE SAVING, AND ITS OUTCOME READ. A code the relay never took used to answer
+        // "We have sent a code" over a Pending method nobody could confirm. Now nothing is saved
+        // unless the code is on its way.
+        if (command.MethodType == MfaMethodType.Email)
         {
-            await mfa.IssueAsync(
+            var issued = await mfa.IssueAsync(
                 user, tenant, businessUnit, MfaChallengePurpose.Enrolment, method.Id, cancellationToken);
+
+            if (issued.IsFailure || !issued.Value!.CodeWasSent)
+            {
+                logger.LogWarning("MFA e-mail enrolment stopped because the code could not be sent. UserId: {UserId}.", user.Id);
+
+                return Result.Failure<MfaEnrolmentResponse>(issued.Error ?? Error.Dependency(
+                    $"We could not e-mail a code to {maskedDestination ?? "your address"} just now. "
+                    + "Wait a minute and try again, or choose the authenticator app."));
+            }
         }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("MFA enrolment initialized successfully. UserId: {UserId}, MethodId: {MethodId}, MethodType: {MethodType}.", user.Id, method.Id, method.MethodType);
 
@@ -269,25 +266,17 @@ public sealed class MySecurityFeatureHandler(
                 "That verification method has been removed."));
         }
 
-        var verified = method.MethodType == MfaMethodType.AuthenticatorApp
-            ? !string.IsNullOrWhiteSpace(method.SecretHash)
-              && totp.VerifyCode(method.SecretHash, command.Code)
-            : false;
+        // A delivered factor is proved through its enrolment challenge - the code that was
+        // e-mailed - not the authenticator secret, which is what this checked before and why an
+        // e-mailed code could never confirm here. Null when the code is right.
+        var failure = method.MethodType == MfaMethodType.AuthenticatorApp
+            ? !string.IsNullOrWhiteSpace(method.SecretHash) && totp.VerifyCode(method.SecretHash, command.Code)
+                ? null
+                : Error.MfaCodeIncorrect()
+            : (await mfa.VerifyOutstandingCodeAsync(
+                user.Id, MfaChallengePurpose.Enrolment, method.Id, command.Code, cancellationToken)).Error;
 
-        // A delivered factor is proved through the challenge row rather than the secret.
-        if (!verified && method.MethodType != MfaMethodType.AuthenticatorApp)
-        {
-            var challenges = await security.GetMfaMethodsAsync(user.Id, cancellationToken);
-            verified = challenges.Any(item => item.Id == method.Id);
-
-            // Fall through to the challenge service, which enforces the attempt ceiling.
-            if (verified)
-            {
-                verified = mfa.VerifyAuthenticatorCode(user, command.Code);
-            }
-        }
-
-        if (!verified)
+        if (failure is not null)
         {
             logger.LogWarning("MFA enrolment confirmation failed verification. UserId: {UserId}, MethodId: {MethodId}.", user.Id, method.Id);
 
@@ -297,8 +286,7 @@ public sealed class MySecurityFeatureHandler(
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            return Result.Failure<OutcomeResponse>(
-                Error.MfaFailed(0));
+            return Result.Failure<OutcomeResponse>(failure);
         }
 
         method.Status = MfaMethodStatus.Active;

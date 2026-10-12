@@ -156,8 +156,6 @@ public class User : IdentityUser<Guid>, IAuditable, ITenantScoped
         set => PhoneNumberConfirmed = value;
     }
 
-    public UserAccountCategory AccountCategory { get; set; } = UserAccountCategory.Employee;
-
     public Guid? DepartmentId { get; set; }
 
     public Department? Department { get; set; }

@@ -1,11 +1,26 @@
-import { Injectable, computed, signal } from '@angular/core';
-import { checkFile, readFile } from './file-extract';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+import {
+  CheckJobDetailDto,
+  CheckJobDto,
+  CheckJobResultDto,
+  JobFileKind,
+  JobTimelineDto,
+  WatiMessageDto,
+  WatiTemplateDto,
+  WhatsAppApiService,
+  WhatsAppOverviewDto,
+} from '../../../Service/whatsapp-api.service';
+import { apiErrorMessage } from '../../../Shared/models/api-response.model';
+import { AuthTokenService } from '../../../Shared/services/auth-token.service';
+import { FileProblem, checkFile, readFile } from './file-extract';
 import { countryOf, scanRow } from './number-tools';
 import {
   AlreadyChecked,
   CheckJob,
-  DeliveryStatus,
+  FileKind,
   InvalidLine,
+  JobTimelineStep,
   RegistryEntry,
   ResultRow,
   SheetSummary,
@@ -15,128 +30,285 @@ import {
   WatiBroadcast,
   WatiMessage,
   WatiTemplate,
+  WhatsAppOverview,
 } from './whatsapp.models';
-import { fnv } from './wa-format';
+import { saveFile } from './wa-format';
 
 /**
- * CheckNumber -> Wati, held in the browser.
+ * CheckNumber -> Wati, read from the Campaign service.
  *
- * NO BACKEND YET. Checking a number and sending a message are simulated here with the same shapes the real
- * services will return (task ids, per-number result and note, delivery statuses with failure codes), so the
- * screens can be built and exercised end to end. Swapping in the API later means replacing `tick()` and
- * `advanceMessages()`; the screens read only the signals below.
+ * NOTHING IS SIMULATED HERE ANY MORE. A check is carried out by the YDot.Integration worker: this
+ * store uploads the file, then follows the job the worker creates for it; a broadcast is a request
+ * left for the worker, followed the same way. The screens still read only the signals below, which
+ * is why they barely changed when the simulation was replaced.
  *
- * THE REGISTRY IS THE DUPLICATE CHECK. Every number that has been answered Yes or No is remembered with its
- * result; the upload review looks numbers up there before anything is submitted, so a number is never paid
- * for twice. Every Yes is handed to Wati ("shared"), and that pool is what the Wati screen sends to.
+ * THE SERVER IS THE DUPLICATE CHECK. Before a file is submitted, `analyse` asks which of its numbers
+ * already have a saved answer, so the review shows what will - and will not - be paid for. The
+ * worker applies the same rule again when it reads the file, so the two always agree.
+ *
+ * NO RESULT IS INVENTED WHILE A CHECK RUNS. CheckNumber.ai answers a whole file at once, not number
+ * by number, so the live view shows the provider's own progress counter and the "latest answers"
+ * list fills when the result file has been read - never with made-up verdicts.
  */
 
-/** Placeholder price per number checked; unverified numbers are not charged. */
-export const COST_PER_CHECK = 0.12;
+/** How often a running job is read again. CheckNumber.ai itself is polled by the worker, not from here. */
+const JOB_POLL_MS = 2500;
+/** How often an upload is checked for the job the worker creates from it. */
+const UPLOAD_POLL_MS = 1500;
+/** How long an upload is followed before the page stops asking (the job still appears in Jobs later). */
+const UPLOAD_FOLLOW_MS = 30 * 60 * 1000;
+/** How often a request left for the worker (retry, stop, broadcast) is checked. */
+const COMMAND_POLL_MS = 1000;
+/** How long a request is followed before the page stops waiting for it. */
+const COMMAND_FOLLOW_MS = 45 * 1000;
+/** How often the delivery report is read again while it is on screen. */
+const REPORT_POLL_MS = 10000;
 
-export const WATI_TEMPLATES: readonly WatiTemplate[] = [
-  {
-    name: 'donation_thank_you_v2',
-    label: 'Donation thank-you',
-    category: 'Utility',
-    body: 'Thank you, {{name}}! Your gift of ₹{{amount}} to {{campaign}} is already at work. We are grateful to have you with us.',
-    variables: ['name', 'amount', 'campaign'],
-    defaults: { name: 'Friend', amount: '1,000', campaign: 'Winter Relief' },
-  },
-  {
-    name: 'receipt_ready_80g',
-    label: '80G receipt ready',
-    category: 'Utility',
-    body: 'Hello {{name}}, your 80G receipt for ₹{{amount}} is ready. Download it here: {{link}}',
-    variables: ['name', 'amount', 'link'],
-    defaults: { name: 'Friend', amount: '1,000', link: 'https://ydot.org/r/receipt' },
-  },
-  {
-    name: 'event_invite_2026',
-    label: 'Event invitation',
-    category: 'Marketing',
-    body: 'Hi {{name}}, you are invited to {{event}} on {{date}} at {{venue}}. Reply YES to save your seat.',
-    variables: ['name', 'event', 'date', 'venue'],
-    defaults: { name: 'Friend', event: 'Annual Gratitude Evening', date: '14 Nov', venue: 'Hyderabad' },
-  },
-  {
-    name: 'follow_up_checkin',
-    label: 'Follow-up check-in',
-    category: 'Marketing',
-    body: 'Hi {{name}}, a quick check-in about {{campaign}}. Would you like to hear how your support is helping? Reply YES.',
-    variables: ['name', 'campaign'],
-    defaults: { name: 'Friend', campaign: 'Winter Relief' },
-  },
-];
+const NO_DOWNLOADS = { original: false, submitted: false, results: false, raw: false, invalid: false };
 
-const STORAGE_KEY = 'ydot.whatsapp.v1';
-
-/** Failure codes the simulated Wati returns, in the shape of Meta's cloud API errors. */
-const FAILURES: readonly { code: string; reason: string }[] = [
-  { code: '131026', reason: 'Message undeliverable — the recipient cannot receive this message right now.' },
-  { code: '131049', reason: 'Meta chose not to deliver this marketing message, to keep a healthy experience for the recipient.' },
-  { code: '131048', reason: 'Spam rate limit hit — too many recent messages were reported or blocked.' },
-];
-
-const REPLIES = ['Thank you!', 'Yes, please', 'Received, thanks', 'Please call me', 'Sure 👍'];
-
-interface Persisted {
-  registry: Record<string, RegistryEntry>;
-  jobs: CheckJob[];
-  messages: WatiMessage[];
-  broadcasts: WatiBroadcast[];
+/** What starting a check led to. */
+export interface StartOutcome {
+  /** The job to show: the new one, or the earlier job that already holds this file's results. */
+  readonly jobId: string | null;
+  /** True when the file had been processed before and no new check was started. */
+  readonly duplicate: boolean;
+  /** What to tell the person, when there is something to tell. */
+  readonly notice: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
 export class WhatsAppStore {
-  readonly templates = WATI_TEMPLATES;
+  private readonly api = inject(WhatsAppApiService);
+  private readonly tokens = inject(AuthTokenService);
 
-  readonly registry = signal<Record<string, RegistryEntry>>({});
+  readonly overview = signal<WhatsAppOverview | null>(null);
+  readonly templates = signal<WatiTemplate[]>([]);
   readonly jobs = signal<CheckJob[]>([]);
   readonly messages = signal<WatiMessage[]>([]);
   readonly broadcasts = signal<WatiBroadcast[]>([]);
 
+  /** Numbers on WhatsApp that this organisation can message, newest check first. */
+  readonly pool = signal<RegistryEntry[]>([]);
+
+  /** True until the first answer from the server has arrived. */
+  readonly loading = signal(true);
+  /** Why the last read failed, in words for the person; null when it worked. */
+  readonly problem = signal<string | null>(null);
+
   /** The upload being reviewed. Kept here so leaving the screen and coming back does not lose it. */
   readonly draft = signal<UploadAnalysis | null>(null);
 
-  /** The job being checked right now, and the last few answers for the live ticker. */
+  /** The job being followed right now, and its last few answers once they are in. */
   readonly activeJobId = signal<string | null>(null);
   readonly feed = signal<{ number: string; whatsapp: WaResult }[]>([]);
   readonly runStartedAt = signal<number>(0);
   readonly now = signal<number>(Date.now());
+  /** What the worker said about the broadcast just sent; shown once on the report it opens. */
+  readonly broadcastNotice = signal<string | null>(null);
+  /** Saved answers that were in the running job from the start, so the live tally counts only new ones. */
+  readonly runSaved = signal<{ yes: number; no: number }>({ yes: 0, no: 0 });
 
   readonly activeJob = computed(() => this.jobs().find((j) => j.id === this.activeJobId()) ?? null);
 
-  /** Yes numbers that have been handed to Wati, newest check first. */
-  readonly pool = computed(() =>
-    Object.values(this.registry())
-      .filter((e) => e.whatsapp === 'yes' && e.sharedToWati)
-      .sort((a, b) => b.checkedAt.localeCompare(a.checkedAt)),
-  );
-
-  private checkTimer: ReturnType<typeof setInterval> | null = null;
-  private messageTimer: ReturnType<typeof setInterval> | null = null;
-  private saveTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Numbers still to be sent to the provider, per running job. */
-  private readonly pending = new Map<string, string[]>();
+  /** Bumped whenever the signed-in session changes, so a slow answer for the previous one is dropped. */
+  private generation = 0;
+  private sessionKey: string | null = null;
+  private clockTimer: ReturnType<typeof setInterval> | null = null;
+  private reportTimer: ReturnType<typeof setInterval> | null = null;
+  private watiLoaded = false;
 
   constructor() {
-    this.load();
-    // A reload mid-run leaves the job "running" with nobody driving it; it resumes where it stopped.
-    const stuck = this.jobs().find((j) => j.status === 'running' || j.status === 'queued');
-    if (stuck) {
-      this.resume(stuck.id);
+    // ONE BROWSER TAB CAN SERVE TWO PEOPLE IN A ROW. This store lives as long as the page does, so
+    // without this a second person signing in would briefly see the first one's jobs. Everything
+    // is dropped when the session changes, and read again for whoever is signed in now.
+    //
+    // THE FIRST SESSION IS TAKEN HERE, NOT IN THE EFFECT. An effect runs after construction, and by
+    // then the page that created this store has usually asked for something - a job's detail, say.
+    // Resetting at that point would throw that answer away as "belongs to the previous session".
+    this.sessionKey = this.currentSessionKey();
+    if (this.sessionKey) {
+      void this.refresh();
+    } else {
+      this.loading.set(false);
     }
-    this.ensureMessageClock();
+
+    effect(() => {
+      this.tokens.user();
+      this.tokens.organisationCode();
+      untracked(() => {
+        const key = this.currentSessionKey();
+        if (key === this.sessionKey) {
+          return;
+        }
+        this.sessionKey = key;
+        this.reset();
+        if (key) {
+          void this.refresh();
+        }
+      });
+    });
+  }
+
+  /** Who is signed in, and in which organisation; null when nobody is. */
+  private currentSessionKey(): string | null {
+    return this.tokens.user() ? `${this.tokens.getSessionId() ?? ''}|${this.tokens.organisationCode()}` : null;
+  }
+
+  // =========================================================================================== loading
+
+  /** Reads the overview and the jobs again, and picks up a job that is still running. */
+  async refresh(): Promise<void> {
+    const generation = this.generation;
+    try {
+      const [overview, page] = await Promise.all([
+        firstValueFrom(this.api.overview()),
+        firstValueFrom(this.api.jobs()),
+      ]);
+      if (generation !== this.generation) {
+        return;
+      }
+      this.overview.set(toOverview(overview));
+      this.mergeJobs(page.items);
+      this.problem.set(null);
+
+      // A check started earlier - on this device or another - is followed again from here.
+      if (!this.activeJobId()) {
+        const running = this.jobs().find((j) => j.key && (j.status === 'running' || j.status === 'queued'));
+        if (running) {
+          this.follow(running.id, Date.parse(running.createdAt) || Date.now());
+        }
+      }
+    } catch (error) {
+      if (generation === this.generation) {
+        this.problem.set(apiErrorMessage(error, 'The WhatsApp checks could not be loaded. Please try again.'));
+      }
+    } finally {
+      if (generation === this.generation) {
+        this.loading.set(false);
+      }
+    }
+  }
+
+  /** Reads what the Wati screen needs: templates, recipients, broadcasts and messages. */
+  async loadWati(force = false): Promise<void> {
+    if (this.watiLoaded && !force) {
+      return;
+    }
+    const generation = this.generation;
+    try {
+      const [templates, recipients, broadcasts, messages] = await Promise.all([
+        firstValueFrom(this.api.templates()),
+        firstValueFrom(this.api.recipients()),
+        firstValueFrom(this.api.broadcasts()),
+        firstValueFrom(this.api.messages()),
+      ]);
+      if (generation !== this.generation) {
+        return;
+      }
+      this.templates.set(templates.map(toTemplate));
+      this.pool.set(recipients.map((r) => ({
+        number: r.number, iso: r.iso, country: r.country, whatsapp: 'yes' as WaResult, note: '',
+        checkedAt: r.checkedAtUtc, jobId: r.jobNumber, fileName: r.fileName, sharedToWati: true,
+      })));
+      this.broadcasts.set(broadcasts.map((b) => ({
+        id: b.id, name: b.name, templateName: b.templateName, templateLabel: b.templateLabel,
+        createdAt: b.createdAtUtc, recipients: b.recipients,
+      })));
+      this.messages.set(messages.filter((m) => m.status !== 'SKIPPED').map(toMessage));
+      this.watiLoaded = true;
+      this.problem.set(null);
+    } catch (error) {
+      if (generation === this.generation) {
+        this.problem.set(apiErrorMessage(error, 'The Wati data could not be loaded. Please try again.'));
+      }
+    }
+  }
+
+  /** Keeps the delivery report current while it is on screen; call with false when it closes. */
+  watchReport(on: boolean): void {
+    if (this.reportTimer) {
+      clearInterval(this.reportTimer);
+      this.reportTimer = null;
+    }
+    if (on) {
+      this.reportTimer = setInterval(() => {
+        void this.loadWati(true);
+        void this.loadOverview();
+      }, REPORT_POLL_MS);
+    }
+  }
+
+  private async loadOverview(): Promise<void> {
+    const generation = this.generation;
+    try {
+      const overview = await firstValueFrom(this.api.overview());
+      if (generation === this.generation) {
+        this.overview.set(toOverview(overview));
+      }
+    } catch {
+      // The figures simply stay as they were; the next read corrects them.
+    }
+  }
+
+  private reset(): void {
+    this.generation++;
+    this.stopClock();
+    this.watchReport(false);
+    this.watiLoaded = false;
+    this.overview.set(null);
+    this.templates.set([]);
+    this.jobs.set([]);
+    this.messages.set([]);
+    this.broadcasts.set([]);
+    this.pool.set([]);
+    this.draft.set(null);
+    this.activeJobId.set(null);
+    this.feed.set([]);
+    this.broadcastNotice.set(null);
+    this.problem.set(null);
+    this.loading.set(true);
   }
 
   // =========================================================================================== upload
+
+  /** What checking `count` numbers is expected to cost, by the worker's own price settings. */
+  estimate(count: number): number {
+    const settings = this.overview();
+    if (!settings || count <= 0) {
+      return 0;
+    }
+    // CheckNumber.ai charges per number, with a floor per task: two numbers cost the same as 500.
+    return Math.max(settings.minimumCharge, count * settings.pricePerNumber);
+  }
 
   /** Reads a file and works out what it holds: numbers, duplicates, answers already known, bad lines. */
   async analyse(file: File): Promise<UploadAnalysis> {
     const kind = checkFile(file);
     const contents = await readFile(file, kind);
-    const registry = this.registry();
+
+    // First pass: every valid number in the file, so the saved answers can be asked for in one call.
+    const distinct = new Set<string>();
+    for (const sheet of contents.sheets) {
+      for (const cells of sheet.rows) {
+        for (const hit of scanRow(cells).numbers) {
+          distinct.add(hit.e164);
+        }
+      }
+    }
+
+    const known = new Map<string, { result: WaResult; checkedAt: string; sharedToWati: boolean }>();
+    if (distinct.size > 0) {
+      try {
+        const answers = await firstValueFrom(this.api.lookupNumbers([...distinct]));
+        for (const answer of answers) {
+          known.set(answer.number, { result: answer.whatsApp, checkedAt: answer.checkedAtUtc, sharedToWati: answer.sharedToWati });
+        }
+      } catch (error) {
+        throw new FileProblem(
+          `The file was read, but the saved results could not be checked: ${apiErrorMessage(error, 'the server did not answer')}`,
+        );
+      }
+    }
 
     const seen = new Set<string>();
     const fresh: UploadNumber[] = [];
@@ -174,13 +346,11 @@ export class WhatsAppStore {
             continue;
           }
           seen.add(hit.e164);
-          const known = registry[hit.e164];
-          // A Yes or No is an answer worth reusing; Unknown means the provider could not tell, so it is checked again.
-          if (known && known.whatsapp !== 'unknown') {
+          // Only a Yes or a No is an answer worth reusing; the server never returns anything else here.
+          const saved = known.get(hit.e164);
+          if (saved) {
             sheetKnown++;
-            alreadyChecked.push({
-              ...base, result: known.whatsapp, checkedAt: known.checkedAt, sharedToWati: known.sharedToWati,
-            });
+            alreadyChecked.push({ ...base, result: saved.result, checkedAt: saved.checkedAt, sharedToWati: saved.sharedToWati });
           } else {
             sheetFresh++;
             fresh.push(base);
@@ -210,374 +380,387 @@ export class WhatsAppStore {
 
   // =========================================================================================== jobs
 
-  /** Creates the job for the reviewed upload and starts it. Returns the job id. */
-  startJob(analysis: UploadAnalysis, recheck: boolean): string {
-    const submit = [...analysis.fresh, ...(recheck ? analysis.alreadyChecked : [])];
-    const saved: ResultRow[] = recheck
-      ? []
-      : analysis.alreadyChecked.map((k) => ({
-          number: k.number, iso: k.iso, country: k.country, whatsapp: k.result,
-          note: k.result === 'yes' ? 'Answered from an earlier check — not charged' : 'Answered from an earlier check — not registered on WhatsApp',
-          status: 'saved' as const,
-        }));
+  /**
+   * Uploads the reviewed file and follows the check.
+   *
+   * RESOLVES AS SOON AS THE SERVER HAS THE FILE. The worker creates the job a few seconds later; until
+   * then a stand-in is shown so the live view has something to draw, and it is swapped for the real
+   * job the moment that exists. Rejects with a sentence for the person when the upload is refused.
+   */
+  async startJob(analysis: UploadAnalysis, recheck: boolean, campaignId: string | null): Promise<StartOutcome> {
+    const generation = this.generation;
+    const toCheck = analysis.fresh.length + (recheck ? analysis.alreadyChecked.length : 0);
+    const saved = recheck ? [] : analysis.alreadyChecked;
+    const savedYes = saved.filter((k) => k.result === 'yes').length;
+    const startedAt = Date.now();
 
-    const id = this.nextJobId();
-    const estimated = round2(submit.length * COST_PER_CHECK);
-    const job: CheckJob = {
-      id,
+    const standIn: CheckJob = {
+      id: `Starting-${startedAt}`,
+      key: '',
       fileName: analysis.fileName,
       fileSize: analysis.fileSize,
       kind: analysis.kind,
       sheetCount: analysis.sheets.length,
-      status: submit.length > 0 ? 'running' : 'completed',
-      taskId: 'cn_' + randomHex(12),
-      createdAt: new Date().toISOString(),
+      status: 'queued',
+      taskId: '',
+      createdAt: new Date(startedAt).toISOString(),
       finishedAt: null,
-      submitted: submit.length,
-      total: submit.length + saved.length,
+      submitted: toCheck,
+      total: toCheck + saved.length,
       processed: 0,
-      yes: saved.filter((r) => r.whatsapp === 'yes').length,
-      no: saved.filter((r) => r.whatsapp === 'no').length,
+      yes: savedYes,
+      no: saved.length - savedYes,
       unknown: 0,
       saved: saved.length,
       duplicates: analysis.duplicates.length,
       invalid: analysis.invalid.length,
-      estimatedCost: estimated,
+      estimatedCost: this.estimate(toCheck),
       actualCost: 0,
+      currency: this.overview()?.currency ?? 'USD',
       outcome: 'Pending',
-      reason: submit.length > 0 ? 'Waiting for CheckNumber.ai to return results' : '',
+      reason: 'Uploading the file',
       errorCode: null,
       sharedToWati: 0,
-      results: [...saved],
+      hasErrors: false,
+      canRetry: false,
+      canCancel: false,
+      watiSent: 0,
+      watiFailed: 0,
+      watiSkipped: 0,
+      campaignName: null,
+      uploadedBy: null,
+      results: [],
       invalidLines: analysis.invalid,
-      submittedNumbers: submit.map((s) => s.number),
-      original: analysis.file,
+      detailLoaded: false,
+      timeline: [],
+      downloads: NO_DOWNLOADS,
     };
 
-    this.jobs.update((list) => [job, ...list]);
+    this.jobs.update((list) => [standIn, ...list]);
+    this.runSaved.set({ yes: savedYes, no: saved.length - savedYes });
+    this.feed.set([]);
+    this.runStartedAt.set(startedAt);
+    this.activeJobId.set(standIn.id);
+    this.startClock();
+
+    let upload;
+    try {
+      upload = await firstValueFrom(this.api.uploadList(analysis.file, { campaignId, forceRecheck: recheck }));
+    } catch (error) {
+      this.dropStandIn(standIn.id);
+      throw new Error(apiErrorMessage(error, 'The file could not be uploaded. Please try again.'));
+    }
+    if (generation !== this.generation) {
+      return { jobId: null, duplicate: false, notice: null };
+    }
+
+    // The same file was processed before: its job already holds the answers, so that job is shown
+    // instead of paying for the same check again.
+    if (upload.status === 'Duplicate' && upload.duplicateOfJobNumber) {
+      this.dropStandIn(standIn.id);
+      this.draft.set(null);
+      await this.openJob(upload.duplicateOfJobNumber);
+      return { jobId: upload.duplicateOfJobNumber, duplicate: true, notice: upload.message };
+    }
+
     this.draft.set(null);
-
-    if (submit.length === 0) {
-      this.finish(id);
-    } else {
-      this.pending.set(id, [...job.submittedNumbers]);
-      this.beginRun(id);
+    this.patch(standIn.id, { reason: upload.message });
+    if (upload.uploadReference) {
+      void this.followUpload(standIn.id, upload.uploadReference, generation);
     }
-    this.save();
-    return id;
+    return { jobId: standIn.id, duplicate: false, notice: null };
   }
 
-  /** Picks a failed or stopped job up where it left off. */
-  resume(id: string): void {
-    const job = this.jobs().find((j) => j.id === id);
-    if (!job || this.activeJobId()) {
+  /** Waits for the worker to turn an upload into a job, then follows that job. */
+  private async followUpload(standInId: string, reference: string, generation: number): Promise<void> {
+    const deadline = Date.now() + UPLOAD_FOLLOW_MS;
+
+    while (generation === this.generation && Date.now() < deadline) {
+      await delay(UPLOAD_POLL_MS);
+      if (generation !== this.generation || !this.job(standInId)) {
+        return;
+      }
+
+      let status;
+      try {
+        status = await firstValueFrom(this.api.uploadStatus(reference));
+      } catch {
+        continue; // a dropped request is simply asked again
+      }
+
+      if (status.status === 'Queued') {
+        if (this.overview()?.workerOnline === false) {
+          this.patch(standInId, { reason: 'The file is saved. The integration worker is not running right now; the check starts as soon as it is back.' });
+        }
+        continue;
+      }
+
+      if (status.status === 'Rejected' || !status.jobNumber) {
+        // The worker refused the file (unreadable, no numbers in it, wrong organisation).
+        this.patch(standInId, {
+          status: 'failed', outcome: 'Failed', finishedAt: new Date().toISOString(),
+          reason: status.reason ?? 'The file was not accepted by the integration worker.',
+        });
+        this.finishFollowing(standInId);
+        return;
+      }
+
+      // Registered - or found to be a duplicate by the worker: either way there is a job to show.
+      // The real job is loaded BEFORE the stand-in is removed, so the live view never has a moment
+      // with nothing to draw.
+      const wasActive = this.activeJobId() === standInId;
+      await this.openJob(status.jobNumber);
+      if (generation !== this.generation) {
+        return;
+      }
+      const loaded = !!this.job(status.jobNumber);
+      if (wasActive && loaded) {
+        this.follow(status.jobNumber, this.runStartedAt());
+      }
+      this.dropStandIn(standInId, !loaded);
       return;
     }
-    const done = new Set(job.results.map((r) => r.number));
-    this.pending.set(id, job.submittedNumbers.filter((n) => !done.has(n)));
-    this.patch(id, { status: 'running', outcome: 'Pending', reason: 'Resumed — waiting for CheckNumber.ai to return results', errorCode: null, finishedAt: null, taskId: 'cn_' + randomHex(12) });
-    this.beginRun(id);
   }
 
-  cancel(id: string): void {
-    if (this.activeJobId() !== id) {
+  /** Follows a job until it finishes, reading it again every few seconds. */
+  private follow(jobId: string, startedAt: number): void {
+    const generation = this.generation;
+    this.runStartedAt.set(startedAt);
+    this.activeJobId.set(jobId);
+    this.startClock();
+
+    const read = async (): Promise<void> => {
+      while (generation === this.generation && this.activeJobId() === jobId) {
+        try {
+          const detail = await firstValueFrom(this.api.job(jobId));
+          if (generation !== this.generation) {
+            return;
+          }
+          this.mergeDetail(detail);
+
+          const job = this.job(jobId);
+          if (job && job.status !== 'running' && job.status !== 'queued') {
+            await this.loadReport(jobId);
+            const latest = this.job(jobId)?.results ?? [];
+            this.feed.set(latest.slice(-7).reverse().map((r) => ({ number: r.number, whatsapp: r.whatsapp })));
+            this.finishFollowing(jobId);
+            void this.loadOverview();
+            this.watiLoaded = false; // the recipient pool has changed
+            return;
+          }
+        } catch (error) {
+          // 404: the job is gone (or belongs to somebody else). Anything else is asked again.
+          if ((error as { status?: number })?.status === 404) {
+            this.finishFollowing(jobId);
+            return;
+          }
+        }
+        await delay(JOB_POLL_MS);
+      }
+    };
+    void read();
+  }
+
+  private finishFollowing(jobId: string): void {
+    if (this.activeJobId() === jobId) {
+      this.activeJobId.set(null);
+    }
+    this.stopClock();
+  }
+
+  /**
+   * Asks the worker to pick a job up where it stopped. Nothing that already succeeded is repeated or
+   * paid for again. Rejects with the worker's own reason when it turns the request down.
+   */
+  async resume(id: string): Promise<void> {
+    if (this.activeJobId()) {
       return;
     }
-    this.stopTimer();
-    this.activeJobId.set(null);
-    this.pending.delete(id);
-    this.patch(id, { status: 'cancelled', outcome: 'Cancelled', reason: 'Stopped before it finished. Numbers checked so far were kept.', finishedAt: new Date().toISOString() });
-    this.commitToRegistry(id);
-    this.save();
+    const accepted = await this.send(() => firstValueFrom(this.api.retryJob(id)), 'The check could not be retried.');
+    await this.awaitCommand(accepted.reference, 'The integration worker has not picked the retry up yet. It will run as soon as the worker is back.');
+    this.feed.set([]);
+    this.runSaved.set({ yes: 0, no: 0 });
+    this.follow(id, Date.now());
+  }
+
+  /** Asks the worker to stop a running job at its next safe point. Answers already received are kept. */
+  async cancel(id: string): Promise<void> {
+    await this.send(() => firstValueFrom(this.api.cancelJob(id)), 'The check could not be stopped.');
+    this.patch(id, { reason: 'Stopping at the next safe point. Numbers already answered are kept.', canCancel: false });
   }
 
   job(id: string | null): CheckJob | null {
     return id ? this.jobs().find((j) => j.id === id) ?? null : null;
   }
 
-  private beginRun(id: string): void {
-    this.activeJobId.set(id);
-    this.feed.set([]);
-    this.runStartedAt.set(Date.now());
-    const total = this.pending.get(id)?.length ?? 0;
-    // Long enough to watch, short enough not to be a wait: 3 to 24 seconds depending on the size.
-    const durationMs = Math.min(24000, Math.max(3000, total * 9));
-    const ticks = Math.max(1, Math.round(durationMs / 140));
-    const batch = Math.max(1, Math.ceil(total / ticks));
-    this.stopTimer();
-    this.checkTimer = setInterval(() => this.tick(id, batch), 140);
-  }
-
-  private tick(id: string, batch: number): void {
-    const queue = this.pending.get(id);
-    const job = this.job(id);
-    if (!queue || !job) {
-      this.stopTimer();
-      return;
-    }
-    this.now.set(Date.now());
-    const take = queue.splice(0, batch);
-    const rows: ResultRow[] = [];
-    let yes = 0;
-    let no = 0;
-    let unknown = 0;
-    for (const number of take) {
-      const verdict = verdictFor(number);
-      const country = countryOf(number);
-      rows.push({
-        number, iso: country.iso, country: country.name, whatsapp: verdict.whatsapp, note: verdict.note,
-        status: verdict.whatsapp === 'unknown' ? 'unverified' : 'checked',
-      });
-      if (verdict.whatsapp === 'yes') yes++;
-      else if (verdict.whatsapp === 'no') no++;
-      else unknown++;
-    }
-    job.results.push(...rows);
-    this.feed.set([...rows.slice(-6).reverse().map((r) => ({ number: r.number, whatsapp: r.whatsapp })), ...this.feed()].slice(0, 7));
-    this.patch(id, {
-      processed: job.processed + take.length,
-      yes: job.yes + yes,
-      no: job.no + no,
-      unknown: job.unknown + unknown,
-      actualCost: round2(job.actualCost + (yes + no) * COST_PER_CHECK),
-    });
-
-    if (queue.length === 0) {
-      this.finish(id);
-    }
-  }
-
-  private finish(id: string): void {
-    this.stopTimer();
-    this.pending.delete(id);
-    if (this.activeJobId() === id) {
-      this.activeJobId.set(null);
-    }
-    const job = this.job(id);
-    if (!job) {
-      return;
-    }
-    const parts = [`${count(job.submitted)} number${job.submitted === 1 ? '' : 's'} processed by CheckNumber.ai`];
-    if (job.saved > 0) parts.push(`${count(job.saved)} answered from earlier checks`);
-    if (job.unknown > 0) parts.push(`${count(job.unknown)} could not be verified and were not charged`);
-    this.patch(id, {
-      status: 'completed',
-      outcome: 'Success',
-      reason: parts.join(' · '),
-      finishedAt: new Date().toISOString(),
-    });
-    const shared = this.commitToRegistry(id);
-    this.patch(id, { sharedToWati: shared });
-    this.save();
-  }
-
-  /** Writes the job's answers into the registry and hands every Yes to Wati. Returns how many Yes numbers were handed over. */
-  private commitToRegistry(id: string): number {
-    const job = this.job(id);
-    if (!job) {
-      return 0;
-    }
-    const next = { ...this.registry() };
-    let shared = 0;
-    for (const row of job.results) {
-      if (row.status === 'saved') {
-        const existing = next[row.number];
-        if (existing && existing.whatsapp === 'yes' && !existing.sharedToWati) {
-          next[row.number] = { ...existing, sharedToWati: true };
-        }
-        continue;
+  /** Makes sure a job, its timeline and its report are loaded - for the job's page and the report step. */
+  async openJob(id: string): Promise<void> {
+    const generation = this.generation;
+    try {
+      const detail = await firstValueFrom(this.api.job(id));
+      if (generation !== this.generation) {
+        return;
       }
-      const yes = row.whatsapp === 'yes';
-      next[row.number] = {
-        number: row.number, iso: row.iso, country: row.country, whatsapp: row.whatsapp, note: row.note,
-        checkedAt: job.finishedAt ?? new Date().toISOString(), jobId: job.id, sharedToWati: yes,
-      };
-      if (yes) shared++;
+      this.mergeDetail(detail);
+      await this.loadReport(detail.job.jobNumber);
+    } catch (error) {
+      // A job that is not there is shown as "That job isn't here" by the page; anything else is said.
+      if ((error as { status?: number })?.status !== 404 && generation === this.generation) {
+        this.problem.set(apiErrorMessage(error, 'That check could not be loaded. Please try again.'));
+      }
     }
-    this.registry.set(next);
-    return shared;
+  }
+
+  private async loadReport(id: string): Promise<void> {
+    const generation = this.generation;
+    const [results, invalid] = await Promise.all([
+      firstValueFrom(this.api.jobResults(id)),
+      firstValueFrom(this.api.jobInvalidLines(id)),
+    ]);
+    if (generation !== this.generation) {
+      return;
+    }
+    this.patch(id, { results: results.map(toResultRow), invalidLines: invalid, detailLoaded: true });
+  }
+
+  /** Downloads one of a job's files from the server and hands it to the browser. */
+  async download(job: CheckJob, kind: JobFileKind): Promise<void> {
+    const file = await this.send(() => firstValueFrom(this.api.jobFile(job.id, kind)), 'That file could not be downloaded.');
+    saveFile(file.fileName, file.blob, file.blob.type || 'application/octet-stream');
+  }
+
+  private mergeJobs(items: readonly CheckJobDto[]): void {
+    const previous = new Map(this.jobs().map((j) => [j.id, j] as const));
+    const fromServer = items.map((dto) => toJob(dto, previous.get(dto.jobNumber)));
+    // A stand-in for an upload the worker has not registered yet is not on the server; keep it.
+    const standIns = this.jobs().filter((j) => !j.key);
+    this.jobs.set([...standIns, ...fromServer]);
+  }
+
+  private mergeDetail(detail: CheckJobDetailDto): void {
+    const previous = this.job(detail.job.jobNumber) ?? undefined;
+    const job: CheckJob = {
+      ...toJob(detail.job, previous),
+      timeline: toTimeline(detail),
+      downloads: {
+        original: detail.downloads.original,
+        submitted: detail.downloads.submitted,
+        results: detail.downloads.results,
+        raw: detail.downloads.raw,
+        invalid: detail.downloads.invalid,
+      },
+    };
+    this.jobs.update((list) =>
+      list.some((j) => j.id === job.id) ? list.map((j) => (j.id === job.id ? job : j)) : [job, ...list],
+    );
+  }
+
+  private dropStandIn(id: string, stopFollowing = true): void {
+    this.jobs.update((list) => list.filter((j) => j.id !== id));
+    if (stopFollowing && this.activeJobId() === id) {
+      this.activeJobId.set(null);
+      this.stopClock();
+    }
   }
 
   private patch(id: string, change: Partial<CheckJob>): void {
     this.jobs.update((list) => list.map((j) => (j.id === id ? { ...j, ...change } : j)));
   }
 
-  private stopTimer(): void {
-    if (this.checkTimer) {
-      clearInterval(this.checkTimer);
-      this.checkTimer = null;
-    }
+  /** The elapsed-time figure on the live view counts up between reads of the job. */
+  private startClock(): void {
+    this.stopClock();
+    this.now.set(Date.now());
+    this.clockTimer = setInterval(() => this.now.set(Date.now()), 1000);
   }
 
-  private nextJobId(): string {
-    const stamp = jobStamp(new Date());
-    const prefix = `CN-${stamp}-`;
-    const highest = this.jobs()
-      .filter((j) => j.id.startsWith(prefix))
-      .reduce((max, j) => Math.max(max, Number(j.id.slice(prefix.length)) || 0), 0);
-    return `${prefix}${String(highest + 1).padStart(4, '0')}`;
+  private stopClock(): void {
+    if (this.clockTimer) {
+      clearInterval(this.clockTimer);
+      this.clockTimer = null;
+    }
   }
 
   // =========================================================================================== wati
 
-  /** Queues a broadcast: one message per number, each scripted to reach its own fate over the next seconds. */
-  sendBroadcast(input: {
+  /**
+   * Leaves a broadcast for the worker and waits for it to be accepted.
+   *
+   * Resolves with the broadcast's id (for the report's filter) once the worker has created it. The
+   * worker applies its own safeguards first - the allow-list, the cap on recipients, "already sent
+   * this template" - and each recipient it leaves out is recorded with the reason.
+   */
+  async sendBroadcast(input: {
     name: string;
     template: WatiTemplate;
     values: Record<string, string>;
     numbers: readonly string[];
-  }): string {
-    const createdAt = new Date().toISOString();
-    const broadcastId = 'bc_' + randomHex(8);
-    const text = renderTemplate(input.template, input.values);
-    const registry = this.registry();
-    const base = Date.now();
-
-    const messages: WatiMessage[] = input.numbers.map((number, index) => {
-      const entry = registry[number];
-      const country = countryOf(number);
-      const r = fnv(number + broadcastId) % 100;
-      const fate: WatiMessage['fate'] = r < 6 ? 'FAILED' : r < 28 ? 'DELIVERED' : r < 78 ? 'READ' : 'REPLIED';
-      return {
-        id: 'wm_' + randomHex(10),
-        number,
-        iso: country.iso,
-        country: country.name,
-        whatsappCheck: entry?.whatsapp ?? 'yes',
-        templateLabel: input.template.label,
+  }): Promise<{ broadcastId: string | null; notice: string | null }> {
+    const accepted = await this.send(
+      () => firstValueFrom(this.api.sendBroadcast({
         templateName: input.template.name,
-        broadcastId,
+        templateLabel: input.template.label,
         broadcastName: input.name,
-        status: 'PENDING',
-        values: { ...input.values },
-        renderedText: text,
-        createdAt,
-        sentAt: null, deliveredAt: null, readAt: null, repliedAt: null,
-        failedCode: null, failedReason: null, replyText: null,
-        nextAt: base + 500 + Math.min(index * 12, 6000) + (fnv(number) % 900),
-        fate,
-      };
-    });
+        values: input.values,
+        recipients: [...input.numbers],
+      })),
+      'The broadcast could not be sent.',
+    );
 
-    this.broadcasts.update((list) => [
-      { id: broadcastId, name: input.name, templateName: input.template.name, templateLabel: input.template.label, createdAt, recipients: messages.length },
-      ...list,
-    ]);
-    this.messages.update((list) => [...messages, ...list]);
-    this.ensureMessageClock();
-    this.save();
-    return broadcastId;
+    const outcome = await this.awaitCommand(
+      accepted.reference,
+      'The integration worker has not picked the broadcast up yet. It will be sent as soon as the worker is back - look for it in the report.',
+      true,
+    );
+    await this.loadWati(true);
+    void this.loadOverview();
+    this.broadcastNotice.set(outcome.message);
+    return { broadcastId: outcome.entityId, notice: outcome.message };
   }
 
-  private ensureMessageClock(): void {
-    const open = this.messages().some((m) => m.nextAt !== null);
-    if (open && !this.messageTimer) {
-      this.messageTimer = setInterval(() => this.advanceMessages(), 600);
-    }
-  }
+  // =========================================================================================== requests
 
-  private advanceMessages(): void {
-    const now = Date.now();
-    let changed = false;
-    const next = this.messages().map((m) => {
-      if (m.nextAt === null) {
-        return m;
-      }
-      if (m.nextAt > now) {
-        return m;
-      }
-      changed = true;
-      const stamp = new Date(now).toISOString();
-      const h = fnv(m.id);
-      switch (m.status) {
-        case 'PENDING': {
-          if (m.fate === 'FAILED') {
-            const failure = FAILURES[h % FAILURES.length];
-            return { ...m, status: 'FAILED' as DeliveryStatus, failedCode: failure.code, failedReason: failure.reason, nextAt: null };
-          }
-          return { ...m, status: 'SENT' as DeliveryStatus, sentAt: stamp, nextAt: now + 700 + (h % 2200) };
-        }
-        case 'SENT': {
-          return { ...m, status: 'DELIVERED' as DeliveryStatus, deliveredAt: stamp, nextAt: m.fate === 'DELIVERED' ? null : now + 1500 + (h % 5000) };
-        }
-        case 'DELIVERED': {
-          return { ...m, status: 'READ' as DeliveryStatus, readAt: stamp, nextAt: m.fate === 'REPLIED' ? now + 2500 + (h % 6000) : null };
-        }
-        case 'READ': {
-          return { ...m, status: 'REPLIED' as DeliveryStatus, repliedAt: stamp, replyText: REPLIES[h % REPLIES.length], nextAt: null };
-        }
-        default:
-          return { ...m, nextAt: null };
-      }
-    });
-
-    if (changed) {
-      this.messages.set(next);
-      this.save();
-    }
-    const open = next.some((m) => m.nextAt !== null);
-    if (!open && this.messageTimer) {
-      clearInterval(this.messageTimer);
-      this.messageTimer = null;
-    }
-  }
-
-  // =========================================================================================== storage
-
-  private load(): void {
-    let data: Persisted | null = null;
+  /** Runs a call and turns a refusal into an Error holding a sentence for the person. */
+  private async send<T>(call: () => Promise<T>, fallback: string): Promise<T> {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      data = raw ? (JSON.parse(raw) as Persisted) : null;
-    } catch {
-      data = null;
+      return await call();
+    } catch (error) {
+      throw new Error(apiErrorMessage(error, fallback));
     }
-    if (!data) {
-      data = seedData();
-    }
-    this.registry.set(data.registry);
-    this.jobs.set(data.jobs);
-    this.messages.set(data.messages);
-    this.broadcasts.set(data.broadcasts);
-    // A job in flight keeps its provider queue only in memory; the rest of its numbers are worked out on resume.
   }
 
-  save(): void {
-    if (this.saveTimer) {
-      return;
-    }
-    this.saveTimer = setTimeout(() => {
-      this.saveTimer = null;
-      const payload: Persisted = {
-        registry: this.registry(),
-        jobs: this.jobs().map(({ original, ...rest }) => rest as CheckJob),
-        messages: this.messages().slice(0, 20000),
-        broadcasts: this.broadcasts(),
-      };
+  /**
+   * Waits for the worker to carry out a request.
+   *
+   * Rejects with the worker's own reason when it refuses or fails the request. When the worker simply
+   * has not answered in time, it rejects with `lateMessage` - unless `tolerateLate` is set, in which
+   * case the request is still pending and will be carried out later, and that is said instead.
+   */
+  private async awaitCommand(
+    reference: string, lateMessage: string, tolerateLate = false,
+  ): Promise<{ entityId: string | null; message: string | null }> {
+    const deadline = Date.now() + COMMAND_FOLLOW_MS;
+
+    while (Date.now() < deadline) {
+      await delay(COMMAND_POLL_MS);
+      let command;
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        command = await firstValueFrom(this.api.command(reference));
       } catch {
-        // Storage full or blocked: everything keeps working for this visit, it just is not remembered.
+        continue;
       }
-    }, 600);
-  }
-
-  /** Wipes everything back to the starter data. */
-  resetAll(): void {
-    this.stopTimer();
-    if (this.messageTimer) {
-      clearInterval(this.messageTimer);
-      this.messageTimer = null;
+      if (command.status === 'Completed') {
+        return { entityId: command.resultEntityId ?? null, message: command.resultMessage ?? null };
+      }
+      if (command.status === 'Rejected' || command.status === 'Failed') {
+        throw new Error(command.resultMessage ?? 'The integration worker could not carry the request out.');
+      }
     }
-    this.pending.clear();
-    this.activeJobId.set(null);
-    this.draft.set(null);
-    const data = seedData();
-    this.registry.set(data.registry);
-    this.jobs.set(data.jobs);
-    this.messages.set(data.messages);
-    this.broadcasts.set(data.broadcasts);
-    this.save();
+
+    if (tolerateLate) {
+      return { entityId: null, message: lateMessage };
+    }
+    throw new Error(lateMessage);
   }
 }
 
@@ -587,146 +770,185 @@ export function renderTemplate(template: WatiTemplate, values: Record<string, st
   return template.body.replace(/\{\{(\w+)\}\}/g, (_m, key: string) => (values[key]?.trim() ? values[key].trim() : `{{${key}}}`));
 }
 
-function verdictFor(number: string): { whatsapp: WaResult; note: string } {
-  const h = fnv(number);
-  const r = h % 100;
-  if (r < 68) {
-    return { whatsapp: 'yes', note: (h >>> 8) % 6 === 0 ? 'WhatsApp Business account' : 'Active WhatsApp account' };
-  }
-  if (r < 91) {
-    return { whatsapp: 'no', note: 'Not registered on WhatsApp' };
-  }
-  const notes = ['Lookup timed out — check again later', 'Carrier did not respond', 'Number type could not be confirmed'];
-  return { whatsapp: 'unknown', note: notes[(h >>> 8) % notes.length] };
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function randomHex(length: number): string {
-  const bytes = new Uint8Array(Math.ceil(length / 2));
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('').slice(0, length);
-}
-
-function jobStamp(d: Date): string {
-  return `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function count(value: number): string {
-  return value.toLocaleString('en-IN');
-}
-
-// ================================================================================================ seed data
-
-/** Starter data so the screens are not empty on first open: three past jobs and one finished broadcast. */
-function seedData(): Persisted {
-  const registry: Record<string, RegistryEntry> = {};
-  const jobs: CheckJob[] = [];
-  const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
-
-  const makeNumbers = (seed: number, n: number): string[] => {
-    const out: string[] = [];
-    let x = seed;
-    for (let i = 0; i < n; i++) {
-      x = (Math.imul(x, 1103515245) + 12345) >>> 0;
-      out.push('+91' + (6 + (x % 4)) + String(10_000_000 + ((x >>> 4) % 89_999_999)).slice(0, 8) + String((x >>> 9) % 10));
-    }
-    return out;
+function toOverview(dto: WhatsAppOverviewDto): WhatsAppOverview {
+  return {
+    available: dto.integrationAvailable,
+    workerOnline: dto.worker.online,
+    workerLastSeen: dto.worker.lastHeartbeatAtUtc ?? null,
+    checkNumberReady: dto.settings.checkNumberEnabled && dto.settings.checkNumberConfigured,
+    watiReady: dto.settings.watiEnabled && dto.settings.watiConfigured,
+    pricePerNumber: dto.settings.pricePerNumber,
+    minimumCharge: dto.settings.minimumChargePerTask,
+    currency: dto.settings.currency || 'USD',
+    maxRecipientsPerJob: dto.settings.maxRecipientsPerJob,
+    defaultTemplateName: dto.settings.defaultTemplateName ?? null,
+    allowListActive: dto.settings.allowListActive,
+    allowListSize: dto.settings.allowListSize,
+    numbersVerified: dto.statistics.numbersVerified,
+    onWhatsApp: dto.statistics.onWhatsApp,
+    jobsRun: dto.statistics.jobsRun,
+    messagesSent: dto.statistics.messagesSent,
+    readRate: dto.statistics.readRatePercent,
   };
+}
 
-  const build = (
-    id: string, file: string, kind: CheckJob['kind'], sheets: number, size: number, ago: number, numbers: string[],
-    options: { dup: number; invalid: number; failed?: boolean },
-  ): CheckJob => {
-    const rows: ResultRow[] = [];
-    let yes = 0, no = 0, unknown = 0;
-    const done = options.failed ? [] : numbers;
-    for (const number of done) {
-      const v = verdictFor(number);
-      const c = countryOf(number);
-      rows.push({ number, iso: c.iso, country: c.name, whatsapp: v.whatsapp, note: v.note, status: v.whatsapp === 'unknown' ? 'unverified' : 'checked' });
-      if (v.whatsapp === 'yes') yes++; else if (v.whatsapp === 'no') no++; else unknown++;
-    }
-    const finishedAt = hoursAgo(ago - 0.05);
-    const job: CheckJob = {
-      id, fileName: file, fileSize: size, kind, sheetCount: sheets,
-      status: options.failed ? 'failed' : 'completed',
-      taskId: 'cn_' + randomHex(12),
-      createdAt: hoursAgo(ago), finishedAt,
-      submitted: numbers.length, total: numbers.length, processed: rows.length,
-      yes, no, unknown, saved: 0, duplicates: options.dup, invalid: options.invalid,
-      estimatedCost: round2(numbers.length * COST_PER_CHECK),
-      actualCost: round2((yes + no) * COST_PER_CHECK),
-      outcome: options.failed ? 'Failed' : 'Success',
-      reason: options.failed
-        ? 'CheckNumber.ai rejected the request: too many requests in the last minute. Nothing was charged — resume the job to try again.'
-        : `${count(numbers.length)} numbers processed by CheckNumber.ai${unknown ? ` · ${unknown} could not be verified and were not charged` : ''}`,
-      errorCode: options.failed ? 'HTTP 429 · RATE_LIMITED' : null,
-      sharedToWati: yes,
-      results: rows,
-      invalidLines: Array.from({ length: options.invalid }, (_v, i) => ({
-        sheet: sheets > 1 ? 'Sheet1' : kind === 'csv' ? 'CSV file' : 'Text file', line: 4 + i * 7,
-        raw: i % 2 ? '98765 4321' : 'Not available', reason: i % 2 ? 'Too short (9 digits) and no country code' : 'No phone number found',
-      })),
-      submittedNumbers: numbers,
-      sample: true,
+/** A job as the screens draw it. What only the detail call brings is carried over from `previous`. */
+function toJob(dto: CheckJobDto, previous?: CheckJob): CheckJob {
+  return {
+    id: dto.jobNumber,
+    key: dto.id,
+    fileName: dto.fileName,
+    fileSize: dto.fileSizeBytes,
+    kind: (['txt', 'csv', 'xls', 'xlsx'].includes(dto.fileKind) ? dto.fileKind : 'txt') as FileKind,
+    sheetCount: dto.sheetCount,
+    status: dto.displayStatus,
+    taskId: dto.taskId ?? '',
+    createdAt: dto.createdAtUtc,
+    finishedAt: dto.completedAtUtc ?? null,
+    submitted: dto.submitted,
+    total: dto.total,
+    processed: dto.processed,
+    yes: dto.yes,
+    no: dto.no,
+    unknown: dto.unknown,
+    saved: dto.saved,
+    duplicates: dto.duplicates,
+    invalid: dto.invalid,
+    estimatedCost: dto.estimatedCost ?? 0,
+    actualCost: dto.actualCost ?? 0,
+    currency: dto.currency ?? 'USD',
+    outcome: dto.outcome,
+    reason: dto.reason ?? '',
+    errorCode: dto.errorCode ?? null,
+    sharedToWati: dto.sharedToWati,
+    hasErrors: dto.hasErrors,
+    canRetry: dto.canRetry,
+    canCancel: dto.canCancel,
+    watiSent: dto.watiSent,
+    watiFailed: dto.watiFailed,
+    watiSkipped: dto.watiSkipped,
+    campaignName: dto.campaignName ?? null,
+    uploadedBy: dto.uploadedByName ?? null,
+    results: previous?.results ?? [],
+    invalidLines: previous?.invalidLines ?? [],
+    detailLoaded: previous?.detailLoaded ?? false,
+    timeline: previous?.timeline ?? [],
+    downloads: previous?.downloads ?? NO_DOWNLOADS,
+  };
+}
+
+function toResultRow(dto: CheckJobResultDto): ResultRow {
+  return { number: dto.number, iso: dto.iso, country: dto.country, whatsapp: dto.whatsApp, note: dto.note, status: dto.status };
+}
+
+/**
+ * The job's timeline: the four moments the page was designed to show, each with the REAL time from
+ * the worker's own step log.
+ *
+ * FOUR, NOT EVERY STEP. The worker records up to a dozen steps per job (download, extraction, each
+ * retry...), and they are all on the server for whoever needs them; the row under the job's facts
+ * has room for a handful. So it shows when the file was read, when it went to CheckNumber.ai, when
+ * the answers came back and what WATI then did - and how the job ended, if it did not end well.
+ */
+function toTimeline(detail: CheckJobDetailDto): JobTimelineStep[] {
+  // A step that was retried appears several times; the last attempt is the one that counted.
+  const latest = new Map<string, JobTimelineDto>();
+  for (const step of detail.timeline) {
+    latest.set(step.stepCode, step);
+  }
+  const moment = (code: string, label: string): JobTimelineStep | null => {
+    const step = latest.get(code);
+    if (!step) return null;
+    return {
+      label,
+      at: step.completedAtUtc ?? step.startedAtUtc,
+      state: step.status === 'Failed' ? 'bad' : step.completedAtUtc ? 'done' : 'wait',
     };
-    if (!options.failed) {
-      for (const r of rows) {
-        registry[r.number] = {
-          number: r.number, iso: r.iso, country: r.country, whatsapp: r.whatsapp, note: r.note,
-          checkedAt: finishedAt, jobId: id, sharedToWati: r.whatsapp === 'yes',
-        };
-      }
-    }
-    return job;
   };
 
-  const a = makeNumbers(11, 148);
-  const b = makeNumbers(23, 60);
-  const c = makeNumbers(37, 42);
-  const idFor = (ago: number, seq: number) => `CN-${jobStamp(new Date(Date.now() - ago * 3600_000))}-${String(seq).padStart(4, '0')}`;
-  jobs.push(
-    build(idFor(3, 3), 'regional-leads.csv', 'csv', 1, 3400, 3, b, { dup: 2, invalid: 1, failed: true }),
-    build(idFor(26, 2), 'event-guests.txt', 'txt', 1, 1100, 26, c, { dup: 0, invalid: 0 }),
-    build(idFor(52, 1), 'donor-list-september.xlsx', 'xlsx', 3, 48200, 52, a, { dup: 9, invalid: 3 }),
-  );
+  const job = detail.job;
+  const steps: JobTimelineStep[] = [
+    moment('PARSE_FILE', 'File uploaded and read') ?? { label: 'File received', at: job.createdAtUtc, state: 'done' },
+  ];
 
-  // One broadcast already delivered, so the delivery report has something to read on first open.
-  const messages: WatiMessage[] = [];
-  const template = WATI_TEMPLATES[0];
-  const values = { ...template.defaults };
-  const broadcastId = 'bc_sample01';
-  const text = renderTemplate(template, values);
-  const yesNumbers = a.filter((n) => registry[n]?.whatsapp === 'yes').slice(0, 36);
-  yesNumbers.forEach((number, i) => {
-    const h = fnv(number + broadcastId);
-    const r = h % 100;
-    const fate: WatiMessage['fate'] = r < 8 ? 'FAILED' : r < 30 ? 'DELIVERED' : r < 75 ? 'READ' : 'REPLIED';
-    const sent = Date.now() - 20 * 3600_000 + i * 4000;
-    const iso = (offset: number) => new Date(sent + offset).toISOString();
-    const c2 = countryOf(number);
-    const failure = FAILURES[h % FAILURES.length];
-    messages.push({
-      id: 'wm_seed' + i, number, iso: c2.iso, country: c2.name, whatsappCheck: 'yes',
-      templateLabel: template.label, templateName: template.name, broadcastId, broadcastName: 'September thank-you',
-      status: fate, values, renderedText: text, createdAt: iso(0),
-      sentAt: fate === 'FAILED' ? null : iso(900),
-      deliveredAt: fate === 'FAILED' ? null : iso(2400 + (h % 3000)),
-      readAt: fate === 'READ' || fate === 'REPLIED' ? iso(60_000 + (h % 900_000)) : null,
-      repliedAt: fate === 'REPLIED' ? iso(120_000 + (h % 1_200_000)) : null,
-      failedCode: fate === 'FAILED' ? failure.code : null,
-      failedReason: fate === 'FAILED' ? failure.reason : null,
-      replyText: fate === 'REPLIED' ? REPLIES[h % REPLIES.length] : null,
-      nextAt: null, fate,
+  const submitted = moment('CHECKNUMBER_CREATE_TASK', 'Submitted to CheckNumber.ai');
+  if (submitted) {
+    steps.push(submitted);
+  } else if (job.saved > 0 && job.submitted === 0) {
+    // Nothing was sent: every number already had a saved answer, which is the whole point of saving them.
+    steps.push({ label: 'Answered from saved results — nothing to pay for', at: job.startedAtUtc ?? job.createdAtUtc, state: 'done' });
+  }
+
+  const received = moment('CHECKNUMBER_PROCESS_RESULTS', 'Results received') ?? moment('IDENTIFY_VERIFIED', 'WhatsApp numbers identified');
+  if (received && submitted) {
+    steps.push(received);
+  }
+
+  const wati = detail.wati;
+  if (wati) {
+    const figures = [`${wati.accepted.toLocaleString('en-IN')} sent`];
+    if (wati.failed > 0) figures.push(`${wati.failed.toLocaleString('en-IN')} failed`);
+    if (wati.skipped > 0) figures.push(`${wati.skipped.toLocaleString('en-IN')} skipped`);
+    steps.push({
+      label: `WhatsApp messages: ${figures.join(', ')}`,
+      at: wati.completedAtUtc ?? null,
+      state: wati.failed > 0 && wati.accepted === 0 ? 'bad' : wati.completedAtUtc ? 'done' : 'wait',
     });
-  });
-  const broadcasts: WatiBroadcast[] = [{
-    id: broadcastId, name: 'September thank-you', templateName: template.name, templateLabel: template.label,
-    createdAt: new Date(Date.now() - 20 * 3600_000).toISOString(), recipients: messages.length,
-  }];
+  } else if (job.displayStatus === 'completed') {
+    steps.push({
+      label: job.yes > 0 ? `${job.yes.toLocaleString('en-IN')} valid numbers ready in Wati` : 'No number on WhatsApp',
+      at: job.completedAtUtc ?? null,
+      state: 'done',
+    });
+  }
 
-  return { registry, jobs, messages, broadcasts };
+  if (job.displayStatus === 'failed') {
+    steps.push({ label: 'Failed', at: job.completedAtUtc ?? null, state: 'bad' });
+  } else if (job.displayStatus === 'cancelled') {
+    steps.push({ label: 'Stopped', at: job.completedAtUtc ?? null, state: 'bad' });
+  } else if (job.displayStatus !== 'completed') {
+    steps.push({ label: 'Waiting for results', at: null, state: 'wait' });
+  }
+  return steps;
+}
+
+function toTemplate(dto: WatiTemplateDto): WatiTemplate {
+  return {
+    name: dto.name,
+    label: dto.label,
+    category: dto.category,
+    body: dto.body ?? '',
+    variables: dto.variables,
+    defaults: dto.defaults,
+  };
+}
+
+function toMessage(dto: WatiMessageDto): WatiMessage {
+  return {
+    id: dto.id,
+    number: dto.number,
+    iso: dto.iso,
+    country: dto.country,
+    whatsappCheck: dto.whatsAppCheck,
+    templateLabel: dto.templateLabel,
+    templateName: dto.templateName,
+    broadcastId: dto.broadcastId,
+    broadcastName: dto.broadcastName,
+    // Skipped rows are filtered out before this is called, so only the report's six statuses remain.
+    status: dto.status as WatiMessage['status'],
+    values: dto.values ?? {},
+    renderedText: dto.renderedText ?? '',
+    createdAt: dto.createdAtUtc,
+    sentAt: dto.sentAtUtc ?? null,
+    deliveredAt: dto.deliveredAtUtc ?? null,
+    readAt: dto.readAtUtc ?? null,
+    repliedAt: dto.repliedAtUtc ?? null,
+    failedCode: dto.failedCode ?? null,
+    failedReason: dto.failedReason ?? null,
+    replyText: dto.replyText ?? null,
+  };
 }

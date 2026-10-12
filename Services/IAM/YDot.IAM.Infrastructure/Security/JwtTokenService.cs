@@ -263,7 +263,6 @@ public sealed class JwtTokenService(IOptions<JwtSettings> jwtOptions) : IJwtToke
             new(ClaimTypeNames.Email, user.Email ?? string.Empty),
             new(ClaimTypes.Email, user.Email ?? string.Empty),
             new(ClaimTypeNames.UserStatus, user.Status.ToString()),
-            new(ClaimTypeNames.AccountCategory, user.AccountCategory.ToString()),
             new(ClaimTypeNames.PrivilegeLevel, user.PrivilegeLevel.ToString()),
             new(ClaimTypeNames.Scope, scope.ToString()),
             new(ClaimTypeNames.IsSuperAdmin, user.IsSuperAdmin ? "true" : "false"),

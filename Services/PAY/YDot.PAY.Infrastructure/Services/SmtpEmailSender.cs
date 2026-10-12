@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Logging;
@@ -165,6 +166,9 @@ public sealed class SmtpEmailSender(
             return new EmailSendResult(
                 false, null, $"The relay rejected the credentials: {exception.Message}");
         }
+        // SocketException and TimeoutException are the relay being unreachable (a failed DNS
+        // lookup, no route, a connect that never answers). Neither is an IOException; unlisted,
+        // they escaped this method and the receipt's delivery attempt was never recorded.
         catch (Exception exception) when (exception is SmtpCommandException
                                               or SmtpProtocolException
                                               or SslHandshakeException
@@ -172,6 +176,8 @@ public sealed class SmtpEmailSender(
                                               or FormatException
                                               or ArgumentException
                                               or IOException
+                                              or SocketException
+                                              or TimeoutException
                                               or OperationCanceledException)
         {
             logger.LogError(

@@ -284,8 +284,8 @@ public sealed class DonorsController : ApiControllerBase
     }
 
     /// <summary>
-    /// POST approve or reject. The creator is refused even when they hold the permission —
-    /// the maker/checker rule is enforced inside the handler, not by the attribute.
+    /// POST approve or reject. The permission is the whole test: the person who created the donor
+    /// may decide it too when their roles carry <c>don.donors.approve</c>.
     /// </summary>
     [HttpPost("{id:guid}/approve")]
     [HasPermission(PermissionCodes.DonorsApprove)]

@@ -1,12 +1,10 @@
 import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import QRCode from 'qrcode';
 import { AuthApiService } from '../../../../../Service/auth-api.service';
 import { ToastService } from '../../../../../Shared/services/toast.service';
 import { AuthSessionService } from '../../../../../Shared/services/auth-session.service';
-import { PopupComponent } from '../../../../../Shared/components/popup/popup';
 import {
   InvitationPreviewResponse,
   MFA_METHOD_LABELS,
@@ -20,10 +18,9 @@ import {
  *
  * THE FOUR STEPS
  * --------------
- *   1. **Your details** — read-only facts pulled from the invitation token, plus
- *      "Cancel and edit" for when something is wrong. Nothing is editable here on purpose: these
- *      are the terms of the access an administrator approved, and letting the invited person
- *      change their own role or scope would defeat the approval entirely.
+ *   1. **Your details** — read-only facts pulled from the invitation token. Nothing is editable
+ *      here on purpose: these are the terms of the access an administrator approved, and letting
+ *      the invited person change their own role or scope would defeat the approval entirely.
  *   2. **Password** — with a live checklist so nothing is a surprise at submit time.
  *   3. **Two-step verification** — OPTIONAL. Skipping it activates the account normally; the
  *      person can add a factor later from My Security.
@@ -47,7 +44,7 @@ type Step = 'details' | 'password' | 'security' | 'complete';
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PopupComponent],
+  imports: [CommonModule, RouterModule],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
@@ -88,8 +85,6 @@ export class RegisterComponent implements OnInit {
   readonly secretCopied = signal(false);
   /** A signal, so canVerifyMethod re-evaluates as the passcode is typed. */
   readonly verificationCode = signal('');
-  mobileCountryCode = '';
-  mobileNumber = '';
 
   // ---- Step 4: recovery codes ---------------------------------------------------------------------
   readonly recoveryCodes = signal<string[]>([]);
@@ -97,25 +92,6 @@ export class RegisterComponent implements OnInit {
   readonly recoveryAcknowledged = signal(false);
   readonly mfaEnrolledResult = signal(false);
   readonly userCode = signal('');
-
-  // ---- "Cancel and edit" dialog ---------------------------------------------------------------------
-  readonly showCancelDialog = signal(false);
-  cancelReason = '';
-
-  /**
-   * Dialling prefixes from the country catalogue, deduplicated and in country sort order.
-   *
-   * Was ten literals, which meant a country added on the Masters screen could be selected on
-   * every other form in the platform but not dialled from this one.
-   *
-   * THEY COME FROM THE INVITATION PREVIEW, NOT FROM `GeoMasterService`. This screen is
-   * anonymous — that is the whole point of it — and the lookup endpoint is gated on
-   * ActiveUserOnly. Calling it here answered 401, the interceptor tried to renew a session that
-   * had never existed, the renewal failed, and the person who had just followed an invitation
-   * link was redirected to a bare sign-in form. The preview call is already made below, is
-   * anonymous by design, and now carries these.
-   */
-  readonly countryCodes = signal<readonly string[]>([]);
 
   // =========================================================================================
   // Password rules
@@ -176,12 +152,11 @@ export class RegisterComponent implements OnInit {
   // =========================================================================================
 
   readonly isAuthenticatorSelected = computed(() => this.selectedMethod() === 'authenticatorApp');
-  readonly needsMobileNumber = computed(() => this.selectedMethod() === 'sms');
   readonly mfaMandatory = computed(() => this.invitation()?.mfaMandatory ?? false);
 
   /** The factors this Organisation permits, in the order the server wants them offered. */
   readonly allowedMethods = computed<MfaMethodType[]>(
-    () => this.invitation()?.allowedMfaMethods ?? ['authenticatorApp', 'email', 'sms']);
+    () => this.invitation()?.allowedMfaMethods ?? ['authenticatorApp', 'email']);
 
   readonly canVerifyMethod = computed(
     () => this.setup() !== null && this.verificationCode().trim().length >= 6 && !this.submitting(),
@@ -205,8 +180,6 @@ export class RegisterComponent implements OnInit {
     }
   });
 
-  readonly canCancelActivation = computed(() => this.cancelReason.trim().length >= 3);
-
   // =========================================================================================
   // Lifecycle
   // =========================================================================================
@@ -226,10 +199,6 @@ export class RegisterComponent implements OnInit {
       next: (view) => {
         this.loading.set(false);
         this.invitation.set(view);
-
-        // Never empty in practice, but an empty list leaves the prefix picker blank rather than
-        // breaking the step — the number itself is still typed and still accepted.
-        this.countryCodes.set(view.dialingCodes ?? []);
 
         if (!view.isValid) {
           this.errorMessage.set(view.message ?? 'That invitation link is not valid.');
@@ -311,9 +280,7 @@ export class RegisterComponent implements OnInit {
   /** ENTER FLOW refs — Enter in a field first moves focus to the step button, then advances. */
   @ViewChild('confirmInput') private readonly confirmInput?: ElementRef<HTMLInputElement>;
   @ViewChild('continueBtn') private readonly continueBtn?: ElementRef<HTMLButtonElement>;
-  @ViewChild('mobileInput') private readonly mobileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('verifyCodeBtn') private readonly verifyCodeBtn?: ElementRef<HTMLButtonElement>;
-  @ViewChild('cancelSendBtn') private readonly cancelSendBtn?: ElementRef<HTMLButtonElement>;
 
   /**
    * ENTER FLOW (step 2) — password field + Enter → confirm field-ku focus;
@@ -332,35 +299,12 @@ export class RegisterComponent implements OnInit {
   }
 
   /**
-   * ENTER FLOW (step 3, mobile/email/sms) — mobile field + Enter → Send button focus + auto send.
-   */
-  onMobileEnter(event: Event): void {
-    event.preventDefault();
-    this.mobileInput?.nativeElement.blur();
-    this.startSetup();
-  }
-
-  /**
    * ENTER FLOW (step 3, verify box) — code field + Enter → Verify button focus + auto verify.
    */
   onSetupCodeEnter(event: Event): void {
     event.preventDefault();
     this.verifyCodeBtn?.nativeElement.focus();
     this.verifyMethod();
-  }
-
-  /**
-   * ENTER FLOW (cancel dialog) — reason textarea-la Ctrl+Enter / Cmd+Enter →
-   * Send button focus + auto send. (Plain Enter textarea-la newline than, submit illa.)
-   */
-  onCancelReasonEnter(event: KeyboardEvent): void {
-    if (!(event.ctrlKey || event.metaKey)) {
-      return;
-    }
-
-    event.preventDefault();
-    this.cancelSendBtn?.nativeElement.focus();
-    this.confirmCancel();
   }
 
   // =========================================================================================
@@ -410,8 +354,6 @@ export class RegisterComponent implements OnInit {
         return 'Codes are generated on your phone and work without a signal.';
       case 'email':
         return 'A code is e-mailed to you each time you sign in.';
-      case 'sms':
-        return 'A code is sent by text message each time you sign in.';
       default:
         return '';
     }
@@ -419,11 +361,6 @@ export class RegisterComponent implements OnInit {
 
   /** Starts the setup: creates the secret (or sends a code) and draws the QR. */
   startSetup(): void {
-    if (this.needsMobileNumber() && !this.mobileNumber.trim()) {
-      this.errorMessage.set('Enter your mobile number so the code can be sent to it.');
-      return;
-    }
-
     this.settingUp.set(true);
     this.errorMessage.set('');
     this.qrFailed.set(false);
@@ -432,8 +369,6 @@ export class RegisterComponent implements OnInit {
       .beginInvitationMfaEnrolment({
         token: this.token(),
         methodType: this.selectedMethod(),
-        mobileCountryCode: this.needsMobileNumber() ? this.mobileCountryCode : undefined,
-        mobileNumber: this.needsMobileNumber() ? this.mobileNumber.trim() : undefined,
       })
       .subscribe({
         next: (setup: MfaEnrolmentResponse) => {
@@ -542,8 +477,6 @@ export class RegisterComponent implements OnInit {
         password: this.password,
         confirmPassword: this.confirmPassword,
         acceptTerms: this.termsAccepted(),
-        mobileCountryCode: this.needsMobileNumber() ? this.mobileCountryCode : undefined,
-        mobileNumber: this.needsMobileNumber() ? this.mobileNumber.trim() : undefined,
         clientType: 'web',
       })
       .subscribe({
@@ -615,52 +548,6 @@ export class RegisterComponent implements OnInit {
 
   goToDashboard(): void {
     void this.router.navigate(['/app/dashboard']);
-  }
-
-  // =========================================================================================
-  // Cancel and edit
-  // =========================================================================================
-
-  openCancelDialog(): void {
-    this.showCancelDialog.set(true);
-    this.cancelReason = '';
-  }
-
-  closeCancelDialog(): void {
-    this.showCancelDialog.set(false);
-    this.cancelReason = '';
-  }
-
-  /**
-   * "Cancel and edit" — for when the details on step 1 are wrong.
-   *
-   * The reason is recorded against the invitation so an administrator can see what needs fixing.
-   * The invitation itself stays valid: the same link works again once the record is corrected,
-   * which is far kinder than voiding it and making somebody request a whole new one.
-   */
-  confirmCancel(): void {
-    if (!this.canCancelActivation()) {
-      return;
-    }
-
-    this.submitting.set(true);
-
-    this.authApi.cancelActivation(this.token(), this.cancelReason.trim()).subscribe({
-      next: (outcome) => {
-        this.submitting.set(false);
-        this.showCancelDialog.set(false);
-        this.toast.show(
-          'Saved for later',
-          outcome.message ?? 'You can return to your invitation link whenever you are ready.',
-          'info');
-        void this.router.navigate(['/auth/sign-in']);
-      },
-      error: (error: Error) => {
-        this.submitting.set(false);
-        this.errorMessage.set(error.message);
-        this.showCancelDialog.set(false);
-      },
-    });
   }
 
   /** Asks for a replacement when the invitation has expired. */

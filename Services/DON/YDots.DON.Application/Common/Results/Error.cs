@@ -35,13 +35,4 @@ public sealed record Error(string Code, string Message, int StatusCode, IReadOnl
 
     public static Error Dependency(string message) =>
         new(ErrorCodes.DependencyFailure, message, 502);
-
-    /// <summary>
-    /// 409 SEGREGATION_OF_DUTIES_VIOLATION. The caller holds the permission and is still refused,
-    /// because they raised the record they are trying to decide on. Deliberately not Forbidden:
-    /// a 403 reads as "ask for access", and there is no access to ask for.
-    /// </summary>
-    public static Error SegregationOfDuties(string message =
-        "You cannot approve a record you created or submitted. Ask a colleague to review it.") =>
-        new(ErrorCodes.SegregationOfDutiesViolation, message, 409);
 }

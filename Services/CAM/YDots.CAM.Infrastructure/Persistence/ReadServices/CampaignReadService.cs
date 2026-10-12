@@ -29,10 +29,18 @@ public sealed class CampaignReadService(
     IFinancialDirectory financial,
     ICurrentUser currentUser,
     ITenantContext tenantContext,
-    IDateTimeProvider clock) : ICampaignReadService
+    IDateTimeProvider clock,
+    IWhatsAppIntegrationStore whatsApp) : ICampaignReadService
 {
     private static readonly IReadOnlyDictionary<Guid, PersonSummary> NoPeople =
         new Dictionary<Guid, PersonSummary>();
+
+    /// <summary>
+    /// The most WhatsApp outreach rows merged into one campaign's history. A campaign has a
+    /// handful of checks and broadcasts, not hundreds; the bound only keeps a runaway case from
+    /// dragging the whole of it into memory to draw one page.
+    /// </summary>
+    private const int MaximumOutreachRows = 500;
 
     public async Task<PagedResponse<CampaignListItemResponse>> SearchAsync(
         CampaignSearchFilter filter, AccessScope scope, CancellationToken cancellationToken)
@@ -154,12 +162,9 @@ public sealed class CampaignReadService(
             pendingClose,
             CampaignMappingConfig.PermittedActionsFor(
                 campaign,
-                currentUser.UserId,
                 currentUser.HasPermission,
                 outstandingCheckCount > 0,
-                pendingClose is not null,
-                currentUser.IsTenantAdmin,
-                pendingClose?.CanBeApprovedBy(currentUser.UserId, currentUser.IsTenantAdmin) ?? true),
+                pendingClose is not null),
             resolvedPeople,
             place,
             currencyCodes.GetValueOrDefault(campaign.CurrencyId),
@@ -198,16 +203,47 @@ public sealed class CampaignReadService(
 
         var total = await query.CountAsync(cancellationToken);
 
-        var rows = await query
+        // WHAT THE INTEGRATION WORKER DID FOR THIS CAMPAIGN - a number check finished, WhatsApp
+        // messages went out - joins the trail here. Those rows are DERIVED from the worker's own
+        // tables rather than written into cam_audit_events: the audit table records what a person
+        // asked CAM to do, and has exactly one writer. The store never throws for this call, so a
+        // worker that is not installed costs the page nothing but the rows it would have added.
+        var outreach = await whatsApp.GetCampaignActivityAsync(
+            campaignId, MaximumOutreachRows, cancellationToken);
+
+        if (outreach.Count == 0)
+        {
+            var rows = await query
+                .OrderByDescending(audit => audit.OccurredAtUtc)
+                .Skip(pagination.Skip)
+                .Take(pagination.PageSize)
+                .ToListAsync(cancellationToken);
+
+            return new PagedResponse<CampaignHistoryResponse>(
+                rows.Select(audit => audit.ToHistoryResponse()).ToList(),
+                total, pagination.Page, pagination.PageSize);
+        }
+
+        // TWO NEWEST-FIRST LISTS, ONE PAGE. Whatever lands on this page of the merged trail must
+        // be among the first (Skip + PageSize) rows of one list or the other, so that is all that
+        // is read from the audit table - not the whole trail - before the two are interleaved.
+        var window = pagination.Skip + pagination.PageSize;
+
+        var audited = await query
             .OrderByDescending(audit => audit.OccurredAtUtc)
-            .Skip(pagination.Skip)
-            .Take(pagination.PageSize)
+            .Take(window)
             .ToListAsync(cancellationToken);
 
-        var items = rows.Select(audit => audit.ToHistoryResponse()).ToList();
+        var items = audited
+            .Select(audit => audit.ToHistoryResponse())
+            .Concat(outreach.Take(window))
+            .OrderByDescending(entry => entry.OccurredAtUtc)
+            .Skip(pagination.Skip)
+            .Take(pagination.PageSize)
+            .ToList();
 
         return new PagedResponse<CampaignHistoryResponse>(
-            items, total, pagination.Page, pagination.PageSize);
+            items, total + outreach.Count, pagination.Page, pagination.PageSize);
     }
 
     /// <summary>

@@ -24,7 +24,6 @@ public sealed record CreateUserRequest(
     string? EmployeeNumber = null,
     string? MobileCountryCode = null,
     string? MobileNumber = null,
-    UserAccountCategory AccountCategory = UserAccountCategory.Employee,
     EngagementType EngagementType = EngagementType.FullTime,
     Guid? DepartmentId = null,
     Guid? OrganisationUnitId = null,
@@ -35,7 +34,11 @@ public sealed record CreateUserRequest(
     MfaRequirement MfaRequirement = MfaRequirement.Inherited,
     DateTimeOffset? JoinedOn = null,
 
-    /// <summary>Roles granted on creation. Empty falls back to the Organisation default role.</summary>
+    /// <summary>
+    /// Roles granted on creation, by id. The first one named (here or in
+    /// <see cref="RoleCodes"/>) is the primary role. Neither given falls back to the Organisation
+    /// default role.
+    /// </summary>
     IReadOnlyList<Guid>? RoleIds = null,
 
     /// <summary>Narrowing scopes granted on creation.</summary>
@@ -66,7 +69,17 @@ public sealed record CreateUserRequest(
     /// role assignment and on the audit row - it is the first thing an access review reads.
     /// Null falls back to a generic note, which is what every assignment used to carry.
     /// </summary>
-    string? Justification = null);
+    string? Justification = null,
+
+    /// <summary>
+    /// Roles granted on creation, by CODE - for a caller that cannot know a role's id in each
+    /// Organisation. PAY creates donor accounts with ["DONOR"]. A code that does not exist in
+    /// the Organisation refuses the create rather than falling back to the default role.
+    ///
+    /// This replaced the account category ("DonorPortal", "Employee"…), whose only job was
+    /// to pick that fallback: the role already says what kind of account it is.
+    /// </summary>
+    IReadOnlyList<string>? RoleCodes = null);
 
 /// <summary>
 /// Checks whether an e-mail address or username is free, before the create form is submitted.
@@ -122,7 +135,6 @@ public sealed record UpdateUserRequest(
     string? EmployeeNumber = null,
     string? MobileCountryCode = null,
     string? MobileNumber = null,
-    UserAccountCategory? AccountCategory = null,
     EngagementType? EngagementType = null,
     Guid? DepartmentId = null,
     Guid? OrganisationUnitId = null,
@@ -265,11 +277,13 @@ public sealed record UserListItemResponse(
     Guid Id,
     string Code,
     string DisplayName,
+
+    /// <summary>What the person likes to be called, when it differs from the display name.</summary>
+    string? PreferredName,
     string Email,
     string Username,
     UserStatus Status,
     string StatusDisplay,
-    UserAccountCategory AccountCategory,
     string? DepartmentName,
     string? OrganisationUnitName,
     string? Designation,
@@ -306,7 +320,6 @@ public sealed record UserDetailResponse(
     string? MobileCountryCode,
     string? MobileNumber,
     bool MobileConfirmed,
-    UserAccountCategory AccountCategory,
     EngagementType EngagementType,
     Guid? DepartmentId,
     string? DepartmentName,
@@ -354,7 +367,17 @@ public sealed record UserDetailResponse(
     IReadOnlyList<string> PermittedActions,
     string? Title = null,
     string? PreferredName = null,
-    string? WorkLocation = null);
+    string? WorkLocation = null,
+
+    /// <summary>
+    /// Whether a second factor is required once <see cref="MfaRequirement"/> is resolved.
+    /// "Inherited" says nothing by itself: it is required exactly when the Organisation's
+    /// default is, and the screen has to say which.
+    /// </summary>
+    bool IsMfaEffectivelyRequired = false,
+
+    /// <summary>The Organisation's default, which an "Inherited" requirement follows.</summary>
+    MfaRequirement OrganisationMfaRequirement = MfaRequirement.Optional);
 
 /// <summary>One option in a user picker.</summary>
 public sealed record UserLookupResponse(Guid Id, string Code, string DisplayName, string Email, UserStatus Status);
@@ -407,7 +430,10 @@ public sealed record UserDataScopeResponse(
     bool IsEffective,
     DateTimeOffset GrantedAtUtc,
     DateTimeOffset EffectiveFromUtc,
-    DateTimeOffset? EffectiveToUtc);
+    DateTimeOffset? EffectiveToUtc,
+
+    /// <summary>The scope type in words: "Whole organisation", "Campaign".</summary>
+    string? ScopeTypeDisplay = null);
 
 /// <summary>
 /// IAM-USR-03. Everything the person can actually do, resolved from every source at once, so
@@ -467,7 +493,59 @@ public sealed record UserSecurityResponse(
     IReadOnlyList<UserSessionResponse> ActiveSessions,
     IReadOnlyList<TrustedDeviceResponse> TrustedDevices,
     IReadOnlyList<MfaMethodResponse> MfaMethods,
-    IReadOnlyList<SignInAttemptResponse> RecentAttempts);
+    IReadOnlyList<SignInAttemptResponse> RecentAttempts,
+
+    /// <summary>The two-step requirement in one line: "Required (organisation default) · enrolled".</summary>
+    string? MfaRequirementDisplay = null,
+
+    /// <summary>How well the account is protected: the four checks, the score and its level.</summary>
+    SecurityPostureResponse? Posture = null,
+
+    /// <summary>The single most useful next step, or a note that nothing is outstanding.</summary>
+    SecurityRecommendationResponse? Recommendation = null,
+
+    /// <summary>
+    /// Whether backup codes can be issued now: only with a confirmed second factor, which is the
+    /// rule the server applies when they are asked for.
+    /// </summary>
+    bool CanGenerateRecoveryCodes = false);
+
+/// <summary>
+/// How well an account is protected, scored by the server from the same facts it enforces.
+///
+/// WORKED OUT HERE, NOT IN THE BROWSER. The security page computed its gauge itself and counted
+/// an enrolment nobody had confirmed as two-step verification "Enabled"; the checks now read the
+/// factors the sign-in actually challenges.
+/// </summary>
+public sealed record SecurityPostureResponse(
+    int Score,
+    int MaximumScore,
+
+    /// <summary>"Excellent", "Strong", "Good", "Fair" or "Weak".</summary>
+    string Level,
+
+    /// <summary>One line under the level.</summary>
+    string Summary,
+
+    IReadOnlyList<SecurityCheckResponse> Checks);
+
+/// <summary>One of the checks behind the score: "Password", "Good".</summary>
+public sealed record SecurityCheckResponse(
+    /// <summary>A stable key: password, mfa, recovery, sessions.</summary>
+    string Key,
+    string Label,
+    bool IsMet,
+    string Status);
+
+/// <summary>The next step the security page suggests, with the action that takes it.</summary>
+public sealed record SecurityRecommendationResponse(
+    string Title,
+    string Message,
+
+    /// <summary>EnrolMfa, GenerateRecoveryCodes, ReviewSessions or ChangePassword; null when nothing is outstanding.</summary>
+    string? Action,
+
+    string? ActionLabel);
 
 /// <summary>One live session.</summary>
 public sealed record UserSessionResponse(
@@ -485,7 +563,10 @@ public sealed record UserSessionResponse(
     bool IsTrustedDevice,
     bool IsCurrent,
     Guid? OperatingTenantId,
-    string? OperatingTenantName);
+    string? OperatingTenantName,
+
+    /// <summary>The kind of client in words: "Web browser".</summary>
+    string? ClientTypeDisplay = null);
 
 /// <summary>One remembered device.</summary>
 public sealed record TrustedDeviceResponse(
@@ -499,7 +580,10 @@ public sealed record TrustedDeviceResponse(
     DateTimeOffset TrustedAtUtc,
     DateTimeOffset ExpiresAtUtc,
     DateTimeOffset? LastSeenAtUtc,
-    bool IsExpired);
+    bool IsExpired,
+
+    /// <summary>The kind of client in words: "Web browser".</summary>
+    string? ClientTypeDisplay = null);
 
 /// <summary>One enrolled second factor. The destination is always masked.</summary>
 public sealed record MfaMethodResponse(
@@ -510,7 +594,16 @@ public sealed record MfaMethodResponse(
     bool IsPrimary,
     MfaMethodStatus Status,
     DateTimeOffset? VerifiedAtUtc,
-    DateTimeOffset? LastUsedAtUtc);
+    DateTimeOffset? LastUsedAtUtc,
+
+    /// <summary>The factor's kind in words: "Authenticator app".</summary>
+    string? MethodTypeDisplay = null,
+
+    /// <summary>Where it stands in words: "Active", "Awaiting confirmation".</summary>
+    string? StatusDisplay = null,
+
+    /// <summary>When the enrolment was started, which is the date shown while it awaits confirmation.</summary>
+    DateTimeOffset? CreatedAtUtc = null);
 
 /// <summary>One sign-in attempt, for the "recent activity" list.</summary>
 public sealed record SignInAttemptResponse(
@@ -525,7 +618,16 @@ public sealed record SignInAttemptResponse(
     string? OperatingSystem,
     string? Location,
     int AttemptsRemaining,
-    bool TriggeredLockout);
+    bool TriggeredLockout,
+
+    /// <summary>The kind of client in words: "Web browser".</summary>
+    string? ClientTypeDisplay = null,
+
+    /// <summary>
+    /// The line the activity feed leads with: "Signed in", "Wrong password", or "Account locked
+    /// after too many attempts" when this attempt is the one that locked it.
+    /// </summary>
+    string? Headline = null);
 
 /// <summary>Counts for the directory summary tiles.</summary>
 public sealed record UserStatisticsResponse(
@@ -544,10 +646,10 @@ public sealed record UserStatisticsResponse(
 public sealed record UserExportRow(
     string Code,
     string DisplayName,
+    string? PreferredName,
     string Email,
     string Username,
     string Status,
-    string AccountCategory,
     string? Department,
     string? OrganisationUnit,
     string? Designation,
@@ -571,7 +673,17 @@ public sealed record CreateUserResponse(
     /// <summary>Present only when the mail relay is off, so a developer can still walk the flow.</summary>
     string? ActivationUrl,
 
-    long Version);
+    long Version,
+
+    /// <summary>
+    /// An invitation row exists (Pending). <c>InvitationSent</c> says whether the mail relay
+    /// actually accepted the e-mail; the two differ exactly when the relay is down or refuses
+    /// the login, and the invitation can then be re-sent from the directory.
+    /// </summary>
+    bool InvitationCreated = false,
+
+    /// <summary>One sentence on what happened to the e-mail, for the screen to show as-is.</summary>
+    string? DeliveryMessage = null);
 
 /// <summary>What a proposed role change would gain and lose.</summary>
 public sealed record UserAccessComparisonResponse(

@@ -17,21 +17,32 @@ public sealed class GovernanceReadService(
     IamDbContext context,
     IDateTimeProvider clock) : IGovernanceReadService
 {
-    public async Task<PagedResponse<AccessRequestListItemResponse>> SearchRequestsAsync(
-        AccessRequestSearchFilter filter, Guid currentUserId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The requests a filter selects.
+    ///
+    /// ONE PLACE, used by the queue, the figures above it and the export, so the three can never
+    /// describe different sets of requests.
+    /// </summary>
+    private IQueryable<Domain.Entities.AccessRequest> Filtered(
+        AccessRequestSearchFilter filter, Guid currentUserId)
     {
-        ArgumentNullException.ThrowIfNull(filter);
-
         var query = context.AccessRequests.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var term = filter.Search.Trim().ToLowerInvariant();
 
+            // Everything a row shows that somebody would type: the reference, either person, and
+            // what is being asked for. It matched the reference and the subject only, so searching
+            // for a role or for the colleague who raised the request found nothing.
             query = query.Where(request =>
                 request.RequestNumber.ToLower().Contains(term)
                 || request.BusinessJustification.ToLower().Contains(term)
-                || request.RequestedForUser!.DisplayName.ToLower().Contains(term));
+                || request.RequestedForUser!.DisplayName.ToLower().Contains(term)
+                || (request.Role != null && (request.Role.Name ?? request.Role.Code).ToLower().Contains(term))
+                || (request.PermissionCode != null && request.PermissionCode.ToLower().Contains(term))
+                || context.Users.IgnoreQueryFilters().Any(user =>
+                    user.Id == request.RequestedByUserId && user.DisplayName.ToLower().Contains(term)));
         }
 
         if (filter.Status.HasValue)
@@ -74,6 +85,11 @@ public sealed class GovernanceReadService(
                 && request.RequestedForUserId != currentUserId);
         }
 
+        if (filter.RaisedByMe == true)
+        {
+            query = query.Where(request => request.RequestedByUserId == currentUserId);
+        }
+
         if (filter.SubmittedFromUtc.HasValue)
         {
             query = query.Where(request => request.SubmittedAtUtc >= filter.SubmittedFromUtc.Value);
@@ -84,10 +100,24 @@ public sealed class GovernanceReadService(
             query = query.Where(request => request.SubmittedAtUtc <= filter.SubmittedToUtc.Value);
         }
 
+        return query;
+    }
+
+    public async Task<PagedResponse<AccessRequestListItemResponse>> SearchRequestsAsync(
+        AccessRequestSearchFilter filter, AccessRequestViewer viewer, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(viewer);
+
+        var query = Filtered(filter, viewer.UserId);
+
         var total = await query.CountAsync(cancellationToken);
 
         var rows = await query
             .OrderByDescending(request => request.SubmittedAtUtc ?? request.CreatedAtUtc)
+            // The number breaks a tie, so two requests raised in the same instant keep their
+            // order from one page to the next.
+            .ThenByDescending(request => request.RequestNumber)
             .Skip(filter.Skip)
             .Take(filter.PageSize)
             .Select(request => new
@@ -102,6 +132,11 @@ public sealed class GovernanceReadService(
                 request.RequestType,
                 RoleName = request.Role != null ? request.Role.Name ?? request.Role.Code : null,
                 request.PermissionCode,
+                PermissionName = request.PermissionCode == null
+                    ? null
+                    : context.Permissions
+                        .Where(permission => permission.Code == request.PermissionCode)
+                        .Select(permission => permission.Name).FirstOrDefault(),
                 request.Status,
                 request.IsSensitive,
                 request.SubmittedAtUtc,
@@ -139,26 +174,146 @@ public sealed class GovernanceReadService(
                 row.AccessEndsAtUtc,
                 row.DecidedAtUtc,
                 row.DecidedByName,
-                // The independence rule, surfaced so the queue can grey out what the caller
-                // must not act on rather than letting them try and be refused.
-                CanDecide: row.Status == AccessRequestStatus.Submitted
-                           && row.RequestedByUserId != currentUserId
-                           && row.RequestedForUserId != currentUserId,
-                // Only the creator may cancel, and only while nothing has been decided.
-                CanCancel: row.RequestedByUserId == currentUserId
-                           && (row.Status == AccessRequestStatus.Draft
-                               || row.Status == AccessRequestStatus.Submitted),
+                // The independence rule and the caller's permission together, so the queue
+                // offers a decision only where the API would accept one.
+                CanDecide: GovernanceMappingConfig.CanDecide(
+                    row.Status, row.RequestedByUserId, row.RequestedForUserId, viewer),
+                // Only the person who raised it, and only while nothing has been decided.
+                CanCancel: GovernanceMappingConfig.CanCancel(row.Status, row.RequestedByUserId, viewer),
                 row.Version,
                 ScopeType: row.ScopeType,
-                ScopeValue: row.ScopeValue))
+                ScopeValue: row.ScopeValue,
+                ScopeTypeDisplay: row.ScopeType.HasValue
+                    ? GovernanceMappingConfig.DescribeScopeType(row.ScopeType.Value)
+                    : null,
+                PermissionName: row.PermissionName,
+                PermittedActions: GovernanceMappingConfig.PermittedActionsFor(
+                    row.Status, row.RequestedByUserId, row.RequestedForUserId, viewer),
+                CannotDecideReason: GovernanceMappingConfig.CannotDecideReason(
+                    row.Status, row.RequestedByUserId, row.RequestedForUserId, viewer)))
             .ToList();
 
         return new PagedResponse<AccessRequestListItemResponse>(items, total, filter.Page, filter.PageSize);
     }
 
-    public async Task<AccessRequestDetailResponse?> GetRequestAsync(
-        Guid id, CancellationToken cancellationToken)
+    public async Task<AccessRequestSummaryResponse> GetRequestSummaryAsync(
+        AccessRequestSearchFilter filter, AccessRequestViewer viewer, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(viewer);
+
+        var query = Filtered(filter, viewer.UserId);
+
+        var counts = await query
+            .GroupBy(request => request.Status)
+            .Select(group => new { Status = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.Status, item => item.Count, cancellationToken);
+
+        // One row per person the matching requests are for, busiest first. Bounded by the number
+        // of people in the Organisation, and both figures the cards need come from it.
+        var perPerson = await query
+            .GroupBy(request => request.RequestedForUserId)
+            .Select(group => new { UserId = group.Key, Count = group.Count() })
+            .OrderByDescending(item => item.Count)
+            .ThenBy(item => item.UserId)
+            .ToListAsync(cancellationToken);
+
+        var busiest = perPerson.Count > 0 ? perPerson[0] : null;
+
+        var busiestName = busiest is null
+            ? null
+            : await context.Users.IgnoreQueryFilters()
+                .Where(user => user.Id == busiest.UserId)
+                .Select(user => user.DisplayName)
+                .FirstOrDefaultAsync(cancellationToken);
+
+        int Count(AccessRequestStatus status) => counts.GetValueOrDefault(status);
+
+        return new AccessRequestSummaryResponse(
+            Total: counts.Values.Sum(),
+            Approved: Count(AccessRequestStatus.Approved),
+            // Waiting on somebody: on an approver, or on the requester to correct it.
+            Pending: Count(AccessRequestStatus.Submitted) + Count(AccessRequestStatus.Returned),
+            Rejected: Count(AccessRequestStatus.Rejected),
+            UsersInvolved: perPerson.Count,
+            MostActiveUserName: busiestName,
+            MostActiveUserRequestCount: busiest?.Count ?? 0,
+            ByStatus:
+            [
+                .. Enum.GetValues<AccessRequestStatus>().Select(status => new AccessRequestStatusCount(
+                    status, SplitPascalCase(status.ToString()), Count(status)))
+            ]);
+    }
+
+    public async Task<IReadOnlyList<AccessRequestExportRow>> GetRequestExportRowsAsync(
+        AccessRequestSearchFilter filter, AccessRequestViewer viewer, int maximumRows,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(viewer);
+
+        var rows = await Filtered(filter, viewer.UserId)
+            .OrderByDescending(request => request.SubmittedAtUtc ?? request.CreatedAtUtc)
+            .ThenByDescending(request => request.RequestNumber)
+            .Take(Math.Max(1, maximumRows))
+            .Select(request => new
+            {
+                request.RequestNumber,
+                request.RequestType,
+                RequestedForName = request.RequestedForUser!.DisplayName,
+                RequestedByName = context.Users.IgnoreQueryFilters()
+                    .Where(user => user.Id == request.RequestedByUserId)
+                    .Select(user => user.DisplayName).FirstOrDefault(),
+                RoleName = request.Role != null ? request.Role.Name ?? request.Role.Code : null,
+                request.PermissionCode,
+                request.ScopeType,
+                request.ScopeValue,
+                request.Status,
+                request.IsSensitive,
+                request.SubmittedAtUtc,
+                request.AccessStartsAtUtc,
+                request.AccessEndsAtUtc,
+                request.DecidedAtUtc,
+                DecidedByName = request.DecidedByUserId == null
+                    ? null
+                    : context.Users.IgnoreQueryFilters()
+                        .Where(user => user.Id == request.DecidedByUserId)
+                        .Select(user => user.DisplayName).FirstOrDefault(),
+                request.DecisionNotes,
+                request.BusinessJustification
+            })
+            .ToListAsync(cancellationToken);
+
+        // The queue's own words, so the file and the screen it came from describe a request the
+        // same way.
+        return
+        [
+            .. rows.Select(row => new AccessRequestExportRow(
+                row.RequestNumber,
+                SplitPascalCase(row.RequestType.ToString()),
+                row.RequestedForName,
+                row.RequestedByName ?? string.Empty,
+                row.RoleName,
+                row.PermissionCode,
+                row.ScopeType.HasValue ? GovernanceMappingConfig.DescribeScopeType(row.ScopeType.Value) : null,
+                row.ScopeValue,
+                SplitPascalCase(row.Status.ToString()),
+                row.IsSensitive,
+                row.SubmittedAtUtc,
+                row.AccessStartsAtUtc,
+                row.AccessEndsAtUtc,
+                row.DecidedAtUtc,
+                row.DecidedByName,
+                row.DecisionNotes,
+                row.BusinessJustification))
+        ];
+    }
+
+    public async Task<AccessRequestDetailResponse?> GetRequestAsync(
+        Guid id, AccessRequestViewer viewer, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(viewer);
+
         var request = await context.AccessRequests
             .AsNoTracking()
             .Include(item => item.RequestedForUser)
@@ -170,18 +325,21 @@ public sealed class GovernanceReadService(
             return null;
         }
 
-        var requestedByName = await context.Users
-            .IgnoreQueryFilters()
-            .Where(user => user.Id == request.RequestedByUserId)
-            .Select(user => user.DisplayName)
-            .FirstOrDefaultAsync(cancellationToken);
+        // The three people a request can name besides its subject, in one read.
+        var personIds = new Guid?[] { request.RequestedByUserId, request.DecidedByUserId, request.ReturnedByUserId }
+            .Where(personId => personId.HasValue)
+            .Select(personId => personId!.Value)
+            .Distinct()
+            .ToList();
 
-        var decidedByName = request.DecidedByUserId.HasValue
-            ? await context.Users.IgnoreQueryFilters()
-                .Where(user => user.Id == request.DecidedByUserId.Value)
-                .Select(user => user.DisplayName)
-                .FirstOrDefaultAsync(cancellationToken)
-            : null;
+        var names = await context.Users
+            .IgnoreQueryFilters()
+            .Where(user => personIds.Contains(user.Id))
+            .Select(user => new { user.Id, user.DisplayName })
+            .ToDictionaryAsync(item => item.Id, item => item.DisplayName, cancellationToken);
+
+        string? NameOf(Guid? personId) =>
+            personId.HasValue && names.TryGetValue(personId.Value, out var name) ? name : null;
 
         // What the requested access would actually add, so the approver sees the consequence
         // rather than only the role name.
@@ -196,6 +354,14 @@ public sealed class GovernanceReadService(
                 ? []
                 : [request.PermissionCode];
 
+        var permissionName = string.IsNullOrWhiteSpace(request.PermissionCode)
+            ? null
+            : await context.Permissions
+                .AsNoTracking()
+                .Where(permission => permission.Code == request.PermissionCode)
+                .Select(permission => permission.Name)
+                .FirstOrDefaultAsync(cancellationToken);
+
         return new AccessRequestDetailResponse(
             request.Id,
             request.RequestNumber,
@@ -203,7 +369,7 @@ public sealed class GovernanceReadService(
             request.RequestedForUser.DisplayName,
             request.RequestedForUser.Email ?? string.Empty,
             request.RequestedByUserId,
-            requestedByName ?? string.Empty,
+            NameOf(request.RequestedByUserId) ?? string.Empty,
             request.RequestType,
             SplitPascalCase(request.RequestType.ToString()),
             request.RoleId,
@@ -220,7 +386,7 @@ public sealed class GovernanceReadService(
             request.SubmittedAtUtc,
             request.DecidedAtUtc,
             request.DecidedByUserId,
-            decidedByName,
+            NameOf(request.DecidedByUserId),
             request.DecisionNotes,
             request.WithdrawnAtUtc,
             request.WithdrawalReason,
@@ -228,9 +394,25 @@ public sealed class GovernanceReadService(
             request.CreatedAtUtc,
             request.Version,
             permissionsGranted,
+            // Filled in by the query handler, which has the access service this layer does not.
             SegregationOfDutiesConflicts: [],
-            CanDecide: request.Status == AccessRequestStatus.Submitted,
-            GovernanceMappingConfig.PermittedActionsFor(request, Guid.Empty));
+            // FOR THIS CALLER. It answered "is it submitted?" for everybody, so the person who
+            // raised a request was told they could decide it - and was refused when they tried.
+            CanDecide: GovernanceMappingConfig.CanDecide(
+                request.Status, request.RequestedByUserId, request.RequestedForUserId, viewer),
+            GovernanceMappingConfig.PermittedActionsFor(request, viewer),
+            ScopeTypeDisplay: request.ScopeType.HasValue
+                ? GovernanceMappingConfig.DescribeScopeType(request.ScopeType.Value)
+                : null,
+            PermissionName: permissionName,
+            ReturnReason: request.ReturnReason,
+            ReturnedAtUtc: request.ReturnedAtUtc,
+            ReturnedByName: NameOf(request.ReturnedByUserId),
+            ReturnCount: request.ReturnCount,
+            ExpiresAtUtc: request.ExpiresAtUtc,
+            CanCancel: GovernanceMappingConfig.CanCancel(request.Status, request.RequestedByUserId, viewer),
+            CannotDecideReason: GovernanceMappingConfig.CannotDecideReason(
+                request.Status, request.RequestedByUserId, request.RequestedForUserId, viewer));
     }
 
     public async Task<PagedResponse<AccessReviewListItemResponse>> SearchReviewsAsync(

@@ -10,8 +10,13 @@ EXPOSE 8080
 # this the compose healthcheck fails with "curl: not found" every fifteen seconds and the
 # container is marked unhealthy while the application is working perfectly - which is exactly
 # what happened to CAM and PAY.
+#
+# /var/ydot/integration is where the YDot.Integration worker's data volume is mounted (the inbox
+# uploaded number lists are written to). Created and handed to the application user HERE because a
+# named volume takes its first ownership from the image: without this it would be root's, and the
+# first upload would fail with "access denied" on a container that is otherwise healthy.
 USER root
-RUN apt-get update     && apt-get install -y --no-install-recommends curl     && rm -rf /var/lib/apt/lists/*     && mkdir -p /app/logs     && chown -R $APP_UID /app/logs
+RUN apt-get update     && apt-get install -y --no-install-recommends curl     && rm -rf /var/lib/apt/lists/*     && mkdir -p /app/logs /var/ydot/integration     && chown -R $APP_UID /app/logs /var/ydot
 USER $APP_UID
 
 

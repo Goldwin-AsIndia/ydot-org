@@ -7,6 +7,7 @@ using YDots.CAM.Application.Common.Abstractions.Security;
 using YDots.CAM.Application.Common.Abstractions.Services;
 using YDots.CAM.Application.Common.Settings;
 using YDots.CAM.Infrastructure.Authorization;
+using YDots.CAM.Infrastructure.Integration.WhatsApp;
 using YDots.CAM.Infrastructure.Multitenancy;
 using YDots.CAM.Infrastructure.Persistence;
 using YDots.CAM.Infrastructure.Persistence.ReadServices;
@@ -108,6 +109,15 @@ public static class DependencyInjection
         services.AddScoped<IFinancialDirectory, FinancialDirectory>();
         services.AddScoped<IPeopleDirectory, PeopleDirectory>();
         services.AddScoped<IGeographyDirectory, GeographyDirectory>();
+
+        // ---- WhatsApp outreach (CheckNumber.ai + WATI) ------------------------------------------------------
+        //
+        // The YDot.Integration worker does the work and owns the int_* tables. These two are how
+        // CAM reaches it: the store reads those tables (and leaves requests in int_worker_commands)
+        // on the request's own DbContext connection, which is why it is scoped; the inbox only
+        // holds a configured folder path, so it is a singleton.
+        services.AddScoped<IWhatsAppIntegrationStore, WhatsAppIntegrationStore>();
+        services.AddSingleton<IWhatsAppInbox, WhatsAppInbox>();
 
         // ---- Authorization -----------------------------------------------------------------------------------
         //

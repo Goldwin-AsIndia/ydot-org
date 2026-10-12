@@ -83,12 +83,6 @@ export class MfaEnrollmentComponent implements OnInit, OnDestroy {
       recommended: true,
     },
     {
-      id: 'sms',
-      name: 'SMS',
-      icon: 'ri-message-3-line',
-      description: 'Receive a one-time code on your mobile phone via text message',
-    },
-    {
       id: 'email',
       name: 'Email OTP',
       icon: 'ri-mail-line',
@@ -155,12 +149,6 @@ export class MfaEnrollmentComponent implements OnInit, OnDestroy {
     const [user, domain] = this.personaEmail.split('@');
     const mask = user.length > 2 ? user.slice(0, 2) + '****' : user + '****';
     return `${mask}@${domain}`;
-  }
-
-  get maskedPhone(): string {
-    // Masked BY THE SERVER, which knows the number. Masking here would need the real number in
-    // the browser, which is the thing masking exists to avoid.
-    return this.enrolment()?.maskedDestination ?? '';
   }
 
   /**
@@ -291,7 +279,6 @@ export class MfaEnrollmentComponent implements OnInit, OnDestroy {
   private toMethodType(id: string): MfaMethodType | null {
     switch (id) {
       case 'authenticator': return 'authenticatorApp';
-      case 'sms': return 'sms';
       case 'email': return 'email';
       case 'security-key': return 'securityKey';
 

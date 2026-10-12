@@ -74,9 +74,10 @@
               </span>
             </dd>
           </div>
+          <!-- Was "Account type". The role is what says what kind of account this is. -->
           <div class="cr-hl">
-            <dt>Account type</dt>
-            <dd>{{ data()?.accountCategory || '—' }}</dd>
+            <dt>Primary role</dt>
+            <dd>{{ data()?.primaryRole || '—' }}</dd>
           </div>
           <div class="cr-hl">
             <dt>Sign-in e-mail</dt>
@@ -86,7 +87,7 @@
             <dt>Roles</dt>
             <dd>{{ roleAssignments().length }} <small>assigned</small></dd>
           </div>
-          <div class="cr-hl" [class.is-ok]="mfaEnabled()" [class.is-warn]="!mfaEnabled()">
+          <div class="cr-hl" [class.is-ok]="mfaEnabled()" [class.is-warn]="!mfaEnabled()" [title]="data()?.mfaPolicy || ''">
             <dt>Two-step</dt>
             <dd>{{ getMfaStatusLabel() }}</dd>
           </div>
@@ -182,9 +183,9 @@
                   <dd>{{ data()?.dataScopes || 'Whole organisation' }}</dd>
                 </div>
                 <div class="cr-fact">
-                  <span class="cr-fact-glyph is-muted"><i class="ri-file-search-line" aria-hidden="true"></i></span>
-                  <dt>Access review</dt>
-                  <dd class="is-muted">Not tracked</dd>
+                  <span class="cr-fact-glyph"><i class="ri-shield-keyhole-line" aria-hidden="true"></i></span>
+                  <dt>Two-step verification</dt>
+                  <dd>{{ data()?.mfaPolicy || '—' }}</dd>
                 </div>
               </dl>
             }
@@ -455,9 +456,14 @@
             <label class="epx-lbl" for="epx_title">Title</label>
             <div class="epx-ctl">
               <i class="ri-user-star-line" aria-hidden="true"></i>
-              <input id="epx_title" class="epx-in" type="text" placeholder="Mr / Ms / Dr"
-                     [ngModel]="editForm().title"
-                     (ngModelChange)="editForm.set({...editForm(), title: $event})">
+              <select id="epx_title" class="epx-in"
+                      [ngModel]="editForm().title"
+                      (ngModelChange)="editForm.set({...editForm(), title: $event})">
+                <option value="">None</option>
+                @for (title of withCurrent(titleOptions(), editForm().title); track title) {
+                  <option [value]="title">{{ title }}</option>
+                }
+              </select>
             </div>
           </div>
           <div class="epx-field">
@@ -516,10 +522,15 @@
         <div class="epx-field">
           <label class="epx-lbl" for="epxMobile">Mobile number</label>
           <div class="epx-phone">
-            <input class="epx-in epx-in--code" (blur)="touchEdit('mobileCountryCode')" type="text" data-input="dial" placeholder="+91" aria-label="Country code" maxlength="5"
-                   [class.is-invalid]="!!editError('mobileCountryCode')"
-                   [ngModel]="editForm().mobileCountryCode"
-                   (ngModelChange)="editForm.set({...editForm(), mobileCountryCode: $event})">
+            <select class="epx-in epx-in--code" (blur)="touchEdit('mobileCountryCode')" aria-label="Country code"
+                    [class.is-invalid]="!!editError('mobileCountryCode')"
+                    [ngModel]="editForm().mobileCountryCode"
+                    (ngModelChange)="editForm.set({...editForm(), mobileCountryCode: $event})">
+              <option value="">Code</option>
+              @for (code of withCurrent(dialCodeOptions(), editForm().mobileCountryCode); track code) {
+                <option [value]="code">{{ code }}</option>
+              }
+            </select>
             <div class="epx-ctl epx-ctl--grow">
               <i class="ri-smartphone-line" aria-hidden="true"></i>
               <input id="epxMobile" (blur)="touchEdit('mobileNumber')" class="epx-in" type="tel" inputmode="numeric" maxlength="15" placeholder="98765 43210"
@@ -580,18 +591,30 @@
             <label class="epx-lbl" for="epx_preferredLanguage">Preferred language</label>
             <div class="epx-ctl">
               <i class="ri-translate-2" aria-hidden="true"></i>
-              <input id="epx_preferredLanguage" class="epx-in" type="text" placeholder=""
-                     [ngModel]="editForm().preferredLanguage"
-                     (ngModelChange)="editForm.set({...editForm(), preferredLanguage: $event})">
+              <!-- The value is the culture code, which is what users.preferred_language stores. -->
+              <select id="epx_preferredLanguage" class="epx-in"
+                      [ngModel]="editForm().preferredLanguage"
+                      (ngModelChange)="editForm.set({...editForm(), preferredLanguage: $event})">
+                <option value="">Organisation default</option>
+                @for (language of geo.languages(); track language.id) {
+                  <option [value]="language.cultureCode">{{ language.displayLabel }}</option>
+                }
+              </select>
             </div>
           </div>
           <div class="epx-field">
             <label class="epx-lbl" for="epx_timeZoneId">Time zone</label>
             <div class="epx-ctl">
               <i class="ri-time-line" aria-hidden="true"></i>
-              <input id="epx_timeZoneId" class="epx-in" type="text" placeholder=""
-                     [ngModel]="editForm().timeZoneId"
-                     (ngModelChange)="editForm.set({...editForm(), timeZoneId: $event})">
+              <!-- The value is the IANA key, which is what users.time_zone stores. -->
+              <select id="epx_timeZoneId" class="epx-in"
+                      [ngModel]="editForm().timeZoneId"
+                      (ngModelChange)="editForm.set({...editForm(), timeZoneId: $event})">
+                <option value="">Organisation default</option>
+                @for (zone of geo.timeZones(); track zone.id) {
+                  <option [value]="zone.ianaKey">{{ zone.name }}</option>
+                }
+              </select>
             </div>
           </div>
         </div>

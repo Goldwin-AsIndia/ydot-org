@@ -154,13 +154,13 @@ export class CampaignReadinessChecklistComponent {
    * of the three inputs are not knowable here:
    *
    *   - THE CAMPAIGN'S STATUS. "Request approval" applies to a Draft campaign and to nothing
-   *     else. A campaign already Submitted has been requested; the next act is somebody else's
-   *     approval. The browser's gate never looked at status, so on a Submitted campaign it left
+   *     else. A campaign already Submitted has been requested; the next act is the approval. The
+   *     browser's gate never looked at status, so on a Submitted campaign it left
    *     Request approval greyed out and explained it with the wrong reason entirely - "Budget
    *     approval and Tracking readiness must pass" - when the true answer was "this has already
    *     been submitted".
-   *   - SEGREGATION OF DUTIES. `Campaign.CanBeApprovedBy` refuses the person who submitted it.
-   *     The browser does not know who that was until the record loads, and must not guess.
+   *   - THE CHECKLIST. Approve launch waits for every required check to pass, which only the
+   *     server's readiness verdict can say.
    *
    * The permission codes remain as the fallback for the moment before the readiness record
    * arrives, so the menu does not flicker from empty to populated on every load.
@@ -835,11 +835,6 @@ export class CampaignReadinessChecklistComponent {
     const c = this.campaign();
     return c ? this.nextLaunchState(c.status) : null;
   });
-  /** True when the acting session is the one that requested approval — blocks self-approval. */
-  protected readonly isOwnRequest = computed(() => {
-    const rec = this.readiness();
-    return !!rec?.requestedByRef && rec.requestedByRef === this.currentUserRef();
-  });
   protected readonly approveLaunchAllowed = computed(() => {
     const rec = this.readiness();
     // Enabled as soon as approval has been requested (Submitted) — a campaign that has
@@ -876,7 +871,7 @@ export class CampaignReadinessChecklistComponent {
         return `${parts.join(' and ')}. Reject the launch, or wait for the checklist to be completed.`;
       }
 
-      return 'You created or submitted this campaign, so a colleague has to approve it.';
+      return 'Approve launch is not available for this campaign right now. Reload to see its latest state.';
     }
 
     return '';

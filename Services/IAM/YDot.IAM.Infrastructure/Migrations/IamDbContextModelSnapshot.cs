@@ -5043,12 +5043,6 @@ namespace YDot.IAM.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("access_starts_at_utc");
 
-                    b.Property<string>("AccountCategory")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("account_category");
-
                     b.Property<string>("AuthenticatorSecret")
                         .HasColumnType("text")
                         .HasColumnName("authenticator_secret");

@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
@@ -90,12 +91,18 @@ public sealed class SmtpEmailTransport(IOptions<EmailSettings> emailOptions) : I
                 + $"{_settings.SmtpUsername}: {exception.Message}",
                 exception);
         }
+        // SocketException and TimeoutException are the relay being unreachable - a DNS lookup
+        // that fails, a network with no route, a connect that never answers. Neither is an
+        // IOException, and before they were listed here they escaped the "never throws" promise
+        // one level up and turned a committed activation into a 500.
         catch (Exception exception) when (exception is SmtpCommandException
                                               or SmtpProtocolException
                                               or SslHandshakeException
                                               or InvalidOperationException
                                               or FormatException
                                               or IOException
+                                              or SocketException
+                                              or TimeoutException
                                               or OperationCanceledException)
         {
             throw new EmailTransportException(

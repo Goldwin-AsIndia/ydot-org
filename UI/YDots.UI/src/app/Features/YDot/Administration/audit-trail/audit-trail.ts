@@ -12,8 +12,8 @@ import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { AuditSearchFilter, IamAdminApiService } from '../../../../Service/iam-admin-api.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
-import { AuditEventResponse } from '../../../../Shared/models/iam-contract.model';
-import { ApiEnumOption } from '../../../../Shared/models/enum-option.model';
+import { AuditEventResponse, AuditSummaryResponse } from '../../../../Shared/models/iam-contract.model';
+import { apiEnumValue } from '../../../../Shared/models/enum-option.model';
 import { supportReference, withoutGuids } from '../../../../Shared/models/identifier';
 import { ClickOutsideDirective } from '../../../../Shared/directives/click-outside';
 import { SupportReferencePipe } from '../../../../Shared/pipes/support-reference.pipe';
@@ -26,13 +26,11 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
 declare var ApexCharts: any;
 
 /**
- * The server clamps every list endpoint to this many rows per page (see the IAM API's
- * `PaginationRequest`). The summary cards, donut and heatmap are computed from one page fetched
- * at this size rather than a dedicated aggregate endpoint, so on an organisation with more than
- * this many matching events they describe the most recent `STATS_PAGE_SIZE` rather than the
- * organisation's entire history — `isTruncatedForStats` is how the UI stays honest about that.
+ * The rows fetched per request for the Recent Activity list - the server's ceiling. The cards,
+ * donut and heatmap do NOT come from these rows any more: they are counted by the server over
+ * every matching event (`/audit-events/summary`).
  */
-const STATS_PAGE_SIZE = 100;
+const LIST_PAGE_SIZE = 100;
 const INITIAL_VISIBLE = 5;
 const LOAD_MORE_STEP = 5;
 
@@ -78,9 +76,6 @@ function readableWord(value: string): string {
   const words = value.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
-
-/** One cell of the Mon–Sun x time-of-day grid. */
-type HeatmapGrid = number[][];
 
 /** A line in the Record type / Outcome picker. */
 interface ComboOption {
@@ -174,11 +169,14 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
   readonly events = signal<AuditEventResponse[]>([]);
 
   /**
-   * A frozen snapshot of the first page fetched for the current filter set. The summary cards,
-   * donut and heatmap always read from this — not from `events` — so paging further through the
-   * list for browsing does not shift numbers that were already shown.
+   * The cards, the outcome donut, the heatmap and the insight, for the current filter - counted
+   * by the server over EVERY matching event. They used to be worked out here from the first
+   * hundred rows, so on a busy Organisation every figure described "the latest hundred".
    */
-  readonly statsSource = signal<AuditEventResponse[]>([]);
+  readonly summary = signal<AuditSummaryResponse | null>(null);
+
+  /** The viewer's own zone, so the heatmap's bands are the viewer's morning and evening. */
+  private readonly timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   readonly totalCount = signal(0);
   readonly hasNextPage = signal(false);
@@ -224,10 +222,11 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
   readonly targetTypes = signal<string[]>([]);
 
   /**
-   * The outcome filter's options - the server's `AuditResult` values, from `/reference-data/enums`.
-   * They were a literal three-item list.
+   * The outcome filter's options - the server's `AuditResult` values, with the line saying what
+   * each means, from `/reference-data/enums`. They were a literal three-item list with the
+   * meanings typed beside it.
    */
-  readonly results = signal<ApiEnumOption[]>([]);
+  readonly results = signal<{ value: string; label: string; description: string }[]>([]);
 
   // ---- Record type / Outcome pickers ------------------------------------------------------------
   // The same searchable list as the campaign wizard's Owner field: type to narrow, pick a line.
@@ -238,12 +237,10 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
   /** Keyboard highlight within the open list. */
   readonly comboActive = signal(0);
 
-  /** Record types, each with how many of the events in view it accounts for. */
+  /** Record types, each with how many of the matching events it accounts for - counted by the server. */
   readonly typeOptions = computed<ComboOption[]>(() => {
-    const counts = new Map<string, number>();
-    for (const e of this.statsSource()) {
-      if (e.targetType) counts.set(e.targetType, (counts.get(e.targetType) ?? 0) + 1);
-    }
+    const counts = new Map<string, number>(
+      (this.summary()?.targetTypes ?? []).map((item) => [item.targetType ?? '', item.count ?? 0] as const));
     const inView = (n: number) => (n ? `${n} event${n === 1 ? '' : 's'} in view` : 'None in view');
     return [
       { value: '', label: 'All records', context: 'Every record type', glyph: 'ri-stack-line' },
@@ -251,22 +248,20 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
     ];
   });
 
-  readonly resultOptions = computed<ComboOption[]>(() => {
-    const notes: Record<string, string> = {
-      succeeded: 'Completed as requested',
-      denied: 'Refused by a permission check',
-      failed: 'Stopped by an error',
-    };
-    return [
-      { value: '', label: 'All outcomes', context: 'Succeeded, denied and failed', glyph: 'ri-stack-line' },
-      ...this.results().map((o) => ({
-        value: String(o.value),
-        label: o.label,
-        context: notes[String(o.value)] ?? 'Outcome',
-        tone: String(o.value),
-      })),
-    ];
-  });
+  readonly resultOptions = computed<ComboOption[]>(() => [
+    {
+      value: '',
+      label: 'All outcomes',
+      context: this.results().map((o) => o.label).join(', ') || 'Every outcome',
+      glyph: 'ri-stack-line',
+    },
+    ...this.results().map((o) => ({
+      value: o.value,
+      label: o.label,
+      context: o.description || 'Outcome',
+      tone: o.value,
+    })),
+  ]);
 
   /** The open picker's options, narrowed by what has been typed. */
   readonly comboResults = computed<ComboOption[]>(() => {
@@ -365,121 +360,73 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
   readonly canLoadMore = computed(
     () => this.visibleCount() < this.events().length || this.hasNextPage());
 
-  // ---- Summary cards, computed from `statsSource` ----------------------------------------------
+  // ---- Summary cards: the server's figures ---------------------------------------------------------
+
+  readonly statsTotal = computed(() => this.summary()?.totalCount ?? 0);
+
+  private outcome(value: string) {
+    return (this.summary()?.outcomes ?? []).find((item) => item.result === value);
+  }
+
+  readonly succeededCount = computed(() => this.outcome('succeeded')?.count ?? 0);
+
+  /** Everything that did not succeed: denials and failures, which the card counts together. */
+  readonly failedCount = computed(() => this.summary()?.unsuccessfulCount ?? 0);
+
+  readonly succeededPct = computed(() => this.summary()?.succeededPercent ?? 0);
+  readonly failedPct = computed(() => this.summary()?.unsuccessfulPercent ?? 0);
 
   /**
-   * True once the fetched batch stops short of the trail's real size — the point at which the
-   * cards below describe "the most recent N events" rather than the organisation's whole history.
+   * The second card's heading, in the server's words for the two outcomes it counts.
+   *
+   * IT SAID "FAILED" over a count of denials and failures together. A denial is a permission check
+   * doing its job, not something breaking - the trail colours them apart - so the heading names both.
    */
-  readonly isTruncatedForStats = computed(() => this.totalCount() > this.statsSource().length);
+  readonly unsuccessfulLabel = computed(() => {
+    const denied = this.outcome('denied')?.label;
+    const failed = this.outcome('failed')?.label;
+    return denied && failed ? `${denied} or ${failed.toLowerCase()}` : 'Not succeeded';
+  });
 
-  readonly statsTotal = computed(() => this.statsSource().length);
-
-  readonly succeededCount = computed(
-    () => this.statsSource().filter((e) => e.result === 'succeeded').length);
-
-  /**
-   * Everything that isn't a clean success — "failed" and "denied" alike — bucketed together for
-   * the summary cards and the donut, which (like the reference layout) show only two outcomes.
-   * The event list below keeps the finer-grained three-way badge, since a denial reaching that
-   * far still deserves its own colour.
-   */
-  readonly failedCount = computed(() => this.statsTotal() - this.succeededCount());
-
-  readonly succeededPct = computed(
-    () => (this.statsTotal() ? Math.round((this.succeededCount() / this.statsTotal()) * 100) : 0));
-
-  readonly failedPct = computed(
-    () => (this.statsTotal() ? 100 - this.succeededPct() : 0));
-
-  readonly uniqueUsersCount = computed(
-    () => new Set(this.statsSource().map((e) => this.actorKey(e))).size);
+  readonly uniqueUsersCount = computed(() => this.summary()?.distinctActorCount ?? 0);
 
   readonly mostActiveUser = computed(() => {
-    const counts = new Map<string, { name: string; count: number }>();
-
-    for (const event of this.statsSource()) {
-      const key = this.actorKey(event);
-      const existing = counts.get(key);
-
-      if (existing) {
-        existing.count++;
-      } else {
-        counts.set(key, { name: event.actorDisplayName || 'System', count: 1 });
-      }
-    }
-
-    let best: { name: string; count: number } | null = null;
-
-    for (const entry of counts.values()) {
-      if (!best || entry.count > best.count) {
-        best = entry;
-      }
-    }
-
-    return best;
+    const top = this.summary()?.mostActiveActor;
+    return top ? { name: top.displayName || 'System', count: top.eventCount ?? 0 } : null;
   });
 
-  /** The most active user's share of the summarised events, as a whole percentage. */
-  readonly mostActiveShare = computed(() => {
-    const top = this.mostActiveUser();
-    return top && this.statsTotal() ? Math.round((top.count / this.statsTotal()) * 100) : 0;
-  });
+  readonly mostActiveShare = computed(() => this.summary()?.mostActiveActor?.sharePercent ?? 0);
 
-  // ---- Activity heatmap (day-of-week x 6-hour bucket), computed from `statsSource` -------------
+  // ---- Activity heatmap: the server's grid, counted on the viewer's clock ----------------------------
 
-  readonly dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  readonly timeLabels = ['12 AM', '6 AM', '12 PM', '6 PM'];
-  private readonly timeRanges = ['12 AM – 6 AM', '6 AM – 12 PM', '12 PM – 6 PM', '6 PM – 12 AM'];
+  readonly dayLabels = computed(() => this.summary()?.heatmap?.dayLabels ?? []);
+  readonly timeLabels = computed(() => (this.summary()?.heatmap?.bands ?? []).map((band) => band.label ?? ''));
 
-  /** Rows are the four 6-hour buckets (12am/6am/12pm/6pm); columns are Mon(0)..Sun(6). */
-  readonly heatmap = computed<HeatmapGrid>(() => {
-    const grid: HeatmapGrid = Array.from({ length: 4 }, () => Array(7).fill(0));
+  /** Rows are the bands of the day; columns are the days, Monday first. */
+  readonly heatmap = computed<{ range: string; counts: number[] }[]>(() =>
+    (this.summary()?.heatmap?.bands ?? []).map((band) => ({ range: band.rangeLabel ?? '', counts: band.counts ?? [] })));
 
-    for (const event of this.statsSource()) {
-      if (!event.occurredAtUtc) {
-        continue;
-      }
+  readonly heatmapMax = computed(() => Math.max(1, this.summary()?.heatmap?.maxCount ?? 0));
 
-      const occurred = new Date(event.occurredAtUtc);
-      const mondayFirstDay = (occurred.getDay() + 6) % 7;
-      const bucket = Math.min(3, Math.floor(occurred.getHours() / 6));
+  /** The busiest band across the week, for the Quick Insights card. */
+  readonly busiestTimeRange = computed(() => this.summary()?.busiestTimeRange ?? null);
 
-      grid[bucket][mondayFirstDay]++;
-    }
-
-    return grid;
-  });
-
-  readonly heatmapMax = computed(
-    () => Math.max(1, ...this.heatmap().flatMap((row) => row)));
-
-  /** The busiest 6-hour window across the whole week, for the Quick Insights card. */
-  readonly busiestTimeRange = computed(() => {
-    const bucketTotals = this.heatmap().map((row) => row.reduce((sum, count) => sum + count, 0));
-    let bestIndex = 0;
-
-    for (let i = 1; i < bucketTotals.length; i++) {
-      if (bucketTotals[i] > bucketTotals[bestIndex]) {
-        bestIndex = i;
-      }
-    }
-
-    return bucketTotals[bestIndex] > 0 ? this.timeRanges[bestIndex] : null;
-  });
-
-  // ---- Outcome donut colours --------------------------------------------------------------------
+  // ---- Outcome donut ---------------------------------------------------------------------------------
 
   /**
-   * The donut's two outcomes - the same data the chart has always shown - each with the shade it
-   * is drawn in: Succeeded in the theme's primary colour, Failed in a pale tint of it.
+   * The donut's outcomes, from the server: every outcome with its own segment, label and count,
+   * each in a shade of the theme's primary colour. It drew two - Succeeded and a "Failed" that
+   * was really denials and failures together.
    */
   readonly outcomeBreakdown = computed(() => {
-    const [okColor, failColor] = this.primaryShades(2);
-    return [
-      { label: 'Succeeded', count: this.succeededCount(), pct: this.succeededPct(), color: okColor },
-      { label: 'Failed', count: this.failedCount(), pct: this.failedPct(), color: failColor },
-    ];
+    const outcomes = this.summary()?.outcomes ?? [];
+    const shades = this.primaryShades(Math.max(outcomes.length, 1));
+    return outcomes.map((item, index) => ({
+      label: item.label ?? '',
+      count: item.count ?? 0,
+      pct: item.percent ?? 0,
+      color: shades[index],
+    }));
   });
 
   /** The theme's --primary as a hex colour (ApexCharts cannot read CSS variables). */
@@ -509,6 +456,9 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
 
   private chart: any = null;
 
+  /** The element the chart was drawn into, to notice when a reload has replaced it. */
+  private chartElement: HTMLElement | null = null;
+
   constructor() {
     // `afterRenderEffect` (not a plain `effect`) is what makes this reliable: a plain effect can
     // flush BEFORE Angular has finished patching the DOM for the same signal change, so on the
@@ -516,8 +466,13 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
     // template's `#auditOutcomeChart` div not yet attached — the chart was silently never
     // created. `afterRenderEffect` is specifically the reactive primitive that is guaranteed to
     // run after rendering, so the container is always there by the time this runs.
+    //
+    // IT ALSO READS THE LIST'S STATE. The container sits in the branch drawn once the list has
+    // loaded, and the figures come from a separate request: when they arrived first, the effect
+    // ran before the container existed and nothing made it run again.
     afterRenderEffect(() => {
-      this.updateChart(this.outcomeBreakdown());
+      const listShown = !this.loading() && !this.loadFailed() && this.events().length > 0;
+      this.updateChart(this.outcomeBreakdown(), listShown);
     });
   }
 
@@ -531,12 +486,19 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
         error: () => this.targetTypes.set([]),
       });
 
-    // The same rule: a failure costs the outcome filter its options, never the page.
+    // The same rule: a failure costs the outcome filter its options, never the page. Read from
+    // the full payload because the outcomes carry a description the dropdown shows.
     this.enums
-      .options('auditResults')
+      .getAll()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (options) => this.results.set(options),
+        next: (all) => this.results.set((all.auditResults ?? [])
+          .filter((option) => !!option.value)
+          .map((option) => ({
+            value: apiEnumValue(option.value),
+            label: option.label || option.value || '',
+            description: option.description ?? '',
+          }))),
         error: () => this.results.set([]),
       });
 
@@ -556,11 +518,20 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
     this.chart?.destroy();
   }
 
-  /** A fresh load for the current filters: page 1, and a new frozen snapshot for the cards. */
+  /** A fresh load for the current filters: page 1 of the list, and the server's figures for the cards. */
   load(): void {
     this.page.set(1);
     this.visibleCount.set(INITIAL_VISIBLE);
     this.fetchPage(true);
+
+    // The figures are worth having without the list and the list without the figures.
+    this.api
+      .getAuditSummary(this.buildFilter())
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (summary) => this.summary.set(summary),
+        error: () => this.summary.set(null),
+      });
   }
 
   private fetchPage(reset: boolean): void {
@@ -577,7 +548,6 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
 
           if (reset) {
             this.events.set(items);
-            this.statsSource.set(items);
           } else {
             this.events.update((current) => [...current, ...items]);
           }
@@ -609,7 +579,8 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
       toUtc: this.toDate() ? new Date(this.toDate() + 'T23:59:59.999').toISOString() : undefined,
 
       page: this.page(),
-      pageSize: STATS_PAGE_SIZE,
+      pageSize: LIST_PAGE_SIZE,
+      timeZone: this.timeZone,
     };
   }
 
@@ -872,16 +843,6 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
       : '';
   }
 
-  clientLabel(clientType: string | undefined): string {
-    switch (clientType) {
-      case 'web': return 'Web app';
-      case 'mobile': return 'Mobile app';
-      case 'desktop': return 'Desktop app';
-      case 'api': return 'API client';
-      default: return 'Unknown client';
-    }
-  }
-
   clientIcon(clientType: string | undefined): string {
     switch (clientType) {
       case 'web': return 'ri-global-line';
@@ -969,15 +930,15 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
       .exportAuditEvents(this.buildFilter())
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (blob) => {
+        next: ({ blob, fileName, reference }) => {
           this.exporting.set(false);
-
-          const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '');
-          this.api.saveBlob(blob, `audit-trail-${stamp}.csv`);
+          this.api.saveBlob(blob, fileName);
 
           this.toast.show(
             'Export ready',
-            'The file has been downloaded. This export has been recorded in the trail.',
+            reference
+              ? `${fileName} has been downloaded. This export is recorded in the trail as ${reference}.`
+              : `${fileName} has been downloaded. This export has been recorded in the trail.`,
             'success');
         },
         error: (error: unknown) => {
@@ -1148,20 +1109,31 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
     return 0.18 + 0.82 * (count / this.heatmapMax());
   }
 
-  private actorKey(event: AuditEventResponse): string {
-    return event.actorUserId || event.actorDisplayName || 'system';
-  }
-
-  /** Creates the donut the first time its container is found in the DOM, then just updates its
-   *  series after that. See the note on the `afterRenderEffect` call in the constructor for why
-   *  this can't be a plain `effect()`. */
-  private updateChart(types: { label: string; count: number; color: string }[]): void {
+  /** Creates the donut once its container is in the DOM, then just updates its series. See the
+   *  note on the `afterRenderEffect` call in the constructor for why this can't be a plain
+   *  `effect()`. */
+  private updateChart(types: { label: string; count: number; color: string }[], listShown: boolean): void {
     const series = types.map((t) => t.count);
     const labels = types.map((t) => t.label);
     const colors = types.map((t) => t.color);
 
-    if (this.chart) {
+    // A reload replaces the whole right-hand column, container included. The chart drawn into
+    // the old one went on being "updated" in a detached element, so after the first filter the
+    // donut stayed blank; it is drawn again into the new container instead.
+    if (this.chart && this.chartElement?.isConnected) {
       this.chart.updateOptions({ series, labels, colors });
+      return;
+    }
+
+    if (this.chart) {
+      this.chart.destroy();
+      this.chart = null;
+      this.chartElement = null;
+    }
+
+    // Not until the list is on screen and the server's figures are in: a donut created with no
+    // series draws nothing and stays blank after the figures arrive.
+    if (!listShown || series.length === 0) {
       return;
     }
 
@@ -1186,6 +1158,7 @@ export class AuditTrailComponent implements OnInit, OnDestroy {
     };
 
     this.chart = new ApexCharts(el, options);
+    this.chartElement = el;
     this.chart.render();
   }
 }

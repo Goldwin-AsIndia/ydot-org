@@ -40,6 +40,18 @@ public interface IMfaChallengeService
         MfaChallengePurpose expectedPurpose,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Verifies a code against the user's newest open challenge for <paramref name="purpose"/>,
+    /// with the same attempt ceiling, expiry and single-use rule as <see cref="VerifyAsync"/>.
+    /// For flows that hold no challenge token of their own: confirming an enrolment (pass the
+    /// method, so one enrolment's code cannot confirm another) and proving an identifier change.
+    /// A failure carries the real reason - attempts remaining, or expired when there is no open
+    /// challenge. The caller saves, so a wrong guess still counts.
+    /// </summary>
+    Task<Result<MfaVerificationResult>> VerifyOutstandingCodeAsync(
+        Guid userId, MfaChallengePurpose purpose, Guid? methodId, string code,
+        CancellationToken cancellationToken);
+
     /// <summary>Verifies a TOTP code straight against the authenticator secret, with no challenge row.</summary>
     bool VerifyAuthenticatorCode(User user, string code);
 

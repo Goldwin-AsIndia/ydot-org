@@ -11,7 +11,7 @@
     </div>
     <dl class="cn-stats">
       <div class="cn-stat"><dt>Numbers ready</dt><dd class="cn-serif">{{ n(store.pool().length) }}</dd></div>
-      <div class="cn-stat"><dt>Messages sent</dt><dd class="cn-serif">{{ n(store.messages().length) }}</dd></div>
+      <div class="cn-stat"><dt>Messages sent</dt><dd class="cn-serif">{{ n(messagesSent()) }}</dd></div>
       <div class="cn-stat"><dt>Read rate</dt><dd class="cn-serif">{{ readRate() }}<small>%</small></dd></div>
     </dl>
   </header>
@@ -30,10 +30,13 @@
 
   <!-- ================================================================ SEND -->
   @if (view() === 'send') {
+    @if (store.problem(); as message) {
+      <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+    }
     @if (store.pool().length === 0) {
       <div class="cn-sheet wt-none">
         <i class="ph-duotone ph-whatsapp-logo" aria-hidden="true"></i>
-        <h2 class="cn-h">No numbers to message yet</h2>
+        <h2 class="cn-h">{{ loadingWati() ? 'Loading your numbers…' : 'No numbers to message yet' }}</h2>
         <p class="cn-empty">Numbers appear here once CheckNumber confirms they are on WhatsApp. Upload a list to get started.</p>
         <a routerLink="/app/whatsapp/check-number" class="btn btn-primary btn-sm"><i class="ph-duotone ph-upload-simple" aria-hidden="true"></i> Check numbers</a>
       </div>
@@ -48,7 +51,7 @@
               <p class="wt-count">Approved templates only</p>
             </header>
             <div class="wt-templates" role="radiogroup" aria-label="Message template">
-              @for (t of store.templates; track t.name) {
+              @for (t of store.templates(); track t.name) {
                 <button type="button" role="radio" class="wt-tpl" [class.is-on]="templateName() === t.name" [attr.aria-checked]="templateName() === t.name" (click)="pickTemplate(t.name)">
                   <span class="wt-tpl-top">
                     <b>{{ t.label }}</b>
@@ -56,6 +59,8 @@
                   </span>
                   <code class="cn-num">{{ t.name }}</code>
                 </button>
+              } @empty {
+                <p class="cn-empty">No template can be sent yet. Templates appear here once they are approved in WATI.</p>
               }
             </div>
 
@@ -96,7 +101,7 @@
             <div class="wt-phone" aria-label="Message preview">
               <div class="wt-phone-bar">
                 <i class="ph-duotone ph-caret-left" aria-hidden="true"></i>
-                <span class="wt-phone-name"><b>Your organisation</b><small>Business account</small></span>
+                <span class="wt-phone-name"><b>{{ organisationName() }}</b><small>Business account</small></span>
                 <i class="ph-duotone ph-whatsapp-logo" aria-hidden="true"></i>
               </div>
               <div class="wt-chat">
@@ -120,7 +125,7 @@
               <i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i>
               Send to {{ n(selected().size) }} {{ selected().size === 1 ? 'recipient' : 'recipients' }}
             </button>
-            <p class="wt-fine">You’ll confirm before anything is sent. Delivery is tracked live in the report.</p>
+            <p class="wt-fine">You’ll confirm before anything is sent. Delivery is tracked live in the report. {{ safeguards() }}</p>
           </aside>
         </div>
 
@@ -177,7 +182,7 @@
                     <td class="cn-num cn-strong">{{ e.number }}</td>
                     <td><span class="cn-iso">{{ e.iso }}</span>{{ e.country }}</td>
                     <td><span class="cn-res cn-res--yes"><i class="ph-duotone ph-check-circle" aria-hidden="true"></i>Yes</span></td>
-                    <td class="cn-note">{{ batchName(e.jobId) }}</td>
+                    <td class="cn-note">{{ e.fileName || e.jobId }}</td>
                     <td>{{ dt(e.checkedAt) }}</td>
                   </tr>
                 }
@@ -195,6 +200,13 @@
 
   <!-- ================================================================ REPORT -->
   @if (view() === 'report') {
+
+    @if (sendNotice(); as message) {
+      <p class="cn-alert cn-alert--info" role="status"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i><span>{{ message }}</span></p>
+    }
+    @if (store.problem(); as message) {
+      <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+    }
 
     <!-- Delivery funnel -->
     <section class="cn-sheet wt-funnel" aria-label="Delivery funnel">
@@ -308,9 +320,15 @@
     <div><dt>Broadcast</dt><dd>{{ broadcastName().trim() }}</dd></div>
   </dl>
   <p class="wt-confirm-msg">{{ previewText() }}</p>
+  @if (safeguards(); as line) {
+    <p class="wt-fine">{{ line }}</p>
+  }
+  @if (sendProblem(); as message) {
+    <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span><b>Not sent.</b> {{ message }}</span></p>
+  }
   <ng-container popupActions>
-    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="confirming.set(false)">Go back</button>
-    <button type="button" class="btn btn-primary btn-sm" (click)="send()">Send now</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="sending()" (click)="confirming.set(false)">Go back</button>
+    <button type="button" class="btn btn-primary btn-sm" [disabled]="sending()" (click)="send()">{{ sending() ? 'Sending…' : 'Send now' }}</button>
   </ng-container>
 </app-popup>
 

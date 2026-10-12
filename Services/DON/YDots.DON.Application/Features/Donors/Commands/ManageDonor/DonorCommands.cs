@@ -26,7 +26,7 @@ public sealed record UpdateDonorCommand(Guid DonorId, UpdateDonorRequest Request
 /// <summary>POST /api/v1/donors/{id}/submit. Submit permission plus a valid state.</summary>
 public sealed record SubmitDonorCommand(Guid DonorId, TransitionRequest Request);
 
-/// <summary>POST /api/v1/donors/{id}/approve. Approve permission plus maker/checker.</summary>
+/// <summary>POST /api/v1/donors/{id}/approve. Approve permission plus a valid state.</summary>
 public sealed record ApproveDonorCommand(Guid DonorId, DecisionRequest Request);
 
 /// <summary>POST /api/v1/donors/{id}/cancel. Cancel permission; the reason is mandatory.</summary>
@@ -323,24 +323,10 @@ public sealed class DonorCommandHandler(
                 "Only a submitted donor can be approved or rejected."));
         }
 
-        // Maker / checker. UI section 5.4: "The requester cannot silently act as an
-        // independent approver." The creator is refused even when they hold the permission.
-        // The Organisation Admin is exempt: it has no restriction in its own Organisation.
-        if (donor.CreatedByUserId == currentUser.UserId && !currentUser.IsTenantAdmin)
-        {
-            logger.LogWarning("Donor approval denied for DonorId {DonorId} because the requesting user is the record creator.", command.DonorId);
-
-            await auditWriter.WriteAsync(
-                new AuditEntry(AuditActionCodes.DonorApproved, nameof(Donor), donor.Id, AuditResult.Denied,
-                    "Segregation of duties: the creator attempted to approve their own record."),
-                cancellationToken);
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            return Result.Failure<DonorDetailResponse>(Error.SegregationOfDuties(
-                "You cannot approve a donor record you created. Ask a colleague to review it."));
-        }
-
+        // NO TEST OF WHO CREATED THE RECORD. A person's roles combine as the union of their
+        // permissions, so somebody holding Fundraiser Executive AND Fundraising Manager may
+        // capture a donor and approve it themselves: `don.donors.approve` is the whole test.
+        // The decision is still its own step, and the audit log names who created and who decided.
         var now = clock.UtcNow;
         var previousStatus = donor.Status.ToString();
 

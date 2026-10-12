@@ -5,18 +5,24 @@
 
     <app-page-header variant="gold" eyebrow="Access &amp; identity · Access requests" screen="access-request" title="Access Request and Approval"
                      subtitle="Request and independently approve scoped authority">
-      <button actions type="button" class="btn btn-primary btn-sm" (click)="openNewRequest()" title="Create new access request">
-        <i class="ri-add-line" aria-hidden="true"></i> Create
-      </button>
+      @if (canExport()) {
+        <button actions type="button" class="btn btn-outline-secondary btn-sm" [disabled]="exporting() || loading()" (click)="exportRequests()" title="Export the requests that match the search and status filter">
+          @if (exporting()) {
+            <i class="ri-loader-4-line ar-spin" aria-hidden="true"></i> Preparing…
+          } @else {
+            <i class="ri-download-2-line" aria-hidden="true"></i> Export
+          }
+        </button>
+      }
+      @if (canCreate()) {
+        <button actions type="button" class="btn btn-primary btn-sm" (click)="openNewRequest()" title="Create new access request">
+          <i class="ri-add-line" aria-hidden="true"></i> Create
+        </button>
+      }
     </app-page-header>
 
-    <!-- <div class="ar-banner" role="note">
-      <span class="ar-banner-ico"><i class="ri-shield-check-line" aria-hidden="true"></i></span>
-      <span class="ar-banner-text">Every access request and decision is recorded for independent review. Sensitive credentials are never shown here.</span>
-    </div> -->
-
-    <!-- ============ SUMMARY CARDS — icon left, text right; hover raises a slow shade ============ -->
-    @if (!loading() && !loadError()) {
+    <!-- ============ SUMMARY CARDS — counted by the server over every request the filter matches ============ -->
+    @if (!loadError()) {
    <section class="ar-stats" aria-label="Access request summary">
 
   <article class="ar-stat ar-stat--total" tabindex="0">
@@ -30,7 +36,7 @@
     </div>
     <div class="ar-stat-text">
       <div class="ar-stat-k">Total Requests</div>
-      <div class="ar-stat-v">{{ requestSummary().total }}</div>
+      <div class="ar-stat-v">{{ summary()?.total ?? '—' }}</div>
       <div class="ar-stat-sub">Current results</div>
     </div>
   </article>
@@ -45,7 +51,7 @@
     </div>
     <div class="ar-stat-text">
       <div class="ar-stat-k">Approved</div>
-      <div class="ar-stat-v">{{ requestSummary().approved }}</div>
+      <div class="ar-stat-v">{{ summary()?.approved ?? '—' }}</div>
       <div class="ar-stat-sub">Access granted</div>
     </div>
   </article>
@@ -64,7 +70,7 @@
     </div>
     <div class="ar-stat-text">
       <div class="ar-stat-k">Pending</div>
-      <div class="ar-stat-v">{{ requestSummary().pending }}</div>
+      <div class="ar-stat-v">{{ summary()?.pending ?? '—' }}</div>
       <div class="ar-stat-sub">Awaiting action</div>
     </div>
   </article>
@@ -81,7 +87,7 @@
     </div>
     <div class="ar-stat-text">
       <div class="ar-stat-k">Users Involved</div>
-      <div class="ar-stat-v">{{ requestSummary().users }}</div>
+      <div class="ar-stat-v">{{ summary()?.usersInvolved ?? '—' }}</div>
       <div class="ar-stat-sub">Unique users</div>
     </div>
   </article>
@@ -96,50 +102,43 @@
     </div>
     <div class="ar-stat-text">
       <div class="ar-stat-k">Most Active User</div>
-      <div class="ar-stat-v ar-stat-v--name" [title]="requestSummary().mostActiveUser">{{ requestSummary().mostActiveUser }}</div>
-      <div class="ar-stat-sub">{{ requestSummary().mostActiveCount }} requests</div>
+      <div class="ar-stat-v ar-stat-v--name" [title]="summary()?.mostActiveUserName ?? ''">{{ summary()?.mostActiveUserName || '—' }}</div>
+      <div class="ar-stat-sub">{{ summary()?.mostActiveUserRequestCount ?? 0 }} requests</div>
     </div>
   </article>
 
 </section>
     }
 
-    <!-- ============ LOADING / ERROR ============ -->
-    @if (loading()) {
-      <div class="ar-state">
-        <div class="ar-state-ico"><i class="ri-loader-4-line ar-spin" aria-hidden="true"></i></div>
-        <div class="ar-state-title">Loading access requests…</div>
-      </div>
-    }
-
+    <!-- ============ ERROR ============ -->
     @if (loadError() && !loading()) {
       <div class="ar-state">
         <div class="ar-state-ico ar-state-ico--danger"><i class="ri-error-warning-line" aria-hidden="true"></i></div>
         <div class="ar-state-title">Failed to load</div>
-        <div class="ar-state-sub">The access request queue couldn't be retrieved. Try again.</div>
+        <div class="ar-state-sub">{{ errorMessage() || 'The access request queue could not be retrieved. Try again.' }}</div>
         <button type="button" class="btn btn-primary btn-sm" (click)="retry()"><i class="ri-refresh-line" aria-hidden="true"></i> Retry</button>
       </div>
     }
 
-    @if (!loading() && !loadError()) {
+    @if (!loadError()) {
 
       <!-- ============ LIST CARD: search + filter, table, pagination ============ -->
       <section class="ar-card">
         <div class="ar-toolbar">
           <div class="ar-search">
             <i class="ri-search-line" aria-hidden="true"></i>
-            <input id="requestSearch" type="text" placeholder="Search by reference or user…" aria-label="Search by reference or user"
-                   [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)">
-            @if (searchQuery()) {
-              <button type="button" class="ar-search-x" (click)="searchQuery.set('')" aria-label="Clear search"><i class="ri-close-line" aria-hidden="true"></i></button>
+            <input id="requestSearch" type="text" placeholder="Search reference, person, role or reason…" aria-label="Search access requests"
+                   [ngModel]="searchText()" (ngModelChange)="onSearchInput($event)">
+            @if (searchText()) {
+              <button type="button" class="ar-search-x" (click)="clearSearch()" aria-label="Clear search"><i class="ri-close-line" aria-hidden="true"></i></button>
             }
           </div>
-          <!-- Status filter: custom dropdown inside the table toolbar (replaces the offcanvas) -->
+          <!-- Status filter: the server's statuses, filtered by the server -->
           <div class="ar-dd ar-dd--status" [class.is-open]="openDd() === 'status'" (click)="$event.stopPropagation()">
             <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('status')" aria-haspopup="listbox"
                     [attr.aria-expanded]="openDd() === 'status'" [class.has-value]="!!filterState()">
               <i class="ri-filter-3-line ar-dd-lead" aria-hidden="true"></i>
-              <span class="ar-dd-value">{{ filterState() ? optionName(data()?.statusOptions, filterState()) : 'All statuses' }}</span>
+              <span class="ar-dd-value">{{ filterState() ? optionLabel(statusOptions(), filterState()) : 'All statuses' }}</span>
               @if (filterState()) {
                 <span class="ar-dd-clear" role="button" tabindex="0" (click)="$event.stopPropagation(); pickStatus('')" aria-label="Clear status filter"><i class="ri-close-line" aria-hidden="true"></i></span>
               }
@@ -152,10 +151,10 @@
                     <span class="ar-dd-text">All statuses</span>
                     @if (!filterState()) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
                   </button>
-                  @for (s of data()?.statusOptions ?? []; track s.id) {
-                    <button type="button" class="ar-dd-opt" role="option" [class.is-on]="filterState() === s.id" [attr.aria-selected]="filterState() === s.id" (click)="pickStatus(s.id ?? '')">
-                      <span class="ar-dd-text">{{ s.name }}</span>
-                      @if (filterState() === s.id) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
+                  @for (s of statusOptions(); track s.value) {
+                    <button type="button" class="ar-dd-opt" role="option" [class.is-on]="filterState() === s.value" [attr.aria-selected]="filterState() === s.value" (click)="pickStatus(s.value)">
+                      <span class="ar-dd-text">{{ s.label }}</span>
+                      @if (filterState() === s.value) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
                     </button>
                   }
                 </div>
@@ -164,7 +163,12 @@
           </div>
         </div>
 
-        @if (filteredRequests().length === 0) {
+        @if (loading() && rows().length === 0) {
+          <div class="ar-state ar-state--flat">
+            <div class="ar-state-ico"><i class="ri-loader-4-line ar-spin" aria-hidden="true"></i></div>
+            <div class="ar-state-title">Loading access requests…</div>
+          </div>
+        } @else if (rows().length === 0) {
           <div class="ar-state ar-state--flat">
             <div class="ar-state-ico"><i class="ri-file-search-line" aria-hidden="true"></i></div>
             <div class="ar-state-title">No requests found</div>
@@ -177,7 +181,7 @@
                 <tr>
                   <th>User</th>
                   <th class="d-none d-lg-table-cell">Request type</th>
-                  <th class="d-none d-xs-table-cell">Requested role</th>
+                  <th class="d-none d-md-table-cell">Requested access</th>
                   <th class="d-none d-xl-table-cell">Scope type</th>
                   <th class="d-none d-xxl-table-cell">Scope value</th>
                   <th class="d-none d-xxl-table-cell">Effective</th>
@@ -186,17 +190,16 @@
                 </tr>
               </thead>
               <tbody>
-                @for (req of paginatedRequests(); track req.id) {
+                @for (req of rows(); track req.id) {
                   <tr>
                     <td>
                       <div class="ar-user">
-                        <!-- <span class="ar-avatar" aria-hidden="true">{{ initials(req.user) }}</span> -->
                         <span class="ar-user-name">{{ req.user }}</span>
-                        <span class="ar-user-sub d-md-none">{{ req.requestedRole }}</span>
+                        <span class="ar-user-sub d-md-none">{{ req.requestedAccess }}</span>
                       </div>
                     </td>
                     <td class="d-none d-lg-table-cell"><span class="ar-type">{{ req.requestType }}</span></td>
-                    <td class="ar-strong d-none d-xs-table-cell">{{ req.requestedRole }}</td>
+                    <td class="ar-strong d-none d-md-table-cell">{{ req.requestedAccess }}</td>
                     <td class="d-none d-xl-table-cell">{{ req.scopeType }}</td>
                     <td class="ar-muted d-none d-xxl-table-cell">{{ req.scopeValue }}</td>
                     <td class="ar-nowrap d-none d-xxl-table-cell">
@@ -205,47 +208,54 @@
                     </td>
                     <td class="d-none d-xxl-table-cell">
                       <span class="status-badge "
-                            [class.status-submitted]="req.approvalState === 'Submitted'"
-                            [class.status-approved]="req.approvalState === 'Approved'"
-                            [class.status-rejected]="req.approvalState === 'Rejected'"
-                            [class.status-draft]="req.approvalState === 'Draft'"
-                            [class.status-withdrawn]="req.approvalState === 'Withdrawn'"
-                            [class.status-expired]="req.approvalState === 'Expired'"
-                            [class.status-pending]="req.approvalState === 'PendingReview' || req.approvalState === 'Returned'">
-                     {{ req.approvalState }}
+                            [class.status-submitted]="req.status === 'submitted'"
+                            [class.status-approved]="req.status === 'approved'"
+                            [class.status-rejected]="req.status === 'rejected'"
+                            [class.status-draft]="req.status === 'draft'"
+                            [class.status-withdrawn]="req.status === 'withdrawn'"
+                            [class.status-expired]="req.status === 'expired'"
+                            [class.status-pending]="req.status === 'returned'">
+                     {{ req.statusDisplay }}
                       </span>
                     </td>
                     <td>
-                      <!-- The decision buttons obey the independence rule: withheld when `canDecide` is false,
-                           with the reason shown in their place. -->
+                      <!-- Every button is one the server listed in this row's permittedActions. -->
                       <div class="ar-actions" aria-label="Request actions">
-                        @if (req.approvalState === 'Draft') {
-                          <button type="button" class="ar-act" (click)="submitRequest(req)" [disabled]="rowSubmittingId() === req.id" title="Submit request" aria-label="Submit request">
+                        <button type="button" class="ar-act" (click)="openView(req)" [disabled]="viewLoadingId() === req.id" title="View request" aria-label="View request">
+                          <i class="ri-eye-line" aria-hidden="true"></i>
+                        </button>
+                        @if (can(req, 'Edit')) {
+                          <button type="button" class="ar-act" (click)="openEditRequest(req)" title="Edit request" aria-label="Edit request">
+                            <i class="ri-edit-line" aria-hidden="true"></i>
+                          </button>
+                        }
+                        @if (can(req, 'Submit')) {
+                          <button type="button" class="ar-act" (click)="submitRequest(req)" [disabled]="rowSubmittingId() === req.id" title="Submit for approval" aria-label="Submit for approval">
                             <i class="ri-send-plane-line" aria-hidden="true"></i>
                           </button>
-                          <button type="button" class="ar-act" (click)="openDeleteModal(req)" title="Withdraw draft" aria-label="Withdraw draft">
-                            <i class="ri-delete-bin-line" aria-hidden="true"></i>
+                        }
+                        @if (can(req, 'Approve')) {
+                          <button type="button" class="ar-act Approve" (click)="openApproveModal(req)" title="Approve request" aria-label="Approve request">
+                            <i class="ri-check-line" aria-hidden="true"></i>
                           </button>
                         }
-                        @if (req.approvalState === 'Submitted' || req.approvalState === 'PendingReview') {
-                          @if (req.canDecide) {
-                            <button type="button" class="ar-act Approve" (click)="openApproveModal(req)" title="Approve request" aria-label="Approve request">
-                              <i class="ri-check-line" aria-hidden="true"></i>
-                            </button>
-                            <button type="button" class="ar-act Reject" (click)="openRejectModal(req)" title="Reject request" aria-label="Reject request">
-                              <i class="ri-close-line" aria-hidden="true"></i>
-                            </button>
-                            <button type="button" class="ar-act Return" (click)="openReturnModal(req)" title="Return for correction" aria-label="Return for correction">
-                              <i class="ri-arrow-go-back-line" aria-hidden="true"></i>
-                            </button>
-                          } @else {
-                            <span class="ar-other Shared" [title]="req.cannotDecideReason">
-                              <i class="ri-user-shared-line" aria-hidden="true"></i>
-                            </span>
-                          }
+                        @if (can(req, 'Reject')) {
+                          <button type="button" class="ar-act Reject" (click)="openRejectModal(req)" title="Reject request" aria-label="Reject request">
+                            <i class="ri-close-line" aria-hidden="true"></i>
+                          </button>
                         }
-                        @if (req.canCancel && (req.approvalState === 'Submitted' || req.approvalState === 'PendingReview' || req.approvalState === 'Draft')) {
-                          <button type="button" class="ar-act Cancel" (click)="openCancelModal(req)" title="Cancel request" aria-label="Cancel request">
+                        @if (can(req, 'Return')) {
+                          <button type="button" class="ar-act Return" (click)="openReturnModal(req)" title="Return for correction" aria-label="Return for correction">
+                            <i class="ri-arrow-go-back-line" aria-hidden="true"></i>
+                          </button>
+                        }
+                        @if (req.cannotDecideReason) {
+                          <span class="ar-other Shared" [title]="req.cannotDecideReason" [attr.aria-label]="req.cannotDecideReason">
+                            <i class="ri-user-shared-line" aria-hidden="true"></i>
+                          </span>
+                        }
+                        @if (can(req, 'Withdraw')) {
+                          <button type="button" class="ar-act Cancel" (click)="openCancelModal(req)" title="Withdraw request" aria-label="Withdraw request">
                             <i class="ri-close-circle-line" aria-hidden="true"></i>
                           </button>
                         }
@@ -257,10 +267,10 @@
             </table>
           </div>
 
-          <!-- ============ PAGINATION ============ -->
+          <!-- ============ PAGINATION — paged by the server ============ -->
           <nav class="ar-pager" aria-label="Access request pagination">
             <div class="ar-pager-left">
-              <span class="ar-pager-info">Showing <b>{{ firstVisibleRow() }}–{{ lastVisibleRow() }}</b> of <b>{{ filteredRequests().length }}</b></span>
+              <span class="ar-pager-info">Showing <b>{{ firstVisibleRow() }}–{{ lastVisibleRow() }}</b> of <b>{{ totalCount() }}</b></span>
               <app-rows-per-page [value]="pageSize()" (changed)="setPageSize($event)" />
             </div>
             <div class="ar-pages">
@@ -289,15 +299,15 @@
 </div>
 </main>
 
-<!-- ===== NEW REQUEST MODAL ===== -->
+<!-- ===== NEW / EDIT REQUEST MODAL ===== -->
 @if (showNewRequestModal()) {
   <div class="ar-backdrop" (click)="closeNewRequest()">
     <div class="ar-modal ar-modal--lg" role="dialog" aria-modal="true" aria-labelledby="newReqTitle" (click)="$event.stopPropagation(); openDd.set(null); dpField.set(null)">
       <header class="ar-modal-head">
-        <div class="ar-head-ico"><i class="ri-file-add-line" aria-hidden="true"></i></div>
+        <div class="ar-head-ico"><i [class]="editing() ? 'ri-edit-line' : 'ri-file-add-line'" aria-hidden="true"></i></div>
         <div class="ar-head-text">
-          <h2 class="ar-head-title" id="newReqTitle">New access request</h2>
-          <div class="ar-head-sub">Raise a request for independent approval</div>
+          <h2 class="ar-head-title" id="newReqTitle">{{ editing() ? 'Edit access request · ' + editing()!.reference : 'New access request' }}</h2>
+          <div class="ar-head-sub">{{ editing() ? 'Correct the request, then submit it again' : 'Raise a request for independent approval' }}</div>
         </div>
         <button type="button" class="ar-x" (click)="closeNewRequest()" aria-label="Close"><i class="ri-close-line" aria-hidden="true"></i></button>
       </header>
@@ -305,22 +315,22 @@
       <div class="ar-modal-body" (scroll)="dpField.set(null)">
         <div class="ar-form">
 
-          <!-- Request type -->
+          <!-- Request type: the server's four; fixed once raised -->
           <div class="ar-field">
             <label class="ar-field-lbl">Request type <em class="ar-req">*</em></label>
             <div class="ar-dd" [class.is-open]="openDd() === 'requestType'" [class.is-invalid]="!!newReqError('requestType')" (click)="$event.stopPropagation()">
-              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('requestType')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'requestType'">
+              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [disabled]="!!editing()" (click)="toggleDd('requestType')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'requestType'">
                 <i class="ri-price-tag-3-line ar-dd-lead" aria-hidden="true"></i>
-                <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().requestType">{{ optionName(data()?.requestTypeOptions, newRequestForm().requestType) || 'Select request type' }}</span>
+                <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().requestType">{{ optionLabel(requestTypeOptions(), newRequestForm().requestType) || 'Select request type' }}</span>
                 <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
               </button>
               @if (openDd() === 'requestType') {
                 <div class="ar-dd-menu" role="listbox" aria-label="Request type">
                   <div class="ar-dd-list">
-                    @for (type of data()?.requestTypeOptions ?? []; track type.id) {
-                      <button type="button" class="ar-dd-opt" role="option" [class.is-on]="newRequestForm().requestType === type.id" (click)="pickField('requestType', type.id ?? '')">
-                        <span class="ar-dd-text">{{ type.name }}</span>
-                        @if (newRequestForm().requestType === type.id) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
+                    @for (type of requestTypeOptions(); track type.value) {
+                      <button type="button" class="ar-dd-opt" role="option" [class.is-on]="newRequestForm().requestType === type.value" (click)="pickField('requestType', type.value)">
+                        <span class="ar-dd-text">{{ type.label }}</span>
+                        @if (newRequestForm().requestType === type.value) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
                       </button>
                     }
                   </div>
@@ -330,11 +340,11 @@
             @if (newReqError('requestType')) { <div class="invalid-feedback d-block">{{ newReqError('requestType') }}</div> }
           </div>
 
-          <!-- User (searchable) -->
+          <!-- User (searchable); fixed once raised -->
           <div class="ar-field">
             <label class="ar-field-lbl">User <em class="ar-req">*</em></label>
             <div class="ar-dd" [class.is-open]="openDd() === 'user'" [class.is-invalid]="!!newReqError('userId')" (click)="$event.stopPropagation()">
-              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('user')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'user'">
+              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [disabled]="!!editing()" (click)="toggleDd('user')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'user'">
                 <i class="ri-user-line ar-dd-lead" aria-hidden="true"></i>
                 @if (selectedUser(); as u) {
                   <span class="ar-dd-value">{{ u.displayName }} <small>· {{ u.orgUnit || u.reference }}</small></span>
@@ -366,85 +376,119 @@
             @if (newReqError('userId')) { <div class="invalid-feedback d-block">{{ newReqError('userId') }}</div> }
           </div>
 
-          <!-- Requested role (searchable) -->
-          <div class="ar-field">
-            <label class="ar-field-lbl">Requested role <em class="ar-req">*</em></label>
-            <div class="ar-dd" [class.is-open]="openDd() === 'role'" [class.is-invalid]="!!newReqError('requestedRole')" (click)="$event.stopPropagation()">
-              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('role')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'role'">
-                <i class="ri-shield-user-line ar-dd-lead" aria-hidden="true"></i>
-                <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().requestedRole">{{ optionName(data()?.roleOptions, newRequestForm().requestedRole) || 'Select role from catalogue' }}</span>
-                <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
-              </button>
-              @if (openDd() === 'role') {
-                <div class="ar-dd-menu" role="listbox" aria-label="Roles">
-                  <div class="ar-dd-search">
-                    <i class="ri-search-line" aria-hidden="true"></i>
-                    <input type="text" placeholder="Search roles…" [ngModel]="roleSearch()" (ngModelChange)="roleSearch.set($event)" aria-label="Search roles">
+          <!-- Requested role: for a role request and for temporary elevation -->
+          @if (usesRole()) {
+            <div class="ar-field">
+              <label class="ar-field-lbl">Requested role <em class="ar-req">*</em></label>
+              <div class="ar-dd" [class.is-open]="openDd() === 'role'" [class.is-invalid]="!!newReqError('roleId')" (click)="$event.stopPropagation()">
+                <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('role')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'role'">
+                  <i class="ri-shield-user-line ar-dd-lead" aria-hidden="true"></i>
+                  <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().roleId">{{ lookupName(availableRoles(), newRequestForm().roleId) || 'Select role from catalogue' }}</span>
+                  <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
+                </button>
+                @if (openDd() === 'role') {
+                  <div class="ar-dd-menu" role="listbox" aria-label="Roles">
+                    <div class="ar-dd-search">
+                      <i class="ri-search-line" aria-hidden="true"></i>
+                      <input type="text" placeholder="Search roles…" [ngModel]="roleSearch()" (ngModelChange)="roleSearch.set($event)" aria-label="Search roles">
+                    </div>
+                    <div class="ar-dd-list">
+                      @for (r of filteredRoleOptions(); track r.id) {
+                        <button type="button" class="ar-dd-opt" role="option" [class.is-on]="newRequestForm().roleId === r.id" (click)="pickField('roleId', r.id ?? '')">
+                          <span class="ar-dd-two"><span class="ar-t">{{ r.name }}</span><small>{{ r.description }}</small></span>
+                          @if (newRequestForm().roleId === r.id) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
+                        </button>
+                      } @empty {
+                        <div class="ar-dd-empty">No role matches.</div>
+                      }
+                    </div>
                   </div>
-                  <div class="ar-dd-list">
-                    @for (r of filteredRoleOptions(); track r.id) {
-                      <button type="button" class="ar-dd-opt" role="option" [class.is-on]="newRequestForm().requestedRole === r.id" (click)="pickField('requestedRole', r.id ?? '')">
-                        <span class="ar-dd-two"><span class="ar-t">{{ r.name }}</span><small>{{ r.description }}</small></span>
-                        @if (newRequestForm().requestedRole === r.id) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
-                      </button>
-                    } @empty {
-                      <div class="ar-dd-empty">No role matches.</div>
-                    }
-                  </div>
-                </div>
-              }
+                }
+              </div>
+              @if (newReqError('roleId')) { <div class="invalid-feedback d-block">{{ newReqError('roleId') }}</div> }
             </div>
-            @if (newReqError('requestedRole')) { <div class="invalid-feedback d-block">{{ newReqError('requestedRole') }}</div> }
-          </div>
+          }
 
-          <!-- Scope type -->
-          <div class="ar-field">
-            <label class="ar-field-lbl">Scope type</label>
-            <div class="ar-dd" [class.is-open]="openDd() === 'scopeType'" (click)="$event.stopPropagation()">
-              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('scopeType')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'scopeType'">
-                <i class="ri-focus-3-line ar-dd-lead" aria-hidden="true"></i>
-                <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().scopeType">{{ optionName(data()?.scopeTypeOptions, newRequestForm().scopeType) || 'Select scope type' }}</span>
-                <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
-              </button>
-              @if (openDd() === 'scopeType') {
-                <div class="ar-dd-menu" role="listbox" aria-label="Scope type">
-                  <div class="ar-dd-list">
-                    <button type="button" class="ar-dd-opt" [class.is-on]="!newRequestForm().scopeType" (click)="pickField('scopeType', '')">
-                      <span class="ar-dd-text ar-muted">No scope type</span>
-                    </button>
-                    @for (scope of data()?.scopeTypeOptions ?? []; track scope.id) {
-                      <button type="button" class="ar-dd-opt" role="option" [class.is-on]="newRequestForm().scopeType === scope.id" (click)="pickField('scopeType', scope.id ?? '')">
-                        <span class="ar-dd-text">{{ scope.name }}</span>
-                        @if (newRequestForm().scopeType === scope.id) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
-                      </button>
-                    }
+          <!-- Requested permission: for a single-permission request -->
+          @if (usesPermission()) {
+            <div class="ar-field">
+              <label class="ar-field-lbl">Requested permission <em class="ar-req">*</em></label>
+              <div class="ar-dd" [class.is-open]="openDd() === 'permission'" [class.is-invalid]="!!newReqError('permissionCode')" (click)="$event.stopPropagation()">
+                <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('permission')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'permission'">
+                  <i class="ri-key-2-line ar-dd-lead" aria-hidden="true"></i>
+                  <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().permissionCode">{{ newRequestForm().permissionCode ? permissionName(newRequestForm().permissionCode) : 'Select permission from catalogue' }}</span>
+                  <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
+                </button>
+                @if (openDd() === 'permission') {
+                  <div class="ar-dd-menu" role="listbox" aria-label="Permissions">
+                    <div class="ar-dd-search">
+                      <i class="ri-search-line" aria-hidden="true"></i>
+                      <input type="text" placeholder="Search permission or code…" [ngModel]="permissionSearch()" (ngModelChange)="permissionSearch.set($event)" aria-label="Search permissions">
+                    </div>
+                    <div class="ar-dd-list">
+                      @for (p of filteredPermissionOptions(); track p.code) {
+                        <button type="button" class="ar-dd-opt" role="option" [class.is-on]="newRequestForm().permissionCode === p.code" (click)="pickField('permissionCode', p.code ?? '')">
+                          <span class="ar-dd-two"><span class="ar-t">{{ p.name }}</span><small>{{ p.code }}</small></span>
+                          @if (newRequestForm().permissionCode === p.code) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
+                        </button>
+                      } @empty {
+                        <div class="ar-dd-empty">{{ permissionOptions().length ? 'No permission matches.' : 'Loading permissions…' }}</div>
+                      }
+                    </div>
                   </div>
-                </div>
-              }
+                }
+              </div>
+              @if (newReqError('permissionCode')) { <div class="invalid-feedback d-block">{{ newReqError('permissionCode') }}</div> }
             </div>
-          </div>
+          }
 
-          <!-- Scope value -->
-          <div class="ar-field ar-field--full">
-            <label class="ar-field-lbl" for="arScopeValue">Scope value @if (newRequestForm().scopeType) { <em class="ar-req">*</em> }</label>
-            <div class="ar-ig" [class.is-invalid]="!!newReqError('scopeValue')">
-              <i class="ri-map-pin-2-line ar-ig-ico" aria-hidden="true"></i>
-              <input id="arScopeValue" type="text" class="ar-ig-input" placeholder="e.g. Global - Donations" style="border: none !important;outline:none !important"
-                     [ngModel]="newRequestForm().scopeValue" (ngModelChange)="newRequestForm.set({...newRequestForm(), scopeValue: $event})">
+          <!-- Scope type and value: for a data scope request, the only kind that grants a scope -->
+          @if (usesScope()) {
+            <div class="ar-field">
+              <label class="ar-field-lbl">Scope type <em class="ar-req">*</em></label>
+              <div class="ar-dd" [class.is-open]="openDd() === 'scopeType'" [class.is-invalid]="!!newReqError('scopeType')" (click)="$event.stopPropagation()">
+                <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('scopeType')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'scopeType'">
+                  <i class="ri-focus-3-line ar-dd-lead" aria-hidden="true"></i>
+                  <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().scopeType">{{ optionLabel(scopeTypeOptions(), newRequestForm().scopeType) || 'Select scope type' }}</span>
+                  <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
+                </button>
+                @if (openDd() === 'scopeType') {
+                  <div class="ar-dd-menu" role="listbox" aria-label="Scope type">
+                    <div class="ar-dd-list">
+                      @for (scope of scopeTypeOptions(); track scope.value) {
+                        <button type="button" class="ar-dd-opt" role="option" [class.is-on]="newRequestForm().scopeType === scope.value" (click)="pickField('scopeType', scope.value)">
+                          <span class="ar-dd-text">{{ scope.label }}</span>
+                          @if (newRequestForm().scopeType === scope.value) { <i class="ri-check-line ar-dd-tick" aria-hidden="true"></i> }
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+              @if (newReqError('scopeType')) { <div class="invalid-feedback d-block">{{ newReqError('scopeType') }}</div> }
             </div>
-            @if (newReqError('scopeValue')) { <div class="invalid-feedback d-block">{{ newReqError('scopeValue') }}</div> }
-          </div>
+
+            <div class="ar-field ar-field--full">
+              <label class="ar-field-lbl" for="arScopeValue">Scope value <em class="ar-req">*</em></label>
+              <div class="ar-ig" [class.is-invalid]="!!newReqError('scopeValue')">
+                <i class="ri-map-pin-2-line ar-ig-ico" aria-hidden="true"></i>
+                <input id="arScopeValue" type="text" class="ar-ig-input" maxlength="200" placeholder="e.g. Mumbai, or a campaign code" style="border: none !important;outline:none !important"
+                       [ngModel]="newRequestForm().scopeValue" (ngModelChange)="newRequestForm.set({...newRequestForm(), scopeValue: $event})">
+              </div>
+              @if (newReqError('scopeValue')) { <div class="invalid-feedback d-block">{{ newReqError('scopeValue') }}</div> }
+            </div>
+          }
 
           <!-- Dates: custom picker -->
           <div class="ar-field ar-field--full">
             <div class="ar-dates">
               @for (f of dateFields; track f.key) {
                 <div class="ar-field">
-                  <label class="ar-field-lbl">{{ f.label }}</label>
+                  <label class="ar-field-lbl">{{ f.label }} @if (f.key === 'effectiveTo' && needsEndDate()) { <em class="ar-req">*</em> }</label>
                   <div class="ar-dp" [class.is-open]="dpField() === f.key" (click)="$event.stopPropagation()">
                     <button #dpTrigger type="button" class="ar-dd-trigger ar-dd-trigger--field" [class.is-invalid]="f.key === 'effectiveTo' && !!newReqError('effectiveTo')" (click)="openDatePicker(f.key); placeDatePicker(dpTrigger)" [attr.aria-expanded]="dpField() === f.key">
                       <i class="ri-calendar-line ar-dd-lead" aria-hidden="true"></i>
-                      <span class="ar-dd-value" [class.is-placeholder]="!dateValue(f.key)">{{ displayDate(dateValue(f.key)) || 'Pick a date' }}</span>
+                      <span class="ar-dd-value" [class.is-placeholder]="!dateValue(f.key)">{{ displayDate(dateValue(f.key)) || (f.key === 'effectiveFrom' ? 'Today' : 'No end date') }}</span>
                     </button>
                     @if (dpField() === f.key) {
                       <div class="ar-dp-pop" role="dialog" [attr.aria-label]="f.label"
@@ -487,41 +531,80 @@
 
       <footer class="ar-modal-foot">
         <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeNewRequest()">Cancel</button>
-        <button type="button" class="btn btn-primary btn-sm" (click)="submitNewRequest()" [disabled]="submitting()">
-          <i class="ri-send-plane-line" aria-hidden="true"></i>
-          Submit
-        </button>
+        @if (editing()) {
+          <button type="button" class="btn btn-primary btn-sm" (click)="saveEdit()" [disabled]="submitting()">
+            <i class="ri-save-line" aria-hidden="true"></i>
+            Save changes
+          </button>
+        } @else {
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="submitNewRequest(true)" [disabled]="submitting()" title="Keep the request as a draft and submit it later">
+            <i class="ri-draft-line" aria-hidden="true"></i>
+            Save as draft
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="submitNewRequest()" [disabled]="submitting()">
+            <i class="ri-send-plane-line" aria-hidden="true"></i>
+            Submit
+          </button>
+        }
       </footer>
     </div>
   </div>
 }
 
-<!-- ===== RETURN / CANCEL / DELETE — shared pop-up, one shell, a tone per action ===== -->
-@if ((showReturnModal() || showCancelModal() || showDeleteModal()) && actionTarget(); as target) {
-  <app-popup [open]="true" size="sm" [tone]="showDeleteModal() ? 'danger' : showReturnModal() ? 'warning' : 'default'"
-             [icon]="showReturnModal() ? 'ri-arrow-go-back-line' : showCancelModal() ? 'ri-close-circle-line' : 'ri-delete-bin-line'"
+<!-- ===== VIEW — the full record, as the server holds it ===== -->
+@if (viewing(); as v) {
+  <app-popup [open]="true" size="md" icon="ri-file-list-3-line"
+             [kicker]="'Access request · ' + (v.requestNumber ?? '')" [title]="v.requestTypeDisplay ?? 'Access request'"
+             [lead]="v.statusDisplay ?? ''" (closed)="closeView()">
+    <dl class="yp-facts">
+      <div><dt>For</dt><dd>{{ v.requestedForName }}@if (v.requestedForEmail) { · {{ v.requestedForEmail }} }</dd></div>
+      <div><dt>Raised by</dt><dd>{{ v.requestedByName }} · {{ formatDateTime(v.createdAtUtc) }}</dd></div>
+      @if (v.roleName) { <div><dt>Role</dt><dd>{{ v.roleName }}</dd></div> }
+      @if (v.permissionCode) { <div><dt>Permission</dt><dd>{{ v.permissionName || v.permissionCode }} <small>· {{ v.permissionCode }}</small></dd></div> }
+      @if (v.scopeType) { <div><dt>Scope</dt><dd>{{ v.scopeTypeDisplay }} · {{ v.scopeValue || '—' }}</dd></div> }
+      <div><dt>Effective</dt><dd>{{ formatDateTime(v.accessStartsAtUtc) }} → {{ v.accessEndsAtUtc ? formatDateTime(v.accessEndsAtUtc) : 'no end date' }}</dd></div>
+      <div><dt>Status</dt><dd>{{ v.statusDisplay }}@if (v.isSensitive) { · sensitive }</dd></div>
+      @if (v.submittedAtUtc) { <div><dt>Submitted</dt><dd>{{ formatDateTime(v.submittedAtUtc) }}</dd></div> }
+      @if (v.expiresAtUtc && v.status === 'submitted') { <div><dt>Lapses</dt><dd>{{ formatDateTime(v.expiresAtUtc) }}, if nobody decides it</dd></div> }
+      <div><dt>Justification</dt><dd>{{ v.businessJustification }}</dd></div>
+      @if (v.returnReason) { <div><dt>Sent back</dt><dd>{{ v.returnReason }} <small>· {{ v.returnedByName }}, {{ formatDateTime(v.returnedAtUtc) }}@if ((v.returnCount ?? 0) > 1) { · {{ v.returnCount }} times } </small></dd></div> }
+      @if (v.decidedAtUtc) { <div><dt>Decision</dt><dd>{{ v.statusDisplay }} by {{ v.decidedByName }} · {{ formatDateTime(v.decidedAtUtc) }}</dd></div> }
+      @if (v.decisionNotes) { <div><dt>Decision notes</dt><dd>{{ v.decisionNotes }}</dd></div> }
+      @if (v.withdrawalReason) { <div><dt>Withdrawn</dt><dd>{{ v.withdrawalReason }} <small>· {{ formatDateTime(v.withdrawnAtUtc) }}</small></dd></div> }
+      @if ((v.permissionsGranted ?? []).length > 0) { <div><dt>Would grant</dt><dd>{{ (v.permissionsGranted ?? []).length }} permission{{ (v.permissionsGranted ?? []).length === 1 ? '' : 's' }}</dd></div> }
+      @if ((v.segregationOfDutiesConflicts ?? []).length > 0) { <div><dt>Conflicts</dt><dd>{{ (v.segregationOfDutiesConflicts ?? []).join('; ') }}</dd></div> }
+      @if (v.cannotDecideReason) { <div><dt>Your part</dt><dd>{{ v.cannotDecideReason }}</dd></div> }
+    </dl>
+    <ng-container popupActions>
+      <button type="button" class="btn btn-primary btn-sm" (click)="closeView()">Close</button>
+    </ng-container>
+  </app-popup>
+}
+
+<!-- ===== RETURN / WITHDRAW — shared pop-up ===== -->
+@if ((showReturnModal() || showCancelModal()) && actionTarget(); as target) {
+  <app-popup [open]="true" size="sm" [tone]="showReturnModal() ? 'warning' : 'default'"
+             [icon]="showReturnModal() ? 'ri-arrow-go-back-line' : 'ri-close-circle-line'"
              [kicker]="'Access request · ' + target.reference"
-             [title]="showReturnModal() ? 'Return access request' : showCancelModal() ? 'Cancel access request' : 'Withdraw unused draft'"
-             (closed)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">
+             [title]="showReturnModal() ? 'Return access request' : 'Withdraw access request'"
+             (closed)="closeActionModal()">
     <dl class="yp-facts">
       <div><dt>User</dt><dd>{{ target.user }}</dd></div>
-      <div><dt>Requested role</dt><dd>{{ target.requestedRole }}</dd></div>
+      <div><dt>Requested access</dt><dd>{{ target.requestedAccess }}</dd></div>
     </dl>
     <label class="yp-field">
-      <span class="yp-label">{{ showReturnModal() ? 'Return reason' : showCancelModal() ? 'Cancellation reason' : 'Withdrawal reason' }} *</span>
+      <span class="yp-label">{{ showReturnModal() ? 'Return reason' : 'Withdrawal reason' }} *</span>
       <textarea rows="3" maxlength="1000" placeholder="Enter reason (10–1000 characters)"
                 [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)"></textarea>
-      <span class="yp-hint">Required — 10 to 1000 characters. {{ decisionReason().length }}/1000</span>
+      <span class="yp-hint">{{ showReturnModal() ? 'Shown to the requester so they know what to correct.' : 'The request stays in the history, marked Withdrawn.' }} {{ decisionReason().length }}/1000</span>
     </label>
     @if (decisionError()) { <p class="yp-error">{{ decisionError() }}</p> }
     <ng-container popupActions>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="showReturnModal() ? closeReturnModal() : showCancelModal() ? closeCancelModal() : closeDeleteModal()">Keep it</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeActionModal()">Keep it</button>
       @if (showReturnModal()) {
         <button type="button" class="btn btn-primary btn-sm" (click)="confirmReturn()" [disabled]="submitting()">Confirm return</button>
-      } @else if (showCancelModal()) {
-        <button type="button" class="btn btn-primary btn-sm" (click)="confirmCancel()" [disabled]="submitting()">Confirm cancellation</button>
       } @else {
-        <button type="button" class="btn btn-danger btn-sm" (click)="confirmDelete()" [disabled]="submitting()">Withdraw draft</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="confirmCancel()" [disabled]="submitting()">Withdraw request</button>
       }
     </ng-container>
   </app-popup>
@@ -533,10 +616,10 @@
              [icon]="showApproveModal() ? 'ri-check-double-line' : 'ri-close-circle-line'"
              [kicker]="'Access request · ' + target.reference"
              [title]="showApproveModal() ? 'Approve access request' : 'Reject access request'"
-             (closed)="showApproveModal() ? closeApproveModal() : closeRejectModal()">
+             (closed)="closeDecisionModal()">
     <dl class="yp-facts">
       <div><dt>User</dt><dd>{{ target.user }}</dd></div>
-      <div><dt>Requested role</dt><dd>{{ target.requestedRole }}</dd></div>
+      <div><dt>Requested access</dt><dd>{{ target.requestedAccess }}</dd></div>
       <div><dt>Scope</dt><dd>{{ target.scopeType }} · {{ target.scopeValue }}</dd></div>
     </dl>
     <label class="yp-field">
@@ -547,7 +630,7 @@
     </label>
     @if (decisionError()) { <p class="yp-error">{{ decisionError() }}</p> }
     <ng-container popupActions>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="showApproveModal() ? closeApproveModal() : closeRejectModal()">Cancel</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeDecisionModal()">Cancel</button>
       @if (showApproveModal()) {
         <button type="button" class="btn btn-primary btn-sm" (click)="confirmApprove()" [disabled]="submitting()">Confirm approval</button>
       } @else {
@@ -557,11 +640,10 @@
   </app-popup>
 }
 
-<!-- ===== DECISION RESULT (persistent confirmation) ===== -->
+<!-- ===== RESULT — what the server did, in its words ===== -->
 @if (showDecisionResultModal() && decisionResult(); as result) {
-  <app-popup [open]="true" size="sm"
-             [tone]="result.state === 'Rejected' || result.state === 'Deleted' ? 'danger' : result.state === 'Returned' || result.state === 'Cancelled' ? 'warning' : 'success'"
-             [icon]="result.state === 'Rejected' || result.state === 'Deleted' || result.state === 'Cancelled' ? 'ri-close-line' : result.state === 'Returned' ? 'ri-arrow-go-back-line' : 'ri-check-line'"
+  <app-popup [open]="true" size="sm" [tone]="$any(result.tone)"
+             [icon]="result.tone === 'danger' ? 'ri-close-line' : result.tone === 'warning' ? 'ri-arrow-go-back-line' : 'ri-check-line'"
              [kicker]="'Access request · ' + result.reference" [title]="result.state"
              [lead]="result.effectiveTime" (closed)="closeDecisionResultModal()">
     <dl class="yp-facts">

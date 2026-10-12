@@ -155,6 +155,25 @@ public static class PermissionCodes
     /// </summary>
     public const string AttributionRequestCorrection = "cam.attribution.request-correction";
 
+    // ---- WhatsApp outreach (CheckNumber.ai + WATI) ---------------------------------------------
+
+    /// <summary>
+    /// Viewing the WhatsApp screens: jobs, results, templates, recipients, delivery report.
+    ///
+    /// AN ALIAS OF <see cref="CampaignsView"/>, not a new code. WhatsApp outreach exists to bring
+    /// donors to campaigns, so whoever may see campaigns may see it - and an alias needs no IAM
+    /// change, no reseed and no new role grant. Give the screens their own codes later by
+    /// changing these two constants AND adding the codes to IAM's ModulePermissionCatalogue.
+    /// </summary>
+    public const string WhatsAppView = CampaignsView;
+
+    /// <summary>
+    /// Uploading a number list, sending a broadcast, retrying or cancelling a job. An alias of
+    /// <see cref="CampaignsCreate"/>: starting outreach is a CREATE act, so it lands on the
+    /// Executive side of the Executive / Manager split, and the Organisation Admin holds it too.
+    /// </summary>
+    public const string WhatsAppOperate = CampaignsCreate;
+
     // ---- Reference data -----------------------------------------------------------------------
     public const string ReferenceView = "cam.reference.view";
 

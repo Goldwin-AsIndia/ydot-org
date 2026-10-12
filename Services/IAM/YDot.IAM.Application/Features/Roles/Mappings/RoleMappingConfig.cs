@@ -17,6 +17,7 @@ public static class RoleMappingConfig
             role.Name ?? role.Code,
             role.Description,
             role.RoleType,
+            DescribeRoleType(role.RoleType),
             role.Status,
             DescribeStatus(role.Status),
             role.IsSystemRole,
@@ -30,13 +31,19 @@ public static class RoleMappingConfig
             role.UpdatedAtUtc,
             role.Version);
 
+    /// <param name="memberCount">People holding the role now - the figure the screen prints.</param>
+    /// <param name="assignmentCount">
+    /// Every assignment the role has ever had, revoked and expired ones included - what decides
+    /// whether it may still be deleted. See <see cref="PermittedActionsFor"/>.
+    /// </param>
     public static RoleDetailResponse ToDetailResponse(
         this Role role,
         IReadOnlyList<RolePermissionResponse> permissions,
         IReadOnlyList<RoleClaimResponse> claims,
         IReadOnlyList<RoleIncompatibilityResponse> incompatibilities,
         IReadOnlyList<Guid> visibleMenuIds,
-        int memberCount) =>
+        int memberCount,
+        int assignmentCount) =>
         new(
             role.Id,
             role.TenantId,
@@ -45,6 +52,7 @@ public static class RoleMappingConfig
             role.Name ?? role.Code,
             role.Description,
             role.RoleType,
+            DescribeRoleType(role.RoleType),
             role.Status,
             DescribeStatus(role.Status),
             role.IsSystemRole,
@@ -63,7 +71,7 @@ public static class RoleMappingConfig
             claims,
             incompatibilities,
             visibleMenuIds,
-            PermittedActionsFor(role, memberCount));
+            PermittedActionsFor(role, assignmentCount));
 
     public static RoleLookupResponse ToLookupResponse(this Role role, int permissionCount) =>
         new(role.Id, role.Code, role.Name ?? role.Code, role.Status, role.IsPrivileged, role.IsDefaultRole, permissionCount);
@@ -100,10 +108,20 @@ public static class RoleMappingConfig
     /// <summary>
     /// What the role STATE allows. Permission is checked separately on each endpoint.
     ///
-    /// A system role never offers Delete, and a role with holders never offers Delete either —
-    /// so the client does not draw a button that would answer 409.
+    /// THE ROLE SCREEN DRAWS EXACTLY THIS. It used to keep a second copy of these rules - "not
+    /// for a built-in role", "only a draft can be deleted" - that disagreed with this one in both
+    /// directions. The rules live here, and the handlers refuse the same things.
+    ///
+    /// A BUILT-IN ROLE is never deactivated or deleted: seed data, the invitation flow and PAY's
+    /// donor sign-up assign these roles by code, so switching one off would strip everybody who
+    /// relies on it. It can still be edited (but not renamed - see UpdateRoleCommand), and what
+    /// it grants can still be changed.
+    ///
+    /// DELETE needs a role nobody has EVER held. A revoked or expired assignment still points at
+    /// the role - the history has to stay explicable, and the database refuses the delete.
     /// </summary>
-    public static IReadOnlyList<string> PermittedActionsFor(Role role, int memberCount)
+    /// <param name="assignmentCount">Every assignment the role has had, in any state.</param>
+    public static IReadOnlyList<string> PermittedActionsFor(Role role, int assignmentCount)
     {
         ArgumentNullException.ThrowIfNull(role);
 
@@ -125,12 +143,9 @@ public static class RoleMappingConfig
 
         if (role.Status == RoleStatus.Active)
         {
-            // The administrator role cannot be switched off, or an Organisation could lock
-            // itself out with one click.
-            var isTenantAdminRole = role.IsSystemRole
-                && string.Equals(role.Code, Common.Constants.RoleCodes.TenantAdmin, StringComparison.Ordinal);
-
-            if (!isTenantAdminRole)
+            // Built-in roles stay on - the administrator role above all, or an Organisation
+            // could lock itself out with one click.
+            if (!role.IsSystemRole)
             {
                 actions.Add("Deactivate");
             }
@@ -140,7 +155,7 @@ public static class RoleMappingConfig
             actions.Add("Activate");
         }
 
-        if (!role.IsSystemRole && memberCount == 0)
+        if (!role.IsSystemRole && assignmentCount == 0)
         {
             actions.Add("Delete");
         }
@@ -154,6 +169,18 @@ public static class RoleMappingConfig
         RoleStatus.Active => "Active",
         RoleStatus.Inactive => "Inactive",
         _ => status.ToString()
+    };
+
+    /// <summary>
+    /// The role type in the screens' words. "Tenant" is the code's name for what every screen
+    /// calls an Organisation, so a tenant role reads as an Organisation role.
+    /// </summary>
+    public static string DescribeRoleType(RoleType roleType) => roleType switch
+    {
+        RoleType.Tenant => "Organisation",
+        RoleType.Platform => "Platform",
+        RoleType.Template => "Template",
+        _ => roleType.ToString()
     };
 
     /// <summary>Readable module names for the permission matrix headings.</summary>

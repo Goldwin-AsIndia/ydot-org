@@ -7,7 +7,7 @@ import {
   RoleListItemResponse,
   RolePermissionResponse,
 } from './iam-contract.model';
-import { LookupItem } from './api-response.model';
+import { ApiEnumOption } from './enum-option.model';
 
 /** One row of the role catalogue. An alias of the generated contract. */
 export type RoleListItem = RoleListItemResponse;
@@ -31,25 +31,36 @@ export type CreateRoleRequest = ApiCreateRoleRequest;
 export type UpdateRoleRequest = ApiUpdateRoleRequest;
 
 /**
- * The catalogue as the screen works from it.
+ * The catalogue as the screen works from it: the rows, and the vocabularies its filters and
+ * its permission matrix are drawn from.
  *
- * ASSEMBLED ON THIS SIDE. The API serves rows; the filter vocabularies are the domain's own and
- * are named in the service. Declaring a server response that returns all of it would be
- * describing an endpoint that does not exist.
+ * EVERY WORD COMES FROM THE SERVER. The rows are `GET /roles`; the three option lists are
+ * `GET /reference-data/enums`. They used to be literal lists in the service, which is how the
+ * filter came to offer "In use" for a state every row called "Active".
  */
 export interface RoleCatalogueResponse {
   roles: RoleListItem[];
   totalCount: number;
-  statusOptions: LookupItem[];
-  roleTypeOptions: LookupItem[];
+  /** The role states, in the server's order and words. */
+  statusOptions: ApiEnumOption[];
+  /** The role types, in the server's words. */
+  roleTypeOptions: ApiEnumOption[];
+  /** The verbs a permission can carry, in the server's order: the columns of the matrix. */
+  permissionActions: ApiEnumOption[];
 }
 
-/** Query string for the role catalogue endpoint. Mirrors the API's parameters exactly. */
+/** Query string for the role catalogue and its export. Mirrors the API's parameters exactly. */
 export interface RoleSearchFilter {
+  /** Matches the role name, code or purpose. */
   search?: string;
   status?: string;
   roleType?: string;
-  privilegedOnly?: boolean;
+  isSystemRole?: boolean;
+  isPrivileged?: boolean;
+  /** Roles that allow this permission. */
+  permissionCode?: string;
+  /** The owning function, matched whole. */
+  displayTag?: string;
   page?: number;
   pageSize?: number;
   sort?: string;

@@ -51,6 +51,7 @@ public sealed class AccessRequestCommandHandler(
     IGovernanceRepository governance,
     IUserRepository users,
     IRoleRepository roles,
+    IPermissionRepository permissions,
     ITenantRepository tenants,
     IBusinessUnitRepository businessUnits,
     IEffectiveAccessService effectiveAccess,
@@ -88,18 +89,6 @@ public sealed class AccessRequestCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.UserNotFound());
         }
 
-        Role? role = null;
-        if (request.RoleId.HasValue)
-        {
-            role = await roles.GetByIdAsync(request.RoleId.Value, cancellationToken);
-            if (role is null)
-            {
-                logger.LogWarning("Requested role not found. RoleId: {RoleId}.", request.RoleId.Value);
-                return Result.Failure<OutcomeResponse>(
-                    Error.NotFound("That role was not found in this organisation."));
-            }
-        }
-
         // Temporary access without an end date is just permanent access with a promise, so
         // the end date is required when the type says temporary.
         if (request.RequestType == AccessRequestType.TemporaryElevation && !request.AccessEndsAtUtc.HasValue)
@@ -109,19 +98,16 @@ public sealed class AccessRequestCommandHandler(
                     [new ValidationError(nameof(request.AccessEndsAtUtc), "Choose when this access should end.")]));
         }
 
-        // Whether what is being asked for is sensitive drives the approval rules downstream.
-        var isSensitive = false;
-        if (role is not null)
+        var asked = await CheckWhatIsAskedAsync(
+            subject, request.RequestType, request.RoleId, request.PermissionCode,
+            request.ScopeType, request.ScopeValue, excludeId: null, cancellationToken);
+
+        if (asked.IsFailure)
         {
-            var rolePermissions = await roles.GetRolePermissionsAsync(role.Id, cancellationToken);
-            isSensitive = role.IsPrivileged
-                          || role.GrantsAllTenantPermissions
-                          || rolePermissions.Any(item => PermissionCodes.IsSensitive(item.PermissionCode));
+            return Result.Failure<OutcomeResponse>(asked.Error!);
         }
-        else if (!string.IsNullOrWhiteSpace(request.PermissionCode))
-        {
-            isSensitive = PermissionCodes.IsSensitive(request.PermissionCode);
-        }
+
+        var isSensitive = asked.Value!.IsSensitive;
 
         var accessRequest = new AccessRequest
         {
@@ -131,10 +117,10 @@ public sealed class AccessRequestCommandHandler(
             RequestedForUserId = subject.Id,
             RequestedByUserId = currentUser.UserId,
             RequestType = request.RequestType,
-            RoleId = request.RoleId,
-            PermissionCode = request.PermissionCode,
-            ScopeType = request.ScopeType,
-            ScopeValue = request.ScopeValue,
+            RoleId = asked.Value.RoleId,
+            PermissionCode = asked.Value.PermissionCode,
+            ScopeType = asked.Value.ScopeType,
+            ScopeValue = asked.Value.ScopeValue,
             BusinessJustification = request.BusinessJustification.Trim(),
             AccessStartsAtUtc = request.AccessStartsAtUtc ?? now,
             AccessEndsAtUtc = request.AccessEndsAtUtc,
@@ -169,7 +155,7 @@ public sealed class AccessRequestCommandHandler(
             request.SubmitImmediately
                 ? $"Request {accessRequest.RequestNumber} submitted for approval."
                 : $"Request {accessRequest.RequestNumber} saved as a draft.",
-            GovernanceMappingConfig.PermittedActionsFor(accessRequest, currentUser.UserId)));
+            GovernanceMappingConfig.PermittedActionsFor(accessRequest, AccessRequestViewer.From(currentUser))));
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -192,12 +178,14 @@ public sealed class AccessRequestCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.Concurrency());
         }
 
-        // Only a draft is editable. Editing something an approver is looking at would mean
-        // they approve one thing and something else takes effect.
-        if (accessRequest.Status != AccessRequestStatus.Draft)
+        // Only a draft, or a request sent back for more information, is editable. Editing
+        // something an approver is looking at would mean they approve one thing and something
+        // else takes effect. A returned request is the requester's again - that is the point of
+        // returning it rather than rejecting it.
+        if (accessRequest.Status is not (AccessRequestStatus.Draft or AccessRequestStatus.Returned))
         {
             return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
-                "Only a draft request can be edited."));
+                "Only a draft or a request that was sent back can be edited."));
         }
 
         if (accessRequest.RequestedByUserId != currentUser.UserId)
@@ -206,25 +194,74 @@ public sealed class AccessRequestCommandHandler(
                 Error.Forbidden("Only the person who raised a request can edit it."));
         }
 
-        if (!string.IsNullOrWhiteSpace(command.Request.BusinessJustification))
+        var edit = command.Request;
+
+        var subject = await users.GetByIdAsync(accessRequest.RequestedForUserId, cancellationToken);
+        if (subject is null)
         {
-            accessRequest.BusinessJustification = command.Request.BusinessJustification.Trim();
+            return Result.Failure<OutcomeResponse>(Error.UserNotFound());
         }
 
-        if (command.Request.RoleId.HasValue)
+        // What is asked for is checked again as edited, by the same rules as a new request. A
+        // field left out keeps its value, so a justification-only edit checks the original grant.
+        var asked = await CheckWhatIsAskedAsync(
+            subject,
+            accessRequest.RequestType,
+            edit.RoleId ?? accessRequest.RoleId,
+            edit.PermissionCode ?? accessRequest.PermissionCode,
+            edit.ScopeType ?? accessRequest.ScopeType,
+            edit.ScopeValue ?? accessRequest.ScopeValue,
+            excludeId: accessRequest.Id,
+            cancellationToken);
+
+        if (asked.IsFailure)
         {
-            accessRequest.RoleId = command.Request.RoleId;
+            return Result.Failure<OutcomeResponse>(asked.Error!);
         }
 
-        if (command.Request.AccessStartsAtUtc.HasValue)
+        var accessEndsAtUtc = edit.RemoveAccessEndDate ? null : edit.AccessEndsAtUtc ?? accessRequest.AccessEndsAtUtc;
+        var accessStartsAtUtc = edit.AccessStartsAtUtc ?? accessRequest.AccessStartsAtUtc;
+
+        if (accessRequest.RequestType == AccessRequestType.TemporaryElevation && !accessEndsAtUtc.HasValue)
         {
-            accessRequest.AccessStartsAtUtc = command.Request.AccessStartsAtUtc.Value;
+            return Result.Failure<OutcomeResponse>(
+                Error.Validation("Temporary access needs an end date.",
+                    [new ValidationError(nameof(edit.AccessEndsAtUtc), "Choose when this access should end.")]));
         }
 
-        if (command.Request.AccessEndsAtUtc.HasValue)
+        if (accessEndsAtUtc.HasValue && accessEndsAtUtc.Value <= accessStartsAtUtc)
         {
-            accessRequest.AccessEndsAtUtc = command.Request.AccessEndsAtUtc;
+            return Result.Failure<OutcomeResponse>(
+                Error.Validation("The access has to end after it starts.",
+                    [new ValidationError(nameof(edit.AccessEndsAtUtc), "Choose an end date after the start date.")]));
         }
+
+        if (!string.IsNullOrWhiteSpace(edit.BusinessJustification))
+        {
+            accessRequest.BusinessJustification = edit.BusinessJustification.Trim();
+        }
+
+        accessRequest.RoleId = asked.Value!.RoleId;
+        accessRequest.PermissionCode = asked.Value.PermissionCode;
+        accessRequest.ScopeType = asked.Value.ScopeType;
+        accessRequest.ScopeValue = asked.Value.ScopeValue;
+        accessRequest.IsSensitive = asked.Value.IsSensitive;
+        accessRequest.AccessStartsAtUtc = accessStartsAtUtc;
+        accessRequest.AccessEndsAtUtc = accessEndsAtUtc;
+
+        // An edit is a change to a governance record, so it is on the trail like every other.
+        await audit.WriteAsync(
+            AuditActionCodes.AccessRequestUpdated, nameof(AccessRequest), accessRequest.Id,
+            accessRequest.RequestNumber,
+            new
+            {
+                accessRequest.RoleId,
+                accessRequest.PermissionCode,
+                accessRequest.ScopeType,
+                accessRequest.AccessStartsAtUtc,
+                accessRequest.AccessEndsAtUtc
+            },
+            cancellationToken: cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -232,7 +269,7 @@ public sealed class AccessRequestCommandHandler(
 
         return Result.Success(new OutcomeResponse(
             accessRequest.Id, accessRequest.Status.ToString(), accessRequest.Version,
-            "Request saved.", GovernanceMappingConfig.PermittedActionsFor(accessRequest, currentUser.UserId)));
+            "Request saved.", GovernanceMappingConfig.PermittedActionsFor(accessRequest, AccessRequestViewer.From(currentUser))));
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -257,14 +294,29 @@ public sealed class AccessRequestCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.Concurrency());
         }
 
-        if (accessRequest.Status != AccessRequestStatus.Draft)
+        // A returned request is submitted again under the same number: that is how the requester
+        // answers what the approver asked. It used to be refused here, so a returned request could
+        // only be withdrawn and raised again - the opposite of what returning it is for.
+        if (accessRequest.Status is not (AccessRequestStatus.Draft or AccessRequestStatus.Returned))
         {
             return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
-                "Only a draft request can be submitted."));
+                "Only a draft or a request that was sent back can be submitted."));
+        }
+
+        // Only its requester submits it. The endpoint checked the permission and nothing else,
+        // so anybody holding it could push a colleague's unfinished draft to an approver.
+        if (accessRequest.RequestedByUserId != currentUser.UserId)
+        {
+            return Result.Failure<OutcomeResponse>(
+                Error.Forbidden("Only the person who raised a request can submit it."));
         }
 
         accessRequest.Status = AccessRequestStatus.Submitted;
         accessRequest.SubmittedAtUtc = now;
+
+        // A fresh window for a decision. A request corrected after a return would otherwise lapse
+        // on the date set when it was first raised.
+        accessRequest.ExpiresAtUtc = now.AddDays(30);
 
         var subject = await users.GetByIdAsync(accessRequest.RequestedForUserId, cancellationToken);
 
@@ -284,7 +336,7 @@ public sealed class AccessRequestCommandHandler(
         return Result.Success(new OutcomeResponse(
             accessRequest.Id, accessRequest.Status.ToString(), accessRequest.Version,
             $"Request {accessRequest.RequestNumber} submitted for approval.",
-            GovernanceMappingConfig.PermittedActionsFor(accessRequest, currentUser.UserId)));
+            GovernanceMappingConfig.PermittedActionsFor(accessRequest, AccessRequestViewer.From(currentUser))));
     }
 
     /// <summary>
@@ -388,7 +440,7 @@ public sealed class AccessRequestCommandHandler(
             request.Approved
                 ? $"Request {accessRequest.RequestNumber} approved and the access granted."
                 : $"Request {accessRequest.RequestNumber} rejected.",
-            GovernanceMappingConfig.PermittedActionsFor(accessRequest, currentUser.UserId)));
+            GovernanceMappingConfig.PermittedActionsFor(accessRequest, AccessRequestViewer.From(currentUser))));
     }
 
     /// <summary>
@@ -437,6 +489,14 @@ public sealed class AccessRequestCommandHandler(
                 "You cannot send your own request back. Withdraw it and raise a new one."));
         }
 
+        // The person the access is for is excluded too, as from a decision. Sending a request
+        // about your own access back is a way of steering it.
+        if (accessRequest.RequestedForUserId == currentUser.UserId)
+        {
+            return Result.Failure<OutcomeResponse>(Error.SegregationOfDuties(
+                "You cannot send back a request for your own access."));
+        }
+
         if (string.IsNullOrWhiteSpace(command.Request.Reason))
         {
             return Result.Failure<OutcomeResponse>(
@@ -464,7 +524,7 @@ public sealed class AccessRequestCommandHandler(
         return Result.Success(new OutcomeResponse(
             accessRequest.Id, accessRequest.Status.ToString(), accessRequest.Version,
             "Sent back to the requester with your note.",
-            ["View"]));
+            GovernanceMappingConfig.PermittedActionsFor(accessRequest, AccessRequestViewer.From(currentUser))));
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -514,7 +574,7 @@ public sealed class AccessRequestCommandHandler(
 
         return Result.Success(new OutcomeResponse(
             accessRequest.Id, accessRequest.Status.ToString(), accessRequest.Version,
-            "Request withdrawn.", GovernanceMappingConfig.PermittedActionsFor(accessRequest, currentUser.UserId)));
+            "Request withdrawn.", GovernanceMappingConfig.PermittedActionsFor(accessRequest, AccessRequestViewer.From(currentUser))));
     }
 
     /// <summary>
@@ -711,6 +771,168 @@ public sealed class AccessRequestCommandHandler(
 
         await notifications.SendAccessRequestDecidedAsync(
             requester, tenant, businessUnit, accessRequest.RequestNumber, approved, reason, cancellationToken);
+    }
+
+    /// <summary>What a request asks for, once checked: only the fields its type uses.</summary>
+    private sealed record CheckedAsk(
+        Guid? RoleId,
+        string? PermissionCode,
+        DataScopeType? ScopeType,
+        string? ScopeValue,
+        bool IsSensitive);
+
+    /// <summary>
+    /// Checks what a request asks for, on raising it and on every edit.
+    ///
+    /// EACH TYPE KEEPS ONLY ITS OWN FIELDS. A role request carried a scope the approval never
+    /// applied - approval writes a role assignment and nothing else - so the approver was shown a
+    /// narrowing that would not happen. A field the type does not use is now refused rather than
+    /// stored.
+    ///
+    /// AND WHAT IS ASKED FOR HAS TO BE GRANTABLE: an active organisation role, a permission an
+    /// organisation role may carry, an account that can still use it, and nothing the person
+    /// already holds or has already asked for.
+    /// </summary>
+    private async Task<Result<CheckedAsk>> CheckWhatIsAskedAsync(
+        User subject,
+        AccessRequestType requestType,
+        Guid? roleId,
+        string? permissionCode,
+        DataScopeType? scopeType,
+        string? scopeValue,
+        Guid? excludeId,
+        CancellationToken cancellationToken)
+    {
+        // Access for an account that can no longer sign in is a grant nobody can use.
+        if (subject.Status is UserStatus.Deactivated or UserStatus.Withdrawn or UserStatus.Expired)
+        {
+            return Result.Failure<CheckedAsk>(Error.InvalidTransition(
+                $"{subject.DisplayName}'s account is {subject.Status.ToString().ToLowerInvariant()}, so access cannot be requested for it."));
+        }
+
+        permissionCode = string.IsNullOrWhiteSpace(permissionCode) ? null : permissionCode.Trim();
+        scopeValue = string.IsNullOrWhiteSpace(scopeValue) ? null : scopeValue.Trim();
+
+        var usesRole = requestType is AccessRequestType.RoleAssignment or AccessRequestType.TemporaryElevation;
+        var usesPermission = requestType == AccessRequestType.PermissionGrant;
+        var usesScope = requestType == AccessRequestType.DataScopeGrant;
+
+        if (!usesScope && (scopeType.HasValue || scopeValue is not null))
+        {
+            return Result.Failure<CheckedAsk>(Error.Validation(
+                "Only a data scope request names a scope.",
+                [new ValidationError("ScopeType", "Leave the scope empty, or raise a data scope request.")]));
+        }
+
+        var isSensitive = false;
+
+        if (usesRole)
+        {
+            if (!roleId.HasValue)
+            {
+                return Result.Failure<CheckedAsk>(Error.Validation(
+                    "Choose a role.", [new ValidationError("RoleId", "Choose a role.")]));
+            }
+
+            var role = await roles.GetByIdAsync(roleId.Value, cancellationToken);
+
+            if (role is null || role.IsPlatformRole || role.TenantId != subject.TenantId)
+            {
+                logger.LogWarning("Requested role not found. RoleId: {RoleId}.", roleId.Value);
+                return Result.Failure<CheckedAsk>(
+                    Error.NotFound("That role was not found in this organisation."));
+            }
+
+            // An inactive role grants nothing, so approving a request for it would record a grant
+            // that does not take effect.
+            if (!role.IsAssignable)
+            {
+                return Result.Failure<CheckedAsk>(Error.InvalidTransition(
+                    $"{role.Name ?? role.Code} is not active, so it cannot be requested."));
+            }
+
+            if (await roles.GetActiveAssignmentAsync(subject.Id, role.Id, cancellationToken) is not null)
+            {
+                return Result.Failure<CheckedAsk>(Error.Duplicate(
+                    $"{subject.DisplayName} already holds {role.Name ?? role.Code}."));
+            }
+
+            // Whether what is being asked for is sensitive drives the approval rules downstream.
+            var rolePermissions = await roles.GetRolePermissionsAsync(role.Id, cancellationToken);
+            isSensitive = role.IsPrivileged
+                          || role.GrantsAllTenantPermissions
+                          || rolePermissions.Any(item => PermissionCodes.IsSensitive(item.PermissionCode));
+        }
+        else if (roleId.HasValue)
+        {
+            return Result.Failure<CheckedAsk>(Error.Validation(
+                "Only a role request names a role.",
+                [new ValidationError("RoleId", "Leave the role empty for this type of request.")]));
+        }
+
+        if (usesPermission)
+        {
+            if (permissionCode is null)
+            {
+                return Result.Failure<CheckedAsk>(Error.Validation(
+                    "Choose a permission.", [new ValidationError("PermissionCode", "Choose a permission.")]));
+            }
+
+            var permission = await permissions.GetByCodeAsync(permissionCode, cancellationToken);
+
+            // The platform's own codes are never granted inside an Organisation, by a role or
+            // by a request.
+            if (permission is null || permission.Status != PermissionStatus.Active || permission.IsPlatformOnly)
+            {
+                return Result.Failure<CheckedAsk>(
+                    Error.NotFound("That permission cannot be granted in this organisation."));
+            }
+
+            isSensitive = PermissionCodes.IsSensitive(permission.Code);
+        }
+        else if (permissionCode is not null)
+        {
+            return Result.Failure<CheckedAsk>(Error.Validation(
+                "Only a permission request names a permission.",
+                [new ValidationError("PermissionCode", "Leave the permission empty for this type of request.")]));
+        }
+
+        if (usesScope)
+        {
+            if (!scopeType.HasValue)
+            {
+                return Result.Failure<CheckedAsk>(Error.Validation(
+                    "Choose a scope type.", [new ValidationError("ScopeType", "Choose a scope type.")]));
+            }
+
+            if (scopeValue is null)
+            {
+                return Result.Failure<CheckedAsk>(Error.Validation(
+                    "Enter the scope value.", [new ValidationError("ScopeValue", "Enter the scope value.")]));
+            }
+        }
+
+        var duplicate = await governance.FindOpenDuplicateRequestAsync(
+            subject.Id,
+            usesRole ? roleId : null,
+            usesPermission ? permissionCode : null,
+            usesScope ? scopeType : null,
+            usesScope ? scopeValue : null,
+            excludeId,
+            cancellationToken);
+
+        if (duplicate is not null)
+        {
+            return Result.Failure<CheckedAsk>(Error.Duplicate(
+                $"Request {duplicate} already asks for the same access for {subject.DisplayName}. Edit or withdraw that one instead."));
+        }
+
+        return Result.Success(new CheckedAsk(
+            usesRole ? roleId : null,
+            usesPermission ? permissionCode : null,
+            usesScope ? scopeType : null,
+            usesScope ? scopeValue : null,
+            isSensitive));
     }
 
     // Permitted actions live in GovernanceMappingConfig, shared with the read service.

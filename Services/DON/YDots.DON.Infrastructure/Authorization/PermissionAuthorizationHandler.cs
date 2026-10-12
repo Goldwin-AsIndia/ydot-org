@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using YDots.DON.Application.Common.Abstractions.Security;
 using YDots.DON.Application.Common.Constants;
 
@@ -50,39 +49,6 @@ public sealed class SameOrganisationHandler : AuthorizationHandler<SameOrganisat
         var organisationId = context.User.FindFirst(ClaimTypeNames.OrganisationId)?.Value;
 
         if (!string.IsNullOrWhiteSpace(organisationId) && Guid.TryParse(organisationId, out _))
-        {
-            context.Succeed(requirement);
-        }
-
-        return Task.CompletedTask;
-    }
-}
-
-/// <summary>
-/// Segregation of duties at the route level.
-///
-/// This is the coarse half of the rule: it stops a caller acting on a record whose id equals
-/// their own user id. The real maker/checker test — "did you create this donor?" — needs the
-/// record itself, so it lives in DonorCommandHandler.HandleAsync(ApproveDonorCommand).
-/// </summary>
-public sealed class SegregationOfDutiesHandler(IHttpContextAccessor httpContextAccessor)
-    : AuthorizationHandler<SegregationOfDutiesRequirement>
-{
-    protected override Task HandleRequirementAsync(
-        AuthorizationHandlerContext context,
-        SegregationOfDutiesRequirement requirement)
-    {
-        var callerId = context.User.FindFirst(ClaimTypeNames.UserId)?.Value
-                       ?? context.User.FindFirst("sub")?.Value;
-
-        var routeValue = httpContextAccessor.HttpContext?.Request.RouteValues
-            .TryGetValue(requirement.RouteValueName, out var value) == true
-            ? value?.ToString()
-            : null;
-
-        // No subject on the route means the rule cannot be broken here.
-        if (routeValue is null || callerId is null
-            || !string.Equals(routeValue, callerId, StringComparison.OrdinalIgnoreCase))
         {
             context.Succeed(requirement);
         }

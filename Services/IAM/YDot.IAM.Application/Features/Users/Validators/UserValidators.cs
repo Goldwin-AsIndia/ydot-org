@@ -54,12 +54,15 @@ public sealed class CreateUserRequestValidator : AbstractValidator<CreateUserReq
             .When(request => request.AccessStartsAtUtc.HasValue && request.AccessEndsAtUtc.HasValue)
             .WithMessage("The access end date must be after the start date.");
 
-        // An Employee is expected to carry a staff number; other categories are not.
+        // A salaried member of staff carries a staff number; a contractor, volunteer, intern or
+        // external party (a donor account is External) does not. This used to be keyed on the
+        // account category as well, which was removed: the engagement already says it.
         RuleFor(request => request.EmployeeNumber)
             .NotEmpty()
-            .When(request => request.AccountCategory == UserAccountCategory.Employee
-                             && request.EngagementType is EngagementType.FullTime or EngagementType.PartTime)
-            .WithMessage("An employee number is required for employees.");
+            .When(request => request.EngagementType is EngagementType.FullTime or EngagementType.PartTime)
+            .WithMessage("An employee number is required for full-time and part-time staff.");
+
+        RuleForEach(request => request.RoleCodes).MaximumLength(64);
 
         RuleFor(request => request.InvitationMessage).MaximumLength(1000);
 
@@ -526,15 +529,52 @@ public sealed class CreateAccessRequestRequestValidator : AbstractValidator<Crea
             .When(request => request.RequestType == AccessRequestType.PermissionGrant)
             .WithMessage("Choose a permission.");
 
+        RuleFor(request => request.ScopeType)
+            .NotNull()
+            .When(request => request.RequestType == AccessRequestType.DataScopeGrant)
+            .WithMessage("Choose a scope type.");
+
         RuleFor(request => request.ScopeValue)
             .NotEmpty()
             .When(request => request.RequestType == AccessRequestType.DataScopeGrant)
             .WithMessage("Enter the scope value.");
 
+        RuleFor(request => request.ScopeValue).MaximumLength(200);
+
         RuleFor(request => request.AccessEndsAtUtc)
             .NotNull()
             .When(request => request.RequestType == AccessRequestType.TemporaryElevation)
             .WithMessage("Temporary access needs an end date.");
+
+        RuleFor(request => request.AccessEndsAtUtc)
+            .GreaterThan(_ => DateTimeOffset.UtcNow)
+            .When(request => request.AccessEndsAtUtc.HasValue)
+            .WithMessage("The end date must be in the future.");
+
+        // The end has to come after the start, or the grant is over before it begins.
+        RuleFor(request => request.AccessEndsAtUtc)
+            .GreaterThan(request => request.AccessStartsAtUtc!.Value)
+            .When(request => request.AccessEndsAtUtc.HasValue && request.AccessStartsAtUtc.HasValue)
+            .WithMessage("The access has to end after it starts.");
+    }
+}
+
+/// <summary>
+/// Editing a draft or a returned request. Every field is optional; the ones given follow the
+/// same rules as raising a request.
+/// </summary>
+public sealed class UpdateAccessRequestRequestValidator : AbstractValidator<UpdateAccessRequestRequest>
+{
+    public UpdateAccessRequestRequestValidator()
+    {
+        RuleFor(request => request.ExpectedVersion).GreaterThan(0);
+
+        RuleFor(request => request.BusinessJustification)
+            .MinimumLength(10).WithMessage("Give at least a sentence of justification.")
+            .MaximumLength(1000)
+            .When(request => request.BusinessJustification is not null);
+
+        RuleFor(request => request.ScopeValue).MaximumLength(200);
 
         RuleFor(request => request.AccessEndsAtUtc)
             .GreaterThan(_ => DateTimeOffset.UtcNow)

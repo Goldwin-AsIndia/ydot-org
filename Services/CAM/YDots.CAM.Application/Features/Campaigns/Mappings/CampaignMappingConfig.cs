@@ -397,29 +397,25 @@ public static class CampaignMappingConfig
     /// <summary>
     /// What the caller may do to this campaign next.
     ///
-    /// IT COMBINES THREE THINGS, and all three have to hold: the campaign's STATE allows the
-    /// transition, the caller HOLDS the permission, and for the approvals the caller is
-    /// INDEPENDENT of the person who created or submitted it. Deciding it here rather than in
-    /// the client is what stops a screen drawing an Approve button that will answer 409.
+    /// IT COMBINES TWO THINGS, and both have to hold: the campaign's STATE allows the transition,
+    /// and the caller HOLDS the permission. Deciding it here rather than in the client is what
+    /// stops a screen drawing a button that will answer 409.
+    ///
+    /// WHO CREATED OR SUBMITTED THE CAMPAIGN IS NOT A CONDITION. A person's roles combine as the
+    /// union of their permissions, so somebody holding Campaign Executive and Campaign Manager is
+    /// offered Submit and then Approve on the same campaign.
     ///
     /// <paramref name="hasOutstandingChecks"/> removes Activate while a required readiness
     /// check has not passed, which is the checklist doing its job rather than the launch
     /// failing at the last step. It does NOT remove Activate for a Scheduled campaign: a
     /// scheduled campaign goes live on its start date whatever the checklist says, so hiding the
     /// button would only stop somebody bringing forward a launch that is going to happen anyway.
-    ///
-    /// <paramref name="callerIsTenantAdmin"/> lifts the independence condition and nothing else:
-    /// the Organisation Admin may approve its own campaigns, but still only from the state that
-    /// allows it and only with the permission it holds by GrantsAll.
     /// </summary>
     public static IReadOnlyList<string> PermittedActionsFor(
         Campaign campaign,
-        Guid callerUserId,
         Func<string, bool> hasPermission,
         bool hasOutstandingChecks,
-        bool hasPendingCloseRequest,
-        bool callerIsTenantAdmin = false,
-        bool callerMayApproveClose = true)
+        bool hasPendingCloseRequest)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(hasPermission);
@@ -461,8 +457,7 @@ public static class CampaignMappingConfig
         }
 
         if (campaign.Status == CampaignStatus.Submitted
-            && hasPermission(PermissionCodes.CampaignsApprove)
-            && campaign.CanBeApprovedBy(callerUserId, callerIsTenantAdmin))
+            && hasPermission(PermissionCodes.CampaignsApprove))
         {
             actions.Add("Approve");
         }
@@ -505,18 +500,11 @@ public static class CampaignMappingConfig
             actions.Add("RequestClose");
         }
 
-        // The approver of a close request must not be the person who raised it - the Organisation
-        // Admin excepted. <paramref name="callerMayApproveClose"/> carries that answer from the
-        // request row, so the button is not drawn for somebody the handler would then refuse.
+        // Deciding a close request either way is one decision, so refusing it needs the same
+        // permission as approving it - including for the person who raised the request.
         if (hasPendingCloseRequest && hasPermission(PermissionCodes.CampaignsApproveClose))
         {
-            if (callerMayApproveClose)
-            {
-                actions.Add("ApproveClose");
-            }
-
-            // Deciding a close request either way is one decision, so refusing it needs the same
-            // permission as approving it.
+            actions.Add("ApproveClose");
             actions.Add("RejectClose");
         }
 

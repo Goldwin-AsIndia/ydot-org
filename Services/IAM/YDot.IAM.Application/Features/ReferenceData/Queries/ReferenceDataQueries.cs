@@ -3,6 +3,9 @@ using YDot.IAM.Application.Common.Abstractions.Security;
 using YDot.IAM.Application.Common.Constants;
 using YDot.IAM.Application.Common.Models;
 using YDot.IAM.Application.Common.Results;
+using YDot.IAM.Application.Features.Governance.Mappings;
+using YDot.IAM.Application.Features.Roles.Mappings;
+using YDot.IAM.Application.Features.Users.Mappings;
 using YDot.IAM.Domain.Enums;
 
 namespace YDot.IAM.Application.Features.ReferenceData.Queries;
@@ -25,6 +28,7 @@ public sealed record GetEnumOptionsQuery;
 /// </summary>
 public sealed class ReferenceDataQueryHandler(
     ILookupRepository lookups,
+    ITenantRepository tenantRepository,
     ICurrentUser currentUser,
     ITenantContext tenantContext)
 {
@@ -43,6 +47,12 @@ public sealed class ReferenceDataQueryHandler(
         var permissions = await lookups.GetPermissionsAsync(cancellationToken);
         var tenants = await lookups.GetSelectableTenantsAsync(cancellationToken);
 
+        // What an "Inherited" two-step requirement resolves to in this Organisation, so the
+        // create form can say so instead of offering a word that means nothing on its own.
+        var organisation = tenantContext.HasTenant
+            ? await tenantRepository.GetByIdAsync(tenantContext.RequireTenantId(), cancellationToken)
+            : null;
+
         return Result.Success(new ReferenceDataResponse(
             roles,
             departments,
@@ -55,7 +65,8 @@ public sealed class ReferenceDataQueryHandler(
             tenantContext.TenantId,
             tenantContext.TenantName,
             currentUser.IsSuperAdmin,
-            currentUser.IsTenantAdmin));
+            currentUser.IsTenantAdmin,
+            organisation?.DefaultMfaRequirement ?? MfaRequirement.Optional));
     }
 
     public Task<Result<EnumOptionsResponse>> HandleAsync(
@@ -70,14 +81,17 @@ public sealed class ReferenceDataQueryHandler(
     /// </summary>
     private static EnumOptionsResponse BuildEnumOptions() => new(
         Describe<UserStatus>(),
-        Describe<UserAccountCategory>(),
         Describe<EngagementType>(),
         Describe<MfaRequirement>(),
-        Describe<MfaMethodType>(),
-        Describe<RoleStatus>(),
-        Describe<RoleType>(),
+        // The security pages' own words, from the one place they are kept.
+        Describe<MfaMethodType>(UserMappingConfig.DescribeMfaMethod),
+        // Labelled as the role records label them (StatusDisplay, RoleTypeDisplay), so a filter
+        // option and the row it finds read the same - "Organisation", not "Tenant".
+        Describe<RoleStatus>(RoleMappingConfig.DescribeStatus),
+        Describe<RoleType>(RoleMappingConfig.DescribeRoleType),
         Describe<PermissionAction>(),
-        Describe<DataScopeType>(),
+        // As the access request queue, the access preview and the exports print them.
+        Describe<DataScopeType>(GovernanceMappingConfig.DescribeScopeType),
         Describe<TenantStatus>(),
         Describe<TenantDocumentType>(),
         Describe<AccessRequestType>(),
@@ -85,23 +99,33 @@ public sealed class ReferenceDataQueryHandler(
         Describe<AccessReviewStatus>(),
         Describe<AccessReviewDecision>(),
         Describe<BulkActionType>(),
-        Describe<ClientType>(),
+        Describe<ClientType>(UserMappingConfig.DescribeClientType),
         Describe<PrivilegeLevel>(),
         Describe<RecordStatus>(),
         Describe<MenuLevel>(),
         Describe<MenuStatus>(),
-        Describe<AuditResult>(),
+        // Each outcome with a line saying what it means, which the audit trail's filter shows
+        // beneath the name: a denial is the system working, a failure is something breaking.
+        Describe<AuditResult>(GovernanceMappingConfig.DescribeAuditResult, GovernanceMappingConfig.ExplainAuditResult),
         // Labels, not enum names: the column stores the label itself. See OrganisationTypes.
-        [.. OrganisationTypes.All.Select((label, index) => new EnumOption(label, label, index))]);
+        [.. OrganisationTypes.All.Select((label, index) => new EnumOption(label, label, index))],
+        // Same: the title column stores the word itself. See PersonTitles.
+        [.. PersonTitles.All.Select((label, index) => new EnumOption(label, label, index))]);
 
     /// <summary>Turns an enum into name/label pairs, with the label humanised for display.</summary>
     private static IReadOnlyList<EnumOption> Describe<TEnum>() where TEnum : struct, Enum =>
+        Describe<TEnum>(value => Humanise(value.ToString()!));
+
+    /// <summary>The same, with labels from the slice that owns the enum's wording.</summary>
+    private static IReadOnlyList<EnumOption> Describe<TEnum>(
+        Func<TEnum, string> label, Func<TEnum, string?>? description = null) where TEnum : struct, Enum =>
     [
         .. Enum.GetValues<TEnum>()
             .Select(value => new EnumOption(
                 value.ToString(),
-                Humanise(value.ToString()!),
-                Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture)))
+                label(value),
+                Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture),
+                description?.Invoke(value)))
     ];
 
     /// <summary>"ProfileIncomplete" becomes "Profile incomplete".</summary>
@@ -143,15 +167,26 @@ public sealed record ReferenceDataResponse(
     Guid? CurrentTenantId,
     string? CurrentTenantName,
     bool IsSuperAdmin,
-    bool IsTenantAdmin);
+    bool IsTenantAdmin,
+
+    /// <summary>
+    /// The Organisation's default two-step requirement - what a user whose own requirement is
+    /// "Inherited" actually gets. Optional when no Organisation is selected.
+    /// </summary>
+    MfaRequirement OrganisationMfaRequirement);
 
 /// <summary>One selectable enum value.</summary>
-public sealed record EnumOption(string Value, string Label, int Ordinal);
+public sealed record EnumOption(
+    string Value,
+    string Label,
+    int Ordinal,
+
+    /// <summary>A line saying what the value means, where one helps. Null for most enums.</summary>
+    string? Description = null);
 
 /// <summary>Every enum the client renders as a dropdown.</summary>
 public sealed record EnumOptionsResponse(
     IReadOnlyList<EnumOption> UserStatuses,
-    IReadOnlyList<EnumOption> AccountCategories,
     IReadOnlyList<EnumOption> EngagementTypes,
     IReadOnlyList<EnumOption> MfaRequirements,
     IReadOnlyList<EnumOption> MfaMethodTypes,
@@ -181,4 +216,7 @@ public sealed record EnumOptionsResponse(
     IReadOnlyList<EnumOption> AuditResults,
 
     /// <summary>The organisation types on offer. Value and label are the same stored text.</summary>
-    IReadOnlyList<EnumOption> OrganisationTypes);
+    IReadOnlyList<EnumOption> OrganisationTypes,
+
+    /// <summary>Honorifics for a person's title. Value and label are the same stored text.</summary>
+    IReadOnlyList<EnumOption> PersonTitles);

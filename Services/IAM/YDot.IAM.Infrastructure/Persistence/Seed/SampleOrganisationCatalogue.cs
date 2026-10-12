@@ -96,7 +96,6 @@ internal static class SampleOrganisationCatalogue
         string? UnitCode = null,
         string? ManagerUsername = null,
         DateTimeOffset? JoinedOn = null,
-        UserAccountCategory Category = UserAccountCategory.Employee,
         EngagementType Engagement = EngagementType.FullTime)
     {
         public string DisplayName => $"{FirstName} {LastName}";
@@ -412,7 +411,6 @@ internal static class SampleOrganisationCatalogue
 
         return new SamplePerson(
             RoleCodes.Donor, firstName, lastName, username, $"{username}@mail.test", mobile,
-            Category: UserAccountCategory.DonorPortal,
             Engagement: EngagementType.External);
     }
 

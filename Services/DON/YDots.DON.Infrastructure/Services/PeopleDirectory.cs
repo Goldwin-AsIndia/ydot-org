@@ -32,9 +32,10 @@ public sealed class PeopleDirectory(
     /// the owner pickers offered all twelve donor-portal logins beside the fundraisers - a lead
     /// could be "assigned" to a member of the public who could never open it - and a Campaign
     /// Executive who cannot see a lead was offered as one's owner too. An account qualifies when
-    /// it is an Employee and one of its live roles either grants everything (Organisation Admin)
-    /// or carries the lead queue or the follow-up queue - which is the Fundraising Manager, the
-    /// Fundraiser Executive and DonorCare.
+    /// one of its live roles either grants everything (Organisation Admin) or carries the lead
+    /// queue or the follow-up queue - which is the Fundraising Manager, the Fundraiser Executive
+    /// and DonorCare. The role alone keeps donors out: DONOR carries neither queue. (An account
+    /// category of 'Employee' was also required until the category was removed from IAM.)
     ///
     /// Somebody suspended, deactivated or withdrawn never appears: handing them work would mean
     /// the lead sits with a person who cannot sign in to act on it, and nobody would notice until
@@ -62,7 +63,6 @@ public sealed class PeopleDirectory(
              AND r.status = 'Active'
             WHERE u.tenant_id = @organisation_id
               AND u.status = 'Active'
-              AND u.account_category = 'Employee'
               AND (r.grants_all_tenant_permissions
                    OR EXISTS (
                        SELECT 1

@@ -18,7 +18,7 @@ namespace YDot.IAM.Application.Features.Authentication.Commands.MfaVerification;
 /// <summary>IAM-AUTH-05. Completes a sign-in by verifying the second factor.</summary>
 public sealed record VerifyMfaCommand(VerifyMfaRequest Request);
 
-/// <summary>Issues a fresh code, for example after switching from SMS to e-mail.</summary>
+/// <summary>Issues a fresh code, for example after switching to another enrolled method.</summary>
 public sealed record ResendMfaChallengeCommand(ResendMfaChallengeRequest Request);
 
 /// <summary>Signs in with a single-use backup code when the second factor is unavailable.</summary>

@@ -381,10 +381,8 @@ public sealed class BudgetTargetPlanReadService(
         var submitted = plan.Versions.FirstOrDefault(version =>
             version.ApprovalState == PlanApprovalState.Submitted);
 
-        // THE SUBMITTER IS EXCLUDED HERE, exactly as in the handler. A screen that drew an Approve
-        // button and then had the click refused would look faulty rather than controlled.
-        if (submitted is not null
-            && (submitted.SubmittedByUserId != currentUser.UserId || currentUser.IsTenantAdmin))
+        // The permission decides, the submitter included - exactly as in the handler.
+        if (submitted is not null)
         {
             if (currentUser.HasPermission(PermissionCodes.BudgetPlansApprove))
             {

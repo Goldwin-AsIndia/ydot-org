@@ -18,7 +18,17 @@ public sealed record AccessScope(Guid TenantId, Guid UserId, IReadOnlyList<strin
     ///
     /// Driven by a data_scope claim rather than by a role, so an Organisation can grant the
     /// same role a different reach without a new role.
+    ///
+    /// READ IN THE FORMAT IAM ISSUES: one claim per scope, "{ScopeType}:{ScopeValue}" - a user
+    /// created with "What they are assigned" carries "Assignment:{their id}". This used to test
+    /// for the literal "own", which IAM has never issued, so that user still saw every campaign
+    /// here while DON narrowed them correctly. The rule is now DON's: no scope, or an
+    /// Organisation scope, is the whole Organisation; anything else narrows to the caller's own
+    /// records, failing closed for a scope type this service has no finer filter for.
     /// </summary>
     public bool IsOwnRecordsOnly =>
-        DataScopes.Contains("own", StringComparer.OrdinalIgnoreCase);
+        DataScopes.Count > 0 && !DataScopes.Any(IsOrganisationScope);
+
+    private static bool IsOrganisationScope(string claim) =>
+        claim.Split(':', 2)[0].Trim().Equals("Organisation", StringComparison.OrdinalIgnoreCase);
 }

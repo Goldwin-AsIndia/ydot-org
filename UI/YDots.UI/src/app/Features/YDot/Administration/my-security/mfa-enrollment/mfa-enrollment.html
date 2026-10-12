@@ -67,7 +67,6 @@
             <p>
               @switch (method.id) {
                 @case ('authenticator') { Scan the QR code with your app, then enter the code it shows. }
-                @case ('sms') { Enter the code we sent to your phone. }
                 @case ('email') { Enter the code we sent to your e-mail. }
                 @default { Connect your device to finish setup. }
               }
@@ -116,13 +115,6 @@
           </div>
           }
 
-          @case ('sms') {
-          <div class="mfx-banner">
-            <i class="ri-message-3-line"></i>
-            <span>Code sent to <strong>{{ maskedPhone }}</strong>. Standard messaging rates apply.</span>
-          </div>
-          }
-
           @case ('email') {
           <div class="mfx-banner">
             <i class="ri-mail-line"></i>
@@ -150,7 +142,7 @@
           </div>
           @if (!isDetecting() && !detectionComplete()) {
           <div class="mfx-msg mfx-msg--warn"><i class="ri-alert-line"></i>
-            This method is not available yet. Go back and choose an authenticator app, a text message or an e-mail code.</div>
+            This method is not available yet. Go back and choose an authenticator app or an e-mail code.</div>
           }
           }
 
@@ -174,7 +166,7 @@
           </div>
           @if (!isDetecting() && !detectionComplete()) {
           <div class="mfx-msg mfx-msg--warn"><i class="ri-alert-line"></i>
-            This method is not available yet. Go back and choose an authenticator app, a text message or an e-mail code.</div>
+            This method is not available yet. Go back and choose an authenticator app or an e-mail code.</div>
           }
           }
         }
@@ -184,7 +176,7 @@
         }
 
         <!-- ---------- Fields ---------- -->
-        @if (method.id === 'authenticator' || method.id === 'sms' || method.id === 'email') {
+        @if (method.id === 'authenticator' || method.id === 'email') {
         <div class="mfx-field">
           <label class="mfx-label" for="mfa-otp-0">Verification code</label>
           <div class="mfx-otp">

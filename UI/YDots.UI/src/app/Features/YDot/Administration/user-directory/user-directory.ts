@@ -15,6 +15,8 @@ import {
 import { LookupItem } from '../../../../Shared/models/api-response.model';
 import { UserStatus } from '../../../../Shared/models/iam-contract.model';
 import { dialCodeError, employeeNumberError, minLengthError, nameError, phoneWithCodeError, textWithLettersError } from '../../../../Shared/validation/field-rules';
+import { createGeoCascade } from '../../../../Shared/services/geo-cascade';
+import { describeDataScopes, describeMfa, showsPreferredName } from '../../../../Shared/models/user-display';
 
 type DialogKind = 'none' | 'view' | 'edit' | 'suspend' | 'reactivate' | 'delete' | 'invite';
 
@@ -175,7 +177,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   readonly sortDirection = signal<'asc' | 'desc' | 'none'>('none');
 
   // ---- Custom dropdowns ------------------------------------------------------------------------
-  /** Which custom dropdown is open: 'accountCategory' | 'organisationUnitId' | 'roleId' | 'pageSize'. */
+  /** Which custom dropdown is open: 'departmentId' | 'organisationUnitId' | 'roleId' | 'pageSize'. */
   readonly openDropdown = signal<string | null>(null);
 
   /** Text typed in the open dropdown's search box. */
@@ -302,9 +304,39 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   );
 
   readonly statusOptions = computed<LookupItem[]>(() => this.data()?.statusOptions ?? []);
-  readonly categoryOptions = computed<LookupItem[]>(() => this.data()?.accountCategoryOptions ?? []);
+  readonly departmentOptions = computed<LookupItem[]>(() => this.data()?.departmentOptions ?? []);
   readonly unitOptions = computed<LookupItem[]>(() => this.data()?.organisationUnitOptions ?? []);
   readonly roleOptions = computed<LookupItem[]>(() => this.data()?.roleOptions ?? []);
+
+  /**
+   * What the Edit dialog's pickers offer - every one from the server.
+   *
+   * Title, country code, language and time zone were free-text boxes here, so "Dr." and "Dr",
+   * "91" and "+91", and zone names that exist nowhere went into the same columns. Titles come
+   * from `/reference-data`; the dialling codes, languages and zones from the GlobalMaster
+   * catalogue the create form already uses.
+   */
+  protected readonly geo = createGeoCascade();
+  readonly titleOptions = computed<string[]>(() => this.data()?.titleOptions ?? []);
+  readonly dialCodeOptions = computed<string[]>(() => [
+    ...new Set(this.geo.countries().map((country) => country.phoneCountryCode).filter((code): code is string => !!code)),
+  ]);
+
+  /** The options plus the stored value when it is not among them, so opening Edit never drops it. */
+  withCurrent(options: readonly string[], current: string): string[] {
+    return current && !options.includes(current) ? [current, ...options] : [...options];
+  }
+
+  /** "Preferred name", "Second factor" and "Data scope" in the words the screen uses. */
+  protected readonly showsPreferredName = showsPreferredName;
+  protected readonly describeDataScopes = describeDataScopes;
+
+  /** A status tab's label: the server's word for the status, "Everyone" for the whole list. */
+  tabLabel(tab: { key: DirectoryTab; label: string }): string {
+    return tab.key === 'all'
+      ? tab.label
+      : this.statusOptions().find((option) => option.id === tab.key)?.name ?? tab.label;
+  }
 
   /**
    * Statuses that don't already have their own tab card (active/invited/suspended/draft) —
@@ -357,7 +389,7 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
 
   readonly hasActiveFilters = computed(() => {
     const current = this.filter();
-    return Boolean(current.search || current.status || current.accountCategory || current.organisationUnitId || current.roleId);
+    return Boolean(current.search || current.status || current.departmentId || current.organisationUnitId || current.roleId);
   });
 
   /** Page numbers around the current one, so the pager stays short on a large directory. */
@@ -1110,7 +1142,12 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     this.errorMessage.set('');
 
     this.api.resendInvitation((user.id ?? ''), this.welcomeMessage.trim() || undefined).subscribe({
-      next: (outcome) => this.finish(outcome.message ?? 'The invitation has been re-sent.'),
+      // WHAT THE RELAY DID, NOT WHAT WAS ASKED. A refused e-mail still refreshes the invitation
+      // (the old link stops working), so the list is reloaded either way - but the toast says
+      // the e-mail did not leave instead of "re-sent".
+      next: (outcome) => outcome.invitationSent
+        ? this.finish(`An invitation was e-mailed to ${outcome.email ?? user.email ?? 'them'}.`)
+        : this.finish(outcome.deliveryMessage ?? 'The invitation was saved, but the e-mail could not be sent.', 'warning'),
       error: (error: Error) => this.fail(error),
     });
   }
@@ -1205,15 +1242,15 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
     return detail.status === 'withdrawn' ? 'Withdrawn' : 'Accepted';
   }
 
-  /** How somebody signs in with a second factor, in the words the screen uses. */
+  /**
+   * How somebody signs in with a second factor, in the words the screen uses.
+   *
+   * RESOLVED, NOT RAW. "Inherited" was shown as "Not enrolled" whatever the Organisation's policy
+   * was; the record now carries `isMfaEffectivelyRequired`, so an inherited requirement reads as
+   * what it is - and says where it came from.
+   */
   mfaRequirementLabel(detail: UserDetail): string {
-    if (!detail.mfaEnabled) {
-      return detail.mfaRequirement === 'required'
-        ? 'Required — not yet enrolled'
-        : 'Not enrolled';
-    }
-
-    return detail.mfaRequirement === 'required' ? 'Enrolled — required' : 'Enrolled';
+    return describeMfa(detail);
   }
 
   copy(text: string | null | undefined, field: string): void {
@@ -1271,10 +1308,10 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   // =========================================================================================
 
   /** Re-reads the list after a write, so the screen shows what is stored, not what was assumed. */
-  private finish(message: string): void {
+  private finish(message: string, tone: 'success' | 'warning' = 'success'): void {
     this.busy.set(false);
     this.closeDialog();
-    this.toast.show('Done', message, 'success');
+    this.toast.show(tone === 'success' ? 'Done' : 'Saved, with a problem', message, tone);
     this.load();
     this.loadStatusCounts();
 

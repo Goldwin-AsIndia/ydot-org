@@ -34,8 +34,26 @@ export function timeZoneLabel(): string {
   }
 }
 
-export function rupees(value: number): string {
-  return '₹' + value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/**
+ * An amount in the currency it is charged in: "$0.0495", "₹1,250.00".
+ *
+ * UP TO FOUR DECIMALS, because CheckNumber.ai prices a number in hundredths of a cent - rounded to
+ * two, the cost of a whole 500-number check would read "$0.05" and a 50-number one "$0.00".
+ */
+export function money(value: number, currency = 'USD', maximumFractionDigits = 4): string {
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits,
+    }).format(value);
+  } catch {
+    // An unknown currency code: say the code rather than guess a symbol.
+    return `${currency} ${value.toFixed(maximumFractionDigits)}`;
+  }
+}
+
+/** The price of ONE number, which is far below a cent: "$0.00009", not "$0.0001". */
+export function unitPrice(value: number, currency = 'USD'): string {
+  return money(value, currency, 6);
 }
 
 export function count(value: number): string {

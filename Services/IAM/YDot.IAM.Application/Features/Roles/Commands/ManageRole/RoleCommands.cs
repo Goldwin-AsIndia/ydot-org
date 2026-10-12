@@ -124,7 +124,8 @@ public sealed class RoleCommandHandler(
             Priority = request.Priority,
             IsPrivileged = request.IsPrivileged,
             IsDefaultRole = request.IsDefaultRole,
-            DisplayTag = request.DisplayTag,
+            // Trimmed, because the catalogue filters on this value whole.
+            DisplayTag = string.IsNullOrWhiteSpace(request.DisplayTag) ? null : request.DisplayTag.Trim(),
             IsSystemRole = false,
             // Only the seeded TenantAdmin carries the blanket grant. A role created through
             // the UI never does, or anybody with role-create could grant themselves everything.
@@ -133,7 +134,11 @@ public sealed class RoleCommandHandler(
 
         await roles.AddAsync(role, cancellationToken);
 
-        if (request.IsDefaultRole)
+        // The default is the role a new person falls back to, and only a role in use can be
+        // given to anybody. A DRAFT marked as the default therefore takes over when it is
+        // activated, not now - creating one used to leave the Organisation with no usable
+        // default at all, because the role that had been the default lost the mark at once.
+        if (request.IsDefaultRole && role.Status == RoleStatus.Active)
         {
             await ClearOtherDefaultsAsync(tenantId, role.Id, cancellationToken);
         }
@@ -172,7 +177,7 @@ public sealed class RoleCommandHandler(
         // as holding none until somebody reloaded the page.
         var created = await readService.GetDetailAsync(role.Id, cancellationToken);
 
-        return Result.Success(created ?? role.ToDetailResponse([], [], [], [], 0));
+        return Result.Success(created ?? role.ToDetailResponse([], [], [], [], 0, 0));
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -200,6 +205,16 @@ public sealed class RoleCommandHandler(
         if (!string.IsNullOrWhiteSpace(request.Name)
             && !string.Equals(role.Name, request.Name.Trim(), StringComparison.Ordinal))
         {
+            // A built-in role keeps the name it came with: it is the name the seed data, the
+            // invitation e-mails and every Organisation's people know it by. The screen locks
+            // the field; this is the same rule for any other caller.
+            if (role.IsSystemRole)
+            {
+                logger.LogWarning("Role update rejected because RoleId {RoleId} is a built-in role and cannot be renamed.", command.RoleId);
+                return Result.Failure<OutcomeResponse>(
+                    Error.Forbidden("A built-in role cannot be renamed. Its purpose, owning function, priority and classification can be changed."));
+            }
+
             var normalised = request.Name.Trim().ToUpperInvariant();
 
             if (await roles.NameExistsAsync(normalised, role.TenantId, role.Id, cancellationToken))
@@ -229,14 +244,15 @@ public sealed class RoleCommandHandler(
 
         if (request.DisplayTag is not null)
         {
-            role.DisplayTag = string.IsNullOrWhiteSpace(request.DisplayTag) ? null : request.DisplayTag;
+            role.DisplayTag = string.IsNullOrWhiteSpace(request.DisplayTag) ? null : request.DisplayTag.Trim();
         }
 
         if (request.IsDefaultRole.HasValue && request.IsDefaultRole.Value != role.IsDefaultRole)
         {
             role.IsDefaultRole = request.IsDefaultRole.Value;
 
-            if (role.IsDefaultRole && role.TenantId.HasValue)
+            // Only a role in use takes the default over. See the note in the create handler.
+            if (role.IsDefaultRole && role.Status == RoleStatus.Active && role.TenantId.HasValue)
             {
                 await ClearOtherDefaultsAsync(role.TenantId.Value, role.Id, cancellationToken);
             }
@@ -415,16 +431,25 @@ public sealed class RoleCommandHandler(
                     : "Only a role that is in use can be retired. Delete a draft that is not wanted."));
         }
 
-        // Deactivating the administrator role is how an Organisation locks itself out.
-        if (role.IsSystemRole && command.Request.Status != RoleStatus.Active
-            && role.Code == RoleCodes.TenantAdmin)
+        // Deactivating the administrator role is how an Organisation locks itself out, and the
+        // other built-in roles are assigned by code - by the invitation flow and PAY's donor
+        // sign-up among others - so switching one off strips everybody who relies on it.
+        if (role.IsSystemRole && command.Request.Status != RoleStatus.Active)
         {
-            logger.LogWarning("Role status change rejected because the organisation administrator role cannot be deactivated. RoleId {RoleId}.", command.RoleId);
+            logger.LogWarning("Role status change rejected because RoleId {RoleId} is a built-in role and cannot be deactivated.", command.RoleId);
             return Result.Failure<OutcomeResponse>(
-                Error.Forbidden("The organisation administrator role cannot be deactivated."));
+                Error.Forbidden(role.Code == RoleCodes.TenantAdmin
+                    ? "The organisation administrator role cannot be deactivated."
+                    : "A built-in role cannot be deactivated. Remove its permissions instead if it should grant less."));
         }
 
         role.Status = command.Request.Status;
+
+        // A role marked as the default takes that over the moment it comes into use.
+        if (role.Status == RoleStatus.Active && role.IsDefaultRole && role.TenantId.HasValue)
+        {
+            await ClearOtherDefaultsAsync(role.TenantId.Value, role.Id, cancellationToken);
+        }
 
         if (command.Request.Status != RoleStatus.Active)
         {
@@ -475,7 +500,7 @@ public sealed class RoleCommandHandler(
 
         if (role.Version != command.Request.ExpectedVersion)
         {
-            logger.LogWarning("Role claims assignment failed due to concurrency conflict. RoleId {RoleId}.", command.RoleId);
+            logger.LogWarning("Role deletion failed due to concurrency conflict. RoleId {RoleId}.", command.RoleId);
             return Result.Failure<OutcomeResponse>(Error.Concurrency());
         }
 
@@ -483,22 +508,34 @@ public sealed class RoleCommandHandler(
         {
             logger.LogWarning("Role deletion rejected because RoleId {RoleId} is a system role.", command.RoleId);
             return Result.Failure<OutcomeResponse>(
-                Error.Forbidden("A system role cannot be deleted. Deactivate it instead."));
+                Error.Forbidden("A built-in role cannot be deleted."));
         }
 
-        var holders = await roles.CountAssignmentsAsync(role.Id, cancellationToken);
-        if (holders > 0)
+        // EVERY ASSIGNMENT, NOT ONLY THE LIVE ONES. This counted current holders, so a role whose
+        // holders had all been removed passed - and the database then refused the delete over
+        // the revoked rows still pointing at it, which reached the screen as a 500.
+        var assignments = await roles.CountAssignmentsAsync(role.Id, cancellationToken);
+        if (assignments > 0)
         {
-            logger.LogWarning("Role deletion rejected because RoleId {RoleId} has {HolderCount} holder(s).", command.RoleId, holders);
+            logger.LogWarning("Role deletion rejected because RoleId {RoleId} has {AssignmentCount} assignment(s) on record.", command.RoleId, assignments);
             return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
-                $"{holders} user(s) still hold this role. Remove them first, or deactivate the role instead."));
+                $"This role has been assigned before ({assignments} assignment(s) on record), so it cannot be deleted. Deactivate it instead."));
+        }
+
+        // The segregation-of-duties rules naming the role go with it. Nothing cascades to them
+        // (two paths from iam_roles to one row), so left in place they made the delete fail.
+        var rules = await roles.GetIncompatibilitiesNamingAsync(role.Id, cancellationToken);
+        foreach (var rule in rules)
+        {
+            roles.RemoveIncompatibility(rule);
         }
 
         roles.Remove(role);
 
         await audit.WriteAsync(
             AuditActionCodes.RoleDeleted, nameof(Role), role.Id, role.Name,
-            new { role.Code, command.Request.Reason }, command.Request.Reason, cancellationToken);
+            new { role.Code, command.Request.Reason, RulesRemoved = rules.Count },
+            command.Request.Reason, cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -531,6 +568,18 @@ public sealed class RoleCommandHandler(
             logger.LogWarning("Role incompatibility creation failed because one or both roles were not found.");
             return Result.Failure<RoleIncompatibilityResponse>(
                 Error.NotFound("One or both of those roles was not found in this organisation."));
+        }
+
+        // ONE RULE PER PAIR, WHICHEVER WAY ROUND IT IS NAMED. The rule is symmetric and stored
+        // once, so a second one for the same two roles says nothing new - and named the same way
+        // round it ran into the unique index and came back as a 500.
+        var existing = await roles.GetIncompatibilitiesNamingAsync(request.RoleId, cancellationToken);
+        if (existing.Any(rule => rule.RoleId == request.ConflictingRoleId
+                                 || rule.ConflictingRoleId == request.ConflictingRoleId))
+        {
+            logger.LogWarning("Role incompatibility creation rejected because the pair already has a rule.");
+            return Result.Failure<RoleIncompatibilityResponse>(
+                Error.Duplicate("Those two roles already have a rule. Remove it first to change it."));
         }
 
         var rule = new RoleIncompatibility

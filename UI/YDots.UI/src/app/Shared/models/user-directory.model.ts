@@ -35,11 +35,12 @@ export interface UserDirectoryResponse {
   users: PagedResponse<UserListItem>;
   statusOptions: LookupItem[];
   invitationStatusOptions: LookupItem[];
-  accountCategoryOptions: LookupItem[];
   organisationUnitOptions: LookupItem[];
   departmentOptions: LookupItem[];
   roleOptions: LookupItem[];
   dataScopeTypeOptions: LookupItem[];
+  /** Honorifics for the Title picker, from `/reference-data` (`enums.personTitles`). */
+  titleOptions: string[];
   /** What this caller is allowed to do here, decided by their permissions on the server. */
   permittedActions: string[];
   activeFilterSummary: string;
@@ -52,7 +53,6 @@ export interface UserSearchFilter {
   search?: string;
   status?: string;
   invitationStatus?: string;
-  accountCategory?: string;
   organisationUnitId?: string;
   departmentId?: string;
   roleId?: string;
@@ -114,8 +114,7 @@ export type UpdateUserRequest = ApiUpdateUserRequest;
  * Editing MY OWN profile — `PUT /api/v1/my-profile`.
  *
  * DELIBERATELY NARROWER THAN {@link UpdateUserRequest}, and the missing fields are the point.
- * An administrator may move somebody's department, manager, account category, access window and
- * MFA requirement; a person editing their own record may not, because each of those is a
+ * An administrator may move somebody's department, manager, access window and MFA requirement; a person editing their own record may not, because each of those is a
  * statement about their place in the organisation rather than about them. The server's request
  * record carries the same five fields, so a field that is not here cannot be reached at all.
  */

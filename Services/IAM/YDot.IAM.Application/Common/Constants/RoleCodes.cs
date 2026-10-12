@@ -8,18 +8,21 @@ namespace YDot.IAM.Application.Common.Constants;
 ///
 ///   SUPER_ADMIN           Platform Admin        the platform, across every Organisation
 ///   TENANT_ADMIN          Organisation Admin    everything, inside one Organisation
-///   CAMPAIGN_EXECUTIVE    Campaign Executive    prepares campaigns - and approves none of them
-///   CAMPAIGN_MANAGER      Campaign Manager      prepares AND decides campaigns
-///   FUNDRAISER_EXECUTIVE  Fundraiser Executive  works donors and leads - and approves nothing
-///   FUNDRAISING_MANAGER   Fundraising Manager   works AND decides donors and leads
+///   CAMPAIGN_EXECUTIVE    Campaign Executive    prepares and requests campaigns
+///   CAMPAIGN_MANAGER      Campaign Manager      decides campaigns
+///   FUNDRAISER_EXECUTIVE  Fundraiser Executive  captures and works donors and leads
+///   FUNDRAISING_MANAGER   Fundraising Manager   decides donors and leads, and works them
 ///   DONOR                 Donor                 not staff: their OWN giving, and nothing else
 ///   DONOR_CARE            DonorCare             supporter care: their own leads, donors and follow-ups
 ///
-/// THE MAKER-CHECKER RULES DID NOT GO AWAY WITH INITIATOR AND APPROVER. The working roles are
-/// still computed from the same action rules - see <see cref="RoleAccessProfiles"/> - only now
-/// each is confined to its own module. An Executive is the maker for that module; a Manager is
-/// maker and checker together, and the four-eyes rule is enforced on the RECORD instead: CAM
-/// refuses to let anybody approve a campaign they created or submitted, whatever roles they hold.
+/// THE WORKING ROLES ARE COMPUTED FROM ACTIONS - see <see cref="RoleAccessProfiles"/> - and each
+/// is confined to its own module: an Executive holds the requests (create, submit, pass, fail), a
+/// Manager holds the decisions (approve, reject, pause, resume, close).
+///
+/// ROLES COMBINE AS A UNION, WITH NO CONFLICT BETWEEN THEM. A person given both the Executive and
+/// the Manager role of a module holds both halves, and may raise a request and approve that same
+/// request: CAM and DON test the permission, never who created or submitted the record. The
+/// Organisation Admin holds everything regardless.
 ///
 /// DONOR IS NOT ON THE STAFF LADDER AT ALL. The staff roles differ by how much AUTHORITY they
 /// carry over the Organisation's records; DONOR differs by WHOSE records it can reach, and the
@@ -49,9 +52,9 @@ public static class RoleCodes
     public const string CampaignExecutive = "CAMPAIGN_EXECUTIVE";
 
     /// <summary>
-    /// The campaign owner: everything a Campaign Executive does, plus approving, pausing,
-    /// resuming and closing campaigns and deciding tracking assets and budgets. Never on a record
-    /// they created or submitted - CAM refuses that on the record itself.
+    /// The campaign decision-maker: approving, rejecting, pausing, resuming and closing campaigns
+    /// and deciding tracking assets and budgets. Holds none of the Executive's requests; somebody
+    /// who also holds Campaign Executive can request and decide alike.
     /// </summary>
     public const string CampaignManager = "CAMPAIGN_MANAGER";
 

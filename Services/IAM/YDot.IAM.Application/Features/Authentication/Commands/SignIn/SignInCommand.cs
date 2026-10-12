@@ -453,10 +453,6 @@ public sealed class SignInCommandHandler(
                 user.DisplayName,
                 new { user.AccessFailedCount, LockoutEndUtc = user.LockoutEnd },
                 cancellationToken: cancellationToken);
-
-            // Told, because a lockout somebody did not cause is exactly what they need to know.
-            await notifications.SendAccountLockedAsync(
-                user, tenant, businessUnit, user.LockoutEnd!.Value, currentUser.IpAddress, cancellationToken);
         }
         else
         {
@@ -471,6 +467,12 @@ public sealed class SignInCommandHandler(
         if (triggeredLockout)
         {
             logger.LogWarning("Sign-in failed and the account was locked out. {UserId} {FailedAttemptCount}", user.Id, user.AccessFailedCount);
+
+            // Told, because a lockout somebody did not cause is exactly what they need to know.
+            // AFTER the save: this ran before it, so a relay that could not be reached threw here
+            // and the failed attempt and the lockout itself were never recorded.
+            await notifications.SendAccountLockedAsync(
+                user, tenant, businessUnit, user.LockoutEnd!.Value, currentUser.IpAddress, cancellationToken);
         }
         else
         {

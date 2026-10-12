@@ -94,6 +94,13 @@ public sealed record RoleListItemResponse(
     string Name,
     string? Description,
     RoleType RoleType,
+
+    /// <summary>
+    /// The role type in the words the screens use - "Organisation" for a tenant role. Served
+    /// beside the value, as <c>StatusDisplay</c> is, so no client keeps its own copy of the
+    /// wording. The same label is what <c>/reference-data/enums</c> offers for the filter.
+    /// </summary>
+    string RoleTypeDisplay,
     RoleStatus Status,
     string StatusDisplay,
     bool IsSystemRole,
@@ -116,6 +123,9 @@ public sealed record RoleDetailResponse(
     string Name,
     string? Description,
     RoleType RoleType,
+
+    /// <summary>The role type in the screens' words. See <see cref="RoleListItemResponse.RoleTypeDisplay"/>.</summary>
+    string RoleTypeDisplay,
     RoleStatus Status,
     string StatusDisplay,
     bool IsSystemRole,
@@ -175,7 +185,13 @@ public sealed record RoleLookupResponse(
     RoleStatus Status,
     bool IsPrivileged,
     bool IsDefaultRole,
-    int PermissionCount);
+    int PermissionCount,
+
+    /// <summary>
+    /// True for a role that holds every organisation permission by flag rather than by rows -
+    /// its PermissionCount is then zero, and a picker should say "All" instead.
+    /// </summary>
+    bool GrantsAllTenantPermissions = false);
 
 /// <summary>Who holds a role.</summary>
 public sealed record RoleMemberResponse(

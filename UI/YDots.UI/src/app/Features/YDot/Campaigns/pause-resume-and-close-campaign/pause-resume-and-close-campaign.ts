@@ -388,12 +388,6 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
     () => this.permissionsResolved() && this.visibleActions().length === 0,
   );
 
-  /** True when the acting session requested the pending close — blocks self-approval. */
-  protected readonly isOwnCloseRequest = computed(() => {
-    const rec = this.closeRequest();
-    return !!rec?.requestedByRef && rec.requestState === 'Requested' && rec.requestedByRef === this.currentUserRef();
-  });
-
   /** A close request is already pending (drives the duplicate guard on Request close). */
   protected readonly hasPendingCloseRequest = computed(() => this.closeRequest()?.requestState === 'Requested');
 
@@ -404,8 +398,8 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
 
   /** Every action needs compatible state + effective permission + satisfied dependency.
    *  Per the confirmed design (Q1), a non-zero Open-intents / Active-asset count is SURFACED for
-   *  Request close, not auto-blocked; approve_close additionally needs a pending request from a
-   *  different user; financial exceptions remain a genuine blocking dependency. */
+   *  Request close, not auto-blocked; approve_close additionally needs a pending request (whoever
+   *  raised it); financial exceptions remain a genuine blocking dependency. */
   protected actionIsEligible(action: ActionConfig): boolean {
     // THE SERVER'S LIST, NOT THE TOKEN'S PERMISSIONS. See `permittedActions` - this is the check
     // that used to disagree with the API, offering an Approver a close they had raised themselves
@@ -413,9 +407,8 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
     if (!this.permittedActions().has(action.serverAction) || !this.stateCompatible(action)) {
       return false;
     }
-    // WHETHER THIS PERSON MAY DECIDE THE REQUEST IS THE SERVER'S ANSWER: it withholds ApproveClose
-    // from whoever raised it, except the Organisation Admin. The local "is this my request?" test
-    // that stood here could not know about that exception.
+    // WHETHER THIS PERSON MAY DECIDE THE REQUEST IS THE SERVER'S ANSWER, from their permissions
+    // alone - the person who raised it included, when their roles carry the decision too.
     if (action.id === 'approve_close' || action.id === 'reject_close') {
       return this.hasPendingCloseRequest();
     }
@@ -430,9 +423,7 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
       return `Not available from ${this.currentState() ?? '—'} state.`;
     }
     if (!this.permittedActions().has(action.serverAction)) {
-      return action.id === 'approve_close' && this.isOwnCloseRequest()
-        ? `This close cannot be approved by the person who requested it (${this.currentUserName()}).`
-        : `You do not hold ${action.permissionCode} on this campaign.`;
+      return `You do not hold ${action.permissionCode} on this campaign.`;
     }
     if (action.id === 'request_close') {
       if (this.hasPendingCloseRequest()) {
@@ -445,9 +436,6 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
     if (action.id === 'approve_close') {
       if (!this.hasPendingCloseRequest()) {
         return 'No close request is awaiting approval.';
-      }
-      if (this.isOwnCloseRequest()) {
-        return `This close cannot be approved by the person who requested it (${this.currentUserName()}).`;
       }
     }
     return '';
@@ -1030,8 +1018,8 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
         // and the store's reload after the call brings the real status back.
         // ==================================================================================
         resultingState = 'Closing';
-        nextAction = 'An independent approver must close the campaign.';
-        accountableOwner = 'Awaiting independent closure approval';
+        nextAction = 'Somebody who holds close approval must now approve the close.';
+        accountableOwner = 'Awaiting closure approval';
 
         this.closeStore.requestClose(
           this.campaignRef,

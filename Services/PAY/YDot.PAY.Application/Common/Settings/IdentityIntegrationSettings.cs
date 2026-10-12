@@ -48,12 +48,20 @@ public sealed class IdentityIntegrationSettings
     public int TimeoutSeconds { get; set; } = 10;
 
     /// <summary>
-    /// The account category donor logins are created under.
+    /// The role donor logins are created with, by code.
     ///
-    /// Kept configurable because it decides which menu the donor sees when they sign in, and an
-    /// installation may have named its portal category differently.
+    /// THE ROLE IS WHAT MAKES IT A DONOR ACCOUNT. IAM used to take an account category
+    /// ("DonorPortal") and pick the DONOR role from it; the category was removed and the role is
+    /// now named directly. IAM refuses the create if the code does not exist in the
+    /// Organisation, rather than handing the donor the staff default role.
     /// </summary>
-    public string DonorAccountCategory { get; set; } = "DonorPortal";
+    public string DonorRoleCode { get; set; } = "DONOR";
+
+    /// <summary>
+    /// How a donor is engaged by the Organisation, in IAM's vocabulary. External: not staff, so
+    /// IAM asks for no employee number.
+    /// </summary>
+    public string DonorEngagementType { get; set; } = "External";
 
     /// <summary>
     /// The dialling code to put in front of a donor's mobile number when they did not give one.

@@ -19,7 +19,6 @@ public static class ClaimTypeNames
     public const string ClientType = "client_type";
     public const string Permission = "permission";
     public const string DataScope = "data_scope";
-    public const string AccountCategory = "account_category";
     public const string UserStatus = "user_status";
     public const string MfaCompleted = "mfa_completed";
     public const string PrivilegeLevel = "privilege_level";

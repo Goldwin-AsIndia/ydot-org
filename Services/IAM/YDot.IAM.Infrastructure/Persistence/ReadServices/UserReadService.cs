@@ -50,10 +50,10 @@ public sealed class UserReadService(
                 user.Id,
                 user.Code,
                 user.DisplayName,
+                user.PreferredName,
                 user.Email,
                 user.UserName,
                 user.Status,
-                user.AccountCategory,
                 DepartmentName = user.Department != null ? user.Department.Name : null,
                 OrganisationUnitName = user.OrganisationUnit != null ? user.OrganisationUnit.Name : null,
                 user.Designation,
@@ -78,11 +78,11 @@ public sealed class UserReadService(
                 row.Id,
                 row.Code,
                 row.DisplayName,
+                row.PreferredName,
                 row.Email ?? string.Empty,
                 row.UserName ?? string.Empty,
                 row.Status,
                 UserMappingConfig.DescribeStatus(row.Status),
-                row.AccountCategory,
                 row.DepartmentName,
                 row.OrganisationUnitName,
                 row.Designation,
@@ -136,6 +136,14 @@ public sealed class UserReadService(
 
         var hasMobile = !string.IsNullOrWhiteSpace(user.MobileNumber);
 
+        // What "Inherited" resolves to. Read here so the screen does not have to guess.
+        var organisationMfa = user.TenantId.HasValue
+            ? await context.Tenants.AsNoTracking()
+                .Where(item => item.Id == user.TenantId.Value)
+                .Select(item => (MfaRequirement?)item.DefaultMfaRequirement)
+                .FirstOrDefaultAsync(cancellationToken) ?? MfaRequirement.Optional
+            : MfaRequirement.Optional;
+
         return new UserDetailResponse(
             user.Id,
             user.TenantId,
@@ -155,7 +163,6 @@ public sealed class UserReadService(
             user.MobileCountryCode,
             UserMappingConfig.MaskMobile(user.MobileNumber, canSeeSensitiveContact),
             user.MobileConfirmed,
-            user.AccountCategory,
             user.EngagementType,
             user.DepartmentId,
             user.Department?.Name,
@@ -215,7 +222,8 @@ public sealed class UserReadService(
             [
                 .. user.DataScopes.Select(item => new UserDataScopeResponse(
                     item.Id, item.ScopeType, item.ScopeValue, item.DisplayLabel,
-                    item.IsEffective(now), item.GrantedAtUtc, item.EffectiveFromUtc, item.EffectiveToUtc))
+                    item.IsEffective(now), item.GrantedAtUtc, item.EffectiveFromUtc, item.EffectiveToUtc,
+                    Application.Features.Governance.Mappings.GovernanceMappingConfig.DescribeScopeType(item.ScopeType)))
             ],
             // Told explicitly, so the screen can offer a reveal rather than showing asterisks
             // as though they were the value.
@@ -226,7 +234,9 @@ public sealed class UserReadService(
             UserMappingConfig.PermittedActionsFor(user, now),
             Title: user.Title,
             PreferredName: user.PreferredName,
-            WorkLocation: user.WorkLocation);
+            WorkLocation: user.WorkLocation,
+            IsMfaEffectivelyRequired: user.IsMfaRequired(organisationMfa),
+            OrganisationMfaRequirement: organisationMfa);
     }
 
     public async Task<IReadOnlyList<UserLookupResponse>> LookupAsync(
@@ -338,12 +348,19 @@ public sealed class UserReadService(
             .Take(20)
             .ToListAsync(cancellationToken);
 
+        var isMfaRequired = user.IsMfaRequired(tenant?.DefaultMfaRequirement ?? MfaRequirement.Optional);
+
+        // A factor counts once its first code has been proved. An enrolment still waiting for one
+        // is not a second factor - the sign-in does not challenge it.
+        var hasConfirmedFactor = user.MfaEnabled && methods.Any(method => method.Status == MfaMethodStatus.Active);
+        var passwordHealthy = !user.MustChangePassword && !user.IsLockedOut(now);
+
         return new UserSecurityResponse(
             user.Id,
             user.DisplayName,
             user.MfaEnabled,
             user.MfaRequirement,
-            user.IsMfaRequired(tenant?.DefaultMfaRequirement ?? MfaRequirement.Optional),
+            isMfaRequired,
             user.MfaEnrolledAtUtc,
             user.RecoveryCodesRemaining,
             user.IsLockedOut(now),
@@ -367,27 +384,41 @@ public sealed class UserReadService(
                     // On the administrative view of somebody ELSE this is false throughout,
                     // and correctly so: none of their sessions is the caller's.
                     IsCurrent: currentUser.SessionId == session.Id,
-                    session.OperatingTenantId, session.OperatingTenantName))
+                    session.OperatingTenantId, session.OperatingTenantName,
+                    UserMappingConfig.DescribeClientType(session.ClientType)))
             ],
             [
                 .. devices.Select(device => new TrustedDeviceResponse(
                     device.Id, device.DeviceName, device.ClientType, device.Browser,
                     device.OperatingSystem, device.IpAddress, device.Location,
                     device.TrustedAtUtc, device.ExpiresAtUtc, device.LastSeenAtUtc,
-                    device.ExpiresAtUtc <= now))
+                    device.ExpiresAtUtc <= now,
+                    UserMappingConfig.DescribeClientType(device.ClientType)))
             ],
             [
                 .. methods.Select(method => new MfaMethodResponse(
                     method.Id, method.MethodType, method.Label, method.MaskedDestination,
-                    method.IsPrimary, method.Status, method.VerifiedAtUtc, method.LastUsedAtUtc))
+                    method.IsPrimary, method.Status, method.VerifiedAtUtc, method.LastUsedAtUtc,
+                    UserMappingConfig.DescribeMfaMethod(method.MethodType),
+                    UserMappingConfig.DescribeMfaStatus(method.Status),
+                    method.CreatedAtUtc))
             ],
             [
                 .. attempts.Select(attempt => new SignInAttemptResponse(
                     attempt.Id, attempt.Outcome, UserMappingConfig.DescribeOutcome(attempt.Outcome),
                     attempt.Succeeded, attempt.AttemptedAtUtc, attempt.IpAddress, attempt.ClientType,
                     attempt.Browser, attempt.OperatingSystem, attempt.Location,
-                    attempt.AttemptsRemaining, attempt.TriggeredLockout))
-            ]);
+                    attempt.AttemptsRemaining, attempt.TriggeredLockout,
+                    UserMappingConfig.DescribeClientType(attempt.ClientType),
+                    UserMappingConfig.DescribeAttempt(attempt.Outcome, attempt.Succeeded, attempt.TriggeredLockout)))
+            ],
+            UserMappingConfig.DescribeMfaRequirement(
+                isMfaRequired, user.MfaRequirement == MfaRequirement.Inherited, hasConfirmedFactor),
+            UserMappingConfig.DescribeSecurityPosture(
+                passwordHealthy, hasConfirmedFactor, user.RecoveryCodesRemaining, sessions.Count),
+            UserMappingConfig.RecommendNextStep(
+                user.MustChangePassword, hasConfirmedFactor, user.RecoveryCodesRemaining, sessions.Count),
+            CanGenerateRecoveryCodes: hasConfirmedFactor);
     }
 
     /// <summary>
@@ -431,6 +462,7 @@ public sealed class UserReadService(
                 .Where(grant => roleIds.Contains(grant.RoleId) && !grant.IsDenied)
                 .Select(grant => new
                 {
+                    grant.RoleId,
                     grant.PermissionCode,
                     RoleName = grant.Role!.Name ?? grant.Role.Code
                 })
@@ -449,6 +481,12 @@ public sealed class UserReadService(
                             && claim.ClaimType == Application.Common.Constants.ClaimTypeNames.Permission)
             .Select(claim => claim.ClaimValue)
             .ToListAsync(cancellationToken);
+
+        // THE HEADLINE FIGURES COUNT THE SAME CATALOGUE THE CHECKLIST LISTS. They counted the
+        // token's code set instead: "sensitive" recognised IAM's own codes only, so an
+        // Organisation Admin read "52 sensitive" above a checklist showing 111, and a Platform
+        // Admin - whose authority is a flag, not a code set - read "0 permissions".
+        var grantedPermissions = catalogue.Where(permission => access.HasPermission(permission.Code)).ToList();
 
         var groups = UserMappingConfig.GroupPermissions(
             catalogue.Select(permission =>
@@ -471,9 +509,35 @@ public sealed class UserReadService(
                     permission.Action, permission.IsSensitive, granted, via);
             }));
 
+        // BY ROLE ID, NOT NAME: two roles may share a name, and keyed by name one took the other's
+        // count. A role that grants everything has no grant rows at all, so its count is what it
+        // actually reaches - the Organisation Admin read "0 permissions" beside 231 granted.
         var permissionCountByRole = grantSources
-            .GroupBy(grant => grant.RoleName, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+            .GroupBy(grant => grant.RoleId)
+            .ToDictionary(group => group.Key, group => group.Select(item => item.PermissionCode).Distinct().Count());
+
+        var everythingCount = catalogue.Count(permission => !permission.IsPlatformOnly);
+
+        int PermissionCountOf(Domain.Entities.UserRole assignment) =>
+            assignment.Role?.GrantsAllTenantPermissions == true
+                ? everythingCount
+                : permissionCountByRole.GetValueOrDefault(assignment.RoleId);
+
+        // Who made each assignment. The field was on the response and always empty, so the
+        // screen's "Assigned by" line never appeared.
+        var assignerIds = user.UserRoles
+            .Select(assignment => assignment.AssignedByUserId)
+            .Where(assignerId => assignerId != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        var assignerNames = assignerIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await context.Users
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(person => assignerIds.Contains(person.Id))
+                .ToDictionaryAsync(person => person.Id, person => person.DisplayName, cancellationToken);
 
         return new UserAccessPreviewResponse(
             user.Id,
@@ -492,23 +556,22 @@ public sealed class UserReadService(
                         assignment.IsPrimary,
                         assignment.IsEffective(now),
                         assignment.AssignedAtUtc,
-                        null,
+                        assignerNames.GetValueOrDefault(assignment.AssignedByUserId),
                         assignment.EffectiveFromUtc,
                         assignment.EffectiveToUtc,
                         assignment.Justification,
-                        permissionCountByRole.GetValueOrDefault(
-                            assignment.Role?.Name ?? assignment.Role?.Code ?? string.Empty)))
+                        PermissionCountOf(assignment)))
             ],
             groups,
             [
                 .. user.DataScopes.Select(item => new UserDataScopeResponse(
                     item.Id, item.ScopeType, item.ScopeValue, item.DisplayLabel,
-                    item.IsEffective(now), item.GrantedAtUtc, item.EffectiveFromUtc, item.EffectiveToUtc))
+                    item.IsEffective(now), item.GrantedAtUtc, item.EffectiveFromUtc, item.EffectiveToUtc,
+                    Application.Features.Governance.Mappings.GovernanceMappingConfig.DescribeScopeType(item.ScopeType)))
             ],
             [.. directClaimCodes.Where(code => !string.IsNullOrWhiteSpace(code)).Select(code => code!)],
-            access.PermissionCodes.Count,
-            access.PermissionCodes.Count(
-                Application.Common.Constants.PermissionCodes.IsSensitive));
+            grantedPermissions.Count,
+            grantedPermissions.Count(permission => permission.IsSensitive));
     }
 
     public async Task<UserStatisticsResponse> GetStatisticsAsync(
@@ -571,10 +634,10 @@ public sealed class UserReadService(
             {
                 user.Code,
                 user.DisplayName,
+                user.PreferredName,
                 user.Email,
                 user.UserName,
                 user.Status,
-                user.AccountCategory,
                 Department = user.Department != null ? user.Department.Name : null,
                 Unit = user.OrganisationUnit != null ? user.OrganisationUnit.Name : null,
                 user.Designation,
@@ -596,10 +659,10 @@ public sealed class UserReadService(
             .. rows.Select(row => new UserExportRow(
                 row.Code,
                 row.DisplayName,
+                row.PreferredName,
                 UserMappingConfig.MaskEmail(row.Email, canSeeSensitiveContact),
                 row.UserName ?? string.Empty,
                 UserMappingConfig.DescribeStatus(row.Status),
-                row.AccountCategory.ToString(),
                 row.Department,
                 row.Unit,
                 row.Designation,
@@ -673,6 +736,7 @@ public sealed class UserReadService(
 
             query = query.Where(user =>
                 user.DisplayName.ToLower().Contains(term)
+                || (user.PreferredName != null && user.PreferredName.ToLower().Contains(term))
                 || user.Code.ToLower().Contains(term)
                 || (user.Email != null && user.Email.ToLower().Contains(term))
                 || (user.UserName != null && user.UserName.ToLower().Contains(term))
@@ -682,11 +746,6 @@ public sealed class UserReadService(
         if (filter.Status.HasValue)
         {
             query = query.Where(user => user.Status == filter.Status.Value);
-        }
-
-        if (filter.AccountCategory.HasValue)
-        {
-            query = query.Where(user => user.AccountCategory == filter.AccountCategory.Value);
         }
 
         if (filter.DepartmentId.HasValue)

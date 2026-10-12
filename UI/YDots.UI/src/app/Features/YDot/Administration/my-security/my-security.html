@@ -168,12 +168,14 @@
 <div class="msec-tip-in-panel msec-tip-strip">
 <span class="msec-tip-icon"><i class="ri-lightbulb-flash-line"></i></span>
 <div class="msec-tip-strip__text">
-<h6 class="msec-tip-title">Security tip</h6>
-<p class="msec-tip-text">Enable MFA to add an extra layer of security to your account.</p>
+<h6 class="msec-tip-title">{{ recommendation()?.title }}</h6>
+<p class="msec-tip-text">{{ recommendation()?.message }}</p>
 </div>
-<button type="button" class="msec-tip-action" (click)="enrolMfa()">
-                Enable now <i class="ri-arrow-right-line"></i>
+              @if (recommendation()?.action) {
+<button type="button" class="msec-tip-action" (click)="followRecommendation()">
+                {{ recommendation()?.actionLabel }} <i class="ri-arrow-right-line"></i>
 </button>
+              }
 </div>
 </div>
 </div>
@@ -182,7 +184,7 @@
 <div class="msec-card msec-panel">
 <div class="msec-panel__header">
 <h6>Security Level</h6>
-<span class="msec-panel__pill">{{ securityScore() }} of 4</span>
+<span class="msec-panel__pill">{{ securityScore() }} of {{ securityMaximum() }}</span>
 </div>
 <div class="msec-panel__body">
 <div class="msec-gauge-wrap">
@@ -200,43 +202,20 @@
 <div class="msec-gauge__tip">{{ securityLevelTip() }}</div>
 </div>
 
+              <!-- The four checks behind the score: the server's labels and verdicts. -->
               <div class="msec-gauge-footer">
+                @for (check of securityChecks(); track check.key) {
 <div class="msec-gauge-stat">
-<i class="ri-link msec-gauge-stat__icon"></i>
-<span class="msec-gauge-stat__label">MFA</span>
+<i class="{{ checkIcon(check.key) }} msec-gauge-stat__icon"></i>
+<span class="msec-gauge-stat__label">{{ check.label }}</span>
 <span class="msec-gauge-stat__value"
-                        [class.msec-gauge-stat__value--ok]="mfaMethods().length > 0"
-                        [class.msec-gauge-stat__value--info]="mfaMethods().length === 0">
-                    {{ mfaMethods().length > 0 ? 'Enabled' : 'Not enabled' }}
+                        [class.msec-gauge-stat__value--ok]="check.isMet"
+                        [class.msec-gauge-stat__value--info]="!check.isMet && check.key === 'mfa'"
+                        [class.msec-gauge-stat__value--warn]="!check.isMet && check.key !== 'mfa'">
+                    {{ check.status }}
 </span>
 </div>
-<div class="msec-gauge-stat">
-<i class="ri-lock-2-line msec-gauge-stat__icon"></i>
-<span class="msec-gauge-stat__label">Password</span>
-<span class="msec-gauge-stat__value"
-                        [class.msec-gauge-stat__value--ok]="passwordHealthy()"
-                        [class.msec-gauge-stat__value--warn]="!passwordHealthy()">
-                    {{ passwordHealthy() ? 'Good' : 'Needs attention' }}
-</span>
-</div>
-<div class="msec-gauge-stat">
-<i class="ri-refresh-line msec-gauge-stat__icon"></i>
-<span class="msec-gauge-stat__label">Recovery</span>
-<span class="msec-gauge-stat__value"
-                        [class.msec-gauge-stat__value--ok]="(data()?.recoveryCodesRemaining ?? 0) > 0"
-                        [class.msec-gauge-stat__value--warn]="(data()?.recoveryCodesRemaining ?? 0) === 0">
-                    {{ (data()?.recoveryCodesRemaining ?? 0) > 0 ? (data()?.recoveryCodesRemaining) + ' left' : 'No codes left' }}
-</span>
-</div>
-<div class="msec-gauge-stat">
-<i class="ri-device-line msec-gauge-stat__icon"></i>
-<span class="msec-gauge-stat__label">Devices</span>
-<span class="msec-gauge-stat__value"
-                        [class.msec-gauge-stat__value--ok]="onlyThisDevice()"
-                        [class.msec-gauge-stat__value--warn]="!onlyThisDevice()">
-                    {{ onlyThisDevice() ? 'Secure' : 'Review' }}
-</span>
-</div>
+                }
 </div>
 </div>
 </div>
@@ -542,7 +521,7 @@
 </div>
 <div class="msec-form-field">
 <label for="msecNewPwd">New Password <span class="ydot-req">*</span></label>
-<input id="msecNewPwd" type="password" class="msec-input" autocomplete="new-password" [attr.maxlength]="passwordPolicy().maximumLength" [class.is-invalid]="!!passwordError('newPassword')" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" (blur)="touchPassword('newPassword')">
+<input id="msecNewPwd" type="password" class="msec-input" autocomplete="new-password" [attr.maxlength]="passwordPolicy()?.maximumLength ?? null" [class.is-invalid]="!!passwordError('newPassword')" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" (blur)="touchPassword('newPassword')">
 @if (passwordError('newPassword')) { <div class="invalid-feedback d-block">{{ passwordError('newPassword') }}</div> }
 <ul class="small text-muted mb-0 ps-3 mt-1">
 @for (rule of passwordRules(); track rule) { <li>{{ rule }}</li> }

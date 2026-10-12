@@ -171,13 +171,40 @@ export const routes: Routes = [
 
       // ===== WhatsApp: CheckNumber finds who is on WhatsApp, Wati messages them =====
       //
-      // Both screens work on in-browser data for now (WhatsAppStore), so they carry no permission guard;
-      // add requirePermission(...) here when the services behind them exist.
-      { path: 'whatsapp/check-number', component: CheckNumberComponent, data: { view: 'new' } },
-      { path: 'whatsapp/check-number/jobs', component: CheckNumberComponent, data: { view: 'jobs' } },
-      { path: 'whatsapp/check-number/jobs/:jobId', component: CheckNumberComponent, data: { view: 'job' } },
-      { path: 'whatsapp/wati', component: WatiComponent, data: { view: 'send' } },
-      { path: 'whatsapp/wati/report', component: WatiComponent, data: { view: 'report' } },
+      // GUARDED WITH THE PERMISSION THE API ITSELF ASKS FOR. Both screens now read the Campaign service
+      // (/cam-api/v1/whatsapp), which answers anyone who may view campaigns - WhatsApp outreach exists
+      // to bring donors to a campaign. Starting a check or a broadcast additionally needs
+      // 'cam.campaigns.create'; the API refuses it otherwise, with a sentence the screen shows.
+      {
+        path: 'whatsapp/check-number',
+        component: CheckNumberComponent,
+        data: { view: 'new' },
+        canActivate: [requirePermission('cam.campaigns.view')],
+      },
+      {
+        path: 'whatsapp/check-number/jobs',
+        component: CheckNumberComponent,
+        data: { view: 'jobs' },
+        canActivate: [requirePermission('cam.campaigns.view')],
+      },
+      {
+        path: 'whatsapp/check-number/jobs/:jobId',
+        component: CheckNumberComponent,
+        data: { view: 'job' },
+        canActivate: [requirePermission('cam.campaigns.view')],
+      },
+      {
+        path: 'whatsapp/wati',
+        component: WatiComponent,
+        data: { view: 'send' },
+        canActivate: [requirePermission('cam.campaigns.view')],
+      },
+      {
+        path: 'whatsapp/wati/report',
+        component: WatiComponent,
+        data: { view: 'report' },
+        canActivate: [requirePermission('cam.campaigns.view')],
+      },
 
       // ===== Administration — access and identity =====
       //
@@ -201,7 +228,9 @@ export const routes: Routes = [
       { path: 'administration/access/user-profile-and-access/:userReference', component: UserProfileComponent, canActivate: [requirePermission('iam.users.view')] },
       { path: 'administration/access/user-details/:userReference', component: UserDetailsComponent, canActivate: [requirePermission('iam.users.view')] },
       { path: 'administration/access/role-and-permission-catalogue', component: RoleCatalogueComponent, canActivate: [requirePermission('iam.roles.view')] },
-      { path: 'administration/access/access-request-and-approval', component: AccessRequestComponent, canActivate: [requirePermission('iam.access-requests.view')] },
+      // Organisation-scoped: a Platform Admin who has not chosen an organisation is sent to the picker
+      // rather than shown a refusal - the API answers 403 until an organisation is chosen.
+      { path: 'administration/access/access-request-and-approval', component: AccessRequestComponent, canActivate: [organisationContextGuard, requirePermission('iam.access-requests.view')] },
       // Self-service: everybody manages their own sign-in security, so no permission gate.
       { path: 'administration/access/my-security', component: MySecurityComponent },
       { path: 'administration/access/my-security/mfa-enrol', component: MfaEnrollmentComponent },
@@ -213,7 +242,7 @@ export const routes: Routes = [
       // attached; a review campaign is nothing but workflow. The permission guard was already
       // right, which is what made the mis-wire hard to notice: the screen loaded, so nothing
       // looked broken.
-      { path: 'administration/access/access-preview', component: AccessPreviewComponent, canActivate: [requirePermission('iam.permissions.view')] },
+      { path: 'administration/access/access-preview', component: AccessPreviewComponent, canActivate: [organisationContextGuard, requirePermission('iam.permissions.view')] },
 
       // ===== Configuration =====
       //

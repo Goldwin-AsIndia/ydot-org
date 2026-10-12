@@ -849,13 +849,8 @@ export class TrackingAssetManagerComponent {
   protected readonly canEverRequestDisable = computed(() => this.permissions().requestDisable);
   protected readonly canEverDisable = computed(() => this.permissions().disable);
   protected readonly canEverEdit = computed(() => this.permissions().replace);
-  /** True when the current session created this asset — the one condition that blocks Approve
-   *  even for an otherwise-eligible independent approver. */
-  protected isOwnAsset(asset: TrackingAsset | null): boolean {
-    return !!asset && !!asset.createdByRef && asset.createdByRef === this.currentUserRef();
-  }
-  /** Approve — authorised independent approver, Submitted / Pending review, and never the asset's
-   *  own creator. */
+  /** Approve — the approve permission and a Submitted / Pending review asset. Whoever created the
+   *  asset may approve it too when their roles carry the approve permission. */
   protected approveAllowed(asset: TrackingAsset | null): boolean {
     return (
       !!asset &&
@@ -863,15 +858,11 @@ export class TrackingAssetManagerComponent {
       (asset.assetStatus === 'Submitted' || asset.approvalState === 'Pending review')
     );
   }
-  /** Why Approve is unavailable for this asset right now — distinct "cannot self-approve" case is
-   *  explained, not folded into a generic access error. */
+  /** Why Approve is unavailable for this asset right now. */
   protected approveDisabledReason(asset: TrackingAsset | null): string {
     if (!asset) return '';
     if (asset.assetStatus !== 'Submitted' && asset.approvalState !== 'Pending review') {
       return 'Approve is only available while this asset is Submitted or Pending review.';
-    }
-    if (this.isOwnAsset(asset)) {
-      return `This value cannot be approved by its creator (${this.currentUserName()}). An independent approver who did not create this asset must decide.`;
     }
     return '';
   }

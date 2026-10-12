@@ -113,6 +113,7 @@ public static class AuditActionCodes
     public const string RoleActivated = "iam.role.activated";
     public const string RoleDeactivated = "iam.role.deactivated";
     public const string RolePermissionsChanged = "iam.role.permissions.changed";
+    public const string RoleExported = "iam.role.exported";
     public const string UserRoleAssigned = "iam.user-role.assigned";
     public const string UserRoleRevoked = "iam.user-role.revoked";
     public const string DataScopeGranted = "iam.data-scope.granted";
@@ -121,6 +122,7 @@ public static class AuditActionCodes
     // ---- Menu -------------------------------------------------------------------------------
     public const string MenuConfigured = "iam.menu.configured";
     public const string MenuRoleMapped = "iam.menu.role-mapped";
+    public const string MenuExported = "iam.menu.exported";
 
     // ---- Access governance --------------------------------------------------------------------
     public const string AccessRequestCreated = "iam.access-request.created";
@@ -128,6 +130,8 @@ public static class AuditActionCodes
     public const string AccessRequestApproved = "iam.access-request.approved";
     public const string AccessRequestRejected = "iam.access-request.rejected";
     public const string AccessRequestWithdrawn = "iam.access-request.withdrawn";
+    public const string AccessRequestUpdated = "iam.access-request.updated";
+    public const string AccessRequestsExported = "iam.access-request.exported";
     public const string AccessReviewCreated = "iam.access-review.created";
     public const string AccessReviewDecided = "iam.access-review.decided";
     public const string AccessReviewCancelled = "iam.access-review.cancelled";

@@ -595,7 +595,6 @@ export class UserSecurityComponent {
   private mfaMethodLabel(methodType: MfaMethodType | undefined): string {
     switch (methodType) {
       case 'authenticatorApp': return 'Authenticator app';
-      case 'sms': return 'Text message';
       case 'email': return 'E-mail';
       case 'securityKey': return 'Security key';
       default: return 'Verification method';
@@ -605,7 +604,6 @@ export class UserSecurityComponent {
   private mfaMethodIcon(methodType: MfaMethodType | undefined): string {
     switch (methodType) {
       case 'authenticatorApp': return 'uil-mobile-android';
-      case 'sms': return 'uil-comment-alt-message';
       case 'email': return 'uil-envelope';
       case 'securityKey': return 'uil-key-skeleton';
       default: return 'uil-shield-check';
