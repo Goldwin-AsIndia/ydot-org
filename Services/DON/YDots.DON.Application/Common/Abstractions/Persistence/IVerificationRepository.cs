@@ -19,6 +19,9 @@ public interface IVerificationRepository
 
     Task<IReadOnlyList<DonorIdentityVerification>> GetHistoryForDonorAsync(Guid donorId, CancellationToken cancellationToken = default);
 
+    /// <summary>The audit entries written against these verifications, newest first.</summary>
+    Task<IReadOnlyList<DonorAuditEvent>> GetAuditAsync(IReadOnlyCollection<Guid> verificationIds, CancellationToken cancellationToken = default);
+
     Task<int> GetMaxReferenceSequenceAsync(int year, CancellationToken cancellationToken = default);
 
     void Add(DonorIdentityVerification verification);

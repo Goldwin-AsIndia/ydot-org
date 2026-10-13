@@ -62,6 +62,25 @@ public static class CommunicationCatalogue
         new(nameof(ContactOutcome.DoNotContact), "Do not contact", ClosedGroup)
     ];
 
+    /// <summary>
+    /// What the follow-up form suggests doing next after each outcome, keyed by the outcome's
+    /// value. An outcome missing here suggests nothing. These were a table in the screen.
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<string>> OutcomeNextSteps { get; } =
+        new Dictionary<string, IReadOnlyList<string>>
+        {
+            [nameof(ContactOutcome.Interested)] = ["Schedule a meeting", "Send information", "Plan the next follow-up"],
+            [nameof(ContactOutcome.InformationRequested)] = ["Send information", "Plan the next follow-up"],
+            [nameof(ContactOutcome.MeetingScheduled)] = ["Plan the next follow-up"],
+            [nameof(ContactOutcome.MeetingCompleted)] = ["Share the donation link", "Plan the next follow-up"],
+            [nameof(ContactOutcome.DonationDiscussion)] = ["Share the donation link", "Plan the next follow-up"],
+            [nameof(ContactOutcome.CallbackRequested)] = ["Plan the call back"],
+            [nameof(ContactOutcome.NoAnswer)] = ["Try again in a few days"],
+            [nameof(ContactOutcome.WrongNumber)] = ["Correct the contact details"],
+            [nameof(ContactOutcome.NotInterested)] = ["Close the lead from the queue"],
+            [nameof(ContactOutcome.DoNotContact)] = ["Record the withdrawal in the consent centre"]
+        };
+
     /// <summary>The group an outcome belongs to, or null for one nobody logs (NotContacted).</summary>
     public static string? OutcomeGroup(string outcome) =>
         Outcomes.FirstOrDefault(item => item.Value == outcome)?.Description;

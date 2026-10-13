@@ -44,26 +44,34 @@ public sealed class ConsentCentreQueryHandler(
         var rows = page.Items.Select(consent => consent.ToListItemResponse(canSeeEvidence)).ToList();
 
         // The history panel only makes sense for a single donor, so it is loaded on demand
-        // rather than for the whole queue.
-        var history = query.Filter.DonorId is null
+        // rather than for the whole queue. It is the WHOLE trail - current rows included - so the
+        // screen shows it as it is, and does not add the current rows to it a second time.
+        var trail = query.Filter.DonorId is null
             ? []
-            : (await consentRepository.GetHistoryAsync(query.Filter.DonorId.Value, cancellationToken))
-                .Select(consent => consent.ToListItemResponse(canSeeEvidence))
-                .ToList();
+            : await consentRepository.GetHistoryAsync(query.Filter.DonorId.Value, cancellationToken);
+
+        var trailView = ConsentCatalogue.ViewOf(query.Filter.View);
+        var history = trail
+            .Where(consent => ConsentCatalogue.Matches(consent, trailView))
+            .Select(consent => consent.ToListItemResponse(canSeeEvidence))
+            .ToList();
 
         var response = new ConsentCentreResponse(
             ScreenIds.ConsentAndPreferenceCentre,
             ScreenRoutes.ConsentAndPreferenceCentre,
             new PagedResponse<ConsentListItemResponse>(rows, page.TotalCount, page.Page, page.PageSize),
             history,
-            ToLookup<ConsentChannel>(),
-            ToLookup<ConsentState>(),
-            ToLookup<ConsentStatus>(),
+            ConsentCatalogue.ChannelOptions,
+            ConsentCatalogue.StateOptions,
+            ConsentCatalogue.StatusOptions,
             _settings.CurrentNoticeVersion,
             BuildPermittedActions(),
             DescribeFilter(query.Filter),
             DescribeScope(),
-            rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial);
+            rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial,
+            ConsentCatalogue.TrailViews(trail),
+            trailView,
+            ConsentCatalogue.RecognitionOptions);
 
         logger.LogInformation("Consent centre retrieved successfully with {RowCount} row(s) from {TotalCount} matching consent record(s).", rows.Count, page.TotalCount);
 
@@ -109,7 +117,14 @@ public sealed class ConsentCentreQueryHandler(
 
     private IReadOnlyList<string> BuildPermittedActions()
     {
-        var actions = new List<string> { "Review evidence" };
+        // Review evidence is offered to those who may read it. Everyone else got the verb and a
+        // masked reference behind it.
+        var actions = new List<string>();
+
+        if (currentUser.CanSeeEvidence())
+        {
+            actions.Add("Review evidence");
+        }
 
         if (currentUser.HasPermission(PermissionCodes.ConsentCentreGrant))
         {
@@ -173,7 +188,4 @@ public sealed class ConsentCentreQueryHandler(
 
         return parts.Count == 0 ? "No filters applied." : "Filtered by " + string.Join(", ", parts) + ".";
     }
-
-    private static IReadOnlyList<LookupItem> ToLookup<TEnum>() where TEnum : struct, Enum =>
-        [.. Enum.GetValues<TEnum>().Select(value => new LookupItem(value.ToString(), value.ToString()))];
 }

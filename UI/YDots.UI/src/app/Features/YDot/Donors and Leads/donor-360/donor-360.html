@@ -311,7 +311,7 @@
                         <td class="dz-num dz-mono dz-strong" data-label="Amount">{{ money(g.amount, g.currency) }}@if (g.refunded > 0) { <span
                             class="dz-muted"> · {{ money(g.refunded, g.currency) }} refunded</span> }</td>
                         <td class="dz-end dz-c-tag"><span class="dz-dot" [attr.data-ink]="badgeClass(g.status)"><i
-                              aria-hidden="true"></i>{{ g.status }}</span></td>
+                              aria-hidden="true"></i>{{ g.statusLabel }}</span></td>
                       </tr>
                       }
                     </tbody>
@@ -383,7 +383,7 @@
                         <td class="dz-muted" data-label="Due">{{ p.dueDate || 'No due date' }}</td>
                         <td class="dz-num dz-mono dz-strong" data-label="Amount">{{ money(p.amount, p.currency) }}</td>
                         <td class="dz-end dz-c-tag"><span class="dz-dot" [attr.data-ink]="badgeClass(p.status)"><i
-                              aria-hidden="true"></i>{{ p.status }}</span></td>
+                              aria-hidden="true"></i>{{ p.statusLabel }}</span></td>
                       </tr>
                       }
                     </tbody>
@@ -399,7 +399,7 @@
           <!-- ── FOLLOW-UPS: status views, then an agenda table ── -->
           @case ('follow-ups') {
           <div class="dz-views" role="group" aria-label="Show follow-ups">
-            @for (v of followUpViews; track v.id) { <button type="button" class="dz-view"
+            @for (v of followUpViews(); track v.id) { <button type="button" class="dz-view"
               [class.is-bad]="v.id === 'overdue'" [attr.aria-pressed]="followUpView() === v.id"
               (click)="setFollowUpView(v.id)">{{ v.label }}<span class="dz-mono">{{ followUpViewCount(v.id)
                 }}</span></button> }
@@ -426,7 +426,7 @@
                   <td class="dz-muted" data-label="Owner">{{ f.owner || 'Unassigned' }}</td>
                   <td data-label="Priority">@if (f.priority) { <span class="dz-dot" [attr.data-ink]="badgeClass(f.priority)"><i
                         aria-hidden="true"></i>{{ f.priority }}</span> } @else { <span class="dz-muted">—</span> }</td>
-                  <td class="dz-c-tag"><span class="dz-dot" [attr.data-ink]="badgeClass(f.status)"><i aria-hidden="true"></i>{{ f.status
+                  <td class="dz-c-tag"><span class="dz-dot" [attr.data-ink]="badgeClass(f.status)"><i aria-hidden="true"></i>{{ f.statusLabel
                       }}</span></td>
                   <td class="dz-end" data-label="Action">@if (!f.isOpen) { <span class="dz-closed"><i class="ri-check-line"
                         aria-hidden="true"></i>Closed</span> } @else if (f.isMine) { <button type="button"
@@ -578,7 +578,7 @@
                 <tbody>@for (ch of channelConsents(); track ch.channel) { <tr>
                     <td class="dz-strong dz-c-title">{{ ch.channel }}</td>
                     <td class="dz-c-tag"><span class="dz-dot" [attr.data-ink]="badgeClass(ch.state)"><i aria-hidden="true"></i>{{
-                        ch.state }}</span></td>
+                        ch.stateLabel }}</span></td>
                     <td class="dz-muted" data-label="Recorded">{{ ch.since ? 'Since ' + ch.since : '—' }}</td>
                     <td class="dz-end dz-muted">Public thanks: {{ ch.recognition ? 'yes' : 'no' }}</td>
                   </tr> }</tbody>
@@ -635,7 +635,7 @@
         @else { <span id="ci-amount-words" class="field-hint">{{ intentInWords() || 'The amount reads back here in words.' }}</span> }
         @if (intentErrors()['currency']) { <span class="field-error" role="alert">{{ intentErrors()['currency'] }}</span> }
         <div class="ci-chips" role="group" aria-label="Quick amounts">
-          @for (p of intentPresets; track p) {
+          @for (p of intentPresets(); track p) {
           <button type="button" class="ci-chip" [attr.aria-pressed]="intentAmount() === p"
             (click)="intentAmount.set(p)">{{ formatIntentAmount(p) }}</button>
           }

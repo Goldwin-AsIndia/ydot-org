@@ -360,10 +360,10 @@
                         <fieldset class="lcp-f lcp-plain" [class.has-error]="errors()['recognitionPreference']">
                           <legend class="lcp-l">Recognition <b class="lcp-req" aria-hidden="true">*</b></legend>
                           <div class="lcp-seg">
-                            @for (opt of recognitionOptions; track opt) {
-                              <label [class.is-on]="fields().consent.recognitionPreference === opt">
-                                <input type="radio" name="recognitionPreference" [value]="opt" [checked]="fields().consent.recognitionPreference === opt" (change)="onRecognitionChange($event)" />
-                                {{ opt }}
+                            @for (opt of recognitionOptions(); track opt.value) {
+                              <label [class.is-on]="fields().consent.recognitionPreference === opt.value">
+                                <input type="radio" name="recognitionPreference" [value]="opt.value" [checked]="fields().consent.recognitionPreference === opt.value" (change)="onRecognitionChange($event)" />
+                                {{ opt.label }}
                               </label>
                             }
                           </div>

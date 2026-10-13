@@ -18,10 +18,10 @@
       <!-- ============ HEADER ============ -->
       <app-page-header screen="consent-preference-centre" title="Consent and preference centre" [subtitle]="activeScope()" [updatedLabel]="'Updated ' + lastRefresh()">
         <ng-container actions>
+          @if (can('reviewEvidence')) {
           <button
             type="button"
             class="ph-btn ph-btn--ghost"
-            [disabled]="!permissions()['reviewEvidence']"
             (click)="openAction('reviewEvidence')">
             <svg class="cpc-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path d="M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
@@ -29,7 +29,9 @@
             </svg>
             Review evidence
           </button>
+          }
 
+          @if (can('withdraw') || can('correct')) {
           <details class="cpc-more-actions">
             <summary class="btn btn-outline-primary btn-sm " aria-label="More actions">
               More actions
@@ -38,21 +40,27 @@
               </svg>
             </summary>
             <div class="cpc-menu" role="menu">
-              <button type="button" role="menuitem" [disabled]="!permissions()['withdraw']" (click)="openAction('withdraw')">Withdraw consent</button>
-              <button type="button" role="menuitem" [disabled]="!permissions()['correct']" (click)="openAction('correct')">Correct record</button>
+              @if (can('withdraw')) {
+              <button type="button" role="menuitem" (click)="openAction('withdraw')">Withdraw consent</button>
+              }
+              @if (can('correct')) {
+              <button type="button" role="menuitem" (click)="openAction('correct')">Correct record</button>
+              }
             </div>
           </details>
+          }
 
+          @if (can('grant')) {
           <button
             type="button"
             class="ph-btn ph-btn--primary"
-            [disabled]="!permissions()['grant']"
             (click)="openAction('grant')">
             <svg class="cpc-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path d="M4 10.5 8 14.5 16 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             Grant consent
           </button>
+          }
   </ng-container>
       </app-page-header>
 
@@ -93,7 +101,7 @@
               <div class="cpc-field">
                 <span class="cpc-field-label">Consent state<span class="cpc-required" aria-hidden="true">*</span><span class="cpc-sr-only">required</span></span>
                 <div class="cpc-display cpc-display-select">
-                  {{ consentState() }}
+                  {{ consentStateLabel() }}
                   <!-- <span class="cpc-badge cpc-badge-inline" [ngClass]="consentClass(consentState())">{{ consentState() }}</span> -->
                 </div>
               </div>
@@ -125,7 +133,9 @@
                       <svg viewBox="0 0 20 20" fill="none"><path d="M5 2.5h6.5L15.5 6.5V17a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M11.5 2.5V6.5H15.5" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
                     </span>
                     <span class="cpc-file-name">{{ evidenceSource() }}</span>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="!permissions()['reviewEvidence']" (click)="openAction('reviewEvidence')">Preview</button>
+                    @if (can('reviewEvidence')) {
+                    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openAction('reviewEvidence')">Preview</button>
+                    }
                   </div>
                 } @else {
                   <div class="cpc-empty-state cpc-empty-state-inline">No evidence uploaded for this consent record.</div>
@@ -141,7 +151,7 @@
                 <span class="cpc-field-label">Expiry time</span>
                 <div class="cpc-display cpc-display-muted">
                   {{ expiryTime() }}
-                  @if (consentState() === 'Expired' || consentState() === 'Pending') {
+                  @if (needsAttention()) {
                     <span class="cpc-tag cpc-tag-amber cpc-tag-warning">
                       <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.5 15 14H1L8 1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6.5v3.25M8 11.75h.01" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
                       Needs attention
@@ -182,7 +192,7 @@
             <dl class="cpc-kv-list">
               <div class="cpc-kv-row">
                 <dt>Consent state</dt>
-                <dd><span class="cpc-badge" [ngClass]="consentClass(consentState())">{{ consentState() }}</span></dd>
+                <dd><span class="cpc-badge" [ngClass]="consentClass(consentState())">{{ consentStateLabel() }}</span></dd>
               </div>
               <div class="cpc-kv-row">
                 <dt>Purpose</dt>
@@ -261,7 +271,7 @@
                   </div>
                   <div class="cpc-overview-row" role="row">
                     <span role="cell" class="cpc-overview-label">Consent state</span>
-                    <span role="cell"><span class="cpc-tag cpc-tag-sm" [class]="consentClass(consentState())">{{ consentState() }}</span></span>
+                    <span role="cell"><span class="cpc-tag cpc-tag-sm" [class]="consentClass(consentState())">{{ consentStateLabel() }}</span></span>
                   </div>
                   <div class="cpc-overview-row" role="row">
                     <span role="cell" class="cpc-overview-label">Channel</span>
@@ -308,9 +318,9 @@
                     id="cpc-saved-filter"
                     class="cpc-select cpc-select-sm"
                     [ngModel]="savedFilter()"
-                    (ngModelChange)="savedFilter.set($event)">
-                    @for (f of savedFilters(); track f) {
-                      <option [value]="f">{{ f }}</option>
+                    (ngModelChange)="setSavedFilter($event)">
+                    @for (f of savedFilters(); track f.value) {
+                      <option [value]="f.value">{{ f.label }} ({{ f.count }})</option>
                     }
                   </select>
                 </div>
@@ -340,7 +350,7 @@
                   </ul>
                 } @else {
                   <div class="cpc-empty-state">
-                    <p>No consent history for “{{ savedFilter() }}”.</p>
+                    <p>No consent history for “{{ savedFilterLabel() }}”.</p>
                     <button type="button" class="btn btn-outline-primary btn-sm cpc-btn-outline" (click)="removeFilterChip('saved')">Clear filter</button>
                   </div>
                 }
@@ -365,7 +375,6 @@
                       <button
                         type="button"
                         class="btn btn-outline-primary btn-sm cpc-btn-outline"
-                        [disabled]="!permissions()[action.id]"
                         (click)="openAction(action.id)">
                         Run
                       </button>

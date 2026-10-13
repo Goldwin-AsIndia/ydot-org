@@ -58,6 +58,14 @@ public sealed class DonorSettings
     public string CurrentNoticeVersion { get; set; } = "PN-2026-01";
 
     /// <summary>
+    /// The quick amounts Donor 360's pledge form offers. Empty means the defaults below; set it
+    /// in configuration to change them (a configured list replaces the defaults, it is not added to them).
+    /// </summary>
+    public decimal[] PledgeAmountPresets { get; set; } = [];
+
+    public static readonly IReadOnlyList<decimal> DefaultPledgeAmountPresets = [5000m, 10000m, 25000m, 50000m, 100000m];
+
+    /// <summary>
     /// The time zone whose calendar day "due today", "overdue" and "completed today" are counted
     /// in. A follow-up due at 01:00 in Chennai is due today there although it is still yesterday
     /// in UTC, and every count on the Donors screens has to agree with the clock on the wall.

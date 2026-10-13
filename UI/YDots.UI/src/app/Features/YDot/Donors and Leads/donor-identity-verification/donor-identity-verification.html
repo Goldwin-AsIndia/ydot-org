@@ -19,36 +19,36 @@
           <div class="div-filter-wrap">
           
             <div id="savedFilterMenu" popover class="div-filter-menu" role="listbox" [attr.aria-label]="'Saved filters'">
-              @for (option of savedFilters(); track option) {
+              @for (option of savedFilters(); track option.value) {
                 <button
                   type="button"
                   role="option"
                   class="ph-btn ph-btn--ghost"
-                  [class.is-active]="savedFilter() === option"
-                  [attr.aria-selected]="savedFilter() === option"
-                  (click)="savedFilter.set(option)"
+                  [class.is-active]="savedFilter() === option.value"
+                  [attr.aria-selected]="savedFilter() === option.value"
+                  (click)="setSavedFilter(option.value)"
                 >
-                  {{ option }}
+                  {{ option.label }}
                 </button>
               }
             </div>
           </div>
 
-          @if (permissions()['escalateReview']) {
+          @if (can('escalateReview')) {
             <button type="button" class="ph-btn ph-btn--ghost" (click)="openAction('escalateReview')">
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3l7 12H3l7-12z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 8.5v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="14" r="0.8" fill="currentColor"/></svg>
               Escalate review
             </button>
           }
 
-          @if (permissions()['cancelVerification']) {
+          @if (can('cancelVerification')) {
             <button type="button" class="ph-btn ph-btn--danger" (click)="openAction('cancelVerification')">
               <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
               Cancel verification
             </button>
           }
 
-          @if (permissions()['sendChallenge']) {
+          @if (can('sendChallenge')) {
             <button type="button" class="ph-btn ph-btn--primary" (click)="openAction('sendChallenge')">
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
               Send challenge
@@ -153,7 +153,7 @@
             </span>
           </div>
           <div class="div-kpi-value">
-            <span class="div-badge" [ngClass]="statusClass(verificationStatus())">{{ verificationStatus() }}</span>
+            <span class="div-badge" [ngClass]="statusClass(verificationStatus())">{{ verificationStatusLabel() }}</span>
           </div>
           <p class="div-kpi-caption">Reference {{ verificationReference() }}</p>
         </div>
@@ -166,7 +166,7 @@
             </span>
           </div>
           <div class="div-kpi-value">{{ attemptsUsed() }} <span class="div-kpi-value-of">of {{ maxAttempts() }}</span></div>
-          <p class="div-kpi-caption">Channel {{ currentChannel() }}</p>
+          <p class="div-kpi-caption">Channel {{ currentChannelLabel() }}</p>
         </div>
 
         <div class="div-kpi-card">
@@ -242,11 +242,11 @@
               </div>
 
               <!-- Verify code (shown while a challenge is outstanding) -->
-              @if (verificationStatus() === 'Challenge sent' && permissions()['verifyCode']) {
+              @if (canVerifyCode()) {
                 <div class="div-otp-card">
                   <div class="div-otp-head">
                     <span class="div-otp-title">Enter verification code</span>
-                    <span class="div-otp-sub">Sent via {{ currentChannel() }} to {{ currentDestination() }}</span>
+                    <span class="div-otp-sub">Sent via {{ currentChannelLabel() }} to {{ currentDestination() }}</span>
                   </div>
                   <div class="div-otp-row">
                     <input
@@ -291,7 +291,7 @@
                   </div>
                   <div class="div-detail-row">
                     <dt>Verification channel</dt>
-                    <dd>{{ currentChannel() }}</dd>
+                    <dd>{{ currentChannelLabel() }}</dd>
                   </div>
                   <div class="div-detail-row">
                     <dt>Masked destination</dt>
@@ -299,7 +299,7 @@
                   </div>
                   <div class="div-detail-row">
                     <dt>Verification status</dt>
-                    <dd><span class="div-badge" [ngClass]="statusClass(verificationStatus())">{{ verificationStatus() }}</span></dd>
+                    <dd><span class="div-badge" [ngClass]="statusClass(verificationStatus())">{{ verificationStatusLabel() }}</span></dd>
                   </div>
                   <div class="div-detail-row">
                     <dt>Expiry time</dt>
@@ -347,7 +347,7 @@
                     <label id="labelChannel">Verification channel</label>
                     <div class="div-field-select-wrap">
                       <button type="button" class="div-field-select-trigger" popovertarget="channelMenu" aria-haspopup="listbox" aria-labelledby="labelChannel">
-                        {{ draftChannel() }}
+                        {{ draftChannelLabel() }}
                         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                       </button>
                       <div id="channelMenu" popover class="div-searchable-menu" role="listbox" aria-label="Verification channel">
@@ -359,7 +359,7 @@
                           (ngModelChange)="channelFilter.set($event)"
                         />
                         @for (ch of filteredChannelOptions(); track ch) {
-                          <button type="button" role="option" class="div-filter-option" [class.is-active]="draftChannel() === ch" [attr.aria-selected]="draftChannel() === ch" (click)="selectChannel(ch)">
+                          <button type="button" role="option" class="div-filter-option" [class.is-active]="draftChannelLabel() === ch" [attr.aria-selected]="draftChannelLabel() === ch" (click)="selectChannel(ch)">
                             {{ ch }}
                           </button>
                         } @empty {
@@ -388,7 +388,7 @@
                     <label id="labelStatus">Verification status</label>
                     <div class="div-field-select-wrap">
                       <button type="button" class="div-field-select-trigger" popovertarget="statusMenu" aria-haspopup="listbox" aria-labelledby="labelStatus">
-                        {{ draftStatus() }}
+                        {{ draftStatusLabel() }}
                         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                       </button>
                       <div id="statusMenu" popover class="div-searchable-menu" role="listbox" aria-label="Verification status">
@@ -404,16 +404,16 @@
                             type="button"
                             role="option"
                             class="div-filter-option"
-                            [class.is-active]="draftStatus() === st"
-                            [class.is-locked]="lockedStatusReasons[st]"
-                            [attr.aria-selected]="draftStatus() === st"
-                            [attr.aria-disabled]="!!lockedStatusReasons[st]"
-                            [title]="lockedStatusReasons[st] || ''"
+                            [class.is-active]="draftStatusLabel() === st"
+                            [class.is-locked]="lockedStatusReasons()[st]"
+                            [attr.aria-selected]="draftStatusLabel() === st"
+                            [attr.aria-disabled]="!!lockedStatusReasons()[st]"
+                            [title]="lockedStatusReasons()[st] || ''"
                             (click)="selectStatus(st)"
                           >
                             {{ st }}
-                            @if (lockedStatusReasons[st]) {
-                              <span class="div-locked-hint">{{ lockedStatusReasons[st] }}</span>
+                            @if (lockedStatusReasons()[st]) {
+                              <span class="div-locked-hint">{{ lockedStatusReasons()[st] }}</span>
                             }
                           </button>
                         }
@@ -515,9 +515,6 @@
                   <div class="div-action-card" [class.is-danger]="action.placement === 'danger'">
                     <div class="div-action-head">
                       <span class="div-action-label">{{ action.label }}</span>
-                      @if (!permissions()[action.id]) {
-                        <span class="div-badge div-badge-blue div-badge-sm">No permission</span>
-                      }
                     </div>
                     <p class="div-action-result">{{ action.result }}</p>
                     <div class="div-action-tags">
@@ -529,7 +526,6 @@
                       type="button"
                       class="btn btn-sm div-action-btn"
                       [ngClass]="action.placement === 'danger' ? 'div-btn-danger' : (action.placement === 'primary' ? 'btn-primary' : 'btn-outline-primary')"
-                      [disabled]="!permissions()[action.id]"
                       (click)="openAction(action.id)"
                     >
                       {{ action.label }}
@@ -551,7 +547,7 @@
               <h2>Verification details</h2>
               <p>{{ verificationReference() }} &middot; Identity verification</p>
             </div>
-            <span class="div-badge" [ngClass]="statusClass(verificationStatus())">{{ verificationStatus() }}</span>
+            <span class="div-badge" [ngClass]="statusClass(verificationStatus())">{{ verificationStatusLabel() }}</span>
           </div>
 
           <div class="div-side-divider" role="separator"></div>
@@ -567,7 +563,7 @@
             </div>
             <div class="div-side-row">
               <dt>Channel</dt>
-              <dd>{{ currentChannel() }}</dd>
+              <dd>{{ currentChannelLabel() }}</dd>
             </div>
             <div class="div-side-row">
               <dt>Masked destination</dt>
@@ -604,7 +600,7 @@
             <h3>Available channels</h3>
             <div class="div-channel-list">
               @for (ch of channels(); track ch) {
-                <span class="div-channel-pill" [class.is-active]="ch === currentChannel()">{{ ch }}</span>
+                <span class="div-channel-pill" [class.is-active]="ch === currentChannelLabel()">{{ ch }}</span>
               }
             </div>
           </div>

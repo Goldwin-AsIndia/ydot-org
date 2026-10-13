@@ -14,12 +14,25 @@ import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import {
   DonLookupItem,
   IdentityVerification,
+  QueueView,
+  VerificationTrailEntry,
 } from '../../../../Shared/models/donor-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 
 import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
 type TabId = 'overview' | 'history' | 'actions';
+
+/** Statuses only the server's own steps reach - sending a code, the right code, the last wrong one. */
+const AUTOMATIC_STATUSES: readonly string[] = ['ChallengeSent', 'Verified', 'Failed'];
+
+/** The screen's action ids and the verbs the server lists on an attempt. */
+const ACTION_VERBS: Record<string, string> = {
+  sendChallenge: 'Send challenge',
+  verifyCode: 'Verify code',
+  escalateReview: 'Escalate review',
+  cancelVerification: 'Cancel verification',
+};
 
 /** Extended, page-local workflow states beyond the shared ready/success UiState. */
 type FlowState =
@@ -83,8 +96,10 @@ export class DonorIdentityVerificationComponent {
   protected readonly activeActionId = signal('');
   protected readonly activeTab = signal<TabId>('overview');
 
-  protected readonly savedFilters = signal<readonly string[]>(['All verifications']);
-  protected readonly savedFilter = signal('All verifications');
+  /** All attempts / Current attempt, as the server serves and counts them. */
+  protected readonly savedFilters = signal<readonly QueueView[]>([]);
+  protected readonly savedFilter = signal('all');
+  private readonly trail = signal<readonly VerificationTrailEntry[]>([]);
 
   protected readonly permissions = signal<Record<string, boolean>>({
     view: false,
@@ -96,23 +111,38 @@ export class DonorIdentityVerificationComponent {
 
   protected readonly channelOptions = signal<readonly DonLookupItem[]>([]);
   protected readonly statusOptions = signal<readonly DonLookupItem[]>([]);
+  private readonly confidenceOptions = signal<readonly DonLookupItem[]>([]);
+
+  private labelOf(options: readonly DonLookupItem[], value: string): string {
+    return options.find((option) => option.value === value)?.label ?? value;
+  }
+
+  private valueOf(options: readonly DonLookupItem[], label: string): string {
+    return options.find((option) => option.label === label)?.value ?? label;
+  }
   protected readonly codeValidMinutes = signal(0);
   protected readonly maxAttempts = signal(0);
   protected readonly activeScope = signal('');
   protected readonly lastRefresh = signal('');
 
   // ---- The record, read from the server's answer ----
-  protected readonly verificationStatus = computed(() => this.verification()?.status ?? 'Not started');
+  /** The status VALUE ("ChallengeSent"), which is what the screen's rules compare. */
+  protected readonly verificationStatus = computed(() => this.verification()?.status ?? 'NotStarted');
+  /** The status as the server words it ("Challenge sent"). */
+  protected readonly verificationStatusLabel = computed(() => this.labelOf(this.statusOptions(), this.verificationStatus()));
   protected readonly verificationReference = computed(() => this.verification()?.verificationReference ?? '');
   protected readonly currentPurpose = computed(() => this.verification()?.verificationPurpose ?? '');
   protected readonly currentChannel = computed(() => this.verification()?.verificationChannel ?? '');
+  protected readonly currentChannelLabel = computed(() => this.labelOf(this.channelOptions(), this.currentChannel()));
 
   /** Masked by the SERVER. The full address never reaches this screen. */
   protected readonly currentDestination = computed(() => this.verification()?.maskedDestination ?? '');
   protected readonly attemptsUsed = computed(() => this.verification()?.attemptCount ?? 0);
   protected readonly remainingAttempts = computed(() => this.verification()?.remainingAttempts ?? 0);
   protected readonly expiryTime = computed(() => this.formatDateTime(this.verification()?.expiryAtUtc ?? null));
-  protected readonly identityConfidence = computed(() => this.verification()?.identityConfidence ?? '');
+  protected readonly identityConfidence = computed(() =>
+    this.labelOf(this.confidenceOptions(), this.verification()?.identityConfidence ?? ''),
+  );
   protected readonly evidenceReference = computed(() => this.verification()?.evidenceReference ?? '—');
   protected readonly reviewer = computed(() => this.verification()?.reviewerName ?? '—');
   protected readonly recordVersion = computed(() => this.verification()?.version ?? 0);
@@ -134,6 +164,9 @@ export class DonorIdentityVerificationComponent {
   protected readonly filteredChannelOptions = computed(() =>
     this.channels().filter((c) => c.toLowerCase().includes(this.channelFilter().toLowerCase())),
   );
+  protected readonly draftChannelLabel = computed(() => this.labelOf(this.channelOptions(), this.draftChannel()));
+  protected readonly draftStatusLabel = computed(() => this.labelOf(this.statusOptions(), this.draftStatus()));
+
   protected readonly filteredStatusOptions = computed(() =>
     this.statusOptions()
       .map((option) => option.label)
@@ -144,23 +177,29 @@ export class DonorIdentityVerificationComponent {
     this.load();
   }
 
-  private load(): void {
+  /** `quiet` re-reads for a trail view change without blanking the page. */
+  private load(quiet = false): void {
     const donorId = this.donorReference();
     if (!donorId) {
       this.uiState.set('empty');
       return;
     }
 
-    this.uiState.set('loading');
+    if (!quiet) this.uiState.set('loading');
 
-    this.api.getIdentityVerifications({ donorId, page: 1, pageSize: 20 }).subscribe({
+    const view = this.savedFilter() === 'all' ? null : this.savedFilter();
+    this.api.getIdentityVerifications({ donorId, page: 1, pageSize: 20, view }).subscribe({
       next: (response) => {
         // THE MOST RECENT ONE. A donor may have been challenged more than once, and the screen
         // acts on the current attempt.
         this.verification.set(response.verifications.items[0] ?? null);
+        this.trail.set(response.trail ?? []);
+        this.savedFilters.set(response.trailViews ?? []);
+        this.savedFilter.set(response.activeTrailView ?? 'all');
 
         this.channelOptions.set(response.channelOptions);
         this.statusOptions.set(response.statusOptions);
+        this.confidenceOptions.set(response.confidenceOptions ?? []);
         this.codeValidMinutes.set(response.codeValidMinutes);
         this.maxAttempts.set(response.maximumAttempts);
         this.activeScope.set(response.activeScope);
@@ -180,7 +219,7 @@ export class DonorIdentityVerificationComponent {
 
         const current = this.verification();
         this.draftPurpose.set(current?.verificationPurpose ?? '');
-        this.draftChannel.set(current?.verificationChannel ?? response.channelOptions[0]?.value ?? 'Email');
+        this.draftChannel.set(current?.verificationChannel ?? response.channelOptions[0]?.value ?? '');
         this.draftDestination.set(current?.maskedDestination ?? '');
         this.draftStatus.set(current?.status ?? '');
 
@@ -216,73 +255,51 @@ export class DonorIdentityVerificationComponent {
 
   protected readonly activeFilterSummary = computed(() => {
     const chips: { key: string; label: string }[] = [];
-    if (this.savedFilter() !== this.savedFilters()[0]) {
-      chips.push({ key: 'saved', label: `View: ${this.savedFilter()}` });
+    if (this.savedFilter() !== 'all') {
+      const view = this.savedFilters().find((option) => option.value === this.savedFilter());
+      chips.push({ key: 'saved', label: `View: ${view?.label ?? this.savedFilter()}` });
     }
     return chips;
   });
 
+  /** A trail view picked: the server narrows the trail and counts it. */
+  protected setSavedFilter(value: string): void {
+    if (value === this.savedFilter()) return;
+    this.savedFilter.set(value);
+    this.load(true);
+  }
+
   /**
-   * The verification trail.
-   *
-   * IT IS THE RECORD'S OWN LIFECYCLE, not a `history` array from a file that returned the same
-   * three rows whichever filter was chosen. Each line is a timestamp the server stamped.
+   * The verification trail, as the server built it from every attempt the donor has had - each
+   * step with who took it and when. The screen used to assemble it from the current attempt's
+   * timestamps, and dated a cancellation by when the attempt had been created.
    */
-  protected readonly filteredHistory = computed(() => {
-    const current = this.verification();
-    if (!current) {
-      return [];
-    }
+  protected readonly filteredHistory = computed(() =>
+    this.trail().map((entry) => ({
+      primary: entry.event,
+      secondary: entry.detail,
+      meta: `${entry.actor ?? '—'} · ${this.formatDateTime(entry.atUtc)}`,
+    })),
+  );
 
-    const rows: { primary: string; secondary: string; meta: string }[] = [];
-
-    if (current.sentAtUtc) {
-      rows.push({
-        primary: 'Challenge sent',
-        secondary: `${current.verificationChannel} to ${current.maskedDestination ?? 'the donor'}`,
-        meta: this.formatDateTime(current.sentAtUtc),
-      });
-    }
-    if (current.verifiedAtUtc) {
-      rows.push({
-        primary: 'Verified',
-        secondary: `Confidence ${current.identityConfidence}`,
-        meta: this.formatDateTime(current.verifiedAtUtc),
-      });
-    }
-    if (current.escalationReason) {
-      rows.push({
-        primary: 'Escalated for review',
-        secondary: current.escalationReason,
-        meta: current.reviewerName ?? '—',
-      });
-    }
-    if (current.cancellationReason) {
-      rows.push({
-        primary: 'Cancelled',
-        secondary: current.cancellationReason,
-        meta: this.formatDateTime(current.createdAtUtc),
-      });
-    }
-
-    return rows;
-  });
-
-  /** Statuses a user may not set by hand, with the reason surfaced in the picker. */
-  protected readonly lockedStatusReasons: Record<string, string> = {
-    'Challenge sent': 'Set automatically when a challenge is sent',
-    'Verified': 'Only reachable by verifying the correct code',
-    'Failed': 'Set automatically once attempts are exhausted',
-  };
+  /**
+   * Statuses a user may not set by hand, keyed by the label the picker shows, with the server's
+   * own explanation of each as the reason.
+   */
+  protected readonly lockedStatusReasons = computed<Record<string, string>>(() =>
+    Object.fromEntries(
+      this.statusOptions()
+        .filter((option) => AUTOMATIC_STATUSES.includes(option.value))
+        .map((option) => [option.label, option.description ?? '']),
+    ),
+  );
 
   protected setTab(tab: TabId): void {
     this.activeTab.set(tab);
   }
 
   protected removeFilterChip(key: string): void {
-    if (key === 'saved') {
-      this.savedFilter.set(this.savedFilters()[0]);
-    }
+    if (key === 'saved') this.setSavedFilter('all');
   }
 
   protected setUiState(state: UiState): void {
@@ -343,15 +360,16 @@ export class DonorIdentityVerificationComponent {
     this.destinationError.set(null);
   }
 
-  protected selectChannel(channel: string): void {
-    this.draftChannel.set(channel);
+  /** The pickers show labels; the draft keeps the value the server takes ("PhoneCall"). */
+  protected selectChannel(label: string): void {
+    this.draftChannel.set(this.valueOf(this.channelOptions(), label));
   }
 
-  protected selectStatus(status: string): void {
-    if (this.lockedStatusReasons[status]) {
+  protected selectStatus(label: string): void {
+    if (this.lockedStatusReasons()[label]) {
       return;
     }
-    this.draftStatus.set(status);
+    this.draftStatus.set(this.valueOf(this.statusOptions(), label));
   }
 
   private validatePurpose(value: string): string | null {
@@ -433,17 +451,12 @@ export class DonorIdentityVerificationComponent {
   }
 
   protected submitVerifyCode(): void {
-    if (!this.permissions()['verifyCode']) {
+    if (!this.can('verifyCode')) {
       return;
     }
     const code = this.codeInput();
     if (code.length !== 6) {
       this.codeError.set('Enter the 6-digit code sent to the donor.');
-      this.flowState.set('validation');
-      return;
-    }
-    if (this.verificationStatus() !== 'Challenge sent') {
-      this.codeError.set('A challenge must be sent before a code can be verified.');
       this.flowState.set('validation');
       return;
     }
@@ -486,8 +499,25 @@ export class DonorIdentityVerificationComponent {
     },
   ] as const;
 
+  /**
+   * The actions valid here: the caller may take it and the attempt on screen allows it (the
+   * server lists what each status allows). With no attempt yet, only a challenge can be sent.
+   * Escalation needs a reviewer to hand to, and the screen has none to offer unless the attempt
+   * already names one.
+   */
+  protected can(actionId: string): boolean {
+    if (this.permissions()[actionId] !== true) return false;
+    const current = this.verification();
+    if (!current) return actionId === 'sendChallenge';
+    const verb = ACTION_VERBS[actionId];
+    if (!verb || !current.permittedActions.includes(verb)) return false;
+    return actionId !== 'escalateReview' || !!current.reviewerUserId;
+  }
+
+  protected readonly canVerifyCode = computed(() => this.can('verifyCode'));
+
   protected readonly visibleActions = computed(() =>
-    this.actionCatalogue.filter((action) => this.permissions()[action.id] === true),
+    this.actionCatalogue.filter((action) => this.can(action.id)),
   );
 
   protected openAction(actionId: string): void {
@@ -495,7 +525,7 @@ export class DonorIdentityVerificationComponent {
     if (!action) {
       return;
     }
-    if (this.permissions()[actionId] !== true) {
+    if (!this.can(actionId)) {
       this.flowState.set('idle');
       return;
     }
@@ -530,7 +560,7 @@ export class DonorIdentityVerificationComponent {
       beforeAfter: [
         {
           label: 'Status',
-          before: this.verificationStatus(),
+          before: this.verificationStatusLabel(),
 
           // "THE SERVER DECIDES" IS THE HONEST ANSWER for a code check. The old version predicted
           // it here by comparing the typed code against `demoValidCode` from the JSON file - which
@@ -538,11 +568,10 @@ export class DonorIdentityVerificationComponent {
           after:
             actionId === 'verifyCode'
               ? 'Decided by the server'
-              : actionId === 'cancelVerification'
-                ? 'Cancelled'
-                : actionId === 'escalateReview'
-                  ? 'Escalated'
-                  : 'Challenge sent',
+              : this.labelOf(
+                  this.statusOptions(),
+                  actionId === 'cancelVerification' ? 'Cancelled' : actionId === 'escalateReview' ? 'Escalated' : 'ChallengeSent',
+                ),
         },
       ],
     });
@@ -561,7 +590,7 @@ export class DonorIdentityVerificationComponent {
       typedConfirm: false,
       affectedRecord: `${this.verificationReference()} · ${this.donorReference()}`,
       effectiveTime: this.lastRefresh(),
-      beforeAfter: [{ label: 'Status', before: this.verificationStatus(), after: 'Challenge sent' }],
+      beforeAfter: [{ label: 'Status', before: this.verificationStatusLabel(), after: this.labelOf(this.statusOptions(), 'ChallengeSent') }],
     });
   }
 
@@ -612,7 +641,7 @@ export class DonorIdentityVerificationComponent {
           this.resultPanel.set({
             actionLabel: 'Send challenge',
             reference: sent.verification.verificationReference,
-            status: sent.verification.status,
+            status: this.labelOf(this.statusOptions(), sent.verification.status),
             effectiveTime: this.formatDateTime(sent.verification.sentAtUtc),
 
             // NAMED WHEN THE MESSAGE IS ONLY QUEUED, so nobody waits for a code that has not left.
@@ -621,6 +650,7 @@ export class DonorIdentityVerificationComponent {
             isDependencyFailure: false,
           });
           this.toast.show('Challenge sent', sent.message, 'success');
+          this.load(true);
         },
         error: (error: unknown) => this.failAction('Send challenge', error),
       });
@@ -653,7 +683,7 @@ export class DonorIdentityVerificationComponent {
             this.resultPanel.set({
               actionLabel: 'Verify code',
               reference: updated.verificationReference,
-              status: 'Verified',
+              status: this.labelOf(this.statusOptions(), 'Verified'),
               effectiveTime: this.formatDateTime(updated.verifiedAtUtc),
               dependency: 'None — identity confirmed.',
               nextAction: 'Continue to the consent and preference centre.',
@@ -696,6 +726,7 @@ export class DonorIdentityVerificationComponent {
           this.verification.set(updated);
           this.flowState.set('idle');
           this.toast.show('Escalated', 'The verification is now with a reviewer.', 'success');
+          this.load(true);
         },
         error: (error: unknown) => this.failAction('Escalate for review', error),
       });
@@ -715,6 +746,7 @@ export class DonorIdentityVerificationComponent {
           this.verification.set(updated);
           this.flowState.set('idle');
           this.toast.show('Verification cancelled', 'No further codes will be accepted.', 'success');
+          this.load(true);
         },
         error: (error: unknown) => this.failAction('Cancel verification', error),
       });
@@ -725,7 +757,7 @@ export class DonorIdentityVerificationComponent {
     this.resultPanel.set({
       actionLabel: label,
       reference: this.verificationReference(),
-      status: this.verificationStatus(),
+      status: this.verificationStatusLabel(),
       effectiveTime: this.lastRefresh(),
       dependency: apiErrorMessage(error),
       nextAction: 'Try again, or escalate for review.',

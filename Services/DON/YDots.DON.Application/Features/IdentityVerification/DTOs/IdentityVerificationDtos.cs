@@ -15,7 +15,23 @@ public sealed record IdentityVerificationListResponse(
     string ActiveScope,
     int CodeValidMinutes,
     int MaximumAttempts,
-    string State);
+    string State,
+
+    /// <summary>What happened on each of the donor's attempts, newest first, narrowed to the trail view.</summary>
+    IReadOnlyList<VerificationTrailEntryResponse>? Trail = null,
+
+    /// <summary>All attempts / Current attempt, counted by the server. Sent back as <c>view</c>.</summary>
+    IReadOnlyList<QueueViewResponse>? TrailViews = null,
+
+    string ActiveTrailView = "all");
+
+/// <summary>One step of a verification: started, challenge sent, verified, escalated, cancelled...</summary>
+public sealed record VerificationTrailEntryResponse(
+    string VerificationReference,
+    string Event,
+    string Detail,
+    DateTimeOffset? AtUtc,
+    string? Actor);
 
 /// <summary>
 /// One verification attempt. The destination is only ever the masked form, and the code

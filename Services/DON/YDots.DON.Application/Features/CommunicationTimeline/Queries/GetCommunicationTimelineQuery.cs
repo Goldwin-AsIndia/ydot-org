@@ -231,7 +231,8 @@ public sealed class CommunicationTimelineQueryHandler(
             CommunicationCatalogue.OutcomeGroups,
             countsByType.Values.Sum(),
             countsByType,
-            importantCount));
+            importantCount,
+            CommunicationCatalogue.OutcomeNextSteps));
     }
 
     /// <summary>

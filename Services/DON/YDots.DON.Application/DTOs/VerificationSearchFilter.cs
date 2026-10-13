@@ -22,4 +22,7 @@ public sealed class VerificationSearchFilter : PaginationRequest
     public DateTimeOffset? SentAfterUtc { get; set; }
 
     public DateTimeOffset? SentBeforeUtc { get; set; }
+
+    /// <summary>The trail view for one donor: "current" narrows the trail to the newest attempt.</summary>
+    public string? View { get; set; }
 }

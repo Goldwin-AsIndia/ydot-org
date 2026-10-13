@@ -63,7 +63,7 @@
                   (click)="refresh()"><i class="ri-refresh-line" aria-hidden="true"></i></button>
                 <span class="ab-rule" aria-hidden="true"></span>
                 <div class="ab-kind" role="group" aria-label="Record type">
-                  @for (opt of recordTypeOptions; track opt.value) {
+                  @for (opt of recordTypeOptions(); track opt.value) {
                   <button type="button" class="ab-kind-b" [class.is-on]="recordType() === opt.value"
                     [attr.aria-pressed]="recordType() === opt.value"
                     (click)="onRecordTypeChange($any(opt.value))">{{ opt.label }}</button>
@@ -113,7 +113,7 @@
                 </div>
 
                 @if (canExport) {
-                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportAssignmentBoard()" title="Export the rows on this page">
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportAssignmentBoard()" title="Export every record under these filters">
                   <i class="ri-download-2-line" aria-hidden="true"></i> <span>Export</span>
                 </button>
                 }
@@ -123,11 +123,11 @@
             <!-- =============================== OWNERSHIP: views + page tally =============================== -->
             <div class="ab-strip">
               <nav class="ab-views" aria-label="Ownership">
-                @for (option of savedFilters(); track option) {
-                <button type="button" class="ab-view" [class.is-on]="savedFilter() === option"
-                  [attr.aria-pressed]="savedFilter() === option" (click)="setSavedView(option)">
-                  {{ option === 'All leads' ? 'All records' : option === 'Unassigned only' ? 'Unassigned' : option === 'Assigned only' ? 'Assigned' : option }}
-                  @if (savedFilter() === option && uiState() !== 'loading') { <b class="ab-num">{{ totalCount() }}</b> }
+                @for (option of savedFilters(); track option.value) {
+                <button type="button" class="ab-view" [class.is-on]="savedFilter() === option.value"
+                  [attr.aria-pressed]="savedFilter() === option.value" (click)="setSavedView(option.value)">
+                  {{ option.label }}
+                  @if (savedFilter() === option.value && uiState() !== 'loading') { <b class="ab-num">{{ totalCount() }}</b> }
                 </button>
                 }
                 @if (dueTodaySlaLabel()) {
@@ -498,7 +498,7 @@
               }
             </div>
             @if (d.effectiveTimeError) { <p class="ab-fld-err" role="alert">{{ d.effectiveTimeError }}</p> }
-            @else { <p class="ab-fld-help">{{ timezoneLabel }}</p> }
+            @else { <p class="ab-fld-help">{{ timezoneLabel() }}</p> }
           </div>
           }
         </fieldset>
@@ -633,7 +633,7 @@
             <div><dt>Campaign</dt><dd [title]="row.campaign">{{ row.campaign }}</dd></div>
             <div><dt>Team</dt><dd>{{ row.team || '—' }}</dd></div>
             <div><dt>Language</dt><dd>{{ row.language }}</dd></div>
-            <div><dt>Time zone</dt><dd>{{ timezoneLabel }}</dd></div>
+            <div><dt>Time zone</dt><dd>{{ timezoneLabel() }}</dd></div>
           </dl>
         </section>
       </div>

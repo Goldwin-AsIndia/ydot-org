@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using YDots.DON.Application.Common.Abstractions.Persistence;
 using YDots.DON.Application.Common.Abstractions.Security;
+using YDots.DON.Application.Common.Abstractions.Services;
 using YDots.DON.Application.Common.Constants;
 using YDots.DON.Application.Common.Models;
 using YDots.DON.Application.Common.Results;
@@ -22,6 +23,7 @@ public sealed record GetVerificationDetailQuery(Guid VerificationId);
 
 public sealed class IdentityVerificationQueryHandler(
     IVerificationRepository verificationRepository,
+    IPeopleDirectory people,
     ICurrentUser currentUser,
     IOptions<DonorSettings> donorSettings,
     ILogger<IdentityVerificationQueryHandler> logger)
@@ -41,19 +43,46 @@ public sealed class IdentityVerificationQueryHandler(
             .Select(item => item.ToResponse(canSeeEvidence, _settings.VerificationMaxAttempts))
             .ToList();
 
+        // THE DONOR'S TRAIL, from every attempt they have had - not only the page.
+        IReadOnlyList<VerificationTrailEntryResponse> trail = [];
+        string? currentReference = null;
+
+        if (query.Filter.DonorId is Guid donorId)
+        {
+            var attempts = await verificationRepository.GetHistoryForDonorAsync(donorId, cancellationToken);
+            var audit = await verificationRepository.GetAuditAsync([.. attempts.Select(attempt => attempt.Id)], cancellationToken);
+            var audited = audit
+                .GroupBy(entry => (entry.TargetId!.Value, entry.ActionCode))
+                .ToDictionary(group => group.Key, group => group.Max(entry => entry.CreatedAtUtc));
+            var names = await people.GetNamesAsync(
+                currentUser.OrganisationId, [.. attempts.Select(attempt => attempt.CreatedByUserId).Distinct()], cancellationToken);
+
+            trail = VerificationCatalogue.Trail(attempts, audited, names, _settings.VerificationMaxAttempts);
+            currentReference = attempts.FirstOrDefault()?.VerificationReference;
+        }
+
+        var trailView = VerificationCatalogue.ViewOf(query.Filter.View);
+        var trailViews = VerificationCatalogue.TrailViews(trail, currentReference);
+        var shownTrail = trailView == VerificationCatalogue.CurrentView
+            ? [.. trail.Where(entry => entry.VerificationReference == currentReference)]
+            : trail;
+
         var response = new IdentityVerificationListResponse(
             ScreenIds.DonorIdentityVerification,
             ScreenRoutes.DonorIdentityVerification,
             new PagedResponse<IdentityVerificationResponse>(rows, page.TotalCount, page.Page, page.PageSize),
-            ToLookup<VerificationChannel>(),
-            ToLookup<VerificationStatus>(),
-            ToLookup<IdentityConfidence>(),
+            VerificationCatalogue.ChannelOptions,
+            VerificationCatalogue.StatusOptions,
+            VerificationCatalogue.ConfidenceOptions,
             BuildPermittedActions(),
             DescribeFilter(query.Filter),
             DescribeScope(),
             _settings.VerificationCodeValidMinutes,
             _settings.VerificationMaxAttempts,
-            rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial);
+            rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial,
+            shownTrail,
+            trailViews,
+            trailView);
 
         logger.LogInformation("Identity verification list retrieval completed successfully. Returned {RowCount} rows out of {TotalCount} for organisation {OrganisationId}.", rows.Count, page.TotalCount, currentUser.OrganisationId);
 
@@ -148,7 +177,4 @@ public sealed class IdentityVerificationQueryHandler(
 
         return parts.Count == 0 ? "No filters applied." : "Filtered by " + string.Join(", ", parts) + ".";
     }
-
-    private static IReadOnlyList<LookupItem> ToLookup<TEnum>() where TEnum : struct, Enum =>
-        [.. Enum.GetValues<TEnum>().Select(value => new LookupItem(value.ToString(), value.ToString()))];
 }
