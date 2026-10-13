@@ -41,6 +41,15 @@ public sealed class ReceiptDocumentService(
 
     private readonly PaymentSettings _paymentSettings = paymentSettings.Value;
 
+    // ---- The application's palette (UI: theme-palette.ts DEFAULT_THEME_COLOR and styles.css) ----
+    private const string Primary = "#315746";
+    private const string PrimarySoft = "#eef3f0";
+    private const string PrimaryBorder = "#d5e2da";
+    private const string Ink = "#26263f";
+    private const string Muted = "#5f6577";
+    private const string Faint = "#8a8aa6";
+    private const string FontStack = "'Outfit','Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
     public async Task<ReceiptDocumentResult> RenderAsync(
         Receipt receipt, CancellationToken cancellationToken)
     {
@@ -48,7 +57,10 @@ public sealed class ReceiptDocumentService(
 
         try
         {
-            var html = BuildHtml(receipt, await ResolveReceiptsUrlAsync(receipt, cancellationToken));
+            var html = BuildHtml(
+                receipt,
+                await ResolveReceiptsUrlAsync(receipt, cancellationToken),
+                await tenantHosts.GetOrganisationNameAsync(receipt.TenantId, cancellationToken));
 
             var url = await documentStore.SaveAsync(
                 receipt.Id,
@@ -96,11 +108,20 @@ public sealed class ReceiptDocumentService(
                 false, null, $"Delivery by {channel} is not configured for this installation.");
         }
 
-        var subject = receipt.ReceiptNumber is null
-            ? "Your donation receipt"
-            : $"Your donation receipt {receipt.ReceiptNumber}";
+        var organisationName = await tenantHosts.GetOrganisationNameAsync(receipt.TenantId, cancellationToken);
 
-        var body = BuildHtml(receipt, await ResolveReceiptsUrlAsync(receipt, cancellationToken));
+        // The receipt number, and who issued it: a donor who gives to several charities has to
+        // be able to tell the receipts apart from the inbox.
+        var subject = (receipt.ReceiptNumber, organisationName) switch
+        {
+            (null, null) => "Your donation receipt",
+            (null, _) => $"Your donation receipt from {organisationName}",
+            (_, null) => $"Your donation receipt {receipt.ReceiptNumber}",
+            _ => $"Your donation receipt {receipt.ReceiptNumber} from {organisationName}"
+        };
+
+        var body = BuildHtml(
+            receipt, await ResolveReceiptsUrlAsync(receipt, cancellationToken), organisationName);
 
         var result = await emailSender.SendAsync(
             destination, subject, body, isHtml: true, cancellationToken);
@@ -128,38 +149,59 @@ public sealed class ReceiptDocumentService(
     /// The styles are inline and the layout is a single column, because this is read in e-mail
     /// clients that strip stylesheets and printed on A4 by people claiming tax relief.
     /// </summary>
-    private string BuildHtml(Receipt receipt, string? receiptsUrl)
+    private string BuildHtml(Receipt receipt, string? receiptsUrl, string? organisationName)
     {
         var builder = new StringBuilder();
 
         var amount = receipt.Amount.Amount.ToString("N2", CultureInfo.InvariantCulture);
         var issued = FormatIssueDate(receipt.IssuedAtUtc);
 
-        builder.Append(
-            """
+        // THE APPLICATION'S LOOK: its default theme colour, its font and its rounded card, the same
+        // shell IAM's messages use, so a receipt reads as coming from the screen the donor used.
+        builder.Append(CultureInfo.InvariantCulture, $"""
             <!DOCTYPE html>
             <html lang="en"><head><meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Donation receipt</title></head>
-            <body style="margin:0;padding:24px;background:#f5f6f8;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2430;">
-            <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e3e6ec;border-radius:8px;padding:32px;">
+            <title>Donation receipt</title>
+            <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+            </head>
+            <body style="margin:0;padding:32px 12px;background:{PrimarySoft};font-family:{FontStack};color:{Ink};">
+            <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid {PrimaryBorder};border-radius:16px;overflow:hidden;">
+            <div style="height:6px;background:{Primary};"></div>
+            <div style="padding:28px 32px 32px;">
             """);
 
+        if (!string.IsNullOrWhiteSpace(organisationName))
+        {
+            builder.Append(CultureInfo.InvariantCulture, $"""
+                <div style="font-size:18px;font-weight:700;color:{Primary};margin:0 0 16px;">{Encode(organisationName)}</div>
+                """);
+        }
+
         builder.Append(CultureInfo.InvariantCulture, $"""
-            <h1 style="margin:0 0 4px;font-size:20px;">Donation receipt</h1>
-            <p style="margin:0 0 24px;color:#5a6270;font-size:13px;">
+            <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:{Primary};">Donation receipt</h1>
+            <p style="margin:0 0 20px;color:{Muted};font-size:13px;">
               Receipt {Encode(receipt.ReceiptNumber ?? "(draft)")}
               &nbsp;&middot;&nbsp; Version {receipt.VersionNumber}
               &nbsp;&middot;&nbsp; Financial year {Encode(receipt.FinancialYear)}
             </p>
             """);
 
+        if (!string.IsNullOrWhiteSpace(organisationName))
+        {
+            builder.Append(CultureInfo.InvariantCulture, $"""
+                <p style="margin:0 0 20px;font-size:15px;line-height:1.6;">
+                  Thank you for supporting {Encode(organisationName)}. This receipt confirms the donation below.
+                </p>
+                """);
+        }
+
         // The amount, given the prominence it has on every receipt anybody has ever received.
         builder.Append(CultureInfo.InvariantCulture, $"""
-            <div style="background:#f0f4ff;border:1px solid #d5e0ff;border-radius:6px;padding:20px;margin-bottom:24px;">
-              <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5a6270;">Amount received</div>
-              <div style="font-size:28px;font-weight:600;margin-top:4px;">{Encode(receipt.Amount.CurrencyCode)} {amount}</div>
-              <div style="font-size:13px;color:#5a6270;margin-top:4px;">Issued {Encode(issued)}</div>
+            <div style="background:{PrimarySoft};border:1px solid {PrimaryBorder};border-radius:12px;padding:20px;margin-bottom:24px;">
+              <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:{Muted};">Amount received</div>
+              <div style="font-size:28px;font-weight:700;margin-top:4px;color:{Primary};">{Encode(receipt.Amount.CurrencyCode)} {amount}</div>
+              <div style="font-size:13px;color:{Muted};margin-top:4px;">Issued on {Encode(issued)}</div>
             </div>
             """);
 
@@ -180,7 +222,7 @@ public sealed class ReceiptDocumentService(
         if (receipt.SupersedesReceiptId.HasValue)
         {
             builder.Append(CultureInfo.InvariantCulture, $"""
-                <p style="margin:24px 0 0;padding:12px;background:#fff7e6;border:1px solid #ffe0a3;border-radius:6px;font-size:13px;">
+                <p style="margin:24px 0 0;padding:12px 16px;background:#fff7e6;border:1px solid #ffe0a3;border-radius:10px;font-size:13px;">
                   This receipt replaces an earlier version. {Encode(receipt.CorrectionReason)}
                 </p>
                 """);
@@ -191,18 +233,18 @@ public sealed class ReceiptDocumentService(
         if (!string.IsNullOrWhiteSpace(receiptsUrl))
         {
             builder.Append(CultureInfo.InvariantCulture, $"""
-                <p style="margin:24px 0 0;font-size:13px;color:#5a6270;">
+                <p style="margin:24px 0 0;font-size:13px;color:{Muted};">
                   You can see all of your donations and receipts at
-                  <a href="{Encode(receiptsUrl)}" style="color:#2a5bd7;">{Encode(receiptsUrl)}</a>.
+                  <a href="{Encode(receiptsUrl)}" style="color:{Primary};">{Encode(receiptsUrl)}</a>.
                 </p>
                 """);
         }
 
-        builder.Append("""
-            <p style="margin:24px 0 0;font-size:12px;color:#8a919e;">
+        builder.Append(CultureInfo.InvariantCulture, $"""
+            <p style="margin:24px 0 0;font-size:12px;color:{Faint};">
               This is a computer-generated receipt and does not require a signature.
             </p>
-            </div></body></html>
+            </div></div></body></html>
             """);
 
         return builder.ToString();
@@ -296,8 +338,8 @@ public sealed class ReceiptDocumentService(
 
         builder.Append(CultureInfo.InvariantCulture, $"""
             <tr>
-              <td style="padding:8px 0;color:#5a6270;width:200px;vertical-align:top;">{Encode(label)}</td>
-              <td style="padding:8px 0;vertical-align:top;">{Encode(value)}</td>
+              <td style="padding:8px 0;color:{Muted};width:200px;vertical-align:top;border-bottom:1px solid {PrimarySoft};">{Encode(label)}</td>
+              <td style="padding:8px 0;vertical-align:top;border-bottom:1px solid {PrimarySoft};">{Encode(value)}</td>
             </tr>
             """);
     }

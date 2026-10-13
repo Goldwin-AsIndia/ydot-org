@@ -155,7 +155,7 @@ public sealed class FollowUpQueueQueryHandler(
 
         await auditWriter.WriteAsync(
             new AuditEntry(AuditActionCodes.FollowUpsExported, nameof(FollowUpTask), null, AuditResult.Succeeded,
-                $"{lines.Count} follow-up(s) exported. Reference {file.Reference}."),
+                $"{Wording.Count(lines.Count, "follow-up")} exported. Reference {file.Reference}."),
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

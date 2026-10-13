@@ -12,6 +12,7 @@ using YDot.IAM.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using YDot.IAM.Application.Common.Settings;
+using YDot.IAM.Application.Common.Services;
 
 namespace YDot.IAM.Application.Features.Governance.Commands.AccessReviews;
 
@@ -625,8 +626,8 @@ public sealed class AccessReviewCommandHandler(
         return Result.Success(new OutcomeResponse(
             campaign.Id, campaign.Status.ToString(), campaign.Version,
             revoked > 0
-                ? $"Campaign closed. {revoked} unanswered review(s) were revoked."
-                : $"Campaign closed. {outstanding.Count} unanswered review(s) were retained.",
+                ? $"Campaign closed. {Wording.Count(revoked, "unanswered review")} {Wording.Verb(revoked, "was", "were")} revoked."
+                : $"Campaign closed. {Wording.Count(outstanding.Count, "unanswered review")} {Wording.Verb(outstanding.Count, "was", "were")} retained.",
             ["View"]));
     }
 

@@ -216,8 +216,9 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   private static readonly FIELD_ID: Record<string, string> = {
     firstName: 'cuFirst', lastName: 'cuLast', displayName: 'cuDisplay',
     preferredName: 'cuPreferred', email: 'cuEmail', username: 'cuUsername', mobileCountryCode: 'cuCode',
-    mobileNumber: 'cuMobile', employeeNumber: 'cuEmployee', designation: 'cuDesignation',
-    workLocation: 'cuLocation', businessJustification: 'cuJustification',
+    mobileNumber: 'cuMobile', employeeNumber: 'cuEmployee', organisationUnitId: 'cuUnit',
+    departmentId: 'cuDept', designation: 'cuDesignation', workLocation: 'cuLocation',
+    primaryRoleId: 'cuRole', businessJustification: 'cuJustification',
   };
 
   private focusFirstInvalid(step: number): void {
@@ -232,7 +233,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   private static readonly STEP_FIELDS: string[][] = [
     ['firstName', 'lastName', 'displayName', 'preferredName', 'email', 'username',
       'mobileCountryCode', 'mobileNumber', 'employeeNumber'],
-    ['designation', 'workLocation'],
+    ['organisationUnitId', 'departmentId', 'designation', 'workLocation'],
     ['primaryRoleId', 'dataScopeType', 'businessJustification'],
     ['mfaRequirement'],
   ];
@@ -260,6 +261,10 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
       // Optional for everybody since the engagement type was removed - the server agrees.
       case 'employeeNumber':
         return employeeNumberError('Employee or volunteer number', f.employeeNumber, false);
+      // Required on this screen, as the primary role is. The API keeps both optional because it
+      // also creates donor accounts (PAY), which belong to no unit or department.
+      case 'organisationUnitId': return f.organisationUnitId ? null : 'Choose an organisation unit.';
+      case 'departmentId': return f.departmentId ? null : 'Choose a department.';
       case 'designation': return textWithLettersError('Designation', f.designation, { required: false, max: 120 });
       case 'workLocation': return textWithLettersError('Work location', f.workLocation, { required: false, max: 200 });
       case 'primaryRoleId': return f.primaryRoleId ? null : 'Choose a primary role.';
@@ -410,18 +415,11 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   );
 
   /**
-   * The Organisation step has nothing that must be answered.
+   * The Organisation step needs an organisation unit and a department.
    *
-   * Organisation unit USED TO BE REQUIRED HERE, and the API has always treated it as optional -
-   * OrganisationUnitId is a nullable Guid defaulting to null. A brand-new Organisation has no
-   * units yet, so the only choice in the list was "Choose…", the step could never be
-   * completed, and NO USER COULD BE CREATED AT ALL until somebody guessed that a unit had to be
-   * built first. The one requirement the client added by itself was the one that blocked the
-   * screen.
-   *
-   * Units and departments are a reporting structure. They are worth filling in, and the hint
-   * beside the empty list says where to create them, but nobody should be unable to invite their
-   * first colleague for want of an org chart.
+   * Every member of staff invited here is placed in the organisation structure, the same way the
+   * Access step insists on a primary role. An Organisation with no units or departments yet
+   * cannot finish this step, so the hint under an empty list says where to create them.
    */
   readonly organisationComplete = computed(() =>
     CreateUserComponent.STEP_FIELDS[1].every((field) => this.localError(field) === null),
@@ -458,9 +456,9 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
         this.view.set(reference);
         this.enums.set(reference.enums ?? null);
 
-        // Organisation unit deliberately keeps its "Select Organisation Unit" placeholder
-        // rather than pre-picking the first unit: the field is optional and is sent as null
-        // when left blank, so a guessed default only risks filing someone under the wrong unit.
+        // Organisation unit and department keep their "Choose…" placeholders rather than
+        // pre-picking the first entry: a guessed default only risks filing someone under the
+        // wrong unit, so the administrator chooses both.
       },
       error: (error: Error) => {
         this.loading.set(false);

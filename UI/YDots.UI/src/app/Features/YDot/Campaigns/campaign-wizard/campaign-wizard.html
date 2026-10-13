@@ -158,7 +158,7 @@
                   </p>
                   <p class="alert-body">
                     @if (!requiredComplete()) {
-                      Pending dependency: {{ remainingRequired().length }} required field(s)
+                      Pending dependency: {{ remainingRequired().length | count: 'required field' }}
                       remaining. Next permitted route — complete the remaining information.
                     } @else {
                       No pending dependency. Next permitted route — submit for activation.
@@ -1416,7 +1416,7 @@
                           <div><dt>Zip code</dt><dd class="mono">{{ pincode() || '—' }}</dd></div>
                           <div>
                             <dt>Reminder</dt>
-                            <dd>{{ reminderDaysBefore() }} day(s) before start, at {{ reminderTimeDisplay() }}</dd>
+                            <dd>{{ reminderDaysBefore() | count: 'day' }} before start, at {{ reminderTimeDisplay() }}</dd>
                           </div>
                         </dl>
                       </section>

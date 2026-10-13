@@ -41,7 +41,7 @@ public sealed class CreateDonorRequestValidator : AbstractValidator<CreateDonorR
 
         RuleFor(request => request.PrimaryEmail)
             .Must(EmailValue.IsValid)
-            .WithMessage("Review Email address. The value does not meet the stated format.")
+            .WithMessage("Enter a valid e-mail address.")
             .When(request => !string.IsNullOrWhiteSpace(request.PrimaryEmail));
 
         RuleFor(request => request.PrimaryPhone)
@@ -80,7 +80,7 @@ public sealed class UpdateDonorRequestValidator : AbstractValidator<UpdateDonorR
 
         RuleFor(request => request.PrimaryEmail)
             .Must(EmailValue.IsValid)
-            .WithMessage("Review Email address. The value does not meet the stated format.")
+            .WithMessage("Enter a valid e-mail address.")
             .When(request => !string.IsNullOrWhiteSpace(request.PrimaryEmail));
 
         RuleFor(request => request.PrimaryPhone)

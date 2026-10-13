@@ -276,8 +276,8 @@ public sealed class UserSecurityCommandHandler(
         return Result.Success(new OutcomeResponse(
             user.Id, user.Status.ToString(), user.Version,
             stillRequired
-                ? $"Removed {usable.Count} verification method(s). They will be asked to set one up at their next sign-in."
-                : $"Removed {usable.Count} verification method(s).",
+                ? $"Removed {Wording.Count(usable.Count, "verification method")}. They will be asked to set one up at their next sign-in."
+                : $"Removed {Wording.Count(usable.Count, "verification method")}.",
             ["View"]));
     }
 

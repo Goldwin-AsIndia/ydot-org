@@ -10,6 +10,7 @@ using YDot.IAM.Application.Features.Roles.Mappings;
 using YDot.IAM.Domain.Entities;
 using YDot.IAM.Domain.Enums;
 using YDot.IAM.Domain.ValueObjects;
+using YDot.IAM.Application.Common.Services;
 
 namespace YDot.IAM.Application.Features.Roles.Commands.ManageRole;
 
@@ -367,8 +368,8 @@ public sealed class RoleCommandHandler(
         return Result.Success(new OutcomeResponse(
             role.Id, role.Status.ToString(), role.Version,
             deniedAfter.Count == 0
-                ? $"Role permissions saved. {grantedAfter.Count} permission(s) granted."
-                : $"Role permissions saved. {grantedAfter.Count} permission(s) granted, {deniedAfter.Count} blocked.",
+                ? $"Role permissions saved. {Wording.Count(grantedAfter.Count, "permission")} granted."
+                : $"Role permissions saved. {Wording.Count(grantedAfter.Count, "permission")} granted, {deniedAfter.Count} blocked.",
             RoleMappingConfig.PermittedActionsFor(role, 0)));
     }
 
@@ -519,7 +520,7 @@ public sealed class RoleCommandHandler(
         {
             logger.LogWarning("Role deletion rejected because RoleId {RoleId} has {AssignmentCount} assignment(s) on record.", command.RoleId, assignments);
             return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
-                $"This role has been assigned before ({assignments} assignment(s) on record), so it cannot be deleted. Deactivate it instead."));
+                $"This role has been assigned before ({Wording.Count(assignments, "assignment")} on record), so it cannot be deleted. Deactivate it instead."));
         }
 
         // The segregation-of-duties rules naming the role go with it. Nothing cascades to them

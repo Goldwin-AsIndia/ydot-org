@@ -66,7 +66,7 @@ public static class FollowUpQueueCatalogue
     public static IReadOnlyList<LookupItem> ChannelOptions { get; } =
     [
         new(nameof(ConsentChannel.PhoneCall), "Call"),
-        new(nameof(ConsentChannel.Email), "Email"),
+        new(nameof(ConsentChannel.Email), "E-mail"),
         new(nameof(ConsentChannel.Sms), "SMS"),
         new(nameof(ConsentChannel.WhatsApp), "WhatsApp"),
         new(nameof(ConsentChannel.Post), "Post")

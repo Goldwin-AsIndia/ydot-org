@@ -1,3 +1,4 @@
+import { countOf } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -630,7 +631,7 @@ export class StandardListPageComponent {
     reference: this.stableReference,
     state: this.lifecycleState,
     effectiveTime: this.lastRefresh(),
-    downstreamStatus: this.selectedCount() > 0 ? `${this.selectedCount()} record(s) selected` : 'No pending action',
+    downstreamStatus: this.selectedCount() > 0 ? `${countOf(this.selectedCount(), 'record')} selected` : 'No pending action',
     owner: this.owner,
     nextAction: 'Review filtered record set',
   }));

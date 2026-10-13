@@ -181,7 +181,7 @@ public sealed class AssignmentBoardCommandHandler(
 
         await auditWriter.WriteAsync(
             new AuditEntry(AuditActionCodes.AssignmentBulkRouted, nameof(Lead), null, AuditResult.Succeeded,
-                $"{routed} of {requestedIds.Count} lead(s) routed to {request.NewOwnerName}. {request.AssignmentReason.Trim()}"),
+                $"{routed} of {Wording.Count(requestedIds.Count, "lead")} routed to {request.NewOwnerName}. {request.AssignmentReason.Trim()}"),
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -196,8 +196,10 @@ public sealed class AssignmentBoardCommandHandler(
             skipped,
             items,
             skipped == 0
-                ? $"All {routed} lead(s) were routed to {request.NewOwnerName}."
-                : $"{routed} lead(s) routed, {skipped} skipped. Review the per-record outcome below.",
+                ? (routed == 1
+                    ? $"The lead was routed to {request.NewOwnerName}."
+                    : $"All {routed} leads were routed to {request.NewOwnerName}.")
+                : $"{Wording.Count(routed, "lead")} routed, {skipped} skipped. Review the outcome for each record below.",
             skipped == 0 ? ScreenState.Success : ScreenState.Validation));
     }
 
@@ -411,7 +413,7 @@ public sealed class AssignmentBoardCommandHandler(
 
         await auditWriter.WriteAsync(
             new AuditEntry(AuditActionCodes.DonorOwnersBulkRouted, nameof(Donor), null, AuditResult.Succeeded,
-                $"{routed} of {requestedIds.Count} donor(s) routed to {request.NewOwnerName}. {request.AssignmentReason.Trim()}"),
+                $"{routed} of {Wording.Count(requestedIds.Count, "donor")} routed to {request.NewOwnerName}. {request.AssignmentReason.Trim()}"),
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -424,8 +426,10 @@ public sealed class AssignmentBoardCommandHandler(
             skipped,
             items,
             skipped == 0
-                ? $"All {routed} donor(s) were routed to {request.NewOwnerName}."
-                : $"{routed} donor(s) routed, {skipped} skipped. Review the per-record outcome below.",
+                ? (routed == 1
+                    ? $"The donor was routed to {request.NewOwnerName}."
+                    : $"All {routed} donors were routed to {request.NewOwnerName}.")
+                : $"{Wording.Count(routed, "donor")} routed, {skipped} skipped. Review the outcome for each record below.",
             skipped == 0 ? ScreenState.Success : ScreenState.Validation));
     }
 

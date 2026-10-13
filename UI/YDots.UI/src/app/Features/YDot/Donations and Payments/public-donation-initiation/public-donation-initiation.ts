@@ -824,25 +824,25 @@ export class PublicDonationInitiationComponent {
     const errors: { field: string; label: string; message: string }[] = [];
     // REQUIRED ONLY WHEN THERE IS SOMETHING TO PICK - a QR-code donor's link carries attribution.
     if (!this.selectedCampaign() && !this.trackingReference() && !this.campaignIdFromLink()) {
-      errors.push({ field: 'campaign', label: 'Campaign or appeal', message: 'Enter Campaign or appeal.' });
+      errors.push({ field: 'campaign', label: 'Campaign or appeal', message: 'Choose a campaign or appeal.' });
     }
     if (!this.fullName().trim()) {
-      errors.push({ field: 'fullName', label: 'Full name', message: 'Enter Full name.' });
+      errors.push({ field: 'fullName', label: 'Full name', message: 'Enter your full name.' });
     }
     if (this.mobileInvalid()) {
       errors.push({
         field: 'mobileNumber',
         label: 'Mobile No',
-        message: this.mobileNumber().trim() ? 'Review Mobile No. Enter 10 to 15 digits.' : 'Enter Mobile No.',
+        message: this.mobileNumber().trim() ? 'Enter a mobile number of 10 to 15 digits.' : 'Enter your mobile number.',
       });
     }
     if (!this.emailOrMobile().trim()) {
-      errors.push({ field: 'emailOrMobile', label: 'Email', message: 'Enter Email.' });
+      errors.push({ field: 'emailOrMobile', label: 'E-mail', message: 'Enter your e-mail address.' });
     } else if (!this.emailValid()) {
       errors.push({
         field: 'emailOrMobile',
-        label: 'Email or mobile',
-        message: 'Review Email or mobile. The value does not meet the stated format or range.',
+        label: 'E-mail or mobile',
+        message: 'Enter a valid e-mail address or mobile number.',
       });
     }
     // THE AMOUNT IS THE CAMPAIGN'S, SO SO IS THE ERROR.
@@ -860,35 +860,35 @@ export class PublicDonationInitiationComponent {
       });
     }
     if (!this.currency()) {
-      errors.push({ field: 'currency', label: 'Currency', message: 'Enter Currency.' });
+      errors.push({ field: 'currency', label: 'Currency', message: 'Choose a currency.' });
     }
     if (this.panInvalid()) {
       errors.push({
         field: 'panOrTaxId',
         label: 'PAN or tax identifier',
-        message: 'Review PAN or tax identifier. The value does not meet the stated format or range.',
+        message: 'Enter a valid PAN or tax identifier.',
       });
     }
     // THE ADDRESS BLOCK IS REQUIRED FOR EVERY DONOR, as its asterisks say.
     {
       if (!this.addressText().trim()) {
-        errors.push({ field: 'addressLine1', label: 'Address line 1', message: 'Enter Address line 1.' });
+        errors.push({ field: 'addressLine1', label: 'Address line 1', message: 'Enter the first line of your address.' });
       }
       if (!this.cityId()) {
-        errors.push({ field: 'city', label: 'City', message: 'Enter City.' });
+        errors.push({ field: 'city', label: 'City', message: 'Choose your city.' });
       }
       if (!this.stateId()) {
-        errors.push({ field: 'state', label: 'State', message: 'Enter State.' });
+        errors.push({ field: 'state', label: 'State', message: 'Choose your state.' });
       }
       if (!this.countryId()) {
-        errors.push({ field: 'country', label: 'Country', message: 'Enter Country.' });
+        errors.push({ field: 'country', label: 'Country', message: 'Choose your country.' });
       }
       if (!this.pinCode().trim()) {
-        errors.push({ field: 'pinCode', label: 'PIN / ZIP Code', message: 'Enter PIN / ZIP Code.' });
+        errors.push({ field: 'pinCode', label: 'PIN / ZIP Code', message: 'Enter your PIN or ZIP code.' });
       }
     }
     if (!this.consentChecked()) {
-      errors.push({ field: 'consent', label: 'Consent acknowledgement', message: 'Enter Consent acknowledgement.' });
+      errors.push({ field: 'consent', label: 'Consent acknowledgement', message: 'Tick the box to acknowledge the privacy notice.' });
     }
     return errors;
   });

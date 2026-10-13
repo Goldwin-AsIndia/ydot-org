@@ -41,9 +41,9 @@
         <span class="pf-notice-mark" aria-hidden="true"><i class="ri-user-search-line"></i></span>
         <span class="pf-notice-kicker">Possible duplicate</span>
         <h2 class="pf-notice-title">Possible duplicate identity detected.</h2>
-        <p class="pf-notice-text">A safe candidate category was found for the entered Email or mobile. Compare through the review route without exposing another person's protected details, then choose an action — nothing is overwritten silently.</p>
+        <p class="pf-notice-text">A safe candidate category was found for the e-mail address or mobile number you entered. Compare through the review route without exposing another person's protected details, then choose an action — nothing is overwritten silently.</p>
         <dl class="pf-notice-facts">
-          <div><dt>Match category</dt><dd>Same email or mobile already has a donation intent in scope</dd></div>
+          <div><dt>Match category</dt><dd>Same e-mail or mobile already has a donation intent in scope</dd></div>
           <div><dt>Comparison route</dt><dd>Review candidate via support correlation</dd></div>
         </dl>
         <div class="pf-notice-actions">
@@ -231,7 +231,7 @@
                 <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>This appeal's amount is outside the range this form can take. Contact the organisation.</span>
               }
               @if (!currency() && uiState() === 'validation') {
-                <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter Currency.</span>
+                <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Choose a currency.</span>
               }
             </div>
 
@@ -293,10 +293,10 @@
 
               <!-- Email — read-only, from the account; the receipt goes here -->
               <label class="pf-field">
-                <span class="pf-label">Email <span class="pf-req">*</span></span>
+                <span class="pf-label">E-mail <span class="pf-req">*</span></span>
                 <span class="pf-control is-locked">
                   <input id="fld-emailOrMobile" type="email" class="pf-input" autocomplete="off"
-                         placeholder="Enter email id" disabled
+                         placeholder="Enter your e-mail address" disabled
                          [ngModel]="emailOrMobile()" (ngModelChange)="emailOrMobile.set($event)" name="emailOrMobile" />
                   <i class="ri-lock-line pf-lock" aria-hidden="true"></i>
                 </span>
@@ -313,7 +313,7 @@
                          [attr.aria-invalid]="mobileInvalid() && uiState() === 'validation'" />
                 </span>
                 @if (!formLocked() && mobileInvalid() && (mobileNumber().trim() || uiState() === 'validation')) {
-                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>{{ mobileNumber().trim() ? 'Review Mobile No. Enter 10 to 15 digits.' : 'Enter Mobile No.' }}</span>
+                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>{{ mobileNumber().trim() ? 'Enter a mobile number of 10 to 15 digits.' : 'Enter your mobile number.' }}</span>
                 }
               </label>
 
@@ -336,7 +336,7 @@
                     </span>
                   }
                   @if (panInvalid()) {
-                    <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Review PAN or tax identifier. The value does not meet the stated format or range.</span>
+                    <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter a valid PAN or tax identifier.</span>
                   }
                 </label>
               }
@@ -360,7 +360,7 @@
                          [attr.aria-invalid]="!addressText().trim() && uiState() === 'validation'" />
                 </span>
                 @if (!addressText().trim() && uiState() === 'validation') {
-                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter Address line 1.</span>
+                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter the first line of your address.</span>
                 }
               </label>
 
@@ -394,7 +394,7 @@
                   }
                 </div>
                 @if (!countryId() && uiState() === 'validation') {
-                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter Country.</span>
+                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Choose your country.</span>
                 }
               </div>
 
@@ -419,7 +419,7 @@
                   }
                 </div>
                 @if (!stateId() && uiState() === 'validation') {
-                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter State.</span>
+                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Choose your state.</span>
                 }
               </div>
 
@@ -444,7 +444,7 @@
                   }
                 </div>
                 @if (!cityId() && uiState() === 'validation') {
-                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter City.</span>
+                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Choose your city.</span>
                 }
               </div>
 
@@ -457,7 +457,7 @@
                          [attr.aria-invalid]="!pinCode().trim() && uiState() === 'validation'" />
                 </span>
                 @if (!pinCode().trim() && uiState() === 'validation') {
-                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter PIN / ZIP Code.</span>
+                  <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter your PIN or ZIP code.</span>
                 }
               </label>
             </div>
@@ -481,7 +481,7 @@
 
               </label>
               @if (!consentChecked() && uiState() === 'validation') {
-                <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Enter Consent acknowledgement.</span>
+                <span class="pf-error"><i class="ri-error-warning-line" aria-hidden="true"></i>Tick the box to acknowledge the privacy notice.</span>
               }
 
               @if (showFormChrome()) {

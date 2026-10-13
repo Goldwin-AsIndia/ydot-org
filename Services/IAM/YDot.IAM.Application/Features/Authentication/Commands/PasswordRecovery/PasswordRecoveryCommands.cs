@@ -464,7 +464,8 @@ public sealed class PasswordRecoveryCommandHandler(
         return Result.Success(new PasswordOperationResponse(
             Succeeded: true,
             revoked > 0
-                ? $"Your password has been changed. {revoked} other session(s) were signed out."
+                ? $"Your password has been changed. {Wording.Count(revoked, "other session")} "
+                  + $"{Wording.Verb(revoked, "was", "were")} signed out."
                 : "Your password has been changed.",
             RequiresSignIn: false,
             _security.ToPolicyResponse(tenant?.PasswordMinimumLength)));

@@ -1,3 +1,4 @@
+import { countOf } from '../../../../Shared/pipes/count.pipe';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -586,7 +587,7 @@ export class UserSecurityComponent {
     }
 
     if ((model.accessFailedCount ?? 0) > 0) {
-      return `${model.accessFailedCount} failed attempt(s)`;
+      return countOf(model.accessFailedCount, 'failed attempt');
     }
 
     return 'Nothing outstanding';

@@ -11,7 +11,7 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
  *  Primary action: Accept
  * ---------------------------------------------------------------------- */
 
-export type Channel = 'Email' | 'SMS' | 'WhatsApp' | 'Phone' | 'Web chat';
+export type Channel = 'E-mail' | 'SMS' | 'WhatsApp' | 'Phone' | 'Web chat';
 export type SlaState = 'On track' | 'Due soon' | 'Breaching' | 'Breached';
 export type ConvStatus = 'New' | 'In progress' | 'Waiting on donor' | 'Closed';
 export type Priority = 'Low' | 'Normal' | 'High' | 'Urgent';
@@ -68,7 +68,7 @@ const CURRENT_USER = 'Sophie Bennett';
 
 const MOCK_CONVERSATIONS: Conversation[] = [
   {
-    id: 'CONV-2026-004512', queue: 'Donation Operations', channel: 'Email', owner: null,
+    id: 'CONV-2026-004512', queue: 'Donation Operations', channel: 'E-mail', owner: null,
     slaState: 'Breaching', slaDueLabel: 'Due in 18m', unread: true, unreadCount: 3,
     partyName: 'Meera Krishnan', partyPreview: 'Recurring donor · 3 yrs', campaign: 'Winter Relief Appeal',
     lastMessagePreview: 'I was charged twice for my monthly gift, can you help me sort this out?',
@@ -103,7 +103,7 @@ const MOCK_CONVERSATIONS: Conversation[] = [
     status: 'In progress', priority: 'High', updatedLabel: '48m ago',
   },
   {
-    id: 'CONV-2026-004402', queue: 'Community Outreach', channel: 'Email', owner: 'Kavya Nair',
+    id: 'CONV-2026-004402', queue: 'Community Outreach', channel: 'E-mail', owner: 'Kavya Nair',
     slaState: 'On track', slaDueLabel: 'Due in 22h 0m', unread: false, unreadCount: 0,
     partyName: 'Lakshmi Venkatesh', partyPreview: 'Corporate matching enquiry', campaign: 'Community Outreach Drive',
     lastMessagePreview: 'Closing this out — matching gift confirmed with employer.',
@@ -136,7 +136,7 @@ export class UnifiedInboxComponent {
   readonly scopeQueues = SCOPE_QUEUES;
   readonly inScopeQueueNames = SCOPE_QUEUES.filter((q) => q.inScope).map((q) => q.name);
   readonly savedFilters = SAVED_FILTERS;
-  readonly channels: Channel[] = ['Email', 'SMS', 'WhatsApp', 'Phone', 'Web chat'];
+  readonly channels: Channel[] = ['E-mail', 'SMS', 'WhatsApp', 'Phone', 'Web chat'];
   readonly slaStates: SlaState[] = ['On track', 'Due soon', 'Breaching', 'Breached'];
 
   // ---- core data ----

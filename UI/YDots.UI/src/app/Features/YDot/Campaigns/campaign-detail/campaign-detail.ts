@@ -1,3 +1,4 @@
+import { countOf } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -767,7 +768,7 @@ export class CampaignDetailComponent {
   /** The word under a chronicle entry's kind: the channel it went out on, or the kind of step. */
   protected activityKindLabel(kind: string): string {
     switch (kind) {
-      case 'email': return 'Email';
+      case 'email': return 'E-mail';
       case 'whatsapp': return 'WhatsApp';
       case 'instagram': return 'Instagram';
       case 'sms': return 'SMS';
@@ -1469,7 +1470,7 @@ export class CampaignDetailComponent {
     const mode = rec.activationMode === 'auto' ? 'Auto-activate on the start date' : 'Manual activate';
     const reminder =
       rec.reminderDaysBefore != null
-        ? ` · Reminder ${rec.reminderDaysBefore} day(s) before at ${rec.reminderTime || '—'}`
+        ? ` · Reminder ${countOf(rec.reminderDaysBefore, 'day')} before at ${rec.reminderTime || '—'}`
         : '';
     return `${mode}${reminder}`;
   });

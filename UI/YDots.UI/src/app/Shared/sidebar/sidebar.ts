@@ -391,28 +391,4 @@ export class SidebarComponent implements OnDestroy {
       this.setHzShift(right - width + pad);
     }
   }
-
-  // ---- Theme panel, unchanged ------------------------------------------------------------
-
-  get themePanelOpen(): boolean {
-    return this.layoutService.themePanelOpen;
-  }
-
-  get themeMenuOpen(): boolean {
-    return this.layoutService.themeMenuOpen;
-  }
-
-  toggleThemePanel(): void {
-    this.layoutService.toggleThemePanel();
-  }
-
-  /** Toggles only the Theme Settings dropdown, without opening the panel. */
-  toggleThemeMenu(): void {
-    this.layoutService.toggleThemeMenu();
-  }
-
-  /** Opens the theme panel with a specific section active. */
-  openThemeSection(section: string): void {
-    this.layoutService.openThemeSection(section);
-  }
 }

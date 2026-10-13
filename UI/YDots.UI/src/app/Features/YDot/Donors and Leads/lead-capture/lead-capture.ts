@@ -382,7 +382,7 @@ export class LeadCaptureComponent {
     'First name',
     'Last name',
     'Mobile',
-    'Email',
+    'E-mail',
     'Preferred language',
     'City',
     'Campaign',
@@ -1017,9 +1017,9 @@ export class LeadCaptureComponent {
     // Email — mandatory and format-checked; immutability is enforced via emailLocked()
     const email = f.email.trim();
     if (!email) {
-      errs['email'] = 'Email is required.';
+      errs['email'] = 'Enter an e-mail address.';
     } else if (!this.EMAIL_PATTERN.test(email)) {
-      errs['email'] = 'Enter a valid email address.';
+      errs['email'] = 'Enter a valid e-mail address.';
     }
 
     // Preferred language
@@ -2091,7 +2091,7 @@ export class LeadCaptureComponent {
       } else if (!mobile || mobileDigits.length < 7) {
         previewError = 'Missing or invalid mobile number';
       } else if (email && !this.EMAIL_PATTERN.test(email)) {
-        previewError = 'Invalid email format';
+        previewError = 'Not a valid e-mail address';
       }
 
       const serverResult = serverResults.get(row.rowNumber);

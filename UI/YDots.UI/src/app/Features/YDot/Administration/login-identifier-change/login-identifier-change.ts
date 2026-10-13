@@ -182,8 +182,8 @@ export class LoginIdentifierChangeComponent {
       const usernameErrors = this.identifierForm.controls.newUsername.errors;
       const reasonErrors = this.identifierForm.controls.changeReason.errors;
 
-      if (emailErrors?.['email']) errors.push('New login email must be a valid email address.');
-      if (emailErrors?.['maxlength']) errors.push('New login email cannot exceed 254 characters.');
+      if (emailErrors?.['email']) errors.push('New login e-mail must be a valid e-mail address.');
+      if (emailErrors?.['maxlength']) errors.push('New login e-mail cannot exceed 254 characters.');
       if (usernameErrors?.['minlength']) errors.push('New username must be at least 3 characters.');
       if (usernameErrors?.['maxlength']) errors.push('New username cannot exceed 80 characters.');
       if (usernameErrors?.['pattern']) errors.push('Username can contain only letters and numbers.');

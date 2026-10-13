@@ -459,7 +459,7 @@ export class UserProfileComponent {
       { label: 'Preferred name', icon: 'ri-user-smile-line', value: d?.preferredName || '', mono: false },
       { label: 'Employee ID', icon: 'ri-profile-line', value: d?.employeeId || '', mono: true },
       { label: 'Username', icon: 'ri-at-line', value: d?.username || '', mono: false },
-      { label: 'Email', icon: 'ri-mail-line', value: d?.loginEmail || '', mono: false },
+      { label: 'E-mail', icon: 'ri-mail-line', value: d?.loginEmail || '', mono: false },
       { label: 'Mobile', icon: 'ri-smartphone-line', value: d?.mobileNumber || '', mono: false },
       { label: 'Language · timezone', icon: 'ri-global-line',
         value: [d?.preferredLanguage, d?.timeZone].filter((part) => !!part).join(' · '), mono: false },

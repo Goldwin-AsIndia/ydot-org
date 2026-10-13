@@ -216,7 +216,7 @@ public sealed class IdentityVerificationCommandHandler(
             return Result.Failure<IdentityVerificationResponse>(Error.Validation(
                 remaining == 0
                     ? "That code did not match and no attempts remain. Send a new challenge or escalate for review."
-                    : $"That code did not match. {remaining} attempt(s) remain.",
+                    : $"That code did not match. {Wording.Count(remaining, "attempt")} {Wording.Verb(remaining, "remains", "remain")}.",
                 [new ValidationError(nameof(command.Request.Code), "Check the code and try again.")]));
         }
 

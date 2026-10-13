@@ -18,6 +18,7 @@
  * way out would be a place for a bug to hide.
  */
 
+import { countOf } from '../pipes/count.pipe';
 import {
   ChargebackCaseListItem,
   DonationIntentDetail,
@@ -430,8 +431,8 @@ export function toChargebackCaseRecord(item: ChargebackCaseListItem): RccRefundC
     item.daysUntilEvidenceDue === null
       ? 'No evidence deadline set'
       : item.isOverdue
-        ? `Evidence deadline passed ${Math.abs(item.daysUntilEvidenceDue)} day(s) ago`
-        : `${item.daysUntilEvidenceDue} day(s) left to submit evidence`;
+        ? `Evidence deadline passed ${countOf(Math.abs(item.daysUntilEvidenceDue), 'day')} ago`
+        : `${countOf(item.daysUntilEvidenceDue, 'day')} left to submit evidence`;
 
   return {
     caseId: item.id,

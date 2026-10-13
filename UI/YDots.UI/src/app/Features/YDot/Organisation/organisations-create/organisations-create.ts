@@ -116,8 +116,8 @@ export class OrganisationsCreateComponent {
   });
   protected readonly emailError = computed(() => {
     if (!this.touched()) return '';
-    if (!this.email().trim()) return 'Email address is required.';
-    if (!this.emailPattern.test(this.email().trim())) return 'Enter a valid email address.';
+    if (!this.email().trim()) return 'Enter an e-mail address.';
+    if (!this.emailPattern.test(this.email().trim())) return 'Enter a valid e-mail address.';
     return '';
   });
   /** A phone may carry a leading + and separators; what counts is 7 to 15 digits. */
@@ -154,8 +154,8 @@ export class OrganisationsCreateComponent {
   });
   protected readonly ownerEmailError = computed(() => {
     if (!this.touched()) return '';
-    if (!this.ownerEmail().trim()) return 'Owner email / login ID is required.';
-    if (!this.emailPattern.test(this.ownerEmail().trim())) return 'Enter a valid email address.';
+    if (!this.ownerEmail().trim()) return 'Enter the owner\'s e-mail address or login ID.';
+    if (!this.emailPattern.test(this.ownerEmail().trim())) return 'Enter a valid e-mail address.';
     return '';
   });
   protected readonly ownerMobileError = computed(() => {

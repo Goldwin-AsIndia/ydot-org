@@ -1,3 +1,4 @@
+import { countOf } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule } from "@angular/common";
 import { Component, computed, DestroyRef, ElementRef, HostListener, inject, signal } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -1375,7 +1376,7 @@ export class AssignmentBoardComponent {
       reasonMax: 2000,
       typedConfirm: false,
       affectedRecord: isBulk
-        ? `${this.eligibleRows().length} eligible record(s)`
+        ? countOf(this.eligibleRows().length, 'eligible record')
         : `${draft.rows[0].leadReference} · ${draft.rows[0].leadPreview}`,
       effectiveTime: effectiveDisplay,
       beforeAfter,
@@ -1937,7 +1938,7 @@ export class AssignmentBoardComponent {
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         this.exporting.set(false);
-        this.toast.show("Export completed", `${this.totalCount()} assignment record(s) exported.`, "success");
+        this.toast.show("Export completed", `${countOf(this.totalCount(), 'assignment record')} exported.`, "success");
       },
       error: (error: unknown) => {
         this.exporting.set(false);

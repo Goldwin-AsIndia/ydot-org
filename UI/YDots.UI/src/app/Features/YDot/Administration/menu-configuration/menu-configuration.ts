@@ -1,3 +1,4 @@
+import { CountPipe } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -87,7 +88,7 @@ interface Draft {
 @Component({
   selector: 'app-menu-configuration',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconPickerComponent],
+  imports: [CommonModule, FormsModule, IconPickerComponent, CountPipe],
   templateUrl: './menu-configuration.html',
   styleUrl: './menu-configuration.css',
 })

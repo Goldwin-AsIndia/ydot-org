@@ -174,7 +174,7 @@ export class SavedViewBuilderComponent {
         { key: 'campaign', label: 'Campaign', selected: false },
         { key: 'payment-mode', label: 'Payment Mode', selected: false },
       ],
-      extraColumns: ['Receipt Number', 'Tax Exemption', 'Donor Email', 'Acknowledgement Status'],
+      extraColumns: ['Receipt Number', 'Tax Exemption', 'Donor E-mail', 'Acknowledgement Status'],
     },
     Beneficiaries: {
       baseViews: ['All Beneficiaries (Default)', 'Active Beneficiaries', 'Pending Verification', 'My Region Beneficiaries'],
@@ -262,7 +262,7 @@ export class SavedViewBuilderComponent {
     // Campaigns
     'Campaign Status': ['Active', 'Planned', 'Closed', 'On Hold', 'Draft'],
     'Owner': ['Priya Nair', 'Arun Kumar', 'Neha Patel', 'Vikram Nair'],
-    'Channel': ['Email', 'SMS', 'Social', 'Web', 'Event'],
+    'Channel': ['E-mail', 'SMS', 'Social', 'Web', 'Event'],
     // Stock
     'Item Type': ['Blind Stick', 'Kit', 'Book', 'Medicine', 'Food'],
     'Stock Status': ['In Stock', 'Low Stock', 'Out of Stock', 'Reserved'],

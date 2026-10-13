@@ -571,16 +571,16 @@ public static class MenuCatalogue
         // screens; a person sending messages or checking numbers should not need to know them.
         new(Communications, "Communications", null, MenuLevel.Menu, "COM", null, "message-circle", null, 50),
 
-        // Broadcasting to verified numbers through WATI. `cam.campaigns.view` is what the CAM
-        // WhatsApp API asks of a reader (WhatsAppView); sending asks `cam.campaigns.create`, which
-        // the screen checks for itself.
+        // Broadcasting to verified numbers through WATI. `cam.whatsapp.view` is what the CAM
+        // WhatsApp API asks of a reader; sending asks `cam.whatsapp.operate`. Neither is seeded into
+        // a working role, so only the Organisation Admin reaches the screen unless granted.
         new("CM_WHATSAPP_MESSAGES", "WhatsApp Messages", Communications, MenuLevel.SubMenu, "COM",
-            "/app/whatsapp/wati", "send", "cam.campaigns.view", 10),
+            "/app/whatsapp/wati", "send", "cam.whatsapp.view", 10),
 
         // Checking an uploaded list of numbers against WhatsApp through CheckNumber.ai, before any
         // message is sent to them.
         new("CM_NUMBER_VERIFICATION", "Number Verification", Communications, MenuLevel.SubMenu, "COM",
-            "/app/whatsapp/check-number", "shield", "cam.campaigns.view", 20),
+            "/app/whatsapp/check-number", "shield", "cam.whatsapp.view", 20),
 
         // STILL OFF: no COM service exists, so these three would open on nothing. They sort after
         // the two live screens so that switching one on does not push WhatsApp down the menu.

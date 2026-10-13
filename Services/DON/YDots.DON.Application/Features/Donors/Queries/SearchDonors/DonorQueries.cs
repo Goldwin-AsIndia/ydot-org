@@ -169,7 +169,7 @@ public sealed class DonorQueryHandler(
 
         await auditWriter.WriteAsync(
             new AuditEntry(AuditActionCodes.DonorExported, nameof(Donor), null, AuditResult.Succeeded,
-                $"{rows.Count} row(s) exported. Reference {file.Reference}."),
+                $"{Wording.Count(rows.Count, "row")} exported. Reference {file.Reference}."),
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

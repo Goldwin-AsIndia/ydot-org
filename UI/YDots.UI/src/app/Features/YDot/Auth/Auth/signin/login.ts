@@ -7,6 +7,7 @@ import { AuthSessionService } from '../../../../../Shared/services/auth-session.
 import { AuthTokenService } from '../../../../../Shared/services/auth-token.service';
 import { DeviceIdentityService } from '../../../../../Shared/services/device-identity.service';
 import { MfaHandoffService } from '../../../../../Shared/services/mfa-handoff.service';
+import { BuildFreshnessService } from '../../../../../Shared/services/build-freshness.service';
 import { MfaChallengeResponse, SignInResponse, nextRouteFor } from '../../../../../Shared/models/auth.model';
 
 /**
@@ -18,7 +19,7 @@ import { MfaChallengeResponse, SignInResponse, nextRouteFor } from '../../../../
  * simply obeys it:
  *
  *   succeeded               → the token is stored, go to the dashboard
- *   mfaRequired             → no access token yet; hand the challenge to /auth/mfa-challenge
+ *   mfaRequired             → no access token yet; hand the challenge to /auth/mfa
  *   tenantSelectionRequired → a root user with no Organisation of their own; go and pick one
  *   passwordChangeRequired  → signed in, but pushed to change the password first
  *
@@ -54,11 +55,18 @@ export class LoginComponent implements OnInit, OnDestroy {
   private readonly tokens = inject(AuthTokenService);
   private readonly device = inject(DeviceIdentityService);
   private readonly handoff = inject(MfaHandoffService);
+  private readonly freshness = inject(BuildFreshnessService);
 
   email = '';
   password = '';
   showPassword = false;
-  loading = false;
+
+  /**
+   * A signal, not a plain field. The application runs without zone.js, so a field changed in an
+   * HTTP callback is only drawn when something else happens to refresh the view - and when the
+   * navigation after sign-in went nowhere, nothing did, and the button stayed on "Signing in...".
+   */
+  readonly loading = signal(false);
   rememberDevice = false;
   isOnline = navigator.onLine;
 
@@ -80,6 +88,10 @@ export class LoginComponent implements OnInit, OnDestroy {
 
     // Arriving here always means "start again", so any half-finished MFA transaction is dropped.
     this.handoff.clear();
+
+    // A tab still running a build that has since been replaced reloads here, before anybody signs
+    // in with code the server no longer matches. See BuildFreshnessService.
+    void this.freshness.reloadIfStale();
   }
 
   ngOnDestroy(): void {
@@ -124,7 +136,7 @@ export class LoginComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.loading = true;
+    this.loading.set(true);
 
     this.authApi
       .signIn({
@@ -139,12 +151,12 @@ export class LoginComponent implements OnInit, OnDestroy {
       })
       .subscribe({
         next: (response) => {
-          this.loading = false;
+          this.loading.set(false);
           this.password = '';
           this.route4Way(response);
         },
         error: (error: Error) => {
-          this.loading = false;
+          this.loading.set(false);
           this.password = '';
           this.errorMessage.set(error.message);
           this.toast.show('Sign-in failed', error.message, 'error');
@@ -168,17 +180,25 @@ export class LoginComponent implements OnInit, OnDestroy {
           return;
         }
 
+        // THE WHOLE CHALLENGE, as the server issued it. The verification screen counts down to
+        // its expiry and offers its other methods and recovery codes; built from the three flat
+        // fields alone, it had no expiry and treated every code as already expired.
         const challenge: MfaChallengeResponse = {
+          ...response.mfaChallenge,
           challengeToken: response.challengeToken,
-          methodType: response.mfaMethodType,
-          maskedDestination: response.mfaMaskedDestination ?? null,
+          methodType: response.mfaChallenge?.methodType ?? response.mfaMethodType,
+          maskedDestination: response.mfaChallenge?.maskedDestination ?? response.mfaMaskedDestination ?? null,
         };
 
         // The returnUrl rides in the handoff, not in the URL — see the note on MfaHandoff.
         // Dropping it here is what used to send every second-factor sign-in to the dashboard
         // regardless of the page they had actually asked for.
         this.handoff.store(challenge, this.rememberDevice, this.returnUrl);
-        void this.router.navigate([destination]);
+        void this.router.navigate([destination]).then((arrived) => {
+          if (!arrived) {
+            this.errorMessage.set('The verification step could not be opened. Try signing in again.');
+          }
+        });
         return;
       }
 

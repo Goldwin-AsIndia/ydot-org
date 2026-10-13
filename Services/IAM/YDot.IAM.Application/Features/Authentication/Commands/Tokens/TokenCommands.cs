@@ -127,7 +127,7 @@ public sealed class TokenCommandHandler(
 
             return Result.Success(new OutcomeResponse(
                 currentUser.UserId, "SignedOut", 0,
-                $"Signed out of {revoked} session(s).", []));
+                $"Signed out of {Wording.Count(revoked, "session")}.", []));
         }
 
         var sessionId = currentUser.SessionId.Value;

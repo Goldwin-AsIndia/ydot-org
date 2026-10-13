@@ -1,3 +1,4 @@
+import { countOf } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -698,7 +699,7 @@ export class DonorIdentityVerificationComponent {
 
           this.codeError.set(
             updated.remainingAttempts > 0
-              ? `That code did not match. ${updated.remainingAttempts} attempt(s) left.`
+              ? `That code did not match. ${countOf(updated.remainingAttempts, 'attempt')} left.`
               : 'That code did not match and no attempts remain. Send a new challenge.',
           );
           this.uiState.set('ready');

@@ -204,7 +204,7 @@ export function buildDashboardMock() {
       attributionRate: 68.4,
       byChannel: [
         { key: 'wa', label: 'WhatsApp', amount: 5_800_000, donationCount: 392, sharePercentage: 31 },
-        { key: 'em', label: 'Email', amount: 3_400_000, donationCount: 241, sharePercentage: 18 },
+        { key: 'em', label: 'E-mail', amount: 3_400_000, donationCount: 241, sharePercentage: 18 },
         { key: 'qr', label: 'QR poster', amount: 2_250_000, donationCount: 188, sharePercentage: 12 },
         { key: 'web', label: 'Website', amount: 1_300_000, donationCount: 96, sharePercentage: 7 },
       ],

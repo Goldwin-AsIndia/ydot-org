@@ -70,7 +70,18 @@ public sealed record SignInResponse(
     int? AttemptsRemaining,
 
     int? LockoutMinutesRemaining,
-    string? Message);
+    string? Message)
+{
+    /// <summary>
+    /// The whole second-factor challenge, when <see cref="Status"/> is MfaRequired.
+    ///
+    /// THE VERIFICATION SCREEN NEEDS ALL OF IT: when the code expires (its countdown), the other
+    /// enrolled methods, whether a recovery code is accepted and the sentence to show. The three
+    /// flat fields above carried only the token, method and destination, so the screen counted
+    /// every challenge as already expired.
+    /// </summary>
+    public MfaChallengeResponse? MfaChallenge { get; init; }
+}
 
 /// <summary>The four branches a sign-in can take.</summary>
 public enum SignInResultStatus

@@ -558,7 +558,7 @@
           <div><dt>Current state</dt><dd>{{ stateLabel() }}</dd></div>
           <div><dt>Resulting state</dt><dd>{{ pastTenseFor[action] }} → {{ nextStateFor[action] === 'reopened' ? 'Reopened' : (nextStateFor[action] | titlecase) }}</dd></div>
           <div><dt>Effective permission</dt><dd>{{ role() === 'tenant-admin' ? 'Tenant admin — full authority in this organisation' : role() === 'approver' ? 'Approver — views, edits and decides' : role() === 'initiator' ? 'Initiator — raises and works, approves nothing' : 'No authority on this case' }}</dd></div>
-          <div><dt>Evidence on file</dt><dd>{{ caseData().evidence.length }} item(s) attached</dd></div>
+          <div><dt>Evidence on file</dt><dd>{{ caseData().evidence.length | count: 'item' }} attached</dd></div>
         </dl>
 
         @if (actionCopy[action].risky) {

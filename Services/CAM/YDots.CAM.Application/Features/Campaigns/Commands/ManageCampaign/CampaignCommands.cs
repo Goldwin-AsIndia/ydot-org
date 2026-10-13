@@ -227,7 +227,8 @@ public sealed class CampaignCommandHandler(
                 campaign.Id, trackingAssetCount);
 
             return Result.Failure<OutcomeResponse>(Error.InUse(
-                $"This campaign has {trackingAssetCount} tracking asset(s). Remove them first."));
+                $"This campaign has {Wording.Count(trackingAssetCount, "tracking asset")}. "
+                + $"Remove {Wording.Verb(trackingAssetCount, "it", "them")} first."));
         }
 
         var snapshot = new { campaign.Code, campaign.Name };

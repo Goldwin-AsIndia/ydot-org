@@ -113,11 +113,22 @@ export class MfaChallengeComponent implements OnInit, OnDestroy {
   readonly canSubmitCode = computed(() => this.code().length === 6 && !this.submitting());
   readonly canSubmitRecovery = computed(() => this.recoveryCode().trim().length >= 8 && !this.submitting());
 
-  readonly alternatives = computed<MfaMethodOptionResponse[]>(
-    () => this.challenge()?.availableMethods ?? []);
+  /**
+   * The OTHER enrolled methods. The server lists every usable one, including the method this
+   * challenge already uses; offering "Use e-mail" while the e-mailed code is on screen made no sense.
+   */
+  readonly alternatives = computed<MfaMethodOptionResponse[]>(() => {
+    const current = this.challenge();
+    return (current?.availableMethods ?? []).filter((method) =>
+      method.methodType !== current?.methodType
+      || (method.maskedDestination ?? null) !== (current?.maskedDestination ?? null));
+  });
   readonly recoveryAvailable = computed(() => this.challenge()?.recoveryCodeAccepted ?? false);
   readonly attemptsLeft = computed(() => this.challenge()?.attemptsRemaining ?? 0);
   readonly expired = computed(() => this.secondsRemaining() <= 0);
+
+  readonly attemptsLabel = computed(() =>
+    this.attemptsLeft() === 1 ? '1 attempt remaining.' : `${this.attemptsLeft()} attempts remaining.`);
 
   readonly countdownLabel = computed(() => {
     const total = this.secondsRemaining();

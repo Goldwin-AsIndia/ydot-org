@@ -68,6 +68,35 @@ public sealed class TenantHostDirectory(PaymentDbContext context, ILogger<Tenant
         }
     }
 
+    public async Task<string?> GetOrganisationNameAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        if (tenantId == Guid.Empty)
+        {
+            return null;
+        }
+
+        const string Sql = "SELECT name FROM iam_tenants WHERE id = @tenant_id LIMIT 1";
+
+        try
+        {
+            await using var command = await CreateCommandAsync(Sql, cancellationToken);
+
+            command.Parameters.Add(new NpgsqlParameter("tenant_id", NpgsqlDbType.Uuid) { Value = tenantId });
+
+            var name = await command.ExecuteScalarAsync(cancellationToken) as string;
+
+            return string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+        }
+        catch (NpgsqlException exception)
+        {
+            // NOT RETHROWN, for the reason GetPrimaryHostAsync gives: the receipt matters more
+            // than the line naming its issuer.
+            logger.LogError(exception, "Could not read the name of organisation {TenantId}.", tenantId);
+
+            return null;
+        }
+    }
+
     private async Task<NpgsqlCommand> CreateCommandAsync(string sql, CancellationToken cancellationToken)
     {
         var connection = (NpgsqlConnection)context.Database.GetDbConnection();

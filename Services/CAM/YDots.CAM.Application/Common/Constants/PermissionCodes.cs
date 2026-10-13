@@ -160,19 +160,19 @@ public static class PermissionCodes
     /// <summary>
     /// Viewing the WhatsApp screens: jobs, results, templates, recipients, delivery report.
     ///
-    /// AN ALIAS OF <see cref="CampaignsView"/>, not a new code. WhatsApp outreach exists to bring
-    /// donors to campaigns, so whoever may see campaigns may see it - and an alias needs no IAM
-    /// change, no reseed and no new role grant. Give the screens their own codes later by
-    /// changing these two constants AND adding the codes to IAM's ModulePermissionCatalogue.
+    /// A CODE OF ITS OWN, no longer an alias of <see cref="CampaignsView"/>. The Communications
+    /// menu is configured for the Organisation Admin only, and an alias let every campaign role
+    /// open the screens by typing their address. IAM seeds this code into no working role
+    /// (<c>RoleAccessProfiles.AdministratorOnlyCodes</c>); the Organisation Admin holds it by
+    /// GrantsAll and can grant it to another role in Roles &amp; Permissions.
     /// </summary>
-    public const string WhatsAppView = CampaignsView;
+    public const string WhatsAppView = "cam.whatsapp.view";
 
     /// <summary>
-    /// Uploading a number list, sending a broadcast, retrying or cancelling a job. An alias of
-    /// <see cref="CampaignsCreate"/>: starting outreach is a CREATE act, so it lands on the
-    /// Executive side of the Executive / Manager split, and the Organisation Admin holds it too.
+    /// Uploading a number list, sending a broadcast, retrying or cancelling a job - anything that
+    /// can cost money. Seeded like <see cref="WhatsAppView"/>: the Organisation Admin only.
     /// </summary>
-    public const string WhatsAppOperate = CampaignsCreate;
+    public const string WhatsAppOperate = "cam.whatsapp.operate";
 
     // ---- Reference data -----------------------------------------------------------------------
     public const string ReferenceView = "cam.reference.view";
@@ -281,6 +281,9 @@ public static class PermissionCodes
         (AttributionView, PermissionAction.View),
         (AttributionExport, PermissionAction.Export),
         (AttributionRequestCorrection, PermissionAction.Submit),
+
+        (WhatsAppView, PermissionAction.View),
+        (WhatsAppOperate, PermissionAction.Operate),
 
         (ReferenceView, PermissionAction.View),
         (ReferenceManage, PermissionAction.Operate)

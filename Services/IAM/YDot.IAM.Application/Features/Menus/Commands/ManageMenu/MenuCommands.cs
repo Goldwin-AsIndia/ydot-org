@@ -9,6 +9,7 @@ using YDot.IAM.Application.Features.Menus.DTOs;
 using YDot.IAM.Domain.Entities;
 using YDot.IAM.Domain.Enums;
 using YDot.IAM.Domain.ValueObjects;
+using YDot.IAM.Application.Common.Services;
 
 namespace YDot.IAM.Application.Features.Menus.Commands.ManageMenu;
 
@@ -538,7 +539,7 @@ public sealed class MenuCommandHandler(
         {
             logger.LogWarning("Menu definition deletion rejected because the node has children. MenuId: {MenuId}, Children: {Children}.", command.MenuId, children);
             return Result.Failure<OutcomeResponse>(Error.Validation(
-                $"{definition.Name} has {children} item(s) beneath it.",
+                $"{definition.Name} has {Wording.Count(children, "item")} beneath it.",
                 [new ValidationError(nameof(command.MenuId),
                     "Remove or re-parent the items underneath it first.")]));
         }
@@ -572,8 +573,8 @@ public sealed class MenuCommandHandler(
         {
             logger.LogWarning("Menu definition deletion rejected because the node is in use. MenuId: {MenuId}, References: {References}.", command.MenuId, references);
             return Result.Failure<OutcomeResponse>(Error.Validation(
-                $"{definition.Name} is in use: {references} organisation setting(s) and role "
-                + "mapping(s) refer to it.",
+                $"{definition.Name} is in use: {references} organisation settings and role "
+                + "mappings refer to it.",
                 [new ValidationError(nameof(command.MenuId),
                     "Retire it instead - that hides it everywhere and can be undone.")]));
         }
@@ -763,9 +764,9 @@ public sealed class MenuCommandHandler(
         return Result.Success(new OutcomeResponse(
             tenantId, tenant.Status.ToString(), tenant.Version,
             heldBackByParent == 0
-                ? $"Navigation saved. {changed} item(s) configured."
-                : $"Navigation saved. {changed} item(s) configured; {heldBackByParent} stayed off "
-                  + "because the section above them is off.",
+                ? $"Navigation saved. {Wording.Count(changed, "item")} configured."
+                : $"Navigation saved. {Wording.Count(changed, "item")} configured; {heldBackByParent} stayed off "
+                  + $"because the section above {Wording.Verb(heldBackByParent, "it", "them")} is off.",
             []));
     }
 
@@ -965,7 +966,7 @@ public sealed class MenuCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var message = $"Navigation mapped. {mapped} item(s) visible to this role, {hidden} hidden.";
+        var message = $"Navigation mapped. {Wording.Count(mapped, "item")} visible to this role, {hidden} hidden.";
 
         if (skipped > 0)
         {

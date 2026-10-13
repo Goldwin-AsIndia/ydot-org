@@ -67,7 +67,10 @@ public static class AuthenticationMappingConfig
             PasswordResetToken: null,
             AttemptsRemaining: challenge.AttemptsRemaining,
             LockoutMinutesRemaining: null,
-            Message: "Enter the verification code to continue.");
+            Message: "Enter the verification code to continue.")
+        {
+            MfaChallenge = challenge
+        };
 
     /// <summary>
     /// SuperAdmin authenticated but has not chosen an Organisation.

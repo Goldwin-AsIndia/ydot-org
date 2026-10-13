@@ -54,15 +54,10 @@ public static class TenantRoleDefinitions
     /// <summary>The Campaigns menu: All Campaigns and Tracking Asset Manager.</summary>
     private const string CampaignMenus = MenuCatalogue.Campaigns;
 
-    /// <summary>
-    /// The Communications menu: WhatsApp Messages and Number Verification.
-    ///
-    /// THE CAMPAIGN TEAM'S, because the two screens are the campaign team's outreach and read the
-    /// Campaign service (<c>cam.campaigns.view</c>), which only the campaign roles and the
-    /// Organisation Admin hold. They are the same people the sidebar used to add the two
-    /// browser-made links for, before the screens became catalogue nodes.
-    /// </summary>
-    private const string CommunicationMenus = MenuCatalogue.Communications;
+    // THE COMMUNICATIONS MENU (WhatsApp Messages, Number Verification) IS IN NO SCOPE BELOW. Only
+    // the Organisation Admin is configured for it, and that role's null scope already covers the
+    // whole catalogue. The campaign roles used to carry it; leaving it out of their scope makes the
+    // seeder hide their seeded rows on the next start.
 
     /// <summary>
     /// Access Requests, under Users &amp; Access: where a member of staff asks for
@@ -123,7 +118,7 @@ public static class TenantRoleDefinitions
             Priority: 80,
             PermissionCodes: RoleAccessProfiles.CampaignManager,
             IsPrivileged: true,
-            MenuScope: [CampaignMenus, CommunicationMenus, AccessRequestMenus]),
+            MenuScope: [CampaignMenus, AccessRequestMenus]),
 
         // ============ FUNDRAISING MANAGER ===================================================
         new(
@@ -150,7 +145,7 @@ public static class TenantRoleDefinitions
             Priority: 60,
             PermissionCodes: RoleAccessProfiles.CampaignExecutive,
             IsDefault: true,
-            MenuScope: [CampaignMenus, CommunicationMenus, AccessRequestMenus]),
+            MenuScope: [CampaignMenus, AccessRequestMenus]),
 
         // ============ FUNDRAISER EXECUTIVE ==================================================
         new(

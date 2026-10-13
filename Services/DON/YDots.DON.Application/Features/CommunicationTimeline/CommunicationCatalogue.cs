@@ -18,7 +18,7 @@ public static class CommunicationCatalogue
     public static IReadOnlyList<LookupItem> InteractionTypes { get; } =
     [
         new("Call", "Call", "Calls"),
-        new("Email", "Email", "Emails"),
+        new("Email", "E-mail", "E-mails"),
         new("Sms", "SMS", "SMS"),
         new("WhatsApp", "WhatsApp", "WhatsApp"),
         new("Meeting", "Meeting", "Meetings"),
