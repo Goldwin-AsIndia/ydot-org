@@ -52,6 +52,42 @@ public sealed class PaymentEventReadService(
             .Take(filter.PageSize)
             .ToListAsync(cancellationToken);
 
+        var items = await ToListItemsAsync(rows, cancellationToken);
+
+        return new PagedResponse<PaymentEventListItemResponse>(
+            items, totalCount, filter.Page, filter.PageSize);
+    }
+
+    public async Task<(IReadOnlyList<PaymentEventListItemResponse> Items, int TotalCount)> ListNewestAsync(
+        PaymentEventSearchFilter filter, int take, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        var query = ApplyDonorScope(
+            ApplyFilter(
+                context.PaymentEvents
+                    .AsNoTracking()
+                    .Include(paymentEvent => paymentEvent.PaymentAttempt)
+                        .ThenInclude(attempt => attempt!.DonationIntent),
+                filter),
+            currentUser.Scope);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        if (take <= 0 || totalCount == 0)
+        {
+            return ([], totalCount);
+        }
+
+        var rows = await ApplySort(query, null).Take(take).ToListAsync(cancellationToken);
+
+        return (await ToListItemsAsync(rows, cancellationToken), totalCount);
+    }
+
+    /// <summary>The rows as list items, with campaign names read once for all of them.</summary>
+    private async Task<List<PaymentEventListItemResponse>> ToListItemsAsync(
+        List<PaymentEvent> rows, CancellationToken cancellationToken)
+    {
         // ONE LOOKUP FOR THE WHOLE PAGE, not one per row. Campaign names live in CAM, so naming
         // them row by row would be a request per row on every page of the queue.
         var campaignIds = rows
@@ -73,10 +109,7 @@ public sealed class PaymentEventReadService(
 
         var canSeeDonor = currentUser.HasPermission(PermissionCodes.DonationsViewSensitiveDonor);
 
-        var items = rows.Select(row => ToListItem(row, campaignNames, canSeeDonor)).ToList();
-
-        return new PagedResponse<PaymentEventListItemResponse>(
-            items, totalCount, filter.Page, filter.PageSize);
+        return [.. rows.Select(row => ToListItem(row, campaignNames, canSeeDonor))];
     }
 
     public async Task<PaymentEventDetailResponse?> GetDetailAsync(

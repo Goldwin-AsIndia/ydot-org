@@ -61,6 +61,7 @@ public static class DependencyInjection
         // ---- Payment processing: sections 15 to 18, 23 ------------------------------------------
         services.AddScoped<PaymentProcessingCommandHandler>();
         services.AddScoped<PaymentEventQueryHandler>();
+        services.AddScoped<PaymentActivityQueryHandler>();
 
         // ---- Receipts: section 24 -------------------------------------------------------------------
         services.AddScoped<ReceiptCommandHandler>();

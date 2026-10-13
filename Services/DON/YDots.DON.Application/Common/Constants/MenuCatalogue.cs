@@ -4,7 +4,7 @@ namespace YDots.DON.Application.Common.Constants;
 public sealed record MenuEntry(string ScreenId, string Label, string Route, string ViewPermission);
 
 /// <summary>
-/// The approved Donors menu, "Relationships -> Leads and Donors" (UI section 2).
+/// The approved Donors &amp; Leads menu (UI section 2).
 ///
 /// This is what makes a role-based menu possible without a second permission model. The UI calls
 /// GET /api/v1/donors/menu once after sign-in, gets back only the entries the caller's token
@@ -26,16 +26,21 @@ public sealed record MenuEntry(string ScreenId, string Label, string Route, stri
 /// </summary>
 public static class MenuCatalogue
 {
-    public const string MenuGroup = "Relationships -> Leads and Donors";
+    /// <summary>
+    /// The menu's name, and below it each primary entry's, AS THE SIDEBAR SHOWS THEM. The sidebar
+    /// is built by IAM's MenuCatalogue, so the words here follow that one: Donors &amp; Leads, All
+    /// Donors, My Donors, Follow-ups.
+    /// </summary>
+    public const string MenuGroup = "Donors & Leads";
 
     public static readonly IReadOnlyList<MenuEntry> Entries =
     [
-        // ---- The four primary menus ----------------------------------------------------------
-        new(ScreenIds.LeadWorkQueue, "Lead work queue", ScreenRoutes.LeadWorkQueue, PermissionCodes.LeadWorkQueueView),
-        new(ScreenIds.MyLeads, "My leads", ScreenRoutes.MyLeads, PermissionCodes.LeadWorkQueueView),
-        new(ScreenIds.FollowUpQueue, "Follow-up queue", ScreenRoutes.FollowUpQueue, PermissionCodes.FollowUpPlannerView),
-        new(ScreenIds.DonorList, "Donor list", ScreenRoutes.DonorList, PermissionCodes.DonorsView),
-        new(ScreenIds.MyDonorList, "My donor list", ScreenRoutes.MyDonorList, PermissionCodes.DonorsView),
+        // ---- The primary menus ---------------------------------------------------------------
+        new(ScreenIds.LeadWorkQueue, "Lead Work Queue", ScreenRoutes.LeadWorkQueue, PermissionCodes.LeadWorkQueueView),
+        new(ScreenIds.MyLeads, "My Leads", ScreenRoutes.MyLeads, PermissionCodes.LeadWorkQueueView),
+        new(ScreenIds.FollowUpQueue, "Follow-ups", ScreenRoutes.FollowUpQueue, PermissionCodes.FollowUpPlannerView),
+        new(ScreenIds.DonorList, "All Donors", ScreenRoutes.DonorList, PermissionCodes.DonorsView),
+        new(ScreenIds.MyDonorList, "My Donors", ScreenRoutes.MyDonorList, PermissionCodes.DonorsView),
 
         // ---- Reached from the four above -----------------------------------------------------
         new(ScreenIds.LeadCapture, "Lead capture", ScreenRoutes.LeadCapture, PermissionCodes.LeadCaptureView),

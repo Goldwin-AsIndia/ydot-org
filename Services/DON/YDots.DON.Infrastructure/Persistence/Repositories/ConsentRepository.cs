@@ -134,5 +134,59 @@ public sealed class ConsentRepository(DonDbContext context) : IConsentRepository
             .OrderBy(consent => consent.Channel)
             .ToListAsync(cancellationToken);
 
+    /// <summary>The same "current" rule as GetCurrentForDonorAsync, applied per donor after one read.</summary>
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Consent>>> GetCurrentForDonorsAsync(
+        IReadOnlyCollection<Guid> donorIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (donorIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<Consent>>();
+        }
+
+        var ids = donorIds.ToList();
+
+        var rows = await context.Consents
+            .AsNoTracking()
+            .Where(consent => consent.DonorId != null
+                              && ids.Contains(consent.DonorId.Value)
+                              && consent.Status != ConsentStatus.Superseded)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(consent => consent.DonorId!.Value)
+            .ToDictionary(
+                donor => donor.Key,
+                donor => (IReadOnlyList<Consent>)
+                [
+                    .. donor
+                        .GroupBy(consent => consent.Channel)
+                        .Select(channel => channel.OrderByDescending(consent => consent.EffectiveAtUtc).First())
+                        .OrderBy(consent => consent.Channel)
+                ]);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Consent>>> GetForLeadsAsync(
+        IReadOnlyCollection<Guid> leadIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (leadIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<Consent>>();
+        }
+
+        var ids = leadIds.ToList();
+
+        var rows = await context.Consents
+            .AsNoTracking()
+            .Where(consent => consent.LeadId != null && ids.Contains(consent.LeadId.Value))
+            .OrderBy(consent => consent.Channel)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(consent => consent.LeadId!.Value)
+            .ToDictionary(lead => lead.Key, lead => (IReadOnlyList<Consent>)[.. lead]);
+    }
+
     public void Add(Consent consent) => context.Consents.Add(consent);
 }

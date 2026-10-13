@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 using FluentValidation;
+using Microsoft.Extensions.Options;
+using YDot.PAY.Application.Common.Settings;
 using YDot.PAY.Application.Features.Donations.DTOs;
 
 namespace YDot.PAY.Application.Features.Donations.Validators;
@@ -26,8 +28,10 @@ public sealed class CreateDonationIntentRequestValidator : AbstractValidator<Cre
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
         TimeSpan.FromMilliseconds(100));
 
-    public CreateDonationIntentRequestValidator()
+    public CreateDonationIntentRequestValidator(IOptions<PaymentSettings> paymentOptions)
     {
+        var maximum = paymentOptions.Value.MaximumDonationAmount;
+
         RuleFor(request => request.DonorName)
             .NotEmpty().WithMessage("Please enter your name.")
             .MaximumLength(200);
@@ -42,7 +46,7 @@ public sealed class CreateDonationIntentRequestValidator : AbstractValidator<Cre
         // and a gateway asked to take zero returns an error the donor cannot act on.
         RuleFor(request => request.Amount)
             .GreaterThan(0).WithMessage("Please enter an amount greater than zero.")
-            .LessThanOrEqualTo(10_000_000)
+            .LessThanOrEqualTo(maximum)
             .WithMessage("That amount is unusually large. Please contact the organisation directly.");
 
         RuleFor(request => request.CurrencyCode)

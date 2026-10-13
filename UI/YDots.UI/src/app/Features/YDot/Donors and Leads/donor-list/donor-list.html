@@ -49,7 +49,7 @@
               @else { <span class="dn-fig-v">{{ error() ? '—' : donorsOnRecord() }}</span> }
               <span class="dn-fig-s">
                 @for (seg of statusLead(); track seg.status; let last = $last) {
-                  <b>{{ seg.count }}</b> {{ seg.status.toLowerCase() }}@if (!last || statusOther()) {<span class="dn-sep" aria-hidden="true"></span>}
+                  <b>{{ seg.count }}</b> {{ seg.label.toLowerCase() }}@if (!last || statusOther()) {<span class="dn-sep" aria-hidden="true"></span>}
                 } @empty { None recorded yet }
                 @if (statusOther()) { <b>{{ statusOther() }}</b> other }
               </span>
@@ -117,7 +117,7 @@
             </button>
             @for (seg of statusMix(); track seg.status) {
               <button type="button" class="dn-tab-b" [attr.data-status]="seg.status" [class.is-on]="statusFilter() === seg.status" [attr.aria-current]="statusFilter() === seg.status ? 'true' : null" (click)="selectStatus(seg.status)">
-                <span>{{ seg.status }}</span><span class="dn-tab-n">{{ seg.count }}</span>
+                <span>{{ seg.label }}</span><span class="dn-tab-n">{{ seg.count }}</span>
               </button>
             }
           </nav>
@@ -136,11 +136,9 @@
             <label class="btn btn-outline-secondary btn-sm " title="Sort donors by this column">
               <span class="dn-select-cap">Sort</span>
               <select [value]="sortColumn()" class="bghide" (change)="setSortColumn($any($event.target).value)" aria-label="Sort by">
-                <option value="lastDonationDate">Last gift</option>
-                <option value="lifetimeGiving">Lifetime giving</option>
-                <option value="name">Donor name</option>
-                <option value="campaign">Campaign</option>
-                <option value="owner">Owner</option>
+                @for (option of sortOptions(); track option.value) {
+                  <option [value]="option.value" [selected]="option.value === sortColumn()">{{ option.label }}</option>
+                }
               </select>
             </label>
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="toggleSort(sortColumn())" [title]="sortDirection() === 'asc' ? 'Ascending, click to reverse' : 'Descending, click to reverse'" aria-label="Reverse sort direction">
@@ -165,7 +163,7 @@
                 }
                 <select id="dl-owner-select" [value]="ownerFilter()" (change)="setFilter(ownerFilter, $any($event.target).value)">
                   <option value="all">Every owner</option>
-                  @for (owner of searchDropdownOptions(ownerOptions(), ownerOptionSearch(), ownerFilter()); track owner) { <option [value]="owner">{{ owner }}</option> }
+                  @for (owner of searchDropdownOptions(ownerOptions(), ownerOptionSearch(), ownerFilter()); track owner.value) { <option [value]="owner.value" [selected]="owner.value === ownerFilter()">{{ owner.label }}</option> }
                 </select>
               </div>
               <div class="dn-field">
@@ -176,17 +174,15 @@
                 }
                 <select id="dl-campaign-select" [value]="campaignFilter()" (change)="setFilter(campaignFilter, $any($event.target).value)">
                   <option value="all">Every campaign</option>
-                  @for (campaign of searchDropdownOptions(campaignOptions(), campaignOptionSearch(), campaignFilter()); track campaign) { <option [value]="campaign">{{ campaign }}</option> }
+                  @for (campaign of searchDropdownOptions(campaignOptions(), campaignOptionSearch(), campaignFilter()); track campaign.value) { <option [value]="campaign.value" [selected]="campaign.value === campaignFilter()">{{ campaign.label }}</option> }
                 </select>
               </div>
               <div class="dn-field">
                 <label for="dl-period-select">Last gift</label>
                 <select id="dl-period-select" [value]="giftPeriod()" (change)="setGiftPeriod($any($event.target).value)">
-                  <option value="all">Any time</option>
-                  <option value="30">In the last 30 days</option>
-                  <option value="90">In the last 90 days</option>
-                  <option value="365">In the last 12 months</option>
-                  <option value="never">Not given yet</option>
+                  @for (period of giftPeriodOptions(); track period.value) {
+                    <option [value]="period.value" [selected]="period.value === giftPeriod()">{{ period.label }}</option>
+                  }
                 </select>
               </div>
             </div>
@@ -194,24 +190,24 @@
               <div class="dn-facet">
                 <span class="dn-facet-t">Follow-up</span>
                 <div class="dn-opts">
-                  @for (opt of followUpOptions(); track opt) {
-                    <button type="button" class="dn-opt" [class.is-on]="followUpFilter() === opt" [attr.aria-pressed]="followUpFilter() === opt" (click)="setFilter(followUpFilter, followUpFilter() === opt ? 'all' : opt)">{{ opt === 'None' ? 'Nothing planned' : opt }}</button>
+                  @for (opt of followUpOptions(); track opt.value) {
+                    <button type="button" class="dn-opt" [class.is-on]="followUpFilter() === opt.value" [attr.aria-pressed]="followUpFilter() === opt.value" [title]="opt.description ?? ''" (click)="setFilter(followUpFilter, followUpFilter() === opt.value ? 'all' : opt.value)">{{ opt.label }}</button>
                   }
                 </div>
               </div>
               <div class="dn-facet">
                 <span class="dn-facet-t">Identity</span>
                 <div class="dn-opts">
-                  @for (opt of verificationOptions(); track opt) {
-                    <button type="button" class="dn-opt" [class.is-on]="verificationFilter() === opt" [attr.aria-pressed]="verificationFilter() === opt" (click)="setFilter(verificationFilter, verificationFilter() === opt ? 'all' : opt)">{{ opt }}</button>
+                  @for (opt of verificationOptions(); track opt.value) {
+                    <button type="button" class="dn-opt" [class.is-on]="verificationFilter() === opt.value" [attr.aria-pressed]="verificationFilter() === opt.value" [title]="opt.description ?? ''" (click)="setFilter(verificationFilter, verificationFilter() === opt.value ? 'all' : opt.value)">{{ opt.label }}</button>
                   }
                 </div>
               </div>
               <div class="dn-facet">
                 <span class="dn-facet-t">Consent</span>
                 <div class="dn-opts">
-                  @for (opt of consentOptions(); track opt) {
-                    <button type="button" class="dn-opt" [class.is-on]="consentFilter() === opt" [attr.aria-pressed]="consentFilter() === opt" (click)="setFilter(consentFilter, consentFilter() === opt ? 'all' : opt)">{{ opt }}</button>
+                  @for (opt of consentOptions(); track opt.value) {
+                    <button type="button" class="dn-opt" [class.is-on]="consentFilter() === opt.value" [attr.aria-pressed]="consentFilter() === opt.value" [title]="opt.description ?? ''" (click)="setFilter(consentFilter, consentFilter() === opt.value ? 'all' : opt.value)">{{ opt.label }}</button>
                   }
                 </div>
               </div>
@@ -267,8 +263,8 @@
             <button type="button" class="dn-col" [attr.data-sort]="sortIndicator('name')" (click)="toggleSort('name')">Donor</button>
             <span class="dn-col dn-col--contact">Contact</span>
             <button type="button" class="dn-col" [attr.data-sort]="sortIndicator('campaign')" (click)="toggleSort('campaign')">Campaign &amp; owner</button>
-            <button type="button" class="dn-col dn-col--num" [attr.data-sort]="sortIndicator('lastDonationDate')" (click)="toggleSort('lastDonationDate')">Last gift</button>
-            <button type="button" class="dn-col dn-col--num" [attr.data-sort]="sortIndicator('lifetimeGiving')" (click)="toggleSort('lifetimeGiving')">Lifetime</button>
+            <button type="button" class="dn-col dn-col--num" [attr.data-sort]="sortIndicator('lastGift')" (click)="toggleSort('lastGift')">Last gift</button>
+            <button type="button" class="dn-col dn-col--num" [attr.data-sort]="sortIndicator('lifetime')" (click)="toggleSort('lifetime')">Lifetime</button>
             <span class="dn-col">Standing</span>
             <span class="dn-col dn-col--act">Action</span>
           </div>
@@ -285,7 +281,7 @@
                     <button type="button" class="dn-name" (click)="openDonor360(donor, $event)" title="Open Donor 360"><span>{{ donor.name }}</span></button>
                     <span class="dn-who-meta">
                       <span class="dn-code">{{ donor.reference || donor.donorId }}</span>
-                      <span class="dn-token" [attr.data-status]="statusOf(donor)">{{ statusOf(donor) }}</span>
+                      <span class="dn-token" [attr.data-status]="statusOf(donor)">{{ statusLabel(donor.status) }}</span>
                     </span>
                     <span class="dn-alt-contact">{{ donor.mobile || donor.email || 'No contact on file' }}</span>
                   </div>
@@ -328,7 +324,7 @@
                 <ul class="dn-standing" role="list">
                   <li class="dn-st" [attr.data-fu]="donor.followUpStatus || 'None'">
                     <i [class]="donor.followUpStatus === 'Overdue' ? 'ri-alarm-warning-line' : (donor.followUpStatus && donor.followUpStatus !== 'None') ? 'ri-calendar-event-line' : 'ri-calendar-line'" aria-hidden="true"></i>
-                    <span>{{ !donor.followUpStatus || donor.followUpStatus === 'None' ? 'Nothing planned' : 'Follow-up ' + donor.followUpStatus.toLowerCase() }}</span>
+                    <span>{{ hasFollowUp(donor) ? 'Follow-up ' + followUpLabel(donor).toLowerCase() : followUpLabel(donor) }}</span>
                   </li>
                   <li class="dn-st" [attr.data-idv]="verificationLabel(donor)">
                     <i [class]="donor.verificationStatus === 'Verified' ? 'ri-shield-check-line' : donor.verificationStatus === 'Pending' ? 'ri-time-line' : 'ri-shield-line'" aria-hidden="true"></i>
@@ -377,7 +373,7 @@
                     <button type="button" class="dn-name" (click)="openDonor360(donor, $event)" title="Open Donor 360"><span>{{ donor.name }}</span></button>
                     <span class="dn-who-meta">
                       <span class="dn-code">{{ donor.reference || donor.donorId }}</span>
-                      <span class="dn-token" [attr.data-status]="statusOf(donor)">{{ statusOf(donor) }}</span>
+                      <span class="dn-token" [attr.data-status]="statusOf(donor)">{{ statusLabel(donor.status) }}</span>
                     </span>
                   </div>
                   <label class="dn-check" (click)="$event.stopPropagation()">
@@ -402,7 +398,7 @@
                 </div>
 
                 <ul class="dn-standing dn-standing--row" role="list">
-                  <li class="dn-st" [attr.data-fu]="donor.followUpStatus || 'None'"><i class="ri-calendar-event-line" aria-hidden="true"></i><span>{{ !donor.followUpStatus || donor.followUpStatus === 'None' ? 'Nothing planned' : donor.followUpStatus }}</span></li>
+                  <li class="dn-st" [attr.data-fu]="donor.followUpStatus || 'None'"><i class="ri-calendar-event-line" aria-hidden="true"></i><span>{{ followUpLabel(donor) }}</span></li>
                   <li class="dn-st" [attr.data-idv]="verificationLabel(donor)"><i class="ri-shield-user-line" aria-hidden="true"></i><span>{{ verificationLabel(donor) }}</span></li>
                   <li class="dn-st" [attr.data-consent]="consentLabel(donor)" [class.is-review]="donor.consentReviewRequired"><i class="ri-shield-keyhole-line" aria-hidden="true"></i><span>{{ donor.consentReviewRequired ? 'Review' : consentLabel(donor) }}</span></li>
                 </ul>
@@ -504,7 +500,7 @@
           <span class="dn-mono dn-mono--lg" [attr.data-status]="statusOf(donor)" aria-hidden="true">{{ initials(donor.name) }}</span>
           <div class="dn-sheet-who">
             <p class="dl-drawer__name">{{ donor.name }}</p>
-            <p class="dl-drawer__id"><span class="dn-code">{{ donor.reference || donor.donorId }}</span><span class="dn-token" [attr.data-status]="statusOf(donor)">{{ statusOf(donor) }}</span></p>
+            <p class="dl-drawer__id"><span class="dn-code">{{ donor.reference || donor.donorId }}</span><span class="dn-token" [attr.data-status]="statusOf(donor)">{{ statusLabel(donor.status) }}</span></p>
           </div>
           <button type="button" class="btn btn-outline-secondary btn-sm dn-sheet-close" (click)="closePreview()" aria-label="Close" title="Close"><i class="ri-close-line" aria-hidden="true"></i></button>
         </div>
@@ -530,7 +526,7 @@
             <h3>Standing</h3>
             <div class="dn-sheet-st" [attr.data-fu]="donor.followUpStatus || 'None'">
               <i class="ri-calendar-event-line" aria-hidden="true"></i>
-              <div><b>{{ !donor.followUpStatus || donor.followUpStatus === 'None' ? 'No follow-up planned' : 'Follow-up ' + donor.followUpStatus.toLowerCase() }}</b><span>{{ followUpNote(donor) }}</span></div>
+              <div><b>{{ hasFollowUp(donor) ? 'Follow-up ' + followUpLabel(donor).toLowerCase() : followUpLabel(donor) }}</b><span>{{ followUpNote(donor) }}</span></div>
               @if (canPlanFollowUp) { <button type="button" class="dn-link" (click)="openFollowUpPlanner(donor, $event)">Plan</button> }
             </div>
             <div class="dn-sheet-st" [attr.data-idv]="verificationLabel(donor)">

@@ -183,18 +183,25 @@ public static class RoleMappingConfig
         _ => roleType.ToString()
     };
 
-    /// <summary>Readable module names for the permission matrix headings.</summary>
+    /// <summary>
+    /// Readable module names for the permission matrix headings.
+    ///
+    /// A MODULE THAT IS ONE SIDEBAR MENU TAKES THAT MENU'S NAME (MenuCatalogue), so a permission
+    /// heading and the screen it opens read the same: Donors &amp; Leads, Campaigns, Donations,
+    /// Master Data. IAM is two menus - Organisation and Users &amp; Access - so it keeps a name
+    /// of its own.
+    /// </summary>
     public static string DescribeModule(string moduleCode) => moduleCode switch
     {
         "IAM" => "Identity and Access",
         "PLATFORM" => "Platform",
-        "DON" => "Donors and Leads",
+        "DON" => "Donors & Leads",
         "CAM" => "Campaigns",
         "FIN" => "Finance",
-        "PAY" => "Donations and Payments",
+        "PAY" => "Donations",
         "COM" => "Communications",
         "INV" => "Inventory",
-        "GM" => "Global Masters",
+        "GM" => "Master Data",
         "CORE" => "Core",
         "UX" => "Workspace",
         _ => moduleCode

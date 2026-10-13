@@ -6,7 +6,6 @@ import { RccRefundCaseRecord } from '../Shared/models/refund-chargeback-case.mod
 import {
   DonationIntentListItem,
   DonationIntentSearchFilter,
-  PublicDonationFormConfig,
 } from '../Shared/models/payment.model';
 import {
   formatMoment,
@@ -64,95 +63,10 @@ export class DataService {
   // Public donation initiation and donation intents
   // =========================================================================================
 
-  /**
-   * The public donation form's presentation configuration.
-   *
-   * WHAT IS HERE AND WHAT IS DELIBERATELY NOT. The page copy, the currency list and the amount
-   * ceiling are PRESENTATION and belong on the client; they used to come from a JSON file for no
-   * reason other than that everything else did.
-   *
-   * THE CAMPAIGN LIST IS EMPTY, and that is the important change. A public donation page must not
-   * offer a stranger a list of campaigns to choose from - which charity's campaigns would it be?
-   * The campaign is resolved by the API from the tracking reference in the link the donor
-   * followed, and that resolution is also what decides which organisation the gift belongs to. A
-   * list here would have offered every organisation's campaigns to everybody.
-   *
-   * THE PERMISSIONS ARE ALL TRUE because a public donor has no account and no permissions to
-   * check. Whether they may actually donate is decided by the API from the link they arrived on -
-   * an inactive tracking asset or a closed campaign is refused there, where it cannot be bypassed.
-   */
-  getPublicDonationInitiationData(): Observable<PublicDonationFormConfig> {
-    return of({
-      // THE DOCUMENT'S OWN WORDING, and it has to be, because this overwrites the component's
-      // signals on load. Fig 1 and Fig 2 of the YDot Donation Flow guide both head this screen
-      // "Public donation initiation" with the subtitle below - the component's defaults already
-      // said exactly that, and these three values were quietly replacing them at runtime with a
-      // different title, a truncated time zone and a consent version that names no policy.
-      pageTitle: 'Donation Initiation ',
-      pageSubtitle: 'Collect minimum identity, amount and consent before creating a unique intent.',
-
-      // THE FULL ZONE, as both figures print it. "IST" alone does not say which offset applies,
-      // and this line sits directly above a form that records a legally significant consent
-      // timestamp.
-      operatingTimeZone: 'Asia/Kolkata · IST (UTC+05:30)',
-
-      // The consent wording's version, recorded on the intent so a consent given today can be
-      // told apart from one given under different wording last year. It is rendered verbatim
-      // into "I acknowledge the …", so it names the documents rather than carrying a bare 'v1'.
-      consentPolicyVersion: 'Privacy Notice v3.2 · Consent Terms v1.4',
-
-      campaigns: [],
-
-      currencies: [
-        { reference: 'INR', label: 'INR - Indian Rupee' },
-        { reference: 'USD', label: 'USD - US Dollar' },
-        { reference: 'GBP', label: 'GBP - Pound Sterling' },
-        { reference: 'EUR', label: 'EUR - Euro' },
-      ],
-
-      // THE APPROVED ADMINISTRATIVE GEOGRAPHY, AND IT HAS TO BE HARD-CODED HERE. The picker on
-      // the form was fed an empty array, so "Select approved administrative geography" was the
-      // only line it ever showed - a control the screen asks people to answer and that could
-      // not be answered.
-      //
-      // IT DOES NOT COME FROM THE MASTERS API, deliberately. `GET /masters/reference-data` is
-      // gated on the GlobalMaster section permission and refuses an anonymous caller outright,
-      // and this same form is served to a donor who followed a QR code with no session at all.
-      // Calling it would give a stranger a 401 and a staff Initiator without Masters rights a
-      // 403 - both of them an empty dropdown again, with a failed request behind it.
-      //
-      // The list is the approved administrative catalogue the lead capture screen already works
-      // from, and it is presentation for the same reason the currency list above is: what the
-      // form OFFERS is a client concern; what it may RECORD is decided by the API.
-      geographies: [
-        { reference: 'IN-TN', label: 'India · Tamil Nadu' },
-        { reference: 'IN-KA', label: 'India · Karnataka' },
-        { reference: 'IN-KL', label: 'India · Kerala' },
-        { reference: 'IN-AP', label: 'India · Andhra Pradesh' },
-        { reference: 'IN-TG', label: 'India · Telangana' },
-        { reference: 'IN-PY', label: 'India · Puducherry' },
-        { reference: 'IN-MH', label: 'India · Maharashtra' },
-        { reference: 'IN-DL', label: 'India · Delhi' },
-        { reference: 'IN-GJ', label: 'India · Gujarat' },
-        { reference: 'IN-WB', label: 'India · West Bengal' },
-      ],
-
-      permissions: { view: true, submit: true, continueToPayment: true },
-
-      // A ceiling on the form, not a rule. The API has its own and enforces it; this only stops
-      // an obvious typo - an extra zero - reaching the gateway at all.
-      maxDonationAmount: 10_000_000,
-    });
-  }
-
-  /** Kept because the public form calls it after a submission. It no longer holds anything. */
-  updatePublicDonationInitiationData(_data: unknown): void {
-    // Intentionally empty. The intent is persisted by the API; there is nothing to keep here.
-  }
-
-  getPublicDonationInitiationCache(): null {
-    return null;
-  }
+  // getPublicDonationInitiationData - REMOVED. It returned a configuration typed into this file:
+  // a consent version naming no published notice (stored on every intent), four currencies, ten
+  // Indian states and an amount ceiling that disagreed with the server's. The donation forms read
+  // PaymentApiService.getPublicFormSettings() and the currency master instead.
 
   /**
    * The donation intent register.

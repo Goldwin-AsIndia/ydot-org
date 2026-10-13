@@ -89,26 +89,16 @@ interface SuggestedAction {
 }
 
 /**
- * How the outcome picker lays the server's outcomes out: four kinds of result rather than one
- * long row. The outcomes themselves, and their wording, are the server's - this only says which
- * column each one sits in, and anything it does not name is shown under "Other".
+ * THE OUTCOME GROUPS AND THE LANE HEADINGS ARE THE SERVER'S. The outcome picker's four kinds
+ * (Reached, Warm signals, Awaiting, Closed) are `outcomeGroupOptions`, and each outcome option's
+ * description names its group; each channel option's description is its lane heading ("Calls").
+ * This only chooses the colour each group is drawn in.
  */
-const OUTCOME_KINDS: readonly { label: string; hint: string; values: readonly string[] }[] = [
-  { label: 'Reached', hint: 'Contact was made', values: ['Reached', 'MeetingScheduled'] },
-  { label: 'Warm signals', hint: 'Moving towards a gift', values: ['Interested', 'DonationDiscussion', 'MeetingCompleted'] },
-  { label: 'Awaiting', hint: 'Needs another touch', values: ['NoAnswer', 'CallbackRequested', 'InformationRequested'] },
-  { label: 'Closed', hint: 'Stop or correct', values: ['NotInterested', 'WrongNumber', 'DoNotContact'] },
-];
-
-/** The lane headings: a channel in the plural. Falls back to the server's own label. */
-const LANE_LABELS: Record<string, string> = {
-  Call: 'Calls',
-  Email: 'Emails',
-  Sms: 'SMS',
-  WhatsApp: 'WhatsApp',
-  Meeting: 'Meetings',
-  Visit: 'Visits',
-  Note: 'Notes',
+const GROUP_TONE: Readonly<Record<string, string>> = {
+  reached: 'status-neutral',
+  warm: 'status-success',
+  awaiting: 'status-warning',
+  closed: 'status-danger',
 };
 
 @Component({
@@ -395,7 +385,7 @@ export class CommunicationTimelineComponent {
       createdBy: entry.performedByName ?? '',
       direction: entry.direction,
       outcome: entry.outcome,
-      outcomeLabel: this.labelIn(response.outcomeOptions, entry.outcome),
+      outcomeLabel: entry.outcomeLabel || this.labelIn(response.outcomeOptions, entry.outcome),
       summary: entry.summary,
 
       // WITHHELD RATHER THAN BLANK. `isNotesMasked` is why there is nothing here, and the screen
@@ -412,7 +402,6 @@ export class CommunicationTimelineComponent {
   }
 
   private labelIn(options: readonly DonLookupItem[] | undefined, value: string): string {
-    if (value === 'NotContacted') return 'Not contacted';
     return (options ?? []).find((option) => option.value === value)?.label ?? value;
   }
 
@@ -500,19 +489,23 @@ export class CommunicationTimelineComponent {
     return groups;
   });
 
-  /** Channel lanes above the journal; empty channels are left out unless selected. */
+  /**
+   * Channel lanes above the journal; empty channels are left out unless selected.
+   *
+   * THE COUNTS ARE THE SERVER'S, over every entry on the record - the list holds the newest 200.
+   * The headings are the channel options' own (their description is the plural).
+   */
   readonly lanes = computed(() => {
-    const list = this.records();
-    const count = (type: Channel) => list.filter((record) => record.type === type).length;
+    const counts = this.timeline()?.entryCountsByType ?? {};
 
     const lanes: { id: Lane; label: string; count: number }[] = [
-      { id: 'All', label: 'All', count: list.length },
+      { id: 'All', label: 'All', count: this.totalCommunications() },
       ...this.communicationTypes().map((type) => ({
         id: type.value,
-        label: LANE_LABELS[type.value] ?? type.label,
-        count: count(type.value),
+        label: type.description || type.label,
+        count: counts[type.value] ?? 0,
       })),
-      { id: 'Important', label: 'Important', count: list.filter((record) => record.important).length },
+      { id: 'Important', label: 'Important', count: this.timeline()?.importantEntryCount ?? 0 },
     ];
 
     return lanes.filter((lane) => lane.id === 'All' || lane.id === 'Important' || lane.count > 0 || lane.id === this.activeTab());
@@ -541,18 +534,19 @@ export class CommunicationTimelineComponent {
   });
   readonly cadenceActiveDays = computed(() => this.cadence().filter((day) => day.count > 0).length);
 
-  /** The server's outcomes, in the picker's four columns. See OUTCOME_KINDS. */
+  /** The server's outcomes in the server's groups - each outcome option's description names its group. */
   readonly outcomeGroups = computed(() => {
     const options = this.outcomeOptions();
-    const groups = OUTCOME_KINDS.map((kind) => ({
-      label: kind.label,
-      hint: kind.hint,
-      items: options.filter((option) => kind.values.includes(option.value)),
+    const groups = (this.timeline()?.outcomeGroupOptions ?? []).map((group) => ({
+      label: group.label,
+      hint: group.description ?? '',
+      items: options.filter((option) => option.description === group.value),
     }));
 
+    // An outcome the server put in no group still has to be choosable.
     const placed = new Set(groups.flatMap((group) => group.items.map((item) => item.value)));
     const other = options.filter((option) => !placed.has(option.value));
-    if (other.length) groups.push({ label: 'Other', hint: 'Other outcomes', items: other });
+    if (other.length) groups.push({ label: '', hint: '', items: other });
 
     return groups.filter((group) => group.items.length > 0);
   });
@@ -560,12 +554,8 @@ export class CommunicationTimelineComponent {
   /** The last few entries, shown beside the log screen so the person writing sees what came before. */
   readonly recentEntries = computed(() => this.records().filter((record) => record.id !== this.editingId()).slice(0, 5));
 
-  /** How many entries each channel already has, printed under the channel tiles. */
-  readonly channelCounts = computed(() => {
-    const counts: Record<string, number> = {};
-    for (const record of this.records()) counts[record.type] = (counts[record.type] ?? 0) + 1;
-    return counts;
-  });
+  /** How many entries each channel already has, printed under the channel tiles - the server's count. */
+  readonly channelCounts = computed<Record<string, number>>(() => this.timeline()?.entryCountsByType ?? {});
 
   /** The three things the save needs, ticked off live on the log screen. */
   readonly entryChecks = computed(() => {
@@ -641,19 +631,14 @@ export class CommunicationTimelineComponent {
   // The figure strip and the rail
   // ===========================================================================================
 
-  readonly totalCommunications = computed(() => this.records().length);
+  /** Every entry on the record, and per channel - the server's counts, not the newest 200 the list holds. */
+  readonly totalCommunications = computed(() => this.timeline()?.totalEntryCount ?? this.records().length);
 
-  readonly callsCount = computed(
-    () => this.records().filter((item) => item.type === 'Call').length,
-  );
+  readonly callsCount = computed(() => this.channelCounts()['Call'] ?? 0);
 
-  readonly meetingsCount = computed(
-    () => this.records().filter((item) => item.type === 'Meeting').length,
-  );
+  readonly meetingsCount = computed(() => this.channelCounts()['Meeting'] ?? 0);
 
-  readonly emailsCount = computed(
-    () => this.records().filter((item) => item.type === 'Email').length,
-  );
+  readonly emailsCount = computed(() => this.channelCounts()['Email'] ?? 0);
 
   /** "Interested" outcomes on the whole record - the server's count. */
   readonly interestedCount = computed(() => this.timeline()?.interestedCount ?? 0);
@@ -1252,23 +1237,10 @@ export class CommunicationTimelineComponent {
     return '';
   }
 
+  /** The colour of an outcome: the tone of the server's group it belongs to. */
   outcomeClass(outcome: string): string {
-    switch (outcome) {
-      case 'Interested':
-      case 'MeetingCompleted':
-      case 'DonationDiscussion':
-        return 'status-success';
-      case 'NoAnswer':
-      case 'CallbackRequested':
-      case 'InformationRequested':
-        return 'status-warning';
-      case 'NotInterested':
-      case 'WrongNumber':
-      case 'DoNotContact':
-        return 'status-danger';
-      default:
-        return 'status-neutral';
-    }
+    const group = this.outcomeOptions().find((option) => option.value === outcome)?.description ?? '';
+    return GROUP_TONE[group] ?? 'status-neutral';
   }
 
   relationshipHealthClass(status: string): string {
@@ -1337,8 +1309,8 @@ export class CommunicationTimelineComponent {
       type,
       date: this.getTodayIso(),
       time: '',
-      direction: 'Outgoing',
-      outcome: 'Reached',
+      direction: this.timeline()?.directionOptions?.[0]?.value ?? '',
+      outcome: this.timeline()?.outcomeOptions?.[0]?.value ?? '',
       engagement: '',
       quality: '',
       summary: '',

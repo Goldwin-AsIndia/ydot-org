@@ -532,6 +532,17 @@ export class OrganisationDetailComponent implements OnInit, OnDestroy {
       && this.isProfileComplete());
 
   /**
+   * Whether documents may still be uploaded or a new submission started.
+   *
+   * THE DOCUMENT SET CLOSES ON APPROVAL: the server stops listing "UploadDocument" once the
+   * Organisation is Approved, Active, Suspended or Archived, and refuses the upload itself. The
+   * Review tab's Upload button and the Documents tab's New submission both read this, so an
+   * activated Organisation is no longer offered either.
+   */
+  readonly canUploadDocuments = computed(
+    () => this.isOwnOrganisation() && this.can('UploadDocument'));
+
+  /**
    * Whether the "Review & submit" tab is worth showing at all.
    *
    * On the profile page of the organisation's own admin it is always there - broader than

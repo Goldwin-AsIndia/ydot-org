@@ -272,4 +272,51 @@ public sealed class TrackingAssetSearchFilter : PaginationRequest
     /// working - and a Status filter would hide it among the ones that are working fine.
     /// </summary>
     public bool? IsLiveNow { get; set; }
+
+    /// <summary>Assets whose window opens on or after this instant - the manager's "Active from".</summary>
+    public DateTimeOffset? ActiveFromOnOrAfterUtc { get; set; }
+
+    /// <summary>Assets whose window opens on or before this instant - the manager's "Active to".</summary>
+    public DateTimeOffset? ActiveFromOnOrBeforeUtc { get; set; }
 }
+
+/// <summary>
+/// GET /api/v1/tracking-assets/summary - the manager's cards and saved views, counted over the
+/// caller's whole scope (or the one campaign it was opened from).
+///
+/// THE CARDS USED TO BE COUNTED IN THE BROWSER over every page it had downloaded, and the saved
+/// views were three labels typed into the screen. Both are the server's now.
+/// </summary>
+public sealed record TrackingAssetSummaryResponse(
+    int TotalAssets,
+
+    /// <summary>Active and inside its window - live now.</summary>
+    int LiveAssets,
+    int DraftAssets,
+
+    /// <summary>Submitted and waiting for an approver.</summary>
+    int PendingApproval,
+    int AssetTypesInUse,
+
+    /// <summary>Recorded scans and clicks across every asset.</summary>
+    long TotalUsage,
+
+    /// <summary>The share of assets that are live, 0-100.</summary>
+    int LivePercent,
+
+    /// <summary>The share of usage that came through assets live now, 0-100.</summary>
+    int LiveUsagePercent,
+    IReadOnlyList<TrackingAssetViewResponse> Views,
+    DateTimeOffset AsAtUtc);
+
+/// <summary>
+/// One saved view of the manager: its words and count, and the asset type and status it filters
+/// to (the enum values the reference data names), or null for "any".
+/// </summary>
+public sealed record TrackingAssetViewResponse(
+    string Value,
+    string Label,
+    string Description,
+    string? AssetType,
+    string? Status,
+    int Count);

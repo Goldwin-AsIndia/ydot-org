@@ -31,14 +31,14 @@ import { HeaderScreenKey, headerWatermarks } from '../header-watermark/header-wa
 const screenModules: Record<string, string> = {
   ...Object.fromEntries(['communication-exception-queue', 'complaint-case', 'conversation-detail', 'outbound-message-composer',
     'sla-policy-calendar', 'suppression-and-contact-restriction', 'template-catalogue', 'unified-inbox'].map(k => [k, 'Communications'])),
-  'payment-event-queue': 'Donations & payments',
+  'payment-event-queue': 'Donations',
   ...Object.fromEntries(['consent-preference-centre', 'donor-identity-verification', 'donor-list', 'follow-up-execution',
     'follow-up-queue', 'my-leads'].map(k => [k, 'Donors & leads'])),
   ...Object.fromEntries(['finance-exception-case', 'finance-workbench', 'financial-correction-or-reversal', 'maker-checker-review',
     'offline-donation-entry', 'period-campaign-close', 'reconciliation-workspace', 'settlement-batch-detail'].map(k => [k, 'Finance'])),
   ...Object.fromEntries(['batch-ledger', 'inventory-exception-queue', 'inventory-overview', 'reservation-manager',
     'stock-adjustment-approval', 'stock-count-session', 'stock-movement-form', 'warehouse-transfer'].map(k => [k, 'Inventory'])),
-  ...Object.fromEntries(['city', 'country', 'currency', 'state', 'time-zone'].map(k => [k, 'Masters'])),
+  ...Object.fromEntries(['city', 'country', 'currency', 'state', 'time-zone'].map(k => [k, 'Master data'])),
   ...Object.fromEntries(['executive-dashboard', 'global-search', 'work-space', 'notification-centre', 'role-aware-application-shell',
     'saved-view-builder', 'standard-list-page', 'standard-record-detail'].map(k => [k, 'Workspace'])),
 };

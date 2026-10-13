@@ -13,8 +13,6 @@ import {
 } from '../../../../Shared/models/campaign.model';
 import { CampaignStoreService } from '../../../../Shared/services/campaign-store.service';
 import { CurrentUserService } from '../../../../Shared/services/current-user.service';
-import { TrackingAssetStoreService } from '../../../../Shared/services/tracking-asset-store.service';
-import { BudgetTargetStoreService } from '../../../../Shared/services/budget-target-store.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { CloseRequestStoreService } from '../../../../Shared/services/close-request-store.service';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
@@ -25,6 +23,7 @@ import {
   AttributionListItem,
   AttributionSummary,
   CampaignHistoryEntry,
+  TrackingAssetListItem,
 } from '../../../../Shared/models/campaign-contract.model';
 import { LeadListItem } from '../../../../Shared/models/donor-contract.model';
 import { fetchAllPages } from '../../../../Shared/services/paging';
@@ -117,19 +116,32 @@ type LifecycleActionKey =
  * payments — plus the lifecycle actions available from its current state.
  */
 /**
- * One entry on the campaign calendar: a dot in the month grid.
+ * One icon on a calendar day: one per kind of record that day holds, never one per invented event.
  *
- * `kind` picks the dot's icon and colour from the calendar's existing set: `launch` and `email`
- * for the campaign's own start and end, `report` for a lifecycle step, `website` for a tracking
- * asset and `donor` for the day's donations.
+ * `kind` picks the icon and colour: `launch` and `end` for the campaign's own start and end dates,
+ * `report` for a lifecycle step, `website` for a tracking asset going live, `donor` for the day's
+ * donations and `lead` for the leads captured that day.
  */
 interface CalEvent {
   label: string;
   kind: string;
 }
 
-/** A row of the tabbed table, with the calendar day it belongs to. */
-type DatedRow = HistoryRow & { dayKey?: string | null };
+/**
+ * A row of the tabbed table, with the calendar day it belongs to.
+ *
+ * `kind` is the calendar icon the row stands behind, when it is not the one its tab implies - the
+ * Lifecycle tab holds the campaign's start and end dates as well as its steps.
+ */
+type DatedRow = HistoryRow & { dayKey?: string | null; kind?: string };
+
+/** A Tracking tab row: the shared columns plus the status chip and the usage figure. */
+type TrackRow = DatedRow & { statusText: string; tone: string; usesCount: string; activeFrom: string };
+
+/** A tab of the table under the calendar, with how many of that day's records it holds. */
+interface DayTab extends DetailTab {
+  readonly count: number;
+}
 
 /** BUG-016: the statuses a campaign may be edited in - matches the Campaign Register's rule. */
 const CampaignDetailEditRule = {
@@ -157,8 +169,6 @@ export class CampaignDetailComponent {
   private readonly router = inject(Router);
   private readonly store = inject(CampaignStoreService);
   private readonly currentUser = inject(CurrentUserService);
-  private readonly trackingStore = inject(TrackingAssetStoreService);
-  private readonly budgetStore = inject(BudgetTargetStoreService);
   private readonly toast = inject(ToastService);
   private readonly closeStore = inject(CloseRequestStoreService);
 
@@ -240,6 +250,7 @@ export class CampaignDetailComponent {
         this.loadActivity();
         this.loadAttribution();
         this.loadLeads();
+        this.loadTrackingAssets();
         this.lastRefresh.set(this.nowLabel());
       });
     });
@@ -247,6 +258,14 @@ export class CampaignDetailComponent {
     // Donations-in-scope is modelled as a backend fetch: stamp a freshly-fetched time on load,
     // the same as the manual refresh action does.
     this.refreshDonationsScope();
+
+    // The asset-type wording ("QR Code", "Landing Page") is CAM's, from its reference catalogue.
+    this.campaignApi.getReferenceData().subscribe({
+      next: (reference) =>
+        this.assetTypeLabels.set(
+          new Map((reference.trackingAssetTypes ?? []).map((option) => [option.value.toLowerCase(), option.label]))),
+      error: () => this.assetTypeLabels.set(new Map()),
+    });
   }
 
   // ================= Task header =================
@@ -446,38 +465,65 @@ export class CampaignDetailComponent {
   /** Targets — server-derived plan amount. */
   protected readonly targetsAmount = computed(() => this.targetAmount());
 
-  /**
-   * Budget summary — live from the shared BudgetTargetStoreService, not a page-local mock.
-   * Reads ONLY each plan's current Approved version (`approvedForCampaign`), never
-   * summing across Draft/Submitted/Superseded versions.
-   */
-  protected readonly budgetPlans = computed(() => this.budgetStore.approvedForCampaign(this.campaignName()));
-  protected readonly budgetAmount = computed(() =>
-    this.budgetPlans().reduce((sum, v) => sum + v.budgetAmount, 0),
-  );
-  /** Planned operating budget and fundraising target, formatted for the overview card. */
-  protected readonly plannedBudgetLabel = computed(() => this.rupeeINR(this.budgetAmount()));
+  /** The fundraising target, formatted for the overview card. */
   protected readonly fundraisingTargetLabel = computed(() => this.rupeeINR(this.targetAmount()));
-  /** Each approved allocation's share of the total budget. */
-  protected budgetShare(planBudget: number): number {
-    const total = this.budgetAmount();
-    return total ? Math.round((planBudget / total) * 1000) / 10 : 0;
-  }
 
   /**
-   * Tracking assets — read-only. Read live from the single shared TrackingAssetStoreService,
-   * so a Generate on the Tracking Asset Manager appears here immediately, without a refresh.
+   * This campaign's tracking assets, as CAM lists them (GET /tracking-assets?campaignId=).
+   *
+   * READ FOR THIS CAMPAIGN, NOT FILTERED OUT OF THE ORGANISATION-WIDE STORE. The store keeps
+   * `activeFrom` as the first ten characters of the server's instant, and an asset that goes live
+   * at midnight India time is stored as 18:30 UTC the evening before - so the store put every such
+   * asset on the calendar a day early. The instant read here lands on the viewer's own day.
    */
-  protected readonly trackingAssets = computed<
-    readonly (HistoryRow & { createdOn?: string; usageCount?: number; dayKey?: string | null })[]
-  >(() => {
-    return this.trackingStore.forCampaign(this.reference).map((a) => ({
-      primary: a.trackingReference,
-      secondary: `${a.assetType} · ${a.channel}`,
-      createdOn: a.activeFrom ? this.formatDate(a.activeFrom) : '—',
-      dayKey: this.dayKeyOf(a.activeFrom),
-      usageCount: a.usageCount,
-      meta: `${a.assetStatus} · ${a.usageCount.toLocaleString('en-IN')} uses`,
+  private readonly campaignAssets = signal<readonly TrackingAssetListItem[]>([]);
+  protected readonly trackingLoading = signal(false);
+  protected readonly trackingError = signal<string | null>(null);
+
+  /** CAM's own wording for each asset type, keyed by the type's value in lower case. */
+  private readonly assetTypeLabels = signal<ReadonlyMap<string, string>>(new Map());
+
+  private loadTrackingAssets(): void {
+    const campaignId = this.store.apiId(this.reference);
+
+    if (!campaignId) {
+      this.campaignAssets.set([]);
+      return;
+    }
+
+    this.trackingLoading.set(true);
+    this.trackingError.set(null);
+
+    fetchAllPages((page, pageSize) =>
+      this.campaignApi.searchTrackingAssets({ campaignId, page, pageSize })).subscribe({
+      next: (items) => {
+        this.campaignAssets.set(items);
+        this.trackingLoading.set(false);
+      },
+      error: (error: unknown) => {
+        this.campaignAssets.set([]);
+        this.trackingLoading.set(false);
+        this.trackingError.set(
+          apiErrorMessage(error, 'This campaign’s tracking assets could not be loaded.'));
+      },
+    });
+  }
+
+  /** The Tracking tab's rows on every day: type and channel, CAM's status wording, usage. */
+  private readonly trackingRowsAll = computed<readonly TrackRow[]>(() => {
+    const labels = this.assetTypeLabels();
+
+    return this.campaignAssets().map((asset) => ({
+      primary: asset.trackingReference ?? asset.code,
+      secondary: [labels.get(String(asset.assetType).toLowerCase()) ?? asset.assetType, asset.channelName]
+        .filter(Boolean)
+        .join(' · '),
+      meta: asset.activeFrom ? this.donationWhen(asset.activeFrom) : '—',
+      dayKey: this.dayKeyOf(asset.activeFrom),
+      statusText: asset.statusDescription || String(asset.status) || '—',
+      tone: this.statusTone(String(asset.status)),
+      usesCount: `${Number(asset.usageCount ?? 0).toLocaleString('en-IN')} Uses`,
+      activeFrom: asset.activeFrom ? this.formatDate(asset.activeFrom) : '—',
     }));
   });
 
@@ -499,230 +545,21 @@ export class CampaignDetailComponent {
   /** Each donor's first gift to this campaign, for the Donors tab. From the same payments read. */
   private readonly firstGifts = signal<readonly DatedRow[]>([]);
 
-  private readonly donationSamples = signal<readonly { amount: number; currency: string; at: string }[]>([]);
-
-  /** The trend chart's range — the dashboard dropdown. */
-  protected readonly trendRange = signal<'6' | '12'>('12');
-  protected readonly trendRanges: readonly { key: '6' | '12'; label: string }[] = [
-    { key: '6', label: 'Last 6 months' },
-    { key: '12', label: 'Last 12 months' },
-  ];
-  protected setTrendRange(key: '6' | '12'): void {
-    this.trendRange.set(key);
-  }
-
-  /** "Donations received" — the total of the donations this screen has loaded. Null when none. */
-  protected readonly donationsReceivedLabel = computed(() => {
-    const samples = this.donationSamples();
-    if (!samples.length) {
-      return null;
-    }
-    const total = samples.reduce((sum, sample) => sum + (sample.amount || 0), 0);
-    const currency = samples[0]?.currency || 'INR';
-    try {
-      return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 0,
-      }).format(total);
-    } catch {
-      return total.toLocaleString('en-IN');
-    }
-  });
-
-  /** Tracking assets on this campaign — the record carries the count the tab badge uses. */
+  /** Tracking assets on this campaign — the record carries the count the figures band uses. */
   protected readonly assetsCountLabel = computed(() => {
     const count = this.liveRecord()?.trackingAssetCount;
     return count == null ? null : String(count);
   });
 
-  /** The true number of payments the server reports for this campaign. Null when zero. */
-  protected readonly paymentsCountLabel = computed(() => {
-    const count = this.donationsCount();
-    return count > 0 ? String(count) : null;
-  });
-
-  /** The recent-donations list's rows — the same payments read, kept as display fields. */
-  protected readonly recentDonations = signal<
-    readonly { name: string; initials: string; amount: string; when: string; key: string }[]
-  >([]);
-
-  /**
-   * The trend series — one bucket per month over the chosen range, each holding the total
-   * received that month. Buckets with nothing received stay at zero, which is the truth.
-   */
-  protected readonly trendSeries = computed(() => {
-    const months = Number(this.trendRange());
-    const now = new Date();
-    const buckets: { key: string; label: string; value: number }[] = [];
-    for (let i = months - 1; i >= 0; i--) {
-      const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      buckets.push({
-        key: `${month.getFullYear()}-${month.getMonth()}`,
-        label: month.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
-        value: 0,
-      });
-    }
-    const index = new Map(buckets.map((bucket, i) => [bucket.key, i]));
-    for (const sample of this.donationSamples()) {
-      const when = new Date(sample.at);
-      if (Number.isNaN(when.getTime())) {
-        continue;
-      }
-      const i = index.get(`${when.getFullYear()}-${when.getMonth()}`);
-      if (i !== undefined) {
-        buckets[i].value += sample.amount || 0;
-      }
-    }
-    return buckets;
-  });
-
-  /** Y-axis ticks — five steps that always round the peak up to a whole multiple. */
-  protected readonly trendTicks = computed(() => {
-    const peak = Math.max(...this.trendSeries().map((bucket) => bucket.value), 0);
-    const step = peak <= 0 ? 25 : Math.ceil(peak / 4 / 25) * 25;
-    return [0, 1, 2, 3, 4].map((i) => i * step);
-  });
-
-  /** The channel chart's plot box — a compact 660×124 canvas with small inset margins. */
-  private readonly trendView = { w: 660, h: 124, top: 10, right: 15, bottom: 14, left: 15 };
-
-  private trendX(i: number, count: number): number {
-    const { w, left, right } = this.trendView;
-    return left + ((w - left - right) * i) / Math.max(1, count - 1);
-  }
-  /** The template plots grid lines directly, so this must be visible to it. */
-  protected trendY(value: number): number {
-    const { h, top, bottom } = this.trendView;
-    const peak = this.trendTicks()[4] || 1;
-    return h - bottom - ((h - top - bottom) * value) / peak;
-  }
-
-  /** The plotted points — chart-space x/y plus the label and figure each carries. */
-  private readonly trendPoints = computed(() =>
-    this.trendSeries().map((bucket, i) => ({
-      x: this.trendX(i, this.trendSeries().length),
-      y: this.trendY(bucket.value),
-      label: bucket.label,
-      value: bucket.value,
-    })),
-  );
-
-  /**
-   * A SMOOTH LINE THROUGH THE POINTS — monotone cubic (Fritsch–Carlson), not Catmull–Rom,
-   * so the curve never dips below the baseline or overshoots a point.
-   */
-  private smoothPath(points: readonly { x: number; y: number }[]): string {
-    const n = points.length;
-    if (n === 0) {
-      return '';
-    }
-    if (n === 1) {
-      return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-    }
-
-    const dx: number[] = [];
-    const slope: number[] = []; // secant slope between point i and i+1
-    for (let i = 0; i < n - 1; i++) {
-      dx[i] = points[i + 1].x - points[i].x;
-      const dy = points[i + 1].y - points[i].y;
-      slope[i] = dx[i] === 0 ? 0 : dy / dx[i];
-    }
-
-    // Tangent at each point: the average of its two adjacent secant slopes, flattened at any
-    // local peak/valley (including a flat run) so the curve can't swing past it.
-    const tangent: number[] = new Array(n).fill(0);
-    tangent[0] = slope[0] ?? 0;
-    tangent[n - 1] = slope[n - 2] ?? 0;
-    for (let i = 1; i < n - 1; i++) {
-      const s0 = slope[i - 1];
-      const s1 = slope[i];
-      tangent[i] = s0 === 0 || s1 === 0 || s0 * s1 < 0 ? 0 : (s0 + s1) / 2;
-    }
-
-    // Fritsch-Carlson limiter: clamp each segment's tangents so the cubic between any two
-    // points can never overshoot either point's value.
-    for (let i = 0; i < n - 1; i++) {
-      if (slope[i] === 0) {
-        tangent[i] = 0;
-        tangent[i + 1] = 0;
-        continue;
-      }
-      const a = tangent[i] / slope[i];
-      const b = tangent[i + 1] / slope[i];
-      const h = Math.hypot(a, b);
-      if (h > 3) {
-        const t = 3 / h;
-        tangent[i] = t * a * slope[i];
-        tangent[i + 1] = t * b * slope[i];
-      }
-    }
-
-    let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-    for (let i = 0; i < n - 1; i++) {
-      const p0 = points[i];
-      const p1 = points[i + 1];
-      const c1x = p0.x + dx[i] / 3;
-      const c1y = p0.y + tangent[i] * (dx[i] / 3);
-      const c2x = p1.x - dx[i] / 3;
-      const c2y = p1.y - tangent[i + 1] * (dx[i] / 3);
-      d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`;
-    }
-    return d;
-  }
-
-  protected readonly trendPath = computed(() => this.smoothPath(this.trendPoints()));
-
-  protected readonly trendAreaPath = computed(() => {
-    const points = this.trendPoints();
-    if (!points.length) {
-      return '';
-    }
-    const first = points[0].x.toFixed(1);
-    const last = points[points.length - 1].x.toFixed(1);
-    const base = (this.trendView.h - this.trendView.bottom).toFixed(1);
-    return `${this.trendPath()} L ${last} ${base} L ${first} ${base} Z`;
-  });
-
-  /** Each month as a plottable dot — the hover state highlights the one under the pointer. */
-  protected readonly trendDots = computed(() => this.trendPoints());
-
-  protected readonly trendLabels = computed(() => this.trendSeries().map((bucket) => bucket.label));
-
-  /** A figure as a compact label — 1.2L rather than 120000 — for the axis and the tooltip. */
-  protected compactValue(value: number): string {
-    try {
-      return new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
-    } catch {
-      return String(value);
-    }
-  }
-
-  protected readonly trendTickLabels = computed(() => this.trendTicks().map((value) => this.compactValue(value)));
-
-  /** The status ring's filled share — the campaign's collected progress, clamped to the ring. */
-  protected readonly statusDonutDash = computed(() => {
-    const progress = Math.max(0, Math.min(100, this.liveRecord()?.progress ?? 0));
-    const circumference = 2 * Math.PI * 42;
-    return `${((circumference * progress) / 100).toFixed(1)} ${circumference.toFixed(1)}`;
-  });
-
-  /** The same progress, exposed for the ring's accessible label in the template. */
-  protected readonly statusProgress = computed(() => this.liveRecord()?.progress ?? 0);
-
-  /**
-   * Reads this campaign's donations — every page, so the header figures describe the whole
-   * campaign; the lists below still show the twenty most recent.
-   */
+  /** Reads this campaign's donations — every page, so the header figures describe the whole campaign. */
   private loadDonations(): void {
     const campaignId = this.store.apiId(this.reference);
 
     if (!campaignId) {
       this.donations.set([]);
       this.donationsCount.set(0);
-      this.donationSamples.set([]);
       this.donationStats.set([]);
-      this.recentDonations.set([]);
+      this.firstGifts.set([]);
       return;
     }
 
@@ -750,10 +587,8 @@ export class CampaignDetailComponent {
         error: (error: unknown) => {
           this.donations.set([]);
           this.donationsCount.set(0);
-          this.donationSamples.set([]);
           this.donationStats.set([]);
           this.firstGifts.set([]);
-          this.recentDonations.set([]);
           this.donationsLoading.set(false);
           this.donationsError.set(
             apiErrorMessage(error, 'This campaign\u2019s donations could not be loaded.'));
@@ -764,17 +599,15 @@ export class CampaignDetailComponent {
     fetchPage(1);
   }
 
-  /** Fills the Payments tab, the recent list and the header figures from the donations read. */
+  /** Fills the Payments and Donors tabs and the header figures from the donations read. */
   private applyDonations(all: readonly DonationListItem[], totalCount: number): void {
-    const recent = all.slice(0, 20);
-
     // EVERY DONATION, NOT THE TWENTY NEWEST. The table under the calendar is filtered to one day,
     // and a day older than the twentieth gift used to read "nothing recorded" when gifts had
     // been.
     this.donations.set(
       all.map((donation) => ({
         primary: `${this.money(donation.amount)} · ${donation.donorName || 'Anonymous donor'}`,
-        secondary: [donation.sourceType as string | null, donation.methodType as string | null]
+        secondary: [this.sourceLabel(donation), this.methodLabel(donation)]
           .filter((part): part is string => !!part)
           .join(' · ') || donation.statusDescription,
         meta: this.donationWhen(donation.donatedAtUtc),
@@ -783,13 +616,6 @@ export class CampaignDetailComponent {
     );
 
     this.donationsCount.set(totalCount);
-    this.donationSamples.set(
-      recent.map((donation) => ({
-        amount: donation.amount?.amount ?? 0,
-        currency: donation.amount?.currencyCode || 'INR',
-        at: donation.donatedAtUtc,
-      })),
-    );
 
     // What counts as money raised: everything except a donation that was returned or voided.
     this.donationStats.set(
@@ -802,17 +628,11 @@ export class CampaignDetailComponent {
         })),
     );
 
-    // The channel ring's fallback: each counted gift's source, readable ("QrCode" -> "Qr code").
+    // The channel ring's fallback: each counted gift's source, in the payments service's words.
     this.donationChannels.set(
       all
         .filter((d) => d.status !== 'refunded' && d.status !== 'chargedBack' && d.status !== 'voided')
-        .map((d) => ({
-          channel:
-            String((d.sourceType as string | null) || 'Direct')
-              .replace(/([a-z])([A-Z])/g, '$1 $2')
-              .replace(/^./, (c) => c.toUpperCase()) || 'Direct',
-          at: d.donatedAtUtc,
-        })),
+        .map((d) => ({ channel: this.sourceLabel(d), at: d.donatedAtUtc })),
     );
 
     // Each donor's FIRST gift to this campaign: the Donors tab lists who started giving on a day.
@@ -841,23 +661,27 @@ export class CampaignDetailComponent {
       })),
     );
 
-    // The dashboard's "Recent Donations" list — initials stand in for avatars we don't store.
-    this.recentDonations.set(
-      recent.map((donation, i) => {
-        const name = donation.donorName || 'Anonymous donor';
-        const parts = name.trim().split(/\s+/);
-        const initials =
-          (parts[0]?.[0] || '?') + (parts.length > 1 ? parts[parts.length - 1][0] : '');
-        return {
-          name,
-          initials: initials.toUpperCase(),
-          amount: this.money(donation.amount),
-          when: this.donationWhen(donation.donatedAtUtc),
-          key: `${donation.donatedAtUtc ?? 'na'}-${i}`,
-        };
-      }),
-    );
     this.donationsLoading.set(false);
+  }
+
+  /**
+   * A gift's source and method in the payments service's own words ("Direct link", "Net banking").
+   * Until a payments service that sends them is running, the codes are split into words instead.
+   */
+  private sourceLabel(donation: DonationListItem): string {
+    return donation.sourceDescription || this.codeWords(donation.sourceType);
+  }
+
+  private methodLabel(donation: DonationListItem): string | null {
+    return donation.methodDescription ?? (donation.methodType ? this.codeWords(donation.methodType) : null);
+  }
+
+  /** 'netBanking' -> 'Net banking'. Only a fallback for a field the server did not word. */
+  private codeWords(code: string | null | undefined): string {
+    return String(code ?? '')
+      .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+      .toLowerCase()
+      .replace(/^./, (first) => first.toUpperCase());
   }
 
   /** An amount as its own currency prints it, rather than as a bare number. */
@@ -986,14 +810,9 @@ export class CampaignDetailComponent {
           entries.map((entry) => {
             const result = String(entry.result ?? '');
 
-            // WHO DID IT, beside what they said. The trail is the record of who took each step,
-            // and a row reading only "Campaign approved" left out the half people look for.
-            const actor = entry.actorUserId ? this.people.name(entry.actorUserId) : '';
-            const said = entry.reason ?? this.describeHistoryResult(result);
-
             return {
               title: this.describeHistoryAction(entry.actionCode),
-              detail: [said, actor && actor !== '—' ? `by ${actor}` : ''].filter(Boolean).join(' · '),
+              detail: this.historyDetail(entry),
               time: entry.occurredAtUtc
                 ? new Date(entry.occurredAtUtc).toLocaleString('en-IN', {
                     day: '2-digit', month: 'short', year: 'numeric',
@@ -1015,6 +834,19 @@ export class CampaignDetailComponent {
       },
       complete: () => this.activityLoading.set(false),
     });
+  }
+
+  /**
+   * What was said and who said it, for one history entry.
+   *
+   * WHO DID IT, beside what they said. The trail is the record of who took each step, and a row
+   * reading only "Campaign approved" left out the half people look for.
+   */
+  private historyDetail(entry: CampaignHistoryEntry): string {
+    const actor = entry.actorUserId ? this.people.name(entry.actorUserId) : '';
+    const said = entry.reason ?? this.describeHistoryResult(String(entry.result ?? ''));
+
+    return [said, actor && actor !== '—' ? `by ${actor}` : ''].filter(Boolean).join(' · ');
   }
 
   /** An audit action code as a sentence ('CampaignSubmitted' -> 'Campaign submitted'). */
@@ -1134,7 +966,7 @@ export class CampaignDetailComponent {
     this.changeOf(this.monthlyDonations().currentDonors, this.monthlyDonations().previousDonors),
   );
 
-  // ---------- Tracking assets (created this month vs last month) ----------
+  // ---------- Tracking assets (going live this month vs last month) ----------
   protected readonly assetsThisMonth = computed(() => this.assetsCreatedIn(0));
   protected readonly assetsChange = computed(() =>
     this.changeOf(this.assetsThisMonth(), this.assetsCreatedIn(-1)),
@@ -1143,7 +975,7 @@ export class CampaignDetailComponent {
     const { thisStart, prevStart, nextStart } = this.monthBounds();
     const from = monthOffset === 0 ? thisStart : prevStart;
     const to = monthOffset === 0 ? nextStart : thisStart;
-    return this.trackingStore.forCampaign(this.reference).filter((a) => {
+    return this.campaignAssets().filter((a) => {
       const when = new Date(a.activeFrom ?? '');
       return !Number.isNaN(when.getTime()) && when >= from && when < to;
     }).length;
@@ -1311,13 +1143,27 @@ export class CampaignDetailComponent {
   protected readonly calDow = Array.from({ length: 7 }, (_, index) =>
     new Date(2024, 0, 1 + index).toLocaleDateString('en-GB', { weekday: 'short' }));
 
-  /** What each kind of calendar entry is called in the legend. */
+  /** What each kind of calendar icon is called in the legend, in the order icons are stacked. */
   private static readonly CAL_KIND_LABELS: Readonly<Record<string, string>> = {
-    launch: 'Campaign launch',
-    email: 'Campaign end',
+    launch: 'Campaign start',
+    end: 'Campaign end',
     report: 'Lifecycle step',
-    website: 'Tracking asset',
+    website: 'Tracking asset goes live',
     donor: 'Donations received',
+    lead: 'Leads captured',
+  };
+
+  /**
+   * The calendar icon each tab's records stand behind. Donors, Source and every channel tab are
+   * views of the same gifts as Payments, so they share its icon; a row's own `kind` wins.
+   */
+  private static readonly TAB_KIND: Readonly<Record<string, string>> = {
+    tracking: 'website',
+    payments: 'donor',
+    donors: 'donor',
+    source: 'donor',
+    leads: 'lead',
+    lifecycle: 'report',
   };
 
   /**
@@ -1340,21 +1186,15 @@ export class CampaignDetailComponent {
       .map(([kind, label]) => ({ kind, label }));
   });
 
-  /** The logo stacked on a calendar day, one per event kind or channel (Remix icons). */
+  /** The icon for each kind of calendar entry (Remix icons). */
   protected calKindIcon(kind: string): string {
     const icons: Record<string, string> = {
-      email: 'ri-mail-line',
-      sms: 'ri-message-2-line',
-      whatsapp: 'ri-whatsapp-line',
-      instagram: 'ri-instagram-line',
-      facebook: 'ri-facebook-line',
-      linkedin: 'ri-linkedin-line',
-      x: 'ri-twitter-x-line',
-      donor: 'ri-user-heart-line',
-      social: 'ri-share-line',
+      launch: 'ri-rocket-2-line',
+      end: 'ri-flag-2-line',
       report: 'ri-file-chart-line',
       website: 'ri-global-line',
-      launch: 'ri-rocket-2-line',
+      donor: 'ri-user-heart-line',
+      lead: 'ri-user-add-line',
     };
     return icons[kind] ?? 'ri-calendar-event-line';
   }
@@ -1385,11 +1225,17 @@ export class CampaignDetailComponent {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
+  /** A campaign date ('2026-08-07') as its own local day - '07 Aug 2026'. */
+  private dayLabel(value: string | null | undefined): string {
+    const date = this.tryDateOnly(value);
+    return date ? date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  }
+
   /** Changing month clears the selected day: it is no longer on screen. */
   protected calShift(delta: number): void {
     const current = this.calMonth();
     this.calMonth.set(new Date(current.getFullYear(), current.getMonth() + delta, 1));
-    this.calSelected.set(null);
+    this.clearCalDay();
   }
 
   protected readonly calLabel = computed(() =>
@@ -1397,67 +1243,72 @@ export class CampaignDetailComponent {
   );
 
   /**
-   * The calendar's entries, every one a record: the campaign's start and end dates, each step of
-   * its lifecycle history, each tracking asset on the day it goes live, and each day donations
-   * arrived.
+   * Every day's calendar icons, cut from THE SAME ROWS the table under the calendar lists: a day
+   * carries an icon exactly when clicking it shows records, and the icon says what kind they are.
+   *
+   * THE TWO USED TO BE BUILT SEPARATELY. The calendar drew a donation icon from the payments read
+   * while the table opened on Tracking, so a click on a marked day read "No tracking assets"; leads
+   * were listed under the calendar and never marked on it; and a tracking asset sat on the day
+   * before it went live.
    *
    * SEVENTEEN INVENTED ACTIVITIES USED TO BE PAINTED ONTO FIXED DAYS OF WHICHEVER MONTH WAS SHOWN -
    * "Impact Update", "Volunteer Alert", a "New Donor" of 5,800 euros - with two invented owners,
    * identically on every campaign and every month.
    */
-  private calEvents(): Map<string, CalEvent[]> {
+  private readonly calEvents = computed(() => {
+    // day -> kind -> how many. A kind's figure is the largest of its tabs, so the same gifts seen
+    // on Payments, Donors and Source are counted once.
+    const days = new Map<string, Map<string, number>>();
+
+    for (const [tab, rows] of this.rowsByTab()) {
+      const perDay = new Map<string, Map<string, number>>();
+
+      for (const row of rows) {
+        if (!row.dayKey) {
+          continue;
+        }
+        const kind = row.kind ?? CampaignDetailComponent.TAB_KIND[tab] ?? 'donor';
+        const kinds = perDay.get(row.dayKey) ?? new Map<string, number>();
+        kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
+        perDay.set(row.dayKey, kinds);
+      }
+
+      for (const [day, kinds] of perDay) {
+        const known = days.get(day) ?? new Map<string, number>();
+        for (const [kind, count] of kinds) {
+          known.set(kind, Math.max(known.get(kind) ?? 0, count));
+        }
+        days.set(day, known);
+      }
+    }
+
+    const order = Object.keys(CampaignDetailComponent.CAL_KIND_LABELS);
     const map = new Map<string, CalEvent[]>();
-    const add = (date: Date | null, event: CalEvent) => {
-      if (!date) {
-        return;
-      }
-      const key = this.dateKey(date);
-      const list = map.get(key) ?? [];
-      if (!list.some((entry) => entry.label === event.label)) {
-        list.push(event);
-      }
-      map.set(key, list);
-    };
-    add(this.tryDateOnly(this.liveRecord()?.startDate), { label: 'Campaign launch', kind: 'launch' });
-    add(this.tryDateOnly(this.liveRecord()?.endDate), { label: 'Campaign ends', kind: 'email' });
 
-    for (const entry of this.historyEntries()) {
-      add(this.tryDate(entry.occurredAtUtc), {
-        label: this.describeHistoryAction(entry.actionCode),
-        kind: 'report',
-      });
-    }
-
-    for (const asset of this.trackingStore.forCampaign(this.reference)) {
-      add(this.tryDateOnly(asset.activeFrom), {
-        label: `Tracking asset ${asset.trackingReference}`,
-        kind: 'website',
-      });
-    }
-
-    const giftsByDay = new Map<string, { date: Date; count: number }>();
-
-    for (const gift of this.donationStats()) {
-      const when = this.tryDate(gift.at);
-
-      if (!when) {
-        continue;
-      }
-
-      const key = this.dateKey(when);
-      const day = giftsByDay.get(key) ?? { date: when, count: 0 };
-      day.count++;
-      giftsByDay.set(key, day);
-    }
-
-    for (const day of giftsByDay.values()) {
-      add(day.date, {
-        label: `${day.count} donation${day.count === 1 ? '' : 's'} received`,
-        kind: 'donor',
-      });
+    for (const [day, kinds] of days) {
+      map.set(
+        day,
+        [...kinds]
+          .sort(([a], [b]) => order.indexOf(a) - order.indexOf(b))
+          .map(([kind, count]) => ({ kind, label: this.calEventLabel(kind, count) })),
+      );
     }
 
     return map;
+  });
+
+  /** An icon's tooltip: what that day holds of its kind ('2 leads captured'). */
+  private calEventLabel(kind: string, count: number): string {
+    const plural = (one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+    switch (kind) {
+      case 'launch': return 'Campaign starts';
+      case 'end': return 'Campaign ends';
+      case 'report': return plural('lifecycle step', 'lifecycle steps');
+      case 'website': return `${plural('tracking asset', 'tracking assets')} going live`;
+      case 'lead': return `${plural('lead', 'leads')} captured`;
+      default: return `${plural('donation', 'donations')} received`;
+    }
   }
 
   /**
@@ -1478,15 +1329,17 @@ export class CampaignDetailComponent {
       isToday: boolean;
       selected: boolean;
       events: CalEvent[];
+      ariaLabel: string;
     }[] = [];
     for (let i = 0; i < lead; i++) {
       cells.push({
-        key: `lead-${i}`, day: 0, inMonth: false, date: null, isToday: false, selected: false, events: [],
+        key: `lead-${i}`, day: 0, inMonth: false, date: null, isToday: false, selected: false, events: [], ariaLabel: '',
       });
     }
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(first.getFullYear(), first.getMonth(), day);
       const key = this.dateKey(date);
+      const dayEvents = events.get(key) ?? [];
       cells.push({
         key,
         day,
@@ -1494,25 +1347,48 @@ export class CampaignDetailComponent {
         inMonth: true,
         isToday: key === todayKey,
         selected: key === this.calSelected(),
-        events: events.get(key) ?? [],
+        events: dayEvents,
+        ariaLabel: `${date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })} — ${
+          dayEvents.length ? dayEvents.map((event) => event.label).join(', ') : 'nothing recorded'}`,
       });
     }
     return cells;
   });
 
   /**
-   * Clicking a day filters the tabbed lists below the calendar to that date and scrolls them into
-   * view. Clicking the same day again goes back to today.
+   * Clicking a day narrows the table under the calendar to that date: only the kinds of record the
+   * day holds get a tab, the first of them opens, the table scrolls into view and its rows are
+   * highlighted. Clicking the same day again goes back to today.
    */
   protected selectCalDay(cell: { key: string }): void {
     const next = this.calSelected() === cell.key ? null : cell.key;
     this.calSelected.set(next);
     this.trackPage.set(1);
+
+    // A search typed for another day would hide this one's rows.
+    this.trackSearchTerm.set('');
+    this.activeTab.set(this.shownTab() ?? 'tracking');
+
     if (next) {
+      this.flashRows();
       setTimeout(() =>
         document.getElementById('cd-date-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
       );
     }
+  }
+
+  /** Whether the day's rows are drawing the eye just now - set by a calendar click, then cleared. */
+  protected readonly rowFlash = signal(false);
+  private rowFlashTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Highlights the table's rows, restarting the highlight if one is already running. */
+  private flashRows(): void {
+    clearTimeout(this.rowFlashTimer);
+    this.rowFlash.set(false);
+    setTimeout(() => {
+      this.rowFlash.set(true);
+      this.rowFlashTimer = setTimeout(() => this.rowFlash.set(false), 3200);
+    });
   }
 
   /** The same key `dateKey` builds, for a stored date string. A bare `YYYY-MM-DD` is read as a
@@ -1533,23 +1409,19 @@ export class CampaignDetailComponent {
   protected clearCalDay(): void {
     this.calSelected.set(null);
     this.trackPage.set(1);
+    this.trackSearchTerm.set('');
+    this.activeTab.set(this.shownTab() ?? 'tracking');
   }
 
   /** The day the tab lists show: the date picked on the calendar, or TODAY when none is picked. */
   private readonly activeDayKey = computed(() => this.calSelected() ?? this.dateKey(new Date()));
 
-  /** The day the tab lists are filtered to, for their empty-state messages. */
+  /** The day the tab lists are filtered to, for their caption and empty-state messages. */
   protected readonly calFilterLabel = computed(() => {
     const cell = this.calCells().find((c) => c.selected && c.date);
     const date = cell?.date ?? new Date();
     const label = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     return cell ? label : `Today · ${label}`;
-  });
-
-  /** Payments, narrowed to the selected calendar day. */
-  protected readonly paymentRows = computed(() => {
-    const day = this.activeDayKey();
-    return this.donations().filter((row) => row.dayKey === day);
   });
 
   // ================= Campaign Overview summary card content =================
@@ -1661,28 +1533,151 @@ export class CampaignDetailComponent {
   /** Whether the caller may read the organisation's leads. Campaign roles do not; the admin does. */
   protected readonly canSeeLeads = computed(() => this.currentUser.hasPermission('don.lead-work-queue.view'));
 
-  /**
-   * The tabs, each one backed by a service this caller can read.
-   *
-   * THE LAST SIX WERE Leads, Donors, Source, SMS, Whatsapp AND Instagram, AND ALL SIX WERE ALWAYS
-   * EMPTY - the template handed every one of them an empty array. Leads now reads the donors
-   * service (for those who may), Donors and Source read this campaign's gifts, and the three
-   * channel names typed in here are replaced by the channels THIS campaign actually runs on, as
-   * CAM holds them.
-   */
-  protected readonly tabs = computed<readonly DetailTab[]>(() => [
-    { key: 'tracking', label: 'Tracking' },
-    { key: 'payments', label: 'Payments' },
-    ...(this.canSeeLeads() ? [{ key: 'leads', label: 'Leads' }] : []),
-    { key: 'donors', label: 'Donors' },
-    ...(this.canSeeAttribution() ? [{ key: 'source', label: 'Source' }] : []),
-    ...(this.canSeeAttribution()
-      ? (this.liveRecord()?.channelNames ?? []).map((name) => ({ key: `channel:${name}`, label: name }))
-      : []),
-  ]);
+  /** What the fixed tabs are called. A channel tab is called by its channel, as CAM names it. */
+  private static readonly TAB_LABELS: Readonly<Record<string, string>> = {
+    tracking: 'Tracking',
+    payments: 'Payments',
+    leads: 'Leads',
+    donors: 'Donors',
+    source: 'Source',
+    lifecycle: 'Lifecycle',
+  };
 
-  /** The tab shown on arrival: Tracking, the first of the list. */
+  /**
+   * Every record the table under the calendar can list, by tab, on every day - each one read from
+   * a service this caller can read. The calendar's icons, the day's tabs and the rows on screen
+   * are all cut from this one map, in this order.
+   *
+   * THE CHANNEL TABS ARE THE CHANNELS GIFTS WERE TRACED TO, not a list typed in here: they used to
+   * be SMS, Whatsapp and Instagram on every campaign, always empty.
+   */
+  private readonly rowsByTab = computed<ReadonlyMap<string, readonly DatedRow[]>>(() => {
+    const tabs = new Map<string, readonly DatedRow[]>();
+
+    tabs.set('tracking', this.trackingRowsAll());
+    tabs.set('payments', this.donations());
+
+    if (this.canSeeLeads()) {
+      tabs.set('leads', this.leads().map((lead) => ({
+        primary: `${lead.name} · ${lead.leadReference}`,
+        secondary: [lead.status, lead.ownerName || 'Unassigned'].filter(Boolean).join(' · '),
+        meta: this.donationWhen(lead.createdAtUtc),
+        dayKey: this.dayKeyOf(lead.createdAtUtc),
+      })));
+    }
+
+    tabs.set('donors', this.firstGifts());
+
+    if (this.canSeeAttribution()) {
+      const attributed = this.attributedDonations();
+
+      tabs.set('source', attributed.map((item) =>
+        this.attributionRow(
+          item,
+          item.isAttributed
+            ? [item.sourceName, item.mediumName].filter(Boolean).join(' · ') || 'Traced'
+            : 'Not traced to a source')));
+
+      const channels = [...new Set(
+        attributed
+          .filter((item) => item.isAttributed && !!item.channelName)
+          .map((item) => item.channelName as string),
+      )].sort((a, b) => a.localeCompare(b));
+
+      for (const channel of channels) {
+        tabs.set(`channel:${channel}`, attributed
+          .filter((item) => item.isAttributed && item.channelName === channel)
+          .map((item) =>
+            this.attributionRow(item, [item.trackingReference, item.sourceName].filter(Boolean).join(' · '))));
+      }
+    }
+
+    tabs.set('lifecycle', this.lifecycleRowsAll());
+
+    return tabs;
+  });
+
+  /**
+   * The Lifecycle tab: the campaign's start and end dates from its record, and each step of its
+   * history - who took it and what they said - on the day it was taken.
+   */
+  private readonly lifecycleRowsAll = computed<readonly DatedRow[]>(() => {
+    const record = this.liveRecord();
+    const rows: DatedRow[] = [];
+
+    if (record?.startDate) {
+      rows.push({
+        primary: 'Campaign starts',
+        secondary: this.activationLabel(),
+        meta: this.dayLabel(record.startDate),
+        dayKey: this.dayKeyOf(record.startDate),
+        kind: 'launch',
+      });
+    }
+
+    if (record?.endDate) {
+      rows.push({
+        primary: 'Campaign ends',
+        secondary: 'The campaign’s end date',
+        meta: this.dayLabel(record.endDate),
+        dayKey: this.dayKeyOf(record.endDate),
+        kind: 'end',
+      });
+    }
+
+    for (const entry of this.historyEntries()) {
+      rows.push({
+        primary: this.describeHistoryAction(entry.actionCode),
+        secondary: this.historyDetail(entry) || '—',
+        meta: this.donationWhen(entry.occurredAtUtc),
+        dayKey: this.dayKeyOf(entry.occurredAtUtc),
+        kind: 'report',
+      });
+    }
+
+    return rows;
+  });
+
+  /** Each tab's records on the day the table shows - only the tabs that have any. */
+  private readonly dayRows = computed(() => {
+    const day = this.activeDayKey();
+    const rows = new Map<string, readonly DatedRow[]>();
+
+    for (const [tab, all] of this.rowsByTab()) {
+      const onDay = all.filter((row) => row.dayKey === day);
+
+      if (onDay.length) {
+        rows.set(tab, onDay);
+      }
+    }
+
+    return rows;
+  });
+
+  /**
+   * The tabs for the day on screen: one per kind of record the day holds, with how many. A day
+   * with nothing recorded has no tabs at all.
+   */
+  protected readonly tabs = computed<readonly DayTab[]>(() =>
+    [...this.dayRows()].map(([key, rows]) => ({
+      key,
+      label: key.startsWith('channel:')
+        ? key.slice('channel:'.length)
+        : CampaignDetailComponent.TAB_LABELS[key] ?? key,
+      count: rows.length,
+    })),
+  );
+
+  /** The tab last picked. It stays picked from day to day while the day has records of its kind. */
   protected readonly activeTab = signal<string>('tracking');
+
+  /** The tab actually open: the one picked when the day has it, otherwise the day's first. */
+  protected readonly shownTab = computed<string | null>(() => {
+    const tabs = this.tabs();
+    const wanted = this.activeTab();
+    return tabs.some((tab) => tab.key === wanted) ? wanted : tabs[0]?.key ?? null;
+  });
+
   protected selectTab(key: string): void {
     this.activeTab.set(key);
     this.trackPage.set(1);
@@ -1690,6 +1685,7 @@ export class CampaignDetailComponent {
 
   /** This campaign's leads, from the donors service. Empty for a caller who may not read leads. */
   private readonly leads = signal<readonly LeadListItem[]>([]);
+  protected readonly leadsLoading = signal(false);
   protected readonly leadsError = signal<string | null>(null);
 
   private loadLeads(): void {
@@ -1700,6 +1696,7 @@ export class CampaignDetailComponent {
       return;
     }
 
+    this.leadsLoading.set(true);
     this.leadsError.set(null);
 
     // Converted leads as well as open ones: a lead that became a donor is still this campaign's.
@@ -1710,10 +1707,14 @@ export class CampaignDetailComponent {
           .pipe(map((response) => response.leads)));
 
     forkJoin([read(false), read(true)]).subscribe({
-      next: ([open, converted]) => this.leads.set([...open, ...converted]),
+      next: ([open, converted]) => {
+        this.leads.set([...open, ...converted]);
+        this.leadsLoading.set(false);
+      },
       error: (error: unknown) => {
         this.leads.set([]);
-        this.leadsError.set(apiErrorMessage(error, 'This campaign\u2019s leads could not be loaded.'));
+        this.leadsLoading.set(false);
+        this.leadsError.set(apiErrorMessage(error, 'This campaign’s leads could not be loaded.'));
       },
     });
   }
@@ -1730,74 +1731,67 @@ export class CampaignDetailComponent {
 
   /** Column captions for the tab on screen. */
   protected readonly tabColumns = computed<readonly string[]>(() => {
-    const tab = this.activeTab();
+    const tab = this.shownTab() ?? '';
 
+    if (tab === 'payments') return ['Donation', 'Source · Method', 'Received'];
     if (tab === 'leads') return ['Lead', 'Stage · Owner', 'Captured'];
     if (tab === 'donors') return ['Donor', 'First gift', 'Received'];
     if (tab === 'source') return ['Donation', 'Source · Medium', 'Received'];
+    if (tab === 'lifecycle') return ['Step', 'Detail', 'When'];
     return ['Donation', 'Tracking asset · Source', 'Received'];
   });
 
-  /** The rows of the tab on screen, narrowed to the selected calendar day like every other tab. */
+  /** The rows of the tab on screen: that tab's records on the day, narrowed by the search box. */
   protected readonly tabRows = computed<readonly DatedRow[]>(() => {
-    const tab = this.activeTab();
-    const day = this.activeDayKey();
-    let rows: readonly DatedRow[] = [];
-
-    if (tab === 'leads') {
-      rows = this.leads().map((lead) => ({
-        primary: `${lead.name} · ${lead.leadReference}`,
-        secondary: [lead.status, lead.ownerName || 'Unassigned'].filter(Boolean).join(' · '),
-        meta: this.donationWhen(lead.createdAtUtc),
-        dayKey: this.dayKeyOf(lead.createdAtUtc),
-      }));
-    } else if (tab === 'donors') {
-      rows = this.firstGifts();
-    } else if (tab === 'source') {
-      rows = this.attributedDonations().map((item) =>
-        this.attributionRow(
-          item,
-          item.isAttributed
-            ? [item.sourceName, item.mediumName].filter(Boolean).join(' · ') || 'Traced'
-            : 'Not traced to a source'));
-    } else if (tab.startsWith('channel:')) {
-      const channel = tab.slice('channel:'.length);
-
-      rows = this.attributedDonations()
-        .filter((item) => item.isAttributed && item.channelName === channel)
-        .map((item) =>
-          this.attributionRow(item, [item.trackingReference, item.sourceName].filter(Boolean).join(' · ')));
-    }
-
-    return rows.filter((row) => row.dayKey === day);
+    const tab = this.shownTab();
+    return tab ? this.searched(this.dayRows().get(tab) ?? []) : [];
   });
 
-  /** Why the tab on screen has nothing to show, when that is a failed read rather than an empty day. */
-  protected readonly tabError = computed(() => {
-    const tab = this.activeTab();
+  /**
+   * Reads that failed, said rather than drawn as an empty day: "nothing on this day" and "the
+   * service did not answer" are different facts. The channel panel reports its own.
+   */
+  protected readonly loadProblems = computed(() =>
+    [this.trackingError(), this.donationsError(), this.leadsError(), this.activityError()]
+      .filter((message): message is string => !!message),
+  );
 
-    if (tab === 'leads') return this.leadsError();
-    if (tab === 'source' || tab.startsWith('channel:')) return this.attributionError();
-    return null;
-  });
+  /** Whether any of the table's reads is still in flight, so an empty day is not called empty yet. */
+  protected readonly tableLoading = computed(
+    () => this.trackingLoading() || this.donationsLoading() || this.leadsLoading() || this.activityLoading(),
+  );
 
   // ---------- Tracking mini-table (paged five at a time, like the design) ----------
   private static readonly TRACK_PAGE_SIZE = 5;
   protected readonly trackPage = signal(1);
 
-  /** Free-text filter over reference/type-channel. Resets to page 1 whenever it changes. */
+  /** Free-text filter over the open tab's rows. Resets to page 1 whenever it changes. */
   protected readonly trackSearchTerm = signal('');
   protected setTrackSearch(value: string): void {
     this.trackSearchTerm.set(value);
     this.trackPage.set(1);
   }
 
-  /** The status word's dot colour — green for live, blue for approved, grey otherwise. */
+  /** The rows the search box lets through: any whose text holds what was typed. */
+  private searched<T extends DatedRow>(rows: readonly T[]): readonly T[] {
+    const term = this.trackSearchTerm().trim().toLowerCase();
+
+    if (!term) {
+      return rows;
+    }
+
+    return rows.filter((row) =>
+      [row.primary, row.secondary, row.meta, (row as Partial<TrackRow>).statusText]
+        .some((text) => !!text && text.toLowerCase().includes(term)));
+  }
+
+  /** The status chip's dot colour, from CAM's status code — green for live, blue for approved. */
   private statusTone(status: string): string {
-    if (/active/i.test(status)) {
+    // ANCHORED: 'inactive' (a disabled asset) holds the word 'active' and was drawn green.
+    if (/^active$/i.test(status)) {
       return 'good';
     }
-    if (/approved|verified/i.test(status)) {
+    if (/^approved$/i.test(status)) {
       return 'blue';
     }
     if (/paused|hold|pending/i.test(status)) {
@@ -1809,32 +1803,10 @@ export class CampaignDetailComponent {
     return 'muted';
   }
 
-  /** Tracking rows shaped for the compact card: status word for the dot, plus a usage tail. */
-  protected readonly trackRows = computed(() => {
-    const rows = this.trackingAssets().map((row) => {
-      const parts = row.meta.split('·');
-      const status = parts[0] ?? '';
-      return {
-        primary: row.primary,
-        secondary: row.secondary,
-        statusText: status.trim() || '—',
-        uses: parts.slice(1).join('·').trim(),
-        usesCount: row.usageCount != null ? `${row.usageCount.toLocaleString('en-IN')} Uses` : '—',
-        createdOn: row.createdOn ?? '—',
-        dayKey: row.dayKey ?? null,
-        tone: this.statusTone(status),
-      };
-    });
-    const day = this.activeDayKey();
-    const dated = rows.filter((row) => row.dayKey === day);
-    const term = this.trackSearchTerm().trim().toLowerCase();
-    if (!term) {
-      return dated;
-    }
-    return dated.filter(
-      (row) => row.primary.toLowerCase().includes(term) || row.secondary.toLowerCase().includes(term),
-    );
-  });
+  /** The Tracking tab's rows on the day, narrowed by the search box. */
+  protected readonly trackRows = computed(() =>
+    this.searched((this.dayRows().get('tracking') ?? []) as readonly TrackRow[]),
+  );
 
   protected readonly trackPageCount = computed(() =>
     Math.max(1, Math.ceil(this.trackRows().length / CampaignDetailComponent.TRACK_PAGE_SIZE)),
@@ -2269,7 +2241,7 @@ export class CampaignDetailComponent {
       ['Lifecycle activation', this.activationLabel()],
       ['Public description', this.publicDescriptionPlain()],
       ['Terms and notice', this.termsNoticePlain()],
-      ['Tracking assets', this.trackingAssets().length],
+      ['Tracking assets', this.campaignAssets().length],
       ['Exported on', takenAt.toLocaleString('en-IN')],
       ['Exported by', this.currentUser.current().name],
     ];

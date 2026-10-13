@@ -27,7 +27,7 @@
   <div class="pr-tile1 pr-tile-gold">
     <div class="pr-tile-body">
       <span class="pr-tile-label">Total Amount</span>
-      <span class="pr-tile-value" style="color: var(--tile-accent-strong, var(--pr-ink))">₹{{ totalAmount().toLocaleString('en-IN') }}</span>
+      <span class="pr-tile-value" style="color: var(--tile-accent-strong, var(--pr-ink))">{{ totalAmountLabel() }}</span>
       <span class="pr-tile-note">In selected scope</span>
     </div>
     <span class="pr-tile-icon pr-tile-icon-gold">
@@ -141,7 +141,7 @@
 
                 @if (statusMenuOpen()) {
                   <ul class="pr-dd-menu" id="pr-status-menu" role="listbox" aria-label="Payment status">
-                    @for (s of statusMenuItems; track s; let i = $index) {
+                    @for (s of statusMenuItems(); track s; let i = $index) {
                       <li role="option" class="pr-dd-option"
                           [id]="'pr-status-opt-' + i"
                           [class.is-active]="i === statusActiveIndex()"
@@ -527,7 +527,7 @@
                  table gives Tenant Admin "view Details" on a failed payment and nothing
                  more, because retrying charges somebody else's card. A caller without the
                  permission sees no button rather than a disabled one. -->
-            @if (e.paymentStatus === 'Fail' && canRetry()) {
+            @if (can(e, 'Retry')) {
               <button type="button" class="btn btn-danger btn-sm  pr-btn-block" (click)="retryPaymentFromQueue(e)" [disabled]="retryingRef() !== null">
                 {{ retryingRef() === e.eventReference ? 'Processing…' : 'Retry' }}
               </button>
@@ -535,7 +535,7 @@
                    people. Verification can come back "already paid", and then no link is sent
                    and no button did anything - which reads as a broken retry unless the screen
                    said in advance that checking first is what it does. -->
-              @if (canResendLink()) {
+              @if (can(e, 'ResendLink')) {
                 <p class="pr-hint">
                   Checks with the provider first, then e-mails a fresh payment link to
                   {{ e.donorEmail }}. Nothing is sent if that check finds the donor was already
@@ -549,7 +549,7 @@
               }
             }
             <!-- CONTINUE TO PAY, likewise: the table gives it to Donor/Initiator only. -->
-            @if (e.paymentStatus === 'Pending' && canContinuePayment()) {
+            @if (can(e, 'ContinuePayment')) {
               <button type="button" class="btn btn-primary btn-sm pr-btn-block" (click)="continuePaymentFromQueue(e)">
                 Continue payment
               </button>

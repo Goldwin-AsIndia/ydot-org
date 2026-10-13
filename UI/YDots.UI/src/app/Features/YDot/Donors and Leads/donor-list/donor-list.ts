@@ -1,20 +1,27 @@
 import {
   Component,
   ChangeDetectionStrategy,
+  DestroyRef,
   computed,
   inject,
   signal,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subject, Subscription, debounceTime } from 'rxjs';
 import { DonorApiService } from '../../../../Service/donor-api.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
-import { DonorListItem, DonorListSummary } from '../../../../Shared/models/donor-contract.model';
+import {
+  DonLookupItem,
+  DonorListItem,
+  DonorListOptions,
+  DonorListSummary,
+  DonorSearchFilter,
+} from '../../../../Shared/models/donor-contract.model';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
-import { parseCsv, toCsvText } from '../../../../Shared/services/csv';
-import { fetchAllPages } from '../../../../Shared/services/paging';
+import { parseCsv } from '../../../../Shared/services/csv';
 import { ToastService } from '../../../../Shared/services/toast.service';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
@@ -35,11 +42,11 @@ export interface Donor {
   lastDonationDate: string;
   /** Received only; pledges are not counted. */
   lifetimeGiving: number;
-  /** Overdue | Due Today | Tomorrow | Upcoming | None */
+  /** One of the server's follow-up states: Overdue | Due Today | Tomorrow | Upcoming | None. */
   followUpStatus: string;
-  /** Granted | Partial | Withdrawn | Not provided */
+  /** One of the server's consent positions. */
   consentStatus: string;
-  /** Verified | Pending | Under review | Failed | Expired | Cancelled | Not checked */
+  /** One of the server's identity states. */
   verificationStatus: string;
   consentReviewRequired: boolean;
   createdDate: string;
@@ -49,13 +56,8 @@ export interface Donor {
   contactMasked: boolean;
 }
 
-type SortableColumn = 'name' | 'lastDonationDate' | 'lifetimeGiving' | 'campaign' | 'owner';
-type SortDirection = 'asc' | 'desc';
 type ExportFormat = 'excel' | 'csv' | 'pdf';
 type ViewMode = 'table' | 'cards';
-/** The "needs attention" shortcuts; each narrows the register to one piece of work. */
-type Attention = 'overdue' | 'today' | 'unverified' | 'consent' | 'unowned';
-type GiftPeriod = 'all' | '30' | '90' | '365' | 'never';
 
 interface FilterToken {
   key: string;
@@ -63,17 +65,29 @@ interface FilterToken {
   clear: () => void;
 }
 
-/** Lifecycle order for the status composition; unknown values follow in data order. */
-const STATUS_ORDER = ['Active', 'Prospect', 'Restricted', 'Archived', 'Merged'];
-
-// THE ORDER THE FILTER CHIPS ARE DRAWN IN - not the list of chips. Which values exist is read off
-// the donors themselves (see `present`), so a chip can never offer a value the server does not
-// send. These used to be the chips, and two of them were wrong: "Pending" matched nothing because
-// the server sent the enum name, and a follow-up booked for next week had no chip at all.
-const FOLLOW_UP_ORDER = ['Overdue', 'Due Today', 'Tomorrow', 'Upcoming', 'None'];
-const VERIFICATION_ORDER = ['Verified', 'Pending', 'Under review', 'Failed', 'Expired', 'Cancelled', 'Not checked'];
-const CONSENT_ORDER = ['Granted', 'Partial', 'Withdrawn', 'Not provided'];
+const ALL = 'all';
 const VIEW_KEY = 'ydot.donor-list.view';
+
+/** The tone and icon each "needs attention" shortcut is drawn in - presentation only. */
+const ATTENTION_LOOK: Readonly<Record<string, { glyph: string; tone: string }>> = {
+  overdue: { glyph: 'ri-alarm-warning-line', tone: 'danger' },
+  today: { glyph: 'ri-calendar-event-line', tone: 'warn' },
+  unverified: { glyph: 'ri-shield-user-line', tone: 'info' },
+  consent: { glyph: 'ri-shield-keyhole-line', tone: 'plum' },
+  unowned: { glyph: 'ri-user-unfollow-line', tone: 'slate' },
+};
+
+const NO_OPTIONS: DonorListOptions = {
+  statusOptions: [],
+  followUpStateOptions: [],
+  verificationOptions: [],
+  consentOptions: [],
+  giftPeriodOptions: [],
+  sortOptions: [],
+  defaultSort: '',
+  ownerOptions: [],
+  campaignOptions: [],
+};
 
 @Component({
   selector: 'app-donor-list',
@@ -92,9 +106,12 @@ export class DonorListComponent {
   private readonly tokens = inject(AuthTokenService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly searchChanges = new Subject<void>();
+  private rowsSubscription?: Subscription;
 
   /**
-   * My Donor List: the donors whose relationship the caller owns.
+   * My Donors: the donors whose relationship the caller owns.
    *
    * THE SAME SCREEN, ASKED A NARROWER QUESTION. The route says which list this is; the server
    * decides who "me" is from the token, for the rows, the summary and the export alike.
@@ -102,19 +119,22 @@ export class DonorListComponent {
   protected readonly mineOnly = this.route.snapshot.data['mine'] === true;
 
   protected readonly heading = this.mineOnly
-    ? { title: 'My Donor List', subtitle: 'The donors whose relationship you own: what they gave and what needs doing next.' }
-    : { title: 'Donor List', subtitle: 'Everyone who has given: what they gave, who looks after them and what needs doing next.' };
+    ? { title: 'My Donors', subtitle: 'The donors whose relationship you own: what they gave and what needs doing next.' }
+    : { title: 'All Donors', subtitle: 'Everyone who has given: what they gave, who looks after them and what needs doing next.' };
 
   /**
    * ----- Data + async state -----
    *
-   * READ FROM THE API BY THIS SCREEN. It used to read a shared in-browser store that loaded "the
-   * first 200" leads, donors and follow-ups for every screen in the section; the API caps a page
-   * at 100, so the 101st donor was missing from the list and from every figure above it.
+   * ONE PAGE OF ROWS AT A TIME, FILTERED, SORTED AND COUNTED BY THE SERVER. The list used to
+   * download every page and filter, sort and page them here, and offered as filter choices only
+   * the words it found on the rows it had loaded. The server applies every filter now (campaign,
+   * follow-up, identity, consent and last gift are facts from other tables it works out per row),
+   * so the page, the total and the export answer the same question.
    */
   protected readonly donors = signal<Donor[]>([]);
+  protected readonly totalRecords = signal(0);
 
-  /** The figures over the caller's whole scope, counted by the server. Null until it answers. */
+  /** The figures, shortcuts and filter options over the caller's whole scope. Null until it answers. */
   protected readonly summary = signal<DonorListSummary | null>(null);
 
   private readonly busy = signal(false);
@@ -139,23 +159,23 @@ export class DonorListComponent {
 
   /** ----- Search + filters ----- */
   protected readonly searchTerm = signal('');
-  protected readonly attention = signal<Attention | null>(null);
-  protected readonly statusFilter = signal('all');
-  protected readonly ownerFilter = signal('all');
-  protected readonly campaignFilter = signal('all');
-  protected readonly followUpFilter = signal('all');
-  protected readonly verificationFilter = signal('all');
-  protected readonly consentFilter = signal('all');
-  protected readonly giftPeriod = signal<GiftPeriod>('all');
+  protected readonly attention = signal<string | null>(null);
+  protected readonly statusFilter = signal(ALL);
+  protected readonly ownerFilter = signal(ALL);
+  protected readonly campaignFilter = signal(ALL);
+  protected readonly followUpFilter = signal(ALL);
+  protected readonly verificationFilter = signal(ALL);
+  protected readonly consentFilter = signal(ALL);
+  protected readonly giftPeriod = signal(ALL);
   protected readonly filterPanelOpen = signal(false);
 
   /** Option search appears inside Owner / Campaign only above 20 options. */
   protected readonly ownerOptionSearch = signal('');
   protected readonly campaignOptionSearch = signal('');
 
-  /** ----- Sorting ----- */
-  protected readonly sortColumn = signal<SortableColumn>('lastDonationDate');
-  protected readonly sortDirection = signal<SortDirection>('desc');
+  /** ----- Sorting: the server's columns; empty until it answers with its default ----- */
+  protected readonly sortColumn = signal<string>('');
+  protected readonly sortDirection = signal<'asc' | 'desc'>('desc');
 
   /** ----- Selection, sheet, menus ----- */
   protected readonly selectedIds = signal<Set<string>>(new Set());
@@ -163,56 +183,111 @@ export class DonorListComponent {
   protected readonly openMoreMenuId = signal<string | null>(null);
   protected readonly exportMenuOpen = signal(false);
 
-  /** ----- Pagination (multiples of 12 so the card grid fills its rows) ----- */
+  /** ----- Pagination ----- */
   protected readonly currentPage = signal(1);
   protected readonly pageSize = signal(10);
   protected readonly pageSizeOptions = [10, 20, 30, 40, 50];
 
-  // The filter chips: the values the donors actually carry, in a fixed reading order.
-  protected readonly followUpOptions = computed(() =>
-    this.present(FOLLOW_UP_ORDER, this.donors().map((d) => d.followUpStatus || 'None')));
-  protected readonly verificationOptions = computed(() =>
-    this.present(VERIFICATION_ORDER, this.donors().map((d) => this.verificationLabel(d))));
-  protected readonly consentOptions = computed(() =>
-    this.present(CONSENT_ORDER, this.donors().map((d) => this.consentLabel(d))));
+  /** The server's option lists. */
+  protected readonly options = computed(() => this.summary()?.options ?? NO_OPTIONS);
+  protected readonly ownerOptions = computed(() => this.options().ownerOptions);
+  protected readonly campaignOptions = computed(() => this.options().campaignOptions);
+  protected readonly followUpOptions = computed(() => this.options().followUpStateOptions);
+  protected readonly verificationOptions = computed(() => this.options().verificationOptions);
+  protected readonly consentOptions = computed(() => this.options().consentOptions);
+  protected readonly giftPeriodOptions = computed(() => this.options().giftPeriodOptions);
+  protected readonly sortOptions = computed(() => this.options().sortOptions);
+
+  /** Where the rows are restored to after the selected donor's page changes. */
+  private readonly previewCache = new Map<string, Donor>();
 
   constructor(private readonly router: Router) {
-    this.load();
+    this.searchChanges
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadRows());
+    this.destroyRef.onDestroy(() => this.rowsSubscription?.unsubscribe());
+
+    this.loadSummary();
   }
 
-  /**
-   * The rows and the summary, together.
-   *
-   * EVERY PAGE OF ROWS, because the search, the filters and the sort on this screen work over the
-   * whole list; AND THE SUMMARY FROM THE SERVER, because the figures above the list are facts
-   * about the organisation's donors (or the caller's own), not about the rows a browser happens
-   * to be holding.
-   */
-  private load(): void {
+  /** The figures and the option lists, then the first page in the server's default order. */
+  private loadSummary(): void {
     this.busy.set(true);
     this.failure.set(null);
 
-    forkJoin({
-      rows: fetchAllPages<DonorListItem>((page, pageSize) =>
-        this.api.searchDonors({ page, pageSize, onlyMine: this.mineOnly || null })),
-      summary: this.api.getDonorSummary(this.mineOnly),
-    }).subscribe({
-      next: ({ rows, summary }) => {
-        this.donors.set(rows.map((row) => this.toDonor(row)));
-        this.summary.set(summary);
+    this.api
+      .getDonorSummary(this.mineOnly)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (summary) => {
+          this.summary.set(summary);
 
-        // A selection can outlive the rows it was made on: a donor reassigned away is gone.
-        const ids = new Set(rows.map((row) => row.id));
-        this.selectedIds.update((current) => new Set([...current].filter((id) => ids.has(id))));
+          if (!this.sortColumn()) {
+            const [column, direction] = (summary.options?.defaultSort ?? '').split(' ');
+            this.sortColumn.set(column || summary.options?.sortOptions?.[0]?.value || '');
+            this.sortDirection.set(direction === 'asc' ? 'asc' : 'desc');
+          }
 
-        this.busy.set(false);
-        this.lastRefreshed.set(new Date());
-      },
-      error: (error: unknown) => {
-        this.busy.set(false);
-        this.failure.set(apiErrorMessage(error, 'The donor list could not be loaded.'));
-      },
-    });
+          this.loadRows();
+        },
+        error: (error: unknown) => {
+          this.busy.set(false);
+          this.failure.set(apiErrorMessage(error, 'The donor list could not be loaded.'));
+        },
+      });
+  }
+
+  /** The search, the filters, the order and the page, as the server's query string. */
+  private buildFilter(): DonorSearchFilter {
+    const value = (current: string) => (current === ALL ? null : current);
+    const sort = this.sortColumn();
+
+    return {
+      onlyMine: this.mineOnly || null,
+      search: this.searchTerm().trim() || undefined,
+      attention: this.attention(),
+      status: value(this.statusFilter()),
+      relationshipOwnerUserId: value(this.ownerFilter()),
+      campaign: value(this.campaignFilter()),
+      followUpState: value(this.followUpFilter()),
+      verification: value(this.verificationFilter()),
+      consent: value(this.consentFilter()),
+      giftPeriod: value(this.giftPeriod()),
+      sort: sort ? `${sort} ${this.sortDirection()}` : undefined,
+    };
+  }
+
+  private loadRows(): void {
+    this.busy.set(true);
+    this.failure.set(null);
+
+    this.rowsSubscription?.unsubscribe();
+    this.rowsSubscription = this.api
+      .searchDonors({ ...this.buildFilter(), page: this.currentPage(), pageSize: this.pageSize() })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (page) => {
+          // A page past the end (the set shrank since it was asked for): step back to the last.
+          const lastPage = Math.max(1, Math.ceil(page.totalCount / this.pageSize()));
+          if (page.items.length === 0 && page.totalCount > 0 && this.currentPage() > lastPage) {
+            this.currentPage.set(lastPage);
+            this.loadRows();
+            return;
+          }
+
+          const rows = page.items.map((row) => this.toDonor(row));
+          rows.forEach((row) => this.previewCache.set(row.donorId, row));
+          this.donors.set(rows);
+          this.totalRecords.set(page.totalCount);
+
+          this.busy.set(false);
+          this.lastRefreshed.set(new Date());
+        },
+        error: (error: unknown) => {
+          this.busy.set(false);
+          this.failure.set(apiErrorMessage(error, 'The donor list could not be loaded.'));
+        },
+      });
   }
 
   private toDonor(item: DonorListItem): Donor {
@@ -224,21 +299,19 @@ export class DonorListComponent {
       mobile: item.mobileNumber ?? '',
       email: item.emailAddress ?? '',
       campaign: item.campaignName ?? '',
-      owner: item.relationshipOwnerName?.trim() || 'Unassigned',
+      owner: item.relationshipOwnerName?.trim() ?? '',
       ownerUserId: item.relationshipOwnerUserId,
       reference: item.displayCode,
       lastDonationAmount: item.lastDonationAmount ?? 0,
       lastDonationDate: item.lastDonationAtUtc ?? '',
       lifetimeGiving: item.lifetimeGiving ?? 0,
-      followUpStatus: item.followUpStatus || 'None',
+      followUpStatus: item.followUpStatus ?? '',
       consentStatus: item.consentStatus ?? '',
       verificationStatus: item.verificationStatus ?? '',
       consentReviewRequired: item.consentReviewRequired ?? false,
-
-      // WHEN THE RECORD WAS CREATED. This was the last-updated instant under a "created" name.
       createdDate: item.createdAtUtc ?? '',
       status: item.status,
-      currency: item.currency || 'INR',
+      currency: item.currency,
       contactMasked: item.isContactMasked ?? false,
     };
   }
@@ -247,21 +320,20 @@ export class DonorListComponent {
      Derived data
      ================================================================================= */
 
-  protected readonly ownerOptions = computed(() => this.uniqueSorted(this.donors().map((d) => d.owner)));
-  protected readonly campaignOptions = computed(() => this.uniqueSorted(this.donors().map((d) => d.campaign)));
-
   /** Every donor in the caller's scope, by the server's count. */
   protected readonly donorsOnRecord = computed(() => this.summary()?.donorsOnRecord ?? 0);
 
-  /** Status composition over every record, in lifecycle order - the server's counts. */
+  /** Status composition over every record, in the server's lifecycle order - the server's counts. */
   protected readonly statusMix = computed(() => {
     const counts = this.summary()?.statusCounts ?? {};
     const total = this.donorsOnRecord();
+    const ordered = this.options().statusOptions.map((option) => option.value);
     const present = Object.keys(counts).filter((status) => counts[status] > 0);
-    const known = STATUS_ORDER.filter((status) => present.includes(status));
-    const other = present.filter((status) => !STATUS_ORDER.includes(status));
+    const known = ordered.filter((status) => present.includes(status));
+    const other = present.filter((status) => !ordered.includes(status));
     return [...known, ...other].map((status) => ({
       status,
+      label: this.labelIn(this.options().statusOptions, status),
       count: counts[status],
       share: total ? (counts[status] / total) * 100 : 0,
     }));
@@ -273,13 +345,7 @@ export class DonorListComponent {
   protected readonly statusOther = computed(() =>
     this.donorsOnRecord() - this.statusLead().reduce((sum, s) => sum + s.count, 0));
 
-  /**
-   * Money figures over every record - the server's, from the payments module, net of refunds.
-   *
-   * THEY WERE ADDED UP HERE FROM THE LOADED ROWS, and "gave recently" summed each donor's LATEST
-   * gift rather than what was received in the period - so somebody who gave three times in the
-   * quarter counted once, at the size of their last gift.
-   */
+  /** Money figures over every record - the server's, from the payments module, net of refunds. */
   protected readonly portfolio = computed(() => {
     const summary = this.summary();
     return {
@@ -288,82 +354,32 @@ export class DonorListComponent {
       average: summary?.averagePerGiver ?? 0,
       recentCount: summary?.recentGivers ?? 0,
       recentSum: summary?.recentGiving ?? 0,
-      recentDays: summary?.recentWindowDays ?? 90,
+      recentDays: summary?.recentWindowDays ?? 0,
       yetToGive: summary?.yetToGive ?? 0,
-      currency: summary?.currency || 'INR',
+      currency: summary?.currency ?? '',
     };
   });
 
-  protected readonly attentionItems = computed(() => {
-    const summary = this.summary();
-    const items: { key: Attention; label: string; hint: string; glyph: string; tone: string; count: number }[] = [
-      { key: 'overdue', label: 'Follow-ups overdue', hint: 'Promised contact has slipped', glyph: 'ri-alarm-warning-line', tone: 'danger', count: summary?.followUpsOverdue ?? 0 },
-      { key: 'today', label: 'Follow-ups due today', hint: 'Planned for today', glyph: 'ri-calendar-event-line', tone: 'warn', count: summary?.followUpsDueToday ?? 0 },
-      { key: 'unverified', label: 'Identity not verified', hint: 'Pending, failed, expired or unchecked', glyph: 'ri-shield-user-line', tone: 'info', count: summary?.identityNotVerified ?? 0 },
-      { key: 'consent', label: 'Consent to review', hint: 'A consent expired or was withdrawn', glyph: 'ri-shield-keyhole-line', tone: 'plum', count: summary?.consentToReview ?? 0 },
-      { key: 'unowned', label: 'Without an owner', hint: 'Nobody looks after them yet', glyph: 'ri-user-unfollow-line', tone: 'slate', count: summary?.withoutOwner ?? 0 },
-    ];
-    return items;
-  });
+  /** The server's "needs attention" shortcuts, with their words, hints and counts. */
+  protected readonly attentionItems = computed(() =>
+    (this.summary()?.attention ?? []).map((item) => ({
+      key: item.value,
+      label: item.label,
+      hint: item.description,
+      count: item.count,
+      glyph: ATTENTION_LOOK[item.value]?.glyph ?? 'ri-focus-3-line',
+      tone: ATTENTION_LOOK[item.value]?.tone ?? 'slate',
+    })));
 
-  /** ----- Search + filter + sort pipeline ----- */
-  protected readonly filteredDonors = computed<Donor[]>(() => {
-    const term = this.searchTerm().trim().toLowerCase();
-    const attention = this.attention();
-    const status = this.statusFilter();
-    const owner = this.ownerFilter();
-    const campaign = this.campaignFilter();
-    const followUp = this.followUpFilter();
-    const verification = this.verificationFilter();
-    const consent = this.consentFilter();
-    const period = this.giftPeriod();
-
-    const result = this.donors().filter((d) =>
-      (term.length === 0 ||
-        [d.donorId, d.reference, d.name, d.mobile, d.email, d.campaign, d.owner]
-          .some((field) => (field ?? '').toLowerCase().includes(term))) &&
-      (!attention || this.needs(d, attention)) &&
-      (status === 'all' || this.statusOf(d) === status) &&
-      (owner === 'all' || d.owner === owner) &&
-      (campaign === 'all' || d.campaign === campaign) &&
-      (followUp === 'all' || (d.followUpStatus || 'None') === followUp) &&
-      (verification === 'all' || this.verificationLabel(d) === verification) &&
-      (consent === 'all' || (d.consentStatus || 'Not provided') === consent) &&
-      this.inGiftPeriod(d, period));
-
-    const col = this.sortColumn();
-    const dir = this.sortDirection() === 'asc' ? 1 : -1;
-    return [...result].sort((a, b) => {
-      switch (col) {
-        case 'name': return a.name.localeCompare(b.name) * dir;
-        case 'campaign': return (a.campaign || '').localeCompare(b.campaign || '') * dir;
-        case 'owner': return (a.owner || '').localeCompare(b.owner || '') * dir;
-        case 'lifetimeGiving': return ((a.lifetimeGiving || 0) - (b.lifetimeGiving || 0)) * dir;
-        default: {
-          // Donors who never gave sort last whichever the direction.
-          const ta = new Date(a.lastDonationDate).getTime();
-          const tb = new Date(b.lastDonationDate).getTime();
-          const va = Number.isFinite(ta) ? ta : null;
-          const vb = Number.isFinite(tb) ? tb : null;
-          if (va === null && vb === null) return 0;
-          if (va === null) return 1;
-          if (vb === null) return -1;
-          return (va - vb) * dir;
-        }
-      }
-    });
-  });
-
-  protected readonly totalRecords = computed(() => this.filteredDonors().length);
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalRecords() / this.pageSize())));
   protected readonly effectivePage = computed(() => Math.min(this.currentPage(), this.totalPages()));
-  protected readonly paginatedDonors = computed<Donor[]>(() => {
-    const start = (this.effectivePage() - 1) * this.pageSize();
-    return this.filteredDonors().slice(start, start + this.pageSize());
-  });
+
+  /** The rows on screen - the server's page, exactly. */
+  protected readonly paginatedDonors = computed<Donor[]>(() => this.donors());
   protected readonly rangeStart = computed(() =>
     this.totalRecords() === 0 ? 0 : (this.effectivePage() - 1) * this.pageSize() + 1);
-  protected readonly rangeEnd = computed(() => Math.min(this.effectivePage() * this.pageSize(), this.totalRecords()));
+  protected readonly rangeEnd = computed(() =>
+    Math.min(this.rangeStart() + Math.max(0, this.donors().length - 1), this.totalRecords()));
 
   /** Page numbers for the pager, `0` standing for a gap. */
   protected readonly pageList = computed<number[]>(() => {
@@ -389,32 +405,33 @@ export class DonorListComponent {
     return Math.round(((donor.lifetimeGiving || 0) / this.pageTopGiving()) * 100);
   }
 
-  /** Every applied filter as a removable token. */
+  /** Every applied filter as a removable token, in the server's words. */
   protected readonly filterTokens = computed<FilterToken[]>(() => {
     const tokens: FilterToken[] = [];
+    const options = this.options();
     const attention = this.attention();
     if (attention) {
       const item = this.attentionItems().find((a) => a.key === attention);
       tokens.push({ key: 'attention', label: item?.label ?? attention, clear: () => this.setAttention(null) });
     }
-    if (this.statusFilter() !== 'all') tokens.push({ key: 'status', label: 'Status: ' + this.statusFilter(), clear: () => this.setStatusFilter('all') });
-    if (this.ownerFilter() !== 'all') tokens.push({ key: 'owner', label: 'Owner: ' + this.ownerFilter(), clear: () => this.setFilter(this.ownerFilter, 'all') });
-    if (this.campaignFilter() !== 'all') tokens.push({ key: 'campaign', label: 'Campaign: ' + this.campaignFilter(), clear: () => this.setFilter(this.campaignFilter, 'all') });
-    if (this.followUpFilter() !== 'all') tokens.push({ key: 'followup', label: 'Follow-up: ' + this.followUpFilter(), clear: () => this.setFilter(this.followUpFilter, 'all') });
-    if (this.verificationFilter() !== 'all') tokens.push({ key: 'identity', label: 'Identity: ' + this.verificationFilter(), clear: () => this.setFilter(this.verificationFilter, 'all') });
-    if (this.consentFilter() !== 'all') tokens.push({ key: 'consent', label: 'Consent: ' + this.consentFilter(), clear: () => this.setFilter(this.consentFilter, 'all') });
-    if (this.giftPeriod() !== 'all') tokens.push({ key: 'period', label: this.periodLabel(this.giftPeriod()), clear: () => this.setGiftPeriod('all') });
+    if (this.statusFilter() !== ALL) tokens.push({ key: 'status', label: 'Status: ' + this.labelIn(options.statusOptions, this.statusFilter()), clear: () => this.setStatusFilter(ALL) });
+    if (this.ownerFilter() !== ALL) tokens.push({ key: 'owner', label: 'Owner: ' + this.labelIn(options.ownerOptions, this.ownerFilter()), clear: () => this.setFilter(this.ownerFilter, ALL) });
+    if (this.campaignFilter() !== ALL) tokens.push({ key: 'campaign', label: 'Campaign: ' + this.labelIn(options.campaignOptions, this.campaignFilter()), clear: () => this.setFilter(this.campaignFilter, ALL) });
+    if (this.followUpFilter() !== ALL) tokens.push({ key: 'followup', label: 'Follow-up: ' + this.labelIn(options.followUpStateOptions, this.followUpFilter()), clear: () => this.setFilter(this.followUpFilter, ALL) });
+    if (this.verificationFilter() !== ALL) tokens.push({ key: 'identity', label: 'Identity: ' + this.labelIn(options.verificationOptions, this.verificationFilter()), clear: () => this.setFilter(this.verificationFilter, ALL) });
+    if (this.consentFilter() !== ALL) tokens.push({ key: 'consent', label: 'Consent: ' + this.labelIn(options.consentOptions, this.consentFilter()), clear: () => this.setFilter(this.consentFilter, ALL) });
+    if (this.giftPeriod() !== ALL) tokens.push({ key: 'period', label: this.periodLabel(this.giftPeriod()), clear: () => this.setGiftPeriod(ALL) });
     return tokens;
   });
 
   /** Count of the filters that live in the Filters panel (drives its dot). */
   protected readonly panelFilterCount = computed(() =>
     [this.ownerFilter(), this.campaignFilter(), this.followUpFilter(), this.verificationFilter(), this.consentFilter(), this.giftPeriod()]
-      .filter((v) => v !== 'all').length);
+      .filter((v) => v !== ALL).length);
 
   protected readonly previewDonor = computed<Donor | null>(() => {
     const id = this.previewDonorId();
-    return id ? this.donors().find((d) => d.donorId === id) ?? null : null;
+    return id ? this.donors().find((d) => d.donorId === id) ?? this.previewCache.get(id) ?? null : null;
   });
 
   protected readonly selectedCount = computed(() => this.selectedIds().size);
@@ -430,16 +447,20 @@ export class DonorListComponent {
     return !this.allOnPageSelected() && this.paginatedDonors().some((d) => selected.has(d.donorId));
   });
 
+  /** "last gift, descending" - the server's word for the column. */
   protected readonly sortLabel = computed(() => {
-    const labels: Record<SortableColumn, string> = {
-      name: 'name', lastDonationDate: 'last gift', lifetimeGiving: 'lifetime giving', campaign: 'campaign', owner: 'owner',
-    };
-    return labels[this.sortColumn()] + (this.sortDirection() === 'asc' ? ', ascending' : ', descending');
+    const label = this.labelIn(this.sortOptions(), this.sortColumn()).toLowerCase();
+    return label + (this.sortDirection() === 'asc' ? ', ascending' : ', descending');
   });
 
   /* =================================================================================
-     Filter + view actions
+     Filter + view actions - each one asks the server again
      ================================================================================= */
+
+  private reload(): void {
+    this.currentPage.set(1);
+    this.loadRows();
+  }
 
   protected setView(mode: ViewMode): void {
     this.viewMode.set(mode);
@@ -449,82 +470,90 @@ export class DonorListComponent {
   protected onSearchInput(value: string): void {
     this.searchTerm.set(value);
     this.currentPage.set(1);
+    this.searchChanges.next();
   }
 
   protected resetSearch(): void {
     this.searchTerm.set('');
-    this.currentPage.set(1);
+    this.reload();
   }
 
-  protected setAttention(key: Attention | null): void {
+  protected setAttention(key: string | null): void {
     this.attention.set(this.attention() === key ? null : key);
-    this.currentPage.set(1);
+    this.reload();
   }
 
   protected setStatusFilter(status: string): void {
-    this.statusFilter.set(this.statusFilter() === status ? 'all' : status);
-    this.currentPage.set(1);
+    this.statusFilter.set(this.statusFilter() === status ? ALL : status);
+    this.reload();
   }
 
   protected selectStatus(status: string): void {
     this.statusFilter.set(status);
-    this.currentPage.set(1);
+    this.reload();
   }
 
   protected setFilter(target: { set(value: string): void }, value: string): void {
     target.set(value);
-    this.currentPage.set(1);
+    this.reload();
   }
 
-  protected setGiftPeriod(value: GiftPeriod): void {
+  protected setGiftPeriod(value: string): void {
     this.giftPeriod.set(value);
-    this.currentPage.set(1);
+    this.reload();
   }
 
   protected toggleFilterPanel(): void {
     this.filterPanelOpen.update((open) => !open);
   }
 
-  protected searchDropdownOptions(options: string[], term: string, selected: string): string[] {
+  protected searchDropdownOptions(options: readonly DonLookupItem[], term: string, selected: string): readonly DonLookupItem[] {
     if (options.length <= 20) return options;
     const query = term.trim().toLocaleLowerCase();
-    return options.filter((o) => o === selected || o.toLocaleLowerCase().includes(query));
+    return options.filter((o) => o.value === selected || o.label.toLocaleLowerCase().includes(query));
   }
 
-  protected clearFilters(): void {
+  private resetFilterState(): void {
     this.ownerOptionSearch.set('');
     this.campaignOptionSearch.set('');
     this.attention.set(null);
-    this.statusFilter.set('all');
-    this.ownerFilter.set('all');
-    this.campaignFilter.set('all');
-    this.followUpFilter.set('all');
-    this.verificationFilter.set('all');
-    this.consentFilter.set('all');
-    this.giftPeriod.set('all');
-    this.currentPage.set(1);
+    this.statusFilter.set(ALL);
+    this.ownerFilter.set(ALL);
+    this.campaignFilter.set(ALL);
+    this.followUpFilter.set(ALL);
+    this.verificationFilter.set(ALL);
+    this.consentFilter.set(ALL);
+    this.giftPeriod.set(ALL);
+  }
+
+  protected clearFilters(): void {
+    this.resetFilterState();
+    this.reload();
   }
 
   protected clearAll(): void {
-    this.clearFilters();
-    this.resetSearch();
+    this.resetFilterState();
+    this.searchTerm.set('');
+    this.reload();
   }
 
-  /* ----- Sorting ----- */
-  protected toggleSort(column: SortableColumn): void {
+  /* ----- Sorting: a first click starts in the server's direction for the column ----- */
+  protected toggleSort(column: string): void {
     if (this.sortColumn() === column) {
       this.sortDirection.update((dir) => (dir === 'asc' ? 'desc' : 'asc'));
     } else {
       this.sortColumn.set(column);
-      this.sortDirection.set(column === 'name' || column === 'campaign' || column === 'owner' ? 'asc' : 'desc');
+      const start = this.sortOptions().find((option) => option.value === column)?.description;
+      this.sortDirection.set(start === 'asc' ? 'asc' : 'desc');
     }
+    this.reload();
   }
 
-  protected setSortColumn(column: SortableColumn): void {
+  protected setSortColumn(column: string): void {
     if (this.sortColumn() !== column) this.toggleSort(column);
   }
 
-  protected sortIndicator(column: SortableColumn): 'asc' | 'desc' | 'none' {
+  protected sortIndicator(column: string): 'asc' | 'desc' | 'none' {
     return this.sortColumn() === column ? this.sortDirection() : 'none';
   }
 
@@ -616,11 +645,8 @@ export class DonorListComponent {
   }
 
   /**
-   * Assign or reassign the donor's owner, on the Assignment Board's Donors view.
-   *
-   * THE WAY IN FOR A DONOR NOBODY OWNS. Somebody who gave without ever being a lead arrives with
-   * no owner, and the board is where the organisation's administrator gives them one. It is
-   * reached from the lead queue for leads; this is the same door for donors.
+   * Assign or reassign the donor's owner, on the Assignment Board's Donors view - the way in for
+   * a donor nobody owns.
    */
   protected openAssignmentBoard(donor: Donor, event: Event): void {
     event.stopPropagation();
@@ -633,7 +659,7 @@ export class DonorListComponent {
 
   /**
    * Export History - one donor's gifts, conversations, follow-ups and ownership, as the server
-   * holds them. It used to write the donor's single list row to a file, built in the browser.
+   * holds them.
    */
   protected exportDonorHistory(donor: Donor, event: Event): void {
     event.stopPropagation();
@@ -668,7 +694,7 @@ export class DonorListComponent {
 
   /* ----- Header actions ----- */
   protected refresh(): void {
-    this.load();
+    this.loadSummary();
   }
 
   protected toggleExportMenu(): void {
@@ -679,57 +705,60 @@ export class DonorListComponent {
   protected readonly exporting = signal(false);
 
   /**
-   * Export - the donors in view (or the ticked ones), from a file the server wrote.
+   * Export - the donors in view (or the ticked ones), in a file the server wrote.
    *
-   * ALL THREE FORMATS START FROM THE SERVER'S EXPORT. They used to be built in the browser from
-   * the rows it was holding: no permission check, no masking beyond what the screen happened to
-   * show, and no record that anybody had taken a copy of the donor list. The server's file is
-   * the export - checked against `don.donors.export`, masked for the caller, and logged - and
-   * this re-shapes it: keeps the donors the search, filters or ticks ask for, then saves it as
-   * CSV, as a workbook, or sends it to the printer.
+   * THE SERVER APPLIES THE SAME FILTERS AND ORDER AS THE LIST, and narrows to the ticked donors
+   * when there are any; nothing is filtered here. The file is checked against `don.donors.export`,
+   * masked for the caller and logged; this only saves it as CSV, as a workbook, or prints it.
    */
   protected exportData(format: ExportFormat): void {
     this.exportMenuOpen.set(false);
     if (!this.canExport || this.exporting()) return;
 
-    const chosen = this.selectedIds().size > 0
-      ? this.donors().filter((d) => this.selectedIds().has(d.donorId))
-      : this.filteredDonors();
-    const wanted = new Set(chosen.map((d) => d.reference));
+    const selected = [...this.selectedIds()];
 
     // Opened now, inside the click, or the browser treats it as a pop-up and blocks it.
     const printWindow = format === 'pdf' ? window.open('', '_blank') : null;
 
     this.exporting.set(true);
-    this.api.exportDonors({ onlyMine: this.mineOnly || null }).subscribe({
-      next: ({ blob, fileName }) => {
-        void blob.text().then((text) => {
-          const [headers = [], ...all] = parseCsv(text);
-          const rows = all.filter((row) => wanted.has(row[0]));
+    this.api
+      .exportDonors({ ...this.buildFilter(), donorIds: selected.length > 0 ? selected.join(',') : null })
+      .subscribe({
+        next: ({ blob, fileName }) => {
           const base = fileName.replace(/\.csv$/i, '');
 
           if (format === 'csv') {
-            this.saveBlob(new Blob([toCsvText([headers, ...rows])], { type: 'text/csv;charset=utf-8;' }), `${base}.csv`);
-          } else if (format === 'excel') {
-            this.downloadExcel(headers, rows, `${base}.xls`);
-          } else if (printWindow) {
-            this.printAsPdf(printWindow, headers, rows);
+            this.saveBlob(blob, fileName);
+            this.exporting.set(false);
+            return;
           }
 
+          void blob.text().then((text) => {
+            const [headers = [], ...rows] = parseCsv(text);
+
+            if (format === 'excel') {
+              this.downloadExcel(headers, rows, `${base}.xls`);
+            } else if (printWindow) {
+              this.printAsPdf(printWindow, headers, rows);
+            }
+
+            this.exporting.set(false);
+          });
+        },
+        error: (error: unknown) => {
+          printWindow?.close();
           this.exporting.set(false);
-        });
-      },
-      error: (error: unknown) => {
-        printWindow?.close();
-        this.exporting.set(false);
-        this.toast.show('Not exported', apiErrorMessage(error, 'The donor list could not be exported.'), 'error');
-      },
-    });
+          this.toast.show('Not exported', apiErrorMessage(error, 'The donor list could not be exported.'), 'error');
+        },
+      });
   }
 
   /* ----- Pagination ----- */
   protected goToPage(page: number): void {
-    this.currentPage.set(Math.min(Math.max(1, page), this.totalPages()));
+    const next = Math.min(Math.max(1, page), this.totalPages());
+    if (next === this.currentPage()) return;
+    this.currentPage.set(next);
+    this.loadRows();
   }
 
   protected nextPage(): void {
@@ -743,7 +772,7 @@ export class DonorListComponent {
   protected setPageSize(size: number): void {
     if (!this.pageSizeOptions.includes(size)) return;
     this.pageSize.set(size);
-    this.currentPage.set(1);
+    this.reload();
   }
 
   protected onEscape(): void {
@@ -758,53 +787,44 @@ export class DonorListComponent {
   }
 
   /* =================================================================================
-     Display helpers
+     Display helpers - the words are the server's options
      ================================================================================= */
 
   protected statusOf(donor: Donor): string {
     return donor.status;
   }
 
+  protected statusLabel(status: string): string {
+    return this.labelIn(this.options().statusOptions, status);
+  }
+
   protected verificationLabel(donor: Donor): string {
-    return donor.verificationStatus || 'Not checked';
+    return this.labelIn(this.options().verificationOptions, donor.verificationStatus);
   }
 
   protected consentLabel(donor: Donor): string {
-    return donor.consentStatus || 'Not provided';
+    return this.labelIn(this.options().consentOptions, donor.consentStatus);
+  }
+
+  protected followUpLabel(donor: Donor): string {
+    return this.labelIn(this.options().followUpStateOptions, donor.followUpStatus);
+  }
+
+  /** Whether the donor has a follow-up planned at all - the server's "None" state is nothing. */
+  protected hasFollowUp(donor: Donor): boolean {
+    return !!donor.followUpStatus && donor.followUpStatus !== 'None';
   }
 
   protected followUpNote(donor: Donor): string {
-    switch (donor.followUpStatus) {
-      case 'Overdue': return 'A planned follow-up has passed its date.';
-      case 'Due Today': return 'A follow-up is planned for today.';
-      case 'Tomorrow': return 'A follow-up is planned for tomorrow.';
-      case 'Upcoming': return 'A follow-up is planned for a later date.';
-      default: return 'Nothing is planned at the moment.';
-    }
+    return this.descriptionIn(this.options().followUpStateOptions, donor.followUpStatus);
   }
 
   protected identityNote(donor: Donor): string {
-    switch (donor.verificationStatus) {
-      case 'Verified': return 'Identity has been checked and confirmed.';
-      case 'Pending': return 'A code has been sent and is awaiting entry.';
-      case 'Under review': return 'The check was escalated and is being reviewed.';
-      case 'Failed': return 'The last check failed and needs another attempt.';
-      case 'Expired': return 'The verification has lapsed and should be renewed.';
-      case 'Cancelled': return 'The last check was cancelled before it finished.';
-      default: return 'Identity has not been checked yet.';
-    }
+    return this.descriptionIn(this.options().verificationOptions, donor.verificationStatus);
   }
 
   protected consentNote(donor: Donor): string {
-    const base = (() => {
-      switch (donor.consentStatus) {
-        case 'Granted': return 'Every recorded channel is permitted.';
-        case 'Partial': return 'Some channels are permitted, others withdrawn.';
-        case 'Withdrawn': return 'Consent is withdrawn on every channel.';
-        default: return 'No consent has been recorded yet.';
-      }
-    })();
-    return donor.consentReviewRequired ? base + ' Review needed: a consent expired or changed.' : base;
+    return this.descriptionIn(this.options().consentOptions, donor.consentStatus);
   }
 
   protected hasGiven(donor: Donor): boolean {
@@ -812,12 +832,12 @@ export class DonorListComponent {
   }
 
   protected hasOwner(donor: Donor): boolean {
-    return !!donor.owner && donor.owner !== 'Unassigned';
+    return !!donor.ownerUserId;
   }
 
   protected formatMoney(value: number, currency = 'INR'): string {
     try {
-      return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value || 0);
+      return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency || 'INR', maximumFractionDigits: 0 }).format(value || 0);
     } catch {
       return `${currency} ${new Intl.NumberFormat('en-IN').format(value || 0)}`;
     }
@@ -825,11 +845,11 @@ export class DonorListComponent {
 
   /** Compact money for the overview: ₹4.2 L, ₹1.3 Cr for INR; 4.2M style otherwise. */
   protected formatCompact(value: number, currency = 'INR'): string {
-    if (currency === 'INR') {
+    if (!currency || currency === 'INR') {
       const trim = (n: number) => n.toFixed(2).replace(/\.?0+$/, '');
       if (value >= 1e7) return '₹' + trim(value / 1e7) + ' Cr';
       if (value >= 1e5) return '₹' + trim(value / 1e5) + ' L';
-      return this.formatMoney(value, currency);
+      return this.formatMoney(value, 'INR');
     }
     try {
       return new Intl.NumberFormat('en', { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(value);
@@ -868,44 +888,22 @@ export class DonorListComponent {
     return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
   }
 
-  protected periodLabel(period: GiftPeriod): string {
-    switch (period) {
-      case '30': return 'Gave in the last 30 days';
-      case '90': return 'Gave in the last 90 days';
-      case '365': return 'Gave in the last 12 months';
-      case 'never': return 'Not given yet';
-      default: return 'Any time';
-    }
+  /** The gift window's sentence ("Gave in the last 30 days"), from the server's options. */
+  protected periodLabel(period: string): string {
+    const option = this.giftPeriodOptions().find((candidate) => candidate.value === period);
+    return option?.description || option?.label || period;
   }
 
   /* =================================================================================
      Private
      ================================================================================= */
 
-  private needs(donor: Donor, key: Attention): boolean {
-    switch (key) {
-      case 'overdue': return donor.followUpStatus === 'Overdue';
-      case 'today': return donor.followUpStatus === 'Due Today';
-      case 'unverified': return donor.verificationStatus !== 'Verified';
-      case 'consent': return donor.consentReviewRequired;
-      case 'unowned': return !this.hasOwner(donor);
-    }
+  private labelIn(options: readonly DonLookupItem[], value: string): string {
+    return options.find((option) => option.value === value)?.label ?? value;
   }
 
-  private inGiftPeriod(donor: Donor, period: GiftPeriod): boolean {
-    if (period === 'all') return true;
-    const t = new Date(donor.lastDonationDate).getTime();
-    const gave = Number.isFinite(t) && (donor.lastDonationAmount || 0) > 0;
-    if (period === 'never') return !gave;
-    return gave && t >= Date.now() - Number(period) * 864e5;
-  }
-
-  /** The values present among `values`, in `order`; anything unexpected follows, sorted. */
-  private present(order: readonly string[], values: readonly string[]): string[] {
-    const seen = new Set(values.filter((value) => !!value));
-    const known = order.filter((value) => seen.has(value));
-    const other = [...seen].filter((value) => !order.includes(value)).sort((a, b) => a.localeCompare(b));
-    return [...known, ...other];
+  private descriptionIn(options: readonly DonLookupItem[], value: string): string {
+    return options.find((option) => option.value === value)?.description ?? '';
   }
 
   private readView(): ViewMode {
@@ -916,10 +914,6 @@ export class DonorListComponent {
     }
   }
 
-  private uniqueSorted(values: string[]): string[] {
-    return Array.from(new Set(values.filter((v) => !!v && v !== 'Unassigned'))).sort((a, b) => a.localeCompare(b));
-  }
-
   /** The server's export as a workbook: the same columns, the same rows. */
   private downloadExcel(headers: readonly string[], rows: readonly (readonly string[])[], filename: string): void {
     const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -928,20 +922,15 @@ export class DonorListComponent {
     this.saveBlob(new Blob([`<table>${head}${body}</table>`], { type: 'application/vnd.ms-excel' }), filename);
   }
 
-  /** The server's export on a page: the seven columns that fit one, read by their headings. */
+  /** The server's export on a page: the columns that fit one, read by their headings. */
   private printAsPdf(printWindow: Window, headers: readonly string[], rows: readonly (readonly string[])[]): void {
     const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    const column = (name: string) => headers.indexOf(name);
-    const cell = (row: readonly string[], name: string) => (column(name) >= 0 ? row[column(name)] ?? '' : '');
-    const money = (row: readonly string[]) => {
-      const amount = Number(cell(row, 'Lifetime received'));
-      return Number.isFinite(amount) && amount > 0 ? this.formatMoney(amount, cell(row, 'Currency') || 'INR') : '—';
-    };
-    const rowsHtml = rows.map((row) =>
-      `<tr><td>${esc(cell(row, 'Donor number'))}</td><td>${esc(cell(row, 'Name'))}</td><td>${esc(cell(row, 'Status'))}</td>` +
-      `<td>${esc(cell(row, 'Campaign') || '—')}</td><td>${esc(cell(row, 'Owner'))}</td>` +
-      `<td style="text-align:right">${esc(money(row))}</td>` +
-      `<td>${esc(cell(row, 'Identity'))}</td></tr>`).join('');
+    const wanted = ['Donor number', 'Name', 'Status', 'Campaign', 'Owner', 'Lifetime received', 'Identity'];
+    const columns = wanted.map((name) => headers.indexOf(name)).filter((index) => index >= 0);
+    const head = columns.map((index) => `<th>${esc(headers[index])}</th>`).join('');
+    const rowsHtml = rows
+      .map((row) => `<tr>${columns.map((index) => `<td>${esc(row[index] ?? '')}</td>`).join('')}</tr>`)
+      .join('');
     printWindow.document.write(`
       <html>
         <head>
@@ -959,7 +948,7 @@ export class DonorListComponent {
           <h2>${esc(this.heading.title)}</h2>
           <p>${rows.length} donors · printed ${esc(this.formatDateTime(new Date()))}</p>
           <table>
-            <thead><tr><th>Donor ID</th><th>Name</th><th>Status</th><th>Campaign</th><th>Owner</th><th style="text-align:right">Lifetime giving</th><th>Identity</th></tr></thead>
+            <thead><tr>${head}</tr></thead>
             <tbody>${rowsHtml}</tbody>
           </table>
         </body>

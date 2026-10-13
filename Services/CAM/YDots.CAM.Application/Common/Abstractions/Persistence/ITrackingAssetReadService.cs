@@ -20,4 +20,8 @@ public interface ITrackingAssetReadService
 
     Task<IReadOnlyList<TrackingAssetExportRow>> GetExportRowsAsync(
         TrackingAssetSearchFilter filter, AccessScope scope, CancellationToken cancellationToken);
+
+    /// <summary>The manager's cards and saved views, for the scope and the campaign named.</summary>
+    Task<TrackingAssetSummaryResponse> GetSummaryAsync(
+        Guid? campaignId, AccessScope scope, CancellationToken cancellationToken);
 }

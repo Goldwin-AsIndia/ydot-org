@@ -383,9 +383,10 @@
 
                 <td class="tam-col-num tam-usage  d-none d-xl-table-cell" data-label="Usage">{{ formatUsage(r.usageCount) }}</td>
 
-                <!-- Row actions: shown as icons right in the row, no menu to open. Each icon carries its
-                     own name as a tooltip and an aria-label; a disallowed action stays visible but
-                     disabled, and its tooltip says why. -->
+                <!-- Row actions: shown as icons right in the row, no menu to open. Only the actions
+                     valid for this asset's status (and the caller's permissions) are rendered; an
+                     action that does not apply is left out, never shown disabled. Each icon carries
+                     its own name as a tooltip and an aria-label. -->
                 <td class="tam-col-actions" (click)="$event.stopPropagation()">
                   <div class="tam-row-acts">
                     @if (pendingApproval(r)) {
@@ -394,15 +395,14 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/></svg>
                       </button>
                     }
-                    @if (canEverEdit() && !isSubmittedRow(r)) {
-                      <button type="button" class="tam-icon-action" (click)="requestEdit(r)" [disabled]="!editAllowed(r)"
-                              [attr.title]="editAllowed(r) ? 'Edit' : editDisabledReason(r)" aria-label="Edit">
+                    @if (editAllowed(r)) {
+                      <button type="button" class="tam-icon-action" (click)="requestEdit(r)" title="Edit" aria-label="Edit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>
                       </button>
                     }
-                    @if (canEverDisableOrRequest() && !isSubmittedRow(r)) {
-                      <button type="button" class="tam-icon-action tam-icon-action--danger" (click)="onRowDisable(r)" [disabled]="!rowDisableEnabled(r)"
-                              [attr.title]="rowDisableEnabled(r) ? disableMenuLabel() : rowDisableTitle(r)" [attr.aria-label]="disableMenuLabel()">
+                    @if (rowDisableAllowed(r)) {
+                      <button type="button" class="tam-icon-action tam-icon-action--danger" (click)="onRowDisable(r)"
+                              [attr.title]="disableMenuLabel()" [attr.aria-label]="disableMenuLabel()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>
                       </button>
                     }
@@ -544,12 +544,23 @@
             <div class="tam-sec-grid">
               @if (!isOnGround()) {
                 <!-- Destination (required) — the landing URL this QR / short link / UTM link sends people to -->
+                <!-- Generated (disabled) by default: this organisation's donor form for the chosen campaign.
+                     The tick below it opens the box for an address of the person's own. -->
                 <div class="tam-field tam-field-span" [class.tam-field-invalid]="missing('destination')">
                   <label class="tam-field-label" for="g-destination">Destination URL <span class="tam-req">*</span>
-                    <span class="tam-label-aside">The page this link or QR code opens</span></label>
-                  <input id="g-destination" type="text" class="tam-input" [ngModel]="gDestination()"
-                         (ngModelChange)="gDestination.set($event)" placeholder="https://ydot.org/educate-a-child/donate" />
-                  @if (missing('destination')) { <p class="tam-field-hint tam-field-error">{{ gDestination().trim() ? destinationFormatMessage : 'Enter Destination URL.' }}</p> }
+                    <span class="tam-label-aside">{{ gDestinationManual() ? 'The page this link or QR code opens' : 'Donor form for the chosen campaign' }}</span></label>
+                  @if (gDestinationManual()) {
+                    <input id="g-destination" type="text" class="tam-input" [ngModel]="gDestination()"
+                           (ngModelChange)="gDestination.set($event)" placeholder="https://ydot.org/educate-a-child/donate" />
+                  } @else {
+                    <input id="g-destination" type="text" class="tam-input tam-input-auto" disabled
+                           [value]="autoDestination()" placeholder="Choose a campaign to generate it" />
+                  }
+                  <label class="tam-own-url">
+                    <input type="checkbox" [checked]="gDestinationManual()" (change)="setDestinationManual($any($event.target).checked)" />
+                    Enter my own URL
+                  </label>
+                  @if (missing('destination')) { <p class="tam-field-hint tam-field-error">{{ destinationMissingMessage() }}</p> }
                 </div>
 
                 <!-- The address as typed, read back in the browser (nothing is fetched). -->
@@ -602,11 +613,21 @@
                                    placeholder="From campaign" [ngModel]="placeLocation().state" [ngModelOptions]="{ standalone: true }" />
                           </label>
                         </div>
-                        <label class="tam-place-cell">
-                          <span class="tam-place-cell-label">Destination</span>
-                          <input type="text" class="tam-input" placeholder="Destination for this place"
-                                 [ngModel]="p.destination" (ngModelChange)="updatePlaceDestination(p.id, $event)" />
-                        </label>
+                        <!-- Disabled on the generated donor-form address until this place's own tick is set. -->
+                        <div class="tam-place-cell">
+                          <label class="tam-place-cell-label" [attr.for]="'g-place-dest-' + p.id">Destination</label>
+                          @if (p.manual) {
+                            <input [id]="'g-place-dest-' + p.id" type="text" class="tam-input" placeholder="Destination for this place"
+                                   [ngModel]="p.destination" (ngModelChange)="updatePlaceDestination(p.id, $event)" />
+                          } @else {
+                            <input [id]="'g-place-dest-' + p.id" type="text" class="tam-input tam-input-auto" disabled
+                                   [value]="autoDestination()" placeholder="Choose a campaign to generate it" />
+                          }
+                          <label class="tam-own-url">
+                            <input type="checkbox" [checked]="p.manual" (change)="setPlaceManual(p.id, $any($event.target).checked)" />
+                            Enter my own URL
+                          </label>
+                        </div>
 
                         <!-- Custom fields — attach any further named detail to this place -->
                         <div class="tam-place-custom">
@@ -625,7 +646,7 @@
                         </div>
 
                         <!-- Generated QR / link preview for this place -->
-                        @if (previewReady() && p.destination.trim()) {
+                        @if (previewReady() && placeDestination(p)) {
                           <div class="tam-preview tam-preview-inline">
                             @if (gAssetType() === 'QR Code') {
                               <span class="tam-qr tam-qr-sm" role="img" [attr.aria-label]="'QR code preview for ' + p.label">
@@ -765,7 +786,7 @@
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
                               </span>
                               <span class="tam-pv-place-name">{{ p.label.trim() || 'Place ' + (i + 1) }}</span>
-                              <span class="tam-pv-place-state" [class.is-ready]="!!p.destination.trim()">{{ p.destination.trim() ? 'Ready' : 'Needs destination' }}</span>
+                              <span class="tam-pv-place-state" [class.is-ready]="!!placeDestination(p)">{{ placeDestination(p) ? 'Ready' : 'Needs destination' }}</span>
                             </li>
                           }
                         </ul>
@@ -871,18 +892,19 @@
                 <p class="tam-generated-hint">The tracking link{{ a.isQr ? ' and QR code go' : ' goes' }} live once this asset is approved and activated.</p>
               }
             </div>
-            <!-- A Draft has no tracking link yet, so there is nothing to share, copy, open or download. -->
-            @if (a.assetStatus !== 'Draft') {
+            <!-- No tracking link yet (a Draft, or Submitted and awaiting approval): nothing to share,
+                 copy, open or download, so none of those actions is shown. -->
+            @if (a.generatedUrl) {
             <div class="tam-generated-actions">
                 <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="shareAsset(a)">
                   <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="m8.1 10.7 7.8-4.4M8.1 13.3l7.8 4.4"/></svg>
                   Share
                 </button>
-                <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="copyUrl(a.generatedUrl)" [disabled]="!a.generatedUrl">
+                <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="copyUrl(a.generatedUrl)">
                   <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
                   {{ copiedRef() === a.trackingReference ? 'Copied' : 'Copy' }}
                 </button>
-                <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="openUrl(a.generatedUrl)" [disabled]="!a.generatedUrl">
+                <button type="button" class="tam-btn tam-btn-outline tam-btn-sm" (click)="openUrl(a.generatedUrl)">
                   <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg>
                   Open
                 </button>
@@ -962,8 +984,8 @@
       <!-- Workflow actions on this asset -->
       <footer class="tam-detail-foot">
         <div class="tam-detail-actions">
-          @if (canEverEdit()) {
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestEdit(a)" [disabled]="!editAllowed(a)" [title]="editAllowed(a) ? '' : editDisabledReason(a)"> <i class="ri-pencil-line"></i>Edit</button>
+          @if (editAllowed(a)) {
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestEdit(a)"> <i class="ri-pencil-line"></i>Edit</button>
           }
           @if (pendingApproval(a); as kind) {
             <button type="button" class="btn btn-primary btn-sm" (click)="onApprove(a)" [title]="pendingApprovalTip(a)">
@@ -971,15 +993,15 @@
             </button>
           }
         </div>
-        <!-- Take-down verbs sit apart from the workflow, as quiet red links. -->
-        @if (canDeleteDraft(a) || canEverRequestDisable() || canEverDisable()) {
+        <!-- Take-down verbs sit apart from the workflow, as quiet red links — only those valid now. -->
+        @if (takeDownAllowed(a)) {
           <div class="tam-detail-danger">
             <span class="tam-detail-danger-label">Take down</span>
-            @if (canEverRequestDisable()) {
-              <button type="button" class="tam-danger-link" (click)="askForDisable(a)" [disabled]="!requestDisableAllowed(a)" [title]="requestDisableAllowed(a) ? '' : requestDisableDisabledReason(a)">Request disable</button>
+            @if (requestDisableAllowed(a)) {
+              <button type="button" class="tam-danger-link" (click)="askForDisable(a)">Request disable</button>
             }
-            @if (canEverDisable() && a.assetStatus !== 'Submitted for disable') {
-              <button type="button" class="tam-danger-link" (click)="requestDisable(a)" [disabled]="!disableAllowed(a)" [title]="disableAllowed(a) ? '' : disableDisabledReason(a)">Disable</button>
+            @if (directDisableAllowed(a)) {
+              <button type="button" class="tam-danger-link" (click)="requestDisable(a)">Disable</button>
             }
             @if (canDeleteDraft(a)) {
               <button type="button" class="tam-danger-link" (click)="requestDeleteDraft(a)">Delete draft</button>

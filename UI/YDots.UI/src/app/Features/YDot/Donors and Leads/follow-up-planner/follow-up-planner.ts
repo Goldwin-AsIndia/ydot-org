@@ -49,8 +49,6 @@ export class FollowUpPlannerComponent {
   protected readonly uiState = signal<PlannerUiState>('loading');
   protected readonly confirmConfig = signal<ConfirmDialogConfig | null>(null);
   protected readonly activeActionId = signal('');
-  protected readonly savedFilter = signal('All follow-ups (Default)');
-  protected readonly savedFilters = signal<readonly string[]>(['All follow-ups (Default)']);
 
   /** The caller's permitted actions, as the server listed them. */
   protected readonly permissions = signal<Record<string, boolean>>({
@@ -212,6 +210,7 @@ export class FollowUpPlannerComponent {
   }
   protected selectRecord(item: ApiFollowUp): void {
     this.openedFromPicker.set(true);
+    this.existing.set(item);
     this.followUpId.set(item.id);
     this.leadId.set(item.leadId);
     this.donorId.set(item.donorId);
@@ -364,6 +363,25 @@ export class FollowUpPlannerComponent {
   protected load(): void {
     this.uiState.set('loading');
 
+    // THE FOLLOW-UP BEING EDITED IS READ BY ITS ID. The screen used to page through the planner's
+    // list until it came across it, one request per ten follow-ups.
+    const followUpId = this.followUpId();
+    if (followUpId && this.existing()?.id !== followUpId) {
+      this.api.getFollowUp(followUpId).subscribe({
+        next: (editing) => {
+          this.existing.set(editing);
+          this.leadId.set(this.leadId() ?? editing.leadId);
+          this.donorId.set(this.donorId() ?? editing.donorId);
+          this.load();
+        },
+        error: (error: unknown) => {
+          this.uiState.set('error');
+          this.toast.show('Follow-up unavailable', apiErrorMessage(error), 'error');
+        },
+      });
+      return;
+    }
+
     this.api
       .getFollowUpPlanner({
         page: this.page(),
@@ -389,13 +407,10 @@ export class FollowUpPlannerComponent {
             cancelTask: permitted.includes('Cancel task'),
           });
 
-          // Editing an existing follow-up: fill the form from it.
-          const editing = this.followUpId()
-            ? response.followUps.items.find((item) => item.id === this.followUpId())
-            : null;
+          // Editing an existing follow-up: fill the form from it (read above, by its id).
+          const editing = this.followUpId() ? this.existing() : null;
 
           if (editing) {
-            this.existing.set(editing);
             this.followUpType.set(editing.permittedChannel);
             this.priority.set(editing.priority);
             this.owner.set(editing.relationshipOwnerUserId);
@@ -439,15 +454,6 @@ export class FollowUpPlannerComponent {
             }),
           );
 
-          if (this.followUpId() && !editing) {
-            if (response.followUps.hasNextPage) {
-              this.page.update((p) => p + 1);
-              this.load();
-              return;
-            }
-            this.uiState.set('error');
-            return;
-          }
           this.loadRecord();
           this.uiState.set('ready');
           this.checkConsent();
@@ -515,7 +521,7 @@ export class FollowUpPlannerComponent {
     {
       id: 'scheduleFollowUp',
       label: 'Schedule follow-up',
-      result: 'The follow-up is scheduled and appears in the owner\u2019s Follow-Up Queue.',
+      result: 'The follow-up is scheduled and appears in the owner\u2019s Follow-ups.',
       placement: 'primary',
       requiresReason: false,
     },
@@ -543,20 +549,7 @@ export class FollowUpPlannerComponent {
     ),
   );
 
-  protected readonly activeFilterSummary = computed(() => {
-    const defaultFilter = this.savedFilters()[0];
-    return this.savedFilter() !== defaultFilter
-      ? [{ key: 'saved', label: `View: ${this.savedFilter()}` }]
-      : [];
-  });
-
   protected readonly hasRecord = computed(() => Boolean(this.recordReference()));
-
-  protected removeFilterChip(key: string): void {
-    if (key === 'saved') {
-      this.savedFilter.set(this.savedFilters()[0] ?? 'All follow-ups (Default)');
-    }
-  }
 
   protected setUiState(state: PlannerUiState): void {
     this.uiState.set(state);
@@ -881,6 +874,11 @@ export class FollowUpPlannerComponent {
     Event: 'ri-calendar-event-line',
     Post: 'ri-mail-open-line',
   };
+
+  /** A channel in the server's words for it ("PhoneCall" is "Call"). */
+  protected channelLabel(channel: string): string {
+    return this.channelOptions().find((option) => option.value === channel)?.label ?? channel;
+  }
 
   protected glyphFor(channel: string): string {
     return this.channelGlyph[channel] ?? 'ri-chat-3-line';

@@ -1,3 +1,4 @@
+using YDots.DON.Application.Common.Models;
 using YDots.DON.Domain.Enums;
 
 namespace YDots.DON.Application.Features.Donors.DTOs;
@@ -149,7 +150,28 @@ public sealed record DonorListSummaryResponse(
     int ConsentToReview,
     int WithoutOwner,
     string ActiveScope,
-    DateTimeOffset AsAtUtc);
+    DateTimeOffset AsAtUtc,
+
+    /// <summary>The "needs attention" shortcuts with their words and counts; the value goes back as <c>attention</c>.</summary>
+    IReadOnlyList<QueueViewResponse> Attention,
+
+    /// <summary>What every filter on the list offers, for the same scope.</summary>
+    DonorListOptionsResponse Options);
+
+/// <summary>
+/// The Donor List's filter options. Owners and campaigns are the ones the caller's donors actually
+/// carry, so no choice can match nothing; the rest are the catalogue's, in reading order.
+/// </summary>
+public sealed record DonorListOptionsResponse(
+    IReadOnlyList<LookupItem> StatusOptions,
+    IReadOnlyList<LookupItem> FollowUpStateOptions,
+    IReadOnlyList<LookupItem> VerificationOptions,
+    IReadOnlyList<LookupItem> ConsentOptions,
+    IReadOnlyList<LookupItem> GiftPeriodOptions,
+    IReadOnlyList<LookupItem> SortOptions,
+    string DefaultSort,
+    IReadOnlyList<LookupItem> OwnerOptions,
+    IReadOnlyList<LookupItem> CampaignOptions);
 
 /// <summary>
 /// The full detail record. Contact values arrive masked unless the caller holds

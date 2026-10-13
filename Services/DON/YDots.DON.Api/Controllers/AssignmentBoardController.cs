@@ -4,6 +4,7 @@ using YDots.DON.Application.Common.Constants;
 using YDots.DON.Application.Common.Results;
 using YDots.DON.Application.DTOs;
 using YDots.DON.Application.Features.AssignmentBoard.Commands.RouteLeads;
+using YDots.DON.Application.Features.AssignmentBoard;
 using YDots.DON.Application.Features.AssignmentBoard.DTOs;
 using YDots.DON.Application.Features.AssignmentBoard.Queries.GetAssignmentBoard;
 using YDots.DON.Application.Features.Leads.DTOs;
@@ -41,8 +42,7 @@ public sealed class AssignmentBoardController : ApiControllerBase
         _logger.LogInformation("Assignment board retrieval started.");
 
         // recordType=Donors is the board's Donors view - giving an owner to a donor who has none.
-        var result = string.Equals(recordType, "Donors", StringComparison.OrdinalIgnoreCase)
-                     || string.Equals(recordType, "Donor", StringComparison.OrdinalIgnoreCase)
+        var result = AssignmentBoardCatalogue.IsDonors(recordType)
             ? await handler.HandleAsync(new GetDonorAssignmentBoardQuery(filter), cancellationToken)
             : await handler.HandleAsync(new GetAssignmentBoardQuery(filter), cancellationToken);
 
@@ -56,6 +56,34 @@ public sealed class AssignmentBoardController : ApiControllerBase
         }
 
         return FromResult(result);
+    }
+
+    /// <summary>
+    /// GET the board as CSV - every page under the same filters, view and record type - written
+    /// and logged by the server.
+    /// </summary>
+    [HttpGet("export")]
+    [HasPermission(PermissionCodes.AssignmentBoardView)]
+    [HasPermission(PermissionCodes.DonorsExport)]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> Export(
+        [FromQuery] LeadSearchFilter filter,
+        [FromQuery] string? recordType,
+        [FromServices] AssignmentBoardQueryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Assignment board export started.");
+
+        var result = await handler.HandleAsync(
+            new ExportAssignmentBoardQuery(filter, AssignmentBoardCatalogue.IsDonors(recordType)), cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            _logger.LogWarning("Assignment board export failed.");
+        }
+
+        return FileFromResult(result);
     }
 
     /// <summary>GET the append-only ownership trail for one lead. This is "Inspect history".</summary>

@@ -114,7 +114,7 @@ export class CityComponent implements OnInit {
   /* ---------- View mode ---------- */
   mode = signal<'list' | 'form'>('list');
   isEdit = signal(false);
-  pageTitle = signal('City List');
+  pageTitle = signal('Cities');
   pageSubTitle = signal('Manage your cities');
 
   /* ---------- Shared state ---------- */
@@ -394,7 +394,7 @@ export class CityComponent implements OnInit {
   openList(): void {
     this.mode.set('list');
     this.isEdit.set(false);
-    this.pageTitle.set('City');
+    this.pageTitle.set('Cities');
     this.pageSubTitle.set('Manage your cities');
     this.loadListData();
   }

@@ -5,7 +5,6 @@ import { Observable } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../../../Shared/services/toast.service';
-import { DataService } from '../../../../Service/data.service';
 import { PaymentApiService } from '../../../../Service/payment-api.service';
 import { CurrentUserService } from '../../../../Service/current-user.service';
 import { GatewayCheckoutService } from '../../../../Shared/services/gateway-checkout.service';
@@ -94,17 +93,6 @@ type DropdownKey = 'currency' | 'country' | 'state' | 'city';
 
 type RelatedTab = 'Linked' | 'Documents' | 'Activity' | 'Integration' | 'Support' | 'Audit';
 
-interface PublicDonationInitiationConfig {
-  readonly pageTitle: string;
-  readonly pageSubtitle: string;
-  readonly operatingTimeZone: string;
-  readonly consentPolicyVersion: string;
-  readonly campaigns: readonly ScopeOption[];
-  readonly currencies: readonly CatalogueOption[];
-  readonly geographies: readonly CatalogueOption[];
-  readonly permissions: EffectivePermissions;
-  readonly maxDonationAmount: number;
-}
 
 
 @Component({
@@ -115,7 +103,6 @@ interface PublicDonationInitiationConfig {
 })
 export class PublicDonationInitiationComponent {
   private readonly toast = inject(ToastService);
-  private readonly dataService = inject(DataService);
   private readonly payments = inject(PaymentApiService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly route = inject(ActivatedRoute);
@@ -155,13 +142,19 @@ export class PublicDonationInitiationComponent {
    */
   protected readonly isInternalView = computed(() => this.currentUser.reference() !== '');
 
-  protected readonly pageTitle = signal('Donation Initiation');
+  /**
+   * Inside the app the screen is the Donations menu's "New Donation", and is called that. The
+   * donor who reaches it anonymously through a QR code keeps the form's own name.
+   */
+  protected readonly pageTitle = computed(() => (this.isInternalView() ? 'New Donation' : 'Donation Initiation'));
   protected readonly pageSubtitle = signal('Collect minimum identity, amount and consent before creating a unique intent.');
-  protected readonly operatingTimeZone = signal('Asia/Kolkata · IST (UTC+05:30)');
+  /** The zone the form's times are read in - the payments service's DisplayTimeZone. */
+  protected readonly operatingTimeZone = signal('');
 
   protected readonly lifecycleState = signal<LifecycleState>('No record');
 
-  protected readonly lastRefresh = signal('Today, 09:30 AM · IST');
+  /** When the form last read its settings from the server. */
+  protected readonly lastRefresh = signal('');
 
   protected readonly intentReference = signal<string>('');
 
@@ -198,7 +191,8 @@ export class PublicDonationInitiationComponent {
     return campaigns.map((campaign) => ({
       reference: campaign.code,
       name: campaign.name,
-      context: 'Open for donations',
+      // The server's line for the campaign - "Open until 31 Oct 2026".
+      context: campaign.availability,
       apiId: campaign.id,
       amount: campaign.campaignAmount,
       currencyCode: campaign.currencyCode,
@@ -365,7 +359,8 @@ export class PublicDonationInitiationComponent {
   private readonly amountFromIntent = signal(false);
 
   protected readonly amountOverLimitAllowed = signal(false);
-  protected readonly maxDonationAmount = signal(500000);
+  /** The largest gift the server accepts - its MaximumDonationAmount. Null until it answers. */
+  protected readonly maxDonationAmount = signal<number | null>(null);
 
   /** The stated amount is outside what this form may take. */
   protected readonly amountInvalid = computed(() => {
@@ -377,7 +372,8 @@ export class PublicDonationInitiationComponent {
     if (Number.isNaN(n) || n < 0) {
       return true;
     }
-    return n > this.maxDonationAmount() && !this.amountOverLimitAllowed();
+    const maximum = this.maxDonationAmount();
+    return maximum !== null && n > maximum && !this.amountOverLimitAllowed();
   });
   protected readonly formattedAmount = computed(() => {
     const n = Number(this.donationAmount());
@@ -524,7 +520,13 @@ export class PublicDonationInitiationComponent {
 
 
 
-  protected readonly consentPolicyVersion = signal('Privacy Notice v3.2 · Consent Terms v1.4');
+  /**
+   * The privacy notice a consent given now is recorded against - the payments service's
+   * ConsentNoticeVersion, which it stamps on the intent itself. It was a constant typed into this
+   * page, naming a version of no published document.
+   */
+  protected readonly consentPolicyVersion = signal('');
+  protected readonly consentNoticeVersion = signal('');
   protected readonly consentChecked = signal(false);
   protected readonly consentEffectiveTime = signal<string>('');
 
@@ -781,7 +783,7 @@ export class PublicDonationInitiationComponent {
 
   protected readonly paymentLinkDestination = signal<string>('');
 
-  protected readonly privacyNoticeVersion = computed(() => (this.intentReference() ? this.consentPolicyVersion().split(' · ')[0] : ''));
+  protected readonly privacyNoticeVersion = computed(() => (this.intentReference() ? this.consentPolicyVersion() : ''));
 
 
   protected readonly formLocked = computed(() => this.lifecycleState() !== 'No record');
@@ -957,7 +959,8 @@ export class PublicDonationInitiationComponent {
 
       // Section 11: consent is captured BEFORE the intent exists.
       consentGiven: this.consentChecked(),
-      consentVersion: this.consentPolicyVersion(),
+      // The server records its own notice version; this one is the same value, sent for the trail.
+      consentVersion: this.consentNoticeVersion() || null,
     };
   }
 
@@ -1300,7 +1303,8 @@ export class PublicDonationInitiationComponent {
     this.trackingReference.set((params.get('ref') ?? params.get('tracking') ?? '').trim());
 
     // A CAMPAIGN NAMED ON THE LINK BINDS THE PICKER AND LOCKS IT.
-    const campaignParam = (params.get('campaign') ?? '').trim();
+    // `?campaignCode=` is what the tracking asset manager generates; `?campaign=` the older spelling.
+    const campaignParam = (params.get('campaignCode') ?? params.get('campaign') ?? '').trim();
 
     if (campaignParam) {
       this.campaignLockedByLink.set(true);
@@ -1450,16 +1454,21 @@ export class PublicDonationInitiationComponent {
 
   private loadConfig(): void {
     this.uiState.set('loading');
-    this.dataService.getPublicDonationInitiationData().subscribe({
-      next: (config: PublicDonationInitiationConfig) => {
-        this.pageTitle.set(config.pageTitle);
-        this.pageSubtitle.set(config.pageSubtitle);
-        this.operatingTimeZone.set(config.operatingTimeZone);
-        this.consentPolicyVersion.set(config.consentPolicyVersion);
+    this.payments.getPublicFormSettings().subscribe({
+      next: (settings) => {
+        // THE PAYMENTS SERVICE'S SETTINGS, not a constant: the time zone, the privacy notice a
+        // consent is recorded against, the largest gift it accepts and what a donor may do here.
+        this.operatingTimeZone.set(settings.operatingTimeZoneLabel);
+        this.consentPolicyVersion.set(settings.consentNoticeLabel);
+        this.consentNoticeVersion.set(settings.consentNoticeVersion);
+        this.maxDonationAmount.set(settings.maximumDonationAmount);
+        this.lastRefresh.set(this.nowLabel());
+        this.permissions.set({
+          view: true,
+          submit: settings.permittedActions.includes('Submit'),
+          continueToPayment: settings.permittedActions.includes('ContinueToPayment'),
+        });
         this.loadCurrencies();
-        this.geographyCatalogue.set(config.geographies);
-        this.permissions.set(config.permissions);
-        this.maxDonationAmount.set(config.maxDonationAmount);
         this.uiState.set('ready');
 
         this.bindCampaignFromLink();
@@ -1468,7 +1477,8 @@ export class PublicDonationInitiationComponent {
       },
       error: () => {
         this.uiState.set('ready');
-        this.toast.show('Error', 'Failed to load public donation initiation configuration.', 'error');
+        this.loadCurrencies();
+        this.toast.show('Error', 'The donation form settings could not be loaded.', 'error');
       },
     });
   }
@@ -1478,7 +1488,8 @@ export class PublicDonationInitiationComponent {
    * A CAMPAIGN THAT DOES NOT MATCH LEAVES THE PICKER OPEN rather than locking it empty.
    */
   private bindCampaignFromLink(): void {
-    const code = (this.route.snapshot.queryParamMap.get('campaign') ?? '').trim().toLowerCase();
+    const link = this.route.snapshot.queryParamMap;
+    const code = (link.get('campaignCode') ?? link.get('campaign') ?? '').trim().toLowerCase();
 
     if (!code) {
       return;

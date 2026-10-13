@@ -58,7 +58,7 @@
                 <i class="ri-arrow-up-down-line" aria-hidden="true"></i>
                 <span class="visually-hidden">Sort leads</span>
                 <select name="sort" aria-label="Sort leads" [ngModel]="sortOrder()" (ngModelChange)="setSortOrder($event)">
-                  @for (option of sortOptions; track option.value) {
+                  @for (option of sortOptions(); track option.value) {
                     <option [value]="option.value">{{ option.label }}</option>
                   }
                 </select>
@@ -195,7 +195,7 @@
                   <span class="pq-sub">{{ lead.source || 'Source not recorded' }}</span>
                 </div>
 
-                <div class="pq-owner" [class.is-none]="lead.owner === 'Unassigned'">
+                <div class="pq-owner" [class.is-none]="!lead.hasOwner">
                   <span class="pq-main" [title]="lead.owner">{{ lead.owner }}</span>
                 </div>
 
@@ -220,7 +220,7 @@
                     <button type="button" class="pq-act" title="Communicate" [attr.aria-label]="'Communicate with ' + lead.name" (click)="onCommunicate(lead)"><i class="ri-chat-3-line" aria-hidden="true"></i></button>
                   }
                   @if (canRoute(lead)) {
-                    @if (lead.owner === 'Unassigned') {
+                    @if (!lead.hasOwner) {
                       <button type="button" class="pq-act pq-act--go" title="Assign lead" [attr.aria-label]="'Assign ' + lead.name" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i></button>
                     } @else {
                       <button type="button" class="pq-act" title="Reassign lead" [attr.aria-label]="'Reassign ' + lead.name" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i></button>
@@ -360,7 +360,7 @@
         <dl class="pq-dl">
           <div><dt>Campaign</dt><dd>{{ displayValue(lead.campaign) }}</dd></div>
           <div><dt>Lead source</dt><dd>{{ displayValue(lead.source) }}</dd></div>
-          <div><dt>Owner</dt><dd [class.pq-none]="lead.owner === 'Unassigned'">{{ displayValue(lead.owner) }}</dd></div>
+          <div><dt>Owner</dt><dd [class.pq-none]="!lead.hasOwner">{{ displayValue(lead.owner) }}</dd></div>
           @if (!lead.converted && permissions().communicate) {
             <div>
               <dt>Donation link</dt>
@@ -398,7 +398,7 @@
 
     <footer class="pq-dr-foot">
       <span class="pq-selbar-gap"></span>
-      @if (canRoute(lead) && lead.owner !== 'Unassigned') {
+      @if (canRoute(lead) && lead.hasOwner) {
         <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i> Reassign</button>
       }
       @if (permissions().schedule && !lead.converted) {

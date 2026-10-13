@@ -44,6 +44,8 @@ import {
   EscalateVerificationRequest,
   FollowUp,
   FollowUpPlannerResponse,
+  FollowUpQueueFilter,
+  FollowUpQueueResponse,
   GrantConsentRequest,
   IdentityVerification,
   IdentityVerificationListResponse,
@@ -731,6 +733,29 @@ export class DonorApiService {
         params: this.toParams(filter),
       })
       .pipe(map((response) => response.data!));
+  }
+
+  /**
+   * The Follow-up Queue: every follow-up the filters match, filtered, sorted and counted on the
+   * server, with the tabs, tiles, pulse panel and option lists over the whole scope.
+   */
+  getFollowUpQueue(filter: FollowUpQueueFilter = {}): Observable<FollowUpQueueResponse> {
+    return this.http
+      .get<ApiResponse<FollowUpQueueResponse>>(`${this.baseUrl}/follow-up-planner/queue`, {
+        params: this.toParams({ ...filter }),
+      })
+      .pipe(map((response) => response.data!));
+  }
+
+  /** The queue as CSV under the same filters (or the ticked follow-ups), written and logged by the server. */
+  exportFollowUpQueue(filter: FollowUpQueueFilter = {}): Observable<{ blob: Blob; fileName: string }> {
+    return this.http
+      .get(`${this.baseUrl}/follow-up-planner/queue/export`, {
+        params: this.toParams({ ...filter }),
+        responseType: 'blob',
+        observe: 'response',
+      })
+      .pipe(map((response) => this.toDownload(response, 'follow-ups.csv')));
   }
 
   /**

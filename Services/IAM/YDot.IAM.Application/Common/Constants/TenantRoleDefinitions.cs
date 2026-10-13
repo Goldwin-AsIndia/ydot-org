@@ -51,11 +51,21 @@ public static class TenantRoleDefinitions
         bool IsPrivileged = false,
         IReadOnlyList<string>? MenuScope = null);
 
-    /// <summary>The Campaigns branch: Campaign Overview and Tracking Asset Manager.</summary>
-    private const string CampaignMenus = "FR_CAMPAIGNS";
+    /// <summary>The Campaigns menu: All Campaigns and Tracking Asset Manager.</summary>
+    private const string CampaignMenus = MenuCatalogue.Campaigns;
 
     /// <summary>
-    /// Access Requests, under Access and Identity: where a member of staff asks for
+    /// The Communications menu: WhatsApp Messages and Number Verification.
+    ///
+    /// THE CAMPAIGN TEAM'S, because the two screens are the campaign team's outreach and read the
+    /// Campaign service (<c>cam.campaigns.view</c>), which only the campaign roles and the
+    /// Organisation Admin hold. They are the same people the sidebar used to add the two
+    /// browser-made links for, before the screens became catalogue nodes.
+    /// </summary>
+    private const string CommunicationMenus = MenuCatalogue.Communications;
+
+    /// <summary>
+    /// Access Requests, under Users &amp; Access: where a member of staff asks for
     /// a role or a permission and follows the answer. Every working staff role is mapped to it;
     /// Donor and DonorCare are not, because neither is an organisation role in that sense - see
     /// RoleAccessProfiles.AccessRequestRequester.
@@ -63,26 +73,24 @@ public static class TenantRoleDefinitions
     private const string AccessRequestMenus = "ADMIN_ACCESS_REQUESTS";
 
     /// <summary>
-    /// The fundraising team's Donors and Leads menus, per the role flow: Lead Work Queue, Donor
-    /// List and Follow-up Queue - the organisation-wide lists.
+    /// The fundraising team's Donors &amp; Leads menus, per the role flow: Lead Work Queue, All
+    /// Donors and Follow-ups - the organisation-wide lists.
     ///
     /// NAMED NODE BY NODE rather than as the FR_RELATIONSHIPS branch, because that branch also
-    /// holds My Leads and My Donor List, which the flow gives to DonorCare and not to this team.
+    /// holds My Leads and My Donors, which the flow gives to DonorCare and not to this team.
     /// </summary>
     private static readonly IReadOnlyList<string> DonorAndLeadMenus =
         ["FR_LEAD_QUEUE", "FR_DONOR_LIST", "FR_FOLLOW_UP_QUEUE"];
 
     /// <summary>
-    /// DonorCare's Donors and Leads menus, per the role flow: My Leads, My Donor List and
-    /// Follow-up Queue - each one narrowed by DON to the records assigned to the person.
+    /// DonorCare's Donors &amp; Leads menus, per the role flow: My Leads, My Donors and Follow-ups -
+    /// each one narrowed by DON to the records assigned to the person.
     /// </summary>
     private static readonly IReadOnlyList<string> DonorCareMenus =
         ["FR_MY_LEADS", "FR_MY_DONORS", "FR_FOLLOW_UP_QUEUE"];
 
-    /// <summary>
-    /// The Donations and Payments branch: Public Donation Initiation and Payments and Receipts.
-    /// </summary>
-    private const string DonationAndPaymentMenus = "MN_DONATIONS";
+    /// <summary>The Donations menu: New Donation and Payments &amp; Receipts.</summary>
+    private const string DonationAndPaymentMenus = MenuCatalogue.Donations;
 
     public static readonly IReadOnlyList<RoleDefinition> All =
     [
@@ -115,7 +123,7 @@ public static class TenantRoleDefinitions
             Priority: 80,
             PermissionCodes: RoleAccessProfiles.CampaignManager,
             IsPrivileged: true,
-            MenuScope: [CampaignMenus, AccessRequestMenus]),
+            MenuScope: [CampaignMenus, CommunicationMenus, AccessRequestMenus]),
 
         // ============ FUNDRAISING MANAGER ===================================================
         new(
@@ -142,7 +150,7 @@ public static class TenantRoleDefinitions
             Priority: 60,
             PermissionCodes: RoleAccessProfiles.CampaignExecutive,
             IsDefault: true,
-            MenuScope: [CampaignMenus, AccessRequestMenus]),
+            MenuScope: [CampaignMenus, CommunicationMenus, AccessRequestMenus]),
 
         // ============ FUNDRAISER EXECUTIVE ==================================================
         new(

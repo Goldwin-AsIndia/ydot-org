@@ -83,7 +83,9 @@ public sealed class FollowUpPlannerQueryHandler(
             ScreenIds.FollowUpPlanner,
             ScreenRoutes.FollowUpPlanner,
             new PagedResponse<FollowUpResponse>(rows, page.TotalCount, page.Page, page.PageSize),
-            ToLookup<ConsentChannel>(),
+
+            // The channels in the words people read - Call, SMS - the same list the queue uses.
+            FollowUpQueueCatalogue.ChannelOptions,
             ToLookup<FollowUpPriority>(),
             ToLookup<FollowUpStatus>(),
             SupportedLanguages.All,

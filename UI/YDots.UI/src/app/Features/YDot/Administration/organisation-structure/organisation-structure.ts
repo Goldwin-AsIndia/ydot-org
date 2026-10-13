@@ -77,7 +77,7 @@ export class OrganisationStructureComponent implements OnInit, OnDestroy {
 
   readonly isDepartments = computed(() => this.mode() === 'departments');
 
-  readonly title = computed(() => (this.isDepartments() ? 'Departments' : 'Offices and regions'));
+  readonly title = computed(() => (this.isDepartments() ? 'Departments' : 'Branches & Units'));
 
   readonly subtitle = computed(() =>
     this.isDepartments()

@@ -241,6 +241,9 @@ public sealed class DonationIntentCommandHandler(
             trackingAssetId: null,
             now);
 
+        // THE NOTICE THE CONSENT WAS GIVEN UNDER IS THE SERVER'S, not whatever the request says.
+        intent.ConsentVersion = intent.ConsentGiven ? _settings.ConsentNoticeVersion : null;
+
         if (attribution is not null)
         {
             ApplyAttribution(intent, attribution, request.TrackingReference);

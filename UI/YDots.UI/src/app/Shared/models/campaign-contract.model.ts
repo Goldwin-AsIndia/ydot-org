@@ -574,6 +574,33 @@ export interface TrackingAssetSearchFilter {
   sourceId?: string | null;
   mediumId?: string | null;
   isLiveNow?: boolean | null;
+  /** Windows opening on or after / before these instants - the manager's Active from and to. */
+  activeFromOnOrAfterUtc?: string | null;
+  activeFromOnOrBeforeUtc?: string | null;
+}
+
+/** One saved view of the Tracking Asset Manager - the asset type and status it filters to, as reference values. */
+export interface TrackingAssetView {
+  value: string;
+  label: string;
+  description: string;
+  assetType: string | null;
+  status: string | null;
+  count: number;
+}
+
+/** GET /tracking-assets/summary - the manager's cards and saved views, counted by CAM. */
+export interface TrackingAssetSummary {
+  totalAssets: number;
+  liveAssets: number;
+  draftAssets: number;
+  pendingApproval: number;
+  assetTypesInUse: number;
+  totalUsage: number;
+  livePercent: number;
+  liveUsagePercent: number;
+  views: TrackingAssetView[];
+  asAtUtc: string;
 }
 
 // =============================================================================================

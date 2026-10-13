@@ -12,6 +12,16 @@ public interface IFollowUpRepository
         AccessScope scope,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Every follow-up in the caller's scope - or on the one lead or donor named - with the donor
+    /// and the lead (and its campaign) loaded, for the Follow-up Queue to read, count and filter.
+    /// </summary>
+    Task<IReadOnlyList<FollowUpTask>> GetQueueAsync(
+        AccessScope scope,
+        Guid? leadId,
+        Guid? donorId,
+        CancellationToken cancellationToken = default);
+
     Task<FollowUpTask?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<FollowUpTask>> GetOpenForDonorAsync(Guid donorId, CancellationToken cancellationToken = default);

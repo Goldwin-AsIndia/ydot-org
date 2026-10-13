@@ -188,7 +188,7 @@ public static class RoleAccessProfiles
     ///
     /// WHAT EACH ONE IS FOR:
     ///
-    ///   PAY.View                  the Donations and Payments section itself, or the menu shows
+    ///   PAY.View                  the Donations section itself, or the menu shows
     ///                             nothing and the account reads as broken.
     ///   pay.intents.view          their own donations, in progress and finished.
     ///   pay.intents.create        starting a donation, and continuing a pending one - which is

@@ -12,7 +12,7 @@ const HOME = '/app/dashboard';
  * Detail screens that live OUTSIDE the menu but belong UNDER a menu page.
  *
  * A profile has no menu entry of its own: opening one from the User Directory must still show the
- * directory's full trail (Home / Administration / … / User Directory) plus the screen itself, the
+ * directory's full trail (Home / Users & Access / Users) plus the screen itself, the
  * same as if the profile sat in the menu next to the directory. Without this map the bar only sees
  * the page's own kicker ("Access & identity · User account") and the trail comes out short.
  */
@@ -26,22 +26,23 @@ const PARENT_ROUTE_OF: Record<string, string> = {
   '/app/configuration/payment/gateways': '/app/administration/organisation/settings',
   '/app/administration/users/security': '/app/administration/access/user-directory',
   '/app/administration/users/login-identifier-change': '/app/administration/access/user-directory',
-  // Campaign detail: "Campaign Overview" register page-ku keezha varanum —
+  // Campaign detail: "All Campaigns" register page-ku keezha varanum —
   // kicker first span "Campaign" mattum dhaan, so menu path dhaan full trail tharum.
+  // Tracking Asset Manager is NOT here: it is a menu row of its own beside All Campaigns, so its
+  // trail is its own menu path (Home / Campaigns / Tracking Asset Manager), as the sidebar shows it.
   '/app/fundraising/campaigns/campaign-detail': '/app/fundraising/campaigns/campaign-register',
   '/app/fundraising/campaigns/campaign-wizard': '/app/fundraising/campaigns/campaign-register',
-  '/app/fundraising/campaigns/tracking-asset-manager': '/app/fundraising/campaigns/campaign-register',
   '/app/fundraising/campaigns/campaign-readiness-checklist': '/app/fundraising/campaigns/campaign-register',
   '/app/fundraising/campaigns/pause-resume-and-close-campaign': '/app/fundraising/campaigns/campaign-register',
 };
 
 /**
- * Donors and Leads screens whose parent is the menu GROUP "Donors and Leads" (code FR_RELATIONSHIPS).
+ * Donors & Leads screens whose parent is the menu GROUP "Donors & Leads" (code FR_RELATIONSHIPS).
  *
  * That group is route-less (route: null — a nesting row the sidebar only draws), so PARENT_ROUTE_OF
  * can never reach it: no route ever matches. The parent is named by menu node CODE instead. Every
  * relationship screen is listed — menu rows and detail pages alike — so the trail always reads
- * "Home / Fundraising / Donors And Leads / <screen>", with or without a row of its own in the menu.
+ * "Home / Donors & Leads / <screen>", with or without a row of its own in the menu.
  */
 const PARENT_NODE_CODE_OF: Record<string, string> = {
   '/app/fundraising/relationships/lead-work-queue': 'FR_RELATIONSHIPS',
@@ -66,11 +67,11 @@ const PARENT_NODE_CODE_OF: Record<string, string> = {
 /**
  * URL segment → trail label, used ONLY by the menu-less fallback trail (fromUrl).
  * The whole module sits on the "relationships" route segment; the trail must never spell it
- * "Relationships" — the menu calls the group "Donors and Leads" and so must the fallback.
+ * "Relationships" — the menu calls the group "Donors & Leads" and so must the fallback.
  */
 const SEGMENT_LABEL_OF: Record<string, string> = {
-  '/app/fundraising/relationships': 'Donors And Leads',
-  '/app/don': 'Donors And Leads',
+  '/app/fundraising/relationships': 'Donors & Leads',
+  '/app/don': 'Donors & Leads',
 };
 
 /**
@@ -103,11 +104,11 @@ const SCREEN_LABEL_OF: Record<string, string> = {
   '/app/fundraising/relationships/lead-capture': 'Lead Capture',
   '/app/fundraising/relationships/my-leads': 'My Leads',
   '/app/fundraising/relationships/communication-timeline': 'Communication Timeline',
-  '/app/fundraising/relationships/follow-up-queue': 'Follow-up Queue',
+  '/app/fundraising/relationships/follow-up-queue': 'Follow-ups',
   '/app/fundraising/relationships/follow-up-planner': 'Follow-up Planner',
   '/app/fundraising/relationships/follow-up-execution': 'Follow-up Execution',
-  '/app/fundraising/relationships/donor-list': 'Donor List',
-  '/app/fundraising/relationships/my-donor-list': 'My Donor List',
+  '/app/fundraising/relationships/donor-list': 'All Donors',
+  '/app/fundraising/relationships/my-donor-list': 'My Donors',
   '/app/fundraising/relationships/donor-360': 'Donor 360',
   '/app/fundraising/relationships/donor-360/edit': 'Donor 360 Edit',
   '/app/fundraising/relationships/consent-and-preference-centre': 'Consent And Preference Centre',
@@ -222,7 +223,7 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
    *
    *  Menu-la illadha detail screen (profile / create / security) PARENT_ROUTE_OF map-la irukura parent-oda
    *  trail-ah dhaan use pannum: parent full menu path + own title. So directory-la irundhu profile-ku ponaalum
-   *  "Home / Access and Identity / User Directory / User Profile & Access" madhiri varum —
+   *  "Home / Users & Access / Users / User Profile & Access" madhiri varum —
    *  menu-la profile-ah click panna varra mathiriye.
    */
   private build(page: string[], own: string): Crumb[] {
@@ -276,7 +277,7 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
   /**
    * An INDIVIDUAL page (a detail / record / edit screen the menu does not list exactly) also shows the
    * page it was reached from — the journey, not only the menu position. Lead Work Queue → Communicate
-   * reads "Home / Fundraising / Donors And Leads / Lead Work Queue / Communication Timeline".
+   * reads "Home / Donors & Leads / Lead Work Queue / Communication Timeline".
    *
    * Home and exact menu screens RESTART the trail (their menu path is the whole truth); a cold deep
    * link falls back to the menu trail; screens from a different module never chain; and the trail is
@@ -293,7 +294,7 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
     const prevVisit = [...this.visited].reverse().find(v => v.url !== url && v.trail.length > 1);
     if (!prevVisit) return base;
 
-    // Only screens of the same module chain together: Fundraising record pages stay under Fundraising.
+    // Only screens of the same module chain together: Donors & Leads record pages stay under Donors & Leads.
     const moduleOf = (trail: Crumb[]): string => trail[1]?.label.toLowerCase() ?? '';
     if (moduleOf(prevVisit.trail) !== moduleOf(base)) return base;
 
@@ -398,9 +399,17 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
     return walk(this.navigation.menu(), []);
   }
 
-  /** First Letter Of Every Word Capital, the rest small. */
+  /**
+   * First Letter Of Every Word Capital, the rest small.
+   *
+   * TWO EXCEPTIONS, so the trail spells a screen the way the menu does. A word with a capital inside
+   * it is a name and is kept as written ("WhatsApp", not "Whatsapp"), and the letter after a hyphen
+   * stays small ("Follow-ups", not "Follow-Ups").
+   */
   private title(text: string): string {
-    return text.toLowerCase().replace(/(^|[\s\-\/(])([a-z])/g, (_m, pre: string, ch: string) => pre + ch.toUpperCase());
+    return text.replace(/\S+/g, (word) => /[a-z][A-Z]/.test(word)
+      ? word
+      : word.toLowerCase().replace(/(^|[\/(])([a-z])/g, (_m, pre: string, ch: string) => pre + ch.toUpperCase()));
   }
 
   private labelOf(el: Element): string[] {

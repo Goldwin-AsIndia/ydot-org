@@ -16,6 +16,7 @@ using YDots.DON.Application.Features.DuplicateReview.Commands.DecideDuplicate;
 using YDots.DON.Application.Features.DuplicateReview.Queries.GetDuplicateReview;
 using YDots.DON.Application.Features.FollowUpPlanner.Commands.PlanFollowUp;
 using YDots.DON.Application.Features.FollowUpPlanner.Queries.GetFollowUpPlanner;
+using YDots.DON.Application.Features.FollowUpPlanner.Queries.GetFollowUpQueue;
 using YDots.DON.Application.Features.IdentityVerification.Commands.VerifyIdentity;
 using YDots.DON.Application.Features.IdentityVerification.Queries.GetVerifications;
 using YDots.DON.Application.Features.LeadCapture.Commands.CaptureLead;
@@ -87,6 +88,7 @@ public static class DependencyInjection
 
         // ---- DON-UI-08 Follow-up planner --------------------------------------------------------------------------
         services.AddScoped<FollowUpPlannerQueryHandler>();
+        services.AddScoped<FollowUpQueueQueryHandler>();
         services.AddScoped<FollowUpCommandHandler>();
 
         // ---- Navigation and reference data --------------------------------------------------------------------------

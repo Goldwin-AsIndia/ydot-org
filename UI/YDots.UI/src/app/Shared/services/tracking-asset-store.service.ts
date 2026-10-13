@@ -590,8 +590,11 @@ export class TrackingAssetStoreService {
       source: item.sourceName,
       medium: item.mediumName,
       contentTag: item.contentTag ?? '',
-      activeFrom: item.activeFrom.slice(0, 10),
-      activeTo: item.activeTo.slice(0, 10),
+      // THE DAY ON THE VIEWER'S CALENDAR, not the first ten characters of a UTC instant. An asset
+      // that opens at midnight in India is 18:30 the evening before in UTC, so slicing showed every
+      // seeded asset a day early (Campaign Detail reads the same instants by local day too).
+      activeFrom: this.toLocalDay(item.activeFrom),
+      activeTo: this.toLocalDay(item.activeTo),
 
       // THE SERVER'S URL, NOT A RECONSTRUCTION OF IT. This line read
       // `item.trackingReference ? \`${item.trackingReference}\` : ''`, which put the bare
@@ -755,7 +758,23 @@ export class TrackingAssetStoreService {
     // THE LAST DAY RUNS TO ITS END. 'Active to' is a date on the form, so it means "through that
     // day"; midnight at its start made a one-day window empty (the server needs the end after the
     // start) and made an asset ending today un-activatable.
-    return new Date(`${dateOnly}T${endOfDay ? '23:59:59' : '00:00:00'}Z`).toISOString();
+    //
+    // ON THE VIEWER'S CALENDAR, the same one the dates are read back on: a window typed as
+    // 1-31 October opens at local midnight on the 1st and closes at local midnight after the 31st.
+    return new Date(`${dateOnly}T${endOfDay ? '23:59:59' : '00:00:00'}`).toISOString();
+  }
+
+  /** An instant as yyyy-mm-dd on the viewer's calendar. */
+  private toLocalDay(instant: string | null | undefined): string {
+    if (!instant) {
+      return '';
+    }
+    const date = new Date(instant);
+    if (Number.isNaN(date.getTime())) {
+      return instant.slice(0, 10);
+    }
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   }
 }
 

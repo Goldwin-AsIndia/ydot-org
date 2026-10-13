@@ -161,7 +161,7 @@
   <div class="page-wrapper">
     <div class="container-fluid px-4 py-3">
       <!-- ============================== HEADER ============================== -->
-      <app-page-header screen="follow-up-queue" title="Follow-Up Queue" style="padding-top: 0;"
+      <app-page-header screen="follow-up-queue" title="Follow-ups" style="padding-top: 0;"
         [subtitle]="scopeLabel() ? 'Scheduled engagement work - ' + scopeLabel().charAt(0).toLowerCase() + scopeLabel().slice(1) + '.' : 'Scheduled engagement work - prioritised, on the clock, and one click from done.'">
         <!-- <span meta class="ph-chip">{{ todayLabel }}</span>
         <span meta class="ph-chip">Queue health: {{ queueHealth() }}</span> -->
@@ -322,7 +322,7 @@
               <h3 id="fq-agenda-title" class="fq-block-title">Today's agenda</h3>
               <span class="fq-agenda-date">{{ todayLabel }}</span>
             </div>
-            @if (agendaItems().length === 0 && agendaNext().length === 0) {
+            @if (agendaTotal() === 0 && agendaNext().length === 0) {
             <div class="fq-agenda-empty">
               <svg class="fq-i" aria-hidden="true">
                 <use href="#fq-i-calendar" />
@@ -332,13 +332,13 @@
               @if (canSchedule()) { <button type="button" class="fq-link" (click)="createFollowUp()">Plan a follow-up</button> }
             </div>
             } @else {
-            @if (agendaItems().length === 0) {
+            @if (agendaTotal() === 0) {
             <p class="fq-agenda-none">Nothing due today.</p>
             } @else {
             <ol class="fq-agenda">
               @for (item of agendaToday(); track item.followUpId) {
               <li>
-                <button type="button" class="fq-agenda-item" [class.is-done]="item.status !== 'Pending' && item.status !== 'Rescheduled' && item.status !== 'Escalated'"
+                <button type="button" class="fq-agenda-item" [class.is-done]="!item.isOpen"
                   (click)="openPreview(item.followUpId)">
                   <span class="fq-agenda-time">{{ formatTime(item.time) || '—' }}</span>
                   <span class="fq-agenda-dot" aria-hidden="true"></span>
@@ -377,9 +377,9 @@
                 <span class="fq-sep" aria-hidden="true">&middot;</span>
                 <strong class="fq-num">{{ agendaDone() }}</strong> done
               </span>
-              @if (agendaItems().length > 0) {
+              @if (agendaTotal() > 0) {
               <button type="button" class="fq-link" (click)="toggleStripDate(today)">
-                {{ agendaItems().length > agendaToday().length ? 'See all ' + agendaItems().length : 'Open in list' }}
+                {{ agendaTotal() > agendaToday().length ? 'See all ' + agendaTotal() : 'Open in list' }}
               </button>
               }
             </footer>
@@ -397,9 +397,9 @@
           <header class="fq-qhead">
             <div class="fq-qtitle">
               <h2 id="fq-queue-title" class="fq-panel-title">{{ queueTitle() }}</h2>
-              <span class="fq-qcount">{{ filteredFollowUps().length }}</span>
+              <span class="fq-qcount">{{ totalCount() }}</span>
               <span class="fq-panel-sub">
-                {{ sortOrder() === 'status' ? 'By status' : sortOrder() === 'oldest' ? 'Earliest first' : 'Latest first' }}
+                {{ sortLabel() }}
                 @if (isNarrowed()) {
                 <span class="fq-sep" aria-hidden="true">&middot;</span>
                 <button type="button" class="fq-link" (click)="resetFilters()">Clear all</button>
@@ -421,10 +421,10 @@
                   <use href="#fq-i-sort" />
                 </svg>
                 <span class="visually-hidden">Sort</span>
-                <select id="fq-sort" [value]="sortOrder()" (change)="sortOrder.set($any($event.target).value)">
-                  <option value="newest">Latest first</option>
-                  <option value="oldest">Earliest first</option>
-                  <option value="status">Status</option>
+                <select id="fq-sort" [value]="sortOrder()" (change)="setSort($any($event.target).value)">
+                  @for (option of sortOptions(); track option.value) {
+                  <option [value]="option.value" [selected]="option.value === sortOrder() || (!sortOrder() && $first)">{{ option.label }}</option>
+                  }
                 </select>
               </label>
               <button type="button" class="fq-tool fq-filter-btn"
@@ -471,7 +471,7 @@
               <span class="fq-view-label">All</span>
               <span class="fq-view-num">{{ viewCounts()['all'] }}</span>
             </button>
-            @for (v of savedViews; track v.id) {
+            @for (v of savedViews(); track v.id) {
             @if (v.groupStart) { <span class="fq-views-rule" aria-hidden="true"></span> }
             <button type="button" class="fq-view" [class.is-active]="activeSavedViewId() === v.id"
               [class.is-zero]="!viewCounts()[v.id]" [attr.aria-pressed]="activeSavedViewId() === v.id" [title]="v.label"
@@ -529,7 +529,7 @@
               <fieldset class="fq-fgroup">
                 <legend>Status</legend>
                 <div class="fq-chips">
-                  @for (s of statusOptions; track trackByString($index, s)) {
+                  @for (s of statusOptions(); track trackByString($index, s)) {
                   <button type="button" class="fq-chip" [class.is-on]="draftFilters().status.has(s)"
                     [attr.aria-pressed]="draftFilters().status.has(s)" (click)="toggleDraftSet('status', s)">{{ s
                     }}</button>
@@ -562,7 +562,7 @@
               </fieldset>
               <div class="fq-fgroup">
                 <label class="fq-flabel" for="fq-owner">Owner</label>
-                @if (owners().length > 20) {
+                @if (assignees().length > 20) {
                 <input type="search" class="fq-input fq-option-search" aria-label="Search owners"
                   placeholder="Search owners…" [value]="ownerSearch()"
                   (input)="ownerSearch.set($any($event.target).value)" />
@@ -573,7 +573,7 @@
                 <select id="fq-owner" class="fq-input"
                   (change)="setDraftOwner($any($event.target).value)">
                   <option value="" [selected]="!draftFilters().owner">All owners</option>
-                  @for (o of matchingOptions(owners(), ownerSearch(), draftFilters().owner ?? ''); track
+                  @for (o of matchingOptions(assignees(), ownerSearch(), draftFilters().owner ?? ''); track
                   trackByString($index, o)) {
                   <option [value]="o" [selected]="o === draftFilters().owner">{{ o }}</option>
                   }
@@ -765,11 +765,10 @@
                     <td class="fq-col-actions">
                       <div class="fq-row-actions">
                         <!-- TS-130: no Execute permission on this row, no Execute icon. -->
-                        @if (can(f, 'Execute')) {
+                        @if (canExecute(f)) {
                         <button type="button" class="fq-icon-btn is-go"
-                          [disabled]="!canExecute(f)"
                           [attr.aria-label]="'Execute ' + f.reference"
-                          [title]="executeHint(f)"
+                          title="Execute"
                           (click)="executeFollowUp(f)">
                           <svg class="fq-i" aria-hidden="true">
                             <use href="#fq-i-play" />
@@ -1277,9 +1276,8 @@
     <footer class="fq-drawer-foot">
       <!-- An executed or cancelled follow-up has nothing left to execute: say so, instead of a
            dead Execute button that pushed the toolbar out of line. -->
-      @if (f.isOpen && can(f, 'Execute')) {
-      <button type="button" class="fq-btn fq-btn--primary fq-btn--grow" [disabled]="!canExecute(f)"
-        [title]="executeHint(f)" (click)="executeFollowUp(f)">
+      @if (f.isOpen && canExecute(f)) {
+      <button type="button" class="fq-btn fq-btn--primary fq-btn--grow" (click)="executeFollowUp(f)">
         <svg class="fq-i" aria-hidden="true">
           <use href="#fq-i-play" />
         </svg>

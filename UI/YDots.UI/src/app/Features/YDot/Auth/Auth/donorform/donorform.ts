@@ -2,13 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { ToastService } from '../../../Finance/shared/toast.service';
 import { CurrentUserService } from '../../../../../Shared/services/current-user.service';
-import { DataService } from '../../../../../Service/data.service';
 import { PaymentApiService } from '../../../../../Service/payment-api.service';
 import { GatewayCheckoutService } from '../../../../../Shared/services/gateway-checkout.service';
-import { GeoMasterService } from '../../../../../Shared/services/geo-master.service';
 import { MasterLookup } from '../../../../../Shared/models/global-master.model';
 import {
   DonationRoutes,
@@ -93,17 +91,6 @@ interface ActivityEntry {
 
 type RelatedTab = 'Linked' | 'Documents' | 'Activity' | 'Integration' | 'Support' | 'Audit';
 
-interface PublicDonationInitiationConfig {
-  readonly pageTitle: string;
-  readonly pageSubtitle: string;
-  readonly operatingTimeZone: string;
-  readonly consentPolicyVersion: string;
-  readonly campaigns: readonly ScopeOption[];
-  readonly currencies: readonly CatalogueOption[];
-  readonly geographies: readonly CatalogueOption[];
-  readonly permissions: EffectivePermissions;
-  readonly maxDonationAmount: number;
-}
 
 
 @Component({
@@ -115,7 +102,6 @@ interface PublicDonationInitiationConfig {
 export class DonorformComponent {
 
   private readonly toast = inject(ToastService);
-  private readonly dataService = inject(DataService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly currentUser = inject(CurrentUserService);
@@ -252,14 +238,25 @@ export class DonorformComponent {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
   }
 
+  /**
+   * The campaign a link names. `?campaignCode=` is what the tracking asset manager generates;
+   * `?campaign=` is the older spelling the lead and donor screens still use. Both are read here,
+   * once, so no read site can know only one of them.
+   */
+  private linkCampaign(params: ParamMap = this.route.snapshot.queryParamMap): string {
+    return (params.get('campaignCode') ?? params.get('campaign') ?? '').trim();
+  }
+
 
   protected readonly pageTitle = signal('Public donation initiation');
   protected readonly pageSubtitle = signal('Collect minimum identity, amount and consent before creating a unique intent.');
-  protected readonly operatingTimeZone = signal('Asia/Kolkata · IST (UTC+05:30)');
+  /** The zone the form's times are read in - the payments service's DisplayTimeZone. */
+  protected readonly operatingTimeZone = signal('');
 
   protected readonly lifecycleState = signal<LifecycleState>('No record');
 
-  protected readonly lastRefresh = signal('Today, 09:30 AM · IST');
+  /** When the form last read its settings from the server. */
+  protected readonly lastRefresh = signal('');
 
   protected readonly intentReference = signal<string>('');
 
@@ -312,7 +309,8 @@ export class DonorformComponent {
     return campaigns.map((campaign) => ({
       reference: campaign.code,
       name: campaign.name,
-      context: 'Open for donations',
+      // The server's line for the campaign - "Open until 31 Oct 2026".
+      context: campaign.availability,
 
       // THE ID TRAVELS WITH THE OPTION. See the note on ScopeOption.apiId - without it the
       // donor's gift reaches the server with campaignId null.
@@ -385,7 +383,7 @@ export class DonorformComponent {
 
         // RE-MATCHED NOW THE LIST EXISTS. A link naming a campaign arrives before this call
         // returns, so the first attempt had nothing to match against.
-        const code = (this.route.snapshot.queryParamMap.get('campaign') ?? '').trim();
+        const code = this.linkCampaign();
 
         if (code && !this.selectedCampaign()) {
           this.bindCampaignFromCode(code);
@@ -536,7 +534,6 @@ export class DonorformComponent {
     this.campaignPickerOpen.update((v) => !v);
   }
 
-  protected readonly donorTypeOptions: readonly DonorType[] = ['Individual', 'Organisation'];
   protected readonly donorType = signal<DonorType>('Individual');
   protected setDonorType(value: string): void {
     if (this.formLocked()) {
@@ -616,7 +613,8 @@ export class DonorformComponent {
   private readonly amountFromIntent = signal(false);
 
   protected readonly amountOverLimitAllowed = signal(false);
-  protected readonly maxDonationAmount = signal(500000);
+  /** The largest gift the server accepts - its MaximumDonationAmount. Null until it answers. */
+  protected readonly maxDonationAmount = signal<number | null>(null);
 
   /**
    * The stated amount is outside what this form may take.
@@ -635,7 +633,8 @@ export class DonorformComponent {
     if (Number.isNaN(n) || n < 0) {
       return true;
     }
-    return n > this.maxDonationAmount() && !this.amountOverLimitAllowed();
+    const maximum = this.maxDonationAmount();
+    return maximum !== null && n > maximum && !this.amountOverLimitAllowed();
   });
   protected readonly formattedAmount = computed(() => {
     const n = Number(this.donationAmount());
@@ -657,11 +656,6 @@ export class DonorformComponent {
   }
 
   protected readonly recurringDonation = signal(false);
-  protected readonly recurringFrequencyOptions: readonly CatalogueOption[] = [
-    { reference: 'MONTHLY', label: 'Monthly' },
-    { reference: 'QUARTERLY', label: 'Quarterly' },
-    { reference: 'ANNUALLY', label: 'Annually' },
-  ];
   protected readonly recurringFrequency = signal<string>('');
   protected toggleRecurring(checked: boolean): void {
     if (this.formLocked()) {
@@ -721,14 +715,19 @@ export class DonorformComponent {
   // Initiation page: countries load once, a country loads its states, a state its cities.
   // ==========================================================================================
   /**
-   * The geo catalogue (countries / states / cities) — the same GeoMasterService the Public
-   * Donation Initiation page uses. CALLED FOR EVERY VISITOR of this form, signed in or not:
-   * the donor form has no "internal view" switch of its own, and gating it on
-   * isInternalView() left the three dropdowns empty here. If the lookups API refuses the
-   * caller, the error handlers below simply leave the list empty.
+   * The geo catalogue (countries / states / cities) - THE PAYMENTS SERVICE'S PUBLIC LOOKUPS.
+   *
+   * This form is the anonymous donor's, and the identity masters it used to call need a session:
+   * every visitor without one got 401 and three empty dropdowns. The public donation API serves
+   * the same active rows - the platform's and the host organisation's - to anybody, signed in or
+   * not, which is what the Public Donation Initiation page already uses for its donors.
    */
-  private readonly geoMasters = inject(GeoMasterService);
-  private geoMastersOrNull(): GeoMasterService | null {
+  private readonly geoMasters = {
+    getCountries: () => this.payments.getPublicCountries(),
+    getStates: (countryId: string) => this.payments.getPublicStates(countryId),
+    getCities: (stateId: string) => this.payments.getPublicCities(stateId),
+  };
+  private geoMastersOrNull(): typeof this.geoMasters | null {
     return this.geoMasters;
   }
 
@@ -840,7 +839,6 @@ export class DonorformComponent {
    * become visible and the name becomes required.
    */
   protected readonly dedicationEnabled = signal(false);
-  protected readonly dedicationTypeOptions: readonly DedicationType[] = ['In memory of', 'In honor of'];
   protected readonly dedicationType = signal<DedicationType>('In memory of');
   protected readonly dedicateeName = signal('');
   protected toggleDedication(checked: boolean): void {
@@ -871,7 +869,13 @@ export class DonorformComponent {
    * Consent acknowledgement — checkbox; Required (4.2.2). Never preselected;
    * records actor, notice or policy version and effective time.
    */
-  protected readonly consentPolicyVersion = signal('Privacy Notice v3.2 · Consent Terms v1.4');
+  /**
+   * The privacy notice a consent given now is recorded against - the payments service's
+   * ConsentNoticeVersion, which it stamps on the intent itself. It was a constant typed into this
+   * page, naming a version of no published document.
+   */
+  protected readonly consentPolicyVersion = signal('');
+  protected readonly consentNoticeVersion = signal('');
   protected readonly consentChecked = signal(false);
   protected readonly consentEffectiveTime = signal<string>('');
   protected toggleConsent(checked: boolean): void {
@@ -910,7 +914,7 @@ export class DonorformComponent {
    * Privacy notice version — read-only text/link/status panel; Read-only;
    * Confidential — visible only within record scope and purpose (4.2.2).
    */
-  protected readonly privacyNoticeVersion = computed(() => (this.intentReference() ? this.consentPolicyVersion().split(' · ')[0] : ''));
+  protected readonly privacyNoticeVersion = computed(() => (this.intentReference() ? this.consentPolicyVersion() : ''));
 
   // ================= Actions, eligibility and result (4.2.3) =================
 
@@ -1149,7 +1153,8 @@ export class DonorformComponent {
       // Consent is captured BEFORE the intent exists, so it travels with the creation rather
       // than being written over it afterwards.
       consentGiven: this.consentChecked(),
-      consentVersion: this.consentPolicyVersion(),
+      // The server records its own notice version; this one is the same value, sent for the trail.
+      consentVersion: this.consentNoticeVersion() || null,
       allowPublicRecognition: !this.anonymousDonation(),
     };
   }
@@ -1614,7 +1619,7 @@ export class DonorformComponent {
     const lead = (params.get('lead') ?? '').trim();
     this.leadIdFromLink.set(DonorformComponent.isGuid(lead) ? lead : null);
 
-    const campaignCode = (params.get('campaign') ?? '').trim();
+    const campaignCode = this.linkCampaign(params);
 
     if (campaignCode) {
       this.campaignCodeFromLink.set(campaignCode);
@@ -1681,22 +1686,38 @@ export class DonorformComponent {
    * had finished. The API answers the question now, on the intent, against the right
    * organisation's records.
    */
+  /**
+   * The currency picker, from the organisation's currency master (anonymous, like the form). It
+   * used to be four currencies typed into a client-side constant.
+   */
+  private loadCurrencies(): void {
+    this.payments.getPublicCurrencies().subscribe({
+      next: (rows) => this.currencyCatalogue.set(rows),
+      error: () => this.currencyCatalogue.set([]),
+    });
+  }
+
   private loadConfig(): void {
     this.uiState.set('loading');
 
-    this.dataService.getPublicDonationInitiationData().subscribe({
-      next: (config: PublicDonationInitiationConfig) => {
-        this.pageTitle.set(config.pageTitle);
-        this.pageSubtitle.set(config.pageSubtitle);
-        this.operatingTimeZone.set(config.operatingTimeZone);
-        this.consentPolicyVersion.set(config.consentPolicyVersion);
-        this.currencyCatalogue.set(config.currencies);
-        this.geographyCatalogue.set(config.geographies);
-        this.permissions.set(config.permissions);
-        this.maxDonationAmount.set(config.maxDonationAmount);
+    this.payments.getPublicFormSettings().subscribe({
+      next: (settings) => {
+        // THE PAYMENTS SERVICE'S SETTINGS, not a constant: the time zone, the privacy notice a
+        // consent is recorded against, the largest gift it accepts and what a donor may do here.
+        this.operatingTimeZone.set(settings.operatingTimeZoneLabel);
+        this.consentPolicyVersion.set(settings.consentNoticeLabel);
+        this.consentNoticeVersion.set(settings.consentNoticeVersion);
+        this.maxDonationAmount.set(settings.maximumDonationAmount);
+        this.lastRefresh.set(this.nowLabel());
+        this.permissions.set({
+          view: true,
+          submit: settings.permittedActions.includes('Submit'),
+          continueToPayment: settings.permittedActions.includes('ContinueToPayment'),
+        });
+        this.loadCurrencies();
         this.uiState.set('ready');
 
-        const campaignCode = this.route.snapshot.queryParamMap.get('campaign');
+        const campaignCode = this.linkCampaign();
 
         if (campaignCode && !this.selectedCampaign()) {
           this.bindCampaignFromCode(campaignCode.trim());
@@ -1706,7 +1727,8 @@ export class DonorformComponent {
       },
       error: () => {
         this.uiState.set('ready');
-        this.toast.show('Error', 'Failed to load the donation form configuration.', 'error');
+        this.loadCurrencies();
+        this.toast.show('Error', 'The donation form settings could not be loaded.', 'error');
       },
     });
   }

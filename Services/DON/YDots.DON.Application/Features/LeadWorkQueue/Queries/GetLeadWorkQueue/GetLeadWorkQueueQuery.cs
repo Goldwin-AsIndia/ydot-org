@@ -114,7 +114,11 @@ public sealed class LeadWorkQueueQueryHandler(
             DescribeScope(),
             now,
             rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial,
-            [.. sources.Select(source => new LookupItem(source, source))]);
+            [.. sources.Select(source => new LookupItem(source, source))],
+            LeadQueueCatalogue.Views(summary, filter.OnlyMine == true),
+            LeadQueueCatalogue.SortOptions,
+            LeadQueueCatalogue.FollowUpStateOptions,
+            filter.View ?? LeadQueueCatalogue.AllView);
 
         logger.LogInformation("Lead work queue loaded successfully. ResultCount: {ResultCount}, TotalCount: {TotalCount}, Page: {Page}", rows.Count, page.TotalCount, page.Page);
 
@@ -190,6 +194,9 @@ public sealed class LeadWorkQueueQueryHandler(
     /// </summary>
     private void PrepareFilter(LeadSearchFilter filter)
     {
+        // A named view first: it only fills fields the caller left empty.
+        LeadQueueCatalogue.ApplyView(filter);
+
         if (filter.OnlyMine == true)
         {
             filter.OwnerUserId = currentUser.UserId;

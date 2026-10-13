@@ -719,7 +719,7 @@ export function toIntentScreenRecord(detail: DonationIntentDetail): DonationInte
         : []),
       ...(detail.leadId
         // The intent carries the lead's id only, never its reference - so it is named, not printed.
-        ? [{ primary: 'Lead record', secondary: 'Originating lead', meta: 'Donors and Leads' }]
+        ? [{ primary: 'Lead record', secondary: 'Originating lead', meta: 'Donors & Leads' }]
         : []),
       ...(detail.donation
         ? [

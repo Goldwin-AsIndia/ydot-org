@@ -1060,7 +1060,7 @@ export class RoleCatalogueComponent {
         this.selectedPermissionCodes.set(this.permissionChoices().map((p) => p.code));
         this.toast.show(
           'Every permission selected',
-          `${role.name} grants everything without a list, so the copy starts with all ${this.permissionChoices().length} permissions another role can hold (Masters stays with the Organisation Admin). Remove what it should not have.`,
+          `${role.name} grants everything without a list, so the copy starts with all ${this.permissionChoices().length} permissions another role can hold (Master Data stays with the Organisation Admin). Remove what it should not have.`,
           'info');
       });
     }

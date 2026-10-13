@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using YDot.PAY.Application.Common.Abstractions.Security;
 using YDot.PAY.Application.Common.Abstractions.Services;
 using YDot.PAY.Application.Common.Results;
+using YDot.PAY.Application.Common.Settings;
 using YDot.PAY.Application.Features.Donations.Commands.ManageIntent;
 using YDot.PAY.Application.Features.Donations.DTOs;
 using YDot.PAY.Application.Features.Donations.Queries;
@@ -49,8 +51,48 @@ public sealed class PublicDonationsController(
     ICampaignDirectory campaigns,
     IPublicGeoDirectory geo,
     ITenantContext tenantContext,
+    IOptions<PaymentSettings> paymentOptions,
+    IDateTimeProvider clock,
     ILogger<PublicDonationsController> logger) : ApiControllerBase
 {
+    /// <summary>
+    /// What the donation forms show and check before an intent exists: the privacy notice a
+    /// consent is recorded against, the largest gift accepted and the time zone dates are printed
+    /// in. Anonymous, like every route here, and the same for every organisation on the platform.
+    /// </summary>
+    [HttpGet("form-settings")]
+    [ProducesResponseType(typeof(ApiResponse<PublicDonationFormSettingsResponse>), StatusCodes.Status200OK)]
+    public IActionResult GetFormSettings()
+    {
+        var settings = paymentOptions.Value;
+        var zoneId = string.IsNullOrWhiteSpace(settings.DisplayTimeZone) ? "UTC" : settings.DisplayTimeZone.Trim();
+
+        TimeZoneInfo zone;
+        try
+        {
+            zone = TimeZoneInfo.FindSystemTimeZoneById(zoneId);
+        }
+        catch (Exception exception) when (exception is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            logger.LogWarning("PaymentSettings:DisplayTimeZone {ZoneId} is not recognised; the form shows UTC.", zoneId);
+            zone = TimeZoneInfo.Utc;
+            zoneId = "UTC";
+        }
+
+        var now = clock.UtcNow;
+        var offset = zone.GetUtcOffset(now);
+        var sign = offset < TimeSpan.Zero ? "-" : "+";
+
+        return Ok(ApiResponse<PublicDonationFormSettingsResponse>.Ok(new PublicDonationFormSettingsResponse(
+            settings.ConsentNoticeVersion,
+            $"Privacy notice {settings.ConsentNoticeVersion}",
+            settings.MaximumDonationAmount,
+            zoneId,
+            $"{zoneId} · UTC{sign}{offset.Duration():hh\\:mm}",
+            now,
+            ["Submit", "ContinueToPayment"])));
+    }
+
     /// <summary>
     /// The appeals this Organisation is currently taking donations for.
     ///

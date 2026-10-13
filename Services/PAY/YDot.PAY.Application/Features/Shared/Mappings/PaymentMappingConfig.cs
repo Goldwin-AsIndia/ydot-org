@@ -262,4 +262,18 @@ public static class PaymentMappingConfig
         DonationSourceType.OfflineEntry => "Recorded by staff",
         _ => sourceType.ToString()
     };
+
+    public static string Describe(PaymentMethodType methodType) => methodType switch
+    {
+        PaymentMethodType.Card => "Card",
+        PaymentMethodType.NetBanking => "Net banking",
+        PaymentMethodType.Upi => "UPI",
+        PaymentMethodType.Wallet => "Wallet",
+        PaymentMethodType.BankTransfer => "Bank transfer",
+        PaymentMethodType.Cheque => "Cheque",
+        PaymentMethodType.Cash => "Cash",
+        PaymentMethodType.DirectDebit => "Direct debit",
+        PaymentMethodType.Other => "Other",
+        _ => methodType.ToString()
+    };
 }

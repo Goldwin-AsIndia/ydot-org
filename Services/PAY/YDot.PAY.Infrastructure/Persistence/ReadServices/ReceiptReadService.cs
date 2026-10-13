@@ -4,6 +4,7 @@ using YDot.PAY.Application.Common.Abstractions.Security;
 using YDot.PAY.Application.Common.Constants;
 using YDot.PAY.Application.Common.Models;
 using YDot.PAY.Application.Features.Receipts.DTOs;
+using YDot.PAY.Application.Features.Payments.DTOs;
 using YDot.PAY.Application.Features.Receipts.Mappings;
 using YDot.PAY.Application.Features.Shared.Mappings;
 using YDot.PAY.Domain.Entities;
@@ -298,6 +299,39 @@ public sealed class ReceiptReadService(PaymentDbContext context, ICurrentUser cu
                 merged, successCount + failedCount, filter.Page, filter.PageSize),
             summary,
             PermittedRegisterActions());
+    }
+
+    public async Task<(IReadOnlyList<IssuedReceiptRow> Rows, int TotalCount, decimal TotalAmount, string Currency)> ListNewestIssuedAsync(
+        ReceiptRegisterFilter filter,
+        int take,
+        AccessScope scope,
+        bool canSeeSensitiveDonor,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(scope);
+
+        var receipts = BuildReceiptHalf(filter, scope);
+
+        var totalCount = await receipts.CountAsync(cancellationToken);
+        var totalAmount = totalCount == 0
+            ? 0m
+            : await receipts.Select(receipt => receipt.Amount.Amount).SumAsync(cancellationToken);
+
+        var rows = take <= 0 || totalCount == 0
+            ? []
+            : await receipts
+                .OrderByDescending(receipt => receipt.IssuedAtUtc ?? receipt.CreatedAtUtc)
+                .Take(take)
+                .ToListAsync(cancellationToken);
+
+        var currency = rows.Count > 0 ? rows[0].Amount.CurrencyCode : "INR";
+
+        return (
+            [.. rows.Select(receipt => new IssuedReceiptRow(ToRegisterRow(receipt, canSeeSensitiveDonor), receipt.Donation?.CampaignId))],
+            totalCount,
+            totalAmount,
+            currency);
     }
 
     /// <summary>

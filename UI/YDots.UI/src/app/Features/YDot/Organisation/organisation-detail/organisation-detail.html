@@ -564,9 +564,17 @@
                 <strong>Supporting documents</strong>
                 <span>{{ documents().length ? documents().length + ' uploaded' : 'None uploaded yet' }}</span>
               </div>
-              <button type="button" class="og-ready-btn" (click)="tab.set('documents')">
-                <i [class]="documents().length ? 'ri-eye-line' : 'ri-upload-2-line'"></i> {{ documents().length ? 'View' : 'Upload' }}
-              </button>
+              <!-- Upload only while the server still takes documents ("UploadDocument"); an approved or active
+                   Organisation's document set is closed, so it is offered View when it has files and nothing when not. -->
+              @if (documents().length) {
+                <button type="button" class="og-ready-btn" (click)="tab.set('documents')">
+                  <i class="ri-eye-line"></i> View
+                </button>
+              } @else if (canUploadDocuments()) {
+                <button type="button" class="og-ready-btn" (click)="tab.set('documents')">
+                  <i class="ri-upload-2-line"></i> Upload
+                </button>
+              }
             </li>
             <li [class.is-done]="domains().length > 0">
               <span class="og-ready-mark"><i class="ri-check-line"></i></span>
@@ -622,6 +630,7 @@
         <!-- MODE FOLLOWS THE ROUTE: with an id in the URL this is SuperAdmin looking at somebody else's paperwork,
              so the id is passed too (the tenant endpoint takes none). -->
         <app-document-submissions [mode]="documentsMode()" [tenantId]="organisationId()"
+                                  [canStartNew]="canUploadDocuments()"
                                   (changed)="reload()"></app-document-submissions>
       </section>
 

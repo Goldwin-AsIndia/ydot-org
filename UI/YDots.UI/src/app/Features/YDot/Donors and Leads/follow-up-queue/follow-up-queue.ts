@@ -11,17 +11,20 @@ import {
 import { ActivatedRoute, Router } from "@angular/router";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { forkJoin, catchError, distinctUntilChanged, map, of, tap } from "rxjs";
+import { Subject, Subscription, forkJoin, catchError, debounceTime, distinctUntilChanged, map, of } from "rxjs";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { DonorApiService } from "../../../../Service/donor-api.service";
 import { apiErrorMessage } from "../../../../Shared/models/api-response.model";
 import {
   DonLookupItem,
   FollowUp as ApiFollowUp,
-  FollowUpPlannerResponse,
+  FollowUpQueueFilter,
+  FollowUpQueuePulse,
+  FollowUpQueueResponse,
   FollowUpQueueSummary,
+  FollowUpQueueView,
+  QueueView as CountedView,
 } from "../../../../Shared/models/donor-contract.model";
-import { fetchPages } from "../../../../Shared/services/paging";
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
@@ -47,20 +50,9 @@ export type Priority = string;
  * on comes from the server's own flags on the row - the screen used to test for "Pending", which
  * the API never sends, so every count of open work on this page was zero.
  */
-export type FollowUpStatus =
-  | "Pending"
-  | "Completed"
-  | "Partially completed"
-  | "No response"
-  | "Cancelled"
-  | "Escalated"
-  | "Rescheduled";
-/** Executed or cancelled - no longer work to do. */
-export const isClosedStatus = (status: string): boolean =>
-  status === "Completed" ||
-  status === "Partially completed" ||
-  status === "No response" ||
-  status === "Cancelled";
+export type FollowUpStatus = string;
+/** Executed or cancelled - no longer work to do. The server's open flag, carried on the agenda item. */
+export const isClosedStatus = (item: { isOpen: boolean }): boolean => !item.isOpen;
 export type DependencyStatus = "Ready" | "Blocked";
 export type SlaStatus = "On Time" | "Approaching" | "Breached";
 export type QueueView = "grid" | "kanban" | "calendar";
@@ -128,6 +120,9 @@ export interface FollowUp {
   executionStatus: string;
   completionReason: string;
   disposition: string;
+
+  /** The board column the server put it in, or null for none. */
+  boardColumn: string | null;
 }
 
 export interface SavedView {
@@ -153,10 +148,11 @@ export interface AgendaItem {
   type: FollowUpType;
   status: FollowUpStatus;
   followUpId: string;
+  isOpen: boolean;
 }
 
 export interface KpiTile {
-  key: Exclude<QuickFilterKey, null>;
+  key: string;
   label: string;
   value: number;
   hint: string;
@@ -173,17 +169,22 @@ export interface KpiTile {
  * users inside the caller's scope.
  */
 
-export const SAVED_VIEWS: SavedView[] = [
-  { id: "mine", label: "My Follow-Ups", short: "Mine" },
-  { id: "today", label: "Today's Follow-Ups", short: "Today" },
-  { id: "overdue", label: "Overdue" },
-  { id: "upcoming", label: "Upcoming" },
-  { id: "completedToday", label: "Completed Today", short: "Done today" },
-  { id: "high", label: "High Priority", short: "High priority", groupStart: true },
-  { id: "attention", label: "Needs Attention", short: "Needs attention" },
-  { id: "escalated", label: "Escalated" },
-    { id: "calls", label: "Calls", groupStart: true },
-];
+/**
+ * SAVED_VIEWS - REMOVED as a constant. The tabs are the server's `views`, each with its words,
+ * its group and its count, and a tab's value is sent back as `view`.
+ */
+
+/** The icon and tone each headline tile is drawn in - presentation only. */
+const TILE_LOOK: Readonly<Record<string, { icon: string; tone: KpiTile["tone"] }>> = {
+  today: { icon: "clock", tone: "info" },
+  upcoming: { icon: "calendar", tone: "ok" },
+  overdue: { icon: "alert", tone: "danger" },
+  completedToday: { icon: "check-circle", tone: "violet" },
+  escalated: { icon: "flag", tone: "warn" },
+};
+
+/** The tone each age bucket's column is drawn in, by its place - presentation only. */
+const AGE_TONES = ["hot", "warm", "ok", "ok"] as const;
 
 function initials(name: string): string {
   return name
@@ -204,7 +205,7 @@ function initials(name: string): string {
 
 function buildCalendarStrip(
   centerIso: string,
-  source: FollowUp[],
+  dayCounts: Readonly<Record<string, number>>,
 ): CalendarDay[] {
   const days: CalendarDay[] = [];
   const center = new Date(centerIso + "T00:00:00");
@@ -212,9 +213,8 @@ function buildCalendarStrip(
     const d = new Date(center);
     d.setDate(center.getDate() + i);
     const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const count = source.filter(
-      (f) => f.scheduledDate === iso && f.status !== "Cancelled",
-    ).length;
+    // THE SERVER'S COUNT FOR THE DAY, over the whole scope, cancelled follow-ups left out.
+    const count = dayCounts[iso] ?? 0;
     days.push({
       date: iso,
       label: d.toLocaleDateString("en-US", { weekday: "short" }),
@@ -237,18 +237,8 @@ function to24h(time: string): number {
   return hours * 60 + minutes;
 }
 
-type QuickFilterKey =
-  | "dueToday"
-  | "overdue"
-  | "upcoming"
-  | "highPriority"
-    | "attention"
-  | "mine"
-  | "today"
-  | "calls"
-  | "escalated"
-  | "completedToday"
-  | null;
+/** A server view's value - mine, today, overdue, upcoming, completedToday, high, attention, escalated, calls. */
+type QuickFilterKey = string | null;
 
 interface GeneralFilters {
   status: Set<FollowUpStatus>;
@@ -382,33 +372,55 @@ export class FollowUpQueueComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(DonorApiService);
-  readonly today = TODAY_ISO;
-  readonly savedViews: SavedView[] = SAVED_VIEWS;
+  /** The organisation's today, yyyy-mm-dd - the server's, once it has answered. */
+  today = TODAY_ISO;
+
+  /** The whole answer for the current filters: rows, tabs, tiles, pulse and option lists. */
+  private readonly queue = signal<FollowUpQueueResponse | null>(null);
+
+  /** The tabs - the server's views, with their words and groups. */
+  readonly savedViews = computed<SavedView[]>(() => {
+    const views: readonly FollowUpQueueView[] = this.queue()?.views ?? [];
+    return views.map((view, index) => ({
+      id: view.value,
+      label: view.label,
+      short: view.shortLabel,
+      groupStart: index > 0 && views[index - 1].group !== view.group,
+    }));
+  });
+
   /** Real users, from the API. `value` is the user id the write needs; `label` is the name. */
-  readonly ownerOptions = signal<readonly DonLookupItem[]>([]);
-  readonly owners = computed(() =>
-    this.ownerOptions().map((option) => option.label),
-  );
-  readonly statusOptions: FollowUpStatus[] = [
-    "Pending",
-    "Completed",
-    "Partially completed",
-    "No response",
-    "Cancelled",
-    "Rescheduled",
-    "Escalated",
-  ];
-  /** The channels a follow-up can be planned on, from the API's own list. */
-  readonly typeOptions = signal<FollowUpType[]>([]);
+  readonly ownerOptions = computed<readonly DonLookupItem[]>(() => this.queue()?.ownerOptions ?? []);
+  readonly owners = computed(() => this.ownerOptions().map((option) => option.label));
+
+  /** The people the caller's follow-ups are assigned to now - the Owner filter's choices. */
+  private readonly assigneeOptions = computed<readonly DonLookupItem[]>(() => this.queue()?.assigneeOptions ?? []);
+  readonly assignees = computed(() => this.assigneeOptions().map((option) => option.label));
+
+  /** The server's status words: Pending, Rescheduled, Escalated, Completed and so on. */
+  readonly statusOptions = computed<FollowUpStatus[]>(() => (this.queue()?.statusOptions ?? []).map((option) => option.value));
+
+  /** The channels a follow-up can be planned on, in the server's words (Call, SMS...). */
+  private readonly channelOptions = computed<readonly DonLookupItem[]>(() => this.queue()?.channelOptions ?? []);
+  readonly typeOptions = computed<FollowUpType[]>(() => this.channelOptions().map((option) => option.label));
 
   /** Low, Normal, High, Urgent - the API's priorities. */
-  readonly priorityOptions = signal<Priority[]>([]);
+  readonly priorityOptions = computed<Priority[]>(() => (this.queue()?.priorityOptions ?? []).map((option) => option.value));
 
   /** The queue's figures over the caller's whole scope, counted by the server. */
-  readonly summary = signal<FollowUpQueueSummary | null>(null);
+  readonly summary = computed<FollowUpQueueSummary | null>(() => this.queue()?.summary ?? null);
+
+  /** The pulse panel, agenda and date rail - the server's, over the whole scope. */
+  private readonly pulse = computed<FollowUpQueuePulse | null>(() => this.queue()?.pulse ?? null);
+
+  /** How many follow-ups the filters matched, by the server's count. */
+  readonly totalCount = computed(() => this.queue()?.totalCount ?? 0);
+
+  /** The orders the queue can be read in. */
+  readonly sortOptions = computed<readonly DonLookupItem[]>(() => this.queue()?.sortOptions ?? []);
 
   /** What the caller may do on this screen at all: the server's verbs for the queue. */
-  private readonly queueActions = signal<readonly string[]>([]);
+  private readonly queueActions = computed<readonly string[]>(() => this.queue()?.permittedActions ?? []);
   readonly canSchedule = computed(() => this.queueActions().includes("Schedule follow-up"));
   readonly canExport = computed(() => this.queueActions().includes("Export"));
   readonly canComplete = computed(() => this.queueActions().includes("Mark complete"));
@@ -417,18 +429,10 @@ export class FollowUpQueueComponent {
   readonly canAssign = computed(() => this.queueActions().includes("Assign"));
 
   /** "Your whole organisation", or the caller's own follow-ups - the server's description. */
-  readonly scopeLabel = signal("");
+  readonly scopeLabel = computed(() => this.queue()?.activeScope ?? "");
 
-  /** Filled from whatever campaigns the loaded follow-ups actually belong to. */
-  readonly campaigns = computed(() =>
-    Array.from(
-      new Set(
-        this.followUps()
-          .map((f) => f.campaign)
-          .filter(Boolean),
-      ),
-    ).sort(),
-  );
+  /** The campaigns the caller's follow-ups belong to - the server's list over the whole scope. */
+  readonly campaigns = computed(() => (this.queue()?.campaignOptions ?? []).map((option) => option.label));
 
   private readonly followUps = signal<FollowUp[]>([]);
 
@@ -466,7 +470,14 @@ export class FollowUpQueueComponent {
       this.route.snapshot.queryParamMap.get("leadId"),
   );
 
+  private readonly searchChanges = new Subject<void>();
+  private loadSubscription?: Subscription;
+
   constructor() {
+    this.searchChanges
+      .pipe(debounceTime(300), takeUntilDestroyed())
+      .subscribe(() => this.load());
+
     // THE ADDRESS DECIDES WHOSE FOLLOW-UPS THIS IS, EVERY TIME IT CHANGES. Opening the queue from a
     // lead or a donor (`?leadId=`) and then from the menu (no query) is the same route, so Angular
     // keeps this component alive: the old person stayed in the list until the screen was
@@ -499,59 +510,44 @@ export class FollowUpQueueComponent {
   readonly loadError = signal("");
 
   /**
-   * The follow-ups the caller may see.
+   * The follow-ups the filters match, and everything counted about the caller's whole scope.
    *
-   * THE SERVER DECIDES WHOSE THEY ARE. The role flow: the Fundraising Manager and Executive see
-   * every follow-up in the organisation; DonorCare sees the ones assigned to them, and - to view
-   * only - the ones a colleague holds on a lead or donor they own. This screen used to ask for
-   * `onlyMine`, which hid the organisation's queue from the people who manage it.
+   * THE SERVER FILTERS, SORTS AND COUNTS. The role flow decides whose follow-ups these are
+   * (Fundraising Manager and Executive: the organisation's; DonorCare: their own, and to view only
+   * the ones a colleague holds on a record they own). The screen used to download every page and
+   * apply its own status words, tab rules and tile counts to them - so the Escalated tile and the
+   * Escalated tab disagreed, and an executed follow-up always read "Completed". The queue endpoint
+   * answers the filtered rows (all of them: the board and the calendar lay the whole set out),
+   * with the tabs, tiles and pulse panel counted by the rules it filtered by.
    *
-   * EVERY PAGE. The API caps a page at 100 and the request asked for 200, so the 101st
-   * follow-up never appeared while every count on the page read as a total.
-   *
-   * A record named in the address (from Donor 360 or a lead) narrows the list AND the summary to
-   * that person, on the server.
+   * A record named in the address (from Donor 360 or a lead) narrows the rows and every figure.
    */
   private load(): void {
     this.loading.set(true);
     this.loadError.set("");
 
-    const donorId = this.route.snapshot.queryParamMap.get("donorId");
-    const leadId = donorId ? null : this.route.snapshot.queryParamMap.get("leadId");
+    this.loadSubscription?.unsubscribe();
+    this.loadSubscription = this.api.getFollowUpQueue(this.buildFilter()).subscribe({
+      next: (response) => {
+        this.queue.set(response);
+        this.today = response.today || TODAY_ISO;
+        this.followUps.set(response.followUps.map((item) => this.toQueueRow(item)));
 
-    // The first page's answer carries the summary, the option lists and the permitted actions.
-    let first: FollowUpPlannerResponse | null = null;
-
-    fetchPages<ApiFollowUp>((page, pageSize) =>
-      this.api.getFollowUpPlanner({ page, pageSize, donorId, leadId }).pipe(
-        tap((response) => {
-          first ??= response;
-        }),
-        map((response) => response.followUps),
-      ),
-    ).subscribe({
-      next: ({ items }) => {
-        const response = first!;
-
-        this.followUps.set(items.map((item) => this.toQueueRow(item)));
         // Fresh rows: files fetched for a panel earlier may have changed.
         this.drawerFilesAsked.clear();
         this.drawerReports.set({});
-        this.ownerOptions.set(response.ownerOptions);
-        this.summary.set(response.summary);
-        this.queueActions.set(response.permittedActions ?? []);
-        this.scopeLabel.set(response.activeScope ?? "");
-        this.typeOptions.set(
-          (response.channelOptions ?? []).map((option) => this.toFollowUpType(option.value)),
-        );
-        this.priorityOptions.set((response.priorityOptions ?? []).map((option) => option.value));
+
         // The words the execution screen offered, so the panel prints "Information requested"
         // rather than the stored value "InformationRequested".
         this.rememberLabels(response as unknown as Record<string, unknown>);
         this.loading.set(false);
 
+        if (response.isTruncated) {
+          this.showToast(`Showing the first ${response.followUps.length} of ${response.totalCount} follow-ups. Narrow the filters to see the rest.`);
+        }
+
         // A selection can outlive the rows it was made on.
-        const ids = new Set(items.map((item) => item.id));
+        const ids = new Set(response.followUps.map((item) => item.id));
         this.selectedIds.update((current) => new Set([...current].filter((id) => ids.has(id))));
 
         // A follow-up named in the address (just scheduled, or opened from elsewhere) opens its
@@ -572,11 +568,8 @@ export class FollowUpQueueComponent {
         if (requestedId) {
           const requested = this.followUps().find((item) => item.id === requestedId);
 
-          // BACK FROM EXECUTION IS NOT A REQUEST TO SEE THE DETAILS. The execution screen returns
-          // here naming the follow-up it just closed; opening its side panel on arrival put a
-          // panel nobody asked for over the queue (TS-133). A follow-up that is no longer open is
-          // highlighted in the list instead, and only an OPEN one - just scheduled, or opened from
-          // elsewhere to be worked on - still opens its panel.
+          // BACK FROM EXECUTION IS NOT A REQUEST TO SEE THE DETAILS (TS-133): a follow-up that is
+          // no longer open is highlighted instead; only an OPEN one opens its panel.
           if (requested && !requested.isOpen) {
             this.highlightId.set(requestedId);
           } else if (requested) {
@@ -593,6 +586,35 @@ export class FollowUpQueueComponent {
         this.showToast(this.loadError());
       },
     });
+  }
+
+  /** The person in the address, the tab or tile, the panel's filters, the day and the order. */
+  private buildFilter(): FollowUpQueueFilter {
+    const donorId = this.route.snapshot.queryParamMap.get("donorId");
+    const leadId = donorId ? null : this.route.snapshot.queryParamMap.get("leadId");
+    const filters = this.activeFilters();
+    const channelValue = (label: string) =>
+      this.channelOptions().find((option) => option.label === label)?.value ?? label;
+    const assignee = filters.owner
+      ? this.assigneeOptions().find((option) => option.label === filters.owner)?.value ?? null
+      : null;
+    const list = (values: Iterable<string>) => [...values].join(",") || null;
+
+    return {
+      donorId,
+      leadId,
+      search: this.searchTerm().trim() || null,
+      view: this.activeQuickFilter(),
+      statuses: list(filters.status),
+      channels: list([...filters.type].map(channelValue)),
+      priorities: list(filters.priority),
+      assignedToUserId: assignee,
+      campaign: filters.campaign,
+      dueFrom: filters.dateFrom,
+      dueTo: filters.dateTo,
+      dueOn: this.selectedStripDate(),
+      sort: this.sortOrder() || null,
+    };
   }
 
   /**
@@ -626,11 +648,13 @@ export class FollowUpQueueComponent {
 
       // THE CHANNEL IS THE PERMITTED ONE, not a preference. The server refuses a follow-up on a
       // channel the donor has withdrawn consent for, so this is already the allowed answer.
-      followUpType: this.toFollowUpType(item.permittedChannel),
+      followUpType: this.channelLabel(item.permittedChannel),
       scheduledDate: due ? this.toDateInput(due) : "",
       scheduledTime: due ? this.toTimeInput(due) : "",
       priority: item.priority,
-      status: this.toStatus(item),
+      // THE SERVER'S STATUS WORD - it reads the execution outcome from the enum, so a follow-up
+      // executed as "No response" says so instead of "Completed".
+      status: item.queueStatus,
 
       // A CONSENT WARNING IS A BLOCKER. The document's queue shows a dependency state; the real
       // dependency on a follow-up is whether the donor may be contacted on that channel at all.
@@ -688,6 +712,7 @@ export class FollowUpQueueComponent {
       executionStatus: item.executionStatus ?? "",
       completionReason: item.completionReason ?? "",
       disposition: item.disposition ?? "",
+      boardColumn: item.boardColumn,
     };
   }
 
@@ -696,37 +721,9 @@ export class FollowUpQueueComponent {
     return (f.executionStatus || "").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase()).replace(/ ([A-Z])/g, (m, c) => " " + c.toLowerCase());
   }
 
-  /** The server's state as this screen's status word. See FollowUpStatus. */
-  private toStatus(item: ApiFollowUp): FollowUpStatus {
-    // THE SERVER CLOSES EVERY EXECUTED FOLLOW-UP AS "Completed" and keeps what the executor chose
-    // (Completed, Partially completed, No response, Cancelled) in `executionStatus`. The list shows
-    // that choice - it used to read "Completed" whatever was selected on the execution screen.
-    if (item.status === "Completed") {
-      switch (item.executionStatus) {
-        case "PartiallyCompleted":
-          return "Partially completed";
-        case "NoResponse":
-          return "No response";
-        case "Cancelled":
-          return "Cancelled";
-      }
-      return "Completed";
-    }
-    if (item.status === "Cancelled") return "Cancelled";
-    if (item.escalatedAtUtc) return "Escalated";
-    return item.status === "Rescheduled" ? "Rescheduled" : "Pending";
-  }
-
-  /** A consent channel as this screen names it. */
-  private toFollowUpType(channel: string): FollowUpType {
-    switch (channel) {
-      case "PhoneCall":
-        return "Call";
-      case "Sms":
-        return "SMS";
-      default:
-        return channel;
-    }
+  /** A channel in the server's words for it (PhoneCall is "Call"). */
+  private channelLabel(channel: string): FollowUpType {
+    return this.channelOptions().find((option) => option.value === channel)?.label ?? channel;
   }
 
   /**
@@ -760,113 +757,38 @@ export class FollowUpQueueComponent {
     return this.followUps().find((item) => item.id === id);
   }
 
-  readonly filteredFollowUps = computed<FollowUp[]>(() => {
-    const term = this.searchTerm().trim().toLowerCase();
-    const gf = this.activeFilters();
-    const quick = this.activeQuickFilter();
-    const strip = this.selectedStripDate();
-
-    return this.followUps().filter((f) => {
-      if (this.recordFilterId() && f.recordId !== this.recordFilterId())
-        return false;
-      if (term) {
-        const hay =
-          `${f.id} ${f.reference} ${f.recordName} ${f.phone} ${f.purpose}`.toLowerCase();
-        if (!hay.includes(term)) return false;
-      }
-      if (gf.status.size && !gf.status.has(f.status)) return false;
-      if (gf.type.size && !gf.type.has(f.followUpType)) return false;
-      if (gf.priority.size && !gf.priority.has(f.priority)) return false;
-      if (gf.owner && f.assignedTo !== gf.owner) return false;
-      if (gf.campaign && f.campaign !== gf.campaign) return false;
-      if (gf.dateFrom && f.scheduledDate < gf.dateFrom) return false;
-      if (gf.dateTo && f.scheduledDate > gf.dateTo) return false;
-      if (strip && f.scheduledDate !== strip) return false;
-
-      return this.matchesQuick(f, quick);
-    });
-  });
-
-  /**
-   * Whether a follow-up belongs to a quick filter / saved view. Shared by the list and the view
-   * counts.
-   *
-   * EVERY TEST IS ON THE SERVER'S OWN FLAGS, and each matches the tile of the same name: the
-   * tiles are the server's counts, so the rows a tile opens are the rows it counted.
-   */
-  private matchesQuick(f: FollowUp, quick: QuickFilterKey): boolean {
-    switch (quick) {
-      case "dueToday":
-      case "today":
-        return f.dueState === "Due Today";
-      case "overdue":
-        return f.isOverdue;
-      case "upcoming":
-        return f.dueState === "Tomorrow" || f.dueState === "Upcoming";
-      case "highPriority":
-        return f.priority === "High" || f.priority === "Urgent";
-      case "attention":
-        return f.isOpen && (f.escalated || f.isOverdue || f.dependencyStatus === "Blocked");
-      case "mine":
-        // Assigned to the caller and still to be done - the server's own "assigned to me".
-        return f.isMine && f.isOpen;
-      case "escalated":
-        // THE TILE'S OWN RULE, APPLIED TO ROWS. The Escalated figure counts a task escalated by
-        // the Escalate action (still open) AND one executed with "Escalated" as its completion
-        // reason or disposition - otherwise the tile and the list it filters disagree. See
-        // SupportingRepositories.GetSummaryAsync on the server.
-        return this.isEscalated(f);
-      case "calls":
-        return f.followUpType === "Call";
-      case "completedToday":
-        return f.dueState === "Completed today";
-      default:
-        return true;
-    }
-  }
+  /** The rows the filters matched - the server's set, exactly; nothing is filtered here. */
+  readonly filteredFollowUps = computed<FollowUp[]>(() => this.followUps());
 
   readonly pageSize = signal(10);
 
   setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
-  readonly sortOrder = signal("newest");
+  /** The chosen order, as the server names it; empty is its default. */
+  readonly sortOrder = signal("");
+
+  /** The order's words, for the panel's subtitle. */
+  readonly sortLabel = computed(() => {
+    const options = this.sortOptions();
+    return (options.find((option) => option.value === this.sortOrder()) ?? options[0])?.label ?? "";
+  });
+
+  setSort(value: string): void {
+    this.sortOrder.set(value);
+    this.load();
+  }
 
   /** The follow-up just completed: it is shown first and highlighted until the page is left. */
   readonly highlightId = signal<string | null>(null);
 
-  private static readonly STATUS_RANK: Record<string, number> = {
-    Pending: 0,
-    Rescheduled: 1,
-    Escalated: 2,
-    Completed: 3,
-    "Partially completed": 4,
-    "No response": 5,
-    Cancelled: 6,
-  };
-
+  /**
+   * The rows in the server's order, with the follow-up just completed pinned first and
+   * highlighted until the page is left.
+   */
   readonly sortedFollowUps = computed(() => {
     const pinned = this.highlightId();
-    const mode = this.sortOrder();
-    return [...this.filteredFollowUps()].sort((a, b) => {
-      if (pinned) {
-        if (a.id === pinned && b.id !== pinned) return -1;
-        if (b.id === pinned && a.id !== pinned) return 1;
-      }
-      // A follow-up with no due date goes to the END in every order. Its key was "T", which sorts
-      // AFTER every real date - so "Latest first" (descending) put all of them on top, and those are
-      // mostly the cancelled ones.
-      const undated = (f: FollowUp) => !f.scheduledDate;
-      if (undated(a) !== undated(b)) return undated(a) ? 1 : -1;
-      const order = `${a.scheduledDate}T${a.scheduledTime}`.localeCompare(
-        `${b.scheduledDate}T${b.scheduledTime}`,
-      );
-      if (mode === "status") {
-        const rank =
-          (FollowUpQueueComponent.STATUS_RANK[a.status] ?? 9) -
-          (FollowUpQueueComponent.STATUS_RANK[b.status] ?? 9);
-        return rank || -order || a.id.localeCompare(b.id);
-      }
-      return (mode === "oldest" ? order : -order) || a.id.localeCompare(b.id);
-    });
+    const rows = this.filteredFollowUps();
+    if (!pinned) return rows;
+    return [...rows.filter((f) => f.id === pinned), ...rows.filter((f) => f.id !== pinned)];
   });
 
   /** Set when the side panel's backdrop is clicked: the X pulses to say that is the way out. */
@@ -933,30 +855,14 @@ export class FollowUpQueueComponent {
   readonly overduePercent = computed(() => this.summary()?.overduePercent ?? 0);
   readonly queueHealth = computed(() => this.summary()?.health ?? "Healthy");
 
+  /** The board's columns - the server's, each holding the rows the server put in it. */
   readonly kanbanColumns = computed(() => {
     const list = this.filteredFollowUps();
-    return [
-      {
-        key: "dueToday",
-        label: "Due Today",
-        items: list.filter((f) => f.dueState === "Due Today"),
-      },
-      {
-        key: "upcoming",
-        label: "Upcoming",
-        items: list.filter((f) => f.dueState === "Tomorrow" || f.dueState === "Upcoming"),
-      },
-      {
-        key: "overdue",
-        label: "Overdue",
-        items: list.filter((f) => f.isOverdue),
-      },
-      {
-        key: "completed",
-        label: "Completed",
-        items: list.filter((f) => isClosedStatus(f.status) && f.status !== "Cancelled"),
-      },
-    ];
+    return (this.queue()?.boardColumns ?? []).map((column) => ({
+      key: column.value,
+      label: column.label,
+      items: list.filter((f) => f.boardColumn === column.value),
+    }));
   });
 
   readonly calendarWeeks = computed(() => {
@@ -1008,110 +914,64 @@ export class FollowUpQueueComponent {
   });
 
   readonly calendarStrip = computed<CalendarDay[]>(() =>
-    buildCalendarStrip(this.calendarCenterDate(), this.followUps()),
+    buildCalendarStrip(this.calendarCenterDate(), this.pulse()?.dayCounts ?? {}),
   );
 
-  readonly agendaItems = computed<AgendaItem[]>(() =>
-    this.followUps()
-      .filter((f) => f.scheduledDate === TODAY_ISO && f.status !== "Cancelled")
-      .sort((a, b) => to24h(a.scheduledTime) - to24h(b.scheduledTime))
-      .map((f) => ({
-        time: f.scheduledTime,
-        title: `${f.followUpType} \u00b7 ${f.recordName}`,
-        name: f.recordName,
-        type: f.followUpType,
-        status: f.status,
-        followUpId: f.id,
-      })),
+  /** Today's follow-ups by time (cancelled left out) - the server's agenda, at most five. */
+  readonly agendaToday = computed<AgendaItem[]>(() =>
+    (this.pulse()?.agendaToday ?? []).map((item) => {
+      const due = item.dueAtUtc ? new Date(item.dueAtUtc) : null;
+      return {
+        time: due ? this.toTimeInput(due) : "",
+        title: `${item.channelLabel} \u00b7 ${item.recordName}`,
+        name: item.recordName,
+        type: item.channelLabel,
+        status: item.queueStatus,
+        followUpId: item.id,
+        isOpen: item.isOpen,
+      };
+    }),
   );
 
-  readonly agendaDone = computed(
-    () => this.agendaItems().filter((a) => isClosedStatus(a.status)).length,
-  );
-  readonly agendaLeft = computed(
-    () => this.agendaItems().filter((a) => !isClosedStatus(a.status)).length,
-  );
+  /** Every follow-up due today (not only the five shown) - done plus to do. */
+  readonly agendaTotal = computed(() => (this.pulse()?.agendaDone ?? 0) + (this.pulse()?.agendaLeft ?? 0));
+  readonly agendaDone = computed(() => this.pulse()?.agendaDone ?? 0);
+  readonly agendaLeft = computed(() => this.pulse()?.agendaLeft ?? 0);
 
-  /** Rows the agenda card shows in total: today first, then what is coming up, so the card is always full. */
-  private readonly agendaRows = 5;
-  readonly agendaToday = computed(() =>
-    this.agendaItems().slice(0, this.agendaRows),
+  /** What is coming up after today, filling the agenda card to five - the server's. */
+  readonly agendaNext = computed(() =>
+    (this.pulse()?.agendaNext ?? []).map((item) => {
+      const due = item.dueAtUtc ? new Date(item.dueAtUtc) : null;
+      return {
+        id: item.id,
+        recordName: item.recordName,
+        followUpType: item.channelLabel,
+        scheduledDate: due ? this.toDateInput(due) : "",
+        scheduledTime: due ? this.toTimeInput(due) : "",
+      };
+    }),
   );
-  readonly agendaNext = computed(() => {
-    const room = this.agendaRows - this.agendaToday().length;
-    if (room <= 0) return [];
-    return this.followUps()
-      .filter((f) => f.isOpen && f.scheduledDate > TODAY_ISO)
-      .sort((a, b) =>
-        `${a.scheduledDate}T${a.scheduledTime}`.localeCompare(
-          `${b.scheduledDate}T${b.scheduledTime}`,
-        ),
-      )
-      .slice(0, room);
-  });
 
   readonly kpiDueToday = computed(() => this.summary()?.dueToday ?? 0);
   readonly kpiUpcoming = computed(() => this.summary()?.upcoming ?? 0);
   readonly kpiCompletedToday = computed(() => this.summary()?.completedToday ?? 0);
-  /**
-   * ESCALATED (TS-128): counted from the rows with the same rule the Escalated filter uses - a
-   * follow-up escalated with the Escalate action that is still open, OR one executed with
-   * "Escalated" as its status, reason or disposition. The server's summary only counted the first
-   * kind, so executing a follow-up as escalated left the tile unchanged. Every page of the queue is
-   * loaded, so the rows are the whole scope; the summary is the fallback before they arrive.
-   */
-  readonly kpiEscalated = computed(() => {
-    const rows = this.followUps();
-    if (!rows.length) return this.summary()?.escalated ?? 0;
-    return rows.filter((f) => this.isEscalated(f)).length;
-  });
+  /** ESCALATED (TS-128): the server's count, by the same rule the Escalated tab filters by. */
+  readonly kpiEscalated = computed(() => this.summary()?.escalated ?? 0);
 
-  /** One rule for "escalated", shared by the tile and the filter. */
-  isEscalated(f: FollowUp): boolean {
-    const says = (v: string | undefined | null) => /escalat/i.test(v ?? "");
-    return (
-      (f.isOpen && f.escalated) ||
-      says(f.executionStatus) ||
-      says(f.completionReason) ||
-      says(f.disposition)
-    );
-  }
   readonly kpiCompletionRate = computed(() => this.summary()?.completionRatePercent ?? 0);
 
-  readonly slaBreakdown = computed(() => {
-    const list = this.followUps().filter((f) => f.isOpen);
-    return {
-      onTime: list.filter((f) => f.slaStatus === "On Time").length,
-      approaching: list.filter((f) => f.slaStatus === "Approaching").length,
-      breached: list.filter((f) => f.slaStatus === "Breached").length,
-    };
-  });
+  /** On time / due today / overdue, over the open follow-ups in scope - the server's. */
+  readonly slaBreakdown = computed(() => ({
+    onTime: this.pulse()?.slaOnTime ?? 0,
+    approaching: this.pulse()?.slaApproaching ?? 0,
+    breached: this.pulse()?.slaBreached ?? 0,
+  }));
 
-  /**
-   * PENDING BY AGE (TS-127): open follow-ups that are NOT overdue, by how many days remain until
-   * they are due - 0–3d is due today up to three days out. Overdue work used to be counted here
-   * too (its "age" was clamped to 0, so it landed in 0–3d), which made the chart disagree with
-   * the Overdue figure next to it. Overdue has its own tile and column; follow-ups with no due
-   * date are left out because they have no age to show.
-   */
+  /** PENDING BY AGE (TS-127): open, not overdue, by days until due - the server's four buckets. */
+  private readonly ageBuckets = computed<readonly CountedView[]>(() => this.pulse()?.ageBuckets ?? []);
   readonly agingBuckets = computed(() => {
-    const buckets = { b0: 0, b1: 0, b2: 0, b3: 0 };
-    const today = new Date(this.todayIso() + "T00:00:00").getTime();
-    this.followUps()
-      .filter((f) => f.isOpen && !f.isOverdue && f.dueState !== "Overdue" && !!f.scheduledDate)
-      .forEach((f) => {
-        const due = new Date(f.scheduledDate + "T00:00:00").getTime();
-        if (Number.isNaN(due)) return;
-        const days = Math.round((due - today) / 86400000);
-        // A due date already behind us is overdue even if the server's flag has not caught up
-        // yet (it is worked out when the list is read) - it belongs to the Overdue tile, not here.
-        if (days < 0) return;
-        if (days <= 3) buckets.b0++;
-        else if (days <= 7) buckets.b1++;
-        else if (days <= 15) buckets.b2++;
-        else buckets.b3++;
-      });
-    return buckets;
+    const counts = this.ageBuckets().map((bucket) => bucket.count);
+    return { b0: counts[0] ?? 0, b1: counts[1] ?? 0, b2: counts[2] ?? 0, b3: counts[3] ?? 0 };
   });
 
   /** Today's date as yyyy-mm-dd, read fresh (the module constant goes stale past midnight). */
@@ -1150,49 +1010,17 @@ export class FollowUpQueueComponent {
     { weekday: "long", day: "numeric", month: "long" },
   );
 
-  /** The five headline tiles. Each one is also the quick filter it names. */
-  readonly kpiTiles = computed<KpiTile[]>(() => [
-    {
-      key: "dueToday",
-      label: "Due today",
-      value: this.kpiDueToday(),
-      hint: "Pending for today",
-      icon: "clock",
-      tone: "info",
-    },
-    {
-      key: "upcoming",
-      label: "Upcoming",
-      value: this.kpiUpcoming(),
-      hint: "Scheduled ahead",
-      icon: "calendar",
-      tone: "ok",
-    },
-    {
-      key: "overdue",
-      label: "Overdue",
-      value: this.kpiOverdue(),
-      hint: "Past their due date",
-      icon: "alert",
-      tone: "danger",
-    },
-    {
-      key: "completedToday",
-      label: "Completed today",
-      value: this.kpiCompletedToday(),
-      hint: "Closed out today",
-      icon: "check-circle",
-      tone: "violet",
-    },
-    {
-      key: "escalated",
-      label: "Escalated",
-      value: this.kpiEscalated(),
-      hint: "Need attention",
-      icon: "flag",
-      tone: "warn",
-    },
-  ]);
+  /** The five headline tiles - the server's words and counts. Each one is also the view it names. */
+  readonly kpiTiles = computed<KpiTile[]>(() =>
+    (this.queue()?.tiles ?? []).map((tile) => ({
+      key: tile.value,
+      label: tile.label,
+      value: tile.count,
+      hint: tile.description,
+      icon: TILE_LOOK[tile.value]?.icon ?? "task",
+      tone: TILE_LOOK[tile.value]?.tone ?? "info",
+    })),
+  );
 
   readonly slaTotal = computed(() => {
     const s = this.slaBreakdown();
@@ -1212,7 +1040,7 @@ export class FollowUpQueueComponent {
         ? "Today's follow-ups"
         : `Follow-ups on ${this.formatDate(strip)}`;
     }
-    const saved = this.savedViews.find(
+    const saved = this.savedViews().find(
       (v) => v.id === this.activeSavedViewId(),
     );
     if (saved) return saved.label;
@@ -1233,48 +1061,28 @@ export class FollowUpQueueComponent {
       !!this.activeSavedViewId(),
   );
 
-  /** Follow-ups in each saved view, so the view pills can show their size. */
+  /** Follow-ups in each tab - the server's counts; "all" is everything in scope. */
   readonly viewCounts = computed<Record<string, number>>(() => {
-    const map: Record<string, QuickFilterKey> = {
-      mine: "mine",
-      today: "today",
-      overdue: "overdue",
-      upcoming: "upcoming",
-            high: "highPriority",
-      attention: "attention",
-      calls: "calls",
-      escalated: "escalated",
-      completedToday: "completedToday",
-    };
-    const scoped = this.followUps().filter(
-      (f) => !this.recordFilterId() || f.recordId === this.recordFilterId(),
-    );
-    const counts: Record<string, number> = { all: scoped.length };
-    for (const view of this.savedViews) {
-      counts[view.id] = scoped.filter((f) =>
-        this.matchesQuick(f, map[view.id] ?? null),
-      ).length;
+    const counts: Record<string, number> = { all: this.summary()?.total ?? 0 };
+    for (const view of this.queue()?.views ?? []) {
+      counts[view.value] = view.count;
     }
     return counts;
   });
 
-  readonly kpiBlocked = computed(
-    () =>
-      this.followUps().filter(
-        (f) => f.dependencyStatus === "Blocked" && f.isOpen,
-      ).length,
-  );
+  /** Open follow-ups blocked by an unacknowledged consent caution - the server's count. */
+  readonly kpiBlocked = computed(() => this.pulse()?.blocked ?? 0);
 
   /** The four aging buckets as columns for the pulse panel's chart. */
   readonly agingColumns = computed(() => {
-    const b = this.agingBuckets();
-    const max = Math.max(1, b.b0, b.b1, b.b2, b.b3);
-    return [
-      { label: "0–3d", value: b.b0, tone: "hot" },
-      { label: "4–7d", value: b.b1, tone: "warn" },
-      { label: "8–15d", value: b.b2, tone: "ok" },
-      { label: "15d+", value: b.b3, tone: "ok" },
-    ].map((c) => ({ ...c, height: (c.value / max) * 100 }));
+    const buckets = this.ageBuckets();
+    const max = Math.max(1, ...buckets.map((bucket) => bucket.count));
+    return buckets.map((bucket, index) => ({
+      label: bucket.label,
+      value: bucket.count,
+      tone: AGE_TONES[index] ?? "ok",
+      height: (bucket.count / max) * 100,
+    }));
   });
 
   /** "21 – 27 Sep" for the week the date rail shows. */
@@ -1307,6 +1115,7 @@ export class FollowUpQueueComponent {
 
   onSearchChange(value: string) {
     this.searchTerm.set(value);
+    this.searchChanges.next();
   }
 
   toggleFiltersPanel() {
@@ -1344,6 +1153,7 @@ export class FollowUpQueueComponent {
   private commitDraft() {
     this.activeFilters.set(this.cloneFilters(this.draftFilters()));
     this.activeSavedViewId.set(null);
+    this.load();
     this.scrollToResults();
   }
 
@@ -1405,6 +1215,7 @@ export class FollowUpQueueComponent {
     this.activeFilters.set(this.cloneFilters(this.draftFilters()));
     this.activeSavedViewId.set(null);
     this.filtersOpen.set(false);
+    this.load();
     this.showToast("Filters applied");
   }
 
@@ -1415,26 +1226,19 @@ export class FollowUpQueueComponent {
     this.activeQuickFilter.set(null);
     this.activeSavedViewId.set(null);
     this.searchTerm.set("");
+    this.load();
     this.showToast("Filters reset");
     this.scrollToResults();
   }
 
+  /** A tab is the server's view of that name; the panel's filters and the day are let go. */
   applySavedView(view: SavedView) {
     this.activeFilters.set(emptyFilters());
+    this.draftFilters.set(emptyFilters());
     this.selectedStripDate.set(null);
     this.activeSavedViewId.set(view.id);
-    const map: Record<string, QuickFilterKey> = {
-      mine: "mine",
-      today: "today",
-      overdue: "overdue",
-      upcoming: "upcoming",
-            high: "highPriority",
-      attention: "attention",
-      calls: "calls",
-      escalated: "escalated",
-      completedToday: "completedToday",
-    };
-    this.activeQuickFilter.set(map[view.id] ?? null);
+    this.activeQuickFilter.set(view.id);
+    this.load();
   }
 
   shiftCalendarMonth(months: number) {
@@ -2011,7 +1815,7 @@ export class FollowUpQueueComponent {
     return f.permittedActions.includes("Execute") && f.dependencyStatus !== "Blocked";
   }
 
-  /** Why Execute is not available on this row, for its tooltip. */
+  /** Who may execute an open follow-up the caller cannot - the drawer's line in place of the button. */
   executeHint(f: FollowUp): string {
     if (!f.isOpen) return "This follow-up is closed";
     if (!f.permittedActions.includes("Execute")) {
@@ -2072,6 +1876,7 @@ export class FollowUpQueueComponent {
     this.activeQuickFilter.set(null);
     this.viewMode.set("grid");
     this.activeSavedViewId.set(null);
+    this.load();
   }
 
   shiftStripWeek(direction: number): void {
@@ -2089,6 +1894,7 @@ export class FollowUpQueueComponent {
     this.selectedStripDate.set(null);
     this.activeQuickFilter.set(this.activeQuickFilter() === key ? null : key);
     this.activeSavedViewId.set(null);
+    this.load();
   }
 
   closeModal() {
@@ -2117,51 +1923,41 @@ export class FollowUpQueueComponent {
     this.load();
     this.showToast("Queue refreshed");
   }
-    exportQueue() {
-    if (!this.canExport()) return;
-    const rows = this.selectedIds().size
-      ? this.bulkFollowUps()
-      : this.filteredFollowUps();
-    const cell = (value: string) =>
-      '"' +
-      (/^[=+@\-\t\r]/.test(value) ? "'" + value : value).replace(/"/g, '""') +
-      '"';
-    const data = [
-      [
-        "Follow-Up ID",
-        "Related To",
-        "Type",
-        "Reason",
-        "Date",
-        "Time",
-        "Assigned User",
-        "Priority",
-        "Status",
-      ],
-      ...rows.map((f) => [
-        f.reference,
-        f.recordName,
-        f.followUpType,
-        f.purpose,
-        f.scheduledDate,
-        f.scheduledTime,
-        f.assignedTo,
-        f.priority,
-        f.status,
-      ]),
-    ]
-      .map((row) => row.map(cell).join(","))
-      .join("\r\n");
-    const url = URL.createObjectURL(
-      new Blob(["\uFEFF" + data], { type: "text/csv;charset=utf-8" }),
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `follow-up-queue-${this.today}.csv`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    this.showToast(`Exported ${rows.length} follow-ups`);
+  /**
+   * Export - the follow-ups in view (or the ticked ones), in a file the server wrote.
+   *
+   * IT USED TO BE BUILT HERE, from the rows this browser held, with no record that anybody had
+   * taken a copy. The server applies the same filters, masks as the screen does, needs the export
+   * permission and logs it.
+   */
+  readonly exporting = signal(false);
+
+  exportQueue() {
+    if (!this.canExport() || this.exporting()) return;
+
+    const selected = [...this.selectedIds()];
+    this.exporting.set(true);
+
+    this.api
+      .exportFollowUpQueue({ ...this.buildFilter(), followUpIds: selected.length ? selected.join(",") : null })
+      .subscribe({
+        next: ({ blob, fileName }) => {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          this.exporting.set(false);
+          this.showToast(selected.length ? `Exported ${selected.length} follow-ups` : `Exported ${this.totalCount()} follow-ups`);
+        },
+        error: (error: unknown) => {
+          this.exporting.set(false);
+          this.showToast(apiErrorMessage(error, "The follow-ups could not be exported."));
+        },
+      });
   }
+
   createFollowUp() {
     this.router.navigate(["/app/don/follow-up-planner"], {
       queryParams: { mode: "create" },
@@ -2284,6 +2080,7 @@ export class FollowUpQueueComponent {
   toggleStripDate(iso: string): void {
     if (this.selectedStripDate() === iso) {
       this.selectedStripDate.set(null);
+      this.load();
       return;
     }
     this.onStripDateClick(iso);
@@ -2294,6 +2091,7 @@ export class FollowUpQueueComponent {
     this.activeQuickFilter.set(null);
     this.activeSavedViewId.set(null);
     this.selectedStripDate.set(null);
+    this.load();
   }
 
   readonly hasData = computed(() => this.followUps().length > 0);
