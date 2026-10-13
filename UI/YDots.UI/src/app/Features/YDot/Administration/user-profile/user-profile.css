@@ -2323,3 +2323,92 @@
 .epx-backdrop .epx textarea.epx-ta:focus {
   border-color: var(--dx-p) !important;
 }
+
+
+/* =====================================================================================================
+   PHONE PASS (append-only; keep LAST so it wins the cascade)
+   - Header: smaller avatar + name; actions as an even grid (Access preview | Settings, Edit full width).
+   - Highlights: tighter 2-up cells.
+   - Tabs: three equal tabs across the width (no sideways scroll).
+   - Sections: 14px gutters; role tools = search full width, then Sort | Open access.
+   - Rail: stacked, same gutters.
+   ===================================================================================================== */
+@media (max-width: 600px) {
+
+  .container-fluid.px-4 { padding-left: 12px !important; padding-right: 12px !important; }
+  .cr-shell, .cr-state { border-radius: calc(14px * var(--s)); }
+
+  /* ---------- header ---------- */
+  .cr-head { gap: calc(12px * var(--s)); padding: calc(14px * var(--s)) !important; border-radius: calc(14px * var(--s)) calc(14px * var(--s)) 0 0; }
+  .cr-head-main { gap: calc(12px * var(--s)); width: 100%; }
+  .cr-avatar { width: calc(46px * var(--s)); height: calc(46px * var(--s)); }
+  .cr-avatar-text { border-radius: calc(13px * var(--s)); font-size: calc(calc(17px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .cr-avatar-dot { width: calc(13px * var(--s)); height: calc(13px * var(--s)); }
+  .cr-eyebrow { font-size: calc(calc(10px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .cr-name { font-size: calc(calc(19px * var(--s)) * var(--ui-text-scale, 1)); }
+  .cr-summary { font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .cr-head-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(8px * var(--s)); width: 100%; }
+  .cr-head-actions .btn {
+    width: 100%;
+    min-width: 0;
+    height: calc(38px * var(--s));
+    justify-content: center;
+    padding: 0 calc(8px * var(--s)) !important;
+    white-space: nowrap;
+  }
+  .cr-head-actions .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  /* ---------- highlights ---------- */
+  .cr-hl { padding: calc(10px * var(--s)) calc(14px * var(--s)); gap: calc(3px * var(--s)); }
+  .cr-hl dt { font-size: calc(calc(10px * var(--s)) * var(--ui-text-scale, 1)) !important; letter-spacing: .08em; }
+  .cr-hl dd { font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .cr-hl:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  /* ---------- tabs: three equal tabs ---------- */
+  .cr-tabs { padding: 0 calc(6px * var(--s)); gap: 0; overflow: visible; }
+  .cr-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    gap: calc(6px * var(--s));
+    height: calc(46px * var(--s));
+    padding: 0 calc(6px * var(--s));
+    font-size: calc(calc(13.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  }
+  .cr-tab i { font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)); }
+  .cr-tab::after { left: calc(6px * var(--s)); right: calc(6px * var(--s)); }
+
+  /* ---------- sections ---------- */
+  .cr-sec-head { min-height: 0; padding: calc(12px * var(--s)) calc(14px * var(--s)); }
+  .cr-h { font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)); }
+  .cr-col { padding: calc(12px * var(--s)) calc(14px * var(--s)) calc(14px * var(--s)); }
+  .cr-line { gap: calc(12px * var(--s)); min-height: calc(36px * var(--s)); }
+  .cr-line dt { flex: 0 1 auto; font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .cr-line dd { font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+
+  .cr-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: calc(8px * var(--s)); }
+  .cr-tools > .cr-search { grid-column: 1 / -1; height: calc(38px * var(--s)); }
+  .cr-tools > .cr-dd .cr-dd-trigger { height: calc(38px * var(--s)); width: 100%; }
+  .cr-tools > .cr-dd { min-width: 0; }
+  .cr-tools > .cr-dd:last-child { grid-column: 1 / -1; }
+  .cr-tools > .btn { height: calc(38px * var(--s)); display: inline-flex; align-items: center; white-space: nowrap; }
+  .cr-dd-menu { left: 0; right: auto; }
+
+  .cr-role { padding: calc(10px * var(--s)) calc(14px * var(--s)); column-gap: calc(10px * var(--s)); }
+  .cr-role-cell { font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+
+  .cr-fact { padding: calc(12px * var(--s)) calc(14px * var(--s)); }
+  .cr-fact-glyph { width: calc(32px * var(--s)); height: calc(32px * var(--s)); font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)); }
+  .cr-fact dd { font-size: calc(calc(14px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+
+  .cr-stat { padding: calc(12px * var(--s)) calc(14px * var(--s)); }
+  .cr-stat dd { font-size: calc(calc(22px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+
+  .cr-method { flex-wrap: wrap; }
+  .cr-method-glyph { width: calc(34px * var(--s)); height: calc(34px * var(--s)); }
+
+  /* ---------- rail ---------- */
+  .cr-rail-sec { padding: calc(14px * var(--s)); }
+  .cr-rail-fig-v { font-size: calc(calc(22px * var(--s)) * var(--ui-text-scale, 1)) !important; }
+  .cr-check-d { white-space: normal; }
+}

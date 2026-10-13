@@ -335,3 +335,298 @@
 .cn-scan-beam { position: absolute; top: 0; bottom: 0; width: 22%; background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--gold) 26%, transparent), transparent); animation: cn-sweep 1.8s linear infinite; pointer-events: none; }
 @keyframes cn-sweep { from { left: -25%; } to { left: 105%; } }
 @keyframes cn-pop { 0% { transform: scale(.85); opacity: .4; } 100% { transform: none; opacity: 1; } }
+
+
+/* =====================================================================================================
+   PHONE PASS (<= 600px)
+   - Card edges line up with the breadcrumb; inner padding (--pad) drops to 14px.
+   - Hero: title, then the three figures as compact 3-up tiles.
+   - Nav: New check | Jobs as two equal tabs; the four steps as a compact 4-up row (number + name).
+   - Upload: shorter drop zone, smaller orb; "What happens next" tighter.
+   - Review: the summary figure smaller, its four facts 2 x 2, Start check full width; the file bar
+     wraps (campaign + Change file share a row); the four figures 2 x 2.
+   - Every table becomes one card per row with small labels (no sideways scroll): numbers, known
+     results, invalid lines, sheets, jobs and the report each get their own labels.
+   - Live check: smaller ring, tallies and meters 2 x 2, Stop / Next full width.
+   - One job: header wraps, actions full width, facts 2-up, timeline as a vertical list, downloads
+     as an even 2-up grid.
+   ===================================================================================================== */
+@media (max-width: 600px) {
+  .container-fluid.px-4:has(> .cn) { padding-left: 0 !important; padding-right: 0 !important; overflow-x: clip; }
+}
+
+@container cn (max-width: 600px) {
+  .cn > * { --pad: 14px; }
+  .cn-sheet { border-radius: 12px; }
+
+  /* ---- hero ---- */
+  .cn-hero { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px !important; }
+  .cn-title { font-size: 22px !important; line-height: 1.2 !important; }
+  .cn-stats {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    margin: 0;
+    width: 100%;
+  }
+  .cn-stat { min-width: 0; padding: 8px 8px !important; border-left: 1px solid var(--line-soft); text-align: left; }
+  .cn-stat:first-child { border-left: 0; padding-left: 0 !important; }
+  .cn-stat dt { font-size: 9.5px !important; letter-spacing: .06em; line-height: 1.3 !important; white-space: normal; }
+  .cn-stat dd { font-size: 20px !important; line-height: 1.2 !important; overflow-wrap: anywhere; }
+  .cn-stat dd small { display: block; font-size: 10.5px !important; }
+
+  /* ---- nav ---- */
+  .cn-nav { gap: 10px; }
+  .cn-tabs { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .cn-tab { justify-content: center; min-width: 0; padding-left: 6px !important; padding-right: 6px !important; font-size: 13px !important; white-space: nowrap; }
+  .cn-steps { flex: 1 1 100%; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 6px; margin: 0; padding: 0; }
+  .cn-step { flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border-radius: 10px; text-align: center; }
+  .cn-step-no { font-size: 15px !important; }
+  .cn-step-text { align-items: center; }
+  .cn-step-text b { font-size: 11.5px !important; }
+  .cn-step-text small, .cn-step-state { display: none; }
+  .cn-crumb { margin-left: 0; }
+  .cn-live-link { width: 100%; justify-content: center; padding: 8px 12px; font-size: 12.5px !important; text-align: center; }
+
+  /* ---- upload ---- */
+  .cn-upload { grid-template-columns: minmax(0, 1fr) !important; gap: 12px; }
+  .cn-drop { min-height: 220px; padding: 28px 16px; gap: 6px; border-radius: 14px; }
+  .cn-orb { width: 60px; height: 60px; margin-bottom: 12px; }
+  .cn-orb::before { inset: -10px; }
+  .cn-orb::after { inset: -20px; }
+  .cn-orb i[class*='ph-'] { font-size: 26px !important; }
+  .cn-drop-title { font-size: 18px !important; }
+  .cn-drop-hint { font-size: 12.5px !important; line-height: 1.45 !important; }
+  .cn-formats { flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 12px; }
+  .cn-formats span { padding: 4px 12px; font-size: 12px !important; }
+  .cn-flow { padding: 16px; border-radius: 14px; }
+  .cn-flow-list { gap: 16px; margin: 14px 0 16px !important; padding: 0 !important; }
+  .cn-flow-list::before { left: 16px; }
+  .cn-flow-list li { gap: 12px; }
+  .cn-flow-mark { width: 32px; height: 32px; }
+  .cn-flow-mark i[class*='ph-'] { font-size: 15px !important; }
+  .cn-flow-list b { font-size: 13.5px !important; }
+  .cn-flow-list small { font-size: 12px !important; line-height: 1.45 !important; }
+  .cn-eg caption { padding: 14px 0 6px; }
+  .cn-eg td { padding: 6px 0 !important; font-size: 12.5px !important; }
+  .cn-alert { font-size: 12.5px !important; }
+
+  /* ---- review ---- */
+  .cn-review { gap: 12px; }
+  .cn-summary { grid-template-columns: minmax(0, 1fr) !important; gap: 12px; padding: 14px !important; }
+  .cn-summary-fig { font-size: 30px !important; }
+  .cn-summary-list { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px 0; margin: 0; }
+  .cn-summary-list div { padding: 0 10px; }
+  .cn-summary-list div:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .cn-summary-list dt { font-size: 9.5px !important; letter-spacing: .06em; }
+  .cn-summary-list dd { font-size: 15px !important; }
+  .cn-summary-list dd.cn-serif { font-size: 16px !important; }
+  .cn-summary-act { flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .cn-summary-act > .btn { flex: 1 1 100%; height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .cn-summary-fine { font-size: 11.5px !important; line-height: 1.45 !important; }
+
+  .cn-filebar { flex-wrap: wrap; gap: 10px 12px; padding: 14px !important; }
+  .cn-filebar-glyph { font-size: 28px !important; }
+  .cn-filebar-text { flex: 1 1 calc(100% - 44px); }
+  .cn-filebar-name { font-size: 16px !important; white-space: normal; overflow-wrap: anywhere; }
+  .cn-filebar-meta { margin-top: 3px !important; font-size: 12px !important; line-height: 1.45 !important; }
+  .cn-filebar > app-wa-select { flex: 1 1 0; min-width: 0; }
+  .cn-filebar > .btn { flex: 0 0 auto; height: 36px; display: inline-flex; align-items: center; gap: 5px; }
+  .cn-ready .cn-ready-act { gap: 8px; padding: 12px 14px; }
+  .cn-ready-act > .btn { flex: 1 1 0; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+  .cn-figs { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .cn-fig { gap: 3px; padding: 12px 14px !important; border-bottom: 1px solid var(--line-soft); }
+  .cn-fig:nth-child(2n) { border-right: 0; }
+  .cn-fig.is-on { border-bottom-width: 3px; }
+  .cn-fig-value { font-size: 22px !important; }
+  .cn-fig small { font-size: 11px !important; }
+  .cn-inset { padding: 12px 14px 0; }
+  .cn-check { font-size: 12.5px !important; }
+  .cn-block { padding-left: 14px !important; padding-right: 14px !important; }
+  .cn-h { font-size: 15px !important; }
+
+  /* ---- every table: one card per row ---- */
+  .cn-scroll { overflow: visible !important; }
+  .cn-table, .cn-table > tbody, .cn-table > tfoot { display: block !important; width: 100%; overflow: visible !important; }
+  .cn-table > thead { display: none; }
+  .cn-table > tbody > tr,
+  .cn-table > tfoot > tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .cn-table > tfoot > tr { background: var(--well, #f7f8f7); font-weight: 600; }
+  .cn-table td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    padding: 0 !important;
+    border: 0 !important;
+    text-align: left !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    font-size: 13px !important;
+  }
+  .cn-table td::before {
+    font-family: var(--sans, inherit);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  /* the row's headline cell: full width, no label */
+  .cn-table td:first-child { grid-column: 1 / -1; font-size: 14px !important; font-weight: 600; }
+  .cn-table td:first-child::before { display: none; }
+  .cn-res { white-space: normal; }
+
+  /* numbers to check / duplicates: Number | Country | Written as | Sheet | Line */
+  .cn-table:has(> thead th:nth-child(5)):not(:has(> thead th:nth-child(6))) td:nth-child(2)::before { content: 'Country'; }
+  .cn-table:has(> thead th:nth-child(5)):not(:has(> thead th:nth-child(6))) td:nth-child(3)::before { content: 'Written in file as'; }
+  .cn-table:has(> thead th:nth-child(5)):not(:has(> thead th:nth-child(6))) td:nth-child(4)::before { content: 'Sheet'; }
+  .cn-table:has(> thead th:nth-child(5)):not(:has(> thead th:nth-child(6))) td:nth-child(5)::before { content: 'Line'; }
+
+  /* already checked: Number | Country | Saved result | Checked on | In Wati | Where in file */
+  .cn-table:has(> thead th:nth-child(6)):not(:has(> thead th:nth-child(7))):not(:has(.cn-iso)) td:nth-child(2)::before { content: 'Country'; }
+  .cn-table:has(> thead th:nth-child(6)):not(:has(> thead th:nth-child(7))):not(:has(.cn-iso)) td:nth-child(3)::before { content: 'Saved result'; }
+  .cn-table:has(> thead th:nth-child(6)):not(:has(> thead th:nth-child(7))):not(:has(.cn-iso)) td:nth-child(4)::before { content: 'Checked on'; }
+  .cn-table:has(> thead th:nth-child(6)):not(:has(> thead th:nth-child(7))):not(:has(.cn-iso)) td:nth-child(5)::before { content: 'In Wati'; }
+  .cn-table:has(> thead th:nth-child(6)):not(:has(> thead th:nth-child(7))):not(:has(.cn-iso)) td:nth-child(6)::before { content: 'Where in file'; }
+  .cn-table:has(> thead th:nth-child(6)):not(:has(> thead th:nth-child(7))):not(:has(.cn-iso)) td:nth-child(3) { grid-column: 1 / -1; }
+
+  /* invalid lines: Sheet | Line | Value in file | Why - the value leads the card */
+  .cn-table:has(> thead th:nth-child(4)):not(:has(> thead th:nth-child(5))) td:nth-child(1) { grid-column: auto; font-size: 13px !important; font-weight: 400; order: 2; }
+  .cn-table:has(> thead th:nth-child(4)):not(:has(> thead th:nth-child(5))) td:nth-child(1)::before { display: block; content: 'Sheet'; }
+  .cn-table:has(> thead th:nth-child(4)):not(:has(> thead th:nth-child(5))) td:nth-child(2) { order: 3; }
+  .cn-table:has(> thead th:nth-child(4)):not(:has(> thead th:nth-child(5))) td:nth-child(2)::before { content: 'Line'; }
+  .cn-table:has(> thead th:nth-child(4)):not(:has(> thead th:nth-child(5))) td:nth-child(3) { grid-column: 1 / -1; order: 1; font-size: 14px !important; font-weight: 600; }
+  .cn-table:has(> thead th:nth-child(4)):not(:has(> thead th:nth-child(5))) td:nth-child(4) { grid-column: 1 / -1; order: 4; }
+  .cn-table:has(> thead th:nth-child(4)):not(:has(> thead th:nth-child(5))) td:nth-child(4)::before { content: 'Why it was left out'; }
+
+  /* sheets inside the file: Sheet, then six figures 3-up */
+  .cn-table--sheets > tbody > tr,
+  .cn-table--sheets > tfoot > tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cn-table--sheets td:nth-child(2)::before { content: 'Rows'; }
+  .cn-table--sheets td:nth-child(3)::before { content: 'Numbers'; }
+  .cn-table--sheets td:nth-child(4)::before { content: 'To check'; }
+  .cn-table--sheets td:nth-child(5)::before { content: 'Checked'; }
+  .cn-table--sheets td:nth-child(6)::before { content: 'Duplicates'; }
+  .cn-table--sheets td:nth-child(7)::before { content: 'Invalid'; }
+
+  /* jobs: Job | File | Status | Numbers | Valid | Invalid | Cost | Started | > */
+  .cn-table:has(> thead th:nth-child(9)) > tbody > tr { grid-template-columns: repeat(3, minmax(0, 1fr)); position: relative; padding-right: 36px; cursor: pointer; }
+  .cn-table:has(> thead th:nth-child(9)) td:nth-child(2) { grid-column: 1 / -1; }
+  .cn-table:has(> thead th:nth-child(9)) td:nth-child(2)::before { content: 'File'; }
+  .cn-table:has(> thead th:nth-child(9)) td:nth-child(3)::before { content: 'Status'; }
+  .cn-table:has(> thead th:nth-child(9)) td:nth-child(4)::before { content: 'Numbers'; }
+  .cn-table:has(> thead th:nth-child(9)) td:nth-child(5)::before { content: 'Valid'; }
+  .cn-table:has(> thead th:nth-child(9)) td:nth-child(6)::before { content: 'Invalid'; }
+  .cn-table:has(> thead th:nth-child(9)) td:nth-child(7)::before { content: 'Cost'; }
+  .cn-table:has(> thead th:nth-child(9)) td:nth-child(8) { grid-column: auto; }
+  .cn-table:has(> thead th:nth-child(9)) td:nth-child(8)::before { content: 'Started'; }
+  .cn-table:has(> thead th:nth-child(9)) td.w-go { position: absolute; top: 50%; right: 12px; translate: 0 -50%; width: auto !important; font-size: 18px !important; color: var(--muted); }
+  .cn-table:has(> thead th:nth-child(9)) td.w-go::before { display: none; }
+  .cn-file-cell { gap: 10px; align-items: flex-start; }
+  .cn-file-cell > i { font-size: 22px !important; }
+  .cn-file-cell small { display: block; font-size: 11.5px !important; }
+  .cn-st-note { margin-left: 4px; }
+
+  /* report: Number | Country | WhatsApp enabled | Result | Note | Status */
+  .cn-table:has(.cn-iso) td:nth-child(2)::before { content: 'Country'; }
+  .cn-table:has(.cn-iso) td:nth-child(3)::before { content: 'WhatsApp enabled'; }
+  .cn-table:has(.cn-iso) td:nth-child(4)::before { content: 'Result'; }
+  .cn-table:has(.cn-iso) td:nth-child(5) { grid-column: 1 / -1; }
+  .cn-table:has(.cn-iso) td:nth-child(5)::before { content: 'Note'; }
+  .cn-table:has(.cn-iso) td:nth-child(5):empty { display: none; }
+  .cn-table:has(.cn-iso) td:nth-child(6)::before { content: 'Status'; }
+  .cn-table:has(.cn-iso) td:nth-child(2) { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+  .cn-table:has(.cn-iso) td:nth-child(2)::before { flex-basis: 100%; }
+
+  .cn-empty { padding-left: 14px !important; padding-right: 14px !important; font-size: 13px !important; }
+  app-wa-pager { display: block; }
+  :host ::ng-deep app-wa-pager > * { flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+  /* ---- jobs toolbar + report toolbar ---- */
+  .cn-bar-tools { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 14px !important; }
+  .cn-filters { flex-wrap: wrap; overflow: visible !important; gap: 6px; }
+  .cn-filter { font-size: 12.5px !important; }
+  .cn-search { width: 100% !important; flex: 1 1 auto; }
+  .cn-search input { font-size: 13px !important; }
+  .cn-bar-tools > .btn { height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .cn-report-head { padding: 14px 14px 0 !important; }
+  .cn-foot { font-size: 12px !important; text-align: center; }
+
+  /* ---- live check ---- */
+  .cn-live { grid-template-columns: minmax(0, 1fr) !important; }
+  .cn-live-main { padding: 20px 14px 16px; }
+  .cn-radar { width: 180px; height: 180px; }
+  .cn-radar-wave { inset: 18px; }
+  .cn-orbit { inset: 6px; }
+  .cn-ring { width: 148px; height: 148px; }
+  .cn-ring-pct { font-size: 42px !important; }
+  .cn-ring-pct small { font-size: 16px !important; }
+  .cn-ring-sub { font-size: 12px !important; }
+  .cn-live-title { margin: 6px 0 16px !important; font-size: 17px !important; white-space: normal; overflow-wrap: anywhere; }
+  .cn-scan { margin: 0 0 14px; padding: 10px 12px; gap: 4px 10px; border-radius: 14px; }
+  .cn-scan-num { min-width: 0; font-size: 15px !important; }
+  .cn-scan-res { min-width: 0; font-size: 12.5px !important; }
+  .cn-tally-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; margin-bottom: 14px; }
+  .cn-tally-row .cn-t { padding: 12px 8px; }
+  .cn-tally-row .cn-t:nth-child(2n) { border-right: 0; }
+  .cn-tally-row .cn-t:nth-child(-n + 2) { border-bottom: 1px solid var(--line-soft); }
+  .cn-t b { font-size: 24px !important; }
+  .cn-bar--lg { margin: 4px 0 16px; }
+  .cn-meter { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px; }
+  .cn-meter dt { font-size: 9.5px !important; letter-spacing: .08em; }
+  .cn-meter dd { font-size: 15px !important; }
+  .cn-live-foot { flex-direction: column; align-items: stretch; gap: 10px; margin-top: 18px; padding-top: 14px; }
+  .cn-task { flex-wrap: wrap; justify-content: center; gap: 6px 10px; font-size: 12.5px !important; }
+  .cn-task code { font-size: 12.5px !important; overflow-wrap: anywhere; }
+  .cn-live-foot > .btn { height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .cn-feed-col { padding: 14px; }
+  .cn-feed-row { padding: 10px 0; font-size: 13px !important; }
+  .cn-feed-row .cn-num { font-size: 13px !important; }
+  .cn-feed-empty, .cn-feed-note { font-size: 12.5px !important; line-height: 1.5 !important; }
+
+  /* ---- report header (step 4) + one job ---- */
+  .cn-final-top { gap: 12px; padding: 14px !important; }
+  .cn-final-top > div:first-child { min-width: 0; }
+  .cn-jhead { flex-wrap: wrap; gap: 10px 12px; padding: 14px !important; }
+  .cn-jhead-glyph { font-size: 28px !important; }
+  .cn-jhead-text { flex: 1 1 calc(100% - 44px); }
+  .cn-jhead-title { font-size: 17px !important; white-space: normal; overflow-wrap: anywhere; }
+  .cn-jhead-meta { gap: 4px 10px; font-size: 12px !important; }
+  .cn-jhead-end { flex: 1 1 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+  .cn-jhead-end > .btn { height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+
+  .cn-jsum { grid-template-columns: minmax(0, 1fr) !important; gap: 12px; padding: 14px !important; }
+  .cn-outcome-figs { width: 100%; margin-bottom: 10px; }
+  .cn-outcome-figs .cn-t { padding: 0 10px; gap: 4px; }
+  .cn-outcome-figs .cn-t b { font-size: 26px !important; }
+  .cn-outcome-figs .cn-res { font-size: 12px !important; }
+  .cn-reason { padding: 10px 12px; font-size: 12.5px !important; }
+  .cn-reason span { flex-basis: 100%; }
+
+  .cn-facts { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .cn-fact { padding: 10px 14px !important; border-bottom: 1px solid var(--line-soft); }
+  .cn-fact:nth-child(2n) { border-right: 0; padding-left: 12px !important; }
+  .cn-fact dt { font-size: 9.5px !important; letter-spacing: .07em; }
+  .cn-fact dd { font-size: 13px !important; }
+  .cn-fact dd small { display: block; font-size: 11.5px !important; }
+
+  .cn-jfoot { grid-template-columns: minmax(0, 1fr) !important; gap: 14px; padding: 14px !important; }
+  .cn-tlh { flex-direction: column; gap: 10px; }
+  .cn-tlh-item + .cn-tlh-item::before { left: 4.5px; top: -10px; width: 0; height: 12px; border-top: 0; border-left: 1px solid var(--line); }
+  .cn-tl-text b { font-size: 13px !important; }
+  .cn-dlrow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; }
+  .cn-dlrow li { min-width: 0; }
+  .cn-dlrow .cn-mini { width: 100%; min-height: 38px; justify-content: center; text-align: center; white-space: normal; line-height: 1.25 !important; font-size: 12px !important; }
+  .cn-ready-act { padding: 12px 14px; }
+  .cn-ready-act > .btn { flex: 1 1 0; }
+  .cn-missing { padding: 36px 16px; }
+}

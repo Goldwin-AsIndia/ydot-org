@@ -1859,3 +1859,220 @@ code {
 /* Header section: no background. */
 app-page-header ::ng-deep .ph--card { background: transparent !important; border: none; padding-top: 0 !important; }
 app-page-header.ph-host--card.ph-host--card.ph-host--card { background: transparent !important; padding-top: 0 !important; }
+
+
+/* =====================================================================================================
+   PHONE PASS (<= 600px)
+   - Card edges line up with the breadcrumb; Export | Create sit on the right of the heading.
+   - Summary: compact 2-up tiles (number + label, small icon top-right); "Most active user" spans both.
+   - Toolbar: search full width, status filter under it.
+   - Table -> one card per request: name + requested access | status, then Type / Scope / Value /
+     Effective as small labelled lines, then the row actions as a strip of 34px buttons.
+     No sideways scroll.
+   - Pager: count and rows-per-page on one line, page numbers centred below.
+   - New / edit request: the dialog scrolls with the page (lists are never clipped), fields one per
+     line with the two dates side by side, Submit full width with Cancel | Save as draft under it.
+   ===================================================================================================== */
+@media (max-width: 600px) {
+  :host { overflow-x: clip; }
+  .container-fluid.px-4:has(> .ar-page) { padding-left: 0 !important; padding-right: 0 !important; }
+  .ar-page { gap: 12px; }
+
+  /* heading actions on the right */
+  :host ::ng-deep app-page-header *:has(> [actions]) {
+    display: flex !important;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .ar-page > app-page-header [actions] {
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0 !important;
+  }
+
+  /* ---- summary tiles ---- */
+  .ar-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px; }
+  .ar-stat {
+    position: relative;
+    min-height: 0;
+    padding: 12px;
+    border-radius: 12px;
+    align-items: flex-start;
+    flex-direction: row-reverse;
+    gap: 8px;
+  }
+  .ar-stat--active { grid-column: 1 / -1; }
+  .ar-stat::before { display: none; }
+  .ar-stat .ar-stat-ico svg { width: 22px !important; height: 22px !important; }
+  .ar-stat:hover .ar-stat-ico { transform: none; }
+  .ar-stat-text { gap: 1px; flex: 1; }
+  .ar-stat-k { font-size: 12px !important; font-weight: 600; color: var(--ar-ink-2) !important; }
+  .ar-stat-v { font-size: 22px !important; line-height: 1.2 !important; }
+  .ar-stat-v--name { font-size: 15px !important; white-space: normal; overflow-wrap: anywhere; }
+  .ar-stat-sub { font-size: 11.5px !important; color: var(--ar-muted); }
+
+  .ar-state { padding: 32px 16px; border-radius: 12px; }
+  .ar-state-sub { font-size: 12.5px !important; }
+
+  /* ---- list card + toolbar ---- */
+  .ar-card { border-radius: 12px; }
+  .ar-toolbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px; }
+  .ar-search input { height: 40px; padding-left: 40px; font-size: 13px !important; }
+  .ar-search > i { inset-inline-start: 12px; font-size: 16px !important; }
+  .ar-dd--status { width: 100%; }
+  .ar-dd--status .ar-dd-trigger { height: 40px; }
+  .ar-dd--status .ar-dd-menu { width: 100%; }
+  .ar-dd-value { font-size: 13.5px !important; }
+
+  /* ---- requests as cards ---- */
+  .ar-table-wrap { overflow: visible; }
+  .ar-table, .ar-table > tbody { display: block; width: 100%; }
+  .ar-table > thead { display: none; }
+  .ar-table > tbody > tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "user   status"
+      "type   type"
+      "scope  scope"
+      "value  value"
+      "when   when"
+      "acts   acts";
+    gap: 4px 10px;
+    padding: 12px;
+    border-bottom: 1px solid var(--ar-line);
+  }
+  .ar-table > tbody > tr:last-child { border-bottom: 0; }
+  .ar-table > tbody > tr:hover td { background: transparent; }
+  .ar-table > tbody > tr > td {
+    height: auto;
+    padding: 0 !important;
+    border: 0;
+    min-width: 0;
+    white-space: normal;
+    font-size: 12.5px !important;
+  }
+  .ar-table > tbody > tr > td:nth-child(1) { grid-area: user; }
+  .ar-table > tbody > tr > td:nth-child(2) { grid-area: type; display: block !important; }
+  .ar-table > tbody > tr > td:nth-child(3) { display: none !important; }
+  .ar-table > tbody > tr > td:nth-child(4) { grid-area: scope; display: block !important; }
+  .ar-table > tbody > tr > td:nth-child(5) { grid-area: value; display: block !important; overflow-wrap: anywhere; }
+  .ar-table > tbody > tr > td:nth-child(6) { grid-area: when; display: block !important; }
+  .ar-table > tbody > tr > td:nth-child(7) { grid-area: status; display: block !important; align-self: start; }
+  .ar-table > tbody > tr > td:nth-child(8) { grid-area: acts; }
+
+  .ar-table > tbody > tr > td:nth-child(2)::before,
+  .ar-table > tbody > tr > td:nth-child(4)::before,
+  .ar-table > tbody > tr > td:nth-child(5)::before,
+  .ar-table > tbody > tr > td:nth-child(6)::before {
+    display: inline-block;
+    min-width: 66px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ar-faint);
+  }
+  .ar-table > tbody > tr > td:nth-child(2)::before { content: 'Type'; }
+  .ar-table > tbody > tr > td:nth-child(4)::before { content: 'Scope'; }
+  .ar-table > tbody > tr > td:nth-child(5)::before { content: 'Value'; }
+  .ar-table > tbody > tr > td:nth-child(6)::before { content: 'Effective'; }
+  .ar-type { padding: 0; font-size: 12.5px !important; font-weight: 500 !important; white-space: normal; }
+
+  .ar-user { gap: 2px; margin-bottom: 4px; }
+  .ar-user-name { font-size: 14px !important; white-space: normal; overflow-wrap: anywhere; }
+  .ar-user-sub { display: block !important; font-size: 12.5px !important; font-weight: 600; color: var(--ar-ink-2); white-space: normal; overflow-wrap: anywhere; }
+  .status-badge { padding: 3px 8px; font-size: 10.5px !important; }
+
+  .ar-table > tbody > tr > td:nth-child(8) {
+    margin-top: 6px;
+    padding-top: 8px !important;
+    border-top: 1px dashed var(--ar-line);
+  }
+  .ar-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; width: 100% !important; }
+  .ar-actions .ar-act { width: 34px !important; height: 34px !important; }
+  .ar-actions .ar-act i { font-size: 16px !important; }
+  .ar-other { height: 34px; }
+
+  /* ---- pager ---- */
+  .ar-pager { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px; }
+  .ar-pager-left { justify-content: space-between; gap: 8px; }
+  .ar-pager-info { font-size: 12.5px !important; }
+  .ar-pages { justify-content: center; flex-wrap: wrap; gap: 4px; }
+  .ar-page-btn { min-width: 32px; height: 32px; font-size: 13px !important; }
+
+  /* ---- new / edit request ---- */
+  .ar-backdrop { place-items: start center; overflow-y: auto; padding: 12px; }
+  .ar-modal { max-height: none; border-radius: 14px; }
+  .ar-modal--lg .ar-modal-body { overflow: visible; }
+  .ar-modal-head { gap: 10px; padding: 12px 12px 10px 14px; }
+  .ar-head-ico { width: 34px; height: 34px; border-radius: 10px; }
+  .ar-head-ico i { font-size: 17px !important; }
+  .ar-head-title { font-size: 15.5px !important; overflow-wrap: anywhere; }
+  .ar-head-sub { font-size: 12px !important; }
+  .ar-modal-body { padding: 14px; gap: 12px; }
+  .ar-form { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .ar-dates { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ar-field-lbl { font-size: 12px !important; }
+  .ar-dd-trigger--field, .ar-ig, .ar-input { height: 40px; }
+  .ar-dd-trigger--field .ar-dd-lead, .ar-ig .ar-ig-ico { width: 38px; }
+  .ar-ig-input, .ar-input { font-size: 13.5px !important; }
+  .ar-textarea { height: auto; min-height: 90px; }
+  .ar-dd-menu { min-width: 0; }
+  .ar-dd-opt { min-height: 40px; }
+  .ar-dd-text, .ar-dd-two { font-size: 13.5px !important; }
+  .ar-dp-pop { width: min(288px, calc(100vw - 24px)); }
+  .ar-modal-foot { flex-wrap: wrap; gap: 8px; padding: 10px 14px; }
+  .ar-modal-foot > .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .ar-modal-foot > .btn-primary { order: -1; flex: 1 1 100%; }
+}
+
+
+/* =====================================================================================================
+   PHONE PASS 2 (<= 600px) - heading alignment
+   The title sat further in than the breadcrumb (the shared header keeps its desktop side padding)
+   and was too large. On a phone the title, eyebrow and subtitle start on the breadcrumb's left edge,
+   at a phone-sized type.
+   ===================================================================================================== */
+@media (max-width: 600px) {
+  :host ::ng-deep app-page-header,
+  :host ::ng-deep app-page-header .ph--card {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  /* every wrapper between the header and its title loses its side indent */
+  :host ::ng-deep app-page-header :is(h1, h2, *:has(h1), *:has(h2)) {
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+    text-indent: 0 !important;
+  }
+  :host ::ng-deep app-page-header :is(h1, h2) {
+    font-size: 20px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+  /* the subtitle under the title, quieter */
+  :host ::ng-deep app-page-header :is(h1, h2) + :is(p, div, span) {
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
+  }
+}

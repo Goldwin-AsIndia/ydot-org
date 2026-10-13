@@ -513,3 +513,73 @@
   .mc-inside__row { grid-template-columns: calc(20 * var(--u)) minmax(0, 1fr) calc(8 * var(--u)); }
   .mc-inside__route { display: none; }
 }
+
+/* ======================= PHONE PASS (append-only; keep LAST) =======================
+   - Page: no extra side padding, so the sheet lines up with the breadcrumb.
+   - Masthead: kicker + title; Items | Modules | Live as an even 3-up row; Show retired left, Create right.
+   - Navigator: search + open/close all on one line; the tree is capped in height and scrolls inside,
+     so the selected item's details are always a short scroll away, not below a 60-row list.
+   - Inspector: smaller glyph and title, actions as an even 2-up grid, ledger rows label over value.
+   ==================================================================================== */
+@media (max-width: 600px) {
+  .container-fluid.px-4.mc-page { padding-left: 0 !important; padding-right: 0 !important; }
+}
+
+@container mc-page (max-width: 600px) {
+  .mc-sheet { border-radius: calc(12 * var(--u)); }
+
+  /* ---------- masthead ---------- */
+  .mc-mast { flex-direction: column; align-items: stretch; gap: calc(12 * var(--u)); padding: calc(14 * var(--u)) !important; }
+  .mc-mast__id { margin-right: 0; }
+  .mc-kicker { font-size: calc(calc(10 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .mc-title { font-size: calc(calc(21 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .mc-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; padding: calc(10 * var(--u)) 0; border-top: 1px solid var(--mc-line); border-bottom: 1px solid var(--mc-line); }
+  .mc-fig, .mc-fig:first-child { padding: 0 calc(10 * var(--u)); border-left: 1px solid var(--mc-line); min-width: 0; }
+  .mc-fig:first-child { padding-left: 0; border-left: 0; }
+  .mc-fig dt { font-size: calc(calc(10 * var(--u)) * var(--ui-text-scale, 1)) !important; letter-spacing: .06em; }
+  .mc-fig b { font-size: calc(calc(19 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .mc-fig small { font-size: calc(calc(11 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .mc-tools { justify-content: space-between; gap: calc(10 * var(--u)); }
+  .mc-tools > .btn { height: calc(36 * var(--u)); display: inline-flex !important; align-items: center; gap: calc(6 * var(--u)); padding: 0 calc(14 * var(--u)) !important; }
+
+  /* ---------- notice ---------- */
+  .mc-warning { margin: calc(12 * var(--u)) calc(14 * var(--u)) !important; font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important; line-height: 1.5 !important; }
+
+  /* ---------- navigator ---------- */
+  .mc-nav__bar { padding: calc(12 * var(--u)) calc(14 * var(--u)) calc(8 * var(--u)); }
+  .mc-search input { min-height: calc(38 * var(--u)); text-overflow: ellipsis; }
+  .mc-tool { width: calc(38 * var(--u)); height: calc(38 * var(--u)); }
+  .mc-tree {
+    max-height: min(calc(360 * var(--u)), 55vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: calc(2 * var(--u)) calc(10 * var(--u)) calc(10 * var(--u)) calc(12 * var(--u));
+  }
+  .mc-node::before { left: calc(-4 * var(--u)); }
+  .mc-chev, .mc-chev-gap { width: calc(26 * var(--u)); height: calc(36 * var(--u)); }
+  .mc-pick { padding: calc(8 * var(--u)) calc(6 * var(--u)) calc(8 * var(--u)) 0; gap: calc(8 * var(--u)); }
+  .mc-glyph { font-size: calc(calc(16 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .mc-pick__name { font-size: calc(calc(13.5 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .mc-node.is-top .mc-pick__name { font-size: calc(calc(14.5 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+
+  /* ---------- inspector ---------- */
+  .mc-ins { padding: calc(14 * var(--u)) !important; }
+  .mc-ins__head { gap: calc(10 * var(--u)); padding-bottom: calc(14 * var(--u)); }
+  .mc-crumbs { font-size: calc(calc(10 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .mc-ins__title { flex-wrap: nowrap; align-items: flex-start; gap: calc(10 * var(--u)); }
+  .mc-glyph--lg { font-size: calc(calc(24 * var(--u)) * var(--ui-text-scale, 1)) !important; margin-top: calc(2 * var(--u)); }
+  .mc-ins__id h2 { font-size: calc(calc(19 * var(--u)) * var(--ui-text-scale, 1)) !important; overflow-wrap: anywhere; }
+  .mc-ins__code { font-size: calc(calc(12 * var(--u)) * var(--ui-text-scale, 1)) !important; overflow-wrap: anywhere; }
+  .mc-state-word { font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important; margin-top: calc(4 * var(--u)); }
+  .mc-ins__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(8 * var(--u)); }
+  .mc-ins__actions > .btn { width: 100%; min-width: 0; height: calc(38 * var(--u)); display: inline-flex !important; align-items: center; justify-content: center; gap: calc(6 * var(--u)); white-space: nowrap; }
+  .mc-ins__actions > .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  .mc-ledger > div { grid-template-columns: minmax(0, 1fr); gap: calc(3 * var(--u)); padding: calc(10 * var(--u)) 0; }
+  .mc-ledger dt { font-size: calc(calc(10.5 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .mc-ledger dd, .mc-mono, .mc-none { font-size: calc(calc(13.5 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+
+  .mc-inside { margin-top: calc(14 * var(--u)); }
+  .mc-inside__row { padding: calc(10 * var(--u)) calc(2 * var(--u)); }
+  .mc-inside__name { font-size: calc(calc(13.5 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+}

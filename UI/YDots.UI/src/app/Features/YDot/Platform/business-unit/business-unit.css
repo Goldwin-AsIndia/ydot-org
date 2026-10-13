@@ -171,3 +171,116 @@
 @media (prefers-reduced-motion: reduce) {
   .bu-meter span { transition: none; }
 }
+
+
+/* ---------------------------------------------------------------------------------------
+   PHONE PASS (append-only; keep LAST so it wins the cascade)
+   - Header: kicker + title left, "See all organisations" pinned top-right; the counters as
+     compact 2-up tiles (glyph beside label, number under it, caption dropped) so they breathe.
+     (.od-hero comes from Shared/styles/page-hero.css, so these rules carry !important.)
+   - Cards: tighter padding, smaller glyphs and figures; the status sits under the title when
+     the head is narrow; detail rows are a little denser; the side cards stack full width.
+   --------------------------------------------------------------------------------------- */
+@media (max-width: 600px) {
+
+  .container-fluid { padding-left: 12px !important; padding-right: 12px !important; }
+
+  /* ---------- header ---------- */
+  .od-hero { padding: 14px !important; border-radius: 14px !important; margin-bottom: 14px !important; }
+  .od-hero-top {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    padding: 0 !important;
+  }
+  .od-hero-id, .od-hero-text { min-width: 0; flex: 1 1 auto; }
+  .od-eyebrow { font-size: 10px !important; letter-spacing: .1em !important; }
+  .od-title { font-size: 21px !important; line-height: 1.2 !important; overflow-wrap: anywhere; }
+  .od-hero-top > .btn {
+    flex: none;
+    align-self: flex-start;
+    margin: 0 0 0 auto !important;
+    height: 36px;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px !important;
+    white-space: nowrap;
+  }
+
+  .od-stats {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: 14px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+  }
+  .od-stat {
+    display: grid !important;
+    grid-template-columns: 26px minmax(0, 1fr) !important;
+    align-items: center !important;
+    column-gap: 8px !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 10px 12px !important;
+    border: 1px solid #eceee9 !important;
+    border-radius: 12px !important;
+    text-align: left !important;
+  }
+  .od-stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .od-stat-icon {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 0 !important;
+    border-radius: 8px !important;
+    display: grid !important;
+    place-items: center !important;
+    align-self: start;
+    margin: 0 !important;
+  }
+  .od-stat-icon i { font-size: 14px !important; line-height: 1 !important; }
+  .od-stat-body { display: flex !important; flex-direction: column !important; gap: 2px !important; min-width: 0 !important; }
+  .od-stat-label { font-size: 11px !important; line-height: 1.25 !important; letter-spacing: .04em !important; white-space: normal; overflow-wrap: normal; word-break: normal; }
+  .od-stat-value { font-size: 18px !important; line-height: 1.15 !important; }
+  .od-stat-value small { font-size: 11.5px !important; margin-left: 4px; }
+  .od-stat-cap { display: none !important; }
+
+  /* ---------- content cards ---------- */
+  .bu-grid { gap: 12px; }
+  .bu-grid > .bu-card { height: auto; }          /* one column: no equal-height stretch (it overlapped the next card) */
+  .bu-side > .bu-card:last-child { flex: none; }
+  .bu-side { display: flex; flex-direction: column; gap: 12px; }
+  .bu-card { gap: 12px; padding: 14px; border-radius: 14px; }
+  .bu-card-head { flex-wrap: wrap; gap: 10px; }
+  .bu-glyph { width: 26px; height: 26px; }
+  .bu-glyph i { font-size: calc(20px * var(--ui-text-scale, 1)) !important; }
+  .bu-card-title { font-size: calc(16px * var(--ui-text-scale, 1)); overflow-wrap: anywhere; }
+  .bu-card-sub { font-size: calc(12px * var(--ui-text-scale, 1)) !important; }
+  .bu-status { padding: 3px 10px 3px 8px; font-size: calc(11.5px * var(--ui-text-scale, 1)) !important; }
+
+  /* details: Reference + legal name and Contact + Support stay paired; long values take a full row */
+  .bu-dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+  .bu-dl > div { padding: 10px 0; }
+  .bu-dl dt { font-size: calc(10.5px * var(--ui-text-scale, 1)) !important; }
+  .bu-dl dd { font-size: calc(13.5px * var(--ui-text-scale, 1)) !important; }
+  .bu-note { font-size: calc(12px * var(--ui-text-scale, 1)) !important; }
+
+  .bu-capacity-num { font-size: calc(28px * var(--ui-text-scale, 1)) !important; }
+  .bu-btn { align-self: stretch; justify-content: center; height: 38px; }
+
+  .bu-rows > div { padding: 9px 0; }
+  .bu-rows dt { font-size: calc(13px * var(--ui-text-scale, 1)) !important; }
+  .bu-rows dd { font-size: calc(14px * var(--ui-text-scale, 1)) !important; }
+}
+
+/* very narrow phones: details one per row */
+@media (max-width: 360px) {
+  .bu-dl { grid-template-columns: minmax(0, 1fr); }
+}

@@ -2559,3 +2559,189 @@ textarea.dir-f-control {
 .ud-mast > .ud-mast-top {
   padding: calc(14px * var(--s)) calc(18px * var(--s)) calc(14px * var(--s)) calc(24px * var(--s));
 }
+
+
+/* =====================================================================================================
+   PHONE PASS (<= 600px)
+   Masthead: title on its own line, the status ledger wraps (no hidden sideways scroll), search full width,
+   Filters | Export | Create as equal buttons on one line. Register: the caption keeps only "Person", and
+   every person becomes a compact card - tick | name + e-mail | status, then role, unit, and a last line
+   with the sign-in date on the left and the two row tools on the right. Pager: count and rows-per-page on
+   one line, page numbers centred below. Sheet and dialogs: fitted to the phone, form fields one per line.
+   ===================================================================================================== */
+@media (max-width: 600px) {
+  /* card edges line up with the breadcrumb */
+  .container-fluid.px-4:has(> .ud) { padding-left: 0 !important; padding-right: 0 !important; }
+  .ud { gap: 10px; overflow-x: clip; }
+
+  .dir-sheet-hero { padding: 12px 14px 14px; }
+  .dir-sheet-bar { margin-bottom: 10px; }
+  .dir-sheet-body { padding: 14px 14px 18px; }
+  .dir-sheet-foot { padding: 10px 14px; flex-wrap: wrap; }
+  .dir-sheet-foot > .btn, .dir-sheet-foot > button { flex: 1 1 0; min-width: 0; }
+  .dir-sheet .dir-sheet-name { font-size: 18px !important; }
+
+  .dir-form-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .dir-f-span-1, .dir-f-span-2, .dir-f-span-3, .dir-f-span-4, .dir-f-span-6 { grid-column: 1 / -1; }
+
+  .dir-dialog { width: calc(100vw - 24px); max-width: calc(100vw - 24px); max-height: 88vh; border-radius: 14px; }
+  .dir-dialog-head { gap: 10px; padding: 14px 14px 12px; }
+  .dir-dialog-icon { width: 36px; height: 36px; }
+  .dir-dialog-body { padding: 0 14px 14px; }
+  .dir-dialog-foot { padding: 10px 14px; }
+}
+
+@container ud (max-width: 600px) {
+  /* ---- masthead ---- */
+  .ud-mast { border-radius: 12px; }
+  .ud-mast > .ud-mast-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 12px 12px 0 !important;
+  }
+  .ud-mast-top > .ydot-head { align-self: stretch; padding: 0 0 8px; border-right: 0; }
+  .ud-mast-top .ud-title { font-size: 18px !important; white-space: normal; padding: 0 !important; border: 0 !important; }
+
+  .ud-ledger {
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 0 2px;
+    margin: 0 -6px;
+    border-bottom: 1px solid var(--ud-line-2);
+  }
+  .ud-ledger-tab { min-height: 34px; padding: 0 5px; gap: 4px; font-size: 12px !important; }
+  .ud-ledger-tab::after { left: 5px; right: 5px; }
+  .ud-ledger-tab .ud-dot { display: none; }
+  .ud-ledger-n { font-size: 11.5px !important; }
+
+  .ud-mast-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+    padding: 10px 0 12px !important;
+  }
+  .ud-bulk { flex: 1 1 100%; justify-content: space-between; }
+  .ud-bulk .ud-bulk-go { flex: 1; justify-content: center; }
+  .ud-search, .ud-search:focus-within { flex: 1 1 100%; width: 100%; height: 36px; padding: 0 12px; }
+  .ud-search input { font-size: 13px !important; }
+  .ud-mast-acts > .btn {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    white-space: nowrap;
+    font-size: 12.5px !important;
+  }
+  .ud-mast-acts > .btn .ud-btn-dot { top: 6px; right: 6px; }
+
+  .ud-filters { padding: 12px; }
+  .ud-filters-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .ud-filters-foot { gap: 6px; margin-top: 10px; }
+
+  /* ---- register as cards ---- */
+  .ud-register { border-radius: 12px; }
+  .ud-row--head {
+    grid-template-columns: 22px minmax(0, 1fr);
+    min-height: 34px;
+    padding: 0 12px;
+  }
+  .ud-row--head > :not(.ud-check):not(.ud-sort) { display: none !important; }
+
+  .ud-rows > .ud-row:not(.ud-row--ghost) {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "chk  who  stat"
+      ".    role role"
+      ".    unit unit"
+      ".    seen acts";
+    align-items: center;
+    gap: 4px 10px;
+    min-height: 0;
+    padding: 11px 12px 8px;
+  }
+  .ud-row::before { top: 12px; bottom: 12px; }
+  .ud-rows > .ud-row > .ud-check { grid-area: chk; align-self: start; padding-top: 2px; }
+  .ud-rows > .ud-row > .ud-who { grid-area: who; }
+  .ud-rows > .ud-row > .ud-status { grid-area: stat; align-self: start; font-size: 12px !important; }
+  .ud-rows > .ud-row > .ud-col-role,
+  .ud-rows > .ud-row > .ud-col-unit,
+  .ud-rows > .ud-row > .ud-col-seen {
+    display: block !important;
+    font-size: 12px !important;
+    color: var(--ud-ink-2);
+  }
+  .ud-rows > .ud-row > .ud-col-role { grid-area: role; }
+  .ud-rows > .ud-row > .ud-col-unit { grid-area: unit; }
+  .ud-rows > .ud-row > .ud-col-seen { grid-area: seen; color: var(--ud-muted); }
+  .ud-rows > .ud-row > .ud-col-role::before,
+  .ud-rows > .ud-row > .ud-col-unit::before,
+  .ud-rows > .ud-row > .ud-col-seen::before {
+    display: inline-block;
+    min-width: 62px;
+    color: var(--ud-faint);
+    font-family: var(--font-body, inherit);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .ud-rows > .ud-row > .ud-col-role::before { content: 'Role'; }
+  .ud-rows > .ud-row > .ud-col-unit::before { content: 'Unit'; }
+  .ud-rows > .ud-row > .ud-col-seen::before { content: 'Sign-in'; }
+
+  .ud-name { font-size: 13.5px !important; white-space: normal; overflow-wrap: anywhere; }
+  .ud-mail { font-size: 12px !important; }
+
+  /* last line: sign-in left, tools right, on a dashed rule */
+  .ud-rows > .ud-row > .ud-col-seen,
+  .ud-rows > .ud-row > .ud-acts {
+    align-self: stretch;
+    display: flex !important;
+    align-items: center;
+    margin-top: 4px;
+    padding-top: 7px;
+    border-top: 1px dashed var(--ud-line);
+  }
+  .ud-rows > .ud-row > .ud-col-seen { white-space: nowrap; }
+  .ud-rows > .ud-row > .ud-acts {
+    grid-area: acts;
+    opacity: 1;
+    gap: 4px;
+    justify-content: flex-end;
+    width: auto !important;
+    margin-left: -10px;
+    padding-left: 10px;
+  }
+  .ud-rows > .ud-row > .ud-acts .ud-act { width: 32px !important; height: 32px !important; min-width: 32px; }
+  .ud-rows > .ud-row > .ud-acts .ud-act i { font-size: 16px !important; }
+
+  /* loading lines stay simple */
+  .ud-row--ghost { grid-template-columns: 22px minmax(0, 1fr); padding: 10px 12px; }
+
+  .ud-state { padding: 32px 16px; }
+  .ud-state-glyph { font-size: 32px !important; }
+
+  /* ---- pager: count | rows on one line, pages centred below ---- */
+  .ud-foot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .ud-foot-count { font-size: 12px !important; }
+  .ud-foot > app-rows-per-page { justify-self: end; }
+  .ud-pager {
+    grid-column: 1 / -1;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 0 !important;
+  }
+}

@@ -442,3 +442,103 @@
   .pc-pager { flex-wrap: wrap; }
   .pc-pager__size { display: none; }
 }
+
+/* ======================= PHONE PASS (append-only; keep LAST) =======================
+   - Masthead: kicker + title, the three figures as an even 3-up row, search full width.
+   - Modules: compact wrapping chips (outlined, the selected one in the theme colour) - no long
+     underlined word list and no sideways scroll.
+   - Action filters: compact wrapping chips too; "Sensitive only" on its own line, right-aligned.
+   - Rows: code (copy) ......... handling / permission + description (2 lines) / group · action.
+   - Pager: "Showing a-b of n" + rows-per-page on one centred line, page buttons centred below.
+   ==================================================================================== */
+@media (max-width: 600px) {
+  /* no extra side padding: the card's left edge lines up with the breadcrumb above it */
+  .container-fluid.px-4.pc-page { padding-left: 0 !important; padding-right: 0 !important; }
+}
+
+@container pc-page (max-width: 600px) {
+  .pc-sheet { border-radius: calc(12 * var(--u)); }
+
+  /* ---------- masthead ---------- */
+  .pc-mast { flex-direction: column; align-items: stretch; gap: calc(12 * var(--u)); padding: calc(14 * var(--u)); }
+  .pc-mast__id { margin-right: 0; }
+  .pc-kicker { font-size: calc(calc(10 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pc-title { font-size: calc(calc(21 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pc-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; padding: calc(10 * var(--u)) 0; border-top: 1px solid var(--pc-line); border-bottom: 1px solid var(--pc-line); }
+  .pc-fig, .pc-fig:first-child { padding: 0 calc(10 * var(--u)); border-left: 1px solid var(--pc-line); min-width: 0; }
+  .pc-fig:first-child { padding-left: 0; border-left: 0; }
+  .pc-fig dt { font-size: calc(calc(10 * var(--u)) * var(--ui-text-scale, 1)) !important; letter-spacing: .06em; }
+  .pc-fig b { font-size: calc(calc(19 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pc-fig small { font-size: calc(calc(11 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pc-search { width: 100%; margin: 0; padding-left: 0; border-left: 0; box-sizing: border-box; }
+  .pc-search i { left: calc(11 * var(--u)); }
+  .pc-search input { min-height: calc(38 * var(--u)); box-sizing: border-box; text-overflow: ellipsis; }
+
+  /* ---------- modules: wrapping chips ---------- */
+  .pc-rail { padding: calc(12 * var(--u)) calc(14 * var(--u)) !important; }
+  .pc-rail ul { gap: calc(6 * var(--u)); }
+  .pc-rail__item,
+  .pc-rail__item.is-on {
+    gap: calc(6 * var(--u));
+    width: auto;
+    padding: calc(6 * var(--u)) calc(10 * var(--u)) !important;
+    border: 1px solid var(--pc-line-2) !important;
+    border-radius: 999px;
+    font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
+    line-height: 1.2 !important;
+    align-items: center;
+  }
+  .pc-rail__item.is-on { border-color: var(--pc-p) !important; background: color-mix(in srgb, var(--pc-p) 7%, white); }
+  .pc-rail__n { font-size: calc(calc(11 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+
+  /* ---------- action filters + switch ---------- */
+  .pc-toolbar { gap: calc(8 * var(--u)); padding: calc(10 * var(--u)) calc(14 * var(--u)) !important; align-items: stretch; }
+  .pc-kinds { gap: calc(6 * var(--u)); }
+  .pc-kind,
+  .pc-kind.is-on {
+    gap: calc(6 * var(--u));
+    padding: calc(6 * var(--u)) calc(10 * var(--u));
+    border: 1px solid var(--pc-line-2);
+    border-radius: 999px;
+    font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  }
+  .pc-kind.is-on { border-color: var(--pc-p); background: color-mix(in srgb, var(--pc-p) 7%, white); }
+  .pc-dot { width: calc(7 * var(--u)); height: calc(7 * var(--u)); }
+  .pc-switch { align-self: flex-end; }
+
+  /* ---------- rows ---------- */
+  .pc-table { padding: 0 calc(14 * var(--u)) !important; }
+  .pc-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'code  hand'
+      'what  what'
+      'where act';
+    gap: calc(4 * var(--u)) calc(12 * var(--u));
+    min-height: 0;
+    padding: calc(12 * var(--u)) 0;
+  }
+  .pc-row > .pc-c-code { grid-area: code; min-width: 0; }
+  .pc-row > .pc-what { grid-area: what; }
+  .pc-row > .pc-where { grid-area: where; display: flex !important; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 calc(6 * var(--u)); }
+  .pc-row > :nth-child(4) { grid-area: act; justify-self: end; }
+  .pc-row > :nth-child(5) { grid-area: hand; justify-self: end; align-self: start; }
+  .pc-code span { font-size: calc(calc(12 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pc-what__name { font-size: calc(calc(14 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pc-what__desc {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important;
+  }
+  .pc-where span { font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+  .pc-where small::before { content: '\00B7  '; }
+  .pc-action, .pc-warn, .pc-plain { font-size: calc(calc(12.5 * var(--u)) * var(--ui-text-scale, 1)) !important; }
+
+  /* ---------- pager ---------- */
+  .pc-pager { flex-wrap: wrap; justify-content: center; gap: calc(8 * var(--u)) calc(12 * var(--u)); padding: calc(12 * var(--u)) calc(14 * var(--u)) !important; }
+  .pc-pager__range { margin: 0; text-align: center; }
+  .pc-pager__pages { width: 100%; justify-content: center; gap: calc(3 * var(--u)); }
+  .pc-page-btn { min-width: calc(30 * var(--u)); height: calc(30 * var(--u)); padding: 0 calc(6 * var(--u)); }
+}

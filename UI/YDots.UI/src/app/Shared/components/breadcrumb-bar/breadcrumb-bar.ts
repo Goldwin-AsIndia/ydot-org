@@ -228,7 +228,9 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
    */
   private build(page: string[], own: string): Crumb[] {
     const url = this.router.url.split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase();
-    if (url === HOME) return [{ label: 'Home' }];
+    // DASHBOARD-ku breadcrumb vaendaam — page-ku thani header (date / greeting / actions) irukkaala
+    // trail theva illa. Empty trail-ah rendu: bar-kulla nav-e render aagadhu (breadcrumb-bar.html @if).
+    if (url === HOME) return [];
 
     const trail: Crumb[] = [{ label: 'Home', link: HOME }];
 
