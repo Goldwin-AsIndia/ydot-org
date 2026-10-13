@@ -1261,7 +1261,21 @@
           @for (a of filesFor(f); track a) {
           <span class="fq-file"><svg class="fq-i" aria-hidden="true">
               <use href="#fq-i-clip" />
-            </svg>{{ a }}</span>
+            </svg>{{ a }}
+            <!-- VIEW + DOWNLOAD, only for the four roles allowed to take a document away. -->
+            @if (canViewDownloadAttachment()) {
+              <span class="fq-file-acts">
+                <button type="button" class="fq-file-btn" title="View document" aria-label="View {{ a }}"
+                        (click)="viewAttachment(f.id, a)">
+                  <svg class="fq-i" aria-hidden="true"><use href="#fq-i-eye" /></svg>
+                </button>
+                <button type="button" class="fq-file-btn" title="Download document" aria-label="Download {{ a }}"
+                        (click)="downloadAttachment(f.id, a)">
+                  <svg class="fq-i" aria-hidden="true"><use href="#fq-i-download" /></svg>
+                </button>
+              </span>
+            }
+          </span>
           }
         </div>
       </section>
@@ -1335,6 +1349,126 @@
       </div>
     </footer>
   </aside>
+  }
+
+  <!-- ============================== CALENDAR DAY POP-UP (BUG-094) ==============================
+       A calendar day with more than one follow-up lists them here, over the calendar, instead of
+       switching to the List view. Choosing one opens its detail panel; the view never changes. -->
+  @if (calendarDayPopup(); as dayPop) {
+  <div class="fq-scrim is-modal" aria-hidden="true" (click)="closeCalendarDayPopup()"></div>
+  <div class="fq-modal fq-daypop" role="dialog" aria-modal="true" aria-labelledby="fq-daypop-title">
+    <header class="fq-modal-head">
+      <span class="fq-modal-ic"><svg class="fq-i" aria-hidden="true">
+          <use href="#fq-i-calendar" />
+        </svg></span>
+      <div class="fq-modal-titles">
+        <h2 id="fq-daypop-title">{{ formatDate(dayPop.iso) }}</h2>
+        <p>{{ dayPop.items.length }} follow-ups on this day. Choose one to see its details.</p>
+      </div>
+      <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closeCalendarDayPopup()">
+        <svg class="fq-i" aria-hidden="true">
+          <use href="#fq-i-x" />
+        </svg>
+      </button>
+    </header>
+    <div class="fq-modal-body fq-daypop-body">
+      <ul class="fq-daypop-list">
+        @for (item of calendarDayPopupItems(); track item.id) {
+        <li>
+          <button type="button" class="fq-daypop-item" [class.is-late]="isOverdue(item)"
+            [attr.data-type]="item.followUpType" (click)="openFromCalendarDay(item.id)">
+            <span class="fq-daypop-time">{{ item.scheduledTime ? formatTime(item.scheduledTime) : '—' }}</span>
+            <span class="fq-daypop-main">
+              <span class="fq-daypop-name">{{ item.recordName }}</span>
+              <span class="fq-daypop-meta">
+                {{ item.followUpType }} · {{ item.reference }}@if (item.assignedTo) { · {{ item.assignedTo }} }
+              </span>
+            </span>
+            <span class="fq-daypop-tags">
+              @if (isOverdue(item)) { <span class="fq-daypop-tag is-late">Overdue</span> }
+              <span class="fq-daypop-tag">{{ item.status }}</span>
+            </span>
+            <svg class="fq-i fq-daypop-chev" aria-hidden="true">
+              <use href="#fq-i-chevron-right" />
+            </svg>
+          </button>
+        </li>
+        }
+      </ul>
+    </div>
+    <footer class="fq-modal-foot">
+      <button type="button" class="fq-btn fq-btn--quiet" (click)="closeCalendarDayPopup()">Close</button>
+    </footer>
+  </div>
+  }
+
+  <!-- ============================== ATTACHMENT VIEWER ==============================
+       The document opens in its own format: PDF in the browser's PDF viewer, images as images,
+       text as text. Word / Excel cannot be drawn by a browser, so they are offered to open in
+       the person's own app. Download always returns the original file with its own name. -->
+  @if (viewingAttachment(); as av) {
+  <div class="fq-scrim is-modal" aria-hidden="true" (click)="closeViewAttachment()"></div>
+  <div class="fq-modal fq-attview" [class.is-wide]="av.kind === 'pdf' || av.kind === 'image' || av.kind === 'text'"
+    role="dialog" aria-modal="true" aria-labelledby="fq-attview-title">
+    <header class="fq-modal-head">
+      <span class="fq-modal-ic"><svg class="fq-i" aria-hidden="true">
+          <use href="#fq-i-clip" />
+        </svg></span>
+      <div class="fq-modal-titles">
+        <h2 id="fq-attview-title" [title]="av.name">{{ av.name }}</h2>
+        <p><span class="fq-attview-ext">{{ attachmentExt(av.name) }}</span>@if (av.sizeLabel) { · {{ av.sizeLabel }} }</p>
+      </div>
+      <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closeViewAttachment()">
+        <svg class="fq-i" aria-hidden="true">
+          <use href="#fq-i-x" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="fq-modal-body fq-attview-body">
+      @if (av.loading) {
+        <p class="fq-attview-msg">Opening the document…</p>
+      } @else if (av.missing) {
+        <div class="fq-attview-empty">
+          <span class="fq-attview-big">{{ attachmentExt(av.name) }}</span>
+          <p><strong>The original file is not available on this device.</strong></p>
+          <p>Only its name was recorded with the follow-up. It can be opened in the browser where it was attached during execution.</p>
+        </div>
+      } @else {
+        @switch (av.kind) {
+          @case ('pdf') {
+            <iframe class="fq-attview-frame" [src]="av.frameUrl" [title]="av.name"></iframe>
+          }
+          @case ('text') {
+            <iframe class="fq-attview-frame fq-attview-frame--text" [src]="av.frameUrl" [title]="av.name"></iframe>
+          }
+          @case ('image') {
+            <div class="fq-attview-img"><img [src]="av.imageUrl" [alt]="av.name" /></div>
+          }
+          @default {
+            <div class="fq-attview-empty">
+              <span class="fq-attview-big">{{ attachmentExt(av.name) }}</span>
+              <p><strong>{{ attachmentExt(av.name) }} files open in their own app.</strong></p>
+              <p>A browser cannot display this format. Download it to open it in Word, Excel or the app it was made with.</p>
+            </div>
+          }
+        }
+      }
+    </div>
+
+    <footer class="fq-modal-foot">
+      <button type="button" class="fq-btn fq-btn--quiet" (click)="closeViewAttachment()">Close</button>
+      @if (!av.loading && !av.missing && (av.kind === 'pdf' || av.kind === 'image' || av.kind === 'text')) {
+        <button type="button" class="fq-btn fq-btn--ghost" (click)="openAttachmentInNewTab()">Open in new tab</button>
+      }
+      @if (!av.loading && !av.missing) {
+        <button type="button" class="fq-btn fq-btn--primary" (click)="downloadAttachment(av.followUpId, av.name)">
+          <svg class="fq-i" aria-hidden="true"><use href="#fq-i-download" /></svg>
+          Download {{ attachmentExt(av.name) }}
+        </button>
+      }
+    </footer>
+  </div>
   }
 
   <!-- ============================== DIALOGS ============================== -->
@@ -1586,6 +1720,41 @@
   </div>
   }
   }
+  }
+
+  <!-- Attachment preview: metadata only - this environment stores the file NAME, not its bytes. -->
+  @if (viewingAttachment(); as va) {
+  <div class="fq-scrim is-modal" aria-hidden="true"></div>
+  <div class="fq-modal" role="dialog" aria-modal="true" aria-labelledby="fq-view-title">
+    <header class="fq-modal-head">
+      <span class="fq-modal-ic"><svg class="fq-i" aria-hidden="true">
+          <use href="#fq-i-clip" />
+        </svg></span>
+      <div class="fq-modal-titles">
+        <h2 id="fq-view-title">Attachment</h2>
+        <p>{{ va }}</p>
+      </div>
+      <button type="button" class="fq-icon-btn fq-close" aria-label="Close" title="Close" (click)="closeViewAttachment()">
+        <svg class="fq-i" aria-hidden="true">
+          <use href="#fq-i-x" />
+        </svg>
+      </button>
+    </header>
+    <div class="fq-modal-body">
+      <p class="fq-empty-note">Document: <strong>{{ va }}</strong></p>
+      <p class="fq-note">This environment records the file's name with the conversation; the original
+        file is not stored here, so a preview of its contents is not available.</p>
+    </div>
+    <footer class="fq-modal-foot">
+      @if (canViewDownloadAttachment()) {
+      <button type="button" class="fq-btn fq-btn--primary" (click)="downloadAttachment(va)">
+        <svg class="fq-i" aria-hidden="true"><use href="#fq-i-download" /></svg>
+        Download
+      </button>
+      }
+      <button type="button" class="fq-btn fq-btn--ghost" (click)="closeViewAttachment()">Close</button>
+    </footer>
+  </div>
   }
 
   <!-- ============================== TOAST ============================== -->

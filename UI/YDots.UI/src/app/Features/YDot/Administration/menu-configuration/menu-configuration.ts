@@ -1286,6 +1286,37 @@ export class MenuConfigurationComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * The red border of a required field left empty, set inline with !important: styles.css forces
+   * input borders with !important, which a class rule here cannot beat (same fix as the user
+   * directory's BUG-114).
+   */
+  readonly invalidStyle = 'border-color:#b3261e !important;box-shadow:0 0 0 3px rgba(179,38,30,.12) !important';
+
+  /**
+   * Brings the icon list into view ONCE, when it opens.
+   *
+   * It used to scroll on every click inside the picker (the search box, a category, the grid), and
+   * pulled the sheet back down each time - so the sheet would scroll down but never back up. Now
+   * it only acts when the picker has just grown (the list opened), and only if the list is not
+   * already in view.
+   */
+  revealPicker(box: HTMLElement): void {
+    const before = box.offsetHeight;
+    setTimeout(() => {
+      const opened = box.offsetHeight - before > 80;
+      if (!opened) return;
+
+      const sheet = box.closest('.mcs-body, .mcs') as HTMLElement | null;
+      const view = sheet?.getBoundingClientRect() ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+      const rect = box.getBoundingClientRect();
+      if (rect.bottom > view.bottom - 70) {
+        // Line the picker's top up with the top of the view, no further.
+        box.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }, 80);
+  }
+
   closeEditor(): void {
     this.draft.set(null);
   }

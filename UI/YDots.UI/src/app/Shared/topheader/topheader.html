@@ -178,16 +178,29 @@
                     }
                     <div>
                         <ul class="list-unstyled mb-0">
-                            <li class="profile-item" routerLink="administration/access/user-profile-and-access" style="cursor: pointer;">
-                                <a  class="text-body">
-                                    <i class="ri-user-line me-3"></i> Profile
+                            <!--
+                              THE WHOLE ROW IS THE LINK. routerLink used to sit on the <li> while the <a>
+                              inside it had no link at all and only wrapped the words - so the theme's
+                              row padding and hover band were drawn by the <li> but the clickable,
+                              routed target was effectively the text: a click a little to the side of
+                              "Profile" landed on the row and did nothing. Each item is now one real
+                              <a routerLink> (absolute path) that fills its row edge to edge, so
+                              anywhere on the highlighted band navigates, and the menu closes after.
+                            -->
+                            <li class="profile-item tb-menu-item">
+                                <a routerLink="/app/administration/access/user-profile-and-access"
+                                   routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: false }"
+                                   class="tb-menu-link text-body">
+                                    <i class="ri-user-line" aria-hidden="true"></i>
+                                    <span>Profile</span>
                                 </a>
                             </li>
-                            <li class="profile-item">
-                                <a routerLink="administration/access/my-security" class="text-body d-flex align-items-center justify-content-between">
-                                    <span>
-                                        <i class="ri-shield-user-line me-3"></i> My Security
-                                    </span>
+                            <li class="profile-item tb-menu-item">
+                                <a routerLink="/app/administration/access/my-security"
+                                   routerLinkActive="is-active"
+                                   class="tb-menu-link text-body">
+                                    <i class="ri-shield-user-line" aria-hidden="true"></i>
+                                    <span>My Security</span>
                                 </a>
                             </li>
                             <!-- <li class="profile-item">
@@ -203,14 +216,16 @@
                             <!-- Sign-out is a button, not a link: it has to call the API so the
                                  server revokes the session and clears the HttpOnly refresh cookie.
                                  An <a href> would only change the URL and leave both alive. -->
-                            <li class="profile-item">
-                                <button type="button" class="text-danger btn btn-link text-decoration-none p-0 w-100 text-start" (click)="signOut()">
-                                    <i class="ri-logout-box-r-line me-3"></i> Sign out
+                            <li class="profile-item tb-menu-item">
+                                <button type="button" class="tb-menu-link text-danger" (click)="signOut()">
+                                    <i class="ri-logout-box-r-line" aria-hidden="true"></i>
+                                    <span>Sign out</span>
                                 </button>
                             </li>
-                            <li class="profile-item">
-                                <button type="button" class="text-danger btn btn-link text-decoration-none p-0 w-100 text-start" (click)="signOutEverywhere()">
-                                    <i class="ri-shut-down-line me-3"></i> Sign out everywhere
+                            <li class="profile-item tb-menu-item">
+                                <button type="button" class="tb-menu-link text-danger" (click)="signOutEverywhere()">
+                                    <i class="ri-shut-down-line" aria-hidden="true"></i>
+                                    <span>Sign out everywhere</span>
                                 </button>
                             </li>
                         </ul>

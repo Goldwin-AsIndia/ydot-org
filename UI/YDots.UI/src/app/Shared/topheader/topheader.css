@@ -376,3 +376,61 @@
 @keyframes org-switcher-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ---- Account menu items: the whole row is the click target ----
+   The theme gives .profile-item its padding and hover band. That padding is moved onto the link /
+   button inside, which now fills the row, so a click anywhere on the highlighted band - not just on
+   the words - opens Profile / My Security or signs out. */
+.tb .profile-item.tb-menu-item {
+  padding: 0 !important;
+  margin: 0 0 calc(2px * var(--ui-scale, 1));
+  list-style: none;
+  cursor: default;
+}
+
+.tb .tb-menu-link {
+  display: flex !important;
+  align-items: center;
+  gap: calc(12px * var(--ui-scale, 1));
+  width: 100%;
+  min-height: calc(40px * var(--ui-scale, 1));
+  margin: 0;
+  padding: calc(9px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) !important;
+  border: 0;
+  border-radius: calc(10px * var(--ui-scale, 1));
+  background: transparent;
+  text-align: start;
+  text-decoration: none !important;
+  cursor: pointer;
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3;
+  transition: background-color 0.15s ease;
+}
+
+.tb .tb-menu-link > i {
+  flex: none;
+  width: calc(18px * var(--ui-scale, 1));
+  font-size: calc(calc(17px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  line-height: 1;
+  text-align: center;
+}
+
+.tb .tb-menu-link > span {
+  flex: 1;
+  min-width: 0;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+}
+
+.tb .tb-menu-link:hover,
+.tb .tb-menu-link:focus-visible,
+.tb .tb-menu-link.is-active {
+  background: var(--tb-hover);
+  outline: none;
+}
+
+.tb .tb-menu-link.text-danger:hover,
+.tb .tb-menu-link.text-danger:focus-visible {
+  background: color-mix(in srgb, #dc3545 8%, transparent);
+}

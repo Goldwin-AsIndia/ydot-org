@@ -240,7 +240,11 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
       mobileNumber: code && dialCodeError('Country code', code) ? null : phoneWithCodeError('Mobile', code, f.mobileNumber),
       employeeNumber: employeeNumberError('Employee number', f.employeeNumber, false),
       designation: textWithLettersError('Designation', f.designation, { required: false, max: 120 }),
-      reason: minLengthError('Reason for this change', this.reason, 10),
+      // REQUIRED, NOT ONLY "AT LEAST 10 WHEN GIVEN". An empty reason must be an error too -
+      // otherwise the box never turns red and the save is refused by the server instead.
+      reason: this.reason.trim().length === 0
+        ? 'Enter a reason for this change. It is recorded in the audit trail.'
+        : minLengthError('Reason for this change', this.reason, 10),
     };
   }
 
@@ -272,6 +276,18 @@ export class UserDirectoryComponent implements OnInit, OnDestroy {
   }
 
   readonly copiedField = signal('');
+
+  /**
+   * The red border an invalid edit field wears, as an inline style WITH !important.
+   *
+   * The is-invalid class alone was not enough: a global input rule sets the border with
+   * !important, so the class lost and an emptied required field (Last name, say) showed its
+   * message with a plain grey border. An inline !important declaration out-ranks every
+   * stylesheet rule, so the field now turns red the moment it is invalid - including when a
+   * required value is removed.
+   */
+  readonly invalidStyle =
+    'border-color:#dc3545 !important;box-shadow:0 0 0 3px rgba(220,53,69,.15) !important;background-image:none !important';
 
   // =========================================================================================
   // Derived

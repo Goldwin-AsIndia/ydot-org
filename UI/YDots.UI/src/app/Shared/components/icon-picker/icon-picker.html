@@ -1,7 +1,7 @@
 <!-- ============================================================================================
      The trigger: what is chosen now, and a way in.
      ============================================================================================ -->
-<div class="ip-root">
+<div class="ip-root" [class.is-inline]="inline()" [class.is-open]="open()">
   <button type="button" class="ip-trigger" (click)="toggle()"
           [attr.aria-expanded]="open()" aria-haspopup="dialog">
     @if (selectedClass()) {
@@ -20,26 +20,29 @@
   </button>
 
   @if (open()) {
-    <!-- Click-away. A backdrop rather than a document listener: it cannot leak past the
-         component's life and it stops clicks reaching the row behind the panel. -->
-    <div class="ip-backdrop" (click)="close()"></div>
-
+    <!-- NO FULL-SCREEN BACKDROP. The old one was position: fixed over the whole screen, so while
+         the panel was open every wheel / touch scroll landed on it and the sheet or page behind
+         could not be scrolled at all. A click outside the picker closes it instead (see onOutside
+         in the TS), and Esc closes it too. -->
     <div class="ip-panel" role="dialog" aria-label="Choose an icon">
       <div class="ip-panel-head">
         <div class="ip-search">
           <i class="ri-search-line" aria-hidden="true"></i>
-          <input type="search" class="form-control form-control-sm" placeholder="Search 3,058 icons…"
+          <input type="search" class="ip-input" placeholder="Search 3,058 icons…"
                  [ngModel]="search()" (ngModelChange)="search.set($event)"
                  (keydown.enter)="applyTyped()" aria-label="Search icons" />
         </div>
 
-        <select class="form-select form-select-sm ip-category" aria-label="Filter by category"
-                [ngModel]="category()" (ngModelChange)="category.set($event)">
-          <option value="">All categories</option>
-          @for (name of categories; track name) {
-            <option [value]="name">{{ name }}</option>
-          }
-        </select>
+        <div class="ip-select-wrap">
+          <select class="ip-category" aria-label="Filter by category"
+                  [ngModel]="category()" (ngModelChange)="category.set($event)">
+            <option value="">All categories</option>
+            @for (name of categories; track name) {
+              <option [value]="name">{{ name }}</option>
+            }
+          </select>
+          <i class="ri-arrow-down-s-line ip-select-chev" aria-hidden="true"></i>
+        </div>
       </div>
 
       @if (typedIsRenderable && search().trim()) {
@@ -73,7 +76,7 @@
           <span class="ip-more">{{ matches().length | number }} icon(s)</span>
         }
 
-        <button type="button" class="btn btn-sm btn-link ip-clear" (click)="clear()">
+        <button type="button" class="ip-clear" (click)="clear()">
           @if (inheritedClass()) { Use the product's icon } @else { Clear }
         </button>
       </div>

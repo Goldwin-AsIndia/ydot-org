@@ -301,7 +301,7 @@
 
 <!-- ===== NEW / EDIT REQUEST MODAL ===== -->
 @if (showNewRequestModal()) {
-  <div class="ar-backdrop" (click)="closeNewRequest()">
+  <div class="ar-backdrop" (click)="closeNewRequest()" (scroll)="dpField.set(null); openDd.set(null)">
     <div class="ar-modal ar-modal--lg" role="dialog" aria-modal="true" aria-labelledby="newReqTitle" (click)="$event.stopPropagation(); openDd.set(null); dpField.set(null)">
       <header class="ar-modal-head">
         <div class="ar-head-ico"><i [class]="editing() ? 'ri-edit-line' : 'ri-file-add-line'" aria-hidden="true"></i></div>
@@ -312,14 +312,14 @@
         <button type="button" class="ar-x" (click)="closeNewRequest()" aria-label="Close"><i class="ri-close-line" aria-hidden="true"></i></button>
       </header>
 
-      <div class="ar-modal-body" (scroll)="dpField.set(null)">
+      <div class="ar-modal-body" (scroll)="dpField.set(null); openDd.set(null)">
         <div class="ar-form">
 
           <!-- Request type: the server's list (Role assignment only); fixed once raised -->
           <div class="ar-field">
             <label class="ar-field-lbl">Request type <em class="ar-req">*</em></label>
             <div class="ar-dd" [class.is-open]="openDd() === 'requestType'" [class.is-invalid]="!!newReqError('requestType')" (click)="$event.stopPropagation()">
-              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [disabled]="!!editing()" (click)="toggleDd('requestType')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'requestType'">
+              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [attr.style]="newReqError('requestType') ? invalidStyle : null" [attr.aria-invalid]="!!newReqError('requestType')" [disabled]="!!editing()" (click)="toggleDd('requestType')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'requestType'">
                 <i class="ri-price-tag-3-line ar-dd-lead" aria-hidden="true"></i>
                 <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().requestType">{{ optionLabel(requestTypeOptions(), newRequestForm().requestType) || 'Select request type' }}</span>
                 <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
@@ -337,14 +337,14 @@
                 </div>
               }
             </div>
-            @if (newReqError('requestType')) { <div class="invalid-feedback d-block">{{ newReqError('requestType') }}</div> }
+            @if (newReqError('requestType')) { <div class="ar-field-error" role="alert">{{ newReqError('requestType') }}</div> }
           </div>
 
           <!-- User (searchable); fixed once raised, and fixed to the caller for someone who may only ask for themselves -->
           <div class="ar-field">
             <label class="ar-field-lbl">User <em class="ar-req">*</em></label>
             <div class="ar-dd" [class.is-open]="openDd() === 'user'" [class.is-invalid]="!!newReqError('userId')" (click)="$event.stopPropagation()">
-              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [disabled]="!!editing() || !mayRequestForOthers()" (click)="toggleDd('user')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'user'">
+              <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [attr.style]="newReqError('userId') ? invalidStyle : null" [attr.aria-invalid]="!!newReqError('userId')" [disabled]="!!editing() || !mayRequestForOthers()" (click)="toggleDd('user')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'user'">
                 <i class="ri-user-line ar-dd-lead" aria-hidden="true"></i>
                 @if (selectedUser(); as u) {
                   <span class="ar-dd-value">{{ u.displayName }} <small>· {{ u.orgUnit || u.reference }}</small></span>
@@ -373,15 +373,15 @@
                 </div>
               }
             </div>
-            @if (newReqError('userId')) { <div class="invalid-feedback d-block">{{ newReqError('userId') }}</div> }
+            @if (newReqError('userId')) { <div class="ar-field-error" role="alert">{{ newReqError('userId') }}</div> }
           </div>
 
           <!-- Requested role: for a role request and for temporary elevation -->
           @if (usesRole()) {
-            <div class="ar-field">
+            <div class="ar-field ar-field--full">
               <label class="ar-field-lbl">Requested role <em class="ar-req">*</em></label>
               <div class="ar-dd" [class.is-open]="openDd() === 'role'" [class.is-invalid]="!!newReqError('roleId')" (click)="$event.stopPropagation()">
-                <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('role')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'role'">
+                <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [attr.style]="newReqError('roleId') ? invalidStyle : null" [attr.aria-invalid]="!!newReqError('roleId')" (click)="toggleDd('role')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'role'">
                   <i class="ri-shield-user-line ar-dd-lead" aria-hidden="true"></i>
                   <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().roleId">{{ lookupName(availableRoles(), newRequestForm().roleId) || 'Select role from catalogue' }}</span>
                   <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
@@ -405,16 +405,16 @@
                   </div>
                 }
               </div>
-              @if (newReqError('roleId')) { <div class="invalid-feedback d-block">{{ newReqError('roleId') }}</div> }
+              @if (newReqError('roleId')) { <div class="ar-field-error" role="alert">{{ newReqError('roleId') }}</div> }
             </div>
           }
 
           <!-- Requested permission: for a single-permission request -->
           @if (usesPermission()) {
-            <div class="ar-field">
+            <div class="ar-field ar-field--full">
               <label class="ar-field-lbl">Requested permission <em class="ar-req">*</em></label>
               <div class="ar-dd" [class.is-open]="openDd() === 'permission'" [class.is-invalid]="!!newReqError('permissionCode')" (click)="$event.stopPropagation()">
-                <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('permission')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'permission'">
+                <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [attr.style]="newReqError('permissionCode') ? invalidStyle : null" [attr.aria-invalid]="!!newReqError('permissionCode')" (click)="toggleDd('permission')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'permission'">
                   <i class="ri-key-2-line ar-dd-lead" aria-hidden="true"></i>
                   <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().permissionCode">{{ newRequestForm().permissionCode ? permissionName(newRequestForm().permissionCode) : 'Select permission from catalogue' }}</span>
                   <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
@@ -438,7 +438,7 @@
                   </div>
                 }
               </div>
-              @if (newReqError('permissionCode')) { <div class="invalid-feedback d-block">{{ newReqError('permissionCode') }}</div> }
+              @if (newReqError('permissionCode')) { <div class="ar-field-error" role="alert">{{ newReqError('permissionCode') }}</div> }
             </div>
           }
 
@@ -447,7 +447,7 @@
             <div class="ar-field">
               <label class="ar-field-lbl">Scope type <em class="ar-req">*</em></label>
               <div class="ar-dd" [class.is-open]="openDd() === 'scopeType'" [class.is-invalid]="!!newReqError('scopeType')" (click)="$event.stopPropagation()">
-                <button type="button" class="ar-dd-trigger ar-dd-trigger--field" (click)="toggleDd('scopeType')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'scopeType'">
+                <button type="button" class="ar-dd-trigger ar-dd-trigger--field" [attr.style]="newReqError('scopeType') ? invalidStyle : null" [attr.aria-invalid]="!!newReqError('scopeType')" (click)="toggleDd('scopeType')" aria-haspopup="listbox" [attr.aria-expanded]="openDd() === 'scopeType'">
                   <i class="ri-focus-3-line ar-dd-lead" aria-hidden="true"></i>
                   <span class="ar-dd-value" [class.is-placeholder]="!newRequestForm().scopeType">{{ optionLabel(scopeTypeOptions(), newRequestForm().scopeType) || 'Select scope type' }}</span>
                   <i class="ri-arrow-down-s-line ar-dd-chev" aria-hidden="true"></i>
@@ -465,17 +465,17 @@
                   </div>
                 }
               </div>
-              @if (newReqError('scopeType')) { <div class="invalid-feedback d-block">{{ newReqError('scopeType') }}</div> }
+              @if (newReqError('scopeType')) { <div class="ar-field-error" role="alert">{{ newReqError('scopeType') }}</div> }
             </div>
 
-            <div class="ar-field ar-field--full">
+            <div class="ar-field">
               <label class="ar-field-lbl" for="arScopeValue">Scope value <em class="ar-req">*</em></label>
-              <div class="ar-ig" [class.is-invalid]="!!newReqError('scopeValue')">
+              <div class="ar-ig" [class.is-invalid]="!!newReqError('scopeValue')" [attr.style]="newReqError('scopeValue') ? invalidStyle : null">
                 <i class="ri-map-pin-2-line ar-ig-ico" aria-hidden="true"></i>
                 <input id="arScopeValue" type="text" class="ar-ig-input" maxlength="200" placeholder="e.g. Mumbai, or a campaign code" style="border: none !important;outline:none !important"
                        [ngModel]="newRequestForm().scopeValue" (ngModelChange)="newRequestForm.set({...newRequestForm(), scopeValue: $event})">
               </div>
-              @if (newReqError('scopeValue')) { <div class="invalid-feedback d-block">{{ newReqError('scopeValue') }}</div> }
+              @if (newReqError('scopeValue')) { <div class="ar-field-error" role="alert">{{ newReqError('scopeValue') }}</div> }
             </div>
           }
 
@@ -486,33 +486,12 @@
                 <div class="ar-field">
                   <label class="ar-field-lbl">{{ f.label }} @if (f.key === 'effectiveTo' && needsEndDate()) { <em class="ar-req">*</em> }</label>
                   <div class="ar-dp" [class.is-open]="dpField() === f.key" (click)="$event.stopPropagation()">
-                    <button #dpTrigger type="button" class="ar-dd-trigger ar-dd-trigger--field" [class.is-invalid]="f.key === 'effectiveTo' && !!newReqError('effectiveTo')" (click)="openDatePicker(f.key); placeDatePicker(dpTrigger)" [attr.aria-expanded]="dpField() === f.key">
+                    <button #dpTrigger type="button" class="ar-dd-trigger ar-dd-trigger--field" [class.is-invalid]="f.key === 'effectiveTo' && !!newReqError('effectiveTo')" [attr.style]="f.key === 'effectiveTo' && newReqError('effectiveTo') ? invalidStyle : null" (click)="openDatePicker(f.key); placeDatePicker(dpTrigger)" [attr.aria-expanded]="dpField() === f.key">
                       <i class="ri-calendar-line ar-dd-lead" aria-hidden="true"></i>
                       <span class="ar-dd-value" [class.is-placeholder]="!dateValue(f.key)">{{ displayDate(dateValue(f.key)) || (f.key === 'effectiveFrom' ? 'Today' : 'No end date') }}</span>
                     </button>
-                    @if (dpField() === f.key) {
-                      <div class="ar-dp-pop" role="dialog" [attr.aria-label]="f.label"
-                           [style.top.px]="dpPos()?.top ?? 0" [style.left.px]="dpPos()?.left ?? 0"
-                           [style.visibility]="dpPos() ? 'visible' : 'hidden'">
-                        <div class="ar-dp-head">
-                          <button type="button" class="ar-dp-nav" (click)="dpShift(-1)" aria-label="Previous month"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
-                          <span class="ar-dp-title">{{ dpTitle() }}</span>
-                          <button type="button" class="ar-dp-nav" (click)="dpShift(1)" aria-label="Next month"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-                        </div>
-                        <div class="ar-dp-grid">
-                          @for (w of weekdays; track w) { <span class="ar-dp-wd">{{ w }}</span> }
-                          @for (c of dpCells(); track c.iso) {
-                            <button type="button" class="ar-dp-day" [class.is-out]="c.outside" [class.is-today]="c.today" [class.is-sel]="c.selected" (click)="dpPick(c.iso)">{{ c.day }}</button>
-                          }
-                        </div>
-                        <div class="ar-dp-foot">
-                          <button type="button" class="ar-link" (click)="dpClear()">Clear</button>
-                          <button type="button" class="ar-link" (click)="dpToday()">Today</button>
-                        </div>
-                      </div>
-                    }
                   </div>
-                  @if (f.key === 'effectiveTo' && newReqError('effectiveTo')) { <div class="invalid-feedback d-block">{{ newReqError('effectiveTo') }}</div> }
+                  @if (f.key === 'effectiveTo' && newReqError('effectiveTo')) { <div class="ar-field-error" role="alert">{{ newReqError('effectiveTo') }}</div> }
                 </div>
               }
             </div>
@@ -521,9 +500,9 @@
           <!-- Justification -->
           <div class="ar-field ar-field--full">
             <label class="ar-field-lbl" for="arJust">Business justification <em class="ar-req">*</em></label>
-            <textarea id="arJust" class="ar-input ar-textarea" [class.is-invalid]="!!newReqError('businessJustification')" rows="3" maxlength="1000" placeholder="Why is this access needed? (10–1000 characters)"
+            <textarea id="arJust" class="ar-input ar-textarea" [class.is-invalid]="!!newReqError('businessJustification')" [attr.style]="newReqError('businessJustification') ? invalidStyle : null" [attr.aria-invalid]="!!newReqError('businessJustification')" rows="3" maxlength="1000" placeholder="Why is this access needed? (10–1000 characters)"
                       [ngModel]="newRequestForm().businessJustification" (ngModelChange)="newRequestForm.set({...newRequestForm(), businessJustification: $event})"></textarea>
-            @if (newReqError('businessJustification')) { <div class="invalid-feedback d-block">{{ newReqError('businessJustification') }}</div> }
+            @if (newReqError('businessJustification')) { <div class="ar-field-error" role="alert">{{ newReqError('businessJustification') }}</div> }
             <div class="ar-help"><span class="ar-t">Recorded with the request.</span><span class="ar-count">{{ newRequestForm().businessJustification.length }}/1000</span></div>
           </div>
         </div>
@@ -548,6 +527,32 @@
         }
       </footer>
     </div>
+
+    <!-- DATE PICKER - drawn OUTSIDE the modal, so the modal's edge can never cut it off. It is
+         placed under its field (or above it when the screen has no room below) by placeDatePicker(). -->
+    @if (dpField(); as key) {
+      <div class="ar-dp-pop" role="group" [attr.aria-label]="dateLabel(key)"
+           (click)="$event.stopPropagation()"
+           [style.top.px]="dpPos()?.top ?? 0" [style.left.px]="dpPos()?.left ?? 0"
+           [style.visibility]="dpPos() ? 'visible' : 'hidden'">
+        <div class="ar-dp-head">
+          <button type="button" class="ar-dp-nav" (click)="dpShift(-1)" aria-label="Previous month"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+          <span class="ar-dp-title">{{ dpTitle() }}</span>
+          <button type="button" class="ar-dp-nav" (click)="dpShift(1)" aria-label="Next month"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+        </div>
+        <div class="ar-dp-grid">
+          @for (w of weekdays; track w) { <span class="ar-dp-wd">{{ w }}</span> }
+          @for (c of dpCells(); track c.iso) {
+            <button type="button" class="ar-dp-day" [class.is-out]="c.outside" [class.is-today]="c.today" [class.is-sel]="c.selected"
+                    [attr.aria-label]="displayDate(c.iso)" [attr.aria-pressed]="c.selected" (click)="dpPick(c.iso)">{{ c.day }}</button>
+          }
+        </div>
+        <div class="ar-dp-foot">
+          <button type="button" class="ar-link" (click)="dpClear()">Clear</button>
+          <button type="button" class="ar-link" (click)="dpToday()">Today</button>
+        </div>
+      </div>
+    }
   </div>
 }
 

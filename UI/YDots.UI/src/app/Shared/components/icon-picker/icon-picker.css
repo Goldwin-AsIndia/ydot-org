@@ -4,7 +4,18 @@
    Sized in rem and laid out with auto-fill rather than a fixed column count, so the grid reflows
    inside whatever it is dropped into - an inspector panel on a desktop, a full-width sheet on a
    phone - without the host having to know anything about it.
+
+   Two ways to open:
+     default    a floating popover under the trigger (a phone gets a bottom sheet).
+     [inline]   the panel opens IN FLOW under the trigger and pushes the content below it down -
+                for a host that scrolls (a side sheet, a long form), where a floating panel would
+                hang past the scroll area and under a footer.
+   Text sizes carry !important because styles.css forces size / weight on span, input, select.
    ============================================================================================= */
+
+:host {
+  display: block;
+}
 
 .ip-root {
   position: relative;
@@ -17,11 +28,11 @@
   align-items: center;
   gap: 0.625rem;
   inline-size: 100%;
-  min-block-size: 2.5rem;
-  padding: 0.375rem 0.625rem;
+  min-block-size: 2.75rem;
+  padding: 0.375rem 0.75rem 0.375rem 0.5rem;
   background: var(--pe-form-control-bg, #fff);
   border: 1px solid var(--pe-border-color, #dfe5ec);
-  border-radius: var(--pe-border-radius, 0.5rem);
+  border-radius: var(--pe-border-radius, 0.625rem);
   color: inherit;
   font: inherit;
   text-align: start;
@@ -30,7 +41,8 @@
 }
 
 .ip-trigger:hover,
-.ip-trigger:focus-visible {
+.ip-trigger:focus-visible,
+.ip-root.is-open .ip-trigger {
   border-color: var(--pe-primary, hsl(var(--theme-hue) 27.9% 26.7%));
   outline: none;
 }
@@ -38,13 +50,17 @@
 .ip-preview {
   display: grid;
   place-items: center;
-  inline-size: 1.75rem;
-  block-size: 1.75rem;
-  border-radius: 0.375rem;
+  inline-size: 1.875rem;
+  block-size: 1.875rem;
+  border-radius: 0.5rem;
   background: color-mix(in srgb, var(--pe-primary, hsl(var(--theme-hue) 27.9% 26.7%)) 10%, transparent);
   color: var(--pe-primary, hsl(var(--theme-hue) 27.9% 26.7%));
-  font-size: calc(1rem * var(--ui-text-scale, 1));
   flex: 0 0 auto;
+}
+
+.ip-preview i {
+  font-size: calc(1rem * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
 }
 
 .ip-preview-muted,
@@ -59,40 +75,59 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: calc(0.8125rem * var(--ui-text-scale, 1));
+  font-size: calc(0.875rem * var(--ui-text-scale, 1)) !important;
+  line-height: 1.3 !important;
+  color: var(--pe-body-color, #212529);
 }
 
 .ip-name-muted {
-  color: var(--pe-secondary-color, #7b8794);
+  color: var(--pe-secondary-color, #7b8794) !important;
 }
 
 .ip-chevron {
   flex: 0 0 auto;
   color: var(--pe-secondary-color, #7b8794);
+  font-size: calc(1.05rem * var(--ui-text-scale, 1)) !important;
+  transition: rotate 0.15s ease;
+}
+
+.ip-root.is-open .ip-chevron {
+  rotate: 180deg;
 }
 
 /* ---- Panel ---- */
-.ip-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1040;
-}
-
 .ip-panel {
   position: absolute;
   z-index: 1041;
   inset-inline-start: 0;
   inset-block-start: calc(100% + 0.375rem);
   inline-size: min(24rem, 92vw);
+  display: flex;
+  flex-direction: column;
   background: var(--pe-secondary-bg, #fff);
   border: 1px solid var(--pe-border-color, #dfe5ec);
-  border-radius: var(--pe-border-radius, 0.5rem);
-  box-shadow: none;
+  border-radius: var(--pe-border-radius, 0.625rem);
+  box-shadow: 0 14px 32px -16px rgba(20, 30, 25, 0.28);
   overflow: hidden;
 }
 
+/* inline: in flow, full width, no float */
+.ip-root.is-inline .ip-panel {
+  position: static;
+  inline-size: 100%;
+  margin-block-start: 0.375rem;
+  box-shadow: none;
+  animation: ip-in 0.16s ease;
+}
+
+@keyframes ip-in {
+  from { opacity: 0; }
+}
+
+/* search + category: one row, both 38px, centred on each other */
 .ip-panel-head {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
   padding: 0.625rem;
   border-block-end: 1px solid var(--pe-border-color, #dfe5ec);
@@ -102,23 +137,80 @@
   position: relative;
   flex: 1 1 auto;
   min-inline-size: 0;
+  display: flex;
+  align-items: center;
 }
 
 .ip-search i {
   position: absolute;
   inset-block-start: 50%;
-  inset-inline-start: 0.5rem;
+  inset-inline-start: 0.625rem;
   transform: translateY(-50%);
   color: var(--pe-secondary-color, #7b8794);
+  font-size: calc(0.95rem * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
   pointer-events: none;
 }
 
-.ip-search input {
-  padding-inline-start: 1.85rem;
+.ip-input,
+.ip-category {
+  block-size: 2.375rem !important;
+  min-block-size: 2.375rem !important;
+  margin: 0 !important;
+  border: 1px solid var(--pe-border-color, #dfe5ec) !important;
+  border-radius: 0.5rem !important;
+  background-color: #fff !important;
+  color: var(--pe-body-color, #212529) !important;
+  font-size: calc(0.8125rem * var(--ui-text-scale, 1)) !important;
+  font-weight: 400 !important;
+  line-height: 1.2 !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.ip-input {
+  inline-size: 100%;
+  padding: 0 0.625rem 0 2rem !important;
+}
+
+.ip-input::placeholder {
+  color: var(--pe-secondary-color, #7b8794);
+  opacity: 1;
+}
+
+.ip-input:focus,
+.ip-category:focus {
+  border-color: var(--pe-primary, hsl(var(--theme-hue) 27.9% 26.7%)) !important;
+}
+
+/* the category list: one line, its own chevron */
+.ip-select-wrap {
+  position: relative;
+  flex: 0 0 9.5rem;
+  min-inline-size: 0;
 }
 
 .ip-category {
-  flex: 0 0 8.5rem;
+  appearance: none;
+  -webkit-appearance: none;
+  inline-size: 100%;
+  padding: 0 1.75rem 0 0.625rem !important;
+  background-image: none !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.ip-select-chev {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: 0.5rem;
+  transform: translateY(-50%);
+  color: var(--pe-secondary-color, #7b8794);
+  font-size: calc(1rem * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+  pointer-events: none;
 }
 
 .ip-typed {
@@ -131,31 +223,40 @@
   border: 0;
   border-block-end: 1px solid var(--pe-border-color, #dfe5ec);
   color: var(--pe-primary, hsl(var(--theme-hue) 27.9% 26.7%));
-  font-size: calc(0.8125rem * var(--ui-text-scale, 1));
+  font-size: calc(0.8125rem * var(--ui-text-scale, 1)) !important;
   cursor: pointer;
 }
 
-/* auto-fill, so the column count follows the width rather than being declared per breakpoint. */
+/* auto-fill, so the column count follows the width rather than being declared per breakpoint.
+   The grid keeps a short scroll of its own, but hands the scroll back to the page / sheet at
+   its top and bottom (overscroll-behavior: auto), so the page is never trapped. */
 .ip-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(2.25rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
   gap: 0.25rem;
-  padding: 0.625rem;
-  max-block-size: 17rem;
+  padding: 0.5rem 0.625rem;
+  max-block-size: 15rem;
   overflow-y: auto;
+  overscroll-behavior: auto;
+  scrollbar-width: thin;
 }
 
 .ip-cell {
   display: grid;
   place-items: center;
-  aspect-ratio: 1;
+  block-size: 2.5rem;
+  padding: 0;
   border: 1px solid transparent;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   background: transparent;
   color: var(--pe-body-color, #212529);
-  font-size: calc(1.05rem * var(--ui-text-scale, 1));
   cursor: pointer;
   transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.ip-cell i {
+  font-size: calc(1.125rem * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
 }
 
 .ip-cell:hover,
@@ -175,7 +276,7 @@
   margin: 0;
   padding: 1.25rem 0;
   text-align: center;
-  font-size: calc(0.8125rem * var(--ui-text-scale, 1));
+  font-size: calc(0.8125rem * var(--ui-text-scale, 1)) !important;
   color: var(--pe-secondary-color, #7b8794);
 }
 
@@ -183,42 +284,70 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.375rem 0.625rem;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
   border-block-start: 1px solid var(--pe-border-color, #dfe5ec);
 }
 
 .ip-more {
-  font-size: calc(0.75rem * var(--ui-text-scale, 1));
+  min-inline-size: 0;
+  font-size: calc(0.75rem * var(--ui-text-scale, 1)) !important;
+  line-height: 1.35 !important;
   color: var(--pe-secondary-color, #7b8794);
 }
 
 .ip-clear {
-  padding: 0;
-  font-size: calc(0.75rem * var(--ui-text-scale, 1));
-  text-decoration: none;
+  flex: none;
+  padding: 0.25rem 0.375rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--pe-primary, hsl(var(--theme-hue) 27.9% 26.7%));
+  font-size: calc(0.8125rem * var(--ui-text-scale, 1)) !important;
+  font-weight: 600 !important;
+  cursor: pointer;
 }
 
-/* On a narrow screen the panel becomes a sheet: a 24rem popover anchored to a control near the
-   right edge would otherwise hang off the viewport. */
+.ip-clear:hover {
+  background: color-mix(in srgb, var(--pe-primary, hsl(var(--theme-hue) 27.9% 26.7%)) 8%, transparent);
+}
+
+/* On a narrow screen the floating panel becomes a bottom sheet: a 24rem popover anchored to a
+   control near the right edge would otherwise hang off the viewport. An inline panel stays in
+   flow - it is already full width. */
 @media (max-width: 575.98px) {
-  .ip-panel {
+  .ip-root:not(.is-inline) .ip-panel {
     position: fixed;
     inset: auto 0 0 0;
+    z-index: 1080;
     inline-size: 100%;
-    border-radius: var(--pe-border-radius, 0.5rem) var(--pe-border-radius, 0.5rem) 0 0;
+    border-radius: var(--pe-border-radius, 0.625rem) var(--pe-border-radius, 0.625rem) 0 0;
     max-block-size: 70vh;
   }
 
-  .ip-grid {
+  .ip-root:not(.is-inline) .ip-grid {
     max-block-size: 42vh;
   }
 
+  .ip-select-wrap {
+    flex-basis: 8rem;
+  }
+
+  .ip-grid {
+    grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr));
+  }
+
+  .ip-cell {
+    block-size: 2.75rem;
+  }
+}
+
+@media (max-width: 360px) {
   .ip-panel-head {
     flex-wrap: wrap;
   }
 
-  .ip-category {
+  .ip-select-wrap {
     flex: 1 1 100%;
   }
 }

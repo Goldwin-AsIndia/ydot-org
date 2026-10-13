@@ -470,6 +470,65 @@ export class AccessRequestComponent {
   toggleDd(key: string): void {
     this.dpField.set(null);
     this.openDd.set(this.openDd() === key ? null : key);
+    if (this.openDd() === key) this.fitOpenDropdown();
+  }
+
+  /**
+   * Keeps an open dropdown fully visible inside the dialog, FLOATING over the form.
+   *
+   * The list floats (it does not push the fields down), but it is position: fixed and placed
+   * against the SCREEN - the same way as the date picker - so the dialog's scroll area and footer
+   * can no longer cut it off. It opens under its field, or above it when there is more room above;
+   * its list is capped to that room and scrolls inside itself. Scrolling the dialog or resizing
+   * the window closes it (a fixed list would be left behind).
+   */
+  private fitOpenDropdown(): void {
+    setTimeout(() => {
+      const dd = document.querySelector<HTMLElement>('.ar-modal-body .ar-dd.is-open');
+      const menu = dd?.querySelector<HTMLElement>('.ar-dd-menu');
+      const trigger = dd?.querySelector<HTMLElement>('.ar-dd-trigger');
+      if (!dd || !menu || !trigger) return;
+
+      const gap = 6;
+      const pad = 10;
+      const field = trigger.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+
+      // Measure where "fixed 0,0" really is (an ancestor with a transform would move it).
+      menu.style.top = '0px';
+      menu.style.left = '0px';
+      menu.style.width = `${field.width}px`;
+      const origin = menu.getBoundingClientRect();
+
+      const list = menu.querySelector<HTMLElement>('.ar-dd-list');
+      const chrome = origin.height - (list?.getBoundingClientRect().height ?? 0);
+
+      const below = vh - field.bottom - gap - pad;
+      const above = field.top - gap - pad;
+      const up = origin.height > below && above > below;
+      const room = Math.max(140, up ? above : below);
+
+      if (list) {
+        list.style.maxHeight = `${Math.max(100, Math.min(280, room - chrome))}px`;
+      }
+
+      const top = field.bottom + gap;
+      const left = Math.min(Math.max(field.left, pad), Math.max(pad, vw - field.width - pad));
+
+      if (up) {
+        // Anchored by its BOTTOM to just above the field, so typing in its search (which shortens
+        // the list) keeps it attached to the field instead of leaving a gap.
+        menu.style.top = 'auto';
+        menu.style.bottom = `${vh - (field.top - gap)}px`;
+      } else {
+        menu.style.bottom = 'auto';
+        menu.style.top = `${top - origin.top}px`;
+      }
+      menu.style.left = `${left - origin.left}px`;
+      menu.classList.toggle('ar-dd-menu--up', up);
+      menu.style.visibility = 'visible';
+    });
   }
 
   /** Sets one field of the request form and closes the dropdown. */
@@ -549,16 +608,22 @@ export class AccessRequestComponent {
     this.dpField.set(field);
   }
 
+  /** The label of a date field, for the open calendar. */
+  dateLabel(key: DateField): string {
+    return this.dateFields.find((f) => f.key === key)?.label ?? 'Date';
+  }
+
   /**
-   * Where the open calendar sits, in its containing block's coordinates.
+   * Where the open calendar sits.
    *
-   * The pop-up is position: fixed so the scrolling modal body cannot clip it, and the modal's
-   * transform makes "fixed" relative to the modal - so the pop-up is drawn hidden at 0,0, its real
-   * origin measured, and the offset corrected. Null while measuring.
+   * THE CALENDAR IS DRAWN OUTSIDE THE MODAL (a sibling of it, inside the backdrop), so the modal's
+   * rounded, clipped edge can no longer cut its last rows off. It is position: fixed and placed
+   * against the SCREEN: under its field, or above it when there is no room below, and always kept
+   * fully on screen. It is drawn hidden first, measured, then shown. Null while measuring.
    */
   readonly dpPos = signal<{ top: number; left: number } | null>(null);
 
-  /** Puts the calendar under its field (above it when there is no room), inside the modal. */
+  /** Puts the calendar under its field (above it when the screen has no room below). */
   placeDatePicker(trigger: HTMLElement): void {
     this.dpPos.set(null);
 
@@ -569,18 +634,24 @@ export class AccessRequestComponent {
       }
 
       const field = trigger.getBoundingClientRect();
-      const bounds = (trigger.closest('.ar-modal') as HTMLElement | null)?.getBoundingClientRect()
-        ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
       const origin = pop.getBoundingClientRect();
+      const width = origin.width;
+      const height = origin.height;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
       const gap = 6;
       const pad = 8;
 
-      const below = field.bottom + gap;
-      const above = field.top - gap - origin.height;
-      const fitsBelow = below + origin.height <= bounds.bottom - pad;
-      const top = fitsBelow || above < bounds.top + pad ? below : above;
-      const left = Math.min(Math.max(field.left, bounds.left + pad), bounds.right - origin.width - pad);
+      const spaceBelow = vh - field.bottom - gap - pad;
+      const spaceAbove = field.top - gap - pad;
+      let top = height <= spaceBelow || spaceBelow >= spaceAbove
+        ? field.bottom + gap
+        : field.top - gap - height;
+      top = Math.min(Math.max(top, pad), Math.max(pad, vh - height - pad));
+      const left = Math.min(Math.max(field.left, pad), Math.max(pad, vw - width - pad));
 
+      // `origin` is where the hidden pop-up was drawn at 0,0 - non-zero only if an ancestor makes
+      // "fixed" relative to itself - so the offset is corrected either way.
       this.dpPos.set({ top: top - origin.top, left: left - origin.left });
     });
   }
@@ -662,6 +733,7 @@ export class AccessRequestComponent {
   @HostListener('window:resize')
   onResize(): void {
     this.dpField.set(null);
+    this.openDd.set(null);
   }
 
   // =============================================================================================
@@ -766,6 +838,13 @@ export class AccessRequestComponent {
         : just.length < 10 ? 'Business justification must be at least 10 characters.' : null,
     };
   }
+
+  /**
+   * The red border of a required field left empty, set inline with !important: styles.css forces
+   * control borders with !important, which a class rule here cannot beat - so before, the text box
+   * stayed grey while its message was red.
+   */
+  readonly invalidStyle = 'border-color:#b3261e !important;box-shadow:0 0 0 3px rgba(179,38,30,.12) !important';
 
   /** The message under a field, once Submit has been pressed. */
   newReqError(field: string): string | null {

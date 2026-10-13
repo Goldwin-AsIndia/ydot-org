@@ -27,7 +27,7 @@
   <div class="pr-tile1 pr-tile-gold">
     <div class="pr-tile-body">
       <span class="pr-tile-label">Total Amount</span>
-      <span class="pr-tile-value" style="color: var(--tile-accent-strong, var(--pr-ink))">{{ totalAmountLabel() }}</span>
+      <span class="pr-tile-value" style="color: var(--tile-accent-strong, var(--pr-ink))">₹{{ totalAmount().toLocaleString('en-IN') }}</span>
       <span class="pr-tile-note">In selected scope</span>
     </div>
     <span class="pr-tile-icon pr-tile-icon-gold">
@@ -141,7 +141,7 @@
 
                 @if (statusMenuOpen()) {
                   <ul class="pr-dd-menu" id="pr-status-menu" role="listbox" aria-label="Payment status">
-                    @for (s of statusMenuItems(); track s; let i = $index) {
+                    @for (s of statusMenuItems; track s; let i = $index) {
                       <li role="option" class="pr-dd-option"
                           [id]="'pr-status-opt-' + i"
                           [class.is-active]="i === statusActiveIndex()"
@@ -523,11 +523,12 @@
 
           <!-- Contextual action: exactly one of Retry / Continue payment / Resend, or none. -->
           <div class="pr-detail-actions">
-            <!-- RETRY IS THE DONOR/INITIATOR'S ACTION, NOT THE ADMINISTRATOR'S. The role
-                 table gives Tenant Admin "view Details" on a failed payment and nothing
-                 more, because retrying charges somebody else's card. A caller without the
-                 permission sees no button rather than a disabled one. -->
-            @if (can(e, 'Retry')) {
+            <!-- RETRY IS THE DONOR/INITIATOR'S ACTION, NOT THE ADMINISTRATOR'S. The role table
+                 gives Tenant Admin "view Details" on a failed payment and nothing more, because
+                 retrying charges somebody else's card. GrantsAll hands the admin every
+                 permission, so the component excludes them explicitly as well as checking the
+                 permission. A caller without it sees no button rather than a disabled one. -->
+            @if (e.paymentStatus === 'Fail' && canRetry()) {
               <button type="button" class="btn btn-danger btn-sm  pr-btn-block" (click)="retryPaymentFromQueue(e)" [disabled]="retryingRef() !== null">
                 {{ retryingRef() === e.eventReference ? 'Processing…' : 'Retry' }}
               </button>
@@ -535,7 +536,7 @@
                    people. Verification can come back "already paid", and then no link is sent
                    and no button did anything - which reads as a broken retry unless the screen
                    said in advance that checking first is what it does. -->
-              @if (can(e, 'ResendLink')) {
+              @if (canResendLink()) {
                 <p class="pr-hint">
                   Checks with the provider first, then e-mails a fresh payment link to
                   {{ e.donorEmail }}. Nothing is sent if that check finds the donor was already
@@ -548,8 +549,9 @@
                 </p>
               }
             }
-            <!-- CONTINUE TO PAY, likewise: the table gives it to Donor/Initiator only. -->
-            @if (can(e, 'ContinuePayment')) {
+            <!-- CONTINUE TO PAY, likewise: the table gives it to Donor/Initiator only, and the
+                 Organisation Admin is excluded explicitly because GrantsAll would admit them. -->
+            @if (e.paymentStatus === 'Pending' && canContinuePayment()) {
               <button type="button" class="btn btn-primary btn-sm pr-btn-block" (click)="continuePaymentFromQueue(e)">
                 Continue payment
               </button>

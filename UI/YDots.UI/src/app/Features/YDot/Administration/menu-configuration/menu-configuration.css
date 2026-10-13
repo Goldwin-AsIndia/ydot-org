@@ -196,11 +196,11 @@
   gap: calc(8px * var(--s));
   flex: 0 1 calc(320px * var(--s));
   min-width: calc(200px * var(--s));
-  height: calc(28px * var(--s)) !important;
-  padding: 0 calc(14px * var(--s));
-  border-radius: 8px;
-  background: var(--mc-tint);
-  border: 1px solid transparent;
+    height: calc(30px * var(--s)) !important;
+    padding: 0 calc(14px * var(--s));
+    border-radius: 8px;
+    background: #80808004;
+    border: 1px solid #0000003b;
 }
 
 .mc-search:focus-within {
@@ -803,10 +803,11 @@
 
 .mc-act-pair {
   display: inline-flex;
-  border: 1px solid var(--mc-line);
+  /* border: 1px solid var(--mc-line); */
   border-radius: calc(8px * var(--ui-scale, 1));
   overflow: hidden;
   background: #ffffff;
+  gap: 8px;
 }
 
 .mc-act-pair .mc-ib {
@@ -3083,4 +3084,55 @@
   .mc-pv-top { padding: 7px 8px; font-size: 12.5px !important; }
   .mc-pv-child { font-size: 12px !important; }
   .mc-preview-note { font-size: 11.5px !important; }
+}
+
+/* =====================================================================================================
+   ICON FIELD IN THE SHEET
+   The icon picker opens IN FLOW here ([inline]="true" in the template - the picker itself does the
+   layout now), so it pushes the content down and the sheet's one scroll reaches it, and it no longer
+   puts a full-screen layer over the sheet, so the sheet scrolls up and down while it is open.
+   ===================================================================================================== */
+
+/* room under the last field, so it scrolls clear of the footer */
+.mcs-body { padding-bottom: calc(40px * var(--s)); scroll-padding-bottom: calc(24px * var(--s)); }
+
+@media (max-width: 600px) {
+  /* one scroll for the whole sheet: header, fields and icon list move together */
+  .mcs { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .mcs-head { flex: none; }
+  .mcs-body { flex: none; overflow: visible; min-height: auto; padding-bottom: 24px; }
+  .mcs-foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin-top: auto;
+  }
+  .mcs-look { padding: 6px 10px; }
+  .mcs-look-label { font-size: 11px !important; }
+}
+
+
+/* =====================================================================================================
+   REQUIRED FIELDS - standard error display in the create / edit sheet
+   A required field left empty gets a red border (also set inline - see invalidStyle in the TS) and
+   one red line under it. The message used to be grey, the same as the help text, and the inputs
+   kept their normal border, so only the Module box looked wrong.
+   ===================================================================================================== */
+.mcs .mcs-input.is-invalid,
+.mcs .dd-trigger.is-invalid,
+.mcs .mcs-stepper.is-invalid {
+  border-color: var(--mc-red) !important;
+}
+.mcs .mcs-input.is-invalid:focus,
+.mcs .dd.is-open .dd-trigger.is-invalid {
+  outline: 3px solid color-mix(in srgb, var(--mc-red) 14%, transparent) !important;
+}
+/* inside the stepper the border belongs to the stepper box, not its number field */
+.mcs .mcs-stepper.is-invalid input { box-shadow: none !important; }
+
+.mcs .mcs-help.mcs-error {
+  display: block;
+  margin-top: calc(-2px * var(--s));
+  color: var(--mc-red) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
 }

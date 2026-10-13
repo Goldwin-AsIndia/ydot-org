@@ -786,3 +786,44 @@ dialog.xr-dialog::backdrop { background: rgba(22, 32, 27, 0.34); backdrop-filter
 .xr-cal-foot { display: flex; justify-content: flex-end; margin-top: calc(8px * var(--s)); padding-top: calc(8px * var(--s)); border-top: 1px solid var(--xr-line-2); }
 .xr-cal-link { border: 0; background: transparent; color: var(--xr-accent); cursor: pointer; font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; }
 .xr-next-grid .xr-error { margin-top: calc(-2px * var(--s)); }
+/* =====================================================================================================
+   STANDARD REQUIRED-FIELD ERROR
+   One look for every required field left empty: a red 1px border on the control (no double outline
+   around the tile / scale groups), a soft red ring while it has focus, and one red line of text under it
+   (no icon). The same style is used for the next follow-up and escalation fields.
+   ===================================================================================================== */
+.xr-input.is-invalid,
+.xr-dd > .xr-dd-trigger.is-invalid,
+.xr-tiles.is-invalid .xr-tile,
+.xr-scale.is-invalid .xr-scale-opt {
+  border-color: var(--xr-danger) !important;
+}
+.xr-input.is-invalid:focus,
+.xr-dd[open] > .xr-dd-trigger.is-invalid {
+  border-color: var(--xr-danger) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xr-danger) 14%, transparent) !important;
+}
+/* The group outline drew a second red box around the options - the options' own border is enough. */
+.xr-tiles.is-invalid,
+.xr-scale.is-invalid {
+  outline: 0 !important;
+}
+.xr-scale.is-invalid .xr-scale-opt.is-on,
+.xr-tiles.is-invalid .xr-tile.is-on { outline-color: var(--xr-danger); }
+
+.xr-error {
+  display: block;
+  margin: calc(2px * var(--s)) 0 0 !important;
+  color: var(--xr-danger) !important;
+  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.35 !important;
+}
+.xr-error::before { content: none !important; display: none !important; }
+/* Under the contact tiles (they sit outside an .xr-field). */
+.xr-tiles + .xr-error { margin-top: calc(8px * var(--s)) !important; }
+.xr-next-grid .xr-error { margin-top: calc(-2px * var(--s)) !important; }
+/* Notes footer: message on the left, counter on the right, both on one line. */
+.xr-field-foot .xr-error { flex: 1; margin: 0 !important; }
+.xr-field-foot .xr-count { flex: none; }
+/* Consent caution reuses .xr-error as text - no icon gap problem, keep it. */

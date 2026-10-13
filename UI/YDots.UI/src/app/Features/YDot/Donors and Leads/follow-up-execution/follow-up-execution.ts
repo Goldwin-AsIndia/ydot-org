@@ -51,6 +51,7 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
 import { ToastService } from "../../../../Shared/services/toast.service";
 
 import { NavigationHistoryService } from '../../../../Shared/services/navigation-history.service';
+import { FollowUpAttachmentStore } from "../../../../Service/follow-up-attachment-store.service";
 // ---------------------------------------------------------------------------
 // Domain models
 // ---------------------------------------------------------------------------
@@ -127,6 +128,9 @@ export interface Attachment {
   name: string;
   type: "PDF" | "DOCX" | "PNG" | "JPG";
   sizeLabel: string;
+
+  /** The file itself, kept so the queue can open and download it in its original format. */
+  file?: File;
 }
 
 export interface ExecutionHistoryEntry {
@@ -613,6 +617,24 @@ const NEXT_FIELD_ERRORS: Record<NextField, string> = {
   purpose: "Enter instructions for the next follow-up.",
 };
 
+/** Standard inline message under each required field of the call report, left empty. */
+type RequiredField =
+  | "channel" | "date" | "time" | "status" | "reason" | "outcome"
+  | "engagement" | "quality" | "disposition" | "temperatureReason";
+
+const REQUIRED_FIELD_ERRORS: Record<RequiredField, string> = {
+  channel: "Select how the contact was made.",
+  date: "Select the executed date.",
+  time: "Select the executed time.",
+  status: "Select an execution status.",
+  reason: "Select a completion reason.",
+  outcome: "Select an outcome.",
+  engagement: "Select an engagement level.",
+  quality: "Select the communication quality.",
+  disposition: "Select a disposition.",
+  temperatureReason: `Enter a reason of at least ${SCORE_REASON_MINIMUM} characters for the change.`,
+};
+
 function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
@@ -645,6 +667,7 @@ export class FollowUpExecutionComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly executionService = inject(FollowUpExecutionService);
   private readonly toast = inject(ToastService);
+  private readonly attachmentStore = inject(FollowUpAttachmentStore);
 
   private readonly params = toSignal(this.route.queryParamMap, {
     initialValue: null,
@@ -917,9 +940,10 @@ export class FollowUpExecutionComponent implements OnInit {
   }
 
   /** Picks a value on a reactive control from an outlined option button. */
-  pick(control: { setValue(value: never): void; markAsDirty(): void }, value: unknown): void {
+  pick(control: { setValue(value: never): void; markAsDirty(): void; markAsTouched(): void }, value: unknown): void {
     control.setValue(value as never);
     control.markAsDirty();
+    control.markAsTouched();
   }
 
   /** Loads (or reloads) the execution snapshot. Also used by the "Reload" empty-state action. */
@@ -1037,6 +1061,7 @@ export class FollowUpExecutionComponent implements OnInit {
       name: file.name,
       type: extension.replace(".", "").toUpperCase() as Attachment["type"],
       sizeLabel: this.formatBytes(file.size),
+      file,
     };
     this.attachments.update((list) => [...list, attachment]);
   }
@@ -1192,6 +1217,20 @@ export class FollowUpExecutionComponent implements OnInit {
   /** A required control that is empty or invalid, once it was touched or Complete was tried. */
   bad(control: AbstractControl): boolean {
     return control.invalid && (control.touched || this.attempted());
+  }
+
+  /** The standard message under an empty required field. */
+  reqError(name: RequiredField): string {
+    return REQUIRED_FIELD_ERRORS[name];
+  }
+
+  /** Execution notes: empty, too short (with the count so far) or too long. */
+  notesError(): string {
+    const control = this.executionForm.controls.completionNotes;
+    const length = (control.value ?? "").trim().length;
+    if (control.hasError("required") || length === 0) return "Enter the execution notes.";
+    if (control.hasError("maxlength")) return "Keep the execution notes within 2,000 characters.";
+    return `Enter at least 20 characters (${length}/20).`;
   }
 
   /** A required next follow-up field that is empty - only while "Plan another contact" is on. */
@@ -1612,10 +1651,31 @@ export class FollowUpExecutionComponent implements OnInit {
             );
           }
 
-          // Back to the queue list; no side panel. The completed follow-up is shown first, highlighted.
-          this.router.navigate(["/app/fundraising/relationships/follow-up-queue"], {
-            queryParams: { highlightId: this.followUpId() },
-          });
+          // THE ORIGINAL FILES are kept with the follow-up, so the queue's View opens each one in
+          // its own format and Download returns the same file - not a .txt note about it.
+          const files = this.attachments()
+            .map((a) => a.file)
+            .filter((f): f is File => !!f);
+          const backToQueue = () =>
+            // Back to the queue list; no side panel. The completed follow-up is shown first, highlighted.
+            this.router.navigate(["/app/fundraising/relationships/follow-up-queue"], {
+              queryParams: { highlightId: this.followUpId() },
+            });
+
+          if (!files.length) {
+            backToQueue();
+            return;
+          }
+          this.attachmentStore
+            .save(this.followUpId(), files)
+            .catch(() =>
+              this.toast.show(
+                "Attachment not stored",
+                "The follow-up is complete, but the attached file could not be kept for viewing.",
+                "warning",
+              ),
+            )
+            .finally(backToQueue);
         },
         error: (error: unknown) => {
           this.formError.set(apiErrorMessage(error, "The follow-up could not be completed."));

@@ -226,3 +226,82 @@
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgb(79 70 229 / 0.25);
 }
+
+
+/* =====================================================================================================
+   BUG-125 - the card's header: a close button, and icons at a proper size
+   The global icon rules shrink a bare <i> to the text size, so the success check on the Done step
+   read as a dot. Each icon now sits in a sized badge with !important sizes.
+   ===================================================================================================== */
+.act-head {
+  position: relative;
+}
+
+.act-close {
+  position: absolute;
+  top: calc(16px * var(--ui-scale, 1));
+  right: calc(16px * var(--ui-scale, 1));
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: calc(38px * var(--ui-scale, 1));
+  height: calc(38px * var(--ui-scale, 1));
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+.act-close i {
+  font-size: calc(20px * var(--ui-scale, 1)) !important;
+  line-height: 1 !important;
+}
+.act-close:hover {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.act-close:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+/* Done step: one success badge */
+.act-done-badge,
+.act-state-badge {
+  display: grid;
+  place-items: center;
+  width: calc(64px * var(--ui-scale, 1));
+  height: calc(64px * var(--ui-scale, 1));
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #059669;
+  box-shadow: 0 0 0 calc(8px * var(--ui-scale, 1)) #ecfdf5;
+}
+.act-done-badge i,
+.act-state-badge i {
+  font-size: calc(32px * var(--ui-scale, 1)) !important;
+  line-height: 1 !important;
+}
+.act-state-badge--warn {
+  background: #fef3c7;
+  color: #b45309;
+  box-shadow: 0 0 0 calc(8px * var(--ui-scale, 1)) #fffbeb;
+}
+
+/* the warning icon beside the recovery-code notice */
+.act-alert-ico {
+  flex: none;
+  margin-top: 2px;
+  font-size: calc(18px * var(--ui-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+@media (max-width: 480px) {
+  .act-close {
+    top: calc(10px * var(--ui-scale, 1));
+    right: calc(10px * var(--ui-scale, 1));
+  }
+}

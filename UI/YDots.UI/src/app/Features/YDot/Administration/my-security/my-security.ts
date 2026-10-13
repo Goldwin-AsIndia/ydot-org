@@ -103,6 +103,36 @@ export class MySecurityComponent {
   newPassword = signal('');
   confirmPassword = signal('');
 
+  /**
+   * Which of the three password boxes is showing its text (the eye icon).
+   *
+   * Every box starts hidden, each has its own toggle, and all three hide again whenever the
+   * dialog opens or closes - a password left on view must never be what the next person sees.
+   */
+  readonly passwordVisible = signal<Record<'current' | 'new' | 'confirm', boolean>>({
+    current: false,
+    new: false,
+    confirm: false,
+  });
+
+  isPasswordVisible(field: 'current' | 'new' | 'confirm'): boolean {
+    return this.passwordVisible()[field];
+  }
+
+  togglePasswordVisible(field: 'current' | 'new' | 'confirm'): void {
+    this.passwordVisible.update((state) => ({ ...state, [field]: !state[field] }));
+  }
+
+  private hideAllPasswords(): void {
+    this.passwordVisible.set({ current: false, new: false, confirm: false });
+  }
+
+  /** Closes the Change Password dialog, hiding any password left on view. */
+  closeChangePassword(): void {
+    this.hideAllPasswords();
+    this.showChangePassword.set(false);
+  }
+
   /** Sign out of everything else when the password changes. On by default, and it should be. */
   signOutOthers = signal(true);
 
@@ -406,6 +436,7 @@ export class MySecurityComponent {
     this.passwordTried.set(false);
     this.passwordTouched.set(new Set());
     this.passwordServerErrors.set({});
+    this.hideAllPasswords();
     this.showChangePassword.set(true);
 
     this.api.getPasswordPolicy().subscribe({
@@ -483,7 +514,7 @@ export class MySecurityComponent {
     }).subscribe({
       next: (outcome) => {
         this.busy.set(false);
-        this.showChangePassword.set(false);
+        this.closeChangePassword();
         this.currentPassword.set('');
         this.newPassword.set('');
         this.confirmPassword.set('');

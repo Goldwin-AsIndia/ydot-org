@@ -2858,3 +2858,47 @@ select.dir-f-control.is-invalid:focus {
 @media (max-width: 680px) {
   .dir-sheet { border-radius: 0 !important; border-left: 0 !important; }
 }
+
+/* BUG-114 follow-up: ID-level rules for the reason box, so no global textarea / placeholder rule
+   (which out-ranked the class rules above) can make the placeholder bold or drop the red border. */
+#edReason,
+.dir-sheet #edReason {
+  font-weight: 400 !important;
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.5 !important;
+  border: 1px solid #80808059;
+  border-radius: calc(9px * var(--ui-scale, 1));
+  background-image: none !important;
+  padding-right: calc(11px * var(--ui-scale, 1)) !important;
+}
+#edReason::placeholder,
+.dir-sheet #edReason::placeholder {
+  font-weight: 400 !important;
+  font-style: normal !important;
+  color: #9aa3a0 !important;
+  opacity: 1 !important;
+}
+#edReason.is-invalid,
+.dir-sheet #edReason.is-invalid {
+  border-color: #dc3545 !important;
+}
+#edReason.is-invalid:focus,
+.dir-sheet #edReason.is-invalid:focus {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 calc(3px * var(--ui-scale, 1)) rgba(220, 53, 69, .15) !important;
+}
+#edReason:not(.is-invalid):focus {
+  border-color: var(--primary, #375c4c) !important;
+  box-shadow: 0 0 0 calc(3px * var(--ui-scale, 1)) color-mix(in srgb, var(--primary, #375c4c) 14%, transparent) !important;
+}
+.dir-sheet .dir-req,
+.dir-dialog .dir-req { color: #dc3545 !important; }
+
+/* Backup for the inline style: ID-level invalid border on every edit field. */
+#edFirst.is-invalid, #edMiddle.is-invalid, #edLast.is-invalid, #edDisplay.is-invalid,
+#edPreferred.is-invalid, #edCode.is-invalid, #edMobile.is-invalid, #edEmployee.is-invalid,
+#edDesignation.is-invalid {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, .15) !important;
+  background-image: none !important;
+}

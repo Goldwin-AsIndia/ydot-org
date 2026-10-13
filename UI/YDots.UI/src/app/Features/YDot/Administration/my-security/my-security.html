@@ -509,19 +509,37 @@
 <div class="modal-content msec-modal__content">
 <div class="msec-modal__header">
 <h5><i class="ri-lock-line"></i> Change Password</h5>
-<button type="button" class="msec-modal__close" (click)="showChangePassword.set(false)">
+<button type="button" class="msec-modal__close" (click)="closeChangePassword()">
 <i class="ri-close-line"></i>
 </button>
 </div>
 <div class="msec-modal__body">
 <div class="msec-form-field">
 <label for="msecCurrentPwd">Current Password <span class="ydot-req">*</span></label>
-<input id="msecCurrentPwd" type="password" class="msec-input" autocomplete="current-password" [class.is-invalid]="!!passwordError('currentPassword')" [ngModel]="currentPassword()" (ngModelChange)="currentPassword.set($event)" (blur)="touchPassword('currentPassword')">
+<div class="msec-pwd">
+<input id="msecCurrentPwd" [type]="isPasswordVisible('current') ? 'text' : 'password'" class="msec-input msec-input--pwd" spellcheck="false" autocapitalize="off" autocomplete="current-password" [class.is-invalid]="!!passwordError('currentPassword')" [ngModel]="currentPassword()" (ngModelChange)="currentPassword.set($event)" (blur)="touchPassword('currentPassword')">
+<button type="button" class="msec-pwd__eye" (click)="togglePasswordVisible('current')"
+        [attr.aria-label]="(isPasswordVisible('current') ? 'Hide ' : 'Show ') + 'current password'"
+        [attr.aria-pressed]="isPasswordVisible('current')"
+        [attr.aria-controls]="'msecCurrentPwd'"
+        [title]="isPasswordVisible('current') ? 'Hide password' : 'Show password'">
+<i [class]="isPasswordVisible('current') ? 'ri-eye-off-line' : 'ri-eye-line'" aria-hidden="true"></i>
+</button>
+</div>
 @if (passwordError('currentPassword')) { <div class="invalid-feedback d-block">{{ passwordError('currentPassword') }}</div> }
 </div>
 <div class="msec-form-field">
 <label for="msecNewPwd">New Password <span class="ydot-req">*</span></label>
-<input id="msecNewPwd" type="password" class="msec-input" autocomplete="new-password" [attr.maxlength]="passwordPolicy()?.maximumLength ?? null" [class.is-invalid]="!!passwordError('newPassword')" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" (blur)="touchPassword('newPassword')">
+<div class="msec-pwd">
+<input id="msecNewPwd" [type]="isPasswordVisible('new') ? 'text' : 'password'" class="msec-input msec-input--pwd" spellcheck="false" autocapitalize="off" autocomplete="new-password" [attr.maxlength]="passwordPolicy()?.maximumLength ?? null" [class.is-invalid]="!!passwordError('newPassword')" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" (blur)="touchPassword('newPassword')">
+<button type="button" class="msec-pwd__eye" (click)="togglePasswordVisible('new')"
+        [attr.aria-label]="(isPasswordVisible('new') ? 'Hide ' : 'Show ') + 'new password'"
+        [attr.aria-pressed]="isPasswordVisible('new')"
+        [attr.aria-controls]="'msecNewPwd'"
+        [title]="isPasswordVisible('new') ? 'Hide password' : 'Show password'">
+<i [class]="isPasswordVisible('new') ? 'ri-eye-off-line' : 'ri-eye-line'" aria-hidden="true"></i>
+</button>
+</div>
 @if (passwordError('newPassword')) { <div class="invalid-feedback d-block">{{ passwordError('newPassword') }}</div> }
 <ul class="small text-muted mb-0 ps-3 mt-1">
 @for (rule of passwordRules(); track rule) { <li>{{ rule }}</li> }
@@ -529,12 +547,21 @@
 </div>
 <div class="msec-form-field">
 <label for="msecConfirmPwd">Confirm New Password <span class="ydot-req">*</span></label>
-<input id="msecConfirmPwd" type="password" class="msec-input" autocomplete="new-password" [class.is-invalid]="!!passwordError('confirmPassword')" [ngModel]="confirmPassword()" (ngModelChange)="confirmPassword.set($event)" (blur)="touchPassword('confirmPassword')">
+<div class="msec-pwd">
+<input id="msecConfirmPwd" [type]="isPasswordVisible('confirm') ? 'text' : 'password'" class="msec-input msec-input--pwd" spellcheck="false" autocapitalize="off" autocomplete="new-password" [class.is-invalid]="!!passwordError('confirmPassword')" [ngModel]="confirmPassword()" (ngModelChange)="confirmPassword.set($event)" (blur)="touchPassword('confirmPassword')">
+<button type="button" class="msec-pwd__eye" (click)="togglePasswordVisible('confirm')"
+        [attr.aria-label]="(isPasswordVisible('confirm') ? 'Hide ' : 'Show ') + 'confirm new password'"
+        [attr.aria-pressed]="isPasswordVisible('confirm')"
+        [attr.aria-controls]="'msecConfirmPwd'"
+        [title]="isPasswordVisible('confirm') ? 'Hide password' : 'Show password'">
+<i [class]="isPasswordVisible('confirm') ? 'ri-eye-off-line' : 'ri-eye-line'" aria-hidden="true"></i>
+</button>
+</div>
 @if (passwordError('confirmPassword')) { <div class="invalid-feedback d-block">{{ passwordError('confirmPassword') }}</div> }
 </div>
 </div>
 <div class="msec-modal__footer">
-<button class="btn btn-outline-secondary btn-sm" [disabled]="busy()" (click)="showChangePassword.set(false)">Cancel</button>
+<button class="btn btn-outline-secondary btn-sm" [disabled]="busy()" (click)="closeChangePassword()">Cancel</button>
 <button class="btn btn-primary btn-sm" [disabled]="busy()" (click)="changePassword()">
                 @if (busy()) { <span class="spinner-border spinner-border-sm me-1"></span> }
                 Change Password

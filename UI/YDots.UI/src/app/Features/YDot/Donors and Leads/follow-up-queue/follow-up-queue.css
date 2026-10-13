@@ -2154,6 +2154,23 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
   color: var(--fq-ink-2);
 }
 
+/* Attachment view / download: shown only to the four roles the gate allows. */
+.fq-file-acts { display: inline-flex; align-items: center; gap: calc(2px * var(--s)); margin-left: calc(2px * var(--s)); }
+.fq-file-btn {
+  display: inline-grid;
+  place-items: center;
+  width: calc(22px * var(--s));
+  height: calc(22px * var(--s));
+  border: 0;
+  border-radius: calc(6px * var(--s));
+  background: transparent;
+  color: var(--fq-ink-3, var(--fq-ink-2));
+  cursor: pointer;
+  transition: background-color .12s ease, color .12s ease;
+}
+.fq-file-btn:hover { background: var(--fq-hover, rgba(0,0,0,.06)); color: var(--fq-ink-1, inherit); }
+.fq-file-btn .fq-i { width: calc(14px * var(--s)); height: calc(14px * var(--s)); }
+
 .fq-drawer-foot {
   display: flex;
   align-items: center;
@@ -2922,3 +2939,180 @@ justify-content: flex-start;
   .fq-modal { animation: none !important; }
 }
 
+
+
+/* =====================================================================================================
+   CALENDAR DAY POP-UP (BUG-094) - the follow-ups of one calendar day, listed over the calendar
+   Uses the screen's own modal shell (.fq-modal); only the list inside is styled here. Each row is one
+   button: time | name with type, reference and owner | overdue + status | chevron.
+   ===================================================================================================== */
+.fq-daypop { width: min(calc(520px * var(--s)), calc(100vw - calc(24px * var(--s)))); }
+.fq-daypop-body { padding: calc(10px * var(--s)) calc(14px * var(--s)) calc(14px * var(--s)) !important; overflow-y: auto; }
+.fq-daypop-list { display: grid; gap: calc(6px * var(--s)); margin: 0; padding: 0; list-style: none; }
+
+.fq-daypop-item {
+  --ev: var(--fq-accent);
+  position: relative;
+  display: grid;
+  grid-template-columns: calc(62px * var(--s)) minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: calc(10px * var(--s));
+  width: 100%;
+  padding: calc(10px * var(--s)) calc(12px * var(--s)) calc(10px * var(--s)) calc(16px * var(--s));
+  border: 1px solid var(--fq-line);
+  border-radius: calc(10px * var(--s));
+  background: var(--fq-card, #fff);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.fq-daypop-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: calc(10px * var(--s));
+  bottom: calc(10px * var(--s));
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ev);
+}
+.fq-daypop-item[data-type="Call"]  { --ev: var(--fq-ok); }
+.fq-daypop-item[data-type="Email"] { --ev: var(--fq-info); }
+.fq-daypop-item.is-late            { --ev: var(--fq-danger); }
+.fq-daypop-item:hover,
+.fq-daypop-item:focus-visible {
+  border-color: var(--fq-accent);
+  background: var(--fq-tint);
+  outline: none;
+}
+
+.fq-daypop-time {
+  font-family: var(--font-number, inherit);
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: 600 !important;
+  color: var(--fq-ink, #1b1f1e);
+  white-space: nowrap;
+}
+.fq-daypop-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fq-daypop-name {
+  overflow: hidden;
+  font-size: calc(calc(13.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: 600 !important;
+  color: var(--fq-ink, #1b1f1e);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fq-daypop-meta {
+  overflow: hidden;
+  font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  color: var(--fq-muted, #6b736f);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fq-daypop-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: calc(4px * var(--s)); }
+.fq-daypop-tag {
+  padding: calc(2px * var(--s)) calc(8px * var(--s));
+  border: 1px solid var(--fq-line);
+  border-radius: 99px;
+  font-size: calc(calc(10.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: 600 !important;
+  color: var(--fq-muted, #6b736f);
+  white-space: nowrap;
+}
+.fq-daypop-tag.is-late {
+  border-color: color-mix(in srgb, var(--fq-danger) 35%, #fff);
+  background: color-mix(in srgb, var(--fq-danger) 8%, #fff);
+  color: var(--fq-danger);
+}
+.fq-daypop-chev { width: calc(16px * var(--s)); height: calc(16px * var(--s)); color: var(--fq-faint, #a3aba8); }
+
+@media (max-width: 600px) {
+  .fq-daypop-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "main chev" "time tags";
+    gap: 6px 10px;
+  }
+  .fq-daypop-main { grid-area: main; }
+  .fq-daypop-time { grid-area: time; }
+  .fq-daypop-tags { grid-area: tags; }
+  .fq-daypop-chev { grid-area: chev; }
+  .fq-daypop-name, .fq-daypop-meta { white-space: normal; }
+}
+
+
+/* ==========================================================================
+   PLAY ICON FIX - a row that cannot be executed shows NO play icon at all
+   (never a faded / disabled one). The template only renders it when
+   canExecute(f) is true; this is the safety net for any disabled variant.
+   ========================================================================== */
+.fq-icon-btn.is-go:disabled,
+.fq-icon-btn.is-go[aria-disabled="true"],
+.fq-table .fq-row-actions .fq-icon-btn.is-go:disabled { display: none !important; }
+
+/* ==========================================================================
+   ATTACHMENT VIEWER - the document in its own format (PDF / image / text),
+   or a clear "open in its own app" card for Word / Excel. Download always
+   returns the original file.
+   ========================================================================== */
+.fq-modal.fq-attview.is-wide { width: min(calc(960px * var(--s)), calc(100vw - calc(32px * var(--s)))); }
+.fq-attview .fq-modal-titles { min-width: 0; }
+.fq-attview .fq-modal-titles h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fq-attview-ext {
+  display: inline-block;
+  padding: 1px calc(6px * var(--s));
+  border: 1px solid var(--fq-line);
+  border-radius: calc(5px * var(--s));
+  font-size: calc(11px * var(--s)) !important;
+  font-weight: 600 !important;
+  letter-spacing: .04em;
+}
+.fq-attview-body { padding: 0 !important; overflow: auto; background: var(--fq-line-soft, #f4f5f4); }
+.fq-attview-frame {
+  display: block;
+  width: 100%;
+  height: min(72dvh, calc(720px * var(--s)));
+  border: 0;
+  background: #ffffff;
+}
+.fq-attview-frame--text { height: min(60dvh, calc(560px * var(--s))); }
+.fq-attview-img {
+  display: grid;
+  place-items: center;
+  min-height: calc(240px * var(--s));
+  max-height: 72dvh;
+  padding: calc(16px * var(--s));
+  overflow: auto;
+}
+.fq-attview-img img { display: block; max-width: 100%; max-height: calc(72dvh - 32px); object-fit: contain; border-radius: calc(6px * var(--s)); background: #ffffff; }
+.fq-attview-msg { margin: 0; padding: calc(40px * var(--s)) calc(20px * var(--s)); text-align: center; color: var(--fq-ink-2); }
+.fq-attview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  padding: calc(32px * var(--s)) calc(24px * var(--s));
+  background: var(--fq-card, #ffffff);
+  text-align: center;
+}
+.fq-attview-empty p { margin: 0; max-width: calc(420px * var(--s)); color: var(--fq-ink-2); line-height: 1.45; }
+.fq-attview-empty strong { color: var(--fq-ink, inherit); }
+.fq-attview-big {
+  display: grid;
+  place-items: center;
+  width: calc(64px * var(--s));
+  height: calc(76px * var(--s));
+  margin-bottom: calc(8px * var(--s));
+  border: 1.5px solid var(--fq-line);
+  border-radius: calc(8px * var(--s));
+  color: var(--fq-accent, inherit);
+  font-size: calc(13px * var(--s)) !important;
+  font-weight: 700 !important;
+  letter-spacing: .05em;
+}
+.fq-attview .fq-modal-foot { flex-wrap: wrap; }
+.fq-attview .fq-modal-foot .fq-btn--primary { display: inline-flex; align-items: center; gap: calc(6px * var(--s)); }
+@media (max-width: 600px) {
+  .fq-attview-frame { height: 65dvh; }
+  .fq-attview .fq-modal-foot .fq-btn { flex: 1 1 auto; justify-content: center; }
+}

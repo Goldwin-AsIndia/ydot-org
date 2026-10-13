@@ -28,6 +28,28 @@ import {
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
+import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
+import { SafeResourceUrl, SafeUrl } from "@angular/platform-browser";
+import { FollowUpAttachmentStore, mimeFromName } from "../../../../Service/follow-up-attachment-store.service";
+
+/** How an attachment is shown in the viewer, chosen from its own format. */
+export type AttachmentKind = "pdf" | "image" | "text" | "office" | "other";
+
+/** The open attachment viewer. */
+export interface AttachmentViewer {
+  followUpId: string;
+  name: string;
+  kind: AttachmentKind;
+  loading: boolean;
+
+  /** True when the original file is not kept on this device. */
+  missing: boolean;
+  type: string;
+  sizeLabel: string;
+  objectUrl: string | null;
+  frameUrl: SafeResourceUrl | null;
+  imageUrl: SafeUrl | null;
+}
 export type RecordType = "Lead" | "Donor";
 /**
  * The channel a follow-up is planned on, in this screen's words: Call, Email, SMS, WhatsApp or
@@ -372,6 +394,8 @@ export class FollowUpQueueComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(DonorApiService);
+  private readonly tokens = inject(AuthTokenService);
+  private readonly attachmentStore = inject(FollowUpAttachmentStore);
   /** The organisation's today, yyyy-mm-dd - the server's, once it has answered. */
   today = TODAY_ISO;
 
@@ -427,6 +451,22 @@ export class FollowUpQueueComponent {
   readonly canReschedule = computed(() => this.queueActions().includes("Reschedule"));
   readonly canCancel = computed(() => this.queueActions().includes("Cancel task"));
   readonly canAssign = computed(() => this.queueActions().includes("Assign"));
+
+  /**
+   * Whether this caller may VIEW and DOWNLOAD a document attached to a follow-up.
+   *
+   * RESTRICTED TO FOUR ROLES, by request: Fundraiser Executive (FUNDRAISER_EXECUTIVE),
+   * Fundraising Manager (FUNDRAISING_MANAGER), Platform Admin (SUPER_ADMIN) and Organisation
+   * Admin (TENANT_ADMIN). Every other role reads the file's name and nothing more - DonorCare,
+   * the campaign roles and a plain staff user see "Attachments" with no way to open or take one.
+   * This is the screen's courtesy check; a real fetch is re-checked by the API, so a hand-edited
+   * client gains nothing the server would not already grant.
+   */
+  readonly canViewDownloadAttachment = computed(() => {
+    if (this.tokens.isSuperAdmin() || this.tokens.isTenantAdmin()) return true;
+    const roles = this.tokens.roles();
+    return roles.includes("FUNDRAISER_EXECUTIVE") || roles.includes("FUNDRAISING_MANAGER");
+  });
 
   /** "Your whole organisation", or the caller's own follow-ups - the server's description. */
   readonly scopeLabel = computed(() => this.queue()?.activeScope ?? "");
@@ -1247,14 +1287,50 @@ export class FollowUpQueueComponent {
     this.calendarMonthCursor.set(this.toDateInput(d));
   }
 
+  /**
+   * A day in the CALENDAR was clicked. BUG-094.
+   *
+   * THE VIEW NEVER CHANGES FROM HERE. A day with several follow-ups used to go through
+   * `onStripDateClick`, which switches the screen to the List view - so the person was thrown
+   * out of the calendar and had to find the row and open its three-dot menu to see the detail.
+   * A day with one follow-up opened the detail straight away, so the two cases behaved
+   * differently for no reason the person could see.
+   *
+   * Now both stay in the calendar:
+   *   - one follow-up  -> its detail panel opens, as before;
+   *   - several        -> a small pop-up lists that day's follow-ups; choosing one opens its
+   *                       detail panel. Closing either returns to the same month.
+   *   - none           -> the day is only marked as chosen.
+   */
   onCalendarDayClick(day: { iso: string; items: FollowUp[] }) {
+    this.calendarSelectedDate.set(day.iso);
+
     if (day.items.length === 1) {
       this.openPreview(day.items[0].id);
-    } else {
-      this.calendarSelectedDate.set(day.iso);
-      this.calendarCenterDate.set(day.iso);
-      this.onStripDateClick(day.iso);
+      return;
     }
+
+    if (day.items.length > 1) {
+      this.calendarDayPopup.set({ iso: day.iso, items: [...day.items] });
+    }
+  }
+
+  /** The day whose follow-ups are listed in the calendar pop-up, or null when it is closed. */
+  readonly calendarDayPopup = signal<{ iso: string; items: FollowUp[] } | null>(null);
+
+  /** The pop-up's follow-ups in time order, so the list reads like the day. */
+  readonly calendarDayPopupItems = computed(() =>
+    [...(this.calendarDayPopup()?.items ?? [])].sort((a, b) =>
+      (a.scheduledTime || '').localeCompare(b.scheduledTime || '')));
+
+  closeCalendarDayPopup() {
+    this.calendarDayPopup.set(null);
+  }
+
+  /** A follow-up chosen in the pop-up: the pop-up closes and its detail panel opens, still on the calendar. */
+  openFromCalendarDay(id: string) {
+    this.calendarDayPopup.set(null);
+    this.openPreview(id);
   }
 
   isSelected(id: string) {
@@ -1330,6 +1406,157 @@ export class FollowUpQueueComponent {
   /** The documents uploaded at execution. */
   filesFor(f: FollowUp): string[] {
     return this.reportFor(f).files;
+  }
+
+  /** The attachment viewer, or null. Only opened when the gate allows it. */
+  readonly viewingAttachment = signal<AttachmentViewer | null>(null);
+
+  /** PDF, image, text or Office - decides how the viewer shows the file. */
+  attachmentKind(name: string, type = ""): AttachmentKind {
+    const mime = (type || mimeFromName(name)).toLowerCase();
+    if (mime === "application/pdf") return "pdf";
+    if (mime.startsWith("image/")) return "image";
+    if (mime.startsWith("text/")) return "text";
+    if (mime.includes("word") || mime.includes("officedocument") || mime.includes("excel") || mime.includes("msword")) return "office";
+    return "other";
+  }
+
+  /** The short format label on the viewer: PDF, DOCX, PNG ... */
+  attachmentExt(name: string): string {
+    const ext = name.includes(".") ? name.split(".").pop() ?? "" : "";
+    return ext.toUpperCase() || "FILE";
+  }
+
+  private sizeLabel(bytes: number): string {
+    if (!bytes) return "";
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  /**
+   * Opens the document IN A NEW BROWSER TAB, in its own format: a PDF in the browser's PDF
+   * viewer, an image as the image, a text file as text. No pop-up on this page.
+   *
+   * THE TAB IS OPENED ON THE CLICK ITSELF (before the file is read), because a browser blocks a
+   * new tab opened after an await. The file is then loaded into it, under the file's own name as
+   * the tab title. A Word / Excel file cannot be shown by a browser, so it is downloaded instead -
+   * it opens in Word / Excel in its own format.
+   */
+  async viewAttachment(followUpId: string, name: string): Promise<void> {
+    if (!this.canViewDownloadAttachment()) return;
+
+    const kind = this.attachmentKind(name);
+    if (kind === "office" || kind === "other") {
+      await this.downloadAttachment(followUpId, name);
+      return;
+    }
+
+    const tab = window.open("", "_blank");
+    if (tab) {
+      try {
+        tab.opener = null;
+        tab.document.title = name;
+        tab.document.body.style.cssText = "margin:0;font:14px system-ui,sans-serif;color:#5b6760;display:grid;place-items:center;height:100vh";
+        tab.document.body.textContent = "Opening the document…";
+      } catch {
+        /* the tab is still usable without the placeholder */
+      }
+    }
+
+    const stored = await this.attachmentStore.get(followUpId, name);
+    if (!stored) {
+      tab?.close();
+      this.showToast(`"${name}" is not available on this device. Only its name was recorded with the follow-up.`);
+      return;
+    }
+
+    const type = stored.type || mimeFromName(name);
+    const blob = stored.blob.type === type ? stored.blob : new Blob([stored.blob], { type });
+    const url = URL.createObjectURL(blob);
+    // Kept alive a while so the tab can finish reading it (and reload it), then released.
+    setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+
+    if (!tab) {
+      // Pop-ups blocked: open it in place of a blank tab the browser refused.
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.target = "_blank";
+      anchor.rel = "noopener";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      return;
+    }
+
+    try {
+      // The file fills the tab; the tab carries the file's name instead of a random id.
+      const doc = tab.document;
+      doc.title = name;
+      doc.body.removeAttribute("style");
+      doc.body.textContent = "";
+      doc.body.style.cssText = "margin:0;height:100vh;background:#525659";
+      const realKind = this.attachmentKind(name, type);
+      if (realKind === "image") {
+        doc.body.style.cssText = "margin:0;min-height:100vh;display:grid;place-items:center;background:#1f1f1f";
+        const img = doc.createElement("img");
+        img.src = url;
+        img.alt = name;
+        img.style.cssText = "max-width:100%;max-height:100vh;object-fit:contain";
+        doc.body.appendChild(img);
+      } else {
+        const frame = doc.createElement("iframe");
+        frame.src = url;
+        frame.title = name;
+        frame.style.cssText = "border:0;width:100%;height:100vh;display:block;background:#ffffff";
+        doc.body.appendChild(frame);
+      }
+    } catch {
+      tab.location.href = url;
+    }
+  }
+
+  closeViewAttachment(): void {
+    const current = this.viewingAttachment();
+    if (current?.objectUrl) URL.revokeObjectURL(current.objectUrl);
+    this.viewingAttachment.set(null);
+  }
+
+  /** Opens the file in a new browser tab, in its own format (PDF / image / text). */
+  openAttachmentInNewTab(): void {
+    const current = this.viewingAttachment();
+    if (current?.objectUrl) window.open(current.objectUrl, "_blank", "noopener");
+  }
+
+  /**
+   * Downloads THE ORIGINAL FILE, with its own name and format (a.pdf stays a.pdf, b.docx stays
+   * b.docx). It used to save a .txt note about the file, because only the name was recorded.
+   */
+  async downloadAttachment(target: string | AttachmentViewer, fileName?: string): Promise<void> {
+    if (!this.canViewDownloadAttachment()) return;
+
+    // Called as (followUpId, name) from the panel, or with the open viewer itself (one argument)
+    // from the viewer's own Download button.
+    const followUpId = typeof target === "string" ? target : target.followUpId;
+    const name = typeof target === "string" ? fileName ?? "" : target.name;
+    if (!followUpId || !name) return;
+
+    const stored = await this.attachmentStore.get(followUpId, name);
+    if (!stored) {
+      this.showToast(`"${name}" is not available on this device. Only its name was recorded with the follow-up.`);
+      return;
+    }
+
+    const type = stored.type || mimeFromName(name);
+    const blob = stored.blob.type === type ? stored.blob : new Blob([stored.blob], { type });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = name;
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   /** "Tue, 14 Oct 2026, 02:30 PM" for the executed date and time. */
@@ -1715,6 +1942,11 @@ export class FollowUpQueueComponent {
 
   openCompletion(id: string) {
     const item = this.followUpById(id);
+    // BUG-097: the same rule as the Execute button, for every other way into the execution screen.
+    if (item && !this.canExecute(item)) {
+      this.showToast(this.executeHint(item));
+      return;
+    }
     this.router.navigate(
       ["/app/fundraising/relationships/follow-up-execution"],
       {
@@ -1728,7 +1960,19 @@ export class FollowUpQueueComponent {
   }
 
     openBulkComplete() {
-    const ids = this.selectedWith("Execute");
+    const allowed = this.selectedWith("Execute");
+    // BUG-097: upcoming follow-ups are left out of a bulk completion as well.
+    const ids = allowed.filter((id) => {
+      const row = this.followUpById(id);
+      return !!row && !this.isUpcoming(row);
+    });
+    if (ids.length < allowed.length) {
+      this.showToast(
+        ids.length === 0
+          ? "Upcoming follow-ups cannot be executed before their scheduled day."
+          : `${allowed.length - ids.length} upcoming follow-up(s) left out - they can be executed from their scheduled day.`,
+      );
+    }
     if (!ids.length) return;
     this.completionNote.set("");
     this.activeModal.set({ kind: "complete", ids });
@@ -1812,20 +2056,50 @@ export class FollowUpQueueComponent {
    * leaves Execute off that row's actions, and refuses the call if it is made anyway.
    */
   canExecute(f: FollowUp): boolean {
-    return f.permittedActions.includes("Execute") && f.dependencyStatus !== "Blocked";
+    // "only they can execute it": a colleague's row never shows the Execute (play) icon, even if
+    // the server's action list says otherwise - the assignee is the only one who executes.
+    return f.isOpen
+      && f.isMine
+      && f.permittedActions.includes("Execute")
+      && f.dependencyStatus !== "Blocked"
+      // BUG-097: an UPCOMING follow-up cannot be executed yet. It is work planned for a later
+      // day; recording it as done now would close it before the contact it describes could
+      // have happened, and the queue's "due today" / "overdue" counts would stop being true.
+      && !this.isUpcoming(f);
+  }
+
+  /**
+   * Scheduled for a LATER day than the organisation's today - Tomorrow or Upcoming.
+   *
+   * Read two ways, so a missing or differently-worded `dueState` cannot let one through: the
+   * server's own word for it, and the scheduled date against the server's today (both
+   * yyyy-mm-dd, so a plain string comparison orders them). Today's and overdue follow-ups are
+   * NOT upcoming - they are exactly the ones meant to be executed.
+   */
+  isUpcoming(f: FollowUp): boolean {
+    if (!f.isOpen) return false;
+    const state = (f.dueState ?? "").trim().toLowerCase();
+    if (state === "upcoming" || state === "tomorrow") return true;
+    const due = (f.scheduledDate ?? "").slice(0, 10);
+    return !!due && !!this.today && due > this.today;
   }
 
   /** Who may execute an open follow-up the caller cannot - the drawer's line in place of the button. */
   executeHint(f: FollowUp): string {
     if (!f.isOpen) return "This follow-up is closed";
+    if (!f.isMine) return `Assigned to ${f.assignedTo} - only they can execute it`;
     if (!f.permittedActions.includes("Execute")) {
       return f.isMine
         ? "You do not have permission to execute follow-ups"
         : `Assigned to ${f.assignedTo} - only they can execute it`;
     }
-    return f.dependencyStatus === "Blocked"
-      ? `Blocked: ${f.dependencyBlockedReason ?? "dependency pending"}`
-      : "Execute";
+    if (f.dependencyStatus === "Blocked") {
+      return `Blocked: ${f.dependencyBlockedReason ?? "dependency pending"}`;
+    }
+    if (this.isUpcoming(f)) {
+      return `Scheduled for ${this.formatDate(f.scheduledDate)} - it can be executed from that day`;
+    }
+    return "Execute";
   }
 
   executeFollowUp(f: FollowUp) {
@@ -1851,6 +2125,14 @@ export class FollowUpQueueComponent {
   }
   @HostListener("document:keydown.escape")
   onEscapeKey() {
+    if (this.calendarDayPopup()) {
+      this.closeCalendarDayPopup();
+      return;
+    }
+    if (this.viewingAttachment()) {
+      this.closeViewAttachment();
+      return;
+    }
     if (this.activeModal()) {
       this.closeModal();
       return;

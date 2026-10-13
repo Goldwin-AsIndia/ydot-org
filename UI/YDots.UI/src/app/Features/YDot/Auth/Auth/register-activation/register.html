@@ -10,7 +10,13 @@
     <!-- ===================================================================================
          Header and progress rail
          =================================================================================== -->
-    <div class="px-6 pt-8 pb-4 text-center">
+    <div class="act-head px-6 pt-8 pb-4 text-center">
+      <!-- BUG-125: the card had no way out. One close button, top-right, on every step. -->
+      <button type="button" class="act-close" (click)="closeActivation()"
+              aria-label="Close" title="Close">
+        <i class="ri-close-line" aria-hidden="true"></i>
+      </button>
+
       <a routerLink="/auth/sign-in" class="d-inline-flex align-items-center gap-2 mb-6 text-decoration-none">
         <span class="ydot-mark" role="img" aria-label="YDot" style="width: calc(44px * var(--ui-scale, 1));"></span>
         <span class="h5 mb-0 fw-semibold text-body">YDot</span>
@@ -51,12 +57,12 @@
            =================================================================================== -->
       @else if (!invitation()?.isValid) {
         <div class="text-center py-4">
-          <div class="mb-3"><i class="ri-mail-close-line text-warning" style="font-size: 3rem;"></i></div>
+          <div class="act-state-badge act-state-badge--warn mx-auto mb-3" aria-hidden="true"><i class="ri-mail-close-line"></i></div>
           <h5 class="mb-2">This invitation cannot be used</h5>
           <p class="text-muted mb-4">{{ errorMessage() || invitation()?.message }}</p>
 
           @if (infoMessage()) {
-            <div class="alert alert-success d-flex align-items-start gap-2 text-start" role="alert">
+            <div class="alert alert-success d-flex align-items-center gap-2 text-start" role="alert">
               <i class="ri-mail-check-line mt-1"></i><span>{{ infoMessage() }}</span>
             </div>
           }
@@ -137,7 +143,7 @@
           </div>
         </div>
 
-        <div class="alert alert-light border small d-flex align-items-start gap-2 mb-4">
+        <div class="alert alert-light border small d-flex align-items-end gap-2 mb-4">
           <i class="ri-time-line mt-1"></i>
           <span>This invitation expires on <strong>{{ invitation()?.expiresAtUtc | date: 'medium' }}</strong>.</span>
         </div>
@@ -430,7 +436,9 @@
            =================================================================================== -->
       @else {
         <div class="text-center mb-4">
-          <div class="mb-3"><i class="ri-checkbox-circle-line text-success" style="font-size: 3.25rem;"></i></div>
+          <!-- BUG-125: one success badge at a proper size (the bare icon was shrunk to a dot by the
+               global icon rules). -->
+          <div class="act-done-badge mx-auto mb-3" aria-hidden="true"><i class="ri-check-line"></i></div>
           <h5 class="mb-2">Your account is active</h5>
           <p class="text-muted mb-0">
             Reference <strong>{{ userCode() }}</strong> &middot;
@@ -442,7 +450,7 @@
           <!-- These exist in readable form only in this response. The server keeps hashes, so
                nobody — not even an administrator — can show them again. -->
           <div class="alert alert-warning d-flex align-items-start gap-2 mb-3">
-            <i class="ri-alarm-warning-line mt-1"></i>
+            <i class="ri-alarm-warning-line act-alert-ico"></i>
             <span>{{ recoveryNotice() }}</span>
           </div>
 

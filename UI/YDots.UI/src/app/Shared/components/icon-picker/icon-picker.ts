@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   REMIX_ICON_GROUPS,
@@ -49,7 +49,18 @@ export class IconPickerComponent {
    */
   readonly inheritedIcon = input<string | null | undefined>(null);
 
+  /**
+   * Open the panel IN FLOW under the trigger instead of floating over the page.
+   *
+   * For a host that scrolls - a side sheet, a long form - a floating panel hangs past the scroll
+   * area and under the footer, where it cannot be reached. Inline, it pushes the content below
+   * it down and the host's own scroll reaches it.
+   */
+  readonly inline = input<boolean>(false);
+
   readonly changed = output<string | null>();
+
+  private readonly host = inject(ElementRef<HTMLElement>);
 
   protected readonly open = signal(false);
   protected readonly search = signal('');
@@ -102,6 +113,28 @@ export class IconPickerComponent {
 
   protected close(): void {
     this.open.set(false);
+  }
+
+  /**
+   * A press outside the picker closes it.
+   *
+   * IT USED TO BE A FULL-SCREEN BACKDROP (position: fixed, inset: 0). That also caught every
+   * wheel and touch scroll while the panel was open, so the sheet or page behind it could not be
+   * scrolled up or down. Listening for the press instead closes it the same way and leaves
+   * scrolling alone.
+   */
+  @HostListener('document:pointerdown', ['$event'])
+  protected onOutside(event: PointerEvent): void {
+    if (!this.open()) return;
+    const target = event.target as Node | null;
+    if (target && !this.host.nativeElement.contains(target)) {
+      this.open.set(false);
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  protected onEscape(): void {
+    if (this.open()) this.open.set(false);
   }
 
   protected choose(name: string): void {

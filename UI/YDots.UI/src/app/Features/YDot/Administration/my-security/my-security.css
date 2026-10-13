@@ -1686,3 +1686,57 @@ app-page-header.ph-host--card.ph-host--card.ph-host--card { background: transpar
   .msec-info-card, .msec-action-card{ flex-direction:column !important; }
   .msec-info-divider{ width:100% !important; height:1px !important; }
 }
+
+/* =====================================================================================================
+   PASSWORD EYE - show / hide toggle inside each Change Password field
+   The eye sits inside the box on the right; the input keeps room for it so typed text never runs
+   under the icon. Works with the invalid (red) state and on a phone.
+   ===================================================================================================== */
+.msec-pwd {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.msec-pwd > .msec-input--pwd {
+  padding-right: calc(46px * var(--ui-scale, 1)) !important;
+}
+/* hide the browser's own reveal button (Edge / IE) so there is only one eye */
+.msec-pwd > .msec-input--pwd::-ms-reveal,
+.msec-pwd > .msec-input--pwd::-ms-clear {
+  display: none;
+}
+.msec-pwd__eye {
+  position: absolute;
+  top: 50%;
+  right: calc(6px * var(--ui-scale, 1));
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: calc(34px * var(--ui-scale, 1));
+  height: calc(34px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  border-radius: calc(8px * var(--ui-scale, 1));
+  background: transparent;
+  color: var(--muted, #6b736f);
+  cursor: pointer;
+  transition: color .15s ease, background-color .15s ease;
+}
+.msec-pwd__eye i {
+  font-size: calc(18px * var(--ui-scale, 1)) !important;
+  line-height: 1 !important;
+}
+.msec-pwd__eye:hover,
+.msec-pwd__eye[aria-pressed='true'] {
+  color: var(--accent, #3f7a57);
+  background: color-mix(in srgb, var(--accent, #3f7a57) 8%, transparent);
+}
+.msec-pwd__eye:focus-visible {
+  outline: 2px solid var(--accent, #3f7a57);
+  outline-offset: 1px;
+}
+/* invalid field: red border, and the eye stays clear of Bootstrap's warning icon */
+.msec-pwd > .msec-input--pwd.is-invalid {
+  border-color: #dc3545 !important;
+  background-image: none !important;
+}

@@ -312,7 +312,7 @@
      ===================================================================================== -->
 @if (dialog() === 'view' || dialog() === 'edit') {
   <div class="dir-overlay" (click)="closeDialog()"></div>
-  <aside class="dir-sheet" role="dialog" aria-modal="true">
+  <aside class="dir-sheet" role="dialog" aria-modal="true" style="top:0 !important;bottom:0 !important;right:0 !important;max-height:100vh">
 
     <!-- ===== View ===== -->
     @if (dialog() === 'view') {
@@ -437,8 +437,8 @@
 
     <!-- ===== Edit ===== -->
     @if (dialog() === 'edit') {
-      <div class="dir-sheet-hero">
-        <div class="dir-sheet-bar">
+      <div class="dir-sheet-hero" style="padding-top:12px !important">
+        <div class="dir-sheet-bar" style="margin-bottom:10px !important">
           <span class="dir-sheet-eyebrow"><i class="ri-edit-line"></i> Edit profile</span>
           <button type="button" class="dir-sheet-x" aria-label="Close" (click)="closeDialog()">
             <i class="ri-close-line"></i>
@@ -462,11 +462,11 @@
             <span>The login e-mail, role and data scope are changed elsewhere, because each needs its own approval.</span>
           </div>
 
-          @if (errorMessage()) {
+          <!-- @if (errorMessage()) {
             <div class="dir-alert-inline" role="alert">
               <i class="ri-error-warning-line"></i><span>{{ errorMessage() }}</span>
             </div>
-          }
+          } -->
 
           <section class="dir-sec">
             <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-user-3-line"></i></span>Name</h6>
@@ -482,32 +482,32 @@
                 </select>
               </div>
               <div class="dir-f-span-4">
-                <label class="dir-f-label" for="edFirst">First name <span class="dir-req">*</span></label>
-                <input id="edFirst" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('firstName')" [value]="editForm().firstName"
+                <label class="dir-f-label" for="edFirst">First name <span class="dir-req text-danger" style="color:#dc3545 !important;font-weight:700;margin-left:2px">*</span></label>
+                <input id="edFirst" [attr.style]="editError('firstName') ? invalidStyle : null" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('firstName')" [value]="editForm().firstName"
                        (input)="updateEditField('firstName', $any($event.target).value)" (blur)="touchEdit('firstName')" maxlength="80">
                 @if (editError('firstName')) { <div class="invalid-feedback d-block">{{ editError('firstName') }}</div> }
               </div>
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edMiddle">Middle name</label>
-                <input id="edMiddle" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('middleName')" [value]="editForm().middleName"
+                <input id="edMiddle" [attr.style]="editError('middleName') ? invalidStyle : null" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('middleName')" [value]="editForm().middleName"
                        (input)="updateEditField('middleName', $any($event.target).value)" (blur)="touchEdit('middleName')" maxlength="80">
                 @if (editError('middleName')) { <div class="invalid-feedback d-block">{{ editError('middleName') }}</div> }
               </div>
               <div class="dir-f-span-3">
-                <label class="dir-f-label" for="edLast">Last name <span class="dir-req">*</span></label>
-                <input id="edLast" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('lastName')" [value]="editForm().lastName"
+                <label class="dir-f-label" for="edLast">Last name <span class="dir-req text-danger" style="color:#dc3545 !important;font-weight:700;margin-left:2px">*</span></label>
+                <input id="edLast" [attr.style]="editError('lastName') ? invalidStyle : null" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('lastName')" [value]="editForm().lastName"
                        (input)="updateEditField('lastName', $any($event.target).value)" (blur)="touchEdit('lastName')" maxlength="80">
                 @if (editError('lastName')) { <div class="invalid-feedback d-block">{{ editError('lastName') }}</div> }
               </div>
               <div class="dir-f-span-3">
-                <label class="dir-f-label" for="edDisplay">Display name <span class="dir-req">*</span></label>
-                <input id="edDisplay" class="dir-f-control" [class.is-invalid]="!!editError('displayName')" [value]="editForm().displayName"
+                <label class="dir-f-label" for="edDisplay">Display name <span class="dir-req text-danger" style="color:#dc3545 !important;font-weight:700;margin-left:2px">*</span></label>
+                <input id="edDisplay" [attr.style]="editError('displayName') ? invalidStyle : null" class="dir-f-control" [class.is-invalid]="!!editError('displayName')" [value]="editForm().displayName"
                        (input)="updateEditField('displayName', $any($event.target).value)" (blur)="touchEdit('displayName')" data-input="name" maxlength="160">
                 @if (editError('displayName')) { <div class="invalid-feedback d-block">{{ editError('displayName') }}</div> }
               </div>
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edPreferred">Preferred name</label>
-                <input id="edPreferred" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('preferredName')" [value]="editForm().preferredName"
+                <input id="edPreferred" [attr.style]="editError('preferredName') ? invalidStyle : null" data-input="name" class="dir-f-control" [class.is-invalid]="!!editError('preferredName')" [value]="editForm().preferredName"
                        (input)="updateEditField('preferredName', $any($event.target).value)" (blur)="touchEdit('preferredName')" maxlength="160">
                 @if (editError('preferredName')) { <div class="invalid-feedback d-block">{{ editError('preferredName') }}</div> }
               </div>
@@ -519,7 +519,7 @@
             <div class="dir-form-grid">
               <div class="dir-f-span-2">
                 <label class="dir-f-label" for="edCode">Country code</label>
-                <select id="edCode" class="dir-f-control" [class.is-invalid]="!!editError('mobileCountryCode')" [value]="editForm().mobileCountryCode"
+                <select id="edCode" [attr.style]="editError('mobileCountryCode') ? invalidStyle : null" class="dir-f-control" [class.is-invalid]="!!editError('mobileCountryCode')" [value]="editForm().mobileCountryCode"
                         (change)="updateEditField('mobileCountryCode', $any($event.target).value); touchEdit('mobileCountryCode')">
                   <option value="">Code</option>
                   @for (code of withCurrent(dialCodeOptions(), editForm().mobileCountryCode); track code) {
@@ -530,7 +530,7 @@
               </div>
               <div class="dir-f-span-4">
                 <label class="dir-f-label" for="edMobile">Mobile</label>
-                <input id="edMobile" class="dir-f-control" [class.is-invalid]="!!editError('mobileNumber')" type="tel" inputmode="numeric" maxlength="15" [value]="editForm().mobileNumber"
+                <input id="edMobile" [attr.style]="editError('mobileNumber') ? invalidStyle : null" class="dir-f-control" [class.is-invalid]="!!editError('mobileNumber')" type="tel" inputmode="numeric" maxlength="15" [value]="editForm().mobileNumber"
                        (input)="updateEditField('mobileNumber', $any($event.target).value)" (blur)="touchEdit('mobileNumber')">
                 @if (editError('mobileNumber')) { <div class="invalid-feedback d-block">{{ editError('mobileNumber') }}</div> }
               </div>
@@ -542,13 +542,13 @@
             <div class="dir-form-grid">
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edEmployee">Employee number</label>
-                <input id="edEmployee" class="dir-f-control" [class.is-invalid]="!!editError('employeeNumber')" maxlength="40" [value]="editForm().employeeNumber"
+                <input id="edEmployee" [attr.style]="editError('employeeNumber') ? invalidStyle : null" class="dir-f-control" [class.is-invalid]="!!editError('employeeNumber')" maxlength="40" [value]="editForm().employeeNumber"
                        (input)="updateEditField('employeeNumber', $any($event.target).value)" (blur)="touchEdit('employeeNumber')">
                 @if (editError('employeeNumber')) { <div class="invalid-feedback d-block">{{ editError('employeeNumber') }}</div> }
               </div>
               <div class="dir-f-span-3">
                 <label class="dir-f-label" for="edDesignation">Designation</label>
-                <input id="edDesignation" class="dir-f-control" [class.is-invalid]="!!editError('designation')" maxlength="120" [value]="editForm().designation"
+                <input id="edDesignation" [attr.style]="editError('designation') ? invalidStyle : null" class="dir-f-control" [class.is-invalid]="!!editError('designation')" maxlength="120" [value]="editForm().designation"
                        (input)="updateEditField('designation', $any($event.target).value)" (blur)="touchEdit('designation')">
                 @if (editError('designation')) { <div class="invalid-feedback d-block">{{ editError('designation') }}</div> }
               </div>
@@ -591,10 +591,18 @@
           <!-- The API requires a reason on every profile change. It is what makes the audit
                trail answer "why", not just "what". -->
           <section class="dir-sec dir-sec-audit">
-            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-file-list-3-line"></i></span>Reason for this change <span class="dir-req">*</span></h6>
-            <textarea id="edReason" class="dir-f-control" rows="3"
+            <h6 class="dir-sec-title"><span class="dir-sec-ico"><i class="ri-file-list-3-line"></i></span>Reason for this change <span class="dir-req text-danger" style="color:#dc3545 !important;font-weight:700;margin-left:2px">*</span></h6>
+            <!-- BUG-114: a standard required field. "form-control" brings the app's own invalid style
+                 (red border + ring), and the inline style keeps the placeholder regular weight and
+                 grey whatever the global textarea rules say. -->
+            <textarea id="edReason" class="form-control dir-f-control dir-reason" rows="3"
                       placeholder="For example: corrected the spelling of the surname at the user's request."
-                      [class.is-invalid]="!!editError('reason')" (ngModelChange)="onEditReasonChange()" (blur)="touchEdit('reason')" maxlength="500"
+                      [class.is-invalid]="!!editError('reason')"
+                      [attr.aria-invalid]="!!editError('reason')"
+                      [attr.style]="editError('reason')
+                        ? 'font-weight:400 !important;border-color:#dc3545 !important;box-shadow:0 0 0 3px rgba(220,53,69,.15) !important'
+                        : 'font-weight:400 !important'"
+                      (ngModelChange)="onEditReasonChange()" (blur)="touchEdit('reason')" maxlength="500"
                       [(ngModel)]="reason" name="editReason"></textarea>
             @if (editError('reason')) { <div class="invalid-feedback d-block">{{ editError('reason') }}</div> }
             <div class="dir-f-meta">
@@ -715,7 +723,7 @@
                   placeholder="Anything you would like them to read before they start."
                   [(ngModel)]="welcomeMessage" name="welcomeMessage"></textarea>
       } @else {
-        <label class="dir-f-label" for="dlgReason">Reason <span class="dir-req">*</span></label>
+        <label class="dir-f-label" for="dlgReason">Reason <span class="dir-req text-danger" style="color:#dc3545 !important;font-weight:700;margin-left:2px">*</span></label>
         <textarea id="dlgReason" class="dir-f-control" rows="3"
                   [placeholder]="dialog() === 'suspend' ? 'Why is this account being suspended?'
                                : dialog() === 'reactivate' ? 'Why is access being restored?'

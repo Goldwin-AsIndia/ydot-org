@@ -574,4 +574,33 @@ export class RegisterComponent implements OnInit {
   goToSignIn(): void {
     void this.router.navigate(['/auth/sign-in']);
   }
+
+  /**
+   * The close (X) on the card - BUG-125: there was no way to leave the screen.
+   *
+   * WHERE IT GOES. A `returnUrl` on the link wins (My Security passes one), so the person lands
+   * back where they started. Otherwise: once the account is active the person is signed in, so
+   * the dashboard; before that they are not, so the sign-in page.
+   *
+   * THE RECOVERY CODES ARE THE ONE THING CLOSE MUST NOT LOSE SILENTLY. They are shown once and
+   * never again, so closing before ticking "I have saved these codes" asks first.
+   */
+  closeActivation(): void {
+    if (this.step() === 'complete' && this.recoveryCodes().length > 0 && !this.recoveryAcknowledged()) {
+      const leave = window.confirm(
+        'You have not confirmed that you saved your recovery codes. They will not be shown again. Close anyway?');
+      if (!leave) {
+        return;
+      }
+    }
+
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    // Only an in-app path is followed, never an absolute URL handed in on the link.
+    if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
+      void this.router.navigateByUrl(returnUrl);
+      return;
+    }
+
+    void this.router.navigate([this.step() === 'complete' ? '/app/dashboard' : '/auth/sign-in']);
+  }
 }
