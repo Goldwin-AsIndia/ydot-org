@@ -94,6 +94,30 @@ public sealed class PaymentsController(
     // The gateway event queue - SCR-PAY-003
     // =====================================================================================
 
+    /// <summary>
+    /// The Payments &amp; Receipts page: issued receipts and failed or pending gateway events as one
+    /// paged list, with the five tiles counted over the whole scope and the status choices.
+    /// </summary>
+    [HttpGet("activity")]
+    [HasPermission(PermissionCodes.PaymentsViewEvents)]
+    [ProducesResponseType(typeof(ApiResponse<PaymentActivityResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetActivityAsync(
+        [FromQuery] PaymentActivityFilter filter,
+        [FromServices] PaymentActivityQueryHandler activity,
+        CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Payments and receipts activity requested.");
+
+        var result = await activity.HandleAsync(new GetPaymentActivityQuery(filter), cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            logger.LogWarning("Payments and receipts activity could not be completed.");
+        }
+
+        return FromResult(result);
+    }
+
     /// <summary>The event queue.</summary>
     [HttpGet("events")]
     [HasPermission(PermissionCodes.PaymentsViewEvents)]

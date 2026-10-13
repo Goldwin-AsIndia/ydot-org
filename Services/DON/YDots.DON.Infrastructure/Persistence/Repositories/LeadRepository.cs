@@ -255,18 +255,22 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
             return leads.OrderByDescending(lead => lead.CreatedAtUtc);
         }
 
-        // An explicit order from the queue's Sort control. Only these four expressions are
-        // honoured; anything else falls through to the work-queue order below.
+        // An explicit order from the queue's Sort control - the keys LeadQueueCatalogue.SortOptions
+        // serves, or the older expressions. Anything else falls through to the work-queue order.
         switch ((filter.Sort ?? string.Empty).Trim().ToLowerInvariant())
         {
+            case "oldest":
             case "createdatutc asc":
                 return leads.OrderBy(lead => lead.CreatedAtUtc);
+            case "newest":
             case "createdatutc desc":
                 return leads.OrderByDescending(lead => lead.CreatedAtUtc);
+            case "name-asc":
             case "name asc":
                 return leads
                     .OrderBy(lead => lead.DisplayName ?? lead.FirstName)
                     .ThenBy(lead => lead.CreatedAtUtc);
+            case "name-desc":
             case "name desc":
                 return leads
                     .OrderByDescending(lead => lead.DisplayName ?? lead.FirstName)
@@ -501,7 +505,17 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
                 HighPotential = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.DonationPotential == DonationPotential.High),
                 Recent = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.CreatedAtUtc >= recentFrom),
                 Warm = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.Temperature == LeadTemperature.Warm),
-                Cold = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.Temperature == LeadTemperature.Cold)
+                Cold = group.Count(lead => lead.ConvertedDonorId == null && lead.Status != LeadStatus.Converted && lead.Temperature == LeadTemperature.Cold),
+
+                // THE LEADS THE "DUE TODAY" AND "OVERDUE" VIEWS RETURN, by the same rule as the
+                // follow-up-state filter: a worked lead whose next contact falls in (or before) the
+                // organisation's day. The task counts below answer a different question.
+                LeadsDueToday = group.Count(lead => lead.NextActionDueUtc != null && lead.ConvertedDonorId == null
+                    && lead.Status != LeadStatus.Converted && lead.Status != LeadStatus.Closed && lead.Status != LeadStatus.Suppressed
+                    && lead.NextActionDueUtc >= todayStartUtc && lead.NextActionDueUtc < todayEndUtc),
+                LeadsOverdue = group.Count(lead => lead.NextActionDueUtc != null && lead.ConvertedDonorId == null
+                    && lead.Status != LeadStatus.Converted && lead.Status != LeadStatus.Closed && lead.Status != LeadStatus.Suppressed
+                    && lead.NextActionDueUtc < todayStartUtc)
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -517,10 +531,10 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
 
         // An empty queue produces no group at all, and zeroes are the honest answer.
         return lanes is null
-            ? new LeadQueueSummaryResponse(0, 0, 0, 0, 0, 0, 0, 0, 0, dueToday, overdue)
+            ? new LeadQueueSummaryResponse(0, 0, 0, 0, 0, 0, 0, 0, 0, dueToday, overdue, 0, 0)
             : new LeadQueueSummaryResponse(
                 lanes.Total, lanes.Unassigned, lanes.Assigned, lanes.Hot, lanes.Converted, lanes.HighPotential,
-                lanes.Recent, lanes.Warm, lanes.Cold, dueToday, overdue);
+                lanes.Recent, lanes.Warm, lanes.Cold, dueToday, overdue, lanes.LeadsDueToday, lanes.LeadsOverdue);
     }
 
     public void Add(Lead lead) => context.Leads.Add(lead);

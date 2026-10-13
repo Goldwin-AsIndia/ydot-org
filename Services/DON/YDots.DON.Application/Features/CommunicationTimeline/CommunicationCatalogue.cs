@@ -14,32 +14,57 @@ namespace YDots.DON.Application.Features.CommunicationTimeline;
 /// </summary>
 public static class CommunicationCatalogue
 {
+    /// <summary>The channels a communication is logged on. The description is the timeline's lane heading.</summary>
     public static IReadOnlyList<LookupItem> InteractionTypes { get; } =
     [
-        new("Call", "Call"),
-        new("Email", "Email"),
-        new("Sms", "SMS"),
-        new("WhatsApp", "WhatsApp"),
-        new("Meeting", "Meeting"),
-        new("Visit", "Visit"),
-        new("Note", "Internal note")
+        new("Call", "Call", "Calls"),
+        new("Email", "Email", "Emails"),
+        new("Sms", "SMS", "SMS"),
+        new("WhatsApp", "WhatsApp", "WhatsApp"),
+        new("Meeting", "Meeting", "Meetings"),
+        new("Visit", "Visit", "Visits"),
+        new("Note", "Internal note", "Notes")
     ];
 
-    /// <summary>Every outcome a person may record. NotContacted is a state, never something logged.</summary>
+    public const string ReachedGroup = "reached";
+    public const string WarmGroup = "warm";
+    public const string AwaitingGroup = "awaiting";
+    public const string ClosedGroup = "closed";
+
+    /// <summary>
+    /// The four kinds of result the outcome picker lays the outcomes out in, and the tone each one
+    /// is drawn in. Every outcome's description below names its group.
+    /// </summary>
+    public static IReadOnlyList<LookupItem> OutcomeGroups { get; } =
+    [
+        new(ReachedGroup, "Reached", "Contact was made"),
+        new(WarmGroup, "Warm signals", "Moving towards a gift"),
+        new(AwaitingGroup, "Awaiting", "Needs another touch"),
+        new(ClosedGroup, "Closed", "Stop or correct")
+    ];
+
+    /// <summary>
+    /// Every outcome a person may record, with the group it belongs to as its description.
+    /// NotContacted is a state, never something logged.
+    /// </summary>
     public static IReadOnlyList<LookupItem> Outcomes { get; } =
     [
-        new(nameof(ContactOutcome.Reached), "Connected"),
-        new(nameof(ContactOutcome.NoAnswer), "No answer"),
-        new(nameof(ContactOutcome.Interested), "Interested"),
-        new(nameof(ContactOutcome.CallbackRequested), "Requested callback"),
-        new(nameof(ContactOutcome.MeetingScheduled), "Meeting scheduled"),
-        new(nameof(ContactOutcome.MeetingCompleted), "Meeting completed"),
-        new(nameof(ContactOutcome.InformationRequested), "Requested information"),
-        new(nameof(ContactOutcome.DonationDiscussion), "Donation discussion"),
-        new(nameof(ContactOutcome.NotInterested), "Not interested"),
-        new(nameof(ContactOutcome.WrongNumber), "Wrong contact"),
-        new(nameof(ContactOutcome.DoNotContact), "Do not contact")
+        new(nameof(ContactOutcome.Reached), "Connected", ReachedGroup),
+        new(nameof(ContactOutcome.NoAnswer), "No answer", AwaitingGroup),
+        new(nameof(ContactOutcome.Interested), "Interested", WarmGroup),
+        new(nameof(ContactOutcome.CallbackRequested), "Requested callback", AwaitingGroup),
+        new(nameof(ContactOutcome.MeetingScheduled), "Meeting scheduled", ReachedGroup),
+        new(nameof(ContactOutcome.MeetingCompleted), "Meeting completed", WarmGroup),
+        new(nameof(ContactOutcome.InformationRequested), "Requested information", AwaitingGroup),
+        new(nameof(ContactOutcome.DonationDiscussion), "Donation discussion", WarmGroup),
+        new(nameof(ContactOutcome.NotInterested), "Not interested", ClosedGroup),
+        new(nameof(ContactOutcome.WrongNumber), "Wrong contact", ClosedGroup),
+        new(nameof(ContactOutcome.DoNotContact), "Do not contact", ClosedGroup)
     ];
+
+    /// <summary>The group an outcome belongs to, or null for one nobody logs (NotContacted).</summary>
+    public static string? OutcomeGroup(string outcome) =>
+        Outcomes.FirstOrDefault(item => item.Value == outcome)?.Description;
 
     public static IReadOnlyList<LookupItem> Directions { get; } =
     [

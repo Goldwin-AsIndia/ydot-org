@@ -25,6 +25,12 @@ public static class SupportedLanguages
         new("pa-IN", "Punjabi")
     ];
 
+    /// <summary>The language's name for a stored code ("ta-IN" is "Tamil"); the code itself when the catalogue has no such entry.</summary>
+    public static string LabelOf(string? code) =>
+        All.FirstOrDefault(item => string.Equals(item.Value, code?.Trim(), StringComparison.OrdinalIgnoreCase))?.Label
+        ?? code
+        ?? string.Empty;
+
     public static bool IsSupported(string? code) =>
         !string.IsNullOrWhiteSpace(code)
         && All.Any(item => string.Equals(item.Value, code.Trim(), StringComparison.OrdinalIgnoreCase));

@@ -210,6 +210,62 @@ public sealed class TrackingAssetReadService(
             income.GetValueOrDefault(row.Asset.Id)))];
     }
 
+    public async Task<TrackingAssetSummaryResponse> GetSummaryAsync(
+        Guid? campaignId, AccessScope scope, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+
+        var now = clock.UtcNow;
+        var query = ApplyScope(context.TrackingAssets.AsNoTracking(), scope);
+
+        if (campaignId.HasValue)
+        {
+            query = query.Where(asset => asset.CampaignId == campaignId.Value);
+        }
+
+        // ONE ROUND TRIP FOR THE CARDS, the GroupBy(1) shape the other summaries use.
+        var counts = await query
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Total = group.Count(),
+                Live = group.Count(asset => asset.Status == TrackingAssetStatus.Active
+                                            && asset.ActiveFrom <= now && asset.ActiveTo >= now),
+                Draft = group.Count(asset => asset.Status == TrackingAssetStatus.Draft),
+                Submitted = group.Count(asset => asset.Status == TrackingAssetStatus.Submitted),
+                QrCodes = group.Count(asset => asset.AssetType == TrackingAssetType.QRCode),
+                Usage = group.Sum(asset => (long)asset.UsageCount),
+                LiveUsage = group.Sum(asset => asset.Status == TrackingAssetStatus.Active
+                                               && asset.ActiveFrom <= now && asset.ActiveTo >= now
+                                                   ? (long)asset.UsageCount
+                                                   : 0L)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var types = await query.Select(asset => asset.AssetType).Distinct().CountAsync(cancellationToken);
+
+        var total = counts?.Total ?? 0;
+        var live = counts?.Live ?? 0;
+        var usage = counts?.Usage ?? 0L;
+        var liveUsage = counts?.LiveUsage ?? 0L;
+
+        return new TrackingAssetSummaryResponse(
+            total,
+            live,
+            counts?.Draft ?? 0,
+            counts?.Submitted ?? 0,
+            types,
+            usage,
+            total == 0 ? 0 : (int)Math.Round(live * 100m / total),
+            usage == 0 ? 0 : (int)Math.Round(liveUsage * 100m / usage),
+            [
+                new("all", "All tracking assets (Default)", "Every asset in scope", null, null, total),
+                new("qr", "QR destinations", "Printable QR codes", nameof(TrackingAssetType.QRCode), null, counts?.QrCodes ?? 0),
+                new("awaiting", "Awaiting approval", "Submitted, waiting for an approver", null, nameof(TrackingAssetStatus.Submitted), counts?.Submitted ?? 0)
+            ],
+            now);
+    }
+
     /// <summary>
     /// Narrows to assets on the caller's own campaigns when their data scope says so.
     ///
@@ -232,11 +288,29 @@ public sealed class TrackingAssetReadService(
         {
             var term = filter.Search.Trim().ToLowerInvariant();
 
+            // THE CAMPAIGN'S NAME AND CODE TOO - the manager's search box says "reference,
+            // destination or campaign", and the browser used to match the campaign itself.
             query = query.Where(asset =>
                 asset.Code.ToLower().Contains(term)
                 || asset.Destination.ToLower().Contains(term)
                 || (asset.TrackingReference != null && asset.TrackingReference.ToLower().Contains(term))
-                || (asset.ContentTag != null && asset.ContentTag.ToLower().Contains(term)));
+                || (asset.ContentTag != null && asset.ContentTag.ToLower().Contains(term))
+                || asset.Campaign.Name.ToLower().Contains(term)
+                || asset.Campaign.Code.ToLower().Contains(term));
+        }
+
+        // As UTC: the column is timestamptz, and Npgsql refuses an instant written with any other
+        // offset - a query string carrying "+05:30" would otherwise answer 500.
+        if (filter.ActiveFromOnOrAfterUtc.HasValue)
+        {
+            var from = filter.ActiveFromOnOrAfterUtc.Value.ToUniversalTime();
+            query = query.Where(asset => asset.ActiveFrom >= from);
+        }
+
+        if (filter.ActiveFromOnOrBeforeUtc.HasValue)
+        {
+            var to = filter.ActiveFromOnOrBeforeUtc.Value.ToUniversalTime();
+            query = query.Where(asset => asset.ActiveFrom <= to);
         }
 
         if (filter.CampaignId.HasValue)

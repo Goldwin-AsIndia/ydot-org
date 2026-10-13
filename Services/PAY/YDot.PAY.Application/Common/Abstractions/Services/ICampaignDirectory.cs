@@ -108,7 +108,13 @@ public sealed record PublicCampaignSummary(
     /// ZERO MEANS "NOT STATED", which is what a campaign created before the column existed holds.
     /// A donation form treats zero as "no amount to prefill" rather than as a free gift.
     /// </summary>
-    decimal CampaignAmount);
+    decimal CampaignAmount,
+
+    /// <summary>
+    /// The line the campaign picker prints under the name - "Open until 31 Oct 2026". The forms
+    /// used to print a fixed "Open for donations" under every appeal.
+    /// </summary>
+    string Availability = "Open for donations");
 
 /// <summary>
 /// What a tracking reference resolves to.

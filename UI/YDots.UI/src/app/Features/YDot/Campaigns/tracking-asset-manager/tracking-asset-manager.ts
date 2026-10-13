@@ -1,5 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { EnumOption, TrackingAssetSearchFilter, TrackingAssetStatus as ApiAssetStatus, TrackingAssetSummary, TrackingAssetType as ApiAssetType } from '../../../../Shared/models/campaign-contract.model';
+import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 
@@ -110,19 +112,56 @@ export class TrackingAssetManagerComponent {
    * approval" left the table exactly as it was, because nothing read the selection. Each view now
    * sets the asset-type and status filters, to values taken from CAM's own lists.
    */
-  protected readonly savedViews = ['All tracking assets (Default)', 'QR destinations', 'Awaiting approval'];
-  protected readonly savedView = signal(this.savedViews[0]);
+  /**
+   * THE VIEWS AND THE CARDS ARE CAM'S - `GET /tracking-assets/summary`, counted over the scope (or
+   * the campaign this screen was opened from). The views were three labels typed in here and the
+   * cards were counted in this browser; each view now names the asset type and status it filters
+   * to as reference values, which the lists below turn into the words a person reads.
+   */
+  protected readonly summary = signal<TrackingAssetSummary | null>(null);
+  protected readonly savedViews = computed(() => (this.summary()?.views ?? []).map((view) => view.label));
+  protected readonly savedView = signal('');
 
-  protected applySavedView(view: string): void {
-    this.savedView.set(view);
+  protected applySavedView(label: string): void {
+    const view = this.summary()?.views.find((candidate) => candidate.label === label);
+    this.savedView.set(label);
 
-    const qrCode = this.assetTypeCatalogue().find((label) => /^qr/i.test(label)) ?? '';
-    const submitted = this.statusCatalogue().find((label) => label === 'Submitted') ?? '';
-
-    this.assetTypeFilter.set(view === this.savedViews[1] ? qrCode : '');
-    this.statusFilter.set(view === this.savedViews[2] ? (submitted as AssetStatus) : '');
+    this.assetTypeFilter.set(view?.assetType ? this.labelOf(this.assetTypeOptions(), view.assetType) : '');
+    this.statusFilter.set(view?.status ? (this.labelOf(this.statusOptions(), view.status) as AssetStatus) : '');
     this.currentPage.set(1);
   }
+
+  /** A reference value's words, matched without regard to case ("QRCode" / "qrCode"). */
+  private labelOf(options: readonly EnumOption[], value: string): string {
+    return options.find((option) => option.value.toLowerCase() === value.toLowerCase())?.label ?? '';
+  }
+
+  /** A reference label's value - the other way round, for the export's filters. */
+  private valueOf(options: readonly EnumOption[], label: string): string | null {
+    return options.find((option) => option.label === label)?.value ?? null;
+  }
+
+  /** The cards and views, read again whenever the asset set changes (after every write). */
+  private loadSummary(): void {
+    const campaignRef = this.campaignFilter();
+    const campaignId = campaignRef ? this.campaignStore.apiId(campaignRef) ?? null : null;
+
+    this.campaignApi.getTrackingAssetSummary(campaignId).subscribe({
+      next: (summary) => {
+        this.summary.set(summary);
+        if (!this.savedView()) {
+          this.savedView.set(summary.views[0]?.label ?? '');
+        }
+      },
+      error: () => this.summary.set(null),
+    });
+  }
+
+  private readonly reloadSummaryOnChange = effect(() => {
+    this.store.all();
+    this.campaignFilter();
+    untracked(() => this.loadSummary());
+  });
 
   /**
    * Fixed page size for pagination (records-per-page selector removed per design).
@@ -166,6 +205,10 @@ export class TrackingAssetManagerComponent {
    * CAM setting now, served with the channels, sources and mediums.
    */
   protected readonly assetTypeCatalogue = signal<readonly string[]>([]);
+
+  /** CAM's asset types and statuses as reference options - value and words. */
+  private readonly assetTypeOptions = signal<readonly EnumOption[]>([]);
+  private readonly statusOptions = signal<readonly EnumOption[]>([]);
   protected readonly assetTypeFilter = signal<string>('');
 
   /** Icon (one SVG path) and a one-line description for each asset-type tile on the create screen. */
@@ -245,6 +288,8 @@ export class TrackingAssetManagerComponent {
         this.mediumChoices.set(
           reference.mediums.filter((c) => c.isActive).map((c) => ({ ref: c.id, label: c.name })));
 
+        this.assetTypeOptions.set(reference.trackingAssetTypes ?? []);
+        this.statusOptions.set(reference.trackingAssetStatuses ?? []);
         this.assetTypeCatalogue.set((reference.trackingAssetTypes ?? []).map((option) => option.label));
         this.statusCatalogue.set(
           (reference.trackingAssetStatuses ?? []).map((option) => option.label as AssetStatus));
@@ -407,8 +452,8 @@ export class TrackingAssetManagerComponent {
    */
   protected readonly records = computed(() => this.store.all());
 
-  /** Total across the scope — the real count from the shared store, not a placeholder. */
-  protected readonly totalRecords = computed(() => this.records().length);
+  /** Total across the scope - CAM's count. */
+  protected readonly totalRecords = computed(() => this.summary()?.totalAssets ?? this.records().length);
 
   /** The filtered asset set for the current scope and filters. */
   protected readonly visibleRecords = computed(() => {
@@ -444,33 +489,22 @@ export class TrackingAssetManagerComponent {
     });
   });
 
-  /** Totals qualified by scope and last refresh. */
+  /**
+   * The cards - CAM's counts over the scope (or the campaign named), from the summary. They used
+   * to be counted here over every page of assets the store had downloaded.
+   */
   protected readonly recordCount = computed(() => this.visibleRecords().length);
-  protected readonly activeCount = computed(() => this.records().filter((r) => r.assetStatus === 'Active').length);
-  protected readonly totalUsage = computed(() => this.records().reduce((sum, r) => sum + r.usageCount, 0));
-  protected readonly pendingApprovalCount = computed(
-    () => this.records().filter((r) => r.approvalState === 'Pending review').length,
-  );
-  protected readonly assetTypeCount = computed(() => new Set(this.records().map((r) => r.assetType)).size);
+  protected readonly activeCount = computed(() => this.summary()?.liveAssets ?? 0);
+  protected readonly totalUsage = computed(() => this.summary()?.totalUsage ?? 0);
+  protected readonly pendingApprovalCount = computed(() => this.summary()?.pendingApproval ?? 0);
+  protected readonly assetTypeCount = computed(() => this.summary()?.assetTypesInUse ?? 0);
 
-  // ----- Reference-image stat-card badges -----
-  /** "↑ N new" — assets still sitting as unsubmitted drafts. */
-  protected readonly newAssetsCount = computed(
-    () => this.records().filter((r) => r.assetStatus === 'Draft').length,
-  );
-  /** "100% online" — the share of in-scope assets that are live. */
-  protected readonly onlinePercent = computed(() =>
-    this.totalRecords() ? Math.round((this.activeCount() / this.totalRecords()) * 100) : 0,
-  );
-  /** "↑ N%" — the share of recorded data events coming from live assets. */
-  protected readonly usageSharePercent = computed(() => {
-    const total = this.totalUsage();
-    if (!total) return 0;
-    const live = this.records()
-      .filter((r) => r.assetStatus === 'Active')
-      .reduce((sum, r) => sum + r.usageCount, 0);
-    return Math.round((live / total) * 100);
-  });
+  /** Assets still sitting as unsubmitted drafts. */
+  protected readonly newAssetsCount = computed(() => this.summary()?.draftAssets ?? 0);
+  /** The share of in-scope assets that are live. */
+  protected readonly onlinePercent = computed(() => this.summary()?.livePercent ?? 0);
+  /** The share of recorded usage that came through live assets. */
+  protected readonly usageSharePercent = computed(() => this.summary()?.liveUsagePercent ?? 0);
 
   /** "Showing 1–5 of 5 assets" — the visible slice of the filtered set. */
   protected readonly showingFrom = computed(() =>
@@ -605,30 +639,48 @@ export class TrackingAssetManagerComponent {
   }
 
   // ================= Reference-image card header: Export + Compare =================
-  /** Download the filtered asset set as CSV — the card header's Export action. */
+  /**
+   * Export - the assets the filters match, in a file CAM wrote.
+   *
+   * IT USED TO BE BUILT HERE from the rows the store held, with no permission check and no record
+   * that a copy had been taken. CAM applies the same filters, needs cam.tracking-assets.export and
+   * logs the export.
+   */
+  protected readonly exporting = signal(false);
+
   protected exportCsv(): void {
-    const header = [
-      'Tracking reference', 'Asset type', 'Medium', 'Campaign', 'Destination',
-      'Generated URL', 'Status', 'Approval', 'Usage',
-    ];
-    const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-    const lines = [
-      header.join(','),
-      ...this.visibleRecords().map((r) =>
-        [
-          r.trackingReference,
-          r.assetType,
-          r.channel,
-          this.campaignOf(r.campaignRef).name,
-          r.destination,
-          r.generatedUrl,
-          r.assetStatus,
-          r.approvalState,
-          String(r.usageCount),
-        ].map(esc).join(','),
-      ),
-    ];
-    this.triggerDownload('tracking-assets.csv', lines.join('\n'), 'text/csv');
+    if (this.exporting()) return;
+
+    const campaignRef = this.campaignFilter();
+    const start = this.rangeStart() ? new Date(`${this.rangeStart()}T00:00:00`) : null;
+    const end = this.rangeEnd() ? new Date(`${this.rangeEnd()}T23:59:59`) : null;
+
+    const filter: TrackingAssetSearchFilter = {
+      search: this.searchTerm().trim() || undefined,
+      campaignId: campaignRef ? this.campaignStore.apiId(campaignRef) ?? null : null,
+      assetType: this.assetTypeFilter() ? (this.valueOf(this.assetTypeOptions(), this.assetTypeFilter()) as ApiAssetType | null) : null,
+      status: this.statusFilter() ? (this.valueOf(this.statusOptions(), this.statusFilter()) as ApiAssetStatus | null) : null,
+      channelId: this.channelFilter() ? this.channelChoices().find((choice) => choice.label === this.channelFilter())?.ref ?? null : null,
+      activeFromOnOrAfterUtc: start ? start.toISOString() : null,
+      activeFromOnOrBeforeUtc: end ? end.toISOString() : null,
+    };
+
+    this.exporting.set(true);
+    this.campaignApi.exportTrackingAssets(filter).subscribe({
+      next: ({ blob, fileName }) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+        this.exporting.set(false);
+      },
+      error: (error: unknown) => {
+        this.exporting.set(false);
+        this.toast.show('Not exported', apiErrorMessage(error, 'The tracking assets could not be exported.'), 'error');
+      },
+    });
   }
 
   /** Compare mode — rows gain checkboxes; picking two or three enables the side-by-side dialog. */
@@ -837,18 +889,13 @@ export class TrackingAssetManagerComponent {
       ? ''
       : 'Creating a tracking asset needs the cam.tracking-assets.create permission.');
   /**
-   * Whether this session may EVER submit, regardless of the asset in front of it.
-   *
-   * SEPARATE FROM `approveAllowed` ON PURPOSE, and the same split runs through every action on
-   * this screen. A missing PERMISSION means the action is not this person's to take and the item
-   * is not rendered; an incompatible STATE means it is theirs but not yet, and the item is
-   * rendered disabled with a sentence saying why. Greying out a verb a role will never hold
-   * teaches people to ignore greyed-out things.
+   * ONLY VALID ACTIONS ARE SHOWN, on the row and in the detail panel alike. An action is rendered
+   * when the caller holds its permission AND the asset's status allows it - the `...Allowed`
+   * checks below are those two tests together. Anything else is not rendered at all: no disabled
+   * button, no tooltip explaining why not. A Disabled asset therefore shows no actions.
    */
-  protected readonly canEverApprove = computed(() => this.permissions().approve);
   protected readonly canEverRequestDisable = computed(() => this.permissions().requestDisable);
   protected readonly canEverDisable = computed(() => this.permissions().disable);
-  protected readonly canEverEdit = computed(() => this.permissions().replace);
   /** Approve — the approve permission and a Submitted / Pending review asset. Whoever created the
    *  asset may approve it too when their roles carry the approve permission. */
   protected approveAllowed(asset: TrackingAsset | null): boolean {
@@ -857,14 +904,6 @@ export class TrackingAssetManagerComponent {
       this.permissions().approve &&
       (asset.assetStatus === 'Submitted' || asset.approvalState === 'Pending review')
     );
-  }
-  /** Why Approve is unavailable for this asset right now. */
-  protected approveDisabledReason(asset: TrackingAsset | null): string {
-    if (!asset) return '';
-    if (asset.assetStatus !== 'Submitted' && asset.approvalState !== 'Pending review') {
-      return 'Approve is only available while this asset is Submitted or Pending review.';
-    }
-    return '';
   }
   /**
    * Request disable — the maker asking for a live asset to be taken down.
@@ -878,16 +917,6 @@ export class TrackingAssetManagerComponent {
     return !!asset && this.permissions().requestDisable
       && (asset.assetStatus === 'Active' || asset.assetStatus === 'Paused');
   }
-  protected requestDisableDisabledReason(asset: TrackingAsset | null): string {
-    if (!asset) return '';
-    if (asset.assetStatus === 'Submitted for disable') {
-      return 'A disable request is already waiting for an approver on this asset.';
-    }
-    if (asset.assetStatus !== 'Active' && asset.assetStatus !== 'Paused') {
-      return `A disable can only be requested for a live asset, not one that is ${asset.assetStatus}.`;
-    }
-    return '';
-  }
 
   /** Disable — the approver's decision, on a live asset or one already carrying a request. */
   protected disableAllowed(asset: TrackingAsset | null): boolean {
@@ -896,41 +925,22 @@ export class TrackingAssetManagerComponent {
         || asset.assetStatus === 'Paused'
         || asset.assetStatus === 'Submitted for disable');
   }
-  /**
-   * Why Disable is unavailable.
-   *
-   * IT NO LONGER EXPLAINS A MISSING PERMISSION, because a caller without the permission is not
-   * shown the item at all. What is left is the state, which is worth saying.
-   */
-  protected disableDisabledReason(asset: TrackingAsset | null): string {
-    if (!asset) return '';
-    if (!this.disableAllowed(asset)) {
-      return `Disable is only available for a live asset, not one that is ${asset.assetStatus}.`;
-    }
-    return '';
+  /** Disable straight away. A pending disable request is decided through Approve instead. */
+  protected directDisableAllowed(asset: TrackingAsset | null): boolean {
+    return this.disableAllowed(asset) && asset!.assetStatus !== 'Submitted for disable';
   }
   /**
    * A maker asks for a disable and an approver decides it; a role holding both decides directly.
    * The single Disable icon on a row follows whichever of those this session is.
    */
   protected readonly disableByRequest = computed(() => this.canEverRequestDisable() && !this.canEverDisable());
-  protected readonly canEverDisableOrRequest = computed(() => this.canEverRequestDisable() || this.canEverDisable());
 
-  protected rowDisableEnabled(asset: TrackingAsset): boolean {
-    return this.disableByRequest()
-      ? this.requestDisableAllowed(asset)
-      : this.disableAllowed(asset) && asset.assetStatus !== 'Submitted for disable';
+  protected rowDisableAllowed(asset: TrackingAsset): boolean {
+    return this.disableByRequest() ? this.requestDisableAllowed(asset) : this.directDisableAllowed(asset);
   }
-  protected rowDisableTitle(asset: TrackingAsset): string {
-    if (this.rowDisableEnabled(asset)) {
-      return this.disableByRequest() ? 'Send a request to disable this asset' : 'Disable asset';
-    }
-    if (asset.assetStatus === 'Submitted for disable') {
-      return this.disableByRequest()
-        ? 'A disable request is already waiting for an approver'
-        : 'A disable request is waiting for your approval — use the approve icon';
-    }
-    return this.disableByRequest() ? this.requestDisableDisabledReason(asset) : this.disableDisabledReason(asset);
+  /** Whether the detail panel's "Take down" group has anything in it for this asset. */
+  protected takeDownAllowed(asset: TrackingAsset): boolean {
+    return this.canDeleteDraft(asset) || this.requestDisableAllowed(asset) || this.directDisableAllowed(asset);
   }
   protected onRowDisable(asset: TrackingAsset): void {
     if (this.disableByRequest()) this.askForDisable(asset);
@@ -961,10 +971,6 @@ export class TrackingAssetManagerComponent {
     if (this.pendingApproval(asset) === 'disable') this.requestDisable(asset);
     else this.requestApprove(asset);
   }
-  /** A Submitted row (activation or disable awaiting a decision) offers only the approve icon. */
-  protected isSubmittedRow(asset: TrackingAsset): boolean {
-    return asset.assetStatus === 'Submitted' || asset.assetStatus === 'Submitted for disable';
-  }
   /** One short line for the detail panel: what state the asset is waiting in, whoever is reading. */
   protected awaitingNote(asset: TrackingAsset | null): string {
     if (!asset) return '';
@@ -982,12 +988,6 @@ export class TrackingAssetManagerComponent {
   /** Edit — the asset's details can be edited only while it is a Draft; once Submitted it is locked. */
   protected editAllowed(asset: TrackingAsset | null): boolean {
     return !!asset && this.permissions().replace && asset.assetStatus === 'Draft';
-  }
-  /** Why Edit is unavailable — explains permission or that only a Draft can be edited. */
-  protected editDisabledReason(asset: TrackingAsset | null): string {
-    if (!asset) return '';
-    if (asset.assetStatus !== 'Draft') return `Edit is only available while this asset is a Draft, not ${asset.assetStatus}.`;
-    return '';
   }
   /**
    * Delete unused draft — a Draft with nothing pointing at it.
@@ -1045,7 +1045,10 @@ export class TrackingAssetManagerComponent {
 
   // Input fields collected by the Generate form.
   protected readonly gAssetType = signal<string>(''); // required
-  protected readonly gDestination = signal<string>(''); // required
+  /** The address the person typed - used only while `gDestinationManual` is ticked. */
+  protected readonly gDestination = signal<string>('');
+  /** Ticked: the person enters their own Destination URL. Unticked: `autoDestination` is used. */
+  protected readonly gDestinationManual = signal(false);
   protected readonly gCampaign = signal<string>(''); // required
   protected readonly gChannel = signal<string>(''); // required
   protected readonly gSource = signal<string>(''); // derived from the campaign
@@ -1121,6 +1124,36 @@ export class TrackingAssetManagerComponent {
       };
     },
   );
+
+  /**
+   * The destination generated for the chosen campaign: this organisation's donor form, with the
+   * campaign's code on `?campaignCode=` so the form opens with that campaign already chosen.
+   *
+   * THE ORGANISATION IS THE ADDRESS THIS PAGE IS SERVED ON. Sign-in resolves the organisation
+   * from the host, so staff creating an asset are on their organisation's own web address - the
+   * same one the donor form is served on. The donor and lead screens build their donation links
+   * the same way. Empty until a campaign is chosen.
+   *
+   * THE TRACKING PARAMETERS ARE NOT ADDED HERE. On activation CAM appends `utm_*` and `ref` to
+   * whatever destination is saved, after this query string rather than in place of it.
+   */
+  protected readonly autoDestination = computed(() => {
+    const code = this.gCampaign().trim();
+    return code ? `${window.location.origin}/auth/donor-form?campaignCode=${encodeURIComponent(code)}` : '';
+  });
+
+  /** The Destination URL the asset is saved with: the person's own when ticked, else the generated one. */
+  protected readonly destinationValue = computed(() =>
+    this.gDestinationManual() ? this.gDestination().trim() : this.autoDestination());
+
+  /**
+   * Ticks or unticks "Enter my own URL". Ticking starts the box from the generated address, so a
+   * small change does not mean typing the whole address.
+   */
+  protected setDestinationManual(manual: boolean): void {
+    if (manual && !this.gDestination().trim()) this.gDestination.set(this.autoDestination());
+    this.gDestinationManual.set(manual);
+  }
 
   /** The ids the create call needs for channel and source, resolved from the campaign. */
   private deriveChannelAndSource(source?: string): void {
@@ -1210,14 +1243,20 @@ export class TrackingAssetManagerComponent {
   // CITY AND STATE ARE NOT ROW STATE. They belong to the campaign, are the same on every row,
   // and are read live from `placeLocation()` - which is what stops them from being blank on the
   // first row and stale on the rest.
+  //
+  // EACH PLACE STARTS ON THE GENERATED DESTINATION (`autoDestination`), with its Destination box
+  // disabled. `manual` is the place's own "Enter my own URL" tick; only then is `destination` used.
+  // Every place may share the generated address: CAM gives each place its own tracking reference
+  // on activation, and that reference - not the address - is what credits a gift to the place.
   protected readonly gPlaces = signal<
     readonly {
       readonly id: string;
       label: string;
       destination: string;
+      manual: boolean;
       customFields: readonly { readonly id: string; key: string; value: string }[];
     }[]
-  >([{ id: 'place-1', label: '', destination: '', customFields: [] }]);
+  >([{ id: 'place-1', label: '', destination: '', manual: false, customFields: [] }]);
   private placeSeq = 1;
   private placeFieldSeq = 1;
   protected addPlace(): void {
@@ -1225,8 +1264,22 @@ export class TrackingAssetManagerComponent {
 
     this.gPlaces.update((list) => [
       ...list,
-      { id: `place-${this.placeSeq}`, label: '', destination: '', customFields: [] },
+      { id: `place-${this.placeSeq}`, label: '', destination: '', manual: false, customFields: [] },
     ]);
+  }
+  /** The address this place is saved with: its own when ticked, else the generated one. */
+  protected placeDestination(place: { destination: string; manual: boolean }): string {
+    return place.manual ? place.destination.trim() : this.autoDestination();
+  }
+  /** Ticks or unticks a place's "Enter my own URL", starting the box from the generated address. */
+  protected setPlaceManual(id: string, manual: boolean): void {
+    this.gPlaces.update((list) =>
+      list.map((p) =>
+        p.id === id
+          ? { ...p, manual, destination: manual && !p.destination.trim() ? this.autoDestination() : p.destination }
+          : p,
+      ),
+    );
   }
   protected removePlace(id: string): void {
     this.gPlaces.update((list) => (list.length > 1 ? list.filter((p) => p.id !== id) : list));
@@ -1269,8 +1322,8 @@ export class TrackingAssetManagerComponent {
   protected readonly placesValid = computed(
     () =>
       !this.isOnGround() ||
-      (this.gPlaces().some((p) => p.label.trim() && this.isWebAddress(p.destination)) &&
-        this.gPlaces().every((p) => !p.destination.trim() || this.isWebAddress(p.destination))),
+      (this.gPlaces().some((p) => p.label.trim() && this.isWebAddress(this.placeDestination(p))) &&
+        this.gPlaces().every((p) => !this.placeDestination(p) || this.isWebAddress(this.placeDestination(p)))),
   );
 
   /** A full web address - the scheme is required, exactly as the API requires it. */
@@ -1288,16 +1341,21 @@ export class TrackingAssetManagerComponent {
     'Enter a full web address beginning http:// or https://, for example https://ydot.org/donate.';
   /** Why the Destination URL cannot be used, or '' when it is fine (or still empty). */
   protected readonly destinationFormatError = computed(() => {
-    const raw = this.gDestination().trim();
+    const raw = this.destinationValue();
     return raw && !this.isWebAddress(raw) ? this.destinationFormatMessage : '';
+  });
+  /** What to say when the Destination URL is missing or unusable. */
+  protected readonly destinationMissingMessage = computed(() => {
+    if (this.destinationValue()) return this.destinationFormatMessage;
+    return this.gDestinationManual() ? 'Enter Destination URL.' : 'Choose a campaign to generate the Destination URL.';
   });
 
   // ----- Live preview inside the Generate popup — shows the QR / link before it's created ----
   /** True once there's enough information to preview something (asset type + at least one destination). */
   protected readonly previewReady = computed(() => {
     if (!this.gAssetType()) return false;
-    if (this.isOnGround()) return this.gPlaces().some((p) => p.destination.trim());
-    return !!this.gDestination().trim();
+    if (this.isOnGround()) return this.gPlaces().some((p) => this.placeDestination(p));
+    return !!this.destinationValue();
   });
   /**
    * WHAT A PREVIEW CAN HONESTLY SHOW, which is the destination and not the tracking link.
@@ -1316,7 +1374,7 @@ export class TrackingAssetManagerComponent {
     return destination.trim();
   }
   /** Single-destination preview (every asset type except an on-ground multi-place one). */
-  protected readonly previewUrl = computed(() => this.gDestination().trim());
+  protected readonly previewUrl = computed(() => this.destinationValue());
   private previewQrMatrix(url: string): ReturnType<typeof generateQrMatrix> | null {
     if (!url) return null;
     const value = url.startsWith('http') ? url : `https://${url}`;
@@ -1334,7 +1392,8 @@ export class TrackingAssetManagerComponent {
   }
   /** Per-place preview — each place has its own destination, so each gets its own QR. */
   protected placePreviewUrl(index: number): string {
-    return this.gPlaces()[index]?.destination.trim() ?? '';
+    const place = this.gPlaces()[index];
+    return place ? this.placeDestination(place) : '';
   }
 
   protected readonly gRangeInvalid = computed(() => {
@@ -1357,7 +1416,7 @@ export class TrackingAssetManagerComponent {
       case 'assetType':
         return !this.gAssetType();
       case 'destination':
-        return !this.isOnGround() && (!this.gDestination().trim() || !!this.destinationFormatError());
+        return !this.isOnGround() && (!this.destinationValue() || !!this.destinationFormatError());
       case 'places':
         return this.isOnGround() && !this.placesValid();
       case 'campaign':
@@ -1390,7 +1449,7 @@ export class TrackingAssetManagerComponent {
   protected readonly destInfo = computed<
     { host: string; href: string; secure: boolean; params: number } | 'invalid' | null
   >(() => {
-    const raw = this.gDestination().trim();
+    const raw = this.destinationValue();
     if (!raw) return null;
     if (!this.isWebAddress(raw)) return 'invalid';
     try {
@@ -1403,7 +1462,7 @@ export class TrackingAssetManagerComponent {
   });
   /** The destination split for the preview: host, and the path after it. */
   private readonly previewParts = computed(() => {
-    const raw = this.gDestination().trim().replace(/^https?:\/\//i, '');
+    const raw = this.destinationValue().replace(/^https?:\/\//i, '');
     const slash = raw.indexOf('/');
     return slash < 0 ? { host: raw, path: '' } : { host: raw.slice(0, slash), path: raw.slice(slash) };
   });
@@ -1465,10 +1524,7 @@ export class TrackingAssetManagerComponent {
     if (this.missing('campaign')) errs.push({ key: 'g-campaign', label: 'Enter Campaign.' });
     if (this.missing('channel')) errs.push({ key: 'g-channel', label: 'Enter Medium.' });
     if (this.missing('destination'))
-      errs.push({
-        key: 'g-destination',
-        label: this.gDestination().trim() ? this.destinationFormatMessage : 'Enter Destination URL.',
-      });
+      errs.push({ key: 'g-destination', label: this.destinationMissingMessage() });
     if (this.missing('places'))
       errs.push({
         key: 'g-places',
@@ -1492,6 +1548,7 @@ export class TrackingAssetManagerComponent {
   private resetGenerateForm(): void {
     this.gAssetType.set('');
     this.gDestination.set('');
+    this.gDestinationManual.set(false);
     this.gCampaign.set('');
     this.gChannel.set('');
     this.gSource.set('');
@@ -1499,7 +1556,7 @@ export class TrackingAssetManagerComponent {
     this.gContentTag.set('');
     this.gActiveFrom.set('');
     this.gActiveTo.set('');
-    this.gPlaces.set([{ id: 'place-1', label: '', destination: '', customFields: [] }]);
+    this.gPlaces.set([{ id: 'place-1', label: '', destination: '', manual: false, customFields: [] }]);
     this.generateSubmitted.set(false);
     this.generatedReferences.set([]);
   }
@@ -1576,10 +1633,13 @@ export class TrackingAssetManagerComponent {
     }
 
     if (this.isOnGround()) {
-      const places = this.gPlaces().filter((p) => p.label.trim() && p.destination.trim());
+      const places = this.gPlaces().filter((p) => p.label.trim() && this.placeDestination(p));
+      // ONLY A TYPED ADDRESS IS CHECKED FOR DUPLICATES. The generated one is the campaign's donor
+      // form and is meant to be shared by every place and asset of that campaign; each is told
+      // apart by its own tracking reference.
       const dup = places.some((p) =>
-        this.records().some(
-          (r) => r.destination.trim().toLowerCase() === p.destination.trim().toLowerCase()
+        p.manual && this.records().some(
+          (r) => r.destination.trim().toLowerCase() === this.placeDestination(p).toLowerCase()
             && r.channel === this.channelLabel(this.gChannel()),
         ),
       );
@@ -1593,7 +1653,7 @@ export class TrackingAssetManagerComponent {
       let firstError: string | undefined;
 
       for (const p of places) {
-        const asset = this.buildAsset(p.destination.trim(), status, {
+        const asset = this.buildAsset(this.placeDestination(p), status, {
           label: p.label.trim(),
           city: this.placeLocation().city,
           state: this.placeLocation().state,
@@ -1620,9 +1680,10 @@ export class TrackingAssetManagerComponent {
     }
 
     // A tracking asset with the same destination + channel already exists → duplicate handling.
-    const dup = this.records().some(
+    // Typed addresses only - the generated one is shared by design (see the on-ground branch).
+    const dup = this.gDestinationManual() && this.records().some(
       (r) =>
-        r.destination.trim().toLowerCase() === this.gDestination().trim().toLowerCase() &&
+        r.destination.trim().toLowerCase() === this.destinationValue().toLowerCase() &&
         r.channel === this.channelLabel(this.gChannel()),
     );
     if (dup) {
@@ -1631,7 +1692,7 @@ export class TrackingAssetManagerComponent {
       return;
     }
 
-    const asset = this.buildAsset(this.gDestination().trim(), status);
+    const asset = this.buildAsset(this.destinationValue(), status);
     this.generatedReferences.set([asset.trackingReference]);
     this.generatedReference.set(asset.trackingReference);
 
@@ -1859,7 +1920,10 @@ export class TrackingAssetManagerComponent {
     this.gChannel.set(asset.channelId ?? '');
     this.gSource.set(asset.sourceId ?? '');
     this.gMedium.set(asset.mediumId ?? '');
+    // A saved address that is not the generated one opens ticked, so editing never swaps it
+    // silently for the generated address.
     this.gDestination.set(asset.destination);
+    this.gDestinationManual.set(asset.destination.trim() !== this.autoDestination());
     this.gContentTag.set(asset.contentTag);
     this.gActiveFrom.set(asset.activeFrom);
     this.gActiveTo.set(asset.activeTo);
@@ -1878,7 +1942,7 @@ export class TrackingAssetManagerComponent {
     this.store.saveDraft(
       ref,
       {
-        destination: this.gDestination().trim(),
+        destination: this.destinationValue(),
         channelId: this.gChannel(),
         sourceId: this.gSource(),
         mediumId: this.resolvedMedium(),
@@ -1976,7 +2040,7 @@ export class TrackingAssetManagerComponent {
     this.rangeStart.set('');
     this.rangeEnd.set('');
     this.scopeFilter.set(this.scopeOptions[0]);
-    this.savedView.set(this.savedViews[0]);
+    this.savedView.set(this.savedViews()[0] ?? '');
     this.currentPage.set(1);
     this.uiState.set('ready');
   }

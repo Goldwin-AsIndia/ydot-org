@@ -187,6 +187,82 @@ export interface PublicCampaignSummary {
    * shows nothing rather than "0.00" for it.
    */
   campaignAmount: number;
+
+  /** The line the picker prints under the name - "Open until 31 Oct 2026". */
+  availability: string;
+}
+
+/**
+ * GET /public/donations/form-settings - what the donation forms show and check before an intent
+ * exists: the privacy notice a consent is recorded against (the server stamps it on the intent),
+ * the largest gift accepted and the time zone dates are printed in.
+ */
+export interface PublicDonationFormSettings {
+  consentNoticeVersion: string;
+  consentNoticeLabel: string;
+  maximumDonationAmount: number;
+  operatingTimeZone: string;
+  operatingTimeZoneLabel: string;
+  asAtUtc: string;
+  /** Submit, ContinueToPayment. */
+  permittedActions: string[];
+}
+
+/** One choice a payments screen offers: the value it sends back and the words it shows. */
+export interface PaymentOption {
+  value: string;
+  label: string;
+  description: string | null;
+}
+
+/** One line of the Payments & Receipts page: an issued receipt, or a failed or pending event. */
+export interface PaymentActivityRow {
+  key: string;
+  id: string;
+  eventReference: string;
+  receiptOrIntentReference: string;
+  donationIntentId: string | null;
+  donorName: string | null;
+  donorEmail: string | null;
+  campaignName: string | null;
+  amount: MoneyResponse | null;
+  /** Success | Pending | Fail. */
+  paymentStatus: string;
+  paymentStatusLabel: string;
+  /** Sent | Pending | Failed | Not sent | Not generated. */
+  receiptStatus: string;
+  receiptNumber: string | null;
+  occurredAtUtc: string | null;
+  processingAttempts: number;
+  version: number;
+  processingError: string | null;
+  /** Retry, ResendLink, ContinuePayment, Resend - what the caller may do from this line. */
+  permittedActions: string[];
+}
+
+export interface PaymentActivitySummary {
+  totalEvents: number;
+  totalAmount: MoneyResponse;
+  successful: number;
+  pending: number;
+  failed: number;
+}
+
+/** GET /payments/activity - the page, its tiles, its status choices and its clock, in one answer. */
+export interface PaymentActivityResponse {
+  rows: PagedResponse<PaymentActivityRow>;
+  summary: PaymentActivitySummary;
+  statusOptions: PaymentOption[];
+  operatingTimeZoneLabel: string;
+  asAtUtc: string;
+}
+
+export interface PaymentActivityFilter {
+  page?: number;
+  pageSize?: number;
+  search?: string | null;
+  /** Success | Pending | Fail; unset is every outcome. */
+  outcome?: string | null;
 }
 
 /**
@@ -490,9 +566,13 @@ export interface DonationListItem {
   reconciliationStatus: ReconciliationStatus;
   donatedAtUtc: string;
   methodType: PaymentMethodType | null;
+  /** The method in the server's words ("Net banking"). Null when the gift has no method. */
+  methodDescription?: string | null;
   campaignId: string | null;
   campaignName: string | null;
   sourceType: DonationSourceType;
+  /** The source in the server's words ("Direct link"), as on the donation detail. */
+  sourceDescription?: string;
   hasIssuedReceipt: boolean;
   receiptNumber: string | null;
   hasOpenCase: boolean;
@@ -1241,19 +1321,6 @@ export function paymentStatusTone(
  * link the donor followed. The list stays on the type because the screen renders a chosen
  * campaign, and stays empty because nothing may fill it from here.
  */
-export interface PublicDonationFormConfig {
-  pageTitle: string;
-  pageSubtitle: string;
-  operatingTimeZone: string;
-  /** Recorded on the intent, so a consent given today is distinguishable from last year's. */
-  consentPolicyVersion: string;
-  campaigns: readonly { reference: string; name: string; context: string }[];
-  currencies: readonly { reference: string; label: string }[];
-  geographies: readonly { reference: string; label: string }[];
-  permissions: { view: boolean; submit: boolean; continueToPayment: boolean };
-  /** A typo guard on the form. The API has its own limit and enforces it. */
-  maxDonationAmount: number;
-}
 
 // =========================================================================================
 // Receipt Register - SCR-PAY-005 as the workflow document describes it

@@ -22,6 +22,23 @@ public static class ReportingCalendar
         return (startLocal.ToUniversalTime(), startLocal.AddDays(1).ToUniversalTime());
     }
 
+    /// <summary>An instant on the organisation's clock - for a time printed into an export.</summary>
+    public static DateTimeOffset ToLocal(DateTimeOffset instant, DonorSettings settings) =>
+        TimeZoneInfo.ConvertTime(instant, Resolve(settings.ReportingTimeZone));
+
+    /// <summary>The organisation's clock as a screen names it - "Asia/Kolkata · UTC+05:30".</summary>
+    public static string ZoneLabel(DateTimeOffset now, DonorSettings settings)
+    {
+        var zone = Resolve(settings.ReportingTimeZone);
+        var offset = zone.GetUtcOffset(now);
+
+        return $"{zone.Id} · UTC{(offset < TimeSpan.Zero ? "-" : "+")}{offset.Duration():hh\\:mm}";
+    }
+
+    /// <summary>The organisation's offset from UTC at <paramref name="now"/>, in minutes.</summary>
+    public static int UtcOffsetMinutes(DateTimeOffset now, DonorSettings settings) =>
+        (int)Resolve(settings.ReportingTimeZone).GetUtcOffset(now).TotalMinutes;
+
     /// <summary>The reporting-day date of an instant, for "due today" / "tomorrow" comparisons.</summary>
     public static DateOnly DateOf(DateTimeOffset instant, DonorSettings settings) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, Resolve(settings.ReportingTimeZone)).Date);

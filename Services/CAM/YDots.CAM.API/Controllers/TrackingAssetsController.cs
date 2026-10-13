@@ -43,6 +43,23 @@ public sealed class TrackingAssetsController(
         return FromResult(result);
     }
 
+    /// <summary>The manager's cards and saved views, over the scope or the one campaign named.</summary>
+    [HttpGet("summary")]
+    [HasPermission(PermissionCodes.TrackingAssetsView)]
+    [ProducesResponseType(typeof(ApiResponse<TrackingAssetSummaryResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSummaryAsync(
+        [FromQuery] Guid? campaignId, CancellationToken cancellationToken)
+    {
+        var result = await queries.HandleAsync(new GetTrackingAssetSummaryQuery(campaignId), cancellationToken);
+
+        if (result.IsFailure)
+        {
+            logger.LogWarning("Tracking asset summary failed.");
+        }
+
+        return FromResult(result);
+    }
+
     [HttpGet("{id:guid}", Name = nameof(GetTrackingAssetAsync))]
     [HasPermission(PermissionCodes.TrackingAssetsView)]
     [ProducesResponseType(typeof(ApiResponse<TrackingAssetDetailResponse>), StatusCodes.Status200OK)]

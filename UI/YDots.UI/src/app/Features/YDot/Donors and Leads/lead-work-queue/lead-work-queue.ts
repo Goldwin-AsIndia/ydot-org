@@ -23,9 +23,13 @@ import {
   LeadListItem,
   LeadWorkQueueFilter,
   LeadWorkQueueResponse,
+  QueueView,
 } from '../../../../Shared/models/donor-contract.model';
 
 export type UiState = 'ready' | 'loading' | 'success' | 'error' | 'empty';
+
+/** The owner filter's "nobody" choice - sent to the server as assignmentState=Unassigned. */
+const UNASSIGNED_OWNER = '__unassigned__';
 
 /**
  * One row of the queue, as this screen draws it.
@@ -48,6 +52,8 @@ export interface LeadItem {
   readonly donationPotential: string;
   readonly owner: string;
   readonly ownerUserId: string | null;
+  /** Somebody owns the lead. Read off the owner's id, not off the word shown for nobody. */
+  readonly hasOwner: boolean;
   readonly lastActivity: string;
   /** The next step recorded on the lead - by whoever planned it, not by this screen. */
   readonly nextAction: string;
@@ -65,13 +71,6 @@ export interface LeadItem {
   readonly donorId: string | null;
   readonly version: number;
   readonly permittedActions: readonly string[];
-}
-
-export interface KpiCard {
-  readonly id: string;
-  readonly label: string;
-  readonly value: number;
-  readonly hint: string;
 }
 
 export interface PipelineStage {
@@ -100,23 +99,23 @@ const NO_PERMISSIONS: LeadQueuePermissions = {
 };
 
 /**
- * The tabs across the top of the queue, exactly as the workflow document draws them.
- *
- * EACH ONE IS A SERVER FILTER, not a predicate over an array in this browser. The distinction
- * matters because the grid is paged: filtering the current page client-side would show "4
- * unassigned" when the organisation has ninety, and the count on the tab would disagree with the
- * rows underneath it.
+ * THE TABS ACROSS THE TOP ARE THE SERVER'S VIEWS - its `views`, each with its words and its
+ * scope-wide count. The screen used to keep seven names of its own and translate each into query
+ * fields; it now sends the view's value back and the server applies the rule it counted by, so the
+ * count on a tab and the rows under it cannot disagree.
  */
-const SAVED_VIEWS = [
-  'All Leads',
-  'Unassigned Leads',
-  'Assigned Leads',
-  'Hot Leads',
-  'High Donation Potential',
-  'Recently Added',
-  'Converted Leads',
-] as const;
-type SavedView = (typeof SAVED_VIEWS)[number];
+const ALL_VIEW = 'all';
+
+/** The icon each view is drawn with - presentation only; a view this does not know gets a list icon. */
+const VIEW_GLYPHS: Readonly<Record<string, string>> = {
+  all: 'ri-stack-line',
+  unassigned: 'ri-user-unfollow-line',
+  assigned: 'ri-user-follow-line',
+  hot: 'ri-fire-line',
+  'high-potential': 'ri-vip-diamond-line',
+  recent: 'ri-time-line',
+  converted: 'ri-hand-heart-line',
+};
 
 /**
  * SCR-DON-001 - Lead Queue. The document's central list page.
@@ -161,7 +160,6 @@ export class LeadWorkQueueComponent {
   protected readonly optionSearch = signal<Partial<Record<string, string>>>({});
   protected readonly filterFields = computed(() => {
     const options = this.filterOptions();
-    const choices = (values: readonly string[]) => values.map((value) => ({ value, label: value }));
     return [
       { key: 'stage', label: 'Stage', value: this.stageFilter(), options: options.stages },
       {
@@ -180,16 +178,13 @@ export class LeadWorkQueueComponent {
         key: 'source',
         label: 'Lead source',
         value: this.sourceFilter(),
-        options: choices(options.sources),
+        options: options.sources,
       },
       {
         key: 'owner',
         label: 'Owner',
         value: this.ownerFilter(),
-        options: [
-          { value: 'Unassigned', label: 'Unassigned' },
-          ...this.ownerOptions().filter((owner) => owner.value !== 'Unassigned'),
-        ],
+        options: this.ownerOptions(),
       },
     ];
   });
@@ -216,14 +211,8 @@ export class LeadWorkQueueComponent {
   }
 
   protected setFilterValue(key: string, value: string): void {
-    // Explicit field choices supersede saved views that force the same field.
-    if (
-      (key === 'temperature' && this.savedView() === 'Hot Leads') ||
-      (key === 'potential' && this.savedView() === 'High Donation Potential') ||
-      (key === 'owner' && ['Assigned Leads', 'Unassigned Leads'].includes(this.savedView()))
-    ) {
-      this.savedView.set('All Leads');
-    }
+    // An explicit choice that contradicts the open view supersedes it - the SERVER decides that
+    // and answers the view in effect as `activeView`, so the tab follows the rows.
     switch (key) {
       case 'stage':
         this.stageFilter.set(value);
@@ -279,21 +268,22 @@ export class LeadWorkQueueComponent {
   protected readonly errorMessage = signal<string>('');
 
   protected readonly permissions = signal<LeadQueuePermissions>(NO_PERMISSIONS);
-  protected readonly kpis = signal<readonly KpiCard[]>([]);
   protected readonly pipeline = signal<readonly PipelineStage[]>([]);
-  protected readonly savedViews = signal<readonly string[]>(SAVED_VIEWS);
+
+  /** The lanes - the server's views with their words and counts. Empty until it answers. */
+  protected readonly savedViews = signal<readonly QueueView[]>([]);
   protected readonly filterOptions = signal<{
     readonly stages: readonly DonLookupItem[];
     readonly temperatures: readonly DonLookupItem[];
     readonly potentials: readonly DonLookupItem[];
-    readonly sources: readonly string[];
+    readonly sources: readonly DonLookupItem[];
   }>({ stages: [], temperatures: [], potentials: [], sources: [] });
   protected readonly ownerOptions = signal<readonly DonLookupItem[]>([]);
 
   // ===========================================================================================
   // Filter state. Every one of these re-queries the server.
   // ===========================================================================================
-  protected readonly savedView = signal<string>('All Leads');
+  protected readonly savedView = signal<string>(ALL_VIEW);
   protected readonly searchTerm = signal('');
   protected readonly stageFilter = signal<string>('');
   protected readonly temperatureFilter = signal<string>('');
@@ -303,19 +293,14 @@ export class LeadWorkQueueComponent {
   protected readonly showFilters = signal(false);
 
   /**
-   * How the queue is ordered. THE SERVER ORDERS IT, because the grid is paged: sorting the rows on
-   * screen would only reorder one page. The default is the work-queue order (next contact due
-   * soonest) - which puts a lead captured a moment ago, with no contact planned yet, at the very
-   * end - so "Newest first" is the way to find it.
+   * How the queue is ordered - the server's orders, and THE SERVER ORDERS IT, because the grid is
+   * paged. The first is the work-queue order (next contact due soonest), which puts a lead
+   * captured a moment ago at the very end - so "Newest first" is the way to find it.
    */
-  protected readonly sortOptions = [
-    { value: 'due', label: 'Next contact due' },
-    { value: 'newest', label: 'Newest first' },
-    { value: 'oldest', label: 'Oldest first' },
-    { value: 'name-asc', label: 'Name A to Z' },
-    { value: 'name-desc', label: 'Name Z to A' },
-  ] as const;
-  protected readonly sortOrder = signal<string>('due');
+  protected readonly sortOptions = signal<readonly DonLookupItem[]>([]);
+
+  /** The chosen order; empty is the server's default (its first option). */
+  protected readonly sortOrder = signal<string>('');
 
   protected setSortOrder(value: string): void {
     this.sortOrder.set(value);
@@ -372,12 +357,15 @@ export class LeadWorkQueueComponent {
     const createdLeadId = this.route.snapshot.queryParamMap.get('createdLeadId');
     if (createdLeadId) {
       this.openAfterLoad = createdLeadId;
-      this.sortOrder.set('newest');
+      this.newestFirstOnce = true;
     }
     this.load();
   }
 
   private openAfterLoad: string | null = null;
+
+  /** Back from Lead Capture: show the newest first, once, so the lead just saved is on page one. */
+  private newestFirstOnce = false;
 
   // ===========================================================================================
   // Loading
@@ -419,52 +407,22 @@ export class LeadWorkQueueComponent {
     };
 
     const owner = this.ownerFilter();
-    if (owner === 'Unassigned') {
+    if (owner === UNASSIGNED_OWNER) {
       filter.assignmentState = 'Unassigned';
-    } else if (owner && owner !== 'All') {
+    } else if (owner) {
       filter.ownerUserId = owner;
     }
 
-    // The chosen order. (The Recently Added lane has its own: newest first.)
-    switch (this.sortOrder()) {
-      case 'newest':
-        filter.newestFirst = true;
-        break;
-      case 'oldest':
-        filter.sort = 'createdAtUtc asc';
-        break;
-      case 'name-asc':
-        filter.sort = 'name asc';
-        break;
-      case 'name-desc':
-        filter.sort = 'name desc';
-        break;
+    // The chosen order, as the server names it. Back from Lead Capture: newest first, once.
+    const sort = this.newestFirstOnce ? 'newest' : this.sortOrder();
+    if (sort) {
+      filter.sort = sort;
     }
 
-    switch (this.savedView() as SavedView) {
-      case 'Unassigned Leads':
-        filter.assignmentState = 'Unassigned';
-        break;
-      case 'Assigned Leads':
-        filter.assignmentState = 'Assigned';
-        break;
-      case 'Hot Leads':
-        filter.temperature = 'Hot';
-        break;
-      case 'High Donation Potential':
-        filter.donationPotential = 'High';
-        break;
-      // THE LAST SEVEN DAYS, NEWEST FIRST - the same window the lane's count uses. It used to
-      // be an ordering of every lead, so the rows under the tab were not what the count counted.
-      case 'Recently Added':
-        filter.recentlyAdded = true;
-        break;
-
-      // THE ONLY TAB THAT ASKS FOR CONVERTED ROWS. Everywhere else they are hidden, because the
-      // document says a converted lead leaves this queue for the Donor List.
-      case 'Converted Leads':
-        filter.isConverted = true;
-        break;
+    // THE VIEW BY NAME. The server turns it into the filter it stands for - the Recently Added
+    // window, the Converted rows the queue otherwise hides, and so on.
+    if (this.savedView() !== ALL_VIEW) {
+      filter.view = this.savedView();
     }
 
     return filter;
@@ -482,6 +440,7 @@ export class LeadWorkQueueComponent {
     this.outcomeLabels = new Map(
       (response.contactOutcomeOptions ?? []).map((option) => [option.value, option.label]),
     );
+    this.potentialOrder = (response.donationPotentialOptions ?? []).map((option) => option.value);
 
     this.leads.set(response.leads.items.map((row) => this.toRow(row)));
     this.totalCount.set(response.leads.totalCount);
@@ -494,43 +453,19 @@ export class LeadWorkQueueComponent {
       lastRefresh: this.formatDateTime(response.lastRefreshedAtUtc),
     }));
 
-    // THE CARDS COME FROM THE SERVER'S SUMMARY, not from counting the page. The summary is
-    // scope-wide; the page is a hundred rows at most, and the two are different numbers.
-    const summary = response.summary;
-    this.kpis.set([
-      { id: 'total', label: 'Total Leads', value: summary.totalLeads, hint: 'In selected scope' },
-      {
-        id: 'unassigned',
-        label: 'Unassigned Leads',
-        value: summary.unassignedLeads,
-        hint: 'In selected scope',
-      },
-      {
-        id: 'assigned',
-        label: 'Assigned Leads',
-        value: summary.assignedLeads,
-        hint: 'In selected scope',
-      },
-      { id: 'hot', label: 'Hot Leads', value: summary.hotLeads, hint: 'In selected scope' },
-      {
-        id: 'converted',
-        label: 'Converted Leads',
-        value: summary.convertedLeads,
-        hint: 'Donation recorded',
-      },
-      {
-        id: 'potential',
-        label: 'High Donation Potential',
-        value: summary.highDonationPotential,
-        hint: 'In selected scope',
-      },
-      {
-        id: 'recent',
-        label: 'Recently Added',
-        value: summary.recentlyAddedLeads,
-        hint: 'Captured in the last seven days',
-      },
-    ]);
+    // THE LANES ARE THE SERVER'S VIEWS, counted over the whole scope - not the page, which is a
+    // hundred rows at most. The view in effect is the server's word too (`activeView`): an
+    // explicit filter that contradicts the open lane supersedes it.
+    this.savedViews.set(response.views ?? []);
+    this.savedView.set(response.activeView || ALL_VIEW);
+    this.sortOptions.set(response.sortOptions ?? []);
+    if (this.newestFirstOnce) {
+      this.newestFirstOnce = false;
+      this.sortOrder.set('newest');
+    } else if (!this.sortOrder()) {
+      // The picker starts on the server's first order, which is also its default.
+      this.sortOrder.set(response.sortOptions?.[0]?.value ?? '');
+    }
 
     this.pipeline.set(
       response.statusOptions.map((option) => ({
@@ -547,9 +482,16 @@ export class LeadWorkQueueComponent {
 
       // EVERY SOURCE IN SCOPE, from the server. The list was built from the page of rows on
       // screen, so a source whose leads were all on page two could not be chosen at all.
-      sources: (response.sourceOptions ?? []).map((option) => option.value),
+      sources: response.sourceOptions ?? [],
     });
-    this.ownerOptions.set(response.ownerOptions);
+
+    // "Unassigned" is the server's Unassigned view word, offered in the owner list as the way to
+    // ask for leads nobody owns; the people are the server's owner options.
+    const unassigned = (response.views ?? []).find((view) => view.value === 'unassigned');
+    this.ownerOptions.set([
+      ...(unassigned ? [{ value: UNASSIGNED_OWNER, label: unassigned.label }] : []),
+      ...(response.ownerOptions ?? []),
+    ]);
 
     this.permissions.set(this.toPermissions(response.permittedActions));
 
@@ -568,6 +510,9 @@ export class LeadWorkQueueComponent {
 
   /** Outcome value to the server's label for it - "CallbackRequested" to "Requested callback". */
   private outcomeLabels = new Map<string, string>();
+
+  /** The donation potentials in the server's order, lowest first - the bars' scale. */
+  private potentialOrder: readonly string[] = [];
 
   private toRow(row: LeadListItem): LeadItem {
     const outcome = this.outcomeLabels.get(row.lastContactOutcome) ?? row.lastContactOutcome;
@@ -588,6 +533,7 @@ export class LeadWorkQueueComponent {
       donationPotential: row.donationPotential,
       owner: row.ownerName ?? 'Unassigned',
       ownerUserId: row.ownerUserId,
+      hasOwner: !!row.ownerUserId,
       lastActivity: outcome,
       nextAction: row.nextAction ?? '',
       campaignId: row.campaignId,
@@ -659,7 +605,7 @@ export class LeadWorkQueueComponent {
       tokens.push({ key: 'potential', label: `Potential: ${label(this.filterOptions().potentials, this.potentialFilter())}` });
     }
     if (this.sourceFilter()) {
-      tokens.push({ key: 'source', label: `Source: ${this.sourceFilter()}` });
+      tokens.push({ key: 'source', label: `Source: ${label(this.filterOptions().sources, this.sourceFilter())}` });
     }
     if (this.ownerFilter()) {
       tokens.push({ key: 'owner', label: `Owner: ${label(this.ownerOptions(), this.ownerFilter())}` });
@@ -674,7 +620,7 @@ export class LeadWorkQueueComponent {
 
   /** Anything narrowing the queue at all - drives the one Reset link. */
   protected readonly isFiltered = computed(
-    () => this.savedView() !== 'All Leads' || !!this.searchTerm().trim() || this.panelFilterCount() > 0,
+    () => this.savedView() !== ALL_VIEW || !!this.searchTerm().trim() || this.panelFilterCount() > 0,
   );
 
   /**
@@ -699,42 +645,21 @@ export class LeadWorkQueueComponent {
   // Triage desk presentation - lanes, stage shares, due dates, next steps
   // ===========================================================================================
 
-  /** Which summary figure counts each saved view. */
-  private readonly viewKpi: Record<string, string> = {
-    'All Leads': 'total',
-    'Unassigned Leads': 'unassigned',
-    'Assigned Leads': 'assigned',
-    'Hot Leads': 'hot',
-    'High Donation Potential': 'potential',
-    'Recently Added': 'recent',
-    'Converted Leads': 'converted',
-  };
-
-  private readonly laneMeta: Record<string, { label: string; glyph: string; hint: string }> = {
-    'All Leads': { label: 'All leads', glyph: 'ri-stack-line', hint: 'Every lead in scope' },
-    'Unassigned Leads': { label: 'Unassigned', glyph: 'ri-user-unfollow-line', hint: 'Waiting for an owner' },
-    'Assigned Leads': { label: 'Assigned', glyph: 'ri-user-follow-line', hint: 'With a fundraiser' },
-    'Hot Leads': { label: 'Hot', glyph: 'ri-fire-line', hint: 'Ready to talk' },
-    'High Donation Potential': { label: 'High potential', glyph: 'ri-vip-diamond-line', hint: 'Largest likely gifts' },
-    'Recently Added': { label: 'Recently added', glyph: 'ri-time-line', hint: 'Captured in the last 7 days' },
-    'Converted Leads': { label: 'Converted', glyph: 'ri-hand-heart-line', hint: 'Donation recorded' },
-  };
-
   /**
-   * One lane per saved view, carrying the view's server count.
+   * One lane per server view: its words, its hint and its scope-wide count.
    *
-   * THE LANES ARE BOTH THE SUMMARY AND THE TABS. The screen used to draw the same six counts
-   * twice - once as summary figures and again as tab counts - so they now live in one row.
-   * `value` is undefined before the first answer and null for a view the server does not count.
+   * THE LANES ARE BOTH THE SUMMARY AND THE TABS. The words and the counts are the server's; only
+   * the icon is chosen here.
    */
-  protected readonly lanes = computed(() => {
-    const byId = new Map(this.kpis().map((k) => [k.id, k.value]));
-    return this.savedViews().map((view) => {
-      const meta = this.laneMeta[view] ?? { label: view, glyph: 'ri-list-check', hint: view };
-      const id = this.viewKpi[view];
-      return { view, ...meta, value: id ? byId.get(id) : null };
-    });
-  });
+  protected readonly lanes = computed(() =>
+    this.savedViews().map((view) => ({
+      view: view.value,
+      label: view.label,
+      hint: view.description,
+      glyph: VIEW_GLYPHS[view.value] ?? 'ri-list-check',
+      value: view.count as number | null | undefined,
+    })),
+  );
 
   /** The next contact relative to today, so an overdue lead reads as overdue at a glance. */
   protected dueState(lead: LeadItem): { label: string; tone: 'none' | 'late' | 'today' | 'soon' | 'later' } {
@@ -782,13 +707,10 @@ export class LeadWorkQueueComponent {
     return `${origin}/auth/donor-form?campaign=${lead.campaignId}&lead=${lead.id}`;
   }
 
+  /** How many of the three bars a potential fills: its place in the server's order, lowest first. */
   protected potentialLevel(potential: string): number {
-    switch (potential) {
-      case 'High': return 3;
-      case 'Medium': return 2;
-      case 'Low': return 1;
-      default: return 0;
-    }
+    const index = this.potentialOrder.indexOf(potential);
+    return index < 0 ? 0 : Math.min(3, index + 1);
   }
 
   // ===========================================================================================
@@ -851,7 +773,7 @@ export class LeadWorkQueueComponent {
       return;
     }
     this.stageFilter.set(stage.key);
-    this.savedView.set('All Leads');
+    this.savedView.set(ALL_VIEW);
     this.pageIndex.set(1);
     this.load();
   }
@@ -859,7 +781,7 @@ export class LeadWorkQueueComponent {
   protected removeFilterChip(key: string): void {
     switch (key) {
       case 'view':
-        this.savedView.set('All Leads');
+        this.savedView.set(ALL_VIEW);
         break;
       case 'search':
         this.searchTerm.set('');
@@ -894,7 +816,7 @@ export class LeadWorkQueueComponent {
   }
 
   protected clearAllFilters(): void {
-    this.savedView.set('All Leads');
+    this.savedView.set(ALL_VIEW);
     this.pageIndex.set(1);
     this.searchTerm.set('');
     this.clearAdvancedFilters();

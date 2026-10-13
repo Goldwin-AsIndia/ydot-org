@@ -13,6 +13,9 @@ import {
   CorrectReceiptRequest,
   CreateDonationIntentRequest,
   PublicCampaignSummary,
+  PublicDonationFormSettings,
+  PaymentActivityFilter,
+  PaymentActivityResponse,
   PublicTrackingContext,
   CheckoutSession,
   ConfirmCheckoutRequest,
@@ -120,6 +123,13 @@ export class PaymentApiService {
    * fills the public donation form's campaign picker - which was previously fed from the
    * authenticated campaign register and therefore empty for every donor who scanned a QR code.
    */
+  /** What the donation forms show and check before an intent exists - anonymous, like the form. */
+  getPublicFormSettings(): Observable<PublicDonationFormSettings> {
+    return this.http
+      .get<ApiResponse<PublicDonationFormSettings>>(`${this.publicApi}/form-settings`)
+      .pipe(map((response) => response.data!));
+  }
+
   getPublicCampaigns(): Observable<PublicCampaignSummary[]> {
     return this.http
       .get<ApiResponse<PublicCampaignSummary[]>>(`${this.publicApi}/campaigns`)
@@ -468,6 +478,18 @@ export class PaymentApiService {
    * This is the document's register: it includes failed payments, which have no receipt, because
    * the screen reports what happened to every payment rather than which documents exist.
    */
+  /**
+   * The Payments & Receipts page: issued receipts and failed or pending gateway events as one
+   * paged list, merged and counted by the server.
+   */
+  getPaymentActivity(filter: PaymentActivityFilter): Observable<PaymentActivityResponse> {
+    return this.http
+      .get<ApiResponse<PaymentActivityResponse>>(`${this.staff}/payments/activity`, {
+        params: this.toParams(filter),
+      })
+      .pipe(map((response) => response.data!));
+  }
+
   getReceiptRegister(filter: ReceiptRegisterFilter): Observable<ReceiptRegisterResponse> {
     return this.http
       .get<ApiResponse<ReceiptRegisterResponse>>(`${this.staff}/receipts/register`, {

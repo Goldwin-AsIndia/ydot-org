@@ -371,6 +371,34 @@ public sealed class FollowUpRepository(DonDbContext context) : IFollowUpReposito
         return new PagedResponse<FollowUpTask>(items, total, filter.Page, filter.PageSize);
     }
 
+    public async Task<IReadOnlyList<FollowUpTask>> GetQueueAsync(
+        AccessScope scope,
+        Guid? leadId,
+        Guid? donorId,
+        CancellationToken cancellationToken = default)
+    {
+        var tasks = ApplyScope(
+            context.FollowUpTasks
+                .AsNoTracking()
+                .Include(task => task.Donor)
+                .Include(task => task.Lead).ThenInclude(lead => lead!.Campaign),
+            scope);
+
+        if (donorId is not null)
+        {
+            tasks = tasks.Where(task => task.DonorId == donorId);
+        }
+        else if (leadId is not null)
+        {
+            tasks = tasks.Where(task => task.LeadId == leadId);
+        }
+
+        return await tasks
+            .OrderBy(task => task.DueAtUtc == null)
+            .ThenBy(task => task.DueAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<FollowUpTask?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         context.FollowUpTasks
             .Include(task => task.Donor)

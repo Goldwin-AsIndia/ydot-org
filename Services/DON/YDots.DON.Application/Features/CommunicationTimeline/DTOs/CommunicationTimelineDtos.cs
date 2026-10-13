@@ -44,7 +44,13 @@ public sealed record CommunicationTimelineEntryResponse(
 
     /// <summary>The person who logged it, or somebody who works the whole organisation, may edit it.</summary>
     bool CanEdit,
-    long Version);
+    long Version,
+
+    /// <summary>The outcome in the words a person reads - "Requested callback", "Not contacted".</summary>
+    string OutcomeLabel,
+
+    /// <summary>reached / warm / awaiting / closed - the OutcomeGroupOptions value, or null for none.</summary>
+    string? OutcomeGroup);
 
 /// <summary>
 /// The Communication Timeline for one lead or donor.
@@ -119,7 +125,27 @@ public sealed record CommunicationTimelineResponse(
     IReadOnlyList<string> HealthReasons,
     string ContactRhythm,
     string EngagementTrend,
-    int InterestedCount);
+    int InterestedCount,
+
+    /// <summary>
+    /// The four kinds of outcome - Reached, Warm signals, Awaiting, Closed - with a hint each. Every
+    /// outcome option's description names its group, and every entry carries its own.
+    /// </summary>
+    IReadOnlyList<LookupItem> OutcomeGroupOptions,
+
+    // ---- The figure strip and the lanes, over EVERY entry ----------------------------------------
+    //
+    // Entries holds the newest 200; the screen counted its channels from that list, so a long
+    // relationship under-reported. These are counted by the server over the whole record.
+
+    /// <summary>Every entry on the record.</summary>
+    int TotalEntryCount,
+
+    /// <summary>Entries per channel, keyed by the InteractionTypeOptions value.</summary>
+    IReadOnlyDictionary<string, int> EntryCountsByType,
+
+    /// <summary>Entries marked important.</summary>
+    int ImportantEntryCount);
 
 /// <summary>
 /// POST /api/v1/donors/communication-timeline - log a communication manually.

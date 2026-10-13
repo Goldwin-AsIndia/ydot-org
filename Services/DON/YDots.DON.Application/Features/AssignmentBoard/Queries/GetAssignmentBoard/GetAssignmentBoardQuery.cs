@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using YDots.DON.Application.Common.Abstractions.Persistence;
@@ -35,6 +36,12 @@ public sealed record GetDonorAssignmentBoardQuery(LeadSearchFilter Filter);
 /// <summary>The append-only ownership trail for one donor.</summary>
 public sealed record GetDonorOwnershipHistoryQuery(Guid DonorId);
 
+/// <summary>
+/// The board as CSV, under the same filters and view, every page of it. The screen used to write
+/// the rows it was showing into a file in the browser, with nothing recorded.
+/// </summary>
+public sealed record ExportAssignmentBoardQuery(LeadSearchFilter Filter, bool Donors);
+
 public sealed class AssignmentBoardQueryHandler(
     ILeadRepository leadRepository,
     IDonorRepository donorRepository,
@@ -42,6 +49,10 @@ public sealed class AssignmentBoardQueryHandler(
     IDonationLedger ledger,
     ICampaignRepository campaignRepository,
     IConsentRepository consentRepository,
+    IPeopleDirectory people,
+    IExportService exportService,
+    IAuditWriter auditWriter,
+    IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     IDateTimeProvider clock,
     IOptions<DonorSettings> donorSettings,
@@ -57,6 +68,7 @@ public sealed class AssignmentBoardQueryHandler(
 
         var filter = query.Filter;
         var now = clock.UtcNow;
+        var activeView = ApplyOwnershipView(filter);
 
         // A CONVERTED LEAD IS NOT ROUTED HERE. It became a donor and left the queue; what is owned
         // now is the donor, on the board's Donors view. The board listed them among the leads,
@@ -122,7 +134,10 @@ public sealed class AssignmentBoardQueryHandler(
                 lead.PreferredLanguage,
                 lead.TeamCode,
                 lead.Status.ToString(),
-                lead.Version));
+                lead.Version,
+                DisplayName: LeadMappingConfig.BuildDisplayName(lead),
+                SlaStateLabel: AssignmentBoardCatalogue.SlaLabel(lead.SlaState, _settings),
+                PreferredLanguageLabel: SupportedLanguages.LabelOf(lead.PreferredLanguage)));
         }
 
         var teams = knownOwners
@@ -141,8 +156,8 @@ public sealed class AssignmentBoardQueryHandler(
             [.. campaigns.Select(campaign => new LookupItem(campaign.Id.ToString(), campaign.Name, campaign.Code))],
             teams,
             SupportedLanguages.All,
-            ToLookup<WorkloadBand>(),
-            ToLookup<SlaState>(),
+            AssignmentBoardCatalogue.WorkloadBandOptions(_settings),
+            AssignmentBoardCatalogue.SlaStateOptions(_settings),
             BuildPermittedActions(),
             DescribeFilter(filter),
             DescribeScope(),
@@ -150,7 +165,12 @@ public sealed class AssignmentBoardQueryHandler(
             rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial,
             strip.Unassigned,
             strip.Assigned,
-            strip.DueSoon);
+            strip.DueSoon,
+            AssignmentBoardCatalogue.Views(donors: false, strip.Unassigned, strip.Assigned),
+            activeView,
+            AssignmentBoardCatalogue.RecordTypeOptions,
+            ReportingCalendar.ZoneLabel(now, _settings),
+            ReportingCalendar.UtcOffsetMinutes(now, _settings));
 
         logger.LogInformation("Assignment board retrieved successfully with {RowCount} row(s) from {TotalCount} matching lead(s).", rows.Count, page.TotalCount);
 
@@ -175,6 +195,8 @@ public sealed class AssignmentBoardQueryHandler(
 
         var history = await leadRepository.GetAssignmentHistoryAsync(lead.Id, cancellationToken);
         var consents = await consentRepository.GetForLeadAsync(lead.Id, cancellationToken);
+        var assigners = await people.GetNamesAsync(
+            currentUser.OrganisationId, [.. history.Select(item => item.AssignedByUserId).Distinct()], cancellationToken);
 
         var detail = lead.ToDetailResponse(currentUser.CanSeeContact(), currentUser.CanSeeEvidence(), consents, currentUser.HasPermission);
 
@@ -190,7 +212,9 @@ public sealed class AssignmentBoardQueryHandler(
                 item.AssignmentReason,
                 item.EffectiveAtUtc,
                 item.AssignedByUserId,
-                item.IsBulkRoute))]);
+                item.IsBulkRoute,
+                assigners.GetValueOrDefault(item.AssignedByUserId),
+                AssignmentBoardCatalogue.EventLabel(item.PreviousOwnerUserId, item.IsBulkRoute)))]);
 
         logger.LogInformation("Assignment history retrieved successfully for LeadId {LeadId} with {HistoryCount} history record(s).", query.LeadId, history.Count);
 
@@ -205,6 +229,7 @@ public sealed class AssignmentBoardQueryHandler(
 
         var filter = query.Filter;
         var now = clock.UtcNow;
+        var activeView = ApplyOwnershipView(filter);
 
         bool? hasOwner = filter.AssignmentState switch
         {
@@ -255,6 +280,7 @@ public sealed class AssignmentBoardQueryHandler(
 
                 nextFollowUps.TryGetValue(donor.Id, out var next);
                 giving.TryGetValue(donor.Id, out var given);
+                var sla = LeadMappingConfig.CalculateSlaState(next?.DueAtUtc, now, _settings);
 
                 return new AssignmentBoardRowResponse(
                     donor.Id,
@@ -269,12 +295,15 @@ public sealed class AssignmentBoardQueryHandler(
                     currentLoad,
                     next?.NextAction ?? next?.Purpose,
                     next?.DueAtUtc,
-                    LeadMappingConfig.CalculateSlaState(next?.DueAtUtc, now, _settings).ToString(),
+                    sla.ToString(),
                     donor.PreferredLanguage,
                     null,
                     donor.Status.ToString(),
                     donor.Version,
-                    "Donor");
+                    "Donor",
+                    donor.DisplayName,
+                    AssignmentBoardCatalogue.SlaLabel(sla, _settings),
+                    SupportedLanguages.LabelOf(donor.PreferredLanguage));
             })
             .ToList();
 
@@ -286,8 +315,8 @@ public sealed class AssignmentBoardQueryHandler(
             [],
             [],
             SupportedLanguages.All,
-            ToLookup<WorkloadBand>(),
-            ToLookup<SlaState>(),
+            AssignmentBoardCatalogue.WorkloadBandOptions(_settings),
+            AssignmentBoardCatalogue.SlaStateOptions(_settings),
             BuildPermittedActions(),
             hasOwner switch
             {
@@ -300,7 +329,12 @@ public sealed class AssignmentBoardQueryHandler(
             rows.Count == 0 ? ScreenState.Empty : ScreenState.Initial,
             strip.Unassigned,
             strip.Assigned,
-            dueSoon);
+            dueSoon,
+            AssignmentBoardCatalogue.Views(donors: true, strip.Unassigned, strip.Assigned),
+            activeView,
+            AssignmentBoardCatalogue.RecordTypeOptions,
+            ReportingCalendar.ZoneLabel(now, _settings),
+            ReportingCalendar.UtcOffsetMinutes(now, _settings));
 
         logger.LogInformation("Donor assignment board retrieved with {RowCount} row(s) of {TotalCount}.", rows.Count, total);
 
@@ -319,6 +353,8 @@ public sealed class AssignmentBoardQueryHandler(
         }
 
         var changes = await donorRepository.GetOwnerChangesAsync(donor.Id, cancellationToken);
+        var assigners = await people.GetNamesAsync(
+            currentUser.OrganisationId, [.. changes.Select(change => change.AssignedByUserId).Distinct()], cancellationToken);
 
         return Result.Success(new AssignmentHistoryResponse(
             donor.Id,
@@ -332,7 +368,112 @@ public sealed class AssignmentBoardQueryHandler(
                 change.Reason,
                 change.EffectiveAtUtc,
                 change.AssignedByUserId,
-                change.IsBulkRoute))]));
+                change.IsBulkRoute,
+                assigners.GetValueOrDefault(change.AssignedByUserId),
+                AssignmentBoardCatalogue.EventLabel(change.PreviousOwnerUserId, change.IsBulkRoute)))]));
+    }
+
+    public async Task<Result<ExportFile>> HandleAsync(
+        ExportAssignmentBoardQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("Assignment board export started with maximum row limit {MaximumRows}.", _settings.ExportMaximumRows);
+
+        // EVERY PAGE, READ THE WAY THE SCREEN READS ONE - through the same handler, so a row on the
+        // board and a line in the file cannot be built two different ways.
+        var filter = query.Filter;
+        var limit = Math.Max(1, _settings.ExportMaximumRows);
+        filter.PageSize = 100;
+
+        var rows = new List<AssignmentBoardRowResponse>();
+        IReadOnlyList<OwnerWorkloadResponse> owners = [];
+
+        for (filter.Page = 1; rows.Count < limit; filter.Page++)
+        {
+            var page = query.Donors
+                ? await HandleAsync(new GetDonorAssignmentBoardQuery(filter), cancellationToken)
+                : await HandleAsync(new GetAssignmentBoardQuery(filter), cancellationToken);
+
+            if (!page.IsSuccess || page.Value is null)
+            {
+                return Result.Failure<ExportFile>(page.Error!);
+            }
+
+            owners = page.Value.Owners;
+            rows.AddRange(page.Value.Rows.Items);
+
+            if (page.Value.Rows.Items.Count < filter.PageSize || rows.Count >= page.Value.Rows.TotalCount)
+            {
+                break;
+            }
+        }
+
+        var bands = owners.ToDictionary(owner => owner.UserId, owner => owner.WorkloadBand);
+
+        var lines = rows
+            .Take(limit)
+            .Select(row =>
+            {
+                var due = row.NextActionDueUtc is null ? (DateTimeOffset?)null : ReportingCalendar.ToLocal(row.NextActionDueUtc.Value, _settings);
+
+                return (IReadOnlyList<string>)
+                [
+                    row.LeadReference,
+                    row.DisplayName ?? string.Empty,
+                    row.CampaignName ?? string.Empty,
+                    row.TeamCode ?? string.Empty,
+                    row.PreferredLanguageLabel ?? row.PreferredLanguage,
+                    row.CurrentOwnerUserId is Guid ownerId && bands.TryGetValue(ownerId, out var band) ? band : string.Empty,
+                    row.SlaStateLabel ?? row.SlaState,
+                    row.CurrentOwnerName ?? "Unassigned",
+                    row.SuggestedOwnerName ?? string.Empty,
+                    row.CurrentOwnerOpenWorkCount.ToString(CultureInfo.InvariantCulture),
+                    row.NextAction ?? string.Empty,
+                    due?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? string.Empty,
+                    row.Status
+                ];
+            })
+            .ToList();
+
+        var file = exportService.CreateCsv(
+            query.Donors ? "ydot-donor-assignments" : "ydot-lead-assignments",
+            [query.Donors ? "Donor number" : "Lead ID", query.Donors ? "Donor name" : "Lead name", "Campaign", "Team",
+             "Language", "Owner workload", "SLA", "Current owner", "Suggested owner", "Owner open work",
+             "Next action", "Next action due", "Status"],
+            lines);
+
+        await auditWriter.WriteAsync(
+            new AuditEntry(AuditActionCodes.AssignmentBoardExported, query.Donors ? nameof(Donor) : nameof(Lead), null, AuditResult.Succeeded,
+                $"{lines.Count} {(query.Donors ? "donor" : "lead")} assignment row(s) exported. Reference {file.Reference}."),
+            cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Assignment board export completed. Exported {RowCount} row(s).", lines.Count);
+
+        return Result.Success(file);
+    }
+
+    /// <summary>
+    /// Turns the ownership view into the filter's assignment state, and answers the view in effect.
+    /// An explicit assignment state that contradicts the view supersedes it, as on the Lead Work Queue.
+    /// </summary>
+    private static string ApplyOwnershipView(LeadSearchFilter filter)
+    {
+        if (AssignmentBoardCatalogue.OwnershipOf(filter.View) is not { } owned)
+        {
+            return AssignmentBoardCatalogue.AllView;
+        }
+
+        var state = owned ? LeadAssignmentState.Assigned : LeadAssignmentState.Unassigned;
+
+        if (filter.AssignmentState is not null && filter.AssignmentState != state)
+        {
+            return AssignmentBoardCatalogue.AllView;
+        }
+
+        filter.AssignmentState = state;
+        return owned ? "assigned" : "unassigned";
     }
 
     /// <summary>
@@ -445,7 +586,4 @@ public sealed class AssignmentBoardQueryHandler(
 
         return parts.Count == 0 ? "No filters applied." : "Filtered by " + string.Join(", ", parts) + ".";
     }
-
-    private static IReadOnlyList<LookupItem> ToLookup<TEnum>() where TEnum : struct, Enum =>
-        [.. Enum.GetValues<TEnum>().Select(value => new LookupItem(value.ToString(), value.ToString()))];
 }

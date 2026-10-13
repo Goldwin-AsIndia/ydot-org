@@ -23,4 +23,13 @@ public interface IInteractionTimelineReader
         Guid? donorId,
         int maximumRows,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// How many interactions the record has on each channel, and how many are starred - over every
+    /// entry, not the newest <c>maximumRows</c> the timeline shows.
+    /// </summary>
+    Task<(IReadOnlyDictionary<string, int> ByType, int Important)> GetCountsAsync(
+        Guid? leadId,
+        Guid? donorId,
+        CancellationToken cancellationToken = default);
 }

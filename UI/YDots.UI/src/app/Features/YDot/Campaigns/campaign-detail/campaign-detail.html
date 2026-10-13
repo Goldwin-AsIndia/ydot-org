@@ -213,8 +213,10 @@
             <div class="cd-row-2col">
 
               <!-- Campaign Calendar — this campaign's own records by day: its start and end, each
-                   lifecycle step, each tracking asset going live and each day donations arrived.
-                   Clicking a day filters the tabbed lists below it to that date and scrolls down to them. -->
+                   lifecycle step, each tracking asset going live, each day donations arrived and
+                   each day leads were captured. The icons are cut from the same rows as the table
+                   below, so a marked day always has records to show. Clicking a day narrows the
+                   table to that date, scrolls down to it and highlights its rows. -->
               <article class="fk-panel fk-cal-panel cd-cal-panel">
                 <div class="fk-cal-head">
                   <p class="fk-cal-title">Campaign Calendar</p>
@@ -239,11 +241,11 @@
                       <button type="button" class="fk-cal-cell" role="gridcell"
                         [class.has-events]="cell.events.length > 0" [class.today]="cell.isToday"
                         [class.selected]="cell.selected" [attr.aria-pressed]="cell.selected" (click)="selectCalDay(cell)"
-                        [attr.aria-label]="cell.day + ' — ' + (cell.events.length ? cell.events.length + ' activities' : 'no activities')">
+                        [attr.aria-label]="cell.ariaLabel">
                         <span class="fk-cal-day-num">{{ cell.day }}</span>
                         @if (cell.events.length) {
                         <span class="fk-cal-dots" aria-hidden="true">
-                          @for (ev of cell.events.slice(0, 4); track ev.label) {
+                          @for (ev of cell.events.slice(0, 4); track ev.kind) {
                           <span class="fk-cal-logo" [attr.data-kind]="ev.kind" [attr.title]="ev.label"><i [class]="calKindIcon(ev.kind)"></i></span>
                           }
                           @if (cell.events.length > 4) {
@@ -382,26 +384,47 @@
               </article>
               </div>
 
-              <!-- Tracking card — the compact tabbed table. -->
+              <!-- The day's records — the compact tabbed table. Only the kinds of record the day holds
+                   get a tab (with how many); a day with nothing recorded gets no tabs at all. -->
               <section class="fk-panel fk-table-card cd-work-card cd-work-card-compact" id="cd-date-tabs">
+                  @if (tabs().length) {
                   <div class="fk-table-head">
-                    <nav class="fk-tabs" role="tablist" aria-label="Campaign detail sections">
+                    <nav class="fk-tabs" role="tablist" aria-label="Records on the selected day">
                       @for (t of tabs(); track t.key) {
-                      <button type="button" class="fk-tab" role="tab" [class.fk-tab-active]="activeTab() === t.key"
-                        [attr.aria-selected]="activeTab() === t.key" (click)="selectTab(t.key)">
-                        {{ t.label }}
+                      <button type="button" class="fk-tab" role="tab" [class.fk-tab-active]="shownTab() === t.key"
+                        [attr.aria-selected]="shownTab() === t.key" (click)="selectTab(t.key)">
+                        {{ t.label }} <span class="cd-tab-count">{{ t.count }}</span>
                       </button>
                       }
                     </nav>
                     <span class="fk-table-search">
                       <img src="assets/images/campaign-detail/ic-search.svg" alt="" width="12" height="12" />
                       <input type="search" [ngModel]="trackSearchTerm()" (ngModelChange)="setTrackSearch($event)"
-                        placeholder="Search reference, channel..." aria-label="Search tracking assets" />
+                        placeholder="Search these records..." aria-label="Search the records listed" />
                     </span>
                   </div>
+                  }
+                  <p class="cd-day-caption" aria-live="polite">
+                    <span>Records on <strong>{{ calFilterLabel() }}</strong></span>
+                    @if (hasCalDay()) {
+                    <button type="button" class="cd-empty-link" (click)="clearCalDay()">Back to today</button>
+                    }
+                  </p>
+                  @for (problem of loadProblems(); track problem) {
+                  <p class="cd-state-note" role="alert">{{ problem }}</p>
+                  }
                   <div class="cd-tabpanel">
-                    <!-- Tracking: this campaign's tracking assets, paged five at a time -->
-                    @if (activeTab() === 'tracking') {
+                    @if (!tabs().length) {
+                    @if (tableLoading()) {
+                    <p class="cd-state-note">Loading this campaign's records…</p>
+                    } @else {
+                    <ng-container *ngTemplateOutlet="emptyState; context: {
+                      title: 'Nothing recorded',
+                      note: 'No transactions or events on ' + calFilterLabel() + '. Pick a day marked on the calendar to see its records.'
+                    }"></ng-container>
+                    }
+                    } @else if (shownTab() === 'tracking') {
+                    <!-- Tracking: the campaign's tracking assets going live that day, paged five at a time -->
                     <div role="tabpanel" aria-label="Tracking">
                       @if (pagedTrackingRows().length) {
                       <div class="cd-table-scroll">
@@ -411,12 +434,12 @@
                               <th>Type - Channel</th>
                               <th class="fk-col-status">Status</th>
                               <th>Usage</th>
-                              <th class="d-none d-xl-table-cell">Created On</th>
+                              <th class="d-none d-xl-table-cell">Active from</th>
                             </tr>
                           </thead>
                           <tbody>
-                            @for (row of pagedTrackingRows(); track row.primary) {
-                            <tr>
+                            @for (row of pagedTrackingRows(); track $index) {
+                            <tr [class.cd-row-flash]="rowFlash()" [attr.title]="row.primary">
                               <td>{{ row.secondary }}</td>
                               <td class="fk-col-status">
                                 <span class="fk-status-chip" [attr.data-tone]="row.tone">
@@ -425,7 +448,7 @@
                                 </span>
                               </td>
                               <td>{{ row.usesCount }}</td>
-                              <td class="d-none d-xl-table-cell">{{ row.createdOn }}</td>
+                              <td class="d-none d-xl-table-cell">{{ row.activeFrom }}</td>
                             </tr>
                             }
                           </tbody>
@@ -433,10 +456,8 @@
                       </div>
                       } @else {
                       <ng-container *ngTemplateOutlet="emptyState; context: {
-                        title: trackSearchTerm().trim() ? 'No matching tracking assets' : 'No tracking assets',
-                        note: trackSearchTerm().trim()
-                          ? 'Nothing matches “' + trackSearchTerm().trim() + '” on ' + calFilterLabel() + '.'
-                          : 'No tracking asset was created on ' + calFilterLabel() + '. Pick another day on the calendar to see its assets.'
+                        title: 'No matching tracking assets',
+                        note: 'Nothing matches “' + trackSearchTerm().trim() + '” on ' + calFilterLabel() + '.'
                       }"></ng-container>
                       }
                       <!-- Pinned to the bottom of the card (margin-top: auto in the CSS), whatever the row count. -->
@@ -451,32 +472,13 @@
                         </div>
                       </div>
                     </div>
-                    }
-
-                    <!-- Payments: this campaign's donations, read live from the payments service -->
-                    @if (activeTab() === 'payments') {
-                    <div role="tabpanel" aria-label="Payments">
-                      @if (donationsLoading()) {
-                      <p class="cd-state-note">Loading this campaign's donations…</p>
-                      } @else if (donationsError()) {
-                      <p class="cd-state-note">{{ donationsError() }}</p>
-                      } @else {
-                      <ng-container
-                        *ngTemplateOutlet="rowTable; context: { $implicit: paymentRows(), cols: ['Donation', 'Source · Method', 'Received'] }"></ng-container>
-                      }
-                    </div>
-                    }
-
-                    <!-- Leads (donors service), Donors and Source (this campaign's gifts), and one tab per
-                         channel the campaign runs on (CAM's attribution) — each narrowed to the day. -->
-                    @if (activeTab() !== 'tracking' && activeTab() !== 'payments') {
-                    <div role="tabpanel" [attr.aria-label]="activeTab()">
-                      @if (tabError(); as failed) {
-                      <p class="cd-state-note">{{ failed }}</p>
-                      } @else {
+                    } @else {
+                    <!-- Payments (payments service), Leads (donors service), Donors, Source and one tab per
+                         channel gifts were traced to (CAM's attribution), Lifecycle (the campaign's dates and
+                         history) — each narrowed to the day. -->
+                    <div role="tabpanel" [attr.aria-label]="shownTab()">
                       <ng-container
                         *ngTemplateOutlet="rowTable; context: { $implicit: tabRows(), cols: tabColumns() }"></ng-container>
-                      }
                     </div>
                     }
                   </div>
@@ -571,8 +573,8 @@
               </tr>
             </thead>
             <tbody>
-              @for (r of rows; track r.primary) {
-              <tr>
+              @for (r of rows; track $index) {
+              <tr [class.cd-row-flash]="rowFlash()">
                 <td>{{ r.primary }}</td>
                 <td>{{ r.secondary }}</td>
                 <td>{{ r.meta }}</td>
@@ -583,8 +585,8 @@
         </div>
         } @else {
         <ng-container *ngTemplateOutlet="emptyState; context: {
-          title: 'Nothing recorded',
-          note: 'No records on ' + calFilterLabel() + '. Pick another day on the calendar to see what happened then.'
+          title: 'No matching records',
+          note: 'Nothing matches “' + trackSearchTerm().trim() + '” on ' + calFilterLabel() + '.'
         }"></ng-container>
         }
       </ng-template>

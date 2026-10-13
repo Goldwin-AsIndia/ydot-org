@@ -846,7 +846,7 @@ public sealed class IamDbSeeder(
     /// the named branch, everything beneath it and the headings above it, plus the mandatory
     /// dashboard - AND the role holds the permission its screen requires. That
     /// is what keeps a Campaign Executive's sidebar to Campaigns although the role also reads
-    /// donations, and what gives DonorCare its own three Donors and Leads menus and no others.
+    /// donations, and what gives DonorCare its own three Donors &amp; Leads menus and no others.
     ///
     /// IT CANNOT GRANT ANYTHING, and that is what makes it safe to write in bulk. RoleMenu is a
     /// subtractive filter by construction - see the note on the entity - so the worst a wrong row

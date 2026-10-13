@@ -19,6 +19,9 @@ public sealed record GetTrackingAssetQuery(Guid TrackingAssetId);
 /// <summary>CSV export of the manager.</summary>
 public sealed record ExportTrackingAssetsQuery(TrackingAssetSearchFilter Filter);
 
+/// <summary>The manager's cards and saved views.</summary>
+public sealed record GetTrackingAssetSummaryQuery(Guid? CampaignId);
+
 /// <summary>The read side of the Tracking Assets slice.</summary>
 public sealed class TrackingAssetQueryHandler(
     ITrackingAssetReadService readService,
@@ -31,6 +34,18 @@ public sealed class TrackingAssetQueryHandler(
     private const int MaximumExportPages = 500;
 
     private const int ExportPageSize = 100;
+
+    public async Task<Result<TrackingAssetSummaryResponse>> HandleAsync(
+        GetTrackingAssetSummaryQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        logger.LogInformation("Getting the tracking asset summary.");
+
+        var summary = await readService.GetSummaryAsync(query.CampaignId, currentUser.Scope, cancellationToken);
+
+        return Result.Success(summary);
+    }
 
     public async Task<Result<PagedResponse<TrackingAssetListItemResponse>>> HandleAsync(
         SearchTrackingAssetsQuery query, CancellationToken cancellationToken)

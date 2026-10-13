@@ -133,7 +133,102 @@ public sealed record FollowUpResponse(
     // How the execution went, in the words the form offered them. Null until it is executed.
     string? ExecutionStatus,
     string? CompletionReason,
-    string? Disposition);
+    string? Disposition,
+
+    // ---- The Follow-up Queue's readings of the row - see FollowUpQueueCatalogue -----------------
+
+    /// <summary>Pending, Rescheduled, Escalated, Completed, Partially completed, No response or Cancelled.</summary>
+    string QueueStatus = "",
+
+    /// <summary>The queue views this row belongs to - "mine", "today", "overdue" and so on.</summary>
+    IReadOnlyList<string>? QueueViews = null,
+
+    /// <summary>dueToday / upcoming / overdue / completed, or null when the row sits on no board column.</summary>
+    string? BoardColumn = null);
+
+/// <summary>One tab above the Follow-up Queue: its key, words, short words, group, a line and its count.</summary>
+public sealed record FollowUpQueueViewResponse(
+    string Value,
+    string Label,
+    string ShortLabel,
+    string Group,
+    string Description,
+    int Count);
+
+/// <summary>One line of the queue's agenda card.</summary>
+public sealed record FollowUpAgendaItemResponse(
+    Guid Id,
+    DateTimeOffset? DueAtUtc,
+    string Channel,
+    string ChannelLabel,
+    string RecordName,
+    string QueueStatus,
+    bool IsOpen);
+
+/// <summary>
+/// The queue's pulse panel, agenda and date rail - over the caller's whole scope (or the one
+/// person named), not the filtered rows. The screen used to count all of these itself.
+/// </summary>
+public sealed record FollowUpQueuePulseResponse(
+    int SlaOnTime,
+    int SlaApproaching,
+    int SlaBreached,
+    IReadOnlyList<QueueViewResponse> AgeBuckets,
+    int Blocked,
+
+    /// <summary>Follow-ups due on each organisation day, cancelled ones left out, keyed yyyy-MM-dd.</summary>
+    IReadOnlyDictionary<string, int> DayCounts,
+
+    /// <summary>Today's follow-ups by time (cancelled left out), at most five.</summary>
+    IReadOnlyList<FollowUpAgendaItemResponse> AgendaToday,
+
+    /// <summary>What is coming up after today, filling the agenda to five.</summary>
+    IReadOnlyList<FollowUpAgendaItemResponse> AgendaNext,
+    int AgendaDone,
+    int AgendaLeft);
+
+/// <summary>
+/// GET /api/v1/donors/follow-up-planner/queue - the Follow-up Queue.
+///
+/// THE FILTERED SET, NOT A PAGE OF IT. The queue lays its rows out as a grid, a board and a month
+/// calendar, so it needs every row the filters match; the server filters, sorts and counts them,
+/// and the grid pages what it was given. The figures, tabs and the pulse panel are counted over
+/// the whole scope by the same rules the filters apply.
+/// </summary>
+public sealed record FollowUpQueueResponse(
+    string ScreenId,
+    string Route,
+    IReadOnlyList<FollowUpResponse> FollowUps,
+
+    /// <summary>How many follow-ups matched; more than FollowUps holds when IsTruncated.</summary>
+    int TotalCount,
+    bool IsTruncated,
+    FollowUpQueueSummaryResponse Summary,
+    FollowUpQueuePulseResponse Pulse,
+    IReadOnlyList<FollowUpQueueViewResponse> Views,
+    IReadOnlyList<QueueViewResponse> Tiles,
+    IReadOnlyList<LookupItem> StatusOptions,
+    IReadOnlyList<LookupItem> ChannelOptions,
+    IReadOnlyList<LookupItem> PriorityOptions,
+
+    /// <summary>The people follow-ups may be reassigned or escalated to.</summary>
+    IReadOnlyList<LookupItem> OwnerOptions,
+
+    /// <summary>The people the caller's follow-ups are assigned to now, for the Assigned-to filter.</summary>
+    IReadOnlyList<LookupItem> AssigneeOptions,
+    IReadOnlyList<LookupItem> CampaignOptions,
+    IReadOnlyList<LookupItem> BoardColumns,
+    IReadOnlyList<LookupItem> SortOptions,
+    IReadOnlyList<LookupItem> ExecutionStatusOptions,
+    IReadOnlyList<LookupItem> CompletionReasonOptions,
+    IReadOnlyList<LookupItem> DispositionOptions,
+    IReadOnlyList<LookupItem> ContactChannelOptions,
+    IReadOnlyList<string> PermittedActions,
+    string ActiveScope,
+    DateTimeOffset AsAtUtc,
+
+    /// <summary>The organisation's today, yyyy-MM-dd - the day the tiles and the rail count by.</summary>
+    string Today);
 
 /// <summary>
 /// What the screen has to show before somebody schedules contact. Never pre-ticked: the person

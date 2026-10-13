@@ -126,6 +126,9 @@ public sealed class CommunicationTimelineQueryHandler(
         var interactions = await timelineReader.GetTimelineAsync(
             lead?.Id, donor?.Id, MaximumEntries, cancellationToken);
 
+        // THE FIGURES COUNT EVERY ENTRY; the list holds the newest MaximumEntries of them.
+        var (countsByType, importantCount) = await timelineReader.GetCountsAsync(lead?.Id, donor?.Id, cancellationToken);
+
         var canSeeContact = currentUser.CanSeeContact();
         var canEditAny = currentUser.Scope.IsOrganisationWide;
         var now = clock.UtcNow;
@@ -224,7 +227,11 @@ public sealed class CommunicationTimelineQueryHandler(
             lead is null ? [] : LeadHealth.Explain(lead, now),
             CommunicationCatalogue.ContactRhythm(interactions),
             CommunicationCatalogue.EngagementTrend(interactions),
-            interactions.Count(interaction => interaction.Outcome == ContactOutcome.Interested)));
+            interactions.Count(interaction => interaction.Outcome == ContactOutcome.Interested),
+            CommunicationCatalogue.OutcomeGroups,
+            countsByType.Values.Sum(),
+            countsByType,
+            importantCount));
     }
 
     /// <summary>
@@ -329,7 +336,9 @@ public sealed class CommunicationTimelineQueryHandler(
             interaction.AttachmentName,
             interaction.PerformedByUserId,
             canEdit && logged,
-            interaction.Version);
+            interaction.Version,
+            CommunicationCatalogue.OutcomeLabel(interaction.Outcome),
+            CommunicationCatalogue.OutcomeGroup(interaction.Outcome.ToString()));
     }
 
     private static string BuildLeadName(Lead lead) => LeadMappingConfig.BuildDisplayName(lead);

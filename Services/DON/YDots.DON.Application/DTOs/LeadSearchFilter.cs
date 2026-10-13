@@ -112,6 +112,13 @@ public sealed class LeadSearchFilter : PaginationRequest
     /// <summary>False asks for the leads with nothing planned (or no longer worked).</summary>
     public bool? HasNextContact { get; set; }
 
+    /// <summary>
+    /// One of the views the queue answers in <c>Views</c> - "unassigned", "hot", "due-today" and
+    /// so on. The server turns it into the filter fields above, so the screen names a view and
+    /// never decides what the view means. A field the caller also set explicitly wins.
+    /// </summary>
+    public string? View { get; set; }
+
     /// <summary>The ids in <see cref="LeadIds"/>, ignoring anything that is not one.</summary>
     public IReadOnlyList<Guid> ParseLeadIds() =>
         string.IsNullOrWhiteSpace(LeadIds)

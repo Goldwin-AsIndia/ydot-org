@@ -40,6 +40,7 @@ import {
   TrackingAssetLifecycleRequest,
   TrackingAssetListItem,
   TrackingAssetSearchFilter,
+  TrackingAssetSummary,
   UpdateBudgetPlanVersionRequest,
   UpdateCampaignRequest,
   UpdateReadinessCheckRequest,
@@ -255,6 +256,15 @@ export class CampaignApiService {
     return this.http
       .get<ApiResponse<PagedResponse<TrackingAssetListItem>>>(this.trackingAssetsUrl, {
         params: this.toParams(filter),
+      })
+      .pipe(map((response) => response.data!));
+  }
+
+  /** The manager's cards and saved views, over the scope or the one campaign named. */
+  getTrackingAssetSummary(campaignId?: string | null): Observable<TrackingAssetSummary> {
+    return this.http
+      .get<ApiResponse<TrackingAssetSummary>>(`${this.trackingAssetsUrl}/summary`, {
+        params: this.toParams({ campaignId: campaignId ?? null }),
       })
       .pipe(map((response) => response.data!));
   }

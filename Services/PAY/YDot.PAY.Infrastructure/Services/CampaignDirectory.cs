@@ -256,7 +256,8 @@ public sealed class CampaignDirectory(PaymentDbContext context, ILogger<Campaign
 
         const string Sql = """
             SELECT campaign.id, campaign.code, campaign.name, campaign.public_description,
-                   COALESCE(currency.code, 'INR'), COALESCE(campaign.campaign_amount, 0)
+                   COALESCE(currency.code, 'INR'), COALESCE(campaign.campaign_amount, 0),
+                   campaign.end_date
             FROM cam_campaigns AS campaign
             LEFT JOIN gm_currencies AS currency ON currency.id = campaign.currency_id
             WHERE campaign.tenant_id = @tenant_id
@@ -289,7 +290,10 @@ public sealed class CampaignDirectory(PaymentDbContext context, ILogger<Campaign
                     reader.GetString(2),
                     reader.IsDBNull(3) ? null : reader.GetString(3),
                     reader.GetString(4),
-                    reader.IsDBNull(5) ? 0m : reader.GetDecimal(5)));
+                    reader.IsDBNull(5) ? 0m : reader.GetDecimal(5),
+                    reader.IsDBNull(6)
+                        ? "Open for donations"
+                        : "Open until " + reader.GetFieldValue<DateOnly>(6).ToString("dd MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)));
             }
 
             return rows;

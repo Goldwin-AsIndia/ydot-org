@@ -26,5 +26,15 @@ public interface IConsentRepository
 
     Task<IReadOnlyList<Consent>> GetForLeadAsync(Guid leadId, CancellationToken cancellationToken = default);
 
+    /// <summary><see cref="GetCurrentForDonorAsync"/> for many donors in one read, keyed by donor.</summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<Consent>>> GetCurrentForDonorsAsync(
+        IReadOnlyCollection<Guid> donorIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary><see cref="GetForLeadAsync"/> for many leads in one read, keyed by lead.</summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<Consent>>> GetForLeadsAsync(
+        IReadOnlyCollection<Guid> leadIds,
+        CancellationToken cancellationToken = default);
+
     void Add(Consent consent);
 }

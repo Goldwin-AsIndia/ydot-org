@@ -75,7 +75,7 @@ public static class FollowUpMappingConfig
         var phone = task.Donor?.PrimaryPhone ?? task.Lead?.MobileNumber;
         var email = task.Donor?.PrimaryEmail ?? task.Lead?.EmailAddress;
 
-        return new(
+        FollowUpResponse response = new(
             task.Id,
             task.FollowUpReference,
             task.DonorId,
@@ -137,6 +137,17 @@ public static class FollowUpMappingConfig
             FollowUpExecutionCatalogue.Label(FollowUpExecutionCatalogue.ExecutionStatuses, task.ExecutionStatus?.ToString()),
             FollowUpExecutionCatalogue.Label(FollowUpExecutionCatalogue.CompletionReasons, task.CompletionReason?.ToString()),
             FollowUpExecutionCatalogue.Label(FollowUpExecutionCatalogue.Dispositions, task.Disposition?.ToString()));
+
+        // THE QUEUE'S READINGS, from the enum values rather than their labels - see
+        // FollowUpQueueCatalogue for why that difference mattered.
+        var queueStatus = FollowUpQueueCatalogue.StatusOf(task);
+
+        return response with
+        {
+            QueueStatus = queueStatus,
+            QueueViews = FollowUpQueueCatalogue.ViewsOf(response),
+            BoardColumn = FollowUpQueueCatalogue.BoardColumnOf(response, queueStatus)
+        };
     }
 
     /// <summary>

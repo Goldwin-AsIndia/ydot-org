@@ -6,6 +6,7 @@ using YDots.DON.Application.DTOs;
 using YDots.DON.Application.Features.FollowUpPlanner.Commands.PlanFollowUp;
 using YDots.DON.Application.Features.FollowUpPlanner.DTOs;
 using YDots.DON.Application.Features.FollowUpPlanner.Queries.GetFollowUpPlanner;
+using YDots.DON.Application.Features.FollowUpPlanner.Queries.GetFollowUpQueue;
 using YDots.DON.Infrastructure.Authorization;
 
 namespace YDots.DON.Api.Controllers;
@@ -50,6 +51,57 @@ public sealed class FollowUpPlannerController : ApiControllerBase
         }
 
         return FromResult(result);
+    }
+
+    /// <summary>
+    /// GET the Follow-up Queue: every follow-up the filters match, in order, with the tabs, tiles,
+    /// pulse panel and filter options counted over the caller's whole scope by the same rules.
+    /// </summary>
+    [HttpGet("queue")]
+    [HasPermission(PermissionCodes.FollowUpPlannerView)]
+    [ProducesResponseType(typeof(ApiResponse<FollowUpQueueResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetQueue(
+        [FromQuery] FollowUpQueueFilter filter,
+        [FromServices] FollowUpQueueQueryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Follow-up queue retrieval started.");
+
+        var result = await handler.HandleAsync(new GetFollowUpQueueQuery(filter), cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            _logger.LogWarning("Follow-up queue retrieval failed.");
+        }
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// GET the Follow-up Queue as CSV under the same filters (or the ticked follow-ups), written
+    /// and logged by the server, masked as the screen is.
+    /// </summary>
+    [HttpGet("queue/export")]
+    [HasPermission(PermissionCodes.DonorsExport)]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ExportQueue(
+        [FromQuery] FollowUpQueueFilter filter,
+        [FromServices] FollowUpQueueQueryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Follow-up queue export started.");
+
+        var result = await handler.HandleAsync(new ExportFollowUpQueueQuery(filter), cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            _logger.LogWarning("Follow-up queue export failed.");
+        }
+
+        return FileFromResult(result);
     }
 
     /// <summary>

@@ -50,8 +50,9 @@
                   <span class="visually-hidden">Temperature</span>
                   <select id="temperatureFilter" [class.has-value]="temperatureFilter() !== 'All'" [ngModel]="temperatureFilter()"
                     (ngModelChange)="updateTemperatureFilter($event)">
-                    @for (option of temperatureOptions(); track option) {
-                    <option [value]="option">{{ option === 'All' ? 'All temperatures' : option }}</option>
+                    <option value="All">All temperatures</option>
+                    @for (option of temperatureOptions(); track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
                     }
                   </select>
                   <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
@@ -60,8 +61,9 @@
                   <span class="visually-hidden">Follow-up status</span>
                   <select id="followUpFilter" [class.has-value]="followUpFilter() !== 'All'" [ngModel]="followUpFilter()"
                     (ngModelChange)="updateFollowUpFilter($event)">
-                    @for (option of followUpOptions; track option) {
-                    <option [value]="option">{{ option === 'All' ? 'All follow-ups' : option }}</option>
+                    <option value="All">All follow-ups</option>
+                    @for (option of followUpOptions(); track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
                     }
                   </select>
                   <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
@@ -73,8 +75,8 @@
                 }
               </div>
               <span class="ml-rule" aria-hidden="true"></span>
-              @if (canBulkAct && hasSelection()) {
-              <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="!canExport || exporting()" (click)="exportSelected()"
+              @if (canExport && hasSelection()) {
+              <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="exporting()" (click)="exportSelected()"
                 title="Export the selected leads">
                 <i class="ri-download-2-line" aria-hidden="true"></i> Export {{ selectedCount() }} selected
               </button>
@@ -85,8 +87,8 @@
               </button>
               }
               <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestOpenFollowUpQueue()"
-                title="Open the follow-up queue">
-                <i class="ri-list-check-2" aria-hidden="true"></i> Follow-up queue
+                title="Open Follow-ups">
+                <i class="ri-list-check-2" aria-hidden="true"></i> Follow-ups
               </button>
               @if (canCreate) {
               <button type="button" class="btn btn-primary btn-sm" (click)="requestCreateLead()" title="Create a lead">
@@ -96,55 +98,27 @@
             </div>
           </header>
 
-          <!-- ================= FIGURES: the six counts, each one a shortcut ================= -->
+          <!-- ================= FIGURES: the server's views of your leads, each one a shortcut ================= -->
           <nav class="ml-figs" aria-label="Lead summary">
-            <button type="button" class="ml-fig" data-tone="accent" [class.is-on]="activeFigure() === 'all'" (click)="pickFigure('all')"
-              title="Show all assigned leads">
-              <span class="ml-fig-l"><i class="ri-user-heart-line" aria-hidden="true"></i>Assigned</span>
-              <span class="ml-fig-n">{{ kpis().assignedLeads }}</span>
-              <span class="ml-fig-h">In your assignment</span>
+            @for (figure of figures(); track figure.value) {
+            <button type="button" class="ml-fig" [attr.data-tone]="figure.tone" [class.is-on]="activeFigure() === figure.value"
+              (click)="pickFigure(figure.value)" [title]="figure.description">
+              <span class="ml-fig-l"><i [class]="figure.icon" aria-hidden="true"></i>{{ figure.label }}</span>
+              <span class="ml-fig-n">{{ figure.count }}</span>
+              <span class="ml-fig-h">{{ figure.description }}</span>
             </button>
-            <button type="button" class="ml-fig" data-tone="hot" [class.is-on]="activeFigure() === 'Hot'" (click)="pickFigure('Hot')"
-              title="Show hot leads">
-              <span class="ml-fig-l"><i class="ri-fire-line" aria-hidden="true"></i>Hot</span>
-              <span class="ml-fig-n">{{ kpis().hotLeads }}</span>
-              <span class="ml-fig-h">High priority</span>
-            </button>
-            <button type="button" class="ml-fig" data-tone="warm" [class.is-on]="activeFigure() === 'Warm'" (click)="pickFigure('Warm')"
-              title="Show warm leads">
-              <span class="ml-fig-l"><i class="ri-sun-line" aria-hidden="true"></i>Warm</span>
-              <span class="ml-fig-n">{{ kpis().warmLeads }}</span>
-              <span class="ml-fig-h">Building interest</span>
-            </button>
-            <button type="button" class="ml-fig" data-tone="cold" [class.is-on]="activeFigure() === 'Cold'" (click)="pickFigure('Cold')"
-              title="Show cold leads">
-              <span class="ml-fig-l"><i class="ri-snowy-line" aria-hidden="true"></i>Cold</span>
-              <span class="ml-fig-n">{{ kpis().coldLeads }}</span>
-              <span class="ml-fig-h">Needs warming up</span>
-            </button>
-            <button type="button" class="ml-fig" data-tone="due" [class.is-on]="activeFigure() === 'Due'" (click)="pickFigure('Due')"
-              title="Show follow-ups due today">
-              <span class="ml-fig-l"><i class="ri-calendar-check-line" aria-hidden="true"></i>Due today</span>
-              <span class="ml-fig-n">{{ kpis().followUpsDueToday }}</span>
-              <span class="ml-fig-h">Follow-ups today</span>
-            </button>
-            <button type="button" class="ml-fig" data-tone="late" [class.is-on]="activeFigure() === 'Overdue'" (click)="pickFigure('Overdue')"
-              title="Show overdue follow-ups">
-              <span class="ml-fig-l"><i class="ri-alarm-warning-line" aria-hidden="true"></i>Overdue</span>
-              <span class="ml-fig-n">{{ kpis().followUpsOverdue }}</span>
-              <span class="ml-fig-h">Needs attention</span>
-            </button>
+            }
           </nav>
 
           <!-- ================= PIPELINE: stage tabs ================= -->
           <nav class="ml-stages" aria-label="Lead pipeline">
             <span class="ml-cap">Stage</span>
             <button type="button" class="ml-stage" [class.is-on]="stageFilter() === 'All'" [attr.aria-pressed]="stageFilter() === 'All'"
-              (click)="updateStageFilter('All')">All leads <b class="ml-num">{{ kpis().assignedLeads }}</b></button>
+              (click)="updateStageFilter('All')">All leads <b class="ml-num">{{ allCount() }}</b></button>
             @for (stage of pipeline(); track stage.stage) {
             <button type="button" class="ml-stage" [class.is-on]="stageFilter() === stage.stage"
               [attr.aria-pressed]="stageFilter() === stage.stage" [attr.data-stage]="stage.stage"
-              (click)="applyPipelineFilter(stage.stage)"><span class="ml-dot" aria-hidden="true"></span>{{ stage.stage }}
+              (click)="applyPipelineFilter(stage.stage)"><span class="ml-dot" aria-hidden="true"></span>{{ stage.label }}
               <b class="ml-num">{{ stage.count }}</b></button>
             }
           </nav>
@@ -212,7 +186,7 @@
 
               <div class="ml-heat">
                 <span class="ml-temp" [attr.data-temp]="lead.temperature"><i class="ri-temp-hot-line" aria-hidden="true"></i>{{ lead.temperature || '—' }}</span>
-                <span class="ml-meter" [attr.data-band]="healthBand(lead.healthScore)" [title]="'Health score ' + lead.healthScore + '/100'">
+                <span class="ml-meter" [attr.data-band]="healthBand(lead)" [title]="lead.healthBand + ' · ' + lead.healthScore + '/100'">
                   <span class="ml-meter-bar"><span [style.width.%]="lead.healthScore"></span></span>
                   <b class="ml-num">{{ lead.healthScore }}</b>
                 </span>
@@ -220,18 +194,22 @@
 
               <div class="ml-next" [attr.data-due]="dueTone(lead)">
                 <span class="ml-num">{{ lead.nextFollowUp || 'Not planned' }}</span>
-                <span class="ml-due">{{ lead.followUpStatus === 'Not planned' ? '' : lead.followUpStatus }}</span>
+                <span class="ml-due">{{ lead.followUpLabel }}</span>
               </div>
 
               <div class="ml-acts ydot-row-actions">
                 <button type="button" class="ydot-act ydot-act--view" (click)="openLead(lead.reference)"
                   [attr.aria-label]="'View ' + lead.name" title="View lead"><i class="ri-eye-line" aria-hidden="true"></i></button>
-                <button type="button" class="ydot-act ydot-act--chat" [disabled]="!canCommunicate"
+                @if (canCommunicate) {
+                <button type="button" class="ydot-act ydot-act--chat"
                   (click)="requestCommunicate(lead.reference)" [attr.aria-label]="'Communicate with ' + lead.name"
                   title="Communicate"><i class="ri-chat-3-line" aria-hidden="true"></i></button>
-                <button type="button" class="ydot-act ydot-act--info" [disabled]="!canScheduleFollowUp"
+                }
+                @if (canScheduleFollowUp) {
+                <button type="button" class="ydot-act ydot-act--info"
                   (click)="requestScheduleFollowUp(lead.reference)" [attr.aria-label]="'Schedule a follow-up for ' + lead.name"
                   title="Schedule follow-up"><i class="ri-calendar-event-line" aria-hidden="true"></i></button>
+                }
               </div>
             </li>
             }
@@ -239,7 +217,7 @@
 
           <footer class="ml-foot">
             <span class="ml-foot-count" aria-live="polite">Showing <b class="ml-num">{{ pageStart() }}–{{ pageEnd() }}</b> of
-              <b class="ml-num">{{ filteredLeads().length }}</b></span>
+              <b class="ml-num">{{ totalCount() }}</b></span>
             <app-rows-per-page [value]="pageSize()" (changed)="setPageSize($event)" />
             <nav class="ml-pager" aria-label="Lead list pagination">
               <button type="button" class="ml-page-btn" aria-label="Previous page" title="Previous page"
@@ -277,7 +255,7 @@
           <div class="ml-dr-figs">
             <div class="ml-dr-fig">
               <span class="ml-cap">Health</span>
-              <span class="ml-health" [attr.data-band]="healthBand(lead.healthScore)">
+              <span class="ml-health" [attr.data-band]="healthBand(lead)" [title]="lead.healthBand">
                 <svg viewBox="0 0 36 36" aria-hidden="true">
                   <circle cx="18" cy="18" r="15.5" class="ml-health-track"></circle>
                   <circle cx="18" cy="18" r="15.5" class="ml-health-val" pathLength="100" [attr.stroke-dasharray]="lead.healthScore + ' 100'"></circle>
@@ -291,7 +269,7 @@
             </div>
             <div class="ml-dr-fig">
               <span class="ml-cap">Follow-up</span>
-              <span class="ml-fustate" [attr.data-due]="dueTone(lead)">{{ lead.followUpStatus }}</span>
+              <span class="ml-fustate" [attr.data-due]="dueTone(lead)">{{ lead.followUpLabel || notPlannedLabel() }}</span>
             </div>
           </div>
 
@@ -316,17 +294,21 @@
             <h3 id="ml-sec-eng"><span class="ml-dr-no">02</span>Engagement</h3>
             <dl class="ml-dl">
               <div><dt>Next follow-up</dt><dd class="ml-num">{{ lead.nextFollowUp || 'Not planned' }}</dd></div>
-              <div><dt>Follow-up status</dt><dd>{{ lead.followUpStatus }}</dd></div>
+              <div><dt>Follow-up status</dt><dd>{{ lead.followUpLabel || notPlannedLabel() }}</dd></div>
               <div><dt>Last outcome</dt><dd>{{ lead.lastContactOutcome || '—' }}</dd></div>
             </dl>
           </section>
         </div>
 
         <footer class="offcanvas-footer">
-          <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="!canScheduleFollowUp"
+          @if (canScheduleFollowUp) {
+          <button type="button" class="btn btn-outline-secondary btn-sm"
             (click)="requestScheduleFollowUp(lead.reference)"><i class="ri-calendar-event-line" aria-hidden="true"></i> Follow-up</button>
-          <button type="button" class="btn btn-primary btn-sm" [disabled]="!canCommunicate"
+          }
+          @if (canCommunicate) {
+          <button type="button" class="btn btn-primary btn-sm"
             (click)="requestCommunicate(lead.reference)"><i class="ri-chat-3-line" aria-hidden="true"></i> Communicate</button>
+          }
         </footer>
       </aside>
       }

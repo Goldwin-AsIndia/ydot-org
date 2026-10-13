@@ -1,33 +1,43 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Output, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, Output, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { map, tap } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subject, Subscription, debounceTime } from 'rxjs';
 import { DonorApiService } from '../../../../Service/donor-api.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
-import { LeadListItem, LeadWorkQueueResponse } from '../../../../Shared/models/donor-contract.model';
-import { fetchPages } from '../../../../Shared/services/paging';
+import {
+  DonLookupItem,
+  LeadListItem,
+  LeadWorkQueueFilter,
+  LeadWorkQueueResponse,
+  QueueView,
+} from '../../../../Shared/models/donor-contract.model';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 // ============================================================================
 // DATA MODEL
 // ============================================================================
 export interface LeadItem {
+  /** The API's id. Every write on this screen is addressed to it. */
   reference: string;
   name: string;
   campaign: string;
   owner: string;
   stage: string;
-  temperature: 'Cold' | 'Warm' | 'Hot';
+  temperature: string;
   healthScore: number;
+
+  /** The server's word for the score: Healthy, Needs attention or At risk. */
+  healthBand: string;
   nextFollowUp: string;
 
-  /**
-   * Where the next contact stands, from the server's reading of the organisation's day.
-   * "Not planned" is a lead with nothing booked - it used to read "Upcoming".
-   */
-  followUpStatus: 'Upcoming' | 'Due' | 'Overdue' | 'Not planned';
+  /** Overdue / Due Today / Tomorrow / Upcoming / None - the server's reading of the next contact. */
+  followUpState: string;
+
+  /** That state in the words of the server's follow-up options; empty when nothing is planned. */
+  followUpLabel: string;
 
   /** What this lead's state allows - the server's list, e.g. Contact, Qualify, Close. */
   permittedActions: readonly string[];
@@ -37,12 +47,7 @@ export interface LeadItem {
   recommendedNextAction: string;
   contactRestricted: boolean;
 
-  /**
-   * The reference a person quotes, e.g. LED-2026-001245.
-   *
-   * SEPARATE FROM `reference`, WHICH IS NOW THE API'S ID. Every write on this screen is addressed
-   * to the id; the grid and every message show this.
-   */
+  /** The reference a person quotes, e.g. LED-2026-001245. */
   displayReference: string;
 
   /** The server's row version, sent back on every write for the concurrency check. */
@@ -51,102 +56,48 @@ export interface LeadItem {
   mobile?: string;
 }
 
-export interface LeadGroup {
-  key: string;
-  label: string;
-  count: number;
-  items: LeadItem[];
-}
-
-export interface ScreenMeta {
-  viewId: string;
-  title: string;
-  route: string;
-  purpose: string;
-  primaryAction: string;
-  viewPermission: string;
-  primaryUsers: string[];
-  scope: string;
-  lastRefresh: string;
-}
-
-export interface PermissionMap {
-  view: boolean;
-  updateStage: boolean;
-  updateTemperature: boolean;
-  logCommunication: boolean;
-  scheduleFollowUp: boolean;
-  executeFollowUp: boolean;
-  qualify: boolean;
-  markLost: boolean;
-  markDormant: boolean;
-  bulkActions: boolean;
-  exportGrid: boolean;
-}
-
 export interface PipelineStage {
   stage: string;
+  label: string;
   count: number;
 }
 
-export interface ActionDef {
-  id: string;
-  label: string;
-  placement: string;
-  permission: string;
-  allowedState: string;
-  result: string;
-  requiresReason?: boolean;
+/** A figure across the top: the server's view, with the tone and icon it is drawn in. */
+export interface LeadFigure extends QueueView {
+  tone: string;
+  icon: string;
 }
 
-export interface FieldContract {
-  label: string;
-  control: string;
-  required: boolean;
-  visibility: string;
-}
+/**
+ * The tone and icon each of the server's views is drawn in - presentation only. The words, the
+ * hints and the counts are the server's; a view this does not know is drawn plainly.
+ */
+const FIGURE_LOOK: Readonly<Record<string, { tone: string; icon: string }>> = {
+  all: { tone: 'accent', icon: 'ri-user-heart-line' },
+  hot: { tone: 'hot', icon: 'ri-fire-line' },
+  warm: { tone: 'warm', icon: 'ri-sun-line' },
+  cold: { tone: 'cold', icon: 'ri-snowy-line' },
+  'due-today': { tone: 'due', icon: 'ri-calendar-check-line' },
+  overdue: { tone: 'late', icon: 'ri-alarm-warning-line' },
+};
 
-export interface LeadsScreenData {
-  screen: ScreenMeta;
-  permissions: PermissionMap;
-  kpis: {
-    assignedLeads: number;
-    coldLeads: number;
-    warmLeads: number;
-    hotLeads: number;
-    followUpsDueToday: number;
-    followUpsOverdue: number;
-  };
-  pipeline: PipelineStage[];
-  groups: LeadGroup[];
-  savedFilters: string[];
-  fieldContracts: FieldContract[];
-  actions: ActionDef[];
-}
-
+const ALL = 'All';
+const ALL_VIEW = 'all';
 
 /**
  * LEADS_SOURCE - REMOVED.
  *
- * It was a `LeadsScreenData` literal compiled into the bundle: eleven named leads with campaigns,
- * owners, health scores and follow-up dates. The constructor flattened it into
- * `WorkflowStateService`, so every fundraiser in every organisation opened My Leads to the same
- * eleven people, and qualifying one of them lasted until the tab was refreshed.
+ * It was a literal compiled into the bundle: eleven named leads with campaigns, owners, health
+ * scores and follow-up dates, so every fundraiser in every organisation opened My Leads to the
+ * same eleven people.
  */
-
-
-// ============================================================================
-// COMPONENT
-// ============================================================================
-type FilterValue = 'All' | string;
-
 
 @Component({
   selector: 'app-my-leads',
   standalone: true,
   imports: [RowsPerPage, CommonModule, FormsModule],
-templateUrl: './my-leads.html',
-styleUrl: './my-leads.css',
+  templateUrl: './my-leads.html',
+  styleUrl: './my-leads.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MyLeadsComponent {
@@ -154,6 +105,10 @@ export class MyLeadsComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(DonorApiService);
   private readonly toast = inject(ToastService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly searchChanges = new Subject<void>();
+  private loadSubscription?: Subscription;
+
   // ---- compatibility outputs; actions are also wired directly to Router/state ----
   @Output() communicate = new EventEmitter<string>();
   @Output() scheduleFollowUp = new EventEmitter<string>();
@@ -165,46 +120,29 @@ export class MyLeadsComponent {
   @Output() viewLeadQueue = new EventEmitter<void>();
   @Output() exportGrid = new EventEmitter<LeadItem[]>();
 
-  // ---- Screen chrome ----
-  //
-  // THE COUNTS ARE COMPUTED FROM THE SERVER'S ROWS, not read from a constant. `kpis` and
-  // `pipeline` used to be literal arrays in the same file as the leads, so the cards showed
-  // "11 leads, 4 due today" whatever the queue actually contained.
   readonly screen = {
     title: 'My leads',
     purpose: 'The leads assigned to you. Work them, schedule follow-ups and record what happened.',
-    scope: 'Assigned to you',
   };
 
   /** What the caller may do, from the server's permitted actions for the queue. */
   readonly permissions = signal<Record<string, boolean>>({ view: false });
 
   /**
-   * The summary cards - the server's summary of the caller's own leads.
+   * The six figures - the server's views of the caller's own leads, counted over all of them.
    *
-   * NOT COUNTED HERE. They were first a literal in this file, then a count of the rows this
-   * browser had loaded - which stopped at one page, and read "due today" off an hours-to-breach
-   * badge rather than off the calendar. The queue endpoint counts the caller's leads when it is
-   * asked for `onlyMine`, and counts their open follow-ups against the organisation's day.
+   * NOT COUNTED HERE, AND NOT NAMED HERE. They were a literal in this file, then a count of the
+   * rows this browser had loaded. The queue endpoint asked for `onlyMine` answers them, each with
+   * its words, and a figure's value sent back as `view` returns exactly the leads it counted.
    */
-  readonly kpis = signal({
-    assignedLeads: 0,
-    followUpsDueToday: 0,
-    followUpsOverdue: 0,
-    hotLeads: 0,
-    warmLeads: 0,
-    coldLeads: 0,
-  });
+  readonly figures = signal<readonly LeadFigure[]>([]);
 
   /** The caller's leads per stage, from the server's counts, in the server's stage order. */
   readonly pipeline = signal<PipelineStage[]>([]);
 
-  readonly savedFilters = ['All my leads', 'Due today', 'Overdue', 'Hot leads'];
-
-  readonly actionDefs: ActionDef[] = [];
-
   // ---- state ----
-  private readonly sourceLeads = signal<LeadItem[]>([]);
+  private readonly rows = signal<LeadItem[]>([]);
+  readonly totalCount = signal(0);
 
   readonly loading = signal(false);
   readonly loadError = signal<string | null>(null);
@@ -213,113 +151,139 @@ export class MyLeadsComponent {
   /** Outcome value to the server's label for it - "CallbackRequested" to "Requested callback". */
   private outcomeLabels = new Map<string, string>();
 
+  /** The view in effect, as the server answered it ("all" when a filter superseded the figure). */
+  private readonly view = signal(ALL_VIEW);
+
   readonly searchTerm = signal('');
-  readonly stageFilter = signal<FilterValue>('All');
-  readonly temperatureFilter = signal<FilterValue>('All');
-  readonly followUpFilter = signal<FilterValue>('All');
-  readonly stageOptionSearch = signal('');
+  readonly stageFilter = signal<string>(ALL);
+  readonly temperatureFilter = signal<string>(ALL);
+  readonly followUpFilter = signal<string>(ALL);
+
+  /** The server's temperatures and follow-up states; empty until it answers. */
+  readonly temperatureOptions = signal<readonly DonLookupItem[]>([]);
+  readonly followUpOptions = signal<readonly DonLookupItem[]>([]);
 
   readonly selectedRefs = signal<ReadonlySet<string>>(new Set());
   readonly activeRef = signal<string | null>(null);
   readonly currentPage = signal(1);
   readonly pageSize = signal(10);
-  setPageSize(n: number): void { this.pageSize.set(n); this.currentPage.set(1); }
+
+  setPageSize(n: number): void {
+    this.pageSize.set(n);
+    this.currentPage.set(1);
+    this.load();
+  }
 
   // ---- copy-to-clipboard feedback state ----
   readonly copiedRef = signal<string | null>(null);
   private copiedRefTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    this.searchChanges
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.load());
+    this.destroyRef.onDestroy(() => this.loadSubscription?.unsubscribe());
+
+    this.activeRef.set(this.route.snapshot.queryParamMap.get('leadId'));
     this.load();
   }
 
   /**
-   * SCR-DON-009 - My Leads.
+   * SCR-DON-009 - My Leads: "the owner-specific list page: it shows the leads assigned to a
+   * single owner". `onlyMine` is how the server is told that, resolved from the token.
    *
-   * THE DOCUMENT DEFINES THE SCOPE: "My Leads is the owner-specific list page: it shows the leads
-   * assigned to a single owner." `onlyMine` is how the server is told that, and resolving it from
-   * the token rather than from a value this browser sends is what makes it true - a browser
-   * cannot be trusted to say whose leads it is asking for.
-   *
-   * WHAT THIS REPLACES. The constructor flattened `LEADS_SOURCE` - a constant compiled into the
-   * bundle - into `WorkflowStateService`, so every fundraiser in every organisation saw the same
-   * leads and every qualification was forgotten on refresh.
+   * ONE PAGE PER REQUEST, FILTERED ON THE SERVER. The screen used to download every page and
+   * filter, count and page them itself; the queue endpoint does all of it now, as it does for the
+   * Lead Work Queue, so the figures, the stage counts, the rows and the export answer one question.
    */
+  private buildFilter(): LeadWorkQueueFilter {
+    const stage = this.stageFilter();
+    const temperature = this.temperatureFilter();
+    const followUp = this.followUpFilter();
+
+    return {
+      page: this.currentPage(),
+      pageSize: this.pageSize(),
+      onlyMine: true,
+      search: this.searchTerm().trim() || undefined,
+      status: stage === ALL ? null : stage,
+      temperature: temperature === ALL ? null : temperature,
+      followUpState: followUp === ALL ? null : followUp,
+      view: this.view() === ALL_VIEW ? null : this.view(),
+    };
+  }
+
   private load(): void {
     this.loading.set(true);
     this.loadError.set(null);
 
-    // EVERY PAGE, NOT "PAGE 1 OF 200". The API caps a page at 100 whatever is asked for, so the
-    // 101st lead was simply missing while the count above it read as a total. The first page's
-    // answer also carries the cards, the pipeline and the permitted actions; later pages add rows.
-    let first: LeadWorkQueueResponse | null = null;
+    this.loadSubscription?.unsubscribe();
+    this.loadSubscription = this.api
+      .getLeadWorkQueue(this.buildFilter())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (response) => this.apply(response),
+        error: (error: unknown) => {
+          this.loading.set(false);
+          this.loadError.set(apiErrorMessage(error));
+        },
+      });
+  }
 
-    fetchPages<LeadListItem>((page, pageSize) =>
-      this.api.getLeadWorkQueue({ page, pageSize, onlyMine: true }).pipe(
-        tap((response) => { first ??= response; }),
-        map((response) => response.leads),
-      ),
-    ).subscribe({
-      next: ({ items }) => {
-        const response = first!;
+  private apply(response: LeadWorkQueueResponse): void {
+    // A page past the end (the set shrank since it was asked for): step back to the last page.
+    const lastPage = Math.max(1, Math.ceil(response.leads.totalCount / this.pageSize()));
+    if (response.leads.items.length === 0 && response.leads.totalCount > 0 && this.currentPage() > lastPage) {
+      this.currentPage.set(lastPage);
+      this.load();
+      return;
+    }
 
-        this.outcomeLabels = new Map(
-          (response.contactOutcomeOptions ?? []).map((option) => [option.value, option.label]),
-        );
+    this.outcomeLabels = new Map(
+      (response.contactOutcomeOptions ?? []).map((option) => [option.value, option.label]),
+    );
+    this.temperatureOptions.set(response.temperatureOptions ?? []);
+    this.followUpOptions.set(response.followUpStateOptions ?? []);
 
-        this.sourceLeads.set(items.map((row) => this.toLeadItem(row)));
+    this.rows.set(response.leads.items.map((row) => this.toLeadItem(row)));
+    this.totalCount.set(response.leads.totalCount);
 
-        const summary = response.summary;
-        this.kpis.set({
-          assignedLeads: summary.totalLeads,
-          followUpsDueToday: summary.followUpsDueToday,
-          followUpsOverdue: summary.followUpsOverdue,
-          hotLeads: summary.hotLeads,
-          warmLeads: summary.warmLeads,
-          coldLeads: summary.coldLeads,
-        });
+    this.figures.set(
+      (response.views ?? []).map((view) => ({
+        ...view,
+        tone: FIGURE_LOOK[view.value]?.tone ?? 'accent',
+        icon: FIGURE_LOOK[view.value]?.icon ?? 'ri-list-check',
+      })),
+    );
+    this.view.set(response.activeView || ALL_VIEW);
 
-        // Converted leads are not in this list - they are donors now, in My Donor List - so a
-        // Converted chip would filter to nothing.
-        this.pipeline.set(
-          (response.statusOptions ?? [])
-            .filter((option) => option.value !== 'Converted')
-            .map((option) => ({ stage: option.value, count: response.statusCounts?.[option.value] ?? 0 }))
-            .filter((stage) => stage.count > 0),
-        );
+    // Converted leads are not in this list - they are donors now, in My Donor List - so a
+    // Converted chip would filter to nothing.
+    this.pipeline.set(
+      (response.statusOptions ?? [])
+        .filter((option) => option.value !== 'Converted')
+        .map((option) => ({
+          stage: option.value,
+          label: option.label,
+          count: response.statusCounts?.[option.value] ?? 0,
+        }))
+        .filter((stage) => stage.count > 0 || stage.stage === this.stageFilter()),
+    );
 
-        this.temperatureOptions.set([
-          'All',
-          ...(response.temperatureOptions ?? []).map((option) => option.value),
-        ]);
-
-        // VERBS, from the same endpoint the Lead Queue reads:
-        // ['Accept','Filter','Open','Create','Assign','Contact','Qualify','Close','Score','Export'].
-        const permitted = response.permittedActions ?? [];
-        this.permissions.set({
-          view: permitted.includes('Open') || permitted.includes('Filter'),
-          create: permitted.includes('Create'),
-          contact: permitted.includes('Contact'),
-          qualify: permitted.includes('Qualify'),
-          close: permitted.includes('Close'),
-          schedule: permitted.includes('Contact'),
-          export: permitted.includes('Export'),
-        });
-
-        this.loading.set(false);
-
-        const requestedId = this.route.snapshot.queryParamMap.get('leadId');
-        const rows = this.sourceLeads();
-        this.activeRef.set(
-          requestedId && rows.some((lead) => lead.reference === requestedId) ? requestedId : null,
-        );
-        this.ensureValidPage();
-      },
-      error: (error: unknown) => {
-        this.loading.set(false);
-        this.loadError.set(apiErrorMessage(error));
-      },
+    // VERBS, from the same endpoint the Lead Queue reads:
+    // ['Accept','Filter','Open','Create','Assign','Contact','Qualify','Close','Score','Export'].
+    const permitted = response.permittedActions ?? [];
+    this.permissions.set({
+      view: permitted.includes('Open') || permitted.includes('Filter'),
+      create: permitted.includes('Create'),
+      contact: permitted.includes('Contact'),
+      qualify: permitted.includes('Qualify'),
+      close: permitted.includes('Close'),
+      schedule: permitted.includes('Contact'),
+      export: permitted.includes('Export'),
     });
+
+    this.loading.set(false);
   }
 
   private toLeadItem(row: LeadListItem): LeadItem {
@@ -332,17 +296,18 @@ export class MyLeadsComponent {
       campaign: row.campaignName ?? '',
       owner: row.ownerName ?? 'Unassigned',
       stage: row.status,
-      temperature: row.temperature as LeadItem['temperature'],
+      temperature: row.temperature,
       healthScore: row.healthScore,
+      healthBand: row.healthBand,
       nextFollowUp: this.formatDate(row.nextActionDueUtc),
-      followUpStatus: this.toFollowUpStatus(row.followUpState),
+      followUpState: row.followUpState,
+      followUpLabel: row.followUpState === 'None' ? '' : this.followUpWords(row.followUpState),
       permittedActions: row.permittedActions ?? [],
       language: row.preferredLanguage,
       source: row.source ?? '',
       lastContactOutcome: this.outcomeLabels.get(row.lastContactOutcome) ?? row.lastContactOutcome,
 
-      // The lead's own next action, or nothing. It used to fall back to "Initial contact" for
-      // every lead without one - a recommendation nobody had made.
+      // The lead's own next action, or nothing.
       recommendedNextAction: row.nextAction ?? '',
 
       // MASKED BY THE SERVER, and a masked lead is one this caller may not contact directly.
@@ -351,24 +316,16 @@ export class MyLeadsComponent {
     };
   }
 
-  /**
-   * The server's follow-up state, in this screen's four words.
-   *
-   * IT USED TO READ THE SLA BADGE, which answers a different question - hours until a breach -
-   * and got two things wrong: "DueToday" there means "within 24 hours", so tomorrow morning
-   * counted as today; and Breached, the worst state, fell through to "Upcoming". A lead with
-   * nothing planned also read "Upcoming". `followUpState` is by calendar day, the same day the
-   * cards above count against.
-   */
-  private toFollowUpStatus(state: string): LeadItem['followUpStatus'] {
-    switch (state) {
-      case 'Overdue': return 'Overdue';
-      case 'Due Today': return 'Due';
-      case 'Tomorrow':
-      case 'Upcoming': return 'Upcoming';
-      default: return 'Not planned';
-    }
+  /** A row's follow-up state in the words of the server's options ("DueToday" is "Due today"). */
+  private followUpWords(state: string): string {
+    const key = (state ?? '').replace(/\s+/g, '');
+    return this.followUpOptions().find((option) => option.value === key)?.label ?? state;
   }
+
+  /** The server's word for a lead with nothing planned. */
+  readonly notPlannedLabel = computed(
+    () => this.followUpOptions().find((option) => option.value === 'None')?.label ?? '',
+  );
 
   private formatDate(value: string | null): string {
     if (!value) {
@@ -380,74 +337,42 @@ export class MyLeadsComponent {
       : parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  readonly stageOptions = computed<FilterValue[]>(() => [
-    'All',
-    ...Array.from(new Set(this.sourceLeads().map((l) => l.stage))),
-  ]);
-  readonly visibleStageOptions = computed(() => {
-    const term = this.stageOptionSearch().trim().toLowerCase();
-    return term ? this.stageOptions().filter((option) => option.toLowerCase().includes(term)) : this.stageOptions();
-  });
-  /** From the server's temperature catalogue; only "All" until it answers. */
-  readonly temperatureOptions = signal<FilterValue[]>(['All']);
-  readonly followUpOptions: FilterValue[] = ['All', 'Upcoming', 'Due', 'Overdue', 'Not planned'];
+  // ---- derived view state ----
 
-  readonly filteredLeads = computed<LeadItem[]>(() => {
-    const term = this.searchTerm().trim().toLowerCase();
-    const stage = this.stageFilter();
-    const temperature = this.temperatureFilter();
-    const followUp = this.followUpFilter();
+  /** The rows on screen - the server's page, exactly. */
+  readonly pagedLeads = computed(() => this.rows());
+  readonly filteredLeads = computed(() => this.rows());
 
-    return this.sourceLeads().filter((lead) => {
-      const matchesTerm =
-        !term ||
-        lead.name.toLowerCase().includes(term) ||
-        // The reference a person reads and types - `reference` is the API's id.
-        lead.displayReference.toLowerCase().includes(term) ||
-        lead.campaign.toLowerCase().includes(term);
-      const matchesStage = stage === 'All' || lead.stage === stage;
-      const matchesTemperature = temperature === 'All' || lead.temperature === temperature;
-      const matchesFollowUp = followUp === 'All' || lead.followUpStatus === followUp;
-      return matchesTerm && matchesStage && matchesTemperature && matchesFollowUp;
-    });
-  });
-
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredLeads().length / this.pageSize())));
-
-  readonly pagedLeads = computed(() => {
-    const start = (this.currentPage() - 1) * this.pageSize();
-    return this.filteredLeads().slice(start, start + this.pageSize());
-  });
-
-  readonly pageStart = computed(() => this.filteredLeads().length === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1);
-  readonly pageEnd = computed(() => Math.min(this.currentPage() * this.pageSize(), this.filteredLeads().length));
-
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize())));
+  readonly pageStart = computed(() => (this.totalCount() === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1));
+  readonly pageEnd = computed(() => Math.min(this.currentPage() * this.pageSize(), this.totalCount()));
   readonly pageNumbers = computed(() => Array.from({ length: this.totalPages() }, (_, index) => index + 1));
 
-  readonly isEmpty = computed(() => !this.loading() && !this.loadError() && this.filteredLeads().length === 0);
+  readonly isEmpty = computed(() => !this.loading() && !this.loadError() && this.rows().length === 0);
+
+  /** Every lead in the caller's assignment - the "all" figure, for the Stage tab of the same name. */
+  readonly allCount = computed(() => this.figures().find((figure) => figure.value === ALL_VIEW)?.count ?? 0);
 
   readonly activeLead = computed<LeadItem | null>(() => {
     const ref = this.activeRef();
     if (!ref) return null;
-    return this.sourceLeads().find((l) => l.reference === ref) ?? null;
+    return this.rows().find((l) => l.reference === ref) ?? null;
   });
 
   /** True when anything narrows the list - drives the Reset link. */
   readonly hasActiveFilters = computed(
     () =>
       !!this.searchTerm().trim() ||
-      this.stageFilter() !== 'All' ||
-      this.temperatureFilter() !== 'All' ||
-      this.followUpFilter() !== 'All',
+      this.view() !== ALL_VIEW ||
+      this.stageFilter() !== ALL ||
+      this.temperatureFilter() !== ALL ||
+      this.followUpFilter() !== ALL,
   );
 
-  /** Which summary figure the current filters correspond to, so it can read as selected. */
+  /** Which figure reads as selected: the server's view in effect, when no other filter narrows it. */
   readonly activeFigure = computed<string>(() => {
-    const temperature = this.temperatureFilter();
-    const followUp = this.followUpFilter();
-    if (temperature !== 'All' && followUp === 'All') return temperature;
-    if (followUp !== 'All' && temperature === 'All') return followUp;
-    return temperature === 'All' && followUp === 'All' && this.stageFilter() === 'All' ? 'all' : '';
+    const narrowed = this.stageFilter() !== ALL || this.temperatureFilter() !== ALL || this.followUpFilter() !== ALL;
+    return narrowed ? '' : this.view();
   });
 
   readonly selectedCount = computed(() => this.selectedRefs().size);
@@ -461,61 +386,40 @@ export class MyLeadsComponent {
   });
 
   // ---- derived label helpers (pure functions, template-safe) ----
-  temperatureClass(t: LeadItem['temperature']): string {
-    return t === 'Hot' ? 'badge-hot' : t === 'Warm' ? 'badge-warm' : 'badge-cold';
-  }
 
-  followUpClass(status: LeadItem['followUpStatus']): string {
-    switch (status) {
-      case 'Overdue':
-        return 'badge-overdue';
-      case 'Due':
-        return 'badge-due';
-      case 'Not planned':
-        return 'badge-completed';
-      default:
-        return 'badge-upcoming';
+  /** The meter's colour, from the server's reading of the score - the same band the Lead Queue shows. */
+  healthBand(lead: LeadItem): 'high' | 'mid' | 'low' {
+    switch (lead.healthBand) {
+      case 'Healthy': return 'high';
+      case 'Needs attention': return 'mid';
+      default: return 'low';
     }
-  }
-
-  /** Health score band for the meter colour. */
-  healthBand(score: number): 'high' | 'mid' | 'low' {
-    return score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low';
   }
 
   /** The tone of a lead's next follow-up, for colouring its date line. */
   dueTone(lead: LeadItem): 'late' | 'today' | 'soon' | 'none' {
-    switch (lead.followUpStatus) {
+    switch (lead.followUpState) {
       case 'Overdue': return 'late';
-      case 'Due': return 'today';
+      case 'Due Today': return 'today';
+      case 'Tomorrow':
       case 'Upcoming': return 'soon';
       default: return 'none';
     }
   }
 
-  /** A summary figure acts as a shortcut filter: temperature or follow-up state, or everything. */
-  pickFigure(kind: string): void {
-    this.resetFilters(false);
-    if (kind === 'Hot' || kind === 'Warm' || kind === 'Cold') {
-      this.temperatureFilter.set(kind);
-    } else if (kind === 'Due' || kind === 'Overdue') {
-      this.followUpFilter.set(kind);
-    }
+  /** A figure is a shortcut: the server's view of that name, with the other narrowings cleared. */
+  pickFigure(view: string): void {
+    this.stageFilter.set(ALL);
+    this.temperatureFilter.set(ALL);
+    this.followUpFilter.set(ALL);
+    this.view.set(view);
+    this.currentPage.set(1);
+    this.load();
   }
 
-  // ---- Permission gating ----
-  //
-  // ONE SOURCE: the codes the server listed for this caller. The old version looked each action
-  // up in a `PermissionMap` object that lived in the same file as the leads, so what somebody
-  // could do was decided by the bundle rather than by their token.
-  //
-  // THE THREE-ROLE MODEL NEEDS NO CODE HERE. An APPROVER holds no `don.lead-work-queue.qualify`,
-  // so Qualify is not drawn for them; TENANT_ADMIN and INITIATOR both hold it.
+  // ---- Permission gating: the server's verbs for this caller, and each row's own list ----
 
   canQualify(lead: LeadItem): boolean {
-    // STATE AS WELL AS PERMISSION, AND THE STATE IS THE SERVER'S. This used to require a Hot
-    // lead with "readiness" - a word this screen derived from donation potential - so whether a
-    // lead could be qualified was decided by a rule that exists nowhere on the server.
     return this.permissions()['qualify'] === true && lead.permittedActions.includes('Qualify');
   }
 
@@ -575,15 +479,13 @@ export class MyLeadsComponent {
 
   toggleSelectAllVisible(): void {
     const visible = this.pagedLeads();
+    const next = new Set(this.selectedRefs());
     if (this.allVisibleSelected()) {
-      const next = new Set(this.selectedRefs());
       visible.forEach((l) => next.delete(l.reference));
-      this.selectedRefs.set(next);
     } else {
-      const next = new Set(this.selectedRefs());
       visible.forEach((l) => next.add(l.reference));
-      this.selectedRefs.set(next);
     }
+    this.selectedRefs.set(next);
   }
 
   clearSelection(): void {
@@ -591,67 +493,48 @@ export class MyLeadsComponent {
   }
 
   applyPipelineFilter(stage: string): void {
-    this.stageFilter.set(stage);
-    this.currentPage.set(1);
+    this.updateStageFilter(stage);
   }
 
   updateSearch(term: string): void {
     this.searchTerm.set(term);
     this.currentPage.set(1);
+    this.searchChanges.next();
   }
 
-  updateStageFilter(value: FilterValue): void {
+  updateStageFilter(value: string): void {
     this.stageFilter.set(value);
     this.currentPage.set(1);
+    this.load();
   }
 
-  updateTemperatureFilter(value: FilterValue): void {
+  updateTemperatureFilter(value: string): void {
     this.temperatureFilter.set(value);
     this.currentPage.set(1);
+    this.load();
   }
 
-  updateFollowUpFilter(value: FilterValue): void {
+  updateFollowUpFilter(value: string): void {
     this.followUpFilter.set(value);
     this.currentPage.set(1);
+    this.load();
   }
 
   goToPage(page: number): void {
-    this.currentPage.set(Math.min(Math.max(page, 1), this.totalPages()));
-  }
-
-  private ensureValidPage(): void {
-    this.goToPage(this.currentPage());
-  }
-
-  applySavedFilter(name: string): void {
-    switch (name) {
-      case 'Due today':
-        this.resetFilters(false);
-        this.followUpFilter.set('Due');
-        break;
-      case 'Overdue':
-        this.resetFilters(false);
-        this.followUpFilter.set('Overdue');
-        break;
-      case 'Hot leads':
-        this.resetFilters(false);
-        this.temperatureFilter.set('Hot');
-        break;
-      case 'Ready for qualification':
-        this.resetFilters(false);
-        this.stageFilter.set('Qualified');
-        break;
-      default:
-        this.resetFilters(false);
-    }
+    const next = Math.min(Math.max(page, 1), this.totalPages());
+    if (next === this.currentPage()) return;
+    this.currentPage.set(next);
+    this.load();
   }
 
   resetFilters(clearSearch = true): void {
     if (clearSearch) this.searchTerm.set('');
-    this.stageFilter.set('All');
-    this.temperatureFilter.set('All');
-    this.followUpFilter.set('All');
+    this.view.set(ALL_VIEW);
+    this.stageFilter.set(ALL);
+    this.temperatureFilter.set(ALL);
+    this.followUpFilter.set(ALL);
     this.currentPage.set(1);
+    this.load();
   }
 
   refresh(): void {
@@ -661,35 +544,28 @@ export class MyLeadsComponent {
   /**
    * Export Leads - the caller's own leads, written by the server.
    *
-   * THE FILE USED TO BE BUILT HERE from whatever rows were loaded, with the API's id in the
-   * Reference column, no permission check and no record that a copy had been taken. The server
-   * exports the same scope this list shows (`onlyMine`), under the filters on screen, masks the
-   * contact columns by the caller's permission and logs it. A selection narrows it to those leads.
+   * THE SAME QUESTION THE LIST ASKED: the view, the stage, the temperature, the follow-up state
+   * and the search, with `onlyMine`. A selection narrows it to those leads. The server masks the
+   * contact columns by the caller's permission and logs the export.
    */
   exportSelected(): void {
     if (!this.canExport || this.exporting()) return;
 
     const selected = [...this.selectedRefs()];
-    const stage = this.stageFilter();
-    const temperature = this.temperatureFilter();
-    const followUp = this.followUpFilter();
 
     this.exportGrid.emit(
       selected.length > 0
-        ? this.sourceLeads().filter((lead) => this.selectedRefs().has(lead.reference))
-        : this.filteredLeads(),
+        ? this.rows().filter((lead) => this.selectedRefs().has(lead.reference))
+        : this.rows(),
     );
 
     this.exporting.set(true);
     this.api
       .exportLeads({
-        onlyMine: true,
-        search: this.searchTerm().trim() || undefined,
-        status: stage === 'All' ? null : stage,
-        temperature: temperature === 'All' ? null : temperature,
-        followUpState: followUp === 'All' ? null : this.toServerFollowUpState(followUp),
+        ...this.buildFilter(),
         leadIds: selected.length > 0 ? selected.join(',') : null,
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: ({ blob, fileName }) => {
           const url = URL.createObjectURL(blob);
@@ -707,15 +583,6 @@ export class MyLeadsComponent {
       });
   }
 
-  /** This screen's follow-up words to the server's filter values. */
-  private toServerFollowUpState(status: string): string {
-    switch (status) {
-      case 'Due': return 'DueToday';
-      case 'Not planned': return 'None';
-      default: return status;
-    }
-  }
-
   requestCommunicate(ref: string): void {
     if (!this.canCommunicate) return;
     this.communicate.emit(ref);
@@ -728,13 +595,7 @@ export class MyLeadsComponent {
     this.router.navigate(['/app/don/follow-up-planner'], { queryParams: { leadId: ref, mode: 'create' } });
   }
 
-  /**
-   * Execute Follow-Up - "opens the Follow-Up Execution page", per the document.
-   *
-   * IT NO LONGER INVENTS A FOLLOW-UP. The old version created one on the spot when the lead had
-   * none, so pressing Execute manufactured the very task it then claimed to be executing. The
-   * execution screen loads the lead's real follow-ups and says so when there are none.
-   */
+  /** Execute Follow-Up - "opens the Follow-Up Execution page", per the document. */
   requestExecuteFollowUp(ref: string): void {
     if (!this.canExecuteFollowUp) {
       return;
@@ -746,10 +607,8 @@ export class MyLeadsComponent {
   }
 
   /**
-   * Qualify - saved through the lead's own qualify command.
-   *
-   * THE NOTES ARE REQUIRED, 10 to 2000 characters, because qualifying is a judgement somebody
-   * made and the audit trail should carry why. The old version set a local string.
+   * Qualify - saved through the lead's own qualify command. The notes are required, 10 to 2000
+   * characters, because qualifying is a judgement somebody made.
    */
   requestQualify(lead: LeadItem): void {
     if (!this.canQualify(lead)) {
@@ -788,12 +647,7 @@ export class MyLeadsComponent {
     this.closeLead(lead, 'Dormant', 'Marked dormant from My Leads.');
   }
 
-  /**
-   * Closes a lead with a recorded reason.
-   *
-   * LOST AND DORMANT ARE THE SAME WRITE with a different reason, which is why they share this.
-   * Both take the lead out of the working queue, and the trail should say which one it was.
-   */
+  /** Lost and dormant are the same write with a different recorded reason. */
   private closeLead(lead: LeadItem, outcome: string, reason: string): void {
     this.api
       .closeLead(lead.reference, { reason: `${outcome}: ${reason}`, expectedVersion: lead.version })
@@ -825,10 +679,7 @@ export class MyLeadsComponent {
     this.router.navigate(['/app/fundraising/relationships/lead-work-queue']);
   }
 
-  /**
-   * Copies the lead reference to the clipboard and shows a brief
-   * "copied" confirmation on the icon button.
-   */
+  /** Copies the lead reference to the clipboard and shows a brief "copied" confirmation. */
   async copyReference(ref: string, event: Event): Promise<void> {
     event.stopPropagation();
 

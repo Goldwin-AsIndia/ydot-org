@@ -158,8 +158,13 @@ export class SidebarComponent implements OnDestroy {
    * menu on screen was not the menu IAM held: an Organisation's own label for the register was
    * overwritten, and the tracking link could not be hidden, renamed or mapped to a role. The
    * catalogue now says all three, and this draws what it is given.
+   *
+   * NOR ARE THE WHATSAPP SCREENS ADDED HERE ANY MORE. This used to insert "CheckNumber" and "Wati"
+   * under the Dashboard because IAM had no node for them. They are catalogue nodes now - WhatsApp
+   * Messages and Number Verification, under Communications - with the same permission the old
+   * check used (`cam.campaigns.view`), so IAM leaves them out wherever the API would refuse them.
    */
-  readonly menu = computed(() => this.withWhatsApp([...this.navigation.menu()]));
+  readonly menu = computed(() => this.navigation.menu());
   readonly loading = computed(() => this.navigation.loading());
   readonly failed = computed(() => this.navigation.failed());
 
@@ -183,40 +188,6 @@ export class SidebarComponent implements OnDestroy {
     ),
     { initialValue: this.router.url },
   );
-
-  private static readonly CHECK_NUMBER_ROUTE = '/app/whatsapp/check-number';
-  private static readonly WATI_ROUTE = '/app/whatsapp/wati';
-
-  /**
-   * Adds CheckNumber and Wati directly below Dashboard.
-   *
-   * CLIENT-SIDE ENTRIES, and the only two: these screens have no server menu node yet, so they are
-   * placed here. When the menu catalogue gains them, the `already` check below stops this from
-   * adding a second copy.
-   *
-   * SHOWN ONLY TO PEOPLE THE API WILL ANSWER. Both screens read the Campaign service, which needs
-   * 'cam.campaigns.view' and an organisation to work in - so a role without it (and a Platform Admin
-   * who has not entered an organisation) is not offered a link that would only open "access denied".
-   */
-  private withWhatsApp(nodes: MenuNode[]): MenuNode[] {
-    if (nodes.length === 0 || nodes.some((n) => n.route === SidebarComponent.CHECK_NUMBER_ROUTE)) {
-      return nodes;
-    }
-    const insideOrganisation = !this.tokens.isSuperAdmin() || this.tokens.isActingInOrganisation();
-    if (!insideOrganisation || !this.tokens.hasAnyPermission('cam.campaigns.view')) {
-      return nodes;
-    }
-    const entry = (code: string, name: string, route: string, icon: string): MenuNode => ({
-      id: code, code, name, route, icon, children: null, isGroupOnly: false, hasChildren: false, opensInNewTab: false,
-    });
-    const added = [
-      entry('client-check-number', 'CheckNumber', SidebarComponent.CHECK_NUMBER_ROUTE, 'ri-shield-check-line'),
-      entry('client-wati', 'Wati', SidebarComponent.WATI_ROUTE, 'ri-message-3-line'),
-    ];
-    const dashboard = nodes.findIndex((n) => !!n.route && /\/dashboard\/?$/.test(n.route));
-    const at = dashboard === -1 ? 0 : dashboard + 1;
-    return [...nodes.slice(0, at), ...added, ...nodes.slice(at)];
-  }
 
   /** Shown in the sidebar footer so a root user always knows whose data they are looking at. */
   readonly organisationName = computed(() => this.tokens.organisationName());

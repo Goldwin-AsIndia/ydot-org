@@ -33,7 +33,24 @@ public sealed record AssignmentBoardResponse(
     int AssignedCount = 0,
 
     /// <summary>Next contact due inside the SLA's due-soon window - what the Due today view lists.</summary>
-    int DueTodayCount = 0);
+    int DueTodayCount = 0,
+
+    // ---- Served so the screen types none of it ------------------------------------------------
+
+    /// <summary>All records / Unassigned / Assigned, counted over the whole board. Sent back as <c>view</c>.</summary>
+    IReadOnlyList<QueueViewResponse>? Views = null,
+
+    /// <summary>The view the rows answer: the one asked for, or "all" when an explicit ownership choice superseded it.</summary>
+    string ActiveView = "all",
+
+    /// <summary>Leads / Donors - the board's two record types, sent back as <c>recordType</c>.</summary>
+    IReadOnlyList<LookupItem>? RecordTypeOptions = null,
+
+    /// <summary>The organisation's clock, "Asia/Kolkata · UTC+05:30". Scheduled changes are read on it.</summary>
+    string? TimeZoneLabel = null,
+
+    /// <summary>The organisation's offset from UTC now, in minutes, for reading a scheduled time typed on its clock.</summary>
+    int UtcOffsetMinutes = 0);
 
 /// <summary>One routable lead, with the owner the board suggests for it.</summary>
 public sealed record AssignmentBoardRowResponse(
@@ -59,7 +76,16 @@ public sealed record AssignmentBoardRowResponse(
     /// Lead or Donor. On a Donor row the Lead* fields carry the donor - its id, its donor number
     /// and its name - so the board draws both kinds with one row shape.
     /// </summary>
-    string RecordType = "Lead");
+    string RecordType = "Lead",
+
+    /// <summary>The lead's or donor's name alone, without the reference the preview starts with.</summary>
+    string? DisplayName = null,
+
+    /// <summary>The SLA state as the screen words it ("On track", "No next contact").</summary>
+    string? SlaStateLabel = null,
+
+    /// <summary>The preferred language's name ("Tamil"); <see cref="PreferredLanguage"/> stays the code.</summary>
+    string? PreferredLanguageLabel = null);
 
 /// <summary>One candidate owner and how loaded they currently are.</summary>
 public sealed record OwnerWorkloadResponse(
@@ -149,7 +175,13 @@ public sealed record AssignmentHistoryItemResponse(
     string AssignmentReason,
     DateTimeOffset EffectiveAtUtc,
     Guid AssignedByUserId,
-    bool IsBulkRoute);
+    bool IsBulkRoute,
+
+    /// <summary>Who made the change, by name from the organisation's people.</summary>
+    string? AssignedByName = null,
+
+    /// <summary>Assigned / Reassigned / Bulk routed.</summary>
+    string EventLabel = "");
 
 /// <summary>The lead detail panel the board opens beside a row.</summary>
 public sealed record AssignmentBoardLeadResponse(LeadDetailResponse Lead, AssignmentHistoryResponse History);

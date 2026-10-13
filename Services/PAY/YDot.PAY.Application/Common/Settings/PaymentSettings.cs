@@ -98,6 +98,27 @@ public sealed class PaymentSettings
     /// </summary>
     public string DisplayTimeZone { get; set; } = "Asia/Kolkata";
 
+    /// <summary>
+    /// The privacy notice a donor's consent is recorded against, stamped on the intent by the
+    /// server.
+    ///
+    /// THE BROWSER USED TO SUPPLY IT, from a constant typed into two pages - "Privacy Notice v3.2
+    /// · Consent Terms v1.4", a version of no document anybody published - and PAY stored whatever
+    /// arrived. The version a consent was given under is a fact the platform has to vouch for, so it
+    /// is configured here and served to the forms, and the value a request carries is ignored. The
+    /// same notice the follow-up planner records (DON's CurrentNoticeVersion).
+    /// </summary>
+    public string ConsentNoticeVersion { get; set; } = "PN-2026-01";
+
+    /// <summary>
+    /// The largest single donation the forms accept, in the donation's currency.
+    ///
+    /// ONE NUMBER FOR THE VALIDATOR AND THE FORMS. The validator refused above ten million while
+    /// the forms stopped at five lakh, so the two disagreed about what a donor could give; both
+    /// read this now.
+    /// </summary>
+    public decimal MaximumDonationAmount { get; set; } = 10_000_000m;
+
     /// <summary>How many days a chargeback allows for evidence, when the gateway does not say.</summary>
     public int DefaultChargebackEvidenceDays { get; set; } = 7;
 

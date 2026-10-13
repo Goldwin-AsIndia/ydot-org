@@ -47,6 +47,18 @@ export interface DonLookupItem {
 
 export type { PagedResponse };
 
+/**
+ * One view of a list - a lane, a figure, a "needs attention" shortcut - with its words and its
+ * scope-wide count. Sending `value` back as the list's `view` (or `attention`) returns exactly the
+ * rows the count counted: the server applies the rule it counted by.
+ */
+export interface QueueView {
+  value: string;
+  label: string;
+  description: string;
+  count: number;
+}
+
 /** The body of every action that needs only a named reason. 10 to 2000 characters. */
 export interface ReasonRequest {
   reason: string;
@@ -150,6 +162,29 @@ export interface DonorListSummary {
   withoutOwner: number;
   activeScope: string;
   asAtUtc: string;
+  /** The "needs attention" shortcuts with their words and counts; the value goes back as `attention`. */
+  attention: QueueView[];
+  /** What every filter on the list offers, for the same scope. */
+  options: DonorListOptions;
+}
+
+/**
+ * The Donor List's filter options. Owners and campaigns are the ones the caller's donors carry;
+ * the rest are the server's catalogue in reading order, each with the sentence the quick-look
+ * sheet prints for it as `description`.
+ */
+export interface DonorListOptions {
+  statusOptions: DonLookupItem[];
+  followUpStateOptions: DonLookupItem[];
+  verificationOptions: DonLookupItem[];
+  consentOptions: DonLookupItem[];
+  giftPeriodOptions: DonLookupItem[];
+  /** Sortable columns; `description` is the direction a first click starts in (asc / desc). */
+  sortOptions: DonLookupItem[];
+  /** The order the list opens in, e.g. "lastGift desc". */
+  defaultSort: string;
+  ownerOptions: DonLookupItem[];
+  campaignOptions: DonLookupItem[];
 }
 
 export interface DonorDetail {
@@ -197,6 +232,20 @@ export interface DonorSearchFilter {
   relationshipOwnerUserId?: string | null;
   /** My Donor List: only the donors whose relationship the caller owns (resolved from the token). */
   onlyMine?: boolean | null;
+  /** The campaign the row shows, matched exactly. */
+  campaign?: string | null;
+  /** Overdue / Due Today / Tomorrow / Upcoming / None. */
+  followUpState?: string | null;
+  /** Verified / Pending / Under review / Failed / Expired / Cancelled / Not checked. */
+  verification?: string | null;
+  /** Granted / Partial / Withdrawn / Not provided. */
+  consent?: string | null;
+  /** A "needs attention" shortcut: overdue, today, unverified, consent or unowned. */
+  attention?: string | null;
+  /** 30, 90, 365 (days) or never. */
+  giftPeriod?: string | null;
+  /** Only these donors, comma-separated ids - "export selected". */
+  donorIds?: string | null;
 }
 
 // =============================================================================================
@@ -363,6 +412,9 @@ export interface LeadQueueSummary {
   /** Open follow-ups on these leads due today / already overdue, in the organisation's calendar. */
   followUpsDueToday: number;
   followUpsOverdue: number;
+  /** Worked leads whose next contact is today / has passed - what the Due today and Overdue views return. */
+  leadsDueToday: number;
+  leadsOverdue: number;
 }
 
 /** POST .../{id}/score - temperature and donation potential, with a recorded reason. */
@@ -493,6 +545,14 @@ export interface LeadWorkQueueResponse {
   state: string;
   /** Every lead source in the caller's scope, for the Lead source filter. */
   sourceOptions: DonLookupItem[];
+  /** The lanes (queue) or figures (My Leads), with words and scope-wide counts; the value goes back as `view`. */
+  views: QueueView[];
+  /** The orders the queue can be read in; the value goes back as `sort`. */
+  sortOptions: DonLookupItem[];
+  /** Overdue / DueToday / Upcoming / None, with the words a person reads. */
+  followUpStateOptions: DonLookupItem[];
+  /** The view the rows answer - "all" when an explicit filter choice superseded the one asked for. */
+  activeView: string;
 }
 
 export interface LeadWorkQueueFilter {
@@ -531,6 +591,8 @@ export interface LeadWorkQueueFilter {
   lastContactOutcome?: string | null;
   dueFromUtc?: string | null;
   dueToUtc?: string | null;
+  /** One of the response's `views` - the server turns it into the filter it stands for. */
+  view?: string | null;
 }
 
 export interface AcceptLeadRequest {
@@ -1210,6 +1272,12 @@ export interface FollowUp {
   disposition: string | null;
   /** File names uploaded when the follow-up was executed. Empty when nothing was attached. */
   attachments?: string[];
+  /** Pending, Rescheduled, Escalated, Completed, Partially completed, No response or Cancelled. */
+  queueStatus: string;
+  /** The queue views this row belongs to - mine, today, overdue, upcoming and so on. */
+  queueViews: string[] | null;
+  /** dueToday / upcoming / overdue / completed, or null when it sits on no board column. */
+  boardColumn: string | null;
 }
 
 /** One line of a follow-up's history, newest first. */
@@ -1246,6 +1314,100 @@ export interface EscalateFollowUpRequest {
   escalateToName: string;
   reason: string;
   expectedVersion?: number | null;
+}
+
+/** One tab above the Follow-up Queue. `group` (due / focus / channel) is what a hairline separates. */
+export interface FollowUpQueueView {
+  value: string;
+  label: string;
+  shortLabel: string;
+  group: string;
+  description: string;
+  count: number;
+}
+
+/** One line of the queue's agenda card. */
+export interface FollowUpAgendaItem {
+  id: string;
+  dueAtUtc: string | null;
+  channel: string;
+  channelLabel: string;
+  recordName: string;
+  queueStatus: string;
+  isOpen: boolean;
+}
+
+/** The pulse panel, the agenda and the date rail, over the whole scope (not the filtered rows). */
+export interface FollowUpQueuePulse {
+  slaOnTime: number;
+  slaApproaching: number;
+  slaBreached: number;
+  ageBuckets: QueueView[];
+  blocked: number;
+  /** Follow-ups due on each organisation day (cancelled left out), keyed yyyy-MM-dd. */
+  dayCounts: Record<string, number>;
+  agendaToday: FollowUpAgendaItem[];
+  agendaNext: FollowUpAgendaItem[];
+  agendaDone: number;
+  agendaLeft: number;
+}
+
+/**
+ * GET /follow-up-planner/queue - every follow-up the filters match (the server filters, sorts and
+ * counts them), with the tabs, tiles, pulse panel and filter options over the whole scope.
+ */
+export interface FollowUpQueueResponse {
+  screenId: string;
+  route: string;
+  followUps: FollowUp[];
+  totalCount: number;
+  isTruncated: boolean;
+  summary: FollowUpQueueSummary;
+  pulse: FollowUpQueuePulse;
+  views: FollowUpQueueView[];
+  tiles: QueueView[];
+  statusOptions: DonLookupItem[];
+  channelOptions: DonLookupItem[];
+  priorityOptions: DonLookupItem[];
+  /** People follow-ups may be reassigned or escalated to. */
+  ownerOptions: DonLookupItem[];
+  /** People the caller's follow-ups are assigned to now, for the Assigned-to filter. */
+  assigneeOptions: DonLookupItem[];
+  campaignOptions: DonLookupItem[];
+  boardColumns: DonLookupItem[];
+  sortOptions: DonLookupItem[];
+  executionStatusOptions: DonLookupItem[];
+  completionReasonOptions: DonLookupItem[];
+  dispositionOptions: DonLookupItem[];
+  contactChannelOptions: DonLookupItem[];
+  permittedActions: string[];
+  activeScope: string;
+  asAtUtc: string;
+  /** The organisation's today, yyyy-MM-dd. */
+  today: string;
+}
+
+/** The Follow-up Queue's query string. Values are the ones the response serves. */
+export interface FollowUpQueueFilter {
+  donorId?: string | null;
+  leadId?: string | null;
+  search?: string | null;
+  view?: string | null;
+  /** Status words, comma-separated. */
+  statuses?: string | null;
+  /** Channel values, comma-separated. */
+  channels?: string | null;
+  /** Priority values, comma-separated. */
+  priorities?: string | null;
+  assignedToUserId?: string | null;
+  campaign?: string | null;
+  /** yyyy-MM-dd organisation days, inclusive. */
+  dueFrom?: string | null;
+  dueTo?: string | null;
+  dueOn?: string | null;
+  sort?: string | null;
+  /** Only these follow-ups, comma-separated ids - "export selected". */
+  followUpIds?: string | null;
 }
 
 export interface FollowUpPlannerResponse {
@@ -1582,6 +1744,10 @@ export interface CommunicationTimelineEntry {
   /** The person who logged it, or somebody who works the whole organisation. */
   canEdit: boolean;
   version: number;
+  /** The outcome in the words a person reads. */
+  outcomeLabel: string;
+  /** reached / warm / awaiting / closed - an outcomeGroupOptions value - or null. */
+  outcomeGroup: string | null;
 }
 
 /**
@@ -1642,6 +1808,13 @@ export interface CommunicationTimelineResponse {
   /** Improving | Stable | Declining. */
   engagementTrend: string;
   interestedCount: number;
+  /** Reached / Warm signals / Awaiting / Closed, with a hint each; every outcome option names its group. */
+  outcomeGroupOptions: DonLookupItem[];
+  /** Every entry on the record - `entries` holds the newest 200. */
+  totalEntryCount: number;
+  /** Entries per channel over the whole record, keyed by the interactionTypeOptions value. */
+  entryCountsByType: Record<string, number>;
+  importantEntryCount: number;
 }
 
 /** POST /communication-timeline - log a communication against a lead or a donor. */

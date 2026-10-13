@@ -321,22 +321,34 @@ public static class OrganisationMappingConfig
     /// What the Organisation CURRENT STATE allows. Permission is a separate question, checked
     /// on each endpoint — this list is what the client uses to decide which buttons to draw,
     /// so nobody is offered an action that would answer 409.
+    ///
+    /// "UploadDocument" IS NOT IN THE TABLE. It is added from
+    /// <see cref="Tenant.AcceptsDocumentSubmissions"/>, the rule the document submission handlers
+    /// enforce. The table used to list it for ProfileIncomplete and Rejected only, which matched
+    /// neither that rule nor the screen: the profile page ignored it and offered Upload and New
+    /// submission to an Active Organisation, whose document set is closed and whose upload the
+    /// server refuses.
     /// </summary>
-    public static IReadOnlyList<string> PermittedActionsFor(Tenant tenant) => tenant.Status switch
+    public static IReadOnlyList<string> PermittedActionsFor(Tenant tenant)
     {
-        TenantStatus.Invited => ["View", "ResendInvitation", "Edit", "Archive"],
-        TenantStatus.InvitationAccepted => ["View", "EditProfile", "Submit", "Archive"],
-        TenantStatus.ProfileIncomplete => ["View", "EditProfile", "UploadDocument", "Submit", "Archive"],
-        TenantStatus.Submitted => ["View", "StartReview", "Approve", "Reject"],
-        TenantStatus.UnderReview => ["View", "Approve", "Reject"],
-        TenantStatus.Rejected => ["View", "EditProfile", "UploadDocument", "Resubmit", "Archive"],
-        TenantStatus.Resubmitted => ["View", "StartReview", "Approve", "Reject"],
-        TenantStatus.Approved => ["View", "Activate", "Suspend", "Archive"],
-        TenantStatus.Active => ["View", "Edit", "ManageDomains", "Suspend", "Archive"],
-        TenantStatus.Suspended => ["View", "Reactivate", "Archive"],
-        TenantStatus.Archived => ["View"],
-        _ => ["View"]
-    };
+        IReadOnlyList<string> actions = tenant.Status switch
+        {
+            TenantStatus.Invited => ["View", "ResendInvitation", "Edit", "Archive"],
+            TenantStatus.InvitationAccepted => ["View", "EditProfile", "Submit", "Archive"],
+            TenantStatus.ProfileIncomplete => ["View", "EditProfile", "Submit", "Archive"],
+            TenantStatus.Submitted => ["View", "StartReview", "Approve", "Reject"],
+            TenantStatus.UnderReview => ["View", "Approve", "Reject"],
+            TenantStatus.Rejected => ["View", "EditProfile", "Resubmit", "Archive"],
+            TenantStatus.Resubmitted => ["View", "StartReview", "Approve", "Reject"],
+            TenantStatus.Approved => ["View", "Activate", "Suspend", "Archive"],
+            TenantStatus.Active => ["View", "Edit", "ManageDomains", "Suspend", "Archive"],
+            TenantStatus.Suspended => ["View", "Reactivate", "Archive"],
+            TenantStatus.Archived => ["View"],
+            _ => ["View"]
+        };
+
+        return tenant.AcceptsDocumentSubmissions ? [.. actions, "UploadDocument"] : actions;
+    }
 
     /// <summary>
     /// Contact e-mail, telephone and postal address — the fields that stay editable for the

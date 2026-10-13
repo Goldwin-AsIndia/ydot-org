@@ -7,6 +7,7 @@ using YDots.DON.Application.Common.Settings;
 using YDots.DON.Application.Common.Models;
 using YDots.DON.Application.Common.Services;
 using YDots.DON.Application.DTOs;
+using YDots.DON.Application.Features.Donors;
 using YDots.DON.Application.Features.Donors.DTOs;
 using YDots.DON.Application.Features.Donors.Mappings;
 using YDots.DON.Domain.Entities;
@@ -30,7 +31,7 @@ public sealed class DonorReadService(
     IOptions<DonorSettings> donorSettings) : IDonorReadService
 {
     /// <summary>How far back "gave recently" looks on the Donor List.</summary>
-    private const int RecentWindowDays = 90;
+    private const int RecentWindowDays = DonorListCatalogue.RecentWindowDays;
 
     private static readonly FollowUpStatus[] OpenFollowUpStatuses =
         [FollowUpStatus.Planned, FollowUpStatus.Assigned, FollowUpStatus.Rescheduled];
@@ -50,7 +51,7 @@ public sealed class DonorReadService(
         }
 
         var basics = await donors
-            .Select(donor => new { donor.Id, donor.Status, donor.RelationshipOwnerUserId })
+            .Select(donor => new { donor.Id, donor.Status, donor.RelationshipOwnerUserId, donor.RelationshipOwnerName })
             .ToListAsync(cancellationToken);
 
         var ids = basics.Select(donor => donor.Id).ToList();
@@ -107,6 +108,42 @@ public sealed class DonorReadService(
             .Select(group => group.Key)
             .FirstOrDefault() ?? recent.Currency;
 
+        var overdue = nextDue.Count(date => date < today);
+        var dueToday = nextDue.Count(date => date == today);
+        var notVerified = basics.Count - verified.Count(entry => entry.Latest == VerificationStatus.Verified);
+        var withoutOwner = basics.Count(donor => donor.RelationshipOwnerUserId == null);
+
+        // THE CAMPAIGN A ROW SHOWS, by the same rule as BuildRowsAsync: the latest gift's campaign,
+        // or the campaign of the lead that brought the donor in.
+        var acquisition = await context.Leads
+            .AsNoTracking()
+            .Where(lead => lead.ConvertedDonorId != null && ids.Contains(lead.ConvertedDonorId.Value) && lead.Campaign != null)
+            .Select(lead => new { DonorId = lead.ConvertedDonorId!.Value, lead.Campaign!.Name })
+            .ToListAsync(cancellationToken);
+
+        var acquisitionByDonor = acquisition
+            .GroupBy(entry => entry.DonorId)
+            .ToDictionary(group => group.Key, group => group.First().Name);
+
+        var campaigns = ids
+            .Select(id => (giving.TryGetValue(id, out var given) ? given.LastCampaignName : null)
+                          ?? acquisitionByDonor.GetValueOrDefault(id))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
+            .Select(name => new LookupItem(name, name))
+            .ToList();
+
+        var owners = basics
+            .Where(donor => donor.RelationshipOwnerUserId != null)
+            .GroupBy(donor => donor.RelationshipOwnerUserId!.Value)
+            .Select(group => new LookupItem(
+                group.Key.ToString(),
+                group.Select(donor => donor.RelationshipOwnerName).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ?? "Unnamed owner"))
+            .OrderBy(option => option.Label, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
         return new DonorListSummaryResponse(
             basics.Count,
             basics
@@ -120,34 +157,46 @@ public sealed class DonorReadService(
             recent.Amount,
             RecentWindowDays,
             basics.Count - givers,
-            nextDue.Count(date => date < today),
-            nextDue.Count(date => date == today),
-            basics.Count - verified.Count(entry => entry.Latest == VerificationStatus.Verified),
+            overdue,
+            dueToday,
+            notVerified,
             consentReview,
-            basics.Count(donor => donor.RelationshipOwnerUserId == null),
+            withoutOwner,
             scope.IsOwnRecordsOnly ? "Donors assigned to you" : "Your whole organisation",
-            now);
+            now,
+            DonorListCatalogue.Attention(overdue, dueToday, notVerified, consentReview, withoutOwner),
+            new DonorListOptionsResponse(
+                DonorListCatalogue.StatusOptions,
+                DonorListCatalogue.FollowUpStateOptions,
+                DonorListCatalogue.VerificationOptions,
+                DonorListCatalogue.ConsentOptions,
+                DonorListCatalogue.GiftPeriodOptions,
+                DonorListCatalogue.SortOptions,
+                DonorListCatalogue.DefaultSort,
+                owners,
+                campaigns));
     }
 
+    /// <summary>
+    /// One page of the Donor List, filtered, sorted and counted here.
+    ///
+    /// THE ROWS ARE BUILT FOR THE WHOLE MATCHING SET, THEN PAGED. Campaign, follow-up, identity,
+    /// consent and last gift live in other tables (and giving in the payments module), so a filter
+    /// or a sort on any of them cannot be a WHERE clause on the donor table. The browser used to do
+    /// this over every page it had downloaded; doing it here means the page, the total and the
+    /// export answer the same question. The summary already reads the same facts for the same
+    /// scope on every visit, so this costs what the list cost before, once.
+    /// </summary>
     public async Task<PagedResponse<DonorListItemResponse>> SearchAsync(
         DonorSearchFilter query,
         AccessScope scope,
         CancellationToken cancellationToken)
     {
-        var donors = BuildQuery(query, scope);
+        var rows = await ListRowsAsync(query, scope, cancellationToken);
 
-        var total = await donors.CountAsync(cancellationToken);
+        var items = rows.Skip(query.Skip).Take(query.PageSize).ToList();
 
-        var items = await donors
-            .OrderByDescending(donor => donor.UpdatedAtUtc ?? donor.CreatedAtUtc)
-            .ThenBy(donor => donor.DonorNumber)
-            .Skip(query.Skip)
-            .Take(query.PageSize)
-            .ToListAsync(cancellationToken);
-
-        var rows = await BuildRowsAsync(items, cancellationToken);
-
-        return new PagedResponse<DonorListItemResponse>(rows, total, query.Page, query.PageSize);
+        return new PagedResponse<DonorListItemResponse>(items, rows.Count, query.Page, query.PageSize);
     }
 
     public async Task<DonorDetailResponse?> GetDetailAsync(
@@ -190,35 +239,134 @@ public sealed class DonorReadService(
         return [.. items.Select(donor => donor.ToLookupResponse())];
     }
 
+    /// <summary>The export: the list's own filters and order, so the file holds what the screen shows.</summary>
     public async Task<IReadOnlyList<DonorListItemResponse>> ExportRowsAsync(
         DonorSearchFilter query,
         int maximumRows,
         AccessScope scope,
         CancellationToken cancellationToken)
     {
-        var items = await BuildQuery(query, scope)
-            .OrderByDescending(donor => donor.UpdatedAtUtc ?? donor.CreatedAtUtc)
-            .Take(maximumRows)
-            .ToListAsync(cancellationToken);
+        var rows = await ListRowsAsync(query, scope, cancellationToken);
 
-        return await BuildRowsAsync(items, cancellationToken);
+        return [.. rows.Take(maximumRows)];
     }
 
+    /// <summary>
+    /// Every donor the filter matches, as list rows, in the asked-for order.
+    ///
+    /// THE SEARCH IS APPLIED HERE TOO, not in SQL, because it also matches the campaign and the
+    /// owner a row shows - words that are not columns of the donor table. The contact columns are
+    /// matched on the stored value, as the SQL search always did.
+    /// </summary>
+    private async Task<List<DonorListItemResponse>> ListRowsAsync(
+        DonorSearchFilter query,
+        AccessScope scope,
+        CancellationToken cancellationToken)
+    {
+        var donors = await BuildQuery(query, scope)
+            .OrderByDescending(donor => donor.UpdatedAtUtc ?? donor.CreatedAtUtc)
+            .ThenBy(donor => donor.DonorNumber)
+            .ToListAsync(cancellationToken);
+
+        var rows = await BuildRowsAsync(donors, cancellationToken);
+
+        // BuildRowsAsync keeps the donors' order, so the two lists pair up by position.
+        IEnumerable<(Donor Donor, DonorListItemResponse Row)> pairs = donors.Zip(rows);
+
+        var term = query.Search?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(term))
+        {
+            pairs = pairs.Where(pair => MatchesSearch(pair.Donor, pair.Row, term));
+        }
+
+        var now = clock.UtcNow;
+
+        var matched = pairs
+            .Select(pair => pair.Row)
+            .Where(row =>
+                Is(query.Campaign, row.CampaignName)
+                && Is(query.FollowUpState, row.FollowUpStatus)
+                && Is(query.Verification, row.VerificationStatus)
+                && Is(query.Consent, row.ConsentStatus)
+                && (string.IsNullOrWhiteSpace(query.Attention) || DonorListCatalogue.Needs(row, query.Attention))
+                && InGiftPeriod(row, query.GiftPeriod, now));
+
+        return [.. Sort(matched, query.Sort)];
+    }
+
+    private static bool MatchesSearch(Donor donor, DonorListItemResponse row, string term) =>
+        donor.DonorNumber.ToLowerInvariant().Contains(term)
+        || (donor.FirstName?.ToLowerInvariant().Contains(term) ?? false)
+        || (donor.LastName?.ToLowerInvariant().Contains(term) ?? false)
+        || (donor.OrganisationName?.ToLowerInvariant().Contains(term) ?? false)
+        || (donor.PrimaryEmail?.ToLowerInvariant().Contains(term) ?? false)
+        || (donor.PrimaryPhone?.Contains(term) ?? false)
+        || row.DisplayName.ToLowerInvariant().Contains(term)
+        || (row.CampaignName?.ToLowerInvariant().Contains(term) ?? false)
+        || (row.RelationshipOwnerName?.ToLowerInvariant().Contains(term) ?? false);
+
+    /// <summary>No filter, or the row's word is the one asked for.</summary>
+    private static bool Is(string? wanted, string? actual) =>
+        string.IsNullOrWhiteSpace(wanted)
+        || string.Equals(wanted.Trim(), actual?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>"never" is a donor with no gift; a number of days is a last gift inside that window.</summary>
+    private static bool InGiftPeriod(DonorListItemResponse row, string? period, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(period) || period.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var gave = row.LastDonationAtUtc is not null && (row.LastDonationAmount ?? 0m) > 0m;
+
+        if (period.Equals("never", StringComparison.OrdinalIgnoreCase))
+        {
+            return !gave;
+        }
+
+        return int.TryParse(period, out var days) && gave && row.LastDonationAtUtc >= now.AddDays(-days);
+    }
+
+    /// <summary>
+    /// "name asc", "lastGift desc" and so on - the keys DonorListCatalogue.SortOptions serves.
+    /// A donor who never gave sorts last by last gift whichever the direction. No sort keeps the
+    /// most recently updated first.
+    /// </summary>
+    private static IEnumerable<DonorListItemResponse> Sort(IEnumerable<DonorListItemResponse> rows, string? sort)
+    {
+        var parts = (sort ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var key = parts.ElementAtOrDefault(0)?.ToLowerInvariant();
+        var descending = string.Equals(parts.ElementAtOrDefault(1), "desc", StringComparison.OrdinalIgnoreCase);
+        var text = StringComparer.CurrentCultureIgnoreCase;
+
+        return key switch
+        {
+            "name" => descending ? rows.OrderByDescending(row => row.DisplayName, text) : rows.OrderBy(row => row.DisplayName, text),
+            "campaign" => descending
+                ? rows.OrderByDescending(row => row.CampaignName ?? string.Empty, text)
+                : rows.OrderBy(row => row.CampaignName ?? string.Empty, text),
+            "owner" => descending
+                ? rows.OrderByDescending(row => row.RelationshipOwnerName ?? string.Empty, text)
+                : rows.OrderBy(row => row.RelationshipOwnerName ?? string.Empty, text),
+            "lifetime" => descending ? rows.OrderByDescending(row => row.LifetimeGiving) : rows.OrderBy(row => row.LifetimeGiving),
+            "lastgift" => descending
+                ? rows.OrderBy(row => row.LastDonationAtUtc is null).ThenByDescending(row => row.LastDonationAtUtc)
+                : rows.OrderBy(row => row.LastDonationAtUtc is null).ThenBy(row => row.LastDonationAtUtc),
+            _ => rows
+        };
+    }
+
+    /// <summary>The scope and the filters that are columns of the donor table. The search is not one; see ListRowsAsync.</summary>
     private IQueryable<Donor> BuildQuery(DonorSearchFilter query, AccessScope scope)
     {
         var donors = ApplyScope(context.Donors.AsNoTracking(), scope);
 
-        if (!string.IsNullOrWhiteSpace(query.Search))
+        var donorIds = query.ParseDonorIds();
+        if (!string.IsNullOrWhiteSpace(query.DonorIds))
         {
-            var term = query.Search.Trim().ToLowerInvariant();
-
-            donors = donors.Where(donor =>
-                donor.DonorNumber.ToLower().Contains(term)
-                || (donor.FirstName != null && donor.FirstName.ToLower().Contains(term))
-                || (donor.LastName != null && donor.LastName.ToLower().Contains(term))
-                || (donor.OrganisationName != null && donor.OrganisationName.ToLower().Contains(term))
-                || (donor.PrimaryEmail != null && donor.PrimaryEmail.ToLower().Contains(term))
-                || (donor.PrimaryPhone != null && donor.PrimaryPhone.Contains(term)));
+            // A list that names nothing valid matches nothing, never the whole register.
+            donors = donors.Where(donor => donorIds.Contains(donor.Id));
         }
 
         if (query.DonorType is not null)

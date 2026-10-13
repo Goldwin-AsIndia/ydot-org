@@ -99,7 +99,7 @@
                       <span class="fp-line-main">
                         <span class="fp-line-name">{{ row.recordDisplayName || row.donorDisplayName || row.leadReference || row.donorReference || 'Unnamed record' }}</span>
                         <span class="fp-line-meta">
-                          <span><i [class]="glyphFor(row.permittedChannel)" aria-hidden="true"></i>{{ row.permittedChannel }}</span>
+                          <span><i [class]="glyphFor(row.permittedChannel)" aria-hidden="true"></i>{{ channelLabel(row.permittedChannel) }}</span>
                           @if (row.dueAtUtc) { <span class="fp-num">{{ row.dueAtUtc | date: 'EEE, HH:mm' }}</span> }
                         </span>
                       </span>
@@ -210,10 +210,10 @@
                 <i [class]="consentState() === 'clear' ? 'ri-shield-check-line' : consentState() === 'checking' ? 'ri-loader-4-line fp-spin' : consentState() === 'caution' ? 'ri-shield-line' : 'ri-shield-cross-line'" aria-hidden="true"></i>
                 <span>
                   @switch (consentState()) {
-                    @case ('checking') { Checking consent for {{ followUpType() || 'this channel' }}… }
+                    @case ('checking') { Checking consent for {{ followUpType() ? channelLabel(followUpType()) : 'this channel' }}… }
                     @case ('blocked') { {{ consentWarning() }} }
                     @case ('caution') { {{ consentWarning() }} }
-                    @default { Consent for {{ followUpType() || 'this channel' }} is clear. It is checked again before any contact. }
+                    @default { Consent for {{ followUpType() ? channelLabel(followUpType()) : 'this channel' }} is clear. It is checked again before any contact. }
                   }
                 </span>
               </p>
@@ -306,7 +306,7 @@
           <div class="fp-ticket-body">
             <dl class="fp-ticket-rows">
               <div><dt>For</dt><dd>{{ record().name }}</dd></div>
-              <div><dt>Channel</dt><dd><i [class]="glyphFor(followUpType())" aria-hidden="true"></i>{{ followUpType() || '—' }}</dd></div>
+              <div><dt>Channel</dt><dd><i [class]="glyphFor(followUpType())" aria-hidden="true"></i>{{ followUpType() ? channelLabel(followUpType()) : '—' }}</dd></div>
               <div><dt>With</dt><dd>{{ ownerLabel() || 'Not assigned' }}</dd></div>
               <div><dt>Priority</dt><dd class="fp-pr" [attr.data-priority]="priorityTone(priority())"><span class="fp-dot" aria-hidden="true"></span>{{ priority() || '—' }}</dd></div>
             </dl>

@@ -35,7 +35,27 @@ public sealed record LeadWorkQueueResponse(
     string State,
 
     /// <summary>Every lead source in the caller's scope, for the Lead source filter.</summary>
-    IReadOnlyList<LookupItem> SourceOptions);
+    IReadOnlyList<LookupItem> SourceOptions,
+
+    /// <summary>
+    /// The views across the top of the screen - the Lead Queue's lanes, or My Leads' figures -
+    /// each with its words and its scope-wide count. Sending a view's value back as
+    /// <c>view</c> returns exactly the rows that count counted.
+    /// </summary>
+    IReadOnlyList<QueueViewResponse> Views,
+
+    /// <summary>The orders the queue can be read in; the value goes back as <c>sort</c>.</summary>
+    IReadOnlyList<LookupItem> SortOptions,
+
+    /// <summary>Overdue / DueToday / Upcoming / None, for the follow-up-state filter.</summary>
+    IReadOnlyList<LookupItem> FollowUpStateOptions,
+
+    /// <summary>
+    /// The view the rows answer: the one asked for, or "all" when an explicit filter choice
+    /// superseded it (see LeadQueueCatalogue.ApplyView).
+    /// </summary>
+    string ActiveView);
+
 
 /// <summary>POST .../accept. No body beyond the optional note; the caller becomes the owner.</summary>
 public sealed class AcceptLeadRequest
@@ -147,7 +167,13 @@ public sealed record LeadQueueSummaryResponse(
     int FollowUpsDueToday,
 
     /// <summary>Open follow-ups on these leads whose day has passed.</summary>
-    int FollowUpsOverdue);
+    int FollowUpsOverdue,
+
+    /// <summary>Worked leads whose next contact falls today - what the Due today view returns.</summary>
+    int LeadsDueToday,
+
+    /// <summary>Worked leads whose next contact has passed - what the Overdue view returns.</summary>
+    int LeadsOverdue);
 
 /// <summary>
 /// POST .../{id}/score. The fundraiser's reading of a lead: temperature and donation potential.

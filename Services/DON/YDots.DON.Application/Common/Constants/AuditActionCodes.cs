@@ -63,6 +63,7 @@ public static class AuditActionCodes
     public const string FollowUpRescheduled = "don.follow-up.reschedule";
     public const string FollowUpCancelled = "don.follow-up.cancel-task";
     public const string FollowUpEscalated = "don.follow-up.escalate";
+    public const string FollowUpsExported = "don.follow-up.export";
 
     // ---- Communication timeline, lead scoring and donor ownership ------------------------------
     public const string CommunicationLogged = "don.communication.log";
@@ -75,4 +76,5 @@ public static class AuditActionCodes
     public const string DonorOwnerAssigned = "don.donor.assign-owner";
     public const string DonorOwnerReassigned = "don.donor.reassign-owner";
     public const string DonorOwnersBulkRouted = "don.donor.bulk-route-owner";
+    public const string AssignmentBoardExported = "don.assignment-board.export";
 }

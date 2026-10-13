@@ -33,9 +33,17 @@ public sealed record DonationListItemResponse(
     ReconciliationStatus ReconciliationStatus,
     DateTimeOffset DonatedAtUtc,
     PaymentMethodType? MethodType,
+
+    /// <summary>The method in words ("Net banking"), as StatusDescription is the status. Null with no method.</summary>
+    string? MethodDescription,
+
     Guid? CampaignId,
     string? CampaignName,
     DonationSourceType SourceType,
+
+    /// <summary>The source in words ("Direct link") - the same wording as the detail's SourceDescription.</summary>
+    string SourceDescription,
+
     bool HasIssuedReceipt,
     string? ReceiptNumber,
     bool HasOpenCase,

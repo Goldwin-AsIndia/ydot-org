@@ -31,4 +31,33 @@ public sealed class InteractionTimelineReader(DonDbContext context) : IInteracti
             .Take(maximumRows)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<(IReadOnlyDictionary<string, int> ByType, int Important)> GetCountsAsync(
+        Guid? leadId,
+        Guid? donorId,
+        CancellationToken cancellationToken = default)
+    {
+        if (leadId is null && donorId is null)
+        {
+            return (new Dictionary<string, int>(), 0);
+        }
+
+        var rows = await context.DonorInteractions
+            .AsNoTracking()
+            .Where(interaction =>
+                (leadId != null && interaction.LeadId == leadId)
+                || (donorId != null && interaction.DonorId == donorId))
+            .GroupBy(interaction => interaction.InteractionType)
+            .Select(group => new
+            {
+                Type = group.Key,
+                Count = group.Count(),
+                Important = group.Count(interaction => interaction.IsImportant)
+            })
+            .ToListAsync(cancellationToken);
+
+        return (
+            rows.ToDictionary(row => row.Type.ToString(), row => row.Count, StringComparer.Ordinal),
+            rows.Sum(row => row.Important));
+    }
 }

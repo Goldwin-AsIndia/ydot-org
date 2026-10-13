@@ -84,6 +84,13 @@ public interface IPaymentEventReadService
         PaymentEventSearchFilter filter, CancellationToken cancellationToken);
 
     Task<PaymentEventDetailResponse?> GetDetailAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How many events the filter matches, and the newest <paramref name="take"/> of them - for a
+    /// page that merges the queue with another source and so cannot use a fixed page of it.
+    /// </summary>
+    Task<(IReadOnlyList<PaymentEventListItemResponse> Items, int TotalCount)> ListNewestAsync(
+        PaymentEventSearchFilter filter, int take, CancellationToken cancellationToken);
 }
 
 /// <summary>Read side for the receipt register.</summary>
@@ -114,6 +121,17 @@ public interface IReceiptReadService
     /// </summary>
     Task<ReceiptRegisterResponse> GetRegisterAsync(
         ReceiptRegisterFilter filter,
+        AccessScope scope,
+        bool canSeeSensitiveDonor,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The register's Success half on its own: how many issued receipts match, their total, and the
+    /// newest <paramref name="take"/> with the campaign each donation was for.
+    /// </summary>
+    Task<(IReadOnlyList<IssuedReceiptRow> Rows, int TotalCount, decimal TotalAmount, string Currency)> ListNewestIssuedAsync(
+        ReceiptRegisterFilter filter,
+        int take,
         AccessScope scope,
         bool canSeeSensitiveDonor,
         CancellationToken cancellationToken);
