@@ -228,16 +228,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     }
   }
 
-  /** Display names of the fields, for the "fix these" summary. */
-  private static readonly FIELD_LABEL: Record<string, string> = {
-    firstName: 'First name', lastName: 'Last name', displayName: 'Display name',
-    preferredName: 'Preferred name', email: 'Login e-mail', username: 'Username', mobileCountryCode: 'Country code',
-    mobileNumber: 'Mobile', employeeNumber: 'Employee or volunteer number',
-    workLocation: 'Work location',
-    primaryRoleId: 'Primary role', dataScopeType: 'Data scope', mfaRequirement: 'Two-step verification',
-    businessJustification: 'Business justification',
-  };
-
   /** The fields each step checks, in screen order. */
   private static readonly STEP_FIELDS: string[][] = [
     ['firstName', 'lastName', 'displayName', 'preferredName', 'email', 'username',
@@ -279,13 +269,6 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
         return minLengthError('Business justification', f.businessJustification, 10);
       default: return null;
     }
-  }
-
-  /** Names of the fields on a step that fail, for the summary banner. */
-  private invalidLabels(step: number): string[] {
-    return (CreateUserComponent.STEP_FIELDS[step] ?? [])
-      .filter((field) => this.localError(field) !== null)
-      .map((field) => CreateUserComponent.FIELD_LABEL[field] ?? field);
   }
 
   /** Every server error, with the step each belongs to, for the summary banner. */
@@ -731,8 +714,13 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     this.openDd.set(null);
 
     if (!this.isStepComplete(this.activeStep())) {
+      // BUG-116: only the inline field errors are shown - there is no summary banner across the
+      // top for a local validation failure, matching every other form on the platform. `submitted`
+      // reveals the message under each field and focus moves to the first one needing attention.
+      // The banner signal is cleared so a notice left over from an earlier server error cannot
+      // linger over a fresh, purely-local validation miss.
+      this.errorMessage.set('');
       this.submitted.set(true);
-      this.errorMessage.set(`Please correct: ${this.invalidLabels(this.activeStep()).join(', ')}.`);
       this.focusFirstInvalid(this.activeStep());
       return;
     }
@@ -867,8 +855,10 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     this.submitted.set(true);
 
     if (!this.canSubmit()) {
-      const bad = [0, 1, 2, 3].flatMap((step) => this.invalidLabels(step));
-      this.errorMessage.set(`Please correct: ${bad.join(', ')}.`);
+      // BUG-116: as with Next, only the inline field errors are shown - no summary banner for a
+      // local validation miss. Clear the banner signal (so an older server notice cannot linger)
+      // and jump to the first step still holding a problem, focusing its first bad field.
+      this.errorMessage.set('');
       const stepWithError = [0, 1, 2, 3].find((step) => !this.isStepComplete(step));
       if (stepWithError !== undefined) {
         this.activeStep.set(stepWithError);
