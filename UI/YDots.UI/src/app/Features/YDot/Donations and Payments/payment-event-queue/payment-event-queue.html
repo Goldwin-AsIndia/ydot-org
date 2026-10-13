@@ -523,10 +523,11 @@
 
           <!-- Contextual action: exactly one of Retry / Continue payment / Resend, or none. -->
           <div class="pr-detail-actions">
-            <!-- RETRY IS THE DONOR/INITIATOR'S ACTION, NOT THE ADMINISTRATOR'S. The role
-                 table gives Tenant Admin "view Details" on a failed payment and nothing
-                 more, because retrying charges somebody else's card. A caller without the
-                 permission sees no button rather than a disabled one. -->
+            <!-- RETRY IS THE DONOR/INITIATOR'S ACTION, NOT THE ADMINISTRATOR'S. The role table
+                 gives Tenant Admin "view Details" on a failed payment and nothing more, because
+                 retrying charges somebody else's card. GrantsAll hands the admin every
+                 permission, so the component excludes them explicitly as well as checking the
+                 permission. A caller without it sees no button rather than a disabled one. -->
             @if (e.paymentStatus === 'Fail' && canRetry()) {
               <button type="button" class="btn btn-danger btn-sm  pr-btn-block" (click)="retryPaymentFromQueue(e)" [disabled]="retryingRef() !== null">
                 {{ retryingRef() === e.eventReference ? 'Processing…' : 'Retry' }}
@@ -548,7 +549,8 @@
                 </p>
               }
             }
-            <!-- CONTINUE TO PAY, likewise: the table gives it to Donor/Initiator only. -->
+            <!-- CONTINUE TO PAY, likewise: the table gives it to Donor/Initiator only, and the
+                 Organisation Admin is excluded explicitly because GrantsAll would admit them. -->
             @if (e.paymentStatus === 'Pending' && canContinuePayment()) {
               <button type="button" class="btn btn-primary btn-sm pr-btn-block" (click)="continuePaymentFromQueue(e)">
                 Continue payment

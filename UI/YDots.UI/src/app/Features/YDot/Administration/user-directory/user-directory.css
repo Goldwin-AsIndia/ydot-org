@@ -2745,3 +2745,116 @@ textarea.dir-f-control {
     margin: 0 !important;
   }
 }
+
+/* =====================================================================================================
+   BUG-114 (TS-146) - Edit user profile sheet: standard required-field UI
+   1. The tokens above sit on :root, but Angular's emulated encapsulation rewrites a component
+      ":root" rule so it never matches the page - every var(--dir-*) in the sheet and the dialogs
+      was empty. That is why the required * fell back to black and the placeholder lost its grey.
+      The same tokens are now set on the sheet, the dialogs and the page themselves.
+   2. Space above the sheet: it floated 12px below the top of the screen. It now runs the full
+      height, flush with the top bar, and the hero is a little tighter.
+   3. Required * is the standard required red everywhere (labels and section titles).
+   4. Placeholders are regular weight and grey - the reason box's placeholder no longer looks
+      like typed text.
+   5. Error border: an invalid field (the reason box included) gets the red border and red focus
+      ring, matching the message shown beneath it.
+   ===================================================================================================== */
+.dir-page,
+.dir-sheet,
+.dir-dialog,
+.dir-overlay {
+  --dir-brand-900: hsl(calc(var(--theme-hue) - 1) 25.3% 14.7%);
+  --dir-brand-700: hsl(calc(var(--theme-hue) - 9) 28% 19.6%);
+  --dir-brand-600: hsl(calc(var(--theme-hue) - 9) 27.3% 23.7%);
+  --dir-brand: hsl(var(--theme-hue) 27.9% 26.7%);
+  --dir-brand-400: hsl(calc(var(--theme-hue) - 9) 17.4% 42.7%);
+  --dir-brand-200: hsl(calc(var(--theme-hue) - 11) 18.6% 71.6%);
+  --dir-brand-100: hsl(calc(var(--theme-hue) - 17) 20.8% 89.6%);
+  --dir-brand-50: hsl(calc(var(--theme-hue) - 13) 25% 95.3%);
+  --dir-ink-900: hsl(calc(var(--theme-hue) + 7) 20% 11.8%);
+  --dir-ink-700: #3d4a44;
+  --dir-ink-500: #66756e;
+  --dir-ink-400: #8a978f;
+  --dir-line: hsl(calc(var(--theme-hue) - 16) 13.7% 90%);
+  --dir-line-soft: hsl(calc(var(--theme-hue) - 21) 16.1% 93.9%);
+  --dir-amber: #a3660c;
+  --dir-amber-bg: #fbf1de;
+  --dir-amber-line: #f0dcb2;
+  --dir-red: #a5402a;
+  --dir-red-bg: #fbeae5;
+  --dir-red-line: #f0cec2;
+  --dir-blue: #35617f;
+  --dir-slate: #65706c;
+  --dir-radius-sm: calc(8px * var(--ui-scale, 1));
+  --dir-radius-md: calc(12px * var(--ui-scale, 1));
+  --dir-radius-lg: calc(16px * var(--ui-scale, 1));
+  --dir-shadow-1: none;
+  --dir-shadow-2: none;
+}
+
+/* 2 - flush with the top bar, full height */
+.dir-sheet {
+  top: 0 !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  max-height: 100vh;
+  border-top: 0 !important;
+  border-bottom: 0 !important;
+  border-right: 0 !important;
+  border-radius: calc(18px * var(--ui-scale, 1)) 0 0 calc(18px * var(--ui-scale, 1)) !important;
+}
+.dir-sheet-hero {
+  padding-top: calc(12px * var(--ui-scale, 1)) !important;
+}
+.dir-sheet-bar {
+  margin-bottom: calc(10px * var(--ui-scale, 1)) !important;
+}
+
+/* 3 - the required star */
+.dir-req,
+.dir-f-label .dir-req,
+.dir-sec-title .dir-req {
+  color: #dc3545 !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  margin-left: 2px;
+}
+
+/* 4 - placeholders: regular weight, grey */
+.dir-f-control {
+  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important;
+}
+.dir-f-control::placeholder,
+textarea.dir-f-control::placeholder {
+  color: #9aa3a0 !important;
+  opacity: 1;
+  font-weight: 400 !important;
+  font-style: normal !important;
+}
+.dir-sec-audit textarea.dir-f-control {
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.5 !important;
+}
+
+/* 5 - error border on any invalid field */
+.dir-f-control.is-invalid,
+.dir-f-control.is-invalid:hover,
+textarea.dir-f-control.is-invalid,
+select.dir-f-control.is-invalid {
+  border-color: #dc3545 !important;
+  background-image: none !important;
+}
+.dir-f-control.is-invalid:focus,
+textarea.dir-f-control.is-invalid:focus,
+select.dir-f-control.is-invalid:focus {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 calc(3px * var(--ui-scale, 1)) rgba(220, 53, 69, .15) !important;
+}
+.dir-sheet .invalid-feedback {
+  margin-top: calc(5px * var(--ui-scale, 1));
+  color: #dc3545;
+  font-size: calc(calc(12px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+@media (max-width: 680px) {
+  .dir-sheet { border-radius: 0 !important; border-left: 0 !important; }
+}

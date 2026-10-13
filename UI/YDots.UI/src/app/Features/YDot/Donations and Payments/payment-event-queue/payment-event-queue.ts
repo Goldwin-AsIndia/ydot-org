@@ -145,11 +145,20 @@ export class PaymentEventQueueComponent {
    * server on different rules, and the screen would be the one that was wrong.
    *
    * WHAT THE TABLE SAYS, AND HOW IT MAPS. "For Tenant Admin: in Failed, view Details. In
-   * Pending, view Details" - no Retry and no Continue to pay, which an administrator does not
-   * hold because retrying somebody else's payment charges their card, and continuing one means
-   * paying it. "For Donor/initiator: In Failed, view Details, Retry. In Pending, view Details,
-   * Continue to pay." Those two capabilities are pay.payments.safe-retry and pay.intents.create,
-   * and the server issues them to exactly the roles the table names.
+   * Pending, view Details" - no Retry and no Continue to pay. "For Donor/initiator: In Failed,
+   * view Details, Retry. In Pending, view Details, Continue to pay." Those two capabilities are
+   * pay.payments.safe-retry and pay.intents.create.
+   *
+   * WHY THE ORGANISATION ADMIN IS EXCLUDED EXPLICITLY, INSTEAD OF RELYING ON THE PERMISSION LIST
+   * ALONE. TENANT_ADMIN carries GrantsAllTenantPermissions, so the server resolves every
+   * tenant-assignable code - these two included - into the admin's token and into the permissions
+   * list the browser stores (see EffectiveAccessService and
+   * AuthenticationMappingConfig.ToAuthenticatedUser). The admin therefore PASSES the permission
+   * test below even though the role table gives them only "view Details", and a permission-only
+   * gate cannot express "not the administrator's button" for a role that holds every permission.
+   * The reason the table withholds them is that retrying charges somebody else's card and
+   * continuing one means paying it - both are the donor's or initiator's own action, not the
+   * administrator's. So each gate is permission AND NOT tenant-admin.
    */
   private readonly tokens = inject(AuthTokenService);
 
@@ -157,18 +166,22 @@ export class PaymentEventQueueComponent {
    * Whether this caller may retry a failed payment.
    *
    * SAFE RETRY IS THE PERMISSION because retrying an attempt whose outcome is unknown is what
-   * can charge a donor twice - which is also why it is not an administrator's button.
+   * can charge a donor twice - which is also why it is not an administrator's button. The
+   * Organisation Admin is excluded explicitly, because GrantsAll would otherwise admit them.
    */
-  protected readonly canRetry = computed(() => this.tokens.hasAnyPermission('pay.payments.safe-retry'));
+  protected readonly canRetry = computed(() =>
+    !this.tokens.isTenantAdmin() && this.tokens.hasAnyPermission('pay.payments.safe-retry'),
+  );
 
   /**
    * Whether this caller may carry a pending payment on to the gateway.
    *
    * IT IS THE INTENT-CREATE PERMISSION because that is what continuing actually does: it opens
-   * the donation form on the existing reference and takes a payment against it.
+   * the donation form on the existing reference and takes a payment against it. The Organisation
+   * Admin is excluded explicitly, for the same reason as Retry.
    */
   protected readonly canContinuePayment = computed(() =>
-    this.tokens.hasAnyPermission('pay.intents.create'),
+    !this.tokens.isTenantAdmin() && this.tokens.hasAnyPermission('pay.intents.create'),
   );
 
   /**
@@ -178,10 +191,11 @@ export class PaymentEventQueueComponent {
    * Safe retry only VERIFIES - it asks the provider what really happened to the last attempt and
    * refuses to go further if the donor was in fact charged. Issuing a link is what actually asks
    * somebody for money again, so an Initiator holds it and a Donor pressing Retry on their own
-   * failed gift does not: they pay it themselves through Continue payment instead.
+   * failed gift does not: they pay it themselves through Continue payment instead. The
+   * Organisation Admin is excluded explicitly, for the same reason as Retry.
    */
   protected readonly canResendLink = computed(() =>
-    this.tokens.hasAnyPermission('pay.intents.resend-link'),
+    !this.tokens.isTenantAdmin() && this.tokens.hasAnyPermission('pay.intents.resend-link'),
   );
 
   protected readonly pageTitle = 'Payments & Receipts';
