@@ -226,6 +226,14 @@ public static class ModulePermissionCatalogue
         new("cam.attribution.export", "Export attributed donations", "CAM", "Attribution", PermissionAction.Export, IsSensitive: true),
         new("cam.attribution.request-correction", "Request an attribution correction", "CAM", "Attribution", PermissionAction.Submit),
 
+        // ---- WhatsApp outreach (CheckNumber.ai + WATI) -----------------------------------------------
+        //
+        // SEEDED INTO NO WORKING ROLE (RoleAccessProfiles.AdministratorOnlyCodes): the Communications
+        // menu is the Organisation Admin's, and these are what its two screens and their API ask for.
+        new("cam.whatsapp.view", "View WhatsApp messages and number checks", "CAM", "WhatsApp", PermissionAction.View),
+        new("cam.whatsapp.operate", "Send WhatsApp messages and run number checks", "CAM", "WhatsApp",
+            PermissionAction.Operate, IsSensitive: true),
+
         // ---- Reference data -------------------------------------------------------------------------
         new("cam.reference.view", "View campaign reference data", "CAM", "Reference", PermissionAction.View),
 

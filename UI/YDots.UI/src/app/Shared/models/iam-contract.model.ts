@@ -3211,6 +3211,7 @@ export interface SignInResponse {
   attemptsRemaining?: number | null;
   lockoutMinutesRemaining?: number | null;
   message?: string | null;
+  mfaChallenge?: MfaChallengeResponse;
 }
 
 export interface SignInResponseApiResponse {

@@ -112,8 +112,8 @@ export class EmailverifyComponent {
     setTimeout(() => {
       this.isSubmitting = false;
       if (/^\d{4}$/.test(this.otpCode)) {
-        this.successMessage = 'Email verified. Redirecting to reset password...';
-        this.toast.show('Email Verified', 'Your email has been verified successfully.', 'success');
+        this.successMessage = 'E-mail verified. Redirecting you to reset your password…';
+        this.toast.show('E-mail verified', 'Your e-mail address has been verified.', 'success');
         setTimeout(() => {
           this.router.navigate(['/auth/reset-password']);
         }, 1000);

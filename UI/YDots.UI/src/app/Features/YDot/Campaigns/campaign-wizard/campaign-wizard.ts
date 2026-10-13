@@ -1,3 +1,4 @@
+import { CountPipe, countOf } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -50,7 +51,7 @@ interface MasterOption {
 
 @Component({
   selector: 'app-campaign-wizard',
-  imports: [PageHeader, CommonModule, FormsModule, ClickOutsideDirective],
+  imports: [PageHeader, CommonModule, FormsModule, ClickOutsideDirective, CountPipe],
   templateUrl: './campaign-wizard.html',
   styleUrl: './campaign-wizard.css',
 })
@@ -1697,7 +1698,7 @@ export class CampaignWizardComponent {
       this.markEveryStepAttempted();
       this.toast.show(
         'Some required information is missing',
-        `${this.remainingRequired().length} field(s) still needed: `
+        `${countOf(this.remainingRequired().length, 'field')} still needed: `
         + `${this.remainingRequired().slice(0, 3).join(', ')}`
         + `${this.remainingRequired().length > 3 ? '\u2026' : ''}`,
         'warning');
@@ -2098,7 +2099,7 @@ export class CampaignWizardComponent {
     effectiveTime: this.lastSaved() ?? 'not yet saved',
     downstreamStatus: this.requiredComplete()
       ? 'All required information captured'
-      : `${this.remainingRequired().length} required field(s) remaining`,
+      : `${countOf(this.remainingRequired().length, 'required field')} remaining`,
     owner: this.selectedOwners().map((o) => o.label).join(', ') || '—',
     nextAction: this.requiredComplete() ? 'Submit for activation' : 'Complete required information',
   }));

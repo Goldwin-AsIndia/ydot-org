@@ -1,3 +1,4 @@
+import { countOf, verbFor } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -144,7 +145,7 @@ export class PeriodCampaignCloseComponent {
         key: 'exceptions',
         label: 'Open exceptions resolved or approved',
         state: openExceptions > 0 ? 'Blocking' : 'Complete',
-        detail: openExceptions > 0 ? `${openExceptions} open exception(s) require approval` : 'All exceptions resolved or approved',
+        detail: openExceptions > 0 ? `${countOf(openExceptions, 'open exception')} ${verbFor(openExceptions, 'requires', 'require')} approval` : 'All exceptions resolved or approved',
       },
       { key: 'refunds', label: 'Refunds processed', state: 'Complete', detail: '18 refunds processed' },
       {

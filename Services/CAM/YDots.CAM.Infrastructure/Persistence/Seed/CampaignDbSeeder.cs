@@ -45,7 +45,7 @@ public sealed class CampaignDbSeeder(
             "Campaign activities delivered through messaging platforms.", 20),
         ("10000000-0000-0000-0000-000000000003", "SEARCH", "Search",
             "Paid and organic search placements.", 30),
-        ("10000000-0000-0000-0000-000000000004", "EMAIL", "Email",
+        ("10000000-0000-0000-0000-000000000004", "EMAIL", "E-mail",
             "Campaign activities delivered by e-mail.", 40),
         ("10000000-0000-0000-0000-000000000005", "WEBSITE", "Website",
             "Placements on the organisation's own website.", 50),
@@ -81,7 +81,7 @@ public sealed class CampaignDbSeeder(
     /// <summary>How a visitor arrived, in the UTM sense.</summary>
     private static readonly (string Id, string Code, string Name, string Description, int Order)[] Mediums =
     [
-        ("30000000-0000-0000-0000-000000000001", "EMAIL", "Email", "Delivered in an e-mail.", 10),
+        ("30000000-0000-0000-0000-000000000001", "EMAIL", "E-mail", "Delivered in an e-mail.", 10),
         ("30000000-0000-0000-0000-000000000002", "CPC", "Paid Search",
             "Cost-per-click search advertising.", 20),
         ("30000000-0000-0000-0000-000000000003", "ORGANIC", "Organic",
@@ -99,17 +99,64 @@ public sealed class CampaignDbSeeder(
         ("30000000-0000-0000-0000-000000000009", "SMS", "SMS", "Text message.", 90)
     ];
 
+    /// <summary>
+    /// Seeded names the platform has since respelled ("e-mail" is the application's spelling).
+    ///
+    /// ONLY A ROW STILL CARRYING THE OLD SEEDED NAME CHANGES, so a name a platform administrator
+    /// chose is left alone. The rows above are inserted once and never rewritten, which is why the
+    /// new spelling needs saying here to reach a database that already has them.
+    /// </summary>
+    private static readonly (string Id, string From, string To)[] Respelled =
+    [
+        ("10000000-0000-0000-0000-000000000004", "Email", "E-mail"),
+        ("30000000-0000-0000-0000-000000000001", "Email", "E-mail")
+    ];
+
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         var added = await SeedChannelsAsync(cancellationToken);
         added += await SeedSourcesAsync(cancellationToken);
         added += await SeedMediumsAsync(cancellationToken);
 
-        if (added > 0)
+        var respelled = await RespellAsync(cancellationToken);
+
+        if (added > 0 || respelled > 0)
         {
             await context.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Seeded {Count} campaign reference row(s).", added);
+            logger.LogInformation(
+                "Seeded {Count} campaign reference row(s) and respelled {Respelled}.", added, respelled);
         }
+    }
+
+    private async Task<int> RespellAsync(CancellationToken cancellationToken)
+    {
+        var changed = 0;
+
+        foreach (var (id, from, to) in Respelled)
+        {
+            var key = Guid.Parse(id);
+
+            var channel = await context.Channels
+                .FirstOrDefaultAsync(row => row.Id == key && row.Name == from, cancellationToken);
+
+            if (channel is not null)
+            {
+                channel.Name = to;
+                changed++;
+                continue;
+            }
+
+            var medium = await context.Mediums
+                .FirstOrDefaultAsync(row => row.Id == key && row.Name == from, cancellationToken);
+
+            if (medium is not null)
+            {
+                medium.Name = to;
+                changed++;
+            }
+        }
+
+        return changed;
     }
 
     private async Task<int> SeedChannelsAsync(CancellationToken cancellationToken)

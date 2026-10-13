@@ -1,4 +1,5 @@
 using YDot.IAM.Domain.Entities;
+using YDot.IAM.Domain.Enums;
 
 namespace YDot.IAM.Application.Common.Abstractions.Services;
 
@@ -48,10 +49,13 @@ public interface INotificationService
     /// accepted it, or when mail is switched off and the code was written to the log for
     /// development. False when mail is on and the relay refused or could not be reached: the
     /// screen must not then tell somebody to check for a code that is never coming.
+    ///
+    /// <paramref name="purpose"/> decides the sentence above the code, so the message says what
+    /// the code is for.
     /// </summary>
     Task<bool> SendMfaCodeAsync(
         User user, Tenant? tenant, BusinessUnit businessUnit, string code,
-        DateTimeOffset expiresAtUtc, CancellationToken cancellationToken);
+        DateTimeOffset expiresAtUtc, MfaChallengePurpose purpose, CancellationToken cancellationToken);
 
     /// <summary>Confirmation link for a new e-mail address.</summary>
     Task SendEmailConfirmationAsync(

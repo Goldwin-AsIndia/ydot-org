@@ -60,7 +60,7 @@ interface ConfirmDialogState {
 
 type PreviewState = 'live' | 'loading' | 'empty' | 'no-access' | 'conflict' | 'dependency-failure';
 
-const CHANNEL_OPTIONS = ['Email', 'SMS', 'WhatsApp', 'Push notification', 'Letter'];
+const CHANNEL_OPTIONS = ['E-mail', 'SMS', 'WhatsApp', 'Push notification', 'Letter'];
 const LANGUAGE_OPTIONS = ['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali', 'Marathi'];
 const ALL_SCOPES = ['Community Outreach', 'Direct Mail Campaigns', 'Major Gifts', 'Corporate Partnerships'];
 
@@ -130,15 +130,15 @@ export class TemplateCatalogueComponent implements OnInit {
   statusFilter = '';
   activeTab: 'all' | 'mine' | 'review' = 'all';
 
-  savedFilters = ['My default view', 'Needs my review', 'Email templates only'];
+  savedFilters = ['My default view', 'Needs my review', 'E-mail templates only'];
   selectedSavedFilter = '';
 
   /* ------------------------------ mock data store ------------------------------ */
   templates: TemplateRecord[] = [
     {
       id: 't1', reference: 'TPL-2026-00118', name: 'Winter Relief Appeal — Reminder',
-      channel: 'Email', language: 'English',
-      purpose: 'Reminder email sent to lapsed donors during the winter relief campaign to encourage a repeat gift.',
+      channel: 'E-mail', language: 'English',
+      purpose: 'Reminder e-mail sent to lapsed donors during the winter relief campaign to encourage a repeat gift.',
       subject: 'Your warmth can reach one more family tonight',
       messageBody: 'Dear {{first_name}}, winter is here and shelters need your help again...',
       placeholders: '{{first_name}}, {{last_gift_amount}}', providerTemplateId: '',
@@ -149,7 +149,7 @@ export class TemplateCatalogueComponent implements OnInit {
     },
     {
       id: 't2', reference: 'TPL-2026-00121', name: 'Corporate Partnership Renewal',
-      channel: 'Email', language: 'English',
+      channel: 'E-mail', language: 'English',
       purpose: 'Annual renewal outreach to corporate partners nearing the end of their partnership term.',
       subject: 'Let\u2019s continue the impact we built together',
       messageBody: 'Dear {{contact_name}}, your partnership with us over the last year has helped...',
@@ -209,8 +209,8 @@ export class TemplateCatalogueComponent implements OnInit {
     },
     {
       id: 't7', reference: 'TPL-2026-00108', name: 'Corporate Gift Match Confirmation',
-      channel: 'Email', language: 'English',
-      purpose: 'Confirmation email sent to corporate contacts once a matched gift has been reconciled.',
+      channel: 'E-mail', language: 'English',
+      purpose: 'Confirmation e-mail sent to corporate contacts once a matched gift has been reconciled.',
       subject: 'Your matched gift has been confirmed',
       messageBody: 'Dear {{contact_name}}, we\u2019re pleased to confirm your company\u2019s matched gift of {{amount}}.',
       placeholders: '{{contact_name}}, {{amount}}', providerTemplateId: '',

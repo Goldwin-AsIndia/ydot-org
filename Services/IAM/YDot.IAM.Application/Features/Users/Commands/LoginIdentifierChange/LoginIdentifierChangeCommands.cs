@@ -509,7 +509,7 @@ public sealed class LoginIdentifierChangeCommandHandler(
 
         return Result.Success(new OutcomeResponse(
             changeRequest.Id, changeRequest.Status.ToString(), changeRequest.Version,
-            $"Sign-in details updated. {revoked} session(s) were signed out.",
+            $"Sign-in details updated. {Wording.Count(revoked, "session")} {Wording.Verb(revoked, "was", "were")} signed out.",
             ["View"]));
     }
 

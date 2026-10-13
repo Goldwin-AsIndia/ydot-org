@@ -1,3 +1,4 @@
+import { countOf } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule, Location } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -1011,7 +1012,7 @@ export class CampaignRegisterComponent {
       state: record ? record.status : ref ? 'Deleted / exported' : '—',
       effectiveTime: this.lastRefresh(),
       downstreamStatus:
-        this.selectedCount() > 0 ? `${this.selectedCount()} campaign(s) selected` : 'No pending action',
+        this.selectedCount() > 0 ? `${countOf(this.selectedCount(), 'campaign')} selected` : 'No pending action',
       owner: this.owner(),
       nextAction: 'Review the filtered campaign register',
     };

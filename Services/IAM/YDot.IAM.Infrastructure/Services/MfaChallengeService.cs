@@ -115,7 +115,7 @@ public sealed class MfaChallengeService(
 
         var codeWasSent = plaintextCode is not null
                           && await notifications.SendMfaCodeAsync(
-                              user, tenant, businessUnit, plaintextCode, expiresAt, cancellationToken);
+                              user, tenant, businessUnit, plaintextCode, expiresAt, purpose, cancellationToken);
 
         var available = await security.GetMfaMethodsAsync(user.Id, cancellationToken);
 
@@ -386,13 +386,13 @@ public sealed class MfaChallengeService(
                 "Open your authenticator application and enter the current code for this account.",
 
             MfaMethodType.Email => string.IsNullOrWhiteSpace(maskedDestination)
-                ? $"We have e-mailed you a code. It expires in {minutes} minute(s)."
-                : $"We have e-mailed a code to {maskedDestination}. It expires in {minutes} minute(s).",
+                ? $"We have e-mailed you a code. It expires in {Wording.Count(minutes, "minute")}."
+                : $"We have e-mailed a code to {maskedDestination}. It expires in {Wording.Count(minutes, "minute")}.",
 
             MfaMethodType.SecurityKey =>
                 "Insert your security key and follow the prompt from your browser.",
 
-            _ => $"Enter the verification code for this account. It expires in {minutes} minute(s)."
+            _ => $"Enter the verification code for this account. It expires in {Wording.Count(minutes, "minute")}."
         };
     }
 

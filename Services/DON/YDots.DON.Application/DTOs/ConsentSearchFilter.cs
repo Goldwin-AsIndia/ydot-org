@@ -27,4 +27,10 @@ public sealed class ConsentSearchFilter : PaginationRequest
 
     /// <summary>True includes superseded and withdrawn rows, which is what the history panel wants.</summary>
     public bool IncludeHistory { get; set; }
+
+    /// <summary>
+    /// The view over one donor's trail - one of the response's <c>TrailViews</c> ("active",
+    /// "withdrawn"). Narrows <c>ConsentHistory</c> only; the current rows are what they are.
+    /// </summary>
+    public string? View { get; set; }
 }

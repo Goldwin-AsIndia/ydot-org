@@ -8,7 +8,10 @@ using YDots.DON.Application.Common.Constants;
 using YDots.DON.Application.Common.Models;
 using YDots.DON.Application.Common.Results;
 using YDots.DON.Application.Common.Services;
+using YDots.DON.Application.Features.CommunicationTimeline;
+using YDots.DON.Application.Features.ConsentCentre;
 using YDots.DON.Application.Features.Donor360.DTOs;
+using YDots.DON.Application.Features.FollowUpPlanner;
 using YDots.DON.Application.Features.Donors.Mappings;
 using YDots.DON.Domain.Entities;
 using YDots.DON.Domain.Enums;
@@ -99,6 +102,34 @@ public sealed class Donor360QueryHandler(
 
         logger.LogInformation("Donor 360 panel data loaded successfully for DonorId {DonorId}. Contacts {ContactCount}, Tags {TagCount}, Interactions {InteractionCount}, Activity {ActivityCount}, Consents {ConsentCount}, FollowUps {FollowUpCount}, MergeCases {MergeCaseCount}, Gifts {GiftCount}, Promises {PromiseCount}, Documents {DocumentCount}, CampaignHistory {CampaignHistoryCount}.", donor.Id, contacts.Count, tags.Count, interactions.Count, activity.Count, consents.Count, followUps.Count, mergeCases.Count, gifts.Count, promises.Count, documents.Count, campaignHistory.Count);
 
+        var todayStartUtc = ReportingCalendar.Today(now, _settings).StartUtc;
+        var followUpRows = followUps
+            .Select(task =>
+            {
+                var isOpen = task.Status is FollowUpStatus.Planned or FollowUpStatus.Assigned or FollowUpStatus.Rescheduled;
+
+                // Due before today, by the organisation's calendar - as the queue reads it.
+                var isOverdue = isOpen && task.DueAtUtc is not null && task.DueAtUtc < todayStartUtc;
+
+                return new Donor360FollowUpResponse(
+                    task.Id, task.FollowUpReference, task.NextAction, task.DueAtUtc,
+                    task.Priority.ToString(), task.Status.ToString(), task.RelationshipOwnerName,
+                    isOpen,
+                    isOverdue,
+                    task.RelationshipOwnerUserId == currentUser.UserId,
+                    task.PermittedChannel.ToString(),
+                    task.Purpose,
+                    task.CompletedAtUtc,
+                    task.CompletionOutcome,
+                    isOpen
+                    && (task.RelationshipOwnerUserId == currentUser.UserId || currentUser.IsTenantAdmin)
+                    && currentUser.HasPermission(PermissionCodes.FollowUpPlannerMarkComplete),
+                    Donor360Catalogue.FollowUpView(isOpen, isOverdue),
+                    isOverdue ? "Overdue" : FollowUpQueueCatalogue.StatusOf(task),
+                    FollowUpQueueCatalogue.ChannelLabel(task.PermittedChannel.ToString()));
+            })
+            .ToList();
+
         var response = new Donor360Response(
             ScreenIds.Donor360,
             ScreenRoutes.Donor360,
@@ -113,29 +144,11 @@ public sealed class Donor360QueryHandler(
             totals,
             BuildCampaignHistory(campaignHistory, campaignGiving),
             [.. interactions.Select(BuildConversation)],
-            [.. followUps.Select(task =>
-            {
-                var isOpen = task.Status is FollowUpStatus.Planned or FollowUpStatus.Assigned or FollowUpStatus.Rescheduled;
-
-                return new Donor360FollowUpResponse(
-                    task.Id, task.FollowUpReference, task.NextAction, task.DueAtUtc,
-                    task.Priority.ToString(), task.Status.ToString(), task.RelationshipOwnerName,
-                    isOpen,
-
-                    // Due before today, by the organisation's calendar - as the queue reads it.
-                    isOpen && task.DueAtUtc is not null && task.DueAtUtc < ReportingCalendar.Today(now, _settings).StartUtc,
-                    task.RelationshipOwnerUserId == currentUser.UserId,
-                    task.PermittedChannel.ToString(),
-                    task.Purpose,
-                    task.CompletedAtUtc,
-                    task.CompletionOutcome,
-                    isOpen
-                    && (task.RelationshipOwnerUserId == currentUser.UserId || currentUser.IsTenantAdmin)
-                    && currentUser.HasPermission(PermissionCodes.FollowUpPlannerMarkComplete));
-            })],
+            followUpRows,
             [.. promises.Select(promise => new PromiseResponse(
                 promise.Id, promise.Reference, promise.Amount, promise.Currency,
-                promise.PromisedAtUtc, promise.DueAtUtc, promise.Status.ToString(), promise.Campaign?.Name))],
+                promise.PromisedAtUtc, promise.DueAtUtc, promise.Status.ToString(), promise.Campaign?.Name,
+                Donor360Catalogue.PromiseStatusLabel(promise.Status)))],
             [.. documents.Select(document => new DocumentResponse(
                 document.Id, document.Reference, document.Name, document.Description,
                 document.Classification.ToString(), document.ScanStatus, document.CreatedAtUtc, document.ExpiresAtUtc))],
@@ -155,7 +168,9 @@ public sealed class Donor360QueryHandler(
             ScreenState.Initial,
             [.. gifts.Select(gift => new DonationResponse(
                 gift.Id, gift.Reference, gift.DonatedAtUtc, gift.Amount, gift.RefundedAmount,
-                gift.Currency, gift.Status, gift.CampaignName))]);
+                gift.Currency, gift.Status, gift.CampaignName, Donor360Catalogue.GiftStatusLabel(gift.Status)))],
+            Donor360Catalogue.FollowUpViews(followUpRows),
+            _settings.PledgeAmountPresets.Length > 0 ? _settings.PledgeAmountPresets : DonorSettings.DefaultPledgeAmountPresets);
 
         // Opening a 360 view with the unmasking permission is a sensitive view in its own right.
         if (canSeeContact || canSeeEvidence)
@@ -240,7 +255,9 @@ public sealed class Donor360QueryHandler(
             consent.Status.ToString(),
             consent.EffectiveAtUtc,
             consent.ExpiryAtUtc,
-            consent.PublicRecognitionPreference);
+            consent.PublicRecognitionPreference,
+            FollowUpQueueCatalogue.ChannelLabel(consent.Channel.ToString()),
+            ConsentCatalogue.StateOptions.FirstOrDefault(option => option.Value == consent.ConsentState.ToString())?.Label);
 
     /// <summary>
     /// "Donation totals by stage", in the order money moves.
@@ -331,7 +348,10 @@ public sealed class Donor360QueryHandler(
             interaction.OccurredAtUtc,
             interaction.Outcome.ToString(),
             interaction.PerformedByName,
-            interaction.Status.ToString());
+            interaction.Status.ToString(),
+            interaction.Channel is { } channel
+                ? FollowUpQueueCatalogue.ChannelLabel(channel.ToString())
+                : CommunicationCatalogue.TypeLabel(interaction.InteractionType));
 
     private IReadOnlyList<string> BuildPermittedActions(Donor donor)
     {

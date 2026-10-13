@@ -45,29 +45,18 @@ export class Donor360Component {
 
     /** Follow-ups tab: which slice of the agenda is shown (All / Open / Overdue / Closed). */
     readonly followUpView = signal<FollowUpView>('all');
-    readonly followUpViews: { id: FollowUpView; label: string }[] = [
-      { id: 'all', label: 'All' }, { id: 'open', label: 'Open' }, { id: 'overdue', label: 'Overdue' }, { id: 'closed', label: 'Closed' },
-    ];
+    /** The tab's views as the server serves and counts them; each row carries the view it belongs to. */
+    readonly followUpViews = computed(() =>
+      (this.response()?.followUpViews ?? []).map((view) => ({ id: view.value as FollowUpView, label: view.label, count: view.count })),
+    );
     readonly followUpRows = computed(() => {
       const view = this.followUpView();
-      return this.followUps().filter((f) => view === 'all' || this.followUpBucket(f) === view);
+      return this.followUps().filter((f) => view === 'all' || f.view === view);
     });
     followUpViewCount(view: FollowUpView): number {
-      return view === 'all' ? this.followUps().length : this.followUps().filter((f) => this.followUpBucket(f) === view).length;
+      return this.followUpViews().find((option) => option.id === view)?.count ?? 0;
     }
     setFollowUpView(view: FollowUpView): void { this.followUpView.set(view); this.pages.update((p) => ({ ...p, 'follow-ups': 1 })); }
-
-    /**
-     * Open, overdue or closed - from the server's own flags.
-     *
-     * "OVERDUE" IS NOT A STATUS THE API HAS, so reading it off `status` meant the Overdue view was
-     * always empty and the overdue count beside the title was always zero, however late the
-     * follow-up. The server says whether a follow-up is open and whether it is past its date.
-     */
-    private followUpBucket(followUp: FollowUpItem): FollowUpView {
-      if (followUp.isOverdue) return 'overdue';
-      return followUp.isOpen ? 'open' : 'closed';
-    }
 
     /**
      * The giving ledger: each stage against the money received.
@@ -297,13 +286,14 @@ export class Donor360Component {
         refunded: gift.refundedAmount ?? 0,
         currency: gift.currency,
         status: gift.status,
+        statusLabel: gift.statusLabel ?? gift.status,
       })),
     );
 
     readonly conversations = computed<ConversationItem[]>(() =>
       (this.response()?.conversations ?? []).map((conversation) => ({
         id: conversation.id,
-        channel: conversation.channel ?? conversation.interactionType,
+        channel: conversation.channelLabel ?? conversation.channel ?? conversation.interactionType,
         summary: conversation.description ?? conversation.name,
         date: this.formatDate(conversation.occurredAtUtc),
         owner: conversation.performedByName ?? '',
@@ -320,6 +310,8 @@ export class Donor360Component {
         // What a person reads: an open follow-up past its date is "Overdue", whatever stage of
         // planning it had reached.
         status: followUp.isOverdue ? 'Overdue' : followUp.status,
+        statusLabel: followUp.statusLabel || (followUp.isOverdue ? 'Overdue' : followUp.status),
+        view: followUp.view ?? '',
         priority: followUp.priority ?? '',
         isOpen: followUp.isOpen,
         isOverdue: followUp.isOverdue,
@@ -338,6 +330,7 @@ export class Donor360Component {
         currency: promise.currency,
         dueDate: promise.dueAtUtc ? this.formatDate(promise.dueAtUtc) : '',
         status: promise.status,
+        statusLabel: promise.statusLabel ?? promise.status,
       })),
     );
 
@@ -457,7 +450,8 @@ export class Donor360Component {
      */
     private readonly currencyCatalogue = signal<DonLookupItem[]>([]);
     readonly intentCurrencies = computed(() => this.currencyCatalogue().map((currency) => currency.value));
-    readonly intentPresets = [5000, 10000, 25000, 50000, 100000];
+    /** The pledge form's quick amounts, from the organisation's settings. */
+    readonly intentPresets = computed(() => this.response()?.pledgeAmountPresets ?? []);
     readonly intentDueShortcuts = [
       { id: 'two-weeks', label: 'In 2 weeks' },
       { id: 'month-end', label: 'End of month' },
@@ -716,8 +710,9 @@ export class Donor360Component {
     /** The consent state channel by channel, rather than the joined string. */
     readonly channelConsents = computed(() =>
       (this.response()?.communicationPreferences ?? []).map((preference) => ({
-        channel: this.channelName(preference.channel),
+        channel: preference.channelLabel ?? preference.channel,
         state: preference.consentState,
+        stateLabel: preference.consentStateLabel ?? preference.consentState,
         since: preference.effectiveAtUtc ? this.formatDate(preference.effectiveAtUtc) : '',
         recognition: preference.publicRecognitionPreference,
       })),
@@ -756,10 +751,6 @@ export class Donor360Component {
     dayOf(date: string): string { return date ? date.split(' ')[0] : '—'; }
     monthOf(date: string): string { return date ? date.split(' ').slice(1).join(' ') : ''; }
 
-    channelName(channel: string): string {
-      const names: Record<string, string> = { PhoneCall: 'Phone call', Sms: 'SMS', WhatsApp: 'WhatsApp', Email: 'Email', Post: 'Post' };
-      return names[channel] ?? channel;
-    }
 
     readonly tabHeading = computed(() => {
       switch (this.activeTab()) {
@@ -1115,10 +1106,10 @@ export class Donor360Component {
   
   interface DonationStage { stage: string; amount: number; asOf: string; }
   interface CampaignHistoryItem { id: string; name: string; role: string; amount: number; gifts: number; lastGift: string; date: string; status: string; }
-  interface GiftItem { id: string; reference: string; date: string; campaign: string; amount: number; refunded: number; currency: string; status: string; }
+  interface GiftItem { id: string; reference: string; date: string; campaign: string; amount: number; refunded: number; currency: string; status: string; statusLabel: string; }
   interface ConversationItem { id: string; channel: string; summary: string; date: string; owner: string; }
-  interface FollowUpItem { id: string; title: string; due: string; owner: string; status: string; priority: string; isOpen: boolean; isOverdue: boolean; isMine: boolean; }
-  interface PromiseItem { id: string; amount: number; currency: string; dueDate: string; status: string; }
+  interface FollowUpItem { id: string; title: string; due: string; owner: string; status: string; statusLabel: string; view: string; priority: string; isOpen: boolean; isOverdue: boolean; isMine: boolean; }
+  interface PromiseItem { id: string; amount: number; currency: string; dueDate: string; status: string; statusLabel: string; }
   interface DocumentItem { id: string; name: string; type: string; uploadedOn: string; classification: string; }
   interface DuplicateLink { id: string; reference: string; matchReason: string; similarity: string; }
   interface ActivityItem { id: string; actor: string; action: string; timestamp: string; }

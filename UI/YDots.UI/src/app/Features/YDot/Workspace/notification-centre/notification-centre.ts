@@ -1,3 +1,4 @@
+import { countOf } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -122,7 +123,7 @@ export class NotificationCentreComponent {
       created: '2026-07-18T09:32',
       createdLabel: 'Today · 09:32 AM',
       actionableTaskRef: 'TASK-2026-4471',
-      channelPreference: 'In-app, Email',
+      channelPreference: 'In-app, E-mail',
       ownerReference: 'USR-0114',
       icon: 'ri-checkbox-circle-line',
       openLabel: 'Review',
@@ -152,7 +153,7 @@ export class NotificationCentreComponent {
       created: '2026-07-18T07:15',
       createdLabel: 'Today · 07:15 AM',
       actionableTaskRef: '—',
-      channelPreference: 'In-app, Email',
+      channelPreference: 'In-app, E-mail',
       ownerReference: 'USR-0114',
       icon: 'ri-file-list-3-line',
       openLabel: 'Open',
@@ -197,7 +198,7 @@ export class NotificationCentreComponent {
       created: '2026-07-17T11:08',
       createdLabel: 'Yesterday · 11:08 AM',
       actionableTaskRef: 'TASK-2026-4402',
-      channelPreference: 'In-app, Email',
+      channelPreference: 'In-app, E-mail',
       ownerReference: 'USR-0114',
       icon: 'ri-error-warning-line',
       openLabel: 'View',
@@ -212,7 +213,7 @@ export class NotificationCentreComponent {
       created: '2026-07-17T10:24',
       createdLabel: 'Yesterday · 10:24 AM',
       actionableTaskRef: '—',
-      channelPreference: 'In-app, Email',
+      channelPreference: 'In-app, E-mail',
       ownerReference: 'USR-0142',
       icon: 'ri-at-line',
       openLabel: 'Open',
@@ -242,7 +243,7 @@ export class NotificationCentreComponent {
       created: '2026-07-16T19:45',
       createdLabel: '16 Jul 2026 · 07:45 PM',
       actionableTaskRef: '—',
-      channelPreference: 'In-app, Email',
+      channelPreference: 'In-app, E-mail',
       ownerReference: 'USR-0177',
       icon: 'ri-mail-check-line',
       openLabel: 'Open',
@@ -547,7 +548,7 @@ export class NotificationCentreComponent {
   protected channelSummary(): string {
     const parts: string[] = [];
     if (this.channelInApp()) parts.push('In-app');
-    if (this.channelEmail()) parts.push('Email');
+    if (this.channelEmail()) parts.push('E-mail');
     if (this.channelSms()) parts.push('SMS');
     return parts.join(', ') || 'None';
   }
@@ -577,12 +578,12 @@ export class NotificationCentreComponent {
       return null;
     }
     return {
-      target: p.reference === 'bulk' ? `${p.count} unread notification(s)` : p.title,
+      target: p.reference === 'bulk' ? countOf(p.count, 'unread notification') : p.title,
       before: 'Unread',
       after: 'Read',
       permission: 'ux.notification-centre.read',
       evidence: p.reference === 'bulk' ? this.stableReference : p.reference,
-      reason: 'Acknowledge informational alert(s)',
+      reason: p.reference === 'bulk' ? 'Acknowledge informational alerts' : 'Acknowledge an informational alert',
       resultingState: 'Read',
     };
   });
@@ -611,7 +612,7 @@ export class NotificationCentreComponent {
       permitted: true,
       rows: [
         { primary: 'Notification read', secondary: 'NOTIF-2026-0456 marked read', meta: 'S. Bennett · 09:31 IST' },
-        { primary: 'Preference updated', secondary: 'Email channel enabled', meta: 'S. Bennett · 09:20 IST' },
+        { primary: 'Preference updated', secondary: 'E-mail channel enabled', meta: 'S. Bennett · 09:20 IST' },
       ],
     },
     {
@@ -624,7 +625,7 @@ export class NotificationCentreComponent {
       key: 'support',
       label: 'Support correlation',
       permitted: true,
-      rows: [{ primary: 'INT-77213', secondary: 'Email delivery retry', meta: 'Open · correlated' }],
+      rows: [{ primary: 'INT-77213', secondary: 'E-mail delivery retry', meta: 'Open · correlated' }],
     },
     {
       key: 'audit',

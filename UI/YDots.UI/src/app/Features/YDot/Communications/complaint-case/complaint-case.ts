@@ -1,3 +1,4 @@
+import { CountPipe } from '../../../../Shared/pipes/count.pipe';
 import { Component, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -119,7 +120,7 @@ const LIFECYCLE_LABEL: Record<LifecycleState, string> = {
   reopened: 'Reopened',
 };
 
-const CHANNEL_OPTIONS = ['Phone', 'Email', 'Web form', 'Field visit', 'Social media'];
+const CHANNEL_OPTIONS = ['Phone', 'E-mail', 'Web form', 'Field visit', 'Social media'];
 
 const COMPLAINT_TYPES = [
   { code: 'CMT-DIST-01', label: 'Distribution shortfall' },
@@ -179,7 +180,7 @@ function buildCase(overrides: Partial<ComplaintCase> = {}): ComplaintCase {
 @Component({
   selector: 'app-complaint-case',
   standalone: true,
-  imports: [PageHeader, CommonModule, FormsModule],
+  imports: [PageHeader, CommonModule, FormsModule, CountPipe],
   templateUrl: './complaint-case.html',
   styleUrl: './complaint-case.css',
 })

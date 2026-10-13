@@ -143,7 +143,7 @@ public sealed class TrackingAssetQueryHandler(
 
         await audit.WriteAsync(
             TrackingAssetAuditActionCodes.Exported, nameof(TrackingAsset), Guid.Empty,
-            $"Exported {rows.Count} tracking asset(s) as {file.Reference}.", cancellationToken);
+            $"Exported {Wording.Count(rows.Count, "tracking asset")} as {file.Reference}.", cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

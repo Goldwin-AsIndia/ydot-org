@@ -586,6 +586,17 @@ export class DonorApiService {
       .pipe(map((response) => response.data!));
   }
 
+  /** The board as CSV - every page under the same filters, view and record type, written and logged by DON. */
+  exportAssignmentBoard(filter: Record<string, unknown> = {}): Observable<{ blob: Blob; fileName: string }> {
+    return this.http
+      .get(`${this.baseUrl}/assignment-board/export`, {
+        params: this.toParams({ ...filter, page: null, pageSize: null }),
+        responseType: 'blob',
+        observe: 'response',
+      })
+      .pipe(map((response) => this.toDownload(response, 'assignments.csv')));
+  }
+
   /**
    * The append-only ownership trail behind "Inspect history".
    *
@@ -643,6 +654,13 @@ export class DonorApiService {
         `${this.baseUrl}/consent-and-preference-centre`,
         { params: this.toParams(filter) },
       )
+      .pipe(map((response) => response.data!));
+  }
+
+  /** One consent row with its evidence reference. Reading it is audited by DON. */
+  getConsentEvidence(id: string): Observable<ConsentListItem> {
+    return this.http
+      .get<ApiResponse<ConsentListItem>>(`${this.baseUrl}/consent-and-preference-centre/${id}`)
       .pipe(map((response) => response.data!));
   }
 

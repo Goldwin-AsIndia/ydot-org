@@ -531,7 +531,7 @@ public sealed class UserLifecycleCommandHandler(
 
         return Result.Success(new OutcomeResponse(
             user.Id, user.Status.ToString(), user.Version,
-            $"Ended {revoked} session(s).", UserMappingConfig.PermittedActionsFor(user, clock.UtcNow)));
+            $"Ended {Wording.Count(revoked, "session")}.", UserMappingConfig.PermittedActionsFor(user, clock.UtcNow)));
     }
 
     // =================================================================================

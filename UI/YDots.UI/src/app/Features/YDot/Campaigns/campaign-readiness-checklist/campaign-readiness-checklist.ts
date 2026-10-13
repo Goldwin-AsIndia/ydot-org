@@ -1,3 +1,4 @@
+import { CountPipe, countOf, verbFor } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -38,7 +39,7 @@ import { CampaignApiService } from '../../../../Service/campaign-api.service';
  */
 @Component({
   selector: 'app-campaign-readiness-checklist',
-  imports: [PageHeader, CommonModule, FormsModule, ClickOutsideDirective, AddReadinessCheckComponent],
+  imports: [PageHeader, CommonModule, FormsModule, ClickOutsideDirective, AddReadinessCheckComponent, CountPipe],
   templateUrl: './campaign-readiness-checklist.html',
   styleUrl: './campaign-readiness-checklist.css',
 })
@@ -875,8 +876,8 @@ export class CampaignReadinessChecklistComponent {
 
       if (verdict.requiredOutstanding > 0 || verdict.openBlockers > 0) {
         const parts = [
-          verdict.requiredOutstanding > 0 ? `${verdict.requiredOutstanding} required check(s) have not passed` : '',
-          verdict.openBlockers > 0 ? `${verdict.openBlockers} blocker(s) are open` : '',
+          verdict.requiredOutstanding > 0 ? `${countOf(verdict.requiredOutstanding, 'required check')} ${verbFor(verdict.requiredOutstanding, 'has', 'have')} not passed` : '',
+          verdict.openBlockers > 0 ? `${countOf(verdict.openBlockers, 'blocker')} ${verbFor(verdict.openBlockers, 'is', 'are')} open` : '',
         ].filter(Boolean);
 
         return `${parts.join(' and ')}. Reject the launch, or wait for the checklist to be completed.`;

@@ -1,3 +1,4 @@
+using YDots.DON.Application.Common.Models;
 using YDots.DON.Application.Features.Donors.DTOs;
 
 namespace YDots.DON.Application.Features.Donor360.DTOs;
@@ -32,7 +33,13 @@ public sealed record Donor360Response(
     /// Every gift, newest first, as the payments module recorded it. The Donations tab used to
     /// show stage totals only, so a donor's actual gifts were nowhere on the 360 view.
     /// </summary>
-    IReadOnlyList<DonationResponse> Donations);
+    IReadOnlyList<DonationResponse> Donations,
+
+    /// <summary>All / Open / Overdue / Closed for the Follow-ups tab, counted with each row's <c>View</c>.</summary>
+    IReadOnlyList<QueueViewResponse>? FollowUpViews = null,
+
+    /// <summary>The pledge form's quick amounts, from the organisation's settings.</summary>
+    IReadOnlyList<decimal>? PledgeAmountPresets = null);
 
 /// <summary>One gift on the Donations tab.</summary>
 public sealed record DonationResponse(
@@ -43,7 +50,10 @@ public sealed record DonationResponse(
     decimal RefundedAmount,
     string Currency,
     string Status,
-    string? CampaignName);
+    string? CampaignName,
+
+    /// <summary>The status in words ("Partially refunded"); <see cref="Status"/> stays PAY's value.</summary>
+    string? StatusLabel = null);
 
 /// <summary>"Identity and contact summary". Restricted: masked unless separately permitted.</summary>
 public sealed record IdentityAndContactSummaryResponse(
@@ -90,7 +100,11 @@ public sealed record CommunicationPreferenceResponse(
     string Status,
     DateTimeOffset? EffectiveAtUtc,
     DateTimeOffset? ExpiryAtUtc,
-    bool PublicRecognitionPreference);
+    bool PublicRecognitionPreference,
+
+    /// <summary>The channel and the consent state as every Donors screen words them ("Call", "Not provided").</summary>
+    string? ChannelLabel = null,
+    string? ConsentStateLabel = null);
 
 /// <summary>
 /// One row of "Donation totals by stage". Carries its own cut-off and freshness because the
@@ -131,7 +145,10 @@ public sealed record ConversationResponse(
     DateTimeOffset OccurredAtUtc,
     string Outcome,
     string? PerformedByName,
-    string Status);
+    string Status,
+
+    /// <summary>How it happened in words - the channel ("Call"), or the interaction type when it had none.</summary>
+    string? ChannelLabel = null);
 
 /// <summary>One open follow-up, shown on the 360 view rather than only on the planner.</summary>
 public sealed record Donor360FollowUpResponse(
@@ -158,7 +175,16 @@ public sealed record Donor360FollowUpResponse(
 
     // Whether THIS caller may execute it: the assignee, or the Organisation Admin, while it is
     // open and the caller may complete follow-ups. The tab draws Execute from this.
-    bool CanExecute);
+    bool CanExecute,
+
+    /// <summary>open / overdue / closed - the Follow-ups tab view this row belongs to.</summary>
+    string View = "",
+
+    /// <summary>"Overdue" for an open follow-up past its date, otherwise the Follow-up Queue's status word.</summary>
+    string StatusLabel = "",
+
+    /// <summary>The channel in the Follow-up Queue's words ("Call", "SMS").</summary>
+    string ChannelLabel = "");
 
 /// <summary>One pledge.</summary>
 public sealed record PromiseResponse(
@@ -169,7 +195,10 @@ public sealed record PromiseResponse(
     DateTimeOffset PromisedAtUtc,
     DateTimeOffset? DueAtUtc,
     string Status,
-    string? CampaignName);
+    string? CampaignName,
+
+    /// <summary>The status in words ("Partly fulfilled").</summary>
+    string? StatusLabel = null);
 
 /// <summary>One linked document. Confidential rows never reach an unpermitted caller.</summary>
 public sealed record DocumentResponse(

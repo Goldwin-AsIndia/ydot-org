@@ -244,7 +244,7 @@ public sealed class LeadCaptureCommandHandler(
 
         await auditWriter.WriteAsync(
             new AuditEntry(AuditActionCodes.LeadDeduplicated, nameof(Lead), lead.Id, AuditResult.Succeeded,
-                $"{candidates.Count} candidate(s) found for {lead.LeadReference}."),
+                $"{Wording.Count(candidates.Count, "candidate")} found for {lead.LeadReference}."),
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -631,7 +631,7 @@ public sealed class LeadCaptureCommandHandler(
     private static string? BuildSafeSummary(IReadOnlyList<DuplicateCandidateResponse> candidates) =>
         candidates.Count == 0
             ? null
-            : $"{candidates.Count} possible match(es): "
+            : $"{Wording.Count(candidates.Count, "possible match", "possible matches")}: "
               + string.Join(", ", candidates.Select(candidate => $"{candidate.CandidateType} - {candidate.MatchCategory}").Distinct());
 
     private Error? CheckScope(Lead? lead)

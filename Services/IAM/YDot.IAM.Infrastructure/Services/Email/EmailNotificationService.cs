@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using YDot.IAM.Application.Common.Abstractions.Services;
 using YDot.IAM.Application.Common.Settings;
 using YDot.IAM.Domain.Entities;
+using YDot.IAM.Domain.Enums;
 
 namespace YDot.IAM.Infrastructure.Services.Email;
 
@@ -62,10 +63,10 @@ public sealed class EmailNotificationService(
 
     public async Task<bool> SendMfaCodeAsync(
         User user, Tenant? tenant, BusinessUnit businessUnit, string code,
-        DateTimeOffset expiresAtUtc, CancellationToken cancellationToken)
+        DateTimeOffset expiresAtUtc, MfaChallengePurpose purpose, CancellationToken cancellationToken)
     {
         var sent = await TrySendAsync(
-            renderer.MfaCode(user, tenant, businessUnit, code, expiresAtUtc),
+            renderer.MfaCode(user, tenant, businessUnit, code, expiresAtUtc, purpose),
             // The code itself is logged when the relay is off, because otherwise the MFA flow
             // is impossible to walk in development.
             "mfa-code", code, cancellationToken);

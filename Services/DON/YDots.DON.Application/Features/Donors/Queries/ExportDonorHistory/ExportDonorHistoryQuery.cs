@@ -136,7 +136,7 @@ public sealed class ExportDonorHistoryHandler(
 
         await auditWriter.WriteAsync(
             new AuditEntry(AuditActionCodes.DonorHistoryExported, nameof(Donor), donor.Id, AuditResult.Succeeded,
-                $"History of {donor.DonorNumber} exported: {rows.Count} row(s). Reference {file.Reference}."),
+                $"History of {donor.DonorNumber} exported: {Wording.Count(rows.Count, "row")}. Reference {file.Reference}."),
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

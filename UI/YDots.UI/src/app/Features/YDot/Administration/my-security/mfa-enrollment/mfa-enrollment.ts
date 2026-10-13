@@ -84,9 +84,9 @@ export class MfaEnrollmentComponent implements OnInit, OnDestroy {
     },
     {
       id: 'email',
-      name: 'Email OTP',
+      name: 'E-mail OTP',
       icon: 'ri-mail-line',
-      description: 'Receive a one-time passcode to your registered email address',
+      description: 'Receive a one-time passcode at your registered e-mail address',
     },
     {
       id: 'security-key',

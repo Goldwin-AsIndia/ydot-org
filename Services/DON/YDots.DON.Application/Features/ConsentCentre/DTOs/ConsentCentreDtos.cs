@@ -18,7 +18,16 @@ public sealed record ConsentCentreResponse(
     IReadOnlyList<string> PermittedActions,
     string ActiveFilterSummary,
     string ActiveScope,
-    string State);
+    string State,
+
+    /// <summary>All / Active only / Withdrawn only over the donor's trail, counted with the rule that filters it.</summary>
+    IReadOnlyList<QueueViewResponse>? TrailViews = null,
+
+    /// <summary>The trail view <see cref="ConsentHistory"/> answers.</summary>
+    string ActiveTrailView = "all",
+
+    /// <summary>Anonymous / Recognised - the public-recognition preference, by "false" and "true".</summary>
+    IReadOnlyList<LookupItem>? RecognitionOptions = null);
 
 /// <summary>One consent row. Evidence is confidential and arrives masked by default.</summary>
 public sealed record ConsentListItemResponse(

@@ -336,7 +336,7 @@ public sealed class ReauthenticationCommandHandler(
                 ErrorCodes.AccountLocked,
                 "Account temporarily locked",
                 minutes.HasValue
-                    ? $"Too many failed sign-in attempts. Try again in {minutes} minute(s)."
+                    ? $"Too many failed sign-in attempts. Try again in {Wording.Count(minutes.Value, "minute")}."
                     : "Too many failed sign-in attempts. Try again shortly.",
                 [
                     "Wait for the lock to lift, then sign in again.",

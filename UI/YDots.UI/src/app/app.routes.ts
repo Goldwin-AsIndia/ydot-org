@@ -171,39 +171,39 @@ export const routes: Routes = [
 
       // ===== WhatsApp: CheckNumber finds who is on WhatsApp, Wati messages them =====
       //
-      // GUARDED WITH THE PERMISSION THE API ITSELF ASKS FOR. Both screens now read the Campaign service
-      // (/cam-api/v1/whatsapp), which answers anyone who may view campaigns - WhatsApp outreach exists
-      // to bring donors to a campaign. Starting a check or a broadcast additionally needs
-      // 'cam.campaigns.create'; the API refuses it otherwise, with a sentence the screen shows.
+      // GUARDED WITH THE PERMISSION THE API ITSELF ASKS FOR: 'cam.whatsapp.view', which only the
+      // Organisation Admin holds unless it is granted to another role - so typing the address is
+      // refused like any other screen the role is not given. Starting a check or a broadcast also
+      // needs 'cam.whatsapp.operate'; the API refuses it otherwise, with a sentence the screen shows.
       {
         path: 'whatsapp/check-number',
         component: CheckNumberComponent,
         data: { view: 'new' },
-        canActivate: [requirePermission('cam.campaigns.view')],
+        canActivate: [requirePermission('cam.whatsapp.view')],
       },
       {
         path: 'whatsapp/check-number/jobs',
         component: CheckNumberComponent,
         data: { view: 'jobs' },
-        canActivate: [requirePermission('cam.campaigns.view')],
+        canActivate: [requirePermission('cam.whatsapp.view')],
       },
       {
         path: 'whatsapp/check-number/jobs/:jobId',
         component: CheckNumberComponent,
         data: { view: 'job' },
-        canActivate: [requirePermission('cam.campaigns.view')],
+        canActivate: [requirePermission('cam.whatsapp.view')],
       },
       {
         path: 'whatsapp/wati',
         component: WatiComponent,
         data: { view: 'send' },
-        canActivate: [requirePermission('cam.campaigns.view')],
+        canActivate: [requirePermission('cam.whatsapp.view')],
       },
       {
         path: 'whatsapp/wati/report',
         component: WatiComponent,
         data: { view: 'report' },
-        canActivate: [requirePermission('cam.campaigns.view')],
+        canActivate: [requirePermission('cam.whatsapp.view')],
       },
 
       // ===== Administration — access and identity =====

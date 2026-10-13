@@ -153,7 +153,7 @@
       <div class="crc-banner-body">
         <p class="crc-banner-title">Saved. Reference {{ successReference() }} · {{ successState() }} · effective {{ successEffective() }}.</p>
         <p class="crc-banner-text">Next: {{ successNextAction() }}.
-          @if (getFailCount() + getPendingCount() > 0) { <span class="crc-banner-dim">{{ getFailCount() + getPendingCount() }} dependency(ies) still not passing.</span> }
+          @if (getFailCount() + getPendingCount() > 0) { <span class="crc-banner-dim">{{ (getFailCount() + getPendingCount()) | count: 'dependency' : 'dependencies' }} still not passing.</span> }
         </p>
       </div>
       <button type="button" class="crc-btn crc-btn-ghost crc-btn-sm" (click)="dismissBanner()">Dismiss</button>
@@ -372,7 +372,7 @@
               } @else {
                 <p class="crc-verdict-title"><span class="crc-dot crc-dot-fail" aria-hidden="true"></span> Not ready to launch</p>
                 <p class="crc-verdict-text">
-                  @if (v.requiredOutstanding > 0) { {{ v.requiredOutstanding }} required check(s) not yet passed }
+                  @if (v.requiredOutstanding > 0) { {{ v.requiredOutstanding | count: 'required check' }} not yet passed }
                   — the launch cannot be approved until these clear.
                 </p>
               }
@@ -429,7 +429,7 @@
       </dl>
       @if (getPendingCount() > 0 || getFailCount() > 0) {
         <p class="crc-modal-note crc-modal-note-warn">
-          {{ getPendingCount() + getFailCount() }} check(s) are still outstanding. The approver will see them; a check that
+          {{ (getPendingCount() + getFailCount()) | count: 'check' }} {{ getPendingCount() + getFailCount() === 1 ? 'is' : 'are' }} still outstanding. The approver will see them; a check that
           has not passed will hold the campaign back at activation.
         </p>
       }

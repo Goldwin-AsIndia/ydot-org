@@ -151,7 +151,7 @@ export class ConversationDetailComponent {
   };
 
   consent: { label: string; tone: 'granted' | 'restricted' | 'withdrawn' } = {
-    label: 'Consented — SMS and email',
+    label: 'Consented — SMS and e-mail',
     tone: 'granted',
   };
 
@@ -190,7 +190,7 @@ export class ConversationDetailComponent {
 
   readonly replyChannels = [
     { id: 'sms', label: 'SMS' },
-    { id: 'email', label: 'Email' },
+    { id: 'email', label: 'E-mail' },
     { id: 'whatsapp', label: 'WhatsApp' },
   ];
 

@@ -8,6 +8,7 @@ using YDot.IAM.Application.Features.Organisations.DTOs;
 using YDot.IAM.Domain.Entities;
 using YDot.IAM.Domain.Enums;
 using YDot.IAM.Domain.ValueObjects;
+using YDot.IAM.Application.Common.Services;
 
 namespace YDot.IAM.Application.Features.Organisations.Commands.ManageOrganisation;
 
@@ -241,8 +242,8 @@ public sealed class OrganisationStructureCommandHandler(
         if (members > 0)
         {
             return Result.Failure<OutcomeResponse>(Error.InUse(
-                $"{members} person(s) are still in this department. Move them first, or set it "
-                + "to inactive instead."));
+                $"{Wording.Count(members, "person", "people")} {Wording.Verb(members, "is", "are")} still in this department. "
+                + "Move them first, or set the department to inactive instead."));
         }
 
         var siblings = await structure.GetDepartmentsAsync(tenantId, cancellationToken);
@@ -251,7 +252,8 @@ public sealed class OrganisationStructureCommandHandler(
         if (children > 0)
         {
             return Result.Failure<OutcomeResponse>(Error.InUse(
-                $"{children} department(s) sit under this one. Move or remove them first."));
+                $"{Wording.Count(children, "department")} {Wording.Verb(children, "sits", "sit")} under this one. "
+                + $"Move or remove {Wording.Verb(children, "it", "them")} first."));
         }
 
         structure.RemoveDepartment(department);
@@ -454,8 +456,8 @@ public sealed class OrganisationStructureCommandHandler(
         if (members > 0)
         {
             return Result.Failure<OutcomeResponse>(Error.InUse(
-                $"{members} person(s) are still in this unit. Move them first, or set it to "
-                + "inactive instead."));
+                $"{Wording.Count(members, "person", "people")} {Wording.Verb(members, "is", "are")} still in this unit. "
+                + "Move them first, or set the unit to inactive instead."));
         }
 
         var siblings = await structure.GetUnitsAsync(tenantId, cancellationToken);
@@ -464,7 +466,8 @@ public sealed class OrganisationStructureCommandHandler(
         if (children > 0)
         {
             return Result.Failure<OutcomeResponse>(Error.InUse(
-                $"{children} unit(s) sit under this one. Move or remove them first."));
+                $"{Wording.Count(children, "unit")} {Wording.Verb(children, "sits", "sit")} under this one. "
+                + $"Move or remove {Wording.Verb(children, "it", "them")} first."));
         }
 
         structure.RemoveUnit(unit);

@@ -290,7 +290,7 @@ public sealed class WhatsAppCommandHandler(
             WhatsAppAuditActionCodes.BroadcastRequested,
             request.CampaignId is null ? WhatsAppAuditActionCodes.BroadcastTarget : "Campaign",
             request.CampaignId ?? accepted.CommandId,
-            $"WhatsApp broadcast \"{payload.broadcastName}\" ({payload.templateName}) requested for {payload.recipients.Count} recipient(s) as {accepted.Reference}.",
+            $"WhatsApp broadcast \"{payload.broadcastName}\" ({payload.templateName}) requested for {Wording.Count(payload.recipients.Count, "recipient")} as {accepted.Reference}.",
             cancellationToken);
 
         return Result.Success(accepted);

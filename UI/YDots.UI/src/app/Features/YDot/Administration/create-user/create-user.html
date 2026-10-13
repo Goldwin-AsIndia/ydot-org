@@ -354,25 +354,32 @@
             </div>
             <div class="cu-grid">
               <div class="s6">
-                <label class="cu-label" for="cuUnit">Organisation unit</label>
+                <label class="cu-label" for="cuUnit">Organisation unit <span class="cu-req" aria-hidden="true">*</span></label>
                 <ng-container *ngTemplateOutlet="cuDd; context: {
                   key: 'organisationUnitId', id: 'cuUnit', icon: 'ri-building-2-line',
-                  placeholder: 'Not set', allowEmpty: true, invalid: false }"></ng-container>
+                  placeholder: 'Choose a unit…', allowEmpty: false, invalid: isFieldInvalid('organisationUnitId') }"></ng-container>
+                @if (errorFor('organisationUnitId')) {
+                  <div class="invalid-feedback d-block">{{ errorFor('organisationUnitId') }}</div>
+                }
                 @if (organisationUnits().length === 0) {
                   <div class="cu-hint">
-                    No units yet. Create them under Organisation &rsaquo; Branches &amp; Units;
-                    a user can be invited without one.
+                    No units yet. Create one under Organisation &rsaquo; Branches &amp; Units first.
                   </div>
                 }
               </div>
 
               <div class="s6">
-                <label class="cu-label" for="cuDept">Department</label>
+                <label class="cu-label" for="cuDept">Department <span class="cu-req" aria-hidden="true">*</span></label>
                 <ng-container *ngTemplateOutlet="cuDd; context: {
                   key: 'departmentId', id: 'cuDept', icon: 'ri-community-line',
-                  placeholder: 'Not set', allowEmpty: true, invalid: isFieldInvalid('departmentId') }"></ng-container>
+                  placeholder: 'Choose a department…', allowEmpty: false, invalid: isFieldInvalid('departmentId') }"></ng-container>
                 @if (errorFor('departmentId')) {
                   <div class="invalid-feedback d-block">{{ errorFor('departmentId') }}</div>
+                }
+                @if (departments().length === 0) {
+                  <div class="cu-hint">
+                    No departments yet. Create one under Organisation &rsaquo; Departments first.
+                  </div>
                 }
               </div>
             </div>

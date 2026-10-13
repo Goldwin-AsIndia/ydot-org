@@ -27,9 +27,9 @@ namespace YDots.CAM.API.Controllers;
 /// checked and sent. A separate service would have needed its own host, its own image and its
 /// own route through the gateway to say the same thing.
 ///
-/// TWO PERMISSIONS, BOTH ALIASES OF CAMPAIGN ONES (see <see cref="PermissionCodes.WhatsAppView"/>):
-/// reading needs what viewing campaigns needs, and anything that can cost money - an upload, a
-/// broadcast, a retry - needs what creating a campaign needs.
+/// TWO PERMISSIONS OF THEIR OWN (see <see cref="PermissionCodes.WhatsAppView"/>): reading needs
+/// <c>cam.whatsapp.view</c>, and anything that can cost money - an upload, a broadcast, a retry -
+/// needs <c>cam.whatsapp.operate</c>. Only the Organisation Admin holds them unless they grant them.
 /// </summary>
 [Route("api/v1/whatsapp")]
 [Authorize(Policy = PolicyNames.TenantContextRequired)]

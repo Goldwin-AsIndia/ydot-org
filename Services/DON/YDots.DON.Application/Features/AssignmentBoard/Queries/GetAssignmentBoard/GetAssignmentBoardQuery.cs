@@ -291,7 +291,7 @@ public sealed class AssignmentBoardQueryHandler(
                     donor.RelationshipOwnerName,
                     suggestion?.UserId,
                     suggestion?.Name,
-                    suggestion is null ? null : $"{suggestion.OpenWorkCount} donor(s) owned, band {suggestion.WorkloadBand}",
+                    suggestion is null ? null : $"{Wording.Count(suggestion.OpenWorkCount, "donor")} owned, band {suggestion.WorkloadBand}",
                     currentLoad,
                     next?.NextAction ?? next?.Purpose,
                     next?.DueAtUtc,
@@ -444,7 +444,7 @@ public sealed class AssignmentBoardQueryHandler(
 
         await auditWriter.WriteAsync(
             new AuditEntry(AuditActionCodes.AssignmentBoardExported, query.Donors ? nameof(Donor) : nameof(Lead), null, AuditResult.Succeeded,
-                $"{lines.Count} {(query.Donors ? "donor" : "lead")} assignment row(s) exported. Reference {file.Reference}."),
+                $"{Wording.Count(lines.Count, query.Donors ? "donor assignment row" : "lead assignment row")} exported. Reference {file.Reference}."),
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -518,7 +518,7 @@ public sealed class AssignmentBoardQueryHandler(
             reasons.Add("same team");
         }
 
-        reasons.Add($"{suggestion.OpenWorkCount} open item(s), band {suggestion.WorkloadBand}");
+        reasons.Add($"{Wording.Count(suggestion.OpenWorkCount, "open item")}, band {suggestion.WorkloadBand}");
 
         return string.Join(", ", reasons);
     }

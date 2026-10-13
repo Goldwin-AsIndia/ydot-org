@@ -1,3 +1,4 @@
+import { countOf } from '../../../../Shared/pipes/count.pipe';
 import { CommonModule } from "@angular/common";
 import { Component, computed, DestroyRef, ElementRef, HostListener, inject, signal } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -17,6 +18,7 @@ import {
   AssignmentHistoryItem,
   DonLookupItem,
   OwnerWorkload,
+  QueueView,
 } from "../../../../Shared/models/donor-contract.model";
 
 interface OwnerOption {
@@ -71,6 +73,11 @@ interface LeadRow {
 
 type AssignMode = "assign" | "reassign" | "bulkRoute";
 type ScheduleMode = "immediate" | "scheduled";
+
+/** The board's every-record view, as the server names it. */
+const ALL_VIEW = "all";
+/** The SLA option behind the Due today shortcut, by its value. */
+const DUE_TODAY_SLA = "DueToday";
 
 interface AssignmentDraft {
   readonly mode: AssignMode;
@@ -146,7 +153,9 @@ export class AssignmentBoardComponent {
   /** Taking a copy of the board is an export like any other, and needs the same permission. */
   protected readonly canExport = this.tokens.hasPermission("don.donors.export");
 
-  protected readonly timezoneLabel = "Asia/Kolkata (IST)";
+  /** The organisation's clock, as the server names it. A scheduled change is typed and read on it. */
+  protected readonly timezoneLabel = signal("");
+  private readonly utcOffsetMinutes = signal<number | null>(null);
 
   protected readonly uiState = signal<UiState>("loading");
   protected readonly errorMessage = signal("");
@@ -169,7 +178,8 @@ export class AssignmentBoardComponent {
     slaStates: ["All"],
   });
 
-  protected readonly savedFilters = signal<readonly string[]>(["All leads"]);
+  /** All records / Unassigned / Assigned, as the server serves and counts them. */
+  protected readonly savedFilters = signal<readonly QueueView[]>([]);
 
   /**
    * What the caller may do, as the server listed it. An APPROVER holds no `assign` code, so no
@@ -195,10 +205,8 @@ export class AssignmentBoardComponent {
   readonly ddActive = signal(0);
   readonly ddUp = signal(false);
  
-  readonly recordTypeOptions: AbDdOption[] = [
-    { value: 'leads', label: 'Leads' },
-    { value: 'donors', label: 'Donors' },
-  ];
+  /** Leads / Donors, from the server. The value is kept lower-case: the screen keys its layout on it. */
+  readonly recordTypeOptions = signal<AbDdOption[]>([]);
  
   readonly ownerFilterOptions = computed<AbDdOption[]>(() => [
     { value: '', label: 'All owners' },
@@ -356,6 +364,30 @@ export class AssignmentBoardComponent {
   private dtIso(d: Date): string {
     return `${d.getFullYear()}-${this.dtPad(d.getMonth() + 1)}-${this.dtPad(d.getDate())}`;
   }
+
+  /** Today on the organisation's clock. */
+  private orgToday(): string {
+    return this.orgNowInput().slice(0, 10);
+  }
+
+  /** Now on the organisation's clock, as YYYY-MM-DDTHH:mm. The browser's clock until the board has loaded. */
+  private orgNowInput(): string {
+    const offset = this.utcOffsetMinutes();
+    if (offset === null) return this.toLocalDatetimeInput(new Date());
+    const shifted = new Date(Date.now() + offset * 60000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}T${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}`;
+  }
+
+  /** The instant a YYYY-MM-DDTHH:mm typed on the organisation's clock stands for. */
+  private orgInstant(input: string): Date {
+    const offset = this.utcOffsetMinutes();
+    if (offset === null) return new Date(input);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const sign = offset < 0 ? "-" : "+";
+    const abs = Math.abs(offset);
+    return new Date(`${input.slice(0, 16)}:00${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`);
+  }
  
   private dtMinDate(): string | null {
     const min = String(this.minEffectiveTime() ?? '');
@@ -387,7 +419,7 @@ export class AssignmentBoardComponent {
     const y = this.dtYear();
     const m = this.dtMonth();
     const first = new Date(y, m, 1);
-    const today = this.dtIso(new Date());
+    const today = this.orgToday();
     const min = this.dtMinDate();
     return Array.from({ length: 42 }, (_, i) => {
       const d = new Date(y, m, 1 - first.getDay() + i);
@@ -401,7 +433,7 @@ export class AssignmentBoardComponent {
       this.dtOpen.set(false);
       return;
     }
-    const base = this.dtParts().date ?? this.dtMinDate() ?? this.dtIso(new Date());
+    const base = this.dtParts().date ?? this.dtMinDate() ?? this.orgToday();
     this.dtShowMonthOf(base);
     this.dtFocus.set(base);
     this.dd.set(null);
@@ -422,7 +454,7 @@ export class AssignmentBoardComponent {
   }
  
   dtToday(): void {
-    const t = this.dtIso(new Date());
+    const t = this.orgToday();
     this.dtShowMonthOf(t);
     this.dtFocus.set(t);
     const min = this.dtMinDate();
@@ -435,7 +467,7 @@ export class AssignmentBoardComponent {
  
   private dtSet(date?: string, h?: string, m?: string): void {
     const p = this.dtParts();
-    const d = date ?? p.date ?? this.dtMinDate() ?? this.dtIso(new Date());
+    const d = date ?? p.date ?? this.dtMinDate() ?? this.orgToday();
     this.onEffectiveTimeInput(`${d}T${h ?? p.h}:${m ?? p.m}`);
   }
  
@@ -449,7 +481,7 @@ export class AssignmentBoardComponent {
     const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
     if (!(e.key in step)) return;
     e.preventDefault();
-    const [y, m, d] = (this.dtFocus() || this.dtIso(new Date())).split('-').map(Number);
+    const [y, m, d] = (this.dtFocus() || this.orgToday()).split('-').map(Number);
     const next = this.dtIso(new Date(y!, m! - 1, d! + step[e.key]!));
     this.dtFocus.set(next);
     this.dtShowMonthOf(next);
@@ -474,7 +506,8 @@ export class AssignmentBoardComponent {
   // Filter state - every change re-queries
   // ===========================================================================================
 
-  protected readonly savedFilter = signal("All leads");
+  /** The ownership view, by the value the server gave it. */
+  protected readonly savedFilter = signal(ALL_VIEW);
   protected readonly campaignFilter = signal("All");
   protected readonly teamFilter = signal("All");
   protected readonly languageFilter = signal("All");
@@ -488,6 +521,10 @@ export class AssignmentBoardComponent {
 
   private campaignLookup: readonly DonLookupItem[] = [];
   private teamLookup: readonly DonLookupItem[] = [];
+  private languageLookup: readonly DonLookupItem[] = [];
+  private workloadLookup: readonly DonLookupItem[] = [];
+  private slaLookup: readonly DonLookupItem[] = [];
+  private recordTypeLookup: readonly DonLookupItem[] = [];
 
   // ===========================================================================================
   // Rows and owners
@@ -578,9 +615,8 @@ export class AssignmentBoardComponent {
 
     if (this.recordType() === "donors") {
       // Donors are routed by ownership and found by search; a donor has no team or lead SLA.
-      filter["recordType"] = "Donors";
-      if (this.savedFilter() === "Unassigned only") filter["assignmentState"] = "Unassigned";
-      if (this.savedFilter() === "Assigned only") filter["assignmentState"] = "Assigned";
+      filter["recordType"] = this.recordTypeValue("donors");
+      if (this.savedFilter() !== ALL_VIEW) filter["view"] = this.savedFilter();
       if (this.searchTerm().trim()) filter["search"] = this.searchTerm().trim();
       if (this.ownerFilter()) filter["ownerUserId"] = this.ownerFilter();
       return filter;
@@ -605,23 +641,17 @@ export class AssignmentBoardComponent {
       filter["teamCode"] = team.value;
     }
 
-    if (this.languageFilter() !== "All") {
-      filter["preferredLanguage"] = this.languageFilter();
-    }
-    if (this.workloadFilter() !== "All") {
-      filter["workloadBand"] = this.workloadFilter();
-    }
-    if (this.slaFilter() !== "All") {
-      filter["slaState"] = this.slaFilter();
-    }
+    // Language, workload and SLA are sent by their values too ("ta-IN", "DueToday"). The language
+    // filter used to send the name ("Tamil"), which no lead is stored under, and matched nothing.
+    const language = this.languageLookup.find((o) => o.label === this.languageFilter());
+    if (language) filter["preferredLanguage"] = language.value;
+    const workload = this.workloadLookup.find((o) => o.label === this.workloadFilter());
+    if (workload) filter["workloadBand"] = workload.value;
+    const sla = this.slaLookup.find((o) => o.label === this.slaFilter());
+    if (sla) filter["slaState"] = sla.value;
 
-    // The board's own saved view. Unassigned is the one the document names as the entry point.
-    if (this.savedFilter() === "Unassigned only") {
-      filter["assignmentState"] = "Unassigned";
-    }
-
-    if (this.savedFilter() === "Assigned only")
-      filter["assignmentState"] = "Assigned";
+    // The board's ownership view, as the server named it. It applies it and counts it.
+    if (this.savedFilter() !== ALL_VIEW) filter["view"] = this.savedFilter();
     if (this.searchTerm().trim()) filter["search"] = this.searchTerm().trim();
     if (this.ownerFilter()) filter["ownerUserId"] = this.ownerFilter();
     return filter;
@@ -645,6 +675,16 @@ export class AssignmentBoardComponent {
 
     this.campaignLookup = response.campaignOptions;
     this.teamLookup = response.teamOptions;
+    this.languageLookup = response.languageOptions;
+    this.workloadLookup = response.workloadBandOptions;
+    this.slaLookup = response.slaStateOptions;
+    this.slaOptions.set(response.slaStateOptions);
+    this.recordTypeLookup = response.recordTypeOptions ?? [];
+    this.timezoneLabel.set(response.timeZoneLabel ?? "");
+    this.utcOffsetMinutes.set(response.utcOffsetMinutes ?? null);
+    this.recordTypeOptions.set(
+      (response.recordTypeOptions ?? []).map((o) => ({ value: o.value.toLowerCase(), label: o.label, hint: o.description ?? undefined })),
+    );
 
     this.filters.set({
       campaigns: ["All", ...response.campaignOptions.map((o) => o.label)],
@@ -656,7 +696,8 @@ export class AssignmentBoardComponent {
       ],
       slaStates: ["All", ...response.slaStateOptions.map((o) => o.label)],
     });
-    this.savedFilters.set(["All leads", "Unassigned only", "Assigned only"]);
+    this.savedFilters.set(response.views ?? []);
+    if (response.activeView && response.activeView !== this.savedFilter()) this.savedFilter.set(response.activeView);
 
     const permitted = response.permittedActions ?? [];
     // VERBS, AS THE API ANSWERS THEM: ['Assign','Inspect history','Reassign','Bulk route'].
@@ -710,11 +751,11 @@ export class AssignmentBoardComponent {
       leadPreview: row.leadPreview,
       campaign: row.campaignName ?? "—",
       team: row.teamCode ?? "—",
-      language: row.preferredLanguage,
+      language: row.preferredLanguageLabel ?? row.preferredLanguage,
 
       // THE OWNER'S BAND, NOT THE LEAD'S. Workload is a property of the person holding the work.
       workloadBand: owner?.workloadBand ?? "—",
-      slaState: row.slaState.replace(/([a-z])([A-Z])/g, "$1 $2"),
+      slaState: row.slaStateLabel ?? row.slaState,
       currentOwner: row.currentOwnerName ?? "Unassigned",
       currentOwnerUserId: row.currentOwnerUserId,
       suggestedOwner: row.suggestedOwnerName ?? "",
@@ -751,14 +792,24 @@ export class AssignmentBoardComponent {
     // The SLA state is a lead's; the Donors view has no such filter to offer.
     if (this.recordType() === "donors") return null;
 
-    const match = this.filters().slaStates.find(
-      (s) => s.toLowerCase().replace(/\s/g, "") === "duetoday",
-    );
-    return match ?? null;
+    return this.slaOptions().find((o) => o.value === DUE_TODAY_SLA)?.label ?? null;
   });
 
+  /** The SLA options as the server served them, values and words. */
+  private readonly slaOptions = signal<readonly DonLookupItem[]>([]);
+
+  /** The view's word for a chip, from the served views. */
+  protected viewLabel(value: string): string {
+    return this.savedFilters().find((v) => v.value === value)?.label ?? value;
+  }
+
+  /** The record type's value as the server named it ("Donors"), for the query string. */
+  private recordTypeValue(kind: "leads" | "donors"): string {
+    return this.recordTypeLookup.find((o) => o.value.toLowerCase() === kind)?.value ?? kind;
+  }
+
   protected toggleSavedFilter(value: string): void {
-    this.savedFilter.set(this.savedFilter() === value ? "All leads" : value);
+    this.savedFilter.set(this.savedFilter() === value ? ALL_VIEW : value);
     this.onFilterChanged();
   }
 
@@ -898,8 +949,8 @@ export class AssignmentBoardComponent {
         key: "owner",
         label: `Owner: ${this.owners().find((o) => o.userId === this.ownerFilter())?.name ?? "Selected owner"}`,
       });
-    if (this.savedFilter() !== "All leads")
-      chips.push({ key: "saved", label: `View: ${this.savedFilter()}` });
+    if (this.savedFilter() !== ALL_VIEW)
+      chips.push({ key: "saved", label: `View: ${this.viewLabel(this.savedFilter())}` });
     if (this.campaignFilter() !== "All")
       chips.push({
         key: "campaign",
@@ -927,7 +978,7 @@ export class AssignmentBoardComponent {
     if (key === "pinned") this.pinnedLeadIds.set([]);
     if (key === "search") { this.cancelPendingSearch(); this.searchTerm.set(""); }
     if (key === "owner") this.ownerFilter.set("");
-    if (key === "saved") this.savedFilter.set("All leads");
+    if (key === "saved") this.savedFilter.set(ALL_VIEW);
     if (key === "campaign") this.campaignFilter.set("All");
     if (key === "team") this.teamFilter.set("All");
     if (key === "language") this.languageFilter.set("All");
@@ -946,7 +997,7 @@ export class AssignmentBoardComponent {
     this.searchTerm.set("");
     this.ownerFilter.set("");
     this.dropdownSearch.set({});
-    this.savedFilter.set("All leads");
+    this.savedFilter.set(ALL_VIEW);
     this.campaignFilter.set("All");
     this.teamFilter.set("All");
     this.languageFilter.set("All");
@@ -1096,9 +1147,7 @@ export class AssignmentBoardComponent {
   protected readonly lastResult = signal<AssignResult | null>(null);
   protected readonly bulkResult = signal<BulkResult | null>(null);
 
-  protected readonly minEffectiveTime = computed(() =>
-    this.toLocalDatetimeInput(new Date()),
-  );
+  protected readonly minEffectiveTime = computed(() => this.orgNowInput());
 
   /** The owners a lead may be handed to, with the workload the server reported for each. */
   protected readonly campaignScopedOwnerOptions = computed<
@@ -1263,7 +1312,7 @@ export class AssignmentBoardComponent {
     if (!draft) return;
     let error = "";
     if (value) {
-      const date = new Date(value);
+      const date = this.orgInstant(value);
       if (Number.isNaN(date.getTime())) {
         error = "Enter a valid date and time.";
       } else if (date.getTime() < Date.now() - 60000) {
@@ -1327,7 +1376,7 @@ export class AssignmentBoardComponent {
       reasonMax: 2000,
       typedConfirm: false,
       affectedRecord: isBulk
-        ? `${this.eligibleRows().length} eligible record(s)`
+        ? countOf(this.eligibleRows().length, 'eligible record')
         : `${draft.rows[0].leadReference} · ${draft.rows[0].leadPreview}`,
       effectiveTime: effectiveDisplay,
       beforeAfter,
@@ -1357,7 +1406,7 @@ export class AssignmentBoardComponent {
     const effectiveDisplay = this.formatEffectiveTimeDisplay(draft);
     const effectiveAtUtc =
       draft.scheduleMode === "scheduled" && draft.effectiveTimeInput
-        ? new Date(draft.effectiveTimeInput).toISOString()
+        ? this.orgInstant(draft.effectiveTimeInput).toISOString()
         : null;
 
     if (draft.mode === "bulkRoute") {
@@ -1556,16 +1605,13 @@ export class AssignmentBoardComponent {
   }
 
   private toHistoryEntry(item: AssignmentHistoryItem): HistoryEntry {
+    // WHO MADE THE CHANGE. This printed the previous owner as the person who acted.
     return {
-      event: item.isBulkRoute
-        ? "Bulk routed"
-        : item.previousOwnerUserId
-          ? "Reassigned"
-          : "Assigned",
+      event: item.eventLabel || "—",
       owner: item.newOwnerName,
       reason: item.assignmentReason,
       effectiveTime: this.formatDateTime(item.effectiveAtUtc),
-      actor: item.previousOwnerName ?? "—",
+      actor: item.assignedByName ?? "—",
       at: this.formatDateTime(item.effectiveAtUtc),
     };
   }
@@ -1590,11 +1636,11 @@ export class AssignmentBoardComponent {
 
   private formatEffectiveTimeDisplay(draft: AssignmentDraft): string {
     if (draft.scheduleMode === "immediate" || !draft.effectiveTimeInput) {
-      return `Immediately · ${this.timezoneLabel}`;
+      return `Immediately · ${this.timezoneLabel()}`;
     }
     const date = new Date(draft.effectiveTimeInput);
     if (Number.isNaN(date.getTime())) {
-      return `Scheduled · ${this.timezoneLabel}`;
+      return `Scheduled · ${this.timezoneLabel()}`;
     }
     return `${date.toLocaleString("en-IN", {
       day: "2-digit",
@@ -1602,7 +1648,7 @@ export class AssignmentBoardComponent {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    })} · ${this.timezoneLabel}`;
+    })} · ${this.timezoneLabel()}`;
   }
 
   private formatDateTime(value: string | null): string {
@@ -1873,93 +1919,31 @@ export class AssignmentBoardComponent {
     }
   }
 
-    protected exportAssignmentBoard(): void {
-    if (!this.canExport) return;
-    const rows = this.paginatedRows();
+  protected readonly exporting = signal(false);
 
+  /**
+   * The board as CSV, written and logged by the server: every page under the filters, view and
+   * record type on screen. This wrote the rows of the current page into a file in the browser.
+   */
+  protected exportAssignmentBoard(): void {
+    if (!this.canExport || this.exporting()) return;
+    this.exporting.set(true);
 
-    if (!rows.length) {
-      this.toast.show(
-        "Nothing to export",
-        "There are no assignment records available to export.",
-        "error",
-      );
-      return;
-    }
-
-        const headers = [
-      this.recordType() === "donors" ? "Donor number" : "Lead ID",
-      this.recordType() === "donors" ? "Donor name" : "Lead name",
-      "Campaign",
-      "Team",
-      "Language",
-      "Workload",
-      "SLA Status",
-      "Current Owner",
-      "Suggested Owner",
-      "Open Work",
-      "Next Action Due",
-      "Status",
-    ];
-
-    const csvRows = rows.map((row) => [
-      row.leadReference,
-      this.leadPreviewWithoutReference(row),
-      row.campaign,
-      row.team,
-      row.language,
-      row.workloadBand,
-      row.slaState,
-      row.currentOwner || "Unassigned",
-      row.suggestedOwner || "",
-      row.openWorkCount,
-      row.nextActionDue,
-      row.status,
-    ]);
-
-    const escapeCsv = (value: unknown): string => {
-      const text = String(value ?? "");
-      return `"${text.replace(/"/g, '""')}"`;
-    };
-
-    const csv = [
-      headers.map(escapeCsv).join(","),
-      ...csvRows.map((row) => row.map(escapeCsv).join(",")),
-    ].join("\r\n");
-
-    const blob = new Blob(["\uFEFF" + csv], {
-      type: "text/csv;charset=utf-8;",
+    this.api.exportAssignmentBoard(this.buildFilter()).subscribe({
+      next: ({ blob, fileName }) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.exporting.set(false);
+        this.toast.show("Export completed", `${countOf(this.totalCount(), 'assignment record')} exported.`, "success");
+      },
+      error: (error: unknown) => {
+        this.exporting.set(false);
+        this.toast.show("Export failed", apiErrorMessage(error, "The board could not be exported."), "error");
+      },
     });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = `assignment-board-${this.formatExportDate()}.csv`;
-    link.style.display = "none";
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
-
-    this.toast.show(
-      "Export completed",
-      `${rows.length} assignment record(s) exported successfully.`,
-      "success",
-    );
-  }
-
-  private formatExportDate(): string {
-    const now = new Date();
-
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-
-    return `${year}${month}${day}-${hours}${minutes}`;
   }
 }

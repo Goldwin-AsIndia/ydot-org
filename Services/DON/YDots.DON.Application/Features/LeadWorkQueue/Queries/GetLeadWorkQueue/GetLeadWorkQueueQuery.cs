@@ -170,7 +170,7 @@ public sealed class LeadWorkQueueQueryHandler(
 
         await auditWriter.WriteAsync(
             new AuditEntry(AuditActionCodes.LeadsExported, nameof(Lead), null, AuditResult.Succeeded,
-                $"{rows.Count} lead(s) exported. Reference {file.Reference}."),
+                $"{Wording.Count(rows.Count, "lead")} exported. Reference {file.Reference}."),
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

@@ -662,6 +662,8 @@ export interface LeadCaptureResponse {
   defaultCountryCode: string;
   /** The prefix a number typed without one is given, for example "+91". */
   defaultDiallingCode: string;
+  /** Anonymous / Recognised, by "false" / "true". */
+  recognitionOptions?: DonLookupItem[];
 }
 
 // =============================================================================================
@@ -720,6 +722,9 @@ export interface CommunicationPreference {
   effectiveAtUtc: string | null;
   expiryAtUtc: string | null;
   publicRecognitionPreference: boolean;
+  /** The channel and state as every Donors screen words them ("Call", "Not provided"). */
+  channelLabel?: string | null;
+  consentStateLabel?: string | null;
 }
 
 /**
@@ -761,6 +766,8 @@ export interface DonorDonation {
   currency: string;
   status: string;
   campaignName: string | null;
+  /** The status in words ("Partially refunded"). */
+  statusLabel?: string | null;
 }
 
 export interface Conversation {
@@ -773,6 +780,8 @@ export interface Conversation {
   outcome: string;
   performedByName: string | null;
   status: string;
+  /** How it happened in words: the channel ("Call"), or the interaction type. */
+  channelLabel?: string | null;
 }
 
 export interface Donor360FollowUp {
@@ -794,6 +803,12 @@ export interface Donor360FollowUp {
   completionOutcome: string | null;
   /** Whether THIS caller may execute it: its assignee, or the Organisation Admin. Server-decided. */
   canExecute: boolean;
+  /** open / overdue / closed - the Follow-ups tab view it belongs to. */
+  view?: string;
+  /** "Overdue", or the Follow-up Queue's status word. */
+  statusLabel?: string;
+  /** The channel in the Follow-up Queue's words. */
+  channelLabel?: string;
 }
 
 export interface DonorPromise {
@@ -805,6 +820,8 @@ export interface DonorPromise {
   dueAtUtc: string | null;
   status: string;
   campaignName: string | null;
+  /** The status in words ("Partly fulfilled"). */
+  statusLabel?: string | null;
 }
 
 export interface DonorDocument {
@@ -864,6 +881,10 @@ export interface Donor360Response {
   state: string;
   /** Every gift, newest first, from the payments module. */
   donations: DonorDonation[];
+  /** All / Open / Overdue / Closed for the Follow-ups tab, counted by the server. */
+  followUpViews?: QueueView[];
+  /** The pledge form's quick amounts, from the organisation's settings. */
+  pledgeAmountPresets?: number[];
 }
 
 export interface CreateIntentRequest {
@@ -917,6 +938,12 @@ export interface AssignmentBoardRow {
   version: number;
   /** Lead or Donor. On a Donor row the lead* fields carry the donor's id, number and name. */
   recordType: 'Lead' | 'Donor';
+  /** The name alone, without the reference the preview starts with. */
+  displayName?: string | null;
+  /** The SLA state as the screen words it ("On track", "No next contact"). */
+  slaStateLabel?: string | null;
+  /** The preferred language's name; preferredLanguage stays the code. */
+  preferredLanguageLabel?: string | null;
 }
 
 export interface OwnerWorkload {
@@ -948,6 +975,16 @@ export interface AssignmentBoardResponse {
   assignedCount: number;
   /** Next contact due inside the SLA's due-soon window. */
   dueTodayCount: number;
+  /** All records / Unassigned / Assigned, counted over the whole board. Sent back as `view`. */
+  views?: QueueView[];
+  /** The view the rows answer - "all" when an explicit ownership choice superseded the one asked for. */
+  activeView?: string;
+  /** Leads / Donors, sent back as `recordType`. */
+  recordTypeOptions?: DonLookupItem[];
+  /** The organisation's clock, "Asia/Kolkata · UTC+05:30". A scheduled change is read on it. */
+  timeZoneLabel?: string | null;
+  /** The organisation's offset from UTC now, in minutes. */
+  utcOffsetMinutes?: number;
 }
 
 export interface AssignmentRequest {
@@ -1001,6 +1038,10 @@ export interface AssignmentHistoryItem {
   effectiveAtUtc: string;
   assignedByUserId: string;
   isBulkRoute: boolean;
+  /** Who made the change, by name. */
+  assignedByName?: string | null;
+  /** Assigned / Reassigned / Bulk routed. */
+  eventLabel?: string;
 }
 
 export interface AssignmentHistory {
@@ -1053,7 +1094,10 @@ export interface ConsentCentreResponse {
   screenId: string;
   route: string;
   consents: PagedResponse<ConsentListItem>;
-  /** Superseded and withdrawn rows. Kept, because a consent trail that hides its past is not one. */
+  /**
+   * The donor's whole consent trail - current, superseded and withdrawn rows - narrowed to the
+   * trail view asked for. Kept, because a consent trail that hides its past is not one.
+   */
   consentHistory: ConsentListItem[];
   channelOptions: DonLookupItem[];
   consentStateOptions: DonLookupItem[];
@@ -1063,6 +1107,12 @@ export interface ConsentCentreResponse {
   activeFilterSummary: string;
   activeScope: string;
   state: string;
+  /** All / Active only / Withdrawn only over the trail, counted by the server. Sent back as `view`. */
+  trailViews?: QueueView[];
+  /** The trail view consentHistory answers. */
+  activeTrailView?: string;
+  /** Anonymous / Recognised, by "false" / "true". */
+  recognitionOptions?: DonLookupItem[];
 }
 
 export interface GrantConsentRequest {
@@ -1535,6 +1585,20 @@ export interface IdentityVerificationListResponse {
   codeValidMinutes: number;
   maximumAttempts: number;
   state: string;
+  /** What happened on each of the donor's attempts, newest first, narrowed to the trail view. */
+  trail?: VerificationTrailEntry[];
+  /** All attempts / Current attempt, counted by the server. Sent back as `view`. */
+  trailViews?: QueueView[];
+  activeTrailView?: string;
+}
+
+/** One step of a verification - started, challenge sent, verified, escalated, cancelled. */
+export interface VerificationTrailEntry {
+  verificationReference: string;
+  event: string;
+  detail: string;
+  atUtc: string | null;
+  actor: string | null;
 }
 
 export interface SendChallengeRequest {
@@ -1815,6 +1879,8 @@ export interface CommunicationTimelineResponse {
   /** Entries per channel over the whole record, keyed by the interactionTypeOptions value. */
   entryCountsByType: Record<string, number>;
   importantEntryCount: number;
+  /** What to do next after each outcome, keyed by the outcome value. */
+  outcomeNextSteps?: Record<string, string[]>;
 }
 
 /** POST /communication-timeline - log a communication against a lead or a donor. */

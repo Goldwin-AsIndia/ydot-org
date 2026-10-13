@@ -33,4 +33,7 @@ public sealed record LeadCaptureResponse(
     string DefaultCountryCode,
 
     /// <summary>The prefix a number typed without one is given, for example "+91".</summary>
-    string DefaultDiallingCode);
+    string DefaultDiallingCode,
+
+    /// <summary>Anonymous / Recognised - the public-recognition preference, by "false" and "true".</summary>
+    IReadOnlyList<LookupItem>? RecognitionOptions = null);

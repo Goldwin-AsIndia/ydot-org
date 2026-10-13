@@ -156,7 +156,7 @@ export class OutboundMessageComposerComponent {
   /* ------------------------------ Catalogues ------------------------------ */
 
   readonly channels: ChannelOption[] = [
-    { id: 'email', label: 'Email', icon: '✉️', destinationHint: 'm•••••n@meeradonor.org' },
+    { id: 'email', label: 'E-mail', icon: '✉️', destinationHint: 'm•••••n@meeradonor.org' },
     { id: 'sms', label: 'SMS', icon: '💬', destinationHint: '+91 98••• ••210' },
     { id: 'whatsapp', label: 'WhatsApp', icon: '🟢', destinationHint: '+91 98••• ••210' },
     { id: 'post', label: 'Postal letter', icon: '✉︎', destinationHint: '14, ••••• Layout, Chennai ••••06' },
@@ -328,7 +328,7 @@ export class OutboundMessageComposerComponent {
   ];
 
   readonly integrationStatus = [
-    { name: 'Email delivery provider', status: 'Connected', tone: 'positive' as const },
+    { name: 'E-mail delivery provider', status: 'Connected', tone: 'positive' as const },
     { name: 'Consent registry', status: 'Connected', tone: 'positive' as const },
     { name: 'Document store', status: 'Connected', tone: 'positive' as const },
   ];

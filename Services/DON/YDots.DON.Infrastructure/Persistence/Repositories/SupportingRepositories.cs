@@ -249,6 +249,26 @@ public sealed class VerificationRepository(DonDbContext context) : IVerification
             .Include(verification => verification.Donor)
             .FirstOrDefaultAsync(verification => verification.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<DonorAuditEvent>> GetAuditAsync(
+        IReadOnlyCollection<Guid> verificationIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (verificationIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = verificationIds.ToList();
+
+        return await context.AuditEvents
+            .AsNoTracking()
+            .Where(entry => entry.TargetType == nameof(DonorIdentityVerification)
+                            && entry.TargetId != null
+                            && ids.Contains(entry.TargetId.Value))
+            .OrderByDescending(entry => entry.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<DonorIdentityVerification?> GetOpenForDonorAsync(Guid donorId, CancellationToken cancellationToken = default) =>
         context.DonorIdentityVerifications
             .Where(verification => verification.DonorId == donorId && OpenStatuses.Contains(verification.Status))

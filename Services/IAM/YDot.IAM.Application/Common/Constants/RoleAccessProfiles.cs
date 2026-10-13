@@ -143,6 +143,12 @@ public static class RoleAccessProfiles
         // hands.
         "cam.campaigns.activate",
 
+        // THE COMMUNICATIONS SCREENS. WhatsApp messages and number checks are configured for the
+        // Organisation Admin only; another role gets them when the administrator grants these two
+        // codes and maps the menu, the same as any other screen.
+        "cam.whatsapp.view",
+        "cam.whatsapp.operate",
+
         PermissionCodes.PaymentGatewaysView,
         PermissionCodes.PaymentGatewaysManage,
         PermissionCodes.PaymentGatewaysDelete,

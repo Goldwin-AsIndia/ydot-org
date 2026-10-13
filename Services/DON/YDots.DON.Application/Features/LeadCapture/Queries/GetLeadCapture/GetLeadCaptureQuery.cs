@@ -7,6 +7,7 @@ using YDots.DON.Application.Common.Models;
 using YDots.DON.Application.Common.Results;
 using YDots.DON.Application.Common.Services;
 using YDots.DON.Application.Common.Settings;
+using YDots.DON.Application.Features.ConsentCentre;
 using YDots.DON.Application.Features.LeadCapture.DTOs;
 using YDots.DON.Application.Features.Leads.DTOs;
 using YDots.DON.Application.Features.Leads.Mappings;
@@ -97,7 +98,8 @@ public sealed class GetLeadCaptureQueryHandler(
             lead is null ? ScreenState.Initial : ScreenState.Success,
             LeadSources.All,
             _settings.DefaultCountryCode,
-            _settings.DefaultDiallingCode);
+            _settings.DefaultDiallingCode,
+            ConsentCatalogue.RecognitionOptions);
 
         logger.LogInformation("Lead capture screen loaded successfully. Existing lead: {HasLead}, CampaignCount: {CampaignCount}, OwnerCount: {OwnerCount}", lead is not null, campaigns.Count(), owners.Count());
 
@@ -157,14 +159,7 @@ public sealed class GetLeadCaptureQueryHandler(
     /// dropdown is how a screen ends up inventing its own list instead, which is what this form
     /// had done - four options with made-up reference codes that nothing on the server knew.
     /// </summary>
-    private static readonly IReadOnlyList<LookupItem> ConsentChannelOptions =
-    [
-        new(nameof(ConsentChannel.Email), "Email"),
-        new(nameof(ConsentChannel.Sms), "SMS"),
-        new(nameof(ConsentChannel.WhatsApp), "WhatsApp"),
-        new(nameof(ConsentChannel.PhoneCall), "Phone call"),
-        new(nameof(ConsentChannel.Post), "Post")
-    ];
+    private static readonly IReadOnlyList<LookupItem> ConsentChannelOptions = ConsentCatalogue.ChannelOptions;
 
     /// <summary>What the person said, in the order somebody capturing it reaches for.</summary>
     private static readonly IReadOnlyList<LookupItem> ConsentStateOptions =

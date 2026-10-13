@@ -23,4 +23,12 @@ public interface ITenantHostDirectory
     /// than refusing to produce the document.
     /// </summary>
     Task<string?> GetPrimaryHostAsync(Guid tenantId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The Organisation's name as IAM holds it, or null when it cannot be read.
+    ///
+    /// A receipt has to say who issued it. Null is again a normal answer: the document still
+    /// renders, without the name, rather than not at all.
+    /// </summary>
+    Task<string?> GetOrganisationNameAsync(Guid tenantId, CancellationToken cancellationToken);
 }

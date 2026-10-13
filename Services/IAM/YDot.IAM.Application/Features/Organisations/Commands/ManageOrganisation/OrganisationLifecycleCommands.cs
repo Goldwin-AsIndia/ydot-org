@@ -10,6 +10,7 @@ using YDot.IAM.Application.Features.Organisations.DTOs;
 using YDot.IAM.Application.Features.Organisations.Mappings;
 using YDot.IAM.Domain.Entities;
 using YDot.IAM.Domain.Enums;
+using YDot.IAM.Application.Common.Services;
 
 namespace YDot.IAM.Application.Features.Organisations.Commands.ManageOrganisation;
 
@@ -146,7 +147,7 @@ public sealed class OrganisationLifecycleCommandHandler(
             ? "Contact details, address and regional settings saved."
             : outstanding.Count == 0
                 ? "Organisation profile saved. It is ready to submit."
-                : $"Organisation profile saved. {outstanding.Count} field(s) still needed before you can submit.";
+                : $"Organisation profile saved. {Wording.Count(outstanding.Count, "field")} still needed before you can submit.";
 
         return Result.Success(new OutcomeResponse(
             tenant.Id,

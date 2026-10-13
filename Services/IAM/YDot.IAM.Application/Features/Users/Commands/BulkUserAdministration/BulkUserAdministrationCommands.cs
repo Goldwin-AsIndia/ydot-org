@@ -217,9 +217,11 @@ public sealed class BulkUserAdministrationCommandHandler(
             operation.Status.ToString(),
             operation.Version,
             validCount == userIds.Count
-                ? $"All {validCount} row(s) passed validation. Review and apply."
-                : $"{validCount} of {userIds.Count} row(s) passed validation. "
-                  + $"{userIds.Count - validCount} would fail - review before applying.",
+                ? (validCount == 1
+                    ? "The row passed validation. Review and apply."
+                    : $"All {validCount} rows passed validation. Review and apply.")
+                : $"{validCount} of {Wording.Count(userIds.Count, "row")} passed validation. "
+                  + $"{userIds.Count - validCount} would fail; review them before applying.",
             validCount > 0 ? ["View", "Apply", "Cancel"] : ["View", "Cancel"]));
     }
 
@@ -385,7 +387,7 @@ public sealed class BulkUserAdministrationCommandHandler(
 
         if (operation.FailedItemCount > 0)
         {
-            operation.FailureSummary = $"{operation.FailedItemCount} row(s) failed. See the item list.";
+            operation.FailureSummary = $"{Wording.Count(operation.FailedItemCount, "row")} failed. See the item list.";
         }
 
         await audit.WriteAsync(

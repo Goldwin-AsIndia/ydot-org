@@ -55,7 +55,7 @@ public sealed class ResendReceiptRequestValidator : AbstractValidator<ResendRece
         RuleFor(request => request.Channel)
             .NotEmpty()
             .Must(channel => channel is "Email" or "Sms" or "Post")
-            .WithMessage("Send a receipt by Email, Sms or Post.");
+            .WithMessage("Choose e-mail, SMS or post as the way to send the receipt.");
 
         RuleFor(request => request.Destination)
             .MaximumLength(320)

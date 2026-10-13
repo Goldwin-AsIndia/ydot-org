@@ -969,21 +969,21 @@ export class DonorformComponent {
     // so the link itself carries the attribution and the API resolves it. Demanding a selection
     // here would make the form unsubmittable for exactly the person it exists to serve.
     if (!this.selectedCampaign() && !this.trackingReference() && !this.campaignIdFromLink()) {
-      errors.push({ field: 'campaign', label: 'Campaign or appeal', message: 'Enter Campaign or appeal.' });
+      errors.push({ field: 'campaign', label: 'Campaign or appeal', message: 'Choose a campaign or appeal.' });
     }
     if (!this.donorType()) {
-      errors.push({ field: 'donorType', label: 'Donor type', message: 'Enter Donor type.' });
+      errors.push({ field: 'donorType', label: 'Donor type', message: 'Choose a donor type.' });
     }
     if (this.donorType() === 'Organisation' && !this.organisationName().trim()) {
-      errors.push({ field: 'organisationName', label: 'Organisation name', message: 'Enter Organisation name.' });
+      errors.push({ field: 'organisationName', label: 'Organisation name', message: "Enter the organisation's name." });
     }
     if (!this.emailOrMobile().trim()) {
-      errors.push({ field: 'emailOrMobile', label: 'Email or mobile', message: 'Enter Email or mobile.' });
+      errors.push({ field: 'emailOrMobile', label: 'E-mail or mobile', message: 'Enter an e-mail address or a mobile number.' });
     } else if (!this.emailValid()) {
       errors.push({
         field: 'emailOrMobile',
-        label: 'Email or mobile',
-        message: 'Review Email or mobile. The value does not meet the stated format or range.',
+        label: 'E-mail or mobile',
+        message: 'Enter a valid e-mail address or mobile number.',
       });
     }
     // THE AMOUNT IS THE CAMPAIGN'S, SO SO IS THE ERROR. There is no Donation amount field left to
@@ -1004,32 +1004,32 @@ export class DonorformComponent {
       });
     }
     if (!this.currency()) {
-      errors.push({ field: 'currency', label: 'Currency', message: 'Enter Currency.' });
+      errors.push({ field: 'currency', label: 'Currency', message: 'Choose a currency.' });
     }
     if (this.recurringDonation() && !this.recurringFrequency()) {
-      errors.push({ field: 'recurringFrequency', label: 'Frequency', message: 'Enter Frequency.' });
+      errors.push({ field: 'recurringFrequency', label: 'Frequency', message: 'Choose how often you want to give.' });
     }
     if (this.taxReceiptRequired() && !this.panOrTaxId().trim()) {
-      errors.push({ field: 'panOrTaxId', label: 'PAN or tax identifier', message: 'Enter PAN or tax identifier.' });
+      errors.push({ field: 'panOrTaxId', label: 'PAN or tax identifier', message: 'Enter your PAN or tax identifier.' });
     } else if (this.panInvalid()) {
       errors.push({
         field: 'panOrTaxId',
         label: 'PAN or tax identifier',
-        message: 'Review PAN or tax identifier. The value does not meet the stated format or range.',
+        message: 'Enter a valid PAN or tax identifier.',
       });
     }
     if (this.dedicationEnabled() && !this.dedicateeName().trim()) {
-      errors.push({ field: 'dedicateeName', label: 'Dedicatee name', message: 'Enter Dedicatee name.' });
+      errors.push({ field: 'dedicateeName', label: 'Dedicatee name', message: 'Enter the name of the person this gift is dedicated to.' });
     }
     if (this.mobileInvalid()) {
       errors.push({
         field: 'mobileNumber',
         label: 'Mobile No',
-        message: 'Review Mobile No. Enter 10 to 15 digits.',
+        message: 'Enter a mobile number of 10 to 15 digits.',
       });
     }
     if (!this.consentChecked()) {
-      errors.push({ field: 'consent', label: 'Consent acknowledgement', message: 'Enter Consent acknowledgement.' });
+      errors.push({ field: 'consent', label: 'Consent acknowledgement', message: 'Tick the box to acknowledge the privacy notice.' });
     }
     return errors;
   });
@@ -1219,7 +1219,7 @@ export class DonorformComponent {
 
       this.toast.show(
         'Please sign in to continue',
-        'This email already has an account with this organisation. Sign in and we will take you '
+        'This e-mail address already has an account with this organisation. Sign in and we will take you '
           + 'straight back to complete your donation.',
         'info',
       );

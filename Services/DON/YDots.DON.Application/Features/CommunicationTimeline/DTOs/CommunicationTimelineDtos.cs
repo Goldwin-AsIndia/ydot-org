@@ -145,7 +145,10 @@ public sealed record CommunicationTimelineResponse(
     IReadOnlyDictionary<string, int> EntryCountsByType,
 
     /// <summary>Entries marked important.</summary>
-    int ImportantEntryCount);
+    int ImportantEntryCount,
+
+    /// <summary>What to do next after each outcome, keyed by the outcome value - the follow-up form's suggestions.</summary>
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? OutcomeNextSteps = null);
 
 /// <summary>
 /// POST /api/v1/donors/communication-timeline - log a communication manually.

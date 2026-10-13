@@ -214,9 +214,9 @@ public sealed class UserAccessCommandHandler(
         var summary = (added.Count, revoked.Count) switch
         {
             (0, 0) => "No role changes were needed.",
-            ( > 0, 0) => $"Added {added.Count} role(s).",
-            (0, > 0) => $"Removed {revoked.Count} role(s).",
-            _ => $"Added {added.Count} and removed {revoked.Count} role(s)."
+            ( > 0, 0) => $"Added {Wording.Count(added.Count, "role")}.",
+            (0, > 0) => $"Removed {Wording.Count(revoked.Count, "role")}.",
+            _ => $"Added {Wording.Count(added.Count, "role")} and removed {Wording.Count(revoked.Count, "role")}."
         };
 
         return Result.Success(new OutcomeResponse(
@@ -308,7 +308,7 @@ public sealed class UserAccessCommandHandler(
             user.Id, user.Status.ToString(), user.Version,
             added == 0 && removed == 0
                 ? "No scope changes were needed."
-                : $"Added {added} and removed {removed} data scope(s).",
+                : $"Added {Wording.Count(added, "data scope")} and removed {Wording.Count(removed, "data scope")}.",
             UserMappingConfig.PermittedActionsFor(user, now)));
     }
 

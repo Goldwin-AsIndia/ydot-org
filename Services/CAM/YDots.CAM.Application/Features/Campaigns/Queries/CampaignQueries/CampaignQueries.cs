@@ -214,8 +214,8 @@ public sealed class CampaignQueryHandler(
         await audit.WriteAsync(
             AuditActionCodes.CampaignExported, nameof(Campaign), Guid.Empty,
             string.IsNullOrWhiteSpace(query.Reason)
-                ? $"Exported {rows.Count} campaign(s) as {file.Reference}."
-                : $"Exported {rows.Count} campaign(s) as {file.Reference}. Reason: {query.Reason.Trim()}",
+                ? $"Exported {Wording.Count(rows.Count, "campaign")} as {file.Reference}."
+                : $"Exported {Wording.Count(rows.Count, "campaign")} as {file.Reference}. Reason: {query.Reason.Trim()}",
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

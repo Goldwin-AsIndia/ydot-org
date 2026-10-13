@@ -245,7 +245,8 @@ public sealed class CampaignLifecycleCommandHandler(
                 logger.LogWarning("Unable to approve campaign {CampaignId} because {OutstandingCount} required readiness check(s) have not passed.", campaign.Id, outstanding.Count);
 
                 return Result.Failure<OutcomeResponse>(Error.ReadinessIncomplete(
-                    $"{outstanding.Count} required readiness check(s) have not passed: "
+                    $"{Wording.Count(outstanding.Count, "required readiness check")} "
+                    + $"{Wording.Verb(outstanding.Count, "has", "have")} not passed: "
                     + string.Join(", ", outstanding.Select(check => check.CheckName)) + ".",
                     [.. outstanding.Select(check =>
                         new ValidationError(check.CheckName, $"{check.Category}: {check.SuccessCriteria}"))]));
@@ -388,7 +389,8 @@ public sealed class CampaignLifecycleCommandHandler(
             logger.LogWarning("Unable to activate campaign {CampaignId} because {OutstandingCount} required readiness check(s) have not passed.", campaign.Id, outstanding.Count);
 
             return Result.Failure<OutcomeResponse>(Error.ReadinessIncomplete(
-                $"{outstanding.Count} required readiness check(s) have not passed.",
+                $"{Wording.Count(outstanding.Count, "required readiness check")} "
+                + $"{Wording.Verb(outstanding.Count, "has", "have")} not passed.",
                 [.. outstanding.Select(check =>
                     new ValidationError(check.CheckName, $"{check.Category}: {check.SuccessCriteria}"))]));
         }

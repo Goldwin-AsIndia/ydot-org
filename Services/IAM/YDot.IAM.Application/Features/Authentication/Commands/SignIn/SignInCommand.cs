@@ -529,7 +529,7 @@ public sealed class SignInCommandHandler(
         // would hand somebody probing the account a progress bar.
         var error = attemptsRemaining <= _security.WarnWhenAttemptsRemaining
             ? Error.InvalidCredentials(
-                $"The sign-in details are incorrect. {attemptsRemaining} attempt(s) remaining before this account is locked.")
+                $"The sign-in details are incorrect. {Wording.Count(attemptsRemaining, "attempt")} remaining before this account is locked.")
             : Error.InvalidCredentials();
 
         return Result.Failure<SignInResponse>(error);

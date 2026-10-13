@@ -231,7 +231,8 @@ public sealed class CommunicationTimelineQueryHandler(
             CommunicationCatalogue.OutcomeGroups,
             countsByType.Values.Sum(),
             countsByType,
-            importantCount));
+            importantCount,
+            CommunicationCatalogue.OutcomeNextSteps));
     }
 
     /// <summary>
@@ -292,7 +293,7 @@ public sealed class CommunicationTimelineQueryHandler(
                 response.DonorId is not null ? nameof(Donor) : nameof(Lead),
                 response.DonorId ?? response.LeadId,
                 AuditResult.Succeeded,
-                $"{rows.Count} communication(s) of {reference} exported. Reference {file.Reference}."),
+                $"{Wording.Count(rows.Count, "communication")} of {reference} exported. Reference {file.Reference}."),
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

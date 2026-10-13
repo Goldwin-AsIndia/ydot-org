@@ -11,7 +11,7 @@ import {
 import { DonorApiService } from '../../../../Service/donor-api.service';
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
-import { ConsentListItem } from '../../../../Shared/models/donor-contract.model';
+import { ConsentListItem, DonLookupItem, QueueView } from '../../../../Shared/models/donor-contract.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 
@@ -60,11 +60,13 @@ export class ConsentPreferenceCentreComponent {
   protected readonly activeActionId = signal('');
   protected readonly activeTab = signal<TabId>('overview');
 
-  protected readonly savedFilters = signal<readonly string[]>(['All consents', 'Active only', 'Withdrawn only']);
-  protected readonly savedFilter = signal('All consents');
+  /** The views over the trail, as the server serves and counts them. */
+  protected readonly savedFilters = signal<readonly QueueView[]>([]);
+  protected readonly savedFilter = signal('all');
 
   protected readonly permissions = signal<Record<string, boolean>>({
     view: false,
+    reviewEvidence: false,
     grant: false,
     withdraw: false,
     correct: false,
@@ -80,44 +82,65 @@ export class ConsentPreferenceCentreComponent {
     () => this.consents().find((row) => row.consentState === 'Granted') ?? this.consents()[0] ?? null,
   );
 
-  protected readonly consentState = computed(() => this.currentConsent()?.consentState ?? 'Not provided');
+  protected readonly consentState = computed(() => this.currentConsent()?.consentState ?? 'NotProvided');
+  /** The state as the server words it ("Not provided"). */
+  protected readonly consentStateLabel = computed(() => this.labelOf(this.consentStateOptions(), this.consentState()));
   protected readonly consentReference = computed(() => this.currentConsent()?.name ?? '');
-  protected readonly channel = computed(() => this.currentConsent()?.channel ?? '');
+  protected readonly channel = computed(() => {
+    const value = this.currentConsent()?.channel;
+    return value ? this.labelOf(this.channelOptions(), value) : '';
+  });
   protected readonly purpose = computed(() => this.currentConsent()?.purpose ?? '');
   protected readonly noticeVersion = computed(() => this.currentConsent()?.noticeVersion ?? this.currentNoticeVersion());
   protected readonly evidenceSource = computed(() => this.currentConsent()?.evidenceSource ?? '');
   protected readonly effectiveTime = computed(() => this.formatDate(this.currentConsent()?.effectiveAtUtc ?? null));
   protected readonly expiryTime = computed(() => this.formatDate(this.currentConsent()?.expiryAtUtc ?? null));
   protected readonly publicRecognitionPreference = computed(() =>
-    this.currentConsent()?.publicRecognitionPreference ? 'Recognised' : 'Anonymous',
+    this.labelOf(this.recognitionOptions(), String(this.currentConsent()?.publicRecognitionPreference ?? false)),
+  );
+
+  /** Expired, or still waiting for the donor to confirm. */
+  protected readonly needsAttention = computed(
+    () => this.currentConsent()?.status === 'Expired' || this.consentState() === 'Pending',
   );
   protected readonly contactRestrictions = computed(() => this.currentConsent()?.contactRestrictions ?? 'None');
 
   protected readonly channels = computed(() => this.channelOptions().map((option) => option.label));
   protected readonly consentStates = computed(() => this.consentStateOptions().map((option) => option.label));
-  private readonly channelOptions = signal<readonly { value: string; label: string }[]>([]);
-  private readonly consentStateOptions = signal<readonly { value: string; label: string }[]>([]);
+  private readonly channelOptions = signal<readonly DonLookupItem[]>([]);
+  private readonly consentStateOptions = signal<readonly DonLookupItem[]>([]);
+  private readonly recognitionOptions = signal<readonly DonLookupItem[]>([]);
+
+  private labelOf(options: readonly DonLookupItem[], value: string): string {
+    return options.find((option) => option.value === value)?.label ?? value;
+  }
 
   constructor() {
     this.load();
   }
 
-  private load(): void {
+  /** `quiet` re-reads for a trail view change without blanking the page. */
+  private load(quiet = false): void {
     const donorId = this.donorReference();
     if (!donorId) {
       this.uiState.set('empty');
       return;
     }
 
-    this.uiState.set('loading');
+    if (!quiet) this.uiState.set('loading');
 
-    this.api.getConsentCentre({ donorId, page: 1, pageSize: 50 }).subscribe({
+    const view = this.savedFilter() === 'all' ? null : this.savedFilter();
+    this.api.getConsentCentre({ donorId, page: 1, pageSize: 50, view }).subscribe({
       next: (response) => {
         this.consents.set(response.consents.items);
 
         // THE WITHDRAWN AND SUPERSEDED ROWS ARE KEPT. A consent trail that hides its past cannot
         // answer the only question anybody asks of it: what were we allowed to do, and when.
+        // The server sends the whole trail, current rows included, narrowed to the view.
         this.history.set(response.consentHistory);
+        this.savedFilters.set(response.trailViews ?? []);
+        this.savedFilter.set(response.activeTrailView ?? 'all');
+        this.recognitionOptions.set(response.recognitionOptions ?? []);
 
         this.channelOptions.set(response.channelOptions);
         this.consentStateOptions.set(response.consentStateOptions);
@@ -130,13 +153,14 @@ export class ConsentPreferenceCentreComponent {
         // VERBS: ['Grant','Review evidence','Withdraw','Correct'].
         const permitted = response.permittedActions ?? [];
         this.permissions.set({
-          view: permitted.length > 0,
+          view: true,
+          reviewEvidence: permitted.includes('Review evidence'),
           grant: permitted.includes('Grant'),
           withdraw: permitted.includes('Withdraw'),
           correct: permitted.includes('Correct'),
         });
 
-        this.uiState.set(this.consents().length === 0 ? 'empty' : 'ready');
+        if (!quiet || this.uiState() === 'loading') this.uiState.set(this.consents().length === 0 ? 'empty' : 'ready');
       },
       error: (error: unknown) => {
         this.uiState.set('dependency-failure');
@@ -157,30 +181,31 @@ export class ConsentPreferenceCentreComponent {
 
   protected readonly activeFilterSummary = computed(() => {
     const chips: { key: string; label: string }[] = [];
-    if (this.savedFilter() !== this.savedFilters()[0]) {
-      chips.push({ key: 'saved', label: `View: ${this.savedFilter()}` });
+    if (this.savedFilter() !== 'all') {
+      chips.push({ key: 'saved', label: `View: ${this.savedFilterLabel()}` });
     }
     return chips;
   });
 
-  /** The consent trail, as three rows the history table can render. */
-  protected readonly filteredHistory = computed(() => {
-    const filter = this.savedFilter();
-    const rows = [...this.consents(), ...this.history()];
+  protected readonly savedFilterLabel = computed(
+    () => this.savedFilters().find((view) => view.value === this.savedFilter())?.label ?? this.savedFilter(),
+  );
 
-    const matching =
-      filter === 'Active only'
-        ? rows.filter((row) => row.consentState === 'Granted')
-        : filter === 'Withdrawn only'
-          ? rows.filter((row) => row.consentState === 'Withdrawn')
-          : rows;
+  /** A trail view picked: the server narrows the trail and counts it. */
+  protected setSavedFilter(value: string): void {
+    if (value === this.savedFilter()) return;
+    this.savedFilter.set(value);
+    this.load(true);
+  }
 
-    return matching.map((row) => ({
-      primary: `${row.consentState} · ${row.channel}`,
+  /** The consent trail as the server narrowed it, as three lines the history list can render. */
+  protected readonly filteredHistory = computed(() =>
+    this.history().map((row) => ({
+      primary: `${this.labelOf(this.consentStateOptions(), row.consentState)} · ${this.labelOf(this.channelOptions(), row.channel)}`,
       secondary: row.purpose,
       meta: `${row.capturedByName ?? 'System'} · ${this.formatDate(row.effectiveAtUtc)} · notice ${row.noticeVersion}`,
-    }));
-  });
+    })),
+  );
 
   /**
    * The permissions this screen actually checks, listed for the footer.
@@ -219,8 +244,21 @@ export class ConsentPreferenceCentreComponent {
     },
   ] as const;
 
+  /**
+   * The actions valid here: the caller may take it, and the consent on screen allows it - an
+   * active row can be withdrawn or corrected, a withdrawn one granted again, and with no consent
+   * at all only a grant makes sense.
+   */
+  protected can(actionId: string): boolean {
+    if (this.permissions()[actionId] !== true) return false;
+    const consent = this.currentConsent();
+    const verb = ({ grant: 'Grant', withdraw: 'Withdraw', correct: 'Correct', reviewEvidence: 'Review evidence' } as Record<string, string>)[actionId];
+    if (!consent) return actionId === 'grant';
+    return !!verb && consent.permittedActions.includes(verb);
+  }
+
   protected readonly visibleActions = computed(() =>
-    this.actionCatalogue.filter((action) => this.permissions()[action.id] === true),
+    this.actionCatalogue.filter((action) => this.can(action.id)),
   );
 
   protected setTab(tab: TabId): void {
@@ -228,9 +266,7 @@ export class ConsentPreferenceCentreComponent {
   }
 
   protected removeFilterChip(key: string): void {
-    if (key === 'saved') {
-      this.savedFilter.set(this.savedFilters()[0]);
-    }
+    if (key === 'saved') this.setSavedFilter('all');
   }
 
   protected setUiState(state: UiState): void {
@@ -246,8 +282,13 @@ export class ConsentPreferenceCentreComponent {
   }
 
   protected openAction(actionId: string): void {
+    if (actionId === 'reviewEvidence') {
+      this.reviewEvidence();
+      return;
+    }
+
     const action = this.actionCatalogue.find((candidate) => candidate.id === actionId);
-    if (!action || this.permissions()[actionId] !== true) {
+    if (!action || !this.can(actionId)) {
       return;
     }
 
@@ -333,6 +374,22 @@ export class ConsentPreferenceCentreComponent {
 
     this.confirmConfig.set(null);
     this.activeActionId.set('');
+  }
+
+  /** Reads the evidence reference - an audited read on the server - and shows it. */
+  private reviewEvidence(): void {
+    const consent = this.currentConsent();
+    if (!consent || !this.can('reviewEvidence')) return;
+
+    this.api.getConsentEvidence(consent.id).subscribe({
+      next: (row) =>
+        this.toast.show(
+          'Consent evidence',
+          [row.evidenceSource, row.evidenceReference].filter((part) => !!part).join(' · ') || 'No evidence reference is recorded.',
+          'success',
+        ),
+      error: (error: unknown) => this.toast.show('Evidence unavailable', apiErrorMessage(error), 'error'),
+    });
   }
 
   private afterWrite(message: string): void {

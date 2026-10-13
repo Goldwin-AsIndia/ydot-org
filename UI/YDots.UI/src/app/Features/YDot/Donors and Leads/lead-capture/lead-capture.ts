@@ -37,7 +37,8 @@ export interface ConsentFields {
   whatsappConsent: boolean;
   phoneConsent: boolean;
   doNotContact: boolean;
-  recognitionPreference: 'Anonymous' | 'Recognised' | '';
+  /** "true" (Recognised) or "false" (Anonymous), as the server's options name them; '' until chosen. */
+  recognitionPreference: string;
   consentNotes: string;
   /* ---------------------------------------------------------------- *
    * Consent & Preference Centre field set (mirrors Screen 15) — Purpose,
@@ -316,10 +317,8 @@ export class LeadCaptureComponent {
     readonly { reference: string; label: string; context: string }[]
   >([]);
 
-  protected readonly recognitionOptions: readonly ('Anonymous' | 'Recognised')[] = [
-    'Anonymous',
-    'Recognised',
-  ];
+  /** Anonymous / Recognised, from the server. */
+  protected readonly recognitionOptions = signal<readonly DonLookupItem[]>([]);
 
   /**
    * How the consent was captured - the API's channel list.
@@ -383,7 +382,7 @@ export class LeadCaptureComponent {
     'First name',
     'Last name',
     'Mobile',
-    'Email',
+    'E-mail',
     'Preferred language',
     'City',
     'Campaign',
@@ -1018,9 +1017,9 @@ export class LeadCaptureComponent {
     // Email — mandatory and format-checked; immutability is enforced via emailLocked()
     const email = f.email.trim();
     if (!email) {
-      errs['email'] = 'Email is required.';
+      errs['email'] = 'Enter an e-mail address.';
     } else if (!this.EMAIL_PATTERN.test(email)) {
-      errs['email'] = 'Enter a valid email address.';
+      errs['email'] = 'Enter a valid e-mail address.';
     }
 
     // Preferred language
@@ -1297,7 +1296,7 @@ export class LeadCaptureComponent {
             consentSource: capturedThrough?.label ?? null,
             consentDateUtc: this.toUtc(consent.effectiveDate, consent.effectiveTime),
             expiryAtUtc: this.showExpiry() ? this.toUtc(consent.expiryDate, consent.expiryTime) : null,
-            publicRecognitionPreference: consent.recognitionPreference === 'Recognised',
+            publicRecognitionPreference: consent.recognitionPreference === 'true',
             contactRestrictions: this.showContactRestriction()
               ? this.normaliseMobile(consent.contactRestrictionPhone) || null
               : null,
@@ -1560,6 +1559,7 @@ export class LeadCaptureComponent {
         this.leadSourceOptions.set(response.sourceOptions ?? []);
         this.channelOptions.set(response.consentChannelOptions ?? []);
         this.consentStateOptions.set(response.consentStateOptions ?? []);
+        this.recognitionOptions.set(response.recognitionOptions ?? []);
         this.currentNoticeVersion.set(response.currentNoticeVersion);
         this.serverDiallingCode.set(response.defaultDiallingCode ?? '');
         this.defaultCountryCode.set(response.defaultCountryCode ?? '');
@@ -2091,7 +2091,7 @@ export class LeadCaptureComponent {
       } else if (!mobile || mobileDigits.length < 7) {
         previewError = 'Missing or invalid mobile number';
       } else if (email && !this.EMAIL_PATTERN.test(email)) {
-        previewError = 'Invalid email format';
+        previewError = 'Not a valid e-mail address';
       }
 
       const serverResult = serverResults.get(row.rowNumber);

@@ -1,3 +1,4 @@
+using YDot.IAM.Application.Common.Services;
 namespace YDot.IAM.Application.Common.Results;
 
 /// <summary>
@@ -68,7 +69,7 @@ public sealed record Error(string Code, string Message, int StatusCode, IReadOnl
 
     public static Error AccountLocked(int minutesRemaining) =>
         new(ErrorCodes.AccountLocked,
-            $"Too many failed attempts. This account is locked for another {minutesRemaining} minute(s).",
+            $"Too many failed attempts. This account is locked for another {Wording.Count(minutesRemaining, "minute")}.",
             423);
 
     /// <summary>
@@ -104,7 +105,7 @@ public sealed record Error(string Code, string Message, int StatusCode, IReadOnl
     public static Error MfaFailed(int attemptsRemaining) =>
         new(ErrorCodes.MfaFailed,
             attemptsRemaining > 0
-                ? $"That code is not correct. {attemptsRemaining} attempt(s) remaining."
+                ? $"That code is not correct. {Wording.Count(attemptsRemaining, "attempt")} remaining."
                 : "That code is not correct and no attempts remain. Request a new code.",
             401);
 

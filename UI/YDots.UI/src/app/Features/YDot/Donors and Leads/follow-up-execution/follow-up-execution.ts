@@ -190,23 +190,6 @@ export interface EscalationValue {
   notes: string;
 }
 
-/**
- * What the form suggests after an outcome is chosen. Keyed by the API's outcome value; an outcome
- * it does not name simply suggests nothing.
- */
-export const OUTCOME_RECOMMENDATIONS: Record<string, string[]> = {
-  Interested: ["Schedule a meeting", "Send information", "Plan the next follow-up"],
-  InformationRequested: ["Send information", "Plan the next follow-up"],
-  MeetingScheduled: ["Plan the next follow-up"],
-  MeetingCompleted: ["Share the donation link", "Plan the next follow-up"],
-  DonationDiscussion: ["Share the donation link", "Plan the next follow-up"],
-  CallbackRequested: ["Plan the call back"],
-  NoAnswer: ["Try again in a few days"],
-  WrongNumber: ["Correct the contact details"],
-  NotInterested: ["Close the lead from the queue"],
-  DoNotContact: ["Record the withdrawal in the consent centre"],
-};
-
 // ---------------------------------------------------------------------------
 // Data access
 // ---------------------------------------------------------------------------
@@ -235,6 +218,9 @@ export interface FollowUpExecutionSnapshot {
 
   /** The caller may change a lead's temperature - the same right as scoring it anywhere else. */
   canScore: boolean;
+
+  /** What the form suggests after each outcome, keyed by the outcome value - from the timeline. */
+  outcomeNextSteps: Record<string, string[]>;
 }
 
 export interface CompleteFollowUpPayload {
@@ -295,10 +281,8 @@ export class FollowUpExecutionService {
           executionStatusOptions: planner.executionStatusOptions ?? [],
           completionReasonOptions: planner.completionReasonOptions ?? [],
           dispositionOptions: planner.dispositionOptions ?? [],
-          nextChannelOptions: (planner.channelOptions ?? []).map((option) => ({
-            ...option,
-            label: channelLabel(option.value),
-          })),
+          // The planner's channels in the server's own words ("Call", "SMS").
+          nextChannelOptions: planner.channelOptions ?? [],
           priorityOptions: planner.priorityOptions ?? [],
           lead: {
             recordId: (followUp.donorId ?? followUp.leadId) ?? "",
@@ -328,7 +312,7 @@ export class FollowUpExecutionService {
           followUp: {
             followUpId: followUp.id,
             reference: followUp.followUpReference,
-            type: channelLabel(followUp.permittedChannel),
+            type: (planner.channelOptions ?? []).find((option) => option.value === followUp.permittedChannel)?.label ?? followUp.permittedChannel,
             typeValue: toInteractionType(followUp.permittedChannel),
             subject: followUp.purpose ?? "",
             priority: followUp.priority,
@@ -373,6 +357,7 @@ export class FollowUpExecutionService {
                 { label: "Interest expressed", complete: (timeline.interestedCount ?? 0) > 0 },
               ],
           canScore: (timeline.permittedActions ?? []).includes("Score"),
+          outcomeNextSteps: timeline.outcomeNextSteps ?? {},
         };
 
         return snapshot;
@@ -542,18 +527,6 @@ function withAttachmentLine(notes: string, names: string[], max: number): string
 
 /** Shared with the follow-up queue, which reads the line back. */
 const ATTACHMENT_LINE_PREFIX = "Attachments: ";
-
-/** A consent channel as a person reads it. */
-function channelLabel(channel: string): string {
-  switch (channel) {
-    case "PhoneCall":
-      return "Phone call";
-    case "Sms":
-      return "SMS";
-    default:
-      return channel;
-  }
-}
 
 /** The interaction type a planned channel starts the form on. */
 function toInteractionType(channel: string): string {
@@ -837,7 +810,7 @@ export class FollowUpExecutionComponent implements OnInit {
   readonly outcomeRecommendations = computed(() => {
     const outcome = this.selectedOutcome();
     if (!outcome) return [];
-    return OUTCOME_RECOMMENDATIONS[outcome] ?? [];
+    return this.snapshot()?.outcomeNextSteps[outcome] ?? [];
   });
 
   readonly selectedTemperature = toSignal(

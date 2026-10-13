@@ -24,7 +24,9 @@
       @if (mode() === 'code') {
         <p class="text-muted mb-0 px-lg-4">{{ infoMessage() }}</p>
 
-        @if (!isAuthenticatorApp() && challenge()?.maskedDestination) {
+        <!-- Only when the sentence above does not already name the address. -->
+        @if (!isAuthenticatorApp() && challenge()?.maskedDestination
+             && !infoMessage().includes(challenge()?.maskedDestination ?? '')) {
           <p class="fw-semibold mt-2 mb-0">{{ challenge()?.maskedDestination }}</p>
         }
       } @else {
@@ -44,7 +46,7 @@
           <div>
             <div>{{ errorMessage() }}</div>
             @if (attemptsLeft() > 0) {
-              <small class="d-block mt-1">{{ attemptsLeft() }} attempt(s) remaining.</small>
+              <small class="d-block mt-1">{{ attemptsLabel() }}</small>
             }
           </div>
         </div>

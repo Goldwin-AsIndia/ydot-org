@@ -35,7 +35,7 @@
       </div>
       <div>
         <dt>Receipt</dt>
-        <dd>{{ emailOrMobile().trim() || 'By email' }}</dd>
+        <dd>{{ emailOrMobile().trim() || 'By e-mail' }}</dd>
       </div>
     </dl>
   </header>
@@ -96,7 +96,7 @@
               <span class="field-hint">We could not find the appeal this link named, so please choose one below.</span>
             }
             @if (!selectedCampaign() && uiState() === 'validation') {
-              <span class="field-error">Enter Campaign or appeal.</span>
+              <span class="field-error">Choose a campaign or appeal.</span>
             }
           </div>
 
@@ -150,7 +150,7 @@
               </div>
             </details>
             @if (!currency() && uiState() === 'validation') {
-              <span class="field-error">Enter Currency.</span>
+              <span class="field-error">Choose a currency.</span>
             }
           </div>
         </div>
@@ -160,7 +160,7 @@
       <section class="pf-section" aria-labelledby="sec-donor">
         <div class="pf-section-info">
           <h2 id="sec-donor">Donor details</h2>
-          <p>Your receipt and account invitation are sent to the email you enter.</p>
+          <p>Your receipt and account invitation are sent to the e-mail you enter.</p>
         </div>
 
         <div class="pf-fields">
@@ -172,15 +172,15 @@
           </label>
 
           <label class="field">
-            <span class="field-label">Email <span class="req-star">*</span></span>
+            <span class="field-label">E-mail <span class="req-star">*</span></span>
             <input id="fld-emailOrMobile" type="email" class="input" autocomplete="off"
                    placeholder="name@example.com"
                    [ngModel]="emailOrMobile()" (ngModelChange)="emailOrMobile.set($event)" name="emailOrMobile"
                    [attr.aria-invalid]="(!emailOrMobile().trim() || !emailValid()) && uiState() === 'validation'" />
             @if (!emailOrMobile().trim() && uiState() === 'validation') {
-              <span class="field-error">Enter Email.</span>
+              <span class="field-error">Enter your e-mail address.</span>
             } @else if (!emailValid()) {
-              <span class="field-error">Review Email. The value does not meet the stated format or range.</span>
+              <span class="field-error">Enter a valid e-mail address.</span>
             }
           </label>
 
@@ -191,7 +191,7 @@
                    [ngModel]="mobileNumber()" (ngModelChange)="mobileNumber.set($event)" name="mobileNumber"
                    [attr.aria-invalid]="mobileInvalid() && uiState() === 'validation'" />
             @if (!formLocked() && mobileInvalid()) {
-              <span class="field-error">Review Mobile No. Enter 10 to 15 digits.</span>
+              <span class="field-error">Enter a mobile number of 10 to 15 digits.</span>
             }
           </label>
 
@@ -202,7 +202,7 @@
                    [ngModel]="panOrTaxId()" (ngModelChange)="panOrTaxId.set($event)" name="panOrTaxId"
                    [attr.aria-invalid]="panInvalid() && uiState() === 'validation'" />
             @if (panInvalid()) {
-              <span class="field-error">Review PAN or tax identifier. The value does not meet the stated format or range.</span>
+              <span class="field-error">Enter a valid PAN or tax identifier.</span>
             }
           </label>
         </div>
@@ -348,7 +348,7 @@
             <span>I acknowledge the Privacy Notice <span class="req-star">*</span></span>
           </label>
           @if (!consentChecked() && uiState() === 'validation') {
-            <span class="field-error">Enter Consent acknowledgement.</span>
+            <span class="field-error">Tick the box to acknowledge the privacy notice.</span>
           }
         </div>
       </section>
@@ -393,7 +393,7 @@
 
         <ul class="pf-req" aria-label="Required to submit">
           <li [class.is-done]="!!selectedCampaign()">Campaign selected</li>
-          <li [class.is-done]="!!emailOrMobile().trim() && emailValid()">Valid email</li>
+          <li [class.is-done]="!!emailOrMobile().trim() && emailValid()">Valid e-mail</li>
           <li [class.is-done]="!!currency()">Currency selected</li>
           <li [class.is-done]="consentChecked()">Privacy Notice acknowledged</li>
         </ul>

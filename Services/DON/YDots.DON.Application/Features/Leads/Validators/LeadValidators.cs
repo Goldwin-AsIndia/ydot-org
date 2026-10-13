@@ -30,13 +30,13 @@ public sealed class CreateLeadRequestValidator : AbstractValidator<CreateLeadReq
 
         RuleFor(request => request.EmailAddress)
             .Must(EmailValue.IsValid)
-            .WithMessage("Review Email address. The value does not meet the stated format.")
+            .WithMessage("Enter a valid e-mail address.")
             .When(request => !string.IsNullOrWhiteSpace(request.EmailAddress));
 
         // A lead nobody can reach is not a lead, so one of the two contact fields is required.
         RuleFor(request => request.MobileNumber)
             .NotEmpty()
-            .WithMessage("Enter Mobile number or Email address. A lead needs at least one way of being reached.")
+            .WithMessage("Enter a mobile number or an e-mail address. A lead needs at least one way to be reached.")
             .When(request => string.IsNullOrWhiteSpace(request.EmailAddress));
 
         RuleFor(request => request.PreferredLanguage)
@@ -105,12 +105,12 @@ public sealed class UpdateLeadRequestValidator : AbstractValidator<UpdateLeadReq
 
         RuleFor(request => request.EmailAddress)
             .Must(EmailValue.IsValid)
-            .WithMessage("Review Email address. The value does not meet the stated format.")
+            .WithMessage("Enter a valid e-mail address.")
             .When(request => !string.IsNullOrWhiteSpace(request.EmailAddress));
 
         RuleFor(request => request.MobileNumber)
             .NotEmpty()
-            .WithMessage("Enter Mobile number or Email address. A lead needs at least one way of being reached.")
+            .WithMessage("Enter a mobile number or an e-mail address. A lead needs at least one way to be reached.")
             .When(request => string.IsNullOrWhiteSpace(request.EmailAddress));
 
         RuleFor(request => request.PreferredLanguage)

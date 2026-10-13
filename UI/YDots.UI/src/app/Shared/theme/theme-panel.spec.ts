@@ -10,10 +10,10 @@ import { SidebarComponent } from '../sidebar/sidebar';
 import { ThemeComponent } from './theme';
 
 /**
- * The sidebar's "Theme Settings" entry has to open the customiser panel. It used to toggle a highlight on a
- * dropdown whose <ul> was never bound to anything, so a click changed nothing on screen.
+ * The customiser panel opens from the Settings button on the Profile page, which calls
+ * LayoutService.openThemePanel(). The sidebar carries no "Theme Settings" entry of its own.
  */
-describe('Theme Settings entry', () => {
+describe('Theme settings panel', () => {
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.classList.remove('theme-panel-open');
@@ -42,41 +42,32 @@ describe('Theme Settings entry', () => {
     });
   });
 
-  function themeSettingsLink(root: HTMLElement): HTMLAnchorElement {
-    const link = Array.from(root.querySelectorAll<HTMLAnchorElement>('a.pe-nav-link')).find(a =>
-      a.textContent?.includes('Theme Settings'),
-    );
-    if (!link) throw new Error('Theme Settings entry not found in the sidebar');
-    return link;
-  }
-
-  it('opens the panel on click and closes it on the next click', () => {
+  it('is not offered in the sidebar', () => {
     const sidebar = TestBed.createComponent(SidebarComponent);
-    const theme = TestBed.createComponent(ThemeComponent);
     sidebar.detectChanges();
+
+    const text = (sidebar.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Theme Settings');
+  }, 30_000);
+
+  it('opens from the Profile page and closes again', () => {
+    const theme = TestBed.createComponent(ThemeComponent);
     theme.detectChanges();
 
     const panel = theme.nativeElement.querySelector('.tc-panel') as HTMLElement;
-    const link = themeSettingsLink(sidebar.nativeElement);
     const layout = TestBed.inject(LayoutService);
 
     expect(panel.classList).not.toContain('tc-panel--open');
 
-    link.click();
-    sidebar.detectChanges();
+    layout.openThemePanel();
     theme.detectChanges();
-    expect(layout.themePanelOpen).toBe(true);
     expect(panel.classList).toContain('tc-panel--open');
-    expect(link.classList).toContain('active');
-    expect(link.getAttribute('aria-expanded')).toBe('true');
     expect(document.documentElement.classList).toContain('theme-panel-open');
 
-    link.click();
-    sidebar.detectChanges();
+    layout.closeThemePanel();
     theme.detectChanges();
     expect(panel.classList).not.toContain('tc-panel--open');
-    expect(link.getAttribute('aria-expanded')).toBe('false');
-  }, 30_000);
+  });
 
   it('carries every picker in one scrolling panel, without the copyable colour palette', () => {
     const theme = TestBed.createComponent(ThemeComponent);

@@ -82,7 +82,10 @@ import type { MfaMethodType, SignInResponse, SignInResultStatus } from './iam-co
  */
 export const SIGN_IN_ROUTES: Record<SignInResultStatus, string> = {
   succeeded: '/app/dashboard',
-  mfaRequired: '/auth/mfa-challenge',
+  // THE PATH THE ROUTER ACTUALLY HAS (app.routes.ts: 'auth/mfa'). This said /auth/mfa-challenge,
+  // which matched nothing: the wildcard sent the person back to the sign-in screen and the button
+  // stayed on "Signing in..." although the server had already e-mailed the code.
+  mfaRequired: '/auth/mfa',
 
   // STRAIGHT INTO THE ORGANISATION DIRECTORY, not to a chooser.
   //
