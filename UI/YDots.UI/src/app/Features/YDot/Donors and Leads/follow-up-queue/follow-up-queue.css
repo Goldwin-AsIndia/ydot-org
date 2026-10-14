@@ -282,8 +282,8 @@
 .fq-fig:focus-visible { outline: 2px solid var(--k); outline-offset: -2px; }
 .fq-fig-glyph {
   grid-area: glyph;
-  width: calc(17px * var(--s));
-  height: calc(17px * var(--s));
+  width: calc(24px * var(--s));
+  height: calc(24px * var(--s));
   color: var(--k);
 }
 .fq-fig-value {
@@ -574,6 +574,10 @@
   gap: calc(8px * var(--s));
   min-width: 0;
   padding: calc(13px * var(--s)) calc(16px * var(--s)) calc(12px * var(--s));
+  /* timeline geometry: time | dot | text. The rail is placed from these, so it always runs through the dots. */
+  --ag-time: calc(78px * var(--s));
+  --ag-gap: calc(10px * var(--s));
+  --ag-dot: calc(9px * var(--s));
 }
 .fq-agenda-date {
   font-size: calc(var(--fq-t-xs) * var(--ui-text-scale, 1)) !important;
@@ -623,15 +627,15 @@
   position: absolute;
   top: calc(12px * var(--s));
   bottom: calc(12px * var(--s));
-  left: calc(52px * var(--s) + calc(3.5px * var(--s)));
+  left: calc(var(--ag-time) + var(--ag-gap) + var(--ag-dot) / 2 - .5px);
   width: 1px;
   background: var(--fq-line);
 }
 .fq-agenda-item {
   display: grid;
-  grid-template-columns: calc(52px * var(--s)) calc(8px * var(--s)) minmax(0, 1fr);
+  grid-template-columns: var(--ag-time) var(--ag-dot) minmax(0, 1fr);
   align-items: center;
-  gap: calc(8px * var(--s));
+  gap: var(--ag-gap);
   width: 100%;
   padding: calc(5px * var(--s)) calc(4px * var(--s)) calc(5px * var(--s)) 0;
   border: 0;
@@ -650,12 +654,13 @@
   color: var(--fq-muted);
   text-align: right;
   white-space: nowrap;
+  letter-spacing: 0;
 }
 .fq-agenda-dot {
   position: relative;
   z-index: 1;
-  width: calc(8px * var(--s));
-  height: calc(8px * var(--s));
+  width: var(--ag-dot);
+  height: var(--ag-dot);
   border: 1.5px solid var(--fq-accent);
   border-radius: 50%;
   background: var(--fq-card);
@@ -2514,6 +2519,10 @@ textarea.fq-input { resize: vertical; min-height: calc(88px * var(--s)); line-he
 }
 .fq-health-main .fq-block-figure {
   font-size: calc(calc(28px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+/* ring + figure sit a little in from the block's left edge */
+.fq-health-main {
+  padding-left: calc(28px * var(--s));
 }
 .fq-stack {
   height: calc(8px * var(--s));

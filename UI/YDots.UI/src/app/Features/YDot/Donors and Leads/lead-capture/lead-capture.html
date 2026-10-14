@@ -86,7 +86,6 @@
                   <header class="lcp-sec-head">
                     <span class="lcp-no">01</span>
                     <h2 id="lcp-h-identity">Identity</h2>
-                    <p>Who the lead is</p>
                   </header>
                   <div class="lcp-sec-body">
                     <div class="lcp-grid lcp-g3">
@@ -110,10 +109,10 @@
                           @if (fullName() && fields().displayName !== fullName()) {
                             <button type="button" class="lcp-lnk lcp-lnk-sm" (click)="fillDisplayName()" [title]="'Use ' + fullName() + ' as the display name'">Use full name</button>
                           } @else {
-                            <span class="lcp-count">{{ fields().displayName.length }}/150</span>
+                            <span class="lcp-count">{{ fields().displayName.length }}/50</span>
                           }
                         </div>
-                        <input id="displayName" class="lcp-in" type="text" placeholder="e.g. Anita Raman" maxlength="150"
+                        <input id="displayName" class="lcp-in" type="text" placeholder="e.g. Anita Raman" maxlength="50"
                           [value]="fields().displayName" (input)="onTextInput('displayName', $event)"
                           [attr.aria-invalid]="!!errors()['displayName']" [attr.aria-describedby]="errors()['displayName'] ? 'displayName-error' : null" />
                         @if (errors()['displayName']) { <p class="lcp-err" id="displayName-error">{{ errors()['displayName'] }}</p> }
@@ -127,7 +126,6 @@
                   <header class="lcp-sec-head">
                     <span class="lcp-no">02</span>
                     <h2 id="lcp-h-contact">Contact</h2>
-                    <p>How to reach them</p>
                   </header>
                   <div class="lcp-sec-body">
                     <div class="lcp-grid lcp-g3 lcp-g-contact">
@@ -135,8 +133,8 @@
                         <div class="lcp-l-row">
                           <span class="lcp-l" id="mobilesLabel">Mobile number{{ fields().mobiles.length === 1 ? '' : 's' }} <b class="lcp-req" aria-hidden="true">*</b></span>
                           @if (fields().mobiles.length < 5) {
-                            <button type="button" class="lcp-lnk lcp-lnk-sm" (click)="addMobile()" title="Create another mobile number">
-                              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Create
+                            <button type="button" class="lcp-lnk lcp-lnk-sm" (click)="addMobile()" title="Add another mobile number">
+                              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add
                             </button>
                           }
                         </div>
@@ -176,17 +174,32 @@
 
                       <div class="lcp-f" [class.has-error]="errors()['preferredLanguage']">
                         <label class="lcp-l" for="preferredLanguage">Preferred language <b class="lcp-req" aria-hidden="true">*</b></label>
-                        @if (languageOptions().length > 20) {
-                          <label class="lc-sr-only" for="preferredLanguage-search">Search languages</label>
-                          <input id="preferredLanguage-search" class="lcp-in lcp-search" type="search" autocomplete="off" placeholder="Search languages"
-                            [value]="lookupSearch()['preferredLanguage'] || ''" (input)="onLookupSearch('preferredLanguage', $event)" aria-controls="preferredLanguage" />
-                        }
-                        <select id="preferredLanguage" class="lcp-in lcp-sel" [value]="fields().preferredLanguage" (change)="onTextInput('preferredLanguage', $event)" [attr.aria-invalid]="!!errors()['preferredLanguage']">
-                          <option value="" disabled>{{ languageOptions().length ? 'Select a language' : 'No languages loaded' }}</option>
-                          @for (lang of filterLookup('preferredLanguage', languageOptions(), fields().preferredLanguage); track lang.value) {
-                            <option [value]="lang.value" [selected]="lang.value === fields().preferredLanguage">{{ lang.label }}</option>
+                        <!-- Language picker: same popover list as Campaign (search lives inside the list), so the field is
+                             the same height as its neighbours and the options are not the browser's unstyled menu. -->
+                        <button type="button" id="preferredLanguage" class="lcp-in lcp-sel lcp-pick lcp-pick--lang" popovertarget="lcp-language-pop"
+                          [class.is-empty]="!selectedLanguageLabel()" [attr.aria-invalid]="!!errors()['preferredLanguage']"
+                          aria-haspopup="listbox" [title]="selectedLanguageLabel()">
+                          {{ selectedLanguageLabel() || (languageOptions().length ? 'Select a language' : 'No languages loaded') }}
+                        </button>
+                        <div id="lcp-language-pop" class="lcp-pick-pop lcp-pick-pop--lang" popover="auto">
+                          @if (languageOptions().length > 20) {
+                            <label class="lc-sr-only" for="preferredLanguage-search">Search languages</label>
+                            <input id="preferredLanguage-search" class="lcp-in lcp-search lcp-pick-search" type="search" autocomplete="off" placeholder="Search languages"
+                              [value]="lookupSearch()['preferredLanguage'] || ''" (input)="onLookupSearch('preferredLanguage', $event)" />
                           }
-                        </select>
+                          <div class="lcp-pick-list" role="listbox" aria-label="Preferred language">
+                            @for (lang of filterLookup('preferredLanguage', languageOptions(), fields().preferredLanguage); track lang.value) {
+                              <button type="button" class="lcp-pick-opt" role="option" [value]="lang.value"
+                                [class.is-on]="lang.value === fields().preferredLanguage" [attr.aria-selected]="lang.value === fields().preferredLanguage"
+                                popovertarget="lcp-language-pop" popovertargetaction="hide"
+                                (click)="onTextInput('preferredLanguage', $event)">
+                                <span class="lcp-pick-l">{{ lang.label }}</span>
+                              </button>
+                            } @empty {
+                              <p class="lcp-pick-empty">{{ languageOptions().length ? 'No languages match' : 'No languages loaded' }}</p>
+                            }
+                          </div>
+                        </div>
                         @if (errors()['preferredLanguage']) { <p class="lcp-err">{{ errors()['preferredLanguage'] }}</p> }
                       </div>
                     </div>
@@ -198,7 +211,6 @@
                   <header class="lcp-sec-head">
                     <span class="lcp-no">03</span>
                     <h2 id="lcp-h-location">Location</h2>
-                    <p>Approved geography</p>
                     @if (serviceability(); as sv) {
                       <span class="lcp-svc" [class.is-good]="sv === 'serviceable'">
                         <i aria-hidden="true"></i>{{ sv === 'serviceable' ? 'Serviceable city' : 'Serviceability pending review' }}
@@ -207,6 +219,26 @@
                   </header>
                   <div class="lcp-sec-body">
                     <div class="lcp-grid lcp-g3" role="group" aria-label="Location">
+                      <div class="lcp-f" [class.has-error]="errors()['addressLine1']">
+                        <label class="lcp-l" for="addressLine1">Address line 1 <b class="lcp-req" aria-hidden="true">*</b></label>
+                        <input id="addressLine1" class="lcp-in" type="text" maxlength="100" placeholder="House / flat no., street" autocomplete="address-line1"
+                          [value]="fields().addressLine1" (input)="onTextInput('addressLine1', $event)"
+                          [attr.aria-invalid]="!!errors()['addressLine1']" />
+                        @if (errors()['addressLine1']) { <p class="lcp-err">{{ errors()['addressLine1'] }}</p> }
+                      </div>
+                      <div class="lcp-f" [class.has-error]="errors()['addressLine2']">
+                        <label class="lcp-l" for="addressLine2">Address line 2 <span class="lcp-opt">Optional</span></label>
+                        <input id="addressLine2" class="lcp-in" type="text" maxlength="100" placeholder="Locality, landmark" autocomplete="address-line2"
+                          [value]="fields().addressLine2" (input)="onTextInput('addressLine2', $event)" />
+                        @if (errors()['addressLine2']) { <p class="lcp-err">{{ errors()['addressLine2'] }}</p> }
+                      </div>
+                      <div class="lcp-f" [class.has-error]="errors()['zipcode']">
+                        <label class="lcp-l" for="zipcode">Zipcode <span class="lcp-opt">Optional</span></label>
+                        <input id="zipcode" class="lcp-in lcp-mono" type="text" maxlength="10" placeholder="e.g. 600001" autocomplete="postal-code"
+                          [value]="fields().zipcode" (input)="onTextInput('zipcode', $event)"
+                          [attr.aria-invalid]="!!errors()['zipcode']" [attr.aria-describedby]="errors()['zipcode'] ? 'zipcode-error' : null" />
+                        @if (errors()['zipcode']) { <p class="lcp-err" id="zipcode-error">{{ errors()['zipcode'] }}</p> }
+                      </div>
                       <div class="lcp-f" [class.has-error]="errors()['geoCountry']">
                         <label class="lcp-l" for="geoCountry">Country <b class="lcp-req" aria-hidden="true">*</b></label>
                         @if (geo.countryNames().length > 20) {
@@ -243,11 +275,6 @@
                         </select>
                         @if (errors()['geoCity']) { <p class="lcp-err">{{ errors()['geoCity'] }}</p> }
                       </div>
-                      <div class="lcp-f lcp-span-all">
-                        <label class="lcp-l" for="addressDetails">Address details <span class="lcp-opt">Optional</span></label>
-                        <input id="addressDetails" class="lcp-in" type="text" maxlength="250" placeholder="Street, locality, landmark" autocomplete="street-address"
-                          [value]="fields().addressDetails" (input)="onTextInput('addressDetails', $event)" />
-                      </div>
                     </div>
                   </div>
                 </section>
@@ -257,7 +284,6 @@
                   <header class="lcp-sec-head">
                     <span class="lcp-no">04</span>
                     <h2 id="lcp-h-source">Source</h2>
-                    <p>Where the lead came from</p>
                   </header>
                   <div class="lcp-sec-body">
                     <div class="lcp-grid lcp-g2">
@@ -305,9 +331,9 @@
                       <div class="lcp-f lcp-span-all" [class.has-error]="errors()['sourceDetails']">
                         <div class="lcp-l-row">
                           <label class="lcp-l" for="sourceDetails">Source details <span class="lcp-opt">Optional &middot; 10+ characters</span></label>
-                          <span class="lcp-count">{{ fields().sourceDetails.length }}/500</span>
+                          <span class="lcp-count">{{ fields().sourceDetails.length }}/100</span>
                         </div>
-                        <input id="sourceDetails" class="lcp-in" type="text" maxlength="500" placeholder="Event booth, referral ID, partner code"
+                        <input id="sourceDetails" class="lcp-in" type="text" maxlength="100" placeholder="Event booth, referral ID, partner code"
                           [value]="fields().sourceDetails" (input)="onTextInput('sourceDetails', $event)" />
                         @if (errors()['sourceDetails']) { <p class="lcp-err">{{ errors()['sourceDetails'] }}</p> }
                       </div>
@@ -320,15 +346,23 @@
                   <header class="lcp-sec-head">
                     <span class="lcp-no">05</span>
                     <h2 id="lcp-h-consent">Consent</h2>
-                    <p>Optional &mdash; can also be captured later</p>
-                    <button type="button" class="lcp-switch" role="switch" [attr.aria-checked]="fields().collectConsent" (click)="toggleConsentCollection()" title="Collect consent for this lead">
-                      <span class="lcp-switch-track"><span></span></span>
-                      {{ fields().collectConsent ? 'Collecting consent' : 'Collect consent' }}
-                    </button>
+                    <span class="lcp-switch-wrap">
+                      <button type="button" id="lcp-consent-switch" class="lcp-switch" [class.is-called]="consentHint()" role="switch" [attr.aria-checked]="fields().collectConsent" (click)="toggleConsentCollection()" title="Collect consent for this lead">
+                        <span class="lcp-switch-track"><span></span></span>
+                        {{ fields().collectConsent ? 'Collecting consent' : 'Collect consent' }}
+                      </button>
+                      @if (consentHint()) {
+                        <span class="lcp-callout" role="status">
+                          <b>Consent is switched off</b>
+                          <span>Turn on <em>Collect consent</em> to fill in this section.</span>
+                        </span>
+                      }
+                    </span>
                   </header>
 
-                  @if (fields().collectConsent) {
-                    <div class="lcp-sec-body">
+                  <!-- Always on screen. While the switch is off the body is dimmed and inert (no focus, no clicks). -->
+                  <div class="lcp-consent-wrap">
+                    <div class="lcp-sec-body" [class.is-frozen]="!fields().collectConsent" [attr.inert]="fields().collectConsent ? null : ''" [attr.aria-disabled]="!fields().collectConsent">
                       <div class="lcp-grid lcp-g4">
                         <fieldset class="lcp-f lcp-plain lcp-span-2" [class.has-error]="errors()['consentChannels']">
                           <legend class="lcp-l">May we contact them by <b class="lcp-req" aria-hidden="true">*</b></legend>
@@ -350,10 +384,6 @@
                               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 3.5h3l1.4 4-2.1 1.8a14.2 14.2 0 0 0 5.2 5.2l1.8-2.1 4 1.4v3c0 1-.8 1.8-1.8 1.8C11.2 18.6 5.4 12.8 5.4 5.3c0-1 .8-1.8 1.8-1.8Z"/></svg><span>Phone</span>
                             </label>
                           </div>
-                          <label class="lcp-dnc" [class.is-on]="fields().consent.doNotContact">
-                            <input type="checkbox" [checked]="fields().consent.doNotContact" (change)="onConsentCheckbox('doNotContact', $event)" />
-                            <span><b>Do not contact</b> &mdash; overrides every channel above</span>
-                          </label>
                           @if (errors()['consentChannels']) { <p class="lcp-err">{{ errors()['consentChannels'] }}</p> }
                         </fieldset>
 
@@ -398,7 +428,21 @@
                           <label class="lcp-l" for="effectiveDate">Effective from <span class="lcp-opt">IST</span> <b class="lcp-req" aria-hidden="true">*</b></label>
                           <div class="lcp-when">
                             <input id="effectiveDate" type="date" class="lcp-in lcp-mono" [value]="fields().consent.effectiveDate" (input)="onConsentDateTimeInput('effectiveDate', $event)" />
-                            <input type="time" class="lcp-in lcp-mono" [value]="fields().consent.effectiveTime" (input)="onConsentDateTimeInput('effectiveTime', $event)" aria-label="Effective time" />
+                            <div class="lcp-time" role="group" aria-label="Effective time" (click)="onTimeBoxClick($event)">
+                              <select class="lcp-time-sel" aria-label="Hour" [value]="timeParts('effectiveTime').hour ?? ''" (change)="setTimePart('effectiveTime', 'hour', $event)">
+                                <option value="" disabled [selected]="timeParts('effectiveTime').hour === null">HH</option>
+                                @for (h of hourOptions; track h) { <option [value]="h" [selected]="h === timeParts('effectiveTime').hour">{{ h < 10 ? '0' + h : h }}</option> }
+                              </select>
+                              <span class="lcp-time-colon" aria-hidden="true">:</span>
+                              <select class="lcp-time-sel" aria-label="Minute" [value]="timeParts('effectiveTime').minute ?? ''" (change)="setTimePart('effectiveTime', 'minute', $event)">
+                                <option value="" disabled [selected]="timeParts('effectiveTime').minute === null">MM</option>
+                                @for (m of minuteOptionsFor('effectiveTime'); track m) { <option [value]="m" [selected]="m === timeParts('effectiveTime').minute">{{ m < 10 ? '0' + m : m }}</option> }
+                              </select>
+                              <div class="lcp-meridiem" role="radiogroup" aria-label="AM or PM">
+                                <button type="button" role="radio" [class.is-on]="timeParts('effectiveTime').hour !== null && !timeParts('effectiveTime').pm" [attr.aria-checked]="timeParts('effectiveTime').hour !== null && !timeParts('effectiveTime').pm" (click)="setTimePart('effectiveTime', 'meridiem', 'AM')">AM</button>
+                                <button type="button" role="radio" [class.is-on]="timeParts('effectiveTime').hour !== null && timeParts('effectiveTime').pm" [attr.aria-checked]="timeParts('effectiveTime').hour !== null && timeParts('effectiveTime').pm" (click)="setTimePart('effectiveTime', 'meridiem', 'PM')">PM</button>
+                              </div>
+                            </div>
                           </div>
                           @if (errors()['effective']) { <p class="lcp-err">{{ errors()['effective'] }}</p> }
                         </div>
@@ -428,7 +472,21 @@
                             <label class="lcp-l" for="expiryDate">Expires on <span class="lcp-opt">IST</span> <b class="lcp-req" aria-hidden="true">*</b></label>
                             <div class="lcp-when">
                               <input id="expiryDate" type="date" class="lcp-in lcp-mono" [value]="fields().consent.expiryDate" (input)="onConsentDateTimeInput('expiryDate', $event)" />
-                              <input type="time" class="lcp-in lcp-mono" [value]="fields().consent.expiryTime" (input)="onConsentDateTimeInput('expiryTime', $event)" aria-label="Expiry time" />
+                              <div class="lcp-time" role="group" aria-label="Expiry time" (click)="onTimeBoxClick($event)">
+                              <select class="lcp-time-sel" aria-label="Hour" [value]="timeParts('expiryTime').hour ?? ''" (change)="setTimePart('expiryTime', 'hour', $event)">
+                                <option value="" disabled [selected]="timeParts('expiryTime').hour === null">HH</option>
+                                @for (h of hourOptions; track h) { <option [value]="h" [selected]="h === timeParts('expiryTime').hour">{{ h < 10 ? '0' + h : h }}</option> }
+                              </select>
+                              <span class="lcp-time-colon" aria-hidden="true">:</span>
+                              <select class="lcp-time-sel" aria-label="Minute" [value]="timeParts('expiryTime').minute ?? ''" (change)="setTimePart('expiryTime', 'minute', $event)">
+                                <option value="" disabled [selected]="timeParts('expiryTime').minute === null">MM</option>
+                                @for (m of minuteOptionsFor('expiryTime'); track m) { <option [value]="m" [selected]="m === timeParts('expiryTime').minute">{{ m < 10 ? '0' + m : m }}</option> }
+                              </select>
+                              <div class="lcp-meridiem" role="radiogroup" aria-label="AM or PM">
+                                <button type="button" role="radio" [class.is-on]="timeParts('expiryTime').hour !== null && !timeParts('expiryTime').pm" [attr.aria-checked]="timeParts('expiryTime').hour !== null && !timeParts('expiryTime').pm" (click)="setTimePart('expiryTime', 'meridiem', 'AM')">AM</button>
+                                <button type="button" role="radio" [class.is-on]="timeParts('expiryTime').hour !== null && timeParts('expiryTime').pm" [attr.aria-checked]="timeParts('expiryTime').hour !== null && timeParts('expiryTime').pm" (click)="setTimePart('expiryTime', 'meridiem', 'PM')">PM</button>
+                              </div>
+                            </div>
                             </div>
                             @if (errors()['expiry']) { <p class="lcp-err">{{ errors()['expiry'] }}</p> }
                           </div>
@@ -449,7 +507,7 @@
                             <label class="lcp-l" for="consentPurpose">Purpose <b class="lcp-req" aria-hidden="true">*</b></label>
                             <span class="lcp-count">{{ fields().consent.purpose.length }}/2000</span>
                           </div>
-                          <textarea id="consentPurpose" class="lcp-in lcp-area" rows="2" maxlength="2000" placeholder="Why consent is being captured, e.g. campaign communication (10+ characters)"
+                          <textarea id="consentPurpose" class="lcp-in lcp-area" maxlength="2000" placeholder="Why consent is being captured, e.g. campaign communication (10+ characters)"
                             [value]="fields().consent.purpose" (input)="onConsentPurposeInput($event)" [attr.aria-invalid]="!!errors()['purpose']"></textarea>
                           @if (errors()['purpose']) { <p class="lcp-err">{{ errors()['purpose'] }}</p> }
                         </div>
@@ -459,7 +517,7 @@
                             <label class="lcp-l" for="consentNotes">Consent notes <span class="lcp-opt">Optional</span></label>
                             <span class="lcp-count">{{ fields().consent.consentNotes.length }}/2000</span>
                           </div>
-                          <textarea id="consentNotes" class="lcp-in lcp-area" rows="2" maxlength="2000" placeholder="Anything the next person should know"
+                          <textarea id="consentNotes" class="lcp-in lcp-area" maxlength="2000" placeholder="Anything the next person should know"
                             [value]="fields().consent.consentNotes" (input)="onConsentNotesInput($event)"></textarea>
                           @if (errors()['consentNotes']) { <p class="lcp-err">{{ errors()['consentNotes'] }}</p> }
                         </div>
@@ -470,14 +528,18 @@
                               <label class="lcp-l" for="correctionReason">Correction reason <b class="lcp-req" aria-hidden="true">*</b></label>
                               <span class="lcp-count">{{ fields().consent.correctionReason.length }}/2000</span>
                             </div>
-                            <textarea id="correctionReason" class="lcp-in lcp-area" rows="2" maxlength="2000" placeholder="Why the saved consent state is being amended"
+                            <textarea id="correctionReason" class="lcp-in lcp-area" maxlength="2000" placeholder="Why the saved consent state is being amended"
                               [value]="fields().consent.correctionReason" (input)="onConsentCorrectionReasonInput($event)"></textarea>
                             @if (errors()['correctionReason']) { <p class="lcp-err">{{ errors()['correctionReason'] }}</p> }
                           </div>
                         }
                       </div>
                     </div>
-                  }
+                    @if (!fields().collectConsent) {
+                      <!-- Catches clicks on the frozen section (its contents are inert) and points at the switch. -->
+                      <div class="lcp-frozen-hit" aria-hidden="true" (click)="pointToConsentSwitch()"></div>
+                    }
+                  </div>
                 </section>
               </div>
             </fieldset>

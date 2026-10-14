@@ -36,7 +36,6 @@ export interface ConsentFields {
   smsConsent: boolean;
   whatsappConsent: boolean;
   phoneConsent: boolean;
-  doNotContact: boolean;
   /** "true" (Recognised) or "false" (Anonymous), as the server's options name them; '' until chosen. */
   recognitionPreference: string;
   consentNotes: string;
@@ -66,11 +65,13 @@ export interface LeadCaptureFormFields {
   preferredLanguage: string;
   /* Structured, approved-geography location capture (replaces free-text
    * "Location"): country + state + city are constrained to the approved
-   * catalogue, while the entered address text is preserved separately. */
+   * catalogue, while the entered address lines and zipcode are preserved separately. */
   geoCountry: string;
   geoState: string;
   geoCity: string;
-  addressDetails: string;
+  addressLine1: string;
+  addressLine2: string;
+  zipcode: string;
   leadSource: string;
   campaign: string;
   sourceDetails: string;
@@ -424,6 +425,9 @@ export class LeadCaptureComponent {
 
   private readonly NAME_PATTERN = /^[A-Za-z\s]+$/;
 
+  /** A postal code: 3 to 10 letters or digits, with single spaces or hyphens between groups ("600001", "SW1A 1AA"). */
+  private readonly ZIPCODE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 -]{1,8}[A-Za-z0-9]$/;
+
   /**
    * E.164, and it has to be E.164 BECAUSE THAT IS WHAT THE SERVER ACCEPTS.
    *
@@ -491,7 +495,7 @@ export class LeadCaptureComponent {
   protected fillDisplayName(): void {
     const name = this.fullName();
     if (!name) return;
-    this.updateField('displayName', name.slice(0, 150));
+    this.updateField('displayName', name.slice(0, 50));
   }
 
   /** Consent state recorded at the last save/submit — used to detect an in-flight correction. */
@@ -524,7 +528,7 @@ export class LeadCaptureComponent {
 
   protected readonly showContactRestriction = computed(() => {
     const c = this.fields().consent;
-    return c.doNotContact || c.consentState === 'Withdrawn';
+    return c.consentState === 'Withdrawn';
   });
 
   protected readonly showCorrectionReason = computed(() => {
@@ -591,7 +595,9 @@ export class LeadCaptureComponent {
         f.preferredLanguage,
         f.geoState,
         f.geoCity,
-        f.addressDetails,
+        f.addressLine1,
+        f.addressLine2,
+        f.zipcode,
         f.leadSource,
         f.campaign,
         f.sourceDetails,
@@ -610,7 +616,6 @@ export class LeadCaptureComponent {
       smsConsent: false,
       whatsappConsent: false,
       phoneConsent: false,
-      doNotContact: false,
       recognitionPreference: '',
       consentNotes: '',
       purpose: '',
@@ -653,7 +658,9 @@ export class LeadCaptureComponent {
       geoCountry: '',
       geoState: '',
       geoCity: '',
-      addressDetails: '',
+      addressLine1: '',
+      addressLine2: '',
+      zipcode: '',
       leadSource: '',
       campaign: '',
       sourceDetails: '',
@@ -818,7 +825,30 @@ export class LeadCaptureComponent {
   // =======================================================================
   // Consent
   // =======================================================================
+  /** True while the callout beside the Collect consent switch is showing (after a click on the frozen section). */
+  protected readonly consentHint = signal(false);
+  private consentHintTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * A click on the frozen consent section: say why nothing happened and point at the switch.
+   * The switch is scrolled into view if it is off screen, gets a highlighted state and a callout
+   * naming what to do; both go when the switch is turned on or after a few seconds.
+   */
+  protected pointToConsentSwitch(): void {
+    this.consentHint.set(true);
+    if (this.consentHintTimer) clearTimeout(this.consentHintTimer);
+    this.consentHintTimer = setTimeout(() => this.hideConsentHint(), 6000);
+    document.getElementById('lcp-consent-switch')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  protected hideConsentHint(): void {
+    if (this.consentHintTimer) clearTimeout(this.consentHintTimer);
+    this.consentHintTimer = null;
+    this.consentHint.set(false);
+  }
+
   protected toggleConsentCollection(): void {
+    this.hideConsentHint();
     const wasOn = this.fields().collectConsent;
     this.fields.update((f) => ({
       ...f,
@@ -865,13 +895,22 @@ export class LeadCaptureComponent {
     this.clearError('recognitionPreference');
   }
 
+  /** Grows a textarea to fit its text (CSS `field-sizing: content` does this in current browsers; this covers the rest). */
+  private autoGrow(area: HTMLTextAreaElement): void {
+    if (typeof CSS !== 'undefined' && CSS.supports('field-sizing', 'content')) return;
+    area.style.height = 'auto';
+    area.style.height = `${area.scrollHeight + 2}px`;
+  }
+
   protected onConsentNotesInput(event: Event): void {
+    this.autoGrow(event.target as HTMLTextAreaElement);
     const value = (event.target as HTMLTextAreaElement).value;
     this.updateConsent('consentNotes', value);
     this.clearError('consentNotes');
   }
 
   protected onConsentPurposeInput(event: Event): void {
+    this.autoGrow(event.target as HTMLTextAreaElement);
     const value = (event.target as HTMLTextAreaElement).value;
     this.updateConsent('purpose', value);
     this.clearError('purpose');
@@ -907,6 +946,7 @@ export class LeadCaptureComponent {
   }
 
   protected onConsentCorrectionReasonInput(event: Event): void {
+    this.autoGrow(event.target as HTMLTextAreaElement);
     const value = (event.target as HTMLTextAreaElement).value;
     this.updateConsent('correctionReason', value);
     this.clearError('correctionReason');
@@ -945,6 +985,67 @@ export class LeadCaptureComponent {
   }
 
   // =======================================================================
+  // Consent times - the campaign wizard's 12-hour picker (HH : MM + AM/PM)
+  //
+  // The stored value stays 24-hour `HH:mm`, which is what `toUtc` and the validators read; the
+  // picker is presentation only. A native `<input type="time">` opens only from its tiny clock
+  // glyph and renders in the browser's locale, which is why it was replaced.
+  // =======================================================================
+  protected readonly hourOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  private readonly baseMinuteOptions = Array.from({ length: 12 }, (_, i) => i * 5);
+
+  protected timeParts(key: 'effectiveTime' | 'expiryTime'): { hour: number | null; minute: number | null; pm: boolean } {
+    const match = /^(\d{1,2}):(\d{2})/.exec(this.fields().consent[key] ?? '');
+    if (!match) return { hour: null, minute: null, pm: false };
+    const h = Number(match[1]);
+    return { hour: h % 12 === 0 ? 12 : h % 12, minute: Number(match[2]), pm: h >= 12 };
+  }
+
+  /** The 5-minute grid, plus a saved minute that is not on it so it stays selectable. */
+  protected minuteOptionsFor(key: 'effectiveTime' | 'expiryTime'): readonly number[] {
+    const cur = this.timeParts(key).minute;
+    return cur !== null && !this.baseMinuteOptions.includes(cur)
+      ? [...this.baseMinuteOptions, cur].sort((a, b) => a - b)
+      : this.baseMinuteOptions;
+  }
+
+  protected setTimePart(key: 'effectiveTime' | 'expiryTime', part: 'hour' | 'minute' | 'meridiem', raw: string | Event): void {
+    const value = typeof raw === 'string' ? raw : (raw.target as HTMLSelectElement).value;
+    const cur = this.timeParts(key);
+    let hour = cur.hour ?? 9;
+    let minute = cur.minute ?? 0;
+    let pm = cur.pm;
+    if (part === 'hour') hour = Number(value);
+    else if (part === 'minute') minute = Number(value);
+    else pm = value === 'PM';
+    const h24 = (hour % 12) + (pm ? 12 : 0);
+    const time = `${String(h24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    this.updateConsent(key, time);
+    this.clearError(key === 'expiryTime' ? 'expiry' : 'effective');
+  }
+
+  /**
+   * A click ANYWHERE in the time box opens a list, not just on the select itself: a click on the
+   * padding, the colon or the gap opens the hour list (left of the colon) or the minute list.
+   */
+  protected onTimeBoxClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (target.closest('select, button')) return;
+    const box = event.currentTarget as HTMLElement;
+    const [hour, minute] = Array.from(box.querySelectorAll<HTMLSelectElement>('select'));
+    const colon = box.querySelector('.lcp-time-colon')?.getBoundingClientRect();
+    const select = colon && event.clientX > colon.right ? minute : hour;
+    if (!select) return;
+    select.focus();
+    try { select.showPicker(); } catch { /* already open, or not allowed here */ }
+  }
+
+  protected readonly selectedLanguageLabel = computed(() => {
+    const value = this.fields().preferredLanguage;
+    return this.languageOptions().find((option) => option.value === value)?.label ?? '';
+  });
+
+  // =======================================================================
   // Validation
   // =======================================================================
   private validate(): Record<string, string> {
@@ -975,8 +1076,8 @@ export class LeadCaptureComponent {
     const displayName = f.displayName.trim();
     if (!displayName) {
       errs['displayName'] = 'Display name is required.';
-    } else if (displayName.length > 150) {
-      errs['displayName'] = 'Display name cannot exceed 150 characters.';
+    } else if (displayName.length > 50) {
+      errs['displayName'] = 'Display name cannot exceed 50 characters.';
     }
 
     // Mobile numbers (at least one, all populated ones must be valid + unique)
@@ -1041,6 +1142,20 @@ export class LeadCaptureComponent {
       errs['geoCity'] = 'Select a city from the approved list.';
     }
 
+    // Address line 1 is required; line 2 and the zipcode are optional; the API stores them as one 250-character line.
+    if (!f.addressLine1.trim()) {
+      errs['addressLine1'] = 'Address line 1 is required.';
+    } else if (f.addressLine1.trim().length > 100) {
+      errs['addressLine1'] = 'Address line 1 cannot exceed 100 characters.';
+    }
+    if (f.addressLine2.trim().length > 100) {
+      errs['addressLine2'] = 'Address line 2 cannot exceed 100 characters.';
+    }
+    const zipcode = f.zipcode.trim();
+    if (zipcode && !this.ZIPCODE_PATTERN.test(zipcode)) {
+      errs['zipcode'] = 'Enter a valid zipcode (3 to 10 letters or digits).';
+    }
+
     // Lead source
     if (!f.leadSource) {
       errs['leadSource'] = 'Lead source is required.';
@@ -1061,8 +1176,8 @@ export class LeadCaptureComponent {
     const sourceDetails = f.sourceDetails.trim();
     if (sourceDetails.length > 0 && sourceDetails.length < 10) {
       errs['sourceDetails'] = 'Use at least 10 characters, or leave this blank.';
-    } else if (f.sourceDetails.length > 500) {
-      errs['sourceDetails'] = 'Source details cannot exceed 500 characters.';
+    } else if (f.sourceDetails.length > 100) {
+      errs['sourceDetails'] = 'Source details cannot exceed 100 characters.';
     }
 
     // Consent (only validated while the toggle is ON)
@@ -1093,11 +1208,8 @@ export class LeadCaptureComponent {
       // validated the dropdown and ignored the checkboxes, so ticking nothing produced a 400
       // whose message ("Choose at least one channel...") arrived keyed to `consent.emailConsent`
       // and was then discarded. Checked here, in the same words the server uses.
-      //
-      // "DO NOT CONTACT" NEEDS NO TICK: it refuses every channel at once, which is a whole answer.
       if (
-        !f.consent.doNotContact
-        && !f.consent.emailConsent
+        !f.consent.emailConsent
         && !f.consent.smsConsent
         && !f.consent.whatsappConsent
         && !f.consent.phoneConsent
@@ -1176,6 +1288,7 @@ export class LeadCaptureComponent {
     emailAddress: 'email',
     preferredLanguage: 'preferredLanguage',
     city: 'geoCity',
+    addressLine: 'addressLine1',
     geographyCode: 'geoState',
     country: 'geoCountry',
     displayName: 'displayName',
@@ -1230,6 +1343,18 @@ export class LeadCaptureComponent {
   // Primary actions
   // =======================================================================
   /**
+   * The API has one `addressLine`; the form has two lines and a zipcode. They are sent joined, in
+   * reading order, and the worst case (100 + 100 + 10 plus separators) stays under its 250 limit.
+   */
+  private composeAddressLine(form: LeadCaptureFormFields): string | null {
+    const joined = [form.addressLine1, form.addressLine2, form.zipcode]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(', ');
+    return joined || null;
+  }
+
+  /**
    * Builds the API's create body from the form.
    *
    * THE CAMPAIGN GOES AS AN ID. The form's `campaign` field holds the reference a person picked
@@ -1271,7 +1396,7 @@ export class LeadCaptureComponent {
       country: form.geoCountry || null,
       city: form.geoCity || null,
       geographyCode: form.geoState || null,
-      addressLine: form.addressDetails.trim() || null,
+      addressLine: this.composeAddressLine(form),
       campaignId: this.campaignIdByReference.get(campaign.reference) ?? campaign.reference,
       source: form.leadSource || 'Manual',
       notes: form.sourceDetails.trim() || null,
@@ -1290,7 +1415,7 @@ export class LeadCaptureComponent {
             smsConsent: consent.smsConsent,
             whatsAppConsent: consent.whatsappConsent,
             phoneCallConsent: consent.phoneConsent,
-            doNotContact: consent.doNotContact,
+            doNotContact: false,
             consentState: consent.consentState || null,
             // "Captured through": how the answer was obtained, in the API's own word for it.
             consentSource: capturedThrough?.label ?? null,

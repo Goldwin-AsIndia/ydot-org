@@ -37,9 +37,13 @@ h1, h2, h3, p, ol, ul, dl, dd, fieldset { margin: 0; }
 ol, ul { padding: 0; list-style: none; }
 button, input, select, textarea { font-family: inherit; }
 :host svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+/* ONE LAYER ONLY. A focused or chosen field changes its own border colour; it never gains a second ring
+   (outline / box-shadow) around the border. */
 :host button:focus-visible, :host .lcp-in:focus-visible, :host label:focus-within:has(> input[type="radio"], > input[type="checkbox"], > input[type="file"]) {
-  outline: 2px solid var(--theme-2); outline-offset: 2px;
+  outline: 0;
 }
+:host .lcp-in:focus-visible, :host .lcp-time:focus-within, :host .lcp-chan:focus-within, :host .lcp-seg:focus-within,
+:host .lcp-drop-sm:focus-within, :host .lcp-star:focus-visible { border-color: var(--theme-2); }
 
 .lc-page { container: lcp / inline-size; padding-top: calc(16px * var(--u)); padding-bottom: calc(24px * var(--u)); }
 .lc-sr-only {
@@ -189,7 +193,7 @@ button, input, select, textarea { font-family: inherit; }
 }
 .lcp-sec-head > p { font-size: calc(calc(12.5px * var(--u)) * var(--ui-text-scale, 1)) !important; color: var(--muted); line-height: 1.3 !important; }
 .lcp-sec-head > p::before { content: '·'; margin-right: calc(10px * var(--u)); color: var(--faint); }
-.lcp-sec-head > .lcp-svc, .lcp-sec-head > .lcp-switch { margin-left: auto; align-self: center; }
+.lcp-sec-head > .lcp-svc, .lcp-sec-head > .lcp-switch-wrap { margin-left: auto; align-self: center; }
 .lcp-sec-body { container: lcpb / inline-size; display: grid; gap: calc(14px * var(--u)); min-width: 0; }
 
 .lcp-svc {
@@ -243,16 +247,22 @@ legend.lcp-l { margin-bottom: calc(5px * var(--u)); }
 }
 .lcp-in::placeholder { color: #a3adba; }
 .lcp-in:hover:not(:disabled) { border-color: var(--faint); }
-.lcp-in:focus { border-color: var(--theme-2); outline: 2px solid hsl(calc(var(--theme-hue) + 3) 45% 34% / .18); outline-offset: 0; }
+.lcp-in:focus { border-color: var(--theme-2); outline: 0; box-shadow: none; }
 .lcp-in:disabled { border-style: dashed; color: var(--muted); background: #fff; cursor: not-allowed; }
-.has-error > .lcp-in, .has-error .lcp-phone .lcp-in, .has-error .lcp-when .lcp-in, .has-error .lcp-lockable .lcp-in { border-color: var(--bad); }
+.has-error > .lcp-in, .has-error .lcp-phone .lcp-in, .has-error .lcp-when .lcp-in, .has-error .lcp-lockable .lcp-in, .has-error .lcp-time { border-color: var(--bad); }
 .lcp-sel {
   appearance: none; -webkit-appearance: none; padding-right: calc(34px * var(--u)); cursor: pointer;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235d6b7e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right calc(10px * var(--u)) center; background-size: calc(16px * var(--u));
   text-overflow: ellipsis;
 }
-.lcp-area { height: auto; min-height: calc(58px * var(--u)); padding: calc(9px * var(--u)) calc(12px * var(--u)); resize: vertical; line-height: 1.5 !important; }
+.lcp-area {
+  height: auto; min-height: calc(150px * var(--u)); padding: calc(9px * var(--u)) calc(12px * var(--u));
+  line-height: 1.5 !important;
+  /* Purpose / notes / correction reason take up to 2000 characters: the box grows with what is typed
+     (field-sizing; lead-capture.ts autoGrow covers browsers without it) instead of scrolling inside. */
+  field-sizing: content; overflow-y: hidden; resize: none;
+}
 .lcp-search { height: calc(34px * var(--u)); font-size: calc(calc(12.5px * var(--u)) * var(--ui-text-scale, 1)) !important; }
 
 .lcp-foot { display: flex; align-items: baseline; justify-content: space-between; gap: calc(12px * var(--u)); min-width: 0; }
@@ -293,7 +303,7 @@ legend.lcp-l { margin-bottom: calc(5px * var(--u)); }
   border: 1.5px solid var(--rule); border-radius: calc(4px * var(--u));
 }
 .lcp-chan:hover { border-color: var(--faint); }
-.lcp-chan.is-on { --tone: var(--theme); border-color: var(--theme-2); outline: 1px solid var(--theme-2); outline-offset: -1px; }
+.lcp-chan.is-on { --tone: var(--theme); border-color: var(--theme-2); }
 .lcp-chan.is-on svg, .lcp-chan.is-on span { color: var(--tone); }
 .lcp-chan.is-on span { font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; }
 .lcp-chan.is-on::after {
@@ -301,14 +311,6 @@ legend.lcp-l { margin-bottom: calc(5px * var(--u)); }
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23444' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7'/%3E%3C/svg%3E") center / 80% no-repeat;
 }
 
-.lcp-dnc {
-  position: relative; display: inline-flex; align-items: center; gap: calc(9px * var(--u)); justify-self: start; margin-top: calc(7px * var(--u)); cursor: pointer;
-}
-.lcp-dnc input { width: calc(15px * var(--u)); height: calc(15px * var(--u)); margin: 0; accent-color: var(--bad); cursor: pointer; }
-.lcp-dnc svg { width: calc(16px * var(--u)) !important; height: calc(16px * var(--u)) !important; color: var(--faint); }
-.lcp-dnc span { font-size: calc(calc(12.5px * var(--u)) * var(--ui-text-scale, 1)) !important; color: var(--muted); line-height: 1.4 !important; }
-.lcp-dnc b { font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--ink-2); }
-.lcp-dnc.is-on svg, .lcp-dnc.is-on b { color: var(--bad); }
 
 /* recognition segmented scale */
 .lcp-seg { display: flex; height: calc(38px * var(--u)); border: 1px solid var(--rule); border-radius: calc(10px * var(--u)); overflow: hidden; }
@@ -364,7 +366,64 @@ legend.lcp-l { margin-bottom: calc(5px * var(--u)); }
 .lcp-pipe li::before { content: ''; width: calc(7px * var(--u)); height: calc(7px * var(--u)); border: 1.5px solid currentColor; border-radius: 50%; }
 .lcp-pipe li.is-done { color: var(--good); font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important; }
 .lcp-pipe li.is-done::before { background: currentColor; }
-.lcp-when { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .7fr); gap: calc(8px * var(--u)); }
+/* frozen consent: the dimmed body sits under a transparent catcher that answers clicks by pointing at the switch */
+.lcp-consent-wrap { position: relative; margin-top: calc(12px * var(--u)); }
+.lcp-consent-wrap > .lcp-sec-body { margin-top: 0 !important; }
+.lcp-frozen-hit { position: absolute; inset: 0; z-index: 2; cursor: pointer; border-radius: calc(10px * var(--u)); }
+
+.lcp-switch-wrap { position: relative; display: inline-flex; }
+.lcp-switch.is-called { color: var(--theme); }
+.lcp-switch.is-called .lcp-switch-track { border-color: var(--theme); border-width: 2px; }
+.lcp-switch.is-called .lcp-switch-track > span { background: var(--theme); }
+.lcp-callout {
+  position: absolute; top: calc(100% + calc(12px * var(--u))); right: 0; z-index: 6;
+  display: grid; gap: calc(2px * var(--u)); width: max-content; max-width: min(calc(270px * var(--u)), calc(100vw - 32px));
+  padding: calc(10px * var(--u)) calc(14px * var(--u)); border: 1px solid var(--theme-2); border-radius: calc(10px * var(--u)); background: #fff;
+  animation: lcp-callout-in .16s ease-out;
+}
+.lcp-callout::before {
+  content: ''; position: absolute; top: calc(-6px * var(--u)); right: calc(22px * var(--u)); width: calc(10px * var(--u)); height: calc(10px * var(--u));
+  background: #fff; border-top: 1px solid var(--theme-2); border-left: 1px solid var(--theme-2); transform: rotate(45deg);
+}
+.lcp-callout b { font-size: calc(calc(13px * var(--u)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--theme); line-height: 1.3 !important; }
+.lcp-callout > span { font-size: calc(calc(12.5px * var(--u)) * var(--ui-text-scale, 1)) !important; color: var(--ink-2); line-height: 1.4 !important; }
+.lcp-callout em { font-style: normal; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; color: var(--ink); }
+@keyframes lcp-callout-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.lcp-sec-body.is-frozen { opacity: .45; filter: grayscale(.6); user-select: none; cursor: not-allowed; }
+.lcp-sec-body.is-frozen * { pointer-events: none; }
+/* date + time on one line when the column is wide enough for both; the time box drops under the date when it is not */
+.lcp-when { display: flex; flex-wrap: wrap; gap: calc(8px * var(--u)); }
+.lcp-when > input { flex: 1 1 calc(120px * var(--u)); min-width: 0; }
+.lcp-when > .lcp-time { flex: 0 0 auto; }
+
+/* time: HH : MM and an AM/PM switch in one box. Every part of the box is a click target that opens a list. */
+.lcp-time {
+  display: flex; align-items: center; gap: calc(2px * var(--u)); height: calc(38px * var(--u)); min-width: calc(150px * var(--u));
+  padding: 0 calc(5px * var(--u)) 0 calc(4px * var(--u));
+  border: 1px solid var(--rule); border-radius: calc(10px * var(--u)); background: #fff; cursor: pointer;
+  transition: border-color .15s ease;
+}
+.lcp-time:hover { border-color: var(--faint); }
+.lcp-time-sel {
+  appearance: none; -webkit-appearance: none; flex: 1 1 0; min-width: calc(34px * var(--u)); height: 100%; padding: 0; border: 0; background: transparent;
+  color: var(--ink); text-align: center; text-align-last: center; cursor: pointer; outline: 0;
+  --ui-text-scale: var(--rs-number); --fw-bias: var(--fwb-number);
+  font-family: var(--font-number) !important; font-variant-numeric: tabular-nums;
+  font-size: calc(calc(13.5px * var(--u)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+}
+/* the shared select layer (ydot-select.css) draws a picker arrow in every select; here it would eat the 30px the digits need */
+.lcp-time .lcp-time-sel { justify-content: center !important; gap: 0 !important; }
+.lcp-time .lcp-time-sel::picker-icon { display: none !important; }
+.lcp-time-colon { color: var(--faint); font-weight: 700; }
+.lcp-meridiem { display: inline-flex; flex: none; margin-left: calc(4px * var(--u)); border: 1px solid var(--rule); border-radius: calc(7px * var(--u)); overflow: hidden; }
+.lcp-meridiem button {
+  height: calc(24px * var(--u)); padding: 0 calc(8px * var(--u)); border: 0; background: none; color: var(--muted); cursor: pointer;
+  font-size: calc(calc(11.5px * var(--u)) * var(--ui-text-scale, 1)) !important; font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important; letter-spacing: .04em;
+}
+.lcp-meridiem button + button { border-left: 1px solid var(--rule); }
+.lcp-meridiem button:hover { color: var(--ink); }
+.lcp-meridiem button.is-on { color: var(--theme); box-shadow: none; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: calc(3px * var(--u)); }
 
 /* ---------------------------------------------------------------- action bar (pinned to the window bottom) */
 .lcp-bar {
@@ -609,6 +668,11 @@ legend.lcp-l { margin-bottom: calc(5px * var(--u)); }
   }
 }
 
+.lcp-pick--lang { anchor-name: --lcp-language; }
+/* Language sits in the right-hand column: the list lines up with the field's RIGHT edge and opens leftwards,
+   so a list wider than the field never runs off the window. */
+@supports (anchor-name: --a) { .lcp-pick-pop--lang { position-anchor: --lcp-language; left: auto; right: anchor(right); } }
+
 .lcp-pick-search { flex: none; height: calc(36px * var(--u)); }
 .lcp-pick-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 2px; }
 .lcp-pick-opt {
@@ -656,7 +720,7 @@ legend.lcp-l { margin-bottom: calc(5px * var(--u)); }
 
   /* sections */
   .lcp-sec { padding: calc(14px * var(--u)) var(--gut) calc(16px * var(--u)); }
-  .lcp-sec-head > .lcp-svc, .lcp-sec-head > .lcp-switch { margin-left: 0; flex-basis: 100%; }
+  .lcp-sec-head > .lcp-svc, .lcp-sec-head > .lcp-switch-wrap { margin-left: 0; flex-basis: 100%; }
   .lcp-sec-head > p::before { display: none; }
   .lcp-sec-head > p { flex-basis: 100%; }
 
@@ -667,8 +731,8 @@ legend.lcp-l { margin-bottom: calc(5px * var(--u)); }
   .lcp-search { height: calc(34px * var(--u)); font-size: calc(calc(13px * var(--u)) * var(--ui-text-scale, 1)) !important; }
 
   .lcp-seg label { font-size: calc(calc(12.5px * var(--u)) * var(--ui-text-scale, 1)) !important; }
-  .lcp-when { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
-  .lcp-dnc { align-items: flex-start; }
+  .lcp-callout { right: auto; left: 0; }
+  .lcp-callout::before { right: auto; left: calc(22px * var(--u)); }
 
   /* action bar: note on its own line, the two buttons share the width */
   .lcp-bar {
