@@ -58,6 +58,7 @@ public static class DependencyInjection
         // ---- Repositories and read services -----------------------------------------------------
         services.AddScoped<IDonorRepository, DonorRepository>();
         services.AddScoped<IDonorReadService, DonorReadService>();
+        services.AddScoped<IDonorDashboardReadService, DonorDashboardReadService>();
         services.AddScoped<ILeadRepository, LeadRepository>();
         services.AddScoped<CampaignProjection>();
         services.AddScoped<PeopleDirectory>();

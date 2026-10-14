@@ -46,6 +46,13 @@ public interface IIdentityAccountService
     /// </summary>
     Task<DonorAccountResult> CreateDonorAccountAndInviteAsync(
         CreateDonorAccountRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Asks IAM to send the activation invitation again to an invited account that was never
+    /// activated. IAM refuses an active account itself; this is never called for one.
+    /// </summary>
+    Task<DonorAccountResult> ResendDonorInvitationAsync(
+        CreateDonorAccountRequest request, Guid userId, CancellationToken cancellationToken);
 }
 
 /// <summary>What PAY needs to know about an existing IAM account.</summary>

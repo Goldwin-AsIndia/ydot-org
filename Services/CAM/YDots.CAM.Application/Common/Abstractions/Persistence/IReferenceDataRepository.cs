@@ -24,6 +24,10 @@ public interface IReferenceDataRepository
 
     Task<Channel?> GetChannelByCodeAsync(string code, CancellationToken cancellationToken);
 
+    Task<Source?> GetSourceByCodeAsync(string code, CancellationToken cancellationToken);
+
+    Task<Medium?> GetMediumByCodeAsync(string code, CancellationToken cancellationToken);
+
     /// <summary>Active channels, in display order.</summary>
     Task<IReadOnlyList<Channel>> GetChannelsAsync(bool activeOnly, CancellationToken cancellationToken);
 

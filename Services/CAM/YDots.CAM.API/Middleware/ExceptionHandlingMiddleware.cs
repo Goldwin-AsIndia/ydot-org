@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using YDots.CAM.Application.Common.Results;
 
 namespace YDots.CAM.API.Middleware;
@@ -84,6 +85,16 @@ public sealed class ExceptionHandlingMiddleware(
     private Error Describe(Exception exception) => exception switch
     {
         DbUpdateConcurrencyException => Error.Concurrency(),
+
+        // A UNIQUE INDEX REFUSED THE SAVE. Handlers check for duplicates first and renumber the
+        // codes they generate, so this is a save that lost a race the handler could not recover
+        // from. It is a 409 the person can act on - and never the database's own words, which in
+        // development used to reach the screen as "DbUpdateException: An error occurred while
+        // saving the entity changes".
+        DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } } =>
+            Error.Duplicate(
+                "This could not be saved because a matching record was saved at the same moment. "
+                + "Reload the page and try again."),
 
         OperationCanceledException => new Error(
             "REQUEST_CANCELLED", "The request was cancelled.", 499),

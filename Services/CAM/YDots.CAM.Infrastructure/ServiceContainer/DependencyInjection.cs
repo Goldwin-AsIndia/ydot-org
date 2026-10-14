@@ -87,6 +87,7 @@ public static class DependencyInjection
         services.AddScoped<ICampaignReadinessReadService, CampaignReadinessReadService>();
         services.AddScoped<IBudgetTargetPlanReadService, BudgetTargetPlanReadService>();
         services.AddScoped<IAttributionReadService, AttributionReadService>();
+        services.AddScoped<ICampaignDashboardReadService, CampaignDashboardReadService>();
 
         // ---- Security ------------------------------------------------------------------------------------
         services.AddHttpContextAccessor();
@@ -145,6 +146,7 @@ public static class DependencyInjection
         // a loop that keeps asking rather than by start-up seeding, which runs once. Both do
         // nothing unless SeedSettings:CreateSampleData is on.
         services.AddScoped<DemoCampaignSeeder>();
+        services.AddScoped<DemoWhatsAppSeeder>();
         services.AddHostedService<DemoDataSeedingService>();
 
         return services;

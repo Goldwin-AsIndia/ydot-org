@@ -109,6 +109,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentEventReadService, PaymentEventReadService>();
         services.AddScoped<IReceiptReadService, ReceiptReadService>();
         services.AddScoped<IRefundReadService, RefundReadService>();
+        services.AddScoped<IPaymentDashboardReadService, PaymentDashboardReadService>();
 
         // ---- Security ------------------------------------------------------------------------------------
         services.AddHttpContextAccessor();

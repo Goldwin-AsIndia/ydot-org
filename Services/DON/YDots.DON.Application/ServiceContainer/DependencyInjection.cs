@@ -4,6 +4,7 @@ using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using YDots.DON.Application.Common.Settings;
+using YDots.DON.Application.Features.Dashboard.Queries;
 using YDots.DON.Application.Features.AssignmentBoard.Commands.RouteLeads;
 using YDots.DON.Application.Features.AssignmentBoard.Queries.GetAssignmentBoard;
 using YDots.DON.Application.Features.ConsentCentre.Commands.ManageConsent;
@@ -90,6 +91,10 @@ public static class DependencyInjection
         services.AddScoped<FollowUpPlannerQueryHandler>();
         services.AddScoped<FollowUpQueueQueryHandler>();
         services.AddScoped<FollowUpCommandHandler>();
+
+        // The landing page's donor, lead and follow-up figures.
+        services.AddScoped<DonorDashboardQueryHandler>();
+        services.AddScoped<DonorOutcomesQueryHandler>();
 
         // ---- Navigation and reference data --------------------------------------------------------------------------
         services.AddScoped<GetDonorMenuQueryHandler>();

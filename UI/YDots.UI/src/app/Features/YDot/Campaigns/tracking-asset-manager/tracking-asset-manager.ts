@@ -7,7 +7,7 @@ import { ActivatedRoute } from '@angular/router';
 
 import { ClickOutsideDirective } from '../../../../Shared/directives/click-outside';
 import { UiState, HistoryRow } from '../../../../Shared/models/campaign.model';
-import { AssetStatus, ApprovalState, TrackingAssetPermissions, CampaignOption, TrackingAsset, PlaceCustomField } from '../../../../Shared/models/tracking-asset.model';
+import { AssetStatus, ApprovalState, TrackingAssetPermissions, CampaignOption, TrackingAsset } from '../../../../Shared/models/tracking-asset.model';
 import { generateQrMatrix, qrMatrixToPath } from '../../../../Shared/qr-code/qr-code';
 import { TrackingAssetStoreService } from '../../../../Shared/services/tracking-asset-store.service';
 import { CampaignStoreService } from '../../../../Shared/services/campaign-store.service';
@@ -474,6 +474,8 @@ export class TrackingAssetManagerComponent {
         q &&
         !(
           r.trackingReference.toLowerCase().includes(q) ||
+          (r.code ?? '').toLowerCase().includes(q) ||
+          (r.place ?? '').toLowerCase().includes(q) ||
           r.destination.toLowerCase().includes(q) ||
           this.campaignOf(r.campaignRef).name.toLowerCase().includes(q)
         )
@@ -915,14 +917,15 @@ export class TrackingAssetManagerComponent {
    */
   protected requestDisableAllowed(asset: TrackingAsset | null): boolean {
     return !!asset && this.permissions().requestDisable
-      && (asset.assetStatus === 'Active' || asset.assetStatus === 'Paused');
+      && (asset.assetStatus === 'Active' || asset.assetStatus === 'Scheduled' || asset.assetStatus === 'Expired');
   }
 
   /** Disable — the approver's decision, on a live asset or one already carrying a request. */
   protected disableAllowed(asset: TrackingAsset | null): boolean {
     return !!asset && this.permissions().disable
       && (asset.assetStatus === 'Active'
-        || asset.assetStatus === 'Paused'
+        || asset.assetStatus === 'Scheduled'
+        || asset.assetStatus === 'Expired'
         || asset.assetStatus === 'Submitted for disable');
   }
   /** Disable straight away. A pending disable request is decided through Approve instead. */
@@ -1318,13 +1321,66 @@ export class TrackingAssetManagerComponent {
       ),
     );
   }
-  /** At least one named place with a destination is required for an on-ground asset. */
+  /**
+   * Every place card needs a name and a full web address.
+   *
+   * EVERY CARD, NOT "AT LEAST ONE". A card starts on the generated address, so a second card left
+   * unnamed passed this check and was then quietly left out of the save - one QR code fewer than
+   * the cards on screen, and nothing said so. A card that is not wanted is removed instead.
+   */
   protected readonly placesValid = computed(
     () =>
       !this.isOnGround() ||
-      (this.gPlaces().some((p) => p.label.trim() && this.isWebAddress(this.placeDestination(p))) &&
-        this.gPlaces().every((p) => !this.placeDestination(p) || this.isWebAddress(this.placeDestination(p)))),
+      this.gPlaces().every((p) => p.label.trim() && this.isWebAddress(this.placeDestination(p))),
   );
+
+  /** The addresses tracking assets on the chosen Medium already point to, lower-cased. */
+  private readonly takenDestinations = computed(() => {
+    const channel = this.channelLabel(this.gChannel());
+    return new Set(
+      this.records()
+        .filter((r) => r.channel === channel)
+        .map((r) => r.destination.trim().toLowerCase()),
+    );
+  });
+
+  /**
+   * Place cards whose OWN address is already used: by a tracking asset on this Medium, or by an
+   * earlier card in this form.
+   *
+   * ONLY A TYPED ADDRESS IS CHECKED. The generated one is the campaign's donor form and is meant
+   * to be shared by every place; each place is told apart by its own tracking reference.
+   *
+   * SHOWN ON THE CARD, AND THE FORM STAYS OPEN. This used to close the form and put a banner over
+   * the list, so the person lost the places they had typed in order to fix one address.
+   */
+  protected readonly duplicatePlaceIds = computed(() => {
+    if (!this.isOnGround()) return [] as string[];
+    const taken = this.takenDestinations();
+    const seen = new Set<string>();
+    const duplicates: string[] = [];
+    for (const p of this.gPlaces()) {
+      if (!p.manual) continue;
+      const address = this.placeDestination(p).toLowerCase();
+      if (!address) continue;
+      if (taken.has(address) || seen.has(address)) duplicates.push(p.id);
+      seen.add(address);
+    }
+    return duplicates;
+  });
+
+  /** True when the typed single Destination URL is one an asset on this Medium already uses. */
+  protected readonly destinationDuplicate = computed(
+    () =>
+      !this.isOnGround() &&
+      this.gDestinationManual() &&
+      !!this.destinationValue() &&
+      this.takenDestinations().has(this.destinationValue().toLowerCase()),
+  );
+
+  /** What the card or field says about an address already in use. */
+  protected readonly duplicateDestinationMessage =
+    'Another tracking asset on this Medium already uses this address. Change it, or untick Enter my own URL.';
 
   /** A full web address - the scheme is required, exactly as the API requires it. */
   protected isWebAddress(raw: string): boolean {
@@ -1339,6 +1395,8 @@ export class TrackingAssetManagerComponent {
   }
   protected readonly destinationFormatMessage =
     'Enter a full web address beginning http:// or https://, for example https://ydot.org/donate.';
+  protected readonly placesMissingMessage =
+    'Name every place and give each a full web address beginning http:// or https://. Remove a place you do not need.';
   /** Why the Destination URL cannot be used, or '' when it is fine (or still empty). */
   protected readonly destinationFormatError = computed(() => {
     const raw = this.destinationValue();
@@ -1346,6 +1404,7 @@ export class TrackingAssetManagerComponent {
   });
   /** What to say when the Destination URL is missing or unusable. */
   protected readonly destinationMissingMessage = computed(() => {
+    if (this.destinationDuplicate()) return this.duplicateDestinationMessage;
     if (this.destinationValue()) return this.destinationFormatMessage;
     return this.gDestinationManual() ? 'Enter Destination URL.' : 'Choose a campaign to generate the Destination URL.';
   });
@@ -1416,9 +1475,12 @@ export class TrackingAssetManagerComponent {
       case 'assetType':
         return !this.gAssetType();
       case 'destination':
-        return !this.isOnGround() && (!this.destinationValue() || !!this.destinationFormatError());
+        return !this.isOnGround()
+          && (!this.destinationValue() || !!this.destinationFormatError() || this.destinationDuplicate());
       case 'places':
         return this.isOnGround() && !this.placesValid();
+      case 'placeDuplicates':
+        return this.duplicatePlaceIds().length > 0;
       case 'campaign':
         return !this.gCampaign();
       case 'channel':
@@ -1526,10 +1588,9 @@ export class TrackingAssetManagerComponent {
     if (this.missing('destination'))
       errs.push({ key: 'g-destination', label: this.destinationMissingMessage() });
     if (this.missing('places'))
-      errs.push({
-        key: 'g-places',
-        label: 'Enter at least one place name and a full web address beginning http:// or https://.',
-      });
+      errs.push({ key: 'g-places', label: this.placesMissingMessage });
+    if (this.missing('placeDuplicates'))
+      errs.push({ key: 'g-places', label: this.duplicateDestinationMessage });
     if (this.gCampaign() && !this.gSource())
       errs.push({ key: 'g-campaign', label: 'The source list could not be loaded. Reload the page.' });
     if (this.missing('activeFrom')) errs.push({ key: 'g-activeFrom', label: 'Enter Active from.' });
@@ -1576,17 +1637,10 @@ export class TrackingAssetManagerComponent {
     this.generateSubmitted.set(false);
     if (this.uiState() === 'validation') this.uiState.set('ready');
   }
-  /** Build one asset record (shared by the single-destination and per-place on-ground paths). */
-  private buildAsset(
-    destination: string,
-    status: 'Draft' | 'Submitted',
-    placeInfo?: { label: string; city: string; state: string; customFields: readonly { key: string; value: string }[] },
-  ): TrackingAsset {
+  /** Build the asset record for a single-destination create (place QR codes go up together). */
+  private buildAsset(destination: string, status: 'Draft' | 'Submitted'): TrackingAsset {
     const reference = this.store.nextReference(this.gAssetType());
     const isQr = this.gAssetType() === 'QR Code';
-    const cleanCustomFields: readonly PlaceCustomField[] = (placeInfo?.customFields ?? [])
-      .filter((f) => f.key.trim())
-      .map((f) => ({ key: f.key.trim(), value: f.value.trim() }));
     return {
       trackingReference: reference,
       assetType: this.gAssetType(),
@@ -1607,19 +1661,33 @@ export class TrackingAssetManagerComponent {
       hasDownstreamReference: false,
       createdByRef: this.currentUserRef(),
       version: 1,
-      ...(placeInfo ? { place: placeInfo.label } : {}),
-      ...(placeInfo?.city.trim() ? { placeCity: placeInfo.city.trim() } : {}),
-      ...(placeInfo?.state.trim() ? { placeState: placeInfo.state.trim() } : {}),
-      ...(cleanCustomFields.length ? { placeCustomFields: cleanCustomFields } : {}),
     };
   }
+
+  /**
+   * True while a create is with the server, holding which button sent it.
+   *
+   * A SECOND PRESS IS IGNORED while the first is in flight. Without this, two quick presses of
+   * Submit sent the same assets twice.
+   */
+  protected readonly generateSaving = signal<'' | 'Draft' | 'Submitted'>('');
 
   /**
    * Generate one asset — or, for an on-ground event, one asset PER PLACE so each physical
    * location gets its own separate QR/link and the team can see which place is contributing
    * most. Preserve values on recoverable failure; show a persistent confirmed result.
+   *
+   * THE PLACES GO UP IN ONE REQUEST. They used to go one request per place, in parallel: the
+   * server numbered both from the same count and refused the second ("DbUpdateException") after
+   * saving the first, so pressing Submit again saved the first place twice. The server now saves
+   * every place or none, so a refusal leaves nothing behind and the form can be sent again as is.
+   *
+   * AN ADDRESS ALREADY IN USE IS A FIELD ERROR, not a reason to close the form. It used to close
+   * the form and show a banner over the list, so fixing one address meant typing every place again.
    */
   protected confirmGenerate(status: 'Draft' | 'Submitted'): void {
+    if (this.generateSaving()) return;
+
     this.generateSubmitted.set(true);
     if (this.errorSummary().length > 0) {
       // Validation state — keep non-sensitive input, focus first invalid field.
@@ -1632,63 +1700,37 @@ export class TrackingAssetManagerComponent {
       return;
     }
 
+    this.generateSaving.set(status);
+
     if (this.isOnGround()) {
-      const places = this.gPlaces().filter((p) => p.label.trim() && this.placeDestination(p));
-      // ONLY A TYPED ADDRESS IS CHECKED FOR DUPLICATES. The generated one is the campaign's donor
-      // form and is meant to be shared by every place and asset of that campaign; each is told
-      // apart by its own tracking reference.
-      const dup = places.some((p) =>
-        p.manual && this.records().some(
-          (r) => r.destination.trim().toLowerCase() === this.placeDestination(p).toLowerCase()
-            && r.channel === this.channelLabel(this.gChannel()),
-        ),
+      const places = this.gPlaces();
+
+      this.store.createForPlaces(
+        {
+          campaignRef: this.gCampaign(),
+          channelId: this.gChannel(),
+          status,
+          activeFrom: this.gActiveFrom(),
+          activeTo: this.gActiveTo(),
+          contentTag: this.gContentTag().trim(),
+          places: places.map((p) => ({
+            name: p.label.trim(),
+            destination: this.placeDestination(p),
+            customFields: p.customFields
+              .filter((f) => f.key.trim())
+              .map((f) => ({ key: f.key.trim(), value: f.value.trim() })),
+          })),
+        },
+        (outcome) => {
+          if (outcome.created) {
+            this.generatedReferences.set(outcome.codes ?? []);
+            this.generatedReference.set(outcome.codes?.[0] ?? '');
+          }
+
+          this.announceGenerated(outcome.codes?.length ?? places.length, status, outcome.error);
+        },
       );
-      if (dup) {
-        this.generateDialogOpen.set(false);
-        this.uiState.set('duplicate');
-        return;
-      }
-      const refs: string[] = [];
-      let pending = places.length;
-      let firstError: string | undefined;
 
-      for (const p of places) {
-        const asset = this.buildAsset(this.placeDestination(p), status, {
-          label: p.label.trim(),
-          city: this.placeLocation().city,
-          state: this.placeLocation().state,
-          customFields: p.customFields,
-        });
-        refs.push(asset.trackingReference);
-
-        this.store.create(asset, (outcome) => {
-          if (!outcome.created) {
-            firstError ??= outcome.error;
-          }
-
-          pending -= 1;
-
-          if (pending === 0) {
-            this.announceGenerated(refs, status, firstError);
-          }
-        });
-      }
-
-      this.generatedReferences.set(refs);
-      this.generatedReference.set(refs[0] ?? '');
-      return;
-    }
-
-    // A tracking asset with the same destination + channel already exists → duplicate handling.
-    // Typed addresses only - the generated one is shared by design (see the on-ground branch).
-    const dup = this.gDestinationManual() && this.records().some(
-      (r) =>
-        r.destination.trim().toLowerCase() === this.destinationValue().toLowerCase() &&
-        r.channel === this.channelLabel(this.gChannel()),
-    );
-    if (dup) {
-      this.generateDialogOpen.set(false);
-      this.uiState.set('duplicate');
       return;
     }
 
@@ -1697,7 +1739,7 @@ export class TrackingAssetManagerComponent {
     this.generatedReference.set(asset.trackingReference);
 
     this.store.create(asset, (outcome) =>
-      this.announceGenerated([asset.trackingReference], status, outcome.created ? undefined : outcome.error));
+      this.announceGenerated(1, status, outcome.created ? undefined : outcome.error));
   }
 
   /**
@@ -1709,20 +1751,30 @@ export class TrackingAssetManagerComponent {
    * and free text where the API takes Guids. The screen reported success, listed a reference the
    * browser had invented, and the register was empty on the next load with nothing anywhere
    * saying why.
+   *
+   * A REFUSAL SAVED NOTHING, so the toast says the form can be sent again as it stands.
    */
-  private announceGenerated(refs: readonly string[], status: 'Draft' | 'Submitted', error?: string): void {
+  private announceGenerated(count: number, status: 'Draft' | 'Submitted', error?: string): void {
+    this.generateSaving.set('');
+
     if (error) {
-      this.toast.show('Tracking asset not created', error, 'error');
+      this.toast.show(
+        count === 1 ? 'Tracking asset not created' : 'Tracking assets not created',
+        `${error} Nothing was saved, so correct it and send the form again.`,
+        'error',
+      );
       this.uiState.set('validation');
       return;
     }
+
+    const what = count === 1 ? 'The asset is' : `The ${count} assets, one per place, are`;
 
     this.generateDialogOpen.set(false);
     this.toast.show(
       status === 'Draft' ? 'Saved as draft' : 'Submitted for approval',
       status === 'Draft'
-        ? 'The asset is in the list as a Draft.'
-        : 'The asset is in the list as Submitted. An approver will activate it.',
+        ? `${what} in the list as Draft.`
+        : `${what} in the list as Submitted. An approver will activate ${count === 1 ? 'it' : 'them'}.`,
       'success',
     );
     this.uiState.set('ready');
@@ -1790,9 +1842,15 @@ export class TrackingAssetManagerComponent {
             );
             return;
           }
+          // An asset approved ahead of its window is Active but not resolving yet - the list shows
+          // it as Scheduled, and the toast says when it starts rather than implying it is live.
+          const name = target.code ?? target.trackingReference;
+          const opensLater = new Date(`${target.activeFrom}T00:00:00`).getTime() > Date.now();
           this.toast.show(
             'Asset approved',
-            `${target.trackingReference} is approved and now Active.`,
+            opensLater
+              ? `${name} is approved and activated. Its ${target.isQr ? 'QR code' : 'link'} starts working on ${this.formatDate(target.activeFrom)}, when its window opens.`
+              : `${name} is approved and now Active.`,
             'success',
           );
         },
@@ -2149,8 +2207,9 @@ export class TrackingAssetManagerComponent {
         return 'tam-badge-active';
       case 'Submitted':
       case 'Submitted for disable':
+      case 'Scheduled':
         return 'tam-badge-submitted';
-      case 'Paused':
+      case 'Expired':
         return 'tam-badge-paused';
       case 'Inactive':
       case 'Disabled':

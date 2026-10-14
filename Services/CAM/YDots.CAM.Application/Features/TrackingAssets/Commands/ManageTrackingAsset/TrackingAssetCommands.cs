@@ -15,6 +15,9 @@ namespace YDots.CAM.Application.Features.TrackingAssets.Commands.ManageTrackingA
 /// <summary>Creates a tracking asset against a campaign.</summary>
 public sealed record CreateTrackingAssetCommand(CreateTrackingAssetRequest Request);
 
+/// <summary>Creates one offline QR code per place, all in one save.</summary>
+public sealed record CreatePlaceTrackingAssetsCommand(CreatePlaceTrackingAssetsRequest Request);
+
 /// <summary>Edits a Draft tracking asset.</summary>
 public sealed record UpdateTrackingAssetCommand(Guid TrackingAssetId, UpdateTrackingAssetRequest Request);
 
@@ -67,6 +70,14 @@ public sealed class TrackingAssetCommandHandler(
 {
     /// <summary>The channel code that means "this asset exists in the physical world".</summary>
     private const string OfflineChannelCode = "OFFLINE";
+
+    /// <summary>
+    /// The source and medium a printed place QR code is attributed to when the caller names none -
+    /// the pair the reference catalogue holds for a printed code, and the one the demonstration
+    /// catalogue gives every offline QR code.
+    /// </summary>
+    private const string PrintedQrSourceCode = "QR_POSTER";
+    private const string PrintedQrMediumCode = "PRINT";
 
     /// <summary>How many times a reference collision is retried before giving up.</summary>
     private const int ReferenceAttempts = 5;
@@ -123,7 +134,12 @@ public sealed class TrackingAssetCommandHandler(
                     nameof(request.ActiveTo), "The end of the window must be after its start.")]));
         }
 
-        var code = await BuildCodeAsync(campaign, request.AssetType, cancellationToken);
+        // Numbered and written under the campaign's code lock - see CodeLockKey.
+        await using var serialised = await unitOfWork.BeginSerialisedAsync(
+            CodeLockKey(campaign), cancellationToken);
+
+        var code = await BuildCodeAsync(
+            campaign, request.AssetType, new HashSet<string>(StringComparer.OrdinalIgnoreCase), cancellationToken);
 
         var asset = (request with { Places = places }).ToEntity(campaign, code);
 
@@ -151,6 +167,7 @@ public sealed class TrackingAssetCommandHandler(
             cancellationToken: cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await serialised.CommitAsync(cancellationToken);
 
         logger.LogInformation("Tracking asset {AssetId} created for campaign {CampaignId}.", asset.Id, request.CampaignId);
 
@@ -159,6 +176,137 @@ public sealed class TrackingAssetCommandHandler(
             context.Value.ChannelName, context.Value.SourceName, context.Value.MediumName,
             clock.UtcNow,
             TrackingAssetMappingConfig.PermittedActionsFor(asset, currentUser.HasPermission));
+    }
+
+    /// <summary>
+    /// Creates the QR codes of an offline event: one asset per place, written together.
+    ///
+    /// ALL OR NONE. Every place is checked before anything is added, the codes are numbered in one
+    /// pass (each skipping the ones already given out in this request), and one save writes the
+    /// lot. A refusal therefore leaves no half-saved event behind, and pressing Submit again
+    /// cannot save a place twice.
+    /// </summary>
+    public async Task<Result<IReadOnlyList<TrackingAssetDetailResponse>>> HandleAsync(
+        CreatePlaceTrackingAssetsCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        var request = command.Request;
+
+        logger.LogInformation(
+            "Creating {PlaceCount} place tracking assets for campaign {CampaignId}.",
+            request.Places.Count, request.CampaignId);
+
+        if (!tenantContext.HasTenant)
+        {
+            logger.LogWarning("Place tracking asset creation denied because no tenant is selected.");
+            return Result.Failure<IReadOnlyList<TrackingAssetDetailResponse>>(Error.TenantSelectionRequired());
+        }
+
+        var campaign = await campaigns.GetByIdAsync(request.CampaignId, cancellationToken);
+        if (campaign is null)
+        {
+            logger.LogWarning("Place tracking asset creation failed because campaign {CampaignId} was not found.", request.CampaignId);
+            return Result.Failure<IReadOnlyList<TrackingAssetDetailResponse>>(
+                Error.NotFound("That campaign was not found."));
+        }
+
+        var attribution = await ResolvePrintedAttributionAsync(request, cancellationToken);
+        if (attribution.IsFailure)
+        {
+            return Result.Failure<IReadOnlyList<TrackingAssetDetailResponse>>(attribution.Error!);
+        }
+
+        var (sourceId, mediumId) = attribution.Value;
+
+        var context = await ResolveReferenceDataAsync(
+            request.ChannelId, sourceId, mediumId, cancellationToken);
+
+        if (context.IsFailure)
+        {
+            logger.LogWarning("Place tracking asset creation failed while resolving reference data for campaign {CampaignId}.", request.CampaignId);
+            return Result.Failure<IReadOnlyList<TrackingAssetDetailResponse>>(context.Error!);
+        }
+
+        // The channel has to be Offline: a place is where a printed code was put.
+        var placementCheck = ValidatePlacements(
+            TrackingAssetType.QRCode, context.Value!.ChannelCode, request.Places.Count);
+
+        if (placementCheck.IsFailure)
+        {
+            logger.LogWarning("Place tracking asset creation failed placement validation for campaign {CampaignId}.", request.CampaignId);
+            return Result.Failure<IReadOnlyList<TrackingAssetDetailResponse>>(placementCheck.Error!);
+        }
+
+        if (request.ActiveTo <= request.ActiveFrom)
+        {
+            logger.LogWarning("Place tracking asset creation failed because the active window is invalid for campaign {CampaignId}.", request.CampaignId);
+            return Result.Failure<IReadOnlyList<TrackingAssetDetailResponse>>(Error.Validation(
+                "The active window is not valid.",
+                [new ValidationError(
+                    nameof(request.ActiveTo), "The end of the window must be after its start.")]));
+        }
+
+        var places = WithCampaignGeography(campaign, request.Places)!;
+
+        // Every place is numbered and written under the campaign's code lock - see CodeLockKey.
+        await using var serialised = await unitOfWork.BeginSerialisedAsync(
+            CodeLockKey(campaign), cancellationToken);
+
+        var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var created = new List<TrackingAsset>(places.Count);
+
+        foreach (var place in places)
+        {
+            var code = await BuildCodeAsync(campaign, TrackingAssetType.QRCode, reserved, cancellationToken);
+            reserved.Add(code);
+
+            // The asset's own destination is its place's: it is what the place's QR code opens.
+            var asset = new CreateTrackingAssetRequest(
+                    request.CampaignId,
+                    TrackingAssetType.QRCode,
+                    request.ChannelId,
+                    place.Destination,
+                    sourceId,
+                    mediumId,
+                    request.Status,
+                    request.ActiveFrom,
+                    request.ActiveTo,
+                    request.ContentTag,
+                    [place])
+                .ToEntity(campaign, code);
+
+            // Stamped here for the same reason as on a single create - see that handler.
+            if (asset.Status != TrackingAssetStatus.Draft)
+            {
+                asset.SubmittedByUserId = currentUser.UserId;
+                asset.SubmittedAtUtc = clock.UtcNow;
+            }
+
+            await assets.AddAsync(asset, cancellationToken);
+
+            await audit.WriteAsync(
+                TrackingAssetAuditActionCodes.Created, nameof(TrackingAsset), asset.Id,
+                cancellationToken: cancellationToken);
+
+            created.Add(asset);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await serialised.CommitAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Created {PlaceCount} place tracking assets ({Codes}) for campaign {CampaignId}.",
+            created.Count, string.Join(", ", created.Select(asset => asset.Code)), request.CampaignId);
+
+        var now = clock.UtcNow;
+
+        return Result.Success<IReadOnlyList<TrackingAssetDetailResponse>>([.. created
+            .Select(asset => asset.ToDetailResponse(
+                campaign.Code, campaign.Name,
+                context.Value.ChannelName, context.Value.SourceName, context.Value.MediumName,
+                now,
+                TrackingAssetMappingConfig.PermittedActionsFor(asset, currentUser.HasPermission)))]);
     }
 
     public async Task<Result<OutcomeResponse>> HandleAsync(
@@ -683,14 +831,78 @@ public sealed class TrackingAssetCommandHandler(
     }
 
     /// <summary>
+    /// The source and medium a place QR code is attributed to: the caller's, or the printed pair.
+    ///
+    /// The Generate form asks for neither, so it leaves both out, and the catalogue's own
+    /// printed-code rows are used. Before this the form sent the first row of each list - Newsletter
+    /// and E-mail - and every printed code carried utm_source=NEWSLETTER and utm_medium=EMAIL.
+    /// </summary>
+    private async Task<Result<(Guid SourceId, Guid MediumId)>> ResolvePrintedAttributionAsync(
+        CreatePlaceTrackingAssetsRequest request, CancellationToken cancellationToken)
+    {
+        var sourceId = request.SourceId;
+        var mediumId = request.MediumId;
+
+        if (sourceId is null)
+        {
+            var source = await referenceData.GetSourceByCodeAsync(PrintedQrSourceCode, cancellationToken);
+            if (source is null || !source.IsSelectable)
+            {
+                logger.LogWarning("Place tracking asset creation failed: source {SourceCode} is missing or retired.", PrintedQrSourceCode);
+                return Result.Failure<(Guid, Guid)>(Error.Dependency(
+                    "The \"QR Poster\" source is missing or retired in Master Data, so the QR codes "
+                    + "cannot be attributed. Ask your administrator to restore it."));
+            }
+
+            sourceId = source.Id;
+        }
+
+        if (mediumId is null)
+        {
+            var medium = await referenceData.GetMediumByCodeAsync(PrintedQrMediumCode, cancellationToken);
+            if (medium is null || !medium.IsSelectable)
+            {
+                logger.LogWarning("Place tracking asset creation failed: medium {MediumCode} is missing or retired.", PrintedQrMediumCode);
+                return Result.Failure<(Guid, Guid)>(Error.Dependency(
+                    "The \"Print\" medium is missing or retired in Master Data, so the QR codes "
+                    + "cannot be attributed. Ask your administrator to restore it."));
+            }
+
+            mediumId = medium.Id;
+        }
+
+        return Result.Success((sourceId.Value, mediumId.Value));
+    }
+
+    /// <summary>
+    /// The lock a campaign's asset codes are numbered under.
+    ///
+    /// THE RACE IT CLOSES. A code is numbered from how many assets the campaign has, so two
+    /// requests that counted at the same moment picked the same number and the unique index
+    /// refused the second save - which reached the person as "DbUpdateException: An error
+    /// occurred while saving the entity changes". The Generate form made this the ordinary case:
+    /// it sent one create per place card, in parallel. Under the lock the count, the numbering and
+    /// the insert of one request finish before the next request counts.
+    ///
+    /// ONE CAMPAIGN AT A TIME, not the whole Organisation: codes start with the campaign's own
+    /// code, so two campaigns can never produce the same one.
+    /// </summary>
+    private static string CodeLockKey(Campaign campaign) => $"cam.tracking-asset-code:{campaign.Id}";
+
+    /// <summary>
     /// Builds a readable asset code: CAMP01-QR-003.
     ///
     /// The sequence comes from how many assets the campaign already has, so an operator scanning
     /// a list can tell one QR code from another without opening each to read its destination.
-    /// The uniqueness check that follows is what handles the race where two are created at once.
+    /// <paramref name="reserved"/> holds the codes already given to other assets in the same
+    /// request, which the database cannot see yet. Callers hold <see cref="CodeLockKey"/>, so no
+    /// other request can number codes for the campaign in between.
     /// </summary>
     private async Task<string> BuildCodeAsync(
-        Campaign campaign, TrackingAssetType assetType, CancellationToken cancellationToken)
+        Campaign campaign,
+        TrackingAssetType assetType,
+        IReadOnlySet<string> reserved,
+        CancellationToken cancellationToken)
     {
         var existing = await assets.CountForCampaignAsync(campaign.Id, cancellationToken);
 
@@ -703,13 +915,14 @@ public sealed class TrackingAssetCommandHandler(
             _ => "TA"
         };
 
-        // Walks forward past any code already taken, which happens when an asset was deleted or
-        // when two are created in the same moment.
+        // Walks forward past any code already taken, which happens when a draft was deleted and
+        // the count fell below the highest number in use.
         for (var sequence = existing + 1; sequence < existing + 100; sequence++)
         {
             var candidate = $"{campaign.Code}-{prefix}-{sequence:000}";
 
-            if (!await assets.CodeExistsAsync(candidate, null, cancellationToken))
+            if (!reserved.Contains(candidate)
+                && !await assets.CodeExistsAsync(candidate, null, cancellationToken))
             {
                 return candidate;
             }

@@ -148,6 +148,41 @@ public class CampaignDbContext(
         SaveChangesAsync(cancellationToken);
 
     /// <summary>
+    /// A transaction holding a PostgreSQL advisory lock on <paramref name="key"/>.
+    ///
+    /// <c>pg_advisory_xact_lock</c> waits for any other transaction holding the same key and is
+    /// released by the commit or rollback itself, so a crashed request cannot leave it held. The
+    /// key is hashed to the 64-bit number the function takes.
+    /// </summary>
+    public async Task<ISerialisedWork> BeginSerialisedAsync(
+        string key, CancellationToken cancellationToken = default)
+    {
+        var transaction = await Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            await Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", cancellationToken);
+        }
+        catch
+        {
+            await transaction.DisposeAsync();
+            throw;
+        }
+
+        return new SerialisedWork(transaction);
+    }
+
+    private sealed class SerialisedWork(
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction) : ISerialisedWork
+    {
+        public Task CommitAsync(CancellationToken cancellationToken = default) =>
+            transaction.CommitAsync(cancellationToken);
+
+        public ValueTask DisposeAsync() => transaction.DisposeAsync();
+    }
+
+    /// <summary>
     /// THE WRITE-SIDE HALF OF THE ISOLATION.
     ///
     /// A new Tenant-owned row gets its TenantId and BusinessUnitId from the request context,

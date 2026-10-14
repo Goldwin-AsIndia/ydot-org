@@ -123,6 +123,7 @@ public static class DependencyInjection
         services.AddScoped<IOrganisationReadService, OrganisationReadService>();
         services.AddScoped<IRoleReadService, RoleReadService>();
         services.AddScoped<IAuditReadService, AuditReadService>();
+        services.AddScoped<IIdentityDashboardReadService, IdentityDashboardReadService>();
         services.AddScoped<IGovernanceReadService, GovernanceReadService>();
         services.AddScoped<IBulkOperationReadService, BulkOperationReadService>();
         services.AddScoped<IGlobalMasterReadService, GlobalMasterReadService>();

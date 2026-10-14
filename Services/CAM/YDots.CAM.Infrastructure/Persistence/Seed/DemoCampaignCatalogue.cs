@@ -603,12 +603,20 @@ internal static class DemoCampaignCatalogue
             ],
             Assets:
             [
-                // ---- Educate a Child: twelve assets, every type and every status ---------------
+                // ---- Educate a Child: fourteen assets, every type and every status -------------
+                //
+                // ONE QR CODE PER PLACE, which is how the Tracking Asset Manager creates them: each
+                // place card becomes its own asset with its own reference, so a gift scanned at the
+                // Metro station is told apart from one scanned at the school gate.
                 new("SF-EDU-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
-                    "school-gate-poster", TrackingAssetStatus.Active, 486, "sneha.ramesh",
-                    ["Government senior secondary school gate, Saket",
-                     "Shopping mall atrium kiosk, Saket",
-                     "Hauz Khas Metro station concourse"]),
+                    "school-gate-poster", TrackingAssetStatus.Active, 214, "sneha.ramesh",
+                    ["Government senior secondary school gate, Saket"]),
+                new("SF-EDU-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
+                    "mall-atrium-kiosk", TrackingAssetStatus.Active, 158, "sneha.ramesh",
+                    ["Shopping mall atrium kiosk, Saket"]),
+                new("SF-EDU-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
+                    "metro-concourse-poster", TrackingAssetStatus.Active, 114, "sneha.ramesh",
+                    ["Hauz Khas Metro station concourse"]),
                 new("SF-EDU-2026", TrackingAssetType.QRCode, "OFFLINE", "EVENT", "PRINT",
                     "teachers-day-stall", TrackingAssetStatus.Active, 212, "sneha.ramesh",
                     ["Teachers' Day fundraiser stall, Lodhi Road"]),
@@ -637,8 +645,11 @@ internal static class DemoCampaignCatalogue
 
                 // ---- Health on Wheels ----------------------------------------------------------
                 new("SF-HEALTH-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
-                    "mobile-van-side-panel", TrackingAssetStatus.Active, 318, "arjun.mohan",
-                    ["Mobile clinic van 1 - Dharavi route", "Mobile clinic van 2 - Govandi route"]),
+                    "mobile-van-side-panel", TrackingAssetStatus.Active, 176, "arjun.mohan",
+                    ["Mobile clinic van 1 - Dharavi route"]),
+                new("SF-HEALTH-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
+                    "mobile-van-rear-door", TrackingAssetStatus.Active, 142, "arjun.mohan",
+                    ["Mobile clinic van 2 - Govandi route"]),
                 new("SF-HEALTH-2026", TrackingAssetType.LandingPage, "EMAIL", "NEWSLETTER", "EMAIL",
                     "health-impact-mailer", TrackingAssetStatus.Active, 402, "arjun.mohan"),
                 new("SF-HEALTH-2026", TrackingAssetType.LandingPage, "SOCIAL", "FACEBOOK", "PAID_SOCIAL",
@@ -646,9 +657,11 @@ internal static class DemoCampaignCatalogue
 
                 // ---- Midday Nutrition ----------------------------------------------------------
                 new("SF-NUTRITION-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
-                    "canteen-table-tent", TrackingAssetStatus.Active, 174, "arjun.mohan",
-                    ["Tech park food court table tents, Outer Ring Road",
-                     "Indiranagar community hall notice board"]),
+                    "canteen-table-tent", TrackingAssetStatus.Active, 96, "arjun.mohan",
+                    ["Tech park food court table tents, Outer Ring Road"]),
+                new("SF-NUTRITION-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
+                    "community-hall-notice", TrackingAssetStatus.Active, 78, "arjun.mohan",
+                    ["Indiranagar community hall notice board"]),
                 new("SF-NUTRITION-2026", TrackingAssetType.LandingPage, "MESSAGING", "WHATSAPP", "SMS",
                     "parent-teacher-group", TrackingAssetStatus.Active, 256, "arjun.mohan"),
                 new("SF-NUTRITION-2026", TrackingAssetType.LandingPage, "WEBSITE", "WEBSITE", "BANNER",
@@ -986,12 +999,18 @@ internal static class DemoCampaignCatalogue
             ],
             Assets:
             [
-                // ---- Care for the Elderly: twelve assets, every type and every status ----------
+                // ---- Care for the Elderly: fourteen assets, every type and every status --------
+                //
+                // One QR code per place, as the Tracking Asset Manager creates them.
                 new("HAI-ELDERCARE-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
-                    "residents-association-poster", TrackingAssetStatus.Active, 512, "ritu.anil",
-                    ["Residents' association notice board, Safdarjung Enclave",
-                     "Green Park Metro station concourse",
-                     "Senior citizens' walk kiosk, Lodhi Road"]),
+                    "residents-association-poster", TrackingAssetStatus.Active, 226, "ritu.anil",
+                    ["Residents' association notice board, Safdarjung Enclave"]),
+                new("HAI-ELDERCARE-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
+                    "metro-concourse-poster", TrackingAssetStatus.Active, 171, "ritu.anil",
+                    ["Green Park Metro station concourse"]),
+                new("HAI-ELDERCARE-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
+                    "senior-walk-kiosk", TrackingAssetStatus.Active, 115, "ritu.anil",
+                    ["Senior citizens' walk kiosk, Lodhi Road"]),
                 new("HAI-ELDERCARE-2026", TrackingAssetType.QRCode, "OFFLINE", "EVENT", "PRINT",
                     "older-persons-day-stall", TrackingAssetStatus.Active, 238, "ritu.anil",
                     ["International Day of Older Persons stall, Lodhi Road"]),
@@ -1020,9 +1039,11 @@ internal static class DemoCampaignCatalogue
 
                 // ---- Mobile Healthcare Units ---------------------------------------------------
                 new("HAI-MOBILECARE-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
-                    "mobile-unit-side-panel", TrackingAssetStatus.Active, 286, "aditya.ganesh",
-                    ["Mobile healthcare unit 1 - Aliganj route",
-                     "Mobile healthcare unit 2 - Chinhat route"]),
+                    "mobile-unit-side-panel", TrackingAssetStatus.Active, 158, "aditya.ganesh",
+                    ["Mobile healthcare unit 1 - Aliganj route"]),
+                new("HAI-MOBILECARE-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
+                    "mobile-unit-rear-door", TrackingAssetStatus.Active, 128, "aditya.ganesh",
+                    ["Mobile healthcare unit 2 - Chinhat route"]),
                 new("HAI-MOBILECARE-2026", TrackingAssetType.LandingPage, "EMAIL", "NEWSLETTER", "EMAIL",
                     "doorstep-care-impact-mailer", TrackingAssetStatus.Active, 377, "ritu.anil"),
                 new("HAI-MOBILECARE-2026", TrackingAssetType.LandingPage, "SOCIAL", "FACEBOOK", "PAID_SOCIAL",
@@ -1030,9 +1051,11 @@ internal static class DemoCampaignCatalogue
 
                 // ---- Restore Sight -------------------------------------------------------------
                 new("HAI-SIGHT-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
-                    "eye-camp-registration-desk", TrackingAssetStatus.Active, 192, "aditya.ganesh",
-                    ["Eye camp registration desk, Egmore",
-                     "Community hall notice board, T. Nagar"]),
+                    "eye-camp-registration-desk", TrackingAssetStatus.Active, 117, "aditya.ganesh",
+                    ["Eye camp registration desk, Egmore"]),
+                new("HAI-SIGHT-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
+                    "community-hall-notice", TrackingAssetStatus.Active, 75, "aditya.ganesh",
+                    ["Community hall notice board, T. Nagar"]),
                 new("HAI-SIGHT-2026", TrackingAssetType.LandingPage, "MESSAGING", "WHATSAPP", "SMS",
                     "eye-camp-volunteer-group", TrackingAssetStatus.Active, 244, "aditya.ganesh"),
                 new("HAI-SIGHT-2026", TrackingAssetType.LandingPage, "WEBSITE", "WEBSITE", "BANNER",
@@ -1065,8 +1088,11 @@ internal static class DemoCampaignCatalogue
                 new("HAI-HEATWAVE-2026", TrackingAssetType.LandingPage, "WEBSITE", "WEBSITE", "BANNER",
                     "heatwave-emergency-banner", TrackingAssetStatus.Inactive, 2_085, "ritu.anil"),
                 new("HAI-HEATWAVE-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
-                    "water-kiosk-poster", TrackingAssetStatus.Inactive, 274, "aditya.ganesh",
-                    ["Drinking-water kiosk, Hazratganj", "Charbagh railway station concourse"])
+                    "water-kiosk-poster", TrackingAssetStatus.Inactive, 163, "aditya.ganesh",
+                    ["Drinking-water kiosk, Hazratganj"]),
+                new("HAI-HEATWAVE-2026", TrackingAssetType.QRCode, "OFFLINE", "QR_POSTER", "PRINT",
+                    "railway-concourse-poster", TrackingAssetStatus.Inactive, 111, "aditya.ganesh",
+                    ["Charbagh railway station concourse"])
             ])
     ];
 }

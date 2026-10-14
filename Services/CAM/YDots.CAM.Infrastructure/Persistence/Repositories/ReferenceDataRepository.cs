@@ -31,6 +31,12 @@ public sealed class ReferenceDataRepository(CampaignDbContext context) : IRefere
     public Task<Channel?> GetChannelByCodeAsync(string code, CancellationToken cancellationToken) =>
         context.Channels.AsNoTracking().FirstOrDefaultAsync(channel => channel.Code == code, cancellationToken);
 
+    public Task<Source?> GetSourceByCodeAsync(string code, CancellationToken cancellationToken) =>
+        context.Sources.AsNoTracking().FirstOrDefaultAsync(source => source.Code == code, cancellationToken);
+
+    public Task<Medium?> GetMediumByCodeAsync(string code, CancellationToken cancellationToken) =>
+        context.Mediums.AsNoTracking().FirstOrDefaultAsync(medium => medium.Code == code, cancellationToken);
+
     public async Task<IReadOnlyList<Channel>> GetChannelsAsync(
         bool activeOnly, CancellationToken cancellationToken) =>
         await context.Channels

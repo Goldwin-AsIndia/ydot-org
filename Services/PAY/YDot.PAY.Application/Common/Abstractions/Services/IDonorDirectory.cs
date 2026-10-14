@@ -23,7 +23,7 @@ public interface IDonorDirectory
     /// branch. A match is section 13's "sign in first" branch.
     /// </summary>
     /// <summary>
-    /// Does this e-mail already have a USER ACCOUNT in this Organisation?
+    /// What USER ACCOUNT this e-mail has in this Organisation, if any.
     ///
     /// A DIFFERENT QUESTION FROM <see cref="FindByEmailAsync"/>, and the difference is the point.
     /// That one asks whether the address belongs to a DONOR RECORD; this asks whether it can sign
@@ -32,18 +32,19 @@ public interface IDonorDirectory
     /// and the public form let them start a fresh anonymous donation under an address that already
     /// has an account behind it.
     ///
-    /// WHAT IT IS FOR. Section 3 of the flow document: "If the email matches an existing Donor
-    /// the person is redirected to Login. After logging in, the donor is taken to the Payment
-    /// page." That redirect has to fire for anybody who can sign in, not only for people who have
-    /// given before - otherwise a member of staff typing their own address is quietly treated as
-    /// a stranger and the donation is recorded against a second, unlinked identity.
+    /// WHAT IT IS FOR, TWICE OVER. Before payment, Section 3 of the flow document: "If the email
+    /// matches an existing Donor the person is redirected to Login. After logging in, the donor is
+    /// taken to the Payment page" - which has to fire for anybody who CAN sign in, and only for
+    /// them: an invited account that was never activated has no password, so sending its owner to
+    /// a sign-in form is a dead end. After payment, it decides between creating the login and
+    /// inviting (none), sending the invitation again (invited) and leaving the account alone.
     ///
     /// IT IS NOT AN ORACLE. The answer never leaves the server as a bare yes for an address the
     /// caller chose at random: it is attached to an intent they have just created and reaches
     /// them only as "sign in to continue this donation", which is the same thing they would learn
     /// by trying to sign in.
     /// </summary>
-    Task<bool> HasLoginAccountAsync(
+    Task<DonorLogin> GetLoginAsync(
         Guid tenantId, string normalisedEmail, CancellationToken cancellationToken);
 
     Task<DonorMatch?> FindByEmailAsync(
@@ -70,6 +71,17 @@ public interface IDonorDirectory
         CreateDonorAccountRequest request, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Sends the activation invitation again to an account that was invited and never activated.
+    ///
+    /// A SECOND GIFT BEFORE ACTIVATION IS THE CASE. The first gift created the login and invited
+    /// the donor; creating it again is refused as a duplicate address, so without this the second
+    /// gift ended with no invitation at all and the donor - who may simply have lost the first
+    /// e-mail - had no way in. Like account creation, a failure is reported, never thrown.
+    /// </summary>
+    Task<DonorAccountResult> ResendInvitationAsync(
+        CreateDonorAccountRequest request, Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Section 16 and 28: marks the originating lead converted and links it to the donor.
     ///
     /// The conversion point is a successful payment, NOT the lead owner marking it qualified -
@@ -77,6 +89,45 @@ public interface IDonorDirectory
     /// </summary>
     Task MarkLeadConvertedAsync(
         Guid tenantId, Guid leadId, Guid donorId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Converts this Organisation's OPEN leads that carry the donor's e-mail, and returns their ids.
+    ///
+    /// FOR A GIFT THAT DID NOT COME THROUGH THE LEAD'S OWN LINK. A lead who opens the public form
+    /// or scans a code carries no lead id, so the gift made a donor and left the lead in the work
+    /// queue as though nothing had happened - the same person listed as a lead and as a donor. The
+    /// e-mail is the only thing that ties the two together on that path.
+    ///
+    /// OPEN MEANS STILL BEING WORKED: not a draft, and not already converted, closed or
+    /// suppressed. A lead somebody closed or suppressed is a decision this does not overturn.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ConvertOpenLeadsByEmailAsync(
+        Guid tenantId, string normalisedEmail, Guid donorId, CancellationToken cancellationToken);
+}
+
+/// <summary>Whether an e-mail has a login in one Organisation, and in what state.</summary>
+public enum DonorLoginState
+{
+    /// <summary>No account. A successful gift creates one and invites the donor.</summary>
+    None = 0,
+
+    /// <summary>Created and invited, never activated - it has no password yet.</summary>
+    Invited = 1,
+
+    /// <summary>Activated. The owner can sign in, so the public form sends them to sign in.</summary>
+    Active = 2,
+
+    /// <summary>Suspended, deactivated, expired or withdrawn - nothing to sign in to or invite.</summary>
+    Unavailable = 3
+}
+
+/// <summary>The login an e-mail has in one Organisation. <c>UserId</c> is null for None.</summary>
+public sealed record DonorLogin(Guid? UserId, DonorLoginState State)
+{
+    public static readonly DonorLogin NoAccount = new(null, DonorLoginState.None);
+
+    /// <summary>True only for an account its owner can sign in to now.</summary>
+    public bool CanSignIn => State == DonorLoginState.Active;
 }
 
 /// <summary>A donor found or created for one Organisation.</summary>

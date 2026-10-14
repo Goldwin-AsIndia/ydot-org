@@ -1224,10 +1224,14 @@ export class DonorformComponent {
         'info',
       );
 
+      // `pay=1` ASKS THE IN-APP SCREEN TO OPEN THE PAYMENT AT ONCE. The person already pressed
+      // Submit here; after signing in they are taken to the payment, not to a second button.
       void this.router.navigate([DonationRoutes.SignIn], {
         queryParams: {
           returnUrl:
-            DonationRoutes.InAppDonation + '?intent=' + encodeURIComponent(intent.intentReference),
+            DonationRoutes.InAppDonation
+            + '?intent=' + encodeURIComponent(intent.intentReference)
+            + '&pay=1',
         },
       });
 

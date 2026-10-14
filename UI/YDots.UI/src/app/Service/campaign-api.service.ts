@@ -28,6 +28,7 @@ import {
   CreateCampaignRequest,
   CreateReadinessCheckRequest,
   CreateTrackingAssetRequest,
+  CreatePlaceTrackingAssetsRequest,
   ReadinessCheckDetail,
   ReadinessVerdictRequest,
   RequestAttributionCorrectionRequest,
@@ -285,6 +286,13 @@ export class CampaignApiService {
     return this.http
       .post<ApiResponse<TrackingAssetDetail>>(this.trackingAssetsUrl, request)
       .pipe(map((response) => response.data!));
+  }
+
+  /** One offline QR code per place, all created in one save - or none of them. */
+  createPlaceTrackingAssets(request: CreatePlaceTrackingAssetsRequest): Observable<TrackingAssetDetail[]> {
+    return this.http
+      .post<ApiResponse<TrackingAssetDetail[]>>(`${this.trackingAssetsUrl}/places`, request)
+      .pipe(map((response) => response.data ?? []));
   }
 
   updateTrackingAsset(

@@ -146,51 +146,14 @@ public sealed class IdentityAccountService(
 
         try
         {
-            var client = httpClientFactory.CreateClient(HttpClientName);
+            var client = await CreateSignedInClientAsync(request, cancellationToken);
 
-            // ============================================================================
-            // THE HOST HEADER IS THE ORGANISATION, AND WITHOUT IT NOTHING HERE WORKS.
-            // ============================================================================
-            // IAM resolves which Organisation a request belongs to from the Host header. This
-            // client's BaseAddress is the container address - http://ydot-iam:8080 - so every
-            // call arrived at IAM saying Host: ydot-iam:8080, which is registered to no
-            // Organisation at all. IAM therefore looked the service account up in nothing, found
-            // nothing, and answered INVALID_CREDENTIALS: "The sign-in details are incorrect."
-            //
-            // The credentials were correct the whole time. The same username and password
-            // succeed against Host: ten1.localhost and fail against Host: ydot-iam:8080, which
-            // is why this looked like a configuration problem nobody could find - and why donor
-            // portal accounts were never created for anyone, on any donation.
-            //
-            // The header is set rather than the address changed: the connection must still go to
-            // the container, and only the name IAM reads changes. It is the same fact the
-            // receipt link resolves, from the same table.
-            var tenantHost = await tenantHosts.GetPrimaryHostAsync(request.TenantId, cancellationToken);
-
-            if (!string.IsNullOrWhiteSpace(tenantHost))
-            {
-                client.DefaultRequestHeaders.Host = tenantHost;
-            }
-            else
-            {
-                logger.LogWarning(
-                    "No host is registered for organisation {TenantId}, so the identity service "
-                    + "cannot resolve it and the donor account for donation {DonationReference} "
-                    + "will not be created.",
-                    request.TenantId,
-                    request.DonationReference);
-            }
-
-            var token = await SignInAsync(client, cancellationToken);
-
-            if (token is null)
+            if (client is null)
             {
                 return new DonorAccountResult(
                     null, false, false,
                     "Could not authenticate with the identity service to create the donor account.");
             }
-
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var (firstName, lastName) = SplitName(request.Name);
             var (mobileCountryCode, mobileNumber) = SplitMobile(request.Mobile);
@@ -259,6 +222,135 @@ public sealed class IdentityAccountService(
             return new DonorAccountResult(
                 null, false, false, "The identity service could not be reached.");
         }
+    }
+
+    /// <summary>
+    /// Sends the activation invitation again, naming the new donation.
+    ///
+    /// THE SAME RULES AS CREATION: integration off, IAM refusing and IAM unreachable all come back
+    /// as a result with the reason, never as an exception. <c>AccountCreated</c> is false on every
+    /// path - the account already existed - and <c>InvitationSent</c> says whether IAM accepted it.
+    /// </summary>
+    public async Task<DonorAccountResult> ResendDonorInvitationAsync(
+        CreateDonorAccountRequest request, Guid userId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (!_settings.Enabled || string.IsNullOrWhiteSpace(_settings.BaseUrl))
+        {
+            return new DonorAccountResult(
+                userId, false, false, "Donor portal accounts are not enabled for this installation.");
+        }
+
+        try
+        {
+            var client = await CreateSignedInClientAsync(request, cancellationToken);
+
+            if (client is null)
+            {
+                return new DonorAccountResult(
+                    userId, false, false,
+                    "Could not authenticate with the identity service to resend the invitation.");
+            }
+
+            using var response = await client.PostAsJsonAsync(
+                $"api/v1/users/{userId}/resend-invitation",
+                new ResendInvitationPayload(
+                    userId,
+                    $"Thank you for your donation ({request.DonationReference}). "
+                    + "Activate your account to see your giving history and download your receipts."),
+                JsonOptions,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+                logger.LogWarning(
+                    "The identity service refused to resend the donor invitation for donation "
+                    + "{DonationReference}: {StatusCode} {Body}",
+                    request.DonationReference,
+                    (int)response.StatusCode,
+                    Truncate(body));
+
+                return new DonorAccountResult(
+                    userId, false, false,
+                    $"The identity service refused the invitation ({(int)response.StatusCode}).");
+            }
+
+            logger.LogInformation(
+                "Resent the activation invitation to donor account {UserId} for donation {DonationReference}.",
+                userId,
+                request.DonationReference);
+
+            return new DonorAccountResult(userId, AccountCreated: false, InvitationSent: true, null);
+        }
+        catch (Exception exception)
+            when (exception is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            logger.LogError(
+                exception,
+                "Could not reach the identity service to resend the donor invitation for donation "
+                + "{DonationReference}. The donation itself is unaffected.",
+                request.DonationReference);
+
+            return new DonorAccountResult(
+                userId, false, false, "The identity service could not be reached.");
+        }
+    }
+
+    /// <summary>
+    /// A client addressed to the donor's Organisation and signed in as the service account, or
+    /// null when the service account could not sign in.
+    /// </summary>
+    private async Task<HttpClient?> CreateSignedInClientAsync(
+        CreateDonorAccountRequest request, CancellationToken cancellationToken)
+    {
+        var client = httpClientFactory.CreateClient(HttpClientName);
+
+        // ============================================================================
+        // THE HOST HEADER IS THE ORGANISATION, AND WITHOUT IT NOTHING HERE WORKS.
+        // ============================================================================
+        // IAM resolves which Organisation a request belongs to from the Host header. This
+        // client's BaseAddress is the container address - http://ydot-iam:8080 - so every
+        // call arrived at IAM saying Host: ydot-iam:8080, which is registered to no
+        // Organisation at all. IAM therefore looked the service account up in nothing, found
+        // nothing, and answered INVALID_CREDENTIALS: "The sign-in details are incorrect."
+        //
+        // The credentials were correct the whole time. The same username and password
+        // succeed against Host: ten1.localhost and fail against Host: ydot-iam:8080, which
+        // is why this looked like a configuration problem nobody could find - and why donor
+        // portal accounts were never created for anyone, on any donation.
+        //
+        // The header is set rather than the address changed: the connection must still go to
+        // the container, and only the name IAM reads changes. It is the same fact the
+        // receipt link resolves, from the same table.
+        var tenantHost = await tenantHosts.GetPrimaryHostAsync(request.TenantId, cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(tenantHost))
+        {
+            client.DefaultRequestHeaders.Host = tenantHost;
+        }
+        else
+        {
+            logger.LogWarning(
+                "No host is registered for organisation {TenantId}, so the identity service "
+                + "cannot resolve it and the donor account for donation {DonationReference} "
+                + "will not be created.",
+                request.TenantId,
+                request.DonationReference);
+        }
+
+        var token = await SignInAsync(client, cancellationToken);
+
+        if (token is null)
+        {
+            return null;
+        }
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return client;
     }
 
     /// <summary>
@@ -433,4 +525,7 @@ public sealed class IdentityAccountService(
         bool SendInvitation);
 
     private sealed record CreateUserResult(Guid Id);
+
+    /// <summary>IAM's ResendInvitationRequest. The id repeats the route's, which IAM ignores.</summary>
+    private sealed record ResendInvitationPayload(Guid UserId, string Message);
 }

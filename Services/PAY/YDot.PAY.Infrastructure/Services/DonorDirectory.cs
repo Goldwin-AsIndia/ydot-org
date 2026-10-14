@@ -55,7 +55,7 @@ public sealed class DonorDirectory(
     /// DON's own screens may have been keyed on a phone number instead.
     /// </summary>
     /// <summary>
-    /// Whether the address can already sign in here. See the interface for why this is separate
+    /// The login this address has here, and its state. See the interface for why this is separate
     /// from the donor lookup.
     ///
     /// IT ASKS IAM, NOT THE DONOR TABLE. <c>FindDonorAccountAsync</c> matches on tenant and
@@ -63,17 +63,18 @@ public sealed class DonorDirectory(
     /// fundraiser and an administrator as readily as a donor-portal account - which is exactly
     /// the population that was being missed.
     ///
-    /// A FAILURE ANSWERS FALSE. The consequence of a false negative is that a donor who could
-    /// have signed in gives anonymously instead, and their gift is still recorded and still
-    /// reconciled to them by e-mail afterwards. The consequence of failing the request would be a
-    /// donation that did not happen.
+    /// A FAILURE ANSWERS "NO ACCOUNT". The consequence of a false negative is that a donor who
+    /// could have signed in gives anonymously instead, and their gift is still recorded and still
+    /// reconciled to them by e-mail afterwards; after payment, IAM refuses the duplicate address
+    /// and the refusal is logged. The consequence of failing the request would be a donation that
+    /// did not happen.
     /// </summary>
-    public async Task<bool> HasLoginAccountAsync(
+    public async Task<DonorLogin> GetLoginAsync(
         Guid tenantId, string normalisedEmail, CancellationToken cancellationToken)
     {
         if (tenantId == Guid.Empty || string.IsNullOrWhiteSpace(normalisedEmail))
         {
-            return false;
+            return DonorLogin.NoAccount;
         }
 
         try
@@ -81,7 +82,18 @@ public sealed class DonorDirectory(
             var account = await accounts.FindDonorAccountAsync(
                 tenantId, normalisedEmail, cancellationToken);
 
-            return account is not null;
+            if (account is null)
+            {
+                return DonorLogin.NoAccount;
+            }
+
+            var state = account.IsActive
+                ? DonorLoginState.Active
+                : string.Equals(account.Status, "Invited", StringComparison.OrdinalIgnoreCase)
+                    ? DonorLoginState.Invited
+                    : DonorLoginState.Unavailable;
+
+            return new DonorLogin(account.UserId, state);
         }
         catch (Exception exception)
         {
@@ -91,7 +103,7 @@ public sealed class DonorDirectory(
                 + "{TenantId}. The donor continues as an anonymous giver.",
                 tenantId);
 
-            return false;
+            return DonorLogin.NoAccount;
         }
     }
 
@@ -276,6 +288,15 @@ public sealed class DonorDirectory(
         return accounts.CreateDonorAccountAndInviteAsync(request, cancellationToken);
     }
 
+    /// <summary>Sends an invited, never-activated donor their activation invitation again.</summary>
+    public Task<DonorAccountResult> ResendInvitationAsync(
+        CreateDonorAccountRequest request, Guid userId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return accounts.ResendDonorInvitationAsync(request, userId, cancellationToken);
+    }
+
     /// <summary>
     /// Sections 16 and 28: marks the originating lead converted and links it to the donor.
     ///
@@ -292,11 +313,15 @@ public sealed class DonorDirectory(
             return;
         }
 
+        // THE SLA STOPS WITH THE CONVERSION, as it does when DON converts a lead by hand: a lead
+        // that has become a donor is no longer due anything, and leaving its clock running kept
+        // it on the overdue counts.
         const string Sql = """
             UPDATE don_leads
             SET status = 'Converted',
                 converted_donor_id = @donor_id,
                 converted_at_utc = @now,
+                sla_state = 'NotApplicable',
                 updated_at_utc = @now,
                 version = version + 1
             WHERE id = @lead_id
@@ -354,6 +379,68 @@ public sealed class DonorDirectory(
         adopt.Parameters.Add(new NpgsqlParameter("now", NpgsqlDbType.TimestampTz) { Value = DateTimeOffset.UtcNow });
 
         await adopt.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Converts the Organisation's open leads that carry this e-mail. See the interface.
+    ///
+    /// EACH ONE GOES THROUGH <see cref="MarkLeadConvertedAsync"/>, so a lead found by e-mail is
+    /// converted exactly as one named on its own link is - the same columns, and a donor with no
+    /// owner takes the lead's. Where the person was a lead on more than one campaign, the oldest
+    /// lead's owner is the one the donor keeps: the first fundraiser to have worked them.
+    /// </summary>
+    public async Task<IReadOnlyList<Guid>> ConvertOpenLeadsByEmailAsync(
+        Guid tenantId, string normalisedEmail, Guid donorId, CancellationToken cancellationToken)
+    {
+        if (tenantId == Guid.Empty || donorId == Guid.Empty || string.IsNullOrWhiteSpace(normalisedEmail))
+        {
+            return [];
+        }
+
+        const string Sql = """
+            SELECT id
+            FROM don_leads
+            WHERE organisation_id = @organisation_id
+              AND LOWER(TRIM(email_address)) = @email
+              AND is_draft = false
+              AND converted_donor_id IS NULL
+              AND status NOT IN ('Converted', 'Closed', 'Suppressed')
+            ORDER BY created_at_utc
+            """;
+
+        var leadIds = new List<Guid>();
+
+        await using (var command = await CreateCommandAsync(Sql, cancellationToken))
+        {
+            command.Parameters.Add(new NpgsqlParameter("organisation_id", NpgsqlDbType.Uuid) { Value = tenantId });
+            command.Parameters.Add(new NpgsqlParameter("email", NpgsqlDbType.Text)
+            {
+                Value = normalisedEmail.Trim().ToLowerInvariant()
+            });
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                leadIds.Add(reader.GetGuid(0));
+            }
+        }
+
+        foreach (var leadId in leadIds)
+        {
+            await MarkLeadConvertedAsync(tenantId, leadId, donorId, cancellationToken);
+        }
+
+        if (leadIds.Count > 0)
+        {
+            logger.LogInformation(
+                "Converted {Count} open lead(s) matched by e-mail to donor {DonorId} in organisation {TenantId}.",
+                leadIds.Count,
+                donorId,
+                tenantId);
+        }
+
+        return leadIds;
     }
 
     // =====================================================================================
