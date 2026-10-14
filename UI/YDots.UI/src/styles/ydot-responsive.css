@@ -1,0 +1,323 @@
+/* =====================================================================================================
+   YDot Responsive - one scale, one set of breakpoints, for every screen.
+
+   HOW THE APP SCALES. Almost all text in the app is sized by ONE token: styles.css forces every span / div /
+   td / p / label / button ... to `font-size: calc(var(--fs-base)`, and --fs-base is the customiser font size times * var(--ui-text-scale, 1))
+   --ui-scale (below). So changing --ui-scale resizes the type on every screen at once. The page header, KPI
+   tiles, card padding, icon glyphs, the top bar and the root font size (the template sidebar, dropdowns,
+   forms and headings are rem-based) all read the same --ui-scale, so a large monitor gets larger everything
+   rather than a small app floating in a big window.
+
+   --ui-scale is stepped by viewport width:
+       < 576px   .95   phones
+       576-1439  1     laptops / small monitors (the design size)
+       1440+     1.05  1680+ 1.15   1920+ 1.25   2304+ 1.45   2560+ 1.6   3200+ 2   3840+ 2.4   5120+ 3.2   7680+ 4.8
+       (wide-but-short ultrawide windows are capped by height - see below)
+
+   The customiser font-size control still works: it sets --font-size-base, this file multiplies it.
+
+   Below 1280px the multi-column KPI / summary strips switch to auto-fit columns, so a tile never gets
+   narrower than its content needs. Card contents that must stay aligned at any width use container queries
+   (see follow-up-queue.css and donor-list.css).
+   ===================================================================================================== */
+
+:root {
+  --ui-scale: 1;
+  --fs-base: calc(var(--font-size-base, 12px) * var(--ui-scale));
+  /* Type-only multiplier: every font-size in the app's CSS is `calc(V * var(--ui-text-scale, 1))`
+     (tools/font_text_scale.py), so this shrinks or grows text without touching spacing. 0.86 = two steps
+     down on the customiser's size ladder (14px -> 12px). */
+  /* Written by ydot-typography.css from the Theme settings (global x per-role size); .86 is the fallback. */
+  --ui-text-scale: var(--rs-body, 0.9976);
+
+  /* Shell */
+  --pe-app-header-height: calc(58px * var(--ui-scale));
+
+  /* Card template tokens (ydot-card.css) and the KPI tile height (ydot-premium.css) */
+  --lx-kpi-h: calc(128px * var(--ui-scale));
+  --yc-pad: calc(16px * var(--ui-scale));
+  --yc-pad-kpi: calc(20px * var(--ui-scale));
+  --yc-head-pad: calc(16px * var(--ui-scale)) calc(20px * var(--ui-scale));
+  --yc-gap: calc(12px * var(--ui-scale));
+  --yc-gap-kpi: calc(10px * var(--ui-scale));
+  /* The gap between cards and containers on every Campaigns screen (header, KPI tiles, panels, rails). */
+  --campaign-gap: calc(17px * var(--ui-scale));
+  --yc-icon-size: calc(32px * var(--ui-scale));
+  --yc-title-size: calc(20px * var(--ui-scale));
+  --yc-heading-size: calc(13px * var(--ui-scale));
+  --yc-value-size: calc(28px * var(--ui-scale));
+  --yc-value-line: calc(32px * var(--ui-scale));
+  --yc-radius: calc(20px * var(--ui-scale));
+  --yc-radius-inner: calc(16px * var(--ui-scale));
+  --yc-subtitle-size: calc(11px * var(--ui-scale));
+  --yc-eyebrow-size: calc(10px * var(--ui-scale));
+  --yc-caption-size: calc(11px * var(--ui-scale));
+  --lx-radius: calc(11px * var(--ui-scale));
+
+  /* Glyph size inside stat tiles and row icons */
+  --lx-glyph: calc(26px * var(--ui-scale));
+}
+
+@media (max-width: 575.98px)  { :root { --ui-scale: .95; } }
+@media (min-width: 1440px)    { :root { --ui-scale: 1.05; } }
+@media (min-width: 1680px)    { :root { --ui-scale: 1.15; } }
+@media (min-width: 1920px)    { :root { --ui-scale: 1.25; } }
+@media (min-width: 2304px)    { :root { --ui-scale: 1.45; } }
+@media (min-width: 2560px)    { :root { --ui-scale: 1.2; } }
+@media (min-width: 3200px)    { :root { --ui-scale: 2; } }
+@media (min-width: 3840px)    { :root { --ui-scale: 2.4; } }
+@media (min-width: 5120px)    { :root { --ui-scale: 3.2; } }
+@media (min-width: 7680px)    { :root { --ui-scale: 4.8; } }
+
+/* ULTRAWIDE AND SUPER-ULTRAWIDE (21:9, 32:9): wide but short. Scaling by width alone would leave a 2560x1080 or
+   5120x1440 screen only ~450-680 px of working height at the design size, so the header, KPI tiles and filters
+   would fill it before the first table row. Capped by the window's height instead, so every monitor keeps at
+   least ~850 design px of depth; the extra width goes to wider columns (and, past 2400 px, to the margins -
+   see "Super-wide" below). Listed after the width steps so they win. */
+@media (min-width: 2304px) and (max-height: 1199.98px)                          { :root { --ui-scale: 1.25; } }
+@media (min-width: 3200px) and (min-height: 1200px) and (max-height: 1699.98px) { :root { --ui-scale: 1.6; } }
+@media (min-width: 5120px) and (min-height: 1700px) and (max-height: 2399.98px) { :root { --ui-scale: 2.4; } }
+@media (min-width: 7680px) and (min-height: 2400px) and (max-height: 3599.98px) { :root { --ui-scale: 3.2; } }
+
+/* The template sidebar, dropdowns, form controls and headings are rem-based: scaling the root scales them.
+   It is written on :root, not html, because Bootstrap sets `:root { font-size: calc(var(--pe-root-font-size) * var(--ui-text-scale, 1)) }` and a
+   type selector would lose to it. On the root element 1rem is the browser default, so a user who has raised
+   their browser font size keeps that preference. */
+:root {
+  font-size: calc(calc(1rem * var(--ui-scale)) * var(--ui-text-scale, 1));
+}
+
+/* Modals: the template px widths follow the scale too. */
+.modal { --pe-modal-width: calc(500px * var(--ui-scale)); }
+.modal-lg { --pe-modal-width: calc(800px * var(--ui-scale)); }
+.modal-xl { --pe-modal-width: calc(1140px * var(--ui-scale)); }
+.modal-sm { --pe-modal-width: calc(300px * var(--ui-scale)); }
+
+/* The sign-in card is the same kind of fixed template box: app.min.css pins .main-wrapper to 650 / 900 / 1000
+   design px and 600-670 px tall, while everything inside it - p-6, mb-10, mb-12, the headings, the fields - is
+   rem-based and therefore grows with --ui-scale. Past 1.25 the form needs more height than the box allows and
+   the card's own `overflow-hidden` cuts the Sign In button off: measured, its bottom sits 107 px below the card
+   edge at --ui-scale 1.45 (a 2560x1440 screen, or any normal screen zoomed out until the viewport passes 2304),
+   187 px at 1.6, and it keeps growing from there. Scaling the box with the same token puts the card back in
+   proportion at every step - decoration column, gap and form column come out exactly as the design draws them -
+   and the window's height caps it, so a wide-but-short window shrinks the card to fit the screen instead of
+   running off the bottom. Where that cap leaves the form less room than it needs, the form column scrolls
+   rather than being clipped: the button is never half a card below the fold.
+
+   `html` in front of the class on purpose: app.min.css carries .main-wrapper too, and this file is imported by
+   styles.css, whose position relative to app.min.css in <head> is not guaranteed - one element in the selector
+   makes these rules win whichever order the two files load in. */
+html .main-wrapper {
+  max-width: calc(650px * var(--ui-scale));
+  min-height: calc(600px * var(--ui-scale));
+}
+
+@media (min-width: 992px) {
+  html .main-wrapper {
+    max-width: calc(900px * var(--ui-scale));
+  }
+}
+
+@media (min-width: 1200px) {
+  html .main-wrapper {
+    max-width: calc(1000px * var(--ui-scale));
+    /* 670 / 657 design px, and never taller than the window allows between the wrapper's own py-10 (2 x 2.5rem). */
+    /* max-height: min(calc(670px * var(--ui-scale)), calc(100vh - 5rem)); */
+    /* min-height can never beat max-height: the same cap is repeated inside the min(). */
+    /* min-height: min(calc(657px * var(--ui-scale)), calc(100vh - 5rem)); */
+  }
+
+  /* Only the form column scrolls - the decoration column stays put - and no scrollbar appears unless the cap
+     above has actually left the form short of room. */
+  html .main-wrapper > .login-section {
+    overflow-x: clip;
+    overflow-y: auto;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Forgot password / e-mail verification / two-step verification opened with the form column ALREADY
+   scrolled, on screens with room to spare. It is the markup, not the card: the YDot logo is an ordinary
+   block ABOVE `<div class="d-flex flex-column justify-content-center h-100">`, and Bootstrap's `.h-100`
+   is `height: 100% !important` - 100% of the whole COLUMN's content box, logo and all. So the filler is
+   as tall as the space the logo has already used, and the pair is taller than the column by exactly the
+   logo's own height. Measured in Chrome against this markup and the real stylesheets, before this rule:
+   70 px of overflow at --ui-scale 1 (1440x900: clientH 668 / scrollH 738, the logo being 62 px plus its
+   `mt-lg-2`), 80 px at 1.15 (1920x1080) and 101 px at 1.45 (2560x1440); at 1024x768 it was 45 px. Above
+   1200 px that overflow is a scrollbar whose thumb sits at the top of its track before the visitor has
+   touched anything, so the logo looked cut off by the card's own corner. In the 992-1199 band the column
+   is not a scroll container yet, so those 45 px were simply clipped by the card's `overflow-hidden` and
+   could not be reached at all. Sign In carries the same card without the filler and measures 0 px,
+   which is the tell.
+
+   The filler is only ever meant to be "whatever is left of the column". Making the column a flex box
+   says exactly that: the filler's base size is still the 100% Bootstrap forces on it, but flex shrinking
+   then takes the logo's height back off it (its automatic minimum size stops it at its own content, so
+   it can never cut the form). A short form now fits - no scrollbar, logo intact, 0 px of overflow at
+   1024, 1366, 1440, 1600, 1920 and 2560 px wide - and a long one still overflows and still scrolls in
+   this column, because the filler simply refuses to shrink past its content: tripling the blocks on
+   that page measured 337 px of overflow and 337 px of available scroll both before and after, i.e. that
+   case is untouched.
+
+   `:has(> .h-100)` keeps the change to the pages that actually have the problem - forgot password,
+   e-mail verification and two-step verification are the only markup carrying the filler, so sign-in and
+   select-organisation keep plain block layout (sign-in re-measured identical either way). A browser
+   without `:has()` ignores these two rules and falls back to the scrollbar it had before, so nothing
+   regresses where they do not apply. */
+@media (min-width: 992px) {
+  html .main-wrapper > .login-section:has(> .h-100) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  html .main-wrapper > .login-section:has(> .h-100) > .h-100 {
+    flex: 1 1 auto;
+  }
+}
+
+/* The decoration column grows with the card, but the illustration does not: .img-fluid only caps it at 100% of
+   the column AND at its own 1086 x 1448 px, so past --ui-scale 2.4 - any CSS viewport wider than 3840px, which
+   is exactly what a zoomed-out browser window is - the picture stops growing while the panel keeps going, and
+   the grey rounded box shows beside it and under it (measured: 1207px of grey to the right and 1512px below at
+   --ui-scale 4.8). The panel is drawn as a full-bleed frame - it carries `overflow: hidden` plus the grey as a
+   fallback fill - so the picture is stretched over it and cropped, the same treatment app.min.css already gives
+   the hover-effect canvas in this very panel (`.decoration-section canvas`). `top` keeps the design's crop: the
+   illustration is anchored to the top and its lower edge is the part the design trims (verified pixel-identical
+   at 1280, 1920, 2560, 3200 and 3840 where the panel already fitted the picture). */
+html .main-wrapper .decoration-section img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  -o-object-fit: cover;
+  object-fit: cover;
+  object-position: top center;
+}
+
+
+/* =====================================================================================================
+   Fit: nothing may push the page sideways.
+   ===================================================================================================== */
+
+/* Less empty space above the page title: the stock `py-3` (1rem) top padding on every screen's container
+   is halved. Bootstrap's spacing utilities are !important, hence this one too. */
+.page-wrapper > .container-fluid.py-3 {
+  padding-top: calc(14px * var(--ui-scale)) !important;
+}
+
+.content-page {
+  min-width: 0;
+  overflow-x: clip;
+}
+
+img, video {
+  max-width: 100%;
+}
+
+/* Super-wide: past 2400 design px (only ultrawide monitors get there once --ui-scale has grown) a screen's
+   content stops widening and centres, so a 32:9 display reads as one focused workspace instead of rows
+   stretched thin across a metre of glass. */
+.page-wrapper > :is(.container-fluid, .msec-page, .cr-page) {
+  /* width: 100% matters: .page-wrapper is a flex column, and an item with auto inline margins in a flex
+     column does NOT stretch - it shrinks to its content and centres. That is what left the Campaign
+     Overview narrower than the top bar with a gap on each side. */
+  width: 100%;
+  max-width: calc(2400px * var(--ui-scale));
+  margin-inline: auto;
+}
+
+/* Cards and their text never define the width of their column. */
+[data-tone],
+[data-tone] > *,
+.card,
+.card-body {
+  min-width: 0;
+}
+
+[data-tone] :is(h1, h2, h3, h4, h5, h6, p, a, label) {
+  overflow-wrap: anywhere;
+}
+
+/* Wide tables scroll inside their own wrapper instead of stretching the page. */
+:is(.table-responsive, [class*="table-wrap"], [class*="table-scroll"], [class*="table-container"], [class*="table-card"], [class*="tbl-wrap"]) {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Overlays never outgrow the screen. */
+:is([class*="-drawer"], [class*="-sheet"], [class*="offcanvas"]):not(.offcanvas-backdrop) {
+  max-width: 100vw;
+}
+/* Anchored pickers and popovers (date pickers, menus) keep a gutter inside a phone-width window. */
+:is([class*="-dp-pop"], [class*="-popover"], [class*="-menu-pop"]) {
+  max-width: calc(100vw - 24px);
+}
+
+
+/* =====================================================================================================
+   Below 1280px: KPI / summary strips reflow instead of cramming N columns into a narrow window.
+   (Campaign Detail .cd-kpi-grid and the dashboard .kpi-strip lay themselves out; they are not listed.)
+   ===================================================================================================== */
+
+@media (max-width: 1279.98px) {
+  :is(.kpi-grid, .kpi-cards, .stat-grid, .stats-row, .summary-grid, .summary-cards, .summary-strip, .tam-metrics,
+      .ab-kpis, .ct-summary-grid, .ct-kpi-grid, .div-kpi-grid, .lq-kpi-row, .pci-totals-grid, .rwn-summary-grid,
+      .details-summary-row, .tz-stats, .tz-view-summary, .tz-details-summary, .sh-stats, .pr-totals, .metric-grid, .dl-kpis) {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)) !important;
+    gap: 12px !important;
+  }
+}
+
+
+/* =====================================================================================================
+   Tablet and below
+   ===================================================================================================== */
+
+@media (max-width: 991.98px) {
+  .content-page .container-fluid {
+    padding-inline: 16px !important;
+  }
+}
+
+/* =====================================================================================================
+   Phone
+   ===================================================================================================== */
+
+@media (max-width: 575.98px) {
+  .content-page .container-fluid {
+    padding-inline: 12px !important;
+    padding-block: 12px !important;
+  }
+
+  /* Stat tiles: two per row. */
+  :is(.kpi-grid, .kpi-cards, .stat-grid, .stats-row, .summary-grid, .summary-cards, .summary-strip, .tam-metrics,
+      .ab-kpis, .ct-summary-grid, .ct-kpi-grid, .div-kpi-grid, .lq-kpi-row, .pci-totals-grid, .rwn-summary-grid,
+      .details-summary-row, .tz-stats, .tz-view-summary, .tz-details-summary, .sh-stats, .pr-totals, .metric-grid, .dl-kpis) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .modal-dialog {
+    margin: 8px !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+}
+
+/* Very small phones: one per row. */
+@media (max-width: 379.98px) {
+  :is(.kpi-grid, .kpi-cards, .stat-grid, .stats-row, .summary-grid, .summary-cards, .summary-strip, .tam-metrics,
+      .ab-kpis, .ct-summary-grid, .ct-kpi-grid, .div-kpi-grid, .lq-kpi-row, .pci-totals-grid, .rwn-summary-grid,
+      .details-summary-row, .tz-stats, .tz-view-summary, .tz-details-summary, .sh-stats, .pr-totals, .metric-grid, .dl-kpis) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

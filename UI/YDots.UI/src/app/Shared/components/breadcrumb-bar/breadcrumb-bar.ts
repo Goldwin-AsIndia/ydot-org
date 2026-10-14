@@ -100,6 +100,7 @@ const SCREEN_LABEL_OF: Record<string, string> = {
   // Donors and Leads: every relationship screen ends its trail at the SCREEN name — the person's
   // name (the Donor 360 / Communication Timeline h1) never becomes the tail.
   '/app/fundraising/relationships/lead-work-queue': 'Lead Work Queue',
+  '/app/fundraising/relationships/lead-profile': 'Lead Profile',
   '/app/fundraising/relationships/lead-capture': 'Lead Capture',
   '/app/fundraising/relationships/my-leads': 'My Leads',
   '/app/fundraising/relationships/communication-timeline': 'Communication Timeline',
@@ -200,6 +201,11 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
       this.marked = source;
     }
     const page = source ? this.labelOf(source) : this.fromUrl();
+    // Same-URL detail view (Lead Work Queue View → Lead Profile madhiri): page-la
+    // data-crumb-screen irundha adhu dhaan screen label — person name (h1) vara koodadhu.
+    // Result: "Home / Lead Work Queue / Lead Profile", NOT "Home / Gopal Krishnan".
+    const screenEl = area.querySelector('[data-crumb-screen]');
+    const screenLabel = (screenEl?.getAttribute('data-crumb-screen') ?? '').replace(/\s+/g, ' ').trim();
     // The screen's own title: the kicker's last step, or the page heading when the kicker names only the module.
     // Kicker-e illadha screen (profile madhiri) h1-la irundhey edukkanum — illana tail missing aayidum.
     let own = page[page.length - 1] ?? '';
@@ -212,23 +218,29 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
       if (h1Title && h1Title.length <= 60) own = h1Title;
     }
     const url = this.router.url.split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase();
-    const next = this.build(page, own);
-    this.recordJourney(url, own || this.lastSegment(url));
+    // Screen label priority: same-URL detail marker (data-crumb-screen) > static map (SCREEN_LABEL_OF)
+    // > page kicker/h1. Person name (Lead Profile h1 "Gopal Krishnan" madhiri) eppovum trail-la vara koodadhu.
+    const resolved = (screenLabel || this.screenLabelOf(url) || own || this.lastSegment(url)).replace(/\s+/g, ' ').trim();
+    const next = this.build(page, resolved, screenLabel);
+    // Same-URL detail view (Lead Profile) journey-la record aaga koodadhu — underlying list-view
+    // label ("Lead Work Queue") dhaan adhutha page-ku "vandha vazhi"-ya irukkanum.
+    if (!screenLabel) this.recordJourney(url, resolved);
     const prevCrumbs = this.crumbs();
     if (next.length !== prevCrumbs.length || next.some((c, i) => c.label !== prevCrumbs[i].label || c.link !== prevCrumbs[i].link)) this.crumbs.set(next);
   }
 
-  /** Home, then the page you came FROM (link back), then the current screen (text only).
+  /** Home, middle (link back), current screen (text only).
    *
-   *  - Menu-la irukura page-ah MENU-la click panna: "Home / <screen>" mattum. Vandha vazhi seraadhu.
-   *    (Follow-ups-la irundhu All Donors-ah menu-la click panna "Home / All Donors" dhaan —
-   *    "Home / Follow-ups / All Donors" nu reverse aaga koodadhu.)
-   *  - Page-kulla irundhu oru ACTION mooliyama pona (Lead Work Queue → Communicate):
+   *  - Menu page direct open / menu click: "Home / <screen>" mattum (vandha vazhi seraadhu).
+   *    (Follow-ups-la irundhu All Donors-ah menu-la click panna "Home / All Donors" dhaan.)
+   *  - Same-URL detail view (Lead Work Queue View → Lead Profile): menu page + screen label —
+   *    "Home / Lead Work Queue / Lead Profile". Person name (Gopal Krishnan) vara koodadhu.
+   *  - Page-kulla ACTION mooliyama vera URL-ku pona (Lead Work Queue → Communicate):
    *    "Home / Lead Work Queue / Communication Timeline".
-   *  - Refresh / deep link (vandha vazhi theriyadhu): PARENT_ROUTE_OF parent + own label.
+   *  - Refresh / deep link detail page: PARENT_ROUTE_OF parent + own label.
    *  Group/module headers (Donors & Leads madhiri) eppovum trail-la varaadhu — pages mattum.
    */
-  private build(page: string[], own: string): Crumb[] {
+  private build(page: string[], own: string, screenLabel: string): Crumb[] {
     const url = this.router.url.split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase();
     // DASHBOARD-ku breadcrumb vaendaam — page-ku thani header (date / greeting / actions) irukkaala
     // trail theva illa. Empty trail-ah rendu: bar-kulla nav-e render aagadhu (breadcrumb-bar.html @if).
@@ -236,6 +248,17 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
 
     const trail: Crumb[] = [{ label: 'Home', link: HOME }];
     const current = this.title(own || this.lastSegment(url));
+
+    // Same-URL detail view (Lead Work Queue View → Lead Profile): menu page + screen label.
+    // View click route maaradhu — so journey/`isMenuPage` logic inga work aagaadhu; marker dhaan aadharam.
+    if (screenLabel) {
+      const menuLabel = this.menuCrumbOf(url) || this.title(this.lastSegment(url));
+      if (menuLabel.toLowerCase() !== current.toLowerCase()) {
+        trail.push({ label: this.title(menuLabel), link: url });
+      }
+      trail.push({ label: current });
+      return trail;
+    }
 
     // Menu row exact-ah match aana — idhu MENU click (illa) direct open. Vandha vazhi sera koodadhu:
     // "Home / <screen>" mattum. Menu-kulla ulla pages-ku idhu dhaan rule (Lead Work Queue,
