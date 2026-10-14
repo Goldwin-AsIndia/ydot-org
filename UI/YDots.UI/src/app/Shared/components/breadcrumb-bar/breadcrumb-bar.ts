@@ -21,8 +21,7 @@ const PARENT_ROUTE_OF: Record<string, string> = {
   '/app/administration/access/user-details': '/app/administration/access/user-directory',
   '/app/administration/users/bulk-actions': '/app/administration/access/user-directory',
   '/app/administration/access/create-user': '/app/administration/access/user-directory',
-  // Withdrawn from the sidebar; reached from a person's profile and from Organisation Settings.
-  '/app/administration/access/access-preview': '/app/administration/access/user-directory',
+  // Withdrawn from the sidebar; reached from Organisation Settings.
   '/app/configuration/payment/gateways': '/app/administration/organisation/settings',
   '/app/administration/users/security': '/app/administration/access/user-directory',
   '/app/administration/users/login-identifier-change': '/app/administration/access/user-directory',
@@ -90,7 +89,6 @@ const SCREEN_LABEL_OF: Record<string, string> = {
   '/app/administration/access/user-details': 'User Details',
   '/app/administration/users/bulk-actions': 'Bulk Actions',
   '/app/administration/access/create-user': 'Create User',
-  '/app/administration/access/access-preview': 'Access Preview',
   '/app/configuration/payment/gateways': 'Payment Gateways',
   '/app/administration/users/security': 'User Security',
   '/app/administration/users/login-identifier-change': 'Login Identifier Change',

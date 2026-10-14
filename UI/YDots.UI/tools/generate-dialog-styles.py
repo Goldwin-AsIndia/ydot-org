@@ -11,7 +11,7 @@ OUT = pathlib.Path(__file__).resolve().parent.parent / "src" / "styles" / "ydot-
 # Host elements per module. Campaigns are deliberately absent: their dialogs keep their own designs. The
 # document viewer (a dark lightbox for previewing files) keeps its own look too.
 MODULES = {
-    "admin": ["app-access-preview", "app-access-request", "app-bulk-user-administration", "app-create-user",
+    "admin": ["app-access-request", "app-bulk-user-administration", "app-create-user",
               "app-login-identifier-change", "app-menu-configuration", "app-menu-mapping", "app-mfa-enrollment",
               "app-my-security", "app-role-catalogue", "app-user-details", "app-user-directory",
               "app-user-profile", "app-user-security"],
