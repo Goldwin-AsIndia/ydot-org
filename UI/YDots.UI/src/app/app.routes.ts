@@ -12,7 +12,6 @@ import { UserProfileComponent } from './Features/YDot/Administration/user-profil
 import { UserDetailsComponent } from './Features/YDot/Administration/user-details/user-details';
 import { RoleCatalogueComponent } from './Features/YDot/Administration/role-catalogue/role-catalogue';
 import { AccessRequestComponent } from './Features/YDot/Administration/access-request/access-request';
-import { AccessPreviewComponent } from './Features/YDot/Administration/access-preview/access-preview';
 import { MySecurityComponent } from './Features/YDot/Administration/my-security/my-security';
 import { MfaEnrollmentComponent } from './Features/YDot/Administration/my-security/mfa-enrollment/mfa-enrollment';
 import { ExecutiveDashboardComponent } from './Features/YDot/Workspace/executive-dashboard/executive-dashboard';
@@ -234,15 +233,6 @@ export const routes: Routes = [
       // Self-service: everybody manages their own sign-in security, so no permission gate.
       { path: 'administration/access/my-security', component: MySecurityComponent },
       { path: 'administration/access/my-security/mfa-enrol', component: MfaEnrollmentComponent },
-      // IAM-USR-03 — Access preview.
-      //
-      // ITS OWN COMPONENT, AND IT HAD TO BE. This pointed at AccessReviewCampaignComponent, so
-      // the menu entry opened the recertification screen instead - a page that exists, renders
-      // and answers an entirely different question. "What can this person do?" has no workflow
-      // attached; a review campaign is nothing but workflow. The permission guard was already
-      // right, which is what made the mis-wire hard to notice: the screen loaded, so nothing
-      // looked broken.
-      { path: 'administration/access/access-preview', component: AccessPreviewComponent, canActivate: [organisationContextGuard, requirePermission('iam.permissions.view')] },
 
       // ===== Configuration =====
       //
@@ -643,10 +633,6 @@ export const routes: Routes = [
   {
     path: 'administration/access/my-security/mfa-enrol',
     redirectTo: '/app/administration/access/my-security/mfa-enrol',
-  },
-  {
-    path: 'administration/access/access-preview',
-    redirectTo: '/app/administration/access/access-preview',
   },
   {
     path: 'administration/users/:userReference/security',

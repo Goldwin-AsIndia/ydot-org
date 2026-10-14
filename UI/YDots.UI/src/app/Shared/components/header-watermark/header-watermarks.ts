@@ -136,7 +136,6 @@ const I = WATERMARK_ICONS;
 /** Screen -> its one watermark icon. Keyed by template name. One entry, one icon. */
 export const headerWatermarks = {
   // Administration
-  'access-preview': I.eye,
   'access-request': I.userCheck,
   'audit-trail': I.fileSearch,
   'bulk-user-administration': I.users,

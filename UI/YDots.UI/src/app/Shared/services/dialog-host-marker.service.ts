@@ -3,7 +3,6 @@ import { Injectable, inject } from '@angular/core';
 
 /** The screens whose pop-ups and drawers take the shared dialog design (styles/ydot-dialogs.css). */
 const DIALOG_HOSTS = [
-  'app-access-preview',
   'app-access-request',
   'app-bulk-user-administration',
   'app-create-user',
@@ -85,7 +84,7 @@ const DIALOG_HOSTS = [
 /**
  * STAMPS `data-dg-host` ON THE SCREENS THE SHARED DIALOG DESIGN APPLIES TO.
  *
- * ydot-dialogs.css used to scope every rule with `:is(app-access-preview, app-access-request, ... )`
+ * ydot-dialogs.css used to scope every rule with `:is(app-access-request, app-bulk-user-administration, ... )`
  * - eighty tag names. A browser has to test each ancestor of an element against that whole list, and
  * with a hundred and fifty such rules that was about 130 ms of style recalculation on every page
  * navigation, which is the lag people felt moving between menu items. One attribute is a single

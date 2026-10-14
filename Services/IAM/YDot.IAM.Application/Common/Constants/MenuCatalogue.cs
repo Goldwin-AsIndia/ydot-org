@@ -157,16 +157,19 @@ public static class MenuCatalogue
         new(Administration, "Users & Access", null, MenuLevel.Menu, "IAM",
             null, "users", null, 70),
 
-        // FIVE ADMINISTRATION SCREENS HAVE COME OFF THE SIDEBAR, by request: Invite or Create
-        // User, User Profile and Access, Access Preview, My Security and the Configuration branch
-        // (Payment Gateways). The test is the one the Fundraising nodes below use - "is there
-        // already a way in" - and each of the five has one:
+        // FOUR ADMINISTRATION SCREENS HAVE COME OFF THE SIDEBAR, by request: Invite or Create
+        // User, User Profile and Access, My Security and the Configuration branch (Payment
+        // Gateways). The test is the one the Fundraising nodes below use - "is there already a
+        // way in" - and each of the four has one:
         //
         //   Invite or Create User    Users, the Invite button
         //   User Profile and Access  Users (a row), and Profile in the top-bar menu
-        //   Access Preview           User Profile and Access, the Access preview button
         //   My Security              My Security in the top-bar menu, which every role keeps
         //   Payment Gateways         Organisation > Settings, the Payment gateways button
+        //
+        // Access Preview (ADMIN_ACCESS_PREVIEW) is gone altogether, by request on 2026-10-14: the
+        // screen, its route and its button on User Profile and Access were deleted. Its API
+        // (GET users/{id}/access) stays, because User Details reads it. Do not restore the line.
         //
         // WITHDRAWN, NOT DELETED. The routes, the screens, their permissions and the API behind
         // them are untouched; the start-up reconciliation retires each definition and drops the
@@ -177,8 +180,6 @@ public static class MenuCatalogue
         //       "/app/administration/access/create-user", "user-plus", PermissionCodes.UsersCreate, 15),
         //   new("ADMIN_USER_PROFILE", "User Profile and Access", Administration, MenuLevel.SubMenu, "IAM",
         //       "/app/administration/access/user-profile-and-access", "user", PermissionCodes.UsersView, 16),
-        //   new("ADMIN_ACCESS_PREVIEW", "Access Preview", Administration, MenuLevel.SubMenu, "IAM",
-        //       "/app/administration/access/access-preview", "eye", PermissionCodes.PermissionsView, 45),
         //   new("ADMIN_CONFIGURATION", "Configuration", Administration, MenuLevel.SubMenu, "IAM",
         //       null, "settings", PermissionCodes.PaymentGatewaysView, 60),
         //   new("ADMIN_PAYMENT_GATEWAYS", "Payment Gateways", "ADMIN_CONFIGURATION", MenuLevel.ChildSubMenu, "IAM",

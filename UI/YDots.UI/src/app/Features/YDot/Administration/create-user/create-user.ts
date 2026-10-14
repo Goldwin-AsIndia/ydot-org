@@ -193,9 +193,10 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     primaryRoleId: 2, additionalRoleIds: 2, dataScopeType: 2, dataScopes: 2,
     accessStartsAtUtc: 2, accessEndsAtUtc: 2, accessReviewDueAtUtc: 2,
     approverUserId: 2, businessJustification: 2,
+    // Two-step verification is asked on the Access step ("Window & security"), not on Review.
+    mfaRequirement: 2, preferredMfaMethod: 2,
 
-    credentialSetupMethod: 3, temporaryPassword: 3, mfaRequirement: 3,
-    preferredMfaMethod: 3, sendInvitationNow: 3, welcomeMessage: 3,
+    credentialSetupMethod: 3, temporaryPassword: 3, sendInvitationNow: 3, welcomeMessage: 3,
   };
 
   /** The server's complaint about one field, if it made one. */
@@ -218,7 +219,8 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     preferredName: 'cuPreferred', email: 'cuEmail', username: 'cuUsername', mobileCountryCode: 'cuCode',
     mobileNumber: 'cuMobile', employeeNumber: 'cuEmployee', organisationUnitId: 'cuUnit',
     departmentId: 'cuDept', designation: 'cuDesignation', workLocation: 'cuLocation',
-    primaryRoleId: 'cuRole', businessJustification: 'cuJustification',
+    primaryRoleId: 'cuRole', dataScopeType: 'cuScope', mfaRequirement: 'cuMfa',
+    businessJustification: 'cuJustification',
   };
 
   private focusFirstInvalid(step: number): void {
@@ -229,13 +231,19 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
     }
   }
 
-  /** The fields each step checks, in screen order. */
+  /**
+   * The fields each step checks, in screen order.
+   *
+   * Two-step verification belongs to Access because that is where it is rendered. It used to be
+   * listed under Review, so "Continue to Review" let a blank choice through while the field
+   * showed red on a step already left behind.
+   */
   private static readonly STEP_FIELDS: string[][] = [
     ['firstName', 'lastName', 'displayName', 'preferredName', 'email', 'username',
       'mobileCountryCode', 'mobileNumber', 'employeeNumber'],
     ['organisationUnitId', 'departmentId', 'designation', 'workLocation'],
-    ['primaryRoleId', 'dataScopeType', 'businessJustification'],
-    ['mfaRequirement'],
+    ['primaryRoleId', 'dataScopeType', 'mfaRequirement', 'businessJustification'],
+    [],
   ];
 
   /**
@@ -427,19 +435,16 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
 
   readonly accessComplete = computed(() =>
     // The API insists on a justification of at least ten characters: granting access without a
-    // recorded reason is exactly what an access review later has no answer for.
+    // recorded reason is exactly what an access review later has no answer for. Two-step
+    // verification is an enum the API requires, so it must be chosen here too.
     CreateUserComponent.STEP_FIELDS[2].every((field) => this.localError(field) === null),
   );
-
-  /** Security step: two-step verification is an enum the API requires, so it must be chosen. */
-  readonly securityComplete = computed(() => this.localError('mfaRequirement') === null);
 
   readonly canSubmit = computed(
     () =>
       this.identityComplete() &&
       this.organisationComplete() &&
       this.accessComplete() &&
-      this.securityComplete() &&
       !this.submitting(),
   );
 
@@ -700,15 +705,30 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
   goToStep(index: number): void {
     this.openDd.set(null);
 
-    // Forward movement is gated on the current step being complete; going back never is, so a
-    // half-finished form is never a trap.
-    if (index <= this.activeStep() || this.isStepComplete(this.activeStep())) {
+    // Going back is never gated, so a half-finished form is never a trap.
+    if (index <= this.activeStep()) {
       this.activeStep.set(index);
       this.submitted.set(false);
+      return;
+    }
+
+    // Forward through the rail walks the same gate as Continue, one step at a time: it used to
+    // check only the current step, so clicking Review from Identity skipped every step between.
+    // It stops on the first step that is not complete.
+    while (this.activeStep() < index && this.advanceFromCurrentStep()) {
+      // advanceFromCurrentStep moves one step on success.
     }
   }
 
   nextStep(): void {
+    this.advanceFromCurrentStep();
+  }
+
+  /**
+   * Moves one step on when the current step is complete; otherwise stays, shows the messages
+   * under each field and focuses the first one needing attention. True when it moved.
+   */
+  private advanceFromCurrentStep(): boolean {
     this.openDd.set(null);
 
     if (!this.isStepComplete(this.activeStep())) {
@@ -720,16 +740,17 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
       this.errorMessage.set('');
       this.submitted.set(true);
       this.focusFirstInvalid(this.activeStep());
-      return;
+      return false;
     }
 
     // The e-mail / username check is the server's word on "already in use": stay here until it is clean.
     if (this.activeStep() === 0 && !this.identityPasses()) {
-      return;
+      return false;
     }
 
     this.activeStep.update((step) => Math.min(step + 1, this.steps.length - 1));
     this.submitted.set(false);
+    return true;
   }
 
   /** False (with the message under the field) while the server says the e-mail or username is taken. */
@@ -823,7 +844,7 @@ export class CreateUserComponent implements OnInit, HasPendingChanges {
       case 0: return this.identityComplete();
       case 1: return this.organisationComplete();
       case 2: return this.accessComplete();
-      case 3: return this.securityComplete();
+      // Review has nothing required of its own.
       default: return true;
     }
   }
