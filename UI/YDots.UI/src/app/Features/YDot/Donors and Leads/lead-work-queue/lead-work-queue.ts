@@ -1,7 +1,6 @@
 import { CommonModule, DOCUMENT } from '@angular/common';
 import {
   afterNextRender,
-  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -9,7 +8,6 @@ import {
   ElementRef,
   inject,
   signal,
-  viewChild,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -18,6 +16,7 @@ import { debounceTime, Subject, Subscription } from 'rxjs';
 import { DonorApiService } from '../../../../Service/donor-api.service';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
+import { LeadProfileComponent } from '../lead-profile/lead-profile';
 import {
   DonLookupItem,
   LeadListItem,
@@ -25,12 +24,12 @@ import {
   LeadWorkQueueResponse,
   QueueView,
 } from '../../../../Shared/models/donor-contract.model';
-
+ 
 export type UiState = 'ready' | 'loading' | 'success' | 'error' | 'empty';
-
+ 
 /** The owner filter's "nobody" choice - sent to the server as assignmentState=Unassigned. */
 const UNASSIGNED_OWNER = '__unassigned__';
-
+ 
 /**
  * One row of the queue, as this screen draws it.
  *
@@ -72,13 +71,13 @@ export interface LeadItem {
   readonly version: number;
   readonly permittedActions: readonly string[];
 }
-
+ 
 export interface PipelineStage {
   readonly key: string;
   readonly label: string;
   readonly count: number;
 }
-
+ 
 export interface LeadQueuePermissions {
   readonly view: boolean;
   readonly create: boolean;
@@ -87,7 +86,7 @@ export interface LeadQueuePermissions {
   readonly schedule: boolean;
   readonly export: boolean;
 }
-
+ 
 /** Nothing until the server answers. A screen that assumes permissions shows buttons that 403. */
 const NO_PERMISSIONS: LeadQueuePermissions = {
   view: false,
@@ -97,7 +96,7 @@ const NO_PERMISSIONS: LeadQueuePermissions = {
   schedule: false,
   export: false,
 };
-
+ 
 /**
  * THE TABS ACROSS THE TOP ARE THE SERVER'S VIEWS - its `views`, each with its words and its
  * scope-wide count. The screen used to keep seven names of its own and translate each into query
@@ -105,7 +104,7 @@ const NO_PERMISSIONS: LeadQueuePermissions = {
  * count on a tab and the rows under it cannot disagree.
  */
 const ALL_VIEW = 'all';
-
+ 
 /** The icon each view is drawn with - presentation only; a view this does not know gets a list icon. */
 const VIEW_GLYPHS: Readonly<Record<string, string>> = {
   all: 'ri-stack-line',
@@ -116,7 +115,7 @@ const VIEW_GLYPHS: Readonly<Record<string, string>> = {
   recent: 'ri-time-line',
   converted: 'ri-hand-heart-line',
 };
-
+ 
 /**
  * SCR-DON-001 - Lead Queue. The document's central list page.
  *
@@ -142,7 +141,7 @@ const VIEW_GLYPHS: Readonly<Record<string, string>> = {
   selector: 'app-lead-work-queue',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RowsPerPage, CommonModule, FormsModule],
+  imports: [RowsPerPage, CommonModule, FormsModule, LeadProfileComponent],
   templateUrl: './lead-work-queue.html',
   styleUrl: './lead-work-queue.css',
 })
@@ -150,13 +149,12 @@ export class LeadWorkQueueComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(DonorApiService);
-
+ 
   private readonly document = inject(DOCUMENT);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
   private readonly searchChanges = new Subject<void>();
   private loadSubscription?: Subscription;
-  protected readonly previewDialog = viewChild<ElementRef<HTMLDialogElement>>('leadDialog');
   protected readonly optionSearch = signal<Partial<Record<string, string>>>({});
   protected readonly filterFields = computed(() => {
     const options = this.filterOptions();
@@ -188,17 +186,17 @@ export class LeadWorkQueueComponent {
       },
     ];
   });
-
+ 
   protected onSearchChange(value: string): void {
     this.searchTerm.set(value);
     this.pageIndex.set(1);
     this.searchChanges.next();
   }
-
+ 
   protected setOptionSearch(key: string, value: string): void {
     this.optionSearch.update((current) => ({ ...current, [key]: value }));
   }
-
+ 
   protected matchingOptions(
     key: string,
     options: readonly DonLookupItem[],
@@ -209,7 +207,7 @@ export class LeadWorkQueueComponent {
       (option) => option.value === selected || option.label.toLocaleLowerCase().includes(query),
     );
   }
-
+ 
   protected setFilterValue(key: string, value: string): void {
     // An explicit choice that contradicts the open view supersedes it - the SERVER decides that
     // and answers the view in effect as `activeView`, so the tab follows the rows.
@@ -230,27 +228,13 @@ export class LeadWorkQueueComponent {
         this.ownerFilter.set(value);
         break;
     }
-
+ 
     // A CHOICE IN THE PANEL TAKES EFFECT AT ONCE. It used to wait for "Apply filters", so choosing
     // a temperature or an owner appeared to do nothing until a second button was found and pressed.
     this.pageIndex.set(1);
     this.load();
   }
-
-  protected onPreviewBackdrop(event: MouseEvent): void {
-    const dialog = this.previewDialog()?.nativeElement;
-    if (!dialog || event.target !== dialog) return;
-    const bounds = dialog.getBoundingClientRect();
-    if (
-      event.clientX < bounds.left ||
-      event.clientX > bounds.right ||
-      event.clientY < bounds.top ||
-      event.clientY > bounds.bottom
-    ) {
-      this.closePreview();
-    }
-  }
-
+ 
   // ===========================================================================================
   // Screen chrome. Signals rather than constants, because the server supplies them.
   // ===========================================================================================
@@ -263,13 +247,13 @@ export class LeadWorkQueueComponent {
     lastRefresh: '',
     breadcrumb: ['Fundraising', 'Relationships', 'Lead Queue'] as readonly string[],
   });
-
+ 
   protected readonly uiState = signal<UiState>('loading');
   protected readonly errorMessage = signal<string>('');
-
+ 
   protected readonly permissions = signal<LeadQueuePermissions>(NO_PERMISSIONS);
   protected readonly pipeline = signal<readonly PipelineStage[]>([]);
-
+ 
   /** The lanes - the server's views with their words and counts. Empty until it answers. */
   protected readonly savedViews = signal<readonly QueueView[]>([]);
   protected readonly filterOptions = signal<{
@@ -279,7 +263,7 @@ export class LeadWorkQueueComponent {
     readonly sources: readonly DonLookupItem[];
   }>({ stages: [], temperatures: [], potentials: [], sources: [] });
   protected readonly ownerOptions = signal<readonly DonLookupItem[]>([]);
-
+ 
   // ===========================================================================================
   // Filter state. Every one of these re-queries the server.
   // ===========================================================================================
@@ -291,40 +275,39 @@ export class LeadWorkQueueComponent {
   protected readonly sourceFilter = signal<string>('');
   protected readonly ownerFilter = signal<string>('');
   protected readonly showFilters = signal(false);
-
+ 
   /**
    * How the queue is ordered - the server's orders, and THE SERVER ORDERS IT, because the grid is
    * paged. The first is the work-queue order (next contact due soonest), which puts a lead
    * captured a moment ago at the very end - so "Newest first" is the way to find it.
    */
   protected readonly sortOptions = signal<readonly DonLookupItem[]>([]);
-
+ 
   /** The chosen order; empty is the server's default (its first option). */
   protected readonly sortOrder = signal<string>('');
-
+ 
   protected setSortOrder(value: string): void {
     this.sortOrder.set(value);
     this.pageIndex.set(1);
     this.load();
   }
-
+ 
   // Paging. The server pages the queue; these are the page asked for and its size.
   protected readonly pageSizes = [10, 20, 30, 40, 50] as const;
   protected readonly pageIndex = signal(1);
   protected readonly pageSize = signal(10);
-
+ 
   protected readonly leads = signal<readonly LeadItem[]>([]);
   protected readonly totalCount = signal(0);
   protected readonly selectedIds = signal<Set<string>>(new Set());
   protected readonly selectedLead = signal<LeadItem | null>(null);
-  protected readonly copiedField = signal<string | null>(null);
-
+ 
   constructor() {
     this.searchChanges
       .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.load());
     this.destroyRef.onDestroy(() => this.loadSubscription?.unsubscribe());
-
+ 
     // THE SELECTION BAR IS STICKY, and sticky needs the window to be its scroller. The shell's
     // `.content-page` carries `overflow-y: auto` without ever scrolling, which traps it; clip it
     // while this screen is up and put it back on the way out.
@@ -338,19 +321,6 @@ export class LeadWorkQueueComponent {
     this.destroyRef.onDestroy(() => {
       if (column) column.style.overflow = overflow;
     });
-    afterRenderEffect((onCleanup) => {
-      const lead = this.selectedLead();
-      const dialog = this.previewDialog()?.nativeElement;
-      if (!lead || !dialog) return;
-      const previousOverflow = this.document.body.style.overflow;
-      this.document.body.style.overflow = 'hidden';
-      if (!dialog.open) dialog.showModal();
-      onCleanup(() => {
-        if (dialog.open) dialog.close();
-        this.document.body.style.overflow = previousOverflow;
-      });
-    });
-
     // Coming back from Lead Capture. The reference is the API's, not one this browser minted,
     // so the row it opens is the row that was actually saved. The newest lead has no contact
     // planned, so in the default order it would sit on the last page: show newest first.
@@ -361,16 +331,16 @@ export class LeadWorkQueueComponent {
     }
     this.load();
   }
-
+ 
   private openAfterLoad: string | null = null;
-
+ 
   /** Back from Lead Capture: show the newest first, once, so the lead just saved is on page one. */
   private newestFirstOnce = false;
-
+ 
   // ===========================================================================================
   // Loading
   // ===========================================================================================
-
+ 
   /**
    * One call fills the whole screen.
    *
@@ -380,7 +350,7 @@ export class LeadWorkQueueComponent {
   private load(): void {
     this.uiState.set('loading');
     this.errorMessage.set('');
-
+ 
     this.loadSubscription?.unsubscribe();
     this.loadSubscription = this.api
       .getLeadWorkQueue(this.buildFilter())
@@ -393,7 +363,7 @@ export class LeadWorkQueueComponent {
         },
       });
   }
-
+ 
   /** The saved view and the filter controls, translated into the API's query string. */
   private buildFilter(): LeadWorkQueueFilter {
     const filter: LeadWorkQueueFilter = {
@@ -405,29 +375,29 @@ export class LeadWorkQueueComponent {
       donationPotential: this.potentialFilter() || null,
       source: this.sourceFilter() || null,
     };
-
+ 
     const owner = this.ownerFilter();
     if (owner === UNASSIGNED_OWNER) {
       filter.assignmentState = 'Unassigned';
     } else if (owner) {
       filter.ownerUserId = owner;
     }
-
+ 
     // The chosen order, as the server names it. Back from Lead Capture: newest first, once.
     const sort = this.newestFirstOnce ? 'newest' : this.sortOrder();
     if (sort) {
       filter.sort = sort;
     }
-
+ 
     // THE VIEW BY NAME. The server turns it into the filter it stands for - the Recently Added
     // window, the Converted rows the queue otherwise hides, and so on.
     if (this.savedView() !== ALL_VIEW) {
       filter.view = this.savedView();
     }
-
+ 
     return filter;
   }
-
+ 
   private applyResponse(response: LeadWorkQueueResponse): void {
     // A page past the end (the set shrank since it was asked for): step back to the last page.
     const lastPage = Math.max(1, Math.ceil(response.leads.totalCount / this.pageSize()));
@@ -441,18 +411,18 @@ export class LeadWorkQueueComponent {
       (response.contactOutcomeOptions ?? []).map((option) => [option.value, option.label]),
     );
     this.potentialOrder = (response.donationPotentialOptions ?? []).map((option) => option.value);
-
+ 
     this.leads.set(response.leads.items.map((row) => this.toRow(row)));
     this.totalCount.set(response.leads.totalCount);
     const visibleIds = new Set(this.filteredLeads().map((lead) => lead.id));
     this.selectedIds.update((ids) => new Set([...ids].filter((id) => visibleIds.has(id))));
-
+ 
     this.screen.update((current) => ({
       ...current,
       scope: response.activeScope,
       lastRefresh: this.formatDateTime(response.lastRefreshedAtUtc),
     }));
-
+ 
     // THE LANES ARE THE SERVER'S VIEWS, counted over the whole scope - not the page, which is a
     // hundred rows at most. The view in effect is the server's word too (`activeView`): an
     // explicit filter that contradicts the open lane supersedes it.
@@ -466,7 +436,7 @@ export class LeadWorkQueueComponent {
       // The picker starts on the server's first order, which is also its default.
       this.sortOrder.set(response.sortOptions?.[0]?.value ?? '');
     }
-
+ 
     this.pipeline.set(
       response.statusOptions.map((option) => ({
         key: option.value,
@@ -474,17 +444,17 @@ export class LeadWorkQueueComponent {
         count: response.statusCounts[option.value] ?? 0,
       })),
     );
-
+ 
     this.filterOptions.set({
       stages: response.statusOptions,
       temperatures: response.temperatureOptions,
       potentials: response.donationPotentialOptions,
-
+ 
       // EVERY SOURCE IN SCOPE, from the server. The list was built from the page of rows on
       // screen, so a source whose leads were all on page two could not be chosen at all.
       sources: response.sourceOptions ?? [],
     });
-
+ 
     // "Unassigned" is the server's Unassigned view word, offered in the owner list as the way to
     // ask for leads nobody owns; the people are the server's owner options.
     const unassigned = (response.views ?? []).find((view) => view.value === 'unassigned');
@@ -492,36 +462,36 @@ export class LeadWorkQueueComponent {
       ...(unassigned ? [{ value: UNASSIGNED_OWNER, label: unassigned.label }] : []),
       ...(response.ownerOptions ?? []),
     ]);
-
+ 
     this.permissions.set(this.toPermissions(response.permittedActions));
-
+ 
     this.uiState.set(this.leads().length === 0 ? 'empty' : 'ready');
-
+ 
     if (this.openAfterLoad) {
       const created = this.leads().find(
         (lead) => lead.id === this.openAfterLoad || lead.reference === this.openAfterLoad,
       );
       if (created) {
-        this.selectedLead.set(created);
+        this.previewLead(created);
       }
       this.openAfterLoad = null;
     }
   }
-
+ 
   /** Outcome value to the server's label for it - "CallbackRequested" to "Requested callback". */
   private outcomeLabels = new Map<string, string>();
-
+ 
   /** The donation potentials in the server's order, lowest first - the bars' scale. */
-  private potentialOrder: readonly string[] = [];
-
+  protected potentialOrder: readonly string[] = [];
+ 
   private toRow(row: LeadListItem): LeadItem {
     const outcome = this.outcomeLabels.get(row.lastContactOutcome) ?? row.lastContactOutcome;
-
+ 
     return {
       id: row.id,
       reference: row.leadReference,
       name: row.name,
-
+ 
       // ALREADY MASKED, OR ALREADY NOT. The server sends '+91 98•••••210' or the real number
       // depending on the caller's permission, so there is nothing left to decide here.
       mobile: row.mobileNumber ?? '',
@@ -550,7 +520,7 @@ export class LeadWorkQueueComponent {
       permittedActions: row.permittedActions ?? [],
     };
   }
-
+ 
   /**
    * The caller's permitted actions, as the server listed them.
    *
@@ -576,17 +546,17 @@ export class LeadWorkQueueComponent {
       assign: has('Assign'),
       communicate: has('Contact'),
       schedule: has('Contact'),
-
+ 
       // ITS OWN VERB, for `don.donors.export`. It was read off Filter/Open, which everybody who
       // can see the queue holds - so the button showed for people the export would refuse.
       export: has('Export'),
     };
   }
-
+ 
   // ===========================================================================================
   // Derived view state
   // ===========================================================================================
-
+ 
   /**
    * The filter-panel choices, as removable tokens.
    *
@@ -612,17 +582,17 @@ export class LeadWorkQueueComponent {
     }
     return tokens;
   });
-
+ 
   /** How many filter-panel fields are set (the stage counts; it lives in the panel too). */
   protected readonly panelFilterCount = computed(
     () => this.filterTokens().length + (this.stageFilter() ? 1 : 0),
   );
-
+ 
   /** Anything narrowing the queue at all - drives the one Reset link. */
   protected readonly isFiltered = computed(
     () => this.savedView() !== ALL_VIEW || !!this.searchTerm().trim() || this.panelFilterCount() > 0,
   );
-
+ 
   /**
    * The rows on screen - the server's page, exactly.
    *
@@ -630,7 +600,7 @@ export class LeadWorkQueueComponent {
    * over one page of a paged set; it is a query parameter now like the rest.
    */
   protected readonly filteredLeads = computed(() => this.leads());
-
+ 
   protected readonly hasResults = computed(() => this.filteredLeads().length > 0);
   protected readonly selectedRows = computed(() =>
     this.filteredLeads().filter((lead) => this.selectedIds().has(lead.id)),
@@ -640,11 +610,11 @@ export class LeadWorkQueueComponent {
     const ids = this.filteredLeads().map((l) => l.id);
     return ids.length > 0 && ids.every((id) => this.selectedIds().has(id));
   });
-
+ 
   // ===========================================================================================
   // Triage desk presentation - lanes, stage shares, due dates, next steps
   // ===========================================================================================
-
+ 
   /**
    * One lane per server view: its words, its hint and its scope-wide count.
    *
@@ -660,7 +630,7 @@ export class LeadWorkQueueComponent {
       value: view.count as number | null | undefined,
     })),
   );
-
+ 
   /** The next contact relative to today, so an overdue lead reads as overdue at a glance. */
   protected dueState(lead: LeadItem): { label: string; tone: 'none' | 'late' | 'today' | 'soon' | 'later' } {
     if (!lead.nextDue) return { label: 'Not planned', tone: 'none' };
@@ -673,14 +643,14 @@ export class LeadWorkQueueComponent {
     if (days === 1) return { label: 'Tomorrow', tone: 'soon' };
     return { label: `In ${days} days`, tone: days <= 7 ? 'soon' : 'later' };
   }
-
+ 
   protected readonly pipelineTotal = computed(() => this.pipeline().reduce((sum, s) => sum + s.count, 0));
-
+ 
   protected stageShare(count: number): number {
     const total = this.pipelineTotal();
     return total > 0 ? Math.round((count / total) * 100) : 0;
   }
-
+ 
   /**
    * The next step recorded on the lead.
    *
@@ -693,7 +663,7 @@ export class LeadWorkQueueComponent {
     if (lead.converted) return 'This lead became a donor - continue on Donor 360.';
     return lead.nextAction || 'No next step has been planned yet.';
   }
-
+ 
   /**
    * The donation link for a lead: the public form, bound to the lead's campaign and carrying the
    * lead itself.
@@ -706,29 +676,29 @@ export class LeadWorkQueueComponent {
     const origin = this.document.defaultView?.location.origin ?? '';
     return `${origin}/auth/donor-form?campaign=${lead.campaignId}&lead=${lead.id}`;
   }
-
+ 
   /** How many of the three bars a potential fills: its place in the server's order, lowest first. */
   protected potentialLevel(potential: string): number {
     const index = this.potentialOrder.indexOf(potential);
     return index < 0 ? 0 : Math.min(3, index + 1);
   }
-
+ 
   // ===========================================================================================
   // Paging
   // ===========================================================================================
-
+ 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize())));
-
+ 
   /** First row number on this page - "Showing 13-24 of 248". */
   protected readonly rangeStart = computed(() =>
     this.totalCount() === 0 ? 0 : (this.pageIndex() - 1) * this.pageSize() + 1,
   );
-
+ 
   /** Last row number on this page (source narrows the page, so it counts the rows shown). */
   protected readonly rangeEnd = computed(() =>
     Math.min(this.totalCount(), this.rangeStart() + Math.max(0, this.filteredLeads().length - 1)),
   );
-
+ 
   /**
    * TWO page numbers: the current page and the next one - 1 2 on page 1, 2 3 on page 2, and so on.
    * On the last page it shows the one before and the last (e.g. 4 5). The arrows step either way.
@@ -741,36 +711,36 @@ export class LeadWorkQueueComponent {
     const to = Math.min(total, from + 1);
     return Array.from({ length: to - from + 1 }, (_, index) => from + index);
   });
-
+ 
   protected goToPage(page: number): void {
     const next = Math.min(Math.max(1, page), this.totalPages());
     if (next === this.pageIndex()) return;
     this.pageIndex.set(next);
     this.load();
   }
-
+ 
   protected setPageSize(size: number): void {
     if (!size || size === this.pageSize()) return;
     this.pageSize.set(size);
     this.pageIndex.set(1);
     this.load();
   }
-
+ 
   protected clearSelection(): void {
     this.selectedIds.set(new Set());
   }
-
+ 
   // ===========================================================================================
   // Filter controls. Each one reloads, because each one is a server filter.
   // ===========================================================================================
-
+ 
   protected selectSavedView(view: string): void {
     this.savedView.set(view);
     this.pageIndex.set(1);
     this.clearAdvancedFilters();
     this.load();
   }
-
+ 
   protected selectPipelineStage(key: string): void {
     const stage = this.pipeline().find((p) => p.key === key);
     if (!stage) {
@@ -781,7 +751,7 @@ export class LeadWorkQueueComponent {
     this.pageIndex.set(1);
     this.load();
   }
-
+ 
   protected removeFilterChip(key: string): void {
     switch (key) {
       case 'view':
@@ -809,7 +779,7 @@ export class LeadWorkQueueComponent {
     this.pageIndex.set(1);
     this.load();
   }
-
+ 
   protected clearAdvancedFilters(): void {
     this.optionSearch.set({});
     this.stageFilter.set('');
@@ -818,7 +788,7 @@ export class LeadWorkQueueComponent {
     this.sourceFilter.set('');
     this.ownerFilter.set('');
   }
-
+ 
   protected clearAllFilters(): void {
     this.savedView.set(ALL_VIEW);
     this.pageIndex.set(1);
@@ -826,26 +796,26 @@ export class LeadWorkQueueComponent {
     this.clearAdvancedFilters();
     this.load();
   }
-
+ 
   protected applyFilters(): void {
     this.showFilters.set(false);
     this.pageIndex.set(1);
     this.load();
   }
-
+ 
   protected toggleFilters(): void {
     this.showFilters.update((v) => !v);
   }
-
+ 
   // ===========================================================================================
   // Selection
   // ===========================================================================================
-
+ 
   protected toggleSelectAll(): void {
     const ids = this.filteredLeads().map((l) => l.id);
     this.selectedIds.set(this.allSelected() ? new Set() : new Set(ids));
   }
-
+ 
   protected toggleSelect(id: string): void {
     const next = new Set(this.selectedIds());
     if (next.has(id)) {
@@ -855,27 +825,36 @@ export class LeadWorkQueueComponent {
     }
     this.selectedIds.set(next);
   }
-
+ 
   protected isSelected(id: string): boolean {
     return this.selectedIds().has(id);
   }
-
+ 
   // ===========================================================================================
   // Row actions - the document's Action-to-Destination matrix
   // ===========================================================================================
-
+ 
+  /** Where the queue was scrolled to, so leaving the lead file puts the reader back on the same row. */
+  private queueScroll = 0;
+ 
   protected previewLead(lead: LeadItem): void {
+    if (!this.selectedLead()) {
+      this.queueScroll = this.document.defaultView?.scrollY ?? 0;
+    }
     this.selectedLead.set(lead);
+    this.document.defaultView?.scrollTo({ top: 0 });
   }
-
+ 
   protected isPreviewed(lead: LeadItem): boolean {
     return this.selectedLead()?.id === lead.id;
   }
-
+ 
   protected closePreview(): void {
     this.selectedLead.set(null);
+    const top = this.queueScroll;
+    setTimeout(() => this.document.defaultView?.scrollTo({ top }));
   }
-
+ 
   /**
    * Assign or Reassign - both open the Assignment Board on this lead, which decides which of the
    * two it is from whether the lead has an owner. A converted lead has left the queue; its donor
@@ -884,32 +863,32 @@ export class LeadWorkQueueComponent {
   protected canRoute(lead: LeadItem): boolean {
     return this.permissions().assign && !lead.converted;
   }
-
+ 
   protected onAssign(lead: LeadItem): void {
     this.router.navigate(['/app/fundraising/relationships/assignment-board'], {
       queryParams: { leadId: lead.id },
     });
   }
-
+ 
   /** Communicate - "opens the selected lead's Communication Timeline". */
   protected onCommunicate(lead: LeadItem): void {
     this.router.navigate(['/app/fundraising/relationships/communication-timeline'], {
       queryParams: { leadId: lead.id },
     });
   }
-
+ 
   /** Schedule Follow-Up - "opens the Follow-Up Planner". */
   protected onSchedule(lead: LeadItem): void {
     this.router.navigate(['/app/don/follow-up-planner'], {
       queryParams: { leadId: lead.id, mode: 'create' },
     });
   }
-
+ 
   /** Open Timeline - the same destination as Communicate, per the document. */
   protected onTimeline(lead: LeadItem): void {
     this.onCommunicate(lead);
   }
-
+ 
   protected bulkAssign(): void {
     if (this.selectionCount() === 0) {
       return;
@@ -922,19 +901,19 @@ export class LeadWorkQueueComponent {
       },
     });
   }
-
+ 
   protected createLead(): void {
     this.router.navigate(['/app/fundraising/relationships/lead-capture']);
   }
-
+ 
   // ===========================================================================================
   // Closing a lead
   // ===========================================================================================
-
+ 
   /** What the last close did, shown above the queue. */
   protected readonly closeNotice = signal<{ readonly text: string; readonly failed: boolean } | null>(null);
   protected readonly closing = signal(false);
-
+ 
   /**
    * Whether this caller may close this lead.
    *
@@ -946,14 +925,14 @@ export class LeadWorkQueueComponent {
   protected canClose(lead: LeadItem): boolean {
     return !lead.converted && lead.permittedActions.includes('Close');
   }
-
+ 
   /** Mark lost / Mark dormant - the same close, recorded with which of the two it was. */
   protected onCloseLead(lead: LeadItem, outcome: 'Lost' | 'Dormant'): void {
     if (!this.canClose(lead) || this.closing()) {
       return;
     }
     this.closing.set(true);
-
+ 
     this.api
       .closeLead(lead.id, {
         reason: `${outcome}: Marked ${outcome.toLowerCase()} from the Lead Work Queue.`,
@@ -981,16 +960,16 @@ export class LeadWorkQueueComponent {
         },
       });
   }
-
+ 
   // ===========================================================================================
   // Export
   // ===========================================================================================
-
+ 
   protected readonly exporting = signal(false);
-
+ 
   /** An export that failed, shown above the queue without discarding the rows already loaded. */
   protected readonly exportError = signal('');
-
+ 
   /**
    * Export Leads - the whole filtered set, written by the server.
    *
@@ -1002,7 +981,7 @@ export class LeadWorkQueueComponent {
   protected exportLeads(): void {
     this.download({ ...this.buildFilter() });
   }
-
+ 
   /** Export selected - the same file, narrowed to the ticked leads. */
   protected bulkExport(): void {
     if (this.selectionCount() === 0) {
@@ -1013,12 +992,12 @@ export class LeadWorkQueueComponent {
       leadIds: this.selectedRows().map((lead) => lead.id).join(','),
     });
   }
-
+ 
   private download(filter: LeadWorkQueueFilter): void {
     if (this.exporting()) return;
     this.exporting.set(true);
     this.exportError.set('');
-
+ 
     this.api
       .exportLeads(filter)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -1038,7 +1017,7 @@ export class LeadWorkQueueComponent {
         },
       });
   }
-
+ 
   // ===========================================================================================
   // Bulk qualification - REMOVED
   //
@@ -1050,51 +1029,23 @@ export class LeadWorkQueueComponent {
   // banner and changed nothing. Selection now serves Assign and Export, which the document does
   // describe.
   // ===========================================================================================
-
+ 
   // ===========================================================================================
   // Presentation helpers
   // ===========================================================================================
-
+ 
   protected refresh(): void {
     this.load();
   }
-
+ 
   protected dismissBanner(): void {
     this.uiState.set(this.leads().length === 0 ? 'empty' : 'ready');
   }
-
-  protected async copyValue(label: string, value: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(value);
-      this.copiedField.set(label);
-      setTimeout(() => {
-        if (this.copiedField() === label) {
-          this.copiedField.set(null);
-        }
-      }, 1500);
-    } catch {
-      this.copiedField.set(null);
-    }
-  }
-
-  /**
-   * The ring's colour, from the server's reading of the score.
-   *
-   * THE SCREEN DREW ITS OWN LINES - 80 and 55 here, 70 and 35 on My Leads - so the same lead was
-   * green on one screen and amber on the other. The band is decided once, on the server.
-   */
-  protected healthClass(band: string): string {
-    switch (band) {
-      case 'Healthy': return 'lq-health-high';
-      case 'Needs attention': return 'lq-health-mid';
-      default: return 'lq-health-low';
-    }
-  }
-
+ 
   protected displayValue(value: string | null | undefined): string {
     return value && value.trim().length > 0 ? value : '-';
   }
-
+ 
   private formatDate(value: string | null): string {
     if (!value) {
       return '';
@@ -1104,7 +1055,7 @@ export class LeadWorkQueueComponent {
       ? ''
       : parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
-
+ 
   private formatDateTime(value: string | null): string {
     if (!value) {
       return '';

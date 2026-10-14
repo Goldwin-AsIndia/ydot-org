@@ -25,7 +25,21 @@
           <button type="button" class="pq-notice-x" title="Dismiss" aria-label="Dismiss notification" (click)="dismissBanner()"><i class="ri-close-line" aria-hidden="true"></i></button>
         </div>
       }
-
+<!-- The lead profile takes the queue's place inside the app shell (see lead-profile/). -->
+      @if (selectedLead(); as lead) {
+        <app-lead-profile
+          [lead]="lead"
+          [permissions]="permissions()"
+          [canRoute]="canRoute(lead)"
+          [canClose]="canClose(lead)"
+          [closing]="closing()"
+          [potentialOrder]="potentialOrder"
+          (back)="closePreview()"
+          (reassign)="onAssign(lead)"
+          (schedule)="onSchedule(lead)"
+          (communicate)="onCommunicate(lead)"
+          (closeLead)="onCloseLead(lead, $event)" />
+      } @else {
       <div class="pq-page">
       <section class="pq-desk" aria-labelledby="pq-title">
 
@@ -274,163 +288,8 @@
         </div>
       </section>
       </div>
+    }
     </div>
   </div>
 </main>
 
-<!-- ================= LEAD BRIEF side panel (full height) =================
-     A full-height panel on the right with its OWN frame (class pq-lb only - the shared drawer styles
-     in ydot-dialogs.css squeezed the head and broke the layout).
-       hero     stage-coloured rule, name, stage · reference · owner, close
-       body     next follow-up, the three signals as meters, then two lists of icon rows
-                (Contact, Origin & ownership), then Close this lead
-       foot     Reassign | Schedule follow-up | Communicate, pinned to the bottom
-     Only the body scrolls; hero and foot stay put. -->
-<dialog #leadDialog class="pq-lb" aria-labelledby="pq-dr-title" aria-describedby="pq-dr-desc"
-        (click)="onPreviewBackdrop($event)" (cancel)="closePreview()" (close)="closePreview()">
-  @if (selectedLead(); as lead) {
-    <!-- HERO: name and where the lead stands - no avatar, no button row. A stage-coloured rule on the
-         left, the name, then stage · reference · owner on one quiet line. -->
-    <div class="pq-lb-hero" [attr.data-stage]="lead.stage">
-      <div class="pq-lb-hero-top">
-        <span class="pq-lb-kicker">Lead brief</span>
-        <button type="button" class="pq-lb-x" title="Close" aria-label="Close lead brief" (click)="closePreview()"><i class="ri-close-line" aria-hidden="true"></i></button>
-      </div>
-      <p id="pq-dr-title" class="pq-lb-name" role="heading" aria-level="2">{{ lead.name }}</p>
-      <p id="pq-dr-desc" class="pq-lb-line">
-        <span class="pq-lb-stage"><span class="pq-dot" aria-hidden="true"></span>{{ lead.stage }}</span>
-        <span class="pq-lb-dot" aria-hidden="true"></span>
-        <button type="button" class="pq-lb-ref" (click)="copyValue('id', lead.reference)" [title]="'Copy ' + lead.reference">
-          {{ lead.reference }}<i [class]="copiedField() === 'id' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i>
-        </button>
-        <span class="pq-lb-dot" aria-hidden="true"></span>
-        <span class="pq-lb-owner" [class.pq-none]="!lead.hasOwner"><i class="ri-user-line" aria-hidden="true"></i>{{ displayValue(lead.owner) }}</span>
-      </p>
-    </div>
-
-    <div class="pq-lb-body">
-      <!-- 1. what to do next -->
-      <div class="pq-lb-next" [attr.data-due]="lead.nextFollowUp ? dueState(lead).tone : 'none'">
-        <span class="pq-lb-next-g" aria-hidden="true"><i class="ri-calendar-event-line"></i></span>
-        <div class="pq-lb-next-t">
-          <span class="pq-lb-cap">Next follow-up</span>
-          <span class="pq-lb-next-d">{{ lead.nextFollowUp || 'Not planned' }}</span>
-          @if (lead.nextAction) {
-            <span class="pq-lb-next-o">{{ lead.nextAction }}</span>
-          }
-        </div>
-        @if (lead.nextFollowUp) {
-          <span class="pq-lb-due">{{ dueState(lead).label }}</span>
-        }
-      </div>
-
-      <!-- 2. signals as meters -->
-      <div class="pq-lb-meters" role="list" aria-label="Lead signals">
-        <div class="pq-lb-meter" role="listitem">
-          <span class="pq-lb-cap">Health</span>
-          <span class="pq-lb-meter-v">{{ lead.healthScore }}<small>/100</small></span>
-          <span class="pq-lb-bar" [attr.data-band]="healthClass(lead.healthBand)" aria-hidden="true"><span [style.width.%]="lead.healthScore"></span></span>
-          <span class="pq-lb-meter-h">{{ lead.healthBand || '—' }}</span>
-        </div>
-        <div class="pq-lb-meter" role="listitem">
-          <span class="pq-lb-cap">Temperature</span>
-          <span class="pq-lb-meter-v" [attr.data-temp]="lead.temperature">{{ lead.temperature || '—' }}</span>
-          <span class="pq-lb-steps" [attr.data-temp]="lead.temperature" aria-hidden="true"><span></span><span></span><span></span></span>
-          <span class="pq-lb-meter-h">Cold · Warm · Hot</span>
-        </div>
-        <div class="pq-lb-meter" role="listitem">
-          <span class="pq-lb-cap">Potential</span>
-          <span class="pq-lb-meter-v">{{ lead.donationPotential || '—' }}</span>
-          <span class="pq-lb-steps pq-lb-steps--gold" [attr.data-level]="potentialLevel(lead.donationPotential)" aria-hidden="true"><span></span><span></span><span></span></span>
-          <span class="pq-lb-meter-h">Donation potential</span>
-        </div>
-      </div>
-
-      <!-- 3. contact -->
-      <div class="pq-lb-group" role="group" aria-labelledby="pq-sec-contact">
-        <p id="pq-sec-contact" class="pq-lb-cap pq-lb-group-t" role="heading" aria-level="3">Contact</p>
-        <div class="pq-lb-rows">
-          <div class="pq-lb-row">
-            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-phone-line"></i></span>
-            <span class="pq-lb-row-t"><span class="pq-lb-l">Phone</span><span class="pq-lb-v pq-num">@if (lead.masked) { <i class="ri-lock-line" title="Masked for your role" aria-label="Masked"></i> }{{ displayValue(lead.mobile) }}</span></span>
-            @if (lead.mobile) {
-              <button type="button" class="pq-lb-copy" (click)="copyValue('mobile', lead.mobile)" title="Copy phone number" aria-label="Copy phone number"><i [class]="copiedField() === 'mobile' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
-            }
-          </div>
-          <div class="pq-lb-row">
-            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-mail-line"></i></span>
-            <span class="pq-lb-row-t"><span class="pq-lb-l">E-mail</span><span class="pq-lb-v pq-trunc" [title]="displayValue(lead.email)">{{ displayValue(lead.email) }}</span></span>
-            @if (lead.email) {
-              <button type="button" class="pq-lb-copy" (click)="copyValue('email', lead.email)" title="Copy e-mail address" aria-label="Copy e-mail address"><i [class]="copiedField() === 'email' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
-            }
-          </div>
-          <div class="pq-lb-row">
-            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-translate-2"></i></span>
-            <span class="pq-lb-row-t"><span class="pq-lb-l">Language</span><span class="pq-lb-v">{{ displayValue(lead.language) }}</span></span>
-          </div>
-          @if (lead.masked) {
-            <p class="pq-lb-note"><i class="ri-lock-line" aria-hidden="true"></i>Contact details are masked for your role.</p>
-          }
-        </div>
-      </div>
-
-      <!-- 4. origin & ownership -->
-      <div class="pq-lb-group" role="group" aria-labelledby="pq-sec-origin">
-        <p id="pq-sec-origin" class="pq-lb-cap pq-lb-group-t" role="heading" aria-level="3">Origin &amp; ownership</p>
-        <div class="pq-lb-rows">
-          <div class="pq-lb-row">
-            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-megaphone-line"></i></span>
-            <span class="pq-lb-row-t"><span class="pq-lb-l">Campaign</span><span class="pq-lb-v">{{ displayValue(lead.campaign) }}</span></span>
-          </div>
-          <div class="pq-lb-row">
-            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-route-line"></i></span>
-            <span class="pq-lb-row-t"><span class="pq-lb-l">Lead source</span><span class="pq-lb-v">{{ displayValue(lead.source) }}</span></span>
-          </div>
-          <div class="pq-lb-row">
-            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-user-star-line"></i></span>
-            <span class="pq-lb-row-t"><span class="pq-lb-l">Owner</span><span class="pq-lb-v" [class.pq-none]="!lead.hasOwner">{{ displayValue(lead.owner) }}</span></span>
-          </div>
-          <div class="pq-lb-row">
-            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-chat-history-line"></i></span>
-            <span class="pq-lb-row-t"><span class="pq-lb-l">Last outcome</span><span class="pq-lb-v">{{ displayValue(lead.lastContactOutcome) }}</span></span>
-          </div>
-          @if (lead.lastActivity && lead.lastActivity !== lead.lastContactOutcome) {
-            <div class="pq-lb-row">
-              <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-history-line"></i></span>
-              <span class="pq-lb-row-t"><span class="pq-lb-l">Last activity</span><span class="pq-lb-v">{{ lead.lastActivity }}</span></span>
-            </div>
-          }
-          @if (!lead.converted && permissions().communicate) {
-            <div class="pq-lb-row">
-              <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-hand-heart-line"></i></span>
-              <span class="pq-lb-row-t"><span class="pq-lb-l">Donation link</span><span class="pq-lb-v pq-trunc pq-lb-link" [title]="donationLink(lead)">{{ donationLink(lead) }}</span></span>
-              <button type="button" class="pq-lb-copy" (click)="copyValue('link', donationLink(lead))" title="Copy the donation link for this lead" aria-label="Copy the donation link for this lead"><i [class]="copiedField() === 'link' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
-            </div>
-          }
-        </div>
-      </div>
-
-      <!-- 5. close the lead: offered to whoever the server lists Close for on this lead -->
-      @if (canClose(lead)) {
-        <div class="pq-lb-close">
-          <span class="pq-lb-close-t"><i class="ri-archive-line" aria-hidden="true"></i>Close this lead</span>
-          <button type="button" class="pq-lb-mark-btn pq-lb-mark-btn--lost" [disabled]="closing()" (click)="onCloseLead(lead, 'Lost')"><i class="ri-close-circle-line" aria-hidden="true"></i>Mark lost</button>
-          <button type="button" class="pq-lb-mark-btn" [disabled]="closing()" (click)="onCloseLead(lead, 'Dormant')"><i class="ri-moon-line" aria-hidden="true"></i>Mark dormant</button>
-        </div>
-      }
-      <span class="visually-hidden" role="status">{{ copiedField() ? 'Copied to clipboard' : '' }}</span>
-    </div>
-
-    <div class="pq-lb-foot">
-      @if (canRoute(lead) && lead.hasOwner) {
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i><span>Reassign</span></button>
-      }
-      @if (permissions().schedule && !lead.converted) {
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSchedule(lead)"><i class="ri-calendar-event-line" aria-hidden="true"></i><span>Schedule follow-up</span></button>
-      }
-      @if (permissions().communicate) {
-        <button type="button" class="btn btn-primary btn-sm" (click)="onCommunicate(lead)"><i class="ri-chat-3-line" aria-hidden="true"></i><span>Communicate</span></button>
-      }
-    </div>
-  }
-</dialog>
