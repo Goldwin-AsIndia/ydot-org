@@ -23,6 +23,7 @@ using YDot.IAM.Application.Features.GlobalMasters.Queries;
 using YDot.IAM.Application.Features.Governance.Commands.AccessRequests;
 using YDot.IAM.Application.Features.Governance.Commands.AccessReviews;
 using YDot.IAM.Application.Features.Governance.Queries.GovernanceQueries;
+using YDot.IAM.Application.Features.Dashboard.Queries;
 using YDot.IAM.Application.Features.Menus.Commands.ManageMenu;
 using YDot.IAM.Application.Features.Menus.Queries.Navigation;
 using YDot.IAM.Application.Features.MyProfile;
@@ -115,6 +116,9 @@ public static class DependencyInjection
         services.AddScoped<AccessRequestCommandHandler>();
         services.AddScoped<AccessReviewCommandHandler>();
         services.AddScoped<GovernanceQueryHandler>();
+
+        // The landing page's identity figures, and the Platform Admin's whole page.
+        services.AddScoped<IdentityDashboardQueryHandler>();
 
         // ---- Self-service profile and security ---------------------------------------------------------------
         services.AddScoped<MyProfileFeatureHandler>();

@@ -5,6 +5,7 @@ using YDots.CAM.Application.Common.Settings;
 using YDots.CAM.Application.Features.CampaignReadiness.Commands.ManageReadiness;
 using YDots.CAM.Application.Features.CampaignReadiness.Queries.ReadinessQueries;
 using YDots.CAM.Application.Features.Campaigns.Commands.CampaignLifecycle;
+using YDots.CAM.Application.Features.Dashboard.Queries;
 using YDots.CAM.Application.Features.Campaigns.Commands.ManageCampaign;
 using YDots.CAM.Application.Features.Campaigns.Queries.CampaignQueries;
 using YDots.CAM.Application.Features.ReferenceData.Queries;
@@ -86,6 +87,10 @@ public static class DependencyInjection
 
         // ---- WhatsApp outreach: CheckNumber.ai + WATI, carried out by the YDot.Integration worker ----
         services.AddScoped<WhatsAppQueryHandler>();
+
+        // The landing page's campaign figures.
+        services.AddScoped<CampaignDashboardQueryHandler>();
+        services.AddScoped<CampaignOutcomesQueryHandler>();
         services.AddScoped<WhatsAppCommandHandler>();
 
         return services;

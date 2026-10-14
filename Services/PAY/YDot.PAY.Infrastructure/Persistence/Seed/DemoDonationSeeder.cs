@@ -166,6 +166,10 @@ public sealed class DemoDonationSeeder(
         var place = batch.Places.GetValueOrDefault(giver.City);
         var succeeded = gift.Outcome is DemoOutcome.Paid or DemoOutcome.PaidOnRetry;
 
+        // An offline QR code stands at one place, and a gift scanned from it is attributed to that
+        // place as well as to the asset - what the product records when it resolves the reference.
+        var placeName = gift.Asset is null ? null : batch.Organisation.Places.GetValueOrDefault(gift.Asset);
+
         var intent = new DonationIntent
         {
             Id = DemoIds.Of("intent", subdomain, key),
@@ -176,6 +180,10 @@ public sealed class DemoDonationSeeder(
             CampaignId = DemoIds.Of("campaign", subdomain, gift.Campaign),
             TrackingAssetId = gift.Asset is null ? null : DemoIds.Of("tracking-asset", subdomain, gift.Asset),
             TrackingReference = gift.Asset is null ? null : DemoIds.TrackingReference(subdomain, gift.Asset),
+            TrackingAssetPlaceId = placeName is null
+                ? null
+                : DemoIds.Of("tracking-asset-place", subdomain, $"{gift.Asset}|{placeName}"),
+            TrackingPlaceName = placeName,
             LeadId = gift.Lead is null ? null : DemoIds.Of("lead", subdomain, gift.Lead),
 
             // The donor record is linked once the money is in, which is when the product finds
@@ -453,6 +461,8 @@ public sealed class DemoDonationSeeder(
             ReconciliationStatus = ReconciliationStatus.Unreconciled,
             SourceType = gift.Source,
             TrackingAssetId = intent.TrackingAssetId,
+            TrackingAssetPlaceId = intent.TrackingAssetPlaceId,
+            TrackingPlaceName = intent.TrackingPlaceName,
             LeadId = intent.LeadId,
             CreatedAtUtc = donatedAt,
             CreatedByUserId = Guid.Empty,

@@ -221,15 +221,6 @@
         </button>
       </div>
     }
-    @if (uiState() === 'duplicate') {
-      <div class="tam-banner tam-banner-warn" role="alert">
-        <span class="tam-banner-body">A tracking asset with this destination and channel already exists. Link, merge, change the value,
-          request review or cancel — nothing is overwritten silently.</span>
-        <button type="button" class="tam-banner-x" (click)="dismissBanner()" aria-label="Dismiss">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-        </button>
-      </div>
-    }
     @if (uiState() === 'conflict') {
       <div class="tam-banner tam-banner-warn" role="alert">
         <span class="tam-banner-body">This record changed after you opened it. Review the latest version before continuing.</span>
@@ -327,7 +318,7 @@
               <tr [class.tam-row-selected]="isSelected(r.trackingReference)"
                   [class.tam-row-compare-picked]="compareMode() && compareRefs().includes(r.trackingReference)"
                   (click)="compareMode() ? toggleCompareSelection(r.trackingReference) : selectAsset(r.trackingReference)">
-                <!-- Tracking reference (stable, read-only) + Campaign context -->
+                <!-- The asset's code (stable, read-only) + Campaign and place context -->
                 <td class="tam-cell-asset " data-label="Asset">
                   <div class="tam-asset-id">
                     <span class="tam-asset-glyph" [attr.data-kind]="assetIconKey(r.assetType, r.isQr)" aria-hidden="true">
@@ -345,9 +336,9 @@
                     </span>
                     <div class="tam-asset-id-text">
                       <button type="button" class="tam-asset-link" (click)="selectAsset(r.trackingReference); $event.stopPropagation()">
-                        {{ r.trackingReference }}
+                        {{ r.code || r.trackingReference }}
                       </button>
-                      <span class="tam-asset-campaign">{{ campaignOf(r.campaignRef).name }}</span>
+                      <span class="tam-asset-campaign">{{ campaignOf(r.campaignRef).name }}@if (r.place) { · {{ r.place }} }</span>
                     </div>
                   </div>
                 </td>
@@ -593,7 +584,9 @@
                       <div class="tam-place">
                         <div class="tam-place-top">
                           <span class="tam-place-num">Place {{ i + 1 }}</span>
-                          <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm tam-place-remove" (click)="removePlace(p.id)" [disabled]="gPlaces().length <= 1">Remove</button>
+                          @if (gPlaces().length > 1) {
+                            <button type="button" class="tam-btn tam-btn-ghost tam-btn-sm tam-place-remove" (click)="removePlace(p.id)">Remove</button>
+                          }
                         </div>
                         <div class="tam-place-row">
                           <label class="tam-place-cell tam-place-cell-name">
@@ -627,6 +620,9 @@
                             <input type="checkbox" [checked]="p.manual" (change)="setPlaceManual(p.id, $any($event.target).checked)" />
                             Enter my own URL
                           </label>
+                          @if (missing('placeDuplicates') && duplicatePlaceIds().includes(p.id)) {
+                            <p class="tam-field-hint tam-field-error">{{ duplicateDestinationMessage }}</p>
+                          }
                         </div>
 
                         <!-- Custom fields — attach any further named detail to this place -->
@@ -667,7 +663,7 @@
                     }
                   </div>
                   <button type="button" class="tam-btn tam-btn-outline tam-btn-sm tam-add-place" (click)="addPlace()">+ Create</button>
-                  @if (missing('places')) { <p class="tam-field-hint tam-field-error">Enter at least one place name and a full web address beginning http:// or https://.</p> }
+                  @if (missing('places')) { <p class="tam-field-hint tam-field-error">{{ placesMissingMessage }}</p> }
                 </div>
               }
 
@@ -817,10 +813,10 @@
         }
       </p>
       <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelGenerate()"><i class="ri ri-close-line"></i> Cancel</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="confirmGenerate('Draft')"><i class="ri ri-draft-line"></i>Draft</button>
-      <button type="button" class="btn btn-primary btn-sm" (click)="confirmGenerate('Submitted')">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="confirmGenerate('Draft')" [attr.aria-busy]="generateSaving() === 'Draft'"><i class="ri ri-draft-line"></i>{{ generateSaving() === 'Draft' ? 'Saving…' : 'Draft' }}</button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="confirmGenerate('Submitted')" [attr.aria-busy]="generateSaving() === 'Submitted'">
         <svg class="tam-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-        Submit
+        {{ generateSaving() === 'Submitted' ? 'Submitting…' : 'Submit' }}
       </button>
     </footer>
   </div>
@@ -843,7 +839,7 @@
           </span>
           Tracking asset
         </p>
-        <h2 id="tam-detail-title" class="tam-detail-title">{{ a.trackingReference }}</h2>
+        <h2 id="tam-detail-title" class="tam-detail-title">{{ a.code || a.trackingReference }}</h2>
         <p class="tam-detail-meta">
           <span class="tam-badge" [class]="statusClass(a.assetStatus)">{{ a.assetStatus }}</span>
           <span class="tam-detail-sep" aria-hidden="true"></span>

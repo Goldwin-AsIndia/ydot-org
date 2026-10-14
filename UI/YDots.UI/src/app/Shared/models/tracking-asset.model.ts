@@ -10,7 +10,16 @@ export type AssetStatus =
   /** Live, with a disable request on it awaiting an approver. It still resolves scans. */
   | 'Submitted for disable'
   | 'Inactive'
-  | 'Paused'
+
+  /**
+   * Active on the server, but its window has not opened yet, so scans do not resolve until it
+   * does. This used to read 'Paused', so an asset approved ahead of its campaign looked as though
+   * the approval had stopped it.
+   */
+  | 'Scheduled'
+
+  /** Active on the server, but its window has closed, so scans no longer resolve. */
+  | 'Expired'
   | 'Disabled';
 
 /** Approval state — read-only, server-derived badge. */
@@ -70,7 +79,13 @@ export interface PlaceCustomField {
 
 /** A single tracking asset row. */
 export interface TrackingAsset {
+  /** The key every screen holds an asset by: its tracking reference once activated, else its code. */
   readonly trackingReference: string;
+  /**
+   * The asset's readable code (SF-DIGITAL-2027-QR-001). It never changes, unlike the key above,
+   * which switches to the tracking reference on activation - so this is what names a row.
+   */
+  readonly code?: string;
   readonly assetType: string;
   readonly channel: string;
   /** The API ids behind the names above — an edit writes these back. */

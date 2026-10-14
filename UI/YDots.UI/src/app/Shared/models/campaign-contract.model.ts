@@ -439,6 +439,30 @@ export interface CreateTrackingAssetRequest {
   places?: TrackingAssetPlaceRequest[] | null;
 }
 
+/**
+ * The QR codes of an offline event: ONE ASSET PER PLACE, created together or not at all.
+ *
+ * ONE REQUEST FOR EVERY PLACE. The form used to send one create per place, in parallel; both
+ * numbered their code from the same count, the second was refused by the database, and pressing
+ * Submit again saved the first place twice. A refusal here saves none of them.
+ *
+ * `sourceId` AND `mediumId` ARE LEFT OUT by the form: the server attributes a printed place code to
+ * the catalogue's QR Poster source and Print medium. The form used to send the first row of each
+ * list (Newsletter, E-mail), and every printed code carried those.
+ */
+export interface CreatePlaceTrackingAssetsRequest {
+  campaignId: string;
+  /** Must be the Offline channel - places are where a printed code was put. */
+  channelId: string;
+  status: TrackingAssetStatus;
+  activeFrom: string;
+  activeTo: string;
+  places: TrackingAssetPlaceRequest[];
+  contentTag?: string | null;
+  sourceId?: string | null;
+  mediumId?: string | null;
+}
+
 /** `campaignId` is absent: re-parenting an asset would re-attribute every gift it ever produced. */
 export interface UpdateTrackingAssetRequest {
   expectedVersion: number;
@@ -501,6 +525,8 @@ export interface TrackingAssetListItem {
   donationCount: number;
   donorCount: number;
   placeCount: number;
+  /** The place's name when the asset has exactly one - how the manager creates them. */
+  placeName: string | null;
   updatedAtUtc: string | null;
   version: number;
 }

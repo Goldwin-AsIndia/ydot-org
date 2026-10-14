@@ -37,6 +37,35 @@ public sealed record CreateTrackingAssetRequest(
     IReadOnlyList<TrackingAssetPlaceRequest>? Places = null);
 
 /// <summary>
+/// Creating the QR codes for an offline event: ONE ASSET PER PLACE, all of them or none.
+///
+/// WHY A REQUEST OF ITS OWN. Each place gets its own asset, so on activation each gets its own
+/// tracking reference, and that reference is what credits a gift to the place. The form used to
+/// send one create per place, in parallel: both requests numbered their code from the same count
+/// and the second hit the unique index as a bare DbUpdateException, while the first had already
+/// saved - so pressing Submit again saved that place a second time. Here every place is numbered
+/// in one pass and written in one save, so a refusal leaves nothing behind to duplicate.
+///
+/// THE ASSET TYPE IS ALWAYS QR CODE and the channel must be Offline: places describe where a
+/// printed code was put, and the server refuses them for anything else.
+///
+/// <c>SourceId</c> AND <c>MediumId</c> ARE OPTIONAL. The form asks for neither, and it used to fill
+/// both with the first catalogue rows - Newsletter and E-mail - which then went into every printed
+/// code's <c>utm_source</c> and <c>utm_medium</c>. Left out, the server uses the printed-code pair
+/// the reference catalogue holds for this (QR Poster, Print).
+/// </summary>
+public sealed record CreatePlaceTrackingAssetsRequest(
+    Guid CampaignId,
+    Guid ChannelId,
+    TrackingAssetStatus Status,
+    DateTimeOffset ActiveFrom,
+    DateTimeOffset ActiveTo,
+    IReadOnlyList<TrackingAssetPlaceRequest> Places,
+    string? ContentTag = null,
+    Guid? SourceId = null,
+    Guid? MediumId = null);
+
+/// <summary>
 /// Editing a tracking asset. Only a Draft may be edited.
 ///
 /// <c>CampaignId</c> is absent: re-pointing an asset at a different campaign would silently
@@ -158,6 +187,14 @@ public sealed record TrackingAssetListItemResponse(
     int DonorCount,
 
     int PlaceCount,
+
+    /// <summary>
+    /// The place's name when the asset has exactly one, which is how the manager creates them.
+    ///
+    /// The place cards of one offline event become several QR codes with the same campaign, type
+    /// and medium, and without this the list could not tell "Main gate" from "Food court".
+    /// </summary>
+    string? PlaceName,
     DateTimeOffset? UpdatedAtUtc,
     long Version);
 

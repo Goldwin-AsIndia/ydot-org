@@ -153,17 +153,13 @@
           </ul>
           <p class="visually-hidden" role="status">Loading leads…</p>
         } @else if (!hasResults()) {
-          <div class="pq-state" role="status">
+          <!-- EMPTY: a quiet centred message, no buttons - the views, search and filters above are
+               the way out, and Capture lead is already in the header. -->
+          <div class="pq-state pq-state--empty" role="status">
             <span class="pq-state-g" aria-hidden="true"><i class="ri-user-search-line"></i></span>
             <div class="pq-state-copy">
               <h3>No leads found</h3>
-              <p>Try another view, loosen the filters, or capture a new lead.</p>
-            </div>
-            <div class="pq-state-acts">
-              <button type="button" class="pq-btn" (click)="clearAllFilters()">Reset filters</button>
-              @if (permissions().create) {
-                <button type="button" class="pq-btn pq-btn--primary" (click)="createLead()"><i class="ri-user-add-line" aria-hidden="true"></i> Capture lead</button>
-              }
+              <p>{{ filterTokens().length > 0 || searchTerm() ? 'Nothing matches the search or filters. Try another view or loosen the filters.' : 'There are no leads in this view yet.' }}</p>
             </div>
           </div>
         } @else {
@@ -199,7 +195,7 @@
                   <span class="pq-main" [title]="lead.owner">{{ lead.owner }}</span>
                 </div>
 
-                <span class="pq-stagetext" [attr.data-stage]="lead.stage"><span class="pq-dot" aria-hidden="true"></span>{{ lead.stage }}</span>
+                <span class="pq-stagetext" [attr.data-stage]="lead.stage">{{ lead.stage }}</span>
 
                 <div class="pq-signals">
                   <span class="pq-temp" [attr.data-temp]="lead.temperature" [title]="lead.temperature + ' lead'"><i class="ri-temp-hot-line" aria-hidden="true"></i>{{ lead.temperature || '—' }}</span>
@@ -242,16 +238,8 @@
             <app-rows-per-page [value]="pageSize()" (changed)="setPageSize($event)" />
             <nav class="pq-pager" aria-label="Pagination">
               <button type="button" class="pq-page-btn" aria-label="Previous page" title="Previous page" [disabled]="pageIndex() === 1 || uiState() === 'loading'" (click)="goToPage(pageIndex() - 1)"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
-              @if (pageNumbers()[0] > 1) {
-                <button type="button" class="pq-page-btn" (click)="goToPage(1)">1</button>
-                @if (pageNumbers()[0] > 2) { <span class="pq-page-gap" aria-hidden="true">…</span> }
-              }
               @for (page of pageNumbers(); track page) {
                 <button type="button" class="pq-page-btn" [class.is-on]="page === pageIndex()" [attr.aria-current]="page === pageIndex() ? 'page' : null" (click)="goToPage(page)">{{ page }}</button>
-              }
-              @if (pageNumbers()[pageNumbers().length - 1] < totalPages()) {
-                @if (pageNumbers()[pageNumbers().length - 1] < totalPages() - 1) { <span class="pq-page-gap" aria-hidden="true">…</span> }
-                <button type="button" class="pq-page-btn" (click)="goToPage(totalPages())">{{ totalPages() }}</button>
               }
               <button type="button" class="pq-page-btn" aria-label="Next page" title="Next page" [disabled]="pageIndex() === totalPages() || uiState() === 'loading'" (click)="goToPage(pageIndex() + 1)"><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
             </nav>

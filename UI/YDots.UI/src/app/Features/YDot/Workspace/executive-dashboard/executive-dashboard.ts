@@ -1,26 +1,38 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { DashboardApiService } from '../../../../Service/dashboard-api.service';
+import {
+  DashboardOutcomeMetric,
+  DashboardOutcomes,
+  DashboardPage,
+  DashboardPeriod,
+  DashboardUnit,
+} from '../../../../Shared/models/dashboard-contract.model';
 
 /**
  * SCR-UX-002 — Executive dashboard.
  *
- * Faithful implementation of section 4.2 of the YDot Practical UI/UX Generation
- * Specification. Every region (4.2.1), field (4.2.2), action (4.2.3), UI state
- * (4.2.4) and validation/confirmation pattern (4.2.6) below maps directly to the
- * controlled contract. No content or behaviour outside that contract is added.
+ * Section 4.2 of the YDot Practical UI/UX Generation Specification: outcome-level trends with
+ * drill-down and freshness evidence, filtered by period, scope and comparison.
+ *
+ * EVERY FIGURE COMES FROM THE SERVER. The page used to render a fixed set of invented values -
+ * "₹48.72 L", "24,582 beneficiaries", "3,842 sticks", campaigns that exist nowhere, an owner
+ * called Priya Nair and an audit reference nobody issued. Its numbers now come from CAM, DON and
+ * PAY (`GET .../dashboard/outcomes`) for the period and campaign chosen, and its history panel,
+ * owner and next action from the landing page's own endpoints.
+ *
+ * THREE METRICS THE PLATFORM CANNOT ANSWER WERE REPLACED, NOT FAKED. Beneficiaries, stock and
+ * distributions have no service here; their tiles hold donors who gave, receipted gifts and leads
+ * converted - outcomes this platform records.
  *
  *  Route            : /workspace/executive-dashboard
- *  Purpose          : Outcome-level trends with drill-down and freshness evidence.
- *  Primary user     : Executive Sponsor
  *  View permission  : ux.executive-dashboard.view
- *  Primary action   : Filter
- *  Theme            : Dark Meadow task surface; warm-paper data rows; calm-blue
- *                     information; antique-gold focus/progress.
  */
 
-/** The eight required UI states from 4.2.4, plus the settled "ready" surface. */
+/** The UI states of 4.2.4, plus the settled "ready" surface. */
 type UiState =
   | 'ready'
   | 'loading'
@@ -32,20 +44,15 @@ type UiState =
   | 'dependency-failure'
   | 'success';
 
-/** Effective permission set for the acting Executive Sponsor (4.2.3). */
-interface EffectivePermissions {
-  readonly view: boolean; // ux.executive-dashboard.view
-  readonly exportAuthorisedSummary: boolean; // ux.executive-dashboard.export-authorised-summary
-}
-
-/** A scope-aware selector option with a stable reference and disambiguating context (4.2.2). */
+/** A scope the period can be narrowed to: the whole Organisation, or one campaign. */
 interface ScopeOption {
   readonly reference: string;
   readonly name: string;
   readonly context: string;
+  readonly campaignId: string | null;
 }
 
-/** A read-only, server-derived outcome metric with its own definition and drill-down (4.2.2 + 4.2.1 Main work). */
+/** A metric tile, worded for the page. */
 interface OutcomeMetric {
   readonly key: string;
   readonly label: string;
@@ -53,20 +60,21 @@ interface OutcomeMetric {
   readonly qualifier: string;
   readonly definition: string;
   readonly drillLabel: string;
+  readonly route: string | null;
 }
 
-/** A single day on the outcome-level trend line, with a drill-down affordance. */
+/** One day of the curve. */
 interface TrendPoint {
   readonly date: string;
-  readonly donations: number; // ₹ Lakh, left axis 0–10
-  readonly beneficiaries: number; // count, right axis 0–5000
+  readonly label: string;
+  readonly axisLabel: string;
+  readonly primary: number;
+  readonly secondary: number;
 }
 
-/** A tab in the Related and history region; each carries its own permission/scope flag (4.2.1). */
 interface RelatedTab {
   readonly key: string;
   readonly label: string;
-  readonly permitted: boolean;
   readonly rows: readonly RelatedRow[];
 }
 
@@ -82,96 +90,108 @@ interface RelatedRow {
   templateUrl: './executive-dashboard.html',
   styleUrl: './executive-dashboard.css',
 })
-export class ExecutiveDashboardComponent {
-  // ----- Task header (4.2.1) -----
+export class ExecutiveDashboardComponent implements OnInit {
+  private readonly api = inject(DashboardApiService);
+  private readonly router = inject(Router);
+
+  // ----- What the services sent -----
+  private readonly outcomes = signal<DashboardOutcomes | null>(null);
+  private readonly page = signal<DashboardPage | null>(null);
+
+  // ----- Task header -----
   protected readonly pageTitle = 'Executive dashboard';
-  protected readonly stableReference = 'EXEC-DASH-2026-0001';
-  protected readonly lifecycleState = 'Published';
-  protected readonly owner = 'Priya Nair · Executive Sponsor';
-  protected readonly operatingTimeZone = 'Asia/Kolkata · IST (UTC+05:30)';
 
-  /** Effective permissions decided server-side; the client mirrors the same decision (4.2.3, 4.2.7). */
-  protected readonly permissions: EffectivePermissions = {
-    view: true,
-    exportAuthorisedSummary: true,
-  };
+  /** The live view of the figures - there is no draft or published copy of it. */
+  protected readonly lifecycleState = 'Live';
 
-  /** Lifecycle states in which the protected export is permitted (4.2.3). */
-  private readonly exportPermittedStates = ['Published'];
+  /** The person reading the figures, as the Organisation names their roles. */
+  protected readonly owner = computed(() => {
+    const viewer = this.page()?.viewer;
+    if (!viewer) return '';
+    return [viewer.displayName, ...viewer.roleNames.slice(0, 1)].filter(Boolean).join(' · ');
+  });
 
-  // ----- Context and filters (4.2.1 + 4.2.2) -----
+  /** "Asia/Kolkata · UTC+05:30" - the zone the days are counted in, from the server. */
+  protected readonly operatingTimeZone = computed(() => this.outcomes()?.timeZoneLabel ?? DashboardApiService.viewerTimeZone());
 
-  /** Date range — operating time zone; impossible ranges rejected before submit (4.2.2). */
-  protected readonly rangeStart = signal('2026-07-19');
-  protected readonly rangeEnd = signal('2026-07-29');
+  // ----- Context and filters -----
+  protected readonly rangeStart = signal('');
+  protected readonly rangeEnd = signal('');
 
-  /** Organisation or campaign scope — scope-aware searchable selector with identity preview (4.2.2). */
-  protected readonly scopeOptions: readonly ScopeOption[] = [
-    { reference: 'ORG-0001', name: 'YDot Foundation', context: 'All organisations · National' },
-    { reference: 'CAMP-2026-0178', name: 'Blind-Stick Distribution Drive', context: 'Campaign · Maharashtra' },
-    { reference: 'CAMP-2026-0134', name: 'Education Support Program', context: 'Campaign · Tamil Nadu' },
-    { reference: 'CAMP-2026-0091', name: 'Healthcare Aid Initiative', context: 'Campaign · Karnataka' },
-  ];
+  /** The period the server applied when none was asked for - what "Clear filters" returns to. */
+  private readonly defaultRange = signal<{ from: string; to: string } | null>(null);
+
   protected readonly scopeQuery = signal('');
-  protected readonly activeScope = signal<ScopeOption>(this.scopeOptions[0]);
   protected readonly scopePickerOpen = signal(false);
 
-  /** Eligible scope options filtered by the search query (server-side in production; 4.2.2). */
+  /** The whole Organisation first, then every campaign CAM lists for the caller. */
+  protected readonly scopeOptions = computed<ScopeOption[]>(() => {
+    const organisation = this.page()?.viewer?.organisationName ?? 'Whole organisation';
+    return [
+      { reference: 'All campaigns', name: organisation, context: 'Organisation', campaignId: null },
+      ...(this.outcomes()?.scopeOptions ?? []).map((option) => ({
+        reference: option.reference,
+        name: option.name,
+        context: option.context,
+        campaignId: option.campaignId,
+      })),
+    ];
+  });
+
+  private readonly scopeId = signal<string | null>(null);
+  protected readonly activeScope = computed(
+    () => this.scopeOptions().find((option) => option.campaignId === this.scopeId()) ?? this.scopeOptions()[0],
+  );
+
+  /** Eligible scope options narrowed by the search box. */
   protected readonly scopeResults = computed(() => {
     const q = this.scopeQuery().trim().toLowerCase();
     if (!q) {
-      return this.scopeOptions;
+      return this.scopeOptions();
     }
-    return this.scopeOptions.filter(
-      (o) =>
-        o.name.toLowerCase().includes(q) ||
-        o.reference.toLowerCase().includes(q) ||
-        o.context.toLowerCase().includes(q),
+    return this.scopeOptions().filter(
+      (o) => o.name.toLowerCase().includes(q) || o.reference.toLowerCase().includes(q) || o.context.toLowerCase().includes(q),
     );
   });
 
-  /** Comparison period — search / filter control (4.2.2). */
-  protected readonly comparisonOptions = [
-    'Previous 10 days',
-    'Previous period',
-    'Same period last year',
-    'No comparison',
-  ];
-  protected readonly comparisonPeriod = signal(this.comparisonOptions[0]);
+  /** The comparisons the server offers, worded for the current period. */
+  protected readonly comparisonOptions = computed<DashboardPeriod[]>(() => this.outcomes()?.comparisons ?? []);
+  protected readonly comparisonPeriod = signal('previous');
 
-  /** Saved filters and the active-filter summary (4.2.1 Context and filters). */
-  protected readonly savedFilters = ['My default view', 'Board pack — monthly', 'Exceptions focus'];
-  protected readonly savedFilter = signal(this.savedFilters[0]);
+  /** Ready-made periods - this month, this financial year - with their dates from the server. */
+  protected readonly savedFilters = computed<DashboardPeriod[]>(() => this.outcomes()?.presets ?? []);
+  protected readonly savedFilter = signal('');
 
-  /** Free-text search across the outcome scope (4.2.1 Context and filters). */
   protected readonly searchTerm = signal('');
+  protected readonly appliedSearchTerm = signal('');
 
-  /** Human-readable, interpreted date shown before submit (4.2.2 Date range). */
   protected readonly interpretedRange = computed(
-    () => `${this.formatDate(this.rangeStart())} – ${this.formatDate(this.rangeEnd())} · ${this.operatingTimeZone}`,
+    () => `${this.formatDate(this.rangeStart())} – ${this.formatDate(this.rangeEnd())} · ${this.operatingTimeZone()}`,
   );
 
-  /** True when the range is impossible (end before start); blocks submit (4.2.2, 4.2.6 invalid value). */
-  protected readonly rangeInvalid = computed(() => new Date(this.rangeEnd()) < new Date(this.rangeStart()));
+  /** An end before the start, or a period past a year, is refused before it is sent. */
+  protected readonly rangeInvalid = computed(() => {
+    const start = this.rangeStart();
+    const end = this.rangeEnd();
+    if (!start || !end) return false;
+    const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000 + 1;
+    return days < 1 || days > 366;
+  });
 
-  /** Default range values — used to tell whether the range filter is non-default. */
-  private readonly defaultRangeStart = '2026-07-19';
-  private readonly defaultRangeEnd = '2026-07-29';
-
-  /**
-   * Active-filter summary chips — only filters that differ from their default are
-   * shown, so "Clear filters" visibly removes every chip (4.2.1).
-   */
+  /** Only filters that differ from what the page opened on, so "Clear filters" removes every chip. */
   protected readonly activeFilterSummary = computed(() => {
     const chips: { key: string; label: string }[] = [];
-    if (this.activeScope().reference !== this.scopeOptions[0].reference) {
-      chips.push({ key: 'scope', label: `Scope: ${this.activeScope().name}` });
+    const scope = this.activeScope();
+    if (scope?.campaignId) {
+      chips.push({ key: 'scope', label: `Scope: ${scope.name}` });
     }
-    if (this.rangeStart() !== this.defaultRangeStart || this.rangeEnd() !== this.defaultRangeEnd) {
+    const initial = this.defaultRange();
+    if (initial && (this.rangeStart() !== initial.from || this.rangeEnd() !== initial.to)) {
       chips.push({ key: 'range', label: `Range: ${this.formatDate(this.rangeStart())} – ${this.formatDate(this.rangeEnd())}` });
     }
-    if (this.comparisonPeriod() !== this.comparisonOptions[0]) {
-      chips.push({ key: 'comparison', label: `Compare: ${this.comparisonPeriod()}` });
+    if (this.comparisonPeriod() !== 'previous') {
+      const label = this.comparisonOptions().find((o) => o.key === this.comparisonPeriod())?.label ?? this.comparisonPeriod();
+      chips.push({ key: 'comparison', label: `Compare: ${label}` });
     }
     const term = this.appliedSearchTerm();
     if (term) {
@@ -180,230 +200,164 @@ export class ExecutiveDashboardComponent {
     return chips;
   });
 
-  // ----- Main work: outcome-level trends + freshness evidence (4.2.1 + 4.2.2) -----
+  // ----- Main work -----
 
-  /** Last refresh time — server-derived, read-only freshness evidence (4.2.2). */
-  protected readonly lastRefresh = signal('29 Jul 2026, 09:30 IST');
+  protected readonly lastRefresh = computed(() => {
+    const at = this.outcomes()?.generatedAtUtc;
+    return at ? this.formatMoment(new Date(at)) : '—';
+  });
 
-  /** Totals qualified by scope and last refresh (4.2.1 Context and filters). */
-  protected readonly totalsCaption = computed(
-    () => `Totals for ${this.activeScope().name} · as of ${this.lastRefresh()}`,
+  protected readonly totalsCaption = computed(() => `Totals for ${this.activeScope()?.name ?? ''} · as of ${this.lastRefresh()}`);
+
+  /** The metric tiles, worded: the figure in its unit and the comparison in the qualifier. */
+  protected readonly metrics = computed<OutcomeMetric[]>(() =>
+    (this.outcomes()?.metrics ?? []).map((metric) => ({
+      key: metric.key,
+      label: metric.label,
+      value: this.format(metric.value, metric.unit, metric.currencyCode),
+      qualifier: this.qualifierOf(metric),
+      definition: metric.definition,
+      drillLabel: metric.drill?.label ?? '',
+      route: metric.drill?.route ?? null,
+    })),
   );
 
-  /** The read-only outcome metrics (4.2.2). All values are server-derived and immutable in this view. */
-  protected readonly metrics: readonly OutcomeMetric[] = [
-    {
-      key: 'reconciled-collection',
-      label: 'Reconciled collection',
-      value: '₹48.72 L',
-      qualifier: 'Donations reconciled against settlement in scope',
-      definition: 'Sum of donations reconciled against bank settlement within the selected range and effective scope.',
-      drillLabel: 'Drill into reconciled donations',
-    },
-    {
-      key: 'active-campaigns',
-      label: 'Active campaigns',
-      value: '18',
-      qualifier: 'Campaigns in an active lifecycle state',
-      definition: 'Count of campaigns currently in an Active or In-Progress lifecycle state within effective scope.',
-      drillLabel: 'Drill into active campaigns',
-    },
-    {
-      key: 'eligible-beneficiaries',
-      label: 'Eligible beneficiaries',
-      value: '24,582',
-      qualifier: 'Verified and eligible in scope',
-      definition: 'Distinct beneficiaries holding a verified, eligible status within the selected effective scope.',
-      drillLabel: 'Drill into eligible beneficiaries',
-    },
-    {
-      key: 'available-stock',
-      label: 'Available stock',
-      value: '3,842',
-      qualifier: 'Blind sticks available to distribute',
-      definition: 'On-hand stock units available for allocation across warehouses inside effective scope.',
-      drillLabel: 'Drill into available stock',
-    },
-    {
-      key: 'acknowledged-distributions',
-      label: 'Acknowledged distributions',
-      value: '2,914',
-      qualifier: 'Acknowledged by beneficiaries in range',
-      definition: 'Distributions carrying a signed or OTP-confirmed acknowledgement within the selected range.',
-      drillLabel: 'Drill into acknowledged distributions',
-    },
-    {
-      key: 'open-exceptions',
-      label: 'Open exceptions',
-      value: '7',
-      qualifier: 'Unresolved and awaiting review',
-      definition: 'Reconciliation, stock and verification exceptions still open at the last refresh in scope.',
-      drillLabel: 'Drill into open exceptions',
-    },
-  ];
-
-  /** The currently expanded metric definition (progressive disclosure; 4.2.1 Main work). */
   protected readonly openDefinition = signal<string | null>(null);
 
-  /**
-   * Search term as of the last time Filter was actually applied (4.2.3). Kept
-   * separate from `searchTerm` so typing alone never changes the result set —
-   * only the explicit primary action does.
-   */
-  protected readonly appliedSearchTerm = signal('');
-
-  /** Outcome metrics narrowed by the applied search term (4.2.1 Main work + 4.2.3 Filter). */
   protected readonly filteredMetrics = computed(() => {
     const term = this.appliedSearchTerm().trim().toLowerCase();
     if (!term) {
-      return this.metrics;
+      return this.metrics();
     }
-    return this.metrics.filter(
-      (m) => m.label.toLowerCase().includes(term) || m.qualifier.toLowerCase().includes(term),
-    );
+    return this.metrics().filter((m) => m.label.toLowerCase().includes(term) || m.qualifier.toLowerCase().includes(term));
   });
 
-  /** Outcome-level trend series over the selected range (4.2.1 Main work). */
-  protected readonly trend: readonly TrendPoint[] = [
-    { date: '19 Jul', donations: 3.1, beneficiaries: 1550 },
-    { date: '20 Jul', donations: 4.6, beneficiaries: 1900 },
-    { date: '21 Jul', donations: 5.4, beneficiaries: 2100 },
-    { date: '22 Jul', donations: 5.9, beneficiaries: 2050 },
-    { date: '23 Jul', donations: 7.0, beneficiaries: 2200 },
-    { date: '24 Jul', donations: 7.82, beneficiaries: 3120 },
-    { date: '25 Jul', donations: 6.5, beneficiaries: 2050 },
-    { date: '26 Jul', donations: 6.1, beneficiaries: 2150 },
-    { date: '27 Jul', donations: 7.0, beneficiaries: 2300 },
-    { date: '28 Jul', donations: 6.6, beneficiaries: 2250 },
-    { date: '29 Jul', donations: 7.7, beneficiaries: 2750 },
-  ];
+  /** The curve's two series - names and units from the server. */
+  protected readonly seriesLabels = computed(() => ({
+    primary: this.outcomes()?.series?.primaryLabel ?? '',
+    secondary: this.outcomes()?.series?.secondaryLabel ?? '',
+  }));
 
-  /** Whether the comparison series is overlaid on the trend (toggled by the Compare action; 4.2.3). */
+  /** One point a day; about ten of them carry an axis label so the dates never overlap. */
+  protected readonly trend = computed<TrendPoint[]>(() => {
+    const points = this.outcomes()?.series?.points ?? [];
+    const every = Math.max(1, Math.ceil(points.length / 10));
+    return points.map((p, i) => ({
+      date: p.date,
+      label: p.label,
+      axisLabel: i % every === 0 || i === points.length - 1 ? p.label : '',
+      primary: p.primary,
+      secondary: p.secondary,
+    }));
+  });
+
   protected readonly comparisonShown = signal(false);
+  protected readonly focusedPoint = signal(0);
 
-  /** Index of the point currently focused for drill-down / freshness read-out. */
-  protected readonly focusedPoint = signal(5);
+  // ----- Related and history: the landing page's own sections, each present only if permitted -----
+  protected readonly visibleRelatedTabs = computed<RelatedTab[]>(() => {
+    const page = this.page();
+    if (!page) return [];
+    const tabs: RelatedTab[] = [];
+    const scope = this.activeScope();
 
-  // ----- Related and history (4.2.1). Each tab is independently permission/scope gated. -----
-  protected readonly relatedTabs: readonly RelatedTab[] = [
-    {
-      key: 'linked',
-      label: 'Linked records',
-      permitted: true,
-      rows: [
-        { primary: 'CAMP-2026-0178', secondary: 'Blind-Stick Distribution Drive', meta: 'Campaign · Active' },
-        { primary: 'STOCK-2026-0267', secondary: 'Blind Stick Stock', meta: 'Warehouse · Maharashtra' },
-      ],
-    },
-    {
-      key: 'documents',
-      label: 'Documents',
-      permitted: true,
-      rows: [
-        { primary: 'Board pack — July 2026', secondary: 'PDF · 2.1 MB', meta: 'Generated 29 Jul 2026' },
-        { primary: 'Reconciliation summary', secondary: 'PDF · 640 KB', meta: 'Generated 29 Jul 2026' },
-      ],
-    },
-    {
-      key: 'activity',
-      label: 'Activity',
-      permitted: true,
-      rows: [
-        { primary: 'Filter applied', secondary: 'Scope narrowed to Maharashtra', meta: 'P. Nair · 09:32 IST' },
-        { primary: 'Data refreshed', secondary: 'Outcome metrics recomputed', meta: 'System · 09:30 IST' },
-      ],
-    },
-    {
-      key: 'integration',
-      label: 'Integration status',
-      permitted: true,
-      rows: [
-        { primary: 'Settlement feed', secondary: 'Healthy', meta: 'Last sync 09:28 IST' },
-        { primary: 'Warehouse stock feed', secondary: 'Degraded', meta: 'Retrying · corr. INT-77213' },
-      ],
-    },
-    {
-      key: 'support',
-      label: 'Support correlation',
-      permitted: true,
-      rows: [{ primary: 'INT-77213', secondary: 'Stock feed retry', meta: 'Open · linked to dependency failure' }],
-    },
-    {
-      key: 'audit',
-      label: 'Audit chronology',
-      permitted: true,
-      rows: [
-        { primary: 'View opened', secondary: 'ux.executive-dashboard.view granted', meta: 'P. Nair · 09:31 IST' },
-        { primary: 'Export requested', secondary: 'Pending confirmation', meta: 'P. Nair · 09:34 IST' },
-      ],
-    },
-  ];
+    if (scope?.campaignId) {
+      tabs.push({ key: 'linked', label: 'Linked records', rows: [{ primary: scope.reference, secondary: scope.name, meta: scope.context }] });
+    } else if (page.panels.pipeline) {
+      const stage = page.panels.pipeline.stages.find((s) => s.key === page.panels.pipeline!.defaultStage);
+      tabs.push({
+        key: 'linked',
+        label: 'Linked records',
+        rows: (stage?.rows ?? []).map((r) => ({ primary: r.code, secondary: r.name, meta: `${r.kicker} · ${r.whenLabel}` })),
+      });
+    }
+    if (page.panels.feed) {
+      tabs.push({
+        key: 'gifts',
+        label: page.panels.feed.title,
+        rows: page.panels.feed.items.map((i) => ({ primary: i.reference, secondary: i.title, meta: [i.valueDisplay, i.statusLabel].filter(Boolean).join(' · ') })),
+      });
+    }
+    if (page.panels.agenda) {
+      tabs.push({
+        key: 'agenda',
+        label: page.panels.agenda.title,
+        rows: page.panels.agenda.items.map((i) => ({ primary: i.title, secondary: i.subtitle ?? '', meta: i.whenLabel })),
+      });
+    }
+    if (page.attention.length) {
+      tabs.push({
+        key: 'attention',
+        label: 'Needs attention',
+        rows: page.attention.map((a) => ({ primary: a.label, secondary: a.hint, meta: `${a.count}` })),
+      });
+    }
+    if (page.panels.activity) {
+      tabs.push({
+        key: 'activity',
+        label: 'Activity',
+        rows: page.panels.activity.items.map((i) => ({
+          primary: i.action,
+          secondary: [i.actor, i.target].filter(Boolean).join(' · '),
+          meta: this.formatMoment(new Date(i.occurredAtUtc)),
+        })),
+      });
+    }
+    return tabs;
+  });
 
-  /** Only tabs the actor is permitted to see are offered; unavailable ones are omitted (4.2.1). */
-  protected readonly visibleRelatedTabs = computed(() => this.relatedTabs.filter((t) => t.permitted));
   protected readonly activeRelatedTab = signal<string>('linked');
   protected readonly activeRelatedRows = computed(
-    () => this.visibleRelatedTabs().find((t) => t.key === this.activeRelatedTab())?.rows ?? [],
+    () => (this.visibleRelatedTabs().find((t) => t.key === this.activeRelatedTab()) ?? this.visibleRelatedTabs()[0])?.rows ?? [],
   );
 
-  // ----- Persistent outcome (4.2.1). A toast may support but never replace this. -----
-  // A signal (not a static object) so the export and filter actions can update it
-  // with a genuine, observable result instead of only logging to the console.
-  protected readonly persistentOutcome = signal({
-    reference: 'EXEC-DASH-2026-0001',
-    state: 'Published',
-    effectiveTime: '29 Jul 2026, 09:30 IST',
-    downstreamStatus: 'No protected export pending',
-    owner: 'Priya Nair · Executive Sponsor',
-    nextAction: 'Review 7 open exceptions',
+  // ----- Persistent outcome -----
+  private readonly lastExport = signal<{ reference: string; at: string } | null>(null);
+
+  protected readonly persistentOutcome = computed(() => {
+    const next = this.page()?.attention[0];
+    const exported = this.lastExport();
+    return {
+      reference: exported?.reference ?? '',
+      state: this.outcomes() ? 'Figures current' : 'Loading figures',
+      effectiveTime: this.lastRefresh(),
+      downstreamStatus: exported ? `Summary exported · ${exported.reference}` : 'No summary exported in this session',
+      owner: this.owner(),
+      nextAction: next ? `${next.label} (${next.count})` : 'Nothing is waiting',
+    };
   });
 
-  // ----- UI state demonstrability (4.2.4 / 4.2.7) -----
-  protected readonly uiState = signal<UiState>('ready');
-  protected readonly uiStates: readonly UiState[] = [
-    'ready',
-    'loading',
-    'empty',
-    'validation',
-    'duplicate',
-    'no-access',
-    'conflict',
-    'dependency-failure',
-    'success',
-  ];
+  // ----- UI state -----
+  protected readonly uiState = signal<UiState>('loading');
+  protected readonly refusal = signal('');
+  protected readonly failedModules = computed(() => (this.outcomes()?.failed ?? []).join(', '));
 
-  // ----- Decision / review + Export authorised summary confirmation (4.2.1, 4.2.3, 4.2.6) -----
+  // ----- Export -----
   protected readonly exportDialogOpen = signal(false);
-  protected readonly exportConfirmation = {
-    classification: 'Official — Sensitive',
-    purpose: 'Board reporting pack',
-    scope: 'YDot Foundation · 19–29 Jul 2026',
-    rowFileCount: '6 metrics · 1 file (PDF)',
-    expiry: 'Link expires in 24 hours',
-    auditReference: 'AUD-EXP-2026-0442',
-  };
 
-  /** Handle for the in-flight simulated filter request, so it can be cancelled. */
-  private filterTimeoutId: number | null = null;
+  protected readonly exportConfirmation = computed(() => ({
+    classification: 'Organisation figures - no personal details',
+    purpose: 'Executive summary of the period',
+    scope: `${this.activeScope()?.name ?? ''} · ${this.formatDate(this.rangeStart())} – ${this.formatDate(this.rangeEnd())}`,
+    rowFileCount: `${this.filteredMetrics().length} metrics · ${this.trend().length} days · 1 file (TXT)`,
+    expiry: 'Saved to this device - no shared link is created',
+    auditReference: 'Not recorded - the summary is built in this browser',
+  }));
 
-  /** Whether the primary action (Filter) is currently allowed (role, permission, scope, state, dependencies; 4.2.1). */
-  protected readonly filterAllowed = computed(
-    () =>
-      this.permissions.view &&
-      !this.rangeInvalid() &&
-      this.uiState() !== 'no-access' &&
-      this.uiState() !== 'loading',
-  );
+  protected readonly filterAllowed = computed(() => !this.rangeInvalid() && this.uiState() !== 'loading');
 
-  /** Whether the protected export action is offered (permission + permitted lifecycle state; 4.2.3). */
-  protected readonly exportAllowed = computed(
-    () => this.permissions.exportAuthorisedSummary && this.exportPermittedStates.includes(this.lifecycleState),
-  );
+  /** Offered once there is something to export. */
+  protected readonly exportAllowed = computed(() => this.metrics().length > 0);
+
+  ngOnInit(): void {
+    this.api.load().subscribe((page) => this.page.set(page));
+    this.fetch();
+  }
 
   // ===== Behaviour =====
 
   protected selectScope(option: ScopeOption): void {
-    this.activeScope.set(option);
+    this.scopeId.set(option.campaignId);
     this.scopePickerOpen.set(false);
     this.scopeQuery.set('');
   }
@@ -412,74 +366,59 @@ export class ExecutiveDashboardComponent {
     this.scopePickerOpen.update((v) => !v);
   }
 
-  protected setComparison(period: string): void {
-    this.comparisonPeriod.set(period);
+  protected setComparison(key: string): void {
+    this.comparisonPeriod.set(key);
   }
 
-  /** Primary action — Filter. Server-side filtering; refreshes only the authorised records in scope (4.2.3). */
+  /** A preset sets the period to its own dates, as the server worked them out. */
+  protected choosePreset(key: string): void {
+    this.savedFilter.set(key);
+    const preset = this.savedFilters().find((p) => p.key === key);
+    if (preset?.fromDate && preset.toDate) {
+      this.rangeStart.set(preset.fromDate);
+      this.rangeEnd.set(preset.toDate);
+    }
+  }
+
+  /** Filter - the period, scope and comparison go to the server; the search narrows the tiles. */
   protected applyFilter(): void {
     if (!this.filterAllowed()) {
       return;
     }
-    // Close any open pickers so the settled result is what the actor sees next.
     this.scopePickerOpen.set(false);
-
-    // Show that a query round-trip is genuinely happening (4.2.4 loading state).
-    this.uiState.set('loading');
-
-    // Wire to the outcome query service when available. In the meantime this
-    // applies the filter locally so the region visibly reflects the actor's
-    // scope, range, comparison and search choices rather than doing nothing.
-    if (this.filterTimeoutId !== null) {
-      window.clearTimeout(this.filterTimeoutId);
-    }
-    this.filterTimeoutId = window.setTimeout(() => {
-      this.filterTimeoutId = null;
-      const appliedSearch = this.searchTerm().trim();
-      this.appliedSearchTerm.set(appliedSearch);
-      this.lastRefresh.set(this.formatNow());
-
-      console.info('Filter applied', {
-        scope: this.activeScope().reference,
-        start: this.rangeStart(),
-        end: this.rangeEnd(),
-        comparison: this.comparisonPeriod(),
-        search: appliedSearch,
-      });
-
-      // Zero results from *this* filter/scope combination surface the empty
-      // state rather than silently showing a shorter, unexplained grid.
-      this.uiState.set(this.filteredMetrics().length === 0 ? 'empty' : 'ready');
-    }, 400);
+    this.appliedSearchTerm.set(this.searchTerm().trim());
+    this.fetch();
   }
 
-  /** Compare — overlays the comparison period on the outcome trend (4.2.3). */
   protected toggleCompare(): void {
     this.comparisonShown.update((v) => !v);
   }
 
-  /** Drill down — opens the authorised detail for a metric or trend point (4.2.3). */
+  /** Drill down - opens the screen the figure is counted from, when the caller may open it. */
   protected drillDown(target: string): void {
-    console.info('Drill down requested', target);
+    const metric = this.metrics().find((m) => m.key === target);
+    if (metric?.route) {
+      this.router.navigate([metric.route]);
+    }
   }
 
   protected toggleDefinition(metricKey: string): void {
     this.openDefinition.update((cur) => (cur === metricKey ? null : metricKey));
   }
 
-  /** Clearing a filter is explicit and returns focus predictably (4.2.1 Context and filters). */
   protected clearFilters(): void {
-    this.rangeStart.set(this.defaultRangeStart);
-    this.rangeEnd.set(this.defaultRangeEnd);
-    this.activeScope.set(this.scopeOptions[0]);
-    this.comparisonPeriod.set(this.comparisonOptions[0]);
-    this.savedFilter.set(this.savedFilters[0]);
+    const initial = this.defaultRange();
+    if (initial) {
+      this.rangeStart.set(initial.from);
+      this.rangeEnd.set(initial.to);
+    }
+    this.scopeId.set(null);
+    this.comparisonPeriod.set('previous');
+    this.savedFilter.set('');
     this.searchTerm.set('');
     this.appliedSearchTerm.set('');
     this.comparisonShown.set(false);
-    if (this.uiState() === 'empty') {
-      this.uiState.set('ready');
-    }
+    this.fetch();
   }
 
   protected selectRelatedTab(key: string): void {
@@ -491,14 +430,9 @@ export class ExecutiveDashboardComponent {
   }
 
   protected setUiState(state: UiState): void {
-    if (this.uiState() === 'loading' && state !== 'loading' && this.filterTimeoutId !== null) {
-      window.clearTimeout(this.filterTimeoutId);
-      this.filterTimeoutId = null;
-    }
     this.uiState.set(state);
   }
 
-  /** Open the Export authorised summary review/confirmation (4.2.3 Export → Decision/review). */
   protected openExportDialog(): void {
     if (!this.exportAllowed()) {
       return;
@@ -510,37 +444,93 @@ export class ExecutiveDashboardComponent {
     this.exportDialogOpen.set(false);
   }
 
-  /** Explicit confirmation before the protected output is made available (4.2.3, 4.2.6 high-risk). */
+  /** The summary file: the figures on screen, their period, scope and comparison, nothing else. */
   protected confirmExport(): void {
-    console.info('Export authorised summary confirmed', this.exportConfirmation);
-
-    // Produce the actual protected output. Wire this to the export service when
-    // available; until then, generate the authorised summary file client-side so
-    // the action has a real, verifiable result instead of only a console log.
-    const now = this.formatNow();
+    const now = new Date();
+    const stamp = now.toISOString().slice(0, 16).replace(/[-:T]/g, '');
+    const reference = `EXEC-SUMMARY-${stamp}`;
+    const confirmation = this.exportConfirmation();
     const lines = [
-      'YDot Foundation — Authorised summary (Board reporting pack)',
-      `Classification: ${this.exportConfirmation.classification}`,
-      `Scope: ${this.exportConfirmation.scope}`,
-      `Generated: ${now}`,
-      `Audit reference: ${this.exportConfirmation.auditReference}`,
+      `${this.page()?.viewer?.organisationName ?? ''} — Executive summary`,
+      `Scope: ${confirmation.scope}`,
+      `Days counted in: ${this.operatingTimeZone()}`,
+      `Figures as of: ${this.lastRefresh()}`,
+      `Exported: ${this.formatMoment(now)} by ${this.owner()}`,
       '',
       ...this.filteredMetrics().map((m) => `${m.label}: ${m.value} (${m.qualifier})`),
     ];
-    this.downloadTextFile(`${this.exportConfirmation.auditReference}.txt`, lines.join('\n'));
-
-    this.persistentOutcome.update((outcome) => ({
-      ...outcome,
-      effectiveTime: now,
-      downstreamStatus: `Authorised summary exported · ${this.exportConfirmation.auditReference}`,
-      nextAction: 'Share the authorised summary with the Board',
-    }));
-
+    this.downloadTextFile(`${reference}.txt`, lines.join('\n'));
+    this.lastExport.set({ reference, at: this.formatMoment(now) });
     this.exportDialogOpen.set(false);
     this.uiState.set('success');
   }
 
-  /** Triggers a browser download for the generated authorised-summary file. */
+  // ===== Loading =====
+
+  private fetch(): void {
+    this.uiState.set('loading');
+    this.refusal.set('');
+    this.api
+      .loadOutcomes({
+        fromDate: this.rangeStart() || undefined,
+        toDate: this.rangeEnd() || undefined,
+        campaignId: this.scopeId() ?? undefined,
+        comparison: this.comparisonPeriod(),
+      })
+      .subscribe((outcomes) => {
+        if (outcomes.refusal) {
+          this.refusal.set(outcomes.refusal);
+          this.uiState.set('validation');
+          return;
+        }
+        this.outcomes.set(outcomes);
+        if (outcomes.fromDate && outcomes.toDate) {
+          this.rangeStart.set(outcomes.fromDate);
+          this.rangeEnd.set(outcomes.toDate);
+          if (!this.defaultRange()) this.defaultRange.set({ from: outcomes.fromDate, to: outcomes.toDate });
+        }
+        this.focusedPoint.set(Math.max(0, (outcomes.series?.points.length ?? 1) - 1));
+        this.uiState.set(
+          !outcomes.metrics.length
+            ? outcomes.failed.length ? 'dependency-failure' : 'no-access'
+            : outcomes.failed.length
+              ? 'dependency-failure'
+              : this.filteredMetrics().length === 0
+                ? 'empty'
+                : 'ready',
+        );
+      });
+  }
+
+  // ===== Wording =====
+
+  /** The qualifier, with the comparison period's figure and the change when there is one. */
+  private qualifierOf(metric: DashboardOutcomeMetric): string {
+    if (metric.comparisonValue === undefined || metric.comparisonValue === null) {
+      return metric.qualifier;
+    }
+    const before = this.format(metric.comparisonValue, metric.unit, metric.currencyCode);
+    const change =
+      metric.comparisonValue > 0
+        ? ` (${metric.value >= metric.comparisonValue ? '+' : ''}${Math.round(((metric.value - metric.comparisonValue) / metric.comparisonValue) * 100)}%)`
+        : '';
+    const comparison = this.comparisonOptions().find((o) => o.key === this.comparisonPeriod())?.label.toLowerCase() ?? 'the comparison period';
+    return `${metric.qualifier} · ${before} in ${comparison}${change}`;
+  }
+
+  /** A figure in its unit - compact money in the metric's currency, or a plain count. */
+  protected format(value: number, unit: DashboardUnit, currency?: string): string {
+    if (unit === 'money') {
+      try {
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency || 'INR', notation: 'compact', maximumFractionDigits: 2 }).format(value);
+      } catch {
+        return String(value);
+      }
+    }
+    if (unit === 'percent') return `${Math.round(value)}%`;
+    return new Intl.NumberFormat('en-IN').format(value);
+  }
+
   private downloadTextFile(filename: string, content: string): void {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -551,12 +541,19 @@ export class ExecutiveDashboardComponent {
     URL.revokeObjectURL(url);
   }
 
-  /** Current timestamp formatted the same way as the rest of the freshness evidence. */
-  private formatNow(): string {
-    const d = new Date();
+  private formatMoment(d: Date): string {
     const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const timePart = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-    return `${datePart}, ${timePart} IST`;
+    return `${datePart}, ${timePart}`;
+  }
+
+  private formatDate(iso: string): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return iso;
+    }
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   // ===== Chart geometry (SVG viewBox 0 0 900 300) =====
@@ -564,52 +561,49 @@ export class ExecutiveDashboardComponent {
   private readonly chartH = 300;
   private readonly pad = { top: 12, right: 12, bottom: 28, left: 12 };
 
+  private readonly primaryPeak = computed(() => Math.max(...this.trend().map((p) => p.primary), 0) || 1);
+  private readonly secondaryPeak = computed(() => Math.max(...this.trend().map((p) => p.secondary), 0) || 1);
+
   private scaleX(i: number): number {
     const usable = this.chartW - this.pad.left - this.pad.right;
-    return this.pad.left + (usable * i) / (this.trend.length - 1);
+    return this.pad.left + (usable * i) / Math.max(this.trend().length - 1, 1);
   }
 
-  private scaleDonations(v: number): number {
+  private scaleY(value: number, peak: number): number {
     const usable = this.chartH - this.pad.top - this.pad.bottom;
-    return this.chartH - this.pad.bottom - (usable * v) / 10;
+    return this.chartH - this.pad.bottom - (usable * value) / (peak * 1.1);
   }
 
-  private scaleBeneficiaries(v: number): number {
-    const usable = this.chartH - this.pad.top - this.pad.bottom;
-    return this.chartH - this.pad.bottom - (usable * v) / 5000;
-  }
-
-  protected readonly donationsPath = computed(() =>
-    this.trend
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${this.scaleX(i).toFixed(1)} ${this.scaleDonations(p.donations).toFixed(1)}`)
+  protected readonly primaryPath = computed(() =>
+    this.trend()
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${this.scaleX(i).toFixed(1)} ${this.scaleY(p.primary, this.primaryPeak()).toFixed(1)}`)
       .join(' '),
   );
 
-  protected readonly beneficiariesPath = computed(() =>
-    this.trend
-      .map(
-        (p, i) =>
-          `${i === 0 ? 'M' : 'L'} ${this.scaleX(i).toFixed(1)} ${this.scaleBeneficiaries(p.beneficiaries).toFixed(1)}`,
-      )
+  protected readonly secondaryPath = computed(() =>
+    this.trend()
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${this.scaleX(i).toFixed(1)} ${this.scaleY(p.secondary, this.secondaryPeak()).toFixed(1)}`)
       .join(' '),
   );
 
-  protected donationPoints = computed(() =>
-    this.trend.map((p, i) => ({ x: this.scaleX(i), y: this.scaleDonations(p.donations), point: p, index: i })),
+  protected readonly primaryPoints = computed(() =>
+    this.trend().map((p, i) => ({ x: this.scaleX(i), y: this.scaleY(p.primary, this.primaryPeak()), point: p, index: i })),
   );
 
-  protected beneficiaryPoints = computed(() =>
-    this.trend.map((p, i) => ({ x: this.scaleX(i), y: this.scaleBeneficiaries(p.beneficiaries), point: p, index: i })),
+  protected readonly secondaryPoints = computed(() =>
+    this.trend().map((p, i) => ({ x: this.scaleX(i), y: this.scaleY(p.secondary, this.secondaryPeak()), point: p, index: i })),
   );
 
   protected readonly focusX = computed(() => this.scaleX(this.focusedPoint()));
-  protected readonly focusedTrend = computed(() => this.trend[this.focusedPoint()]);
 
-  private formatDate(iso: string): string {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) {
-      return iso;
-    }
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  }
+  protected readonly focusedTrend = computed(() => {
+    const point = this.trend()[this.focusedPoint()];
+    const series = this.outcomes()?.series;
+    if (!point || !series) return null;
+    return {
+      label: point.label,
+      primary: this.format(point.primary, series.primaryUnit, series.currencyCode),
+      secondary: this.format(point.secondary, series.secondaryUnit, series.currencyCode),
+    };
+  });
 }

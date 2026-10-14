@@ -708,17 +708,44 @@ public sealed class PaymentProcessingCommandHandler(
 
             // Section 17: an account and an invitation, only where the donor has neither. No
             // password is set - the donor chooses one through the activation link.
-            if (_settings.CreateDonorAccountOnSuccess && !match.HasActiveAccount)
+            //
+            // THE LOGIN IS LOOKED UP BY E-MAIL, NOT READ OFF THE DONOR. A donor record created a
+            // moment ago knows nothing about IAM, so a member of staff giving under their work
+            // address was sent a second account that IAM refused as a duplicate. And a donor who
+            // was invited by an earlier gift and never activated gets the invitation again rather
+            // than a refused duplicate and nothing.
+            var login = _settings.CreateDonorAccountOnSuccess
+                ? await donorDirectory.GetLoginAsync(intent.TenantId, intent.NormalisedEmail, cancellationToken)
+                : null;
+
+            var accountRequest = new CreateDonorAccountRequest(
+                intent.TenantId,
+                match.DonorId,
+                intent.DonorName,
+                intent.Email,
+                intent.Mobile,
+                donation.DonationReference);
+
+            if (login is { State: DonorLoginState.Invited, UserId: { } invitedUserId })
+            {
+                var resent = await donorDirectory.ResendInvitationAsync(
+                    accountRequest, invitedUserId, cancellationToken);
+
+                await audit.WriteAnonymousAsync(
+                    AuditActionCodes.DonorAccountInvited,
+                    "Donor",
+                    match.DonorId,
+                    intent.TenantId,
+                    resent.InvitationSent ? AuditResult.Succeeded : AuditResult.Failed,
+                    new { resent.UserId, resent.InvitationSent, Resent = true, resent.FailureReason },
+                    cancellationToken);
+
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            else if (login is { State: DonorLoginState.None })
             {
                 var account = await donorDirectory.CreateAccountAndInviteAsync(
-                    new CreateDonorAccountRequest(
-                        intent.TenantId,
-                        match.DonorId,
-                        intent.DonorName,
-                        intent.Email,
-                        intent.Mobile,
-                        donation.DonationReference),
-                    cancellationToken);
+                    accountRequest, cancellationToken);
 
                 if (account.AccountCreated)
                 {
@@ -764,24 +791,77 @@ public sealed class PaymentProcessingCommandHandler(
     private async Task ConvertLeadAsync(
         DonationIntent intent, Donation donation, CancellationToken cancellationToken)
     {
-        if (!intent.OriginatedFromLead || donation.DonorId is null)
+        if (donation.DonorId is null)
         {
             return;
         }
 
+        if (intent.OriginatedFromLead)
+        {
+            try
+            {
+                await donorDirectory.MarkLeadConvertedAsync(
+                    intent.TenantId, intent.LeadId!.Value, donation.DonorId.Value, cancellationToken);
+
+                await audit.WriteAnonymousAsync(
+                    AuditActionCodes.LeadConverted,
+                    "Lead",
+                    intent.LeadId.Value,
+                    intent.TenantId,
+                    AuditResult.Succeeded,
+                    new { donation.DonationReference, donation.DonorId },
+                    cancellationToken);
+
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(
+                    exception,
+                    "Lead {LeadId} could not be marked converted for donation {DonationReference}. "
+                    + "The donation stands and this needs following up.",
+                    intent.LeadId, donation.DonationReference);
+            }
+        }
+
+        await ConvertLeadsByEmailAsync(intent, donation, cancellationToken);
+    }
+
+    /// <summary>
+    /// Converts the donor's other open leads, found by e-mail.
+    ///
+    /// THE PUBLIC FORM AND A QR CODE CARRY NO LEAD. A lead who gave that way became a donor and
+    /// stayed in the lead work queue, so the same person was listed as an open lead and as a
+    /// donor. The e-mail they gave with is what ties the two together. It also clears the person's
+    /// leads on other campaigns when the gift did come through one lead's own link.
+    ///
+    /// SWALLOWED AND LOGGED like every step after the money: a lead left open is a follow-up, not a
+    /// reason to unwind a gift.
+    /// </summary>
+    private async Task ConvertLeadsByEmailAsync(
+        DonationIntent intent, Donation donation, CancellationToken cancellationToken)
+    {
         try
         {
-            await donorDirectory.MarkLeadConvertedAsync(
-                intent.TenantId, intent.LeadId!.Value, donation.DonorId.Value, cancellationToken);
+            var converted = await donorDirectory.ConvertOpenLeadsByEmailAsync(
+                intent.TenantId, intent.NormalisedEmail, donation.DonorId!.Value, cancellationToken);
 
-            await audit.WriteAnonymousAsync(
-                AuditActionCodes.LeadConverted,
-                "Lead",
-                intent.LeadId.Value,
-                intent.TenantId,
-                AuditResult.Succeeded,
-                new { donation.DonationReference, donation.DonorId },
-                cancellationToken);
+            if (converted.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var leadId in converted)
+            {
+                await audit.WriteAnonymousAsync(
+                    AuditActionCodes.LeadConverted,
+                    "Lead",
+                    leadId,
+                    intent.TenantId,
+                    AuditResult.Succeeded,
+                    new { donation.DonationReference, donation.DonorId, MatchedBy = "E-mail" },
+                    cancellationToken);
+            }
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
@@ -789,9 +869,9 @@ public sealed class PaymentProcessingCommandHandler(
         {
             logger.LogError(
                 exception,
-                "Lead {LeadId} could not be marked converted for donation {DonationReference}. "
-                + "The donation stands and this needs following up.",
-                intent.LeadId, donation.DonationReference);
+                "Open leads matching the donor's e-mail could not be converted for donation "
+                + "{DonationReference}. The donation stands and this needs following up.",
+                donation.DonationReference);
         }
     }
 

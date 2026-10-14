@@ -22,6 +22,10 @@ namespace YDots.CAM.Infrastructure.Persistence.Seed;
 /// A FAILURE HERE NEVER TAKES THE SERVICE DOWN. An unhandled exception in a BackgroundService
 /// stops the host, and no demonstration campaign is worth refusing to start the campaigns API
 /// over.
+///
+/// THE WHATSAPP HISTORY COMES SECOND. It names the campaigns, so it is written once they are, and
+/// it goes into the integration worker's tables - which exist only once the worker has started.
+/// A worker that never starts leaves the WhatsApp screens empty and the campaigns untouched.
 /// </summary>
 public sealed class DemoDataSeedingService(
     IServiceScopeFactory scopeFactory,
@@ -40,17 +44,36 @@ public sealed class DemoDataSeedingService(
 
         var startedAt = DateTimeOffset.UtcNow;
         var reportedWaiting = false;
+        var campaignsSeeded = false;
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
-                var seeder = scope.ServiceProvider.GetRequiredService<DemoCampaignSeeder>();
 
-                if (await seeder.SeedAsync(stoppingToken) != DemoSeedOutcome.Waiting)
+                if (!campaignsSeeded)
                 {
-                    return;
+                    var campaigns = await scope.ServiceProvider.GetRequiredService<DemoCampaignSeeder>()
+                        .SeedAsync(stoppingToken);
+
+                    if (campaigns == DemoSeedOutcome.Disabled)
+                    {
+                        return;
+                    }
+
+                    campaignsSeeded = campaigns == DemoSeedOutcome.Completed;
+                }
+
+                if (campaignsSeeded)
+                {
+                    var whatsApp = await scope.ServiceProvider.GetRequiredService<DemoWhatsAppSeeder>()
+                        .SeedAsync(stoppingToken);
+
+                    if (whatsApp != DemoSeedOutcome.Waiting)
+                    {
+                        return;
+                    }
                 }
 
                 // ONCE, NOT EVERY TIME ROUND. This is the ordinary state of a stack that is
@@ -60,8 +83,10 @@ public sealed class DemoDataSeedingService(
                     reportedWaiting = true;
 
                     logger.LogInformation(
-                        "The demonstration campaigns are waiting for IAM to create the sample "
-                        + "Organisations and their people.");
+                        campaignsSeeded
+                            ? "The demonstration WhatsApp history is waiting for the integration worker to create its tables."
+                            : "The demonstration campaigns are waiting for IAM to create the sample "
+                              + "Organisations and their people.");
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -71,16 +96,27 @@ public sealed class DemoDataSeedingService(
             catch (Exception exception)
             {
                 logger.LogWarning(
-                    exception, "The demonstration campaigns could not be seeded. It will be tried again.");
+                    exception, "The demonstration data could not be seeded. It will be tried again.");
             }
 
             if (DateTimeOffset.UtcNow - startedAt > GiveUpAfter)
             {
-                logger.LogWarning(
-                    "The demonstration campaigns were not seeded: the sample Organisations or their "
-                    + "people did not appear within {Minutes} minutes. Restart this service once "
-                    + "IAM has seeded them.",
-                    GiveUpAfter.TotalMinutes);
+                if (campaignsSeeded)
+                {
+                    logger.LogInformation(
+                        "The demonstration WhatsApp history was not seeded: the integration worker's "
+                        + "tables did not appear within {Minutes} minutes. Restart this service once "
+                        + "the worker is running.",
+                        GiveUpAfter.TotalMinutes);
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "The demonstration campaigns were not seeded: the sample Organisations or their "
+                        + "people did not appear within {Minutes} minutes. Restart this service once "
+                        + "IAM has seeded them.",
+                        GiveUpAfter.TotalMinutes);
+                }
 
                 return;
             }

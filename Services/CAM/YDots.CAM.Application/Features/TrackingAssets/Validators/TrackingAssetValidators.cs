@@ -66,6 +66,65 @@ public sealed class CreateTrackingAssetRequestValidator : AbstractValidator<Crea
     }
 }
 
+/// <summary>
+/// Validator for the place QR codes of an offline event.
+///
+/// The per-place rules are the same as on a single create; what this adds is a bound on how many
+/// assets one request may write, because every place becomes an asset with its own code.
+/// </summary>
+public sealed class CreatePlaceTrackingAssetsRequestValidator
+    : AbstractValidator<CreatePlaceTrackingAssetsRequest>
+{
+    /// <summary>The most places one request may create assets for.</summary>
+    public const int MaxPlaces = 50;
+
+    public CreatePlaceTrackingAssetsRequestValidator()
+    {
+        RuleFor(request => request.CampaignId)
+            .NotEmpty().WithMessage("Choose the campaign this asset belongs to.");
+
+        RuleFor(request => request.ChannelId)
+            .NotEmpty().WithMessage("Choose a medium.");
+
+        RuleFor(request => request.SourceId)
+            .NotEqual(Guid.Empty).WithMessage("Choose a source.")
+            .When(request => request.SourceId.HasValue);
+
+        RuleFor(request => request.MediumId)
+            .NotEqual(Guid.Empty).WithMessage("Choose a medium.")
+            .When(request => request.MediumId.HasValue);
+
+        RuleFor(request => request.Places)
+            .NotEmpty().WithMessage("Add the place where this QR code will appear.")
+            .Must(places => places is null || places.Count <= MaxPlaces)
+            .WithMessage($"One request can create at most {MaxPlaces} places.");
+
+        RuleForEach(request => request.Places).SetValidator(new TrackingAssetPlaceRequestValidator());
+
+        RuleFor(request => request.ContentTag)
+            .MaximumLength(100)
+            .Matches("^[A-Za-z0-9_.-]+$")
+            .WithMessage("A content tag may contain letters, digits, dots, hyphens or underscores.")
+            .When(request => !string.IsNullOrWhiteSpace(request.ContentTag));
+
+        RuleFor(request => request.ActiveTo)
+            .GreaterThan(request => request.ActiveFrom)
+            .WithMessage("The end of the active window must be after its start.");
+
+        RuleFor(request => request.Status)
+            .IsInEnum().WithMessage("Choose the asset status.")
+            .Must(status => status is Domain.Enums.TrackingAssetStatus.Draft
+                or Domain.Enums.TrackingAssetStatus.Submitted)
+            .WithMessage("A tracking asset can only be created as Draft or Submitted.");
+
+        RuleFor(request => request.ActiveFrom)
+            .NotEqual(default(DateTimeOffset)).WithMessage("Choose when this asset becomes active.");
+
+        RuleFor(request => request.ActiveTo)
+            .NotEqual(default(DateTimeOffset)).WithMessage("Choose when this asset stops being active.");
+    }
+}
+
 /// <summary>Validator for editing a tracking asset.</summary>
 public sealed class UpdateTrackingAssetRequestValidator : AbstractValidator<UpdateTrackingAssetRequest>
 {
@@ -116,6 +175,16 @@ public sealed class TrackingAssetPlaceRequestValidator : AbstractValidator<Track
 
         RuleForEach(place => place.CustomFields)
             .SetValidator(new TrackingAssetCustomFieldRequestValidator());
+
+        // One value per name: the table holds a unique index on (place, field name), and a repeat
+        // reached the person as a database error rather than as something to fix.
+        RuleFor(place => place.CustomFields)
+            .Must(fields => fields is null || fields
+                .Where(field => !string.IsNullOrWhiteSpace(field.FieldName))
+                .GroupBy(field => field.FieldName.Trim(), StringComparer.OrdinalIgnoreCase)
+                .All(group => group.Count() == 1))
+            .WithMessage(place =>
+                $"Two custom fields on \"{place.PlaceName?.Trim()}\" have the same name. Give each its own name.");
     }
 }
 

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -218,7 +219,7 @@ public sealed class DemoCampaignSeeder(
 
             await context.TrackingAssets.AddAsync(
                 BuildAsset(organisation, seed, code, position, campaign, campaignSeed, people,
-                    reference, destination, now),
+                    reference, ForCampaign(destination, seed.Campaign), now),
                 cancellationToken);
 
             assetCount++;
@@ -969,6 +970,12 @@ public sealed class DemoCampaignSeeder(
     /// it was seeded into. The client's own address is the fallback, and a reserved <c>.test</c>
     /// host the last resort - never a real charity's website, which a demonstration link must not
     /// send anybody to.
+    ///
+    /// ON THE ORGANISATION'S OWN HOST. The configured addresses name the platform host, where no
+    /// organisation is in context: the donation form there cannot look up another organisation's
+    /// tracking reference, so a scanned demonstration QR code opened a form that did not know its
+    /// campaign. The Tracking Asset Manager builds its destinations from the page's own origin,
+    /// which is always the organisation's host - this does the same.
     /// </summary>
     private string ResolveDestination(DemoOrganisation organisation)
     {
@@ -976,17 +983,51 @@ public sealed class DemoCampaignSeeder(
 
         if (IsHttpUrl(tracking))
         {
-            return tracking;
+            return OnOrganisationHost(tracking, organisation.Subdomain);
         }
 
         var client = clientOptions.Value.BaseUrl;
 
         return IsHttpUrl(client)
-            ? client.TrimEnd('/') + "/auth/donor-form"
+            ? OnOrganisationHost(client.TrimEnd('/') + "/auth/donor-form", organisation.Subdomain)
             : $"https://give.{organisation.Subdomain}.test/donate";
     }
 
-    private static bool IsHttpUrl(string? value) =>
+    /// <summary>http://localhost:6700/auth/donor-form becomes http://smilefoundation.localhost:6700/auth/donor-form.</summary>
+    private static string OnOrganisationHost(string url, string subdomain)
+    {
+        var builder = new UriBuilder(url);
+
+        if (!builder.Host.StartsWith(subdomain + ".", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.Host = $"{subdomain}.{builder.Host}";
+        }
+
+        return builder.Uri.ToString();
+    }
+
+    /// <summary>
+    /// The destination with the campaign named on it - <c>?campaignCode=SF-EDU-2026</c> - which is
+    /// what the Tracking Asset Manager generates, so the form opens with the campaign chosen.
+    /// </summary>
+    private static string ForCampaign(string destination, string campaignCode)
+    {
+        if (!IsHttpUrl(destination))
+        {
+            return destination;
+        }
+
+        var builder = new UriBuilder(destination);
+        var parameter = "campaignCode=" + Uri.EscapeDataString(campaignCode);
+
+        builder.Query = string.IsNullOrEmpty(builder.Query)
+            ? parameter
+            : builder.Query.TrimStart('?') + "&" + parameter;
+
+        return builder.Uri.ToString();
+    }
+
+    private static bool IsHttpUrl([NotNullWhen(true)] string? value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri)
         && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 

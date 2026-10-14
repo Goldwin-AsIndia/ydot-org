@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using YDot.PAY.Application.Common.Settings;
+using YDot.PAY.Application.Features.Dashboard.Queries;
 using YDot.PAY.Application.Features.Donations.Commands.ManageDonation;
 using YDot.PAY.Application.Features.Donations.Commands.ManageIntent;
 using YDot.PAY.Application.Features.Donations.Queries;
@@ -74,6 +75,10 @@ public static class DependencyInjection
 
         // ---- Gateway configuration -------------------------------------------------------------------------
         services.AddScoped<GatewayAccountCommandHandler>();
+
+        // ---- The landing page's payment figures -----------------------------------------------------
+        services.AddScoped<PaymentDashboardQueryHandler>();
+        services.AddScoped<PaymentOutcomesQueryHandler>();
 
         return services;
     }

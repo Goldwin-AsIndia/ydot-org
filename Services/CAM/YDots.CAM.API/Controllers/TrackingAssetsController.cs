@@ -24,7 +24,7 @@ public sealed class TrackingAssetsController(
     TrackingAssetQueryHandler queries,
     ILogger<TrackingAssetsController> logger) : ApiControllerBase
 {
-    [HttpGet]
+    [HttpGet(Name = nameof(SearchAsync))]
     [HasPermission(PermissionCodes.TrackingAssetsView)]
     [ProducesResponseType(
         typeof(ApiResponse<PagedResponse<TrackingAssetListItemResponse>>), StatusCodes.Status200OK)]
@@ -129,6 +129,38 @@ public sealed class TrackingAssetsController(
         return CreatedFromResult(
             result, nameof(GetTrackingAssetAsync), new { id = result.Value!.Id },
             "Tracking asset created.");
+    }
+
+    /// <summary>
+    /// Creates the QR codes of an offline event: one asset per place, all or none.
+    ///
+    /// 201 with every asset created, in the order the places were sent. A refusal creates none of
+    /// them, so the same request can simply be sent again once it is corrected.
+    /// </summary>
+    [HttpPost("places")]
+    [HasPermission(PermissionCodes.TrackingAssetsCreate)]
+    [ProducesResponseType(
+        typeof(ApiResponse<IReadOnlyList<TrackingAssetDetailResponse>>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateForPlacesAsync(
+        [FromBody] CreatePlaceTrackingAssetsRequest request, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Creating place tracking assets.");
+
+        var result = await commands.HandleAsync(
+            new CreatePlaceTrackingAssetsCommand(request), cancellationToken);
+
+        if (result.IsFailure)
+        {
+            logger.LogWarning("Place tracking asset creation failed.");
+            return FromResult(result);
+        }
+
+        logger.LogInformation("{Count} place tracking assets created successfully.", result.Value!.Count);
+
+        return CreatedFromResult(
+            result, nameof(SearchAsync), new { campaignId = request.CampaignId },
+            result.Value!.Count == 1 ? "Tracking asset created." : $"{result.Value!.Count} tracking assets created.");
     }
 
     /// <summary>Edits a Draft asset. The campaign cannot be changed - that would re-attribute gifts.</summary>

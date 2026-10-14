@@ -729,12 +729,16 @@ export class LeadWorkQueueComponent {
     Math.min(this.totalCount(), this.rangeStart() + Math.max(0, this.filteredLeads().length - 1)),
   );
 
-  /** Up to five page numbers around the current one; the pager adds first / last with a gap. */
+  /**
+   * TWO page numbers: the current page and the next one - 1 2 on page 1, 2 3 on page 2, and so on.
+   * On the last page it shows the one before and the last (e.g. 4 5). The arrows step either way.
+   * It used to show five numbers plus the first and last with gaps, which crowded the footer.
+   */
   protected readonly pageNumbers = computed(() => {
     const total = this.totalPages();
-    const current = this.pageIndex();
-    const from = Math.max(1, Math.min(current - 2, total - 4));
-    const to = Math.min(total, from + 4);
+    const current = Math.min(Math.max(1, this.pageIndex()), total);
+    const from = Math.max(1, Math.min(current, total - 1));
+    const to = Math.min(total, from + 1);
     return Array.from({ length: to - from + 1 }, (_, index) => from + index);
   });
 

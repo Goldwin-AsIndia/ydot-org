@@ -1555,6 +1555,19 @@ export class PublicDonationInitiationComponent {
           return;
         }
 
+        // STRAIGHT TO PAYMENT AFTER THE SIGN-IN DETOUR. The public form sent this person to sign
+        // in because their address already has an account, and they had already pressed Submit -
+        // so the flow document's "after logging in, the donor is taken to the Payment page" means
+        // the provider's form, not a second button to press. It asks for a session only: the
+        // public read masks the e-mail, so it cannot be matched to the account, and the person
+        // who pressed Submit is the one who just signed in.
+        if (params.get('pay') && this.isInternalView()) {
+          this.clearPayParameter();
+          this.pushActivity('Signed in; opening the payment for ' + intent.intentReference + '.');
+          this.requestContinueToPayment();
+          return;
+        }
+
         this.toast.show(
           'Continue payment',
           'Donation ' + intent.intentReference + ' is ready. Select Continue to payment to finish it.',
@@ -1563,6 +1576,19 @@ export class PublicDonationInitiationComponent {
       },
       error: (error: unknown) =>
         this.toast.show('Donation not found', apiErrorMessage(error), 'error'),
+    });
+  }
+
+  /**
+   * Drops `pay` from the address once the payment has been opened, so a reload or Back does not
+   * open the provider's form again by itself. The intent stays, so the donation stays on screen.
+   */
+  private clearPayParameter(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { pay: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 }

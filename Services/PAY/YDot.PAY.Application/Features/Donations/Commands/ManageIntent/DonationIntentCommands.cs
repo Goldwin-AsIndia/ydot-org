@@ -218,9 +218,16 @@ public sealed class DonationIntentCommandHandler(
                 await unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
+            // THE SIGN-IN ANSWER TRAVELS WITH A REUSED INTENT TOO. It used to be set on a new
+            // intent only, so somebody with an account who was sent to sign in, came back to the
+            // public form and pressed Submit again was handed this same intent with the flag
+            // false - and paid anonymously, past the sign-in the first press had asked for.
             return existing.ToResponse(
                 campaignName: null,
-                PermittedActions(existing, now));
+                PermittedActions(existing, now)) with
+            {
+                RequiresSignIn = await RequiresSignInAsync(tenantId, normalisedEmail, cancellationToken)
+            };
         }
 
         var reference = await MintIntentReferenceAsync(cancellationToken);
@@ -280,8 +287,6 @@ public sealed class DonationIntentCommandHandler(
         // work address into the public form was treated as a stranger and taken straight to
         // payment - recording the gift against a second, unlinked identity in an organisation
         // where they already exist.
-        var requiresSignIn = false;
-
         try
         {
             var match = await donorDirectory.FindByEmailAsync(
@@ -290,12 +295,6 @@ public sealed class DonationIntentCommandHandler(
             intent.ExistingDonorMatched = match is not null;
             intent.ExistingDonorCheckedAtUtc = now;
             intent.DonorId = match?.DonorId;
-
-            // A DONOR WITH AN ACTIVE ACCOUNT ALREADY ANSWERS THIS, so the second lookup is only
-            // needed when the first found nothing - which is the staff case.
-            requiresSignIn = match?.HasActiveAccount
-                             ?? await donorDirectory.HasLoginAccountAsync(
-                                 tenantId, normalisedEmail, cancellationToken);
         }
         catch (Exception exception)
         {
@@ -305,6 +304,8 @@ public sealed class DonationIntentCommandHandler(
                 + "The donation proceeds and the donor is treated as new.",
                 intent.IntentReference);
         }
+
+        var requiresSignIn = await RequiresSignInAsync(tenantId, normalisedEmail, cancellationToken);
 
         await donations.AddIntentAsync(intent, cancellationToken);
 
@@ -337,6 +338,37 @@ public sealed class DonationIntentCommandHandler(
         {
             RequiresSignIn = requiresSignIn
         };
+    }
+
+    /// <summary>
+    /// Whether the person giving must sign in before they pay: their address has a login in THIS
+    /// Organisation that they can sign in to now.
+    ///
+    /// ACTIVE ONLY. An account that was invited and never activated has no password, so sending
+    /// its owner to a sign-in form is a dead end; they pay on the open form and the gift sends
+    /// their invitation again. A suspended or deactivated account is no way in either.
+    ///
+    /// IT NEVER FAILS THE DONATION - a lookup that cannot run answers "no", and the person pays.
+    /// </summary>
+    private async Task<bool> RequiresSignInAsync(
+        Guid tenantId, string normalisedEmail, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var login = await donorDirectory.GetLoginAsync(tenantId, normalisedEmail, cancellationToken);
+
+            return login.CanSignIn;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "The sign-in check could not run for a donation on organisation {TenantId}. "
+                + "The donor continues to payment.",
+                tenantId);
+
+            return false;
+        }
     }
 
     // =====================================================================================

@@ -199,6 +199,7 @@ public static class TrackingAssetMappingConfig
             income?.DonationCount ?? 0,
             income?.DonorCount ?? 0,
             asset.Places.Count,
+            asset.Places.Count == 1 ? asset.Places.First().PlaceName : null,
             asset.UpdatedAtUtc,
             asset.Version);
     }

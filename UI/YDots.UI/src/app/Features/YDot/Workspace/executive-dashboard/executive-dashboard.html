@@ -4,7 +4,7 @@
 <div [attr.data-ui-state]="uiState()">
 
   <!-- ============ TASK HEADER (4.2.1) ============ -->
-  <app-page-header screen="executive-dashboard" [title]="pageTitle" [ownerLabel]="owner" [updatedLabel]="'Data as of ' + lastRefresh()">
+  <app-page-header screen="executive-dashboard" [title]="pageTitle" [ownerLabel]="owner()" [updatedLabel]="'Data as of ' + lastRefresh()">
     <span meta class="ph-chip">{{ lifecycleState }}</span>
   </app-page-header>
 
@@ -16,7 +16,7 @@
       <!-- Date range (4.2.2) -->
       <div class="field" [class.field-invalid]="rangeInvalid()">
         <label class="field-label" for="range-start">Date range
-          <span class="tz-label">{{ operatingTimeZone }}</span>
+          <span class="tz-label">{{ operatingTimeZone() }}</span>
         </label>
         <div class="range-inputs">
           <input id="range-start" type="date" class="control" [ngModel]="rangeStart()"
@@ -68,19 +68,20 @@
         <label class="field-label" for="comparison">Comparison period</label>
         <select id="comparison" class="control" [ngModel]="comparisonPeriod()"
                 (ngModelChange)="setComparison($event)">
-          @for (opt of comparisonOptions; track opt) {
-            <option [value]="opt">{{ opt }}</option>
+          @for (opt of comparisonOptions(); track opt.key) {
+            <option [value]="opt.key">{{ opt.label }}</option>
           }
         </select>
       </div>
 
       <!-- Saved filter -->
       <div class="field">
-        <label class="field-label" for="saved-filter">Saved filter</label>
+        <label class="field-label" for="saved-filter">Period</label>
         <select id="saved-filter" class="control" [ngModel]="savedFilter()"
-                (ngModelChange)="savedFilter.set($event)">
-          @for (f of savedFilters; track f) {
-            <option [value]="f">{{ f }}</option>
+                (ngModelChange)="choosePreset($event)">
+          <option value="" disabled>Choose a period</option>
+          @for (f of savedFilters(); track f.key) {
+            <option [value]="f.key">{{ f.label }}</option>
           }
         </select>
       </div>
@@ -159,7 +160,7 @@
         @if (uiState() === 'validation') {
           <div class="banner banner-error" role="alert">
             <strong>Enter a valid Date range.</strong>
-            <a href="javascript:void(0)">Date range</a> does not meet the stated format or range.
+            {{ refusal() || 'The date range does not meet the stated format or range.' }}
           </div>
         }
         @if (uiState() === 'duplicate') {
@@ -182,8 +183,8 @@
           <div class="banner banner-warn" role="alert">
             We could not complete the dependent service step. Your confirmed local result is unchanged.
             <span class="banner-actions">
-              <span class="corr">Correlation INT-77213</span>
-              <a href="javascript:void(0)" (click)="setUiState('ready')">Retry dependency</a>
+              <span class="corr">Not answering: {{ failedModules() }}</span>
+              <a href="javascript:void(0)" (click)="applyFilter()">Retry dependency</a>
             </span>
           </div>
         }
@@ -214,10 +215,11 @@
         </div>
 
         <!-- Outcome-level trend line with drill-down and freshness read-out -->
+        @if (trend().length) {
         <figure class="trend-chart">
           <figcaption class="trend-caption">
-            <span class="legend"><i class="dot dot-donations"></i>Donations (₹L)</span>
-            <span class="legend"><i class="dot dot-beneficiaries"></i>Eligible beneficiaries</span>
+            <span class="legend"><i class="dot dot-donations"></i>{{ seriesLabels().primary }}</span>
+            <span class="legend"><i class="dot dot-beneficiaries"></i>{{ seriesLabels().secondary }}</span>
           </figcaption>
 
           <svg viewBox="0 0 900 300" class="chart-svg" role="img"
@@ -225,36 +227,39 @@
             <g class="gridlines" aria-hidden="true">
               @for (y of [24,90,156,222,272]; track y) { <line x1="0" [attr.y1]="y" x2="900" [attr.y2]="y" /> }
             </g>
-            <path [attr.d]="donationsPath()" class="path-donations" fill="none" />
-            <path [attr.d]="beneficiariesPath()" class="path-beneficiaries" fill="none" />
+            <path [attr.d]="primaryPath()" class="path-donations" fill="none" />
+            <path [attr.d]="secondaryPath()" class="path-beneficiaries" fill="none" />
 
             <line class="focus-line" [attr.x1]="focusX()" y1="12" [attr.x2]="focusX()" y2="272" />
 
-            @for (p of donationPoints(); track p.index) {
+            @for (p of primaryPoints(); track p.index) {
               <circle class="pt pt-donations" [class.pt-focus]="p.index === focusedPoint()"
                       [attr.cx]="p.x" [attr.cy]="p.y" r="4" tabindex="0"
-                      [attr.aria-label]="p.point.date + ', donations ₹' + p.point.donations + ' L'"
-                      (click)="focusPoint(p.index); drillDown('trend:' + p.point.date)"
+                      [attr.aria-label]="p.point.label + ', ' + seriesLabels().primary + ' ' + p.point.primary"
+                      (click)="focusPoint(p.index)"
                       (focus)="focusPoint(p.index)" />
             }
-            @for (p of beneficiaryPoints(); track p.index) {
+            @for (p of secondaryPoints(); track p.index) {
               <circle class="pt pt-beneficiaries" [class.pt-focus]="p.index === focusedPoint()"
                       [attr.cx]="p.x" [attr.cy]="p.y" r="4" tabindex="0"
-                      [attr.aria-label]="p.point.date + ', beneficiaries ' + p.point.beneficiaries"
-                      (click)="focusPoint(p.index); drillDown('trend:' + p.point.date)"
+                      [attr.aria-label]="p.point.label + ', ' + seriesLabels().secondary + ' ' + p.point.secondary"
+                      (click)="focusPoint(p.index)"
                       (focus)="focusPoint(p.index)" />
             }
           </svg>
 
           <div class="x-axis" aria-hidden="true">
-            @for (p of trend; track p.date) { <span>{{ p.date }}</span> }
+            @for (p of trend(); track p.date) { <span>{{ p.axisLabel }}</span> }
           </div>
 
           <p class="trend-readout" role="status">
-            {{ focusedTrend().date }} 2026 · Donations ₹{{ focusedTrend().donations }} L ·
-            Beneficiaries {{ focusedTrend().beneficiaries }} · as of {{ lastRefresh() }}
+            @if (focusedTrend(); as f) {
+              {{ f.label }} · {{ seriesLabels().primary }} {{ f.primary }} ·
+              {{ seriesLabels().secondary }} {{ f.secondary }} · as of {{ lastRefresh() }}
+            }
           </p>
         </figure>
+        }
       }
     </section>
 
@@ -269,8 +274,8 @@
         <dl class="dr-list">
           <div><dt>Before → after</dt><dd>No export → Authorised summary generated</dd></div>
           <div><dt>Evidence</dt><dd>{{ totalsCaption() }}</dd></div>
-          <div><dt>Reason</dt><dd>{{ exportConfirmation.purpose }}</dd></div>
-          <div><dt>Resulting state</dt><dd>Protected output available · {{ exportConfirmation.expiry }}</dd></div>
+          <div><dt>Reason</dt><dd>{{ exportConfirmation().purpose }}</dd></div>
+          <div><dt>Resulting state</dt><dd>Protected output available · {{ exportConfirmation().expiry }}</dd></div>
         </dl>
 
         <!-- Export authorised summary — workflow action (4.2.3) -->
@@ -297,7 +302,7 @@
         </div>
 
         <ul class="rel-list" role="list">
-          @for (row of activeRelatedRows(); track row.primary) {
+          @for (row of activeRelatedRows(); track $index) {
             <li class="rel-row">
               <span class="rel-primary">{{ row.primary }}</span>
               <span class="rel-secondary">{{ row.secondary }}</span>
@@ -331,12 +336,12 @@
         <h2 id="export-dialog-title" class="modal-title">Confirm Export authorised summary</h2>
 
         <dl class="modal-list">
-          <div><dt>Classification</dt><dd>{{ exportConfirmation.classification }}</dd></div>
-          <div><dt>Purpose</dt><dd>{{ exportConfirmation.purpose }}</dd></div>
-          <div><dt>Scope</dt><dd>{{ exportConfirmation.scope }}</dd></div>
-          <div><dt>Row / file count</dt><dd>{{ exportConfirmation.rowFileCount }}</dd></div>
-          <div><dt>Expiry</dt><dd>{{ exportConfirmation.expiry }}</dd></div>
-          <div><dt>Audit reference</dt><dd>{{ exportConfirmation.auditReference }}</dd></div>
+          <div><dt>Classification</dt><dd>{{ exportConfirmation().classification }}</dd></div>
+          <div><dt>Purpose</dt><dd>{{ exportConfirmation().purpose }}</dd></div>
+          <div><dt>Scope</dt><dd>{{ exportConfirmation().scope }}</dd></div>
+          <div><dt>Row / file count</dt><dd>{{ exportConfirmation().rowFileCount }}</dd></div>
+          <div><dt>Expiry</dt><dd>{{ exportConfirmation().expiry }}</dd></div>
+          <div><dt>Audit reference</dt><dd>{{ exportConfirmation().auditReference }}</dd></div>
         </dl>
 
         <div class="modal-actions">

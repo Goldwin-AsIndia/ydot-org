@@ -815,10 +815,10 @@
 .pq-select,
 .pq-find {
   width: 100%;
-  height: calc(40px * var(--s));
+  height: calc(30px * var(--s));
   padding: 0 calc(12px * var(--s));
   border: 1px solid var(--pq-line);
-  border-radius: calc(10px * var(--s));
+  border-radius: 8px;
   background: #ffffff;
   color: var(--pq-ink);
   outline: 0;
@@ -852,7 +852,7 @@
   display: flex;
   align-items: center;
   gap: calc(16px * var(--s));
-  margin-top: calc(16px * var(--s));
+  /* margin-top: calc(16px * var(--s)); */
 }
 
 .pq-filter-note {
@@ -1000,7 +1000,7 @@
   --fw-bias: var(--fwb-number);
   color: var(--pq-faint);
   font-family: var(--pq-num) !important;
-  font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-size: 15px !important;
   font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
   line-height: 1.2 !important;
 }
@@ -2026,7 +2026,7 @@ dialog.pq-drawer::backdrop {
 
 .pq-filter-grid .pq-filter-foot {
   margin-top: 0;
-  min-height: calc(40px * var(--s));
+  /* min-height: calc(40px * var(--s)); */
   white-space: nowrap;
 }
 
@@ -2360,4 +2360,155 @@ dialog.pq-drawer::backdrop {
   }
   .pq-page-btn { min-width: calc(30px * var(--s)); height: calc(32px * var(--s)); padding: 0 calc(4px * var(--s)); flex: none; }
   .pq-page-gap { min-width: calc(12px * var(--s)); }
+}
+
+.ydot-filter-reset{
+    height: 50px !important;
+}
+
+/* =====================================================================================================
+   EMPTY STATE - "No leads found": centred, compact, no buttons
+   ===================================================================================================== */
+.pq-state.pq-state--empty {
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(10px * var(--s));
+  padding: calc(44px * var(--s)) var(--pq-pad) calc(48px * var(--s));
+  text-align: center;
+}
+
+.pq-state--empty .pq-state-g {
+  width: calc(48px * var(--s));
+  height: calc(48px * var(--s));
+  border: 1px dashed color-mix(in srgb, var(--pq-accent) 35%, var(--pq-line));
+  background: none;
+  color: var(--pq-accent);
+}
+
+.pq-state--empty .pq-state-g i {
+  font-size: calc(calc(22px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.pq-state--empty .pq-state-copy {
+  flex: none;
+  max-width: calc(420px * var(--s));
+}
+
+.pq-state--empty .pq-state-copy h3 {
+  margin: 0 0 calc(4px * var(--s));
+  font-size: calc(calc(17px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+.pq-state--empty .pq-state-copy p {
+  color: var(--pq-muted);
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.5 !important;
+}
+
+@media (max-width: 600px) {
+  .pq-state.pq-state--empty { padding: 32px 16px 36px; }
+}
+/* =====================================================================================================
+   LEAD BRIEF - HEALTH / TEMPERATURE / POTENTIAL strip: shorter, even spacing
+   The strip was ~150px tall with uneven padding (the first column had none on the left, the others
+   14px) and a 46px ring. It is now a compact bordered box, the same shape as the sections below:
+   three equal cells, the same padding in each, label on top and value on one 36px line, so the
+   ring, "Cold" and "Low" sit on the same baseline.
+   ===================================================================================================== */
+.pq-dr-figs {
+  margin-bottom:16px;
+  border: 1px solid var(--pq-line);
+  border-radius: calc(14px * var(--s));
+  overflow: hidden;
+}
+
+.pq-dr-fig,
+.pq-dr-fig:first-child {
+  justify-content: flex-start;
+  gap: calc(6px * var(--s)) !important;
+  padding: calc(10px * var(--s)) calc(16px * var(--s)) calc(11px * var(--s)) !important;
+  border-left: 1px solid var(--pq-line-2);
+}
+
+.pq-dr-fig:first-child {
+  border-left: 0;
+}
+
+.pq-dr-fig .pq-cap {
+  line-height: 1.2 !important;
+  letter-spacing: 0.11em;
+}
+
+.pq-dr-fig .pq-health {
+  width: calc(36px * var(--s));
+  height: calc(36px * var(--s));
+}
+
+.pq-dr-fig .pq-health b {
+  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+.pq-dr-fig .pq-temp--lg,
+.pq-dr-fig .pq-pot--lg {
+  min-height: calc(36px * var(--s));
+  font-size: calc(calc(14px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.2 !important;
+}
+
+.pq-dr-fig .pq-temp--lg i {
+  font-size: calc(calc(17px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+.pq-dr-fig .pq-pot--lg .pq-bars {
+  height: calc(14px * var(--s));
+}
+
+/* the first section heading sits closer under the strip */
+.pq-dr-figs + .pq-dr-sec {
+  padding-top: calc(14px * var(--s));
+}
+
+@media (max-width: 600px) {
+  .pq-dr-fig,
+  .pq-dr-fig:first-child {
+    padding: 9px 10px 10px !important;
+  }
+  .pq-dr-fig .pq-cap { letter-spacing: 0.06em; }
+}
+
+/* =====================================================================================================
+   PAGER - two numbers (current + next) and smaller buttons
+   ===================================================================================================== */
+.pq-pager {
+  gap: calc(4px * var(--s));
+}
+
+.pq-page-btn {
+  min-width: calc(28px * var(--s)) !important;
+  height: calc(28px * var(--s)) !important;
+  padding: 0 calc(6px * var(--s)) !important;
+  border: 1px solid var(--pq-line) !important;
+  border-radius: calc(7px * var(--s)) !important;
+  font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+.pq-page-btn i {
+  font-size: calc(calc(15px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.pq-page-btn:hover:not(:disabled) {
+  border-color: var(--pq-accent) !important;
+  color: var(--pq-accent);
+}
+
+.pq-page-btn.is-on {
+  border-color: var(--pq-accent) !important;
+  background: color-mix(in srgb, var(--pq-accent) 8%, #ffffff);
+  color: var(--pq-accent);
+}
+
+.pq-page-btn:disabled {
+  opacity: 0.4;
 }

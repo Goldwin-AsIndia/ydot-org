@@ -5,7 +5,7 @@ import {
   TrackingAssetStatus,
   TrackingAssetType,
 } from '../models/campaign-contract.model';
-import { ApprovalState, AssetStatus, TrackingAsset } from '../models/tracking-asset.model';
+import { ApprovalState, AssetStatus, PlaceCustomField, TrackingAsset } from '../models/tracking-asset.model';
 import { CampaignApiService } from '../../Service/campaign-api.service';
 import { OrganisationScopeService } from './organisation-scope.service';
 import { CampaignStoreService } from './campaign-store.service';
@@ -232,6 +232,77 @@ export class TrackingAssetStoreService {
   }
 
   /**
+   * Creates the QR codes of an offline event: one asset per place, in ONE request.
+   *
+   * ALL OR NONE. This used to be one `create()` per place, sent in parallel: the server numbered
+   * both codes from the same count, refused the second, and had already saved the first - so the
+   * person saw "DbUpdateException", pressed Submit again, and the first place was saved twice.
+   * The server now writes every place in one save, so a refusal saves nothing and the same form
+   * can simply be submitted again.
+   *
+   * NO OPTIMISTIC ROWS. The server numbers the codes; the list is reloaded once it answers.
+   *
+   * THE SOURCE AND MEDIUM ARE NOT SENT. The server attributes a printed place code itself (QR
+   * Poster, Print); the form has no such fields, and what it used to send was simply the first
+   * row of each catalogue.
+   */
+  createForPlaces(
+    draft: {
+      readonly campaignRef: string;
+      readonly channelId: string;
+      readonly status: 'Draft' | 'Submitted';
+      readonly activeFrom: string;
+      readonly activeTo: string;
+      readonly contentTag: string;
+      readonly places: readonly {
+        readonly name: string;
+        readonly destination: string;
+        readonly customFields: readonly PlaceCustomField[];
+      }[];
+    },
+    onDone?: (outcome: {
+      readonly created: boolean;
+      readonly codes?: readonly string[];
+      readonly error?: string;
+    }) => void,
+  ): void {
+    const campaignId = this.campaigns.apiId(draft.campaignRef);
+
+    if (!campaignId) {
+      onDone?.({
+        created: false,
+        error: 'That campaign could not be identified. Reload the page and choose the campaign again.',
+      });
+      return;
+    }
+
+    this.api
+      .createPlaceTrackingAssets({
+        campaignId,
+        channelId: draft.channelId,
+        status: this.toApiStatus(draft.status),
+        activeFrom: this.toInstant(draft.activeFrom),
+        activeTo: this.toInstant(draft.activeTo, true),
+        contentTag: draft.contentTag || null,
+        places: draft.places.map((place) => ({
+          placeName: place.name,
+          destination: place.destination,
+          customFields: place.customFields.map((field) => ({ fieldName: field.key, value: field.value })),
+        })),
+      })
+      .subscribe({
+        next: (created) => {
+          this.refresh();
+          onDone?.({ created: true, codes: created.map((asset) => asset.code) });
+        },
+        error: (error: unknown) => {
+          const message = apiErrorMessage(error, 'The tracking assets could not be created.');
+          onDone?.({ created: false, error: message });
+        },
+      });
+  }
+
+  /**
    * Applies a change to an asset.
    *
    * A STATUS CHANGE IS ROUTED TO ITS OWN ENDPOINT rather than written as a field. Each transition
@@ -342,7 +413,7 @@ export class TrackingAssetStoreService {
       return;
     }
 
-    if (patch.assetStatus === 'Paused' || patch.assetStatus === 'Disabled') {
+    if (patch.assetStatus === 'Disabled') {
       this.api.deactivateTrackingAsset(id, { expectedVersion }).subscribe({
         next: () => {
           this.refresh();
@@ -580,6 +651,9 @@ export class TrackingAssetStoreService {
     return {
       ...existing,
       trackingReference: item.trackingReference ?? item.code,
+      code: item.code,
+      // The one place an offline QR code was made for - the list and the detail name it.
+      place: item.placeName ?? undefined,
       assetType: this.fromAssetType(item.assetType),
       channel: item.channelName,
       channelId: item.channelId,
@@ -616,7 +690,7 @@ export class TrackingAssetStoreService {
       approvalState: this.toApprovalState(item.status),
       usageCount: Number(item.usageCount),
       amountReceived: Number(item.totalReceived),
-      assetStatus: this.toAssetStatus(item.status, item.isLive),
+      assetStatus: this.toAssetStatus(item.status, item.isLive, item.activeFrom),
 
       // An asset that has taken money has something pointing at it, which is what the retire
       // rule turns on.
@@ -658,11 +732,15 @@ export class TrackingAssetStoreService {
    *     stop that nobody made.
    *
    * `isLive` STILL DECIDES ONE THING, and only that one: an Active asset outside its own window is
-   * shown as Paused rather than Active, because it is not resolving scans. That is the case the
-   * flag was added for - somebody printing a poster for a run that has ended - and it is the only
-   * case where the calendar, rather than the status, is the honest answer.
+   * not resolving scans, so it is not shown as Active. That is the case the flag was added for -
+   * somebody printing a poster for a run that has ended - and it is the only case where the
+   * calendar, rather than the status, is the honest answer.
+   *
+   * WHICH SIDE OF THE WINDOW IT IS ON is said, rather than 'Paused' for both. An offline QR code is
+   * usually approved before its event starts, and the approver then saw their approval land as
+   * 'Paused' - a stop nobody made - with no sign that it simply had not started yet.
    */
-  private toAssetStatus(status: TrackingAssetStatus, isLive: boolean): AssetStatus {
+  private toAssetStatus(status: TrackingAssetStatus, isLive: boolean, activeFrom: string): AssetStatus {
     switch (status) {
       case 'draft':
         return 'Draft';
@@ -685,7 +763,8 @@ export class TrackingAssetStoreService {
         return 'Disabled';
 
       default:
-        return isLive ? 'Active' : 'Paused';
+        if (isLive) return 'Active';
+        return new Date(activeFrom).getTime() > Date.now() ? 'Scheduled' : 'Expired';
     }
   }
 
