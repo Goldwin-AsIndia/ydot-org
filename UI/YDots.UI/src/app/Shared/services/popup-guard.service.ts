@@ -21,7 +21,7 @@ const DISMISS_LABELS = new Set([
 ]);
 const ICON_ONLY = new Set(['', '×', '✕', '✖', 'x', 'X', '✗']);
 
-const HINT_TEXT = 'Use the ✕ button at the top right to close this pop-up';
+const HINT_TEXT = 'Close';
 
 /**
  * ONE WAY TO CLOSE EVERY POP-UP.
